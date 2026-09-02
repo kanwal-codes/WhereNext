@@ -1,0 +1,3 @@
+import { z } from "zod";
+export const placeSchema = z.object({ provider: z.string().min(1).max(80), providerId: z.string().min(1).max(240), name: z.string().min(1), category: z.string().nullable(), latitude: z.number().min(-90).max(90), longitude: z.number().min(-180).max(180), address: z.string().nullable(), rating: z.number().min(0).max(5).optional(), userRatingCount: z.number().int().nonnegative().optional(), priceLevel: z.string().optional(), sourceUrl: z.string().url().nullable(), photoNames: z.array(z.string().min(1)).max(20).optional() });
+export type Place = z.infer<typeof placeSchema>;

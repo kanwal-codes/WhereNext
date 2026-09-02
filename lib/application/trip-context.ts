@@ -1,0 +1,117 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+export type TripContext = {
+  trip: { name: string; destination: string; origin: string | null; duration_days: number | null; travelers: number | null } | null;
+  preferences: Record<string, unknown>;
+  itinerary: Array<{ title: string; day_index: number; locked: boolean; latitude?: number; longitude?: number }>;
+  lockedTitles: string[];
+  lockedPlaces: Array<{ title: string; latitude: number; longitude: number }>;
+  places: Array<{ status: string; place: { name: string; category: string | null; address: string | null } | null }>;
+  decisions: Array<{ kind: string; value: unknown; source: string; created_at: string }>;
+};
+
+const coord = (metadata: Record<string, unknown> | null, key: "latitude" | "longitude"): number | undefined => {
+  const value = metadata?.[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+};
+
+const MAX_CONTEXT_CHARS = 20_000;
+
+/** Durable trip state the assistant is allowed to see. One query set, reused by every AI route. */
+export async function loadTripContext(supabase: SupabaseClient, tripId: string): Promise<TripContext> {
+  const [trip, preferences, itinerary, places, decisions] = await Promise.all([
+    supabase.from("trips").select("name,destination,origin,duration_days,travelers").eq("id", tripId).maybeSingle(),
+    supabase.from("trip_preferences").select("data").eq("trip_id", tripId).maybeSingle(),
+    supabase.from("trip_itinerary_items").select("title,day_index,metadata").eq("trip_id", tripId).is("removed_at", null).order("day_index").limit(50),
+    supabase.from("trip_places").select("status,places(name,category,address)").eq("trip_id", tripId).limit(50),
+    supabase.from("trip_decisions").select("kind,value,source,created_at").eq("trip_id", tripId).order("created_at", { ascending: false }).limit(30),
+  ]);
+  const error = trip.error ?? preferences.error ?? itinerary.error ?? places.error ?? decisions.error;
+  if (error) throw error;
+  const items = (itinerary.data ?? []).map((item) => {
+    const metadata = item.metadata as Record<string, unknown> | null;
+    return {
+      title: item.title,
+      day_index: item.day_index,
+      locked: metadata?.locked === true,
+      latitude: coord(metadata, "latitude"),
+      longitude: coord(metadata, "longitude"),
+    };
+  });
+  return {
+    trip: trip.data ?? null,
+    preferences: (preferences.data?.data ?? {}) as Record<string, unknown>,
+    itinerary: items,
+    lockedTitles: items.filter((item) => item.locked).map((item) => item.title),
+    lockedPlaces: items
+      .filter((item) => item.locked && item.latitude !== undefined && item.longitude !== undefined)
+      .map((item) => ({ title: item.title, latitude: item.latitude as number, longitude: item.longitude as number })),
+    places: (places.data ?? []).map((item) => {
+      const place = Array.isArray(item.places) ? item.places[0] : item.places;
+      return { status: item.status, place: place ? { name: place.name, category: place.category, address: place.address } : null };
+    }),
+    decisions: (decisions.data ?? []) as TripContext["decisions"],
+  };
+}
+
+/** JSON for the system prompt, trimmed progressively so a large trip cannot blow the context budget. */
+export function serializeTripContext(context: TripContext): string {
+  const full = JSON.stringify(context);
+  if (full.length <= MAX_CONTEXT_CHARS) return full;
+  const reduced = JSON.stringify({
+    ...context,
+    itinerary: context.itinerary.slice(0, 20),
+    places: context.places.slice(0, 20),
+    decisions: context.decisions.slice(0, 15),
+  });
+  if (reduced.length <= MAX_CONTEXT_CHARS) return reduced;
+  const compactPreferences = Object.fromEntries(
+    Object.entries(context.preferences).filter(([, value]) => ["string", "number", "boolean"].includes(typeof value)).slice(0, 40),
+  );
+  return JSON.stringify({
+    trip: context.trip ? { name: context.trip.name, destination: context.trip.destination } : null,
+    preferences: compactPreferences,
+    itinerary: [],
+    lockedTitles: context.lockedTitles,
+    places: [],
+    decisions: context.decisions.slice(0, 10),
+  });
+}
+
+const asList = (value: unknown): string[] =>
+  (Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [])
+    .map((entry) => String(entry).trim())
+    .filter(Boolean);
+
+/** Human-readable one-liner of what the trip contains so far, for the system prompt and the resolver. */
+export function formatTripMemory(context: Pick<TripContext, "preferences" | "itinerary" | "places" | "decisions" | "lockedTitles">): string {
+  const preferences = context.preferences ?? {};
+  const likes = Array.from(new Set([...asList(preferences.interests), ...asList(preferences.likes)]));
+  const dislikes = asList(preferences.dislikes);
+  const dietary = asList(preferences.dietaryNeeds);
+  const profile = [
+    typeof preferences.groupType === "string" && preferences.groupType ? `group: ${preferences.groupType}` : null,
+    preferences.budget !== undefined && preferences.budget !== "" ? `budget: ${preferences.budget}` : null,
+    typeof preferences.pace === "string" && preferences.pace ? `pace: ${preferences.pace}` : null,
+    likes.length ? `likes: ${likes.join(", ")}` : null,
+    dislikes.length ? `dislikes: ${dislikes.join(", ")}` : null,
+    dietary.length ? `dietary: ${dietary.join(", ")}` : null,
+  ].filter(Boolean);
+
+  const itinerary = context.itinerary
+    .map((item) => (item.title ? `${item.title}${typeof item.day_index === "number" ? ` (day ${item.day_index + 1})` : ""}${item.locked ? " [locked]" : ""}` : ""))
+    .filter(Boolean);
+  const savedPlaces = context.places
+    .map((item) => (item.place?.name ? `${item.place.name} [${item.status ?? "saved"}]` : ""))
+    .filter(Boolean);
+  const decisions = context.decisions
+    .map((item) => (item.kind ? `${item.kind}: ${typeof item.value === "string" ? item.value : JSON.stringify(item.value)}` : ""))
+    .filter(Boolean);
+
+  return [
+    profile.length ? `Profile — ${profile.join("; ")}.` : "Profile: not filled in yet.",
+    itinerary.length ? `Itinerary: ${itinerary.join(", ")}.` : "Itinerary: nothing added yet.",
+    savedPlaces.length ? `Saved places: ${savedPlaces.join(", ")}.` : "Saved places: none yet.",
+    decisions.length ? `Decisions: ${decisions.join("; ")}.` : "Decisions: none recorded yet.",
+  ].join(" ");
+}

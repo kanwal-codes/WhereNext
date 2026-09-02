@@ -1,0 +1,16 @@
+node_modules/
+.next/
+out/
+coverage/
+test-results/
+playwright-report/
+tsconfig.tsbuildinfo
+.env
+.env.local
+.env.*.local
+
+# Local-only: docs, markdown, design prototypes
+docs/
+*.md
+frontend/
+.DS_Store

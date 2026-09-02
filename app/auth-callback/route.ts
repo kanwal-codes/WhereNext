@@ -1,0 +1,6 @@
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
+import { getPublicEnv } from "@/lib/env";
+
+export async function GET(request: Request) { const url = new URL(request.url); const code = url.searchParams.get("code"); const next = url.searchParams.get("next") === "/reset-password/update" ? "/reset-password/update" : "/trips"; const response = NextResponse.redirect(new URL(next, url.origin)); if (!code) return NextResponse.redirect(new URL("/sign-in?error=Missing+code", url.origin)); const env = getPublicEnv(); if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) return NextResponse.redirect(new URL("/sign-in?error=Supabase+is+not+configured", url.origin)); const store = await cookies(); const supabase = createServerClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, { cookies: { getAll: () => store.getAll(), setAll: (items) => items.forEach(({ name, value, options }) => response.cookies.set(name, value, options)) } }); const result = await supabase.auth.exchangeCodeForSession(code); if (result.error) return NextResponse.redirect(new URL(`/sign-in?error=${encodeURIComponent(result.error.message)}`, url.origin)); return response; }
