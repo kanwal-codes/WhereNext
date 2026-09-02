@@ -33,6 +33,8 @@ test("live multi-person travel scenarios return current, prompt-matched answers"
       await page.getByRole("button", { name: "Create trip" }).click();
       await expect(page).toHaveURL(/\/trips\/[0-9a-f-]{36}$/i);
       tripId = page.url().split("/").pop();
+      await page.goto(`/trips/${tripId}/chat`);
+      await page.getByLabel("Message").waitFor();
       for (const prompt of scenario.prompts) {
         const before = await page.evaluate(async (id) => (await (await fetch(`/api/trips/${id}/conversation`)).json()).messages?.filter((m: { role: string }) => m.role === "assistant").length ?? 0, tripId);
         await page.getByLabel("Message").fill(prompt);

@@ -1,10 +1,24 @@
 import React from "react";
+import {
+  ArrowUpRight,
+  BedDouble,
+  Bookmark,
+  CalendarPlus,
+  MapPin,
+  Plane,
+  Star,
+  TicketCheck,
+  TrainFront,
+} from "lucide-react";
 import type { AssistantBlock, PlaceCard, TrustLabel } from "@/packages/contracts/assistant";
+import { cn } from "@/lib/utils";
 
 export type BlockHandlers = {
   onFollowup: (prompt: string) => void;
   onSave: (place: PlaceCard) => void;
   onAddItinerary: (place: PlaceCard) => void;
+  /** When set, the card head opens this place in the chat side-panel. */
+  onOpenPlace?: (place: PlaceCard) => void;
 };
 
 const TRUST_LABEL: Record<TrustLabel, string> = {
@@ -15,187 +29,350 @@ const TRUST_LABEL: Record<TrustLabel, string> = {
   unavailable: "Unavailable",
 };
 
-function PlaceCardView({ place, onSave, onAddItinerary }: { place: PlaceCard } & Pick<BlockHandlers, "onSave" | "onAddItinerary">) {
-  return (
-    <article className="pcard">
+const card = "rounded-2xl border border-border bg-card shadow-soft";
+const rowDivider = "border-b border-border last:border-b-0";
+const iconBtn =
+  "inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-background px-3 text-xs text-ink-soft transition-colors hover:border-primary/40 hover:text-primary";
+const freshness = "mt-2 text-[11px] text-muted-foreground";
+
+function fmtTime(value: string) {
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? value : d.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function PlaceCardView({
+  place,
+  onSave,
+  onAddItinerary,
+  onOpenPlace,
+}: { place: PlaceCard } & Pick<BlockHandlers, "onSave" | "onAddItinerary" | "onOpenPlace">) {
+  const head = (
+    <>
       {place.photoUrl && (
         // eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin proxy
-        <img className="pcard-photo" src={place.photoUrl} alt={place.name} width={320} height={180} loading="lazy" />
+        <img src={place.photoUrl} alt={place.name} width={320} height={160} loading="lazy" className="h-32 w-full object-cover" />
       )}
-      <div className="pcard-body">
-        <h4 className="pcard-name">{place.name}</h4>
+      <h4 className="px-3.5 pt-3.5 font-display text-base leading-tight">{place.name}</h4>
+    </>
+  );
+
+  return (
+    <article className={cn(card, "group flex h-full flex-col overflow-hidden")}>
+      {onOpenPlace ? (
+        <button
+          type="button"
+          onClick={() => onOpenPlace(place)}
+          aria-label={`Open ${place.name}`}
+          className="block w-full text-left transition-colors hover:bg-accent/50"
+        >
+          {head}
+        </button>
+      ) : (
+        head
+      )}
+      <div className="flex flex-1 flex-col gap-2 px-3.5 pt-2 pb-3.5">
         {(place.category || place.address) && (
-          <p className="pcard-meta">{[place.category?.replaceAll("_", " "), place.address].filter(Boolean).join(" · ")}</p>
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <MapPin className="h-3 w-3 shrink-0" />
+            <span className="truncate">{[place.category?.replaceAll("_", " "), place.address].filter(Boolean).join(" · ")}</span>
+          </p>
         )}
         {typeof place.rating === "number" && (
-          <p className="pcard-meta">★ {place.rating}{place.userRatingCount ? ` (${place.userRatingCount.toLocaleString()})` : ""}</p>
+          <p className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Star className="h-3 w-3 fill-current text-coral" />
+            <span className="text-foreground">{place.rating}</span>
+            {place.userRatingCount ? <span>({place.userRatingCount.toLocaleString()})</span> : null}
+          </p>
         )}
-        {place.distanceToLocked && <p className="pcard-meta">📍 {place.distanceToLocked}</p>}
-        <p className="pcard-trust">{TRUST_LABEL[place.trust] ?? place.trust}</p>
-        <div className="pcard-actions">
-          <button type="button" onClick={() => onSave(place)}>Save</button>
-          <button type="button" onClick={() => onAddItinerary(place)}>Add to itinerary</button>
-          {place.sourceUrl && <a href={place.sourceUrl} target="_blank" rel="noreferrer noopener">Open in Maps</a>}
+        {place.distanceToLocked && (
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <MapPin className="h-3 w-3 shrink-0 text-coral" /> {place.distanceToLocked}
+          </p>
+        )}
+        <p className="eyebrow">{TRUST_LABEL[place.trust] ?? place.trust}</p>
+        <div className="mt-auto flex flex-wrap gap-2 pt-1">
+          <button type="button" className={iconBtn} onClick={() => onSave(place)}>
+            <Bookmark className="h-3.5 w-3.5" /> Save
+          </button>
+          <button type="button" className={iconBtn} onClick={() => onAddItinerary(place)}>
+            <CalendarPlus className="h-3.5 w-3.5" /> Itinerary
+          </button>
+          {onOpenPlace ? (
+            <button type="button" className={iconBtn} onClick={() => onOpenPlace(place)}>
+              Details <ArrowUpRight className="h-3.5 w-3.5" />
+            </button>
+          ) : (
+            place.sourceUrl && (
+              <a href={place.sourceUrl} target="_blank" rel="noreferrer noopener" className={iconBtn}>
+                Maps <ArrowUpRight className="h-3.5 w-3.5" />
+              </a>
+            )
+          )}
         </div>
       </div>
     </article>
   );
 }
 
-export function MessageBlocks({ blocks, onFollowup, onSave, onAddItinerary }: { blocks: AssistantBlock[] } & BlockHandlers) {
+export function MessageBlocks({ blocks, onFollowup, onSave, onAddItinerary, onOpenPlace }: { blocks: AssistantBlock[] } & BlockHandlers) {
   return (
-    <div className="msg-blocks">
+    <div className="mt-3 flex flex-col gap-3">
       {blocks.map((block, index) => {
         if (block.type === "place_list") {
           return (
-            <div className="pcard-grid" key={index}>
-              {block.places.map((place) => <PlaceCardView key={place.providerId} place={place} onSave={onSave} onAddItinerary={onAddItinerary} />)}
+            <div
+              key={index}
+              className="-mx-3.5 flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto scrollbar-slim px-3.5 pb-1 sm:-mx-4 sm:px-4"
+            >
+              {block.places.map((place) => (
+                <div key={place.providerId} className="w-[228px] shrink-0 snap-start">
+                  <PlaceCardView place={place} onSave={onSave} onAddItinerary={onAddItinerary} onOpenPlace={onOpenPlace} />
+                </div>
+              ))}
             </div>
           );
         }
+
         if (block.type === "comparison") {
           return (
-            <div className="cmp" key={index}>
-              <p className="cmp-title">{block.title}</p>
-              <div className="cmp-scroll">
-                <table>
-                  <thead><tr><th aria-hidden="true" />{block.columns.map((column) => <th key={column} scope="col">{column}</th>)}</tr></thead>
+            <div key={index} className={cn(card, "p-3.5")}>
+              <p className="font-display text-sm">{block.title}</p>
+              <div className="mt-2 overflow-x-auto">
+                <table className="w-full border-collapse text-xs tabular-nums">
+                  <thead>
+                    <tr>
+                      <th aria-hidden="true" className="border border-border p-0" />
+                      {block.columns.map((column) => (
+                        <th key={column} scope="col" className="border border-border bg-muted px-2 py-1.5 text-left font-medium">
+                          {column}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
                   <tbody>
                     {block.rows.map((row) => (
-                      <tr key={row.label}><th scope="row">{row.label}</th>{row.cells.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}</tr>
+                      <tr key={row.label}>
+                        <th scope="row" className="border border-border bg-muted px-2 py-1.5 text-left font-medium">{row.label}</th>
+                        {row.cells.map((cell, cellIndex) => (
+                          <td key={cellIndex} className="border border-border px-2 py-1.5">{cell}</td>
+                        ))}
+                      </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              {block.bestForYou && <p className="cmp-best"><strong>{block.bestForYou.label}</strong> — {block.bestForYou.reason}</p>}
-            </div>
-          );
-        }
-        if (block.type === "actions") {
-          return (
-            <div className="chips" key={index}>
-              {block.items.map((item) => <button type="button" key={item.label} onClick={() => onFollowup(item.prompt)}>{item.label}</button>)}
-            </div>
-          );
-        }
-        if (block.type === "route_summary") {
-          const icon = block.mode === "transit" ? "🚆" : block.mode === "walking" ? "🚶" : "🚗";
-          return (
-            <div className="route" key={index}>
-              <p className="route-head">{icon} {block.from} → {block.to}</p>
-              <p className="route-meta">
-                {Math.round(block.durationSeconds / 60)} min · {(block.distanceMeters / 1000).toFixed(1)} km
-                {block.departureTime ? ` · leaves ${new Date(block.departureTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
-              </p>
-              {block.steps.length > 0 && <ol className="route-steps">{block.steps.map((step, stepIndex) => <li key={stepIndex}>{step}</li>)}</ol>}
-            </div>
-          );
-        }
-        if (block.type === "clarifying_question") {
-          return (
-            <div className="clarify" key={index}>
-              <p>{block.question}</p>
-              {block.chips.length > 0 && (
-                <div className="chips">{block.chips.map((chip) => <button type="button" key={chip} onClick={() => onFollowup(chip)}>{chip}</button>)}</div>
+              {block.bestForYou && (
+                <p className="mt-2 text-xs text-leaf">
+                  <strong className="font-medium">{block.bestForYou.label}</strong> — {block.bestForYou.reason}
+                </p>
               )}
             </div>
           );
         }
+
+        if (block.type === "actions") {
+          return (
+            <div key={index} className="flex flex-wrap gap-2">
+              {block.items.map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => onFollowup(item.prompt)}
+                  className="rounded-full border border-border bg-background px-3.5 py-1.5 text-xs text-ink-soft transition-colors hover:border-primary/40 hover:text-primary"
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          );
+        }
+
+        if (block.type === "route_summary") {
+          const Icon = block.mode === "walking" ? MapPin : block.mode === "driving" ? TrainFront : TrainFront;
+          return (
+            <div key={index} className={cn(card, "p-3.5")}>
+              <p className="flex items-center gap-2 font-display text-sm">
+                <Icon className="h-4 w-4 text-coral" /> {block.from} → {block.to}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground tabular-nums">
+                {Math.round(block.durationSeconds / 60)} min · {(block.distanceMeters / 1000).toFixed(1)} km
+                {block.departureTime
+                  ? ` · leaves ${new Date(block.departureTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                  : ""}
+              </p>
+              {block.steps.length > 0 && (
+                <ol className="mt-2 list-decimal pl-4 text-xs text-ink-soft marker:text-muted-foreground">
+                  {block.steps.map((step, stepIndex) => (
+                    <li key={stepIndex} className="my-0.5">{step}</li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          );
+        }
+
+        if (block.type === "clarifying_question") {
+          return (
+            <div key={index} className="border-l-2 border-coral pl-3">
+              <p className="text-sm">{block.question}</p>
+              {block.chips.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {block.chips.map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => onFollowup(chip)}
+                      className="rounded-full border border-border bg-background px-3 py-1 text-xs text-ink-soft transition-colors hover:border-primary/40 hover:text-primary"
+                    >
+                      {chip}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        }
+
         if (block.type === "events") {
           return (
-            <div className="events" key={index}>
+            <div key={index} className={cn(card, "px-3.5 py-2.5")}>
               {block.items.map((event, eventIndex) => (
-                <div className="event-row" key={eventIndex}>
-                  <div className="event-main">
-                    <span className="event-title">{event.title}</span>
-                    {(event.date || event.venue) && <span className="event-meta">{[event.date, event.venue].filter(Boolean).join(" · ")}</span>}
+                <div key={eventIndex} className={cn("flex items-baseline justify-between gap-3 py-2", rowDivider)}>
+                  <div className="min-w-0">
+                    <span className="text-sm font-medium">{event.title}</span>
+                    {(event.date || event.venue) && (
+                      <span className="block text-xs text-muted-foreground">{[event.date, event.venue].filter(Boolean).join(" · ")}</span>
+                    )}
                   </div>
-                  <a href={event.url} target="_blank" rel="noreferrer noopener">Tickets →</a>
+                  <a href={event.url} target="_blank" rel="noreferrer noopener" className="shrink-0 whitespace-nowrap text-xs text-coral">
+                    Tickets <ArrowUpRight className="inline h-3 w-3" />
+                  </a>
                 </div>
               ))}
-              <p className="event-note">Snapshot from {new Date(block.retrievedAt).toLocaleString()} — confirm dates & availability on the ticket page.</p>
+              <p className={freshness}>
+                <TicketCheck className="mr-1 inline h-3 w-3" />
+                Snapshot from {fmtTime(block.retrievedAt)} — confirm dates &amp; availability on the ticket page.
+              </p>
             </div>
           );
         }
+
         if (block.type === "flights") {
-          const fmt = (value: string) => {
-            const date = new Date(value);
-            return Number.isNaN(date.getTime()) ? value : date.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-          };
           return (
-            <div className="flights" key={index}>
-              <p className="flights-head">✈️ {block.origin} → {block.destination}{block.dateNote ? ` · ${block.dateNote}` : ""}</p>
+            <div key={index} className={cn(card, "px-3.5 py-2.5")}>
+              <p className="mb-1 flex items-center gap-2 font-display text-sm">
+                <Plane className="h-4 w-4 text-coral" /> {block.origin} → {block.destination}
+                {block.dateNote ? <span className="text-xs font-normal text-muted-foreground">· {block.dateNote}</span> : null}
+              </p>
               {block.items.map((offer, offerIndex) => (
-                <div className="flight-row" key={offerIndex}>
-                  <span className="flight-airline">{offer.airline}</span>
-                  <span className="flight-meta">
-                    {Math.floor(offer.durationMinutes / 60)}h {offer.durationMinutes % 60}m · {offer.stops === 0 ? "nonstop" : `${offer.stops} stop${offer.stops > 1 ? "s" : ""}`} · {fmt(offer.departAt)}
+                <div key={offerIndex} className={cn("flex items-baseline justify-between gap-3 py-2", rowDivider)}>
+                  <span className="text-sm font-medium">{offer.airline}</span>
+                  <span className="flex-1 text-xs text-muted-foreground">
+                    {Math.floor(offer.durationMinutes / 60)}h {offer.durationMinutes % 60}m ·{" "}
+                    {offer.stops === 0 ? "nonstop" : `${offer.stops} stop${offer.stops > 1 ? "s" : ""}`} · {fmtTime(offer.departAt)}
                   </span>
-                  <span className="flight-price tabular-nums">{offer.price} {offer.currency}</span>
+                  <span className="whitespace-nowrap text-sm font-semibold tabular-nums">
+                    {offer.price} {offer.currency}
+                  </span>
                 </div>
               ))}
-              <p className="event-note">Live estimate from {new Date(block.retrievedAt).toLocaleString()} — fares change; book on the airline or a travel site.</p>
+              <p className={freshness}>Live estimate from {fmtTime(block.retrievedAt)} — fares change; book on the airline or a travel site.</p>
             </div>
           );
         }
+
         if (block.type === "stays") {
           return (
-            <div className="stays" key={index}>
-              <p className="stays-head">🏨 Stays in {block.location} · {block.nights} night{block.nights > 1 ? "s" : ""}{block.dateNote ? ` · ${block.dateNote}` : ""}</p>
+            <div key={index} className={cn(card, "px-3.5 py-2.5")}>
+              <p className="mb-1 flex flex-wrap items-center gap-x-2 font-display text-sm">
+                <BedDouble className="h-4 w-4 text-coral" /> Stays in {block.location}
+                <span className="text-xs font-normal text-muted-foreground">
+                  · {block.nights} night{block.nights > 1 ? "s" : ""}
+                  {block.dateNote ? ` · ${block.dateNote}` : ""}
+                </span>
+              </p>
               {block.items.map((hotel, hotelIndex) => (
-                <div className="stay-row" key={hotelIndex}>
-                  <div className="stay-main">
-                    <span className="stay-name">{hotel.name}</span>
-                    <span className="stay-meta">
+                <div key={hotelIndex} className={cn("flex items-start justify-between gap-3 py-2.5", rowDivider)}>
+                  <div className="flex min-w-0 gap-3">
+                    {hotel.thumbnailUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
+                      <img
+                        src={hotel.thumbnailUrl}
+                        alt={hotel.name}
+                        loading="lazy"
+                        width={56}
+                        height={56}
+                        className="h-14 w-14 shrink-0 rounded-lg object-cover"
+                      />
+                    )}
+                    <div className="min-w-0">
+                    <span className="text-sm font-medium">{hotel.name}</span>
+                    <span className="block text-xs text-muted-foreground">
                       {[
                         typeof hotel.stars === "number" ? `${hotel.stars}★` : null,
-                        typeof hotel.rating === "number" ? `${hotel.rating}/10${hotel.reviews ? ` (${hotel.reviews.toLocaleString()})` : ""}` : null,
+                        typeof hotel.rating === "number"
+                          ? `${hotel.rating}/10${hotel.reviews ? ` (${hotel.reviews.toLocaleString()})` : ""}`
+                          : null,
                         hotel.board,
                         hotel.refundable ? "refundable" : null,
                         hotel.distanceToLocked ? `📍 ${hotel.distanceToLocked}` : null,
-                      ].filter(Boolean).join(" · ")}
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </span>
+                    </div>
                   </div>
-                  <div className="stay-price">
-                    <span className="tabular-nums">{hotel.nightlyPrice} {hotel.currency}</span>
-                    <span className="stay-price-sub">/night · {hotel.totalPrice} {hotel.currency} total</span>
-                    <span className="stay-links">
-                      {hotel.mapUrl && <a href={hotel.mapUrl} target="_blank" rel="noreferrer noopener">Map</a>}
-                      <button type="button" onClick={() => onFollowup(`Show room rates at ${hotel.name}`)}>Rooms</button>
+                  <div className="flex flex-col items-end whitespace-nowrap">
+                    <span className="text-sm font-semibold tabular-nums">{hotel.nightlyPrice} {hotel.currency}</span>
+                    <span className="text-[11px] text-muted-foreground">/night · {hotel.totalPrice} {hotel.currency} total</span>
+                    <span className="mt-0.5 flex gap-2 text-xs">
+                      {hotel.mapUrl && (
+                        <a href={hotel.mapUrl} target="_blank" rel="noreferrer noopener" className="text-coral">Map</a>
+                      )}
+                      <button type="button" className="text-coral" onClick={() => onFollowup(`Show room rates at ${hotel.name}`)}>
+                        Rooms
+                      </button>
                     </span>
                   </div>
                 </div>
               ))}
               {block.rooms && block.rooms.length > 0 && (
-                <div className="stay-rooms">
-                  <p className="stay-rooms-head">Rooms at {block.detailHotel}</p>
+                <div className="mt-2 rounded-xl bg-muted px-3 py-2">
+                  <p className="mb-1 text-xs font-medium">Rooms at {block.detailHotel}</p>
                   {block.rooms.map((room, roomIndex) => (
-                    <div className="stay-room-row" key={roomIndex}>
+                    <div key={roomIndex} className="flex justify-between gap-2 py-0.5 text-xs text-ink-soft">
                       <span>{room.name}{room.board ? ` · ${room.board}` : ""}{room.refundable ? " · refundable" : ""}</span>
                       <span className="tabular-nums">{room.nightlyPrice} {room.currency}/night</span>
                     </div>
                   ))}
                 </div>
               )}
-              <p className="event-note">Live rates from {new Date(block.retrievedAt).toLocaleString()} — taxes/fees may be extra; confirm availability at booking.</p>
+              <p className={freshness}>Live rates from {fmtTime(block.retrievedAt)} — taxes/fees may be extra; confirm availability at booking.</p>
             </div>
           );
         }
+
         if (block.type === "checklist") {
           return (
-            <div className="checklist" key={index}>
+            <div key={index} className="flex flex-col gap-2.5">
               {block.groups.map((group) => (
-                <div className="checklist-group" key={group.title}>
-                  <p className="checklist-title">{group.title}</p>
-                  <ul>{group.items.map((item, itemIndex) => (
-                    <li key={itemIndex}>{item.text}{item.why ? <span className="checklist-why"> — {item.why}</span> : null}</li>
-                  ))}</ul>
+                <div key={group.title} className={cn(card, "px-3.5 py-3")}>
+                  <p className="font-display text-sm">{group.title}</p>
+                  <ul className="mt-1.5 list-disc pl-4 text-sm text-ink-soft marker:text-muted-foreground">
+                    {group.items.map((item, itemIndex) => (
+                      <li key={itemIndex} className="my-0.5">
+                        {item.text}
+                        {item.why ? <span className="text-muted-foreground"> — {item.why}</span> : null}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               ))}
             </div>
           );
         }
-        return null; // stay_options rendered in a later phase
+
+        return null; // stay_options: deprecated placeholder
       })}
     </div>
   );

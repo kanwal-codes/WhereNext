@@ -1,32 +1,55 @@
 import { test, expect } from "@playwright/test";
 
-test("preview trip opens the coordinated workspace surfaces", async ({ page }) => {
+test("preview trip renders the routed workspace shell and every surface route", async ({ page }) => {
   await page.goto("/trips/rebuild-preview");
   await expect(page.getByRole("heading", { name: "your destination" })).toBeVisible();
-  const snapshot = await page.evaluate(async () => { const response = await fetch("/api/trips/rebuild-preview/workspace"); return response.status; });
+
+  const snapshot = await page.evaluate(async () => {
+    const response = await fetch("/api/trips/rebuild-preview/workspace");
+    return response.status;
+  });
   expect([401, 503]).toContain(snapshot);
-  const navigation = page.getByRole("navigation", { name: "Trip workspace surfaces" });
-  for (const surface of ["Conversation", "Discover", "Itinerary", "Map", "Transport", "Stay", "Budget", "Essentials", "Trip context"]) {
-    await navigation.getByRole("button", { name: surface }).click();
-    await expect(page.getByRole("heading", { name: surface === "Discover" ? "Discover" : surface })).toBeVisible();
+
+  const sidebar = page.locator("aside");
+  const routes: Array<[string, RegExp]> = [
+    ["Conversation", /\/trips\/rebuild-preview\/chat$/],
+    ["Discover", /\/trips\/rebuild-preview\/discover$/],
+    ["Compare", /\/trips\/rebuild-preview\/compare$/],
+    ["Map", /\/trips\/rebuild-preview\/map$/],
+    ["Stay", /\/trips\/rebuild-preview\/stay$/],
+    ["Transport", /\/trips\/rebuild-preview\/transport$/],
+    ["Itinerary", /\/trips\/rebuild-preview\/itinerary$/],
+    ["Budget", /\/trips\/rebuild-preview\/budget$/],
+    ["Trip knowledge", /\/trips\/rebuild-preview\/knowledge$/],
+    ["Bookings & essentials", /\/trips\/rebuild-preview\/bookings$/],
+  ];
+
+  for (const [label, url] of routes) {
+    await sidebar.getByRole("link", { name: label }).click();
+    await expect(page).toHaveURL(url);
+    await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
   }
+
+  await sidebar.getByRole("link", { name: "Overview" }).click();
+  await expect(page).toHaveURL(/\/trips\/rebuild-preview$/);
 });
 
 test("identity recovery is reachable and account deletion requires authentication", async ({ page }) => {
   await page.goto("/reset-password");
-  await expect(page.getByRole("heading", { name: "Reset your password." })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Send recovery link" })).toBeVisible();
+  await expect(page).toHaveURL(/\/forgot-password$/);
+  await expect(page.getByRole("heading", { name: /way back in/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send reset link" })).toBeVisible();
   const response = await page.request.delete("/api/account");
   expect([401, 503]).toContain(response.status());
 });
 
 test("dedicated sign-in and sign-up pages expose working auth forms", async ({ page }) => {
   await page.goto("/sign-in");
-  await expect(page.getByRole("heading", { name: "Welcome back." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /pick up where the plan left off/i })).toBeVisible();
   await expect(page.getByLabel("Email")).toHaveAttribute("type", "email");
   await expect(page.getByLabel("Password")).toHaveAttribute("type", "password");
   await page.getByRole("link", { name: "Create an account" }).click();
   await expect(page).toHaveURL(/\/sign-up$/);
-  await expect(page.getByRole("heading", { name: "Start planning." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /start a trip by talking about it/i })).toBeVisible();
   await expect(page.getByRole("button", { name: "Create account" })).toBeVisible();
 });

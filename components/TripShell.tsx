@@ -1,0 +1,210 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { motion } from "motion/react";
+import { useState, type ReactNode } from "react";
+import {
+  BedDouble,
+  CalendarDays,
+  Compass,
+  LayoutGrid,
+  Map,
+  MessageCircle,
+  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Notebook,
+  Scale,
+  Sparkle,
+  Train,
+  Wallet,
+  X,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { ProgressRing } from "./ProgressRing";
+
+export type ShellTrip = {
+  name: string;
+  destination: string;
+  dates: string;
+  travellers: string;
+  progress: number;
+};
+
+const nav = [
+  { seg: "", label: "Overview", icon: LayoutGrid, exact: true },
+  { seg: "chat", label: "Conversation", icon: MessageCircle },
+  { seg: "discover", label: "Discover", icon: Compass },
+  { seg: "compare", label: "Compare", icon: Scale },
+  { seg: "map", label: "Map", icon: Map },
+  { seg: "stay", label: "Stay", icon: BedDouble },
+  { seg: "transport", label: "Transport", icon: Train },
+  { seg: "itinerary", label: "Itinerary", icon: CalendarDays },
+  { seg: "budget", label: "Budget", icon: Wallet },
+  { seg: "knowledge", label: "Trip knowledge", icon: Notebook },
+  { seg: "bookings", label: "Bookings & essentials", icon: Sparkle },
+] as const;
+
+function NavList({
+  tripId,
+  pathname,
+  onNavigate,
+  collapsed,
+}: {
+  tripId: string;
+  pathname: string;
+  onNavigate?: () => void;
+  collapsed?: boolean;
+}) {
+  const base = `/trips/${tripId}`;
+  return (
+    <nav className="space-y-0.5">
+      {nav.map((item) => {
+        const href = item.seg ? `${base}/${item.seg}` : base;
+        const exact = "exact" in item ? item.exact : false;
+        const isActive = exact ? pathname === base : pathname === href || pathname.startsWith(`${href}/`);
+        return (
+          <Link
+            key={item.label}
+            href={href}
+            onClick={onNavigate}
+            title={collapsed ? item.label : undefined}
+            aria-current={isActive ? "page" : undefined}
+            className={cn(
+              "group relative flex items-center gap-2.5 rounded-xl py-2 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              isActive && "bg-sidebar-accent text-sidebar-accent-foreground font-medium",
+              collapsed ? "justify-center px-2" : "px-3",
+            )}
+          >
+            {isActive && !collapsed && (
+              <motion.span
+                layoutId="nav-marker"
+                className="absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-full bg-primary"
+                transition={{ type: "spring", stiffness: 320, damping: 28 }}
+              />
+            )}
+            <item.icon className="h-4 w-4 shrink-0 opacity-70" />
+            {!collapsed && <span className="truncate">{item.label}</span>}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+export function TripShell({ tripId, trip, children }: { tripId: string; trip: ShellTrip; children: ReactNode }) {
+  const pathname = usePathname() ?? `/trips/${tripId}`;
+  const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+
+  return (
+    <div
+      className={cn(
+        "min-h-screen lg:grid",
+        collapsed ? "lg:grid-cols-[76px_minmax(0,1fr)]" : "lg:grid-cols-[264px_minmax(0,1fr)]",
+      )}
+    >
+      {/* Desktop sidebar */}
+      <motion.aside
+        layout
+        transition={{ type: "spring", stiffness: 240, damping: 30 }}
+        className={cn(
+          "sticky top-0 hidden h-screen flex-col border-r border-sidebar-border bg-sidebar py-6 lg:flex",
+          collapsed ? "px-3" : "px-4",
+        )}
+      >
+        <div className={cn("mb-7 flex items-center gap-2", collapsed ? "justify-center" : "justify-between px-2")}>
+          {!collapsed && (
+            <Link href="/" className="min-w-0">
+              <p className="eyebrow">Next Place to Be</p>
+              <h2 className="mt-1 truncate font-display text-lg leading-tight">{trip.name}</h2>
+            </Link>
+          )}
+          <button
+            onClick={() => setCollapsed((c) => !c)}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="shrink-0 rounded-full border border-sidebar-border bg-background/60 p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </button>
+        </div>
+
+        {collapsed ? (
+          <div className="mb-6 flex justify-center">
+            <ProgressRing value={trip.progress} size={40} />
+          </div>
+        ) : (
+          <div className="mb-6 flex items-center gap-3 rounded-2xl border border-sidebar-border bg-background/60 px-3 py-3">
+            <ProgressRing value={trip.progress} size={48} />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{trip.destination}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {trip.dates} · {trip.travellers}
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto scrollbar-slim">
+          <NavList tripId={tripId} pathname={pathname} collapsed={collapsed} />
+        </div>
+
+        <Link
+          href={`/trips/${tripId}/chat`}
+          title="Continue planning"
+          className={cn(
+            "mt-5 flex items-center justify-center gap-2 rounded-full bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-transform hover:scale-[1.02]",
+            collapsed ? "px-0" : "px-4",
+          )}
+        >
+          <MessageCircle className="h-4 w-4" />
+          {!collapsed && "Continue planning"}
+        </Link>
+      </motion.aside>
+
+      {/* Mobile top bar */}
+      <div className="sticky top-0 z-30 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/90 px-4 py-3 backdrop-blur lg:hidden">
+        <div className="min-w-0">
+          <p className="eyebrow">Next Place to Be</p>
+          <h2 className="truncate font-display text-base">{trip.name}</h2>
+        </div>
+        <button
+          onClick={() => setOpen(true)}
+          aria-label="Open trip navigation"
+          className="shrink-0 rounded-full border border-border p-2"
+        >
+          <Menu className="h-4 w-4" />
+        </button>
+      </div>
+
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 z-50 bg-ink/30 lg:hidden"
+          onClick={() => setOpen(false)}
+        >
+          <motion.div
+            initial={{ x: -280 }}
+            animate={{ x: 0 }}
+            transition={{ type: "spring", stiffness: 280, damping: 30 }}
+            className="h-full w-[280px] bg-sidebar px-4 py-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-6 flex items-center justify-between">
+              <p className="eyebrow">Trip</p>
+              <button onClick={() => setOpen(false)} aria-label="Close navigation">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <NavList tripId={tripId} pathname={pathname} onNavigate={() => setOpen(false)} />
+          </motion.div>
+        </motion.div>
+      )}
+
+      <main className="min-w-0">{children}</main>
+    </div>
+  );
+}

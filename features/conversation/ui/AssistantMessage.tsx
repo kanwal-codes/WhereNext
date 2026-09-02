@@ -42,7 +42,7 @@ const components: Components = {
 
 export function AssistantMessage({ content, blocks, handlers }: { content: string; blocks?: AssistantBlock[]; handlers?: BlockHandlers }) {
   return (
-    <div className="chat-markdown">
+    <div className="chat-prose">
       <Markdown
         remarkPlugins={[remarkGfm]}
         skipHtml

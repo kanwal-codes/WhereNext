@@ -15,6 +15,14 @@ describe("MessageBlocks", () => {
     expect(html).toContain("From provider");
   });
 
+  it("makes the place card head a button when onOpenPlace is supplied", () => {
+    const place = { provider: "g", providerId: "p1", name: "Belém Tower", category: null, latitude: 1, longitude: 2, address: null, sourceUrl: null, trust: "sourced" as const };
+    const withOpen = renderToStaticMarkup(<MessageBlocks blocks={[{ type: "place_list", places: [place] }]} {...handlers} onOpenPlace={vi.fn()} />);
+    expect(withOpen).toContain('aria-label="Open Belém Tower"');
+    const withoutOpen = render([{ type: "place_list", places: [place] }]);
+    expect(withoutOpen).not.toContain('aria-label="Open Belém Tower"');
+  });
+
   it("renders a route_summary with steps", () => {
     const html = render([{ type: "route_summary", from: "Airport", to: "Belém", mode: "transit", durationSeconds: 4200, distanceMeters: 22000, steps: ["TRANSIT 208 → Cais Sodré (35 min)"], retrievedAt: "t" }]);
     expect(html).toContain("Airport");

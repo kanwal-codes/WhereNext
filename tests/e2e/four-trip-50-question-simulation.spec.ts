@@ -89,6 +89,8 @@ test("four real-life trips each survive a 50-question personalized conversation"
       await page.getByRole("button", { name: "Create trip" }).click();
       await expect(page).toHaveURL(/\/trips\/[0-9a-f-]{36}$/i);
       tripId = page.url().split("/").pop();
+      await page.goto(`/trips/${tripId}/chat`);
+      await page.getByLabel("Message").waitFor();
       const seeded = await page.evaluate(async (id) => { const response = await fetch(`/api/trips/${id}/itinerary`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "Arrival day placeholder", dayIndex: 1 }) }); return response.status; }, tripId);
       expect(seeded).toBe(201);
       for (const [index, prompt] of scenario.questions(scenario.destination).entries()) {

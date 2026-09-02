@@ -1,14 +1,191 @@
 "use client";
-import Image from "next/image";
+
 import { useEffect, useState } from "react";
+import { motion } from "motion/react";
+import { Loader2, Scale, Search } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
-export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; initialSaved?: Array<Record<string, unknown>> }) { const [query, setQuery] = useState(""); const [places, setPlaces] = useState<Place[]>((initialSaved ?? []).map((item) => (item.places ?? item) as unknown as Place)); const [saved, setSaved] = useState<Place[]>([]); const [selected, setSelected] = useState<Record<string, unknown> | null>(null); const [message, setMessage] = useState("");
-  useEffect(() => { fetch(`/api/trips/${tripId}/places`).then((response) => response.json()).then((body) => setSaved((body.places ?? []).map((item: { places?: Place }) => item.places ?? item))).catch(() => setMessage("Saved places could not load.")); }, [tripId]);
-  async function search() { const response = await fetch(`/api/trips/${tripId}/places?query=${encodeURIComponent(query)}`); const body = await response.json(); setPlaces(body.places ?? []); setMessage(response.ok && body.freshness ? `Results checked ${new Date(body.freshness.retrievedAt).toLocaleTimeString()}.` : response.ok ? "Saved places loaded." : "Place search unavailable."); }
-  async function save(place: Place) { const response = await fetch(`/api/trips/${tripId}/places`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(place) }); if (response.ok) { announceWorkspaceChange("places"); setSaved((current) => current.some((item) => item.providerId === place.providerId) ? current : [...current, place]); } setMessage(response.ok ? `${place.name} saved.` : "Place could not be saved."); }
-  async function remove(place: Place) { const response = await fetch(`/api/trips/${tripId}/places`, { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ providerId: place.providerId }) }); if (response.ok) setSaved((current) => current.filter((item) => item.providerId !== place.providerId)); }
-  async function reject(place: Place) { const response = await fetch(`/api/trips/${tripId}/places`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ providerId: place.providerId }) }); if (response.ok) setPlaces((current) => current.filter((item) => item.providerId !== place.providerId)); }
-  async function details(place: Place) { const response = await fetch(`/api/trips/${tripId}/places/google?placeId=${encodeURIComponent(place.providerId)}`); setSelected((await response.json()).place as Record<string, unknown>); }
-  const photos = Array.isArray(selected?.photos) ? selected.photos as Array<{ name?: unknown }> : [];
-  return <section className="card"><h2>Discover</h2><form onSubmit={(event) => { event.preventDefault(); void search(); }}><input aria-label="Search places" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Museums, restaurants, parks..." /><button type="submit">Search</button></form><h3>Saved for this trip</h3><ul>{saved.map((place) => <li key={place.providerId}>{place.name} <button type="button" onClick={() => void remove(place)}>Remove</button></li>)}</ul><div>{places.map((place) => <article key={place.providerId}><h3>{place.name}</h3><p>{place.category} · {place.address}</p><button onClick={() => void details(place)}>Details</button><button onClick={() => void save(place)}>Save</button><button onClick={() => void reject(place)}>Not for this trip</button></article>)}</div>{selected && <div><h3>Place details</h3>{photos.slice(0, 4).map((photo) => typeof photo.name === "string" && /^places\/[^/]+\/photos\/[^/]+$/.test(photo.name) ? <Image key={photo.name} src={`/api/trips/${tripId}/places/google/photo?name=${encodeURIComponent(photo.name)}`} alt="" width={240} height={160} /> : null)}<pre>{JSON.stringify(selected, null, 2)}</pre></div>}{message && <p role="status">{message}</p>}</section>; }
+import { PlaceCard } from "@/components/PlaceCard";
+import { Stagger, StaggerItem } from "@/components/motion-primitives";
+import { cn } from "@/lib/utils";
+
+const MAX_COMPARE = 4;
+const CATEGORY_TABS = ["all", "lodging", "restaurant", "tourist_attraction", "store", "park"] as const;
+const TAB_LABEL: Record<(typeof CATEGORY_TABS)[number], string> = {
+  all: "Everything",
+  lodging: "Stays",
+  restaurant: "Food",
+  tourist_attraction: "Sights",
+  store: "Shops",
+  park: "Outdoors",
+};
+
+export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; initialSaved?: Array<Record<string, unknown>> }) {
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+
+  const seedSaved = (initialSaved ?? []).map((item) => (item.places ?? item) as unknown as Place).filter((p) => p?.providerId);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<Place[]>([]);
+  const [saved, setSaved] = useState<Place[]>(seedSaved);
+  const [searching, setSearching] = useState(false);
+  const [message, setMessage] = useState("");
+  const [view, setView] = useState<"results" | "saved">(seedSaved.length && !initialSaved ? "saved" : "results");
+  const [tab, setTab] = useState<(typeof CATEGORY_TABS)[number]>("all");
+
+  useEffect(() => {
+    fetch(`/api/trips/${tripId}/places`)
+      .then((r) => r.json())
+      .then((body) => setSaved((body.places ?? []).map((item: { places?: Place }) => item.places ?? item)))
+      .catch(() => undefined);
+  }, [tripId]);
+
+  const savedIds = new Set(saved.map((p) => p.providerId));
+
+  async function search() {
+    const q = query.trim();
+    if (!q) return;
+    setSearching(true);
+    setMessage("");
+    setView("results");
+    try {
+      const response = await fetch(`/api/trips/${tripId}/places?query=${encodeURIComponent(q)}`);
+      const body = await response.json();
+      setResults(body.places ?? []);
+      setMessage(
+        response.ok
+          ? body.places?.length
+            ? `${body.places.length} results${body.freshness ? ` · checked ${new Date(body.freshness.retrievedAt).toLocaleTimeString()}` : ""}`
+            : "No places matched — try different words."
+          : "Place search is unavailable right now.",
+      );
+    } catch {
+      setMessage("Place search is unavailable right now.");
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function toggleSave(place: Place) {
+    if (savedIds.has(place.providerId)) {
+      setSaved((cur) => cur.filter((p) => p.providerId !== place.providerId));
+      const response = await fetch(`/api/trips/${tripId}/places`, {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ providerId: place.providerId }),
+      });
+      if (response.ok) announceWorkspaceChange("places");
+      else setSaved((cur) => [...cur, place]);
+      return;
+    }
+    setSaved((cur) => [...cur, place]);
+    const response = await fetch(`/api/trips/${tripId}/places`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(place),
+    });
+    if (response.ok) announceWorkspaceChange("places");
+    else {
+      setSaved((cur) => cur.filter((p) => p.providerId !== place.providerId));
+      setMessage(`${place.name} could not be saved.`);
+    }
+  }
+
+  function toggleCompare(place: Place) {
+    if (compareIds.includes(place.providerId)) setCompareIds((ids) => ids.filter((id) => id !== place.providerId));
+    else if (compareIds.length < MAX_COMPARE) setCompareIds((ids) => [...ids, place.providerId]);
+    else setMessage(`Compare up to ${MAX_COMPARE} at a time.`);
+  }
+
+  const list = (view === "saved" ? saved : results).filter((p) => tab === "all" || (p.category ?? "").includes(tab));
+
+  return (
+    <div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void search();
+        }}
+        className="flex items-center gap-2 rounded-2xl border border-input bg-card px-3 py-2 shadow-soft focus-within:ring-2 focus-within:ring-ring/25"
+      >
+        <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search places for this trip — “ramen in Gion”, “temples near Arashiyama”"
+          aria-label="Search places"
+          className="min-w-0 flex-1 bg-transparent py-1.5 text-sm outline-none placeholder:text-muted-foreground"
+        />
+        <button
+          type="submit"
+          disabled={searching || !query.trim()}
+          className="shrink-0 rounded-full bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-40"
+        >
+          {searching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Search"}
+        </button>
+      </form>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="flex rounded-full border border-border p-0.5 text-xs">
+          {(["results", "saved"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setView(v)}
+              className={cn("rounded-full px-3 py-1 font-medium capitalize transition-colors", view === v ? "bg-primary text-primary-foreground" : "text-ink-soft")}
+            >
+              {v === "saved" ? `Saved (${saved.length})` : "Results"}
+            </button>
+          ))}
+        </div>
+        {CATEGORY_TABS.map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              tab === t ? "border-transparent bg-primary text-primary-foreground" : "border-border bg-background text-ink-soft hover:bg-accent",
+            )}
+          >
+            {TAB_LABEL[t]}
+          </button>
+        ))}
+        {compareIds.length >= 2 && (
+          <motion.a
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            href={`/trips/${tripId}/compare?ids=${encodeURIComponent(compareIds.join(","))}`}
+            className="ml-auto inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground"
+          >
+            <Scale className="h-3.5 w-3.5" /> Compare {compareIds.length}
+          </motion.a>
+        )}
+      </div>
+
+      {message && <p className="mt-3 text-xs text-muted-foreground">{message}</p>}
+
+      {list.length > 0 ? (
+        <Stagger className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {list.map((place) => (
+            <StaggerItem key={place.providerId}>
+              <PlaceCard
+                tripId={tripId}
+                place={place}
+                saved={savedIds.has(place.providerId)}
+                inCompare={compareIds.includes(place.providerId)}
+                onSave={(p) => void toggleSave(p)}
+                onCompare={toggleCompare}
+              />
+            </StaggerItem>
+          ))}
+        </Stagger>
+      ) : (
+        <p className="mt-8 rounded-2xl border border-dashed border-border px-5 py-10 text-center text-sm text-muted-foreground">
+          {view === "saved"
+            ? "Nothing saved yet. Search above, or ask the assistant for ideas."
+            : "Search to discover places for this trip."}
+        </p>
+      )}
+    </div>
+  );
+}

@@ -1,5 +1,74 @@
 "use client";
+
 import { useEffect, useState } from "react";
+import { Check } from "lucide-react";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
-const items = ["Check weather and packing needs", "Confirm tickets and opening hours", "Check connectivity and power", "Record dietary or accessibility needs"];
-export function EssentialsSurface({ tripId, initialCompleted }: { tripId: string; initialCompleted?: string[] }) { const [done, setDone] = useState<string[]>(initialCompleted ?? []); const [error, setError] = useState(""); useEffect(() => { if (initialCompleted) return; fetch(`/api/trips/${tripId}/essentials`).then((response) => response.json()).then((body) => setDone(body.completed ?? [])).catch(() => setError("Checklist could not load.")); }, [tripId, initialCompleted]); async function toggle(item: string) { const next = done.includes(item) ? done.filter((value) => value !== item) : [...done, item]; setDone(next); const response = await fetch(`/api/trips/${tripId}/essentials`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ completed: next }) }); if (!response.ok) { setDone(done); setError("Checklist could not be saved."); } else announceWorkspaceChange("essentials"); } return <section className="card"><h2>Essentials</h2><p>Practical checklist for this trip. Time-sensitive facts need a source and last-checked date.</p>{items.map((item) => <label key={item}><input type="checkbox" checked={done.includes(item)} onChange={() => void toggle(item)} /> {item}</label>)}{error && <p role="alert">{error}</p>}</section>; }
+import { cn } from "@/lib/utils";
+
+const ITEMS = [
+  "Check weather and packing needs",
+  "Confirm tickets and opening hours",
+  "Check connectivity and power",
+  "Record dietary or accessibility needs",
+];
+
+export function EssentialsSurface({ tripId, initialCompleted }: { tripId: string; initialCompleted?: string[] }) {
+  const [done, setDone] = useState<string[]>(initialCompleted ?? []);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (initialCompleted) return;
+    fetch(`/api/trips/${tripId}/essentials`)
+      .then((r) => r.json())
+      .then((body) => setDone(body.completed ?? []))
+      .catch(() => setError("Checklist could not load."));
+  }, [tripId, initialCompleted]);
+
+  async function toggle(item: string) {
+    const next = done.includes(item) ? done.filter((v) => v !== item) : [...done, item];
+    setDone(next);
+    const r = await fetch(`/api/trips/${tripId}/essentials`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ completed: next }),
+    });
+    if (!r.ok) {
+      setDone(done);
+      setError("Checklist could not be saved.");
+    } else announceWorkspaceChange("essentials");
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm leading-relaxed text-ink-soft">
+        A practical checklist for this trip. For destination-specific essentials &mdash; visas, SIMs,
+        customs &mdash; ask the assistant; it builds a grounded checklist from live sources.
+      </p>
+      <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
+        {ITEMS.map((item) => {
+          const checked = done.includes(item);
+          return (
+            <li key={item}>
+              <button
+                type="button"
+                onClick={() => void toggle(item)}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-accent"
+              >
+                <span
+                  className={cn(
+                    "grid h-5 w-5 shrink-0 place-items-center rounded-md border",
+                    checked ? "border-leaf bg-leaf-soft text-leaf" : "border-border",
+                  )}
+                >
+                  {checked && <Check className="h-3.5 w-3.5" />}
+                </span>
+                <span className={cn(checked && "text-muted-foreground line-through")}>{item}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+    </div>
+  );
+}
