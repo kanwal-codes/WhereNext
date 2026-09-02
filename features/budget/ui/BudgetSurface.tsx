@@ -3,79 +3,92 @@
 import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
+import { notifyToast } from "@/lib/application/toast";
 
-export function BudgetSurface({ tripId, durationDays = 4, travelers = 2 }: { tripId: string; durationDays?: number | null; travelers?: number | null }) {
-  const [daily, setDaily] = useState(100);
-  const [status, setStatus] = useState("");
-  const days = durationDays || 4;
-  const people = travelers || 2;
+export function BudgetSurface({
+  tripId,
+  durationDays,
+  travelers,
+  initialBudget,
+}: {
+  tripId: string;
+  durationDays?: number | null;
+  travelers?: number | null;
+  /** Seeded from the layout's workspace snapshot; the surface only fetches when it's absent. */
+  initialBudget?: unknown;
+}) {
+  const seeded = typeof initialBudget === "number";
+  const [daily, setDaily] = useState(seeded ? (initialBudget as number) : 100);
+  const [saved, setSaved] = useState(false);
+  const days = durationDays || null;
+  const people = travelers || null;
 
   useEffect(() => {
+    if (seeded) return;
     fetch(`/api/trips/${tripId}/memory`)
       .then((r) => r.json())
       .then((body) => {
         if (typeof body.memory?.budget === "number") setDaily(body.memory.budget);
       })
-      .catch(() => setStatus("Budget assumption could not load."));
-  }, [tripId]);
+      .catch(() => undefined);
+  }, [tripId, seeded]);
 
   async function update(value: number) {
     setDaily(value);
+    setSaved(false);
     const r = await fetch(`/api/trips/${tripId}/memory`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ budget: value }) });
     if (r.ok) {
-      setStatus("Saved.");
+      setSaved(true);
       announceWorkspaceChange("preferences");
-    } else setStatus("Budget assumption could not save.");
+    } else notifyToast("Budget assumption could not save.", "error");
   }
 
-  const tiles = [
-    { label: "Daily", value: `$${daily}` },
-    { label: `${days}-day total`, value: `$${daily * days}` },
-    { label: `Per person (${people})`, value: `$${(daily * days / people).toFixed(0)}` },
+  const rows: Array<[string, string]> = [
+    ["Per person, per day", `$${daily}`],
+    ["Per person, whole trip", days ? `$${daily * days}` : "Set the trip length"],
+    ["Whole group", days && people ? `$${daily * days * people}` : people ? "Set the trip length" : "Set travellers"],
   ];
 
   return (
-    <div className="space-y-5">
-      <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-        <p className="text-sm leading-relaxed text-ink-soft">
-          A transparent estimate for this trip &mdash; an assumption you set, not a live quote.
-        </p>
-        <label className="mt-4 block text-sm font-medium">
-          Daily budget (per person)
-          <div className="mt-2 flex items-center gap-3">
-            <input
-              type="range"
-              min={20}
-              max={600}
-              step={10}
-              value={daily}
-              onChange={(e) => update(Number(e.target.value))}
-              className="flex-1 accent-[var(--coral)]"
-            />
-            <input
-              type="number"
-              min={0}
-              value={daily}
-              onChange={(e) => update(Number(e.target.value))}
-              className="w-24 rounded-xl border border-input bg-background px-3 py-1.5 text-sm tabular-nums"
-            />
-          </div>
-        </label>
-        {status && (
-          <p role="status" className="mt-3 inline-flex items-center gap-1 text-xs text-leaf">
-            <Check className="h-3 w-3" /> {status}
-          </p>
+    <section className="rounded-2xl border border-border bg-card p-5 shadow-soft">
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="font-display text-lg">Budget</h2>
+        {saved && (
+          <span className="inline-flex items-center gap-1 text-xs text-leaf">
+            <Check className="h-3 w-3" /> Saved
+          </span>
         )}
       </div>
+      <p className="mt-1 text-xs text-muted-foreground">An assumption you set — the assistant uses it to weigh options.</p>
 
-      <div className="grid grid-cols-3 gap-3">
-        {tiles.map((t) => (
-          <div key={t.label} className="rounded-2xl border border-border bg-card px-4 py-3">
-            <p className="text-[11px] tracking-[0.1em] text-muted-foreground uppercase">{t.label}</p>
-            <p className="mt-1.5 font-display text-lg tabular-nums">{t.value}</p>
+      <div className="mt-4 flex items-center gap-3">
+        <input
+          type="range"
+          min={20}
+          max={600}
+          step={10}
+          value={daily}
+          onChange={(e) => update(Number(e.target.value))}
+          aria-label="Daily budget per person"
+          className="flex-1 accent-[var(--coral)]"
+        />
+        <input
+          type="number"
+          min={0}
+          value={daily}
+          onChange={(e) => update(Number(e.target.value))}
+          className="w-20 rounded-xl border border-input bg-background px-2.5 py-1.5 text-sm tabular-nums"
+        />
+      </div>
+
+      <dl className="mt-4 divide-y divide-border text-sm">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex items-center justify-between gap-3 py-2">
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="font-medium tabular-nums">{value}</dd>
           </div>
         ))}
-      </div>
-    </div>
+      </dl>
+    </section>
   );
 }

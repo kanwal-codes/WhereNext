@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { GooglePlacesProvider } from "../../packages/providers/google-places/client";
+import { broadenQuery, GooglePlacesProvider } from "../../packages/providers/google-places/client";
 import { OpenAiCompatibleProvider } from "../../packages/ai/providers/openai-compatible";
 import { createAiGateway } from "../../packages/ai/gateway";
 import { route } from "../../packages/providers/mapbox/client";
 import { transit } from "../../packages/providers/google-places/transit";
 import { transitAppPlan } from "../../packages/providers/transit-app/client";
 import { searchFlights } from "../../packages/providers/duffel/client";
-import { searchStays, stayRooms } from "../../packages/providers/liteapi/client";
+import { hotelDetails, searchStays, stayRooms } from "../../packages/providers/liteapi/client";
 import { localEvents } from "../../packages/providers/eventbrite/client";
 import { withProviderTimeout } from "../../packages/providers/request-signal";
 import { events } from "../../packages/providers/ticketmaster/client";
@@ -30,6 +30,29 @@ afterEach(() => {
   delete process.env.OPENAI_API_KEY;
   delete process.env.AI_MODEL;
   delete process.env.AI_BASE_URL;
+});
+
+describe("broadenQuery", () => {
+  it("adds sibling places-of-worship terms the query is missing", () => {
+    const out = broadenQuery("temples in Amritsar");
+    expect(out).toContain("gurdwara");
+    expect(out).toContain("church");
+    expect(out.startsWith("temples in Amritsar")).toBe(true);
+  });
+  it("does not double-add a term already present", () => {
+    expect(broadenQuery("church and mosque")).not.toMatch(/mosque.*mosque/);
+  });
+  it("leaves an unrelated query untouched", () => {
+    expect(broadenQuery("best ramen in Tokyo")).toBe("best ramen in Tokyo");
+  });
+  it("broadens adventure and water-sport queries to sibling activities", () => {
+    const adv = broadenQuery("bungee jumping near Rishikesh");
+    expect(adv).toContain("zipline");
+    expect(adv).toContain("paragliding");
+    const water = broadenQuery("kayaking in Halong Bay");
+    expect(water).toContain("boat tour");
+    expect(water).toContain("sailing");
+  });
 });
 
 describe("createAiGateway env resolution", () => {
@@ -181,19 +204,41 @@ describe("provider adapters", () => {
     expect(result.options[1]).toMatchObject({ nightlyAmount: 230, totalAmount: 690, boardName: "Breakfast" }); // cheapest of h1's two room types
   });
 
-  it("returns every room type for a single-hotel drill-down", async () => {
+  it("returns every room rate for a single-hotel drill-down, keeping ids and cancellation deadlines", async () => {
     process.env.CONNECT_API_KEY = "sand_x";
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: [
       { hotelId: "h1", roomTypes: [
-        { offerRetailRate: { amount: 690, currency: "EUR" }, rates: [{ name: "Deluxe", boardName: "Breakfast", cancellationPolicies: { refundableTag: "RFN" } }] },
-        { offerRetailRate: { amount: 900, currency: "EUR" }, rates: [{ name: "Suite", boardName: "Room Only", cancellationPolicies: { refundableTag: "NRFN" } }] },
+        { offerId: "off-1", offerRetailRate: { amount: 690, currency: "EUR" }, rates: [{ rateId: "rate-1", name: "Deluxe", boardName: "Breakfast", maxOccupancy: 2, retailRate: { total: [{ amount: 690, currency: "EUR" }], taxesAndFees: [{ amount: 62, currency: "EUR" }] }, cancellationPolicies: { refundableTag: "RFN", cancelPolicyInfos: [{ cancelTime: "2026-10-12T00:00:00Z" }] } }] },
+        { offerId: "off-2", offerRetailRate: { amount: 900, currency: "EUR" }, rates: [{ rateId: "rate-2", name: "Suite", boardName: "Room Only", cancellationPolicies: { refundableTag: "NRFN" } }] },
       ] },
     ] }), { status: 200 })));
     const { nights, rooms } = await stayRooms({ hotelId: "h1", checkin: "2026-10-15", checkout: "2026-10-18" });
     expect(nights).toBe(3);
     expect(rooms.map((r) => r.name)).toEqual(["Deluxe", "Suite"]);
-    expect(rooms[0]).toMatchObject({ nightlyAmount: 230, totalAmount: 690, refundable: true, boardName: "Breakfast" });
-    expect(rooms[1]).toMatchObject({ refundable: false });
+    expect(rooms[0]).toMatchObject({ offerId: "off-1", rateId: "rate-1", nightlyAmount: 230, totalAmount: 690, taxesAndFees: 62, maxOccupancy: 2, refundable: true, boardName: "Breakfast", cancelBefore: "2026-10-12T00:00:00Z" });
+    expect(rooms[1]).toMatchObject({ refundable: false, cancelBefore: null, taxesAndFees: null, maxOccupancy: null });
+  });
+
+  it("normalizes LiteAPI hotel details: gallery order, stripped html, missing fields", async () => {
+    process.env.LITEAPI_KEY = "sand_x";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: {
+      id: "h1", name: "Torel Palace", hotelDescription: "<p>A <b>palace</b> hotel.</p>",
+      hotelImages: [{ url: "https://img/2.jpg", order: 2 }, { url: "https://img/1.jpg", order: 1 }, { url: "https://img/hero.jpg", order: 5, defaultImage: true }],
+      hotelFacilities: ["Pool", "Wi-Fi", "Pool"],
+      checkinCheckoutTimes: { checkinStart: "15:00", checkinEnd: "23:00", checkout: "11:00" },
+      address: "Rua Câmara Pestana", city: "Lisbon", country: "PT", location: { latitude: 38.72, longitude: -9.14 }, starRating: 5, rating: 9.4, reviewCount: 1200,
+      rooms: [{ roomName: "Deluxe", maxOccupancy: 2, photos: [{ url: "https://img/deluxe.jpg" }] }],
+    } }), { status: 200 })));
+    const details = await hotelDetails("h1");
+    expect(details.images).toEqual(["https://img/hero.jpg", "https://img/1.jpg", "https://img/2.jpg"]);
+    expect(details.description).toBe("A palace hotel.");
+    expect(details.facilities).toEqual(["Pool", "Wi-Fi"]);
+    expect(details).toMatchObject({ checkinFrom: "15:00", checkinTo: "23:00", checkout: "11:00", latitude: 38.72, stars: 5 });
+    expect(details.roomCatalogue[0]).toMatchObject({ name: "Deluxe", maxOccupancy: 2, photo: "https://img/deluxe.jpg" });
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { id: "h2", thumbnail: "https://img/t.jpg" } }), { status: 200 })));
+    const sparse = await hotelDetails("h2");
+    expect(sparse).toMatchObject({ name: "Hotel", description: null, images: ["https://img/t.jpg"], facilities: [], checkinFrom: null, roomCatalogue: [] });
   });
 
   it("throws when no LiteAPI key is configured", async () => {

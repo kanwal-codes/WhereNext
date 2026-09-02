@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { aiRequestSchema, compactAiMessages } from "@/packages/contracts/ai-request";
 import { assistantSystemPrompt, type AssistantBlock, type AssistantTurnMeta, type PlaceCard } from "@/packages/contracts/assistant";
 import { createAiGateway } from "@/packages/ai/gateway";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { loadTripContext, serializeTripContext, formatTripMemory } from "@/lib/application/trip-context";
 import { resolveTurn, type ResolvedTurn } from "@/lib/application/turn-resolver";
 import { retrieveEvidence } from "@/lib/application/retrieve";
@@ -43,22 +44,65 @@ function readDislikes(preferences: Record<string, unknown>): string[] {
   return Array.isArray(raw) ? raw.filter((value): value is string => typeof value === "string") : [];
 }
 
-export async function POST(request: Request) {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+/** True when this suggestion key already has a confirmed value on the trip. */
+function factAlreadyConfirmed(key: string, ctx: Awaited<ReturnType<typeof loadTripContext>>): boolean {
+  const p = ctx.preferences;
+  const hasList = (v: unknown) => Array.isArray(v) && v.length > 0;
+  switch (key) {
+    case "budget": return p.budget !== undefined && p.budget !== "";
+    case "group": return typeof p.groupType === "string" && p.groupType !== "";
+    case "pace": return typeof p.pace === "string" && p.pace !== "";
+    case "interests": return hasList(p.interests) || hasList(p.likes);
+    case "occasion": return typeof p.occasion === "string" && p.occasion !== "";
+    case "dates": return typeof p.dates === "string" && p.dates !== "";
+    case "arrival": return typeof p.arrival === "string" && p.arrival !== "";
+    case "getting_around": return (typeof p.transport === "string" && p.transport !== "") || ctx.decisions.some((d) => d.kind === "transport");
+    case "base_area": return ctx.decisions.some((d) => d.kind === "stay_area");
+    default: return false;
+  }
+}
 
+async function persistSuggestedFacts(
+  supabase: SupabaseClient,
+  tripId: string,
+  facts: ResolvedTurn["suggestedFacts"],
+  ctx: Awaited<ReturnType<typeof loadTripContext>>,
+): Promise<void> {
+  const rows = (facts ?? [])
+    .filter((fact) => !factAlreadyConfirmed(fact.key, ctx))
+    .map((fact) => ({
+      trip_id: tripId,
+      kind: "suggestion",
+      value: { key: fact.key, display: fact.display, rationale: fact.rationale },
+      source: "assistant",
+      idempotency_key: `sugg:${fact.key}`,
+    }));
+  if (rows.length === 0) return;
+  try {
+    await supabase.from("trip_decisions").upsert(rows, { onConflict: "trip_id,idempotency_key" });
+  } catch {
+    // A missed suggestion is not worth failing the turn (or a test with a partial supabase mock).
+  }
+}
+
+export async function POST(request: Request) {
   const parsed = aiRequestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid AI request" }, { status: 400 });
-
   const { tripId } = parsed.data;
-  const membership = await supabase.from("trip_members").select("trip_id").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle();
-  if (!membership.data) return NextResponse.json({ error: "Trip not found" }, { status: 404 });
+
+  let supabase: SupabaseClient;
+  try {
+    ({ supabase } = await requireTripMember(tripId));
+  } catch (error) {
+    return tripAuthResponse(error) ?? NextResponse.json({ error: "Assistant unavailable" }, { status: 503 });
+  }
 
   try {
-    const [tripCtx, threadRow] = await Promise.all([
+    // Context, thread summary and the stored transcript are independent — one round-trip.
+    const [tripCtx, threadRow, storedMessages] = await Promise.all([
       loadTripContext(supabase, tripId),
       supabase.from("conversation_threads").select("summary").eq("trip_id", tripId).maybeSingle(),
+      createConversationRepository(supabase).list(tripId),
     ]);
     const context = serializeTripContext(tripCtx);
     const destination = tripCtx.trip?.destination ?? "the trip destination";
@@ -67,7 +111,6 @@ export async function POST(request: Request) {
     const prompt = parsed.data.messages.at(-1)?.content ?? "";
     const idempotencyKey = `assistant:${parsed.data.messageIdempotencyKey}`;
 
-    const storedMessages = await createConversationRepository(supabase).list(tripId);
     const modelMessages = storedMessages
       .filter((message) => message.role === "user" || message.role === "assistant")
       .map(({ role, content }) => ({ role: role as "user" | "assistant", content }));
@@ -94,6 +137,7 @@ export async function POST(request: Request) {
         blocks: [{ type: "clarifying_question", question: resolved.clarify.question, chips: resolved.clarify.chips }],
         sources: [],
         suggestedFollowups: resolved.suggestedFollowups,
+        unavailableProviders: [],
       };
       return new Response(
         persistedAssistantStream(cannedStream(resolved.clarify.question), supabase, tripId, idempotencyKey, undefined, meta),
@@ -121,7 +165,7 @@ export async function POST(request: Request) {
 
     if (needsGrounding && !hasGrounding) {
       const fallback = "I couldn't verify anything for this right now — the travel data providers returned nothing. Try again, or narrow it to a specific place or activity.";
-      const meta: AssistantTurnMeta = { language, locationFocus: resolved.locationFocus, surface: "chat", blocks: [], sources: [], suggestedFollowups: resolved.suggestedFollowups };
+      const meta: AssistantTurnMeta = { language, locationFocus: resolved.locationFocus, surface: "chat", blocks: [], sources: [], suggestedFollowups: resolved.suggestedFollowups, unavailableProviders: evidence.unavailableProviders.slice(0, 12) };
       return new Response(
         persistedAssistantStream(cannedStream(fallback), supabase, tripId, idempotencyKey, undefined, meta),
         { headers: SSE_HEADERS },
@@ -131,7 +175,10 @@ export async function POST(request: Request) {
     const origin = new URL(request.url).origin;
     const photoUrl = (name: string) => `${origin}/api/trips/${tripId}/places/google/photo?name=${encodeURIComponent(name)}`;
     const requestedImages = /\b(photo|photos|image|images|picture|pictures)\b/i.test(prompt);
-    const compactPlaces = evidence.places.map((place) => ({
+    // The model must only see the places it will actually get cards for, so its reply can't
+    // reference a place with no card. This slice IS the `place_list` block below.
+    const cardPlaces = evidence.places.slice(0, 6);
+    const compactPlaces = cardPlaces.map((place) => ({
       provider: place.provider, providerId: place.providerId, name: place.name, category: place.category, address: place.address,
       rating: place.rating, userRatingCount: place.userRatingCount, sourceUrl: place.sourceUrl, photoName: place.photoNames?.[0],
     }));
@@ -144,8 +191,6 @@ export async function POST(request: Request) {
         hours: +(offer.durationMinutes / 60).toFixed(1), stops: offer.stops, departs: offer.departAt, arrives: offer.arriveAt,
       })),
     }));
-    const hotelMapUrl = (name: string, city: string | null) =>
-      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([name, city].filter(Boolean).join(" "))}`;
     const compactStays = evidence.stays.map((search) => ({
       location: search.location, checkin: search.checkin, checkout: search.checkout, nights: search.nights, exampleDates: search.assumedDates,
       hotels: search.options.map((option) => ({
@@ -159,7 +204,6 @@ export async function POST(request: Request) {
       ...compactEvents.map((event) => event.url),
       ...compactPlaces.flatMap((place) => (place.sourceUrl ? [place.sourceUrl] : [])),
       ...(requestedImages ? compactPlaces.flatMap((place) => (place.photoName ? [photoUrl(place.photoName)] : [])) : []),
-      ...evidence.stays.flatMap((search) => search.options.map((option) => hotelMapUrl(option.name, option.city))),
     ]);
 
     const groundingInstruction = hasGrounding
@@ -173,7 +217,7 @@ ${groundingInstruction}
 You are talking about: ${locationFocus}.${dislikes.length ? `\nThe traveller dislikes: ${dislikes.join(", ")}. Do not recommend, list, or describe any of these, even if they are famous or in the evidence.` : ""}
 Previous messages are context only — never repeat their places, prices, or links unless they also appear in the fresh evidence below.${requestedImages ? "\nThe user asked for photos: include one markdown image per relevant place only if a supplied image URL exists; if none, say verified photos were not returned." : ""}
 ${feasibilityHint(typeof tripCtx.preferences.pace === "string" ? tripCtx.preferences.pace : undefined, tripCtx.itinerary.map((item) => item.day_index))}
-If a recommendation usually sells out or needs timed entry, say so and suggest booking ahead. When the current topic is settled, end with a one-line pointer to the next planning step.${compactEvents.length ? `\nThe evidence has ${compactEvents.length} dated events. List them by name, date, and venue with their ticket link. Say this is a snapshot from ${evidence.retrievedAt} and dates/availability should be confirmed on the ticket page. Do not invent events not in the list.` : ""}${compactFlights.length ? `\nThe evidence has live flight fare estimates as of ${evidence.retrievedAt}. Give a short range or the cheapest option, name the airline, and say prices change and must be booked on the airline or a travel site. ${compactFlights.some((search) => search.exampleDate) ? "The travel date is an example only — say so and ask for their real dates." : ""} Do not invent fares or routes not in the list.` : ""}${compactStays.length ? `\nThe evidence has live hotel rates from LiteAPI as of ${evidence.retrievedAt} for ${compactStays[0].nights} night(s). Name 2-3 options with their nightly rate, and say taxes/fees may be extra and availability must be confirmed at booking. ${compactStays.some((search) => search.exampleDates) ? "The check-in/out dates are an example only — say so and ask for their real dates." : ""}${compactStays.some((search) => search.rooms) ? " Room-level rates for the hotel the user asked about are in evidence.rooms — list them by room name, board, and nightly price." : ""} Do not invent hotels or prices not in the list.` : ""}
+If a recommendation usually sells out or needs timed entry, say so and suggest booking ahead.${(resolved.intent === "weather" || resolved.intent === "essentials" || evidence.weather) ? `\nWeather question: ${evidence.weather ? `a live reading is in the evidence ("${evidence.weather}") — treat it as a forecast only if the trip is within a week, otherwise as the current picture.` : "there is no live forecast (the trip is too far out for one, or the provider was down)."} ${compactSources.length ? "The web sources describe the destination's typical conditions for the trip's month — build the answer from them and call it typical/seasonal, not a forecast." : "If you have nothing on the season either, say the weather is unavailable rather than guessing."} Finish with one concrete packing takeaway (umbrella, layers, sun, warm coat). Never apologise for a missing forecast when you can still describe the season.` : ""}${compactEvents.length ? `\nThe evidence has ${compactEvents.length} dated events, shown as cards. Say which one or two fit the trip's dates and interests and why; do not list titles, dates, venues, or links. Do not invent events.` : ""}${compactFlights.length ? `\nFlight fare estimates are shown as cards. Give a one-line read (cheapest vs fastest, nonstop or not). ${compactFlights.some((search) => search.exampleDate) ? "The travel date is an example — ask for their real dates." : ""} Do not quote fares or list airlines; do not invent routes.` : ""}${compactStays.length ? `\nHotel rates for ${compactStays[0].nights} night(s) are shown as cards. Say which one or two fit the budget, group, and locked places and why.${compactStays.some((search) => search.rooms) ? " Room-level rates for the hotel the user asked about are also shown; say which room type fits the group." : ""} ${compactStays.some((search) => search.exampleDates) ? "The check-in/out dates are an example — ask for their real dates." : ""} Do not list hotels or prices; do not invent any.` : ""}
 
 Trip so far: ${tripSummary}
 
@@ -192,6 +236,14 @@ ${JSON.stringify({
       images: requestedImages ? compactPlaces.flatMap((place) => (place.photoName ? [{ place: place.name, url: photoUrl(place.photoName) }] : [])) : [],
     })}`;
 
+    // Side builders start now and overlap with the queue slot + model TTFB; awaited when meta is assembled.
+    const checklistPromise = resolved.intent === "essentials"
+      ? buildEssentialsChecklist({ destination: locationFocus, tripSummary, evidence, signal: request.signal })
+      : Promise.resolve(null);
+    const comparisonPromise = resolved.wantsComparison
+      ? buildComparison({ prompt, tripSummary, evidence, signal: request.signal })
+      : Promise.resolve(null);
+
     // --- COMPOSE -------------------------------------------------------------
     const stream = await withTripAiStream(tripId, () => createAiGateway().stream(
       [{ role: "system", content: system }, ...compactAiMessages(modelMessages, 12, 12_000)],
@@ -205,10 +257,10 @@ ${JSON.stringify({
       const hit = nearest({ latitude: place.latitude, longitude: place.longitude }, tripCtx.lockedPlaces);
       return hit ? `${hit.km < 1 ? `${Math.round(hit.km * 1000)} m` : `${hit.km.toFixed(1)} km`} from ${hit.target.title}` : undefined;
     };
-    if (evidence.places.length > 0 && PLACE_INTENTS.has(resolved.intent)) {
+    if (cardPlaces.length > 0 && PLACE_INTENTS.has(resolved.intent)) {
       blocks.push({
         type: "place_list",
-        places: evidence.places.slice(0, 6).map((place): PlaceCard => ({
+        places: cardPlaces.map((place): PlaceCard => ({
           provider: place.provider, providerId: place.providerId, name: place.name, category: place.category,
           latitude: place.latitude, longitude: place.longitude, address: place.address,
           rating: place.rating, userRatingCount: place.userRatingCount, priceLevel: place.priceLevel,
@@ -266,6 +318,7 @@ ${JSON.stringify({
         dateNote: search.assumedDates ? `Example dates ${search.checkin} → ${search.checkout} — set your real dates` : `${search.checkin} → ${search.checkout}`,
         detailHotel: search.detail?.hotelName,
         items: search.options.slice(0, 6).map((option) => ({
+          hotelId: option.hotelId.slice(0, 120),
           name: option.name.slice(0, 160),
           nightlyPrice: String(option.nightlyAmount),
           totalPrice: String(option.totalAmount),
@@ -276,28 +329,35 @@ ${JSON.stringify({
           board: option.boardName ?? undefined,
           refundable: option.refundable,
           distanceToLocked: option.latitude != null && option.longitude != null ? distanceToLocked({ latitude: option.latitude, longitude: option.longitude }) : undefined,
-          mapUrl: hotelMapUrl(option.name, option.city),
           thumbnailUrl: option.thumbnail?.startsWith("http") ? option.thumbnail : undefined,
+          latitude: option.latitude ?? undefined,
+          longitude: option.longitude ?? undefined,
+          address: option.address?.slice(0, 200) ?? undefined,
+          city: option.city?.slice(0, 80) ?? undefined,
         })),
-        rooms: search.detail?.rooms.map((room) => ({
+        rooms: search.detail?.rooms.slice(0, 12).map((room) => ({
           name: room.name.slice(0, 120),
-          board: room.boardName ?? undefined,
+          boardName: room.boardName,
           refundable: room.refundable,
-          nightlyPrice: String(room.nightlyAmount),
-          totalPrice: String(room.totalAmount),
+          maxOccupancy: room.maxOccupancy,
+          nightlyAmount: room.nightlyAmount,
+          totalAmount: room.totalAmount,
           currency: room.currency.slice(0, 8),
         })),
       });
     }
-    if (resolved.intent === "essentials") {
-      const checklist = await buildEssentialsChecklist({ destination: locationFocus, tripSummary, evidence, signal: request.signal });
-      if (checklist) blocks.push(checklist);
-    }
-    if (resolved.wantsComparison) {
-      const comparison = await buildComparison({ prompt, tripSummary, evidence, signal: request.signal });
-      if (comparison) blocks.push(comparison);
+    const [checklist, comparison] = await Promise.all([checklistPromise, comparisonPromise]);
+    if (checklist) blocks.push(checklist);
+    if (comparison) {
+      // When we're comparing real places, carry their ids so the chat can open a live side-by-side.
+      const placeIds = cardPlaces.map((p) => p.providerId).filter(Boolean);
+      blocks.push(placeIds.length >= 2 ? ({ ...comparison, placeIds: placeIds.slice(0, 4) } as AssistantBlock) : comparison);
     }
     if (resolved.suggestedFollowups.length > 0) blocks.push({ type: "actions", items: resolved.suggestedFollowups });
+
+    // Store any trip facts the resolver inferred as pending "suggestions" (one live row per key),
+    // skipping keys the trip has already confirmed. The trip-context panel surfaces them to confirm.
+    void persistSuggestedFacts(supabase, tripId, resolved.suggestedFacts, tripCtx);
 
     const proposedCommand = resolved.proposedProfileUpdate && Object.keys(resolved.proposedProfileUpdate).length > 0
       ? { type: "update_preferences" as const, tripId, preferences: resolved.proposedProfileUpdate }
@@ -311,6 +371,12 @@ ${JSON.stringify({
       sources: compactSources.map((source) => ({ title: source.title, url: source.url, retrievedAt: evidence.retrievedAt, trust: "sourced" as const })),
       suggestedFollowups: resolved.suggestedFollowups,
       proposedCommand,
+      // A far-future trip can't have a live forecast — if we answered the weather from seasonal
+      // web sources, don't also tell the user we "could not check weather".
+      unavailableProviders: ((resolved.intent === "weather" || resolved.intent === "essentials") && compactSources.length > 0
+        ? evidence.unavailableProviders.filter((provider) => provider !== "openweather")
+        : evidence.unavailableProviders
+      ).slice(0, 12),
     };
 
     return new Response(

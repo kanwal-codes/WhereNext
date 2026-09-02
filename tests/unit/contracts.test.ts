@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { formatTripMemory } from "../../lib/application/trip-context";
 import { assistantBlockSchema, assistantTurnSchema, placeCardSchema, proposedCommandSchema } from "../../packages/contracts/assistant";
+import { readStayDecision, stayDecisionSchema } from "../../packages/contracts/stay";
+import { readSuggestions, suggestionActionSchema } from "../../packages/contracts/suggestion";
+import { placementDay, placementRequestSchema, placementSchema } from "../../packages/contracts/placement";
 import { mergePreferences, preferencesSchema } from "../../packages/contracts/preferences";
 import { canChangeLockedItem } from "../../features/itinerary/domain/item";
 import { aiRequestSchema, compactAiMessages } from "../../packages/contracts/ai-request";
@@ -74,9 +77,51 @@ describe("rebuild contracts", () => {
     const flight = { airline: "Air Canada", price: "812.40", currency: "CAD", durationMinutes: 491, stops: 0, departAt: "2026-10-13T18:20:00", arriveAt: "2026-10-14T06:31:00" };
     expect(assistantBlockSchema.safeParse({ type: "flights", retrievedAt: "t", origin: "Toronto", destination: "London", dateNote: "Example date", items: [flight] }).success).toBe(true);
     expect(assistantBlockSchema.safeParse({ type: "flights", retrievedAt: "t", origin: "Toronto", destination: "London", items: [] }).success).toBe(false);
-    const hotel = { name: "Torel Palace", nightlyPrice: "230", totalPrice: "690", currency: "EUR", rating: 9.4, reviews: 1200, refundable: true, mapUrl: "https://maps.google.com/?q=torel" };
+    const hotel = { hotelId: "h1", name: "Torel Palace", nightlyPrice: "230", totalPrice: "690", currency: "EUR", rating: 9.4, reviews: 1200, refundable: true, latitude: 38.72, longitude: -9.14 };
     expect(assistantBlockSchema.safeParse({ type: "stays", retrievedAt: "t", location: "Lisbon", checkin: "2026-10-15", checkout: "2026-10-18", nights: 3, dateNote: "Example dates", items: [hotel] }).success).toBe(true);
-    expect(assistantBlockSchema.safeParse({ type: "stays", retrievedAt: "t", location: "Lisbon", checkin: "2026-10-15", checkout: "2026-10-18", nights: 3, items: [hotel], rooms: [{ name: "Deluxe", nightlyPrice: "230", totalPrice: "690", currency: "EUR" }] }).success).toBe(true);
+    const room = { name: "Deluxe", boardName: "Breakfast", refundable: true, maxOccupancy: 2, nightlyAmount: 230, totalAmount: 690, currency: "EUR" };
+    expect(assistantBlockSchema.safeParse({ type: "stays", retrievedAt: "t", location: "Lisbon", checkin: "2026-10-15", checkout: "2026-10-18", nights: 3, items: [hotel], rooms: [room] }).success).toBe(true);
+    const { hotelId: _omit, ...anonymousHotel } = hotel;
+    expect(assistantBlockSchema.safeParse({ type: "stays", retrievedAt: "t", location: "Lisbon", checkin: "2026-10-15", checkout: "2026-10-18", nights: 3, items: [anonymousHotel] }).success).toBe(false);
+  });
+  it("validates and reads the locked-stay decision", () => {
+    const value = { provider: "liteapi", hotelId: "h1", hotelName: "Torel Palace", roomName: "Deluxe", board: "Breakfast", refundable: true, checkin: "2026-10-15", checkout: "2026-10-18", nights: 3, nightlyAmount: 230, totalAmount: 690, currency: "EUR", latitude: 38.72, longitude: -9.14, address: "Rua Câmara Pestana", thumbnail: null };
+    expect(stayDecisionSchema.safeParse(value).success).toBe(true);
+    expect(stayDecisionSchema.safeParse({ ...value, provider: "booking" }).success).toBe(false);
+    expect(readStayDecision([
+      { kind: "stay", value: { hotelName: "malformed" } },
+      { kind: "budget", value: { daily: 100 } },
+      { kind: "stay", value },
+    ])).toMatchObject({ hotelName: "Torel Palace", roomName: "Deluxe" });
+    expect(readStayDecision([{ kind: "budget", value: {} }])).toBeNull();
+  });
+  it("reads assistant suggestions, newest per key, ignoring non-suggestion rows", () => {
+    const rows = [
+      { id: "a", kind: "suggestion", value: { key: "dates", display: "mid-October", rationale: "you mentioned fall" }, created_at: "2026-09-01T00:00:00Z" },
+      { id: "b", kind: "suggestion", value: { key: "dates", display: "Oct 17–21", rationale: "you said the 17th" }, created_at: "2026-09-02T00:00:00Z" },
+      { id: "c", kind: "suggestion", value: { key: "occasion", display: "Anniversary", rationale: "" }, created_at: "2026-09-02T00:00:00Z" },
+      { id: "d", kind: "budget", value: { daily: 100 } },
+      { id: "e", kind: "suggestion", value: { key: "not-a-key" } },
+    ];
+    const out = readSuggestions(rows);
+    expect(out).toHaveLength(2);
+    expect(out.find((s) => s.key === "dates")).toMatchObject({ display: "Oct 17–21", id: "b" });
+    expect(suggestionActionSchema.safeParse({ key: "dates", action: "confirm" }).success).toBe(true);
+    expect(suggestionActionSchema.safeParse({ key: "dates", action: "maybe" }).success).toBe(false);
+  });
+  it("parses the three place placements and reads the scheduled day", () => {
+    expect(placementSchema.parse("none")).toBe("none");
+    expect(placementSchema.parse("shortlist")).toBe("shortlist");
+    expect(placementSchema.parse({ dayIndex: 3 })).toEqual({ dayIndex: 3 });
+    expect(placementSchema.safeParse({ dayIndex: 0 }).success).toBe(false);
+    expect(placementSchema.safeParse("someday").success).toBe(false);
+    expect(placementDay({ dayIndex: 3 })).toBe(3);
+    expect(placementDay("shortlist")).toBeNull();
+    const req = placementRequestSchema.safeParse({
+      place: { provider: "google-places", providerId: "p1", name: "Belém Tower", category: null, latitude: 1, longitude: 2, address: null, sourceUrl: null },
+      placement: { dayIndex: 2 },
+    });
+    expect(req.success).toBe(true);
   });
   it("parses an assistant turn envelope with defaults", () => {
     expect(assistantTurnSchema.parse({ reply: "hi" })).toMatchObject({ language: "en", blocks: [], sources: [], suggestedFollowups: [] });

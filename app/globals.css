@@ -84,6 +84,8 @@
 :root {
   color-scheme: light;
   --radius: 1.25rem;
+  /* Mobile top bar height — the chat page and its sheets measure from it. */
+  --topbar: 3.5rem;
 
   --background: oklch(1 0 0);
   --foreground: oklch(0.17 0.005 260);
@@ -229,6 +231,25 @@
   color: var(--color-muted-foreground);
 }
 
+/* One text/date/select field for every form in the app. */
+@utility input-field {
+  @apply mt-1.5 w-full rounded-xl border border-input bg-card px-3.5 py-2.5 text-sm outline-none transition-shadow focus:ring-2 focus:ring-ring/25;
+}
+
+/* Buttons: one primary pill, one secondary pill, one small chip. */
+@utility btn-primary {
+  @apply inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-[transform,opacity] hover:scale-[1.02] disabled:opacity-60 disabled:hover:scale-100;
+}
+@utility btn-primary-sm {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-medium text-primary-foreground transition-opacity disabled:opacity-60;
+}
+@utility btn-secondary {
+  @apply inline-flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-60;
+}
+@utility btn-chip {
+  @apply inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-background px-3 text-xs text-ink-soft transition-colors hover:border-primary/40 hover:text-primary;
+}
+
 @utility hairline {
   background-image: linear-gradient(
     to right,
@@ -291,14 +312,14 @@
   }
 }
 
+/* Opacity only: a transform here would become the containing block for the
+   chat page's position:fixed sheets and mis-anchor them mid-transition. */
 @keyframes route-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
 

@@ -181,17 +181,37 @@ describe("POST /api/ai", () => {
     retrieveEvidenceMock.mockResolvedValue({
       places: [], sources: [], weather: null, routes: [], events: [], flights: [],
       stays: [{ location: "Lisbon", checkin: "2026-10-15", checkout: "2026-10-18", nights: 3, assumedDates: true, options: [
-        { hotelId: "h1", name: "Hotel Alfama", address: "Alfama", city: "Lisbon", latitude: 38.71, longitude: -9.13, stars: 4, rating: 8.6, reviewCount: 900, thumbnail: "https://img/h1.jpg", nightlyAmount: 120, totalAmount: 360, currency: "EUR", boardName: "Breakfast", refundable: true },
-      ], detail: undefined }],
-      unavailableProviders: [], retrievedAt: "2026-09-02T00:00:00Z",
+        { hotelId: "h1", name: "Hotel Alfama", address: "Alfama", city: "Lisbon", latitude: 38.71, longitude: -9.13, stars: 4, rating: 8.6, reviewCount: 900, thumbnail: "https://img/h1.jpg", nightlyAmount: 120, totalAmount: 360, currency: "EUR", boardName: "Breakfast", refundable: true, rooms: [] },
+      ], detail: { hotelName: "Hotel Alfama", rooms: [{ name: "Deluxe", boardName: "Breakfast", refundable: true, cancelBefore: null, maxOccupancy: 2, nightlyAmount: 120, totalAmount: 360, taxesAndFees: null, currency: "EUR" }] } }],
+      unavailableProviders: ["duffel"], retrievedAt: "2026-09-02T00:00:00Z",
     });
     const { meta } = await readMeta(await post());
-    expect(meta).toMatchObject({ surface: "stay" });
+    expect(meta).toMatchObject({ surface: "stay", unavailableProviders: ["duffel"] });
     const stays = (meta!.blocks as Array<Record<string, unknown>>).find((b) => b.type === "stays");
-    expect(stays).toMatchObject({ location: "Lisbon", nights: 3 });
-    expect((stays!.items as Array<Record<string, unknown>>)[0]).toMatchObject({ name: "Hotel Alfama", nightlyPrice: "120", currency: "EUR", refundable: true });
+    expect(stays).toMatchObject({ location: "Lisbon", nights: 3, detailHotel: "Hotel Alfama" });
+    const item = (stays!.items as Array<Record<string, unknown>>)[0];
+    expect(item).toMatchObject({ hotelId: "h1", name: "Hotel Alfama", nightlyPrice: "120", currency: "EUR", refundable: true, latitude: 38.71, longitude: -9.13, city: "Lisbon", thumbnailUrl: "https://img/h1.jpg" });
+    expect(item).not.toHaveProperty("mapUrl");
+    expect((stays!.rooms as Array<Record<string, unknown>>)[0]).toMatchObject({ name: "Deluxe", nightlyAmount: 120, totalAmount: 360, maxOccupancy: 2 });
     expect(String(stays!.dateNote)).toMatch(/Example dates/);
-    expect(String((stays!.items as Array<Record<string, unknown>>)[0].mapUrl)).toContain("google.com/maps");
+  });
+
+  it("tells the model to reason about hotels rather than re-list the cards", async () => {
+    resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "Lisbon", intent: "stays", wantsComparison: false, toolPlan: [{ tool: "stays", location: "Lisbon" }], clarify: null, suggestedFollowups: [], proposedProfileUpdate: null });
+    retrieveEvidenceMock.mockResolvedValue({
+      places: [], sources: [], weather: null, routes: [], events: [], flights: [],
+      stays: [{ location: "Lisbon", checkin: "2026-10-15", checkout: "2026-10-18", nights: 3, assumedDates: true, options: [
+        { hotelId: "h1", name: "Hotel Alfama", address: null, city: "Lisbon", latitude: 38.71, longitude: -9.13, stars: 4, rating: 8.6, reviewCount: 900, thumbnail: null, nightlyAmount: 120, totalAmount: 360, currency: "EUR", boardName: null, refundable: true, rooms: [] },
+      ] }],
+      unavailableProviders: [], retrievedAt: "t",
+    });
+    await readMeta(await post());
+    const system = String((streamMock.mock.calls[0][0] as Array<{ role: string; content: string }>)[0].content);
+    expect(system).toMatch(/shown as cards/);
+    expect(system).toMatch(/Do not list hotels or prices/);
+    expect(system).toMatch(/Do not restate what the cards show/);
+    // The old evidence instructions told the model to re-list what the cards already show.
+    expect(system).not.toMatch(/Name 2-3 options with their nightly rate|List them by name, date, and venue|Mark live facts with a trust label/);
   });
 
   it("adds distance-to-locked-place on discovery cards", async () => {

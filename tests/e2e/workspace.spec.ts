@@ -14,12 +14,9 @@ test("preview trip renders the routed workspace shell and every surface route", 
   const routes: Array<[string, RegExp]> = [
     ["Conversation", /\/trips\/rebuild-preview\/chat$/],
     ["Discover", /\/trips\/rebuild-preview\/discover$/],
-    ["Compare", /\/trips\/rebuild-preview\/compare$/],
-    ["Map", /\/trips\/rebuild-preview\/map$/],
+    ["Getting around", /\/trips\/rebuild-preview\/map$/],
     ["Stay", /\/trips\/rebuild-preview\/stay$/],
-    ["Transport", /\/trips\/rebuild-preview\/transport$/],
     ["Itinerary", /\/trips\/rebuild-preview\/itinerary$/],
-    ["Budget", /\/trips\/rebuild-preview\/budget$/],
     ["Trip knowledge", /\/trips\/rebuild-preview\/knowledge$/],
     ["Bookings & essentials", /\/trips\/rebuild-preview\/bookings$/],
   ];
@@ -32,6 +29,13 @@ test("preview trip renders the routed workspace shell and every surface route", 
 
   await sidebar.getByRole("link", { name: "Overview" }).click();
   await expect(page).toHaveURL(/\/trips\/rebuild-preview$/);
+
+  // Transport merged into "Getting around", Budget into "Trip knowledge" — old routes still land.
+  await page.goto("/trips/rebuild-preview/transport");
+  await expect(page).toHaveURL(/\/trips\/rebuild-preview\/map$/);
+  await expect(page).toHaveTitle(/Getting around/);
+  await page.goto("/trips/rebuild-preview/budget");
+  await expect(page).toHaveURL(/\/trips\/rebuild-preview\/knowledge$/);
 });
 
 test("identity recovery is reachable and account deletion requires authentication", async ({ page }) => {

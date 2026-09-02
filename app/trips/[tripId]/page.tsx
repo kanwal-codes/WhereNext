@@ -8,10 +8,19 @@ import { Reveal, Stagger, StaggerItem, WordReveal } from "@/components/motion-pr
 import { ProgressRing } from "@/components/ProgressRing";
 import { CertaintyBadge } from "@/components/CertaintyBadge";
 import { tripCompleteness } from "@/lib/design";
+import { certaintyFor, decisionSummary } from "@/lib/decisions-ui";
+import { readStayDecision } from "@/packages/contracts/stay";
+import { useDestinationPhoto } from "@/features/places/application/useDestinationPhoto";
+import { TripWeather } from "@/components/TripWeather";
 
 type SavedPlace = { status?: string; places?: { id: string; name: string; category?: string | null; address?: string | null } };
 type ItineraryRow = { id: string; title: string; day_index: number };
-type DecisionRow = { id: string; kind: string; value: Record<string, unknown> };
+type DecisionRow = { id: string; kind: string; value: Record<string, unknown>; source?: string };
+
+const fmtDay = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString([], { month: "short", day: "numeric" });
+};
 
 export default function TripOverviewPage() {
   const { tripId, data } = useTripData();
@@ -20,6 +29,7 @@ export default function TripOverviewPage() {
   const saved = ((data?.savedPlaces ?? []) as SavedPlace[]).map((s) => s.places).filter(Boolean) as NonNullable<SavedPlace["places"]>[];
   const itinerary = (data?.itinerary ?? []) as ItineraryRow[];
   const decisions = (data?.decisions ?? []) as DecisionRow[];
+  const lockedStay = readStayDecision(decisions);
   const conversation = (data?.conversation ?? []) as Array<{ role: string; content: string }>;
 
   const destination = trip?.destination ?? "your destination";
@@ -63,10 +73,13 @@ export default function TripOverviewPage() {
 
   const days = Array.from(new Set(itinerary.map((i) => i.day_index))).sort((a, b) => a - b).slice(0, 3);
   const recentAssistant = conversation.filter((m) => m.role === "assistant").slice(-3).reverse();
+  // A real photo of the destination; the stock plate only until it arrives, or when the provider has none.
+  const destinationPhoto = useDestinationPhoto(tripId, trip?.destination);
+  const heroImage = destinationPhoto ?? "/design/trip-hero.jpg";
 
   return (
     <div className="min-h-full">
-      <Hero image="/design/trip-hero.jpg" alt={`${destination}`} className="h-56 sm:h-72">
+      <Hero key={heroImage} image={heroImage} alt={`${destination}`} className="h-56 sm:h-72">
         <div className="absolute inset-x-0 bottom-0 px-5 pb-6 sm:px-8">
           <Reveal delay={0.12}>
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4">
@@ -184,6 +197,12 @@ export default function TripOverviewPage() {
           </div>
 
           <div className="space-y-6">
+            {trip?.destination && (
+              <Reveal delay={0.04}>
+                <TripWeather tripId={tripId} location={trip.destination} card />
+              </Reveal>
+            )}
+
             <Reveal delay={0.06}>
               <section className="rounded-2xl border border-border bg-card p-5 shadow-soft">
                 <h2 className="font-display text-lg">Still unresolved</h2>
@@ -201,12 +220,35 @@ export default function TripOverviewPage() {
                 )}
                 <Link
                   href={`/trips/${tripId}/chat`}
-                  className="mt-5 flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-transform hover:scale-[1.02]"
+                  className="btn-primary mt-5 w-full"
                 >
                   Continue planning <ArrowRight className="h-4 w-4" />
                 </Link>
               </section>
             </Reveal>
+
+            {lockedStay && (
+              <Reveal delay={0.09}>
+                <Link
+                  href={`/trips/${tripId}/stay/${encodeURIComponent(lockedStay.hotelId)}?checkin=${lockedStay.checkin}&checkout=${lockedStay.checkout}`}
+                  className="block overflow-hidden rounded-2xl border border-leaf/30 bg-card shadow-soft transition-colors hover:bg-accent"
+                >
+                  {lockedStay.thumbnail && (
+                    // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
+                    <img src={lockedStay.thumbnail} alt={lockedStay.hotelName} width={480} height={160} className="h-32 w-full object-cover" />
+                  )}
+                  <div className="p-5">
+                    <h2 className="eyebrow text-leaf">Your stay</h2>
+                    <p className="mt-1 truncate font-display text-lg">{lockedStay.hotelName}</p>
+                    <p className="truncate text-sm text-ink-soft">{lockedStay.roomName}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {fmtDay(lockedStay.checkin)} → {fmtDay(lockedStay.checkout)} · {lockedStay.nights} night{lockedStay.nights === 1 ? "" : "s"} ·{" "}
+                      <span className="tabular-nums text-foreground">{lockedStay.totalAmount} {lockedStay.currency}</span>
+                    </p>
+                  </div>
+                </Link>
+              </Reveal>
+            )}
 
             {decisions.length > 0 && (
               <Reveal delay={0.12}>
@@ -216,10 +258,10 @@ export default function TripOverviewPage() {
                     {decisions.slice(0, 6).map((d) => (
                       <li key={d.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border pb-2 last:border-0">
                         <div className="min-w-0">
-                          <p className="text-[11px] tracking-[0.08em] text-muted-foreground uppercase">{d.kind}</p>
-                          <p className="truncate text-sm">{JSON.stringify(d.value)}</p>
+                          <p className="text-[11px] tracking-[0.08em] text-muted-foreground uppercase">{d.kind.replaceAll("_", " ")}</p>
+                          <p className="truncate text-sm">{decisionSummary(d.kind, d.value)}</p>
                         </div>
-                        <CertaintyBadge certainty="confirmed" />
+                        <CertaintyBadge certainty={certaintyFor(d.source)} />
                       </li>
                     ))}
                   </ul>

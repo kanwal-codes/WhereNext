@@ -14,10 +14,11 @@ describe("assistant format contract", () => {
     expect(prompt).toMatch(/never .*comparison table|never put a .*table/);
   });
 
-  it("requires every trust label", () => {
-    for (const label of ["verified", "sourced", "estimated", "assumption", "unavailable"]) {
-      expect(prompt).toContain(label);
-    }
+  it("keeps prose as reasoning and cards as data", () => {
+    expect(prompt).toMatch(/rendered as cards/);
+    expect(prompt).toMatch(/do not restate what the cards show/);
+    expect(prompt).toMatch(/no booking disclaimers/);
+    expect(prompt).not.toMatch(/trust label/); // labels live on the cards now, not in the reply
   });
 
   it("forbids recommending things the user dislikes", () => {

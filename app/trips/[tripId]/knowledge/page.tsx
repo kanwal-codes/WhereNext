@@ -5,6 +5,7 @@ import { useTripData } from "@/components/TripDataProvider";
 import { PageHeader } from "@/components/PageHeader";
 import { Reveal } from "@/components/motion-primitives";
 import { TripContextSurface } from "@/features/workspace/ui/TripContextSurface";
+import { BudgetSurface } from "@/features/budget/ui/BudgetSurface";
 import type { Trip } from "@/features/trip/domain/trip";
 
 type SavedPlace = { places?: { id: string; name: string; category?: string | null; address?: string | null } };
@@ -50,6 +51,15 @@ export default function KnowledgePage() {
         </Reveal>
 
         <div className="space-y-6">
+          <Reveal delay={0.04}>
+            <BudgetSurface
+              tripId={tripId}
+              durationDays={trip?.duration_days}
+              travelers={trip?.travelers}
+              initialBudget={(data?.preferences as Record<string, unknown> | undefined)?.budget}
+            />
+          </Reveal>
+
           <Reveal delay={0.06}>
             <section className="rounded-2xl border border-border bg-card p-5 shadow-soft">
               <h2 className="font-display text-lg">Saved places</h2>

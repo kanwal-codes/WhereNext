@@ -29,6 +29,19 @@ function titleCase(s: string): string {
   return s.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/**
+ * Link to the chat with the composer pre-filled asking why a place/stay fits the trip.
+ * Carries the address and a maps link so the user doesn't have to retype a name they
+ * might not be able to read.
+ */
+export function askAssistantHref(tripId: string, opts: { name: string; address?: string | null; mapsUrl?: string | null; kind?: "place" | "stay" }): string {
+  const noun = opts.kind === "stay" ? "hotel" : "place";
+  const question =
+    `Why does this ${noun} fit my trip — my budget, pace, and what I've saved so far?\n` +
+    `${opts.name}${opts.address ? ` — ${opts.address}` : ""}${opts.mapsUrl ? `\n${opts.mapsUrl}` : ""}`;
+  return `/trips/${tripId}/chat?ask=${encodeURIComponent(question)}`;
+}
+
 export function categoryLabel(category: string | null | undefined): string {
   return titleCase((category ?? "place").replaceAll("_", " "));
 }

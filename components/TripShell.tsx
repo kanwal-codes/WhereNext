@@ -15,10 +15,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Notebook,
-  Scale,
+  House,
   Sparkle,
-  Train,
-  Wallet,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -36,12 +34,9 @@ const nav = [
   { seg: "", label: "Overview", icon: LayoutGrid, exact: true },
   { seg: "chat", label: "Conversation", icon: MessageCircle },
   { seg: "discover", label: "Discover", icon: Compass },
-  { seg: "compare", label: "Compare", icon: Scale },
-  { seg: "map", label: "Map", icon: Map },
+  { seg: "map", label: "Getting around", icon: Map },
   { seg: "stay", label: "Stay", icon: BedDouble },
-  { seg: "transport", label: "Transport", icon: Train },
   { seg: "itinerary", label: "Itinerary", icon: CalendarDays },
-  { seg: "budget", label: "Budget", icon: Wallet },
   { seg: "knowledge", label: "Trip knowledge", icon: Notebook },
   { seg: "bookings", label: "Bookings & essentials", icon: Sparkle },
 ] as const;
@@ -116,7 +111,7 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
       >
         <div className={cn("mb-7 flex items-center gap-2", collapsed ? "justify-center" : "justify-between px-2")}>
           {!collapsed && (
-            <Link href="/" className="min-w-0">
+            <Link href="/trips" className="min-w-0">
               <p className="eyebrow">Next Place to Be</p>
               <h2 className="mt-1 truncate font-display text-lg leading-tight">{trip.name}</h2>
             </Link>
@@ -152,6 +147,18 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
         </div>
 
         <Link
+          href="/trips"
+          title="All trips"
+          className={cn(
+            "mt-2 flex items-center gap-2.5 rounded-xl py-2 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            collapsed ? "justify-center px-2" : "px-3",
+          )}
+        >
+          <House className="h-4 w-4 shrink-0 opacity-70" />
+          {!collapsed && "All trips"}
+        </Link>
+
+        <Link
           href={`/trips/${tripId}/chat`}
           title="Continue planning"
           className={cn(
@@ -165,10 +172,10 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
       </motion.aside>
 
       {/* Mobile top bar */}
-      <div className="sticky top-0 z-30 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/90 px-4 py-3 backdrop-blur lg:hidden">
+      <div className="sticky top-0 z-30 grid h-[var(--topbar)] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/90 px-4 backdrop-blur lg:hidden">
         <div className="min-w-0">
           <p className="eyebrow">Next Place to Be</p>
-          <h2 className="truncate font-display text-base">{trip.name}</h2>
+          <h2 className="truncate font-display text-sm leading-tight">{trip.name}</h2>
         </div>
         <button
           onClick={() => setOpen(true)}
@@ -200,6 +207,13 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
               </button>
             </div>
             <NavList tripId={tripId} pathname={pathname} onNavigate={() => setOpen(false)} />
+            <Link
+              href="/trips"
+              onClick={() => setOpen(false)}
+              className="mt-2 flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            >
+              <House className="h-4 w-4 shrink-0 opacity-70" /> All trips
+            </Link>
           </motion.div>
         </motion.div>
       )}

@@ -1,0 +1,279 @@
+"use client";
+
+import React, { useEffect, useId, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { Bookmark, BookmarkCheck, CalendarCheck, Check, ChevronDown, Loader2, Trash2 } from "lucide-react";
+import type { Place } from "@/packages/contracts/place";
+import { type Placement, placementDay } from "@/packages/contracts/placement";
+import { useTripDataMaybe } from "@/components/TripDataProvider";
+import { announceWorkspaceChange } from "@/lib/application/workspace-events";
+import { notifyToast } from "@/lib/application/toast";
+import { cn } from "@/lib/utils";
+
+/** How many day rows the menu will ever show (a trip longer than this still works — the extra days just aren't offered here). */
+const MAX_DAY_ROWS = 30;
+
+const same = (a: Placement, b: Placement) => JSON.stringify(a) === JSON.stringify(b);
+const norm = (s: string) => s.trim().toLowerCase();
+
+function toast(name: string, placement: Placement): string {
+  const day = placementDay(placement);
+  if (day) return `${name} added to Day ${day}.`;
+  if (placement === "shortlist") return `${name} shortlisted.`;
+  return `Removed ${name} from the trip.`;
+}
+
+/**
+ * One control for a place's whole relationship to the trip: not in it →
+ * shortlisted (still deciding) → scheduled on a day. A plain click on the left
+ * shortlists; the caret opens a menu to pick a day or remove. Scheduling a
+ * place also shortlists it; removing it from a day leaves it shortlisted.
+ *
+ * Current state and the trip's day count are read from the trip snapshot when
+ * one is in context; pass `initialPlacement` to override.
+ */
+export function AddToTripControl({
+  tripId,
+  place,
+  initialPlacement,
+  size = "md",
+  block = false,
+  onPlacementChange,
+  className,
+}: {
+  tripId: string;
+  place: Place;
+  initialPlacement?: Placement;
+  size?: "sm" | "md";
+  /** Stretch to fill the container (detail aside) instead of hugging its content. */
+  block?: boolean;
+  onPlacementChange?: (placement: Placement) => void;
+  className?: string;
+}) {
+  const data = useTripDataMaybe()?.data ?? null;
+  const reduce = useReducedMotion();
+  const menuId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const busyRef = useRef(false);
+
+  const itinerary = (data?.itinerary ?? []) as Array<{ title?: string; day_index?: number }>;
+  const savedPlaces = (data?.savedPlaces ?? []) as Array<{ places?: { provider_id?: string } | null; provider_id?: string; providerId?: string }>;
+
+  const tripDays = Number((data?.trip as { duration_days?: number } | null | undefined)?.duration_days) || 0;
+  const maxItinDay = itinerary.reduce((m, i) => Math.max(m, Number(i.day_index) || 0), 0);
+  const dayCount = Math.min(Math.max(tripDays, maxItinDay), MAX_DAY_ROWS);
+
+  const derived: Placement =
+    initialPlacement ??
+    (() => {
+      const item = itinerary.find((i) => i.title && norm(i.title) === norm(place.name));
+      if (item) return { dayIndex: Number(item.day_index) || 1 };
+      const shortlisted = savedPlaces.some((s) => {
+        const id = s.places?.provider_id ?? s.provider_id ?? s.providerId;
+        return id === place.providerId;
+      });
+      return shortlisted ? "shortlist" : "none";
+    })();
+
+  const [placement, setPlacement] = useState<Placement>(derived);
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  // Re-sync from the snapshot when it refreshes and we're not mid-write.
+  const derivedKey = JSON.stringify(derived);
+  useEffect(() => {
+    if (!busyRef.current) setPlacement(JSON.parse(derivedKey) as Placement);
+  }, [derivedKey]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  async function apply(next: Placement) {
+    setOpen(false);
+    if (same(next, placement)) return;
+    const previous = placement;
+    setPlacement(next);
+    setBusy(true);
+    busyRef.current = true;
+    try {
+      const res = await fetch(`/api/trips/${tripId}/places/placement`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ place, placement: next }),
+      });
+      if (!res.ok) throw new Error();
+      announceWorkspaceChange("places");
+      announceWorkspaceChange("itinerary");
+      onPlacementChange?.(next);
+      notifyToast(toast(place.name, next), "success");
+    } catch {
+      setPlacement(previous);
+      notifyToast(`${place.name} — that change didn't save.`, "error");
+    } finally {
+      setBusy(false);
+      busyRef.current = false;
+    }
+  }
+
+  const day = placementDay(placement);
+  const state: "none" | "shortlist" | "day" = day ? "day" : placement === "shortlist" ? "shortlist" : "none";
+  const Icon = busy ? Loader2 : state === "day" ? CalendarCheck : state === "shortlist" ? BookmarkCheck : Bookmark;
+  const label = state === "day" ? `Day ${day}` : state === "shortlist" ? "Shortlisted" : "Add to trip";
+
+  const sm = size === "sm";
+  const shell = cn(
+    "items-stretch overflow-hidden rounded-full border text-left transition-colors",
+    block ? "flex w-full" : "inline-flex",
+    sm ? "text-xs" : "text-sm",
+    state === "day"
+      ? "border-leaf/50 bg-leaf text-primary-foreground"
+      : state === "shortlist"
+        ? "border-leaf/40 bg-leaf-soft text-leaf"
+        : "border-border bg-background text-ink-soft",
+    busy && "opacity-70",
+  );
+
+  return (
+    <div ref={rootRef} className={cn("relative", block ? "block" : "inline-block", className)}>
+      <div className={shell}>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => (state === "none" ? void apply("shortlist") : setOpen((o) => !o))}
+          aria-label={state === "none" ? `Shortlist ${place.name}` : `Change how ${place.name} is in the trip`}
+          className={cn(
+            "inline-flex items-center justify-center gap-1.5 font-medium transition-colors",
+            block && "flex-1",
+            sm ? "h-8 pl-3 pr-2.5" : "h-10 pl-4 pr-3",
+            state === "none" && "hover:border-primary/40 hover:text-primary",
+          )}
+        >
+          <Icon className={cn(sm ? "h-3.5 w-3.5" : "h-4 w-4", busy && "animate-spin")} />
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.span
+              key={label}
+              initial={reduce ? false : { opacity: 0, y: 3 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0, y: -3 }}
+              transition={{ duration: 0.12 }}
+            >
+              {label}
+            </motion.span>
+          </AnimatePresence>
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => setOpen((o) => !o)}
+          aria-label="Choose a day or remove"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-controls={menuId}
+          className={cn(
+            "inline-flex items-center border-l border-inherit transition-colors",
+            sm ? "px-1.5" : "px-2",
+            state === "none" && "hover:bg-accent",
+          )}
+        >
+          <ChevronDown className={cn("transition-transform", sm ? "h-3.5 w-3.5" : "h-4 w-4", open && "rotate-180")} />
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            id={menuId}
+            role="menu"
+            initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: -4 }}
+            transition={{ duration: 0.14, ease: [0.22, 0.61, 0.36, 1] }}
+            className="absolute right-0 z-30 mt-2 w-60 origin-top-right rounded-2xl border border-border bg-card p-1.5 text-sm shadow-lift"
+          >
+            <MenuRow
+              selected={placement === "shortlist"}
+              onClick={() => void apply("shortlist")}
+              title="Shortlist"
+              hint="still deciding"
+              Icon={Bookmark}
+            />
+
+            <div className="mx-2 my-1.5 hairline" />
+
+            {dayCount > 0 ? (
+              <div className={cn(dayCount > 6 && "max-h-56 overflow-y-auto scrollbar-slim")}>
+                {Array.from({ length: dayCount }, (_, i) => i + 1).map((d) => (
+                  <MenuRow key={d} selected={day === d} onClick={() => void apply({ dayIndex: d })} title={`Day ${d}`} Icon={CalendarCheck} />
+                ))}
+              </div>
+            ) : (
+              <MenuRow selected={Boolean(day)} onClick={() => void apply({ dayIndex: 1 })} title="Add to itinerary" hint="order it later" Icon={CalendarCheck} />
+            )}
+
+            {state !== "none" && (
+              <>
+                <div className="mx-2 my-1.5 hairline" />
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => void apply("none")}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-destructive transition-colors hover:bg-destructive/10"
+                >
+                  <Trash2 className="h-3.5 w-3.5 shrink-0" />
+                  Remove from trip
+                </button>
+              </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function MenuRow({
+  selected,
+  onClick,
+  title,
+  hint,
+  Icon,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  title: string;
+  hint?: string;
+  Icon: typeof Bookmark;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitemradio"
+      aria-checked={selected}
+      onClick={onClick}
+      className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-accent"
+    >
+      <span
+        className={cn(
+          "grid h-4 w-4 shrink-0 place-items-center rounded-full border transition-colors",
+          selected ? "border-leaf bg-leaf text-primary-foreground" : "border-border",
+        )}
+      >
+        {selected && <Check className="h-2.5 w-2.5" strokeWidth={3} />}
+      </span>
+      <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 flex-1 truncate">{title}</span>
+      {hint && <span className="shrink-0 text-[11px] text-muted-foreground">{hint}</span>}
+    </button>
+  );
+}

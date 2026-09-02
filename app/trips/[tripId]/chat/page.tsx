@@ -2,32 +2,51 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { PanelRight, X } from "lucide-react";
+import { PanelRight, Scale, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { PlacePanel } from "@/components/PlacePanel";
+import { StayPanel } from "@/components/StayPanel";
+import { CompareView } from "@/components/CompareView";
+import { Reveal } from "@/components/motion-primitives";
 import { ConversationSurface } from "@/features/conversation/ui/ConversationSurface";
 import { TripContextSurface } from "@/features/workspace/ui/TripContextSurface";
-import type { PlaceCard } from "@/packages/contracts/assistant";
+import { useMediaQuery } from "@/lib/use-media-query";
+import { useDocumentTitle } from "@/lib/use-document-title";
+import type { PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { Trip } from "@/features/trip/domain/trip";
 
-type Workspace = { placeId: string; placeName: string };
+type Workspace =
+  | { kind: "place"; placeId: string; placeName: string }
+  | { kind: "stay"; hotelId: string; hotelName: string; checkin: string; checkout: string }
+  | { kind: "compare"; ids: string[] };
 
 const spring = { type: "spring" as const, stiffness: 180, damping: 26, mass: 0.9 };
 
 export default function ChatPage() {
   const { tripId, data } = useTripData();
+  const desktop = useMediaQuery("(min-width: 1024px)");
+  useDocumentTitle("Conversation");
   const [contextCollapsed, setContextCollapsed] = useState(false);
   const [mobileContextOpen, setMobileContextOpen] = useState(false);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
 
-  const showContext = !workspace && !contextCollapsed;
-
-  const savedIds = new Set(
-    (data?.savedPlaces ?? []).map((s) => (s as { places?: { provider_id?: string } }).places?.provider_id).filter(Boolean) as string[],
-  );
+  const showContext = desktop && !workspace && !contextCollapsed;
+  const columns = !desktop
+    ? "minmax(0, 1fr) 0px"
+    : workspace
+      ? "minmax(340px, 400px) minmax(0, 1fr)"
+      : showContext
+        ? "minmax(0, 1fr) 340px"
+        : "minmax(0, 1fr) 0px";
 
   function openPlace(place: PlaceCard) {
-    setWorkspace({ placeId: place.providerId, placeName: place.name });
+    setWorkspace({ kind: "place", placeId: place.providerId, placeName: place.name });
+  }
+  function openStay(stay: StayCardItem, dates: { checkin: string; checkout: string }) {
+    setWorkspace({ kind: "stay", hotelId: stay.hotelId, hotelName: stay.name, checkin: dates.checkin, checkout: dates.checkout });
+  }
+  function openCompare(ids: string[]) {
+    setWorkspace({ kind: "compare", ids: ids.slice(0, 4) });
   }
   function closeWorkspace() {
     setWorkspace(null);
@@ -42,59 +61,97 @@ export default function ChatPage() {
     />
   );
 
-  const placePanel = workspace ? (
+  const panel = !workspace ? null : workspace.kind === "place" ? (
     <PlacePanel
       tripId={tripId}
       placeId={workspace.placeId}
       placeName={workspace.placeName}
-      initiallySaved={savedIds.has(workspace.placeId)}
       onClose={closeWorkspace}
     />
-  ) : null;
+  ) : workspace.kind === "stay" ? (
+    <StayPanel
+      tripId={tripId}
+      hotelId={workspace.hotelId}
+      hotelName={workspace.hotelName}
+      checkin={workspace.checkin}
+      checkout={workspace.checkout}
+      onClose={closeWorkspace}
+    />
+  ) : (
+    <div className="flex h-full min-h-0 flex-col">
+      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
+        <p className="inline-flex items-center gap-1.5 font-display text-sm">
+          <Scale className="h-3.5 w-3.5 text-coral" /> Side by side
+        </p>
+        <button
+          type="button"
+          onClick={closeWorkspace}
+          aria-label="Close comparison"
+          className="shrink-0 rounded-full border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </header>
+      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-slim p-4">
+        <CompareView
+          tripId={tripId}
+          ids={workspace.ids}
+          onIdsChange={(ids) => setWorkspace((w) => (w && w.kind === "compare" ? { ...w, ids } : w))}
+        />
+      </div>
+    </div>
+  );
+
+  const workspaceKey = workspace
+    ? workspace.kind === "place"
+      ? `place:${workspace.placeId}`
+      : workspace.kind === "stay"
+        ? `stay:${workspace.hotelId}`
+        : `compare:${workspace.ids.join(",")}`
+    : "none";
+  const showToggle = !desktop || !workspace;
 
   return (
-    <div className="flex h-[calc(100dvh-57px)] min-h-0 flex-col lg:h-screen">
-      <div className="min-h-0 flex-1">
-        {/* Desktop: animated column grid */}
-        <motion.div
-          initial={false}
-          animate={{
-            gridTemplateColumns: workspace
-              ? "minmax(360px, 400px) minmax(0, 1fr)"
-              : showContext
-                ? "minmax(0, 1fr) 340px"
-                : "minmax(0, 1fr) 0px",
-          }}
-          transition={spring}
-          className="hidden h-full min-h-0 lg:grid"
-        >
-          <motion.div layout transition={spring} className="relative flex min-w-0 flex-col overflow-hidden border-r border-border px-4 py-5 sm:px-6">
+    <div className="flex h-[calc(100dvh-var(--topbar))] min-h-0 flex-col lg:h-screen">
+      {/* One conversation, one grid; the second column animates open on desktop only. */}
+      <motion.div initial={false} animate={{ gridTemplateColumns: columns }} transition={spring} className="grid h-full min-h-0">
+        <motion.div layout transition={spring} className="relative flex min-w-0 flex-col overflow-hidden px-4 py-4 sm:px-6 lg:border-r lg:border-border lg:py-5">
+          <Reveal>
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="eyebrow">Travel assistant</p>
-                <h1 className="mt-1 truncate font-display text-xl leading-tight">Plan this the way you&rsquo;d talk about it</h1>
+                <h1 className="mt-1 truncate font-display text-lg leading-tight lg:text-xl">Plan this the way you&rsquo;d talk about it</h1>
               </div>
-              {!workspace && (
+              {showToggle && (
                 <button
                   type="button"
-                  onClick={() => setContextCollapsed((c) => !c)}
-                  aria-label={contextCollapsed ? "Show trip context" : "Hide trip context"}
+                  onClick={() => (desktop ? setContextCollapsed((c) => !c) : setMobileContextOpen(true))}
+                  aria-label={desktop ? (contextCollapsed ? "Show trip context" : "Hide trip context") : "Show trip context"}
                   className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-background/90 px-3 py-1.5 text-[11px] font-medium backdrop-blur transition-colors hover:bg-accent"
                 >
                   <PanelRight className="h-3.5 w-3.5" />
-                  {contextCollapsed ? "Trip context" : "Hide"}
+                  {desktop && !contextCollapsed ? "Hide" : "Trip context"}
                 </button>
               )}
             </div>
-            <div className="min-h-0 flex-1">
-              <ConversationSurface tripId={tripId} initialMessages={data?.conversation} onOpenPlace={openPlace} rail={Boolean(workspace)} />
-            </div>
-          </motion.div>
+          </Reveal>
+          <div className="min-h-0 flex-1">
+            <ConversationSurface
+              tripId={tripId}
+              initialMessages={data?.conversation}
+              onOpenPlace={openPlace}
+              onOpenStay={openStay}
+              onOpenCompare={openCompare}
+              rail={desktop && Boolean(workspace)}
+            />
+          </div>
+        </motion.div>
 
+        {desktop && (
           <AnimatePresence mode="wait" initial={false}>
             {workspace ? (
               <motion.section
-                key="workspace"
+                key={workspaceKey}
                 initial={{ opacity: 0, x: 28, filter: "blur(6px)" }}
                 animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
                 exit={{ opacity: 0, x: 20, filter: "blur(4px)" }}
@@ -107,7 +164,7 @@ export default function ChatPage() {
                   transition={{ duration: 0.4, ease: [0.22, 0.61, 0.36, 1], delay: 0.16 }}
                   className="min-h-0 flex-1"
                 >
-                  {placePanel}
+                  {panel}
                 </motion.div>
               </motion.section>
             ) : showContext ? (
@@ -123,38 +180,23 @@ export default function ChatPage() {
               </motion.aside>
             ) : null}
           </AnimatePresence>
-        </motion.div>
+        )}
+      </motion.div>
 
-        {/* Mobile */}
-        <div className="relative flex h-full min-h-0 flex-col px-4 py-4 lg:hidden">
-          <div className="mb-3 flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="eyebrow">Travel assistant</p>
-              <h1 className="mt-1 truncate font-display text-lg leading-tight">Plan this the way you&rsquo;d talk about it</h1>
-            </div>
-            <button
-              type="button"
-              onClick={() => setMobileContextOpen(true)}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-background/90 px-3 py-1.5 text-[11px] font-medium backdrop-blur"
-            >
-              <PanelRight className="h-3.5 w-3.5" /> Trip context
-            </button>
-          </div>
-          <div className="min-h-0 flex-1">
-            <ConversationSurface tripId={tripId} initialMessages={data?.conversation} onOpenPlace={openPlace} />
-          </div>
-
+      {!desktop && (
+        <>
           {/* Mobile workspace: full-screen slide-up */}
           <AnimatePresence>
             {workspace && (
               <motion.div
+                key={workspaceKey}
                 initial={{ y: "100%" }}
                 animate={{ y: 0 }}
                 exit={{ y: "100%" }}
                 transition={{ type: "spring", stiffness: 240, damping: 30 }}
-                className="fixed inset-0 top-[57px] z-40 bg-surface"
+                className="fixed inset-0 top-[var(--topbar)] z-40 bg-surface"
               >
-                {placePanel}
+                {panel}
               </motion.div>
             )}
           </AnimatePresence>
@@ -188,8 +230,8 @@ export default function ChatPage() {
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }

@@ -8,7 +8,9 @@ import { transit } from "@/packages/providers/google-places/transit";
 import { route as mapboxRoute } from "@/packages/providers/mapbox/client";
 import { transitAppPlan } from "@/packages/providers/transit-app/client";
 import { searchFlights, type FlightOffer } from "@/packages/providers/duffel/client";
-import { searchStays, stayRooms, type StayOption, type StayRoom } from "@/packages/providers/liteapi/client";
+import { liteApiConfigured, searchStays } from "@/packages/providers/liteapi/client";
+import type { StayOption, StayRoom } from "@/packages/contracts/stay";
+import { resolveStayDates } from "./stay-dates";
 import type { ToolCall } from "./turn-resolver";
 
 export type EventResult = { title: string; url: string; date?: string; venue?: string; source: string };
@@ -130,27 +132,20 @@ export async function retrieveEvidence(
         const offers = await searchFlights({ origin: call.origin, destination: call.destination, departureDate, returnDate }, signal).catch(fail("duffel"));
         if (offers && offers.length) flights.push({ origin: call.origin, destination: call.destination, departureDate, assumedDate, offers: offers.slice(0, 6) });
       } else if (call.tool === "stays") {
-        if (!process.env.LITEAPI_KEY && !process.env.CONNECT_API_KEY) return;
-        const today = new Date().toISOString().slice(0, 10);
-        const assumedDates = !call.checkin || call.checkin <= today;
-        const checkin = assumedDates ? new Date(Date.now() + 42 * 864e5).toISOString().slice(0, 10) : call.checkin!;
-        const checkout = !assumedDates && call.checkout && call.checkout > checkin
-          ? call.checkout
-          : new Date(Date.parse(checkin) + 3 * 864e5).toISOString().slice(0, 10);
+        if (!liteApiConfigured()) return;
+        const { checkin, checkout, assumed: assumedDates } = resolveStayDates(call.checkin, call.checkout);
         const point = await geocode(call.location);
         const result = await searchStays(
           point ? { latitude: point[1], longitude: point[0], checkin, checkout } : { city: call.location, checkin, checkout },
           signal,
         ).catch(fail("liteapi"));
         if (!result || result.options.length === 0) return;
+        // Room rates were already in the search response — no second provider call.
         let detail: StaySearch["detail"];
         if (call.hotelName) {
           const wanted = call.hotelName.toLowerCase();
           const match = result.options.find((option) => option.name.toLowerCase().includes(wanted) || wanted.includes(option.name.toLowerCase()));
-          if (match) {
-            const rooms = await stayRooms({ hotelId: match.hotelId, checkin, checkout }, signal).catch(fail("liteapi"));
-            if (rooms && rooms.rooms.length) detail = { hotelName: match.name, rooms: rooms.rooms };
-          }
+          if (match && match.rooms.length) detail = { hotelName: match.name, rooms: match.rooms };
         }
         stays.push({ location: call.location, checkin, checkout, nights: result.nights, assumedDates, options: result.options, detail });
       } else if (call.tool === "weather") {

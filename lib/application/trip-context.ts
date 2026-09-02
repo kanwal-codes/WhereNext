@@ -1,11 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { readStayDecision, type StayDecision } from "@/packages/contracts/stay";
 
 export type TripContext = {
   trip: { name: string; destination: string; origin: string | null; duration_days: number | null; travelers: number | null } | null;
   preferences: Record<string, unknown>;
   itinerary: Array<{ title: string; day_index: number; locked: boolean; latitude?: number; longitude?: number }>;
   lockedTitles: string[];
+  /** The locked stay first (when it has coordinates), then locked itinerary items — the anchors for "distance from" on cards. */
   lockedPlaces: Array<{ title: string; latitude: number; longitude: number }>;
+  lockedStay: StayDecision | null;
   places: Array<{ status: string; place: { name: string; category: string | null; address: string | null } | null }>;
   decisions: Array<{ kind: string; value: unknown; source: string; created_at: string }>;
 };
@@ -38,19 +41,29 @@ export async function loadTripContext(supabase: SupabaseClient, tripId: string):
       longitude: coord(metadata, "longitude"),
     };
   });
+  // "suggestion" rows are the assistant's own pending guesses — they must not read back as confirmed facts.
+  const decisionRows = ((decisions.data ?? []) as TripContext["decisions"]).filter((d) => d.kind !== "suggestion");
+  const lockedStay = readStayDecision(decisionRows);
+  const stayAnchor = lockedStay && lockedStay.latitude != null && lockedStay.longitude != null
+    ? [{ title: lockedStay.hotelName, latitude: lockedStay.latitude, longitude: lockedStay.longitude }]
+    : [];
   return {
     trip: trip.data ?? null,
     preferences: (preferences.data?.data ?? {}) as Record<string, unknown>,
     itinerary: items,
     lockedTitles: items.filter((item) => item.locked).map((item) => item.title),
-    lockedPlaces: items
-      .filter((item) => item.locked && item.latitude !== undefined && item.longitude !== undefined)
-      .map((item) => ({ title: item.title, latitude: item.latitude as number, longitude: item.longitude as number })),
+    lockedPlaces: [
+      ...stayAnchor,
+      ...items
+        .filter((item) => item.locked && item.latitude !== undefined && item.longitude !== undefined)
+        .map((item) => ({ title: item.title, latitude: item.latitude as number, longitude: item.longitude as number })),
+    ],
+    lockedStay,
     places: (places.data ?? []).map((item) => {
       const place = Array.isArray(item.places) ? item.places[0] : item.places;
       return { status: item.status, place: place ? { name: place.name, category: place.category, address: place.address } : null };
     }),
-    decisions: (decisions.data ?? []) as TripContext["decisions"],
+    decisions: decisionRows,
   };
 }
 
@@ -104,12 +117,15 @@ export function formatTripMemory(context: Pick<TripContext, "preferences" | "iti
   const savedPlaces = context.places
     .map((item) => (item.place?.name ? `${item.place.name} [${item.status ?? "saved"}]` : ""))
     .filter(Boolean);
+  const stay = readStayDecision(context.decisions);
   const decisions = context.decisions
+    .filter((item) => item.kind !== "stay")
     .map((item) => (item.kind ? `${item.kind}: ${typeof item.value === "string" ? item.value : JSON.stringify(item.value)}` : ""))
     .filter(Boolean);
 
   return [
     profile.length ? `Profile — ${profile.join("; ")}.` : "Profile: not filled in yet.",
+    stay ? `Stay: ${stay.hotelName}, ${stay.roomName}, ${stay.checkin}→${stay.checkout}, ${stay.totalAmount} ${stay.currency}.` : "Stay: not locked yet.",
     itinerary.length ? `Itinerary: ${itinerary.join(", ")}.` : "Itinerary: nothing added yet.",
     savedPlaces.length ? `Saved places: ${savedPlaces.join(", ")}.` : "Saved places: none yet.",
     decisions.length ? `Decisions: ${decisions.join("; ")}.` : "Decisions: none recorded yet.",

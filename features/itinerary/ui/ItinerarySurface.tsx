@@ -2,12 +2,26 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowDown, ArrowUp, Lock, LockOpen, MapPin, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, BedDouble, Lock, LockOpen, MapPin, Plus, Trash2 } from "lucide-react";
 import type { ItineraryItem } from "@/features/itinerary/domain/item";
+import type { StayDecision } from "@/packages/contracts/stay";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { cn } from "@/lib/utils";
 
-export function ItinerarySurface({ tripId, initialItems }: { tripId: string; initialItems?: Array<Record<string, unknown>> }) {
+const fmtDay = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString([], { month: "short", day: "numeric" });
+};
+
+export function ItinerarySurface({
+  tripId,
+  initialItems,
+  lockedStay = null,
+}: {
+  tripId: string;
+  initialItems?: Array<Record<string, unknown>>;
+  lockedStay?: StayDecision | null;
+}) {
   const [items, setItems] = useState<ItineraryItem[]>((initialItems ?? []) as ItineraryItem[]);
   const [title, setTitle] = useState("");
   const [day, setDay] = useState(1);
@@ -94,6 +108,14 @@ export function ItinerarySurface({ tripId, initialItems }: { tripId: string; ini
 
   return (
     <div className="space-y-8">
+      {lockedStay && (
+        <p className="flex items-center gap-2 rounded-2xl border border-leaf/30 bg-leaf-soft/40 px-4 py-2.5 text-sm text-ink-soft">
+          <BedDouble className="h-4 w-4 shrink-0 text-leaf" />
+          <span className="min-w-0 truncate">
+            Based at <span className="font-medium text-foreground">{lockedStay.hotelName}</span> · {fmtDay(lockedStay.checkin)} → {fmtDay(lockedStay.checkout)}
+          </span>
+        </p>
+      )}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -118,7 +140,7 @@ export function ItinerarySurface({ tripId, initialItems }: { tripId: string; ini
             className="w-14 rounded-lg border border-border bg-background px-2 py-1 text-sm"
           />
         </label>
-        <button type="submit" className="rounded-full bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground">
+        <button type="submit" className="btn-primary-sm">
           Add
         </button>
       </form>

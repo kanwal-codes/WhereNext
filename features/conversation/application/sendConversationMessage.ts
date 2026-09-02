@@ -11,7 +11,7 @@ export async function sendConversationMessage(input: {
   onAssistantStart: (responseId: string) => void;
   onAssistantDelta: (content: string) => void;
   signal?: AbortSignal;
-}): Promise<AssistantTurnMeta | undefined> {
+}): Promise<{ meta?: AssistantTurnMeta; content: string }> {
   const messageIdempotencyKey = await persistUserMessage(input.tripId, input.content, crypto.randomUUID());
   input.onUserSaved();
   const responseId = crypto.randomUUID();
@@ -26,5 +26,5 @@ export async function sendConversationMessage(input: {
   if (!content.trim() && !meta?.blocks?.length) throw new Error("Assistant returned an empty response");
   if (meta?.proposedCommand) input.onProposal?.(meta.proposedCommand);
   if (meta?.surface) input.onSurfaceSelect?.(meta.surface);
-  return meta;
+  return { meta, content };
 }

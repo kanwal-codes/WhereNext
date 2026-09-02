@@ -2,24 +2,34 @@ import React from "react";
 import {
   ArrowUpRight,
   BedDouble,
-  Bookmark,
-  CalendarPlus,
+  Car,
+  Footprints,
   MapPin,
   Plane,
   Star,
   TicketCheck,
   TrainFront,
 } from "lucide-react";
-import type { AssistantBlock, PlaceCard, TrustLabel } from "@/packages/contracts/assistant";
+import type { AssistantBlock, PlaceCard, StayCardItem, TrustLabel } from "@/packages/contracts/assistant";
+import type { Place } from "@/packages/contracts/place";
+import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
+import { ExternalLink } from "@/components/ExternalLink";
 import { cn } from "@/lib/utils";
 
 export type BlockHandlers = {
+  /** The trip these blocks belong to — card actions write against it. */
+  tripId: string;
   onFollowup: (prompt: string) => void;
-  onSave: (place: PlaceCard) => void;
-  onAddItinerary: (place: PlaceCard) => void;
   /** When set, the card head opens this place in the chat side-panel. */
   onOpenPlace?: (place: PlaceCard) => void;
+  /** When set, a stay card opens the hotel (rooms + details) in the chat side-panel. */
+  onOpenStay?: (stay: StayCardItem, dates: { checkin: string; checkout: string }) => void;
+  /** When set, a comparison opens a live side-by-side in the chat side-panel. */
+  onOpenCompare?: (placeIds: string[]) => void;
 };
+
+/** Drop the card-only fields so what's left is a plain provider Place. */
+const toPlace = ({ photoUrl: _photo, trust: _trust, distanceToLocked: _distance, ...place }: PlaceCard): Place => place;
 
 const TRUST_LABEL: Record<TrustLabel, string> = {
   verified: "Verified",
@@ -31,9 +41,9 @@ const TRUST_LABEL: Record<TrustLabel, string> = {
 
 const card = "rounded-2xl border border-border bg-card shadow-soft";
 const rowDivider = "border-b border-border last:border-b-0";
-const iconBtn =
-  "inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-background px-3 text-xs text-ink-soft transition-colors hover:border-primary/40 hover:text-primary";
+const iconBtn = "btn-chip";
 const freshness = "mt-2 text-[11px] text-muted-foreground";
+const carousel = "-mx-3.5 flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto scrollbar-slim px-3.5 pb-1 sm:-mx-4 sm:px-4";
 
 function fmtTime(value: string) {
   const d = new Date(value);
@@ -42,10 +52,9 @@ function fmtTime(value: string) {
 
 function PlaceCardView({
   place,
-  onSave,
-  onAddItinerary,
+  tripId,
   onOpenPlace,
-}: { place: PlaceCard } & Pick<BlockHandlers, "onSave" | "onAddItinerary" | "onOpenPlace">) {
+}: { place: PlaceCard; tripId: string } & Pick<BlockHandlers, "onOpenPlace">) {
   const head = (
     <>
       {place.photoUrl && (
@@ -89,14 +98,11 @@ function PlaceCardView({
             <MapPin className="h-3 w-3 shrink-0 text-coral" /> {place.distanceToLocked}
           </p>
         )}
-        <p className="eyebrow">{TRUST_LABEL[place.trust] ?? place.trust}</p>
-        <div className="mt-auto flex flex-wrap gap-2 pt-1">
-          <button type="button" className={iconBtn} onClick={() => onSave(place)}>
-            <Bookmark className="h-3.5 w-3.5" /> Save
-          </button>
-          <button type="button" className={iconBtn} onClick={() => onAddItinerary(place)}>
-            <CalendarPlus className="h-3.5 w-3.5" /> Itinerary
-          </button>
+        {/* "From provider" is the default for every card — only a non-default trust label carries information. */}
+        {place.trust !== "sourced" && <p className="eyebrow">{TRUST_LABEL[place.trust] ?? place.trust}</p>}
+        <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
+          {/* One control: shortlist (still deciding) → a day (going in the plan) → remove. */}
+          <AddToTripControl tripId={tripId} place={toPlace(place)} size="sm" />
           {onOpenPlace ? (
             <button type="button" className={iconBtn} onClick={() => onOpenPlace(place)}>
               Details <ArrowUpRight className="h-3.5 w-3.5" />
@@ -114,19 +120,75 @@ function PlaceCardView({
   );
 }
 
-export function MessageBlocks({ blocks, onFollowup, onSave, onAddItinerary, onOpenPlace }: { blocks: AssistantBlock[] } & BlockHandlers) {
+function StayCardView({ hotel, onOpen }: { hotel: StayCardItem; onOpen?: () => void }) {
+  const head = (
+    <>
+      {hotel.thumbnailUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
+        <img src={hotel.thumbnailUrl} alt={hotel.name} width={320} height={160} loading="lazy" className="h-32 w-full object-cover" />
+      ) : (
+        <div className="grid h-32 w-full place-items-center bg-muted">
+          <BedDouble className="h-6 w-6 text-muted-foreground/40" />
+        </div>
+      )}
+      <h4 className="line-clamp-2 px-3.5 pt-3.5 font-display text-base leading-tight">{hotel.name}</h4>
+    </>
+  );
+  const meta = [
+    typeof hotel.stars === "number" ? `${hotel.stars}★` : null,
+    typeof hotel.rating === "number" ? `${hotel.rating}/10${hotel.reviews ? ` (${hotel.reviews.toLocaleString()})` : ""}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  return (
+    <article className={cn(card, "group flex h-full flex-col overflow-hidden")}>
+      {onOpen ? (
+        <button type="button" onClick={onOpen} aria-label={`Open ${hotel.name}`} className="block w-full text-left transition-colors hover:bg-accent/50">
+          {head}
+        </button>
+      ) : (
+        head
+      )}
+      <div className="flex flex-1 flex-col gap-2 px-3.5 pt-2 pb-3.5">
+        {meta && <p className="truncate text-xs text-muted-foreground">{meta}</p>}
+        {hotel.distanceToLocked && (
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <MapPin className="h-3 w-3 shrink-0 text-coral" /> {hotel.distanceToLocked}
+          </p>
+        )}
+        <p className="flex flex-wrap items-baseline gap-x-1">
+          <span className="text-sm font-semibold tabular-nums">{hotel.nightlyPrice} {hotel.currency}</span>
+          <span className="text-[11px] text-muted-foreground">/night · {hotel.totalPrice} {hotel.currency} total</span>
+        </p>
+        {(hotel.board || hotel.refundable) && (
+          <p className="flex flex-wrap gap-1 text-[11px]">
+            {hotel.board && <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">{hotel.board}</span>}
+            {hotel.refundable && <span className="rounded-full bg-leaf-soft px-2 py-0.5 text-leaf">Refundable</span>}
+          </p>
+        )}
+        {onOpen && (
+          <div className="mt-auto pt-1">
+            <button type="button" className={iconBtn} onClick={onOpen}>
+              Rooms &amp; details <ArrowUpRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+    </article>
+  );
+}
+
+export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenStay, onOpenCompare }: { blocks: AssistantBlock[] } & BlockHandlers) {
   return (
     <div className="mt-3 flex flex-col gap-3">
       {blocks.map((block, index) => {
         if (block.type === "place_list") {
           return (
-            <div
-              key={index}
-              className="-mx-3.5 flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto scrollbar-slim px-3.5 pb-1 sm:-mx-4 sm:px-4"
-            >
+            <div key={index} className={carousel}>
               {block.places.map((place) => (
                 <div key={place.providerId} className="w-[228px] shrink-0 snap-start">
-                  <PlaceCardView place={place} onSave={onSave} onAddItinerary={onAddItinerary} onOpenPlace={onOpenPlace} />
+                  <PlaceCardView place={place} tripId={tripId} onOpenPlace={onOpenPlace} />
                 </div>
               ))}
             </div>
@@ -134,6 +196,22 @@ export function MessageBlocks({ blocks, onFollowup, onSave, onAddItinerary, onOp
         }
 
         if (block.type === "comparison") {
+          // Real places → open a live side-by-side in the panel instead of an inline table.
+          if (block.placeIds && block.placeIds.length >= 2 && onOpenCompare) {
+            return (
+              <div key={index} className={cn(card, "p-3.5")}>
+                <p className="font-display text-sm">{block.title}</p>
+                {block.bestForYou && (
+                  <p className="mt-1 text-xs text-leaf">
+                    <strong className="font-medium">{block.bestForYou.label}</strong> — {block.bestForYou.reason}
+                  </p>
+                )}
+                <button type="button" onClick={() => onOpenCompare(block.placeIds!)} className={cn(iconBtn, "mt-2.5")}>
+                  Open side by side <ArrowUpRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            );
+          }
           return (
             <div key={index} className={cn(card, "p-3.5")}>
               <p className="font-display text-sm">{block.title}</p>
@@ -178,7 +256,7 @@ export function MessageBlocks({ blocks, onFollowup, onSave, onAddItinerary, onOp
                   key={item.label}
                   type="button"
                   onClick={() => onFollowup(item.prompt)}
-                  className="rounded-full border border-border bg-background px-3.5 py-1.5 text-xs text-ink-soft transition-colors hover:border-primary/40 hover:text-primary"
+                  className="btn-chip"
                 >
                   {item.label}
                 </button>
@@ -188,7 +266,7 @@ export function MessageBlocks({ blocks, onFollowup, onSave, onAddItinerary, onOp
         }
 
         if (block.type === "route_summary") {
-          const Icon = block.mode === "walking" ? MapPin : block.mode === "driving" ? TrainFront : TrainFront;
+          const Icon = block.mode === "walking" ? Footprints : block.mode === "driving" ? Car : TrainFront;
           return (
             <div key={index} className={cn(card, "p-3.5")}>
               <p className="flex items-center gap-2 font-display text-sm">
@@ -212,23 +290,20 @@ export function MessageBlocks({ blocks, onFollowup, onSave, onAddItinerary, onOp
         }
 
         if (block.type === "clarifying_question") {
+          // The question itself streams as the reply text; only the answer chips are structured.
+          if (block.chips.length === 0) return null;
           return (
-            <div key={index} className="border-l-2 border-coral pl-3">
-              <p className="text-sm">{block.question}</p>
-              {block.chips.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {block.chips.map((chip) => (
-                    <button
-                      key={chip}
-                      type="button"
-                      onClick={() => onFollowup(chip)}
-                      className="rounded-full border border-border bg-background px-3 py-1 text-xs text-ink-soft transition-colors hover:border-primary/40 hover:text-primary"
-                    >
-                      {chip}
-                    </button>
-                  ))}
-                </div>
-              )}
+            <div key={index} className="flex flex-wrap gap-2">
+              {block.chips.map((chip) => (
+                <button
+                  key={chip}
+                  type="button"
+                  onClick={() => onFollowup(chip)}
+                  className="btn-chip"
+                >
+                  {chip}
+                </button>
+              ))}
             </div>
           );
         }
@@ -244,9 +319,9 @@ export function MessageBlocks({ blocks, onFollowup, onSave, onAddItinerary, onOp
                       <span className="block text-xs text-muted-foreground">{[event.date, event.venue].filter(Boolean).join(" · ")}</span>
                     )}
                   </div>
-                  <a href={event.url} target="_blank" rel="noreferrer noopener" className="shrink-0 whitespace-nowrap text-xs text-coral">
-                    Tickets <ArrowUpRight className="inline h-3 w-3" />
-                  </a>
+                  <ExternalLink href={event.url} className="shrink-0 whitespace-nowrap">
+                    Tickets
+                  </ExternalLink>
                 </div>
               ))}
               <p className={freshness}>
@@ -282,67 +357,34 @@ export function MessageBlocks({ blocks, onFollowup, onSave, onAddItinerary, onOp
         }
 
         if (block.type === "stays") {
+          const dates = { checkin: block.checkin, checkout: block.checkout };
           return (
-            <div key={index} className={cn(card, "px-3.5 py-2.5")}>
-              <p className="mb-1 flex flex-wrap items-center gap-x-2 font-display text-sm">
+            <div key={index} className="flex flex-col gap-2">
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-display text-sm">
                 <BedDouble className="h-4 w-4 text-coral" /> Stays in {block.location}
                 <span className="text-xs font-normal text-muted-foreground">
                   · {block.nights} night{block.nights > 1 ? "s" : ""}
                   {block.dateNote ? ` · ${block.dateNote}` : ""}
                 </span>
               </p>
-              {block.items.map((hotel, hotelIndex) => (
-                <div key={hotelIndex} className={cn("flex items-start justify-between gap-3 py-2.5", rowDivider)}>
-                  <div className="flex min-w-0 gap-3">
-                    {hotel.thumbnailUrl && (
-                      // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
-                      <img
-                        src={hotel.thumbnailUrl}
-                        alt={hotel.name}
-                        loading="lazy"
-                        width={56}
-                        height={56}
-                        className="h-14 w-14 shrink-0 rounded-lg object-cover"
-                      />
-                    )}
-                    <div className="min-w-0">
-                    <span className="text-sm font-medium">{hotel.name}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {[
-                        typeof hotel.stars === "number" ? `${hotel.stars}★` : null,
-                        typeof hotel.rating === "number"
-                          ? `${hotel.rating}/10${hotel.reviews ? ` (${hotel.reviews.toLocaleString()})` : ""}`
-                          : null,
-                        hotel.board,
-                        hotel.refundable ? "refundable" : null,
-                        hotel.distanceToLocked ? `📍 ${hotel.distanceToLocked}` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </span>
-                    </div>
+              <div className={carousel}>
+                {block.items.map((hotel, hotelIndex) => (
+                  <div key={hotel.hotelId || `${hotel.name}-${hotelIndex}`} className="w-[228px] shrink-0 snap-start">
+                    <StayCardView hotel={hotel} onOpen={onOpenStay && hotel.hotelId ? () => onOpenStay(hotel, dates) : undefined} />
                   </div>
-                  <div className="flex flex-col items-end whitespace-nowrap">
-                    <span className="text-sm font-semibold tabular-nums">{hotel.nightlyPrice} {hotel.currency}</span>
-                    <span className="text-[11px] text-muted-foreground">/night · {hotel.totalPrice} {hotel.currency} total</span>
-                    <span className="mt-0.5 flex gap-2 text-xs">
-                      {hotel.mapUrl && (
-                        <a href={hotel.mapUrl} target="_blank" rel="noreferrer noopener" className="text-coral">Map</a>
-                      )}
-                      <button type="button" className="text-coral" onClick={() => onFollowup(`Show room rates at ${hotel.name}`)}>
-                        Rooms
-                      </button>
-                    </span>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
               {block.rooms && block.rooms.length > 0 && (
-                <div className="mt-2 rounded-xl bg-muted px-3 py-2">
-                  <p className="mb-1 text-xs font-medium">Rooms at {block.detailHotel}</p>
+                <div className={cn(card, "px-3.5 py-3")}>
+                  <p className="mb-1.5 text-xs font-medium">Rooms at {block.detailHotel}</p>
                   {block.rooms.map((room, roomIndex) => (
-                    <div key={roomIndex} className="flex justify-between gap-2 py-0.5 text-xs text-ink-soft">
-                      <span>{room.name}{room.board ? ` · ${room.board}` : ""}{room.refundable ? " · refundable" : ""}</span>
-                      <span className="tabular-nums">{room.nightlyPrice} {room.currency}/night</span>
+                    <div key={roomIndex} className="flex justify-between gap-2 py-1 text-xs text-ink-soft">
+                      <span className="min-w-0 truncate">
+                        {room.name}
+                        {room.boardName ? ` · ${room.boardName}` : ""}
+                        {room.refundable ? " · refundable" : ""}
+                      </span>
+                      <span className="shrink-0 tabular-nums">{room.nightlyAmount} {room.currency}/night</span>
                     </div>
                   ))}
                 </div>
@@ -372,7 +414,7 @@ export function MessageBlocks({ blocks, onFollowup, onSave, onAddItinerary, onOp
           );
         }
 
-        return null; // stay_options: deprecated placeholder
+        return null;
       })}
     </div>
   );

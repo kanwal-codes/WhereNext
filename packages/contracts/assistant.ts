@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { placeSchema } from "./place";
-export const assistantSurfaceSchema = z.enum(["chat","destinations","explore","transport","stay","map","days","budget","essentials"]);
+import { stayItemSchema, stayRoomSchema } from "./stay";
+export type { StayCardItem } from "./stay";
+export const assistantSurfaceSchema = z.enum(["chat","explore","transport","stay","map","days","budget","essentials"]);
 export const assistantIntentSchema = z.object({ reply: z.string().min(1).max(20000), surface: assistantSurfaceSchema, reason: z.string().max(240) });
 export type AssistantIntent = z.infer<typeof assistantIntentSchema>;
 export const proposedCommandSchema = z.discriminatedUnion("type", [
@@ -35,6 +37,8 @@ export const assistantBlockSchema = z.discriminatedUnion("type", [
     columns: z.array(z.string().max(60)).min(2).max(6),
     rows: z.array(z.object({ label: z.string().max(80), cells: z.array(z.string().max(160)) })).min(2).max(6),
     bestForYou: z.object({ label: z.string().max(80), reason: z.string().max(240) }).nullable().optional(),
+    /** Google Place ids of what's being compared — lets the chat open a live side-by-side panel. */
+    placeIds: z.array(z.string().max(240)).max(4).optional(),
   }),
   z.object({ type: z.literal("actions"), items: z.array(followupSchema).min(1).max(6) }),
   z.object({ type: z.literal("clarifying_question"), question: z.string().max(240), chips: z.array(z.string().max(48)).max(6) }),
@@ -74,28 +78,8 @@ export const assistantBlockSchema = z.discriminatedUnion("type", [
     nights: z.number().int().positive(),
     dateNote: z.string().max(140).optional(),
     detailHotel: z.string().max(160).optional(),
-    items: z.array(z.object({
-      name: z.string().max(160),
-      nightlyPrice: z.string().max(16),
-      totalPrice: z.string().max(16),
-      currency: z.string().max(8),
-      stars: z.number().nonnegative().optional(),
-      rating: z.number().nonnegative().optional(),
-      reviews: z.number().int().nonnegative().optional(),
-      board: z.string().max(60).optional(),
-      refundable: z.boolean().optional(),
-      distanceToLocked: z.string().max(120).optional(),
-      mapUrl: z.string().url().optional(),
-      thumbnailUrl: z.string().url().optional(),
-    })).min(1).max(6),
-    rooms: z.array(z.object({
-      name: z.string().max(120),
-      board: z.string().max(60).optional(),
-      refundable: z.boolean().optional(),
-      nightlyPrice: z.string().max(16),
-      totalPrice: z.string().max(16),
-      currency: z.string().max(8),
-    })).max(12).optional(),
+    items: z.array(stayItemSchema).min(1).max(6),
+    rooms: z.array(stayRoomSchema.pick({ name: true, boardName: true, refundable: true, maxOccupancy: true, nightlyAmount: true, totalAmount: true, currency: true })).max(12).optional(),
   }),
   z.object({
     type: z.literal("route_summary"),
@@ -129,6 +113,8 @@ export const assistantTurnSchema = z.object({
   sources: z.array(assistantSourceSchema).default([]),
   suggestedFollowups: z.array(followupSchema).default([]),
   proposedCommand: proposedCommandSchema.optional(),
+  /** Providers that errored during RETRIEVE, so the UI can say what could not be checked. */
+  unavailableProviders: z.array(z.string().max(40)).default([]),
 });
 export type AssistantTurn = z.infer<typeof assistantTurnSchema>;
 /** The metadata frame persisted on a conversation_messages row and streamed as the final SSE event. */
@@ -138,15 +124,21 @@ export const assistantSystemPrompt = `You are Muse, a trip-planning assistant th
 LANGUAGE: Reply in the language of the user's latest message.
 
 LENGTH AND SHAPE:
-- Default to 2 to 4 short sentences.
-- Use a bulleted list only when you give 3 or more parallel items.
-- Never put a comparison table in your reply. If the user asks to compare options, give a one or two sentence summary and say the detailed comparison is opening next to the chat.
+- Default to 2 to 4 short sentences. Use a bulleted list only for 3 or more parallel points of reasoning.
 - Give at most 6 recommendations and never repeat one.
+- Never put a comparison table in your reply. If the user asks to compare options, give a one or two sentence verdict and say the detailed comparison is opening next to the chat.
+
+PROSE AND CARDS:
+- Every structured result in the evidence (places, hotels, rooms, flights, events, routes, comparisons, checklists) is rendered as cards beside your reply, from the same evidence. Your reply is the reasoning layer, not a listing.
+- The reply and the cards must describe the SAME set. Never name a place, hotel, or event that is not in the evidence below — no results from earlier in the conversation, from a web source, or from your own knowledge.
+- Do not restate what the cards show: no roll call of names with prices, no addresses, no URLs or "ticket link", no ratings, no retrieval times, and no booking disclaimers ("taxes may be extra", "book on the airline", "confirm availability"). The cards carry source and freshness.
+- Name an option only to explain a choice or trade-off, with one short clause on why it fits this trip: the group, interests, budget, pace, or locked places.
+- Do not describe yourself or the interface, and do not mention "cards".
+- End with the one decision that would move the plan forward.
 
 GROUNDING AND HONESTY:
-- Use only the supplied trip context and provider evidence for facts. If a detail is not in the evidence, say it is unavailable. Never guess prices, opening hours, visa rules, availability, or bookings.
-- Mark live facts with a trust label: verified (current authoritative source), sourced (linked but unconfirmed), estimated (calculated), assumption (filled in because data is missing), or unavailable. Add "checked <time>" when the evidence carries a retrieval time.
-- Every place or option you recommend must include one short clause on why it fits this trip: the group, interests, budget, or pace.
+- Use only the supplied trip context and provider evidence for facts. If a detail is not in the evidence, say it is unavailable in one clause; do not fill the gap. Never guess prices, opening hours, visa rules, availability, or bookings.
+- When the user asks what is already in their trip, itinerary, or saved places, name each item by its exact stored title; do not paraphrase or reorder the words of a title.
 - Never recommend anything the user has said they dislike, rejected, or asked you not to show. Respect any stated budget, dietary, and accessibility needs.
 - Only use links and images that appear in the supplied evidence. Never invent a URL or a photo.
 

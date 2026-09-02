@@ -1,7 +1,22 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { route } from "@/packages/providers/mapbox/client";
 import { cached } from "@/lib/server/ttl-cache";
-const inputSchema = z.object({ origin: z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]), destination: z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]), profile: z.enum(["driving","walking","cycling"]).default("walking") });
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) { try { const supabase = await createSupabaseServerClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return NextResponse.json({ error: "Authentication required" }, { status: 401 }); const member = await supabase.from("trip_members").select("trip_id").eq("trip_id", (await params).tripId).eq("user_id", user.id).maybeSingle(); if (!member.data) return NextResponse.json({ error: "Trip not found" }, { status: 404 }); const input = inputSchema.parse(await request.json()); const key = `directions:${JSON.stringify(input)}`; const result = await cached(key, 60_000, async () => ({ route: await route(input, request.signal), retrievedAt: new Date().toISOString() })); return NextResponse.json({ route: result.route, freshness: { provider: "mapbox", retrievedAt: result.retrievedAt, cacheTtlSeconds: 60 } }); } catch (error) { if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid directions request" }, { status: 400 }); return NextResponse.json({ error: "Directions unavailable" }, { status: 503 }); } }
+
+const coordinate = z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]);
+const inputSchema = z.object({ origin: coordinate, destination: coordinate, profile: z.enum(["driving", "walking", "cycling"]).default("walking") });
+
+export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+  try {
+    await requireTripMember((await params).tripId);
+    if (!process.env.MAPBOX_ACCESS_TOKEN) return NextResponse.json({ error: "Directions are not configured" }, { status: 503 });
+    const input = inputSchema.parse(await request.json());
+    const key = `directions:${JSON.stringify(input)}`;
+    const result = await cached(key, 60_000, async () => ({ route: await route(input, request.signal), retrievedAt: new Date().toISOString() }));
+    return NextResponse.json({ route: result.route, freshness: { provider: "mapbox", retrievedAt: result.retrievedAt, cacheTtlSeconds: 60 } });
+  } catch (error) {
+    if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid directions request" }, { status: 400 });
+    return tripAuthResponse(error) ?? NextResponse.json({ error: "Directions are unavailable right now" }, { status: 503 });
+  }
+}

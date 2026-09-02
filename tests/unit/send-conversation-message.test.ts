@@ -21,7 +21,7 @@ describe("sendConversationMessage", () => {
     const onUserSaved = vi.fn();
     const onAssistantStart = vi.fn();
     const deltas: string[] = [];
-    const meta = await sendConversationMessage({ tripId: "trip", content: "Find museums", onSurfaceSelect, onUserSaved, onAssistantStart, onAssistantDelta: (content) => deltas.push(content) });
+    const { meta, content } = await sendConversationMessage({ tripId: "trip", content: "Find museums", onSurfaceSelect, onUserSaved, onAssistantStart, onAssistantDelta: (content) => deltas.push(content) });
 
     expect(calls.filter((call) => call.startsWith("POST ")).map((call) => call.split(" ")[1])).toEqual(["/api/trips/trip/conversation", "/api/ai"]);
     expect(onUserSaved).toHaveBeenCalledOnce();
@@ -29,6 +29,7 @@ describe("sendConversationMessage", () => {
     expect(onSurfaceSelect).toHaveBeenCalledWith("explore");
     expect(deltas).toEqual(["hello"]);
     expect(meta?.surface).toBe("explore");
+    expect(content).toBe("hello");
   });
 
   it("does not call AI when the user message cannot be persisted", async () => {

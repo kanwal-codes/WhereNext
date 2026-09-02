@@ -8,21 +8,6 @@ async function waitForStartSlot(tripId: string) {
   lastStarted.set(tripId, Date.now());
 }
 
-export async function withTripAiQueue<T>(tripId: string, task: () => Promise<T>): Promise<T> {
-  const previous = queues.get(tripId) ?? Promise.resolve();
-  let release!: () => void;
-  const current = new Promise<void>((resolve) => { release = resolve; });
-  const chain = previous.then(() => current);
-  queues.set(tripId, chain);
-  await previous;
-  await waitForStartSlot(tripId);
-  try { return await task(); }
-  finally {
-    release();
-    if (queues.get(tripId) === chain) { queues.delete(tripId); lastStarted.delete(tripId); }
-  }
-}
-
 export async function withTripAiStream(tripId: string, task: () => Promise<ReadableStream<Uint8Array>>): Promise<ReadableStream<Uint8Array>> {
   const previous = queues.get(tripId) ?? Promise.resolve();
   let release!: () => void;

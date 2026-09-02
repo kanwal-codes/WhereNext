@@ -1,17 +1,33 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
-import { ArrowUp, Copy, Mic } from "lucide-react";
-import type { AssistantTurnMeta, PlaceCard, ProposedCommand } from "@/packages/contracts/assistant";
+import { ArrowUp, Copy } from "lucide-react";
+import type { AssistantTurnMeta, PlaceCard, ProposedCommand, StayCardItem } from "@/packages/contracts/assistant";
 import type { Message } from "../domain/message";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
+import { notifyToast } from "@/lib/application/toast";
 import { AssistantMessage } from "./AssistantMessage";
 import { AssistantRequestError } from "../application/streamAssistantResponse";
 import { sendConversationMessage } from "../application/sendConversationMessage";
 import { cn } from "@/lib/utils";
 
 const RTL = new Set(["ar", "he", "fa", "ur", "ps", "sd"]);
+
+/** Human names for the providers RETRIEVE may report as unavailable. */
+const PROVIDER_LABEL: Record<string, string> = {
+  liteapi: "hotel rates",
+  duffel: "flight fares",
+  ticketmaster: "events",
+  eventbrite: "events",
+  "google-routes": "transit",
+  "transit-app": "transit",
+  mapbox: "directions",
+  openweather: "weather",
+  tavily: "web sources",
+  "google-places": "places",
+};
+const unavailableLabels = (names?: string[]) => Array.from(new Set((names ?? []).map((name) => PROVIDER_LABEL[name] ?? name)));
 
 function Typing() {
   return (
@@ -34,12 +50,16 @@ export function ConversationSurface({
   initialMessages,
   onSurfaceSelect,
   onOpenPlace,
+  onOpenStay,
+  onOpenCompare,
   rail = false,
 }: {
   tripId: string;
   initialMessages?: Array<Record<string, unknown>>;
   onSurfaceSelect?: (surface: string) => void;
   onOpenPlace?: (place: PlaceCard) => void;
+  onOpenStay?: (stay: StayCardItem, dates: { checkin: string; checkout: string }) => void;
+  onOpenCompare?: (placeIds: string[]) => void;
   rail?: boolean;
 }) {
   const [messages, setMessages] = useState<Message[]>((initialMessages ?? []) as Message[]);
@@ -50,12 +70,26 @@ export function ConversationSurface({
   const [loaded, setLoaded] = useState(Boolean(initialMessages));
   const [confirming, setConfirming] = useState(false);
   const [proposal, setProposal] = useState<ProposedCommand | null>(null);
-  const [notice, setNotice] = useState("");
   const requestRef = useRef<AbortController | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const scrollFrame = useRef(0);
 
+  useEffect(() => () => requestRef.current?.abort(), []);
+
+  // A `?ask=` param (from a detail page's "ask the assistant" link) pre-fills the composer once.
   useEffect(() => {
+    const ask = new URLSearchParams(window.location.search).get("ask");
+    if (!ask) return;
+    setInput(ask);
+    window.history.replaceState({}, "", window.location.pathname);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, []);
+
+  // The layout already loads the conversation; only fetch when it didn't (preview route).
+  useEffect(() => {
+    if (initialMessages) return;
     const controller = new AbortController();
     fetch(`/api/trips/${tripId}/conversation`, { signal: controller.signal })
       .then(async (response) => {
@@ -73,17 +107,39 @@ export function ConversationSurface({
         setError("Conversation could not load.");
         setLoaded(true);
       });
-    return () => {
-      controller.abort();
-      requestRef.current?.abort();
-    };
-  }, [tripId]);
+    return () => controller.abort();
+  }, [tripId, initialMessages]);
 
-  useEffect(() => {
+  const scrollIfNearBottom = useCallback(() => {
     const log = logRef.current;
     if (log && log.scrollHeight - log.scrollTop - log.clientHeight > 160) return;
     endRef.current?.scrollIntoView({ block: "end" });
-  }, [messages]);
+  }, []);
+
+  // First landing: open on the most recent message, past the "near bottom" guard.
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: "end" });
+  }, [loaded]);
+
+  useEffect(() => {
+    scrollIfNearBottom();
+  }, [messages.length, scrollIfNearBottom]);
+
+  // One scroll per frame while tokens stream, not one per token.
+  const scheduleScroll = useCallback(() => {
+    if (scrollFrame.current) return;
+    scrollFrame.current = requestAnimationFrame(() => {
+      scrollFrame.current = 0;
+      scrollIfNearBottom();
+    });
+  }, [scrollIfNearBottom]);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [input]);
 
   async function confirmProposal() {
     if (!proposal || confirming) return;
@@ -102,7 +158,7 @@ export function ConversationSurface({
       const body = await response.json().catch(() => ({}));
       setProposal(null);
       setError("");
-      setNotice(typeof body.changeImpact === "string" ? body.changeImpact : "");
+      notifyToast(typeof body.changeImpact === "string" && body.changeImpact ? body.changeImpact : "Change saved.", "success");
       announceWorkspaceChange(
         command.type === "update_preferences"
           ? "preferences"
@@ -117,31 +173,6 @@ export function ConversationSurface({
     } finally {
       setConfirming(false);
     }
-  }
-
-  async function savePlace(cardPlace: PlaceCard) {
-    const { photoUrl: _photoUrl, trust: _trust, ...place } = cardPlace;
-    const response = await fetch(`/api/trips/${tripId}/places`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(place),
-    });
-    if (response.ok) {
-      announceWorkspaceChange("places");
-      setError("");
-    } else setError(`${cardPlace.name} could not be saved.`);
-  }
-
-  async function addItineraryFromCard(cardPlace: PlaceCard) {
-    const response = await fetch("/api/commands", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ type: "add_itinerary_item", tripId, title: cardPlace.name, dayIndex: 1 }),
-    });
-    if (response.ok) {
-      announceWorkspaceChange("itinerary");
-      setError("");
-    } else setError(`${cardPlace.name} could not be added.`);
   }
 
   async function submit(rawContent: string) {
@@ -160,7 +191,7 @@ export function ConversationSurface({
       const controller = new AbortController();
       requestRef.current = controller;
       let assistantId = "";
-      await sendConversationMessage({
+      const result = await sendConversationMessage({
         tripId,
         content,
         onSurfaceSelect,
@@ -175,15 +206,21 @@ export function ConversationSurface({
             { id: assistantId, role: "assistant", content: "", created_at: new Date().toISOString() },
           ]);
         },
-        onAssistantDelta: (assistant) =>
-          setMessages((current) => current.map((m) => (m.id === assistantId ? { ...m, content: assistant } : m))),
+        onAssistantDelta: (assistant) => {
+          setMessages((current) => current.map((m) => (m.id === assistantId ? { ...m, content: assistant } : m)));
+          scheduleScroll();
+        },
         signal: controller.signal,
       });
-      const refreshed = await fetch(`/api/trips/${tripId}/conversation`);
-      if (refreshed.ok) {
-        const body = (await refreshed.json()) as { messages?: Message[] };
-        setMessages(body.messages ?? []);
-      }
+      // Settle the streamed bubble in place: sanitized text + the structured blocks from the
+      // meta frame. No refetch, so ids stay stable and nothing re-mounts.
+      setMessages((current) =>
+        current.map((m) =>
+          m.id === assistantId
+            ? { ...m, content: result.content || m.content, metadata: result.meta ? (result.meta as unknown as Record<string, unknown>) : m.metadata }
+            : m,
+        ),
+      );
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       setMessages(userSaved ? next : previous);
@@ -209,16 +246,13 @@ export function ConversationSurface({
   }
 
   const handlers = {
+    tripId,
     onFollowup: (prompt: string) => {
       void submit(prompt);
     },
-    onSave: (cardPlace: PlaceCard) => {
-      void savePlace(cardPlace);
-    },
-    onAddItinerary: (cardPlace: PlaceCard) => {
-      void addItineraryFromCard(cardPlace);
-    },
     onOpenPlace,
+    onOpenStay,
+    onOpenCompare,
   };
 
   const proposalText =
@@ -233,10 +267,11 @@ export function ConversationSurface({
             : "Apply this proposed trip change?";
 
   const showHero = loaded && messages.length === 0 && !rail;
+  const waiting = sending && messages[messages.length - 1]?.content.trim() === "";
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div ref={logRef} aria-live="polite" className="flex-1 overflow-y-auto scrollbar-slim">
+      <div ref={logRef} className="flex-1 overflow-y-auto scrollbar-slim">
         <div className={cn("mx-auto space-y-6", rail ? "px-1 py-2" : "max-w-2xl py-2")}>
           {showHero && (
             <div className="pb-2">
@@ -269,6 +304,9 @@ export function ConversationSurface({
               );
             }
 
+            const unavailable = streaming ? [] : unavailableLabels(meta?.unavailableProviders);
+            const sources = streaming ? [] : (meta?.sources ?? []);
+
             return (
               <motion.div
                 key={message.id}
@@ -279,6 +317,23 @@ export function ConversationSurface({
                 className={cn("space-y-2", streaming && "chat-streaming")}
               >
                 <AssistantMessage content={message.content} blocks={meta?.blocks} handlers={handlers} />
+                {unavailable.length > 0 && (
+                  <p className="text-[11px] text-muted-foreground">Could not check: {unavailable.join(", ")}.</p>
+                )}
+                {sources.length > 0 && (
+                  <details className="text-[11px] text-muted-foreground">
+                    <summary className="cursor-pointer select-none">Sources ({sources.length})</summary>
+                    <ul className="mt-1 space-y-0.5">
+                      {sources.map((source) => (
+                        <li key={source.url}>
+                          <a href={source.url} target="_blank" rel="noreferrer noopener" className="underline-offset-2 hover:text-foreground hover:underline">
+                            {source.title}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
                 {message.content.trim() && !streaming && (
                   <button
                     type="button"
@@ -292,12 +347,12 @@ export function ConversationSurface({
             );
           })}
 
-          {sending && messages[messages.length - 1]?.content.trim() === "" && <Typing />}
+          <div role="status" aria-live="polite">{waiting && <Typing />}</div>
           <div ref={endRef} />
         </div>
       </div>
 
-      <div className={cn("sticky bottom-0 mt-2 border-t border-border bg-background/92 pt-3 backdrop-blur", rail ? "" : "")}>
+      <div className="sticky bottom-0 mt-2 border-t border-border bg-background/92 pt-3 backdrop-blur">
         {proposal && (
           <div
             role="alert"
@@ -308,7 +363,7 @@ export function ConversationSurface({
               type="button"
               onClick={() => void confirmProposal()}
               disabled={confirming}
-              className="rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-60"
+              className="btn-primary-sm"
             >
               {confirming ? "Saving…" : "Confirm"}
             </button>
@@ -331,6 +386,7 @@ export function ConversationSurface({
           className="flex items-end gap-2 rounded-2xl border border-input bg-card px-3 py-2 shadow-soft focus-within:ring-2 focus-within:ring-ring/25"
         >
           <textarea
+            ref={textareaRef}
             aria-label="Message"
             rows={1}
             value={input}
@@ -341,18 +397,10 @@ export function ConversationSurface({
                 void submit(input);
               }
             }}
-            placeholder={!loaded ? "Loading…" : "Ask about your trip…"}
-            disabled={sending || !loaded}
-            className="max-h-32 min-w-0 flex-1 resize-none bg-transparent px-1.5 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
+            placeholder={!loaded ? "Loading…" : sending ? "Type your next message…" : "Ask about your trip…"}
+            disabled={!loaded}
+            className="max-h-40 min-w-0 flex-1 resize-none bg-transparent px-1.5 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
           />
-          <button
-            type="button"
-            aria-label="Speak instead"
-            tabIndex={-1}
-            className="mb-1 shrink-0 rounded-full p-2 text-muted-foreground/60"
-          >
-            <Mic className="h-4 w-4" />
-          </button>
           {sending ? (
             <button
               type="button"
@@ -373,7 +421,6 @@ export function ConversationSurface({
           )}
         </form>
 
-        {notice && <p role="status" className="mt-2 text-xs text-leaf">{notice}</p>}
         {error && (
           <p role="alert" className="mt-2 text-xs text-destructive">
             {error}{" "}

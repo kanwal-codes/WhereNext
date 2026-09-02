@@ -1,14 +1,6 @@
 import { NextResponse } from "next/server";
 import { staticMapUrl } from "@/packages/providers/mapbox/client";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-
-async function authorized(tripId: string) {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return false;
-  const member = await supabase.from("trip_members").select("trip_id").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle();
-  return Boolean(member.data);
-}
+import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 
 /** Parse `?markers=lng,lat|lng,lat` into validated [lng,lat] pairs. */
 function parseMarkers(raw: string): Array<[number, number]> {
@@ -20,8 +12,8 @@ function parseMarkers(raw: string): Array<[number, number]> {
 
 export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
-    const tripId = (await params).tripId;
-    if (!(await authorized(tripId))) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    await requireTripMember((await params).tripId);
+    if (!process.env.MAPBOX_ACCESS_TOKEN) return NextResponse.json({ error: "Map imagery is not configured" }, { status: 503 });
     const search = new URL(request.url).searchParams;
     const markers = parseMarkers(search.get("markers") ?? "");
     const width = Number(search.get("w")) || 640;
@@ -32,7 +24,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
       return NextResponse.json({ error: "Map image is unavailable" }, { status: 503 });
     }
     return new Response(response.body, { headers: { "content-type": contentType, "cache-control": "private, max-age=300" } });
-  } catch {
-    return NextResponse.json({ error: "Map image is unavailable" }, { status: 503 });
+  } catch (error) {
+    return tripAuthResponse(error) ?? NextResponse.json({ error: "Map image is unavailable" }, { status: 503 });
   }
 }

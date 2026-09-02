@@ -1,7 +1,33 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { preferencesSchema } from "@/packages/contracts/preferences";
-async function authorized(tripId: string, ownerOnly = false) { const supabase = await createSupabaseServerClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return null; const result = await supabase.from("trip_members").select("role").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle(); return result.data && (!ownerOnly || result.data.role === "owner") ? supabase : false; }
-export async function GET(_: Request, { params }: { params: Promise<{ tripId: string }> }) { try { const supabase = await authorized((await params).tripId); if (!supabase) return NextResponse.json({ error: "Authentication required" }, { status: 401 }); const result = await supabase.from("trip_preferences").select("data,updated_at").eq("trip_id", (await params).tripId).maybeSingle(); if (result.error) throw result.error; return NextResponse.json({ memory: result.data?.data ?? {}, updatedAt: result.data?.updated_at ?? null }); } catch { return NextResponse.json({ error: "Trip memory unavailable" }, { status: 503 }); } }
-export async function PUT(request: Request, { params }: { params: Promise<{ tripId: string }> }) { try { const tripId = (await params).tripId; const supabase = await authorized(tripId, true); if (!supabase) return NextResponse.json({ error: "Trip owner required" }, { status: 403 }); const memory = preferencesSchema.parse(await request.json()); const existing = await supabase.from("trip_preferences").select("data").eq("trip_id", tripId).maybeSingle(); if (existing.error) throw existing.error; const merged = preferencesSchema.parse({ ...(existing.data?.data ?? {}), ...memory }); const result = await supabase.from("trip_preferences").upsert({ trip_id: tripId, data: merged }).select("data,updated_at").single(); if (result.error) throw result.error; return NextResponse.json({ memory: result.data.data, updatedAt: result.data.updated_at }); } catch (error) { if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid trip memory" }, { status: 400 }); return NextResponse.json({ error: "Trip memory unavailable" }, { status: 503 }); } }
+
+export async function GET(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
+  try {
+    const { tripId } = await params;
+    const { supabase } = await requireTripMember(tripId);
+    const result = await supabase.from("trip_preferences").select("data,updated_at").eq("trip_id", tripId).maybeSingle();
+    if (result.error) throw result.error;
+    return NextResponse.json({ memory: result.data?.data ?? {}, updatedAt: result.data?.updated_at ?? null });
+  } catch (error) {
+    return tripAuthResponse(error) ?? NextResponse.json({ error: "Trip memory unavailable" }, { status: 503 });
+  }
+}
+
+export async function PUT(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+  try {
+    const { tripId } = await params;
+    const { supabase } = await requireTripMember(tripId, { role: "owner" });
+    const memory = preferencesSchema.parse(await request.json());
+    const existing = await supabase.from("trip_preferences").select("data").eq("trip_id", tripId).maybeSingle();
+    if (existing.error) throw existing.error;
+    const merged = preferencesSchema.parse({ ...(existing.data?.data ?? {}), ...memory });
+    const result = await supabase.from("trip_preferences").upsert({ trip_id: tripId, data: merged }).select("data,updated_at").single();
+    if (result.error) throw result.error;
+    return NextResponse.json({ memory: result.data.data, updatedAt: result.data.updated_at });
+  } catch (error) {
+    if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid trip memory" }, { status: 400 });
+    return tripAuthResponse(error) ?? NextResponse.json({ error: "Trip memory unavailable" }, { status: 503 });
+  }
+}

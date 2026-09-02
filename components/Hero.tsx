@@ -12,15 +12,11 @@ export function Hero({
   image,
   alt,
   className,
-  imageClassName,
   children,
-  overlayClassName,
 }: {
   image: string;
   alt: string;
   className?: string;
-  imageClassName?: string;
-  overlayClassName?: string;
   children?: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -37,7 +33,7 @@ export function Hero({
           alt={alt}
           width={1600}
           height={900}
-          className={cn("h-full w-full object-cover object-center", imageClassName)}
+          className="h-full w-full object-cover object-center"
           initial={{ scale: 1.1, opacity: 0 }}
           animate={{ scale: reduce ? 1.02 : 1.06, opacity: 1 }}
           transition={{
@@ -50,7 +46,7 @@ export function Hero({
       <div className="grain pointer-events-none absolute inset-0" />
       <div className="vignette pointer-events-none absolute inset-0" />
 
-      <div className={cn("pointer-events-none absolute inset-0 bg-background/25", overlayClassName)} />
+      <div className="pointer-events-none absolute inset-0 bg-background/25" />
       <motion.div
         style={{ opacity: fog }}
         className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-background via-background/70 to-transparent"

@@ -188,7 +188,7 @@ describe("retrieveEvidence", () => {
       return Promise.reject(new Error(`unexpected ${url}`));
     }));
     const evidence = await retrieveEvidence([{ tool: "stays", location: "Lisbon", hotelName: "torel" }]);
-    expect(ratesCalls).toBe(2); // once for the search, once for the drill-down
+    expect(ratesCalls).toBe(1); // rooms come from the search response — no second rates call
     expect(evidence.stays[0].detail).toMatchObject({ hotelName: "Torel Palace" });
     expect(evidence.stays[0].detail!.rooms.map((r) => r.name)).toEqual(["Deluxe", "Suite"]);
   });

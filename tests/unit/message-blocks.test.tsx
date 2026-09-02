@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { AssistantBlock } from "../../packages/contracts/assistant";
 import { MessageBlocks } from "../../features/conversation/ui/blocks/MessageBlocks";
 
-const handlers = { onFollowup: vi.fn(), onSave: vi.fn(), onAddItinerary: vi.fn() };
+const handlers = { tripId: "trip-1", onFollowup: vi.fn() };
 const render = (blocks: AssistantBlock[]) => renderToStaticMarkup(<MessageBlocks blocks={blocks} {...handlers} />);
 
 describe("MessageBlocks", () => {
@@ -12,7 +12,12 @@ describe("MessageBlocks", () => {
     const html = render([{ type: "place_list", places: [{ provider: "g", providerId: "p1", name: "Belém Tower", category: "tourist_attraction", latitude: 1, longitude: 2, address: "Belém", sourceUrl: null, trust: "sourced", distanceToLocked: "1.1 km from Jerónimos Monastery" }] }]);
     expect(html).toContain("Belém Tower");
     expect(html).toContain("1.1 km from Jerónimos Monastery");
-    expect(html).toContain("From provider");
+    expect(html).not.toContain("From provider"); // the default trust label is noise on every card
+  });
+
+  it("shows a trust label only when it is not the default", () => {
+    const place = { provider: "g", providerId: "p1", name: "Belém Tower", category: null, latitude: 1, longitude: 2, address: null, sourceUrl: null, trust: "estimated" as const };
+    expect(render([{ type: "place_list", places: [place] }])).toContain("Estimated");
   });
 
   it("makes the place card head a button when onOpenPlace is supplied", () => {
@@ -60,24 +65,34 @@ describe("MessageBlocks", () => {
     expect(html).toMatch(/fares change/i);
   });
 
-  it("renders a stays list with nightly rates, a rooms drill-down, and a freshness note", () => {
-    const html = render([{ type: "stays", retrievedAt: "2026-09-02T00:00:00Z", location: "Lisbon", checkin: "2026-10-15", checkout: "2026-10-18", nights: 3, dateNote: "Example dates 2026-10-15 → 2026-10-18 — set your real dates", detailHotel: "Torel Palace", items: [
-      { name: "Torel Palace", nightlyPrice: "230", totalPrice: "690", currency: "EUR", stars: 5, rating: 9.4, reviews: 1200, board: "Breakfast", refundable: true, distanceToLocked: "400 m from Jerónimos Monastery", mapUrl: "https://www.google.com/maps/search/?api=1&query=Torel%20Palace" },
+  it("renders stays as a card carousel with nightly rates, a rooms drill-down, and a freshness note", () => {
+    const block: AssistantBlock = { type: "stays", retrievedAt: "2026-09-02T00:00:00Z", location: "Lisbon", checkin: "2026-10-15", checkout: "2026-10-18", nights: 3, dateNote: "Example dates 2026-10-15 → 2026-10-18 — set your real dates", detailHotel: "Torel Palace", items: [
+      { hotelId: "h1", name: "Torel Palace", nightlyPrice: "230", totalPrice: "690", currency: "EUR", stars: 5, rating: 9.4, reviews: 1200, board: "Breakfast", refundable: true, distanceToLocked: "400 m from Jerónimos Monastery" },
     ], rooms: [
-      { name: "Deluxe Room", board: "Breakfast", refundable: true, nightlyPrice: "230", totalPrice: "690", currency: "EUR" },
-    ] }]);
+      { name: "Deluxe Room", boardName: "Breakfast", refundable: true, maxOccupancy: 2, nightlyAmount: 230, totalAmount: 690, currency: "EUR" },
+    ] };
+    const html = render([block]);
     expect(html).toContain("Torel Palace");
     expect(html).toContain("230 EUR");
     expect(html).toContain("690 EUR total");
     expect(html).toContain("9.4/10 (1,200)");
+    expect(html).toContain("400 m from Jerónimos Monastery");
     expect(html).toContain("Rooms at Torel Palace");
     expect(html).toContain("Deluxe Room");
-    expect(html).toMatch(/href="https:\/\/www\.google\.com\/maps\/search\/\?api=1&(amp;)?query=Torel%20Palace"/);
+    expect(html).not.toContain("google.com/maps");
+    expect(html).not.toContain('aria-label="Open Torel Palace"');
     expect(html).toMatch(/confirm availability at booking/i);
+
+    const onOpenStay = vi.fn();
+    const withOpen = renderToStaticMarkup(<MessageBlocks blocks={[block]} {...handlers} onOpenStay={onOpenStay} />);
+    expect(withOpen).toContain('aria-label="Open Torel Palace"');
+    expect(withOpen).toMatch(/Rooms &amp; details/);
   });
 
   it("renders actions and clarifying chips", () => {
     expect(render([{ type: "actions", items: [{ label: "Where to stay?", prompt: "Where should we stay?" }] }])).toContain("Where to stay?");
-    expect(render([{ type: "clarifying_question", question: "How many nights?", chips: ["2", "3-4"] }])).toContain("How many nights?");
+    const clarify = render([{ type: "clarifying_question", question: "How many nights?", chips: ["2", "3-4"] }]);
+    expect(clarify).toContain("3-4");
+    expect(clarify).not.toContain("How many nights?"); // the question already streams as the reply text
   });
 });

@@ -1,6 +1,11 @@
 import type { AssistantTurnMeta } from "@/packages/contracts/assistant";
 
-type AssistantDelta = { choices?: Array<{ delta?: { content?: string } }>; meta?: AssistantTurnMeta };
+type AssistantDelta = {
+  choices?: Array<{ delta?: { content?: string } }>;
+  meta?: AssistantTurnMeta;
+  /** Final sanitized text, sent with the meta frame. Replaces the accumulated stream. */
+  content?: string;
+};
 
 export class AssistantRequestError extends Error {
   constructor(readonly status: number, message: string) {
@@ -36,7 +41,11 @@ export async function streamAssistantResponse(
     if (!line.startsWith("data: ") || line.includes("[DONE]")) return;
     try {
       const event = JSON.parse(line.slice(6)) as AssistantDelta;
-      if (event.meta) { meta = event.meta; return; }
+      if (event.meta) {
+        meta = event.meta;
+        if (typeof event.content === "string") content = event.content;
+        return;
+      }
       const delta = event.choices?.[0]?.delta?.content ?? "";
       content += delta;
       if (delta) onDelta(content);

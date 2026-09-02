@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { cache, type ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadTripWorkspace, type TripWorkspaceData } from "@/features/workspace/application/loadTripWorkspace";
@@ -7,6 +7,17 @@ import { TripDataProvider } from "@/components/TripDataProvider";
 import { tripCompleteness } from "@/lib/design";
 
 const PREVIEW_ID = "rebuild-preview";
+/** The credential-free preview trip exists for Playwright only; never in a real deployment. */
+const previewEnabled = (tripId: string) => tripId === PREVIEW_ID && process.env.E2E_PREVIEW === "1";
+
+// De-duped per request. Per-route <title> is handled client-side by `useDocumentTitle`
+// (these routes are "use client" and can't export metadata) — the layout must NOT render
+// a competing <title>, or React reconciliation clobbers the client-set one.
+const getWorkspace = cache(async (tripId: string): Promise<TripWorkspaceData | null> => {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return user ? await loadTripWorkspace(supabase, tripId).catch(() => null) : null;
+});
 
 function shellFromData(data: TripWorkspaceData): ShellTrip {
   const { trip } = data;
@@ -35,7 +46,7 @@ export default async function TripLayout({
 }) {
   const { tripId } = await params;
 
-  if (tripId === PREVIEW_ID) {
+  if (previewEnabled(tripId)) {
     const previewTrip: ShellTrip = { name: "Preview trip", destination: "your destination", dates: "Dates open", travellers: "Travellers open", progress: 0 };
     return (
       <TripDataProvider tripId={tripId} data={null}>
@@ -44,9 +55,7 @@ export default async function TripLayout({
     );
   }
 
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const data = user ? await loadTripWorkspace(supabase, tripId).catch(() => null) : null;
+  const data = await getWorkspace(tripId);
   if (!data) notFound();
 
   return (

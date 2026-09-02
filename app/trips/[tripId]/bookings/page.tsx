@@ -7,7 +7,11 @@ import { EssentialsSurface } from "@/features/essentials/ui/EssentialsSurface";
 export default function BookingsPage() {
   const { tripId, data } = useTripData();
   return (
-    <RouteScaffold eyebrow="Bookings & essentials" title="Bookings & essentials" description="The practical checklist for this trip — visas, packing, connectivity, customs.">
+    <RouteScaffold
+      eyebrow="Bookings & essentials"
+      title="Before you go"
+      description="The practical checklist. For destination-specific essentials — visas, SIMs, customs — ask the assistant; it builds one from live sources."
+    >
       <EssentialsSurface tripId={tripId} initialCompleted={data?.essentials} />
     </RouteScaffold>
   );

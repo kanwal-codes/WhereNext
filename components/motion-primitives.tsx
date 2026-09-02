@@ -109,19 +109,6 @@ export function StaggerItem({
   );
 }
 
-export function PageTransition({ children }: { children: ReactNode }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -6 }}
-      transition={{ duration: 0.35, ease }}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
 /** Headline reveal: words rise in sequence from behind a mask. */
 export function WordReveal({
   text,

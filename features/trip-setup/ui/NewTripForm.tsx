@@ -3,8 +3,7 @@
 import { FormEvent, useState } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
 
-const fieldClass =
-  "mt-1.5 w-full rounded-xl border border-input bg-card px-3.5 py-2.5 text-sm outline-none transition-shadow focus:ring-2 focus:ring-ring/30";
+const fieldClass = "input-field";
 
 export function NewTripForm() {
   const [name, setName] = useState("");

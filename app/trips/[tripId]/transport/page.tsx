@@ -1,14 +1,7 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useTripData } from "@/components/TripDataProvider";
-import { RouteScaffold } from "@/components/RouteScaffold";
-import { TransportSurface } from "@/features/transport/ui/TransportSurface";
-
-export default function TransportPage() {
-  const { tripId, data } = useTripData();
-  return (
-    <RouteScaffold eyebrow="Transport" title="Transport" description="Getting between places, and getting there.">
-      <TransportSurface tripId={tripId} origin={data?.trip.origin ?? ""} destination={data?.trip.destination ?? ""} />
-    </RouteScaffold>
-  );
+/** Transport merged into "Getting around" (/map). Keep old links working. */
+export default async function TransportRedirect({ params }: { params: Promise<{ tripId: string }> }) {
+  const { tripId } = await params;
+  redirect(`/trips/${tripId}/map`);
 }

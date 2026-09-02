@@ -1,8 +1,26 @@
 import { NextResponse } from "next/server";
 import { userMessageInput } from "@/features/conversation/domain/message";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { createConversationRepository } from "@/features/conversation/infrastructure/conversationRepository";
 
-async function authorized(tripId: string) { const supabase = await createSupabaseServerClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return { supabase, user: null, allowed: false }; const membership = await supabase.from("trip_members").select("trip_id").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle(); return { supabase, user, allowed: Boolean(membership.data) }; }
-export async function GET(_: Request, { params }: { params: Promise<{ tripId: string }> }) { try { const { tripId } = await params; const auth = await authorized(tripId); if (!auth.user) return NextResponse.json({ error: "Authentication required" }, { status: 401 }); if (!auth.allowed) return NextResponse.json({ error: "Trip not found" }, { status: 404 }); return NextResponse.json({ messages: await createConversationRepository(auth.supabase).list(tripId) }); } catch { return NextResponse.json({ error: "Conversation unavailable" }, { status: 503 }); } }
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) { try { const { tripId } = await params; const auth = await authorized(tripId); if (!auth.user) return NextResponse.json({ error: "Authentication required" }, { status: 401 }); if (!auth.allowed) return NextResponse.json({ error: "Trip not found" }, { status: 404 }); const parsed = userMessageInput.safeParse(await request.json().catch(() => null)); if (!parsed.success) return NextResponse.json({ error: "Invalid message" }, { status: 400 }); return NextResponse.json({ message: await createConversationRepository(auth.supabase).append(tripId, parsed.data) }, { status: 201 }); } catch { return NextResponse.json({ error: "Conversation unavailable" }, { status: 503 }); } }
+export async function GET(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
+  try {
+    const { tripId } = await params;
+    const { supabase } = await requireTripMember(tripId);
+    return NextResponse.json({ messages: await createConversationRepository(supabase).list(tripId) });
+  } catch (error) {
+    return tripAuthResponse(error) ?? NextResponse.json({ error: "Conversation unavailable" }, { status: 503 });
+  }
+}
+
+export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+  try {
+    const { tripId } = await params;
+    const { supabase } = await requireTripMember(tripId);
+    const parsed = userMessageInput.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return NextResponse.json({ error: "Invalid message" }, { status: 400 });
+    return NextResponse.json({ message: await createConversationRepository(supabase).append(tripId, parsed.data) }, { status: 201 });
+  } catch (error) {
+    return tripAuthResponse(error) ?? NextResponse.json({ error: "Conversation unavailable" }, { status: 503 });
+  }
+}

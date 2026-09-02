@@ -40,10 +40,6 @@ export function EssentialsSurface({ tripId, initialCompleted }: { tripId: string
 
   return (
     <div className="space-y-4">
-      <p className="text-sm leading-relaxed text-ink-soft">
-        A practical checklist for this trip. For destination-specific essentials &mdash; visas, SIMs,
-        customs &mdash; ask the assistant; it builds a grounded checklist from live sources.
-      </p>
       <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
         {ITEMS.map((item) => {
           const checked = done.includes(item);

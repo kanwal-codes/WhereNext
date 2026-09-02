@@ -29,6 +29,18 @@ describe("assistant stream transport", () => {
     expect(result.meta?.blocks?.[0]).toMatchObject({ type: "actions" });
   });
 
+  it("settles on the sanitized content carried by the meta frame", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(
+      'data: {"choices":[{"delta":{"content":"see https://evil.example now"}}]}\n\n' +
+      'data: {"meta":{"blocks":[],"suggestedFollowups":[]},"content":"see now"}\n\n' +
+      "data: [DONE]\n\n",
+      { status: 200 },
+    )));
+    const result = await streamAssistantResponse("trip", [{ role: "user", content: "Hi" }], () => undefined, undefined, "message-key");
+    expect(result.content).toBe("see now");
+    expect(result.meta?.blocks).toEqual([]);
+  });
+
   it("flushes a final event without a trailing newline", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(
       'data: {"choices":[{"delta":{"content":"last"}}]}',

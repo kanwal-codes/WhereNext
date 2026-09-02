@@ -1,5 +1,8 @@
+"use client";
+
 import type { ReactNode } from "react";
 import { Reveal } from "./motion-primitives";
+import { useDocumentTitle } from "@/lib/use-document-title";
 
 export function PageHeader({
   eyebrow,
@@ -12,6 +15,8 @@ export function PageHeader({
   description?: string;
   action?: ReactNode;
 }) {
+  // The section name (eyebrow) is the tab title; the editorial title stays on the page.
+  useDocumentTitle(eyebrow);
   return (
     <Reveal>
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 border-b border-border pb-6">

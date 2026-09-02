@@ -1,5 +1,8 @@
 import { z } from "zod";
 import { withProviderTimeout } from "../request-signal";
+import type { StayDetails, StayOption, StayRoom, StaySearchResult } from "../../contracts/stay";
+
+export type { StayDetails, StayOption, StayRoom, StaySearchResult };
 
 // LiteAPI (Nuitée) — live hotel inventory + nightly rates. Sandbox key is `sand_…`,
 // production `prod_…`. The user's key currently lives in CONNECT_API_KEY.
@@ -7,34 +10,7 @@ const API = "https://api.liteapi.travel/v3.0";
 const key = () => process.env.LITEAPI_KEY || process.env.CONNECT_API_KEY || "";
 const HEADERS = () => ({ "X-API-Key": key(), "content-type": "application/json", accept: "application/json" });
 
-export type StayOption = {
-  hotelId: string;
-  name: string;
-  address: string | null;
-  city: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  stars: number | null;
-  rating: number | null;
-  reviewCount: number | null;
-  thumbnail: string | null;
-  nightlyAmount: number;
-  totalAmount: number;
-  currency: string;
-  boardName: string | null;
-  refundable: boolean;
-};
-
-export type StayRoom = {
-  name: string;
-  boardName: string | null;
-  refundable: boolean;
-  nightlyAmount: number;
-  totalAmount: number;
-  currency: string;
-};
-
-export type StaySearchResult = { nights: number; options: StayOption[] };
+export const liteApiConfigured = () => Boolean(key());
 
 const hotelsSchema = z.object({
   data: z.array(z.object({
@@ -56,19 +32,63 @@ const ratesSchema = z.object({
   data: z.array(z.object({
     hotelId: z.string(),
     roomTypes: z.array(z.object({
+      offerId: z.string().nullish(),
       offerRetailRate: z.object({ amount: z.number(), currency: z.string() }).nullish(),
       rates: z.array(z.object({
+        rateId: z.string().nullish(),
         name: z.string().default("Room"),
         boardName: z.string().nullish(),
-        retailRate: z.object({ total: priceSchema }).nullish(),
-        cancellationPolicies: z.object({ refundableTag: z.string().nullish() }).nullish(),
+        maxOccupancy: z.number().nullish(),
+        retailRate: z.object({ total: priceSchema, taxesAndFees: priceSchema.nullish() }).nullish(),
+        cancellationPolicies: z.object({
+          refundableTag: z.string().nullish(),
+          cancelPolicyInfos: z.array(z.object({ cancelTime: z.string().nullish() })).nullish(),
+        }).nullish(),
       })).default([]),
     })).default([]),
   })).default([]),
 });
+type RoomTypes = z.infer<typeof ratesSchema>["data"][number]["roomTypes"];
+
+const imageSchema = z.object({ url: z.string().nullish(), urlHd: z.string().nullish(), order: z.number().nullish(), defaultImage: z.boolean().nullish() });
+const hotelDetailsSchema = z.object({
+  data: z.object({
+    id: z.string().nullish(),
+    name: z.string().nullish(),
+    hotelDescription: z.string().nullish(),
+    hotelImages: z.array(imageSchema).nullish(),
+    main_photo: z.string().nullish(),
+    thumbnail: z.string().nullish(),
+    hotelFacilities: z.array(z.string()).nullish(),
+    facilities: z.array(z.object({ name: z.string().nullish() })).nullish(),
+    checkinCheckoutTimes: z.object({
+      checkin: z.string().nullish(),
+      checkinStart: z.string().nullish(),
+      checkin_start: z.string().nullish(),
+      checkinEnd: z.string().nullish(),
+      checkin_end: z.string().nullish(),
+      checkout: z.string().nullish(),
+    }).nullish(),
+    address: z.string().nullish(),
+    city: z.string().nullish(),
+    country: z.string().nullish(),
+    location: z.object({ latitude: z.number().nullish(), longitude: z.number().nullish() }).nullish(),
+    starRating: z.number().nullish(),
+    rating: z.number().nullish(),
+    reviewCount: z.number().nullish(),
+    rooms: z.array(z.object({
+      roomName: z.string().nullish(),
+      description: z.string().nullish(),
+      maxOccupancy: z.number().nullish(),
+      photos: z.array(z.object({ url: z.string().nullish() })).nullish(),
+    })).nullish(),
+  }),
+});
 
 const nightsBetween = (checkin: string, checkout: string) =>
   Math.max(1, Math.round((Date.parse(checkout) - Date.parse(checkin)) / 86_400_000));
+
+const stripTags = (value: string) => value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
 async function post(path: string, body: unknown, signal?: AbortSignal) {
   const response = await fetch(`${API}${path}`, { method: "POST", headers: HEADERS(), body: JSON.stringify(body), signal: withProviderTimeout(signal, 20_000) });
@@ -76,51 +96,93 @@ async function post(path: string, body: unknown, signal?: AbortSignal) {
   return response.json();
 }
 
-async function hotelIndex(
-  input: { city?: string; countryCode?: string; latitude?: number; longitude?: number },
-  signal?: AbortSignal,
-) {
-  const url = new URL(`${API}/data/hotels`);
-  url.searchParams.set("language", "en");
-  url.searchParams.set("limit", "20");
-  if (input.latitude != null && input.longitude != null) {
-    url.searchParams.set("latitude", String(input.latitude));
-    url.searchParams.set("longitude", String(input.longitude));
-    url.searchParams.set("radius", "6000");
-  } else {
-    if (input.countryCode) url.searchParams.set("countryCode", input.countryCode);
-    if (input.city) url.searchParams.set("cityName", input.city);
-  }
+async function get(path: string, params: Record<string, string>, signal?: AbortSignal) {
+  const url = new URL(`${API}${path}`);
+  for (const [name, value] of Object.entries(params)) url.searchParams.set(name, value);
   const response = await fetch(url, { headers: HEADERS(), signal: withProviderTimeout(signal, 20_000) });
-  if (!response.ok) throw new Error(`LiteAPI hotel lookup failed: ${response.status}`);
-  return hotelsSchema.parse(await response.json()).data;
+  if (!response.ok) throw new Error(`LiteAPI ${path} failed: ${response.status}`);
+  return response.json();
 }
 
-/** Cheapest bookable stay near a place, priced for the given nights. */
+/** Shared body for `/hotels/rates`. guestNationality is required by LiteAPI and affects eligibility. */
+function rateBody(hotelIds: string[], input: { checkin: string; checkout: string; adults?: number; currency?: string }) {
+  return {
+    hotelIds,
+    occupancies: [{ adults: Math.max(1, Math.min(input.adults ?? 2, 8)) }],
+    currency: input.currency ?? "USD",
+    guestNationality: process.env.LITEAPI_GUEST_NATIONALITY || "US",
+    checkin: input.checkin,
+    checkout: input.checkout,
+  };
+}
+
+/** Every priced room for one hotel, cheapest first. Reads all rates of a room type, not just the first. */
+function parseRooms(roomTypes: RoomTypes, nights: number): StayRoom[] {
+  const rooms: StayRoom[] = [];
+  for (const roomType of roomTypes) {
+    const rates = roomType.rates.length ? roomType.rates : [null];
+    for (const rate of rates) {
+      const total = rate?.retailRate?.total[0]?.amount ?? roomType.offerRetailRate?.amount;
+      const currency = rate?.retailRate?.total[0]?.currency ?? roomType.offerRetailRate?.currency;
+      if (total == null || !currency) continue;
+      const taxes = rate?.retailRate?.taxesAndFees?.[0]?.amount;
+      rooms.push({
+        offerId: roomType.offerId ?? undefined,
+        rateId: rate?.rateId ?? undefined,
+        name: rate?.name ?? "Room",
+        boardName: rate?.boardName ?? null,
+        refundable: (rate?.cancellationPolicies?.refundableTag ?? "").toUpperCase() === "RFN",
+        cancelBefore: rate?.cancellationPolicies?.cancelPolicyInfos?.[0]?.cancelTime ?? null,
+        maxOccupancy: rate?.maxOccupancy ?? null,
+        nightlyAmount: Math.round(total / nights),
+        totalAmount: Math.round(total),
+        taxesAndFees: typeof taxes === "number" ? Math.round(taxes) : null,
+        currency,
+      });
+    }
+  }
+  rooms.sort((a, b) => a.totalAmount - b.totalAmount);
+  return rooms.slice(0, 12);
+}
+
+async function hotelIndex(
+  input: { city?: string; countryCode?: string; latitude?: number; longitude?: number },
+  limit: number,
+  signal?: AbortSignal,
+) {
+  const params: Record<string, string> = { language: "en", limit: String(Math.min(Math.max(limit, 20), 40)) };
+  if (input.latitude != null && input.longitude != null) {
+    params.latitude = String(input.latitude);
+    params.longitude = String(input.longitude);
+    params.radius = "6000";
+  } else {
+    if (input.countryCode) params.countryCode = input.countryCode;
+    if (input.city) params.cityName = input.city;
+  }
+  return hotelsSchema.parse(await get("/data/hotels", params, signal)).data;
+}
+
+/** Cheapest bookable stay near a place, priced for the given nights. Keeps every room rate per hotel.
+ *  `limit` caps how many priced options come back — 6 for a chat card, more for the Stay tab. */
 export async function searchStays(
-  input: { city?: string; countryCode?: string; latitude?: number; longitude?: number; checkin: string; checkout: string; adults?: number; currency?: string },
+  input: { city?: string; countryCode?: string; latitude?: number; longitude?: number; checkin: string; checkout: string; adults?: number; currency?: string; limit?: number },
   signal?: AbortSignal,
 ): Promise<StaySearchResult> {
   if (!key()) throw new Error("LITEAPI_KEY is not configured");
+  const limit = Math.min(Math.max(input.limit ?? 6, 1), 30);
   const nights = nightsBetween(input.checkin, input.checkout);
-  const hotels = await hotelIndex(input, signal);
+  const hotels = await hotelIndex(input, limit + 6, signal);
   if (hotels.length === 0) return { nights, options: [] };
 
   const byId = new Map(hotels.map((hotel) => [hotel.id, hotel]));
-  const raw = await post("/hotels/rates", {
-    hotelIds: hotels.slice(0, 20).map((hotel) => hotel.id),
-    occupancies: [{ adults: Math.max(1, Math.min(input.adults ?? 2, 8)) }],
-    currency: input.currency ?? "USD",
-    guestNationality: "US",
-    checkin: input.checkin,
-    checkout: input.checkout,
-  }, signal);
+  const raw = await post("/hotels/rates", rateBody(hotels.map((hotel) => hotel.id), input), signal);
 
   const options: StayOption[] = [];
   for (const priced of ratesSchema.parse(raw).data) {
     const hotel = byId.get(priced.hotelId);
     if (!hotel) continue;
-    const cheapest = cheapestRoomType(priced.roomTypes);
+    const rooms = parseRooms(priced.roomTypes, nights);
+    const cheapest = rooms[0];
     if (!cheapest) continue;
     options.push({
       hotelId: priced.hotelId,
@@ -133,74 +195,72 @@ export async function searchStays(
       rating: hotel.rating ?? null,
       reviewCount: hotel.reviewCount ?? null,
       thumbnail: hotel.thumbnail ?? null,
-      nightlyAmount: Math.round(cheapest.total / nights),
-      totalAmount: Math.round(cheapest.total),
+      nightlyAmount: cheapest.nightlyAmount,
+      totalAmount: cheapest.totalAmount,
       currency: cheapest.currency,
       boardName: cheapest.boardName,
       refundable: cheapest.refundable,
+      rooms,
     });
   }
   options.sort((a, b) => a.nightlyAmount - b.nightlyAmount);
-  return { nights, options: options.slice(0, 6) };
+  return { nights, options: options.slice(0, limit) };
 }
 
-/** Every room type for one hotel — the drill-down after a stays block. */
+/** Fresh room rates for one hotel and date range. */
 export async function stayRooms(
   input: { hotelId: string; checkin: string; checkout: string; adults?: number; currency?: string },
   signal?: AbortSignal,
 ): Promise<{ nights: number; rooms: StayRoom[] }> {
   if (!key()) throw new Error("LITEAPI_KEY is not configured");
   const nights = nightsBetween(input.checkin, input.checkout);
-  const raw = await post("/hotels/rates", {
-    hotelIds: [input.hotelId],
-    occupancies: [{ adults: Math.max(1, Math.min(input.adults ?? 2, 8)) }],
-    currency: input.currency ?? "USD",
-    guestNationality: "US",
-    checkin: input.checkin,
-    checkout: input.checkout,
-  }, signal);
+  const raw = await post("/hotels/rates", rateBody([input.hotelId], input), signal);
   const priced = ratesSchema.parse(raw).data[0];
-  if (!priced) return { nights, rooms: [] };
-  const rooms: StayRoom[] = [];
-  for (const roomType of priced.roomTypes) {
-    const rate = roomType.rates[0];
-    const total = roomType.offerRetailRate?.amount ?? rate?.retailRate?.total[0]?.amount;
-    const currency = roomType.offerRetailRate?.currency ?? rate?.retailRate?.total[0]?.currency;
-    if (total == null || !currency) continue;
-    rooms.push({
-      name: rate?.name ?? "Room",
-      boardName: rate?.boardName ?? null,
-      refundable: (rate?.cancellationPolicies?.refundableTag ?? "").toUpperCase() === "RFN",
-      nightlyAmount: Math.round(total / nights),
-      totalAmount: Math.round(total),
-      currency,
-    });
-  }
-  rooms.sort((a, b) => a.nightlyAmount - b.nightlyAmount);
-  return { nights, rooms: rooms.slice(0, 12) };
+  return { nights, rooms: priced ? parseRooms(priced.roomTypes, nights) : [] };
 }
 
-function cheapestRoomTypePrice(roomType: { offerRetailRate?: { amount: number; currency: string } | null; rates: Array<{ retailRate?: { total: Array<{ amount: number; currency: string }> } | null }> }) {
-  const offer = roomType.offerRetailRate;
-  if (offer) return { total: offer.amount, currency: offer.currency };
-  const fromRate = roomType.rates[0]?.retailRate?.total[0];
-  return fromRate ? { total: fromRate.amount, currency: fromRate.currency } : null;
-}
-
-function cheapestRoomType(roomTypes: z.infer<typeof ratesSchema>["data"][number]["roomTypes"]) {
-  let best: { total: number; currency: string; boardName: string | null; refundable: boolean } | null = null;
-  for (const roomType of roomTypes) {
-    const price = cheapestRoomTypePrice(roomType);
-    if (!price) continue;
-    if (!best || price.total < best.total) {
-      const rate = roomType.rates[0];
-      best = {
-        total: price.total,
-        currency: price.currency,
-        boardName: rate?.boardName ?? null,
-        refundable: (rate?.cancellationPolicies?.refundableTag ?? "").toUpperCase() === "RFN",
-      };
-    }
-  }
-  return best;
+/** Static hotel content: description, gallery, facilities, check-in times. */
+export async function hotelDetails(hotelId: string, signal?: AbortSignal): Promise<StayDetails> {
+  if (!key()) throw new Error("LITEAPI_KEY is not configured");
+  const raw = await get("/data/hotel", { hotelId, language: "en" }, signal);
+  if (process.env.AI_DEBUG) console.log("[liteapi] /data/hotel keys:", Object.keys((raw as { data?: object }).data ?? {}));
+  const d = hotelDetailsSchema.parse(raw).data;
+  const gallery = (d.hotelImages ?? [])
+    .map((image) => ({ url: image.urlHd || image.url || "", order: image.order ?? Number.MAX_SAFE_INTEGER, first: image.defaultImage === true }))
+    .filter((image) => image.url.startsWith("http"))
+    .sort((a, b) => Number(b.first) - Number(a.first) || a.order - b.order)
+    .map((image) => image.url);
+  const images = Array.from(new Set(gallery.length ? gallery : [d.main_photo, d.thumbnail].filter((url): url is string => Boolean(url && url.startsWith("http"))))).slice(0, 12);
+  const facilities = Array.from(new Set([
+    ...(d.hotelFacilities ?? []),
+    ...(d.facilities ?? []).map((f) => f.name ?? "").filter(Boolean),
+  ].map((f) => f.trim()).filter(Boolean)));
+  const times = d.checkinCheckoutTimes;
+  return {
+    hotelId: d.id ?? hotelId,
+    name: d.name ?? "Hotel",
+    description: d.hotelDescription ? stripTags(d.hotelDescription) || null : null,
+    images,
+    facilities,
+    checkinFrom: times?.checkinStart ?? times?.checkin_start ?? times?.checkin ?? null,
+    checkinTo: times?.checkinEnd ?? times?.checkin_end ?? null,
+    checkout: times?.checkout ?? null,
+    address: d.address ?? null,
+    city: d.city ?? null,
+    country: d.country ?? null,
+    latitude: d.location?.latitude ?? null,
+    longitude: d.location?.longitude ?? null,
+    stars: d.starRating ?? null,
+    rating: d.rating ?? null,
+    reviewCount: d.reviewCount ?? null,
+    roomCatalogue: (d.rooms ?? [])
+      .filter((room) => room.roomName)
+      .slice(0, 12)
+      .map((room) => ({
+        name: room.roomName as string,
+        maxOccupancy: room.maxOccupancy ?? null,
+        photo: room.photos?.find((p) => p.url?.startsWith("http"))?.url ?? null,
+        description: room.description ? stripTags(room.description) || null : null,
+      })),
+  };
 }

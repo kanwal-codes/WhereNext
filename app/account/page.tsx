@@ -28,7 +28,7 @@ export default function AccountPage() {
 
   return (
     <div className="mx-auto max-w-lg px-5 py-14">
-      <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+      <Link href="/trips" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-3.5 w-3.5" /> Trips
       </Link>
       <p className="eyebrow mt-6">Account</p>

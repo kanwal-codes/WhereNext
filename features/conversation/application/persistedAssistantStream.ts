@@ -44,7 +44,9 @@ export function persistedAssistantStream(
         if (finalText || meta) {
           await createConversationRepository(supabase).append(tripId, { role: "assistant", content: finalText, idempotencyKey, metadata: meta ?? {} });
         }
-        if (meta) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ meta })}\n\n`));
+        // The final frame carries the sanitized text too, so the client can settle on the persisted
+        // content without refetching the conversation.
+        if (meta) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ meta, content: finalText })}\n\n`));
         controller.close();
         return;
       }

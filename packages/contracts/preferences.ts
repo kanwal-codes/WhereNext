@@ -9,6 +9,8 @@ export const preferencesSchema = z.object({
   dislikes: z.array(z.string().trim().min(1).max(80)).max(30).optional(),
   budget: z.union([z.number().nonnegative(), z.string().trim().max(80)]).optional(),
   pace: z.string().trim().max(80).optional(),
+  dates: z.string().trim().max(120).optional(),
+  arrival: z.string().trim().max(160).optional(),
   transport: z.string().trim().max(80).optional(),
   transportPreference: z.string().trim().max(80).optional(),
   dietaryNeeds: z.union([z.array(z.string().trim().max(80)).max(20), z.string().trim().max(240)]).optional(),

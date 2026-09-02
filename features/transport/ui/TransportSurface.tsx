@@ -97,7 +97,7 @@ export function TransportSurface({ tripId, origin = "", destination = "" }: { tr
     }
   }
 
-  const field = "mt-1.5 w-full rounded-xl border border-input bg-card px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/25";
+  const field = "input-field";
 
   return (
     <div className="space-y-5">
@@ -119,7 +119,7 @@ export function TransportSurface({ tripId, origin = "", destination = "" }: { tr
             <input value={to} onChange={(e) => setTo(e.target.value)} className={field} placeholder="Station, address or place" />
           </label>
         </div>
-        <button type="submit" disabled={loading} className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">
+        <button type="submit" disabled={loading} className="btn-primary mt-4">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <TrainFront className="h-4 w-4" />}
           Search live transit
         </button>
