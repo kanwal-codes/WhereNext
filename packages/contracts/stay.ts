@@ -37,7 +37,23 @@ export type StayOption = {
   rooms: StayRoom[];
 };
 
-export type StaySearchResult = { nights: number; options: StayOption[] };
+/** What the current result set makes available, so the UI can build real filter controls. */
+export type StayFacets = { priceMin: number; priceMax: number; stars: number[]; boards: string[] };
+export type StaySearchResult = { nights: number; options: StayOption[]; facets: StayFacets };
+
+/** One guest review for a hotel (LiteAPI `/data/reviews`). */
+export const stayReviewSchema = z.object({
+  rating: z.number().nullable(),
+  headline: z.string().max(240).nullable(),
+  positives: z.string().max(3000).nullable(),
+  negatives: z.string().max(3000).nullable(),
+  text: z.string().max(4000).nullable(),
+  date: z.string().max(40).nullable(),
+  travellerType: z.string().max(80).nullable(),
+  country: z.string().max(80).nullable(),
+  name: z.string().max(120).nullable(),
+});
+export type StayReview = z.infer<typeof stayReviewSchema>;
 
 /** Static hotel content (description, gallery, facilities) — independent of dates. */
 export type StayDetails = {

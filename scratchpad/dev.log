@@ -5,14 +5,20 @@ $ next dev
    - Environments: .env.local
 
  ✓ Starting...
- ✓ Ready in 918ms
- ✓ Compiled /middleware in 257ms (171 modules)
+ ✓ Ready in 902ms
+ ✓ Compiled /middleware in 256ms (171 modules)
  ○ Compiling /sign-in ...
 <w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (107kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
 <w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (259kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
- ✓ Compiled /sign-in in 1896ms (1605 modules)
- GET /sign-in 200 in 2179ms
- ✓ Compiled in 344ms (732 modules)
- ○ Compiling /trips/[tripId]/discover ...
- ✓ Compiled /trips/[tripId]/discover in 740ms (1893 modules)
- GET /trips/d6d40003-ab63-4e63-bcb8-b9b72b89a163/discover 404 in 2850ms
+ ✓ Compiled /sign-in in 2s (1626 modules)
+ GET /sign-in 200 in 2353ms
+ ✓ Compiled in 394ms (732 modules)
+ ✓ Compiled in 72ms (732 modules)
+ ✓ Compiled in 581ms (732 modules)
+ ✓ Compiled in 81ms (732 modules)
+ ○ Compiling /api/trips/[tripId]/stays ...
+ ✓ Compiled /api/trips/[tripId]/stays in 544ms (1853 modules)
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/stays?adults=3&rooms=2&sort=price 200 in 5691ms
+ ✓ Compiled /api/trips/[tripId]/stays/[hotelId] in 145ms (1858 modules)
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/stays/lp38c98?adults=3&rooms=2 200 in 9587ms
+ ✓ Compiled in 150ms (733 modules)

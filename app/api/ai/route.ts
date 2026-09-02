@@ -7,6 +7,7 @@ import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { loadTripContext, serializeTripContext, formatTripMemory } from "@/lib/application/trip-context";
 import { resolveTurn, type ResolvedTurn } from "@/lib/application/turn-resolver";
 import { retrieveEvidence } from "@/lib/application/retrieve";
+import { resolveCurrency } from "@/lib/currency";
 import { refreshThreadSummary } from "@/lib/application/thread-summary";
 import { nearest } from "@/lib/application/geo";
 import { feasibilityHint } from "@/lib/application/feasibility";
@@ -54,7 +55,7 @@ function factAlreadyConfirmed(key: string, ctx: Awaited<ReturnType<typeof loadTr
     case "pace": return typeof p.pace === "string" && p.pace !== "";
     case "interests": return hasList(p.interests) || hasList(p.likes);
     case "occasion": return typeof p.occasion === "string" && p.occasion !== "";
-    case "dates": return typeof p.dates === "string" && p.dates !== "";
+    case "dates": return Boolean(ctx.trip?.start_date && ctx.trip?.end_date) || (typeof p.dates === "string" && p.dates !== "");
     case "arrival": return typeof p.arrival === "string" && p.arrival !== "";
     case "getting_around": return (typeof p.transport === "string" && p.transport !== "") || ctx.decisions.some((d) => d.kind === "transport");
     case "base_area": return ctx.decisions.some((d) => d.kind === "stay_area");
@@ -73,7 +74,12 @@ async function persistSuggestedFacts(
     .map((fact) => ({
       trip_id: tripId,
       kind: "suggestion",
-      value: { key: fact.key, display: fact.display, rationale: fact.rationale },
+      value: {
+        key: fact.key,
+        display: fact.display,
+        rationale: fact.rationale,
+        ...(fact.key === "dates" && fact.startDate && fact.endDate ? { startDate: fact.startDate, endDate: fact.endDate } : {}),
+      },
       source: "assistant",
       idempotency_key: `sugg:${fact.key}`,
     }));
@@ -153,13 +159,17 @@ export async function POST(request: Request) {
       anchor && !place.includes(",") && !place.toLowerCase().includes(anchor.toLowerCase().split(",")[0].trim())
         ? `${place}, ${anchor}`
         : place;
+    // The trip's real dates stand in when the model didn't name any.
+    const tripStart = tripCtx.trip?.start_date ?? undefined;
+    const tripEnd = tripCtx.trip?.end_date ?? undefined;
     const toolPlan = resolved.toolPlan.map((call) =>
       call.tool === "search_places" ? { ...call, location: qualify(call.location) }
         : call.tool === "directions" ? { ...call, from: qualify(call.from), to: qualify(call.to) }
-        : call.tool === "stays" ? { ...call, location: qualify(call.location) }
+        : call.tool === "stays" ? { ...call, location: qualify(call.location), checkin: call.checkin ?? tripStart, checkout: call.checkout ?? tripEnd }
+        : call.tool === "flights" ? { ...call, departureDate: call.departureDate ?? tripStart }
         : call,
     );
-    const evidence = await retrieveEvidence(toolPlan, { dislikes }, request.signal);
+    const evidence = await retrieveEvidence(toolPlan, { dislikes, currency: resolveCurrency(tripCtx.preferences) }, request.signal);
     const needsGrounding = toolPlan.length > 0;
     const hasGrounding = evidence.places.length > 0 || evidence.sources.length > 0 || evidence.routes.length > 0 || evidence.events.length > 0 || evidence.flights.length > 0 || evidence.stays.length > 0 || Boolean(evidence.weather);
 
@@ -217,7 +227,7 @@ ${groundingInstruction}
 You are talking about: ${locationFocus}.${dislikes.length ? `\nThe traveller dislikes: ${dislikes.join(", ")}. Do not recommend, list, or describe any of these, even if they are famous or in the evidence.` : ""}
 Previous messages are context only — never repeat their places, prices, or links unless they also appear in the fresh evidence below.${requestedImages ? "\nThe user asked for photos: include one markdown image per relevant place only if a supplied image URL exists; if none, say verified photos were not returned." : ""}
 ${feasibilityHint(typeof tripCtx.preferences.pace === "string" ? tripCtx.preferences.pace : undefined, tripCtx.itinerary.map((item) => item.day_index))}
-If a recommendation usually sells out or needs timed entry, say so and suggest booking ahead.${(resolved.intent === "weather" || resolved.intent === "essentials" || evidence.weather) ? `\nWeather question: ${evidence.weather ? `a live reading is in the evidence ("${evidence.weather}") — treat it as a forecast only if the trip is within a week, otherwise as the current picture.` : "there is no live forecast (the trip is too far out for one, or the provider was down)."} ${compactSources.length ? "The web sources describe the destination's typical conditions for the trip's month — build the answer from them and call it typical/seasonal, not a forecast." : "If you have nothing on the season either, say the weather is unavailable rather than guessing."} Finish with one concrete packing takeaway (umbrella, layers, sun, warm coat). Never apologise for a missing forecast when you can still describe the season.` : ""}${compactEvents.length ? `\nThe evidence has ${compactEvents.length} dated events, shown as cards. Say which one or two fit the trip's dates and interests and why; do not list titles, dates, venues, or links. Do not invent events.` : ""}${compactFlights.length ? `\nFlight fare estimates are shown as cards. Give a one-line read (cheapest vs fastest, nonstop or not). ${compactFlights.some((search) => search.exampleDate) ? "The travel date is an example — ask for their real dates." : ""} Do not quote fares or list airlines; do not invent routes.` : ""}${compactStays.length ? `\nHotel rates for ${compactStays[0].nights} night(s) are shown as cards. Say which one or two fit the budget, group, and locked places and why.${compactStays.some((search) => search.rooms) ? " Room-level rates for the hotel the user asked about are also shown; say which room type fits the group." : ""} ${compactStays.some((search) => search.exampleDates) ? "The check-in/out dates are an example — ask for their real dates." : ""} Do not list hotels or prices; do not invent any.` : ""}
+If a recommendation usually sells out or needs timed entry, say so and suggest booking ahead.${(resolved.intent === "weather" || resolved.intent === "essentials" || evidence.weather) ? `\nWeather question: ${evidence.weather ? `a live reading is in the evidence ("${evidence.weather}") — treat it as a forecast only if the trip is within a week, otherwise as the current picture.` : "there is no live forecast (the trip is too far out for one, or the provider was down)."} ${compactSources.length ? "The web sources describe the destination's typical conditions for that month/season — build the answer from them, call it typical/seasonal (not a forecast), and say plainly whether that time of year is hot, mild, cold, wet or dry there." : "If you have nothing on the season either, say the weather is unavailable rather than guessing."} Finish with one concrete packing takeaway (umbrella, layers, sun, warm coat). Never apologise for a missing forecast when you can still describe the season.` : ""}${compactEvents.length ? `\nThe evidence has ${compactEvents.length} dated events, shown as cards. Say which one or two fit the trip's dates and interests and why; do not list titles, dates, venues, or links. Do not invent events.` : ""}${compactFlights.length ? `\nFlight fare estimates are shown as cards. Give a one-line read (cheapest vs fastest, nonstop or not). ${compactFlights.some((search) => search.exampleDate) ? "The travel date is an example — ask for their real dates." : ""} Do not quote fares or list airlines; do not invent routes.` : ""}${compactStays.length ? `\nHotel rates for ${compactStays[0].nights} night(s) are shown as cards. Say which one or two fit the budget, group, and locked places and why.${compactStays.some((search) => search.rooms) ? " Room-level rates for the hotel the user asked about are also shown; say which room type fits the group." : ""} ${compactStays.some((search) => search.exampleDates) ? "The check-in/out dates are an example — ask for their real dates." : ""} Do not list hotels or prices; do not invent any.` : ""}
 
 Trip so far: ${tripSummary}
 

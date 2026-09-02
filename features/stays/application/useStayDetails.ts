@@ -4,16 +4,19 @@ import { useEffect, useState } from "react";
 import { useTripData } from "@/components/TripDataProvider";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
-import { readStayDecision, type StayDecision, type StayDetails, type StayRoom } from "@/packages/contracts/stay";
+import { readStayDecision, type StayDecision, type StayDetails, type StayReview, type StayRoom } from "@/packages/contracts/stay";
 
 type State = "loading" | "ready" | "error";
 
 type Body = {
   hotel: StayDetails | null;
   rooms: StayRoom[] | null;
+  reviews: StayReview[];
+  sentiment: string | null;
   nights: number;
   checkin: string;
   checkout: string;
+  currency: string;
   assumedDates: boolean;
   freshness?: { retrievedAt: string };
 };
@@ -105,10 +108,13 @@ export function useStayDetails(
   return {
     hotel: body?.hotel ?? null,
     rooms: body?.rooms ?? null,
+    reviews: body?.reviews ?? [],
+    sentiment: body?.sentiment ?? null,
     roomsUnavailable: state === "ready" && body?.rooms === null,
     nights: body?.nights ?? 0,
     checkin: body?.checkin ?? dates.checkin ?? "",
     checkout: body?.checkout ?? dates.checkout ?? "",
+    currency: body?.currency ?? "CAD",
     assumedDates: body?.assumedDates ?? false,
     freshness,
     state,

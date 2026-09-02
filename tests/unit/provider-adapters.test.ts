@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { broadenQuery, GooglePlacesProvider } from "../../packages/providers/google-places/client";
+import { ticketmasterIdFromUrl } from "../../packages/providers/ticketmaster/client";
 import { OpenAiCompatibleProvider } from "../../packages/ai/providers/openai-compatible";
 import { createAiGateway } from "../../packages/ai/gateway";
 import { route } from "../../packages/providers/mapbox/client";
@@ -55,6 +56,17 @@ describe("broadenQuery", () => {
   });
 });
 
+describe("ticketmasterIdFromUrl", () => {
+  it("pulls the discovery id out of a Ticketmaster event URL", () => {
+    expect(ticketmasterIdFromUrl("https://www.ticketmaster.ca/some-show-tickets/event/1000600F8E9A2C4B")).toBe("1000600F8E9A2C4B");
+    expect(ticketmasterIdFromUrl("https://www.ticketmaster.com/event/vvG1zZ9Yb7abcd")).toBe("vvG1zZ9Yb7abcd");
+  });
+  it("returns null when there is no id-shaped segment", () => {
+    expect(ticketmasterIdFromUrl("https://example.com/events")).toBeNull();
+    expect(ticketmasterIdFromUrl("not a url")).toBeNull();
+  });
+});
+
 describe("createAiGateway env resolution", () => {
   it("falls through blank env vars to the OpenAI defaults", () => {
     process.env.AI_PROVIDER = "";
@@ -93,10 +105,34 @@ describe("provider adapters", () => {
     await expect(events("festival", "Montreal")).resolves.toMatchObject([{ title: "Festival", url: "https://tickets.example/festival", date: "2026-09-04 20:00", venue: "Arena, Montreal" }]);
   });
 
-  it("normalizes OpenWeather conditions", async () => {
+  it("builds a current-plus-outlook summary from the free 2.5 endpoints", async () => {
     process.env.OPENWEATHER_API_KEY = "test-key";
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ current: { temp: 21, weather: [{ description: "clear sky" }] }, daily: [{ temp: { min: 15, max: 24 }, weather: [{ description: "sunny" }] }] }), { status: 200 })));
-    await expect(weather({ latitude: 45.5, longitude: -73.56, name: "Montreal" })).resolves.toMatchObject({ location: "Montreal", summary: expect.stringContaining("21°C") });
+    const slot = (dt: number, temp: number, main: string) => ({ dt, main: { temp, temp_min: temp - 2, temp_max: temp + 2 }, weather: [{ main, description: main.toLowerCase() }] });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) =>
+        Promise.resolve(
+          url.includes("/2.5/weather")
+            ? new Response(JSON.stringify({ main: { temp: 21 }, weather: [{ description: "clear sky", main: "Clear" }] }), { status: 200 })
+            : new Response(
+                JSON.stringify({
+                  city: { timezone: -14400 },
+                  list: [
+                    slot(1_756_000_000, 22, "Clouds"),
+                    slot(1_756_000_000 + 43_200, 24, "Rain"),
+                    slot(1_756_086_400, 19, "Clouds"),
+                  ],
+                }),
+                { status: 200 },
+              ),
+        ),
+      ),
+    );
+    const result = await weather({ latitude: 45.5, longitude: -73.56, name: "Montreal" });
+    expect(result.location).toBe("Montreal");
+    expect(result.summary).toContain("21°C now, clear sky");
+    expect(result.days.length).toBeGreaterThan(0);
+    expect(result.days[0]).toMatchObject({ label: "Today" });
   });
 
   it("normalizes Google transit routes and requests only valid fieldmask paths", async () => {

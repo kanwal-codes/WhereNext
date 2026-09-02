@@ -55,7 +55,7 @@ const stem = (word: string) => word.replace(/(ies|es|s)$/, (match) => (match ===
 /** RETRIEVE stage: run the resolver's tool plan in parallel, isolate provider failures, dedupe, apply dislike filter. */
 export async function retrieveEvidence(
   toolPlan: ToolCall[],
-  filters: { dislikes?: string[] } = {},
+  filters: { dislikes?: string[]; currency?: string } = {},
   signal?: AbortSignal,
 ): Promise<RetrievedEvidence> {
   if (toolPlan.length === 0) return { ...EMPTY, retrievedAt: new Date().toISOString() };
@@ -136,7 +136,9 @@ export async function retrieveEvidence(
         const { checkin, checkout, assumed: assumedDates } = resolveStayDates(call.checkin, call.checkout);
         const point = await geocode(call.location);
         const result = await searchStays(
-          point ? { latitude: point[1], longitude: point[0], checkin, checkout } : { city: call.location, checkin, checkout },
+          point
+            ? { latitude: point[1], longitude: point[0], checkin, checkout, currency: filters.currency }
+            : { city: call.location, checkin, checkout, currency: filters.currency },
           signal,
         ).catch(fail("liteapi"));
         if (!result || result.options.length === 0) return;

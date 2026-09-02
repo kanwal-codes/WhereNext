@@ -42,6 +42,18 @@ export function askAssistantHref(tripId: string, opts: { name: string; address?:
   return `/trips/${tripId}/chat?ask=${encodeURIComponent(question)}`;
 }
 
+/** Link to the full event detail page, carrying the card's data so it can paint before the fetch. */
+export function eventDetailHref(
+  tripId: string,
+  event: { title: string; url: string; source: string; imageUrl?: string; date?: string; venue?: string },
+): string {
+  const q = new URLSearchParams({ name: event.title, url: event.url, source: event.source });
+  if (event.imageUrl) q.set("img", event.imageUrl);
+  if (event.date) q.set("date", event.date);
+  if (event.venue) q.set("venue", event.venue);
+  return `/trips/${tripId}/event?${q.toString()}`;
+}
+
 export function categoryLabel(category: string | null | undefined): string {
   return titleCase((category ?? "place").replaceAll("_", " "));
 }

@@ -1,16 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AnimatePresence } from "motion/react";
 import { CalendarClock, Loader2 } from "lucide-react";
-import { EventCard, EventDialog, type NearbyEvent } from "@/components/EventCard";
+import { EventCard, type NearbyEvent } from "@/components/EventCard";
 import { Reveal } from "@/components/motion-primitives";
 
 /** "What's on nearby" — Ticketmaster + Eventbrite events for a place's city. */
 export function NearbyEvents({ tripId, location, query = "" }: { tripId: string; location: string; query?: string }) {
   const [events, setEvents] = useState<NearbyEvent[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState<NearbyEvent | null>(null);
 
   useEffect(() => {
     if (!location) {
@@ -57,13 +55,11 @@ export function NearbyEvents({ tripId, location, query = "" }: { tripId: string;
         </h2>
         <div className="mt-3 -mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto scrollbar-slim px-5 pb-1 sm:mx-0 sm:px-0">
           {events.map((event) => (
-            <EventCard key={event.url} event={event} onOpen={() => setOpen(event)} className="w-[240px] shrink-0 snap-start" />
+            <EventCard key={event.url} tripId={tripId} event={event} className="w-[240px] shrink-0 snap-start" />
           ))}
         </div>
-        <p className="mt-2 text-[11px] text-muted-foreground">Tap a card for details; confirm dates and availability on the ticket page.</p>
+        <p className="mt-2 text-[11px] text-muted-foreground">Confirm dates and availability on the ticket page.</p>
       </section>
-
-      <AnimatePresence>{open && <EventDialog event={open} onClose={() => setOpen(null)} />}</AnimatePresence>
     </Reveal>
   );
 }

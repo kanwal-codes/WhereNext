@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { mergePreferences, preferencesSchema } from "@/packages/contracts/preferences";
 import { suggestionActionSchema, suggestionValueSchema, type SuggestionKey } from "@/packages/contracts/suggestion";
+import { tripDurationDays } from "@/features/trip/domain/trip";
 
 const splitList = (value: string) => value.split(/[,·;/]| and /i).map((s) => s.trim()).filter(Boolean).slice(0, 20);
 
@@ -37,6 +38,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ tr
     if (action === "confirm") {
       const suggestion = suggestionValueSchema.parse(row.data.value);
       const prefField = PREF_FIELD[key];
+      // A dates suggestion with a resolved window also sets the real trip columns.
+      if (key === "dates" && suggestion.startDate && suggestion.endDate) {
+        const derived = tripDurationDays(suggestion.startDate, suggestion.endDate);
+        const write = await supabase
+          .from("trips")
+          .update({ start_date: suggestion.startDate, end_date: suggestion.endDate, ...(derived ? { duration_days: derived } : {}) })
+          .eq("id", tripId);
+        if (write.error) throw write.error;
+      }
       if (key === "interests") {
         const existing = await supabase.from("trip_preferences").select("data").eq("trip_id", tripId).maybeSingle();
         if (existing.error) throw existing.error;

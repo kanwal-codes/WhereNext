@@ -2,11 +2,12 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
-import { ArrowUp, Copy } from "lucide-react";
+import { ArrowUp, Copy, Mic } from "lucide-react";
 import type { AssistantTurnMeta, PlaceCard, ProposedCommand, StayCardItem } from "@/packages/contracts/assistant";
 import type { Message } from "../domain/message";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
+import { useSpeechInput } from "@/lib/use-speech-input";
 import { AssistantMessage } from "./AssistantMessage";
 import { AssistantRequestError } from "../application/streamAssistantResponse";
 import { sendConversationMessage } from "../application/sendConversationMessage";
@@ -75,6 +76,16 @@ export function ConversationSurface({
   const endRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollFrame = useRef(0);
+  const speechBaseRef = useRef("");
+
+  // Dictation: transcript is appended after whatever was already typed when the mic started.
+  const speech = useSpeechInput({
+    onStart: () => {
+      speechBaseRef.current = input.trim() ? `${input.trim()} ` : "";
+    },
+    onResult: (text) => setInput(speechBaseRef.current + text),
+    onError: (message) => notifyToast(message, "error"),
+  });
 
   useEffect(() => () => requestRef.current?.abort(), []);
 
@@ -178,6 +189,7 @@ export function ConversationSurface({
   async function submit(rawContent: string) {
     const content = rawContent.trim();
     if (!content || sending || !loaded) return;
+    if (speech.listening) speech.stop();
     setError("");
     setSending(true);
     setInput("");
@@ -397,10 +409,27 @@ export function ConversationSurface({
                 void submit(input);
               }
             }}
-            placeholder={!loaded ? "Loading…" : sending ? "Type your next message…" : "Ask about your trip…"}
+            placeholder={!loaded ? "Loading…" : speech.listening ? "Listening…" : sending ? "Type your next message…" : "Ask about your trip…"}
             disabled={!loaded}
             className="max-h-40 min-w-0 flex-1 resize-none bg-transparent px-1.5 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
           />
+          {speech.supported && (
+            <button
+              type="button"
+              onClick={speech.toggle}
+              aria-label={speech.listening ? "Stop dictation" : "Dictate your message"}
+              aria-pressed={speech.listening}
+              disabled={!loaded || sending}
+              className={cn(
+                "mb-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-35",
+                speech.listening
+                  ? "border-destructive/50 bg-destructive/10 text-destructive"
+                  : "border-border text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Mic className={cn("h-4 w-4", speech.listening && "animate-pulse")} />
+            </button>
+          )}
           {sending ? (
             <button
               type="button"

@@ -3,7 +3,8 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { Compass, Quote } from "lucide-react";
+import { Quote } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
 import { Reveal, WordReveal } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
 
@@ -30,10 +31,8 @@ export function AuthShell({
     <div className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
       <div className="relative flex flex-col px-5 py-8 sm:px-10 lg:px-14">
         <Link href="/" className="inline-flex w-fit items-center gap-2 text-sm">
-          <span className="grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground">
-            <Compass className="h-4 w-4" />
-          </span>
-          <span className="font-display text-base">Next Place to Be</span>
+          <BrandMark variant="compact" />
+          <BrandMark variant="text" />
         </Link>
 
         <div className="flex flex-1 items-center py-10">

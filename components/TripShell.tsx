@@ -16,9 +16,10 @@ import {
   PanelLeftOpen,
   Notebook,
   House,
-  Sparkle,
+  Ticket,
   X,
 } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
 import { cn } from "@/lib/utils";
 import { ProgressRing } from "./ProgressRing";
 
@@ -38,7 +39,7 @@ const nav = [
   { seg: "stay", label: "Stay", icon: BedDouble },
   { seg: "itinerary", label: "Itinerary", icon: CalendarDays },
   { seg: "knowledge", label: "Trip knowledge", icon: Notebook },
-  { seg: "bookings", label: "Bookings & essentials", icon: Sparkle },
+  { seg: "bookings", label: "Bookings & essentials", icon: Ticket },
 ] as const;
 
 function NavList({
@@ -109,11 +110,15 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
           collapsed ? "px-3" : "px-4",
         )}
       >
-        <div className={cn("mb-7 flex items-center gap-2", collapsed ? "justify-center" : "justify-between px-2")}>
-          {!collapsed && (
-            <Link href="/trips" className="min-w-0">
-              <p className="eyebrow">Next Place to Be</p>
-              <h2 className="mt-1 truncate font-display text-lg leading-tight">{trip.name}</h2>
+        <div className={cn("mb-7 flex gap-2", collapsed ? "flex-col items-center gap-3" : "items-center justify-between px-2")}>
+          {collapsed ? (
+            <Link href="/trips" aria-label="Where next? — all trips">
+              <BrandMark variant="compact" />
+            </Link>
+          ) : (
+            <Link href="/trips" className="flex min-w-0 items-center gap-2" aria-label="Where next? — all trips">
+              <BrandMark variant="compact" className="h-7 w-7 text-[11px]" />
+              <h2 className="truncate font-display text-lg leading-tight">{trip.name}</h2>
             </Link>
           )}
           <button
@@ -173,10 +178,10 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
 
       {/* Mobile top bar */}
       <div className="sticky top-0 z-30 grid h-[var(--topbar)] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/90 px-4 backdrop-blur lg:hidden">
-        <div className="min-w-0">
-          <p className="eyebrow">Next Place to Be</p>
+        <Link href="/trips" className="flex min-w-0 items-center gap-2" aria-label="Where next? — all trips">
+          <BrandMark variant="compact" className="h-6 w-6 text-[10px]" />
           <h2 className="truncate font-display text-sm leading-tight">{trip.name}</h2>
-        </div>
+        </Link>
         <button
           onClick={() => setOpen(true)}
           aria-label="Open trip navigation"

@@ -225,11 +225,11 @@ export function PlaceDetailView({
                 ))}
               </div>
             ) : (
-              <div className="relative mt-4 pb-3">
-                {/* the rest of the reviews, peeking out behind the first */}
-                <div aria-hidden className="pointer-events-none absolute inset-x-3 top-2.5 h-full rounded-2xl border border-border bg-surface/80" />
+              // First review, with the rest as "stacked paper" edges peeking below it.
+              <div className="relative mt-4" style={{ paddingBottom: reviews.length > 2 ? 22 : 12 }}>
+                <div aria-hidden className="pointer-events-none absolute inset-x-3 bottom-0 top-2.5 rounded-2xl border border-border bg-surface/80" />
                 {reviews.length > 2 && (
-                  <div aria-hidden className="pointer-events-none absolute inset-x-6 top-5 h-full rounded-2xl border border-border bg-surface/50" />
+                  <div aria-hidden className="pointer-events-none absolute inset-x-6 bottom-[-10px] top-5 rounded-2xl border border-border bg-surface/50" />
                 )}
                 <div className="relative">
                   <ReviewFigure r={reviews[0]} />
@@ -240,7 +240,7 @@ export function PlaceDetailView({
               <button
                 type="button"
                 onClick={() => setReviewsOpen((v) => !v)}
-                className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary"
+                className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-primary"
               >
                 {reviewsOpen ? "Show less" : `Show ${reviews.length - 1} more review${reviews.length - 1 === 1 ? "" : "s"}`}
                 <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", reviewsOpen && "rotate-180")} />
@@ -271,7 +271,7 @@ export function PlaceDetailView({
 
   return (
     <div>
-      <Hero image={photo ?? "/design/place-neighbourhood.jpg"} alt={name} className={cn(panel ? "h-44" : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")}>
+      <Hero image={photo ?? "/design/place-neighbourhood.jpg"} alt={name} plain className={cn(panel ? "h-44" : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")}>
         {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className="absolute top-4 left-4" />}
       </Hero>
 

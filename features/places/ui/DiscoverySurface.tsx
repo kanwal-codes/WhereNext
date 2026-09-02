@@ -2,19 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BedDouble, Loader2, Scale, Search, Sparkles } from "lucide-react";
+import { BedDouble, Loader2, Search } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
 import { useTripData } from "@/components/TripDataProvider";
 import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
 import { PlaceCard } from "@/components/PlaceCard";
-import { EventCard, EventDialog, type NearbyEvent } from "@/components/EventCard";
+import { EventCard, type NearbyEvent } from "@/components/EventCard";
 import { SkeletonCards } from "@/components/Skeleton";
 import { Stagger, StaggerItem } from "@/components/motion-primitives";
-import { CATEGORIES, CATEGORY_BY_KEY, coarseKind, type DiscoverCategory } from "./discoverTaxonomy";
+import { CATEGORIES, CATEGORY_BY_KEY, type DiscoverCategory } from "./discoverTaxonomy";
 import { cn } from "@/lib/utils";
 
-const MAX_COMPARE = 4;
 const PAGE = 6;
 
 const asList = (v: unknown): string[] =>
@@ -89,8 +88,6 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [visible, setVisible] = useState(PAGE);
-  const [compareIds, setCompareIds] = useState<string[]>([]);
-  const [openEvent, setOpenEvent] = useState<NearbyEvent | null>(null);
   const reqId = useRef(0);
 
   const fetchPlaces = useCallback(
@@ -227,12 +224,6 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
   function toggleSub(label: string) {
     setSubs((cur) => (cur.includes(label) ? cur.filter((l) => l !== label) : [...cur, label]));
   }
-  function toggleCompare(place: Place) {
-    if (compareIds.includes(place.providerId)) setCompareIds((ids) => ids.filter((id) => id !== place.providerId));
-    else if (compareIds.length < MAX_COMPARE) setCompareIds((ids) => [...ids, place.providerId]);
-    else notifyToast(`Compare up to ${MAX_COMPARE} at a time.`, "info");
-  }
-
   const activeCat = catKey ? CATEGORY_BY_KEY.get(catKey) ?? null : null;
   const gridView = view === "saved" || searchMode || catKey !== null;
   const savedItems: Item[] = saved.map((p) => ({ kind: "place", place: p }));
@@ -242,24 +233,18 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
     return (bands ?? []).flatMap((b) => b.items).filter((it) => (seen.has(idOf(it)) ? false : (seen.add(idOf(it)), true)));
   }, [bands]);
 
-  const renderItem = (item: Item, mixed: boolean) => {
+  const renderItem = (item: Item) => {
     if (item.kind === "place") {
       return (
         <StaggerItem key={`p:${item.place.providerId}`}>
-          <PlaceCard
-            tripId={tripId}
-            place={item.place}
-            inCompare={compareIds.includes(item.place.providerId)}
-            onCompare={toggleCompare}
-            kindLabel={mixed ? coarseKind(item.place.category) : undefined}
-          />
+          <PlaceCard tripId={tripId} place={item.place} />
         </StaggerItem>
       );
     }
     if (item.kind === "event") {
       return (
         <StaggerItem key={`e:${item.event.url}`}>
-          <EventCard event={item.event} onOpen={() => setOpenEvent(item.event)} />
+          <EventCard tripId={tripId} event={item.event} />
         </StaggerItem>
       );
     }
@@ -270,7 +255,7 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
     );
   };
 
-  const grid = "grid auto-rows-fr items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-3";
+  const grid = "grid gap-4 sm:grid-cols-2 xl:grid-cols-3";
 
   return (
     <div>
@@ -299,9 +284,9 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
         </button>
       </form>
 
-      {/* Tier 1 — Discover / Saved toggle + broad categories */}
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <div className="flex rounded-full border border-border p-0.5 text-xs">
+      {/* Tier 1 — Discover / Saved toggle + broad categories. One row, scrolls sideways. */}
+      <div className="mt-4 flex items-center gap-2 overflow-x-auto scrollbar-slim pb-1">
+        <div className="flex shrink-0 rounded-full border border-border p-0.5 text-xs">
           {(["results", "saved"] as const).map((v) => (
             <button
               key={v}
@@ -320,11 +305,11 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
               type="button"
               onClick={() => pickCategory(null)}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                 !searchMode && catKey === null ? "border-transparent bg-primary text-primary-foreground" : "border-border bg-background text-ink-soft hover:bg-accent",
               )}
             >
-              <Sparkles className="h-3.5 w-3.5" /> All
+              All
             </button>
             {CATEGORIES.map((c) => {
               const Icon = c.icon;
@@ -335,7 +320,7 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
                   type="button"
                   onClick={() => pickCategory(c.key)}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                    "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                     on ? "border-transparent bg-primary text-primary-foreground" : "border-border bg-background text-ink-soft hover:bg-accent",
                   )}
                 >
@@ -345,20 +330,9 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
             })}
           </>
         )}
-
-        {compareIds.length >= 2 && (
-          <motion.a
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            href={`/trips/${tripId}/compare?ids=${encodeURIComponent(compareIds.join(","))}`}
-            className="btn-primary-sm ml-auto"
-          >
-            <Scale className="h-3.5 w-3.5" /> Compare {compareIds.length}
-          </motion.a>
-        )}
       </div>
 
-      {/* Tier 2 — sub-types for the active category */}
+      {/* Tier 2 — sub-types for the active category. One row, scrolls sideways. */}
       <AnimatePresence initial={false}>
         {view === "results" && activeCat && activeCat.subs.length > 0 && (
           <motion.div
@@ -368,14 +342,14 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
             transition={{ duration: 0.2, ease: [0.22, 0.61, 0.36, 1] }}
             className="overflow-hidden"
           >
-            <div className="mt-3 flex flex-wrap gap-1.5">
+            <div className="mt-3 flex gap-1.5 overflow-x-auto scrollbar-slim pb-1">
               {activeCat.subs.map((s) => (
                 <button
                   key={s.label}
                   type="button"
                   onClick={() => toggleSub(s.label)}
                   className={cn(
-                    "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                    "shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
                     subs.includes(s.label) ? "border-coral/50 bg-coral-soft text-coral" : "border-border bg-background text-muted-foreground hover:text-foreground",
                   )}
                 >
@@ -383,7 +357,7 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
                 </button>
               ))}
               {subs.length > 0 && (
-                <button type="button" onClick={() => setSubs([])} className="rounded-full px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground">
+                <button type="button" onClick={() => setSubs([])} className="shrink-0 rounded-full px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground">
                   Clear
                 </button>
               )}
@@ -400,7 +374,7 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
       ) : gridView ? (
         gridItems.length > 0 ? (
           <>
-            <Stagger className={cn(grid, "mt-5")}>{gridItems.slice(0, visible).map((it) => renderItem(it, false))}</Stagger>
+            <Stagger className={cn(grid, "mt-5")}>{gridItems.slice(0, visible).map((it) => renderItem(it))}</Stagger>
             {view === "results" && visible < gridItems.length && (
               <button type="button" onClick={() => setVisible((v) => v + PAGE)} className="btn-secondary mt-5 w-full">
                 Show more ({gridItems.length - visible} left)
@@ -433,7 +407,7 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
               {destination ? "The providers returned nothing just now. Try a search or a category." : "Set a destination for this trip to see ideas here."}
             </p>
           ) : flat ? (
-            <Stagger className={cn(grid, "mt-4")}>{flatItems.map((it) => renderItem(it, true))}</Stagger>
+            <Stagger className={cn(grid, "mt-4")}>{flatItems.map((it) => renderItem(it))}</Stagger>
           ) : (
             <div className="mt-4 space-y-9">
               {(bands ?? []).map((band) => (
@@ -446,7 +420,7 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
                       </button>
                     )}
                   </div>
-                  <Stagger className={cn(grid, "mt-3")}>{band.items.map((it) => renderItem(it, true))}</Stagger>
+                  <Stagger className={cn(grid, "mt-3")}>{band.items.map((it) => renderItem(it))}</Stagger>
                 </section>
               ))}
             </div>
@@ -454,7 +428,6 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
         </div>
       )}
 
-      <AnimatePresence>{openEvent && <EventDialog event={openEvent} onClose={() => setOpenEvent(null)} />}</AnimatePresence>
     </div>
   );
 }
@@ -463,20 +436,17 @@ function StayMiniCard({ tripId, stay }: { tripId: string; stay: StayItem }) {
   return (
     <a
       href={`/trips/${tripId}/stay/${encodeURIComponent(stay.hotelId)}`}
-      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-shadow hover:shadow-lift"
+      className="group flex h-[19rem] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-shadow hover:shadow-lift"
     >
       {stay.thumbnail ? (
         // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
-        <img src={stay.thumbnail} alt={stay.name} loading="lazy" width={320} height={160} className="h-36 w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]" />
+        <img src={stay.thumbnail} alt={stay.name} loading="lazy" width={320} height={160} className="h-40 w-full shrink-0 object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]" />
       ) : (
-        <div className="grid h-36 w-full place-items-center bg-muted text-muted-foreground">
+        <div className="grid h-40 w-full shrink-0 place-items-center bg-muted text-muted-foreground">
           <BedDouble className="h-6 w-6 opacity-40" />
         </div>
       )}
-      <div className="flex flex-1 flex-col gap-1.5 p-4">
-        <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-coral/30 bg-background/92 px-2.5 py-1 text-[10px] font-medium tracking-[0.1em] text-coral uppercase">
-          <span className="h-1.5 w-1.5 rounded-full bg-coral" /> Stay
-        </span>
+      <div className="flex min-h-0 flex-1 flex-col gap-1.5 p-4">
         <h3 className="truncate font-display text-base leading-tight">{stay.name}</h3>
         {(stay.stars || stay.rating) && (
           <p className="text-xs text-muted-foreground">

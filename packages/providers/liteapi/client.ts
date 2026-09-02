@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { withProviderTimeout } from "../request-signal";
-import type { StayDetails, StayOption, StayRoom, StaySearchResult } from "../../contracts/stay";
+import { stayReviewSchema, type StayDetails, type StayFacets, type StayOption, type StayReview, type StayRoom, type StaySearchResult } from "../../contracts/stay";
 
-export type { StayDetails, StayOption, StayRoom, StaySearchResult };
+export type { StayDetails, StayOption, StayRoom, StaySearchResult, StayReview };
 
 // LiteAPI (Nuitée) — live hotel inventory + nightly rates. Sandbox key is `sand_…`,
 // production `prod_…`. The user's key currently lives in CONNECT_API_KEY.
@@ -104,11 +104,15 @@ async function get(path: string, params: Record<string, string>, signal?: AbortS
   return response.json();
 }
 
-/** Shared body for `/hotels/rates`. guestNationality is required by LiteAPI and affects eligibility. */
-function rateBody(hotelIds: string[], input: { checkin: string; checkout: string; adults?: number; currency?: string }) {
+/** Shared body for `/hotels/rates`. guestNationality is required by LiteAPI and affects eligibility. One occupancy object per room. */
+function rateBody(hotelIds: string[], input: { checkin: string; checkout: string; adults?: number; rooms?: number; currency?: string }) {
+  const rooms = Math.max(1, Math.min(input.rooms ?? 1, 8));
+  const totalAdults = Math.max(rooms, Math.min(input.adults ?? 2, 24));
+  const base = Math.floor(totalAdults / rooms);
+  const extra = totalAdults - base * rooms;
   return {
     hotelIds,
-    occupancies: [{ adults: Math.max(1, Math.min(input.adults ?? 2, 8)) }],
+    occupancies: Array.from({ length: rooms }, (_, i) => ({ adults: Math.max(1, base + (i < extra ? 1 : 0)) })),
     currency: input.currency ?? "USD",
     guestNationality: process.env.LITEAPI_GUEST_NATIONALITY || "US",
     checkin: input.checkin,
@@ -146,11 +150,11 @@ function parseRooms(roomTypes: RoomTypes, nights: number): StayRoom[] {
 }
 
 async function hotelIndex(
-  input: { city?: string; countryCode?: string; latitude?: number; longitude?: number },
+  input: { city?: string; countryCode?: string; latitude?: number; longitude?: number; starRatings?: number[] },
   limit: number,
   signal?: AbortSignal,
 ) {
-  const params: Record<string, string> = { language: "en", limit: String(Math.min(Math.max(limit, 20), 40)) };
+  const params: Record<string, string> = { language: "en", limit: String(Math.min(Math.max(limit, 20), 60)) };
   if (input.latitude != null && input.longitude != null) {
     params.latitude = String(input.latitude);
     params.longitude = String(input.longitude);
@@ -159,25 +163,73 @@ async function hotelIndex(
     if (input.countryCode) params.countryCode = input.countryCode;
     if (input.city) params.cityName = input.city;
   }
+  if (input.starRatings?.length) params.starRating = input.starRatings.join(",");
   return hotelsSchema.parse(await get("/data/hotels", params, signal)).data;
 }
 
-/** Cheapest bookable stay near a place, priced for the given nights. Keeps every room rate per hotel.
- *  `limit` caps how many priced options come back — 6 for a chat card, more for the Stay tab. */
-export async function searchStays(
-  input: { city?: string; countryCode?: string; latitude?: number; longitude?: number; checkin: string; checkout: string; adults?: number; currency?: string; limit?: number },
-  signal?: AbortSignal,
-): Promise<StaySearchResult> {
+const reviewsSchema = z.object({
+  data: z.array(z.object({
+    rating: z.number().nullish(),
+    averageScore: z.number().nullish(),
+    headline: z.string().nullish(),
+    pros: z.string().nullish(),
+    cons: z.string().nullish(),
+    reviewText: z.string().nullish(),
+    text: z.string().nullish(),
+    date: z.string().nullish(),
+    travelDate: z.string().nullish(),
+    type: z.string().nullish(),
+    travelerType: z.string().nullish(),
+    country: z.string().nullish(),
+    countryName: z.string().nullish(),
+    name: z.string().nullish(),
+    guestName: z.string().nullish(),
+  })).nullish().default([]),
+});
+
+/** Guest reviews for one hotel (LiteAPI `/data/reviews`). */
+export async function stayReviews(hotelId: string, limit = 12, signal?: AbortSignal): Promise<StayReview[]> {
+  if (!key()) throw new Error("LITEAPI_KEY is not configured");
+  const raw = await get("/data/reviews", { hotelId, limit: String(limit), getSentiment: "false" }, signal).catch(() => ({ data: [] }));
+  return (reviewsSchema.parse(raw).data ?? []).flatMap((r) => {
+    const parsed = stayReviewSchema.safeParse({
+      rating: r.rating ?? r.averageScore ?? null,
+      headline: r.headline ?? null,
+      positives: r.pros ? stripTags(r.pros) : null,
+      negatives: r.cons ? stripTags(r.cons) : null,
+      text: r.reviewText ?? r.text ? stripTags(String(r.reviewText ?? r.text)) : null,
+      date: r.date ?? r.travelDate ?? null,
+      travellerType: r.type ?? r.travelerType ?? null,
+      country: r.countryName ?? r.country ?? null,
+      name: r.guestName ?? r.name ?? null,
+    });
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
+export type StaySearchInput = {
+  city?: string; countryCode?: string; latitude?: number; longitude?: number;
+  checkin: string; checkout: string;
+  adults?: number; rooms?: number; currency?: string; limit?: number;
+  starRatings?: number[]; boards?: string[]; refundableOnly?: boolean; priceMax?: number;
+  sort?: "price" | "rating" | "stars";
+};
+
+/** Bookable stays near a place, priced for the given nights, filtered and sorted. Keeps every room rate per hotel. */
+export async function searchStays(input: StaySearchInput, signal?: AbortSignal): Promise<StaySearchResult> {
   if (!key()) throw new Error("LITEAPI_KEY is not configured");
   const limit = Math.min(Math.max(input.limit ?? 6, 1), 30);
   const nights = nightsBetween(input.checkin, input.checkout);
-  const hotels = await hotelIndex(input, limit + 6, signal);
-  if (hotels.length === 0) return { nights, options: [] };
+  // Cast a wider net when filters are on, since many will be dropped after pricing.
+  const netWidth = limit + (input.starRatings?.length || input.boards?.length || input.refundableOnly || input.priceMax ? 24 : 6);
+  const hotels = await hotelIndex({ ...input, starRatings: input.starRatings }, netWidth, signal);
+  const empty: StayFacets = { priceMin: 0, priceMax: 0, stars: [], boards: [] };
+  if (hotels.length === 0) return { nights, options: [], facets: empty };
 
   const byId = new Map(hotels.map((hotel) => [hotel.id, hotel]));
   const raw = await post("/hotels/rates", rateBody(hotels.map((hotel) => hotel.id), input), signal);
 
-  const options: StayOption[] = [];
+  let options: StayOption[] = [];
   for (const priced of ratesSchema.parse(raw).data) {
     const hotel = byId.get(priced.hotelId);
     if (!hotel) continue;
@@ -203,13 +255,32 @@ export async function searchStays(
       rooms,
     });
   }
-  options.sort((a, b) => a.nightlyAmount - b.nightlyAmount);
-  return { nights, options: options.slice(0, limit) };
+
+  // Facets from the full priced set (before applying the user's filters, so the controls stay stable).
+  const facets: StayFacets = {
+    priceMin: options.length ? Math.min(...options.map((o) => o.nightlyAmount)) : 0,
+    priceMax: options.length ? Math.max(...options.map((o) => o.nightlyAmount)) : 0,
+    stars: Array.from(new Set(options.map((o) => o.stars).filter((s): s is number => typeof s === "number" && s > 0))).sort((a, b) => b - a),
+    boards: Array.from(new Set(options.flatMap((o) => o.rooms.map((r) => r.boardName)).filter((b): b is string => Boolean(b)))).sort(),
+  };
+
+  if (input.starRatings?.length) options = options.filter((o) => o.stars != null && input.starRatings!.includes(Math.round(o.stars)));
+  if (input.boards?.length) options = options.filter((o) => o.rooms.some((r) => r.boardName && input.boards!.includes(r.boardName)));
+  if (input.refundableOnly) options = options.filter((o) => o.rooms.some((r) => r.refundable));
+  if (typeof input.priceMax === "number") options = options.filter((o) => o.nightlyAmount <= input.priceMax!);
+
+  const sort = input.sort ?? "price";
+  options.sort((a, b) =>
+    sort === "rating" ? (b.rating ?? 0) - (a.rating ?? 0)
+    : sort === "stars" ? (b.stars ?? 0) - (a.stars ?? 0)
+    : a.nightlyAmount - b.nightlyAmount,
+  );
+  return { nights, options: options.slice(0, limit), facets };
 }
 
 /** Fresh room rates for one hotel and date range. */
 export async function stayRooms(
-  input: { hotelId: string; checkin: string; checkout: string; adults?: number; currency?: string },
+  input: { hotelId: string; checkin: string; checkout: string; adults?: number; rooms?: number; currency?: string },
   signal?: AbortSignal,
 ): Promise<{ nights: number; rooms: StayRoom[] }> {
   if (!key()) throw new Error("LITEAPI_KEY is not configured");

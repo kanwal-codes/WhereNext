@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, BedDouble, Check, Loader2, MapPin, Star } from "lucide-react";
+import { ArrowUpRight, BedDouble, Check, Loader2, Minus, Plus, SlidersHorizontal, Star } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
-import { readStayDecision, type StayOption } from "@/packages/contracts/stay";
+import { readStayDecision, type StayFacets, type StayOption } from "@/packages/contracts/stay";
+import { SkeletonCards } from "@/components/Skeleton";
+import { formatMoney } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 
 type Result = {
@@ -13,8 +15,11 @@ type Result = {
   checkout: string;
   assumedDates: boolean;
   nights: number;
+  adults: number;
+  rooms: number;
+  currency: string;
   options: StayOption[];
-  freshness?: { retrievedAt: string };
+  facets: StayFacets;
 };
 
 const fmtDay = (iso: string) => {
@@ -22,51 +27,95 @@ const fmtDay = (iso: string) => {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString([], { month: "short", day: "numeric" });
 };
 
+function Stepper({ label, value, set, min, max }: { label: string; value: number; set: (n: number) => void; min: number; max: number }) {
+  return (
+    <div>
+      <span className="block text-sm font-medium">{label}</span>
+      <div className="mt-1.5 inline-flex items-center gap-3 rounded-full border border-input px-2 py-1">
+        <button type="button" onClick={() => set(Math.max(min, value - 1))} disabled={value <= min} aria-label={`Fewer ${label}`} className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground disabled:opacity-30 hover:text-foreground">
+          <Minus className="h-3.5 w-3.5" />
+        </button>
+        <span className="w-5 text-center text-sm tabular-nums">{value}</span>
+        <button type="button" onClick={() => set(Math.min(max, value + 1))} disabled={value >= max} aria-label={`More ${label}`} className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground disabled:opacity-30 hover:text-foreground">
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function StaySurface({ tripId, destination }: { tripId: string; destination: string }) {
   const { data } = useTripData();
   const lockedStay = readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
+  const trip = data?.trip as { start_date?: string | null; end_date?: string | null; travelers?: number | null } | undefined;
 
-  const [checkin, setCheckin] = useState(lockedStay?.checkin ?? "");
-  const [checkout, setCheckout] = useState(lockedStay?.checkout ?? "");
+  const [checkin, setCheckin] = useState(lockedStay?.checkin ?? trip?.start_date ?? "");
+  const [checkout, setCheckout] = useState(lockedStay?.checkout ?? trip?.end_date ?? "");
+  const [adults, setAdults] = useState(Math.max(1, Math.min(trip?.travelers ?? 2, 24)));
+  const [rooms, setRooms] = useState(1);
+  const [stars, setStars] = useState<number[]>([]);
+  const [boards, setBoards] = useState<string[]>([]);
+  const [refundable, setRefundable] = useState(false);
+  const [priceMax, setPriceMax] = useState<number | null>(null);
+  const [sort, setSort] = useState<"price" | "rating" | "stars">("price");
+  const [showFilters, setShowFilters] = useState(false);
+
   const [result, setResult] = useState<Result | null>(null);
   const [status, setStatus] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [visible, setVisible] = useState(6);
+  const [loading, setLoading] = useState(true);
+  const [visible, setVisible] = useState(8);
+  const reqId = useRef(0);
 
-  async function search() {
+  const search = useCallback(async () => {
+    const mine = ++reqId.current;
     setLoading(true);
     setStatus("");
     try {
-      const qs = new URLSearchParams();
+      const qs = new URLSearchParams({ adults: String(adults), rooms: String(rooms), sort });
       if (checkin) qs.set("checkin", checkin);
       if (checkout) qs.set("checkout", checkout);
-      const response = await fetch(`/api/trips/${tripId}/stays${qs.toString() ? `?${qs}` : ""}`);
+      if (stars.length) qs.set("stars", stars.join(","));
+      if (boards.length) qs.set("boards", boards.join(","));
+      if (refundable) qs.set("refundable", "1");
+      if (priceMax) qs.set("priceMax", String(priceMax));
+      const response = await fetch(`/api/trips/${tripId}/stays?${qs}`);
       const body = await response.json();
+      if (mine !== reqId.current) return;
       if (!response.ok) {
         setResult(null);
         setStatus(body.error ?? "Stay search is unavailable right now.");
         return;
       }
       setResult(body as Result);
-      setVisible(6);
-      setStatus((body.options ?? []).length === 0 ? "No bookable stays came back for those dates." : "");
+      setVisible(8);
+      setStatus((body.options ?? []).length === 0 ? "Nothing matched — loosen the filters or change the dates." : "");
     } catch {
-      setResult(null);
-      setStatus("Stay search is unavailable right now.");
+      if (mine === reqId.current) {
+        setResult(null);
+        setStatus("Stay search is unavailable right now.");
+      }
     } finally {
-      setLoading(false);
+      if (mine === reqId.current) setLoading(false);
     }
-  }
+  }, [tripId, adults, rooms, sort, checkin, checkout, stars, boards, refundable, priceMax]);
 
-  const detailHref = (hotelId: string, ci: string, co: string) =>
-    `/trips/${tripId}/stay/${encodeURIComponent(hotelId)}?checkin=${ci}&checkout=${co}`;
-  const field = "input-field";
+  useEffect(() => {
+    void search();
+  }, [search]);
+
+  const detailHref = (hotelId: string) =>
+    `/trips/${tripId}/stay/${encodeURIComponent(hotelId)}?checkin=${result?.checkin ?? checkin}&checkout=${result?.checkout ?? checkout}&adults=${adults}&rooms=${rooms}`;
+  const money = (n: number) => formatMoney(n, result?.currency ?? "CAD");
+  const facets = result?.facets;
+  const toggle = (list: string[], v: string, set: (l: string[]) => void) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+  const toggleN = (list: number[], v: number, set: (l: number[]) => void) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+  const activeFilters = stars.length + boards.length + (refundable ? 1 : 0) + (priceMax ? 1 : 0);
 
   return (
     <div className="space-y-5">
       {lockedStay && (
         <Link
-          href={detailHref(lockedStay.hotelId, lockedStay.checkin, lockedStay.checkout)}
+          href={detailHref(lockedStay.hotelId)}
           className="flex gap-4 rounded-2xl border border-leaf/30 bg-leaf-soft/40 p-4 transition-colors hover:bg-leaf-soft/60"
         >
           {lockedStay.thumbnail ? (
@@ -85,7 +134,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
             <p className="truncate text-sm text-ink-soft">{lockedStay.roomName}{lockedStay.board ? ` · ${lockedStay.board}` : ""}</p>
             <p className="mt-1 text-xs text-muted-foreground">
               {fmtDay(lockedStay.checkin)} → {fmtDay(lockedStay.checkout)} · {lockedStay.nights} night{lockedStay.nights === 1 ? "" : "s"} ·{" "}
-              <span className="font-medium text-foreground tabular-nums">{lockedStay.totalAmount} {lockedStay.currency}</span> total
+              <span className="font-medium text-foreground tabular-nums">{formatMoney(lockedStay.totalAmount, lockedStay.currency)}</span> total
             </p>
           </div>
           <span className="hidden shrink-0 self-center text-xs font-medium text-primary sm:inline-flex sm:items-center sm:gap-1">
@@ -94,59 +143,131 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
         </Link>
       )}
 
+      {/* Search controls */}
       <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-        <p className="eyebrow">Live nightly rates</p>
-        <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-          Real availability near {destination || "your destination"}. Leave dates blank for an example 3-night stay about six
-          weeks out.
+        <p className="eyebrow">Where to stay</p>
+        <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">
+          Hotels, apartments and guesthouses in {destination || "your destination"}, priced for your dates and party.
         </p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <label className="block text-sm font-medium">
             Check-in
-            <input type="date" value={checkin} onChange={(e) => setCheckin(e.target.value)} className={field} />
+            <input type="date" value={checkin} onChange={(e) => setCheckin(e.target.value)} className="input-field" />
           </label>
           <label className="block text-sm font-medium">
             Check-out
-            <input type="date" value={checkout} onChange={(e) => setCheckout(e.target.value)} className={field} />
+            <input type="date" value={checkout} min={checkin || undefined} onChange={(e) => setCheckout(e.target.value)} className="input-field" />
+          </label>
+          <Stepper label="Guests" value={adults} set={setAdults} min={1} max={16} />
+          <Stepper label="Rooms" value={rooms} set={setRooms} min={1} max={8} />
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <button type="button" onClick={() => setShowFilters((v) => !v)} className="btn-secondary">
+            <SlidersHorizontal className="h-3.5 w-3.5" /> Filters{activeFilters ? ` (${activeFilters})` : ""}
+          </button>
+          <label className="text-sm text-muted-foreground">
+            Sort{" "}
+            <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="rounded-lg border border-input bg-background px-2 py-1 text-sm text-foreground">
+              <option value="price">Price</option>
+              <option value="rating">Guest rating</option>
+              <option value="stars">Stars</option>
+            </select>
           </label>
         </div>
-        <button
-          type="button"
-          onClick={() => void search()}
-          disabled={loading}
-          className="btn-primary mt-4"
-        >
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BedDouble className="h-4 w-4" />}
-          Find places to stay
-        </button>
+
+        {showFilters && facets && (
+          <div className="mt-4 space-y-4 border-t border-border pt-4">
+            {facets.priceMax > facets.priceMin && (
+              <div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium">Max price / night</span>
+                  <span className="text-muted-foreground tabular-nums">{money(priceMax ?? facets.priceMax)}</span>
+                </div>
+                <input
+                  type="range"
+                  min={Math.floor(facets.priceMin)}
+                  max={Math.ceil(facets.priceMax)}
+                  value={priceMax ?? Math.ceil(facets.priceMax)}
+                  onChange={(e) => setPriceMax(Number(e.target.value) >= Math.ceil(facets.priceMax) ? null : Number(e.target.value))}
+                  className="mt-2 w-full accent-primary"
+                />
+              </div>
+            )}
+            {facets.stars.length > 0 && (
+              <div>
+                <span className="text-sm font-medium">Star rating</span>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {facets.stars.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => toggleN(stars, s, setStars)}
+                      className={cn("inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs", stars.includes(s) ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-ink-soft")}
+                    >
+                      {s} <Star className="h-3 w-3 fill-current" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {facets.boards.length > 0 && (
+              <div>
+                <span className="text-sm font-medium">Board</span>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {facets.boards.map((b) => (
+                    <button
+                      key={b}
+                      type="button"
+                      onClick={() => toggle(boards, b, setBoards)}
+                      className={cn("rounded-full border px-2.5 py-1 text-xs", boards.includes(b) ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-ink-soft")}
+                    >
+                      {b}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={refundable} onChange={(e) => setRefundable(e.target.checked)} className="accent-primary" />
+              Free cancellation only
+            </label>
+            {activeFilters > 0 && (
+              <button type="button" onClick={() => { setStars([]); setBoards([]); setRefundable(false); setPriceMax(null); }} className="text-xs font-medium text-primary hover:underline">
+                Clear filters
+              </button>
+            )}
+          </div>
+        )}
         {status && <p role="status" className="mt-3 text-xs text-muted-foreground">{status}</p>}
       </div>
 
-      {result && result.options.length > 0 && (
+      {loading && !result ? (
+        <SkeletonCards count={6} />
+      ) : result && result.options.length > 0 ? (
         <>
           <p className="text-xs text-muted-foreground">
-            {result.nights} night{result.nights > 1 ? "s" : ""} · {fmtDay(result.checkin)} → {fmtDay(result.checkout)}
-            {result.assumedDates ? " · example dates" : ""}
-            {result.freshness ? ` · checked ${new Date(result.freshness.retrievedAt).toLocaleTimeString()}` : ""}
+            {result.options.length} place{result.options.length === 1 ? "" : "s"} · {result.nights} night{result.nights > 1 ? "s" : ""} · {fmtDay(result.checkin)} → {fmtDay(result.checkout)}
+            {result.assumedDates ? " · example dates (set yours above)" : ""} · {result.adults} guest{result.adults === 1 ? "" : "s"}, {result.rooms} room{result.rooms === 1 ? "" : "s"}
           </p>
-          <ul className="grid gap-3 sm:grid-cols-2">
+          <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {result.options.slice(0, visible).map((o) => {
               const locked = lockedStay?.hotelId === o.hotelId;
               return (
-                <li key={o.hotelId} className={cn("flex flex-col overflow-hidden rounded-2xl border bg-card shadow-soft", locked ? "border-leaf/40" : "border-border")}>
-                  <Link href={detailHref(o.hotelId, result.checkin, result.checkout)} className="block transition-opacity hover:opacity-95">
+                <li key={o.hotelId} className={cn("flex flex-col overflow-hidden rounded-2xl border bg-card shadow-soft transition-shadow hover:shadow-lift", locked ? "border-leaf/40" : "border-border")}>
+                  <Link href={detailHref(o.hotelId)} className="block h-40 shrink-0 overflow-hidden">
                     {o.thumbnail ? (
                       // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
-                      <img src={o.thumbnail} alt={o.name} loading="lazy" width={480} height={200} className="h-36 w-full object-cover" />
+                      <img src={o.thumbnail} alt={o.name} loading="lazy" width={480} height={200} className="h-full w-full object-cover" />
                     ) : (
-                      <div className="grid h-36 w-full place-items-center bg-muted/50">
+                      <div className="grid h-full w-full place-items-center bg-muted/50">
                         <BedDouble className="h-6 w-6 text-muted-foreground/40" />
                       </div>
                     )}
                   </Link>
-                  <div className="flex flex-1 flex-col p-4">
+                  <div className="flex min-h-0 flex-1 flex-col p-4">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium">{o.name}</p>
+                      <Link href={detailHref(o.hotelId)} className="truncate font-display text-base leading-tight hover:text-primary">{o.name}</Link>
                       {locked && (
                         <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-leaf-soft px-2 py-0.5 text-[10px] font-medium text-leaf">
                           <Check className="h-3 w-3" /> Locked
@@ -154,30 +275,23 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                       )}
                     </div>
                     <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-                      {typeof o.stars === "number" && <span>{o.stars}★</span>}
-                      {typeof o.rating === "number" && (
-                        <span className="inline-flex items-center gap-1">
+                      {typeof o.stars === "number" && o.stars > 0 && <span>{o.stars}★</span>}
+                      {typeof o.rating === "number" && o.rating > 0 && (
+                        <span className="inline-flex items-center gap-1 font-medium text-foreground">
                           <Star className="h-3 w-3 fill-current text-coral" />
-                          {o.rating}/10{o.reviewCount ? ` (${o.reviewCount.toLocaleString()})` : ""}
+                          {o.rating.toFixed(1)}/10{o.reviewCount ? <span className="font-normal text-muted-foreground"> ({o.reviewCount.toLocaleString()})</span> : null}
                         </span>
                       )}
                       {o.boardName && <span>{o.boardName}</span>}
-                      {o.refundable && <span className="text-leaf">refundable</span>}
+                      {o.refundable && <span className="text-leaf">Free cancellation</span>}
                     </p>
-                    {o.address && (
-                      <p className="mt-1 flex items-start gap-1.5 text-xs text-muted-foreground">
-                        <MapPin className="mt-0.5 h-3 w-3 shrink-0" /> {o.address}
-                      </p>
-                    )}
                     <div className="mt-auto flex items-end justify-between pt-3">
                       <span className="text-sm font-semibold tabular-nums">
-                        {o.nightlyAmount} {o.currency}
-                        <span className="block text-[11px] font-normal text-muted-foreground">
-                          /night · {o.totalAmount} {o.currency} total
-                        </span>
+                        {money(o.nightlyAmount)}
+                        <span className="block text-[11px] font-normal text-muted-foreground">/night · {money(o.totalAmount)} total</span>
                       </span>
-                      <Link href={detailHref(o.hotelId, result.checkin, result.checkout)} className="inline-flex items-center gap-1 text-xs font-medium text-primary">
-                        Rooms &amp; details <ArrowUpRight className="h-3 w-3" />
+                      <Link href={detailHref(o.hotelId)} className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+                        View <ArrowUpRight className="h-3 w-3" />
                       </Link>
                     </div>
                   </div>
@@ -186,12 +300,18 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
             })}
           </ul>
           {visible < result.options.length && (
-            <button type="button" onClick={() => setVisible((v) => v + 6)} className="btn-secondary w-full">
-              Show more stays ({result.options.length - visible} left)
+            <button type="button" onClick={() => setVisible((v) => v + 8)} className="btn-secondary w-full">
+              Show more ({result.options.length - visible} left)
             </button>
           )}
-          <p className="text-xs text-muted-foreground">Rates from LiteAPI — taxes/fees may be extra; confirm availability at booking.</p>
+          <p className="text-xs text-muted-foreground">Rates via LiteAPI in {result.currency}; taxes and fees may be extra. Confirm everything at booking.</p>
         </>
+      ) : (
+        !loading && (
+          <p className="rounded-2xl border border-dashed border-border px-5 py-10 text-center text-sm text-muted-foreground">
+            {status || "No stays to show yet."}
+          </p>
+        )
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useId, useRef, useState } from "react";
+import React, { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Bookmark, BookmarkCheck, CalendarCheck, Check, ChevronDown, Loader2, Trash2 } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
@@ -75,9 +76,25 @@ export function AddToTripControl({
       return shortlisted ? "shortlist" : "none";
     })();
 
+  const shellRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [placement, setPlacement] = useState<Placement>(derived);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
+  // The menu is portalled to <body> so a card's overflow/stacking can't clip it.
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number; up: boolean } | null>(null);
+
+  const place_menu = () => {
+    const r = shellRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const W = 240;
+    const up = r.bottom > window.innerHeight - 300;
+    setMenuPos({
+      top: up ? Math.max(8, r.top - 6) : r.bottom + 6,
+      left: Math.min(Math.max(8, r.right - W), window.innerWidth - W - 8),
+      up,
+    });
+  };
 
   // Re-sync from the snapshot when it refreshes and we're not mid-write.
   const derivedKey = JSON.stringify(derived);
@@ -85,17 +102,27 @@ export function AddToTripControl({
     if (!busyRef.current) setPlacement(JSON.parse(derivedKey) as Placement);
   }, [derivedKey]);
 
+  useLayoutEffect(() => {
+    if (open) place_menu();
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (!rootRef.current?.contains(t) && !menuRef.current?.contains(t)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const reposition = () => setOpen(false);
     document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
     return () => {
       document.removeEventListener("pointerdown", onDown);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
     };
   }, [open]);
 
@@ -146,7 +173,7 @@ export function AddToTripControl({
 
   return (
     <div ref={rootRef} className={cn("relative", block ? "block" : "inline-block", className)}>
-      <div className={shell}>
+      <div ref={shellRef} className={shell}>
         <button
           type="button"
           disabled={busy}
@@ -190,17 +217,28 @@ export function AddToTripControl({
         </button>
       </div>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            id={menuId}
-            role="menu"
-            initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: -4 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: -4 }}
-            transition={{ duration: 0.14, ease: [0.22, 0.61, 0.36, 1] }}
-            className="absolute right-0 z-30 mt-2 w-60 origin-top-right rounded-2xl border border-border bg-card p-1.5 text-sm shadow-lift"
-          >
+      {typeof document !== "undefined" &&
+        createPortal(
+          <AnimatePresence>
+            {open && menuPos && (
+              <motion.div
+                id={menuId}
+                ref={menuRef}
+                role="menu"
+                initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: menuPos.up ? 4 : -4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: menuPos.up ? 4 : -4 }}
+                transition={{ duration: 0.14, ease: [0.22, 0.61, 0.36, 1] }}
+                style={{
+                  position: "fixed",
+                  left: menuPos.left,
+                  ...(menuPos.up ? { bottom: window.innerHeight - menuPos.top } : { top: menuPos.top }),
+                }}
+                className={cn(
+                  "z-[70] w-60 rounded-2xl border border-border bg-card p-1.5 text-sm shadow-lift",
+                  menuPos.up ? "origin-bottom-right" : "origin-top-right",
+                )}
+              >
             <MenuRow
               selected={placement === "shortlist"}
               onClick={() => void apply("shortlist")}
@@ -235,9 +273,11 @@ export function AddToTripControl({
                 </button>
               </>
             )}
-          </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body,
         )}
-      </AnimatePresence>
     </div>
   );
 }

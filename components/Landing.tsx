@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowRight, Compass, MapPin, MessageCircle, Notebook } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
 import { Hero } from "@/components/Hero";
 import { Reveal, Stagger, StaggerItem, WordReveal } from "@/components/motion-primitives";
 
@@ -20,8 +21,8 @@ export function Landing() {
         <div className="absolute inset-x-0 top-0">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 pt-6 sm:px-8">
             <Link href="/" className="inline-flex items-center gap-2">
-              <Compass className="h-4 w-4 text-primary" />
-              <span className="font-display text-sm font-semibold">Next Place to Be</span>
+              <BrandMark variant="compact" />
+              <BrandMark variant="text" className="hidden sm:inline" />
             </Link>
             <div className="flex items-center gap-3">
               <Link href="/sign-in" className="link-underline text-sm font-medium">Sign in</Link>

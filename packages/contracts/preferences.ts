@@ -13,6 +13,8 @@ export const preferencesSchema = z.object({
   arrival: z.string().trim().max(160).optional(),
   transport: z.string().trim().max(80).optional(),
   transportPreference: z.string().trim().max(80).optional(),
+  /** ISO 4217, e.g. "CAD". Prices across the app are requested and shown in this. */
+  currency: z.string().trim().length(3).toUpperCase().optional(),
   dietaryNeeds: z.union([z.array(z.string().trim().max(80)).max(20), z.string().trim().max(240)]).optional(),
 }).partial();
 export type Preferences = z.infer<typeof preferencesSchema>;

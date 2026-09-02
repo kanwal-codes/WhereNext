@@ -25,6 +25,8 @@ const SENTINEL: Record<string, string> = {
     "select exists (select 1 from information_schema.columns where table_schema='public' and table_name='conversation_messages' and column_name='metadata') as ok",
   "0003_trip_delete_policy.sql":
     "select exists (select 1 from pg_policies where schemaname='public' and tablename='trips' and policyname='owners can delete trips') as ok",
+  "0004_trip_dates.sql":
+    "select exists (select 1 from information_schema.columns where table_schema='public' and table_name='trips' and column_name='start_date') as ok",
 };
 
 const url = process.env.DATABASE_URL;

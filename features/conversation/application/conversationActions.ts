@@ -4,6 +4,9 @@ export async function persistUserMessage(tripId: string, content: string, idempo
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ role: "user", content, idempotencyKey }),
   });
-  if (!response.ok) throw new Error("save");
+  if (!response.ok) {
+    const detail = await response.json().then((b) => (b && typeof b.error === "string" ? b.error : null)).catch(() => null);
+    throw new Error(detail ? `save: ${response.status} ${detail}` : `save: ${response.status}`);
+  }
   return idempotencyKey;
 }

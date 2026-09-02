@@ -40,6 +40,7 @@ export function StayDetailView({
   onDatesChange?: (checkin: string, checkout: string) => void;
 }) {
   const panel = variant === "panel";
+  const [reviewsOpen, setReviewsOpen] = useState(false);
   const [dates, setDates] = useState({ checkin: checkin ?? "", checkout: checkout ?? "" });
   const s = useStayDetails(tripId, hotelId, { checkin: dates.checkin || undefined, checkout: dates.checkout || undefined });
   useDocumentTitle(panel ? null : s.hotel?.name ?? "Stay");
@@ -153,6 +154,40 @@ export function StayDetailView({
           )}
         </section>
       </Reveal>
+
+      {(s.sentiment || s.reviews.length > 0) && (
+        <Reveal delay={0.14}>
+          <section>
+            <h2 className="font-display text-xl">What guests say</h2>
+            {s.sentiment && <p className="mt-2 text-[15px] leading-[1.8] text-ink-soft">{s.sentiment}</p>}
+            {s.reviews.length > 0 && (
+              <div className="mt-4 space-y-3">
+                {(reviewsOpen ? s.reviews : s.reviews.slice(0, 3)).map((r, i) => (
+                  <figure key={i} className="rounded-2xl bg-surface p-4">
+                    <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">
+                        {typeof r.rating === "number" ? `${r.rating.toFixed(1)}/10` : "Guest"}
+                        {r.travellerType ? ` · ${r.travellerType}` : ""}
+                        {r.country ? ` · ${r.country}` : ""}
+                      </span>
+                      {r.date && <span>{r.date.slice(0, 10)}</span>}
+                    </div>
+                    {r.headline && <p className="mt-1.5 text-sm font-medium">{r.headline}</p>}
+                    {r.positives && <p className="mt-1 text-sm leading-relaxed text-ink-soft"><span className="text-leaf">+ </span>{r.positives}</p>}
+                    {r.negatives && <p className="mt-0.5 text-sm leading-relaxed text-ink-soft"><span className="text-destructive">− </span>{r.negatives}</p>}
+                    {!r.positives && !r.negatives && r.text && <p className="mt-1 text-sm leading-relaxed text-ink-soft">{r.text}</p>}
+                  </figure>
+                ))}
+                {s.reviews.length > 3 && (
+                  <button type="button" onClick={() => setReviewsOpen((v) => !v)} className="text-xs font-medium text-primary">
+                    {reviewsOpen ? "Show fewer reviews" : `Show all ${s.reviews.length} reviews`}
+                  </button>
+                )}
+              </div>
+            )}
+          </section>
+        </Reveal>
+      )}
     </div>
   );
 
@@ -225,7 +260,7 @@ export function StayDetailView({
 
   return (
     <div>
-      <Hero image={images[0] ?? "/design/place-hotel.jpg"} alt={name} className={cn(panel ? "h-44" : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")}>
+      <Hero image={images[0] ?? "/design/place-hotel.jpg"} alt={name} plain className={cn(panel ? "h-44" : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")}>
         {!panel && <BackLink fallback={`/trips/${tripId}/stay`} label="Back" className="absolute top-4 left-4" />}
       </Hero>
 

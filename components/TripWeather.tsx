@@ -4,12 +4,15 @@ import { useEffect, useState } from "react";
 import { CloudSun, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+type Outlook = { kind: "forecast" | "seasonal" | "none"; summary?: string | null; month?: string };
+
 /**
- * Current conditions + near-term outlook for a place. Compact by default (one
- * line for a page header); `card` renders it as a standalone panel.
+ * Weather sized to the trip, not to today. A forecast only when the trip is
+ * within a few days; otherwise the typical weather for the trip's month; nothing
+ * when there are no dates to hang it on.
  */
 export function TripWeather({ tripId, location, className, card = false }: { tripId: string; location: string; className?: string; card?: boolean }) {
-  const [summary, setSummary] = useState<string | null>(null);
+  const [data, setData] = useState<Outlook | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -23,13 +26,13 @@ export function TripWeather({ tripId, location, className, card = false }: { tri
       .then((r) => (r.ok ? r.json() : null))
       .then((body) => {
         if (!cancelled) {
-          setSummary(body?.summary ?? null);
+          setData(body ?? null);
           setLoading(false);
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setSummary(null);
+          setData(null);
           setLoading(false);
         }
       });
@@ -45,23 +48,24 @@ export function TripWeather({ tripId, location, className, card = false }: { tri
       </div>
     ) : null;
   }
-  if (!summary) return null;
+  if (!data || data.kind === "none" || !data.summary) return null;
+
+  const label = data.kind === "seasonal" ? `Typical weather${data.month ? ` · ${data.month}` : ""}` : "During your trip";
 
   if (card) {
     return (
       <div className={cn("rounded-2xl border border-border bg-card p-5 shadow-soft", className)}>
         <p className="eyebrow inline-flex items-center gap-1.5">
-          <CloudSun className="h-3.5 w-3.5 text-coral" /> Weather now
+          <CloudSun className="h-3.5 w-3.5 text-coral" /> {label}
         </p>
-        <p className="mt-1.5 text-sm text-ink-soft">{summary}</p>
-        <p className="mt-1 text-[11px] text-muted-foreground">Ask the assistant what it&rsquo;s usually like on your dates and what to pack.</p>
+        <p className="mt-1.5 text-sm text-ink-soft">{data.summary}</p>
       </div>
     );
   }
 
   return (
-    <span className={cn("inline-flex items-center gap-1.5 text-sm text-muted-foreground", className)}>
-      <CloudSun className="h-3.5 w-3.5" /> {summary}
+    <span className={cn("inline-flex items-start gap-1.5 text-sm text-muted-foreground", className)}>
+      <CloudSun className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {data.summary}
     </span>
   );
 }

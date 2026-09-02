@@ -227,7 +227,7 @@ describe("POST /api/ai", () => {
     loadTripContextMock.mockResolvedValue({ trip: { name: "T", destination: "China", origin: null, duration_days: 8, travelers: 5 }, preferences: { dislikes: ["museums"] }, itinerary: [], lockedTitles: [], lockedPlaces: [], places: [], decisions: [] });
     retrieveEvidenceMock.mockResolvedValue({ places: [{ provider: "g", providerId: "p", name: "Club", category: "night_club", latitude: 1, longitude: 1, address: null, sourceUrl: null }], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" });
     await post();
-    expect(retrieveEvidenceMock).toHaveBeenCalledWith(expect.anything(), { dislikes: ["museums"] }, expect.anything());
+    expect(retrieveEvidenceMock).toHaveBeenCalledWith(expect.anything(), { dislikes: ["museums"], currency: "CAD" }, expect.anything());
   });
 
   it("turns a proposedProfileUpdate into an update_preferences command", async () => {

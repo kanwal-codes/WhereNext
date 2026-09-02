@@ -7,16 +7,22 @@ import { cn } from "@/lib/utils";
 /**
  * Filmic hero: slow Ken Burns drift, scroll parallax, grain + vignette,
  * and the foggy dissolve where the image melts into the page background.
+ *
+ * `plain` drops the grain / vignette / flat wash (the "film filter"), keeping
+ * only the bottom dissolve for text legibility — used on detail pages where the
+ * photo should read clean.
  */
 export function Hero({
   image,
   alt,
   className,
+  plain = false,
   children,
 }: {
   image: string;
   alt: string;
   className?: string;
+  plain?: boolean;
   children?: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -43,13 +49,19 @@ export function Hero({
         />
       </motion.div>
 
-      <div className="grain pointer-events-none absolute inset-0" />
-      <div className="vignette pointer-events-none absolute inset-0" />
-
-      <div className="pointer-events-none absolute inset-0 bg-background/25" />
+      {!plain && (
+        <>
+          <div className="grain pointer-events-none absolute inset-0" />
+          <div className="vignette pointer-events-none absolute inset-0" />
+          <div className="pointer-events-none absolute inset-0 bg-background/25" />
+        </>
+      )}
       <motion.div
         style={{ opacity: fog }}
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-background via-background/70 to-transparent"
+        className={cn(
+          "pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background to-transparent",
+          plain ? "h-2/5 via-background/55" : "h-1/2 via-background/70",
+        )}
       />
       <div className="pointer-events-none absolute inset-x-0 -bottom-px h-16 bg-background [mask-image:linear-gradient(to_top,black,transparent)] backdrop-blur-md" />
 

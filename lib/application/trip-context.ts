@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { readStayDecision, type StayDecision } from "@/packages/contracts/stay";
 
 export type TripContext = {
-  trip: { name: string; destination: string; origin: string | null; duration_days: number | null; travelers: number | null } | null;
+  trip: { name: string; destination: string; origin: string | null; duration_days: number | null; start_date: string | null; end_date: string | null; travelers: number | null } | null;
   preferences: Record<string, unknown>;
   itinerary: Array<{ title: string; day_index: number; locked: boolean; latitude?: number; longitude?: number }>;
   lockedTitles: string[];
@@ -23,7 +23,7 @@ const MAX_CONTEXT_CHARS = 20_000;
 /** Durable trip state the assistant is allowed to see. One query set, reused by every AI route. */
 export async function loadTripContext(supabase: SupabaseClient, tripId: string): Promise<TripContext> {
   const [trip, preferences, itinerary, places, decisions] = await Promise.all([
-    supabase.from("trips").select("name,destination,origin,duration_days,travelers").eq("id", tripId).maybeSingle(),
+    supabase.from("trips").select("name,destination,origin,duration_days,start_date,end_date,travelers").eq("id", tripId).maybeSingle(),
     supabase.from("trip_preferences").select("data").eq("trip_id", tripId).maybeSingle(),
     supabase.from("trip_itinerary_items").select("title,day_index,metadata").eq("trip_id", tripId).is("removed_at", null).order("day_index").limit(50),
     supabase.from("trip_places").select("status,places(name,category,address)").eq("trip_id", tripId).limit(50),
@@ -82,7 +82,9 @@ export function serializeTripContext(context: TripContext): string {
     Object.entries(context.preferences).filter(([, value]) => ["string", "number", "boolean"].includes(typeof value)).slice(0, 40),
   );
   return JSON.stringify({
-    trip: context.trip ? { name: context.trip.name, destination: context.trip.destination } : null,
+    trip: context.trip
+      ? { name: context.trip.name, destination: context.trip.destination, start_date: context.trip.start_date, end_date: context.trip.end_date }
+      : null,
     preferences: compactPreferences,
     itinerary: [],
     lockedTitles: context.lockedTitles,
@@ -97,12 +99,15 @@ const asList = (value: unknown): string[] =>
     .filter(Boolean);
 
 /** Human-readable one-liner of what the trip contains so far, for the system prompt and the resolver. */
-export function formatTripMemory(context: Pick<TripContext, "preferences" | "itinerary" | "places" | "decisions" | "lockedTitles">): string {
+export function formatTripMemory(
+  context: Pick<TripContext, "preferences" | "itinerary" | "places" | "decisions" | "lockedTitles"> & { trip?: TripContext["trip"] },
+): string {
   const preferences = context.preferences ?? {};
   const likes = Array.from(new Set([...asList(preferences.interests), ...asList(preferences.likes)]));
   const dislikes = asList(preferences.dislikes);
   const dietary = asList(preferences.dietaryNeeds);
   const profile = [
+    context.trip?.start_date && context.trip?.end_date ? `dates: ${context.trip.start_date} to ${context.trip.end_date}` : null,
     typeof preferences.groupType === "string" && preferences.groupType ? `group: ${preferences.groupType}` : null,
     preferences.budget !== undefined && preferences.budget !== "" ? `budget: ${preferences.budget}` : null,
     typeof preferences.pace === "string" && preferences.pace ? `pace: ${preferences.pace}` : null,

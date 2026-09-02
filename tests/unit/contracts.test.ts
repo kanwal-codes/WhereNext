@@ -6,6 +6,7 @@ import { readSuggestions, suggestionActionSchema } from "../../packages/contract
 import { placementDay, placementRequestSchema, placementSchema } from "../../packages/contracts/placement";
 import { mergePreferences, preferencesSchema } from "../../packages/contracts/preferences";
 import { canChangeLockedItem } from "../../features/itinerary/domain/item";
+import { createTripInput, parsedTripSchema, tripDurationDays } from "../../features/trip/domain/trip";
 import { aiRequestSchema, compactAiMessages } from "../../packages/contracts/ai-request";
 import { userMessageInput } from "../../features/conversation/domain/message";
 import { scopedMessageIdempotencyKey } from "../../features/conversation/infrastructure/conversationRepository";
@@ -122,6 +123,27 @@ describe("rebuild contracts", () => {
       placement: { dayIndex: 2 },
     });
     expect(req.success).toBe(true);
+  });
+  it("derives an inclusive day count from a trip date pair", () => {
+    expect(tripDurationDays("2026-03-14", "2026-03-20")).toBe(7);
+    expect(tripDurationDays("2026-03-14", "2026-03-14")).toBe(1);
+    expect(tripDurationDays("2026-03-20", "2026-03-14")).toBeNull();
+    expect(tripDurationDays(null, "2026-03-20")).toBeNull();
+  });
+  it("accepts a trip with a date pair and rejects an inverted one", () => {
+    expect(createTripInput.safeParse({ name: "T", destination: "Lisbon", startDate: "2026-03-14", endDate: "2026-03-20" }).success).toBe(true);
+    expect(createTripInput.safeParse({ name: "T", destination: "Lisbon", startDate: "2026-03-20", endDate: "2026-03-14" }).success).toBe(false);
+    expect(createTripInput.safeParse({ name: "T", destination: "Lisbon", startDate: "March 14" }).success).toBe(false);
+  });
+  it("parses a free-text trip description into form fields, dropping bad values", () => {
+    const clean = parsedTripSchema.parse({ destination: "Lisbon", durationDays: 5, travelerCount: 2, budget: "mid-range", extra: "ignored" });
+    expect(clean).toMatchObject({ destination: "Lisbon", durationDays: 5, travelerCount: 2, budget: "mid-range" });
+    expect(clean).not.toHaveProperty("extra");
+    // out-of-range / unusable numbers are dropped, not fatal
+    expect(parsedTripSchema.parse({ destination: "Rome", durationDays: 9000 }).durationDays).toBeUndefined();
+    expect(parsedTripSchema.parse({ travelerCount: "lots" }).travelerCount).toBeUndefined();
+    // total garbage collapses to an empty object
+    expect(parsedTripSchema.parse("nonsense")).toEqual({});
   });
   it("parses an assistant turn envelope with defaults", () => {
     expect(assistantTurnSchema.parse({ reply: "hi" })).toMatchObject({ language: "en", blocks: [], sources: [], suggestedFollowups: [] });

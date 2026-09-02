@@ -31,10 +31,15 @@ export const SUGGESTION_LABEL: Record<SuggestionKey, string> = {
   interests: "Interests",
 };
 
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
 export const suggestionValueSchema = z.object({
   key: z.enum(SUGGESTION_KEYS),
   display: z.string().trim().min(1).max(160),
   rationale: z.string().trim().max(240).default(""),
+  // Only ever set for key "dates" when the assistant could resolve a concrete window.
+  startDate: isoDate.optional().catch(undefined),
+  endDate: isoDate.optional().catch(undefined),
 });
 export type SuggestionValue = z.infer<typeof suggestionValueSchema>;
 

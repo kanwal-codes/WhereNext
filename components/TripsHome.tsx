@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowRight, CalendarDays, Loader2, MapPin, Plus, Trash2, UserRound, Users } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
 import { Hero } from "@/components/Hero";
 import { Reveal, Stagger, StaggerItem, WordReveal } from "@/components/motion-primitives";
 import { notifyToast } from "@/lib/application/toast";
@@ -37,14 +38,30 @@ export function TripsHome({ trips }: { trips: TripSummary[] }) {
   return (
     <div className="min-h-screen">
       <Hero image="/design/trip-hero.jpg" alt="Warm rooftops at dusk" className="h-[300px] sm:h-[380px]">
+        <div className="absolute inset-x-0 top-0">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 pt-6 sm:px-8">
+            <Link href="/" className="inline-flex items-center gap-2">
+              <BrandMark variant="compact" />
+              <BrandMark variant="text" className="hidden sm:inline" />
+            </Link>
+            <Link
+              href="/account"
+              title="Account"
+              aria-label="Account"
+              className="inline-flex h-9 w-9 items-center justify-center text-foreground transition-opacity hover:opacity-70"
+            >
+              <UserRound className="h-5 w-5" />
+            </Link>
+          </div>
+        </div>
+
         <div className="absolute inset-x-0 bottom-0">
           <div className="mx-auto max-w-6xl px-5 pb-8 sm:px-8">
             <Reveal delay={0.2}>
-              <p className="eyebrow">Next Place to Be</p>
               <WordReveal
                 text="Trips you're thinking about."
                 delay={0.3}
-                className="mt-3 max-w-2xl font-display text-4xl leading-[1.15] sm:text-5xl"
+                className="max-w-2xl font-display text-4xl leading-[1.15] sm:text-5xl"
               />
               <p className="mt-3 max-w-xl text-sm leading-relaxed text-ink-soft">
                 Talk it through, and the plan builds itself alongside the conversation.
@@ -59,18 +76,9 @@ export function TripsHome({ trips }: { trips: TripSummary[] }) {
           <h2 className="min-w-0 font-display text-xl">
             {list.length > 0 ? `${list.length} trip${list.length === 1 ? "" : "s"}` : "No trips yet"}
           </h2>
-          <div className="flex shrink-0 items-center gap-2">
-            <Link
-              href="/account"
-              title="Account"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            >
-              <UserRound className="h-4 w-4" />
-            </Link>
-            <Link href="/trips/new" className="btn-primary">
-              <Plus className="h-4 w-4" /> Create new trip
-            </Link>
-          </div>
+          <Link href="/trips/new" className="btn-primary shrink-0">
+            <Plus className="h-4 w-4" /> Create new trip
+          </Link>
         </div>
 
         {list.length === 0 ? (

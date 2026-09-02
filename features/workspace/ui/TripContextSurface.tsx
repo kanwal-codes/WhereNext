@@ -20,6 +20,10 @@ type PrefKey = "budget" | "groupType" | "pace" | "interests" | "dislikes" | "die
 const csv = (value: unknown): string =>
   Array.isArray(value) ? value.join(", ") : typeof value === "string" ? value : value === undefined || value === null ? "" : String(value);
 const toList = (value: string): string[] => value.split(",").map((entry) => entry.trim()).filter(Boolean);
+const fmtDate = (iso: string): string => {
+  const d = new Date(`${iso}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+};
 
 const PREF_PLACEHOLDER: Record<PrefKey, string> = {
   budget: "e.g. 120 a day, or “moderate”",
@@ -36,6 +40,8 @@ type Row = {
   value: string;
   certainty: Certainty;
   editKey?: PrefKey;
+  /** Editable but not through the memory PUT — currently just the trip date range. */
+  editable?: boolean;
   suggestionKey?: SuggestionKey;
   note?: string;
 };
@@ -58,6 +64,15 @@ export function TripContextSurface({
   const [savingKey, setSavingKey] = useState<PrefKey | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+
+  const [tripDates, setTripDates] = useState({ start: trip?.start_date ?? "", end: trip?.end_date ?? "" });
+  const [editingDates, setEditingDates] = useState(false);
+  const [dStart, setDStart] = useState("");
+  const [dEnd, setDEnd] = useState("");
+  const [savingDates, setSavingDates] = useState(false);
+  useEffect(() => {
+    setTripDates({ start: trip?.start_date ?? "", end: trip?.end_date ?? "" });
+  }, [trip?.start_date, trip?.end_date]);
 
   const refresh = useCallback(async () => {
     try {
@@ -109,6 +124,34 @@ export function TripContextSurface({
     }
   }
 
+  async function saveDates() {
+    if (dStart && dEnd && dEnd < dStart) {
+      notifyToast("The end date is before the start date.", "error");
+      return;
+    }
+    setSavingDates(true);
+    try {
+      const response = await fetch(`/api/trips/${tripId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ startDate: dStart || null, endDate: dEnd || null }),
+      });
+      if (!response.ok) {
+        const detail = await response.json().then((b) => (b && typeof b.error === "string" ? b.error : null)).catch(() => null);
+        throw new Error(detail ?? "Could not save those dates.");
+      }
+      setTripDates({ start: dStart, end: dEnd });
+      setEditingDates(false);
+      setFlash("dates");
+      setTimeout(() => setFlash(null), 1200);
+      announceWorkspaceChange("preferences");
+    } catch (error) {
+      notifyToast(error instanceof Error ? error.message : "Could not save those dates.", "error");
+    } finally {
+      setSavingDates(false);
+    }
+  }
+
   async function act(key: SuggestionKey, action: "confirm" | "dismiss") {
     setBusyKey(key);
     try {
@@ -157,7 +200,18 @@ export function TripContextSurface({
     push({ id, label, value: "", certainty: "undecided", editKey });
   };
 
-  softField("dates", "Dates", csv(memory.dates), "dates");
+  // Dates: the real trip range if set, else a live suggestion, else open. Editable inline.
+  const dateRange = tripDates.start && tripDates.end
+    ? `${fmtDate(tripDates.start)} – ${fmtDate(tripDates.end)}`
+    : tripDates.start ? `From ${fmtDate(tripDates.start)}` : "";
+  if (dateRange) {
+    push({ id: "dates", label: "Dates", value: dateRange, certainty: "confirmed", editable: true });
+  } else {
+    const s = suggestionFor("dates");
+    if (s) push({ id: "dates", label: "Dates", value: s.display, certainty: "suggested", suggestionKey: "dates", note: s.rationale, editable: true });
+    else push({ id: "dates", label: "Dates", value: "", certainty: "undecided", editable: true });
+  }
+
   softField("occasion", "Occasion", csv(memory.occasion), "occasion");
   softField("budget", "Budget", csv(memory.budget), "budget", "budget");
   softField("group", "Who's travelling", csv(memory.groupType), "group", "groupType");
@@ -216,14 +270,14 @@ export function TripContextSurface({
 
       <div className="space-y-2">
         {rows.map((row) => {
-          const isEditing = editing != null && editing === row.editKey;
+          const isEditing = row.id === "dates" ? editingDates : editing != null && editing === row.editKey;
           const flashId = row.suggestionKey ? `sugg-${row.suggestionKey}` : row.editKey ?? row.id;
           return (
             <motion.div
               key={row.id}
               layout
               animate={flash === flashId ? { boxShadow: ["0 0 0 0 transparent", "0 0 0 3px var(--leaf-soft)", "0 0 0 0 transparent"] } : {}}
-              transition={{ duration: 1.2 }}
+              transition={{ boxShadow: { duration: 1.2 }, layout: { duration: 0.16, ease: [0.22, 0.61, 0.36, 1] } }}
               className={cn("rounded-xl border bg-card px-3 py-2.5", row.certainty === "suggested" ? "border-water/40" : "border-border")}
             >
               <div className="flex items-start justify-between gap-2">
@@ -231,8 +285,45 @@ export function TripContextSurface({
                 <CertaintyBadge certainty={row.certainty} />
               </div>
 
-              {isEditing ? (
-                <div className="mt-1.5 flex items-center gap-2">
+              {isEditing && row.id === "dates" ? (
+                <div className="mt-1.5 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      aria-label="Start date"
+                      value={dStart}
+                      onChange={(e) => {
+                        setDStart(e.target.value);
+                        if (dEnd && e.target.value && dEnd < e.target.value) setDEnd(e.target.value);
+                      }}
+                      className="min-w-0 flex-1 rounded-lg border border-input bg-background px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-ring/40"
+                    />
+                    <span className="text-xs text-muted-foreground">to</span>
+                    <input
+                      type="date"
+                      aria-label="End date"
+                      value={dEnd}
+                      min={dStart || undefined}
+                      onChange={(e) => setDEnd(e.target.value)}
+                      className="min-w-0 flex-1 rounded-lg border border-input bg-background px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-ring/40"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button type="button" onClick={() => void saveDates()} disabled={savingDates} className="btn-primary-sm">
+                      {savingDates ? "…" : "Save"}
+                    </button>
+                    <button type="button" onClick={() => setEditingDates(false)} className="text-[11px] text-muted-foreground hover:text-foreground">
+                      Cancel
+                    </button>
+                    {(dStart || dEnd) && (
+                      <button type="button" onClick={() => { setDStart(""); setDEnd(""); }} className="ml-auto text-[11px] text-muted-foreground hover:text-destructive">
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : isEditing ? (
+                <div className="mt-1.5 space-y-1.5">
                   <input
                     autoFocus
                     value={draft}
@@ -242,11 +333,16 @@ export function TripContextSurface({
                       if (e.key === "Escape") setEditing(null);
                     }}
                     placeholder={PREF_PLACEHOLDER[row.editKey!]}
-                    className="min-w-0 flex-1 rounded-lg border border-input bg-background px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-ring/40"
+                    className="w-full rounded-lg border border-input bg-background px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-ring/40"
                   />
-                  <button type="button" onClick={() => void savePref(row.editKey!, draft)} disabled={savingKey === row.editKey} className="btn-primary-sm shrink-0">
-                    {savingKey === row.editKey ? "…" : "Save"}
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button type="button" onClick={() => void savePref(row.editKey!, draft)} disabled={savingKey === row.editKey} className="btn-primary-sm">
+                      {savingKey === row.editKey ? "…" : "Save"}
+                    </button>
+                    <button type="button" onClick={() => setEditing(null)} className="text-[11px] text-muted-foreground hover:text-foreground">
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="mt-1 flex items-center justify-between gap-2">
@@ -259,16 +355,22 @@ export function TripContextSurface({
                       transition={{ duration: 0.25 }}
                       className={cn("min-w-0 truncate text-sm", !row.value && "text-muted-foreground")}
                     >
-                      {row.value || (row.editKey ? "Not set" : "Not decided")}
+                      {row.value || (row.editKey || row.editable ? "Not set" : "Not decided")}
                     </motion.p>
                   </AnimatePresence>
-                  {row.editKey && !row.suggestionKey && (
+                  {(row.editKey || row.editable) && !row.suggestionKey && (
                     <button
                       type="button"
                       aria-label={`Edit ${row.label}`}
                       onClick={() => {
-                        setEditing(row.editKey!);
-                        setDraft(row.value);
+                        if (row.id === "dates") {
+                          setDStart(tripDates.start);
+                          setDEnd(tripDates.end);
+                          setEditingDates(true);
+                        } else {
+                          setEditing(row.editKey!);
+                          setDraft(row.value);
+                        }
                       }}
                       className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
                     >
