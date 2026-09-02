@@ -16,9 +16,11 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   // The section name (eyebrow) is the tab title; the editorial title stays on the page.
-  useDocumentTitle(eyebrow);
+  const titleTag = useDocumentTitle(eyebrow);
   return (
-    <Reveal>
+    <>
+      {titleTag}
+      <Reveal>
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 border-b border-border pb-6">
         <div className="min-w-0">
           <p className="eyebrow">{eyebrow}</p>
@@ -31,6 +33,7 @@ export function PageHeader({
         </div>
         {action}
       </header>
-    </Reveal>
+      </Reveal>
+    </>
   );
 }

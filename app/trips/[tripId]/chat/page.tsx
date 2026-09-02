@@ -25,7 +25,7 @@ const spring = { type: "spring" as const, stiffness: 180, damping: 26, mass: 0.9
 export default function ChatPage() {
   const { tripId, data } = useTripData();
   const desktop = useMediaQuery("(min-width: 1024px)");
-  useDocumentTitle("Conversation");
+  const titleTag = useDocumentTitle("Conversation");
   const [contextCollapsed, setContextCollapsed] = useState(false);
   const [mobileContextOpen, setMobileContextOpen] = useState(false);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
@@ -113,6 +113,7 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-[calc(100dvh-var(--topbar))] min-h-0 flex-col lg:h-screen">
+      {titleTag}
       {/* One conversation, one grid; the second column animates open on desktop only. */}
       <motion.div initial={false} animate={{ gridTemplateColumns: columns }} transition={spring} className="grid h-full min-h-0">
         <motion.div layout transition={spring} className="relative flex min-w-0 flex-col overflow-hidden px-4 py-4 sm:px-6 lg:border-r lg:border-border lg:py-5">

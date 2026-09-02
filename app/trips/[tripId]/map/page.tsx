@@ -3,7 +3,6 @@
 import { useTripData } from "@/components/TripDataProvider";
 import { RouteScaffold } from "@/components/RouteScaffold";
 import { MapSurface } from "@/features/maps/ui/MapSurface";
-import { TransportSurface } from "@/features/transport/ui/TransportSurface";
 import { TripWeather } from "@/components/TripWeather";
 
 export default function MapPage() {
@@ -11,18 +10,11 @@ export default function MapPage() {
   return (
     <RouteScaffold
       eyebrow="Getting around"
-      title="How close things actually are"
-      description="Saved places and itinerary stops on one map, walk / drive / cycle time between any two, and live transit for the longer hops."
+      title="Your trip on a map"
+      description="Every stop pinned in visit order, day by day — plus a browse mode for tracing transit routes between any two places."
     >
       {data?.trip?.destination && <TripWeather tripId={tripId} location={data.trip.destination} card className="mb-6" />}
       <MapSurface tripId={tripId} />
-      <section className="mt-10">
-        <h2 className="font-display text-xl">Live public transit</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Real departures between any two stops, stations, or addresses.</p>
-        <div className="mt-4">
-          <TransportSurface tripId={tripId} origin={data?.trip.origin ?? ""} destination={data?.trip.destination ?? ""} />
-        </div>
-      </section>
     </RouteScaffold>
   );
 }

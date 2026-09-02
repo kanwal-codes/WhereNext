@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BedDouble, Loader2, Search } from "lucide-react";
+import { BedDouble } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
+import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { useTripData } from "@/components/TripDataProvider";
 import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
-import { notifyToast } from "@/lib/application/toast";
+import { AiSearchBar } from "@/components/AiSearchBar";
+import { useInfiniteReveal } from "@/lib/use-infinite-reveal";
 import { PlaceCard } from "@/components/PlaceCard";
 import { EventCard, type NearbyEvent } from "@/components/EventCard";
 import { SkeletonCards } from "@/components/Skeleton";
@@ -80,14 +82,13 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
   const [catKey, setCatKey] = useState<string | null>(null); // null = "All"
   const [subs, setSubs] = useState<string[]>([]);
   const [flat, setFlat] = useState(false);
-  const [query, setQuery] = useState("");
+  const [searchLabel, setSearchLabel] = useState(""); // what the AI search resolved to, for the "Clear" chip
   const [searchMode, setSearchMode] = useState(false);
 
   const [bands, setBands] = useState<Band[] | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
-  const [visible, setVisible] = useState(PAGE);
   const reqId = useRef(0);
 
   const fetchPlaces = useCallback(
@@ -150,7 +151,6 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
       const mine = ++reqId.current;
       setLoading(true);
       setMessage("");
-      setVisible(PAGE);
       const subQ = (label: string) => cat.subs.find((s) => s.label === label)?.q ?? label;
       let next: Item[] = [];
       if (cat.kind === "place") {
@@ -188,7 +188,6 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
       setFlat(false);
       setLoading(true);
       setMessage("");
-      setVisible(PAGE);
       const mine = ++reqId.current;
       const places = await fetchPlaces(q);
       if (mine !== reqId.current) return;
@@ -216,10 +215,26 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
 
   function pickCategory(key: string | null) {
     setSearchMode(false);
-    setQuery("");
+    setSearchLabel("");
     setFlat(false);
     setSubs([]);
     setCatKey(key);
+  }
+
+  const CAT_LABEL: Record<string, string> = { outdoors: "Nature & Outdoors", events: "Culture & Events" };
+  function applyDirective(d: AiSearchDirective, raw: string) {
+    const core = (d.freeText ?? raw).trim();
+    // A specific ask ("rooftop bars") beats a coarse bucket ("nightlife").
+    const genericAsk = !d.freeText || d.freeText.length < 4;
+    const cat = (d.categories ?? []).map((k) => k.toLowerCase()).find((k) => CATEGORY_BY_KEY.has(k));
+    if (cat && genericAsk) {
+      pickCategory(cat);
+      if (d.subChips?.length) setSubs(d.subChips);
+      setSearchLabel(CAT_LABEL[cat] ?? cat);
+      return;
+    }
+    void runSearch(d.location ? `${core} near ${d.location}` : core);
+    setSearchLabel(d.location ? `${core} · near ${d.location}` : core);
   }
   function toggleSub(label: string) {
     setSubs((cur) => (cur.includes(label) ? cur.filter((l) => l !== label) : [...cur, label]));
@@ -228,6 +243,7 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
   const gridView = view === "saved" || searchMode || catKey !== null;
   const savedItems: Item[] = saved.map((p) => ({ kind: "place", place: p }));
   const gridItems = view === "saved" ? savedItems : items;
+  const { visible, sentinel, more } = useInfiniteReveal(gridItems.length, PAGE, view === "saved" ? saved : items);
   const flatItems = useMemo(() => {
     const seen = new Set<string>();
     return (bands ?? []).flatMap((b) => b.items).filter((it) => (seen.has(idOf(it)) ? false : (seen.add(idOf(it)), true)));
@@ -259,30 +275,20 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
 
   return (
     <div>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void runSearch(query);
-        }}
-        className="flex items-center gap-2 rounded-2xl border border-input bg-card px-3 py-2 shadow-soft focus-within:ring-2 focus-within:ring-ring/25"
-      >
-        <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={destination ? `Search ${destination} — “rooftop bars”, “ramen”, “street art”` : "Search places for this trip"}
-          aria-label="Search places"
-          className="min-w-0 flex-1 bg-transparent py-1.5 text-sm outline-none placeholder:text-muted-foreground"
-        />
-        {searchMode && (
-          <button type="button" onClick={() => { setQuery(""); setSearchMode(false); setCatKey(null); }} className="shrink-0 text-xs text-muted-foreground hover:text-foreground">
+      <AiSearchBar
+        tripId={tripId}
+        scope="discover"
+        placeholder={destination ? `Ask — “rooftop bars near old Montreal”, “kid-friendly museums”, “ramen”` : "Ask for places for this trip"}
+        onDirective={applyDirective}
+      />
+      {(searchMode || catKey !== null) && searchLabel && (
+        <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="min-w-0 truncate">Showing: <span className="font-medium text-foreground">{searchLabel}</span></span>
+          <button type="button" onClick={() => { setSearchMode(false); setSearchLabel(""); pickCategory(null); }} className="shrink-0 hover:text-foreground">
             Clear
           </button>
-        )}
-        <button type="submit" disabled={loading || !query.trim()} className="btn-primary-sm shrink-0">
-          {loading && searchMode ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Search"}
-        </button>
-      </form>
+        </p>
+      )}
 
       {/* Tier 1 — Discover / Saved toggle + broad categories. One row, scrolls sideways. */}
       <div className="mt-4 flex items-center gap-2 overflow-x-auto scrollbar-slim pb-1">
@@ -375,11 +381,7 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
         gridItems.length > 0 ? (
           <>
             <Stagger className={cn(grid, "mt-5")}>{gridItems.slice(0, visible).map((it) => renderItem(it))}</Stagger>
-            {view === "results" && visible < gridItems.length && (
-              <button type="button" onClick={() => setVisible((v) => v + PAGE)} className="btn-secondary mt-5 w-full">
-                Show more ({gridItems.length - visible} left)
-              </button>
-            )}
+            {more && <div ref={sentinel} aria-hidden className="h-8" />}
           </>
         ) : (
           <p className="mt-8 rounded-2xl border border-dashed border-border px-5 py-10 text-center text-sm text-muted-foreground">

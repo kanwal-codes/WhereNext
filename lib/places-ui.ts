@@ -34,11 +34,15 @@ function titleCase(s: string): string {
  * Carries the address and a maps link so the user doesn't have to retype a name they
  * might not be able to read.
  */
-export function askAssistantHref(tripId: string, opts: { name: string; address?: string | null; mapsUrl?: string | null; kind?: "place" | "stay" }): string {
+export function askAssistantHref(
+  tripId: string,
+  opts: { name: string; address?: string | null; mapsUrl?: string | null; kind?: "place" | "stay"; question?: string; context?: string },
+): string {
   const noun = opts.kind === "stay" ? "hotel" : "place";
   const question =
-    `Why does this ${noun} fit my trip — my budget, pace, and what I've saved so far?\n` +
-    `${opts.name}${opts.address ? ` — ${opts.address}` : ""}${opts.mapsUrl ? `\n${opts.mapsUrl}` : ""}`;
+    (opts.question ?? `Why does this ${noun} fit my trip — my budget, pace, and what I've saved so far?`) +
+    `\n${opts.name}${opts.address ? ` — ${opts.address}` : ""}${opts.mapsUrl ? `\n${opts.mapsUrl}` : ""}` +
+    (opts.context ? `\n\nWhat's on my screen right now:\n${opts.context.slice(0, 1600)}` : "");
   return `/trips/${tripId}/chat?ask=${encodeURIComponent(question)}`;
 }
 

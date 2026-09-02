@@ -20,7 +20,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
   const panel = variant === "panel";
   const [detail, setDetail] = useState<EventDetail | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
-  useDocumentTitle(panel ? null : detail?.title ?? seed.name);
+  const titleTag = useDocumentTitle(panel ? null : detail?.title ?? seed.name);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -60,6 +60,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
 
   return (
     <div>
+      {titleTag}
       <Hero image={image || "/design/trip-hero.jpg"} alt={title} plain className={cn(panel ? "h-44" : "h-[38vh] min-h-[240px] sm:h-[44vh] sm:max-h-[400px]")}>
         <div className={cn("absolute inset-x-0 bottom-0", pad, "pb-5")}>
           {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" />}

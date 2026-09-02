@@ -5,20 +5,235 @@ $ next dev
    - Environments: .env.local
 
  ✓ Starting...
- ✓ Ready in 902ms
- ✓ Compiled /middleware in 256ms (171 modules)
+ ✓ Ready in 1051ms
+ ✓ Compiled /middleware in 294ms (171 modules)
  ○ Compiling /sign-in ...
 <w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (107kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
 <w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (259kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
- ✓ Compiled /sign-in in 2s (1626 modules)
- GET /sign-in 200 in 2353ms
- ✓ Compiled in 394ms (732 modules)
- ✓ Compiled in 72ms (732 modules)
- ✓ Compiled in 581ms (732 modules)
- ✓ Compiled in 81ms (732 modules)
- ○ Compiling /api/trips/[tripId]/stays ...
- ✓ Compiled /api/trips/[tripId]/stays in 544ms (1853 modules)
- GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/stays?adults=3&rooms=2&sort=price 200 in 5691ms
- ✓ Compiled /api/trips/[tripId]/stays/[hotelId] in 145ms (1858 modules)
- GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/stays/lp38c98?adults=3&rooms=2 200 in 9587ms
- ✓ Compiled in 150ms (733 modules)
+ ✓ Compiled /sign-in in 1995ms (1626 modules)
+ GET /sign-in 200 in 2286ms
+ ✓ Compiled in 348ms (732 modules)
+ ○ Compiling /trips/[tripId]/discover ...
+ ✓ Compiled /trips/[tripId]/discover in 898ms (2076 modules)
+ GET /trips/rebuild-preview/discover 404 in 1505ms
+ ✓ Compiled in 811ms (2020 modules)
+ ✓ Compiled in 154ms (884 modules)
+ ✓ Compiled in 184ms (884 modules)
+ ✓ Compiled in 216ms (884 modules)
+ ✓ Compiled in 283ms (884 modules)
+ ✓ Compiled in 135ms (884 modules)
+ ✓ Compiled in 193ms (884 modules)
+ ✓ Compiled in 131ms (884 modules)
+ ✓ Compiled in 112ms (884 modules)
+ ✓ Compiled in 159ms (884 modules)
+ ✓ Compiled in 104ms (884 modules)
+ ✓ Compiled in 100ms (884 modules)
+ ✓ Compiled in 140ms (884 modules)
+ ✓ Compiled in 102ms (884 modules)
+ ✓ Compiled in 152ms (884 modules)
+ ✓ Compiled / in 327ms (2019 modules)
+ GET / 200 in 574ms
+ ✓ Compiled /api/trips in 317ms (2037 modules)
+ POST /api/trips 201 in 1246ms
+ ✓ Compiled /api/trips/[tripId]/geocode in 240ms (2115 modules)
+ GET /api/trips/c09bac61-e113-4004-9e64-599ded7a5601/geocode?q=Montreal%2C%20Canada 200 in 1519ms
+ ✓ Compiled /api/trips/[tripId]/transit in 217ms (2118 modules)
+ POST /api/trips/c09bac61-e113-4004-9e64-599ded7a5601/transit 200 in 1268ms
+ ✓ Compiled in 275ms (888 modules)
+ ✓ Compiled in 281ms (888 modules)
+ ✓ Compiled /_not-found in 414ms (2024 modules)
+ GET / 404 in 641ms
+ GET / 307 in 269ms
+ ✓ Compiled /trips in 402ms (2040 modules)
+ GET /trips 200 in 975ms
+ ✓ Compiled /icon.svg in 129ms (1173 modules)
+ GET /icon.svg?d071bc042b14846e 200 in 209ms
+ ✓ Compiled /trips/[tripId] in 253ms (2084 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e 200 in 1194ms
+ ○ Compiling /api/trips/[tripId]/places ...
+ ✓ Compiled /api/trips/[tripId]/places in 539ms (2171 modules)
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/weather?location=Montreal 200 in 1377ms
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/places?query=Montreal 200 in 1494ms
+ ✓ Compiled /api/trips/[tripId]/places/google/photo in 180ms (2173 modules)
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/weather?location=Montreal 200 in 438ms
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/weather?location=Montreal 200 in 384ms
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/places/google/photo?name=places%2FChIJDbdkHFQayUwR7-8fITgxTmU%2Fphotos%2FAVoNoXRU_sgvbFYHBHMkDrZI0it8t7cXgVV3EXdX6eoWEmoTsmPK_T_JNZMuA49iCoWVGu3du8cc6w5ApY18T4fBlraT_dXPyYFcxxHeMWCeslEh0kxpG1ERyieffrniqs3ejnbVRcuvSpitK38sqgSgKjOZR7mcbA6xy2XhD8ypR4ddKpfl1bVn8B4JmSHrb-XQRNDhH9cr2gN-Fm6j-gsyKGwMghpV028GjA6Yf3F_cNCRdSLM_QvS0KTNEVWcCTbEfw0gHscze3JljREmGE8palmd5MMPVFgFAS37cIO_UWbE9wmL4Ek88c_E8_sr303bNxkB8FClueBhWcGIqXA-IFsrFCLq5tDDbW5Pa46RkQTwlgr1QX5w5VQisbaOfsvHTSR55l0U2Izd-05FMeIWmPupYECvjPYjELNVTFTgqW7dmw 200 in 958ms
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/weather?location=Montreal 200 in 377ms
+ ○ Compiling /trips/[tripId]/map ...
+ ✓ Compiled /trips/[tripId]/map in 888ms (2257 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/map 200 in 1342ms
+ ✓ Compiled /api/trips/[tripId]/route-plan in 274ms (1314 modules)
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/weather?location=Montreal 200 in 450ms
+ ✓ Compiled in 270ms (2249 modules)
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/weather?location=Montreal 200 in 704ms
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/geocode?q=Montreal 200 in 1238ms
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/route-plan 200 in 1445ms
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/geocode?q=Montreal 200 in 194ms
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/weather?location=Montreal 200 in 306ms
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/route-plan 200 in 361ms
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/geocode?q=Montreal 200 in 203ms
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/weather?location=Montreal 200 in 307ms
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/geocode?q=Montreal 200 in 217ms
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/route-plan 200 in 332ms
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/route-plan 200 in 413ms
+ ✓ Compiled /api/config/mapbox in 269ms (2251 modules)
+ GET /api/config/mapbox 200 in 408ms
+ ✓ Compiled /api/trips/[tripId]/transit in 229ms (1314 modules)
+ POST /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/transit 200 in 1586ms
+ ○ Compiling /trips/[tripId]/chat ...
+ ✓ Compiled /trips/[tripId]/chat in 1439ms (2748 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/chat 200 in 2066ms
+ ✓ Compiled /trips/[tripId]/stay in 314ms (2763 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/stay 200 in 817ms
+ ✓ Compiled /api/trips/[tripId]/stays in 260ms (2858 modules)
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/stays?adults=3&rooms=1&sort=price 200 in 5012ms
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/stays?adults=3&rooms=1&sort=price 200 in 654ms
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/stays?adults=3&rooms=1&sort=price 200 in 336ms
+ GET /api/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/stays?adults=3&rooms=1&sort=price 200 in 381ms
+ ✓ Compiled in 552ms (1252 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/stay 200 in 68ms
+ ✓ Compiled in 546ms (2862 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/stay 200 in 92ms
+ ○ Compiling /trips/[tripId]/itinerary ...
+ ✓ Compiled /trips/[tripId]/itinerary in 511ms (2865 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 200 in 853ms
+ ✓ Compiled in 724ms (2879 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 200 in 101ms
+ ✓ Compiled in 1092ms (2874 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 200 in 97ms
+ ✓ Compiled in 709ms (2874 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 200 in 99ms
+ ⨯ Failed to generate static paths for /trips/[tripId]/itinerary:
+[Error [PageNotFoundError]: Cannot find module for page: /trips/[tripId]/itinerary/page] {
+  type: 'PageNotFoundError',
+  code: 'ENOENT'
+}
+ ✓ Compiled in 878ms (2877 modules)
+ ⨯ [Error [PageNotFoundError]: Cannot find module for page: /trips/[tripId]/itinerary/page] {
+  type: 'PageNotFoundError',
+  code: 'ENOENT',
+  page: '/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary'
+}
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 613ms (3210 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 500 in 1222ms
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 200 in 480ms
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 200 in 23ms
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 200 in 587ms
+ ✓ Compiled in 558ms (3129 modules)
+ ✓ Compiled /_not-found in 438ms (3120 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 404 in 556ms
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 200 in 532ms
+ ✓ Compiled in 391ms (3134 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 200 in 116ms
+ ✓ Compiled in 376ms (3134 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 200 in 132ms
+ ✓ Compiled in 1317ms (3033 modules)
+ ✓ Compiled /_not-found in 365ms (3024 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 404 in 496ms
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 200 in 822ms
+ ✓ Compiled in 993ms (3038 modules)
+ ✓ Compiled /_error in 231ms (3120 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 404 in 562ms
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 200 in 1674ms
+ ✓ Compiled in 3.2s (3134 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 200 in 135ms
+ ✓ Compiled in 596ms (3134 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 200 in 81ms
+ ⨯ Failed to generate static paths for /trips/[tripId]/itinerary:
+[Error [PageNotFoundError]: Cannot find module for page: /trips/[tripId]/itinerary/page] {
+  type: 'PageNotFoundError',
+  code: 'ENOENT'
+}
+ ✓ Compiled in 285ms (3134 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 200 in 361ms
+ ✓ Compiled in 362ms (3134 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 200 in 60ms
+ ✓ Compiled in 319ms (3134 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 200 in 76ms
+ ✓ Compiled in 855ms (3134 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 200 in 77ms
+ ✓ Compiled in 338ms (3134 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 200 in 62ms
+ ✓ Compiled in 314ms (3134 modules)
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 404 in 265ms
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 404 in 227ms
+ ✓ Compiled in 331ms (3134 modules)
+ ✓ Compiled in 389ms (3134 modules)
+ ✓ Compiled in 323ms (3134 modules)
+ ✓ Compiled in 309ms (3134 modules)
+ ✓ Compiled in 565ms (3134 modules)
+ ✓ Compiled in 1162ms (3134 modules)
+ ✓ Compiled in 659ms (3135 modules)
+ ✓ Compiled in 763ms (3135 modules)
+ ✓ Compiled in 590ms (3135 modules)
+ ✓ Compiled in 553ms (1415 modules)
+ ✓ Compiled in 269ms (1415 modules)
+ ✓ Compiled in 163ms (1415 modules)
+ ✓ Compiled in 171ms (1401 modules)
+ ⨯ TypeError: Cannot read properties of undefined (reading 'call')
+    at Object.c [as require] (.next/server/webpack-runtime.js:1:128) {
+  digest: '1218195654'
+}
+TypeError: Cannot read properties of undefined (reading 'call')
+    at Object.c [as require] (.next/server/webpack-runtime.js:1:128)
+ ⨯ TypeError: Cannot read properties of undefined (reading 'call')
+    at Object.c [as require] (.next/server/webpack-runtime.js:1:128)
+ ⨯ TypeError: Cannot read properties of undefined (reading 'call')
+    at Object.c [as require] (.next/server/webpack-runtime.js:1:128) {
+  page: '/trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary'
+}
+ GET /trips/efad8ecc-98c1-40ae-85c1-268a29369f9e/itinerary 500 in 598ms
+ ✓ Compiled in 174ms (1415 modules)
+ ✓ Compiled in 130ms (1415 modules)
+ ✓ Compiled in 227ms (1415 modules)
+ ✓ Compiled in 176ms (1415 modules)
+ ✓ Compiled in 136ms (1415 modules)
+ ✓ Compiled in 338ms (3130 modules)
+ ✓ Compiled in 332ms (3130 modules)
+ ✓ Compiled in 428ms (3130 modules)
+ ✓ Compiled in 298ms (3130 modules)
+ ✓ Compiled in 287ms (3132 modules)
+ ✓ Compiled in 304ms (3132 modules)
+ ✓ Compiled in 505ms (3138 modules)
+ ✓ Compiled in 453ms (3138 modules)
+ ✓ Compiled in 173ms (1419 modules)
+ ✓ Compiled in 179ms (1419 modules)
+ ✓ Compiled in 192ms (1419 modules)
+ ✓ Compiled in 162ms (1419 modules)
+ ✓ Compiled in 153ms (1419 modules)
+ ✓ Compiled in 163ms (1419 modules)
+ ✓ Compiled in 158ms (1419 modules)
+ ✓ Compiled in 225ms (1419 modules)
+ ✓ Compiled in 199ms (1419 modules)
+ ✓ Compiled in 270ms (1419 modules)
+ ✓ Compiled in 708ms (3138 modules)
+ ✓ Compiled in 286ms (3138 modules)
+ ✓ Compiled in 628ms (3138 modules)
+ ✓ Compiled in 292ms (3138 modules)
+ ✓ Compiled in 957ms (3138 modules)
+ ✓ Compiled in 339ms (3138 modules)
+ ✓ Compiled in 424ms (3138 modules)
+ ✓ Compiled in 292ms (3138 modules)
+ ✓ Compiled in 658ms (3138 modules)
+ ✓ Compiled in 300ms (3138 modules)
+ ✓ Compiled in 653ms (3138 modules)
+ ✓ Compiled in 638ms (3138 modules)
+ ✓ Compiled in 542ms (3138 modules)
+ ✓ Compiled in 270ms (1419 modules)
+ ✓ Compiled in 361ms (3138 modules)
+ ✓ Compiled / in 273ms (1726 modules)
+ GET / 200 in 556ms
+ ✓ Compiled /api/trips in 189ms (1744 modules)
+ POST /api/trips 201 in 1767ms
+ ✓ Compiled /api/trips/[tripId]/ai-search in 353ms (3227 modules)
+ POST /api/trips/d9f84513-ccd8-4c59-8f2d-581683300c87/ai-search 200 in 3199ms
+ POST /api/trips/d9f84513-ccd8-4c59-8f2d-581683300c87/ai-search 200 in 938ms
+ POST /api/trips/d9f84513-ccd8-4c59-8f2d-581683300c87/ai-search 200 in 1403ms
+ POST /api/trips/d9f84513-ccd8-4c59-8f2d-581683300c87/ai-search 200 in 1780ms
+ ✓ Compiled /api/trips/[tripId]/flights in 299ms (3230 modules)
+ POST /api/trips/d9f84513-ccd8-4c59-8f2d-581683300c87/flights 200 in 3575ms
+ ✓ Compiled in 271ms (1419 modules)
+ ✓ Compiled in 500ms (3138 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename '/Users/kanwal/Projects/Next Place to Be Rebuild/.next/cache/webpack/server-development/2.pack.gz_' -> '/Users/kanwal/Projects/Next Place to Be Rebuild/.next/cache/webpack/server-development/2.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename '/Users/kanwal/Projects/Next Place to Be Rebuild/.next/cache/webpack/client-development/1.pack.gz_' -> '/Users/kanwal/Projects/Next Place to Be Rebuild/.next/cache/webpack/client-development/1.pack.gz'

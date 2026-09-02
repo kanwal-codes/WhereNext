@@ -1,22 +1,26 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { Bookmark, CalendarDays, Loader2, MapPin } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { MapPin } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
-import { askAssistantHref } from "@/lib/places-ui";
+import { coarseKind } from "@/features/places/ui/discoverTaxonomy";
+import { readStayDecision } from "@/packages/contracts/stay";
+import type { RoutePlan } from "@/packages/contracts/route-plan";
+import { RouteTimeline } from "@/features/maps/ui/RouteTimeline";
+import { TransportSurface, type TransportPreset } from "@/features/transport/ui/TransportSurface";
+import { AiSearchBar } from "@/components/AiSearchBar";
+import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { cn } from "@/lib/utils";
+import type { MapPin as Pin, MapLeg } from "@/components/TripMap";
 
-type Row = { places?: { id: string; name: string; metadata?: { latitude?: number; longitude?: number } | null } };
-type ItineraryRow = { id: string; title: string; day_index: number; metadata?: { latitude?: number; longitude?: number } | null };
-type Pin = { id: string; name: string; lng: number; lat: number; kind: "saved" | "planned"; day?: number };
+const TripMap = dynamic(() => import("@/components/TripMap").then((m) => m.TripMap), {
+  ssr: false,
+  loading: () => <div className="grid h-[52vh] min-h-[320px] place-items-center rounded-2xl border border-border bg-muted/40 text-sm text-muted-foreground">Loading map…</div>,
+});
 
-const MODES = [
-  { key: "walking", label: "Walk" },
-  { key: "driving", label: "Drive" },
-  { key: "cycling", label: "Cycle" },
-] as const;
-type Mode = (typeof MODES)[number]["key"];
+type Row = { places?: { id: string; name: string; provider_id?: string; category?: string | null; metadata?: { latitude?: number; longitude?: number } | null } };
+type ItineraryRow = { id: string; title: string; day_index: number; metadata?: { latitude?: number; longitude?: number; source?: string; provider_id?: string } | null };
 
 const coords = (m?: { latitude?: number; longitude?: number } | null) => {
   const lng = Number(m?.longitude);
@@ -24,190 +28,183 @@ const coords = (m?: { latitude?: number; longitude?: number } | null) => {
   return Number.isFinite(lng) && Number.isFinite(lat) && (lng !== 0 || lat !== 0) ? { lng, lat } : null;
 };
 
+const kindFor = (category?: string | null): Pin["kind"] => {
+  const k = coarseKind(category);
+  return k === "Eat" ? "eat" : k === "Stay" ? "stay" : k === "Nature" || k === "Do" ? "do" : "see";
+};
+
 export function MapSurface({ tripId }: { tripId: string }) {
   const { data } = useTripData();
+  const [tab, setTab] = useState<"trip" | "browse">("trip");
+  const [activeDay, setActiveDay] = useState<number | "all">("all");
+
+  const lockedStay = readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
 
   const pins = useMemo<Pin[]>(() => {
-    const saved: Pin[] = ((data?.savedPlaces ?? []) as Row[])
-      .map((s) => s.places)
-      .filter(Boolean)
-      .flatMap((p) => {
-        const c = coords(p!.metadata);
-        return c ? [{ id: p!.id, name: p!.name, ...c, kind: "saved" as const }] : [];
-      });
-    const planned: Pin[] = ((data?.itinerary ?? []) as ItineraryRow[]).flatMap((i) => {
+    const out: Pin[] = [];
+    for (const i of (data?.itinerary ?? []) as ItineraryRow[]) {
       const c = coords(i.metadata);
-      return c ? [{ id: `it-${i.id}`, name: i.title, ...c, kind: "planned" as const, day: i.day_index }] : [];
-    });
-    // Dedupe planned that sit on top of a saved place.
-    const seen = new Set(saved.map((p) => `${p.lng.toFixed(4)},${p.lat.toFixed(4)}`));
-    return [...saved, ...planned.filter((p) => !seen.has(`${p.lng.toFixed(4)},${p.lat.toFixed(4)}`))];
-  }, [data?.savedPlaces, data?.itinerary]);
-
-  const [imgFailed, setImgFailed] = useState(false);
-  const mapSrc = pins.length
-    ? `/api/trips/${tripId}/map/static?markers=${encodeURIComponent(pins.map((p) => `${p.lng},${p.lat}`).join("|"))}&w=640&h=420`
-    : "";
-
-  const [fromId, setFromId] = useState("");
-  const [toId, setToId] = useState("");
-  const [mode, setMode] = useState<Mode>("walking");
-  const [status, setStatus] = useState("");
-  const [loading, setLoading] = useState(false);
-  const controller = useRef<AbortController | null>(null);
-
-  async function measure() {
-    const from = pins.find((p) => p.id === fromId);
-    const to = pins.find((p) => p.id === toId);
-    if (!from || !to || from.id === to.id) {
-      setStatus("Pick two different places.");
-      return;
+      const providerId = i.metadata?.provider_id;
+      if (c) out.push({ id: `it-${i.id}`, name: i.title, ...c, kind: "see", day: i.day_index, href: providerId ? `/trips/${tripId}/place/${encodeURIComponent(providerId)}` : undefined });
     }
-    controller.current?.abort();
-    const request = new AbortController();
-    controller.current = request;
-    setLoading(true);
-    setStatus("");
-    try {
-      const response = await fetch(`/api/trips/${tripId}/directions`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ origin: [from.lng, from.lat], destination: [to.lng, to.lat], profile: mode }),
-        signal: request.signal,
-      });
-      const body = await response.json();
-      const verb = mode === "driving" ? "drive" : mode === "cycling" ? "ride" : "walk";
-      setStatus(
-        response.ok
-          ? `${Math.round(body.route.durationSeconds / 60)} min ${verb} · ${(body.route.distanceMeters / 1000).toFixed(1)} km`
-          : body.error ?? "Route is unavailable right now.",
-      );
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") setStatus("");
-      else setStatus("Route is unavailable right now.");
-    } finally {
-      setLoading(false);
-      if (controller.current === request) controller.current = null;
+    const pinnedKey = new Set(out.map((p) => `${p.lng.toFixed(4)},${p.lat.toFixed(4)}`));
+    for (const s of (data?.savedPlaces ?? []) as Row[]) {
+      const p = s.places;
+      const c = coords(p?.metadata);
+      if (p && c && !pinnedKey.has(`${c.lng.toFixed(4)},${c.lat.toFixed(4)}`)) {
+        out.push({ id: p.id, name: p.name, ...c, kind: kindFor(p.category), href: p.provider_id ? `/trips/${tripId}/place/${encodeURIComponent(p.provider_id)}` : undefined });
+      }
     }
-  }
+    if (lockedStay && lockedStay.latitude != null && lockedStay.longitude != null) {
+      out.unshift({ id: "stay", name: lockedStay.hotelName, lng: lockedStay.longitude, lat: lockedStay.latitude, kind: "stay", href: `/trips/${tripId}/stay/${encodeURIComponent(lockedStay.hotelId)}` });
+    }
+    return out;
+  }, [data?.itinerary, data?.savedPlaces, lockedStay, tripId]);
 
-  const options = pins.map((p) => (
-    <option key={p.id} value={p.id}>
-      {p.kind === "planned" ? `${p.name} (Day ${(p.day ?? 0) + 1})` : p.name}
-    </option>
-  ));
+  // Day-by-day route plan (real transit legs). Fetched once; refreshes when the itinerary changes.
+  const [plan, setPlan] = useState<RoutePlan | null>(null);
+  const itineraryKey = ((data?.itinerary ?? []) as ItineraryRow[]).map((i) => `${i.id}:${i.day_index}`).join(",");
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/trips/${tripId}/route-plan`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => !cancelled && setPlan(body as RoutePlan | null))
+      .catch(() => !cancelled && setPlan(null));
+    return () => { cancelled = true; };
+  }, [tripId, itineraryKey]);
+
+  const days = useMemo(() => {
+    const fromPins = pins.map((p) => p.day).filter((d): d is number => typeof d === "number");
+    const fromPlan = (plan?.days ?? []).map((d) => d.day);
+    return Array.from(new Set([...fromPins, ...fromPlan])).sort((a, b) => a - b);
+  }, [pins, plan]);
+  const shown = pins.filter((p) => activeDay === "all" || p.day === activeDay);
+
+  const [hoverLeg, setHoverLeg] = useState<number | null>(null);
+  const planDays = activeDay === "all" ? (plan?.days ?? []) : (plan?.days ?? []).filter((d) => d.day === activeDay);
+  const mapLegs: MapLeg[] = planDays.flatMap((d, di) =>
+    d.legs.map((l, li) => ({
+      polyline: l.polyline,
+      mode: l.mode,
+      dim: activeDay !== "all" && hoverLeg != null && !(di === 0 && li === hoverLeg),
+    })),
+  );
+
+  // Browse mode: an A→B route the user picked, drawn on the map.
+  const [browseLegs, setBrowseLegs] = useState<MapLeg[] | null>(null);
+  const browse = useMemo(() => ({ legs: browseLegs ?? [] }), [browseLegs]);
+  const [gaPreset, setGaPreset] = useState<TransportPreset | undefined>();
+  const applyGaDirective = (d: AiSearchDirective) =>
+    setGaPreset({ from: d.from, to: d.to, modes: d.modes ?? [], nonce: Date.now() });
 
   const origin = data?.trip?.origin ?? "";
   const destination = data?.trip?.destination ?? "";
 
+  // Fall-back centre for Browse when nothing is pinned yet — geocode the destination once.
+  const [center, setCenter] = useState<[number, number] | undefined>();
+  useEffect(() => {
+    if (!destination || pins.length > 0) return;
+    let cancelled = false;
+    fetch(`/api/trips/${tripId}/geocode?q=${encodeURIComponent(destination)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((p) => !cancelled && p && setCenter([p.lng, p.lat]))
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [tripId, destination, pins.length]);
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
-      <div className="space-y-5">
-        <div className="overflow-hidden rounded-2xl border border-border bg-surface">
-          {pins.length > 0 && mapSrc && !imgFailed ? (
-            // eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin Mapbox proxy
-            <img
-              src={mapSrc}
-              alt={`Map with ${pins.length} place${pins.length > 1 ? "s" : ""}`}
-              width={640}
-              height={420}
-              onError={() => setImgFailed(true)}
-              className="aspect-[16/10] w-full object-cover"
-            />
-          ) : (
-            <div className="grid aspect-[16/10] w-full place-items-center bg-muted/40 px-6 text-center">
-              <div>
-                <MapPin className="mx-auto h-6 w-6 text-muted-foreground/50" />
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {pins.length === 0
-                    ? "Save places from Discover or add stops to the itinerary and they'll drop onto the map here."
-                    : "Map imagery is unavailable right now."}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {pins.length >= 2 && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void measure();
-            }}
-            className="rounded-2xl border border-border bg-card p-5 shadow-soft"
+    <div className="space-y-5">
+      {/* mode pill */}
+      <div className="inline-flex rounded-full border border-border p-0.5 text-sm">
+        {(["trip", "browse"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={cn("rounded-full px-4 py-1.5 font-medium transition-colors", tab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
           >
-            <p className="eyebrow">Time between two places</p>
-            <div className="mt-3 inline-flex rounded-full border border-border p-0.5 text-xs">
-              {MODES.map((m) => (
-                <button
-                  key={m.key}
-                  type="button"
-                  onClick={() => setMode(m.key)}
-                  className={cn("rounded-full px-3 py-1 font-medium transition-colors", mode === m.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-            <div className="mt-3 grid gap-4 sm:grid-cols-2">
-              <label className="block text-sm font-medium">
-                From
-                <select aria-label="From place" value={fromId} onChange={(e) => setFromId(e.target.value)} className="input-field">
-                  <option value="">Select a place</option>
-                  {options}
-                </select>
-              </label>
-              <label className="block text-sm font-medium">
-                To
-                <select aria-label="To place" value={toId} onChange={(e) => setToId(e.target.value)} className="input-field">
-                  <option value="">Select a place</option>
-                  {options}
-                </select>
-              </label>
-            </div>
-            <button type="submit" disabled={loading} className="btn-primary mt-4">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Measure route
-            </button>
-            {status && <p role="status" className="mt-3 text-xs text-muted-foreground">{status}</p>}
-          </form>
-        )}
-
-        <p className="text-xs text-muted-foreground">
-          Flying in or out?{" "}
-          <Link
-            href={askAssistantHref(tripId, { name: `Flights ${origin ? `from ${origin} ` : ""}to ${destination}`, address: null })}
-            className="font-medium text-primary hover:underline"
-          >
-            Ask the assistant to compare fares
-          </Link>
-          .
-        </p>
+            {t === "trip" ? "My trip" : "Browse"}
+          </button>
+        ))}
       </div>
 
-      <div className="rounded-2xl border border-dashed border-border p-4">
-        <p className="eyebrow">On the map</p>
-        {pins.length > 0 ? (
-          <ul className="mt-2 space-y-1.5 text-sm text-ink-soft">
-            {pins.map((p, i) => (
-              <li key={p.id} className="flex items-center gap-2 truncate">
-                <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-coral/15 text-[11px] font-semibold text-coral">
-                  {i + 1}
-                </span>
-                {p.kind === "planned" ? <CalendarDays className="h-3 w-3 shrink-0 text-leaf" /> : <Bookmark className="h-3 w-3 shrink-0 text-muted-foreground" />}
-                <span className="truncate">{p.name}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-2 text-xs text-muted-foreground">Nothing pinned yet.</p>
-        )}
-        {pins.some((p) => p.kind === "planned") && (
-          <p className="mt-2.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <CalendarDays className="h-3 w-3 text-leaf" /> from the itinerary · <Bookmark className="h-3 w-3" /> saved
+      {tab === "trip" ? (
+        pins.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-border px-5 py-12 text-center text-sm text-muted-foreground">
+            <MapPin className="mx-auto mb-2 h-6 w-6 text-muted-foreground/50" />
+            Add stops to your itinerary or save places from Discover — they&rsquo;ll appear on the map here, day by day.
           </p>
-        )}
-      </div>
+        ) : (
+          <>
+            {days.length > 0 && (
+              <div className="flex gap-1.5 overflow-x-auto scrollbar-slim pb-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveDay("all")}
+                  className={cn("shrink-0 rounded-full border px-3 py-1 text-xs font-medium", activeDay === "all" ? "border-transparent bg-primary text-primary-foreground" : "border-border bg-background text-ink-soft")}
+                >
+                  Whole trip
+                </button>
+                {days.map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setActiveDay(d)}
+                    className={cn("shrink-0 rounded-full border px-3 py-1 text-xs font-medium", activeDay === d ? "border-transparent bg-primary text-primary-foreground" : "border-border bg-background text-ink-soft")}
+                  >
+                    Day {d}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <TripMap pins={pins} legs={mapLegs} activeDay={activeDay} />
+
+            {planDays.length > 0 && planDays.some((d) => d.legs.length > 0) ? (
+              <div className="space-y-6">
+                {planDays.map((d) => (
+                  <RouteTimeline key={d.day} day={d} onHoverLeg={activeDay === "all" ? undefined : setHoverLeg} />
+                ))}
+              </div>
+            ) : (
+              <>
+                <ol className="space-y-1.5">
+                  {shown.map((p, i) => (
+                    <li key={p.id} className="flex items-center gap-2.5 text-sm">
+                      <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-semibold text-white" style={{ background: { stay: "#e2603f", eat: "#d9932b", see: "#3b82c4", do: "#3f9d6b", event: "#8b5cf6", saved: "#8a8a8a" }[p.kind] }}>
+                        {i + 1}
+                      </span>
+                      <span className="truncate">{p.name}</span>
+                      {p.day != null && <span className="shrink-0 text-xs text-muted-foreground">Day {p.day}</span>}
+                    </li>
+                  ))}
+                </ol>
+                <p className="text-[11px] text-muted-foreground">
+                  {plan ? "Working out how to get between these stops…" : "Numbered in visit order."} Pick a day to see the route leg by leg.
+                </p>
+              </>
+            )}
+          </>
+        )
+      ) : (
+        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)] lg:items-start lg:gap-6">
+          <div className="order-2 space-y-4 lg:order-1">
+            <AiSearchBar
+              tripId={tripId}
+              scope="getting-around"
+              placeholder={`Ask — “${origin || "Toronto"} to ${destination || "Montreal"} by train”, “cheapest way to the airport”`}
+              onDirective={applyGaDirective}
+            />
+            <p className="text-xs text-muted-foreground">
+              Search any two places, then pick a result to trace it on the map — stops, line names, fares and times. Say “by flight”, “by train” or “driving” to narrow it.
+            </p>
+            <TransportSurface tripId={tripId} origin={origin} destination={destination} preset={gaPreset} onRoute={setBrowseLegs} />
+          </div>
+          <div className="order-1 lg:order-2 lg:sticky lg:top-4">
+            <TripMap pins={[]} activeDay="all" center={center} browse={browseLegs && browseLegs.length ? browse : null} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

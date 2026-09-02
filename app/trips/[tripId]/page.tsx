@@ -5,10 +5,9 @@ import { ArrowRight, CalendarDays, MapPin, Users, Wallet } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { Hero } from "@/components/Hero";
 import { Reveal, Stagger, StaggerItem, WordReveal } from "@/components/motion-primitives";
-import { ProgressRing } from "@/components/ProgressRing";
 import { CertaintyBadge } from "@/components/CertaintyBadge";
-import { tripCompleteness } from "@/lib/design";
 import { certaintyFor, decisionSummary } from "@/lib/decisions-ui";
+import { tripWhen } from "@/lib/trip-dates";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { useDestinationPhoto } from "@/features/places/application/useDestinationPhoto";
 import { TripWeather } from "@/components/TripWeather";
@@ -33,25 +32,15 @@ export default function TripOverviewPage() {
   const conversation = (data?.conversation ?? []) as Array<{ role: string; content: string }>;
 
   const destination = trip?.destination ?? "your destination";
-  const progress = data
-    ? tripCompleteness({
-        preferences: data.preferences,
-        savedPlaces: data.savedPlaces,
-        itinerary: data.itinerary,
-        decisions: data.decisions,
-        conversation: data.conversation,
-        essentials: data.essentials,
-      })
-    : 0;
 
   const asList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
-  const budget = typeof prefs.budget === "number" ? `$${prefs.budget}/day` : typeof prefs.budget === "string" ? prefs.budget : "Open";
+  const budget = typeof prefs.budget === "number" ? `$${prefs.budget}/day` : typeof prefs.budget === "string" ? prefs.budget : "Not set";
 
   const stats = [
-    { icon: CalendarDays, label: "Days", value: trip?.duration_days ? String(trip.duration_days) : "Open" },
-    { icon: Users, label: "Travellers", value: trip?.travelers ? String(trip.travelers) : "Open" },
+    { icon: CalendarDays, label: "Dates", value: tripWhen(trip?.start_date, trip?.end_date, trip?.duration_days) },
+    { icon: Users, label: "Travellers", value: trip?.travelers ? String(trip.travelers) : "Not set" },
     { icon: Wallet, label: "Budget", value: budget },
-    { icon: MapPin, label: "From", value: trip?.origin || "Open" },
+    { icon: MapPin, label: "From", value: trip?.origin || "Not set" },
   ];
 
   const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
@@ -82,21 +71,11 @@ export default function TripOverviewPage() {
       <Hero key={heroImage} image={heroImage} alt={`${destination}`} className="h-56 sm:h-72">
         <div className="absolute inset-x-0 bottom-0 px-5 pb-6 sm:px-8">
           <Reveal delay={0.12}>
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4">
-              <div className="min-w-0">
-                <WordReveal text={trip?.name || destination} delay={0.24} className="truncate font-display text-4xl" />
-                <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-soft">
-                  <MapPin className="h-3.5 w-3.5" /> {destination}
-                </p>
-              </div>
-              <div className="hidden shrink-0 items-center gap-3 sm:flex">
-                <ProgressRing value={progress} size={60} />
-                <p className="text-xs text-muted-foreground">
-                  Planning
-                  <br />
-                  progress
-                </p>
-              </div>
+            <div className="min-w-0">
+              <WordReveal text={trip?.name || destination} delay={0.24} className="truncate font-display text-4xl" />
+              <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-soft">
+                <MapPin className="h-3.5 w-3.5" /> {destination}
+              </p>
             </div>
           </Reveal>
         </div>
@@ -105,13 +84,13 @@ export default function TripOverviewPage() {
       <div className="mx-auto max-w-5xl px-5 py-8 sm:px-8">
         <Stagger className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {stats.map((s) => (
-            <StaggerItem key={s.label}>
-              <div className="relative overflow-hidden rounded-2xl border border-border bg-card px-4 py-3 shadow-soft">
+            <StaggerItem key={s.label} className="h-full">
+              <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card px-4 py-3 shadow-soft">
                 <span className="absolute inset-y-0 left-0 w-[3px] bg-coral" />
                 <p className="flex items-center gap-1.5 text-[11px] tracking-[0.1em] text-muted-foreground uppercase">
                   <s.icon className="h-3 w-3 text-coral" /> {s.label}
                 </p>
-                <p className="mt-1.5 truncate text-sm font-medium">{s.value}</p>
+                <p className="mt-1.5 text-sm font-medium leading-snug">{s.value}</p>
               </div>
             </StaggerItem>
           ))}

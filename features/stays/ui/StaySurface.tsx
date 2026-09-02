@@ -2,11 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, BedDouble, Check, Loader2, Minus, Plus, SlidersHorizontal, Star } from "lucide-react";
+import { ArrowUpRight, BedDouble, Check, Loader2, MapPin, Minus, Plus, SlidersHorizontal, Star, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
+import { AiSearchBar } from "@/components/AiSearchBar";
+import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { readStayDecision, type StayFacets, type StayOption } from "@/packages/contracts/stay";
 import { SkeletonCards } from "@/components/Skeleton";
 import { formatMoney } from "@/lib/currency";
+import { useInfiniteReveal } from "@/lib/use-infinite-reveal";
 import { cn } from "@/lib/utils";
 
 type Result = {
@@ -59,11 +62,11 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   const [priceMax, setPriceMax] = useState<number | null>(null);
   const [sort, setSort] = useState<"price" | "rating" | "stars">("price");
   const [showFilters, setShowFilters] = useState(false);
+  const [near, setNear] = useState(""); // AI "hotels near X" — overrides the destination anchor
 
   const [result, setResult] = useState<Result | null>(null);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
-  const [visible, setVisible] = useState(8);
   const reqId = useRef(0);
 
   const search = useCallback(async () => {
@@ -72,6 +75,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
     setStatus("");
     try {
       const qs = new URLSearchParams({ adults: String(adults), rooms: String(rooms), sort });
+      if (near.trim()) qs.set("location", near.trim());
       if (checkin) qs.set("checkin", checkin);
       if (checkout) qs.set("checkout", checkout);
       if (stars.length) qs.set("stars", stars.join(","));
@@ -87,7 +91,6 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
         return;
       }
       setResult(body as Result);
-      setVisible(8);
       setStatus((body.options ?? []).length === 0 ? "Nothing matched — loosen the filters or change the dates." : "");
     } catch {
       if (mine === reqId.current) {
@@ -97,11 +100,24 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
     } finally {
       if (mine === reqId.current) setLoading(false);
     }
-  }, [tripId, adults, rooms, sort, checkin, checkout, stars, boards, refundable, priceMax]);
+  }, [tripId, adults, rooms, sort, checkin, checkout, stars, boards, refundable, priceMax, near]);
 
   useEffect(() => {
     void search();
   }, [search]);
+
+  const { visible, sentinel, more } = useInfiniteReveal(result?.options.length ?? 0, 6, result);
+
+  function applyDirective(d: import("@/lib/application/ai-search").AiSearchDirective) {
+    if (d.location !== undefined) setNear(d.location);
+    if (d.priceMax !== undefined) setPriceMax(d.priceMax);
+    if (d.stars?.length) setStars(d.stars);
+    if (d.boards?.length) setBoards(d.boards);
+    if (d.refundable !== undefined) setRefundable(d.refundable);
+    if (d.sort) setSort(d.sort);
+    if (d.adults) setAdults(Math.max(1, Math.min(d.adults, 16)));
+    if (d.rooms) setRooms(Math.max(1, Math.min(d.rooms, 8)));
+  }
 
   const detailHref = (hotelId: string) =>
     `/trips/${tripId}/stay/${encodeURIComponent(hotelId)}?checkin=${result?.checkin ?? checkin}&checkout=${result?.checkout ?? checkout}&adults=${adults}&rooms=${rooms}`;
@@ -143,11 +159,28 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
         </Link>
       )}
 
+      <AiSearchBar
+        tripId={tripId}
+        scope="stays"
+        placeholder={`Ask — “near ${destination ? destination.split(",")[0] : "the old town"} station, under 250 a night, free cancellation”`}
+        onDirective={applyDirective}
+      />
+
+      {near.trim() && (
+        <p className="flex items-center gap-2 text-sm">
+          <MapPin className="h-3.5 w-3.5 shrink-0 text-coral" />
+          <span className="min-w-0 truncate">Searching near <span className="font-medium">{near}</span></span>
+          <button type="button" onClick={() => setNear("")} className="inline-flex shrink-0 items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground">
+            <X className="h-3 w-3" /> clear
+          </button>
+        </p>
+      )}
+
       {/* Search controls */}
       <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
         <p className="eyebrow">Where to stay</p>
         <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">
-          Hotels, apartments and guesthouses in {destination || "your destination"}, priced for your dates and party.
+          Hotels, apartments and guesthouses in {near.trim() || destination || "your destination"}, priced for your dates and party.
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <label className="block text-sm font-medium">
@@ -299,11 +332,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
               );
             })}
           </ul>
-          {visible < result.options.length && (
-            <button type="button" onClick={() => setVisible((v) => v + 8)} className="btn-secondary w-full">
-              Show more ({result.options.length - visible} left)
-            </button>
-          )}
+          {more && <div ref={sentinel} aria-hidden className="h-8" />}
           <p className="text-xs text-muted-foreground">Rates via LiteAPI in {result.currency}; taxes and fees may be extra. Confirm everything at booking.</p>
         </>
       ) : (

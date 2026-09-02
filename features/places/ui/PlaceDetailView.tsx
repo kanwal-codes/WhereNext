@@ -71,7 +71,7 @@ export function PlaceDetailView({
 }) {
   const panel = variant === "panel";
   const { details, freshness, state } = usePlaceDetails(tripId, placeId);
-  useDocumentTitle(panel ? null : details?.displayName?.text ?? "Place");
+  const titleTag = useDocumentTitle(panel ? null : details?.displayName?.text ?? "Place");
   const [reviewsOpen, setReviewsOpen] = useState(false);
 
   const pad = panel ? "px-4 pb-8" : "mx-auto max-w-5xl px-5 pb-14 sm:px-8";
@@ -271,6 +271,7 @@ export function PlaceDetailView({
 
   return (
     <div>
+      {titleTag}
       <Hero image={photo ?? "/design/place-neighbourhood.jpg"} alt={name} plain className={cn(panel ? "h-44" : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")}>
         {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className="absolute top-4 left-4" />}
       </Hero>

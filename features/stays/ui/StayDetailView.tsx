@@ -10,6 +10,7 @@ import { Skeleton, SkeletonLines } from "@/components/Skeleton";
 import { RoomRow } from "@/components/StayPanel";
 import { Reveal, WordReveal } from "@/components/motion-primitives";
 import { useStayDetails } from "@/features/stays/application/useStayDetails";
+import { formatMoney } from "@/lib/currency";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { askAssistantHref } from "@/lib/places-ui";
 import type { StayRoom } from "@/packages/contracts/stay";
@@ -43,7 +44,7 @@ export function StayDetailView({
   const [reviewsOpen, setReviewsOpen] = useState(false);
   const [dates, setDates] = useState({ checkin: checkin ?? "", checkout: checkout ?? "" });
   const s = useStayDetails(tripId, hotelId, { checkin: dates.checkin || undefined, checkout: dates.checkout || undefined });
-  useDocumentTitle(panel ? null : s.hotel?.name ?? "Stay");
+  const titleTag = useDocumentTitle(panel ? null : s.hotel?.name ?? "Stay");
 
   const [ci, setCi] = useState(checkin ?? "");
   const [co, setCo] = useState(checkout ?? "");
@@ -223,7 +224,7 @@ export function StayDetailView({
             {fmtDay(lockedHere.checkin)} → {fmtDay(lockedHere.checkout)} · {lockedHere.nights} night{lockedHere.nights === 1 ? "" : "s"}
           </p>
           <p className="mt-1 text-sm tabular-nums">
-            {lockedHere.nightlyAmount} {lockedHere.currency}/night · {lockedHere.totalAmount} {lockedHere.currency} total
+            {formatMoney(lockedHere.nightlyAmount, lockedHere.currency)}/night · {formatMoney(lockedHere.totalAmount, lockedHere.currency)} total
           </p>
           <p className="mt-2 text-[11px] text-muted-foreground">Pick another room above to change it.</p>
         </div>
@@ -260,6 +261,7 @@ export function StayDetailView({
 
   return (
     <div>
+      {titleTag}
       <Hero image={images[0] ?? "/design/place-hotel.jpg"} alt={name} plain className={cn(panel ? "h-44" : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")}>
         {!panel && <BackLink fallback={`/trips/${tripId}/stay`} label="Back" className="absolute top-4 left-4" />}
       </Hero>

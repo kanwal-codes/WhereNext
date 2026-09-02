@@ -4,6 +4,7 @@ import { Check, Users, X } from "lucide-react";
 import { BlurImage } from "@/components/motion-primitives";
 import { StayDetailView } from "@/features/stays/ui/StayDetailView";
 import type { StayRoom } from "@/packages/contracts/stay";
+import { formatMoney } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 
 const fmtDay = (iso: string) => {
@@ -58,8 +59,8 @@ export function RoomRow({
       </div>
       <div className="flex flex-col items-end gap-1.5">
         <p className={cn("font-semibold tabular-nums", compact ? "text-xs" : "text-sm")}>
-          {room.nightlyAmount} {room.currency}
-          <span className="block text-[10px] font-normal text-muted-foreground">/night · {room.totalAmount} total</span>
+          {formatMoney(room.nightlyAmount, room.currency)}
+          <span className="block text-[10px] font-normal text-muted-foreground">/night · {formatMoney(room.totalAmount, room.currency)} total</span>
         </p>
         <button
           type="button"

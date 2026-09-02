@@ -142,14 +142,15 @@ describe("provider adapters", () => {
       duration: "4197s",
       legs: [{ steps: [
         { travelMode: "WALK", staticDuration: "30s" },
-        { travelMode: "TRANSIT", staticDuration: "2086s", transitDetails: { transitLine: { nameShort: "208" }, headsign: "Cais Sodré", stopDetails: { departureStop: { name: "Airport", departureTime: "2026-09-02T09:00:00Z" }, arrivalStop: { name: "Cais Sodré" } } } },
+        { travelMode: "TRANSIT", staticDuration: "2086s", transitDetails: { transitLine: { nameShort: "208", vehicle: { type: "BUS" }, agencies: [{ name: "Carris" }] }, headsign: "Cais Sodré", stopCount: 9, stopDetails: { departureStop: { name: "Airport", departureTime: "2026-09-02T09:00:00Z" }, arrivalStop: { name: "Cais Sodré" } } } },
       ] }],
     }] }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
     const [first] = await transit({ origin: "Lisbon Airport", destination: "Belém" });
     expect(first).toMatchObject({ provider: "google-routes", distanceMeters: 22072, durationSeconds: 4197, departureTime: "2026-09-02T09:00:00Z" });
     expect(first.steps).toHaveLength(2);
-    expect(first.steps[1]).toMatchObject({ mode: "TRANSIT", line: "208", departureStop: "Airport", arrivalStop: "Cais Sodré" });
+    expect(first.steps[0]).toMatchObject({ mode: "walk" });
+    expect(first.steps[1]).toMatchObject({ mode: "bus", line: "208", agency: "Carris", stopCount: 9, departureStop: "Airport", arrivalStop: "Cais Sodré" });
     const fieldmask = (fetchMock.mock.calls[0][1].headers as Record<string, string>)["x-goog-fieldmask"];
     expect(fieldmask).not.toContain("legs.startTime");
     expect(fieldmask).not.toContain("legs.endTime");

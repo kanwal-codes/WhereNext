@@ -8,6 +8,29 @@ import { resolveStayDates } from "@/lib/application/stay-dates";
 import { resolveCurrency } from "@/lib/currency";
 import { cached } from "@/lib/server/ttl-cache";
 
+/** Tighten LiteAPI's marketing description into 2–3 honest sentences. Falls back to a trimmed original. */
+async function summariseAbout(name: string, raw: string, signal?: AbortSignal): Promise<string> {
+  const text = raw.trim();
+  if (text.length < 240 || !(process.env.AI_API_KEY || process.env.OPENAI_API_KEY || process.env.CEREBRAS_API_KEY)) return text.slice(0, 700);
+  try {
+    return (
+      await createAiGateway().generateText(
+        [
+          {
+            role: "system",
+            content:
+              "Rewrite this hotel description as 2–3 plain, factual sentences: what kind of property it is, where it sits, and who it suits (location, style, standout amenities). Drop marketing adjectives, exclamation, room-rate talk and lists. British English.",
+          },
+          { role: "user", content: `${name}:\n${text.slice(0, 3000)}` },
+        ],
+        signal,
+      )
+    ).trim();
+  } catch {
+    return text.slice(0, 700);
+  }
+}
+
 /** One clean paragraph on what guests actually say, from web results. Null if nothing usable. */
 async function guestSentiment(name: string, city: string | null, signal?: AbortSignal): Promise<string | null> {
   if (!process.env.TAVILY_API_KEY) return null;
@@ -72,10 +95,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
       return NextResponse.json({ error: "Hotel details are unavailable right now" }, { status: 503 });
     }
 
-    const hotel = details.status === "fulfilled" ? details.value : null;
-    const sentiment = hotel
-      ? await cached(`stay:sentiment:${hotelId}`, 24 * 60 * 60_000, () => guestSentiment(hotel.name, hotel.city, request.signal))
-      : null;
+    let hotel = details.status === "fulfilled" ? details.value : null;
+    const [sentiment, about] = hotel
+      ? await Promise.all([
+          cached(`stay:sentiment:${hotelId}`, 24 * 60 * 60_000, () => guestSentiment(hotel!.name, hotel!.city, request.signal)),
+          hotel.description
+            ? cached(`stay:about:${hotelId}`, 24 * 60 * 60_000, () => summariseAbout(hotel!.name, hotel!.description!, request.signal))
+            : Promise.resolve(null),
+        ])
+      : [null, null];
+    if (hotel && about) hotel = { ...hotel, description: about };
 
     const nights = rates.status === "fulfilled" ? rates.value.nights : Math.max(1, Math.round((Date.parse(checkout) - Date.parse(checkin)) / 864e5));
     return NextResponse.json({

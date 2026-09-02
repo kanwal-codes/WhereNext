@@ -8,6 +8,7 @@ import { BrandMark } from "@/components/BrandMark";
 import { Hero } from "@/components/Hero";
 import { Reveal, Stagger, StaggerItem, WordReveal } from "@/components/motion-primitives";
 import { notifyToast } from "@/lib/application/toast";
+import { tripWhen } from "@/lib/trip-dates";
 
 export type TripSummary = {
   id: string;
@@ -15,6 +16,8 @@ export type TripSummary = {
   destination: string;
   origin: string | null;
   duration_days: number | null;
+  start_date: string | null;
+  end_date: string | null;
   travelers: number | null;
 };
 
@@ -113,24 +116,24 @@ export function TripsHome({ trips }: { trips: TripSummary[] }) {
                       </p>
                     </div>
 
-                    <dl className="mt-6 grid grid-cols-3 gap-3 border-t border-border pt-4 text-sm">
-                      <div className="min-w-0">
+                    <dl className="mt-6 grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm">
+                      <div className="col-span-2 min-w-0">
                         <dt className="flex items-center gap-1.5 text-[11px] tracking-[0.1em] text-muted-foreground uppercase">
-                          <CalendarDays className="h-3 w-3" /> Days
+                          <CalendarDays className="h-3 w-3" /> Dates
                         </dt>
-                        <dd className="mt-1 truncate">{trip.duration_days ?? "—"}</dd>
+                        <dd className="mt-1 truncate">{tripWhen(trip.start_date, trip.end_date, trip.duration_days)}</dd>
                       </div>
                       <div className="min-w-0">
                         <dt className="flex items-center gap-1.5 text-[11px] tracking-[0.1em] text-muted-foreground uppercase">
                           <Users className="h-3 w-3" /> Travellers
                         </dt>
-                        <dd className="mt-1 truncate">{trip.travelers ?? "—"}</dd>
+                        <dd className="mt-1 truncate">{trip.travelers ?? "Not set"}</dd>
                       </div>
                       <div className="min-w-0">
                         <dt className="flex items-center gap-1.5 text-[11px] tracking-[0.1em] text-muted-foreground uppercase">
                           <MapPin className="h-3 w-3" /> From
                         </dt>
-                        <dd className="mt-1 truncate">{trip.origin || "—"}</dd>
+                        <dd className="mt-1 truncate">{trip.origin || "Not set"}</dd>
                       </div>
                     </dl>
                   </Link>

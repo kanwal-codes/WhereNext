@@ -13,7 +13,7 @@ export default async function TripsIndexPage() {
     if (userId) {
       const result = await supabase
         .from("trips")
-        .select("id,name,destination,origin,duration_days,travelers")
+        .select("id,name,destination,origin,duration_days,start_date,end_date,travelers")
         .order("updated_at", { ascending: false });
       if (result.error) throw result.error;
       trips = (result.data ?? []) as TripSummary[];
