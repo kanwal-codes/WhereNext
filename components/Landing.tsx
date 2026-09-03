@@ -220,15 +220,6 @@ export function Landing() {
         </div>
       </section>
 
-      {/* ——— Honesty ——— */}
-      <section className="mx-auto mt-28 max-w-[1200px] px-6 sm:px-10 lg:mt-40">
-        <InView>
-          <div className="hairline" />
-          <p className="py-8 text-sm text-muted-foreground">It helps you plan and decide. It doesn&rsquo;t book anything, and it never takes a payment.</p>
-          <div className="hairline" />
-        </InView>
-      </section>
-
       {/* ——— Close ——— */}
       <section className="mx-auto max-w-[1200px] px-6 py-24 sm:px-10 lg:py-36">
         <InView>
