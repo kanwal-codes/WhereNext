@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowUpRight, Eraser, Loader2, Scale, Send, Sparkles, X } from "lucide-react";
+import { ArrowUpRight, Eraser, Loader2, Maximize2, Scale, Send, Sparkles, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type CompareEntry, type PanelState } from "@/components/TripPanelProvider";
 import { PlaceDetailView } from "@/features/places/ui/PlaceDetailView";
@@ -40,6 +40,31 @@ function titleFor(panel: PanelState): string {
       return panel.seed.name;
     default:
       return "Side by side";
+  }
+}
+
+/** The routed full-page equivalent of whatever the panel is showing. */
+function fullPageHref(panel: PanelState, tripId: string, compareIds: string[]): string {
+  const base = `/trips/${tripId}`;
+  switch (panel.kind) {
+    case "place":
+      return `${base}/place/${encodeURIComponent(panel.placeId)}`;
+    case "stay": {
+      const qs = new URLSearchParams();
+      if (panel.checkin) qs.set("checkin", panel.checkin);
+      if (panel.checkout) qs.set("checkout", panel.checkout);
+      return `${base}/stay/${encodeURIComponent(panel.hotelId)}${qs.toString() ? `?${qs}` : ""}`;
+    }
+    case "event": {
+      const { name, url, source, imageUrl, date, venue } = panel.seed;
+      const qs = new URLSearchParams({ name, url, source });
+      if (imageUrl) qs.set("img", imageUrl);
+      if (date) qs.set("date", date);
+      if (venue) qs.set("venue", venue);
+      return `${base}/event?${qs}`;
+    }
+    default:
+      return `${base}/compare${compareIds.length ? `?ids=${compareIds.map(encodeURIComponent).join(",")}` : ""}`;
   }
 }
 
@@ -221,6 +246,17 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
             <Eraser className="h-3.5 w-3.5" />
           </button>
         )}
+        {layout === "drawer" && (
+          <Link
+            href={fullPageHref(panel, tripId, compareList.map((e) => e.id))}
+            onClick={closePanel}
+            aria-label="Open full page"
+            title="Open full page"
+            className="rounded-full border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+          </Link>
+        )}
         <button type="button" onClick={closePanel} aria-label="Close panel" className="rounded-full border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground">
           <X className="h-4 w-4" />
         </button>
@@ -230,7 +266,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
 
   const composer = layout === "drawer" && panel && (
     <>
-      {chat.length > 0 ? (
+      {chat.length > 0 && (
         <div className="max-h-[40%] shrink-0 space-y-3 overflow-y-auto scrollbar-slim border-t border-border px-4 py-3">
           {chat.map((m, i) => (
             <div key={i} className={cn("text-sm leading-relaxed", m.role === "user" ? "font-medium" : "text-ink-soft")}>
@@ -239,10 +275,6 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
             </div>
           ))}
         </div>
-      ) : (
-        <p className="shrink-0 border-t border-border px-4 pt-2.5 text-[11px] text-muted-foreground">
-          A scratch chat about {panel.kind === "compare" ? "these options" : "this"} — it knows your whole trip, but isn&rsquo;t saved to the conversation.
-        </p>
       )}
       <form
         onSubmit={(e) => {

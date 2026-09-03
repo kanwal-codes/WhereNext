@@ -192,28 +192,32 @@ export function StayDetailView({
     </div>
   );
 
-  const aside = (
-    <div className={cn("space-y-4", !panel && "lg:sticky lg:top-8")}>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          setDates({ checkin: ci, checkout: co });
-          onDatesChange?.(ci, co);
-        }}
-        className="rounded-2xl border border-border bg-card p-5 shadow-soft"
-      >
-        <p className="eyebrow">Dates</p>
-        <label className="mt-3 block text-sm font-medium">
-          Check-in
-          <input type="date" value={ci} onChange={(e) => setCi(e.target.value)} className="input-field" />
-        </label>
-        <label className="mt-3 block text-sm font-medium">
-          Check-out
-          <input type="date" value={co} onChange={(e) => setCo(e.target.value)} className="input-field" />
-        </label>
-        <button type="submit" className="btn-secondary mt-4 w-full">Update rates</button>
-      </form>
+  // The dates form drives the room rates below it, so it stays directly above the
+  // content. Everything else is context that reads better after it.
+  const datesForm = (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        setDates({ checkin: ci, checkout: co });
+        onDatesChange?.(ci, co);
+      }}
+      className="rounded-2xl border border-border bg-card p-5 shadow-soft"
+    >
+      <p className="eyebrow">Dates</p>
+      <label className="mt-3 block text-sm font-medium">
+        Check-in
+        <input type="date" value={ci} onChange={(e) => setCi(e.target.value)} className="input-field" />
+      </label>
+      <label className="mt-3 block text-sm font-medium">
+        Check-out
+        <input type="date" value={co} onChange={(e) => setCo(e.target.value)} className="input-field" />
+      </label>
+      <button type="submit" className="btn-secondary mt-4 w-full">Update rates</button>
+    </form>
+  );
 
+  const asideSecondary = (
+    <>
       {lockedHere ? (
         <div className="rounded-2xl border border-leaf/30 bg-leaf-soft/40 p-5">
           <p className="eyebrow inline-flex items-center gap-1 text-leaf">
@@ -256,6 +260,14 @@ export function StayDetailView({
           Prices can change and rooms sell out. Taxes and fees may be added at checkout — confirm the total when you book.
         </p>
       </div>
+    </>
+  );
+
+  // Page view keeps the single sticky sidebar; the panel splits it around the body.
+  const aside = (
+    <div className={cn("space-y-4", !panel && "lg:sticky lg:top-8")}>
+      {datesForm}
+      {asideSecondary}
     </div>
   );
 
@@ -290,8 +302,11 @@ export function StayDetailView({
 
         {panel ? (
           <div className="mt-6 space-y-8">
-            <Reveal delay={0.08}>{aside}</Reveal>
+            <Reveal delay={0.08}>{datesForm}</Reveal>
             {body}
+            <Reveal delay={0.1}>
+              <div className="space-y-4">{asideSecondary}</div>
+            </Reveal>
           </div>
         ) : (
           <div className="mt-7 grid gap-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">

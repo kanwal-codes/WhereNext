@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyEventVibe, classifyPlaceVibe, lanesFor } from "@/packages/reco/vibes";
+import { classifyEventVibe, classifyPlaceVibe, isWeatherRelevantPlace, lanesFor } from "@/packages/reco/vibes";
 
 describe("classifyPlaceVibe", () => {
   it("maps a known Google primaryType", () => {
@@ -57,5 +57,48 @@ describe("lanesFor", () => {
   it("does not append for a same or default secondary", () => {
     expect(lanesFor("green_space", "green_space")).toHaveLength(lanesFor("green_space").length);
     expect(lanesFor("green_space", "default")).toHaveLength(lanesFor("green_space").length);
+  });
+});
+
+describe("isWeatherRelevantPlace", () => {
+  const yes: Array<[string, string]> = [
+    ["botanical_garden", "Kew Gardens"],
+    ["park", "Mont Royal"],
+    ["hiking_area", "Bruce Trail"],
+    ["national_park", "Banff"],
+    ["beach", "Bondi"],
+    ["marina", "Marina Bay"],
+    ["ski_resort", "Whistler"],
+    ["golf_course", "Pebble Beach"],
+    ["stadium", "Olympic Stadium"],
+    ["amusement_park", "La Ronde"],
+    ["campground", "Lake Louise Campground"],
+    ["observation_deck", "CN Tower EdgeWalk"],
+  ];
+  for (const [primaryType, name] of yes) {
+    it(`shows weather for ${primaryType}`, () => {
+      expect(isWeatherRelevantPlace({ primaryType, types: [primaryType], })).toBe(true);
+    });
+  }
+
+  const no: string[] = [
+    "ice_cream_shop", "restaurant", "cafe", "bakery", "bar", "night_club",
+    "museum", "art_gallery", "movie_theater", "performing_arts_theater",
+    "shopping_mall", "book_store", "spa", "church", "convention_center", "point_of_interest",
+  ];
+  for (const primaryType of no) {
+    it(`hides weather for ${primaryType}`, () => {
+      expect(isWeatherRelevantPlace({ primaryType, types: [primaryType] })).toBe(false);
+    });
+  }
+
+  it("the reported case: Kem CoBa ice cream shop → no weather line", () => {
+    expect(isWeatherRelevantPlace({ primaryType: "ice_cream_shop", types: ["ice_cream_shop", "food", "store", "point_of_interest"] })).toBe(false);
+  });
+
+  it("tolerates missing / junk input", () => {
+    expect(isWeatherRelevantPlace({})).toBe(false);
+    expect(isWeatherRelevantPlace({ primaryType: null, types: null })).toBe(false);
+    expect(isWeatherRelevantPlace({ primaryType: 5 as never, types: "park" as never })).toBe(false);
   });
 });

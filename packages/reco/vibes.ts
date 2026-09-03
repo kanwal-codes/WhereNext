@@ -162,6 +162,29 @@ export function classifyEventVibe(event: {
   return phq || tm || keywordVibe(`${title} ${venue}`) || "default";
 }
 
+/** Vibes where being outdoors / exposed to weather is inherent to the visit. */
+const WEATHER_SENSITIVE_VIBES = new Set<Vibe>(["beach_water", "green_space", "sports"]);
+/** Outdoor Google types whose vibe might land on "default" but where weather still matters. */
+const WEATHER_SENSITIVE_TYPES = new Set([
+  "campground", "rv_park", "water_park", "amusement_park", "zoo", "safari_park",
+  "off_roading_area", "adventure_sports_center", "cycling_park",
+  "observation_deck", "scenic_point", "plaza", "boat_tour", "sightseeing_tour",
+  "fishing_charter", "fishing_pond", "hiking_area", "picnic_ground",
+]);
+
+/**
+ * Should a place's detail page show the trip-weather line? Only when the visit is
+ * weather-exposed — a park, beach, hike, ski hill, stadium, viewpoint, boat tour. An
+ * ice-cream shop, museum, restaurant, bar or theatre gets nothing: the forecast there is
+ * noise, and "it's raining, I'll skip it" is a decision the traveller makes without a widget.
+ */
+export function isWeatherRelevantPlace(anchor: { primaryType?: string | null; types?: string[] | null }): boolean {
+  if (WEATHER_SENSITIVE_VIBES.has(classifyPlaceVibe(anchor).vibe)) return true;
+  const primaryType = typeof anchor.primaryType === "string" ? anchor.primaryType : "";
+  const types = Array.isArray(anchor.types) ? anchor.types : [];
+  return [primaryType, ...types].some((t) => typeof t === "string" && WEATHER_SENSITIVE_TYPES.has(t));
+}
+
 // ── Lane table ────────────────────────────────────────────────────────────────
 
 const LANES: Record<Vibe, Lane[]> = {

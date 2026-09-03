@@ -20,6 +20,7 @@ import { ExternalLink } from "@/components/ExternalLink";
 import { Skeleton, SkeletonLines } from "@/components/Skeleton";
 import { TripWeather } from "@/components/TripWeather";
 import { Reveal, WordReveal } from "@/components/motion-primitives";
+import { isWeatherRelevantPlace } from "@/packages/reco/vibes";
 import { usePlaceDetails } from "@/features/places/application/usePlaceDetails";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { askAssistantHref, businessStatusLabel, categoryLabel, detailsToPlace, photoProxyUrl, priceLabel, secondaryTypes, type GoogleReview } from "@/lib/places-ui";
@@ -111,19 +112,20 @@ export function PlaceDetailView({
   const city = cityFrom(details.formattedAddress);
 
   const place = detailsToPlace(details);
-  const aside = (
-    <div className={cn("space-y-4", !panel && "lg:sticky lg:top-8")}>
-      <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-        {place ? (
-          <AddToTripControl tripId={tripId} place={place} size="md" block />
-        ) : (
-          <p className="text-sm text-muted-foreground">This place can&rsquo;t be added &mdash; we don&rsquo;t have a location for it.</p>
-        )}
-        <p className="mt-2.5 text-[11px] leading-relaxed text-muted-foreground">
-          <span className="font-medium text-foreground">Shortlist</span> while you&rsquo;re deciding &mdash; open the menu to drop it on a day when it&rsquo;s going in the plan.
-        </p>
-      </div>
+  // The one action, up top. No card wrapper — it's a button, not a module.
+  const asideAction = place ? (
+    <div>
+      <AddToTripControl tripId={tripId} place={place} size="md" block />
+      <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+        <span className="font-medium text-foreground">Shortlist</span> while you&rsquo;re deciding &mdash; open the menu to drop it on a day.
+      </p>
+    </div>
+  ) : (
+    <p className="text-sm text-muted-foreground">This place can&rsquo;t be added &mdash; we don&rsquo;t have a location for it.</p>
+  );
 
+  const asideSecondary = (
+    <>
       {(details.nationalPhoneNumber || details.websiteUri || wheelchair) && (
         <div className="rounded-2xl border border-border bg-card p-5">
           <p className="eyebrow">Details</p>
@@ -156,6 +158,14 @@ export function PlaceDetailView({
         <p className="mt-2 text-sm leading-relaxed text-ink-soft">Details and reviews from Google Maps.</p>
         {details.googleMapsUri && <ExternalLink href={details.googleMapsUri} className="mt-3">Open in Google Maps</ExternalLink>}
       </div>
+    </>
+  );
+
+  // Page view keeps the single sticky sidebar; the panel splits it around the body.
+  const aside = (
+    <div className={cn("space-y-4", !panel && "lg:sticky lg:top-8")}>
+      {asideAction}
+      {asideSecondary}
     </div>
   );
 
@@ -292,14 +302,19 @@ export function PlaceDetailView({
               {price && <span>{price}</span>}
               {status && <span>{status}</span>}
             </p>
-            {city && <TripWeather tripId={tripId} location={city} className="mt-1.5" />}
+            {city && isWeatherRelevantPlace({ primaryType: details.primaryType, types: details.types }) && (
+              <TripWeather tripId={tripId} location={city} className="mt-1.5" />
+            )}
           </div>
         </Reveal>
 
         {panel ? (
           <div className="mt-6 space-y-8">
-            <Reveal delay={0.08}>{aside}</Reveal>
+            <Reveal delay={0.08}>{asideAction}</Reveal>
             {body}
+            <Reveal delay={0.1}>
+              <div className="space-y-4">{asideSecondary}</div>
+            </Reveal>
           </div>
         ) : (
           <div className="mt-7 grid gap-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
