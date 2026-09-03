@@ -3,7 +3,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
-import { AuthShell, Field, SubmitButton, inputClass } from "@/components/AuthShell";
+import { AuthShell, Divider, Field, SubmitButton, inputClass } from "@/components/AuthShell";
+import { GoogleAuthButton } from "@/features/identity/ui/GoogleAuthButton";
 import { signIn } from "@/features/identity/application/authClient";
 
 export default function SignInPage() {
@@ -46,6 +47,9 @@ export default function SignInPage() {
         </p>
       }
     >
+      <GoogleAuthButton label="Sign in with Google" />
+      <Divider label="or" />
+
       <form className="space-y-5" onSubmit={submit}>
         <Field label="Email">
           <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={inputClass} />

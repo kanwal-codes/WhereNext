@@ -135,7 +135,8 @@ export function WordReveal({
       >
         {words.map((word, i) => (
           <span key={`${word}-${i}`} className="inline-block">
-            <span className="inline-block overflow-hidden align-bottom">
+            {/* pad the clip box so descenders (g, y, p) aren't cut with tight line-heights; negative margin keeps layout unchanged */}
+            <span className="inline-block overflow-hidden align-bottom pb-[0.22em] -mb-[0.22em]">
               <motion.span
                 className="inline-block"
                 variants={{

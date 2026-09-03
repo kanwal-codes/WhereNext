@@ -4,7 +4,8 @@ import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowRight, Check, Eye, EyeOff } from "lucide-react";
-import { AuthShell, Field, SubmitButton, inputClass } from "@/components/AuthShell";
+import { AuthShell, Divider, Field, SubmitButton, inputClass } from "@/components/AuthShell";
+import { GoogleAuthButton } from "@/features/identity/ui/GoogleAuthButton";
 import { signUp } from "@/features/identity/application/authClient";
 
 function strengthOf(pw: string) {
@@ -64,6 +65,9 @@ export default function SignUpPage() {
         </p>
       }
     >
+      <GoogleAuthButton label="Sign up with Google" />
+      <Divider label="or" />
+
       <form className="space-y-5" onSubmit={submit}>
         <Field label="Email">
           <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={inputClass} />
