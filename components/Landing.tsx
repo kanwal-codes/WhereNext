@@ -9,10 +9,10 @@ import { BrandMark } from "@/components/BrandMark";
 import { cn } from "@/lib/utils";
 
 const mountainsImg = "/design/land-mountains.jpg";
-const friendsImg = "/design/land-friends.jpg";
-const cityImg = "/design/land-city.jpg";
+const friendsImg = "/design/land-friends-v3.png";
+const cityImg = "/design/land-city-v3.png";
 const stayImg = "/design/land-stay.jpg";
-const coastImg = "/design/land-coast.jpg";
+const coastImg = "/design/land-coast-v3.png";
 
 /** Scroll-triggered rise. Editorial pacing: slow, once, never bouncy. */
 function InView({ children, className, delay = 0, y = 22 }: { children: ReactNode; className?: string; delay?: number; y?: number }) {
@@ -106,7 +106,7 @@ export function Landing() {
 
         <div className="absolute inset-x-0 top-0">
           <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 pt-7 sm:px-10">
-            <Link href="/" className="inline-flex items-center gap-2">
+            <Link href="/" className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1.5 backdrop-blur-sm">
               <BrandMark variant="text" />
             </Link>
             <div className="flex items-center gap-5">
@@ -123,7 +123,7 @@ export function Landing() {
         <div className="absolute inset-x-0 bottom-0">
           <div className="mx-auto max-w-[1200px] px-6 pb-14 sm:px-10 lg:pb-20">
             <Reveal delay={0.15}>
-              <p className="eyebrow">A travel workspace</p>
+              <p className="eyebrow hero-eyebrow">A travel workspace</p>
             </Reveal>
             <WordReveal text="Talk about it." delay={0.3} className="mt-4 font-display text-5xl leading-[0.98] tracking-[-0.03em] sm:text-7xl lg:text-[5.5rem]" />
             <WordReveal text="Then go." as="p" delay={0.5} className="font-display text-5xl leading-[0.98] tracking-[-0.03em] text-ink-soft sm:text-7xl lg:text-[5.5rem]" />

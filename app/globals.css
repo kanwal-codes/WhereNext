@@ -231,6 +231,11 @@
   color: var(--color-muted-foreground);
 }
 
+@utility hero-eyebrow {
+  color: var(--color-ink-soft);
+  text-shadow: 0 0 5px rgb(255 255 255 / 90%), 0 1px 2px rgb(255 255 255 / 70%);
+}
+
 /* One text/date/select field for every form in the app. */
 @utility input-field {
   @apply mt-1.5 w-full rounded-xl border border-input bg-card px-3.5 py-2.5 text-sm outline-none transition-shadow focus:ring-2 focus:ring-ring/25;
