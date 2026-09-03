@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createConversationRepository } from "../infrastructure/conversationRepository";
+import { stripReasoning } from "@/lib/ai/strip-reasoning";
 
 type StreamDelta = { choices?: Array<{ delta?: { content?: string } }> };
 
@@ -41,7 +42,8 @@ export function persistedAssistantStream(
       if (chunk.done) {
         pending += decoder.decode();
         appendDelta(pending, (content) => { assistant += content; });
-        const finalText = sanitize ? sanitize(assistant) : assistant;
+        const clean = stripReasoning(assistant);
+        const finalText = sanitize ? sanitize(clean) : clean;
         if (finalText || meta) {
           await createConversationRepository(supabase).append(tripId, { role: "assistant", content: finalText, idempotencyKey, metadata: meta ?? {} });
         }

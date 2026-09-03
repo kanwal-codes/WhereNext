@@ -1,5 +1,6 @@
 import type { AiMessage } from "@/packages/ai/gateway";
 import { withProviderTimeout } from "../../providers/request-signal";
+import { stripReasoning } from "@/lib/ai/strip-reasoning";
 
 type ProviderConfig = { apiKey: string; baseUrl: string; model: string; supportsReasoningOptions?: boolean };
 
@@ -51,7 +52,7 @@ export class OpenAiCompatibleProvider {
     const body = await response.json() as { choices?: Array<{ message?: { content?: string } }>; usage?: unknown };
     const usage = readUsage(body.usage);
     if (usage) onUsage?.(usage);
-    const text = body.choices?.[0]?.message?.content?.trim();
+    const text = stripReasoning(body.choices?.[0]?.message?.content ?? "");
     if (!text) throw new Error("AI provider returned an empty response");
     return text;
   }

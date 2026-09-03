@@ -4,6 +4,7 @@ import { research } from "@/packages/providers/tavily/client";
 import { weather } from "@/packages/providers/openweather/client";
 import { events } from "@/packages/providers/ticketmaster/client";
 import { localEvents } from "@/packages/providers/eventbrite/client";
+import { activities } from "@/packages/providers/getyourguide/client";
 import { transit } from "@/packages/providers/google-places/transit";
 import { route as mapboxRoute } from "@/packages/providers/mapbox/client";
 import { transitAppPlan } from "@/packages/providers/transit-app/client";
@@ -110,17 +111,21 @@ export async function retrieveEvidence(
       } else if (call.tool === "events") {
         const wantTicketmaster = Boolean(process.env.TICKETMASTER_CONSUMER_KEY || process.env.TICKETMASTER_API_KEY);
         const wantEventbrite = Boolean(process.env.EVENTBRITE_API_KEY);
+        const wantGyg = Boolean(process.env.GETYOURGUIDE_API_KEY);
         const point = wantEventbrite ? await geocode(call.location) : null;
-        const [tm, eb] = await Promise.all([
+        const [tm, eb, gyg] = await Promise.all([
           wantTicketmaster ? events(call.query, call.location, signal).catch(fail("ticketmaster")) : Promise.resolve(undefined),
           wantEventbrite && point ? localEvents(call.query, point[1], point[0], signal).catch(fail("eventbrite")) : Promise.resolve(undefined),
+          wantGyg ? activities(`${call.query} ${call.location}`.trim(), filters.currency ?? "USD", signal).catch(fail("getyourguide")) : Promise.resolve(undefined),
         ]);
         const tmEvents = (tm ?? []).map((event) => ({ title: event.title, url: event.url, date: event.date, venue: event.venue, source: "ticketmaster" }));
         const ebEvents = (eb ?? []).map((event) => ({ title: event.title, url: event.url, date: event.date, venue: event.venue, source: "eventbrite" }));
-        // Interleave so a later slice keeps a mix of both providers.
-        for (let i = 0; i < Math.max(tmEvents.length, ebEvents.length); i += 1) {
+        const gygEvents = (gyg ?? []).map((a) => ({ title: a.title, url: a.url, date: a.date, venue: a.venue, source: "getyourguide" }));
+        // Interleave so a later slice keeps a mix of all providers.
+        for (let i = 0; i < Math.max(tmEvents.length, ebEvents.length, gygEvents.length); i += 1) {
           if (tmEvents[i]) eventList.push(tmEvents[i]);
           if (ebEvents[i]) eventList.push(ebEvents[i]);
+          if (gygEvents[i]) eventList.push(gygEvents[i]);
         }
       } else if (call.tool === "flights") {
         if (!process.env.DUFFEL_API_KEY) return;

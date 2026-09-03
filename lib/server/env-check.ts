@@ -20,6 +20,7 @@ const OPTIONAL_PROVIDERS: Record<string, string> = {
   TICKETMASTER_API_KEY: "events (Ticketmaster)",
   TICKETMASTER_CONSUMER_KEY: "events (Ticketmaster)",
   EVENTBRITE_API_KEY: "local events",
+  GETYOURGUIDE_API_KEY: "tours & activities (GetYourGuide)",
   OPENWEATHER_API_KEY: "weather forecasts",
   TRANSIT_API_KEY: "transit fallback",
   DUFFEL_API_KEY: "flight estimates",

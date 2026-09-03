@@ -1,18 +1,21 @@
 export type AiMessage = { role: "system" | "user" | "assistant"; content: string };
 import { OpenAiCompatibleProvider } from "./providers/openai-compatible";
 
-export type AiProviderName = "openai-compatible" | "cerebras" | "gemini";
+export type AiProviderName = "openai" | "openai-compatible" | "cerebras" | "gemini";
 
 // `||` not `??` everywhere below: the env template ships these keys blank, and an
 // empty string must fall through to the default, not count as a real value.
+const OPENAI = {
+  baseUrl: "https://api.openai.com/v1",
+  key: () => process.env.AI_API_KEY || process.env.OPENAI_API_KEY,
+  defaultModel: "gpt-4o",
+  reasoning: false,
+  envHint: "AI_API_KEY or OPENAI_API_KEY",
+} as const;
+
 const PROVIDERS: Record<AiProviderName, { baseUrl: string; key: () => string | undefined; defaultModel: string; reasoning: boolean; envHint: string }> = {
-  "openai-compatible": {
-    baseUrl: "https://api.openai.com/v1",
-    key: () => process.env.AI_API_KEY || process.env.OPENAI_API_KEY,
-    defaultModel: "gpt-4o-mini",
-    reasoning: false,
-    envHint: "AI_API_KEY or OPENAI_API_KEY",
-  },
+  openai: OPENAI,
+  "openai-compatible": OPENAI,
   cerebras: {
     baseUrl: "https://api.cerebras.ai/v1",
     key: () => process.env.CEREBRAS_API_KEY,

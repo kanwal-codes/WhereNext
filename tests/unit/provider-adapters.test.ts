@@ -10,6 +10,7 @@ import { transitAppPlan } from "../../packages/providers/transit-app/client";
 import { searchFlights } from "../../packages/providers/duffel/client";
 import { hotelDetails, searchStays, stayRooms } from "../../packages/providers/liteapi/client";
 import { localEvents } from "../../packages/providers/eventbrite/client";
+import { activities } from "../../packages/providers/getyourguide/client";
 import { withProviderTimeout } from "../../packages/providers/request-signal";
 import { events } from "../../packages/providers/ticketmaster/client";
 import { weather } from "../../packages/providers/openweather/client";
@@ -24,6 +25,7 @@ afterEach(() => {
   delete process.env.OPENWEATHER_API_KEY;
   delete process.env.TRANSIT_API_KEY;
   delete process.env.EVENTBRITE_API_KEY;
+  delete process.env.GETYOURGUIDE_API_KEY;
   delete process.env.DUFFEL_API_KEY;
   delete process.env.LITEAPI_KEY;
   delete process.env.CONNECT_API_KEY;
@@ -81,7 +83,7 @@ describe("createAiGateway env resolution", () => {
     return createAiGateway().generateText([{ role: "user", content: "hi" }]).then(() => {
       const [url, init] = fetchMock.mock.calls[0];
       expect(url).toBe("https://api.openai.com/v1/chat/completions");
-      expect(JSON.parse(init.body as string).model).toBe("gpt-4o-mini");
+      expect(JSON.parse(init.body as string).model).toBe("gpt-4o");
       expect((init.headers as Record<string, string>).authorization).toBe("Bearer sk-real");
     });
   });
@@ -201,6 +203,25 @@ describe("provider adapters", () => {
     expect(found).toHaveLength(2);
     expect(found[0]).toMatchObject({ title: "Night Market", url: "https://www.eventbrite.ca/e/night-market", date: "2026-09-14", venue: "Distillery District", provider: "eventbrite" });
     expect(found[1]).toMatchObject({ title: "Book Launch", date: "2026-09-20" });
+  });
+
+  it("normalizes GetYourGuide tours into activity results", async () => {
+    process.env.GETYOURGUIDE_API_KEY = "gyg-token";
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { tours: [
+      { tour_id: 62484, title: "Old Town Walking Tour", abstract: "See the historic centre with a local guide.", url: "https://www.getyourguide.com/-l1/-t62484", overall_rating: 4.7, price: { values: { amount: "29.00", currency: "EUR" } } },
+      { title: "No URL Tour", url: "" },
+      { url: "https://x/only-url" },
+    ] } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const found = await activities("things to do Lisbon", "EUR");
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({ title: "Old Town Walking Tour", url: "https://www.getyourguide.com/-l1/-t62484", provider: "getyourguide" });
+    expect(found[0].content).toContain("from 29.00 EUR");
+    expect(found[0].content).toContain("4.7★");
+    const url = new URL(fetchMock.mock.calls[0][0] as string);
+    expect(url.origin + url.pathname).toBe("https://api.getyourguide.com/1/tours");
+    expect(url.searchParams.get("currency")).toBe("EUR");
+    expect((fetchMock.mock.calls[0][1] as { headers: Record<string, string> }).headers["x-access-token"]).toBe("gyg-token");
   });
 
   it("normalizes a Transit App plan and returns null when uncovered", async () => {
