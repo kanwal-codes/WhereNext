@@ -1,0 +1,102 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createMockSupabase } from "../support/mock-supabase";
+import { sse } from "../support/fake-llm";
+import { evidence, evidenceNames, place } from "../support/fixture-evidence";
+import { extractEntities, isGrounded } from "../support/extract-entities";
+
+/**
+ * The grounding contract: an assistant turn may only name places / hotels / events that
+ * appear in the retrieved evidence, and may only link URLs that appear in it. The turn's
+ * blocks are built server-side from evidence (correct by construction); this exercises the
+ * prose + sanitizer path against a stubbed model that deliberately misbehaves.
+ */
+
+const TRIP = "11111111-1111-4111-8111-111111111111";
+const KEY = "eval-1";
+
+const appendSpy = vi.fn(async (_t: string, input: unknown) => ({ id: "a1", ...(input as object) }));
+const loadTripContextMock = vi.fn();
+const resolveTurnMock = vi.fn();
+const retrieveEvidenceMock = vi.fn();
+const streamMock = vi.fn();
+let listRows: Array<Record<string, unknown>> = [];
+
+vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: async () => createMockSupabase({ member: { trip_id: TRIP, role: "owner" } }) }));
+vi.mock("@/lib/application/trip-context", () => ({
+  loadTripContext: loadTripContextMock,
+  serializeTripContext: (c: unknown) => JSON.stringify(c),
+  formatTripMemory: () => "nothing yet",
+}));
+vi.mock("@/lib/application/thread-summary", () => ({ refreshThreadSummary: vi.fn(async () => undefined) }));
+vi.mock("@/lib/application/essentials", () => ({ buildEssentialsChecklist: vi.fn(async () => null) }));
+vi.mock("@/lib/application/comparison", () => ({ buildComparison: vi.fn(async () => null) }));
+vi.mock("@/lib/application/turn-resolver", () => ({ resolveTurn: resolveTurnMock }));
+vi.mock("@/lib/application/retrieve", () => ({ retrieveEvidence: retrieveEvidenceMock }));
+vi.mock("@/lib/server/trip-ai-queue", () => ({ withTripAiStream: (_id: string, task: () => unknown) => task() }));
+vi.mock("@/packages/ai/gateway", () => ({ createAiGateway: () => ({ stream: streamMock }) }));
+vi.mock("@/features/conversation/infrastructure/conversationRepository", () => ({
+  createConversationRepository: () => ({ list: async () => listRows, append: appendSpy }),
+  scopedMessageIdempotencyKey: (role: string, key?: string) => (key ? `${role}:${key}` : null),
+}));
+
+async function turn(promptText: string) {
+  const { POST } = await import("@/app/api/ai/route");
+  const request = new Request("http://localhost/api/ai", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ tripId: TRIP, messages: [{ role: "user", content: promptText }], messageIdempotencyKey: KEY }),
+  });
+  const response = await POST(request, { params: Promise.resolve({}) });
+  const bodyText = await new Response(response.body).text();
+  await new Promise((r) => setTimeout(r, 0)); // let the persist microtask run
+  const persisted = appendSpy.mock.calls.at(-1)?.[1] as { content: string; metadata: { blocks?: Array<{ type: string }> } } | undefined;
+  return { status: response.status, bodyText, persisted };
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.resetModules();
+  listRows = [{ role: "user", idempotency_key: `user:${KEY}`, content: "x" }];
+  loadTripContextMock.mockResolvedValue({ trip: { name: "T", destination: "Montreal", origin: null, duration_days: 4, travelers: 2 }, preferences: {}, itinerary: [], lockedTitles: [], lockedPlaces: [], places: [], decisions: [] });
+  resolveTurnMock.mockResolvedValue({
+    language: "en", locationFocus: "Montreal", intent: "discovery", wantsComparison: false,
+    toolPlan: [{ tool: "search_places", query: "landmarks", location: "Montreal" }],
+    clarify: null, suggestedFollowups: [], proposedProfileUpdate: null,
+  });
+});
+
+describe("grounding eval", () => {
+  it("every entity in the reply and blocks is present in the retrieved evidence", async () => {
+    const ev = evidence({ places: [place("Notre-Dame Basilica"), place("Mount Royal Park")] });
+    retrieveEvidenceMock.mockResolvedValue(ev);
+    listRows[0].content = "famous landmarks in Montreal";
+    streamMock.mockReturnValue(sse("I'd start with Notre-Dame Basilica for the architecture, then walk up to Mount Royal Park for the view.", { prompt_tokens: 900, completion_tokens: 40 }));
+
+    const { persisted } = await turn("famous landmarks in Montreal");
+    const names = evidenceNames(ev);
+    const mentioned = extractEntities(persisted!.content, persisted!.metadata.blocks as Array<{ type: string }> & Record<string, unknown>[]);
+    for (const name of mentioned) {
+      expect(isGrounded(name, names), `"${name}" is not in the evidence set [${names.join(", ")}]`).toBe(true);
+    }
+    expect(persisted!.metadata.blocks?.map((b) => b.type)).toContain("place_list");
+  });
+
+  it("strips a link the model invented that is not in the evidence", async () => {
+    retrieveEvidenceMock.mockResolvedValue(evidence({ places: [place("Jean-Talon Market")] }));
+    listRows[0].content = "where to eat";
+    streamMock.mockReturnValue(sse("Try Jean-Talon Market. More details at http://evil.example/montreal and [here](https://phish.example)."));
+
+    const { persisted } = await turn("where to eat");
+    expect(persisted!.content).not.toContain("evil.example");
+    expect(persisted!.content).not.toContain("phish.example");
+  });
+
+  it("refuses without calling the model when a tool plan produced no evidence", async () => {
+    retrieveEvidenceMock.mockResolvedValue(evidence()); // tool plan ran, nothing came back
+    listRows[0].content = "hotels near the old port";
+
+    const { bodyText } = await turn("hotels near the old port");
+    expect(bodyText.toLowerCase()).toMatch(/couldn.?t verify|no verified|nothing/);
+    expect(streamMock).not.toHaveBeenCalled();
+  });
+});

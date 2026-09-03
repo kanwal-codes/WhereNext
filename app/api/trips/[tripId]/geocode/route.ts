@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { fail } from "@/lib/server/with-route";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { cached } from "@/lib/server/ttl-cache";
 
@@ -16,6 +17,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     });
     return point ? NextResponse.json(point) : NextResponse.json({ error: "Not found" }, { status: 404 });
   } catch (error) {
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Geocoding is unavailable right now" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Geocoding is unavailable right now");
   }
 }

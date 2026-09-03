@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { fail } from "@/lib/server/with-route";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
 import { hotelDetails, liteApiConfigured, stayReviews, stayRooms } from "@/packages/providers/liteapi/client";
 import { research } from "@/packages/providers/tavily/client";
@@ -122,6 +123,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
       freshness: { provider: "liteapi", retrievedAt: new Date().toISOString(), cacheTtlSeconds: 300 },
     });
   } catch (error) {
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Hotel details are unavailable right now" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Hotel details are unavailable right now");
   }
 }

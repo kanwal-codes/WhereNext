@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { fail } from "@/lib/server/with-route";
 import { preferencesSchema } from "@/packages/contracts/preferences";
 
 export async function GET(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
@@ -11,7 +12,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ tripId: st
     if (result.error) throw result.error;
     return NextResponse.json({ memory: result.data?.data ?? {}, updatedAt: result.data?.updated_at ?? null });
   } catch (error) {
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Trip memory unavailable" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Trip memory unavailable");
   }
 }
 
@@ -28,6 +29,6 @@ export async function PUT(request: Request, { params }: { params: Promise<{ trip
     return NextResponse.json({ memory: result.data.data, updatedAt: result.data.updated_at });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid trip memory" }, { status: 400 });
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Trip memory unavailable" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Trip memory unavailable");
   }
 }

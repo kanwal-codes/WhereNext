@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { withProviderTimeout } from "../request-signal";
+import { guardedFetch } from "@/lib/server/provider-guard";
 
 const stopSchema = z.object({ name: z.string().optional(), departureTime: z.string().optional(), arrivalTime: z.string().optional() }).optional();
 const responseSchema = z.object({
@@ -97,7 +98,7 @@ export async function transit(
   if (!key) throw new Error("GOOGLE_MAPS_API_KEY is not configured");
   const place = (value: [number, number] | string) =>
     typeof value === "string" ? { address: value } : { location: { latLng: { latitude: value[1], longitude: value[0] } } };
-  const response = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
+  const response = await guardedFetch("google-places", "https://routes.googleapis.com/directions/v2:computeRoutes", {
     method: "POST",
     headers: {
       "content-type": "application/json",

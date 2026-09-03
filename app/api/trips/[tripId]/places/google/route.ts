@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { fail } from "@/lib/server/with-route";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { cached } from "@/lib/server/ttl-cache";
 
@@ -12,6 +13,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     const result = await cached(`places:details:${placeId}`, 900_000, async () => ({ place: await new GooglePlacesProvider().details(placeId, request.signal), retrievedAt: new Date().toISOString() }));
     return NextResponse.json({ place: result.place, freshness: { provider: "google-places", retrievedAt: result.retrievedAt, cacheTtlSeconds: 900 } });
   } catch (error) {
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Place details unavailable" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Place details unavailable");
   }
 }

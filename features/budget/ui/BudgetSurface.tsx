@@ -40,7 +40,7 @@ export function BudgetSurface({
     if (r.ok) {
       setSaved(true);
       announceWorkspaceChange("preferences");
-    } else notifyToast("Budget assumption could not save.", "error");
+    } else notifyToast("That didn't save. Try again.", "error");
   }
 
   const rows: Array<[string, string]> = [

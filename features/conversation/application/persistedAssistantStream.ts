@@ -27,6 +27,7 @@ export function persistedAssistantStream(
   idempotencyKey: string,
   sanitize?: (content: string) => string,
   meta?: Record<string, unknown>,
+  onComplete?: (finalText: string) => void,
 ) {
   const reader = body.getReader();
   const decoder = new TextDecoder();
@@ -43,6 +44,11 @@ export function persistedAssistantStream(
         const finalText = sanitize ? sanitize(assistant) : assistant;
         if (finalText || meta) {
           await createConversationRepository(supabase).append(tripId, { role: "assistant", content: finalText, idempotencyKey, metadata: meta ?? {} });
+        }
+        try {
+          onComplete?.(finalText);
+        } catch {
+          /* tracing must never break the response */
         }
         // The final frame carries the sanitized text too, so the client can settle on the persisted
         // content without refetching the conversation.

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { placementRequestSchema } from "@/packages/contracts/placement";
 import { canChangeLockedItem } from "@/features/itinerary/domain/item";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { fail } from "@/lib/server/with-route";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createPlaceRepository } from "@/features/places/infrastructure/placeRepository";
 
@@ -60,6 +61,6 @@ export async function PUT(request: Request, { params }: { params: Promise<{ trip
     return NextResponse.json({ placement });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid placement" }, { status: 400 });
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Placement could not be saved" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Placement could not be saved");
   }
 }

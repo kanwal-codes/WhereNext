@@ -4,6 +4,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadTripWorkspace, type TripWorkspaceData } from "@/features/workspace/application/loadTripWorkspace";
 import { TripShell, type ShellTrip } from "@/components/TripShell";
 import { TripDataProvider } from "@/components/TripDataProvider";
+import { TripPanelProvider } from "@/components/TripPanelProvider";
+import { TripPanel } from "@/components/TripPanel";
 import { tripCompleteness } from "@/lib/design";
 
 const PREVIEW_ID = "rebuild-preview";
@@ -17,6 +19,13 @@ const getWorkspace = cache(async (tripId: string): Promise<TripWorkspaceData | n
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   return user ? await loadTripWorkspace(supabase, tripId).catch(() => null) : null;
+});
+
+const getViewer = cache(async (): Promise<{ userId: string; name: string } | undefined> => {
+  const { data: { user } } = await (await createSupabaseServerClient()).auth.getUser();
+  if (!user) return undefined;
+  const meta = (user.user_metadata ?? {}) as { name?: string; full_name?: string };
+  return { userId: user.id, name: meta.name || meta.full_name || user.email?.split("@")[0] || "Someone" };
 });
 
 function shellFromData(data: TripWorkspaceData): ShellTrip {
@@ -50,17 +59,24 @@ export default async function TripLayout({
     const previewTrip: ShellTrip = { name: "Preview trip", destination: "your destination", dates: "Dates open", travellers: "Travellers open", progress: 0 };
     return (
       <TripDataProvider tripId={tripId} data={null}>
-        <TripShell tripId={tripId} trip={previewTrip}>{children}</TripShell>
+        <TripPanelProvider tripId={tripId}>
+          <TripShell tripId={tripId} trip={previewTrip}>{children}</TripShell>
+          <TripPanel layout="drawer" />
+        </TripPanelProvider>
       </TripDataProvider>
     );
   }
 
   const data = await getWorkspace(tripId);
   if (!data) notFound();
+  const me = await getViewer();
 
   return (
-    <TripDataProvider tripId={tripId} data={data}>
-      <TripShell tripId={tripId} trip={shellFromData(data)}>{children}</TripShell>
+    <TripDataProvider tripId={tripId} data={data} me={me}>
+      <TripPanelProvider tripId={tripId}>
+        <TripShell tripId={tripId} trip={shellFromData(data)}>{children}</TripShell>
+        <TripPanel layout="drawer" />
+      </TripPanelProvider>
     </TripDataProvider>
   );
 }

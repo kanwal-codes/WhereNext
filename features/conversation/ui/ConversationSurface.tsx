@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
-import { ArrowUp, Copy, Mic } from "lucide-react";
+import { ArrowUp, ChevronRight, Copy, Mic } from "lucide-react";
 import type { AssistantTurnMeta, PlaceCard, ProposedCommand, StayCardItem } from "@/packages/contracts/assistant";
 import type { Message } from "../domain/message";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
@@ -24,11 +24,39 @@ const PROVIDER_LABEL: Record<string, string> = {
   "google-routes": "transit",
   "transit-app": "transit",
   mapbox: "directions",
-  openweather: "weather",
-  tavily: "web sources",
+  openweather: "the weather",
+  tavily: "the web",
   "google-places": "places",
 };
 const unavailableLabels = (names?: string[]) => Array.from(new Set((names ?? []).map((name) => PROVIDER_LABEL[name] ?? name)));
+
+const humanKey = (key: string) => key.replace(/[_-]+/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
+const humanValue = (value: unknown): string => {
+  if (Array.isArray(value)) return value.map(humanValue).join(", ") || "—";
+  if (value && typeof value === "object") return JSON.stringify(value);
+  if (value === "" || value == null) return "—";
+  return String(value);
+};
+
+/** The exact fields a proposed change will write — shown behind an expander so the user can check before confirming. */
+function describeProposal(proposal: ProposedCommand): Array<[string, string]> {
+  switch (proposal.type) {
+    case "update_preferences":
+      return Object.entries(proposal.preferences).map(([key, value]) => [humanKey(key), humanValue(value)]);
+    case "record_decision":
+      return [["Type", proposal.kind.replaceAll("_", " ")], ...Object.entries(proposal.value).map(([key, value]) => [humanKey(key), humanValue(value)] as [string, string])];
+    case "add_itinerary_item":
+      return [["Title", proposal.title], ["Day", String(proposal.dayIndex)]];
+    case "save_place":
+      return [
+        ["Name", proposal.place.name],
+        ["Category", humanValue(proposal.place.category)],
+        ["Address", humanValue(proposal.place.address)],
+      ];
+    default:
+      return [];
+  }
+}
 
 function Typing() {
   return (
@@ -52,7 +80,6 @@ export function ConversationSurface({
   onSurfaceSelect,
   onOpenPlace,
   onOpenStay,
-  onOpenCompare,
   rail = false,
 }: {
   tripId: string;
@@ -60,7 +87,6 @@ export function ConversationSurface({
   onSurfaceSelect?: (surface: string) => void;
   onOpenPlace?: (place: PlaceCard) => void;
   onOpenStay?: (stay: StayCardItem, dates: { checkin: string; checkout: string }) => void;
-  onOpenCompare?: (placeIds: string[]) => void;
   rail?: boolean;
 }) {
   const [messages, setMessages] = useState<Message[]>((initialMessages ?? []) as Message[]);
@@ -241,9 +267,9 @@ export function ConversationSurface({
       setError(
         userSaved
           ? aiError && err.status === 429
-            ? "Your message was saved, but Muse is rate-limited. Try again shortly."
-            : "Your message was saved, but Muse is unavailable. Try again shortly."
-          : "Message could not be saved. Nothing was added.",
+            ? "Your message went through, but the assistant is busy right now. Try again in a moment."
+            : "Your message went through, but the assistant couldn’t reply. Try again in a moment."
+          : "Your message didn’t send. Nothing was added — try again.",
       );
     } finally {
       requestRef.current = null;
@@ -264,19 +290,21 @@ export function ConversationSurface({
     },
     onOpenPlace,
     onOpenStay,
-    onOpenCompare,
   };
 
+  const proposalRows = proposal ? describeProposal(proposal) : [];
   const proposalText =
-    proposal?.type === "update_preferences" && typeof proposal.preferences.budget === "number"
+    proposal?.type === "update_preferences" && typeof proposal.preferences.budget === "number" && Object.keys(proposal.preferences).length === 1
       ? `Set the daily budget assumption to $${proposal.preferences.budget}?`
       : proposal?.type === "update_preferences"
-        ? "Save these preferences?"
+        ? `Save ${proposalRows.length === 1 ? "this preference" : "these preferences"}: ${proposalRows.map(([k]) => k.toLowerCase()).join(", ")}?`
         : proposal?.type === "record_decision"
-          ? `Record this ${proposal.kind} decision?`
+          ? `Record this ${proposal.kind.replaceAll("_", " ")} decision?`
           : proposal?.type === "add_itinerary_item"
-            ? `Add ${proposal.title} to the itinerary?`
-            : "Apply this proposed trip change?";
+            ? `Add “${proposal.title}” to day ${proposal.dayIndex}?`
+            : proposal?.type === "save_place"
+              ? `Save “${proposal.place.name}” to the trip?`
+              : "Apply this proposed trip change?";
 
   const showHero = loaded && messages.length === 0 && !rail;
   const waiting = sending && messages[messages.length - 1]?.content.trim() === "";
@@ -330,7 +358,7 @@ export function ConversationSurface({
               >
                 <AssistantMessage content={message.content} blocks={meta?.blocks} handlers={handlers} />
                 {unavailable.length > 0 && (
-                  <p className="text-[11px] text-muted-foreground">Could not check: {unavailable.join(", ")}.</p>
+                  <p className="text-[11px] text-muted-foreground">Couldn’t check {unavailable.join(", ")} just now — this is from your trip so far.</p>
                 )}
                 {sources.length > 0 && (
                   <details className="text-[11px] text-muted-foreground">
@@ -366,27 +394,37 @@ export function ConversationSurface({
 
       <div className="sticky bottom-0 mt-2 border-t border-border bg-background/92 pt-3 backdrop-blur">
         {proposal && (
-          <div
-            role="alert"
-            className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-primary/25 bg-coral-soft/40 px-3 py-2.5"
-          >
-            <p className="min-w-0 flex-1 text-xs">{proposalText}</p>
-            <button
-              type="button"
-              onClick={() => void confirmProposal()}
-              disabled={confirming}
-              className="btn-primary-sm"
-            >
-              {confirming ? "Saving…" : "Confirm"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setProposal(null)}
-              disabled={confirming}
-              className="rounded-full border border-border px-3 py-1.5 text-xs"
-            >
-              Cancel
-            </button>
+          <div role="alert" className="mb-3 rounded-xl border border-primary/25 bg-coral-soft/40 px-3 py-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="min-w-0 flex-1 text-xs">{proposalText}</p>
+              <button type="button" onClick={() => void confirmProposal()} disabled={confirming} className="btn-primary-sm">
+                {confirming ? "Saving…" : "Confirm"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setProposal(null)}
+                disabled={confirming}
+                className="rounded-full border border-border px-3 py-1.5 text-xs"
+              >
+                Cancel
+              </button>
+            </div>
+            {proposalRows.length > 0 && (
+              <details className="group mt-2">
+                <summary className="flex cursor-pointer list-none items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground">
+                  <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
+                  See exactly what will be saved
+                </summary>
+                <dl className="mt-1.5 space-y-1 rounded-lg border border-border/60 bg-background/70 px-2.5 py-2 text-[11px] leading-relaxed">
+                  {proposalRows.map(([key, value]) => (
+                    <div key={key} className="flex gap-2">
+                      <dt className="w-24 shrink-0 font-medium text-muted-foreground">{key}</dt>
+                      <dd className="min-w-0 break-words">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </details>
+            )}
           </div>
         )}
 

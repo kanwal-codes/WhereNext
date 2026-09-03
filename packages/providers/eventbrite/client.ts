@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { withProviderTimeout } from "../request-signal";
+import { guardedFetch } from "@/lib/server/provider-guard";
 
 export type LocalEvent = { title: string; url: string; content: string; date?: string; venue?: string; provider: "eventbrite" };
 
@@ -26,7 +27,7 @@ const text = (value: unknown): string => (typeof value === "string" ? value : ty
 export async function localEvents(query: string, latitude: number, longitude: number, signal?: AbortSignal): Promise<LocalEvent[]> {
   const token = process.env.EVENTBRITE_API_KEY;
   if (!token) throw new Error("EVENTBRITE_API_KEY is not configured");
-  const response = await fetch("https://www.eventbriteapi.com/v3/destination/search/", {
+  const response = await guardedFetch("eventbrite", "https://www.eventbriteapi.com/v3/destination/search/", {
     method: "POST",
     headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
     body: JSON.stringify({

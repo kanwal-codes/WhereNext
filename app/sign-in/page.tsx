@@ -28,7 +28,8 @@ export default function SignInPage() {
       setLoading(false);
       return;
     }
-    location.assign("/trips");
+    const redirect = new URLSearchParams(window.location.search).get("redirect");
+    location.assign(redirect && redirect.startsWith("/") && !redirect.startsWith("//") ? redirect : "/trips");
   }
 
   return (

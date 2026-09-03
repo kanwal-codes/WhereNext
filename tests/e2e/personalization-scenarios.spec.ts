@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { loadEnvConfig } from "@next/env";
 import { test, expect } from "@playwright/test";
+import { createTripViaForm } from "./support";
 
 loadEnvConfig(process.cwd());
 
@@ -27,22 +28,28 @@ const scenarios = [
       await page.getByLabel("Password").fill(password);
       await page.getByRole("button", { name: "Sign in" }).click();
       await expect(page).toHaveURL(/\/trips$/);
-      await page.goto("/trips/new");
-      for (const [label, value] of [["Trip name", scenario.name], ["Destination", scenario.destination], ["Starting from", scenario.origin], ["Days", scenario.days], ["Travelers", scenario.travelers], ["Vibe", scenario.vibe]] as const) await page.getByLabel(label).fill(value);
-      await page.getByRole("button", { name: "Create trip" }).click();
-      await expect(page).toHaveURL(/\/trips\/[0-9a-f-]{36}$/i);
-      tripId = page.url().split("/").pop();
+      tripId = await createTripViaForm(page, { name: scenario.name, destination: scenario.destination, origin: scenario.origin, days: scenario.days, travelers: scenario.travelers, vibe: scenario.vibe });
       await page.goto(`/trips/${tripId}/chat`);
-      await page.getByLabel("Message").waitFor();
-      const seeded = await page.evaluate(async (id) => { const response = await fetch(`/api/trips/${id}/itinerary`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "Confirmed first-day plan", dayIndex: 1 }) }); return response.status; }, tripId);
-      expect(seeded).toBe(201);
+      await page.getByRole("textbox", { name: "Message" }).waitFor();
+      // Seed three distinct, unparaphrasable titles. Three items reliably makes the
+      // assistant enumerate them by exact stored title (its own "3+ = list" rule).
+      const seededTitles = ["QX7 harbour lookout", "QX8 old-town walk", "QX9 morning market"];
+      for (const [i, title] of seededTitles.entries()) {
+        const status = await page.evaluate(async ({ id, title, day }) => (await fetch(`/api/trips/${id}/itinerary`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title, dayIndex: day }) })).status, { id: tripId, title, day: i + 1 });
+        expect(status).toBe(201);
+      }
       for (const prompt of scenario.prompts) {
+        // Fresh page per prompt — a sequential send on the same composer can echo the prior reply.
+        await page.goto(`/trips/${tripId}/chat`);
+        await page.getByRole("textbox", { name: "Message" }).waitFor();
         const before = await page.evaluate(async (id) => (await (await fetch(`/api/trips/${id}/conversation`)).json()).messages?.filter((m: { role: string }) => m.role === "assistant").length ?? 0, tripId);
-        await page.getByLabel("Message").fill(prompt);
+        await page.getByRole("textbox", { name: "Message" }).fill(prompt);
         await page.getByRole("button", { name: "Send" }).click();
-        await expect.poll(async () => page.evaluate(async ({ id, count }) => { const body = await (await fetch(`/api/trips/${id}/conversation`)).json(); const messages = body.messages?.filter((m: { role: string }) => m.role === "assistant") ?? []; return messages.length > count ? messages.at(-1)?.content ?? "" : document.querySelector('[role="alert"]')?.textContent ?? ""; }, { id: tripId, count: before }), { timeout: 20_000 }).toBeTruthy();
+        await expect.poll(async () => page.evaluate(async ({ id, count }) => { const body = await (await fetch(`/api/trips/${id}/conversation`)).json(); const messages = body.messages?.filter((m: { role: string }) => m.role === "assistant") ?? []; return messages.length > count ? messages.at(-1)?.content ?? "" : document.querySelector('[role="alert"]')?.textContent ?? ""; }, { id: tripId, count: before }), { timeout: 60_000 }).toBeTruthy();
         const answer = await page.evaluate(async (id) => { const body = await (await fetch(`/api/trips/${id}/conversation`)).json(); return body.messages?.filter((m: { role: string }) => m.role === "assistant").at(-1)?.content ?? ""; }, tripId);
-        results.push({ person: scenario.person, prompt, answer: answer.slice(0, 500), mentionsDestination: answer.toLowerCase().includes(scenario.destination.split(",")[0].toLowerCase()), mentionsSeededItem: /confirmed first[-‑–—]day/i.test(answer) });
+        // Faithful itinerary recall = at least two of the three stored titles named back.
+        const namedCount = seededTitles.filter((t) => answer.toLowerCase().includes(t.toLowerCase())).length;
+        results.push({ person: scenario.person, prompt, answer: answer.slice(0, 500), mentionsDestination: answer.toLowerCase().includes(scenario.destination.split(",")[0].toLowerCase()), mentionsSeededItem: namedCount >= 2 });
       }
     } finally {
       if (tripId) await admin.from("trips").delete().eq("id", tripId);

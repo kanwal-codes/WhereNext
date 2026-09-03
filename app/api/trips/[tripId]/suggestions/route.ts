@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { fail } from "@/lib/server/with-route";
 import { mergePreferences, preferencesSchema } from "@/packages/contracts/preferences";
 import { suggestionActionSchema, suggestionValueSchema, type SuggestionKey } from "@/packages/contracts/suggestion";
 import { tripDurationDays } from "@/features/trip/domain/trip";
@@ -76,6 +77,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ tr
     return NextResponse.json({ ok: true, key, action });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid suggestion" }, { status: 400 });
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Could not update that suggestion" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Could not update that suggestion");
   }
 }

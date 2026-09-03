@@ -22,6 +22,7 @@ import {
 import { BrandMark } from "@/components/BrandMark";
 import { cn } from "@/lib/utils";
 import { ProgressRing } from "./ProgressRing";
+import { PresenceStrip } from "./PresenceStrip";
 
 export type ShellTrip = {
   name: string;
@@ -136,14 +137,17 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
             <ProgressRing value={trip.progress} size={40} />
           </div>
         ) : (
-          <div className="mb-6 flex items-center gap-3 rounded-2xl border border-sidebar-border bg-background/60 px-3 py-3">
-            <ProgressRing value={trip.progress} size={48} />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{trip.destination}</p>
-              <p className="truncate text-xs text-muted-foreground">
-                {trip.dates} · {trip.travellers}
-              </p>
+          <div className="mb-6 space-y-2 rounded-2xl border border-sidebar-border bg-background/60 px-3 py-3">
+            <div className="flex items-center gap-3">
+              <ProgressRing value={trip.progress} size={48} />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{trip.destination}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {trip.dates} · {trip.travellers}
+                </p>
+              </div>
             </div>
+            <PresenceStrip />
           </div>
         )}
 

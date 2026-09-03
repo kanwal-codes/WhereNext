@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { Check, Info, X } from "lucide-react";
 import { subscribeToasts, type ToastPayload } from "@/lib/application/toast";
@@ -15,6 +16,9 @@ const TONE: Record<ToastPayload["tone"], string> = {
 /** One mount per app shell. Listens on the window toast bus and auto-dismisses. */
 export function ToastHost() {
   const [toasts, setToasts] = useState<ToastPayload[]>([]);
+  const pathname = usePathname();
+  // In the conversation, float toasts just above the composer instead of the top corner.
+  const nearComposer = Boolean(pathname?.endsWith("/chat"));
 
   useEffect(() =>
     subscribeToasts((toast) => {
@@ -23,14 +27,21 @@ export function ToastHost() {
     }), []);
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-3 z-[60] flex flex-col items-center gap-2 px-4 sm:inset-x-auto sm:right-4 sm:items-end">
+    <div
+      className={cn(
+        "pointer-events-none fixed z-[60] flex flex-col gap-2 px-4",
+        nearComposer
+          ? "inset-x-0 bottom-[4.75rem] items-center"
+          : "inset-x-0 top-3 items-center sm:inset-x-auto sm:right-4 sm:items-end",
+      )}
+    >
       <AnimatePresence initial={false}>
         {toasts.map((toast) => (
           <motion.div
             key={toast.id}
-            initial={{ opacity: 0, y: -12, scale: 0.96 }}
+            initial={{ opacity: 0, y: nearComposer ? 12 : -12, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.98 }}
+            exit={{ opacity: 0, y: nearComposer ? 8 : -8, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 320, damping: 28 }}
             className={cn(
               "pointer-events-auto flex max-w-sm items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-medium shadow-lift backdrop-blur",

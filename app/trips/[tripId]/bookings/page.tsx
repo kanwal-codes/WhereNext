@@ -10,7 +10,7 @@ export default function BookingsPage() {
     <RouteScaffold
       eyebrow="Bookings & essentials"
       title="Before you go"
-      description="The practical checklist. For destination-specific essentials — visas, SIMs, customs — ask the assistant; it builds one from live sources."
+      description="The practical checklist. For destination-specific essentials — visas, SIMs, customs — ask the assistant; it builds one for your destination."
     >
       <EssentialsSurface tripId={tripId} initialCompleted={data?.essentials} />
     </RouteScaffold>

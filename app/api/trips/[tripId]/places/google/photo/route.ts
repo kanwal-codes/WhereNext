@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { fail } from "@/lib/server/with-route";
 
 export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
@@ -14,6 +15,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     // A photo resource name maps to immutable bytes; the route is authenticated, so keep it private.
     return new Response(response.body, { headers: { "content-type": contentType, "cache-control": "private, max-age=86400, immutable" } });
   } catch (error) {
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Place photo is unavailable" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Place photo is unavailable");
   }
 }

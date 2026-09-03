@@ -21,7 +21,7 @@ export function EssentialsSurface({ tripId, initialCompleted }: { tripId: string
     fetch(`/api/trips/${tripId}/essentials`)
       .then((r) => r.json())
       .then((body) => setDone(body.completed ?? []))
-      .catch(() => setError("Checklist could not load."));
+      .catch(() => setError("We couldn't load your checklist. Try again in a moment."));
   }, [tripId, initialCompleted]);
 
   async function toggle(item: string) {
@@ -34,7 +34,7 @@ export function EssentialsSurface({ tripId, initialCompleted }: { tripId: string
     });
     if (!r.ok) {
       setDone(done);
-      setError("Checklist could not be saved.");
+      setError("That didn't save. Try again.");
     } else announceWorkspaceChange("essentials");
   }
 

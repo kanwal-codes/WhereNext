@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowDown, ArrowUp, BedDouble, Lock, LockOpen, MapPin, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, BedDouble, GripVertical, Lock, LockOpen, MapPin, Plus, Trash2 } from "lucide-react";
 import type { ItineraryItem } from "@/features/itinerary/domain/item";
 import type { StayDecision } from "@/packages/contracts/stay";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
@@ -13,13 +13,27 @@ const fmtDay = (iso: string) => {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString([], { month: "short", day: "numeric" });
 };
 
+/** The calendar date for day N (1-based) given the trip's start date, or null when there's no start date. */
+function dayDate(startDate: string | null | undefined, dayN: number): string | null {
+  if (!startDate) return null;
+  const d = new Date(`${startDate}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  d.setDate(d.getDate() + (dayN - 1));
+  return d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+}
+
+const byOrder = (a: ItineraryItem, b: ItineraryItem) =>
+  (a.position ?? 0) - (b.position ?? 0) || a.created_at.localeCompare(b.created_at);
+
 export function ItinerarySurface({
   tripId,
   initialItems,
+  startDate = null,
   lockedStay = null,
 }: {
   tripId: string;
   initialItems?: Array<Record<string, unknown>>;
+  startDate?: string | null;
   lockedStay?: StayDecision | null;
 }) {
   const [items, setItems] = useState<ItineraryItem[]>((initialItems ?? []) as ItineraryItem[]);
@@ -27,6 +41,8 @@ export function ItinerarySurface({
   const [day, setDay] = useState(1);
   const [removed, setRemoved] = useState<ItineraryItem | null>(null);
   const [error, setError] = useState("");
+  const [dragTitle, setDragTitle] = useState<string | null>(null);
+  const [dropHint, setDropHint] = useState<string | null>(null); // `${day}:${beforeTitle ?? "end"}`
 
   useEffect(() => {
     if (initialItems) return;
@@ -60,13 +76,10 @@ export function ItinerarySurface({
   }
 
   const move = (item: ItineraryItem, dir: -1 | 1) => {
-    if (item.metadata?.locked) {
-      setError("Unlock the item first.");
-      return;
-    }
+    if (item.metadata?.locked) return setError("Unlock the item first.");
     const next = Math.max(1, item.day_index + dir);
     if (next === item.day_index) return;
-    void patch({ title: item.title, dayIndex: next }, (list) => list.map((c) => (c.id === item.id ? { ...c, day_index: next } : c)));
+    reorder(item.title, next, null);
   };
 
   const toggleLock = (item: ItineraryItem) => {
@@ -76,11 +89,32 @@ export function ItinerarySurface({
     );
   };
 
-  async function remove(item: ItineraryItem) {
-    if (item.metadata?.locked) {
+  /** Move `dragTitle` to `toDay`, positioned before `beforeTitle` (or at the end). Renumbers the touched days and persists them in one request. */
+  function reorder(movedTitle: string, toDay: number, beforeTitle: string | null) {
+    const moved = items.find((i) => i.title === movedTitle);
+    if (!moved || moved.metadata?.locked === true) {
       setError("Unlock the item first.");
       return;
     }
+    const fromDay = moved.day_index;
+    const rest = items.filter((i) => i.title !== movedTitle);
+    const target = rest.filter((i) => i.day_index === toDay).sort(byOrder);
+    const at = beforeTitle ? target.findIndex((i) => i.title === beforeTitle) : -1;
+    target.splice(at < 0 ? target.length : at, 0, { ...moved, day_index: toDay });
+
+    const renumber = (list: ItineraryItem[], dayN: number) =>
+      list.filter((i) => i.day_index === dayN).sort(byOrder).map((i, idx) => ({ ...i, position: idx }));
+    const touched = [...renumber(target, toDay), ...(fromDay !== toDay ? renumber(rest, fromDay) : [])];
+    const touchedByTitle = new Map(touched.map((i) => [i.title, i]));
+
+    void patch(
+      { order: touched.map((i) => ({ title: i.title, dayIndex: i.day_index, position: i.position ?? 0 })) },
+      (list) => list.map((i) => touchedByTitle.get(i.title) ?? i),
+    );
+  }
+
+  async function remove(item: ItineraryItem) {
+    if (item.metadata?.locked) return setError("Unlock the item first.");
     const previous = items;
     setItems((cur) => cur.filter((c) => c.id !== item.id));
     setRemoved(item);
@@ -106,8 +140,20 @@ export function ItinerarySurface({
 
   const days = Array.from(new Set([...items.map((i) => i.day_index), 1])).sort((a, b) => a - b);
 
+  function onDropAt(toDay: number, beforeTitle: string | null) {
+    setDropHint(null);
+    const t = dragTitle;
+    setDragTitle(null);
+    if (t) reorder(t, toDay, beforeTitle);
+  }
+
   return (
     <div className="space-y-8">
+      <div className="flex justify-end">
+        <a href={`/trips/${tripId}/today`} className="text-xs font-medium text-primary hover:underline">
+          Today view →
+        </a>
+      </div>
       {lockedStay && (
         <p className="flex items-center gap-2 rounded-2xl border border-leaf/30 bg-leaf-soft/40 px-4 py-2.5 text-sm text-ink-soft">
           <BedDouble className="h-4 w-4 shrink-0 text-leaf" />
@@ -146,12 +192,26 @@ export function ItinerarySurface({
       </form>
 
       {days.map((d) => {
-        const dayItems = items.filter((i) => i.day_index === d);
+        const dayItems = items.filter((i) => i.day_index === d).sort(byOrder);
+        const date = dayDate(startDate, d);
         return (
-          <section key={d}>
+          <section
+            key={d}
+            onDragOver={(e) => {
+              if (dragTitle) {
+                e.preventDefault();
+                if (dayItems.length === 0) setDropHint(`${d}:end`);
+              }
+            }}
+            onDrop={(e) => {
+              if (!dragTitle) return;
+              e.preventDefault();
+              if (dayItems.length === 0) onDropAt(d, null);
+            }}
+          >
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
               <div className="min-w-0">
-                <p className="eyebrow">Day {d}</p>
+                <p className="eyebrow">Day {d}{date ? ` · ${date}` : ""}</p>
                 <h3 className="mt-1 font-display text-xl">
                   {dayItems.length} item{dayItems.length === 1 ? "" : "s"}
                 </h3>
@@ -175,13 +235,17 @@ export function ItinerarySurface({
                   <motion.p
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="rounded-xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground"
+                    className={cn(
+                      "rounded-xl border border-dashed px-4 py-6 text-sm text-muted-foreground",
+                      dropHint === `${d}:end` ? "border-coral bg-coral-soft/40" : "border-border",
+                    )}
                   >
                     Nothing scheduled for this day.
                   </motion.p>
                 )}
                 {dayItems.map((item) => {
                   const locked = item.metadata?.locked === true;
+                  const hint = dropHint === `${d}:${item.title}`;
                   return (
                     <motion.div
                       key={item.id}
@@ -190,12 +254,42 @@ export function ItinerarySurface({
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 12, height: 0 }}
                       transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                      className="group relative mb-3"
+                      className={cn("group relative mb-3", dragTitle === item.title && "opacity-40")}
+                      onDragOver={(e) => {
+                        if (!dragTitle || dragTitle === item.title) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDropHint(`${d}:${item.title}`);
+                      }}
+                      onDrop={(e) => {
+                        if (!dragTitle) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onDropAt(d, item.title);
+                      }}
                     >
                       <span className="absolute top-4 -left-6 grid h-4 w-4 place-items-center rounded-full border border-border bg-background">
                         <span className={cn("h-1.5 w-1.5 rounded-full", locked ? "bg-leaf" : "bg-coral")} />
                       </span>
-                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-soft">
+                      <div
+                        className={cn(
+                          "grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 rounded-2xl border bg-card px-3 py-3 shadow-soft transition-colors",
+                          hint ? "border-coral" : "border-border",
+                        )}
+                      >
+                        <button
+                          type="button"
+                          aria-label="Drag to reorder"
+                          draggable={!locked}
+                          onDragStart={() => setDragTitle(item.title)}
+                          onDragEnd={() => {
+                            setDragTitle(null);
+                            setDropHint(null);
+                          }}
+                          className={cn("mt-0.5 cursor-grab rounded p-1 text-muted-foreground active:cursor-grabbing", locked && "cursor-not-allowed opacity-30")}
+                        >
+                          <GripVertical className="h-3.5 w-3.5" />
+                        </button>
                         <div className="min-w-0">
                           <p className="flex items-center gap-2 text-sm font-medium">
                             <span className="truncate">{item.title}</span>

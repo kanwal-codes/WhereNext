@@ -1,0 +1,322 @@
+"use client";
+
+import { useEffect, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { AnimatePresence, motion } from "motion/react";
+import { ArrowUpRight, Eraser, Loader2, Scale, Send, Sparkles, X } from "lucide-react";
+import { useTripData } from "@/components/TripDataProvider";
+import { useTripPanelMaybe, type CompareEntry, type PanelState } from "@/components/TripPanelProvider";
+import { PlaceDetailView } from "@/features/places/ui/PlaceDetailView";
+import { StayDetailView } from "@/features/stays/ui/StayDetailView";
+import { EventDetailView } from "@/features/events/ui/EventDetailView";
+import { readStayDecision } from "@/packages/contracts/stay";
+import { useMediaQuery } from "@/lib/use-media-query";
+import { cn } from "@/lib/utils";
+
+const KIND_LABEL: Record<CompareEntry["kind"], string> = { place: "Place", stay: "Stay", event: "Event", route: "Route" };
+
+const R = 6371;
+const toRad = (n: number) => (n * Math.PI) / 180;
+function km(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+type Anchor = { name: string; lat: number; lng: number } | null;
+function distanceLabel(entry: CompareEntry, anchor: Anchor): string {
+  if (!anchor || entry.attrs.lat == null || entry.attrs.lng == null) return "—";
+  const d = km(anchor, { lat: entry.attrs.lat, lng: entry.attrs.lng });
+  return d < 1 ? `${Math.round(d * 1000)} m` : `${d.toFixed(1)} km`;
+}
+function titleFor(panel: PanelState): string {
+  switch (panel.kind) {
+    case "place":
+      return panel.name;
+    case "stay":
+      return panel.name;
+    case "event":
+      return panel.seed.name;
+    default:
+      return "Side by side";
+  }
+}
+
+function CompareGrid({ list, anchor, onRemove }: { list: CompareEntry[]; anchor: Anchor; onRemove: (id: string) => void }) {
+  // "Lowest" / "Top" only make sense when every card is the same kind.
+  const uniform = list.every((e) => e.kind === list[0]?.kind);
+  const bestPrice = uniform ? Math.min(...list.map((e) => e.attrs.priceValue ?? Infinity)) : NaN;
+  const bestRating = uniform ? Math.max(...list.map((e) => e.attrs.ratingValue ?? -Infinity)) : NaN;
+
+  const ROWS: Array<{ label: string; get: (e: CompareEntry) => ReactNode }> = [
+    { label: "Type", get: (e) => e.attrs.detail ?? KIND_LABEL[e.kind] },
+    {
+      label: "Price",
+      get: (e) => (
+        <span className="inline-flex items-center gap-1.5">
+          {e.attrs.price ?? "—"}
+          {e.attrs.priceValue != null && e.attrs.priceValue === bestPrice && Number.isFinite(bestPrice) && (
+            <span className="rounded-full bg-leaf-soft px-1.5 py-0.5 text-[10px] font-medium text-leaf">Lowest</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      label: "Rating",
+      get: (e) => (
+        <span className="inline-flex items-center gap-1.5">
+          {e.attrs.rating ?? "—"}
+          {e.attrs.ratingValue != null && e.attrs.ratingValue === bestRating && Number.isFinite(bestRating) && (
+            <span className="rounded-full bg-coral-soft px-1.5 py-0.5 text-[10px] font-medium text-coral">Top</span>
+          )}
+        </span>
+      ),
+    },
+    { label: "When", get: (e) => e.attrs.when ?? "—" },
+    { label: anchor ? `From ${anchor.name}` : "From your stay", get: (e) => distanceLabel(e, anchor) },
+    { label: "Address", get: (e) => e.attrs.address ?? "—" },
+  ];
+
+  if (list.length === 0) {
+    return <p className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">Pick a few cards to compare — the Compare button is on every place, stay and event.</p>;
+  }
+
+  return (
+    <div className="overflow-x-auto scrollbar-slim">
+      <div className="grid gap-x-3" style={{ gridTemplateColumns: `104px repeat(${list.length}, minmax(150px, 1fr))` }}>
+        <div />
+        {list.map((e) => (
+          <div key={e.id} className="relative rounded-2xl border border-border bg-card p-3">
+            <button type="button" onClick={() => onRemove(e.id)} aria-label={`Remove ${e.name}`} className="absolute top-1.5 right-1.5 rounded-full bg-background/90 p-1 text-muted-foreground hover:text-foreground">
+              <X className="h-3.5 w-3.5" />
+            </button>
+            <p className="pr-5 font-display text-sm leading-tight">{e.name}</p>
+            {e.subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{e.subtitle}</p>}
+            {e.href && (
+              <Link href={e.href} className="mt-1.5 inline-flex items-center gap-0.5 text-[11px] font-medium text-primary">
+                Open <ArrowUpRight className="h-3 w-3" />
+              </Link>
+            )}
+          </div>
+        ))}
+        {ROWS.map((row, i) => (
+          <div key={row.label} className="col-span-full grid grid-cols-subgrid">
+            <div className={cn("py-2.5 pr-2 text-[10px] tracking-[0.1em] text-muted-foreground uppercase", i === 0 && "mt-3")}>{row.label}</div>
+            {list.map((e) => (
+              <div key={e.id + row.label} className={cn("border-t border-border py-2.5 text-sm", i === 0 && "mt-3")}>
+                {row.get(e)}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** The one shared trip side panel: detail views, comparisons, and a composer wired to the trip chat. */
+export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" }) {
+  const ctx = useTripPanelMaybe();
+  const { tripId, data } = useTripData();
+  const pathname = usePathname();
+  const desktop = useMediaQuery("(min-width: 1024px)");
+  const [chat, setChat] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const panel = ctx?.panel ?? null;
+  const compareList = ctx?.compareList ?? [];
+  const subjectKey = (p: PanelState): string =>
+    p.kind === "place"
+      ? `place:${p.placeId}`
+      : p.kind === "stay"
+        ? `stay:${p.hotelId}`
+        : p.kind === "event"
+          ? `event:${p.seed.url}`
+          : `compare:${compareList.map((e) => e.id).join(",")}`;
+  const sk = panel ? subjectKey(panel) : "none";
+  // A scratch chat, scoped to whatever the panel currently shows. Cleared when the subject changes.
+  useEffect(() => {
+    setChat([]);
+  }, [sk]);
+
+  // The chat route renders its own <TripPanel layout="inline" />; the layout-level drawer stands down there.
+  if (!ctx || (layout === "drawer" && pathname?.endsWith("/chat"))) return null;
+  const { closePanel, compareRemove } = ctx;
+
+  const stay = readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
+  const anchor: Anchor = stay && stay.latitude != null && stay.longitude != null ? { name: stay.hotelName, lat: stay.latitude, lng: stay.longitude } : null;
+
+  /** The options the scratch chat should reason about — the compare set, or just the one thing on screen. */
+  function itemsFor(p: PanelState) {
+    if (p.kind === "compare") {
+      return compareList.map((e) => ({
+        name: e.name,
+        detail: e.attrs.detail,
+        price: e.attrs.price,
+        rating: e.attrs.rating,
+        when: e.attrs.when,
+        address: e.attrs.address,
+        lat: e.attrs.lat,
+        lng: e.attrs.lng,
+      }));
+    }
+    return [{ name: titleFor(p), detail: p.kind === "stay" ? "Hotel" : p.kind === "event" ? "Event" : "Place" }];
+  }
+
+  async function ask(raw: string) {
+    if (!panel) return;
+    const q = raw.trim();
+    if (!q || sending) return;
+    setInput("");
+    const history = chat.filter((m) => m.content.trim());
+    setChat((c) => [...c, { role: "user", content: q }, { role: "assistant", content: "" }]);
+    setSending(true);
+    try {
+      const res = await fetch(`/api/trips/${tripId}/compare-chat`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ items: itemsFor(panel), messages: [...history, { role: "user", content: q }] }),
+      });
+      if (!res.ok || !res.body) throw new Error("compare-chat");
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let acc = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        acc += decoder.decode(value, { stream: true });
+        setChat((c) => c.map((m, i) => (i === c.length - 1 ? { role: "assistant", content: acc } : m)));
+      }
+      if (!acc.trim()) throw new Error("empty");
+    } catch {
+      setChat((c) => c.map((m, i) => (i === c.length - 1 ? { role: "assistant", content: "The assistant couldn’t answer just now. Try again in a moment." } : m)));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  const body: ReactNode = !panel ? null : panel.kind === "place" ? (
+    <PlaceDetailView tripId={tripId} placeId={panel.placeId} variant="panel" />
+  ) : panel.kind === "stay" ? (
+    <StayDetailView tripId={tripId} hotelId={panel.hotelId} checkin={panel.checkin} checkout={panel.checkout} variant="panel" />
+  ) : panel.kind === "event" ? (
+    <EventDetailView tripId={tripId} seed={panel.seed} variant="panel" />
+  ) : (
+    <div className="p-4">
+      <CompareGrid list={compareList} anchor={anchor} onRemove={compareRemove} />
+    </div>
+  );
+
+  const header = panel && (
+    <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
+      <p className="inline-flex min-w-0 items-center gap-1.5 font-display text-sm">
+        {panel.kind === "compare" && <Scale className="h-3.5 w-3.5 shrink-0 text-coral" />}
+        <span className="truncate">{titleFor(panel)}</span>
+      </p>
+      <div className="flex shrink-0 items-center gap-1.5">
+        {chat.length > 0 && (
+          <button type="button" onClick={() => setChat([])} aria-label="Clear this chat" title="Clear this chat" className="rounded-full border border-border p-1.5 text-muted-foreground hover:text-foreground">
+            <Eraser className="h-3.5 w-3.5" />
+          </button>
+        )}
+        <button type="button" onClick={closePanel} aria-label="Close panel" className="rounded-full border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </header>
+  );
+
+  const composer = layout === "drawer" && panel && (
+    <>
+      {chat.length > 0 ? (
+        <div className="max-h-[40%] shrink-0 space-y-3 overflow-y-auto scrollbar-slim border-t border-border px-4 py-3">
+          {chat.map((m, i) => (
+            <div key={i} className={cn("text-sm leading-relaxed", m.role === "user" ? "font-medium" : "text-ink-soft")}>
+              {m.role === "assistant" && <Sparkles className="mr-1.5 inline h-3.5 w-3.5 text-coral" />}
+              {m.content || (sending && i === chat.length - 1 ? <Loader2 className="inline h-3.5 w-3.5 animate-spin" /> : null)}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="shrink-0 border-t border-border px-4 pt-2.5 text-[11px] text-muted-foreground">
+          A scratch chat about {panel.kind === "compare" ? "these options" : "this"} — it knows your whole trip, but isn&rsquo;t saved to the conversation.
+        </p>
+      )}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void ask(input);
+        }}
+        className="flex shrink-0 items-center gap-2 border-t border-border p-3"
+      >
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder={panel.kind === "compare" ? "Ask about these — value, location, what to pick…" : "Ask about this — does it fit my trip?"}
+          className="min-w-0 flex-1 rounded-xl border border-input bg-card px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/25"
+        />
+        <button type="submit" disabled={sending || !input.trim()} className="btn-primary-sm shrink-0" aria-label="Send">
+          {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+        </button>
+      </form>
+    </>
+  );
+
+  // Chat route: render inline in its own column — no drawer chrome, no composer (the main chat serves).
+  if (layout === "inline") {
+    return panel ? (
+      <div className="flex h-full min-h-0 flex-col">
+        {header}
+        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-slim">{body}</div>
+      </div>
+    ) : null;
+  }
+
+  const pill = compareList.length > 0 && panel?.kind !== "compare" && (
+    <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 24 }} className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2">
+      <div className="flex items-center gap-2 rounded-full border border-border bg-card px-2 py-1.5 shadow-lift">
+        <span className="inline-flex items-center gap-1.5 pl-2 text-sm font-medium">
+          <Scale className="h-3.5 w-3.5 text-coral" /> Compare {compareList.length}
+        </span>
+        <button type="button" onClick={ctx.openCompare} className="btn-primary-sm">
+          Open
+        </button>
+        <button type="button" onClick={ctx.compareClear} aria-label="Clear comparison" className="rounded-full p-1.5 text-muted-foreground hover:bg-accent">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </motion.div>
+  );
+
+  return (
+    <>
+      <AnimatePresence>{pill}</AnimatePresence>
+      <AnimatePresence>
+        {panel && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className={cn("fixed inset-0 z-50 bg-ink/30", desktop ? "flex justify-end" : "flex items-end")}
+            onClick={closePanel}
+          >
+            <motion.aside
+              initial={desktop ? { x: "100%" } : { y: "100%" }}
+              animate={desktop ? { x: 0 } : { y: 0 }}
+              exit={desktop ? { x: "100%" } : { y: "100%" }}
+              transition={{ type: "spring", stiffness: 240, damping: 30 }}
+              onClick={(e) => e.stopPropagation()}
+              className={cn("flex min-h-0 flex-col bg-surface shadow-lift", desktop ? "h-full w-full max-w-xl" : "max-h-[90vh] w-full rounded-t-3xl")}
+            >
+              {header}
+              <div className="min-h-0 flex-1 overflow-y-auto scrollbar-slim">{body}</div>
+              {composer}
+            </motion.aside>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}

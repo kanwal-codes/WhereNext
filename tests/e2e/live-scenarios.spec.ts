@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { loadEnvConfig } from "@next/env";
 import { test, expect } from "@playwright/test";
+import { createTripViaForm, lastAssistant, turnUrls, urlStats } from "./support";
 
 loadEnvConfig(process.cwd());
 
@@ -28,21 +29,20 @@ test("live multi-person travel scenarios return current, prompt-matched answers"
       await page.getByLabel("Password").fill(password);
       await page.getByRole("button", { name: "Sign in" }).click();
       await expect(page).toHaveURL(/\/trips$/);
-      await page.goto("/trips/new");
-      for (const [label, value] of [["Trip name", scenario.name], ["Destination", scenario.destination], ["Starting from", scenario.origin], ["Days", scenario.days], ["Travelers", scenario.travelers], ["Vibe", scenario.vibe]] as const) await page.getByLabel(label).fill(value);
-      await page.getByRole("button", { name: "Create trip" }).click();
-      await expect(page).toHaveURL(/\/trips\/[0-9a-f-]{36}$/i);
-      tripId = page.url().split("/").pop();
-      await page.goto(`/trips/${tripId}/chat`);
-      await page.getByLabel("Message").waitFor();
+      tripId = await createTripViaForm(page, { name: scenario.name, destination: scenario.destination, origin: scenario.origin, days: scenario.days, travelers: scenario.travelers, vibe: scenario.vibe });
       for (const prompt of scenario.prompts) {
+        // Fresh page per prompt — a sequential send on the same composer can echo the prior reply.
+        await page.goto(`/trips/${tripId}/chat`);
+        await page.getByRole("textbox", { name: "Message" }).waitFor();
         const before = await page.evaluate(async (id) => (await (await fetch(`/api/trips/${id}/conversation`)).json()).messages?.filter((m: { role: string }) => m.role === "assistant").length ?? 0, tripId);
-        await page.getByLabel("Message").fill(prompt);
+        await page.getByRole("textbox", { name: "Message" }).fill(prompt);
         await page.getByRole("button", { name: "Send" }).click();
         let answer = "";
         await expect.poll(async () => page.evaluate(async ({ id, before }) => { const body = await (await fetch(`/api/trips/${id}/conversation`)).json(); const messages = body.messages?.filter((m: { role: string }) => m.role === "assistant") ?? []; return messages.length > before ? messages.at(-1)?.content ?? "" : ""; }, { id: tripId, before }), { timeout: 75_000 }).toBeTruthy();
-        answer = await page.evaluate(async (id) => { const body = await (await fetch(`/api/trips/${id}/conversation`)).json(); return body.messages?.filter((m: { role: string }) => m.role === "assistant").at(-1)?.content ?? ""; }, tripId);
-        results.push({ person: scenario.person, prompt, chars: answer.length, firstLine: answer.split("\n").find(Boolean)?.slice(0, 180), links: (answer.match(/https:\/\//g) ?? []).length, photos: (answer.match(/\/api\/trips\/.*?\/places\/google\/photo/g) ?? []).length, table: answer.includes("|"), refusal: /couldn.t verify|no specific place information|no results/i.test(answer) });
+        const turn = await lastAssistant(page, tripId);
+        answer = turn?.content ?? "";
+        const stats = urlStats(turnUrls(turn));
+        results.push({ person: scenario.person, prompt, chars: answer.length, firstLine: answer.split("\n").find(Boolean)?.slice(0, 180), links: stats.links, photos: stats.photos, table: answer.includes("|"), refusal: /couldn.t verify|no specific place information|no results/i.test(answer) });
       }
     } finally {
       if (tripId) await admin.from("trips").delete().eq("id", tripId);

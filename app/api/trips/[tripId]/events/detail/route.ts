@@ -5,6 +5,7 @@ import { eventDetail as ticketmasterDetail } from "@/packages/providers/ticketma
 import { research } from "@/packages/providers/tavily/client";
 import { createAiGateway } from "@/packages/ai/gateway";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { fail } from "@/lib/server/with-route";
 import { cached } from "@/lib/server/ttl-cache";
 
 /** Turn the raw provider blurb + web snippets into a clean 2–4 sentence "about". Falls back to the raw text. */
@@ -90,6 +91,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     return NextResponse.json({ detail });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Bad request" }, { status: 400 });
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Event details are unavailable right now" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Event details are unavailable right now");
   }
 }

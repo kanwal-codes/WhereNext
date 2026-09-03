@@ -1,4 +1,5 @@
 import { withProviderTimeout } from "../request-signal";
+import { guardedFetch } from "@/lib/server/provider-guard";
 
 export type EventResult = { title: string; url: string; date?: string; venue?: string; content: string; imageUrl?: string };
 
@@ -41,7 +42,7 @@ export async function eventDetail(idOrUrl: string, signal?: AbortSignal): Promis
 
   const url = new URL(`https://app.ticketmaster.com/discovery/v2/events/${encodeURIComponent(id)}.json`);
   url.searchParams.set("apikey", key);
-  const response = await fetch(url, { signal: withProviderTimeout(signal) });
+  const response = await guardedFetch("ticketmaster", url, { signal: withProviderTimeout(signal) });
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`Ticketmaster event detail failed: ${response.status}`);
   const e = (await response.json()) as {
@@ -100,7 +101,7 @@ export async function events(query: string, destination: string, signal?: AbortS
   if (query) url.searchParams.set("keyword", query);
   url.searchParams.set("size", "8");
   url.searchParams.set("sort", "date,asc");
-  const response = await fetch(url, { signal: withProviderTimeout(signal) });
+  const response = await guardedFetch("ticketmaster", url, { signal: withProviderTimeout(signal) });
   if (!response.ok) throw new Error(`Ticketmaster search failed: ${response.status}`);
   const body = await response.json() as {
     _embedded?: { events?: Array<{

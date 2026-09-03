@@ -89,10 +89,10 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
           </>
         ) : state === "error" && !d ? (
           <p className="text-sm text-muted-foreground">
-            Couldn&rsquo;t pull details for this event.{" "}
+            We couldn&rsquo;t load more about this event.{" "}
             {ticketUrl && (
               <ExternalLink href={ticketUrl} className="text-sm">
-                Open it on {seed.source}
+                Open the event page
               </ExternalLink>
             )}
           </p>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronDown, Footprints, Loader2, Plane, Search } from "lucide-react";
 import type { MapLeg } from "@/components/TripMap";
 import { askAssistantHref } from "@/lib/places-ui";
+import { notifyToast } from "@/lib/application/toast";
 import { cn, durationFromSeconds, formatDuration } from "@/lib/utils";
 
 const hexColor = (c?: string) => (c ? `#${c.replace(/^#/, "")}` : undefined);
@@ -178,10 +179,10 @@ export function TransportSurface({
         setSearched(true);
         setStatus(
           !res.ok
-            ? "Flight search is unavailable right now."
+            ? "We couldn’t load flights just now. Try again in a moment."
             : offers.length === 0
-              ? "No flights came back for that pair."
-              : `${offers.length} flight${offers.length === 1 ? "" : "s"}${body.assumedDate ? " · example date — set your trip dates for real prices" : ""}`,
+              ? "No flights came back for those two places."
+              : `${offers.length} flight${offers.length === 1 ? "" : "s"}${body.assumedDate ? " · example date — add your trip dates for accurate prices" : ""}`,
         );
         if (ends[0] && ends[1]) onRoute?.([{ polyline: [ends[0], ends[1]], mode: "flight" }]);
         return;
@@ -199,10 +200,10 @@ export function TransportSurface({
       setSearched(true);
       setStatus(
         !response.ok
-          ? "Transit is unavailable right now."
+          ? "We couldn’t load routes just now. Try again in a moment."
           : found.length === 0
             ? ""
-            : `${found.length} route${found.length === 1 ? "" : "s"}${body.freshness ? ` · checked ${new Date(body.freshness.retrievedAt).toLocaleTimeString()}` : ""}`,
+            : `${found.length} route${found.length === 1 ? "" : "s"}`,
       );
       if (response.ok && found.length) {
         setSelected(0);
@@ -212,11 +213,20 @@ export function TransportSurface({
       setRoutes([]);
       setFlights([]);
       if (error instanceof DOMException && error.name === "AbortError") setStatus("Search cancelled.");
-      else setStatus(wantFlights ? "Flight search is unavailable right now." : "Transit is unavailable right now.");
+      else setStatus(wantFlights ? "We couldn’t load flights just now. Try again in a moment." : "We couldn’t load routes just now. Try again in a moment.");
     } finally {
       setLoading(false);
       if (controller.current === request) controller.current = null;
     }
+  }
+
+  async function saveChoice(value: Record<string, unknown>) {
+    const r = await fetch(`/api/trips/${tripId}/decisions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "transport", source: "user", value: { from, to, ...value } }),
+    });
+    notifyToast(r.ok ? "Saved to your trip." : "That didn’t save. Try again.", r.ok ? "success" : "error");
   }
 
   // Run a search pushed in from the AI bar.
@@ -288,7 +298,14 @@ export function TransportSurface({
                 {new Date(f.arriveAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
               </p>
             )}
-            <p className="mt-2 text-xs text-muted-foreground">Book on the airline’s site or a travel agent — fares and seats change fast. Price via Duffel.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Fares and seats change fast — book on the airline’s site or a travel agent.</p>
+            <button
+              type="button"
+              onClick={() => void saveChoice({ mode: "flight", airline: f.airline, minutes: f.durationMinutes, fare: `${f.priceAmount} ${f.priceCurrency}`, stops: f.stops, summary: `${f.airline}, ${price}, ${formatDuration(f.durationMinutes)}, ${f.stops === 0 ? "non-stop" : `${f.stops} stop(s)`}` })}
+              className="btn-secondary mt-3"
+            >
+              Save to my trip
+            </button>
           </div>
         );
       })}
@@ -365,6 +382,20 @@ export function TransportSurface({
                     ? "Buy this fare from the operator’s app or a station machine — a single ticket or day pass usually covers the whole trip."
                     : "Check the operator’s app or a station machine for the current fare and tickets."}
                 </p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void saveChoice({
+                      mode: (route.steps ?? []).find((s) => (s.mode ?? "") !== "walk")?.mode ?? "transit",
+                      minutes: Math.round(route.durationSeconds / 60),
+                      fare: route.fare ? `${route.fare.amount} ${route.fare.currency}` : null,
+                      summary: describeRoutes(from, to, [route]).split("\n")[1] ?? "",
+                    })
+                  }
+                  className="btn-secondary mt-3"
+                >
+                  Save to my trip
+                </button>
               </div>
             )}
           </div>

@@ -70,7 +70,7 @@ export function PlaceDetailView({
   variant?: "page" | "panel";
 }) {
   const panel = variant === "panel";
-  const { details, freshness, state } = usePlaceDetails(tripId, placeId);
+  const { details, state } = usePlaceDetails(tripId, placeId);
   const titleTag = useDocumentTitle(panel ? null : details?.displayName?.text ?? "Place");
   const [reviewsOpen, setReviewsOpen] = useState(false);
 
@@ -93,8 +93,8 @@ export function PlaceDetailView({
     return (
       <div className={cn(pad, "pt-10")}>
         {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" />}
-        <h1 className="mt-6 font-display text-2xl">Place details are unavailable</h1>
-        <p className="mt-2 text-sm text-muted-foreground">The provider returned nothing for this place right now. Try again from Discover.</p>
+        <h1 className="mt-6 font-display text-2xl">We couldn’t load this place</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Something went wrong just now. Head back to Discover and try again in a moment.</p>
       </div>
     );
   }
@@ -118,7 +118,7 @@ export function PlaceDetailView({
         {place ? (
           <AddToTripControl tripId={tripId} place={place} size="md" block />
         ) : (
-          <p className="text-sm text-muted-foreground">This place can&rsquo;t be added to the trip &mdash; the provider didn&rsquo;t return a location.</p>
+          <p className="text-sm text-muted-foreground">This place can&rsquo;t be added &mdash; we don&rsquo;t have a location for it.</p>
         )}
         <p className="mt-2.5 text-[11px] leading-relaxed text-muted-foreground">
           <span className="font-medium text-foreground">Shortlist</span> while you&rsquo;re deciding &mdash; open the menu to drop it on a day when it&rsquo;s going in the plan.
@@ -154,8 +154,7 @@ export function PlaceDetailView({
 
       <div className="rounded-2xl border border-dashed border-border p-5">
         <p className="eyebrow">Where this came from</p>
-        <p className="mt-2 text-sm leading-relaxed text-ink-soft">Google Places</p>
-        {freshness && <p className="mt-1 text-xs text-muted-foreground">Checked {freshness}</p>}
+        <p className="mt-2 text-sm leading-relaxed text-ink-soft">Details and reviews from Google Maps.</p>
         {details.googleMapsUri && <ExternalLink href={details.googleMapsUri} className="mt-3">Open in Google Maps</ExternalLink>}
       </div>
     </div>
@@ -172,7 +171,7 @@ export function PlaceDetailView({
             <p className="mt-2 text-sm text-muted-foreground">
               {details.userRatingCount
                 ? `A ${categoryLabel(details.primaryType).toLowerCase()} rated ${details.rating?.toFixed(1)} across ${details.userRatingCount.toLocaleString()} reviews. What people say is below.`
-                : `Google Places has no editorial description for this ${categoryLabel(details.primaryType).toLowerCase()}.`}
+                : `No description for this ${categoryLabel(details.primaryType).toLowerCase()} yet.`}
             </p>
           )}
           {typeChips.length > 0 && (

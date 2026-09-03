@@ -1,11 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { loadEnvConfig } from "@next/env";
 import { test, expect } from "@playwright/test";
+import { createTripViaForm, assistantCount, waitForAssistant, assistantTurnUrls } from "./support";
 
 loadEnvConfig(process.cwd());
 
 test("authenticated user can create and reload a trip workspace", async ({ page }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(240_000); // sign-in + create + 4 live LLM chat turns with provider retrieval
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -23,17 +24,8 @@ test("authenticated user can create and reload a trip workspace", async ({ page 
     await page.getByLabel("Password").fill(password);
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/trips$/, { timeout: 15_000 });
-    await page.goto("/trips/new");
-    await page.getByLabel("Trip name").fill("Rebuild verification");
-    await page.getByLabel("Destination").fill("Montreal");
-    await page.getByLabel("Starting from").fill("Toronto");
-    await page.getByLabel("Days").fill("6");
-    await page.getByLabel("Travelers").fill("2");
-    await page.getByLabel("Vibe").fill("architecture");
-    await page.getByRole("button", { name: "Create trip" }).click();
-    await expect(page).toHaveURL(/\/trips\/[0-9a-f-]{36}$/i);
+    const tripId = await createTripViaForm(page, { name: "Rebuild verification", destination: "Montreal", origin: "Toronto", days: "6", travelers: "2", vibe: "architecture" });
     await expect(page.locator("main").getByRole("heading", { name: "Rebuild verification" })).toBeVisible();
-    const tripId = page.url().split("/").pop();
     await page.reload();
     await expect(page.locator("main").getByRole("heading", { name: "Rebuild verification" })).toBeVisible();
     const memory = await page.evaluate(async (id) => (await fetch(`/api/trips/${id}/memory`)).json(), tripId);
@@ -42,25 +34,30 @@ test("authenticated user can create and reload a trip workspace", async ({ page 
     expect(snapshot.status).toBe(200);
     expect(snapshot.body.trip).toMatchObject({ name: "Rebuild verification", destination: "Montreal" });
     expect(snapshot.body.itinerary).toEqual([]);
+    // Links, photos and sources live on the card blocks / metadata.sources — never in the prose.
     await page.goto(`/trips/${tripId}/chat`);
-    await page.getByLabel("Message").fill("What is already in my itinerary?");
+    let seen = await assistantCount(page, tripId);
+    await page.getByRole("textbox", { name: "Message" }).fill("What is already in my itinerary?");
     await page.getByRole("button", { name: "Send" }).click();
-    await expect.poll(async () => page.evaluate(async (id) => { const response = await fetch(`/api/trips/${id}/conversation`); const body = await response.json(); return response.ok ? body.messages?.find((message: { role: string; content: string }) => message.role === "assistant" && message.content.trim())?.content ?? "" : ""; }, tripId), { timeout: 60_000 }).toBeTruthy();
+    await waitForAssistant(page, tripId, seen);
+
     await page.goto(`/trips/${tripId}/chat`);
-    await page.getByLabel("Message").fill("I want to explore Montreal. Show me historic places, markets, nature, and current events. Include source links where available.");
+    seen = await assistantCount(page, tripId);
+    await page.getByRole("textbox", { name: "Message" }).fill("List the top historic sites to visit in Montreal.");
     await page.getByRole("button", { name: "Send" }).click();
-    await expect.poll(async () => page.evaluate(async (id) => { const response = await fetch(`/api/trips/${id}/conversation`); const body = await response.json(); return response.ok ? body.messages?.filter((message: { role: string }) => message.role === "assistant").at(-1)?.content ?? "" : ""; }, tripId), { timeout: 60_000 }).toBeTruthy();
-    await expect.poll(async () => page.evaluate(async (id) => { const response = await fetch(`/api/trips/${id}/conversation`); const body = await response.json(); const assistants = body.messages?.filter((message: { role: string }) => message.role === "assistant") ?? []; return assistants.length >= 2 ? assistants.at(-1)?.content ?? "" : ""; }, tripId), { timeout: 60_000 }).toMatch(/https:\/\//);
-    const discoveryAnswer = await page.evaluate(async (id) => { const response = await fetch(`/api/trips/${id}/conversation`); const body = await response.json(); return body.messages?.filter((message: { role: string }) => message.role === "assistant").at(-1)?.content ?? ""; }, tripId);
-    expect(discoveryAnswer).toMatch(/https:\/\//);
+    expect(await assistantTurnUrls(page, tripId, seen, 90_000)).toMatch(/https:\/\//);
+
     await page.goto(`/trips/${tripId}/chat`);
-    await page.getByLabel("Message").fill("Show me photos of the best historic places in Montreal.");
+    seen = await assistantCount(page, tripId);
+    await page.getByRole("textbox", { name: "Message" }).fill("Show me photos of Notre-Dame Basilica and other historic sites in Montreal.");
     await page.getByRole("button", { name: "Send" }).click();
-    await expect.poll(async () => page.evaluate(async (id) => { const response = await fetch(`/api/trips/${id}/conversation`); const body = await response.json(); const assistants = body.messages?.filter((message: { role: string }) => message.role === "assistant") ?? []; return assistants.length >= 3 ? assistants.at(-1)?.content ?? "" : ""; }, tripId), { timeout: 60_000 }).toMatch(/\/api\/trips\/.*\/places\/google\/photo/);
+    expect(await assistantTurnUrls(page, tripId, seen, 90_000)).toMatch(/\/api\/trips\/.*\/places\/google\/photo/);
+
     await page.goto(`/trips/${tripId}/chat`);
-    await page.getByLabel("Message").fill("What events are happening this weekend? Include source links where available.");
+    seen = await assistantCount(page, tripId);
+    await page.getByRole("textbox", { name: "Message" }).fill("Find concerts and events on in Montreal this weekend.");
     await page.getByRole("button", { name: "Send" }).click();
-    await expect.poll(async () => page.evaluate(async (id) => { const response = await fetch(`/api/trips/${id}/conversation`); const body = await response.json(); const assistants = body.messages?.filter((message: { role: string }) => message.role === "assistant") ?? []; return assistants.length >= 4 ? assistants.at(-1)?.content ?? "" : ""; }, tripId), { timeout: 60_000 }).toMatch(/https:\/\//);
+    expect(await assistantTurnUrls(page, tripId, seen, 90_000)).toMatch(/https:\/\//);
     const item = await page.evaluate(async (id) => { const response = await fetch(`/api/trips/${id}/itinerary`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "Old Port", dayIndex: 1 }) }); return { status: response.status, body: await response.json() }; }, tripId);
     expect(item.status).toBe(201);
     const locked = await page.evaluate(async (id) => { const response = await fetch(`/api/trips/${id}/itinerary`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "Old Port", locked: true }) }); return response.status; }, tripId);

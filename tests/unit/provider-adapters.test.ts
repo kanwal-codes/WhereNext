@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { resetProviderGuards } from "../../lib/server/provider-guard";
 import { broadenQuery, GooglePlacesProvider } from "../../packages/providers/google-places/client";
 import { ticketmasterIdFromUrl } from "../../packages/providers/ticketmaster/client";
 import { OpenAiCompatibleProvider } from "../../packages/ai/providers/openai-compatible";
@@ -13,6 +14,7 @@ import { withProviderTimeout } from "../../packages/providers/request-signal";
 import { events } from "../../packages/providers/ticketmaster/client";
 import { weather } from "../../packages/providers/openweather/client";
 
+beforeEach(() => resetProviderGuards());
 afterEach(() => {
   vi.restoreAllMocks();
   delete process.env.GOOGLE_MAPS_API_KEY;
@@ -287,7 +289,7 @@ describe("provider adapters", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ routes: [{ distance: 1200, duration: 600, geometry: { type: "LineString", coordinates: [[-79.38, 43.65], [-79.39, 43.66]] } }] }), { status: 200 })));
     await expect(route({ origin: [-79.38, 43.65], destination: [-79.39, 43.66] })).resolves.toMatchObject({ provider: "mapbox", distanceMeters: 1200, durationSeconds: 600 });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("unavailable", { status: 503 })));
-    await expect(route({ origin: [-79.38, 43.65], destination: [-79.39, 43.66] })).rejects.toThrow("Mapbox directions failed: 503");
+    await expect(route({ origin: [-79.38, 43.65], destination: [-79.39, 43.66] })).rejects.toThrow(/503/);
   });
 
   it("combines caller cancellation with a provider timeout", async () => {

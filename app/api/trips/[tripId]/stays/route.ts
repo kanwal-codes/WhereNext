@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { liteApiConfigured, searchStays, type StaySearchInput } from "@/packages/providers/liteapi/client";
@@ -11,7 +12,7 @@ const nums = (v: string | null): number[] =>
   (v ?? "").split(",").map((s) => Number(s.trim())).filter((n) => Number.isFinite(n) && n > 0);
 const strs = (v: string | null): string[] => (v ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 
-export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId);
@@ -68,6 +69,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
       freshness: { provider: "liteapi", retrievedAt: result.retrievedAt, cacheTtlSeconds: 300 },
     });
   } catch (error) {
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Stay rates are unavailable right now" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Stay rates are unavailable right now");
   }
-}
+});

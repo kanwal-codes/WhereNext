@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { ArrowUpRight, BedDouble, Check, Loader2, MapPin, Minus, Plus, SlidersHorizontal, Star, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { AiSearchBar } from "@/components/AiSearchBar";
+import { CompareButton, useTripPanelMaybe } from "@/components/TripPanelProvider";
 import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { readStayDecision, type StayFacets, type StayOption } from "@/packages/contracts/stay";
 import { SkeletonCards } from "@/components/Skeleton";
@@ -87,7 +88,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       if (mine !== reqId.current) return;
       if (!response.ok) {
         setResult(null);
-        setStatus(body.error ?? "Stay search is unavailable right now.");
+        setStatus("We couldn't load hotels just now. Try again in a moment.");
         return;
       }
       setResult(body as Result);
@@ -95,7 +96,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
     } catch {
       if (mine === reqId.current) {
         setResult(null);
-        setStatus("Stay search is unavailable right now.");
+        setStatus("We couldn't load hotels just now. Try again in a moment.");
       }
     } finally {
       if (mine === reqId.current) setLoading(false);
@@ -121,6 +122,12 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
 
   const detailHref = (hotelId: string) =>
     `/trips/${tripId}/stay/${encodeURIComponent(hotelId)}?checkin=${result?.checkin ?? checkin}&checkout=${result?.checkout ?? checkout}&adults=${adults}&rooms=${rooms}`;
+  const panelCtx = useTripPanelMaybe();
+  const openStay = (o: StayOption) => (e: MouseEvent) => {
+    if (!panelCtx || e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+    e.preventDefault();
+    panelCtx.openPanel({ kind: "stay", hotelId: o.hotelId, name: o.name, checkin: result?.checkin ?? checkin, checkout: result?.checkout ?? checkout });
+  };
   const money = (n: number) => formatMoney(n, result?.currency ?? "CAD");
   const facets = result?.facets;
   const toggle = (list: string[], v: string, set: (l: string[]) => void) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
@@ -288,7 +295,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
               const locked = lockedStay?.hotelId === o.hotelId;
               return (
                 <li key={o.hotelId} className={cn("flex flex-col overflow-hidden rounded-2xl border bg-card shadow-soft transition-shadow hover:shadow-lift", locked ? "border-leaf/40" : "border-border")}>
-                  <Link href={detailHref(o.hotelId)} className="block h-40 shrink-0 overflow-hidden">
+                  <Link href={detailHref(o.hotelId)} onClick={openStay(o)} className="block h-40 shrink-0 overflow-hidden">
                     {o.thumbnail ? (
                       // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
                       <img src={o.thumbnail} alt={o.name} loading="lazy" width={480} height={200} className="h-full w-full object-cover" />
@@ -300,7 +307,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                   </Link>
                   <div className="flex min-h-0 flex-1 flex-col p-4">
                     <div className="flex items-start justify-between gap-2">
-                      <Link href={detailHref(o.hotelId)} className="truncate font-display text-base leading-tight hover:text-primary">{o.name}</Link>
+                      <Link href={detailHref(o.hotelId)} onClick={openStay(o)} className="truncate font-display text-base leading-tight hover:text-primary">{o.name}</Link>
                       {locked && (
                         <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-leaf-soft px-2 py-0.5 text-[10px] font-medium text-leaf">
                           <Check className="h-3 w-3" /> Locked
@@ -323,9 +330,29 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                         {money(o.nightlyAmount)}
                         <span className="block text-[11px] font-normal text-muted-foreground">/night · {money(o.totalAmount)} total</span>
                       </span>
-                      <Link href={detailHref(o.hotelId)} className="inline-flex items-center gap-1 text-xs font-medium text-primary">
-                        View <ArrowUpRight className="h-3 w-3" />
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        <CompareButton
+                          entry={{
+                            id: o.hotelId,
+                            kind: "stay",
+                            name: o.name,
+                            href: detailHref(o.hotelId),
+                            subtitle: [o.stars ? `${o.stars}★` : null, o.boardName].filter(Boolean).join(" · ") || undefined,
+                            attrs: {
+                              price: `${money(o.nightlyAmount)}/night`,
+                              priceValue: o.nightlyAmount,
+                              rating: typeof o.rating === "number" && o.rating > 0 ? `${o.rating.toFixed(1)}/10` : undefined,
+                              ratingValue: typeof o.rating === "number" && o.rating > 0 ? o.rating : undefined,
+                              lat: o.latitude ?? undefined,
+                              lng: o.longitude ?? undefined,
+                              detail: [o.stars ? `${o.stars}-star` : null, o.boardName, o.refundable ? "free cancellation" : null].filter(Boolean).join(", ") || "Hotel",
+                            },
+                          }}
+                        />
+                        <Link href={detailHref(o.hotelId)} onClick={openStay(o)} className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+                          View <ArrowUpRight className="h-3 w-3" />
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 </li>
@@ -333,7 +360,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
             })}
           </ul>
           {more && <div ref={sentinel} aria-hidden className="h-8" />}
-          <p className="text-xs text-muted-foreground">Rates via LiteAPI in {result.currency}; taxes and fees may be extra. Confirm everything at booking.</p>
+          <p className="text-xs text-muted-foreground">Prices shown in {result.currency}. Taxes and fees may be added at checkout — confirm the total when you book.</p>
         </>
       ) : (
         !loading && (

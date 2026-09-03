@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { staticMapUrl } from "@/packages/providers/mapbox/client";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { fail } from "@/lib/server/with-route";
 
 /** Parse `?markers=lng,lat|lng,lat` into validated [lng,lat] pairs. */
 function parseMarkers(raw: string): Array<[number, number]> {
@@ -25,6 +26,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     }
     return new Response(response.body, { headers: { "content-type": contentType, "cache-control": "private, max-age=300" } });
   } catch (error) {
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Map image is unavailable" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Map image is unavailable");
   }
 }

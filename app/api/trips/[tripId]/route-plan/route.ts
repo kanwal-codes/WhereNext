@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { RouteDay, RouteLeg, RoutePlan } from "@/packages/contracts/route-plan";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { fail } from "@/lib/server/with-route";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { transit } from "@/packages/providers/google-places/transit";
 import { route as mapboxRoute } from "@/packages/providers/mapbox/client";
@@ -137,6 +138,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
 
     return NextResponse.json({ days, unplaced } satisfies RoutePlan);
   } catch (error) {
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Route plan is unavailable right now" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Route plan is unavailable right now");
   }
 }

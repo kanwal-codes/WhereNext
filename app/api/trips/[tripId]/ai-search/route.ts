@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { fail } from "@/lib/server/with-route";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
 import { DISCOVER_CATEGORY_KEYS, parseAiSearch, type AiSearchScope } from "@/lib/application/ai-search";
 import { cached } from "@/lib/server/ttl-cache";
@@ -31,6 +32,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     return NextResponse.json({ directive });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid search" }, { status: 400 });
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Search assistant is unavailable right now" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Search assistant is unavailable right now");
   }
 }

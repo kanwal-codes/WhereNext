@@ -5,6 +5,11 @@ coverage/
 test-results/
 playwright-report/
 tsconfig.tsbuildinfo
+
+# Serwist build output
+public/sw.js
+public/sw.js.map
+public/swe-worker-*.js
 .env
 .env.local
 .env.*.local

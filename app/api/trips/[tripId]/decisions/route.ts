@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { decisionInput } from "@/features/trip/domain/decision";
 import { stayDecisionSchema } from "@/packages/contracts/stay";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { fail } from "@/lib/server/with-route";
 
 const SELECT = "id,kind,value,source,created_at";
 
@@ -13,7 +14,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ tripId: st
     if (result.error) throw result.error;
     return NextResponse.json({ decisions: result.data ?? [] });
   } catch (error) {
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Decisions unavailable" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Decisions unavailable");
   }
 }
 
@@ -31,6 +32,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     if (result.error) throw result.error;
     return NextResponse.json({ decision: result.data }, { status: 201 });
   } catch (error) {
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Decision could not be saved" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Decision could not be saved");
   }
 }

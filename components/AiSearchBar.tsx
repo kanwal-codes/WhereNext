@@ -53,14 +53,15 @@ export function AiSearchBar({
       });
       const body = await res.json();
       if (!res.ok) {
-        setError(body.error ?? "Couldn’t read that search.");
+        setError("Something went wrong with that search. Try rephrasing it.");
         return;
       }
       const directive = (body.directive ?? {}) as AiSearchDirective;
-      setNote(directive.interpretation ?? null);
+      const actionable = Object.keys(directive).some((k) => k !== "interpretation");
+      setNote(directive.interpretation ?? (actionable ? null : "Couldn’t pin that down — searching for it as typed."));
       onDirective(directive, query);
     } catch (e) {
-      if (!(e instanceof DOMException && e.name === "AbortError")) setError("Couldn’t read that search.");
+      if (!(e instanceof DOMException && e.name === "AbortError")) setError("Something went wrong with that search. Try again.");
     } finally {
       setBusy(false);
     }

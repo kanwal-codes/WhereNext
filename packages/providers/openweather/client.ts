@@ -1,4 +1,5 @@
 import { withProviderTimeout } from "../request-signal";
+import { guardedFetch } from "@/lib/server/provider-guard";
 
 export type WeatherDay = { label: string; min: number; max: number; condition: string; wet: boolean };
 export type WeatherResult = { location: string; summary: string; days: WeatherDay[]; retrievedAt: string };
@@ -27,8 +28,8 @@ export async function weather(
   const timeout = withProviderTimeout(signal);
 
   const [curRes, fcRes] = await Promise.all([
-    fetch(`https://api.openweathermap.org/data/2.5/weather?${qs}`, { signal: timeout }),
-    fetch(`https://api.openweathermap.org/data/2.5/forecast?${qs}`, { signal: timeout }),
+    guardedFetch("openweather", `https://api.openweathermap.org/data/2.5/weather?${qs}`, { signal: timeout }),
+    guardedFetch("openweather", `https://api.openweathermap.org/data/2.5/forecast?${qs}`, { signal: timeout }),
   ]);
   if (!curRes.ok && !fcRes.ok) throw new Error(`OpenWeather request failed: ${curRes.status}/${fcRes.status}`);
 

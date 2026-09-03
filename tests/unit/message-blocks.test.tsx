@@ -50,7 +50,7 @@ describe("MessageBlocks", () => {
     expect(html).toContain("Jazz Fest");
     expect(html).toContain("2026-09-12 · Blue Note");
     expect(html).toContain('href="https://tm.example/jazz"');
-    expect(html).toMatch(/confirm dates/i);
+    expect(html).toMatch(/dates and availability can change/i);
   });
 
   it("renders a flights list with fares and a freshness note", () => {
@@ -81,7 +81,7 @@ describe("MessageBlocks", () => {
     expect(html).toContain("Deluxe Room");
     expect(html).not.toContain("google.com/maps");
     expect(html).not.toContain('aria-label="Open Torel Palace"');
-    expect(html).toMatch(/confirm availability at booking/i);
+    expect(html).toMatch(/taxes and fees may be added/i);
 
     const onOpenStay = vi.fn();
     const withOpen = renderToStaticMarkup(<MessageBlocks blocks={[block]} {...handlers} onOpenStay={onOpenStay} />);

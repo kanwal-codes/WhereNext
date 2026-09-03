@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { fail } from "@/lib/server/with-route";
 import { transit } from "@/packages/providers/google-places/transit";
 import { cached } from "@/lib/server/ttl-cache";
 
@@ -19,6 +20,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     return NextResponse.json({ routes: result.routes, freshness: { provider: "google-routes", retrievedAt: result.retrievedAt, cacheTtlSeconds: 30 } });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid transit request" }, { status: 400 });
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Transit is unavailable right now" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Transit is unavailable right now");
   }
 }

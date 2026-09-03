@@ -27,6 +27,16 @@ const SENTINEL: Record<string, string> = {
     "select exists (select 1 from pg_policies where schemaname='public' and tablename='trips' and policyname='owners can delete trips') as ok",
   "0004_trip_dates.sql":
     "select exists (select 1 from information_schema.columns where table_schema='public' and table_name='trips' and column_name='start_date') as ok",
+  "0006_traveler_profile.sql":
+    "select exists (select 1 from information_schema.columns where table_schema='public' and table_name='profiles' and column_name='data') as ok",
+  "0007_trip_share.sql":
+    "select exists (select 1 from information_schema.columns where table_schema='public' and table_name='trips' and column_name='share_slug') as ok",
+  "0008_trip_members_manage.sql":
+    "select exists (select 1 from pg_policies where schemaname='public' and tablename='trip_members' and policyname='owners can update membership') as ok",
+  "0009_trip_invites.sql":
+    "select to_regclass('public.trip_invites') is not null as ok",
+  "0010_realtime_publication.sql":
+    "select exists (select 1 from information_schema.columns where table_schema='public' and table_name='conversation_messages' and column_name='trip_id') as ok",
 };
 
 const url = process.env.DATABASE_URL;

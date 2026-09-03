@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { withProviderTimeout } from "../request-signal";
+import { guardedFetch } from "@/lib/server/provider-guard";
 
 const legSchema = z.object({
   leg_mode: z.string().optional(),
@@ -40,7 +41,7 @@ export async function transitAppPlan(from: [number, number], to: [number, number
   url.searchParams.set("from_lon", String(from[0]));
   url.searchParams.set("to_lat", String(to[1]));
   url.searchParams.set("to_lon", String(to[0]));
-  const response = await fetch(url, { headers: { apiKey: key }, signal: withProviderTimeout(signal) });
+  const response = await guardedFetch("transit-app", url, { headers: { apiKey: key }, signal: withProviderTimeout(signal) });
   if (!response.ok) throw new Error(`Transit App plan failed: ${response.status}`);
   const itinerary = responseSchema.parse(await response.json()).results[0];
   if (!itinerary || !itinerary.duration) return null;

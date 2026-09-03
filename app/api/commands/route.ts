@@ -4,6 +4,7 @@ import { proposedCommandSchema } from "@/packages/contracts/assistant";
 import { mergePreferences, preferencesSchema } from "@/packages/contracts/preferences";
 import { stayDecisionSchema } from "@/packages/contracts/stay";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { fail } from "@/lib/server/with-route";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createPlaceRepository } from "@/features/places/infrastructure/placeRepository";
 
@@ -49,6 +50,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ result: { type: command.type, decision: result.data }, changeImpact: DECISION_IMPACT[command.kind] });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid command data" }, { status: 400 });
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Command failed" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Command failed");
   }
 }

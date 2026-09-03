@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { fail } from "@/lib/server/with-route";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
 import { searchFlights } from "@/packages/providers/duffel/client";
 import { cached } from "@/lib/server/ttl-cache";
@@ -44,6 +45,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid flight request" }, { status: 400 });
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Flight search is unavailable right now" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Flight search is unavailable right now");
   }
 }

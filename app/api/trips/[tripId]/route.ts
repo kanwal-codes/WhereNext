@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isoDate, tripDurationDays } from "@/features/trip/domain/trip";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { fail } from "@/lib/server/with-route";
 
 /** Delete a whole trip. Owner only; the DB cascades places, itinerary, conversation, decisions. */
 export async function DELETE(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
@@ -17,7 +18,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ tripId:
     }
     return new Response(null, { status: 204 });
   } catch (error) {
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Trip could not be deleted" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Trip could not be deleted");
   }
 }
 
@@ -67,6 +68,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ tr
     return NextResponse.json({ trip: result.data });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid trip update" }, { status: 400 });
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Trip could not be updated" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Trip could not be updated");
   }
 }

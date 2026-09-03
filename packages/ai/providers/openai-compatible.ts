@@ -3,6 +3,15 @@ import { withProviderTimeout } from "../../providers/request-signal";
 
 type ProviderConfig = { apiKey: string; baseUrl: string; model: string; supportsReasoningOptions?: boolean };
 
+/** Token counts for one call, reported via the optional `onUsage` callback. */
+export type TokenUsage = { promptTokens: number; completionTokens: number };
+const readUsage = (u: unknown): TokenUsage | undefined => {
+  const usage = u as { prompt_tokens?: number; completion_tokens?: number } | undefined;
+  return typeof usage?.prompt_tokens === "number"
+    ? { promptTokens: usage.prompt_tokens, completionTokens: usage.completion_tokens ?? 0 }
+    : undefined;
+};
+
 function waitForRetry(ms: number, signal?: AbortSignal) {
   return new Promise<void>((resolve, reject) => {
     if (signal?.aborted) { reject(signal.reason ?? new DOMException("Aborted", "AbortError")); return; }
@@ -37,31 +46,57 @@ export class OpenAiCompatibleProvider {
     throw error;
   }
 
-  async generateText(messages: AiMessage[], signal?: AbortSignal) {
+  async generateText(messages: AiMessage[], signal?: AbortSignal, onUsage?: (u: TokenUsage) => void) {
     const response = await this.post({ messages }, 6_000, signal);
-    const body = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+    const body = await response.json() as { choices?: Array<{ message?: { content?: string } }>; usage?: unknown };
+    const usage = readUsage(body.usage);
+    if (usage) onUsage?.(usage);
     const text = body.choices?.[0]?.message?.content?.trim();
     if (!text) throw new Error("AI provider returned an empty response");
     return text;
   }
 
   /** Ask for a single JSON object. Returns the parsed value; the caller validates it against a schema. */
-  async generateStructured(messages: AiMessage[], signal?: AbortSignal): Promise<unknown> {
+  async generateStructured(messages: AiMessage[], signal?: AbortSignal, onUsage?: (u: TokenUsage) => void): Promise<unknown> {
     const response = await this.post({ messages, response_format: { type: "json_object" } }, 8_000, signal);
-    const body = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+    const body = await response.json() as { choices?: Array<{ message?: { content?: string } }>; usage?: unknown };
+    const usage = readUsage(body.usage);
+    if (usage) onUsage?.(usage);
     const raw = body.choices?.[0]?.message?.content ?? "";
     const json = raw.match(/\{[\s\S]*\}/)?.[0];
     if (!json) throw new Error("AI provider returned no JSON object");
     return JSON.parse(json) as unknown;
   }
 
-  async stream(messages: AiMessage[], signal?: AbortSignal) {
-    const response = await this.post({ messages, stream: true }, 12_000, signal);
+  async stream(messages: AiMessage[], signal?: AbortSignal, onUsage?: (u: TokenUsage) => void) {
+    // `include_usage` makes OpenAI emit a trailing usage-only chunk; Cerebras ignores it harmlessly.
+    const response = await this.post({ messages, stream: true, stream_options: { include_usage: true } }, 12_000, signal);
     if (!response.body) {
       const error = new Error("AI streaming response had no body") as Error & { status?: number };
       error.status = response.status;
       throw error;
     }
-    return response.body;
+    if (!onUsage) return response.body;
+    // Tee the SSE through unchanged; sniff `data:` lines for the usage block.
+    let buffer = "";
+    const sniff = new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        controller.enqueue(chunk);
+        buffer += new TextDecoder().decode(chunk, { stream: true });
+        let nl: number;
+        while ((nl = buffer.indexOf("\n")) !== -1) {
+          const line = buffer.slice(0, nl).trim();
+          buffer = buffer.slice(nl + 1);
+          if (!line.startsWith("data:") || line.includes("[DONE]")) continue;
+          try {
+            const usage = readUsage((JSON.parse(line.slice(5).trim()) as { usage?: unknown }).usage);
+            if (usage) onUsage(usage);
+          } catch {
+            /* partial frame */
+          }
+        }
+      },
+    });
+    return response.body.pipeThrough(sniff);
   }
 }

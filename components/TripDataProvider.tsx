@@ -3,12 +3,16 @@
 import { createContext, useContext, useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
+import { useTripRealtime, type PresencePeer } from "@/lib/client/trip-realtime";
+import { primeTrip } from "@/lib/client/offline-store";
 import type { TripWorkspaceData } from "@/features/workspace/application/loadTripWorkspace";
 
 type TripDataValue = {
   tripId: string;
   /** Server-loaded snapshot; null in the credential-free `rebuild-preview` route. */
   data: TripWorkspaceData | null;
+  /** Collaborators currently viewing this trip (includes you). */
+  peers: PresencePeer[];
 };
 
 const TripDataContext = createContext<TripDataValue | null>(null);
@@ -16,10 +20,12 @@ const TripDataContext = createContext<TripDataValue | null>(null);
 export function TripDataProvider({
   tripId,
   data,
+  me,
   children,
 }: {
   tripId: string;
   data: TripWorkspaceData | null;
+  me?: { userId: string; name: string };
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -28,8 +34,17 @@ export function TripDataProvider({
   // through Next's data refresh so server components re-render with fresh data.
   useEffect(() => subscribeWorkspaceChanges(() => router.refresh()), [router]);
 
+  // Supabase Realtime re-broadcasts a collaborator's row changes onto that same
+  // bus, and reports who else is here.
+  const peers = useTripRealtime(tripId, me);
+
+  // Keep an offline mirror warm for the "Today" view.
+  useEffect(() => {
+    if (data && typeof navigator !== "undefined" && navigator.onLine) void primeTrip(tripId);
+  }, [tripId, data]);
+
   return (
-    <TripDataContext.Provider value={{ tripId, data }}>
+    <TripDataContext.Provider value={{ tripId, data, peers }}>
       {children}
     </TripDataContext.Provider>
   );

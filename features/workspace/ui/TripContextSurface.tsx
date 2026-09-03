@@ -118,7 +118,7 @@ export function TripContextSurface({
       setTimeout(() => setFlash(null), 1200);
       announceWorkspaceChange("preferences");
     } catch {
-      notifyToast("Could not save — trip owner only.", "error");
+      notifyToast("Only the trip owner can change this.", "error");
     } finally {
       setSavingKey(null);
     }
@@ -136,17 +136,14 @@ export function TripContextSurface({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ startDate: dStart || null, endDate: dEnd || null }),
       });
-      if (!response.ok) {
-        const detail = await response.json().then((b) => (b && typeof b.error === "string" ? b.error : null)).catch(() => null);
-        throw new Error(detail ?? "Could not save those dates.");
-      }
+      if (!response.ok) throw new Error();
       setTripDates({ start: dStart, end: dEnd });
       setEditingDates(false);
       setFlash("dates");
       setTimeout(() => setFlash(null), 1200);
       announceWorkspaceChange("preferences");
-    } catch (error) {
-      notifyToast(error instanceof Error ? error.message : "Could not save those dates.", "error");
+    } catch {
+      notifyToast("Those dates didn’t save. Try again.", "error");
     } finally {
       setSavingDates(false);
     }
@@ -169,7 +166,7 @@ export function TripContextSurface({
       await refresh();
       announceWorkspaceChange(action === "confirm" ? "preferences" : "decision");
     } catch {
-      notifyToast("Could not update that.", "error");
+      notifyToast("That didn’t save. Try again.", "error");
     } finally {
       setBusyKey(null);
     }

@@ -4,7 +4,7 @@ import { readStayDecision, type StayDecision } from "@/packages/contracts/stay";
 export type TripContext = {
   trip: { name: string; destination: string; origin: string | null; duration_days: number | null; start_date: string | null; end_date: string | null; travelers: number | null } | null;
   preferences: Record<string, unknown>;
-  itinerary: Array<{ title: string; day_index: number; locked: boolean; latitude?: number; longitude?: number }>;
+  itinerary: Array<{ title: string; day_index: number; position?: number; locked: boolean; latitude?: number; longitude?: number }>;
   lockedTitles: string[];
   /** The locked stay first (when it has coordinates), then locked itinerary items — the anchors for "distance from" on cards. */
   lockedPlaces: Array<{ title: string; latitude: number; longitude: number }>;
@@ -25,7 +25,7 @@ export async function loadTripContext(supabase: SupabaseClient, tripId: string):
   const [trip, preferences, itinerary, places, decisions] = await Promise.all([
     supabase.from("trips").select("name,destination,origin,duration_days,start_date,end_date,travelers").eq("id", tripId).maybeSingle(),
     supabase.from("trip_preferences").select("data").eq("trip_id", tripId).maybeSingle(),
-    supabase.from("trip_itinerary_items").select("title,day_index,metadata").eq("trip_id", tripId).is("removed_at", null).order("day_index").limit(50),
+    supabase.from("trip_itinerary_items").select("title,day_index,position,metadata").eq("trip_id", tripId).is("removed_at", null).order("day_index").order("position").limit(50),
     supabase.from("trip_places").select("status,places(name,category,address)").eq("trip_id", tripId).limit(50),
     supabase.from("trip_decisions").select("kind,value,source,created_at").eq("trip_id", tripId).order("created_at", { ascending: false }).limit(30),
   ]);
@@ -36,6 +36,7 @@ export async function loadTripContext(supabase: SupabaseClient, tripId: string):
     return {
       title: item.title,
       day_index: item.day_index,
+      position: typeof item.position === "number" ? item.position : 0,
       locked: metadata?.locked === true,
       latitude: coord(metadata, "latitude"),
       longitude: coord(metadata, "longitude"),
@@ -117,7 +118,8 @@ export function formatTripMemory(
   ].filter(Boolean);
 
   const itinerary = context.itinerary
-    .map((item) => (item.title ? `${item.title}${typeof item.day_index === "number" ? ` (day ${item.day_index + 1})` : ""}${item.locked ? " [locked]" : ""}` : ""))
+    // day_index is 1-based everywhere it's written (add_itinerary_item, placement, the itinerary route).
+    .map((item) => (item.title ? `${item.title}${typeof item.day_index === "number" ? ` (day ${item.day_index})` : ""}${item.locked ? " [locked]" : ""}` : ""))
     .filter(Boolean);
   const savedPlaces = context.places
     .map((item) => (item.place?.name ? `${item.place.name} [${item.status ?? "saved"}]` : ""))

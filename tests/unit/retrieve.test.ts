@@ -1,6 +1,8 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { resetProviderGuards } from "../../lib/server/provider-guard";
 import { retrieveEvidence } from "../../lib/application/retrieve";
 
+beforeEach(() => resetProviderGuards());
 afterEach(() => {
   vi.restoreAllMocks();
   delete process.env.GOOGLE_MAPS_API_KEY;

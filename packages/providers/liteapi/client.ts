@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { withProviderTimeout } from "../request-signal";
+import { guardedFetch } from "@/lib/server/provider-guard";
+import { stripTags } from "@/lib/server/html-text";
 import { stayReviewSchema, type StayDetails, type StayFacets, type StayOption, type StayReview, type StayRoom, type StaySearchResult } from "../../contracts/stay";
 
 export type { StayDetails, StayOption, StayRoom, StaySearchResult, StayReview };
@@ -88,10 +90,9 @@ const hotelDetailsSchema = z.object({
 const nightsBetween = (checkin: string, checkout: string) =>
   Math.max(1, Math.round((Date.parse(checkout) - Date.parse(checkin)) / 86_400_000));
 
-const stripTags = (value: string) => value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
 async function post(path: string, body: unknown, signal?: AbortSignal) {
-  const response = await fetch(`${API}${path}`, { method: "POST", headers: HEADERS(), body: JSON.stringify(body), signal: withProviderTimeout(signal, 20_000) });
+  const response = await guardedFetch("liteapi", `${API}${path}`, { method: "POST", headers: HEADERS(), body: JSON.stringify(body), signal: withProviderTimeout(signal, 20_000) });
   if (!response.ok) throw new Error(`LiteAPI ${path} failed: ${response.status}`);
   return response.json();
 }
@@ -99,7 +100,7 @@ async function post(path: string, body: unknown, signal?: AbortSignal) {
 async function get(path: string, params: Record<string, string>, signal?: AbortSignal) {
   const url = new URL(`${API}${path}`);
   for (const [name, value] of Object.entries(params)) url.searchParams.set(name, value);
-  const response = await fetch(url, { headers: HEADERS(), signal: withProviderTimeout(signal, 20_000) });
+  const response = await guardedFetch("liteapi", url, { headers: HEADERS(), signal: withProviderTimeout(signal, 20_000) });
   if (!response.ok) throw new Error(`LiteAPI ${path} failed: ${response.status}`);
   return response.json();
 }

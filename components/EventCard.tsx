@@ -1,22 +1,43 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import Link from "next/link";
 import { CalendarClock, MapPin } from "lucide-react";
+import { CompareButton, useTripPanelMaybe } from "@/components/TripPanelProvider";
 import { eventDetailHref } from "@/lib/places-ui";
 import { cn } from "@/lib/utils";
 
 export type NearbyEvent = { title: string; url: string; date?: string; venue?: string; source: string; imageUrl?: string };
 
-/** A single event tile — links to the full event detail page. Fixed height so a grid of these is uniform. */
+/** A single event tile — opens the shared trip panel (falls back to the detail route). */
 export function EventCard({ tripId, event, className }: { tripId: string; event: NearbyEvent; className?: string }) {
+  const href = eventDetailHref(tripId, event);
+  const panelCtx = useTripPanelMaybe();
+  const open = panelCtx
+    ? (e: MouseEvent) => {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+        e.preventDefault();
+        panelCtx.openPanel({ kind: "event", seed: { name: event.title, url: event.url, source: event.source, imageUrl: event.imageUrl, date: event.date, venue: event.venue } });
+      }
+    : undefined;
   return (
-    <Link
-      href={eventDetailHref(tripId, event)}
-      className={cn(
-        "flex h-[19rem] flex-col overflow-hidden rounded-2xl border border-border bg-card text-left shadow-soft transition-shadow hover:shadow-lift",
-        className,
-      )}
-    >
+    <div className={cn("relative h-[19rem]", className)}>
+      <CompareButton
+        entry={{
+          id: event.url,
+          kind: "event",
+          name: event.title,
+          href,
+          subtitle: event.source,
+          attrs: { when: event.date, address: event.venue, detail: "Event" },
+        }}
+        className="absolute right-2 top-2 z-10 backdrop-blur"
+      />
+      <Link
+        href={href}
+        onClick={open}
+        className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card text-left shadow-soft transition-shadow hover:shadow-lift"
+      >
       {event.imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element -- external event image
         <img src={event.imageUrl} alt={event.title} loading="lazy" width={280} height={128} className="h-32 w-full shrink-0 object-cover" />
@@ -36,6 +57,7 @@ export function EventCard({ tripId, event, className }: { tripId: string; event:
         )}
         <p className="mt-auto pt-1 text-[11px] font-medium text-primary">View details &rarr;</p>
       </div>
-    </Link>
+      </Link>
+    </div>
   );
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { fail } from "@/lib/server/with-route";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -11,7 +12,7 @@ export async function DELETE() {
     if (error) throw error;
     await supabase.auth.signOut().catch(() => undefined);
     return NextResponse.json({ deleted: true });
-  } catch {
-    return NextResponse.json({ error: "Account could not be deleted" }, { status: 503 });
+  } catch (error) {
+    return fail(error, "Your account couldn’t be deleted. Try again in a moment.");
   }
 }

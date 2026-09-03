@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { fail } from "@/lib/server/with-route";
 import { route } from "@/packages/providers/mapbox/client";
 import { cached } from "@/lib/server/ttl-cache";
 
@@ -17,6 +18,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     return NextResponse.json({ route: result.route, freshness: { provider: "mapbox", retrievedAt: result.retrievedAt, cacheTtlSeconds: 60 } });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid directions request" }, { status: 400 });
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Directions are unavailable right now" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Directions are unavailable right now");
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { ArrowRight, Loader2, Mic } from "lucide-react";
 import { useSpeechInput } from "@/lib/use-speech-input";
 import { currencyForLocale } from "@/lib/currency";
@@ -29,6 +29,46 @@ export function NewTripForm() {
   const [prompt, setPrompt] = useState("");
   const [parsing, setParsing] = useState(false);
   const [filledFromPrompt, setFilledFromPrompt] = useState(false);
+
+  const [mode, setMode] = useState<"describe" | "link">("describe");
+  const [link, setLink] = useState("");
+  const [importing, setImporting] = useState(false);
+
+  // Pre-fill the vibe fields from the traveller's saved profile — only ones they haven't touched.
+  useEffect(() => {
+    fetch("/api/profile")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body: { profile?: Record<string, unknown> } | null) => {
+        const p = body?.profile;
+        if (!p) return;
+        const s = (v: unknown) => (Array.isArray(v) ? v.join(", ") : typeof v === "string" ? v : v == null ? "" : String(v));
+        setBudget((cur) => cur || s(p.budget));
+        setPace((cur) => cur || s(p.pace));
+        setTransportPreference((cur) => cur || s(p.transportPreference));
+        setDietaryNeeds((cur) => cur || s(p.dietaryNeeds));
+      })
+      .catch(() => undefined);
+  }, []);
+
+  async function runImport() {
+    const url = link.trim();
+    if (!url || importing) return;
+    setImporting(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/trips/import", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body.tripId) throw new Error(body.error);
+      window.location.assign(`/trips/${body.tripId}/chat`);
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : "That link couldn’t be imported. Try describing the trip instead.");
+      setImporting(false);
+    }
+  }
 
   const speechBaseRef = useRef("");
   const speech = useSpeechInput({
@@ -77,7 +117,7 @@ export function NewTripForm() {
       if (str(parsed.dietaryNeeds)) setDietaryNeeds(str(parsed.dietaryNeeds)!);
       setFilledFromPrompt(true);
     } catch {
-      setError("Couldn’t read that. Fill the form in below instead.");
+      setError("We couldn’t read that — fill in the form below instead.");
     } finally {
       setParsing(false);
     }
@@ -118,7 +158,7 @@ export function NewTripForm() {
       }),
     });
     if (!response.ok) {
-      setError("We could not create that trip. Nothing was lost — try again.");
+      setError("We couldn't create that trip. Nothing was lost — try again.");
       setSaving(false);
       return;
     }
@@ -131,6 +171,46 @@ export function NewTripForm() {
   return (
     <div className="space-y-5">
       <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+        <div className="mb-3 flex w-fit rounded-full border border-border p-0.5 text-xs">
+          {(["describe", "link"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => { setMode(m); setError(null); }}
+              className={cn("rounded-full px-3 py-1 font-medium transition-colors", mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
+            >
+              {m === "describe" ? "Describe your trip" : "Paste a link"}
+            </button>
+          ))}
+        </div>
+
+        {mode === "link" ? (
+          <label className="block text-sm font-medium">
+            Import from a link
+            <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-input bg-background px-3 py-2 transition-shadow focus-within:ring-2 focus-within:ring-ring/25">
+              <input
+                type="url"
+                inputMode="url"
+                value={link}
+                onChange={(e) => setLink(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void runImport(); } }}
+                placeholder="https://…  a blog post, guide, or itinerary"
+                className="min-w-0 flex-1 bg-transparent py-1 text-sm outline-none placeholder:text-muted-foreground"
+              />
+              <button
+                type="button"
+                onClick={() => void runImport()}
+                disabled={importing || !link.trim()}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-medium text-primary-foreground transition-opacity disabled:opacity-60"
+              >
+                {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Import"}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {importing ? "Reading the page and building your trip…" : "We’ll pull the destination and the places it mentions into a new trip."}
+            </p>
+          </label>
+        ) : (
         <label className="block text-sm font-medium">
           Describe your trip
           <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-input bg-background px-3 py-2 transition-shadow focus-within:ring-2 focus-within:ring-ring/25">
@@ -170,11 +250,14 @@ export function NewTripForm() {
             </button>
           </div>
         </label>
-        <p className="mt-2 text-xs text-muted-foreground">
-          {filledFromPrompt
-            ? "Filled from your description — check and edit below, then create."
-            : "Optional. Type it in a sentence and we’ll fill the form for you."}
-        </p>
+        )}
+        {mode === "describe" && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {filledFromPrompt
+              ? "Filled from your description — check and edit below, then create."
+              : "Optional. Type it in a sentence and we’ll fill the form for you."}
+          </p>
+        )}
       </div>
 
       <form onSubmit={submit} className="space-y-5">

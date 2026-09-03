@@ -4,6 +4,9 @@ import { assistantSystemPrompt, type AssistantBlock, type AssistantTurnMeta, typ
 import { createAiGateway } from "@/packages/ai/gateway";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { fail, withRoute } from "@/lib/server/with-route";
+import { logger } from "@/lib/server/logger";
+import { costUsd, estimateTokens } from "@/lib/ai/pricing";
 import { loadTripContext, serializeTripContext, formatTripMemory } from "@/lib/application/trip-context";
 import { resolveTurn, type ResolvedTurn } from "@/lib/application/turn-resolver";
 import { retrieveEvidence } from "@/lib/application/retrieve";
@@ -40,10 +43,11 @@ function surfaceForIntent(intent: ResolvedTurn["intent"]): AssistantTurnMeta["su
   return "chat";
 }
 
-function readDislikes(preferences: Record<string, unknown>): string[] {
-  const raw = preferences.dislikes;
+function readStrList(preferences: Record<string, unknown>, key: string): string[] {
+  const raw = preferences[key];
   return Array.isArray(raw) ? raw.filter((value): value is string => typeof value === "string") : [];
 }
+const readDislikes = (preferences: Record<string, unknown>): string[] => readStrList(preferences, "dislikes");
 
 /** True when this suggestion key already has a confirmed value on the trip. */
 function factAlreadyConfirmed(key: string, ctx: Awaited<ReturnType<typeof loadTripContext>>): boolean {
@@ -91,7 +95,7 @@ async function persistSuggestedFacts(
   }
 }
 
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   const parsed = aiRequestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid AI request" }, { status: 400 });
   const { tripId } = parsed.data;
@@ -100,7 +104,7 @@ export async function POST(request: Request) {
   try {
     ({ supabase } = await requireTripMember(tripId));
   } catch (error) {
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Assistant unavailable" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Assistant unavailable");
   }
 
   try {
@@ -128,9 +132,16 @@ export async function POST(request: Request) {
 
     const dislikes = readDislikes(tripCtx.preferences);
 
+    // Per-turn trace timing + token accounting (COMPOSE usage arrives late, via the stream sniffer).
+    const t0 = performance.now();
+    const latencyMs: { resolve?: number; retrieve?: number; compose?: number; total?: number } = {};
+    let tokensIn = 0;
+    let tokensOut = 0;
+
     // --- RESOLVE ---------------------------------------------------------------
     const resolved = await resolveTurn({ message: prompt, history: modelMessages, tripSummary, signal: request.signal });
-    if (process.env.AI_DEBUG) console.log("[RESOLVE]", JSON.stringify(resolved));
+    latencyMs.resolve = Math.round(performance.now() - t0);
+    logger.debug({ resolved }, "resolve");
     const language = resolved.language;
     const locationFocus = resolved.locationFocus ?? destination;
 
@@ -169,7 +180,13 @@ export async function POST(request: Request) {
         : call.tool === "flights" ? { ...call, departureDate: call.departureDate ?? tripStart }
         : call,
     );
-    const evidence = await retrieveEvidence(toolPlan, { dislikes, currency: resolveCurrency(tripCtx.preferences) }, request.signal);
+    const tRetrieve = performance.now();
+    const evidence = await retrieveEvidence(
+      toolPlan,
+      { dislikes, currency: resolveCurrency(tripCtx.preferences), interests: readStrList(tripCtx.preferences, "interests"), likes: readStrList(tripCtx.preferences, "likes") },
+      request.signal,
+    );
+    latencyMs.retrieve = Math.round(performance.now() - tRetrieve);
     const needsGrounding = toolPlan.length > 0;
     const hasGrounding = evidence.places.length > 0 || evidence.sources.length > 0 || evidence.routes.length > 0 || evidence.events.length > 0 || evidence.flights.length > 0 || evidence.stays.length > 0 || Boolean(evidence.weather);
 
@@ -255,9 +272,11 @@ ${JSON.stringify({
       : Promise.resolve(null);
 
     // --- COMPOSE -------------------------------------------------------------
+    const tCompose = performance.now();
     const stream = await withTripAiStream(tripId, () => createAiGateway().stream(
       [{ role: "system", content: system }, ...compactAiMessages(modelMessages, 12, 12_000)],
       request.signal,
+      (u) => { tokensIn += u.promptTokens; tokensOut += u.completionTokens; },
     ));
 
     // --- STRUCTURE (assembled from evidence + resolver, not model JSON) ------
@@ -390,14 +409,35 @@ ${JSON.stringify({
     };
 
     return new Response(
-      persistedAssistantStream(stream, supabase, tripId, idempotencyKey, (content) => sanitizeAssistantContent(content, allowedUrls), meta),
+      persistedAssistantStream(stream, supabase, tripId, idempotencyKey, (content) => sanitizeAssistantContent(content, allowedUrls), meta, (finalText) => {
+        latencyMs.compose = Math.round(performance.now() - tCompose);
+        latencyMs.total = Math.round(performance.now() - t0);
+        // A local fake / Cerebras may not report usage — fall back to a char/4 estimate.
+        if (!tokensIn) tokensIn = estimateTokens(system);
+        if (!tokensOut) tokensOut = estimateTokens(finalText);
+        logger.info(
+          {
+            ai: {
+              intent: resolved.intent,
+              toolPlan: toolPlan.map((t) => t.tool),
+              providersFailed: evidence.unavailableProviders,
+              blocks: blocks.map((b) => b.type),
+              tokensIn,
+              tokensOut,
+              costUsd: Number(costUsd(process.env.AI_MODEL, tokensIn, tokensOut).toFixed(5)),
+              latencyMs,
+            },
+          },
+          "ai turn",
+        );
+      }),
       { headers: SSE_HEADERS },
     );
   } catch (error) {
     const status = typeof error === "object" && error !== null && "status" in error && typeof error.status === "number" ? error.status : 503;
     return NextResponse.json(
-      { error: status === 429 ? "Assistant is rate-limited; please try again shortly." : "Assistant unavailable" },
+      { error: status === 429 ? "The assistant is busy right now. Try again in a moment." : "The assistant is unavailable right now." },
       { status, headers: status === 429 ? { "retry-after": "10" } : undefined },
     );
   }
-}
+});

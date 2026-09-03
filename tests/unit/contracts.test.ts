@@ -16,7 +16,7 @@ describe("rebuild contracts", () => {
   it("formats durable trip memory with profile, likes, dislikes and locked items", () => {
     const result = formatTripMemory({
       preferences: { groupType: "friends", budget: 120, dislikes: ["bungee jumping"], interests: ["nightlife"] },
-      itinerary: [{ title: "Confirmed first-day placeholder", day_index: 0, locked: true }],
+      itinerary: [{ title: "Confirmed first-day placeholder", day_index: 1, locked: true }],
       lockedTitles: ["Confirmed first-day placeholder"],
       places: [],
       decisions: [],

@@ -14,6 +14,7 @@ import type { AssistantBlock, PlaceCard, StayCardItem, TrustLabel } from "@/pack
 import type { Place } from "@/packages/contracts/place";
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
 import { ExternalLink } from "@/components/ExternalLink";
+import { CompareView } from "@/components/CompareView";
 import { cn } from "@/lib/utils";
 
 export type BlockHandlers = {
@@ -24,8 +25,6 @@ export type BlockHandlers = {
   onOpenPlace?: (place: PlaceCard) => void;
   /** When set, a stay card opens the hotel (rooms + details) in the chat side-panel. */
   onOpenStay?: (stay: StayCardItem, dates: { checkin: string; checkout: string }) => void;
-  /** When set, a comparison opens a live side-by-side in the chat side-panel. */
-  onOpenCompare?: (placeIds: string[]) => void;
 };
 
 /** Drop the card-only fields so what's left is a plain provider Place. */
@@ -33,7 +32,7 @@ const toPlace = ({ photoUrl: _photo, trust: _trust, distanceToLocked: _distance,
 
 const TRUST_LABEL: Record<TrustLabel, string> = {
   verified: "Verified",
-  sourced: "From provider",
+  sourced: "From the web",
   estimated: "Estimated",
   assumption: "Assumption",
   unavailable: "Unavailable",
@@ -179,7 +178,7 @@ function StayCardView({ hotel, onOpen }: { hotel: StayCardItem; onOpen?: () => v
   );
 }
 
-export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenStay, onOpenCompare }: { blocks: AssistantBlock[] } & BlockHandlers) {
+export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenStay }: { blocks: AssistantBlock[] } & BlockHandlers) {
   return (
     <div className="mt-3 flex flex-col gap-3">
       {blocks.map((block, index) => {
@@ -196,8 +195,8 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
         }
 
         if (block.type === "comparison") {
-          // Real places → open a live side-by-side in the panel instead of an inline table.
-          if (block.placeIds && block.placeIds.length >= 2 && onOpenCompare) {
+          // Real places → a live side-by-side, rendered inline in the conversation (no side panel).
+          if (block.placeIds && block.placeIds.length >= 2) {
             return (
               <div key={index} className={cn(card, "p-3.5")}>
                 <p className="font-display text-sm">{block.title}</p>
@@ -206,9 +205,9 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
                     <strong className="font-medium">{block.bestForYou.label}</strong> — {block.bestForYou.reason}
                   </p>
                 )}
-                <button type="button" onClick={() => onOpenCompare(block.placeIds!)} className={cn(iconBtn, "mt-2.5")}>
-                  Open side by side <ArrowUpRight className="h-3.5 w-3.5" />
-                </button>
+                <div className="mt-2.5">
+                  <CompareView tripId={tripId} ids={block.placeIds} />
+                </div>
               </div>
             );
           }
@@ -326,7 +325,7 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
               ))}
               <p className={freshness}>
                 <TicketCheck className="mr-1 inline h-3 w-3" />
-                Snapshot from {fmtTime(block.retrievedAt)} — confirm dates &amp; availability on the ticket page.
+                Dates and availability can change — check the ticket page before you buy.
               </p>
             </div>
           );
@@ -351,7 +350,7 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
                   </span>
                 </div>
               ))}
-              <p className={freshness}>Live estimate from {fmtTime(block.retrievedAt)} — fares change; book on the airline or a travel site.</p>
+              <p className={freshness}>Fares change quickly — check the airline or a travel site before booking.</p>
             </div>
           );
         }
@@ -389,7 +388,7 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
                   ))}
                 </div>
               )}
-              <p className={freshness}>Live rates from {fmtTime(block.retrievedAt)} — taxes/fees may be extra; confirm availability at booking.</p>
+              <p className={freshness}>Taxes and fees may be added at checkout — confirm the total when you book.</p>
             </div>
           );
         }

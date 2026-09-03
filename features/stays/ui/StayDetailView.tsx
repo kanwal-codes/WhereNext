@@ -68,8 +68,8 @@ export function StayDetailView({
     return (
       <div className={cn(pad, "pt-10")}>
         {!panel && <BackLink fallback={`/trips/${tripId}/stay`} label="Back" />}
-        <h1 className="mt-6 font-display text-2xl">Hotel details are unavailable</h1>
-        <p className="mt-2 text-sm text-muted-foreground">LiteAPI returned nothing for this hotel right now. Try again from the Stay tab.</p>
+        <h1 className="mt-6 font-display text-2xl">We couldn’t load this hotel</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Something went wrong just now. Head back to the Stay tab and try again in a moment.</p>
       </div>
     );
   }
@@ -88,7 +88,7 @@ export function StayDetailView({
           {hotel?.description ? (
             <p className="mt-2 text-[15px] leading-[1.8] text-ink-soft">{hotel.description}</p>
           ) : (
-            <p className="mt-2 text-sm text-muted-foreground">LiteAPI has no description for this hotel.</p>
+            <p className="mt-2 text-sm text-muted-foreground">No description available for this hotel yet.</p>
           )}
           {(hotel?.checkinFrom || hotel?.checkout) && (
             <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -251,10 +251,10 @@ export function StayDetailView({
       </Link>
 
       <div className="rounded-2xl border border-dashed border-border p-5">
-        <p className="eyebrow">Where this came from</p>
-        <p className="mt-2 text-sm leading-relaxed text-ink-soft">LiteAPI live rates</p>
-        {s.freshness && <p className="mt-1 text-xs text-muted-foreground">Checked {s.freshness}</p>}
-        <p className="mt-2 text-[11px] text-muted-foreground">Taxes/fees may be extra; confirm availability at booking.</p>
+        <p className="eyebrow">Good to know</p>
+        <p className="mt-2 text-sm leading-relaxed text-ink-soft">
+          Prices can change and rooms sell out. Taxes and fees may be added at checkout — confirm the total when you book.
+        </p>
       </div>
     </div>
   );

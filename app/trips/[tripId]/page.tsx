@@ -11,6 +11,8 @@ import { tripWhen } from "@/lib/trip-dates";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { useDestinationPhoto } from "@/features/places/application/useDestinationPhoto";
 import { TripWeather } from "@/components/TripWeather";
+import { ShareTrip } from "@/features/trip/ui/ShareTrip";
+import { TripReviewPanel } from "@/features/workspace/ui/TripReviewPanel";
 
 type SavedPlace = { status?: string; places?: { id: string; name: string; category?: string | null; address?: string | null } };
 type ItineraryRow = { id: string; title: string; day_index: number };
@@ -182,6 +184,10 @@ export default function TripOverviewPage() {
               </Reveal>
             )}
 
+            <Reveal delay={0.05}>
+              <TripReviewPanel tripId={tripId} />
+            </Reveal>
+
             <Reveal delay={0.06}>
               <section className="rounded-2xl border border-border bg-card p-5 shadow-soft">
                 <h2 className="font-display text-lg">Still unresolved</h2>
@@ -228,6 +234,10 @@ export default function TripOverviewPage() {
                 </Link>
               </Reveal>
             )}
+
+            <Reveal delay={0.1}>
+              <ShareTrip tripId={tripId} />
+            </Reveal>
 
             {decisions.length > 0 && (
               <Reveal delay={0.12}>

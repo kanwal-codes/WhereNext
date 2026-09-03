@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cached, clearMemoryCache } from "../../lib/server/ttl-cache";
+import { cached, cacheStats, clearMemoryCache } from "../../lib/server/ttl-cache";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -23,15 +23,32 @@ describe("TTL cache", () => {
     expect(failedLoads).toBe(2);
   });
 
-  it("evicts expired entries before it evicts a hot one", async () => {
+  it("serves a stale value and refreshes it once in the background", async () => {
     vi.useFakeTimers({ now: 1_000_000 });
-    // 255 hot entries + 1 that expires almost immediately = a full cache.
-    for (let i = 0; i < 255; i += 1) await cached(`hot-${i}`, 60_000, async () => i);
-    await cached("stale", 1, async () => "stale");
-    vi.setSystemTime(1_000_500);
-    // Inserting one more must evict the expired entry, not the oldest hot one.
-    await cached("newcomer", 60_000, async () => "new");
-    await expect(cached("hot-0", 60_000, async () => { throw new Error("hot-0 was evicted"); })).resolves.toBe(0);
-    await expect(cached("stale", 60_000, async () => "reloaded")).resolves.toBe("reloaded");
+    let loads = 0;
+    await expect(cached("swr", 1_000, async () => { loads += 1; return `v${loads}`; })).resolves.toBe("v1");
+    expect(loads).toBe(1);
+
+    vi.setSystemTime(1_002_000); // past the 1s TTL
+    // First caller past expiry gets the stale value; exactly one background refresh runs.
+    await expect(cached("swr", 1_000, async () => { loads += 1; return `v${loads}`; })).resolves.toBe("v1");
+    await vi.waitFor(() => expect(loads).toBe(2)); // background refresh completed
+
+    // Next read (within the refreshed TTL window) is the new value, no extra load.
+    await expect(cached("swr", 1_000, async () => { loads += 1; return "v3"; })).resolves.toBe("v2");
+    expect(loads).toBe(2);
+  });
+
+  it("counts hits, misses, stale serves and refreshes", async () => {
+    vi.useFakeTimers({ now: 2_000_000 });
+    await cached("m", 1_000, async () => 1); // miss
+    await cached("m", 1_000, async () => 2); // hit
+    vi.setSystemTime(2_002_000);
+    await cached("m", 1_000, async () => 3); // stale serve + refresh
+    const s = cacheStats();
+    expect(s.misses).toBe(1);
+    expect(s.hits).toBe(1);
+    expect(s.staleServes).toBe(1);
+    expect(s.refreshes).toBe(1);
   });
 });

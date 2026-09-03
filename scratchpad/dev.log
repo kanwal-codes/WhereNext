@@ -237,3 +237,277 @@ TypeError: Cannot read properties of undefined (reading 'call')
  ✓ Compiled in 500ms (3138 modules)
 <w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename '/Users/kanwal/Projects/Next Place to Be Rebuild/.next/cache/webpack/server-development/2.pack.gz_' -> '/Users/kanwal/Projects/Next Place to Be Rebuild/.next/cache/webpack/server-development/2.pack.gz'
 <w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename '/Users/kanwal/Projects/Next Place to Be Rebuild/.next/cache/webpack/client-development/1.pack.gz_' -> '/Users/kanwal/Projects/Next Place to Be Rebuild/.next/cache/webpack/client-development/1.pack.gz'
+ ✓ Compiled in 446ms (1419 modules)
+ ✓ Compiled in 389ms (1419 modules)
+ ✓ Compiled in 159ms (1419 modules)
+ ✓ Compiled in 137ms (1419 modules)
+ ✓ Compiled in 776ms (3138 modules)
+ ✓ Compiled in 779ms (3136 modules)
+ ✓ Compiled in 368ms (1424 modules)
+ ✓ Compiled in 140ms (1424 modules)
+ ✓ Compiled in 1229ms (3150 modules)
+ ✓ Compiled in 306ms (3150 modules)
+ ✓ Compiled in 449ms (3150 modules)
+ ✓ Compiled in 762ms (3150 modules)
+ ✓ Compiled in 284ms (1424 modules)
+ ✓ Compiled in 138ms (1424 modules)
+ ✓ Compiled in 309ms (1424 modules)
+ ✓ Compiled in 560ms (3152 modules)
+ ✓ Compiled in 682ms (3152 modules)
+ ✓ Compiled in 282ms (3152 modules)
+ ✓ Compiled in 161ms (1425 modules)
+ ✓ Compiled in 144ms (1425 modules)
+ ✓ Compiled in 157ms (1425 modules)
+ ✓ Compiled in 549ms (3152 modules)
+ ✓ Compiled in 607ms (3152 modules)
+ ✓ Compiled in 304ms (3152 modules)
+ ✓ Compiled in 278ms (3152 modules)
+ ✓ Compiled in 1000ms (3152 modules)
+ ✓ Compiled in 180ms (1425 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename '/Users/kanwal/Projects/Next Place to Be Rebuild/.next/cache/webpack/server-development/1.pack.gz_' -> '/Users/kanwal/Projects/Next Place to Be Rebuild/.next/cache/webpack/server-development/1.pack.gz'
+ ○ Compiling / ...
+ ✓ Compiled / in 539ms (1734 modules)
+ GET / 200 in 773ms
+ ○ Compiling /api/trips ...
+ ✓ Compiled /api/trips in 558ms (1752 modules)
+ POST /api/trips 201 in 2397ms
+ ✓ Compiled /api/trips/[tripId]/itinerary in 271ms (3167 modules)
+ POST /api/trips/7b7d2662-0ca8-4bcf-b17e-a95d443903e3/itinerary 201 in 1402ms
+ POST /api/trips/7b7d2662-0ca8-4bcf-b17e-a95d443903e3/itinerary 201 in 547ms
+ POST /api/trips/7b7d2662-0ca8-4bcf-b17e-a95d443903e3/itinerary 201 in 408ms
+ POST /api/trips/7b7d2662-0ca8-4bcf-b17e-a95d443903e3/itinerary 201 in 375ms
+ PATCH /api/trips/7b7d2662-0ca8-4bcf-b17e-a95d443903e3/itinerary 200 in 705ms
+ PATCH /api/trips/7b7d2662-0ca8-4bcf-b17e-a95d443903e3/itinerary 200 in 416ms
+ PATCH /api/trips/7b7d2662-0ca8-4bcf-b17e-a95d443903e3/itinerary 200 in 385ms
+ ✓ Compiled in 1076ms (1425 modules)
+ ✓ Compiled in 162ms (1425 modules)
+ ⨯ ./components/EventCard.tsx
+Error:   [31mx[0m Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+    ,-[[36;1;4m/Users/kanwal/Projects/Next Place to Be Rebuild/components/EventCard.tsx[0m:52:1]
+ [2m49[0m |       </div>
+ [2m50[0m |     </Link>
+ [2m51[0m |   );
+ [2m52[0m | }
+    : [35;1m^[0m
+    `----
+  [31mx[0m Unexpected eof
+    ,-[[36;1;4m/Users/kanwal/Projects/Next Place to Be Rebuild/components/EventCard.tsx[0m:52:3]
+ [2m50[0m |     </Link>
+ [2m51[0m |   );
+ [2m52[0m | }
+    `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/EventCard.tsx
+./features/places/ui/DiscoverySurface.tsx
+./app/trips/[tripId]/discover/page.tsx
+ ✓ Compiled in 695ms (3152 modules)
+ ✓ Compiled in 954ms (3152 modules)
+ ✓ Compiled in 806ms (3152 modules)
+ ✓ Compiled in 410ms (1425 modules)
+ ✓ Compiled in 313ms (1425 modules)
+ ✓ Compiled in 380ms (1425 modules)
+ ✓ Compiled in 186ms (1425 modules)
+ ✓ Compiled in 1671ms (3144 modules)
+ ✓ Compiled in 405ms (1422 modules)
+ ✓ Compiled in 568ms (1422 modules)
+ ✓ Compiled in 535ms (1422 modules)
+ ✓ Compiled in 1899ms (3158 modules)
+ ✓ Compiled in 772ms (3156 modules)
+ ⨯ ./app/trips/[tripId]/chat/page.tsx
+Module parse failed: Identifier 'X' has already been declared (14:9)
+| import { useMediaQuery } from "@/lib/use-media-query";
+| import { useDocumentTitle } from "@/lib/use-document-title";
+> import { X } from "__barrel_optimize__?names=X!=!lucide-react";
+| const spring = {
+|     type: "spring",
+
+Import trace for requested module:
+./app/trips/[tripId]/chat/page.tsx
+ ✓ Compiled in 821ms (3154 modules)
+ ✓ Compiled in 289ms (3154 modules)
+ ✓ Compiled in 450ms (3152 modules)
+ ✓ Compiled in 319ms (1425 modules)
+ ✓ Compiled in 141ms (1425 modules)
+ ✓ Compiled in 606ms (1425 modules)
+ ✓ Compiled in 187ms (1425 modules)
+ ✓ Compiled in 148ms (1425 modules)
+ ✓ Compiled in 1287ms (3152 modules)
+ ✓ Compiled in 446ms (3152 modules)
+ ✓ Compiled in 355ms (3152 modules)
+ ✓ Compiled in 296ms (3152 modules)
+ ✓ Compiled in 846ms (3152 modules)
+ ✓ Compiled in 284ms (3152 modules)
+ ✓ Compiled in 571ms (3152 modules)
+ ✓ Compiled in 276ms (1425 modules)
+ ✓ Compiled in 173ms (1425 modules)
+ ✓ Compiled in 310ms (1425 modules)
+ ○ Compiling / ...
+ ✓ Compiled / in 950ms (1734 modules)
+ GET / 200 in 1277ms
+ ✓ Compiled /api/trips in 405ms (1752 modules)
+ POST /api/trips 201 in 1907ms
+ GET /trips/3fa76e45-fcfa-4080-be6c-5c29e92cc739 200 in 766ms
+ GET /trips/3fa76e45-fcfa-4080-be6c-5c29e92cc739/chat 200 in 561ms
+ ○ Compiling /trips/[tripId]/discover ...
+ ✓ Compiled /trips/[tripId]/discover in 832ms (1761 modules)
+ GET /trips/3fa76e45-fcfa-4080-be6c-5c29e92cc739/discover 200 in 1695ms
+ GET /trips/3fa76e45-fcfa-4080-be6c-5c29e92cc739/stay 200 in 355ms
+ GET /trips/3fa76e45-fcfa-4080-be6c-5c29e92cc739/map 200 in 417ms
+ GET /trips/3fa76e45-fcfa-4080-be6c-5c29e92cc739/itinerary 200 in 296ms
+ ✓ Compiled in 417ms (1425 modules)
+ ✓ Compiled in 1237ms (3152 modules)
+ ✓ Compiled in 411ms (3152 modules)
+ ✓ Compiled in 422ms (3152 modules)
+ ✓ Compiled in 255ms (3152 modules)
+ ✓ Compiled in 1387ms (3152 modules)
+ ✓ Compiled in 392ms (3152 modules)
+ ✓ Compiled in 270ms (3152 modules)
+ ✓ Compiled in 1403ms (3152 modules)
+ ✓ Compiled in 1956ms (3152 modules)
+ ✓ Compiled in 630ms (3152 modules)
+ ✓ Compiled in 787ms (3152 modules)
+ ✓ Compiled in 503ms (3152 modules)
+ ✓ Compiled in 293ms (3152 modules)
+ ✓ Compiled in 1119ms (3152 modules)
+ ✓ Compiled in 383ms (3154 modules)
+ ✓ Compiled in 335ms (3154 modules)
+ ✓ Compiled in 1569ms (3154 modules)
+ ○ Compiling / ...
+ ✓ Compiled / in 784ms (1735 modules)
+ ⨯ Error: ENOENT: no such file or directory, open '/Users/kanwal/Projects/Next Place to Be Rebuild/.next/server/vendor-chunks/next.js'
+    at <unknown> (.next/server/app/page.js:390:47)
+    at Object.<anonymous> (.next/server/app/page.js:393:3) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/kanwal/Projects/Next Place to Be Rebuild/.next/server/vendor-chunks/next.js',
+  page: '/'
+}
+ ⨯ Error: Cannot find module './5611.js'
+Require stack:
+- /Users/kanwal/Projects/Next Place to Be Rebuild/.next/server/webpack-runtime.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/.next/server/app/page.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/require.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/load-components.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/build/utils.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/build/swc/options.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/build/swc/index.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/build/next-config-ts/transpile-config.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/config.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/next.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/lib/start-server.js
+    at <unknown> (.next/server/pages/_document.js:1:327)
+    at Object.<anonymous> (.next/server/pages/_document.js:1:374) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ GET / 500 in 1693ms
+ ✓ Compiled /api/trips in 324ms (1753 modules)
+ POST /api/trips 201 in 1672ms
+ ✓ Compiled /api/trips/[tripId]/decisions in 363ms (3170 modules)
+ ⨯ [Error: Cannot find module './vendor-chunks/@supabase.js'
+Require stack:
+- /Users/kanwal/Projects/Next Place to Be Rebuild/.next/server/webpack-runtime.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/.next/server/app/api/trips/[tripId]/decisions/route.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/require.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/load-components.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/build/utils.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/dev/static-paths-worker.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/compiled/jest-worker/processChild.js] {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array],
+  page: '/api/trips/6a410fab-b1f1-402c-8d74-2435e5f08542/decisions'
+}
+ ⨯ Error: Cannot find module './5611.js'
+Require stack:
+- /Users/kanwal/Projects/Next Place to Be Rebuild/.next/server/webpack-runtime.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/.next/server/app/api/trips/[tripId]/decisions/route.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/require.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/load-components.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/build/utils.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/build/swc/options.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/build/swc/index.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/build/next-config-ts/transpile-config.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/config.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/next.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/lib/start-server.js
+    at <unknown> (.next/server/pages/_document.js:1:327)
+    at Object.<anonymous> (.next/server/pages/_document.js:1:374) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ POST /api/trips/6a410fab-b1f1-402c-8d74-2435e5f08542/decisions 500 in 748ms
+ ✓ Compiled /api/trips/[tripId]/compare-chat in 268ms (3176 modules)
+ ⨯ [Error: Cannot find module './vendor-chunks/@supabase.js'
+Require stack:
+- /Users/kanwal/Projects/Next Place to Be Rebuild/.next/server/webpack-runtime.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/.next/server/app/api/trips/[tripId]/compare-chat/route.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/require.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/load-components.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/build/utils.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/dev/static-paths-worker.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/compiled/jest-worker/processChild.js] {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array],
+  page: '/api/trips/6a410fab-b1f1-402c-8d74-2435e5f08542/compare-chat'
+}
+ ⨯ Error: Cannot find module './5611.js'
+Require stack:
+- /Users/kanwal/Projects/Next Place to Be Rebuild/.next/server/webpack-runtime.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/.next/server/app/api/trips/[tripId]/compare-chat/route.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/require.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/load-components.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/build/utils.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/build/swc/options.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/build/swc/index.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/build/next-config-ts/transpile-config.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/config.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/next.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/lib/start-server.js
+    at <unknown> (.next/server/pages/_document.js:1:327)
+    at Object.<anonymous> (.next/server/pages/_document.js:1:374) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ POST /api/trips/6a410fab-b1f1-402c-8d74-2435e5f08542/compare-chat 500 in 465ms
+ ✓ Compiled /api/trips/[tripId]/conversation in 330ms (3181 modules)
+ ⨯ [Error: Cannot find module './vendor-chunks/@supabase.js'
+Require stack:
+- /Users/kanwal/Projects/Next Place to Be Rebuild/.next/server/webpack-runtime.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/.next/server/app/api/trips/[tripId]/conversation/route.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/require.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/load-components.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/build/utils.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/dev/static-paths-worker.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/compiled/jest-worker/processChild.js] {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array],
+  page: '/api/trips/6a410fab-b1f1-402c-8d74-2435e5f08542/conversation'
+}
+ ⨯ Error: Cannot find module './5611.js'
+Require stack:
+- /Users/kanwal/Projects/Next Place to Be Rebuild/.next/server/webpack-runtime.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/.next/server/app/api/trips/[tripId]/conversation/route.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/require.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/load-components.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/build/utils.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/build/swc/options.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/build/swc/index.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/build/next-config-ts/transpile-config.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/config.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/next.js
+- /Users/kanwal/Projects/Next Place to Be Rebuild/node_modules/next/dist/server/lib/start-server.js
+    at <unknown> (.next/server/pages/_document.js:1:327)
+    at Object.<anonymous> (.next/server/pages/_document.js:1:374) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ GET /api/trips/6a410fab-b1f1-402c-8d74-2435e5f08542/conversation 500 in 571ms
+error: script "dev" was terminated by signal SIGKILL (Forced quit)

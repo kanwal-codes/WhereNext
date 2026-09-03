@@ -34,7 +34,7 @@ export function TripsHome({ trips }: { trips: TripSummary[] }) {
       setList((current) => current.filter((t) => t.id !== trip.id));
       notifyToast(`"${trip.name}" deleted.`, "success");
     } else {
-      notifyToast("That trip could not be deleted.", "error");
+      notifyToast("That trip couldn't be deleted. Try again.", "error");
     }
   }
 

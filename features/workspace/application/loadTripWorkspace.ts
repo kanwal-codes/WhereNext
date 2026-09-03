@@ -11,7 +11,7 @@ export async function loadTripWorkspace(supabase: SupabaseClient, tripId: string
     createTripRepository(supabase).get(tripId),
     supabase.from("trip_preferences").select("data").eq("trip_id", tripId).maybeSingle(),
     supabase.from("trip_decisions").select("id,kind,value,source,created_at").eq("trip_id", tripId).order("created_at", { ascending: false }),
-    supabase.from("trip_itinerary_items").select("id,title,day_index,metadata,created_at").eq("trip_id", tripId).is("removed_at", null).order("day_index").order("created_at"),
+    supabase.from("trip_itinerary_items").select("id,title,day_index,position,metadata,created_at").eq("trip_id", tripId).is("removed_at", null).order("day_index").order("position").order("created_at"),
     supabase.from("trip_places").select("status,places(id,name,provider,provider_id,category,address,metadata)").eq("trip_id", tripId).eq("status", "saved"),
     supabase.from("trip_essentials").select("completed").eq("trip_id", tripId).maybeSingle(),
     conversation,

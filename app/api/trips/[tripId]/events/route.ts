@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { fail } from "@/lib/server/with-route";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { events as ticketmasterEvents } from "@/packages/providers/ticketmaster/client";
 import { localEvents } from "@/packages/providers/eventbrite/client";
@@ -38,6 +39,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
 
     return NextResponse.json({ events: result.events, freshness: { retrievedAt: result.retrievedAt, cacheTtlSeconds: 600 } });
   } catch (error) {
-    return tripAuthResponse(error) ?? NextResponse.json({ error: "Events are unavailable right now" }, { status: 503 });
+    return tripAuthResponse(error) ?? fail(error, "Events are unavailable right now");
   }
 }

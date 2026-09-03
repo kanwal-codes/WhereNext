@@ -7,7 +7,7 @@ import { Bookmark, BookmarkCheck, CalendarCheck, Check, ChevronDown, Loader2, Tr
 import type { Place } from "@/packages/contracts/place";
 import { type Placement, placementDay } from "@/packages/contracts/placement";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
-import { announceWorkspaceChange } from "@/lib/application/workspace-events";
+import { mutate } from "@/lib/client/mutation-queue";
 import { notifyToast } from "@/lib/application/toast";
 import { cn } from "@/lib/utils";
 
@@ -134,19 +134,17 @@ export function AddToTripControl({
     setBusy(true);
     busyRef.current = true;
     try {
-      const res = await fetch(`/api/trips/${tripId}/places/placement`, {
+      const res = await mutate(`/api/trips/${tripId}/places/placement`, {
         method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ place, placement: next }),
+        body: { place, placement: next },
+        announce: ["places", "itinerary"],
       });
       if (!res.ok) throw new Error();
-      announceWorkspaceChange("places");
-      announceWorkspaceChange("itinerary");
       onPlacementChange?.(next);
-      notifyToast(toast(place.name, next), "success");
+      notifyToast(res.queued ? `${place.name} — saved, will sync when you're back online.` : toast(place.name, next), res.queued ? "info" : "success");
     } catch {
       setPlacement(previous);
-      notifyToast(`${place.name} — that change didn't save.`, "error");
+      notifyToast(`Couldn’t update ${place.name}. Try again.`, "error");
     } finally {
       setBusy(false);
       busyRef.current = false;

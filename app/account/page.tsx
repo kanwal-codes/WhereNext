@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { signOut as signOutUser } from "@/features/identity/application/authClient";
+import { ProfilePanel } from "@/features/profile/ui/ProfilePanel";
 
 export default function AccountPage() {
   const [error, setError] = useState("");
@@ -33,6 +34,8 @@ export default function AccountPage() {
       </Link>
       <p className="eyebrow mt-6">Account</p>
       <h1 className="mt-2 font-display text-3xl leading-tight">Manage your account</h1>
+
+      <ProfilePanel />
 
       <div className="mt-8 space-y-3">
         <button

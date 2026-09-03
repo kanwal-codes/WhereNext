@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { withProviderTimeout } from "../request-signal";
+import { guardedFetch } from "@/lib/server/provider-guard";
 
 const API = "https://api.duffel.com";
 const HEADERS = () => ({
@@ -31,7 +32,7 @@ const suggestionSchema = z.object({ data: z.array(z.object({ type: z.string().op
 async function resolveIata(query: string, signal?: AbortSignal): Promise<string | null> {
   const url = new URL(`${API}/places/suggestions`);
   url.searchParams.set("query", query.slice(0, 80));
-  const response = await fetch(url, { headers: HEADERS(), signal: withProviderTimeout(signal) });
+  const response = await guardedFetch("duffel", url, { headers: HEADERS(), signal: withProviderTimeout(signal) });
   if (!response.ok) throw new Error(`Duffel place lookup failed: ${response.status}`);
   const data = suggestionSchema.parse(await response.json()).data;
   return (data.find((entry) => entry.type === "city" && entry.iata_code)?.iata_code
@@ -62,7 +63,7 @@ export async function searchFlights(
 
   const slices = [{ origin, destination, departure_date: input.departureDate }];
   if (input.returnDate) slices.push({ origin: destination, destination: origin, departure_date: input.returnDate });
-  const requestResponse = await fetch(`${API}/air/offer_requests`, {
+  const requestResponse = await guardedFetch("duffel", `${API}/air/offer_requests`, {
     method: "POST",
     headers: HEADERS(),
     body: JSON.stringify({
@@ -83,7 +84,7 @@ export async function searchFlights(
   offersUrl.searchParams.set("offer_request_id", requestId);
   offersUrl.searchParams.set("sort", "total_amount");
   offersUrl.searchParams.set("limit", "10");
-  const offersResponse = await fetch(offersUrl, { headers: HEADERS(), signal: withProviderTimeout(signal) });
+  const offersResponse = await guardedFetch("duffel", offersUrl, { headers: HEADERS(), signal: withProviderTimeout(signal) });
   if (!offersResponse.ok) throw new Error(`Duffel offers fetch failed: ${offersResponse.status}`);
   return offersSchema.parse(await offersResponse.json()).data.flatMap((offer) => {
     const slice = offer.slices[0];

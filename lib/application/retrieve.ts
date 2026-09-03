@@ -11,6 +11,7 @@ import { searchFlights, type FlightOffer } from "@/packages/providers/duffel/cli
 import { liteApiConfigured, searchStays } from "@/packages/providers/liteapi/client";
 import type { StayOption, StayRoom } from "@/packages/contracts/stay";
 import { resolveStayDates } from "./stay-dates";
+import { rankPlaces } from "./rank-places";
 import type { ToolCall } from "./turn-resolver";
 
 export type EventResult = { title: string; url: string; date?: string; venue?: string; source: string };
@@ -55,7 +56,7 @@ const stem = (word: string) => word.replace(/(ies|es|s)$/, (match) => (match ===
 /** RETRIEVE stage: run the resolver's tool plan in parallel, isolate provider failures, dedupe, apply dislike filter. */
 export async function retrieveEvidence(
   toolPlan: ToolCall[],
-  filters: { dislikes?: string[]; currency?: string } = {},
+  filters: { dislikes?: string[]; currency?: string; interests?: string[]; likes?: string[] } = {},
   signal?: AbortSignal,
 ): Promise<RetrievedEvidence> {
   if (toolPlan.length === 0) return { ...EMPTY, retrievedAt: new Date().toISOString() };
@@ -211,7 +212,10 @@ export async function retrieveEvidence(
       return !dislikeStems.some((term) => words.has(term));
     })
     : places;
-  const uniquePlaces = Array.from(new Map(kept.map((place) => [`${place.provider}:${place.name.trim().toLowerCase()}`, place])).values()).slice(0, 6);
+  // Order by the same ranker Discover uses so the assistant's cards and the
+  // Discover feed stay coherent. No proximity anchor here — Discover has one.
+  const ranked = rankPlaces(kept, { interests: filters.interests, likes: filters.likes, dislikes: filters.dislikes }).map((r) => r.place);
+  const uniquePlaces = Array.from(new Map(ranked.map((place) => [`${place.provider}:${place.name.trim().toLowerCase()}`, place])).values()).slice(0, 6);
   const uniqueSources = Array.from(new Map(sources.map((source) => [source.url, source])).values()).slice(0, 5);
   const uniqueEvents = Array.from(new Map(eventList.map((event) => [event.url, event])).values()).slice(0, 8);
 

@@ -78,7 +78,7 @@ export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids:
         n.delete(id);
         return n;
       });
-      notifyToast("Could not save that one.", "error");
+      notifyToast("That didn’t save. Try again.", "error");
     }
   }
 
@@ -131,7 +131,7 @@ export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids:
       case "hours":
         return d.regularOpeningHours?.weekdayDescriptions?.[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1] ?? "See listing";
       case "source":
-        return d.googleMapsUri ? <ExternalLink href={d.googleMapsUri}>Google Maps</ExternalLink> : "Google Places";
+        return d.googleMapsUri ? <ExternalLink href={d.googleMapsUri}>Google Maps</ExternalLink> : "Google Maps";
     }
   };
 

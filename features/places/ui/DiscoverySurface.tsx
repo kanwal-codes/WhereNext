@@ -8,8 +8,10 @@ import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { useTripData } from "@/components/TripDataProvider";
 import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
 import { AiSearchBar } from "@/components/AiSearchBar";
+import { useTripPanelMaybe } from "@/components/TripPanelProvider";
 import { useInfiniteReveal } from "@/lib/use-infinite-reveal";
 import { PlaceCard } from "@/components/PlaceCard";
+import { rankPlaces, type RankAnchor } from "@/lib/application/rank-places";
 import { EventCard, type NearbyEvent } from "@/components/EventCard";
 import { SkeletonCards } from "@/components/Skeleton";
 import { Stagger, StaggerItem } from "@/components/motion-primitives";
@@ -25,9 +27,11 @@ const asList = (v: unknown): string[] =>
 
 type StayItem = { hotelId: string; name: string; thumbnail: string | null; nightlyAmount: number; currency: string; stars: number | null; rating: number | null };
 type Item =
-  | { kind: "place"; place: Place }
+  | { kind: "place"; place: Place; why?: string | null }
   | { kind: "event"; event: NearbyEvent }
   | { kind: "stay"; stay: StayItem };
+
+const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) && v !== 0 ? v : null);
 type Band = { key: string | null; label: string; items: Item[] };
 
 const idOf = (item: Item) => (item.kind === "place" ? item.place.providerId : item.kind === "event" ? item.event.url : item.stay.hotelId);
@@ -117,6 +121,33 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
     return r.ok ? ((body.options ?? []) as Array<Record<string, unknown>>).map(toStayItem).filter((s) => s.hotelId) : [];
   }, [tripId, destination]);
 
+  // Personalised ordering for every place list — same ranker the assistant's
+  // RETRIEVE uses, so Discover and chat stay coherent.
+  const dislikesKey = asList(prefs.dislikes).join(",").toLowerCase();
+  const savedKey = saved.map((p) => p.providerId).sort().join(",");
+  const itinKey = (data?.itinerary ?? [])
+    .map((i) => (i.metadata as { latitude?: number; longitude?: number } | null) ?? {})
+    .map((m) => `${num(m.latitude) ?? ""},${num(m.longitude) ?? ""}`)
+    .join("|");
+  const rankCtx = useMemo(() => {
+    const pts = itinKey.split("|").map((s) => s.split(",")).filter((xy) => xy[0] && xy[1]).map(([a, b]) => ({ latitude: Number(a), longitude: Number(b) }));
+    const anchor: RankAnchor | null = pts.length
+      ? { latitude: pts.reduce((s, p) => s + p.latitude, 0) / pts.length, longitude: pts.reduce((s, p) => s + p.longitude, 0) / pts.length }
+      : null;
+    return {
+      interests: asList(prefs.interests),
+      likes: asList(prefs.likes),
+      dislikes: dislikesKey.split(",").filter(Boolean),
+      savedIds: savedKey.split(",").filter(Boolean),
+      anchor,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- primitive keys stand in for the object deps
+  }, [interestsKey, dislikesKey, savedKey, itinKey]);
+  const rankToItems = useCallback(
+    (places: Place[]): Item[] => rankPlaces(places, rankCtx).map((r) => ({ kind: "place", place: r.place, why: r.why })),
+    [rankCtx],
+  );
+
   const loadAll = useCallback(async () => {
     const mine = ++reqId.current;
     setLoading(true);
@@ -131,20 +162,20 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
     if (mine !== reqId.current) return;
     const ok = <T,>(r: PromiseSettledResult<T[]>): T[] => (r.status === "fulfilled" ? r.value : []);
     const next: Band[] = [
-      { key: "sights", label: "Top sights", items: ok(sights).slice(0, 6).map((p) => ({ kind: "place", place: p }) as Item) },
+      { key: "sights", label: "Top sights", items: rankToItems(ok(sights)).slice(0, 6) },
       {
         key: null,
         label: interests.length ? `Because you like ${interests.slice(0, 2).join(" & ")}` : "Highly rated right now",
-        items: ok(forYou).slice(0, 6).map((p) => ({ kind: "place", place: p }) as Item),
+        items: rankToItems(ok(forYou)).slice(0, 6),
       },
-      { key: "eat", label: "Where to eat", items: ok(eat).slice(0, 6).map((p) => ({ kind: "place", place: p }) as Item) },
+      { key: "eat", label: "Where to eat", items: rankToItems(ok(eat)).slice(0, 6) },
       { key: "events", label: "On while you’re there", items: ok(ev).slice(0, 6).map((e) => ({ kind: "event", event: e }) as Item) },
       { key: "stays", label: "Places to stay", items: ok(st).slice(0, 4).map((s) => ({ kind: "stay", stay: s }) as Item) },
     ].filter((b) => b.items.length);
     setBands(next);
     setLoading(false);
-    setMessage(next.length ? "" : "The providers returned nothing just now. Try a search or a category.");
-  }, [fetchPlaces, fetchEvents, fetchStays, interests]);
+    setMessage(next.length ? "" : "Nothing came back just now. Try a search or a different category.");
+  }, [fetchPlaces, fetchEvents, fetchStays, interests, rankToItems]);
 
   const loadCategory = useCallback(
     async (cat: DiscoverCategory, chosen: string[]) => {
@@ -158,7 +189,7 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
         const lists = await Promise.all(queries.map(fetchPlaces));
         const map = new Map<string, Place>();
         for (const list of lists) for (const p of list) map.set(p.providerId, p);
-        next = [...map.values()].map((p) => ({ kind: "place", place: p }));
+        next = rankToItems([...map.values()]);
       } else if (cat.kind === "event") {
         const events = await fetchEvents(chosen.map(subQ).join(" "));
         next = events.map((e) => ({ kind: "event", event: e }));
@@ -175,7 +206,7 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
       setLoading(false);
       setMessage(next.length ? "" : `Nothing came back for ${cat.label.toLowerCase()}${chosen.length ? " with those filters" : ""}.`);
     },
-    [fetchPlaces, fetchEvents, fetchStays],
+    [fetchPlaces, fetchEvents, fetchStays, rankToItems],
   );
 
   const runSearch = useCallback(
@@ -191,11 +222,11 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
       const mine = ++reqId.current;
       const places = await fetchPlaces(q);
       if (mine !== reqId.current) return;
-      setItems(places.map((p) => ({ kind: "place", place: p })));
+      setItems(rankToItems(places));
       setLoading(false);
       setMessage(places.length ? `“${q}” · ${places.length} near ${destination || "your destination"}` : "Nothing came back — try different words.");
     },
-    [fetchPlaces, destination],
+    [fetchPlaces, destination, rankToItems],
   );
 
   // Drive the feed from the active filter.
@@ -243,7 +274,8 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
   const gridView = view === "saved" || searchMode || catKey !== null;
   const savedItems: Item[] = saved.map((p) => ({ kind: "place", place: p }));
   const gridItems = view === "saved" ? savedItems : items;
-  const { visible, sentinel, more } = useInfiniteReveal(gridItems.length, PAGE, view === "saved" ? saved : items);
+  // Reset the reveal only when the list itself changes — not when `saved` re-fetches under us.
+  const { visible, sentinel, more } = useInfiniteReveal(gridItems.length, PAGE, view === "saved" ? `saved:${saved.length}` : items);
   const flatItems = useMemo(() => {
     const seen = new Set<string>();
     return (bands ?? []).flatMap((b) => b.items).filter((it) => (seen.has(idOf(it)) ? false : (seen.add(idOf(it)), true)));
@@ -253,7 +285,7 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
     if (item.kind === "place") {
       return (
         <StaggerItem key={`p:${item.place.providerId}`}>
-          <PlaceCard tripId={tripId} place={item.place} />
+          <PlaceCard tripId={tripId} place={item.place} why={item.why ?? undefined} />
         </StaggerItem>
       );
     }
@@ -406,7 +438,7 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
             <SkeletonCards count={6} className="mt-4" />
           ) : !bands || bands.length === 0 ? (
             <p className="mt-8 rounded-2xl border border-dashed border-border px-5 py-10 text-center text-sm text-muted-foreground">
-              {destination ? "The providers returned nothing just now. Try a search or a category." : "Set a destination for this trip to see ideas here."}
+              {destination ? "Nothing came back just now. Try a search or a different category." : "Set a destination for this trip to see ideas here."}
             </p>
           ) : flat ? (
             <Stagger className={cn(grid, "mt-4")}>{flatItems.map((it) => renderItem(it))}</Stagger>
@@ -435,9 +467,15 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
 }
 
 function StayMiniCard({ tripId, stay }: { tripId: string; stay: StayItem }) {
+  const panelCtx = useTripPanelMaybe();
   return (
     <a
       href={`/trips/${tripId}/stay/${encodeURIComponent(stay.hotelId)}`}
+      onClick={(e) => {
+        if (!panelCtx || e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+        e.preventDefault();
+        panelCtx.openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name });
+      }}
       className="group flex h-[19rem] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-shadow hover:shadow-lift"
     >
       {stay.thumbnail ? (

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { fail } from "@/lib/server/with-route";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { parseTripPrompt } from "@/lib/application/parse-trip";
 
@@ -12,7 +13,6 @@ export async function POST(request: Request) {
     if (!user) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     return NextResponse.json({ parsed: await parseTripPrompt(parsed.data.prompt, request.signal) });
   } catch (error) {
-    console.error("trip_parse_failed", error);
-    return NextResponse.json({ error: "Could not read that — fill the form in instead." }, { status: 503 });
+    return fail(error, "We couldn’t read that — fill in the form instead.");
   }
 }
