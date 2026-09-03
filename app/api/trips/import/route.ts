@@ -7,7 +7,7 @@ import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { safeFetch, readCapped, UnsafeUrlError } from "@/lib/server/safe-fetch";
 import { htmlToText } from "@/lib/server/html-text";
 import { tripImportResultSchema } from "@/packages/contracts/trip-import";
-import { createAiGateway } from "@/packages/ai/gateway";
+import { createBulkGateway } from "@/packages/ai/gateway";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { createPlaceRepository } from "@/features/places/infrastructure/placeRepository";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     }
     if (pageText.length < 200) return NextResponse.json({ error: "There wasn’t enough on that page to import." }, { status: 422 });
 
-    const raw = await createAiGateway({ model: process.env.RESOLVE_MODEL || undefined }).generateStructured(
+    const raw = await createBulkGateway().generateStructured(
       [{ role: "system", content: EXTRACTOR }, { role: "user", content: pageText }],
       request.signal,
     );

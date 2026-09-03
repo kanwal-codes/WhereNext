@@ -4,7 +4,7 @@ import { fail } from "@/lib/server/with-route";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
 import { hotelDetails, liteApiConfigured, stayReviews, stayRooms } from "@/packages/providers/liteapi/client";
 import { research } from "@/packages/providers/tavily/client";
-import { createAiGateway } from "@/packages/ai/gateway";
+import { createBulkGateway } from "@/packages/ai/gateway";
 import { resolveStayDates } from "@/lib/application/stay-dates";
 import { resolveCurrency } from "@/lib/currency";
 import { cached } from "@/lib/server/ttl-cache";
@@ -15,7 +15,7 @@ async function summariseAbout(name: string, raw: string, signal?: AbortSignal): 
   if (text.length < 240 || !(process.env.AI_API_KEY || process.env.OPENAI_API_KEY || process.env.CEREBRAS_API_KEY)) return text.slice(0, 700);
   try {
     return (
-      await createAiGateway().generateText(
+      await createBulkGateway().generateText(
         [
           {
             role: "system",
@@ -46,7 +46,7 @@ async function guestSentiment(name: string, city: string | null, signal?: AbortS
   if (!(process.env.AI_API_KEY || process.env.OPENAI_API_KEY || process.env.CEREBRAS_API_KEY)) return notes.slice(0, 400);
   try {
     return (
-      await createAiGateway().generateText(
+      await createBulkGateway().generateText(
         [
           {
             role: "system",

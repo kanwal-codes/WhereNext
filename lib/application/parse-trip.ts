@@ -1,4 +1,4 @@
-import { createAiGateway } from "@/packages/ai/gateway";
+import { createBulkGateway } from "@/packages/ai/gateway";
 import { parsedTripSchema, type ParsedTrip } from "@/features/trip/domain/trip";
 
 function system(today: string) {
@@ -24,7 +24,7 @@ Rules:
 /** One structured model call: a free-text trip description -> form fields. Never throws for a bad parse; returns {} instead. */
 export async function parseTripPrompt(prompt: string, signal?: AbortSignal): Promise<ParsedTrip> {
   try {
-    const raw = await createAiGateway({ model: process.env.RESOLVE_MODEL || undefined }).generateStructured(
+    const raw = await createBulkGateway().generateStructured(
       [
         { role: "system", content: system(new Date().toISOString().slice(0, 10)) },
         { role: "user", content: prompt.slice(0, 600) },

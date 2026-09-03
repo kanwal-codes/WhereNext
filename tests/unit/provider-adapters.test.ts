@@ -3,7 +3,7 @@ import { resetProviderGuards } from "../../lib/server/provider-guard";
 import { broadenQuery, GooglePlacesProvider } from "../../packages/providers/google-places/client";
 import { ticketmasterIdFromUrl } from "../../packages/providers/ticketmaster/client";
 import { OpenAiCompatibleProvider } from "../../packages/ai/providers/openai-compatible";
-import { createAiGateway } from "../../packages/ai/gateway";
+import { createAiGateway, createBulkGateway } from "../../packages/ai/gateway";
 import { route } from "../../packages/providers/mapbox/client";
 import { transit } from "../../packages/providers/google-places/transit";
 import { transitAppPlan } from "../../packages/providers/transit-app/client";
@@ -90,6 +90,38 @@ describe("createAiGateway env resolution", () => {
     process.env.AI_PROVIDER = "openai-compatible";
     process.env.AI_API_KEY = "";
     expect(() => createAiGateway()).toThrow(/AI_API_KEY or OPENAI_API_KEY/);
+  });
+
+  it("routes a pinned gemini provider to the Gemini OpenAI endpoint and ignores AI_BASE_URL / AI_MODEL", () => {
+    process.env.AI_BASE_URL = "https://proxy.example/v1";
+    process.env.AI_MODEL = "gpt-4o";
+    process.env.GEMINI_API_KEY = "AIza-real";
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    return createAiGateway({ provider: "gemini" }).generateText([{ role: "user", content: "hi" }]).then(() => {
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
+      expect(JSON.parse(init.body as string).model).toBe("gemini-2.5-flash");
+      expect((init.headers as Record<string, string>).authorization).toBe("Bearer AIza-real");
+      delete process.env.GEMINI_API_KEY;
+    });
+  });
+
+  it("createBulkGateway uses Gemini when GEMINI_API_KEY is set, else the primary gateway", () => {
+    process.env.AI_PROVIDER = "";
+    process.env.AI_BASE_URL = "";
+    process.env.OPENAI_API_KEY = "sk-real";
+    const fetchMock = vi.fn((_url?: unknown, _init?: unknown) => Promise.resolve(new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), { status: 200 })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    return createBulkGateway().generateText([{ role: "user", content: "x" }]).then(() => {
+      expect(fetchMock.mock.calls[0][0]).toBe("https://api.openai.com/v1/chat/completions"); // no Gemini key → primary
+      process.env.GEMINI_API_KEY = "AIza-real";
+      return createBulkGateway().generateText([{ role: "user", content: "x" }]);
+    }).then(() => {
+      expect(fetchMock.mock.calls[1][0]).toBe("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
+      delete process.env.GEMINI_API_KEY;
+    });
   });
 });
 

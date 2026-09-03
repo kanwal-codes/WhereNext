@@ -5,6 +5,10 @@ coverage/
 test-results/
 playwright-report/
 tsconfig.tsbuildinfo
+next-env.d.ts
+
+# Scratch working files — logs, QA screenshots, throwaway scripts
+scratchpad/
 
 # Serwist build output
 public/sw.js
@@ -19,3 +23,4 @@ docs/
 *.md
 frontend/
 .DS_Store
+.vercel

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eventDetailSchema, type EventDetail } from "@/packages/contracts/event";
 import { eventDetail as ticketmasterDetail } from "@/packages/providers/ticketmaster/client";
 import { research } from "@/packages/providers/tavily/client";
-import { createAiGateway } from "@/packages/ai/gateway";
+import { createBulkGateway } from "@/packages/ai/gateway";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
 import { cached } from "@/lib/server/ttl-cache";
@@ -15,7 +15,7 @@ async function summariseAbout(name: string, raw: string, signal?: AbortSignal): 
   if (!(process.env.AI_API_KEY || process.env.OPENAI_API_KEY || process.env.CEREBRAS_API_KEY)) return text.slice(0, 600);
   try {
     return (
-      await createAiGateway().generateText(
+      await createBulkGateway().generateText(
         [
           {
             role: "system",
