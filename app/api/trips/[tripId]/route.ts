@@ -3,6 +3,7 @@ import { z } from "zod";
 import { isoDate, tripDurationDays } from "@/features/trip/domain/trip";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
+import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 /** Delete a whole trip. Owner only; the DB cascades places, itinerary, conversation, decisions. */
 export async function DELETE(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
@@ -65,6 +66,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ tr
     const result = await supabase.from("trips").update(update).eq("id", tripId).select("id,name,destination,origin,duration_days,start_date,end_date,travelers").maybeSingle();
     if (result.error) throw result.error;
     if (!result.data) return NextResponse.json({ error: "Trip could not be updated" }, { status: 500 });
+    invalidateWorkspace(tripId);
     return NextResponse.json({ trip: result.data });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid trip update" }, { status: 400 });

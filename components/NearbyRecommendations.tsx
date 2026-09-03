@@ -8,6 +8,7 @@ import type { NearbyEvent } from "@/components/EventCard";
 import { EventCard } from "@/components/EventCard";
 import { Reveal } from "@/components/motion-primitives";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
+import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import { photoProxyUrl } from "@/lib/places-ui";
 import { type RankContext, type RankedPlace } from "@/lib/application/rank-places";
 import { classifyEventVibe, classifyPlaceVibe, lanesFor, type Lane, type LaneAnchor, type Vibe } from "@/packages/reco/vibes";
@@ -20,10 +21,19 @@ const asList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((s): s is 
 
 function MiniCard({ tripId, place, why, onSelect }: { tripId: string; place: Place; why?: string | null; onSelect?: () => void }) {
   const photo = photoProxyUrl(tripId, place.photoNames?.[0]);
+  const panelCtx = useTripPanelMaybe();
+  const href = `/trips/${tripId}/place/${encodeURIComponent(place.providerId)}`;
+  const entry: CompareEntry = { id: place.providerId, kind: "place", name: place.name, href, subtitle: place.address ?? undefined, attrs: { rating: typeof place.rating === "number" ? place.rating.toFixed(1) : undefined, ratingValue: place.rating, address: place.address ?? undefined, lat: place.latitude, lng: place.longitude } };
   return (
     <Link
-      href={`/trips/${tripId}/place/${encodeURIComponent(place.providerId)}`}
-      onClick={onSelect}
+      href={href}
+      onClick={(event) => {
+        onSelect?.();
+        if (!panelCtx || event.metaKey || event.ctrlKey || event.shiftKey || event.button === 1) return;
+        event.preventDefault();
+        if (panelCtx.compareMode) panelCtx.compareToggle(entry);
+        else panelCtx.openPanel({ kind: "place", placeId: place.providerId, name: place.name });
+      }}
       className="block w-[196px] shrink-0 snap-start overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-shadow hover:shadow-lift"
     >
       {photo ? (
@@ -44,6 +54,7 @@ function MiniCard({ tripId, place, why, onSelect }: { tripId: string; place: Pla
           <span className="truncate">{(place.category ?? "").replaceAll("_", " ")}</span>
         </p>
         {why && <p className="mt-1 truncate text-[11px] text-primary">{why}</p>}
+        {panelCtx?.compareMode && <p className="mt-1 text-[10px] font-medium text-muted-foreground">{panelCtx.compareHas(place.providerId) ? "Selected" : "Click to compare"}</p>}
       </div>
     </Link>
   );

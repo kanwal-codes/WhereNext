@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowUpRight, BedDouble, Check, Loader2, MapPin, Minus, Plus, SlidersHorizontal, Star, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { AiSearchBar } from "@/components/AiSearchBar";
-import { CompareButton, useTripPanelMaybe } from "@/components/TripPanelProvider";
+import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { readStayDecision, type StayFacets, type StayOption } from "@/packages/contracts/stay";
 import { SkeletonCards } from "@/components/Skeleton";
@@ -123,9 +123,15 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   const detailHref = (hotelId: string) =>
     `/trips/${tripId}/stay/${encodeURIComponent(hotelId)}?checkin=${result?.checkin ?? checkin}&checkout=${result?.checkout ?? checkout}&adults=${adults}&rooms=${rooms}`;
   const panelCtx = useTripPanelMaybe();
+  const stayEntry = (o: StayOption): CompareEntry => ({
+    id: o.hotelId, kind: "stay", name: o.name, href: detailHref(o.hotelId),
+    subtitle: [o.stars ? `${o.stars}★` : null, o.boardName].filter(Boolean).join(" · ") || undefined,
+    attrs: { price: `${money(o.nightlyAmount)}/night`, priceValue: o.nightlyAmount, rating: typeof o.rating === "number" && o.rating > 0 ? `${o.rating.toFixed(1)}/10` : undefined, ratingValue: typeof o.rating === "number" && o.rating > 0 ? o.rating : undefined, lat: o.latitude ?? undefined, lng: o.longitude ?? undefined, detail: [o.stars ? `${o.stars}-star` : null, o.boardName, o.refundable ? "free cancellation" : null].filter(Boolean).join(", ") || "Hotel" },
+  });
   const openStay = (o: StayOption) => (e: MouseEvent) => {
     if (!panelCtx || e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
     e.preventDefault();
+    if (panelCtx.compareMode) { panelCtx.compareToggle(stayEntry(o)); return; }
     panelCtx.openPanel({ kind: "stay", hotelId: o.hotelId, name: o.name, checkin: result?.checkin ?? checkin, checkout: result?.checkout ?? checkout });
   };
   const money = (n: number) => formatMoney(n, result?.currency ?? "CAD");
@@ -331,24 +337,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                         <span className="block text-[11px] font-normal text-muted-foreground">/night · {money(o.totalAmount)} total</span>
                       </span>
                       <div className="flex items-center gap-2">
-                        <CompareButton
-                          entry={{
-                            id: o.hotelId,
-                            kind: "stay",
-                            name: o.name,
-                            href: detailHref(o.hotelId),
-                            subtitle: [o.stars ? `${o.stars}★` : null, o.boardName].filter(Boolean).join(" · ") || undefined,
-                            attrs: {
-                              price: `${money(o.nightlyAmount)}/night`,
-                              priceValue: o.nightlyAmount,
-                              rating: typeof o.rating === "number" && o.rating > 0 ? `${o.rating.toFixed(1)}/10` : undefined,
-                              ratingValue: typeof o.rating === "number" && o.rating > 0 ? o.rating : undefined,
-                              lat: o.latitude ?? undefined,
-                              lng: o.longitude ?? undefined,
-                              detail: [o.stars ? `${o.stars}-star` : null, o.boardName, o.refundable ? "free cancellation" : null].filter(Boolean).join(", ") || "Hotel",
-                            },
-                          }}
-                        />
+                        {panelCtx?.compareMode && <span className="text-[11px] text-muted-foreground">{panelCtx.compareHas(o.hotelId) ? "Selected" : "Select in compare mode"}</span>}
                         <Link href={detailHref(o.hotelId)} onClick={openStay(o)} className="inline-flex items-center gap-1 text-xs font-medium text-primary">
                           View <ArrowUpRight className="h-3 w-3" />
                         </Link>

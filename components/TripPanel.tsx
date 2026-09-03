@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { AnimatePresence, motion } from "motion/react";
-import { ArrowUpRight, Eraser, Loader2, Maximize2, Scale, Send, Sparkles, X } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { ArrowLeft, ArrowUpRight, Eraser, Loader2, Maximize2, Scale, Send, Sparkles, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type CompareEntry, type PanelState } from "@/components/TripPanelProvider";
 import { PlaceDetailView } from "@/features/places/ui/PlaceDetailView";
@@ -13,6 +13,7 @@ import { EventDetailView } from "@/features/events/ui/EventDetailView";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
+import { ease } from "@/components/motion-primitives";
 
 const KIND_LABEL: Record<CompareEntry["kind"], string> = { place: "Place", stay: "Stay", event: "Event", route: "Route" };
 
@@ -146,11 +147,16 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   const { tripId, data } = useTripData();
   const pathname = usePathname();
   const desktop = useMediaQuery("(min-width: 1024px)");
+  const reduceMotion = useReducedMotion();
   const [chat, setChat] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
 
   const panel = ctx?.panel ?? null;
+  const closePanel = ctx?.closePanel;
   const compareList = ctx?.compareList ?? [];
   const subjectKey = (p: PanelState): string =>
     p.kind === "place"
@@ -165,10 +171,29 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   useEffect(() => {
     setChat([]);
   }, [sk]);
+  useEffect(() => {
+    if (!panel || typeof document === "undefined") return;
+    triggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closePanel?.();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    requestAnimationFrame(() => closeButtonRef.current?.focus());
+    return () => {
+      document.body.style.overflow = previous;
+      document.removeEventListener("keydown", onKeyDown);
+      triggerRef.current?.focus();
+    };
+  }, [panel, closePanel]);
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, [sk]);
 
   // The chat route renders its own <TripPanel layout="inline" />; the layout-level drawer stands down there.
   if (!ctx || (layout === "drawer" && pathname?.endsWith("/chat"))) return null;
-  const { closePanel, compareRemove } = ctx;
+  const { compareRemove, goBack, canGoBack } = ctx;
 
   const stay = readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
   const anchor: Anchor = stay && stay.latitude != null && stay.longitude != null ? { name: stay.hotelName, lat: stay.latitude, lng: stay.longitude } : null;
@@ -233,10 +258,24 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
       <CompareGrid list={compareList} anchor={anchor} onRemove={compareRemove} />
     </div>
   );
-
+  const animatedBody = (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={sk}
+        initial={reduceMotion ? false : { opacity: 0, x: 12 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={reduceMotion ? undefined : { opacity: 0, x: -8 }}
+        transition={reduceMotion ? { duration: 0 } : { duration: 0.28, ease }}
+        className="min-h-full"
+      >
+        {body}
+      </motion.div>
+    </AnimatePresence>
+  );
   const header = panel && (
     <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
       <p className="inline-flex min-w-0 items-center gap-1.5 font-display text-sm">
+        {canGoBack && <button type="button" onClick={goBack} aria-label="Back to previous item" className="mr-1 rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"><ArrowLeft className="h-4 w-4" /></button>}
         {panel.kind === "compare" && <Scale className="h-3.5 w-3.5 shrink-0 text-coral" />}
         <span className="truncate">{titleFor(panel)}</span>
       </p>
@@ -249,7 +288,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
         {layout === "drawer" && (
           <Link
             href={fullPageHref(panel, tripId, compareList.map((e) => e.id))}
-            onClick={closePanel}
+            onClick={() => closePanel?.()}
             aria-label="Open full page"
             title="Open full page"
             className="rounded-full border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
@@ -257,7 +296,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
             <Maximize2 className="h-3.5 w-3.5" />
           </Link>
         )}
-        <button type="button" onClick={closePanel} aria-label="Close panel" className="rounded-full border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground">
+        <button ref={closeButtonRef} type="button" onClick={closePanel} aria-label="Close panel" className="rounded-full border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -301,7 +340,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
     return panel ? (
       <div className="flex h-full min-h-0 flex-col">
         {header}
-        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-slim">{body}</div>
+        <div ref={scrollRef} className="min-h-0 flex-1 overscroll-contain overflow-y-auto scrollbar-slim">{animatedBody}</div>
       </div>
     ) : null;
   }
@@ -331,19 +370,22 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className={cn("fixed inset-0 z-50 bg-ink/30", desktop ? "flex justify-end" : "flex items-end")}
-            onClick={closePanel}
+            className={cn("fixed inset-0 z-50 bg-ink/25 backdrop-blur-[2px]", desktop ? "flex justify-end" : "flex items-end")}
+            onClick={() => closePanel?.()}
           >
             <motion.aside
               initial={desktop ? { x: "100%" } : { y: "100%" }}
               animate={desktop ? { x: 0 } : { y: 0 }}
               exit={desktop ? { x: "100%" } : { y: "100%" }}
-              transition={{ type: "spring", stiffness: 240, damping: 30 }}
+              transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 260, damping: 32, mass: 0.8 }}
               onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label={titleFor(panel)}
               className={cn("flex min-h-0 flex-col bg-surface shadow-lift", desktop ? "h-full w-full max-w-xl" : "max-h-[90vh] w-full rounded-t-3xl")}
             >
               {header}
-              <div className="min-h-0 flex-1 overflow-y-auto scrollbar-slim">{body}</div>
+              <div ref={scrollRef} className="min-h-0 flex-1 overscroll-contain overflow-y-auto scrollbar-slim">{animatedBody}</div>
               {composer}
             </motion.aside>
           </motion.div>

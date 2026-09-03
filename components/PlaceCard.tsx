@@ -7,7 +7,7 @@ import type { Place } from "@/packages/contracts/place";
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
 import { BlurImage, Tactile } from "@/components/motion-primitives";
 import { ExternalLink } from "@/components/ExternalLink";
-import { CompareButton, useTripPanelMaybe } from "@/components/TripPanelProvider";
+import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import { photoProxyUrl, priceLabel, priceRank } from "@/lib/places-ui";
 
 export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place; why?: string }) {
@@ -15,10 +15,17 @@ export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place
   const price = priceLabel(place.priceLevel);
   const href = `/trips/${tripId}/place/${encodeURIComponent(place.providerId)}`;
   const panelCtx = useTripPanelMaybe();
+  const compareEntry: CompareEntry = {
+    id: place.providerId, kind: "place", name: place.name, href, subtitle: place.address ?? undefined,
+    attrs: { price: priceLabel(place.priceLevel) ?? undefined, priceValue: place.priceLevel ? priceRank(place.priceLevel) : undefined,
+      rating: typeof place.rating === "number" ? place.rating.toFixed(1) : undefined, ratingValue: typeof place.rating === "number" ? place.rating : undefined,
+      lat: place.latitude, lng: place.longitude, address: place.address ?? undefined, detail: place.category ? place.category.replaceAll("_", " ") : undefined },
+  };
   const open = panelCtx
     ? (e: MouseEvent) => {
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return; // let new-tab through
         e.preventDefault();
+        if (panelCtx.compareMode) { panelCtx.compareToggle(compareEntry); return; }
         panelCtx.openPanel({ kind: "place", placeId: place.providerId, name: place.name });
       }
     : undefined;
@@ -67,25 +74,7 @@ export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place
 
         <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
           <AddToTripControl tripId={tripId} place={place} size="sm" />
-          <CompareButton
-            entry={{
-              id: place.providerId,
-              kind: "place",
-              name: place.name,
-              href,
-              subtitle: place.address ?? undefined,
-              attrs: {
-                price: priceLabel(place.priceLevel) ?? undefined,
-                priceValue: place.priceLevel ? priceRank(place.priceLevel) : undefined,
-                rating: typeof place.rating === "number" ? place.rating.toFixed(1) : undefined,
-                ratingValue: typeof place.rating === "number" ? place.rating : undefined,
-                lat: place.latitude,
-                lng: place.longitude,
-                address: place.address ?? undefined,
-                detail: place.category ? place.category.replaceAll("_", " ") : undefined,
-              },
-            }}
-          />
+          {panelCtx?.compareMode && <span className="rounded-full border border-border px-2 py-1 text-[11px] text-muted-foreground">{panelCtx.compareHas(place.providerId) ? "Selected" : "Click card to select"}</span>}
           {place.sourceUrl && (
             <ExternalLink href={place.sourceUrl} className="ml-auto">
               Maps

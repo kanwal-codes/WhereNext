@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MessageInput } from "../domain/message";
+import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 export function scopedMessageIdempotencyKey(role: MessageInput["role"], key?: string) {
   return key ? `${role}:${key}` : null;
@@ -50,6 +51,7 @@ export function createConversationRepository(supabase: SupabaseClient, writer: S
         ? await supabase.from("conversation_messages").upsert(row, { onConflict: "thread_id,idempotency_key" }).select("id,role,content,created_at,metadata").single()
         : await supabase.from("conversation_messages").insert(row).select("id,role,content,created_at,metadata").single();
       if (result.error) throw result.error;
+      invalidateWorkspace(tripId);
       return result.data;
     },
   };

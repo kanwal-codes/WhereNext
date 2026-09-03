@@ -7,6 +7,7 @@ import { fail } from "@/lib/server/with-route";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createPlaceRepository } from "@/features/places/infrastructure/placeRepository";
 import { cached } from "@/lib/server/ttl-cache";
+import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
@@ -26,7 +27,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
     const place = placeSchema.parse(await request.json());
-    return NextResponse.json({ place: await createPlaceRepository(supabase, createSupabaseAdminClient()).save(tripId, place) }, { status: 201 });
+    const saved = await createPlaceRepository(supabase, createSupabaseAdminClient()).save(tripId, place);
+    invalidateWorkspace(tripId);
+    return NextResponse.json({ place: saved }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid place" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "Place could not be saved");
@@ -46,6 +49,7 @@ async function placeAction(request: Request, tripId: string, status: "rejected" 
     const removed = await supabase.from("trip_places").delete().eq("trip_id", tripId).eq("place_id", result.data.id);
     if (removed.error) throw removed.error;
   }
+  invalidateWorkspace(tripId);
   return NextResponse.json({ [status]: true });
 }
 

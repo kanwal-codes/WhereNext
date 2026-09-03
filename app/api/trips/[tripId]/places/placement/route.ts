@@ -6,6 +6,7 @@ import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createPlaceRepository } from "@/features/places/infrastructure/placeRepository";
+import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 /**
  * One control, one state machine: reconcile a place's shortlist row and its
@@ -58,6 +59,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ trip
       if (del.error) throw del.error;
     }
 
+    invalidateWorkspace(tripId);
     return NextResponse.json({ placement });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid placement" }, { status: 400 });

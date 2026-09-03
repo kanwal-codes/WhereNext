@@ -99,6 +99,7 @@ export async function events(
   signal?: AbortSignal,
   /** "relevance" surfaces bigger acts for a broad "what's on" query; "date" (default) for a specific one. */
   sort: "date" | "relevance" = "date",
+  page = 0,
 ): Promise<EventResult[]> {
   const key = process.env.TICKETMASTER_CONSUMER_KEY ?? process.env.TICKETMASTER_API_KEY;
   if (!key) throw new Error("TICKETMASTER_API_KEY is not configured");
@@ -109,8 +110,9 @@ export async function events(
   // Constrain to the trip window when we have it, so cards aren't months out.
   if (/^\d{4}-\d{2}-\d{2}$/.test(window?.start ?? "")) url.searchParams.set("startDateTime", `${window!.start}T00:00:00Z`);
   if (/^\d{4}-\d{2}-\d{2}$/.test(window?.end ?? "")) url.searchParams.set("endDateTime", `${window!.end}T23:59:59Z`);
-  url.searchParams.set("size", "12");
+  url.searchParams.set("size", "30");
   url.searchParams.set("sort", sort === "relevance" ? "relevance,desc" : "date,asc");
+  if (page > 0) url.searchParams.set("page", String(page));
   const response = await guardedFetch("ticketmaster", url, { signal: withProviderTimeout(signal) });
   if (!response.ok) throw new Error(`Ticketmaster search failed: ${response.status}`);
   const body = await response.json() as {

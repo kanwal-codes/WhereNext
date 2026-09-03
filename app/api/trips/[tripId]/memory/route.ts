@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
 import { preferencesSchema } from "@/packages/contracts/preferences";
+import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 export async function GET(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
@@ -26,6 +27,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ trip
     const merged = preferencesSchema.parse({ ...(existing.data?.data ?? {}), ...memory });
     const result = await supabase.from("trip_preferences").upsert({ trip_id: tripId, data: merged }).select("data,updated_at").single();
     if (result.error) throw result.error;
+    invalidateWorkspace(tripId);
     return NextResponse.json({ memory: result.data.data, updatedAt: result.data.updated_at });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid trip memory" }, { status: 400 });

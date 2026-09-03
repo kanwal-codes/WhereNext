@@ -16,11 +16,13 @@ export function AiSearchBar({
   scope,
   placeholder,
   onDirective,
+  className,
 }: {
   tripId: string;
   scope: AiSearchScope;
   placeholder: string;
   onDirective: (directive: AiSearchDirective, raw: string) => void;
+  className?: string;
 }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -68,7 +70,7 @@ export function AiSearchBar({
   }
 
   return (
-    <div>
+    <div className={className}>
       <form
         onSubmit={(e) => { e.preventDefault(); void run(); }}
         className="flex items-center gap-2 rounded-2xl border border-input bg-card px-3 py-2 shadow-soft focus-within:ring-2 focus-within:ring-ring/25"

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { canChangeLockedItem, itineraryItemSchema, itineraryReorderSchema } from "@/features/itinerary/domain/item";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
+import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 const SELECT = "id,title,day_index,position,metadata,created_at";
 
@@ -48,6 +49,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
       .select(SELECT)
       .single();
     if (result.error) throw result.error;
+    invalidateWorkspace(tripId);
     return NextResponse.json({ item: result.data }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid itinerary item" }, { status: 400 });
@@ -78,6 +80,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ tr
       }
       const items = await supabase.from("trip_itinerary_items").select(SELECT).eq("trip_id", tripId).is("removed_at", null).order("day_index").order("position").order("created_at");
       if (items.error) throw items.error;
+      invalidateWorkspace(tripId);
       return NextResponse.json({ items: items.data ?? [] });
     }
 
@@ -96,6 +99,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ tr
     const result = await supabase.from("trip_itinerary_items").update(update).eq("trip_id", tripId).eq("title", item.title).select(SELECT).maybeSingle();
     if (result.error) throw result.error;
     if (!result.data) return NextResponse.json({ error: "Item not found" }, { status: 404 });
+    invalidateWorkspace(tripId);
     return NextResponse.json({ item: result.data });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid itinerary item" }, { status: 400 });
@@ -114,6 +118,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ t
     if (!canChangeLockedItem(existing.data.metadata as Record<string, unknown> | null, {})) return NextResponse.json({ error: "Unlock the item before removing it" }, { status: 409 });
     const result = await supabase.from("trip_itinerary_items").update({ removed_at: new Date().toISOString() }).eq("trip_id", tripId).eq("title", title);
     if (result.error) throw result.error;
+    invalidateWorkspace(tripId);
     return new Response(null, { status: 204 });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid itinerary item" }, { status: 400 });

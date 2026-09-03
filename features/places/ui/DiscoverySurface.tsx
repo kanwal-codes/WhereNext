@@ -8,7 +8,7 @@ import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { useTripData } from "@/components/TripDataProvider";
 import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
 import { AiSearchBar } from "@/components/AiSearchBar";
-import { useTripPanelMaybe } from "@/components/TripPanelProvider";
+import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import { useInfiniteReveal } from "@/lib/use-infinite-reveal";
 import { PlaceCard } from "@/components/PlaceCard";
 import { rankPlaces, type RankAnchor } from "@/lib/application/rank-places";
@@ -32,6 +32,11 @@ type Item =
   | { kind: "stay"; stay: StayItem };
 
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) && v !== 0 ? v : null);
+const folded = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const inDestination = (place: Place, destination: string) => {
+  const city = folded(destination.split(",")[0]?.trim() ?? destination);
+  return !city || folded(place.address ?? "").includes(city);
+};
 type Band = { key: string | null; label: string; items: Item[] };
 
 const idOf = (item: Item) => (item.kind === "place" ? item.place.providerId : item.kind === "event" ? item.event.url : item.stay.hotelId);
@@ -48,6 +53,7 @@ const toStayItem = (o: Record<string, unknown>): StayItem => ({
 
 export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; initialSaved?: Array<Record<string, unknown>> }) {
   const { data } = useTripData();
+  const panelCtx = useTripPanelMaybe();
   const destination = data?.trip.destination?.trim() ?? "";
   const prefs = (data?.preferences ?? {}) as Record<string, unknown>;
   const interestsKey = [...asList(prefs.interests), ...asList(prefs.likes)].join(",").toLowerCase();
@@ -94,6 +100,10 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const reqId = useRef(0);
+  const eventsPage = useRef(0);
+  const eventsLoading = useRef(false);
+  const eventsHasMore = useRef(true);
+  const eventsSentinel = useRef<HTMLDivElement | null>(null);
 
   const fetchPlaces = useCallback(
     async (q: string): Promise<Place[]> => {
@@ -104,10 +114,11 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
     [tripId, scope],
   );
   const fetchEvents = useCallback(
-    async (q: string): Promise<NearbyEvent[]> => {
+    async (q: string, page = 0): Promise<NearbyEvent[]> => {
       if (!destination) return [];
       const qs = new URLSearchParams({ location: destination });
       if (q) qs.set("query", q);
+      if (page > 0) qs.set("page", String(page));
       const r = await fetch(`/api/trips/${tripId}/events?${qs}`);
       const body = await r.json().catch(() => ({}));
       return r.ok ? (body.events ?? []) : [];
@@ -150,6 +161,13 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
 
   const loadAll = useCallback(async () => {
     const mine = ++reqId.current;
+    eventsPage.current = 0;
+    eventsHasMore.current = true;
+    const cacheKey = `discover:${tripId}:${destination}:${interestsKey}:${savedKey}`;
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) { setBands(JSON.parse(cached) as Band[]); setLoading(false); return; }
+    } catch { /* ignore */ }
     setLoading(true);
     setMessage("");
     const [forYou, sights, eat, ev, st] = await Promise.allSettled([
@@ -162,20 +180,53 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
     if (mine !== reqId.current) return;
     const ok = <T,>(r: PromiseSettledResult<T[]>): T[] => (r.status === "fulfilled" ? r.value : []);
     const next: Band[] = [
-      { key: "sights", label: "Top sights", items: rankToItems(ok(sights)).slice(0, 6) },
+      { key: "sights", label: "Top sights", items: rankToItems(ok(sights)) },
       {
         key: null,
         label: interests.length ? `Because you like ${interests.slice(0, 2).join(" & ")}` : "Highly rated right now",
-        items: rankToItems(ok(forYou)).slice(0, 6),
+        items: rankToItems(ok(forYou)),
       },
-      { key: "eat", label: "Where to eat", items: rankToItems(ok(eat)).slice(0, 6) },
-      { key: "events", label: "On while you’re there", items: ok(ev).slice(0, 6).map((e) => ({ kind: "event", event: e }) as Item) },
+      { key: "eat", label: "Where to eat", items: rankToItems(ok(eat).filter((place) => inDestination(place, destination))) },
+      { key: "events", label: "On while you’re there", items: ok(ev).map((e) => ({ kind: "event", event: e }) as Item) },
       { key: "stays", label: "Places to stay", items: ok(st).slice(0, 4).map((s) => ({ kind: "stay", stay: s }) as Item) },
     ].filter((b) => b.items.length);
     setBands(next);
+    try { sessionStorage.setItem(cacheKey, JSON.stringify(next)); } catch { /* ignore */ }
     setLoading(false);
     setMessage(next.length ? "" : "Nothing came back just now. Try a search or a different category.");
-  }, [fetchPlaces, fetchEvents, fetchStays, interests, rankToItems]);
+  }, [fetchPlaces, fetchEvents, fetchStays, interests, interestsKey, savedKey, destination, tripId, rankToItems]);
+
+  const loadMoreEvents = useCallback(async () => {
+    if (eventsLoading.current || !eventsHasMore.current || !destination) return;
+    eventsLoading.current = true;
+    const nextPage = eventsPage.current + 1;
+    try {
+      const next = await fetchEvents("", nextPage);
+      if (next.length === 0) {
+        eventsHasMore.current = false;
+        return;
+      }
+      eventsPage.current = nextPage;
+      setBands((current) => current?.map((band) => {
+        if (band.key !== "events") return band;
+        const existing = new Set(band.items.map((item) => item.kind === "event" ? item.event.url : ""));
+        const additions = next.filter((event) => !existing.has(event.url)).map((event) => ({ kind: "event", event }) as Item);
+        return additions.length ? { ...band, items: [...band.items, ...additions] } : band;
+      }) ?? current);
+    } finally {
+      eventsLoading.current = false;
+    }
+  }, [destination, fetchEvents]);
+
+  useEffect(() => {
+    const sentinel = eventsSentinel.current;
+    if (!sentinel || view !== "results" || flat || searchMode || catKey !== null || !bands?.some((band) => band.key === "events")) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) void loadMoreEvents();
+    }, { rootMargin: "900px 0px" });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [bands, view, flat, searchMode, catKey, loadMoreEvents]);
 
   const loadCategory = useCallback(
     async (cat: DiscoverCategory, chosen: string[]) => {
@@ -220,13 +271,17 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
       setLoading(true);
       setMessage("");
       const mine = ++reqId.current;
-      const places = await fetchPlaces(q);
+      const eventCategory = CATEGORY_BY_KEY.get("events");
+      const eventIntent = eventCategory && q.toLowerCase().includes("concert");
+      const places = eventIntent ? [] : await fetchPlaces(q);
+      const events = eventIntent ? await fetchEvents(q) : [];
       if (mine !== reqId.current) return;
-      setItems(rankToItems(places));
+      setItems(eventIntent ? events.map((event) => ({ kind: "event", event }) as Item) : rankToItems(places));
       setLoading(false);
-      setMessage(places.length ? `“${q}” · ${places.length} near ${destination || "your destination"}` : "Nothing came back — try different words.");
+      const count = eventIntent ? events.length : places.length;
+      setMessage(count ? `“${q}” · ${count} near ${destination || "your destination"}` : "Nothing came back — try different words.");
     },
-    [fetchPlaces, destination, rankToItems],
+    [fetchPlaces, fetchEvents, destination, rankToItems],
   );
 
   // Drive the feed from the active filter.
@@ -312,6 +367,7 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
         scope="discover"
         placeholder={destination ? `Ask — “rooftop bars near old Montreal”, “kid-friendly museums”, “ramen”` : "Ask for places for this trip"}
         onDirective={applyDirective}
+        className="w-full max-w-3xl"
       />
       {(searchMode || catKey !== null) && searchLabel && (
         <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
@@ -339,6 +395,7 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
 
         {view === "results" && (
           <>
+            {panelCtx && <button type="button" onClick={() => panelCtx.setCompareMode(!panelCtx.compareMode)} className={cn("shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors", panelCtx.compareMode ? "border-transparent bg-primary text-primary-foreground" : "border-border bg-background text-ink-soft hover:bg-accent")}>{panelCtx.compareMode ? `Select (${panelCtx.compareList.length})` : "Compare"}</button>}
             <button
               type="button"
               onClick={() => pickCategory(null)}
@@ -369,6 +426,7 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
           </>
         )}
       </div>
+      {panelCtx?.compareMode && panelCtx.compareList.length >= 2 && <button type="button" onClick={panelCtx.openCompare} className="mt-3 rounded-full bg-primary px-4 py-2 text-xs font-medium text-primary-foreground">Compare selected</button>}
 
       {/* Tier 2 — sub-types for the active category. One row, scrolls sideways. */}
       <AnimatePresence initial={false}>
@@ -377,7 +435,7 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2, ease: [0.22, 0.61, 0.36, 1] }}
+            transition={{ duration: 0.28, ease: [0.22, 0.61, 0.36, 1] }}
             className="overflow-hidden"
           >
             <div className="mt-3 flex gap-1.5 overflow-x-auto scrollbar-slim pb-1">
@@ -455,6 +513,7 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
                     )}
                   </div>
                   <Stagger className={cn(grid, "mt-3")}>{band.items.map((it) => renderItem(it))}</Stagger>
+                  {band.key === "events" && <div ref={eventsSentinel} aria-hidden className="h-8" />}
                 </section>
               ))}
             </div>
@@ -468,13 +527,16 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
 
 function StayMiniCard({ tripId, stay }: { tripId: string; stay: StayItem }) {
   const panelCtx = useTripPanelMaybe();
+  const href = `/trips/${tripId}/stay/${encodeURIComponent(stay.hotelId)}`;
+  const entry: CompareEntry = { id: stay.hotelId, kind: "stay", name: stay.name, href, image: stay.thumbnail ?? undefined, attrs: { price: `${Math.round(stay.nightlyAmount)} ${stay.currency}/night`, priceValue: stay.nightlyAmount, rating: stay.rating != null ? `${stay.rating}/10` : undefined, ratingValue: stay.rating ?? undefined, detail: "Stay" } };
   return (
     <a
-      href={`/trips/${tripId}/stay/${encodeURIComponent(stay.hotelId)}`}
+      href={href}
       onClick={(e) => {
         if (!panelCtx || e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
         e.preventDefault();
-        panelCtx.openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name });
+        if (panelCtx.compareMode) panelCtx.compareToggle(entry);
+        else panelCtx.openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name });
       }}
       className="group flex h-[19rem] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-shadow hover:shadow-lift"
     >
@@ -499,6 +561,7 @@ function StayMiniCard({ tripId, stay }: { tripId: string; stay: StayItem }) {
           <span className="font-display text-base tabular-nums">{Math.round(stay.nightlyAmount)} {stay.currency}</span>
           <span className="text-xs text-muted-foreground"> / night</span>
         </p>
+        {panelCtx?.compareMode && <p className="text-[11px] text-muted-foreground">{panelCtx.compareHas(stay.hotelId) ? "Selected" : "Click to compare"}</p>}
       </div>
     </a>
   );

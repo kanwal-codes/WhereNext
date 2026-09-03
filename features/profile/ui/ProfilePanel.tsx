@@ -25,10 +25,17 @@ export function ProfilePanel() {
 
   useEffect(() => {
     let live = true;
+    const key = "traveler-profile";
+    const apply = (body: { profile?: TravelerProfile }) => {
+      const p = body.profile ?? {};
+      setHomeAirport(csv(p.homeAirport)); setGroupType(csv(p.groupType)); setPace(csv(p.pace)); setBudget(csv(p.budget)); setInterests(csv(p.interests)); setDietaryNeeds(csv(p.dietaryNeeds));
+    };
+    try { const cached = sessionStorage.getItem(key); if (cached) { apply(JSON.parse(cached)); setLoading(false); return () => { live = false; }; } } catch { /* ignore */ }
     fetch("/api/profile")
       .then((r) => (r.ok ? r.json() : { profile: {} }))
       .then((body: { profile?: TravelerProfile }) => {
         if (!live) return;
+        try { sessionStorage.setItem(key, JSON.stringify(body)); } catch { /* ignore */ }
         const p = body.profile ?? {};
         setHomeAirport(csv(p.homeAirport));
         setGroupType(csv(p.groupType));
@@ -63,6 +70,7 @@ export function ProfilePanel() {
         body: JSON.stringify(payload),
       });
       if (!response.ok) throw new Error();
+      try { sessionStorage.setItem("traveler-profile", JSON.stringify({ profile: payload })); } catch { /* ignore */ }
       notifyToast("Profile saved", "success");
     } catch {
       notifyToast("Your profile couldn’t be saved.", "error");

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
+import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 export async function GET(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
@@ -23,6 +24,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ trip
     if (!parsed.success) return NextResponse.json({ error: "Invalid essentials" }, { status: 400 });
     const result = await supabase.from("trip_essentials").upsert({ trip_id: tripId, completed: parsed.data.completed }).select("completed,updated_at").single();
     if (result.error) throw result.error;
+    invalidateWorkspace(tripId);
     return NextResponse.json(result.data);
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Essentials unavailable");

@@ -3,7 +3,7 @@
 import type { MouseEvent } from "react";
 import Link from "next/link";
 import { CalendarClock, MapPin } from "lucide-react";
-import { CompareButton, useTripPanelMaybe } from "@/components/TripPanelProvider";
+import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import { eventDetailHref } from "@/lib/places-ui";
 import { cn } from "@/lib/utils";
 
@@ -13,26 +13,17 @@ export type NearbyEvent = { title: string; url: string; date?: string; venue?: s
 export function EventCard({ tripId, event, className }: { tripId: string; event: NearbyEvent; className?: string }) {
   const href = eventDetailHref(tripId, event);
   const panelCtx = useTripPanelMaybe();
+  const compareEntry: CompareEntry = { id: event.url, kind: "event", name: event.title, href, subtitle: event.source, attrs: { when: event.date, address: event.venue, detail: "Event" } };
   const open = panelCtx
     ? (e: MouseEvent) => {
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
         e.preventDefault();
+        if (panelCtx.compareMode) { panelCtx.compareToggle(compareEntry); return; }
         panelCtx.openPanel({ kind: "event", seed: { name: event.title, url: event.url, source: event.source, imageUrl: event.imageUrl, date: event.date, venue: event.venue } });
       }
     : undefined;
   return (
     <div className={cn("relative h-[19rem]", className)}>
-      <CompareButton
-        entry={{
-          id: event.url,
-          kind: "event",
-          name: event.title,
-          href,
-          subtitle: event.source,
-          attrs: { when: event.date, address: event.venue, detail: "Event" },
-        }}
-        className="absolute right-2 top-2 z-10 backdrop-blur"
-      />
       <Link
         href={href}
         onClick={open}

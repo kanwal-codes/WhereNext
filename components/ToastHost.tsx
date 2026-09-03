@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Check, Info, X } from "lucide-react";
 import { subscribeToasts, type ToastPayload } from "@/lib/application/toast";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,7 @@ const TONE: Record<ToastPayload["tone"], string> = {
 export function ToastHost() {
   const [toasts, setToasts] = useState<ToastPayload[]>([]);
   const pathname = usePathname();
+  const reduceMotion = useReducedMotion();
   // In the conversation, float toasts just above the composer instead of the top corner.
   const nearComposer = Boolean(pathname?.endsWith("/chat"));
 
@@ -39,10 +40,10 @@ export function ToastHost() {
         {toasts.map((toast) => (
           <motion.div
             key={toast.id}
-            initial={{ opacity: 0, y: nearComposer ? 12 : -12, scale: 0.96 }}
+            initial={reduceMotion ? false : { opacity: 0, y: nearComposer ? 12 : -12, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: nearComposer ? 8 : -8, scale: 0.98 }}
-            transition={{ type: "spring", stiffness: 320, damping: 28 }}
+            exit={reduceMotion ? undefined : { opacity: 0, y: nearComposer ? 8 : -8, scale: 0.98 }}
+            transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 320, damping: 28 }}
             className={cn(
               "pointer-events-auto flex max-w-sm items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-medium shadow-lift backdrop-blur",
               TONE[toast.tone],

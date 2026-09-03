@@ -113,9 +113,12 @@ export default function TripOverviewPage() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="mt-4 rounded-2xl border border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
-                    Nothing captured yet. Tell the assistant what you&rsquo;re after.
-                  </p>
+                  <div className="mt-4 rounded-2xl border border-dashed border-border bg-card/50 px-4 py-4">
+                    <p className="text-sm font-medium">Start shaping the trip</p>
+                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                      Tell the assistant where you&rsquo;re going, what matters to you, and how you want the days to feel.
+                    </p>
+                  </div>
                 )}
               </section>
             </Reveal>
@@ -169,9 +172,13 @@ export default function TripOverviewPage() {
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-4 rounded-2xl border border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
-                    No saved places yet.
-                  </p>
+                  <div className="mt-4 rounded-2xl border border-dashed border-border bg-card/50 px-4 py-4">
+                    <p className="text-sm font-medium">Nothing saved yet</p>
+                    <p className="mt-1 text-sm text-muted-foreground">Explore places that fit the way you want this trip to feel.</p>
+                    <Link href={`/trips/${tripId}/discover`} className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary">
+                      Discover places <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  </div>
                 )}
               </section>
             </Reveal>

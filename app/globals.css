@@ -202,6 +202,12 @@
 }
 
 @layer base {
+  :where(a, button, summary, [role="button"]) {
+    transition-property: color, background-color, border-color, opacity, transform, box-shadow;
+    transition-duration: 180ms;
+    transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+
   * {
     border-color: var(--color-border);
   }
@@ -232,8 +238,8 @@
 }
 
 @utility hero-eyebrow {
-  color: var(--color-ink-soft);
-  text-shadow: 0 0 5px rgb(255 255 255 / 90%), 0 1px 2px rgb(255 255 255 / 70%);
+  color: var(--color-foreground);
+  text-shadow: none;
 }
 
 /* One text/date/select field for every form in the app. */
@@ -266,6 +272,7 @@
 }
 
 @utility scrollbar-slim {
+  scroll-behavior: smooth;
   scrollbar-width: thin;
   scrollbar-color: var(--color-border) transparent;
 
@@ -322,14 +329,16 @@
 @keyframes route-in {
   from {
     opacity: 0;
+    filter: blur(2px);
   }
   to {
     opacity: 1;
+    filter: blur(0);
   }
 }
 
 @utility route-enter {
-  animation: route-in 0.42s cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation: route-in 0.34s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {

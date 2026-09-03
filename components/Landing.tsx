@@ -8,7 +8,7 @@ import { Reveal, WordReveal, ease } from "@/components/motion-primitives";
 import { BrandMark } from "@/components/BrandMark";
 import { cn } from "@/lib/utils";
 
-const mountainsImg = "/design/land-mountains.jpg";
+const mountainsImg = "/design/land-mountains-right-v2.png";
 const friendsImg = "/design/land-friends-v3.png";
 const cityImg = "/design/land-city-v3.png";
 const stayImg = "/design/land-stay.jpg";
@@ -23,7 +23,7 @@ function InView({ children, className, delay = 0, y = 22 }: { children: ReactNod
       initial={{ opacity: 0, y: reduce ? 0 : y }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-12% 0px -12% 0px" }}
-      transition={{ duration: 0.85, ease, delay }}
+      transition={reduce ? { duration: 0 } : { duration: 0.85, ease, delay }}
     >
       {children}
     </motion.div>
@@ -106,11 +106,11 @@ export function Landing() {
 
         <div className="absolute inset-x-0 top-0">
           <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 pt-7 sm:px-10">
-            <Link href="/" className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1.5 backdrop-blur-sm">
+            <Link href="/" className="inline-flex items-center gap-2">
               <BrandMark variant="text" />
             </Link>
             <div className="flex items-center gap-3 sm:gap-5">
-              <Link href="/sign-in" className="link-underline text-sm font-medium">
+              <Link href="/sign-in" className="link-underline rounded-full bg-white/60 px-3 py-1.5 text-sm font-medium backdrop-blur-sm">
                 Sign in
               </Link>
               <Link href="/sign-up" className="rounded-full bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-transform hover:scale-[1.03] sm:px-4">

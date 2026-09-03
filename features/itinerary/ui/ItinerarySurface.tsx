@@ -255,7 +255,7 @@ export function ItinerarySurface({
                       initial={{ opacity: 0, x: -8 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 12, height: 0 }}
-                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      transition={{ type: "spring", stiffness: 260, damping: 28, mass: 0.9 }}
                       className={cn("group relative mb-3", dragTitle === item.title && "opacity-40")}
                       onDragOver={(e) => {
                         if (!dragTitle || dragTitle === item.title) return;

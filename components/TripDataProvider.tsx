@@ -32,7 +32,10 @@ export function TripDataProvider({
 
   // Mutations across the app announce a change on the window event bus; route it
   // through Next's data refresh so server components re-render with fresh data.
-  useEffect(() => subscribeWorkspaceChanges(() => router.refresh()), [router]);
+  useEffect(() => subscribeWorkspaceChanges(() => {
+    if (typeof navigator !== "undefined" && "serviceWorker" in navigator) navigator.serviceWorker.controller?.postMessage({ type: "invalidate-trip-workspace" });
+    void router.refresh();
+  }), [router]);
 
   // Supabase Realtime re-broadcasts a collaborator's row changes onto that same
   // bus, and reports who else is here.

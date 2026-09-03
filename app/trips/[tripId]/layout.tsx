@@ -1,4 +1,5 @@
 import { cache, type ReactNode } from "react";
+import { unstable_cache } from "next/cache";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadTripWorkspace, type TripWorkspaceData } from "@/features/workspace/application/loadTripWorkspace";
@@ -7,6 +8,7 @@ import { TripDataProvider } from "@/components/TripDataProvider";
 import { TripPanelProvider } from "@/components/TripPanelProvider";
 import { TripPanel } from "@/components/TripPanel";
 import { tripCompleteness } from "@/lib/design";
+import { workspaceTag } from "@/lib/server/workspace-cache";
 
 const PREVIEW_ID = "rebuild-preview";
 /** The credential-free preview trip exists for Playwright only; never in a real deployment. */
@@ -18,7 +20,12 @@ const previewEnabled = (tripId: string) => tripId === PREVIEW_ID && process.env.
 const getWorkspace = cache(async (tripId: string): Promise<TripWorkspaceData | null> => {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-  return user ? await loadTripWorkspace(supabase, tripId).catch(() => null) : null;
+  if (!user) return null;
+  return unstable_cache(
+    () => loadTripWorkspace(supabase, tripId).catch(() => null),
+    ["trip-workspace", user.id, tripId],
+    { revalidate: 30, tags: [workspaceTag(tripId)] },
+  )();
 });
 
 const getViewer = cache(async (): Promise<{ userId: string; name: string } | undefined> => {

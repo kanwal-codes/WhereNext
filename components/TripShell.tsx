@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { useState, type ReactNode } from "react";
 import {
   BedDouble,
@@ -78,7 +78,7 @@ function NavList({
               <motion.span
                 layoutId="nav-marker"
                 className="absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-full bg-primary"
-                transition={{ type: "spring", stiffness: 320, damping: 28 }}
+                transition={{ type: "spring", stiffness: 260, damping: 28, mass: 0.9 }}
               />
             )}
             <item.icon className="h-4 w-4 shrink-0 opacity-70" />
@@ -92,6 +92,7 @@ function NavList({
 
 export function TripShell({ tripId, trip, children }: { tripId: string; trip: ShellTrip; children: ReactNode }) {
   const pathname = usePathname() ?? `/trips/${tripId}`;
+  const reduceMotion = useReducedMotion();
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -105,7 +106,7 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
       {/* Desktop sidebar */}
       <motion.aside
         layout
-        transition={{ type: "spring", stiffness: 240, damping: 30 }}
+        transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 260, damping: 28, mass: 0.9 }}
         className={cn(
           "sticky top-0 hidden h-screen flex-col border-r border-sidebar-border bg-sidebar py-6 lg:flex",
           collapsed ? "px-3" : "px-4",
@@ -196,16 +197,17 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
       </div>
 
       {open && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="fixed inset-0 z-50 bg-ink/30 lg:hidden"
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={reduceMotion ? { duration: 0 } : undefined}
+            className="fixed inset-0 z-50 bg-ink/30 lg:hidden"
           onClick={() => setOpen(false)}
         >
           <motion.div
             initial={{ x: -280 }}
             animate={{ x: 0 }}
-            transition={{ type: "spring", stiffness: 280, damping: 30 }}
+            transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 260, damping: 28, mass: 0.9 }}
             className="h-full w-[280px] bg-sidebar px-4 py-6"
             onClick={(e) => e.stopPropagation()}
           >

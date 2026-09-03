@@ -31,7 +31,7 @@ export function Hero({
   const animateIn = useAnimateIn();
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
   const y = useTransform(scrollYProgress, [0, 1], ["0%", reduce ? "0%" : "14%"]);
-  const fog = useTransform(scrollYProgress, [0, 1], [1, reduce ? 1 : 1.6]);
+  const fog = useTransform(scrollYProgress, [0, 1], [1, reduce ? 1 : 1.15]);
 
   return (
     <div ref={ref} className={cn("relative isolate overflow-hidden", className)}>
@@ -50,7 +50,7 @@ export function Hero({
             animate={{ scale: reduce ? 1.02 : 1.06, opacity: 1 }}
             transition={{
               opacity: { duration: 1, ease: [0.22, 0.61, 0.36, 1] },
-              scale: { duration: 18, ease: "linear" },
+              scale: { duration: reduce ? 0 : 18, ease: "linear" },
             }}
           />
         ) : (
@@ -73,7 +73,7 @@ export function Hero({
           plain ? "h-2/5 via-background/55" : "h-1/2 via-background/70",
         )}
       />
-      <div className="pointer-events-none absolute inset-x-0 -bottom-px h-16 bg-background [mask-image:linear-gradient(to_top,black,transparent)] backdrop-blur-md" />
+      <div className="pointer-events-none absolute inset-x-0 -bottom-px h-10 bg-background/70 [mask-image:linear-gradient(to_top,black,transparent)] backdrop-blur-sm" />
 
       {children}
     </div>

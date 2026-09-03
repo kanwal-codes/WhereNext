@@ -23,6 +23,7 @@ import { persistedAssistantStream } from "@/features/conversation/application/pe
 import { createConversationRepository } from "@/features/conversation/infrastructure/conversationRepository";
 import { sanitizeAssistantContent } from "@/lib/application/sanitize-assistant";
 import { withTripAiStream } from "@/lib/server/trip-ai-queue";
+import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 import { recordAiTurn } from "@/lib/server/ai-turn-trace";
 
 const SSE_HEADERS = { "content-type": "text/event-stream", "cache-control": "no-cache, no-transform", "x-accel-buffering": "no" };
@@ -93,7 +94,8 @@ async function persistSuggestedFacts(
     }));
   if (rows.length === 0) return;
   try {
-    await supabase.from("trip_decisions").upsert(rows, { onConflict: "trip_id,idempotency_key" });
+    const result = await supabase.from("trip_decisions").upsert(rows, { onConflict: "trip_id,idempotency_key" });
+    if (!result.error) invalidateWorkspace(tripId);
   } catch {
     // A missed suggestion is not worth failing the turn (or a test with a partial supabase mock).
   }

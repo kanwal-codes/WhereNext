@@ -44,6 +44,8 @@ export type PanelState =
 type Ctx = {
   panel: PanelState | null;
   openPanel: (panel: PanelState) => void;
+  goBack: () => void;
+  canGoBack: boolean;
   closePanel: () => void;
   compareList: CompareEntry[];
   compareHas: (id: string) => boolean;
@@ -51,14 +53,26 @@ type Ctx = {
   compareRemove: (id: string) => void;
   compareClear: () => void;
   openCompare: () => void;
+  compareMode: boolean;
+  setCompareMode: (on: boolean) => void;
 };
+
+const panelKey = (panel: PanelState) => panel.kind === "place"
+  ? `place:${panel.placeId}`
+  : panel.kind === "stay"
+    ? `stay:${panel.hotelId}`
+    : panel.kind === "event"
+      ? `event:${panel.seed.url}`
+      : "compare";
 
 const TripPanelCtx = createContext<Ctx | null>(null);
 
 export function TripPanelProvider({ tripId, children }: { tripId: string; children: ReactNode }) {
   const key = `compare:${tripId}`;
   const [panel, setPanel] = useState<PanelState | null>(null);
+  const [history, setHistory] = useState<PanelState[]>([]);
   const [compareList, setCompareList] = useState<CompareEntry[]>([]);
+  const [compareMode, setCompareMode] = useState(false);
 
   useEffect(() => {
     try {
@@ -76,8 +90,22 @@ export function TripPanelProvider({ tripId, children }: { tripId: string; childr
     }
   }, [key, compareList]);
 
-  const openPanel = useCallback((next: PanelState) => setPanel(next), []);
-  const closePanel = useCallback(() => setPanel(null), []);
+  const openPanel = useCallback((next: PanelState) => {
+    setPanel((current) => {
+      if (current && panelKey(current) === panelKey(next)) return current;
+      if (current) setHistory((stack) => [...stack, current]);
+      return next;
+    });
+  }, []);
+  const closePanel = useCallback(() => { setPanel(null); setHistory([]); }, []);
+  const goBack = useCallback(() => {
+    setHistory((stack) => {
+      const previous = stack.at(-1);
+      if (!previous) return stack;
+      setPanel(previous);
+      return stack.slice(0, -1);
+    });
+  }, []);
   const compareHas = useCallback((id: string) => compareList.some((e) => e.id === id), [compareList]);
   const compareToggle = useCallback((entry: CompareEntry) => {
     setCompareList((cur) => {
@@ -90,11 +118,18 @@ export function TripPanelProvider({ tripId, children }: { tripId: string; childr
     setCompareList([]);
     setPanel((p) => (p?.kind === "compare" ? null : p));
   }, []);
-  const openCompare = useCallback(() => setPanel({ kind: "compare" }), []);
+  const openCompare = useCallback(() => {
+    setPanel((current) => {
+      if (current?.kind === "compare") return current;
+      if (current) setHistory((stack) => [...stack, current]);
+      return { kind: "compare" };
+    });
+    setCompareMode(false);
+  }, []);
 
   const value = useMemo(
-    () => ({ panel, openPanel, closePanel, compareList, compareHas, compareToggle, compareRemove, compareClear, openCompare }),
-    [panel, openPanel, closePanel, compareList, compareHas, compareToggle, compareRemove, compareClear, openCompare],
+    () => ({ panel, openPanel, closePanel, goBack, canGoBack: history.length > 0, compareList, compareHas, compareToggle, compareRemove, compareClear, openCompare, compareMode, setCompareMode }),
+    [panel, openPanel, closePanel, goBack, history.length, compareList, compareHas, compareToggle, compareRemove, compareClear, openCompare, compareMode],
   );
   return <TripPanelCtx.Provider value={value}>{children}</TripPanelCtx.Provider>;
 }

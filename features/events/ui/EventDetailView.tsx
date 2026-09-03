@@ -31,6 +31,14 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
 
   useEffect(() => {
     const controller = new AbortController();
+    const cacheKey = `event-detail:${tripId}:${seed.url}`;
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const body = JSON.parse(cached);
+        if (body.detail) { setDetail(body.detail); setState("ready"); return () => controller.abort(); }
+      }
+    } catch { /* unavailable or malformed cache */ }
     setState("loading");
     const q = new URLSearchParams({ name: seed.name, url: seed.url, source: seed.source });
     if (seed.imageUrl) q.set("img", seed.imageUrl);
@@ -39,6 +47,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
     fetch(`/api/trips/${tripId}/events/detail?${q.toString()}`, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("detail"))))
       .then((body) => {
+        try { sessionStorage.setItem(cacheKey, JSON.stringify(body)); } catch { /* ignore */ }
         setDetail(body.detail ?? null);
         setState(body.detail ? "ready" : "error");
       })
@@ -139,26 +148,18 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                   <MapPin className="h-4 w-4 text-coral" /> When &amp; where
                 </h2>
                 <dl className="mt-3 space-y-2 text-sm">
-                  {date && (
-                    <div className="flex gap-2">
-                      <dt className="w-24 shrink-0 text-muted-foreground">Date</dt>
-                      <dd>{date}</dd>
-                    </div>
-                  )}
-                  {(venueName || d?.venueAddress) && (
-                    <div className="flex gap-2">
-                      <dt className="w-24 shrink-0 text-muted-foreground">Venue</dt>
-                      <dd>
-                        {venueName}
-                        {d?.venueAddress ? <span className="block text-muted-foreground">{d.venueAddress}</span> : null}
-                        {mapsUrl && (
-                          <ExternalLink href={mapsUrl} className="mt-1 inline-block text-sm">
-                            Open in Google Maps
-                          </ExternalLink>
-                        )}
-                      </dd>
-                    </div>
-                  )}
+                  <div className="flex gap-2">
+                    <dt className="w-24 shrink-0 text-muted-foreground">Date</dt>
+                    <dd>{date ?? "Date to be confirmed"}</dd>
+                  </div>
+                  <div className="flex gap-2">
+                    <dt className="w-24 shrink-0 text-muted-foreground">Venue</dt>
+                    <dd>
+                      {venueName ?? "Venue to be confirmed"}
+                      {d?.venueAddress ? <span className="block text-muted-foreground">{d.venueAddress}</span> : null}
+                      {mapsUrl && <ExternalLink href={mapsUrl} className="mt-1 inline-block text-sm">Open in Google Maps</ExternalLink>}
+                    </dd>
+                  </div>
                 </dl>
               </section>
             </Reveal>
@@ -201,12 +202,12 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
             </div>
 
             {d && d.sources.length > 0 && (
-              <div className="rounded-2xl border border-dashed border-border p-5">
-                <p className="eyebrow">Where this came from</p>
-                <ul className="mt-2 space-y-1.5 text-sm">
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                <span className="font-medium text-foreground">Sources</span>
+                <ul className="flex min-w-0 flex-wrap gap-x-3 gap-y-1">
                   {d.sources.map((s) => (
                     <li key={s.url}>
-                      <ExternalLink href={s.url} className="text-sm">
+                      <ExternalLink href={s.url} className="text-[11px]">
                         {s.title}
                       </ExternalLink>
                     </li>

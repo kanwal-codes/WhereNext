@@ -19,17 +19,19 @@ export function useDestinationPhoto(tripId: string, destination: string | undefi
       setPhoto(null);
       return;
     }
+    const controller = new AbortController();
     if (cache.has(key)) {
       setPhoto(cache.get(key));
       return;
     }
-    const controller = new AbortController();
+    try { const stored = sessionStorage.getItem(`destination-photo:${key}`); if (stored) { const value = stored === "null" ? null : stored; cache.set(key, value); setPhoto(value); return () => controller.abort(); } } catch { /* ignore */ }
     fetch(`/api/trips/${tripId}/places?query=${encodeURIComponent(destination as string)}`, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : { places: [] }))
       .then((body) => {
         const first = (body.places ?? []) as Array<{ photoNames?: string[] }>;
         const url = photoProxyUrl(tripId, first[0]?.photoNames?.[0]) ?? null;
         cache.set(key, url);
+        try { sessionStorage.setItem(`destination-photo:${key}`, url ?? "null"); } catch { /* ignore */ }
         setPhoto(url);
       })
       .catch((err) => {

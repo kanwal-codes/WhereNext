@@ -153,10 +153,12 @@ export function PlaceDetailView({
         </div>
       )}
 
-      <div className="rounded-2xl border border-dashed border-border p-5">
-        <p className="eyebrow">Where this came from</p>
-        <p className="mt-2 text-sm leading-relaxed text-ink-soft">Details and reviews from Google Maps.</p>
-        {details.googleMapsUri && <ExternalLink href={details.googleMapsUri} className="mt-3">Open in Google Maps</ExternalLink>}
+      <div className="rounded-xl border border-dashed border-border px-3 py-2.5">
+        <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Source</p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          <span>Google Maps</span>
+          {details.googleMapsUri && <ExternalLink href={details.googleMapsUri} className="text-xs">Open map</ExternalLink>}
+        </div>
       </div>
     </>
   );
@@ -197,7 +199,7 @@ export function PlaceDetailView({
         <Reveal delay={0.08}>
           <section>
             <h2 className="font-display text-xl">Photos</h2>
-            <div className={cn("mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto scrollbar-slim pb-1", panel ? "-mx-4 px-4" : "-mx-5 px-5 sm:mx-0 sm:px-0")}>
+            <div className={cn("mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto scrollbar-slim px-1 pb-1", panel ? "" : "-mx-5 px-5 sm:mx-0 sm:px-0")}>
               {morePhotos.map((src) => (
                 // eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin proxy
                 <img key={src} src={src} alt={name} loading="lazy" width={288} height={192} className="h-44 w-72 shrink-0 snap-start rounded-2xl border border-border object-cover" />
