@@ -14,6 +14,7 @@ import { activities } from "../../packages/providers/getyourguide/client";
 import { withProviderTimeout } from "../../packages/providers/request-signal";
 import { events } from "../../packages/providers/ticketmaster/client";
 import { weather } from "../../packages/providers/openweather/client";
+import { predictHqEvents } from "../../packages/providers/predicthq/client";
 
 beforeEach(() => resetProviderGuards());
 afterEach(() => {
@@ -29,6 +30,7 @@ afterEach(() => {
   delete process.env.DUFFEL_API_KEY;
   delete process.env.LITEAPI_KEY;
   delete process.env.CONNECT_API_KEY;
+  delete process.env.PREDICTHQ_API_KEY;
   delete process.env.AI_PROVIDER;
   delete process.env.CEREBRAS_API_KEY;
   delete process.env.AI_API_KEY;
@@ -141,34 +143,68 @@ describe("provider adapters", () => {
     await expect(events("festival", "Montreal")).resolves.toMatchObject([{ title: "Festival", url: "https://tickets.example/festival", date: "2026-09-04 20:00", venue: "Arena, Montreal" }]);
   });
 
-  it("builds a current-plus-outlook summary from the free 2.5 endpoints", async () => {
+  it("geocodes on the OpenWeather key and builds a current-plus-outlook summary from /forecast", async () => {
     process.env.OPENWEATHER_API_KEY = "test-key";
     const slot = (dt: number, temp: number, main: string) => ({ dt, main: { temp, temp_min: temp - 2, temp_max: temp + 2 }, weather: [{ main, description: main.toLowerCase() }] });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn((url: string) =>
-        Promise.resolve(
-          url.includes("/2.5/weather")
-            ? new Response(JSON.stringify({ main: { temp: 21 }, weather: [{ description: "clear sky", main: "Clear" }] }), { status: 200 })
-            : new Response(
-                JSON.stringify({
-                  city: { timezone: -14400 },
-                  list: [
-                    slot(1_756_000_000, 22, "Clouds"),
-                    slot(1_756_000_000 + 43_200, 24, "Rain"),
-                    slot(1_756_086_400, 19, "Clouds"),
-                  ],
-                }),
-                { status: 200 },
-              ),
-        ),
+    const fetchMock = vi.fn((url: string) =>
+      Promise.resolve(
+        url.includes("/geo/1.0/direct")
+          ? new Response(JSON.stringify([{ name: "Montreal", lat: 45.5, lon: -73.56 }]), { status: 200 })
+          : new Response(
+              JSON.stringify({
+                city: { timezone: -14400 },
+                list: [
+                  slot(1_756_000_000, 21, "Clear"),
+                  slot(1_756_000_000 + 43_200, 24, "Rain"),
+                  slot(1_756_086_400, 19, "Clouds"),
+                ],
+              }),
+              { status: 200 },
+            ),
       ),
     );
-    const result = await weather({ latitude: 45.5, longitude: -73.56, name: "Montreal" });
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await weather("Montreal");
     expect(result.location).toBe("Montreal");
-    expect(result.summary).toContain("21°C now, clear sky");
+    expect(result.summary).toContain("21°C now, clear");
     expect(result.days.length).toBeGreaterThan(0);
     expect(result.days[0]).toMatchObject({ label: "Today" });
+    expect(fetchMock.mock.calls.some(([u]) => String(u).includes("/2.5/weather"))).toBe(false);
+  });
+
+  it("PredictHQ: builds the query, parses rank/venue, and only rank-filters a broad sweep", async () => {
+    process.env.PREDICTHQ_API_KEY = "phq-key";
+    let seen = "";
+    const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+      seen = String(url);
+      expect((init?.headers as Record<string, string>).authorization).toBe("Bearer phq-key");
+      return Promise.resolve(new Response(JSON.stringify({ results: [
+        { title: "Big Festival", start: "2026-10-30T18:00:00", local_rank: 88, phq_attendance: 40000, category: "festivals", entities: [{ type: "venue", name: "Parc Jean-Drapeau" }] },
+        { title: "Undated Thing", local_rank: 40 },       // no start -> no date
+        { start: "2026-10-31", local_rank: 10 },          // no title -> dropped
+      ] }), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const broad = await predictHqEvents("", [-73.5673, 45.5017], { start: "2026-10-12", end: "2026-11-15" }, undefined, true);
+    expect(seen).toContain("within=25km%4045.5017%2C-73.5673");
+    expect(seen).toContain("active.gte=2026-10-12");
+    expect(seen).toContain("active.lte=2026-11-15");
+    expect(seen).toContain("rank_level=3%2C4%2C5"); // broad only
+    expect(seen).toContain("sort=-rank");
+    expect(broad.map((e) => e.title)).toEqual(["Big Festival", "Undated Thing"]); // titleless dropped
+    expect(broad[0]).toMatchObject({ rank: 88, attendance: 40000, venue: "Parc Jean-Drapeau", startDate: "2026-10-30" });
+    expect(broad[0].url).toContain("google.com/search"); // no ticket link -> web-search fallback
+    expect(broad[1].startDate).toBeUndefined();
+
+    seen = "";
+    await predictHqEvents("Bruno Mars", [-73.5673, 45.5017], {}, undefined, false);
+    expect(seen).toContain("q=Bruno+Mars");
+    expect(seen).not.toContain("rank_level"); // specific query -> no rank floor
+  });
+
+  it("PredictHQ: throws when no key is configured", async () => {
+    await expect(predictHqEvents("x", [0, 0], {})).rejects.toThrow(/PREDICTHQ_API_KEY/);
   });
 
   it("normalizes Google transit routes and requests only valid fieldmask paths", async () => {

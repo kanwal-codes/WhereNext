@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createBulkGateway } from "@/packages/ai/gateway";
+import { gatewayFor } from "@/packages/ai/model-policy";
 
 const SUMMARY_THRESHOLD = 16;
 const SUMMARY_EVERY = 4; // refresh once every N messages past the threshold, not every turn
@@ -19,7 +19,7 @@ export async function refreshThreadSummary(
   if (messages.length <= SUMMARY_THRESHOLD || messages.length % SUMMARY_EVERY !== 0) return;
   const transcript = messages.slice(-40).map((message) => `${message.role}: ${message.content}`).join("\n").slice(0, 8_000);
   try {
-    const summary = await createBulkGateway({ model: process.env.SUMMARY_MODEL || undefined }).generateText(
+    const summary = await gatewayFor("bulk").generateText(
       [
         { role: "system", content: "Summarize this trip-planning conversation in 600 characters or fewer: the traveller's confirmed decisions, stated likes and dislikes, budget, group size, and the place or topic they are focused on now. Plain text, no preamble, no list markers." },
         { role: "user", content: transcript },

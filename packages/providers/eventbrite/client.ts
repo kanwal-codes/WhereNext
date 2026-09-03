@@ -33,9 +33,11 @@ export async function localEvents(query: string, latitude: number, longitude: nu
     body: JSON.stringify({
       event_search: {
         ...(query ? { q: query.slice(0, 100) } : {}),
+        // This endpoint only takes date presets, not a range — pull a wider page and let the
+        // caller filter to the trip window.
         dates: "current_future",
         dedup: true,
-        page_size: 8,
+        page_size: 20,
         point_radius: { latitude, longitude, radius: "25km" },
       },
       "expand.destination_event": ["primary_venue"],

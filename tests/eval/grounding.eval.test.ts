@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createMockSupabase } from "../support/mock-supabase";
-import { sse } from "../support/fake-llm";
 import { evidence, evidenceNames, place } from "../support/fixture-evidence";
 import { extractEntities, isGrounded } from "../support/extract-entities";
 
@@ -18,7 +17,18 @@ const appendSpy = vi.fn(async (_t: string, input: unknown) => ({ id: "a1", ...(i
 const loadTripContextMock = vi.fn();
 const resolveTurnMock = vi.fn();
 const retrieveEvidenceMock = vi.fn();
-const streamMock = vi.fn();
+/** `compose.text` is what the fake `streamText` yields; a test may set it (or leave it null to fail loudly). */
+const { compose, streamTextMock } = vi.hoisted(() => {
+  const compose: { text: string | null } = { text: null };
+  const streamTextMock = vi.fn(() => ({
+    textStream: (async function* () {
+      if (compose.text == null) throw new Error("compose.text was not set for this test");
+      yield compose.text;
+    })(),
+    totalUsage: Promise.resolve({ inputTokens: 900, outputTokens: 40, totalTokens: 940 }),
+  }));
+  return { compose, streamTextMock };
+});
 let listRows: Array<Record<string, unknown>> = [];
 
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: async () => createMockSupabase({ member: { trip_id: TRIP, role: "owner" } }) }));
@@ -33,7 +43,8 @@ vi.mock("@/lib/application/comparison", () => ({ buildComparison: vi.fn(async ()
 vi.mock("@/lib/application/turn-resolver", () => ({ resolveTurn: resolveTurnMock }));
 vi.mock("@/lib/application/retrieve", () => ({ retrieveEvidence: retrieveEvidenceMock }));
 vi.mock("@/lib/server/trip-ai-queue", () => ({ withTripAiStream: (_id: string, task: () => unknown) => task() }));
-vi.mock("@/packages/ai/gateway", () => ({ createAiGateway: () => ({ stream: streamMock }) }));
+vi.mock("@/packages/ai/compose-model", () => ({ composeModelChain: () => [{ model: { mock: true } }] }));
+vi.mock("ai", async (importOriginal) => ({ ...(await importOriginal() as object), streamText: streamTextMock }));
 vi.mock("@/features/conversation/infrastructure/conversationRepository", () => ({
   createConversationRepository: () => ({ list: async () => listRows, append: appendSpy }),
   scopedMessageIdempotencyKey: (role: string, key?: string) => (key ? `${role}:${key}` : null),
@@ -70,7 +81,7 @@ describe("grounding eval", () => {
     const ev = evidence({ places: [place("Notre-Dame Basilica"), place("Mount Royal Park")] });
     retrieveEvidenceMock.mockResolvedValue(ev);
     listRows[0].content = "famous landmarks in Montreal";
-    streamMock.mockReturnValue(sse("I'd start with Notre-Dame Basilica for the architecture, then walk up to Mount Royal Park for the view.", { prompt_tokens: 900, completion_tokens: 40 }));
+    compose.text = "I'd start with Notre-Dame Basilica for the architecture, then walk up to Mount Royal Park for the view.";
 
     const { persisted } = await turn("famous landmarks in Montreal");
     const names = evidenceNames(ev);
@@ -84,7 +95,7 @@ describe("grounding eval", () => {
   it("strips a link the model invented that is not in the evidence", async () => {
     retrieveEvidenceMock.mockResolvedValue(evidence({ places: [place("Jean-Talon Market")] }));
     listRows[0].content = "where to eat";
-    streamMock.mockReturnValue(sse("Try Jean-Talon Market. More details at http://evil.example/montreal and [here](https://phish.example)."));
+    compose.text = "Try Jean-Talon Market. More details at http://evil.example/montreal and [here](https://phish.example).";
 
     const { persisted } = await turn("where to eat");
     expect(persisted!.content).not.toContain("evil.example");
@@ -97,6 +108,6 @@ describe("grounding eval", () => {
 
     const { bodyText } = await turn("hotels near the old port");
     expect(bodyText.toLowerCase()).toMatch(/couldn.?t verify|no verified|nothing/);
-    expect(streamMock).not.toHaveBeenCalled();
+    expect(streamTextMock).not.toHaveBeenCalled();
   });
 });

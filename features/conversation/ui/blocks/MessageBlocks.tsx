@@ -107,7 +107,7 @@ function PlaceCardView({
               Details <ArrowUpRight className="h-3.5 w-3.5" />
             </button>
           ) : (
-            place.sourceUrl && (
+            place.sourceUrl && /^https?:\/\//i.test(place.sourceUrl) && (
               <a href={place.sourceUrl} target="_blank" rel="noreferrer noopener" className={iconBtn}>
                 Maps <ArrowUpRight className="h-3.5 w-3.5" />
               </a>
@@ -308,14 +308,32 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
         }
 
         if (block.type === "events") {
+          const rel = (event: (typeof block.items)[number]) =>
+            event.relToTrip === "before" ? `${event.offsetDays ?? ""} day${event.offsetDays === 1 ? "" : "s"} before your trip`
+              : event.relToTrip === "after" ? `${event.offsetDays ?? ""} day${event.offsetDays === 1 ? "" : "s"} after your trip`
+              : event.relToTrip === "in" ? "during your trip" : null;
           return (
             <div key={index} className={cn(card, "px-3.5 py-2.5")}>
+              {block.window && (
+                <p className="pb-1 text-[11px] text-muted-foreground">Checked against your trip · {block.window.start} → {block.window.end}</p>
+              )}
               {block.items.map((event, eventIndex) => (
                 <div key={eventIndex} className={cn("flex items-baseline justify-between gap-3 py-2", rowDivider)}>
                   <div className="min-w-0">
                     <span className="text-sm font-medium">{event.title}</span>
+                    {typeof event.rank === "number" && event.rank >= 65 && (
+                      <span className="ml-1.5 rounded-full bg-coral-soft px-1.5 py-0.5 text-[10px] font-medium text-coral">Major event</span>
+                    )}
                     {(event.date || event.venue) && (
                       <span className="block text-xs text-muted-foreground">{[event.date, event.venue].filter(Boolean).join(" · ")}</span>
+                    )}
+                    {rel(event) && (
+                      <span className={cn(
+                        "mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium",
+                        event.relToTrip === "in" ? "bg-leaf-soft text-leaf" : "bg-muted text-muted-foreground",
+                      )}>
+                        {rel(event)}
+                      </span>
                     )}
                   </div>
                   <ExternalLink href={event.url} className="shrink-0 whitespace-nowrap">

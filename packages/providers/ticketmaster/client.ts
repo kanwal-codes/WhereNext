@@ -92,7 +92,14 @@ export async function eventDetail(idOrUrl: string, signal?: AbortSignal): Promis
   };
 }
 
-export async function events(query: string, destination: string, window?: { start?: string; end?: string }, signal?: AbortSignal): Promise<EventResult[]> {
+export async function events(
+  query: string,
+  destination: string,
+  window?: { start?: string; end?: string },
+  signal?: AbortSignal,
+  /** "relevance" surfaces bigger acts for a broad "what's on" query; "date" (default) for a specific one. */
+  sort: "date" | "relevance" = "date",
+): Promise<EventResult[]> {
   const key = process.env.TICKETMASTER_CONSUMER_KEY ?? process.env.TICKETMASTER_API_KEY;
   if (!key) throw new Error("TICKETMASTER_API_KEY is not configured");
   const url = new URL("https://app.ticketmaster.com/discovery/v2/events.json");
@@ -102,8 +109,8 @@ export async function events(query: string, destination: string, window?: { star
   // Constrain to the trip window when we have it, so cards aren't months out.
   if (/^\d{4}-\d{2}-\d{2}$/.test(window?.start ?? "")) url.searchParams.set("startDateTime", `${window!.start}T00:00:00Z`);
   if (/^\d{4}-\d{2}-\d{2}$/.test(window?.end ?? "")) url.searchParams.set("endDateTime", `${window!.end}T23:59:59Z`);
-  url.searchParams.set("size", "8");
-  url.searchParams.set("sort", "date,asc");
+  url.searchParams.set("size", "12");
+  url.searchParams.set("sort", sort === "relevance" ? "relevance,desc" : "date,asc");
   const response = await guardedFetch("ticketmaster", url, { signal: withProviderTimeout(signal) });
   if (!response.ok) throw new Error(`Ticketmaster search failed: ${response.status}`);
   const body = await response.json() as {

@@ -15,7 +15,6 @@ import {
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
 import { Hero } from "@/components/Hero";
 import { NearbyRecommendations } from "@/components/NearbyRecommendations";
-import { NearbyEvents } from "@/components/NearbyEvents";
 import { BackLink } from "@/components/BackLink";
 import { ExternalLink } from "@/components/ExternalLink";
 import { Skeleton, SkeletonLines } from "@/components/Skeleton";
@@ -249,8 +248,6 @@ export function PlaceDetailView({
         </Reveal>
       )}
 
-      <NearbyEvents tripId={tripId} location={city} />
-
       {hours.length > 0 && (
         <Reveal delay={0.14}>
           <section>
@@ -311,7 +308,16 @@ export function PlaceDetailView({
           </div>
         )}
 
-        <NearbyRecommendations tripId={tripId} excludeId={placeId} anchorName={name} cityHint={city} />
+        <NearbyRecommendations
+          tripId={tripId}
+          excludeId={placeId}
+          anchorName={name}
+          cityHint={city}
+          primaryType={details.primaryType}
+          types={details.types}
+          lat={details.location?.latitude}
+          lng={details.location?.longitude}
+        />
       </div>
     </div>
   );

@@ -174,21 +174,23 @@ export function ItinerarySurface({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Add something to the plan…"
-          className="min-w-0 flex-1 bg-transparent px-1.5 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
+          className="min-w-[12rem] flex-1 bg-transparent px-1.5 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
         />
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          Day
-          <input
-            type="number"
-            min={1}
-            value={day}
-            onChange={(e) => setDay(Math.max(1, Number(e.target.value)))}
-            className="w-14 rounded-lg border border-border bg-background px-2 py-1 text-sm"
-          />
-        </label>
-        <button type="submit" className="btn-primary-sm">
-          Add
-        </button>
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            Day
+            <input
+              type="number"
+              min={1}
+              value={day}
+              onChange={(e) => setDay(Math.max(1, Number(e.target.value)))}
+              className="w-14 rounded-lg border border-border bg-background px-2 py-1 text-sm"
+            />
+          </label>
+          <button type="submit" className="btn-primary-sm">
+            Add
+          </button>
+        </div>
       </form>
 
       {days.map((d) => {

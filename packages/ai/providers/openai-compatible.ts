@@ -1,6 +1,7 @@
 import type { AiMessage } from "@/packages/ai/gateway";
 import { withProviderTimeout } from "../../providers/request-signal";
 import { stripReasoning } from "@/lib/ai/strip-reasoning";
+import { createSseParser, parseSseJson } from "@/packages/ai/sse";
 
 type ProviderConfig = { apiKey: string; baseUrl: string; model: string; supportsReasoningOptions?: boolean };
 
@@ -78,24 +79,22 @@ export class OpenAiCompatibleProvider {
       throw error;
     }
     if (!onUsage) return response.body;
-    // Tee the SSE through unchanged; sniff `data:` lines for the usage block.
-    let buffer = "";
+    // Tee the SSE through unchanged; sniff `data:` payloads for the trailing usage block.
+    const decoder = new TextDecoder();
+    const parser = createSseParser();
+    const sniffUsage = (payloads: string[]) => {
+      for (const payload of payloads) {
+        const usage = readUsage(parseSseJson<{ usage?: unknown }>(payload)?.usage);
+        if (usage) onUsage(usage);
+      }
+    };
     const sniff = new TransformStream<Uint8Array, Uint8Array>({
       transform(chunk, controller) {
         controller.enqueue(chunk);
-        buffer += new TextDecoder().decode(chunk, { stream: true });
-        let nl: number;
-        while ((nl = buffer.indexOf("\n")) !== -1) {
-          const line = buffer.slice(0, nl).trim();
-          buffer = buffer.slice(nl + 1);
-          if (!line.startsWith("data:") || line.includes("[DONE]")) continue;
-          try {
-            const usage = readUsage((JSON.parse(line.slice(5).trim()) as { usage?: unknown }).usage);
-            if (usage) onUsage(usage);
-          } catch {
-            /* partial frame */
-          }
-        }
+        sniffUsage(parser.push(decoder.decode(chunk, { stream: true })));
+      },
+      flush() {
+        sniffUsage([...parser.push(decoder.decode()), ...parser.flush()]);
       },
     });
     return response.body.pipeThrough(sniff);

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createAiGateway } from "@/packages/ai/gateway";
+import { gatewayFor } from "@/packages/ai/model-policy";
 import { preferencesSchema } from "@/packages/contracts/preferences";
 import { SUGGESTION_KEYS } from "@/packages/contracts/suggestion";
 
@@ -15,7 +15,19 @@ export const toolCallSchema = z.discriminatedUnion("tool", [
   z.object({ tool: z.literal("search_places"), query: z.string().trim().min(1).max(200), location: z.string().trim().min(1).max(200) }),
   z.object({ tool: z.literal("research_web"), query: z.string().trim().min(1).max(300) }),
   z.object({ tool: z.literal("weather"), location: z.string().trim().min(1).max(200) }),
-  z.object({ tool: z.literal("events"), query: z.string().trim().max(200).default(""), location: z.string().trim().min(1).max(200) }),
+  z.object({
+    tool: z.literal("events"),
+    query: z.string().trim().max(200).default(""),
+    location: z.string().trim().min(1).max(200),
+    /** A specific act/person/team the traveller named ("Bruno Mars", "the Habs"). Filters to just them. */
+    artist: z.string().trim().max(120).optional(),
+    /** The KIND of event in the traveller's own words — free text, not a fixed list ("comedy",
+     *  "tech meetups", "cooking classes", "art exhibitions", "book signings", "hockey"). */
+    category: z.string().trim().max(60).optional(),
+    /** Omitted/true when the ask is tied to the trip dates ("while I'm there", "on our dates");
+     *  set false only for a general "what's the scene like" question. */
+    dateScoped: z.boolean().optional().catch(undefined),
+  }),
   z.object({
     tool: z.literal("flights"),
     origin: z.string().trim().min(1).max(120),
@@ -47,7 +59,16 @@ export const resolvedTurnSchema = z.object({
     .catch("other")
     .default("other"),
   wantsComparison: z.boolean().catch(false).default(false),
-  toolPlan: z.array(toolCallSchema).max(3).catch([]).default([]),
+  // Keep every valid lookup, drop only the malformed ones, cap at 3. A partially-bad plan
+  // from the router still does useful work instead of collapsing the whole turn to tool-less.
+  toolPlan: z
+    .array(z.unknown())
+    .transform((arr) => arr.flatMap((entry) => {
+      const parsed = toolCallSchema.safeParse(entry);
+      return parsed.success ? [parsed.data] : [];
+    }).slice(0, 3))
+    .catch([])
+    .default([]),
   clarify: z
     .object({ question: z.string().trim().min(1).max(240), chips: z.array(z.string().trim().min(1).max(48)).max(6).default([]) })
     .nullable()
@@ -84,7 +105,10 @@ Fields:
     {"tool":"search_places","query":"...","location":"<locationFocus>"}  - find places, venues, activities, restaurants, clubs, temples, museums.
     {"tool":"research_web","query":"..."}                                - current info, events, prices, "what is it known for", articles.
     {"tool":"weather","location":"..."}                                  - forecast, season, what to pack.
-    {"tool":"events","query":"...","location":"<city>"}                   - concerts, festivals, sports, shows, "what's on", "events this weekend". Also add a research_web call for context. intent = events.
+    {"tool":"events","query":"...","location":"<city>","artist":"...","category":"...","dateScoped":true}  - anything happening on set dates: concerts, festivals, sports, comedy, theatre, talks, classes, tastings, exhibitions, meetups, "what's on". Also add a research_web call for context. intent = events.
+        * artist: set ONLY when the traveller names a specific act/person/team they want to see ("is Bruno Mars playing", "I want to see the Habs"). Leave empty for "any concerts".
+        * category: the KIND of event in their own words — "comedy", "tech meetups", "cooking classes", "jazz", "hockey", "art exhibitions". Leave empty for "any events / what's on".
+        * dateScoped: true (the default) whenever the ask is tied to the trip ("while I'm there", "during our trip", "on our dates", "when we're in <city>"). false only for a general "what's the <city> comedy scene like" with no date sense.
     {"tool":"flights","origin":"...","destination":"...","departureDate":"YYYY-MM-DD"}  - airfare / flight cost / cheapest flights / how to fly somewhere far. departureDate is OPTIONAL: include it ONLY if the user named a real future date, otherwise leave it out.
     {"tool":"directions","from":"...","to":"...","mode":"transit|walking|driving"}  - travel between two places (local / same region).
     {"tool":"stays","location":"...","checkin":"YYYY-MM-DD","hotelName":"..."}  - "where should we stay / hotels in X / places to stay / best area to stay". checkin/checkout OPTIONAL (include only real future dates). Set hotelName ONLY when the user names one specific hotel from earlier and asks about its price or rooms.
@@ -119,14 +143,17 @@ export async function resolveTurn(input: {
   message: string;
   history: Array<{ role: "user" | "assistant"; content: string }>;
   tripSummary: string;
+  /** What the user has open beside the chat — resolves "there" / "this place" when the message doesn't name one. */
+  viewContext?: string;
   signal?: AbortSignal;
-}): Promise<ResolvedTurn> {
+}): Promise<ResolvedTurn & { degraded?: boolean }> {
   const context = input.history.slice(-8).map(({ role, content }) => `${role}: ${content}`).join("\n");
   const today = new Date().toISOString().slice(0, 10);
-  const user = `Today's date: ${today}\nTrip so far: ${input.tripSummary}\n\nConversation:\n${context ? `${context}\n` : ""}user: ${input.message.slice(0, 8_000)}`;
+  const onScreen = input.viewContext ? `On screen right now: ${input.viewContext}. Resolve "there"/"this place"/"it" to this unless the message names somewhere else.\n` : "";
+  const user = `Today's date: ${today}\nTrip so far: ${input.tripSummary}\n${onScreen}\nConversation:\n${context ? `${context}\n` : ""}user: ${input.message.slice(0, 8_000)}`;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      const raw = await createAiGateway({ model: process.env.RESOLVE_MODEL || undefined }).generateStructured(
+      const raw = await gatewayFor("resolve").generateStructured(
         [{ role: "system", content: SYSTEM }, { role: "user", content: user }],
         input.signal,
       );
@@ -136,6 +163,7 @@ export async function resolveTurn(input: {
       if (attempt === 1) break;
     }
   }
-  // Safe default: answer from context, no tools, no clarify.
-  return resolvedTurnSchema.parse({});
+  // Safe default: answer from context, no tools, no clarify. `degraded` lets the route tell the
+  // user the turn was planned without the router (rather than degrading silently).
+  return { ...resolvedTurnSchema.parse({}), degraded: true };
 }

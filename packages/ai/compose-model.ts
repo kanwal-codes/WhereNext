@@ -1,0 +1,27 @@
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import type { LanguageModel } from "ai";
+import { resolveProvider, resolveProviderChain } from "./gateway";
+
+/** One entry in the COMPOSE model chain: the model plus any per-provider request options. */
+export type ComposeModel = { model: LanguageModel; providerOptions?: Record<string, Record<string, string | number | boolean>> };
+
+function toComposeModel(r: ReturnType<typeof resolveProvider>): ComposeModel {
+  const model = createOpenAICompatible({ name: "compose", baseURL: r.baseUrl, apiKey: r.apiKey }).chatModel(r.model);
+  // gpt-oss on Cerebras emits a harmony analysis channel; keep the effort (and the leak) low.
+  // Harmless on models that ignore it; the streaming reasoning gate is the real backstop.
+  return r.supportsReasoningOptions ? { model, providerOptions: { compose: { reasoningEffort: "low" } } } : { model };
+}
+
+/**
+ * The COMPOSE-stage model as an AI SDK `LanguageModel`. Endpoint + key + model id come from
+ * the same env resolution as the legacy gateway (`AI_PROVIDER` / `AI_BASE_URL` / `AI_MODEL`).
+ */
+export function composeModel(model?: string): LanguageModel {
+  return toComposeModel(resolveProvider({ model })).model;
+}
+
+/** Primary + `AI_FALLBACK_PROVIDERS`, each as a `ComposeModel`. The route tries the next one
+ *  when a model's first chunk errors (provider down / rate-limited). */
+export function composeModelChain(model?: string): ComposeModel[] {
+  return resolveProviderChain({ model }).map(toComposeModel);
+}

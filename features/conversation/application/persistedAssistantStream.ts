@@ -1,19 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createConversationRepository } from "../infrastructure/conversationRepository";
 import { stripReasoning } from "@/lib/ai/strip-reasoning";
+import { createSseParser, parseSseJson } from "@/packages/ai/sse";
 
 type StreamDelta = { choices?: Array<{ delta?: { content?: string } }> };
-
-function appendDelta(line: string, onContent: (content: string) => void) {
-  if (!line.startsWith("data: ") || line.includes("[DONE]")) return;
-  try {
-    const event = JSON.parse(line.slice(6)) as StreamDelta;
-    const content = event.choices?.[0]?.delta?.content;
-    if (content) onContent(content);
-  } catch {
-    // Preserve the provider stream when an individual event is malformed.
-  }
-}
 
 /**
  * Tees the provider SSE stream to the client while accumulating the assistant text.
@@ -33,15 +23,22 @@ export function persistedAssistantStream(
   const reader = body.getReader();
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
-  let pending = "";
+  const parser = createSseParser();
   let assistant = "";
+  // A malformed provider event is dropped by parseSseJson; the raw stream still passes through.
+  const absorb = (payloads: string[]) => {
+    for (const payload of payloads) {
+      const content = parseSseJson<StreamDelta>(payload)?.choices?.[0]?.delta?.content;
+      if (content) assistant += content;
+    }
+  };
 
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
       const chunk = await reader.read();
       if (chunk.done) {
-        pending += decoder.decode();
-        appendDelta(pending, (content) => { assistant += content; });
+        absorb(parser.push(decoder.decode()));
+        absorb(parser.flush());
         const clean = stripReasoning(assistant);
         const finalText = sanitize ? sanitize(clean) : clean;
         if (finalText || meta) {
@@ -58,10 +55,7 @@ export function persistedAssistantStream(
         controller.close();
         return;
       }
-      pending += decoder.decode(chunk.value, { stream: true });
-      const lines = pending.split("\n");
-      pending = lines.pop() ?? "";
-      for (const line of lines) appendDelta(line, (content) => { assistant += content; });
+      absorb(parser.push(decoder.decode(chunk.value, { stream: true })));
       controller.enqueue(chunk.value);
     },
     async cancel() { await reader.cancel(); },

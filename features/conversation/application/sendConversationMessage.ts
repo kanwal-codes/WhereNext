@@ -5,6 +5,8 @@ import { streamAssistantResponse } from "./streamAssistantResponse";
 export async function sendConversationMessage(input: {
   tripId: string;
   content: string;
+  /** Name of whatever the user has open (a place/stay panel) so "there" / "this place" resolve. */
+  viewContext?: string;
   onSurfaceSelect?: (surface: string) => void;
   onProposal?: (proposal: ProposedCommand) => void;
   onUserSaved: () => void;
@@ -22,6 +24,7 @@ export async function sendConversationMessage(input: {
     input.onAssistantDelta,
     input.signal,
     messageIdempotencyKey,
+    input.viewContext,
   );
   if (!content.trim() && !meta?.blocks?.length) throw new Error("Assistant returned an empty response");
   if (meta?.proposedCommand) input.onProposal?.(meta.proposedCommand);

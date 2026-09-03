@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { placeSchema } from "./place";
+import { placeSchema, httpUrl } from "./place";
 import { stayItemSchema, stayRoomSchema } from "./stay";
 export type { StayCardItem } from "./stay";
 export const assistantSurfaceSchema = z.enum(["chat","explore","transport","stay","map","days","budget","essentials"]);
@@ -45,12 +45,19 @@ export const assistantBlockSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("events"),
     retrievedAt: z.string(),
+    /** The trip dates these are being judged against, when the turn was date-scoped. */
+    window: z.object({ start: z.string().max(20), end: z.string().max(20) }).optional(),
     items: z.array(z.object({
       title: z.string().max(200),
-      url: z.string().url(),
+      url: httpUrl,
       date: z.string().max(60).optional(),
       venue: z.string().max(160).optional(),
       source: z.string().max(40),
+      /** Where the event falls relative to the trip: during it, or N days before/after. */
+      relToTrip: z.enum(["in", "before", "after"]).optional(),
+      offsetDays: z.number().int().nonnegative().optional(),
+      /** PredictHQ local_rank 0–100 — how big the event is for the city. */
+      rank: z.number().int().min(0).max(100).optional(),
     })).min(1).max(8),
   }),
   z.object({
@@ -99,7 +106,7 @@ export type AssistantBlock = z.infer<typeof assistantBlockSchema>;
 
 export const assistantSourceSchema = z.object({
   title: z.string().max(200),
-  url: z.string().url(),
+  url: httpUrl,
   retrievedAt: z.string().optional(),
   trust: trustLabelSchema.default("sourced"),
 });
@@ -115,6 +122,9 @@ export const assistantTurnSchema = z.object({
   proposedCommand: proposedCommandSchema.optional(),
   /** Providers that errored during RETRIEVE, so the UI can say what could not be checked. */
   unavailableProviders: z.array(z.string().max(40)).default([]),
+  /** True when turn planning fell back to its safe default (the router call failed) — the UI
+   *  tells the user the answer is from trip data only. */
+  degraded: z.boolean().optional(),
 });
 export type AssistantTurn = z.infer<typeof assistantTurnSchema>;
 /** The metadata frame persisted on a conversation_messages row and streamed as the final SSE event. */

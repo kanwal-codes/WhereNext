@@ -45,14 +45,12 @@ export function AuthShell({
               <p className="mt-3 text-sm leading-relaxed text-ink-soft">{subtitle}</p>
             </Reveal>
 
-            <motion.div
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.28, ease: [0.22, 0.61, 0.36, 1] }}
-              className="mt-8"
-            >
+            {/* Reveal, not a raw motion.div: it renders visible on the server and
+                first paint, then upgrades — a background-tab load never leaves the
+                form stuck at opacity 0. */}
+            <Reveal delay={0.28} className="mt-8">
               {children}
-            </motion.div>
+            </Reveal>
           </div>
         </div>
 

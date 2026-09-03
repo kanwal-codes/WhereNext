@@ -33,23 +33,90 @@ const PROVIDERS: Record<AiProviderName, { baseUrl: string; key: () => string | u
   },
 };
 
+export type ResolvedProvider = { apiKey: string; model: string; baseUrl: string; supportsReasoningOptions: boolean };
+
 /**
- * The chat/reasoning gateway. `AI_PROVIDER` (+ `AI_BASE_URL` / `AI_MODEL`) picks
- * the primary provider; pass `{ provider }` to pin one regardless of env — a
- * pinned provider ignores `AI_BASE_URL` / `AI_MODEL` and uses its own defaults.
+ * Resolve the OpenAI-compatible endpoint to talk to. `AI_PROVIDER` (+ `AI_BASE_URL` /
+ * `AI_MODEL`) picks the primary provider; `{ provider }` pins one regardless of env — a
+ * pinned provider ignores `AI_BASE_URL` / `AI_MODEL` and uses its own defaults. Shared by
+ * `createAiGateway` (structured/legacy calls) and `composeModel` (the AI SDK tool loop).
  */
-export function createAiGateway(overrides: { model?: string; provider?: AiProviderName } = {}) {
+export function resolveProvider(overrides: { model?: string; provider?: AiProviderName } = {}): ResolvedProvider {
   const pinned = overrides.provider != null;
   const name: AiProviderName = overrides.provider ?? (process.env.AI_PROVIDER as AiProviderName) ?? "openai-compatible";
   const p = PROVIDERS[name] ?? PROVIDERS["openai-compatible"];
   const key = p.key();
   if (!key) throw new Error(`${p.envHint} is not configured`);
-  return new OpenAiCompatibleProvider({
+  return {
     apiKey: key,
     model: overrides.model || (pinned ? p.defaultModel : process.env.AI_MODEL || p.defaultModel),
     baseUrl: pinned ? p.baseUrl : process.env.AI_BASE_URL || p.baseUrl,
     supportsReasoningOptions: p.reasoning,
+  };
+}
+
+/** The chat/reasoning gateway used by every structured call (`generateText` / `generateStructured`). */
+export function createAiGateway(overrides: { model?: string; provider?: AiProviderName } = {}) {
+  return new OpenAiCompatibleProvider(resolveProvider(overrides));
+}
+
+/**
+ * Primary + fallback providers. `AI_PROVIDER` is the primary (honours `AI_BASE_URL` /
+ * `AI_MODEL`); `AI_FALLBACK_PROVIDERS` is a comma list tried in order when the primary
+ * fails (`AI_FALLBACK_PROVIDERS=gemini,openai`). Each fallback is pinned to its own
+ * endpoint + default model. Providers with no configured key are dropped. Throws only if
+ * nothing in the chain is usable (with the primary's env hint).
+ */
+export function resolveProviderChain(overrides: { model?: string } = {}): ResolvedProvider[] {
+  const names = [
+    (process.env.AI_PROVIDER as AiProviderName) || "openai-compatible",
+    ...(process.env.AI_FALLBACK_PROVIDERS ?? "")
+      .split(",").map((s) => s.trim()).filter(Boolean) as AiProviderName[],
+  ];
+  const seen = new Set<string>();
+  const chain: ResolvedProvider[] = [];
+  let firstError: unknown;
+  names.forEach((name, index) => {
+    if (seen.has(name)) return;
+    seen.add(name);
+    try {
+      // index 0 is the primary — let it honour AI_BASE_URL / AI_MODEL; fallbacks are pinned.
+      chain.push(resolveProvider(index === 0 ? { model: overrides.model } : { provider: name, model: overrides.model }));
+    } catch (error) {
+      firstError ??= error;
+    }
   });
+  if (chain.length === 0) throw firstError ?? new Error("no AI provider configured");
+  return chain;
+}
+
+const isAbort = (error: unknown) =>
+  error instanceof DOMException ? error.name === "AbortError" : (error as { name?: string })?.name === "AbortError";
+
+/** A gateway that transparently fails over across `resolveProviderChain()` on a provider error
+ *  (network, 401/403/429, 5xx). A 4xx that another provider can't fix, and aborts, propagate. */
+export function createGatewayWithFallback(overrides: { model?: string } = {}) {
+  const providers = resolveProviderChain(overrides).map((r) => new OpenAiCompatibleProvider(r));
+  async function withFailover<T>(op: (p: OpenAiCompatibleProvider) => Promise<T>): Promise<T> {
+    let lastError: unknown;
+    for (let i = 0; i < providers.length; i += 1) {
+      try {
+        return await op(providers[i]);
+      } catch (error) {
+        if (isAbort(error)) throw error;
+        const status = (error as { status?: number })?.status;
+        const worthRetrying = !status || status === 401 || status === 403 || status === 429 || status >= 500;
+        if (!worthRetrying || i === providers.length - 1) throw error;
+        lastError = error;
+      }
+    }
+    throw lastError;
+  }
+  return {
+    generateText: (...args: Parameters<OpenAiCompatibleProvider["generateText"]>) => withFailover((p) => p.generateText(...args)),
+    generateStructured: (...args: Parameters<OpenAiCompatibleProvider["generateStructured"]>) => withFailover((p) => p.generateStructured(...args)),
+    stream: (...args: Parameters<OpenAiCompatibleProvider["stream"]>) => withFailover((p) => p.stream(...args)),
+  };
 }
 
 /**

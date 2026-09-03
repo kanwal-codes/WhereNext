@@ -109,12 +109,13 @@ export function Landing() {
             <Link href="/" className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1.5 backdrop-blur-sm">
               <BrandMark variant="text" />
             </Link>
-            <div className="flex items-center gap-5">
+            <div className="flex items-center gap-3 sm:gap-5">
               <Link href="/sign-in" className="link-underline text-sm font-medium">
                 Sign in
               </Link>
-              <Link href="/sign-up" className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-transform hover:scale-[1.03]">
-                Create account
+              <Link href="/sign-up" className="rounded-full bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-transform hover:scale-[1.03] sm:px-4">
+                <span className="sm:hidden">Sign up</span>
+                <span className="hidden sm:inline">Create account</span>
               </Link>
             </div>
           </div>
@@ -236,9 +237,17 @@ export function Landing() {
 
       <footer className="mx-auto max-w-[1200px] px-6 pb-12 sm:px-10">
         <div className="hairline" />
-        <div className="flex items-center justify-between pt-6">
+        <div className="flex flex-wrap items-center justify-between gap-4 pt-6">
           <BrandMark variant="text" />
-          <p className="text-xs text-muted-foreground">Plan by talking</p>
+          <div className="flex flex-wrap items-center gap-5 text-xs text-muted-foreground">
+            <Link href="/privacy" className="link-underline">
+              Privacy
+            </Link>
+            <Link href="/terms" className="link-underline">
+              Terms
+            </Link>
+            <span>Plan by talking</span>
+          </div>
         </div>
       </footer>
     </div>

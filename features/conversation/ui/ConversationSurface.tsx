@@ -26,6 +26,7 @@ const PROVIDER_LABEL: Record<string, string> = {
   mapbox: "directions",
   openweather: "the weather",
   tavily: "the web",
+  predicthq: "events",
   "google-places": "places",
 };
 const unavailableLabels = (names?: string[]) => Array.from(new Set((names ?? []).map((name) => PROVIDER_LABEL[name] ?? name)));
@@ -58,7 +59,26 @@ function describeProposal(proposal: ProposedCommand): Array<[string, string]> {
   }
 }
 
+// The turn does real work before the first token (plan the turn, hit live providers, start the
+// model). Advance the label on a timer so a 3–8s wait reads as progress, not a stall. Purely
+// cosmetic — mounts fresh each turn, so the timers reset with it.
+const THINKING_STATES = [
+  "Thinking through your trip…",
+  "Checking live sources…",
+  "Pulling the details together…",
+  "Almost there…",
+];
+
 function Typing() {
+  const [phase, setPhase] = useState(0);
+  useEffect(() => {
+    const timers = [
+      setTimeout(() => setPhase(1), 2500),
+      setTimeout(() => setPhase(2), 6000),
+      setTimeout(() => setPhase(3), 11000),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, []);
   return (
     <div className="flex items-center gap-1.5 px-1 py-2">
       {[0, 1, 2].map((i) => (
@@ -69,7 +89,7 @@ function Typing() {
           transition={{ duration: 1.1, repeat: Infinity, delay: i * 0.15 }}
         />
       ))}
-      <span className="ml-2 text-xs text-muted-foreground">Thinking through your trip…</span>
+      <span className="ml-2 text-xs text-muted-foreground">{THINKING_STATES[phase]}</span>
     </div>
   );
 }
@@ -80,6 +100,7 @@ export function ConversationSurface({
   onSurfaceSelect,
   onOpenPlace,
   onOpenStay,
+  viewContext,
   rail = false,
 }: {
   tripId: string;
@@ -87,6 +108,8 @@ export function ConversationSurface({
   onSurfaceSelect?: (surface: string) => void;
   onOpenPlace?: (place: PlaceCard) => void;
   onOpenStay?: (stay: StayCardItem, dates: { checkin: string; checkout: string }) => void;
+  /** Name of the place/stay the user has open beside the chat, for deictic references. */
+  viewContext?: string;
   rail?: boolean;
 }) {
   const [messages, setMessages] = useState<Message[]>((initialMessages ?? []) as Message[]);
@@ -232,6 +255,7 @@ export function ConversationSurface({
       const result = await sendConversationMessage({
         tripId,
         content,
+        viewContext,
         onSurfaceSelect,
         onProposal: setProposal,
         onUserSaved: () => {
@@ -357,6 +381,9 @@ export function ConversationSurface({
                 className={cn("space-y-2", streaming && "chat-streaming")}
               >
                 <AssistantMessage content={message.content} blocks={meta?.blocks} handlers={handlers} />
+                {!streaming && meta?.degraded && (
+                  <p className="text-[11px] text-muted-foreground">Answered from your trip details — the planner had trouble reading that one. Rephrasing may help.</p>
+                )}
                 {unavailable.length > 0 && (
                   <p className="text-[11px] text-muted-foreground">Couldn’t check {unavailable.join(", ")} just now — this is from your trip so far.</p>
                 )}

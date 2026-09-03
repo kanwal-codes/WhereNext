@@ -5,10 +5,27 @@ const KEY = "idem-1";
 const PROMPT = "best nightclubs in Shanghai";
 
 const appendSpy = vi.fn(async (_tripId: string, input: unknown) => ({ id: "a1", ...(input as object) }));
+const insertSpy = vi.hoisted(() => vi.fn(async () => ({ error: null })));
 const loadTripContextMock = vi.fn();
 const resolveTurnMock = vi.fn();
 const retrieveEvidenceMock = vi.fn();
-const streamMock = vi.fn();
+/** `compose.text` is what the fake `streamText` yields; a test may reassign it, set `compose.error`,
+ *  or set `compose.toolCall` to have the fake model invoke one of the real compose tools first. */
+const { compose, streamTextMock, composeChainRef } = vi.hoisted(() => {
+  const compose: { text: string; error?: Error; toolCall?: { name: string; args: Record<string, unknown> }; failFirstN: number } = { text: "Here are some verified clubs.", failFirstN: 0 };
+  // Tests can swap in a multi-model chain to exercise the COMPOSE fallback loop.
+  const composeChainRef: { models: Array<{ model: unknown; providerOptions?: unknown }> } = { models: [{ model: { mock: true } }] };
+  const streamTextMock = vi.fn((opts: { tools: Record<string, { execute: (a: unknown, c: unknown) => Promise<unknown> }> }) => ({
+    textStream: (async function* () {
+      if (compose.failFirstN > 0) { compose.failFirstN -= 1; throw new Error("compose model chunk failed"); }
+      if (compose.error) throw compose.error;
+      if (compose.toolCall) await opts.tools[compose.toolCall.name].execute(compose.toolCall.args, {});
+      yield compose.text;
+    })(),
+    totalUsage: Promise.resolve({ inputTokens: 10, outputTokens: 20, totalTokens: 30 }),
+  }));
+  return { compose, streamTextMock, composeChainRef };
+});
 let listRows: Array<Record<string, unknown>> = [];
 let user: { id: string } | null = { id: "u1" };
 let member: { trip_id: string } | null = { trip_id: TRIP };
@@ -21,6 +38,7 @@ vi.mock("@/lib/supabase/server", () => ({
       const chain = () => q;
       q.select = chain; q.eq = chain; q.order = chain; q.limit = chain; q.is = chain;
       q.maybeSingle = async () => ({ data: member });
+      q.insert = insertSpy; // ai_turn_traces best-effort write
       return q;
     },
   }),
@@ -38,22 +56,12 @@ vi.mock("@/lib/application/comparison", () => ({ buildComparison: buildCompariso
 vi.mock("@/lib/application/turn-resolver", () => ({ resolveTurn: resolveTurnMock }));
 vi.mock("@/lib/application/retrieve", () => ({ retrieveEvidence: retrieveEvidenceMock }));
 vi.mock("@/lib/server/trip-ai-queue", () => ({ withTripAiStream: (_id: string, task: () => unknown) => task() }));
-vi.mock("@/packages/ai/gateway", () => ({ createAiGateway: () => ({ stream: streamMock }) }));
+vi.mock("@/packages/ai/compose-model", () => ({ composeModelChain: () => composeChainRef.models }));
+vi.mock("ai", async (importOriginal) => ({ ...(await importOriginal() as object), streamText: streamTextMock }));
 vi.mock("@/features/conversation/infrastructure/conversationRepository", () => ({
   createConversationRepository: () => ({ list: async () => listRows, append: appendSpy }),
   scopedMessageIdempotencyKey: (role: string, key?: string) => (key ? `${role}:${key}` : null),
 }));
-
-function sse(text: string) {
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      const encoder = new TextEncoder();
-      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\n`));
-      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-      controller.close();
-    },
-  });
-}
 
 async function post() {
   const { POST } = await import("@/app/api/ai/route");
@@ -77,7 +85,11 @@ beforeEach(() => {
   member = { trip_id: TRIP };
   listRows = [{ role: "user", idempotency_key: `user:${KEY}`, content: PROMPT }];
   loadTripContextMock.mockResolvedValue({ trip: { name: "T", destination: "China", origin: null, duration_days: 8, travelers: 5 }, preferences: {}, itinerary: [], lockedTitles: [], lockedPlaces: [], places: [], decisions: [] });
-  streamMock.mockImplementation(async () => sse("Here are some verified clubs."));
+  compose.text = "Here are some verified clubs.";
+  compose.failFirstN = 0;
+  composeChainRef.models = [{ model: { mock: true } }];
+  delete compose.error;
+  delete compose.toolCall;
   retrieveEvidenceMock.mockResolvedValue({ places: [], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "2026-09-02T00:00:00Z" });
   resolveTurnMock.mockResolvedValue({
     language: "en", locationFocus: "Shanghai", intent: "nightlife", wantsComparison: false,
@@ -127,7 +139,21 @@ describe("POST /api/ai", () => {
     const response = await post();
     const { body } = await readMeta(response);
     expect(body).toContain("couldn't verify");
-    expect(streamMock).not.toHaveBeenCalled();
+    expect(streamTextMock).not.toHaveBeenCalled();
+  });
+
+  it("retries retrieval with a broadened plan when the first pass is empty", async () => {
+    retrieveEvidenceMock
+      .mockResolvedValueOnce({ places: [], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" })
+      .mockResolvedValueOnce({ places: [{ provider: "g", providerId: "p", name: "Fallback Club", category: "night_club", latitude: 1, longitude: 1, address: null, sourceUrl: null }], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" });
+    const response = await post();
+    expect(response.status).toBe(200);
+    expect(retrieveEvidenceMock).toHaveBeenCalledTimes(2);
+    // Second call: generic term for the nightlife intent, trip destination as the location.
+    expect(retrieveEvidenceMock.mock.calls[1][0]).toEqual([{ tool: "search_places", query: "bars", location: "China" }]);
+    expect(streamTextMock).toHaveBeenCalled();
+    const { meta } = await readMeta(response);
+    expect((meta!.blocks as Array<{ type: string }>).map((b) => b.type)).toContain("place_list");
   });
 
   it("adds a model-built comparison block when the user asks to compare", async () => {
@@ -206,7 +232,7 @@ describe("POST /api/ai", () => {
       unavailableProviders: [], retrievedAt: "t",
     });
     await readMeta(await post());
-    const system = String((streamMock.mock.calls[0][0] as Array<{ role: string; content: string }>)[0].content);
+    const system = String((streamTextMock.mock.calls[0] as unknown as [{ system: string }])[0].system);
     expect(system).toMatch(/shown as cards/);
     expect(system).toMatch(/Do not list hotels or prices/);
     expect(system).toMatch(/Do not restate what the cards show/);
@@ -230,11 +256,157 @@ describe("POST /api/ai", () => {
     expect(retrieveEvidenceMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ dislikes: ["museums"], currency: "CAD" }), expect.anything());
   });
 
+  it("excludes rejected trip places from retrieval and warns COMPOSE off already-shown cards", async () => {
+    loadTripContextMock.mockResolvedValue({
+      trip: { name: "T", destination: "China", origin: null, duration_days: 8, travelers: 5 },
+      preferences: {}, itinerary: [], lockedTitles: [], lockedPlaces: [],
+      places: [{ status: "rejected", place: { name: "Bar Rouge", category: "bar", address: null } }],
+      decisions: [],
+    });
+    listRows = [
+      { role: "user", idempotency_key: `user:${KEY}`, content: PROMPT },
+      { role: "assistant", idempotency_key: "assistant:prev", content: "earlier", metadata: { blocks: [{ type: "place_list", places: [{ name: "M1NT" }, { name: "Speak Low" }] }] } },
+    ];
+    retrieveEvidenceMock.mockResolvedValue({ places: [{ provider: "g", providerId: "p", name: "New Club", category: "night_club", latitude: 1, longitude: 1, address: null, sourceUrl: null }], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" });
+    await readMeta(await post());
+    expect(retrieveEvidenceMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ excludeNames: ["Bar Rouge"] }), expect.anything());
+    const system = String((streamTextMock.mock.calls[0] as unknown as [{ system: string }])[0].system);
+    expect(system).toMatch(/Already shown as cards earlier in this conversation: M1NT, Speak Low/);
+  });
+
+  it("threads viewContext (an open panel) into RESOLVE and COMPOSE", async () => {
+    retrieveEvidenceMock.mockResolvedValue({ places: [{ provider: "g", providerId: "p", name: "X", category: null, latitude: 1, longitude: 1, address: null, sourceUrl: null }], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" });
+    const { POST } = await import("@/app/api/ai/route");
+    const request = new Request("http://localhost/api/ai", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tripId: TRIP, messages: [{ role: "user", content: PROMPT }], messageIdempotencyKey: KEY, viewContext: "Hotel Alfama" }),
+    });
+    await new Response((await POST(request, { params: Promise.resolve({}) })).body).text();
+    expect(resolveTurnMock).toHaveBeenCalledWith(expect.objectContaining({ viewContext: "Hotel Alfama" }));
+    const system = String((streamTextMock.mock.calls[0] as unknown as [{ system: string }])[0].system);
+    expect(system).toMatch(/has this open beside the chat: Hotel Alfama/);
+  });
+
+  it("runs a tool the model calls during COMPOSE and records it in the turn trace", async () => {
+    // First retrieve = RESOLVE's base plan (a place); second = the model's directions follow-up.
+    retrieveEvidenceMock
+      .mockResolvedValueOnce({ places: [{ provider: "g", providerId: "p", name: "M1NT", category: "night_club", latitude: 1, longitude: 1, address: null, sourceUrl: null }], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" })
+      .mockResolvedValueOnce({ places: [], sources: [], weather: null, routes: [{ from: "A", to: "B", mode: "transit", distanceMeters: 2000, durationSeconds: 600, steps: [] }], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" });
+    compose.toolCall = { name: "directions", args: { from: "M1NT", to: "hotel", mode: "transit" } };
+
+    const response = await post();
+    expect(response.status).toBe(200);
+    await readMeta(response); // consume the stream so persist + trace run
+    expect(retrieveEvidenceMock).toHaveBeenCalledTimes(2);
+    expect((retrieveEvidenceMock.mock.calls as unknown as unknown[][])[1][0]).toEqual([{ tool: "directions", from: "M1NT, China", to: "hotel, China", mode: "transit" }]);
+    const traceRow = (insertSpy.mock.calls.at(-1) as unknown as unknown[] | undefined)?.[0] as { tools: string[] } | undefined;
+    expect(traceRow?.tools).toEqual(expect.arrayContaining(["search_places", "directions"]));
+  });
+
+  it("carries the trip window + per-event offsets on the events block and briefs COMPOSE on the near-miss", async () => {
+    loadTripContextMock.mockResolvedValue({ trip: { name: "T", destination: "Montreal", origin: null, duration_days: 6, travelers: 2, start_date: "2026-10-26", end_date: "2026-11-01" }, preferences: {}, itinerary: [], lockedTitles: [], lockedPlaces: [], places: [], decisions: [] });
+    resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "Montreal", intent: "events", wantsComparison: false, toolPlan: [{ tool: "events", query: "concerts", location: "Montreal" }, { tool: "research_web", query: "montreal concerts" }], clarify: null, suggestedFollowups: [], proposedProfileUpdate: null });
+    retrieveEvidenceMock.mockResolvedValue({
+      places: [], sources: [], weather: null, routes: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t",
+      events: [{ title: "Just After", url: "https://tm/x", date: "2026-11-04", venue: "Bell", source: "ticketmaster", startDate: "2026-11-04", relToTrip: "after", offsetDays: 3 }],
+    });
+    const { meta } = await readMeta(await post());
+    const block = (meta!.blocks as Array<Record<string, unknown>>).find((b) => b.type === "events")!;
+    expect(block.window).toEqual({ start: "2026-10-26", end: "2026-11-01" });
+    expect((block.items as Array<Record<string, unknown>>)[0]).toMatchObject({ relToTrip: "after", offsetDays: 3 });
+    const system = String((streamTextMock.mock.calls[0] as unknown as [{ system: string }])[0].system);
+    expect(system).toMatch(/NONE fall in the trip window\. Lead with the closest: "Just After"/);
+  });
+
+  it("offers the dates as pickable chips when a named act plays multiple nights during the trip", async () => {
+    loadTripContextMock.mockResolvedValue({ trip: { name: "T", destination: "Montreal", origin: null, duration_days: 6, travelers: 2, start_date: "2026-10-26", end_date: "2026-11-01" }, preferences: {}, itinerary: [], lockedTitles: [], lockedPlaces: [], places: [], decisions: [] });
+    resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "Montreal", intent: "events", wantsComparison: false, toolPlan: [{ tool: "events", query: "is Bruno Mars playing", location: "Montreal", artist: "Bruno Mars" }, { tool: "research_web", query: "bruno mars montreal" }], clarify: null, suggestedFollowups: [], proposedProfileUpdate: null });
+    retrieveEvidenceMock.mockResolvedValue({
+      places: [], sources: [], weather: null, routes: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t",
+      events: [
+        { title: "Bruno Mars", url: "https://tm/a", date: "2026-10-29", venue: "Bell", source: "ticketmaster", startDate: "2026-10-29", relToTrip: "in", offsetDays: 0 },
+        { title: "Bruno Mars", url: "https://tm/b", date: "2026-10-31", venue: "Bell", source: "ticketmaster", startDate: "2026-10-31", relToTrip: "in", offsetDays: 0 },
+      ],
+    });
+    const { meta } = await readMeta(await post());
+    const chipBlock = (meta!.blocks as Array<{ type: string; question?: string; chips?: string[] }>).find((b) => b.type === "clarifying_question");
+    expect(chipBlock?.question).toBe("Which Bruno Mars night?");
+    expect(chipBlock?.chips).toEqual(["Bruno Mars · 2026-10-29", "Bruno Mars · 2026-10-31"]);
+  });
+
+  it("does not leak reasoning-model scratchpad into the streamed or persisted reply", async () => {
+    retrieveEvidenceMock.mockResolvedValue({ places: [{ provider: "g", providerId: "p", name: "Bar Rouge", category: "bar", latitude: 1, longitude: 1, address: null, sourceUrl: null }], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" });
+    compose.text = "<|channel|>analysis<|message|>The user wants nightlife. No hotel yet — but do not ask.<|end|><|start|>assistant<|channel|>final<|message|>Bar Rouge is the pick for a Bund view.<|return|>";
+    const response = await post();
+    const { body } = await readMeta(response);
+    expect(body).not.toContain("analysis");
+    expect(body).not.toContain("do not ask");
+    expect(body).toContain("Bar Rouge is the pick");
+    const appendArgs = appendSpy.mock.calls.at(-1)![1] as { content: string };
+    expect(appendArgs.content).toBe("Bar Rouge is the pick for a Bund view.");
+  });
+
   it("turns a proposedProfileUpdate into an update_preferences command", async () => {
     resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "Shanghai", intent: "nightlife", wantsComparison: false, toolPlan: [], clarify: null, suggestedFollowups: [], proposedProfileUpdate: { budget: 120 } });
     retrieveEvidenceMock.mockResolvedValue({ places: [{ provider: "g", providerId: "p", name: "X", category: null, latitude: 1, longitude: 1, address: null, sourceUrl: null }], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" });
     const response = await post();
     const { meta } = await readMeta(response);
     expect(meta!.proposedCommand).toMatchObject({ type: "update_preferences", tripId: TRIP, preferences: { budget: 120 } });
+  });
+
+  // --- adversarial / regression: the pipeline must degrade, not crash ------------------------
+
+  it("returns 400 for a body that is not JSON at all", async () => {
+    const { POST } = await import("@/app/api/ai/route");
+    const request = new Request("http://localhost/api/ai", { method: "POST", headers: { "content-type": "application/json" }, body: "}{ this is not json" });
+    expect((await POST(request, { params: Promise.resolve({}) })).status).toBe(400);
+  });
+
+  it("still answers 200 and flags the turn degraded when RESOLVE fell back to its safe default", async () => {
+    resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: null, intent: "other", wantsComparison: false, toolPlan: [], clarify: null, suggestedFollowups: [], proposedProfileUpdate: null, degraded: true });
+    const response = await post();
+    expect(response.status).toBe(200);
+    const { meta } = await readMeta(response);
+    expect(meta).toMatchObject({ degraded: true });
+  });
+
+  it("returns a structured 5xx (not a stack) when RETRIEVE throws unexpectedly", async () => {
+    retrieveEvidenceMock.mockRejectedValue(new Error("provider layer exploded"));
+    const response = await post();
+    expect(response.status).toBeGreaterThanOrEqual(500);
+    const body = await response.json();
+    expect(body).toMatchObject({ error: expect.any(String) });
+    expect(JSON.stringify(body)).not.toMatch(/exploded/); // internal detail not leaked to the client
+  });
+
+  it("falls over to the next model when the first model's stream throws on its first chunk", async () => {
+    composeChainRef.models = [{ model: { id: "primary" } }, { model: { id: "fallback" } }];
+    compose.failFirstN = 1;
+    retrieveEvidenceMock.mockResolvedValue({ places: [{ provider: "g", providerId: "p", name: "X", category: null, latitude: 1, longitude: 1, address: null, sourceUrl: null }], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" });
+    const response = await post();
+    expect(response.status).toBe(200);
+    const { body } = await readMeta(response);
+    expect(body).toContain("verified clubs");
+    expect(streamTextMock).toHaveBeenCalledTimes(2); // primary threw, fallback produced the stream
+  });
+
+  it("surfaces a 5xx when every model in the COMPOSE chain fails", async () => {
+    composeChainRef.models = [{ model: { id: "primary" } }, { model: { id: "fallback" } }];
+    compose.failFirstN = 2;
+    retrieveEvidenceMock.mockResolvedValue({ places: [{ provider: "g", providerId: "p", name: "X", category: null, latitude: 1, longitude: 1, address: null, sourceUrl: null }], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" });
+    const response = await post();
+    expect(response.status).toBeGreaterThanOrEqual(500);
+  });
+
+  it("streams and persists a very large model reply without truncating it", async () => {
+    compose.text = `Bar Rouge is the pick. ${"padding ".repeat(30_000)}`;
+    retrieveEvidenceMock.mockResolvedValue({ places: [{ provider: "g", providerId: "p", name: "X", category: null, latitude: 1, longitude: 1, address: null, sourceUrl: null }], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" });
+    const response = await post();
+    expect(response.status).toBe(200);
+    await readMeta(response);
+    const persisted = (appendSpy.mock.calls.at(-1)![1] as { content: string }).content;
+    expect(persisted.length).toBeGreaterThan(200_000);
+    expect(persisted.startsWith("Bar Rouge is the pick.")).toBe(true);
   });
 });

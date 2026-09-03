@@ -14,7 +14,7 @@ export const spring = { type: "spring" as const, stiffness: 260, damping: 28, ma
  * server and first client paint, then upgrade to the motion entrance once we know
  * we're in a live, visible document.
  */
-function useAnimateIn(): boolean {
+export function useAnimateIn(): boolean {
   const reduce = useReducedMotion();
   const [on, setOn] = useState(false);
   useEffect(() => {

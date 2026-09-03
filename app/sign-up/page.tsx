@@ -57,12 +57,19 @@ export default function SignUpPage() {
       title="Start a trip by talking about it."
       subtitle="No long forms. Sign up, and the plan starts building from your first message."
       footer={
-        <p>
-          Already have an account?{" "}
-          <Link href="/sign-in" className="link-underline font-medium text-foreground">
-            Sign in
-          </Link>
-        </p>
+        <div className="space-y-2">
+          <p>
+            Already have an account?{" "}
+            <Link href="/sign-in" className="link-underline font-medium text-foreground">
+              Sign in
+            </Link>
+          </p>
+          <p>
+            <Link href="/privacy" className="link-underline">Privacy</Link>
+            {" · "}
+            <Link href="/terms" className="link-underline">Terms</Link>
+          </p>
+        </div>
       }
     >
       <GoogleAuthButton label="Sign up with Google" />

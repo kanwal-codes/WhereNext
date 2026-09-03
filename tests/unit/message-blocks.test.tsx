@@ -2,6 +2,11 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { AssistantBlock } from "../../packages/contracts/assistant";
+
+// CompareView pulls trip context from a provider we don't mount here; the block-routing
+// decision (live side-by-side vs static table) is what this suite checks.
+vi.mock("@/components/CompareView", () => ({ CompareView: () => <div data-testid="compare-view" /> }));
+
 import { MessageBlocks } from "../../features/conversation/ui/blocks/MessageBlocks";
 
 const handlers = { tripId: "trip-1", onFollowup: vi.fn() };
@@ -94,5 +99,51 @@ describe("MessageBlocks", () => {
     const clarify = render([{ type: "clarifying_question", question: "How many nights?", chips: ["2", "3-4"] }]);
     expect(clarify).toContain("3-4");
     expect(clarify).not.toContain("How many nights?"); // the question already streams as the reply text
+  });
+
+  it("renders no chip UI for a clarifying_question with no chips", () => {
+    const html = render([{ type: "clarifying_question", question: "which?", chips: [] }]);
+    expect(html).not.toContain("btn-chip");
+    expect(html).not.toContain("which?");
+  });
+
+  it("events block: shows the trip window header and a per-row offset chip", () => {
+    const html = render([{ type: "events", retrievedAt: "t", window: { start: "2026-10-26", end: "2026-11-01" }, items: [
+      { title: "In-Trip Show", url: "https://x/1", date: "2026-10-29", source: "ticketmaster", relToTrip: "in", offsetDays: 0 },
+      { title: "Just After", url: "https://x/2", date: "2026-11-04", source: "ticketmaster", relToTrip: "after", offsetDays: 3 },
+      { title: "Just Before", url: "https://x/3", date: "2026-10-24", source: "eventbrite", relToTrip: "before", offsetDays: 2 },
+    ] }]);
+    expect(html).toContain("Checked against your trip · 2026-10-26 → 2026-11-01");
+    expect(html).toContain("during your trip");
+    expect(html).toContain("3 days after your trip");
+    expect(html).toContain("2 days before your trip");
+  });
+
+  it("events block: 'Major event' badge only at rank ≥ 65", () => {
+    const html = render([{ type: "events", retrievedAt: "t", items: [
+      { title: "Huge Festival", url: "https://x/a", source: "predicthq", rank: 88 },
+      { title: "Small Gig", url: "https://x/b", source: "eventbrite", rank: 30 },
+    ] }]);
+    const major = html.match(/Major event/g) ?? [];
+    expect(major).toHaveLength(1);
+    expect(html).toContain("Huge Festival");
+  });
+
+  it("comparison block: a plain table with a bestForYou line", () => {
+    const html = render([{ type: "comparison", title: "Alfama vs Bairro Alto", columns: ["Option", "Vibe", "Cost"],
+      rows: [{ label: "Alfama", cells: ["Alfama", "quiet", "€€"] }, { label: "Bairro Alto", cells: ["Bairro Alto", "lively", "€€"] }],
+      bestForYou: { label: "Alfama", reason: "quieter for a couple who dislike crowds" } }]);
+    expect(html).toContain("<table");
+    expect(html).toContain("Alfama vs Bairro Alto");
+    expect(html).toContain("quieter for a couple who dislike crowds");
+  });
+
+  it("comparison block: renders a live side-by-side (not a table) when it carries ≥2 place ids", () => {
+    const html = render([{ type: "comparison", title: "M1NT vs Bar Rouge", columns: ["Option", "x"],
+      rows: [{ label: "M1NT", cells: ["M1NT", "a"] }, { label: "Bar Rouge", cells: ["Bar Rouge", "b"] }],
+      bestForYou: null, placeIds: ["g:m1nt", "g:barrouge"] }]);
+    expect(html).not.toContain("<table");
+    expect(html).toContain('data-testid="compare-view"');
+    expect(html).toContain("M1NT vs Bar Rouge");
   });
 });

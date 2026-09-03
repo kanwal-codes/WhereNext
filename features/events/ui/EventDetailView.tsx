@@ -7,6 +7,7 @@ import type { EventDetail } from "@/packages/contracts/event";
 import { Hero } from "@/components/Hero";
 import { BackLink } from "@/components/BackLink";
 import { ExternalLink } from "@/components/ExternalLink";
+import { NearbyRecommendations } from "@/components/NearbyRecommendations";
 import { Skeleton, SkeletonLines } from "@/components/Skeleton";
 import { Reveal } from "@/components/motion-primitives";
 import { useDocumentTitle } from "@/lib/use-document-title";
@@ -14,6 +15,12 @@ import { askAssistantHref } from "@/lib/places-ui";
 import { cn } from "@/lib/utils";
 
 type Seed = { name: string; url: string; source: string; imageUrl?: string; date?: string; venue?: string };
+
+/** Rough "City, Country" from a formatted address. */
+function cityFrom(address: string | undefined | null): string {
+  if (!address) return "";
+  return address.split(",").map((p) => p.trim()).filter(Boolean).slice(-2).join(", ");
+}
 
 /** Full detail for one event — same layout on the routed page and the chat side panel. */
 export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: string; seed: Seed; variant?: "page" | "panel" }) {
@@ -209,6 +216,19 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
             )}
 
             <p className="text-[11px] text-muted-foreground">Confirm the date, line-up, price and availability on the ticket page.</p>
+
+            {(cityFrom(d?.venueAddress) || venueName) && (
+              <NearbyRecommendations
+                tripId={tripId}
+                kind="event"
+                excludeId={ticketUrl ?? seed.url}
+                anchorName={venueName ?? title}
+                cityHint={cityFrom(d?.venueAddress) || venueName || ""}
+                genre={d?.genre}
+                lat={d?.latitude ?? undefined}
+                lng={d?.longitude ?? undefined}
+              />
+            )}
           </>
         )}
       </div>

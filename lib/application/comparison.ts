@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createAiGateway } from "@/packages/ai/gateway";
+import { gatewayFor } from "@/packages/ai/model-policy";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 import type { RetrievedEvidence } from "./retrieve";
 
@@ -30,7 +30,7 @@ export async function buildComparison(input: {
     ...input.evidence.sources.slice(0, 3).map((source) => `${source.title}: ${source.content.slice(0, 300)}`),
   ].join("\n");
   try {
-    const raw = await createAiGateway({ model: process.env.RESOLVE_MODEL || undefined }).generateStructured(
+    const raw = await gatewayFor("resolve").generateStructured(
       [
         { role: "system", content: SYSTEM },
         { role: "user", content: `Traveller: ${input.tripSummary}\nRequest: ${input.prompt}\nEvidence:\n${evidenceText || "(none)"}` },

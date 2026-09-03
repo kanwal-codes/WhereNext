@@ -90,6 +90,7 @@ export default function ChatPage() {
               initialMessages={data?.conversation}
               onOpenPlace={openPlace}
               onOpenStay={openStay}
+              viewContext={panel?.kind === "place" || panel?.kind === "stay" ? panel.name : undefined}
               rail={desktop && Boolean(panel)}
             />
           </div>

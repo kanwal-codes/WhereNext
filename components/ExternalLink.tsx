@@ -4,9 +4,11 @@ import { cn } from "@/lib/utils";
 
 /** The one treatment for a link that leaves the app. */
 export function ExternalLink({ href, children, className }: { href: string; children: ReactNode; className?: string }) {
+  // React does not block javascript:/data: hrefs — only warns. Neutralise anything that isn't a real web link.
+  const safeHref = /^https?:\/\//i.test(href.trim()) ? href : undefined;
   return (
     <a
-      href={href}
+      href={safeHref}
       target="_blank"
       rel="noreferrer noopener"
       className={cn("inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-2 hover:underline", className)}

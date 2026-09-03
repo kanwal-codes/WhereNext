@@ -1,24 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { BedDouble, Compass, Loader2, Star, UtensilsCrossed } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { Loader2, Star } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
+import type { NearbyEvent } from "@/components/EventCard";
+import { EventCard } from "@/components/EventCard";
 import { Reveal } from "@/components/motion-primitives";
+import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { photoProxyUrl } from "@/lib/places-ui";
+import { type RankContext, type RankedPlace } from "@/lib/application/rank-places";
+import { classifyEventVibe, classifyPlaceVibe, lanesFor, type Lane, type LaneAnchor, type Vibe } from "@/packages/reco/vibes";
+import { shapeLanes, type LaneInput, type LaneOutput } from "@/packages/reco/shape-lanes";
 
-const SECTIONS: Array<{ key: string; label: string; icon: LucideIcon; q: (name: string, city: string) => string }> = [
-  { key: "stay", label: "Where to stay nearby", icon: BedDouble, q: (n, c) => `hotels near ${n} ${c}`.trim() },
-  { key: "eat", label: "Eat nearby", icon: UtensilsCrossed, q: (n, c) => `restaurants near ${n} ${c}`.trim() },
-  { key: "do", label: "Things to do nearby", icon: Compass, q: (n, c) => `things to do near ${n} ${c}`.trim() },
-];
+type RawLane = LaneInput<NearbyEvent>;
+type ShapedLane = LaneOutput<NearbyEvent>;
 
-function MiniCard({ tripId, place }: { tripId: string; place: Place }) {
+const asList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((s): s is string => typeof s === "string") : []);
+
+function MiniCard({ tripId, place, why, onSelect }: { tripId: string; place: Place; why?: string | null; onSelect?: () => void }) {
   const photo = photoProxyUrl(tripId, place.photoNames?.[0]);
   return (
     <Link
       href={`/trips/${tripId}/place/${encodeURIComponent(place.providerId)}`}
+      onClick={onSelect}
       className="block w-[196px] shrink-0 snap-start overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-shadow hover:shadow-lift"
     >
       {photo ? (
@@ -38,48 +43,205 @@ function MiniCard({ tripId, place }: { tripId: string; place: Place }) {
           )}
           <span className="truncate">{(place.category ?? "").replaceAll("_", " ")}</span>
         </p>
+        {why && <p className="mt-1 truncate text-[11px] text-primary">{why}</p>}
       </div>
     </Link>
   );
 }
 
+function queryFor(lane: Lane, anchor: LaneAnchor): string {
+  const base = (typeof lane.query === "function" ? lane.query(anchor) : lane.query).trim();
+  if (lane.source === "events") return base;
+  // A radius lane is filtered client-side, so keep its query city-wide; others lean on the anchor.
+  return lane.radiusKm ? `${base} in ${anchor.city}`.trim() : `${base} near ${anchor.name} ${anchor.city}`.trim();
+}
+
+async function fetchLane(tripId: string, lane: Lane, anchor: LaneAnchor, signal: AbortSignal): Promise<RawLane> {
+  const q = queryFor(lane, anchor);
+  try {
+    if (lane.source === "events") {
+      if (!anchor.city) return { lane, places: [], events: [] };
+      const qs = new URLSearchParams({ location: anchor.city });
+      if (q) qs.set("query", q);
+      const body = await fetch(`/api/trips/${tripId}/events?${qs}`, { signal }).then((r) => (r.ok ? r.json() : { events: [] }));
+      return { lane, places: [], events: (body.events ?? []) as NearbyEvent[] };
+    }
+    const body = await fetch(`/api/trips/${tripId}/places?query=${encodeURIComponent(q)}`, { signal }).then((r) => (r.ok ? r.json() : { places: [] }));
+    return { lane, places: (body.places ?? []) as Place[], events: [] };
+  } catch {
+    return { lane, places: [], events: [] };
+  }
+}
+
+/** Cosine of each candidate against the anchor, from the server embedding endpoint. `{}` on any failure. */
+async function semanticScores(tripId: string, anchorText: string, candidates: Place[], signal: AbortSignal): Promise<Record<string, number>> {
+  try {
+    const body = await fetch(`/api/trips/${tripId}/reco`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      signal,
+      body: JSON.stringify({
+        op: "rank",
+        anchor: anchorText,
+        candidates: candidates.slice(0, 24).map((p) => ({ id: p.providerId, text: `${p.name} ${(p.category ?? "").replaceAll("_", " ")}`.trim() })),
+      }),
+    }).then((r) => (r.ok ? r.json() : { scores: {} }));
+    return (body.scores ?? {}) as Record<string, number>;
+  } catch {
+    return {};
+  }
+}
+
+type LogRow = { laneId: string; action: "impression" | "click"; itemKind: "place" | "event"; itemId: string; position?: number };
+
+/** Fire-and-forget impression / click beacon. `keepalive` so a click survives the navigation. */
+function logReco(tripId: string, anchorKind: "place" | "event", anchorId: string, vibe: string, events: LogRow[]): void {
+  if (events.length === 0) return;
+  try {
+    void fetch(`/api/trips/${tripId}/reco`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({ op: "log", anchorKind, anchorId, vibe, events }),
+    }).catch(() => undefined);
+  } catch {
+    /* analytics must never throw */
+  }
+}
+
+/** Sync classifier, upgraded by the server embedding fallback when a place lands on "default". */
+async function classify(
+  tripId: string,
+  kind: "place" | "event",
+  anchor: { name: string; primaryType?: string | null; types?: string[] | null; id: string; genre?: string | null },
+  signal: AbortSignal,
+): Promise<{ vibe: Vibe; secondary?: Vibe }> {
+  if (kind === "event") {
+    return { vibe: classifyEventVibe({ tmSegment: (anchor.genre ?? "").split(/\s*·\s*/)[0] || null, title: anchor.name }) };
+  }
+  const sync = classifyPlaceVibe({ primaryType: anchor.primaryType, types: anchor.types, name: anchor.name });
+  if (sync.vibe !== "default") return sync;
+  try {
+    const body = await fetch(`/api/trips/${tripId}/reco`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      signal,
+      body: JSON.stringify({ op: "classify", id: anchor.id, name: anchor.name, primaryType: anchor.primaryType, types: anchor.types }),
+    }).then((r) => (r.ok ? r.json() : sync));
+    return (body?.vibe ? body : sync) as { vibe: Vibe; secondary?: Vibe };
+  } catch {
+    return sync;
+  }
+}
+
+/**
+ * Situational "around here" recommendations. The anchor (place or event) is classified into
+ * a vibe (`packages/reco/vibes.ts`) which picks the sections and their order; each section
+ * is a live query against the same places/events endpoints the rest of the app uses. A
+ * "more like this" lane is re-ranked by embedding similarity to the anchor, and the
+ * traveller's stated interests / dislikes / shortlist feed the base rank.
+ */
 export function NearbyRecommendations({
   tripId,
   excludeId,
   anchorName,
   cityHint = "",
+  kind = "place",
+  primaryType,
+  types,
+  genre,
+  lat,
+  lng,
 }: {
   tripId: string;
   excludeId: string;
   anchorName: string;
   cityHint?: string;
+  kind?: "place" | "event";
+  primaryType?: string | null;
+  types?: string[] | null;
+  genre?: string | null;
+  lat?: number;
+  lng?: number;
 }) {
-  const [results, setResults] = useState<Record<string, Place[]>>({});
+  const [results, setResults] = useState<ShapedLane[]>([]);
+  const [pageVibe, setPageVibe] = useState<Vibe>("default");
   const [loading, setLoading] = useState(true);
 
+  const trip = useTripDataMaybe();
+  const prefs = trip?.data?.preferences as Record<string, unknown> | undefined;
+  const savedPlaces = trip?.data?.savedPlaces;
+  const rejectedPlaceIds = trip?.data?.rejectedPlaceIds;
+  const rankCtx = useMemo<Omit<RankContext, "anchor">>(() => {
+    const savedIds = (savedPlaces ?? [])
+      .map((row) => {
+        const rec = row as { places?: { provider_id?: string }; provider_id?: string };
+        return rec.places?.provider_id ?? rec.provider_id;
+      })
+      .filter((id): id is string => Boolean(id));
+    return {
+      interests: asList(prefs?.interests),
+      likes: asList(prefs?.likes),
+      dislikes: asList(prefs?.dislikes),
+      savedIds,
+      rejectedIds: rejectedPlaceIds ?? [],
+    };
+  }, [prefs, savedPlaces, rejectedPlaceIds]);
+
   useEffect(() => {
+    const anchor: LaneAnchor = { name: anchorName, city: cityHint, lat, lng };
+    const controller = new AbortController();
+    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(9_000)]);
     let cancelled = false;
     setLoading(true);
-    setResults({});
-    Promise.all(
-      SECTIONS.map((s) =>
-        fetch(`/api/trips/${tripId}/places?query=${encodeURIComponent(s.q(anchorName, cityHint))}`)
-          .then((r) => (r.ok ? r.json() : { places: [] }))
-          .then((b) => [s.key, ((b.places ?? []) as Place[]).filter((p) => p.providerId !== excludeId).slice(0, 8)] as const)
-          .catch(() => [s.key, [] as Place[]] as const),
-      ),
-    ).then((pairs) => {
-      if (!cancelled) {
-        setResults(Object.fromEntries(pairs));
-        setLoading(false);
-      }
-    });
+    setResults([]);
+
+    (async () => {
+      const { vibe, secondary } = await classify(tripId, kind, { name: anchorName, primaryType, types, id: excludeId, genre }, signal);
+      if (cancelled) return;
+      const lanes = lanesFor(vibe, secondary);
+      const laneResults = await Promise.all(lanes.map((lane) => fetchLane(tripId, lane, anchor, signal)));
+      if (cancelled) return;
+
+      const anchorPoint = Number.isFinite(lat) && Number.isFinite(lng) ? { latitude: lat!, longitude: lng! } : null;
+      // Richer anchor for the "more like this" embedding — the bare primaryType is often
+      // generic ("tourist_attraction") for exactly the places that reached the embedding path.
+      const anchorText = [anchorName, primaryType, genre, ...(types ?? []).slice(0, 6)]
+        .filter(Boolean)
+        .join(" ")
+        .slice(0, 400)
+        .trim();
+
+      const shaped = await shapeLanes(laneResults, {
+        seenPlaceIds: new Set<string>([excludeId, ...(rejectedPlaceIds ?? [])]),
+        seenEventUrls: new Set<string>(kind === "event" ? [excludeId] : []),
+        anchorPoint,
+        rankCtx,
+        score: (_lane, candidates) => semanticScores(tripId, anchorText, candidates, signal),
+      });
+
+      if (cancelled) return;
+      setResults(shaped);
+      setPageVibe(vibe);
+      setLoading(false);
+
+      logReco(
+        tripId,
+        kind,
+        excludeId,
+        vibe,
+        shaped.flatMap(({ lane, places, events }) => [
+          ...places.map((r, idx): LogRow => ({ laneId: lane.id, action: "impression", itemKind: "place", itemId: r.place.providerId, position: idx })),
+          ...events.map((e, idx): LogRow => ({ laneId: lane.id, action: "impression", itemKind: "event", itemId: e.url, position: idx })),
+        ]),
+      );
+    })();
+
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [tripId, excludeId, anchorName, cityHint]);
-
-  const anyResults = Object.values(results).some((r) => r.length > 0);
+  }, [tripId, excludeId, anchorName, cityHint, kind, primaryType, types, genre, lat, lng, rankCtx, rejectedPlaceIds]);
 
   if (loading) {
     return (
@@ -88,32 +250,43 @@ export function NearbyRecommendations({
       </div>
     );
   }
-  if (!anyResults) return null;
+  if (results.length === 0) return null;
+
+  const onSelect = (laneId: string, itemKind: "place" | "event", itemId: string, position: number) =>
+    logReco(tripId, kind, excludeId, pageVibe, [{ laneId, action: "click", itemKind, itemId, position }]);
 
   return (
     <div className="mt-12 space-y-8 border-t border-border pt-8">
       <div>
         <p className="eyebrow">Around here</p>
-        <p className="mt-1 text-sm text-muted-foreground">Places close to {anchorName} — tap any to open it.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Picked to match {anchorName} — tap any to open it.</p>
       </div>
-      {SECTIONS.map((s, i) => {
-        const items = results[s.key] ?? [];
-        if (items.length === 0) return null;
-        return (
-          <Reveal key={s.key} delay={0.05 * i}>
-            <section>
-              <h3 className="flex items-center gap-2 font-display text-lg">
-                <s.icon className="h-4 w-4 text-coral" /> {s.label}
-              </h3>
-              <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto scrollbar-slim pb-1">
-                {items.map((place) => (
-                  <MiniCard key={place.providerId} tripId={tripId} place={place} />
-                ))}
-              </div>
-            </section>
-          </Reveal>
-        );
-      })}
+      {results.map(({ lane, places, events }, i) => (
+        <Reveal key={lane.id} delay={0.05 * i}>
+          <section>
+            <h3 className="font-display text-lg">
+              {lane.title}
+              {lane.layout === "peek" && <span className="ml-2 text-xs font-normal text-muted-foreground">· a taste</span>}
+            </h3>
+            <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto scrollbar-slim pb-1">
+              {places.map((r, idx) => (
+                <MiniCard
+                  key={r.place.providerId}
+                  tripId={tripId}
+                  place={r.place}
+                  why={r.why}
+                  onSelect={() => onSelect(lane.id, "place", r.place.providerId, idx)}
+                />
+              ))}
+              {events.map((event, idx) => (
+                <span key={event.url} className="contents" onClickCapture={() => onSelect(lane.id, "event", event.url, idx)}>
+                  <EventCard tripId={tripId} event={event} className="w-[240px] shrink-0 snap-start" />
+                </span>
+              ))}
+            </div>
+          </section>
+        </Reveal>
+      ))}
     </div>
   );
 }

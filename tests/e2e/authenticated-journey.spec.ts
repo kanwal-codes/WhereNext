@@ -22,7 +22,7 @@ test("authenticated user can create and reload a trip workspace", async ({ page 
     await page.goto("/sign-in");
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Password").fill(password);
-    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(page).toHaveURL(/\/trips$/, { timeout: 15_000 });
     const tripId = await createTripViaForm(page, { name: "Rebuild verification", destination: "Montreal", origin: "Toronto", days: "6", travelers: "2", vibe: "architecture" });
     await expect(page.locator("main").getByRole("heading", { name: "Rebuild verification" })).toBeVisible();

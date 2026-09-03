@@ -27,7 +27,7 @@ test("live multi-person travel scenarios return current, prompt-matched answers"
       await page.goto("/sign-in");
       await page.getByLabel("Email").fill(email);
       await page.getByLabel("Password").fill(password);
-      await page.getByRole("button", { name: "Sign in" }).click();
+      await page.getByRole("button", { name: "Sign in", exact: true }).click();
       await expect(page).toHaveURL(/\/trips$/);
       tripId = await createTripViaForm(page, { name: scenario.name, destination: scenario.destination, origin: scenario.origin, days: scenario.days, travelers: scenario.travelers, vibe: scenario.vibe });
       for (const prompt of scenario.prompts) {
