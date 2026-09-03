@@ -8,11 +8,11 @@ import { Reveal, WordReveal, ease } from "@/components/motion-primitives";
 import { BrandMark } from "@/components/BrandMark";
 import { cn } from "@/lib/utils";
 
-const mountainsImg = "/design/land-mountains-v2.png";
-const friendsImg = "/design/land-friends-v2.png";
-const cityImg = "/design/land-city-v2.png";
-const stayImg = "/design/land-stay-v2.png";
-const coastImg = "/design/land-coast-v2.png";
+const mountainsImg = "/design/land-mountains.jpg";
+const friendsImg = "/design/land-friends.jpg";
+const cityImg = "/design/land-city.jpg";
+const stayImg = "/design/land-stay.jpg";
+const coastImg = "/design/land-coast.jpg";
 
 /** Scroll-triggered rise. Editorial pacing: slow, once, never bouncy. */
 function InView({ children, className, delay = 0, y = 22 }: { children: ReactNode; className?: string; delay?: number; y?: number }) {
