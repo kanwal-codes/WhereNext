@@ -99,6 +99,8 @@ export function Landing() {
         <motion.img src={mountainsImg} alt="Mist rolling over a mountain pass at sunrise" style={{ y: heroY, scale: heroScale }} className="absolute inset-0 h-full w-full object-cover" />
         <div className="pointer-events-none absolute inset-0 vignette" />
         <div className="pointer-events-none absolute inset-0 grain" />
+        {/* Top scrim so the white nav stays legible over any part of the photo. */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/35 via-black/10 to-transparent" />
         <div
           className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5"
           style={{ background: "linear-gradient(to top, var(--color-background), color-mix(in oklab, var(--color-background) 60%, transparent) 50%, transparent)" }}
@@ -106,14 +108,14 @@ export function Landing() {
 
         <div className="absolute inset-x-0 top-0">
           <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 pt-7 sm:px-10">
-            <Link href="/" className="inline-flex items-center gap-2">
-              <BrandMark variant="text" />
+            <Link href="/" className="inline-flex items-center gap-2 [text-shadow:0_1px_8px_rgb(0_0_0/0.35)]">
+              <BrandMark variant="text" className="text-white" />
             </Link>
             <div className="flex items-center gap-5">
-              <Link href="/sign-in" className="link-underline text-sm font-medium">
+              <Link href="/sign-in" className="link-underline text-sm font-medium text-white [text-shadow:0_1px_8px_rgb(0_0_0/0.35)]">
                 Sign in
               </Link>
-              <Link href="/sign-up" className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-transform hover:scale-[1.03]">
+              <Link href="/sign-up" className="rounded-full bg-white px-4 py-2 text-sm font-medium text-neutral-900 shadow-sm transition-transform hover:scale-[1.03]">
                 Create account
               </Link>
             </div>
