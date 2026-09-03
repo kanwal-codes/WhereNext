@@ -24,3 +24,4 @@ docs/
 frontend/
 .DS_Store
 .vercel
+.claude/
