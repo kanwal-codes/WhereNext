@@ -24,7 +24,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     const result = await cached(`events:${location.toLowerCase()}:${query.toLowerCase()}`, 10 * 60_000, async () => {
       const point = wantEb ? await new GooglePlacesProvider().search(location, request.signal).then((hits) => hits[0]).catch(() => null) : null;
       const [tm, eb] = await Promise.allSettled([
-        wantTm ? ticketmasterEvents(query, location, request.signal) : Promise.resolve([]),
+        wantTm ? ticketmasterEvents(query, location, undefined, request.signal) : Promise.resolve([]),
         wantEb && point ? localEvents(query, point.latitude, point.longitude, request.signal) : Promise.resolve([]),
       ]);
       const list: NearbyEvent[] = [];

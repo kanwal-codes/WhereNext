@@ -54,10 +54,25 @@ const EMPTY: Omit<RetrievedEvidence, "retrievedAt"> = { places: [], sources: [],
 
 const stem = (word: string) => word.replace(/(ies|es|s)$/, (match) => (match === "ies" ? "y" : ""));
 
+// Ticketmaster/Eventbrite keyword search matches all words — a raw question
+// ("are there any punjabi concerts between my dates in Montreal") matches nothing.
+// Keep only the meaningful terms (artist / genre / type).
+const EVENT_STOPWORDS = new Set([
+  "a", "an", "the", "any", "are", "is", "there", "any", "some", "in", "on", "at", "near", "around", "to", "of", "for",
+  "concert", "concerts", "show", "shows", "gig", "gigs", "event", "events", "ticket", "tickets", "performance",
+  "between", "during", "this", "that", "my", "our", "we", "i", "planning", "plan", "go", "going", "visit", "trip",
+  "date", "dates", "day", "days", "weekend", "week", "happening", "on", "while", "when", "and", "or",
+]);
+export function cleanEventKeyword(query: string, location: string): string {
+  const locWords = new Set(location.toLowerCase().split(/[^a-z]+/).filter(Boolean));
+  const kept = query.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 1 && !EVENT_STOPWORDS.has(w) && !locWords.has(w));
+  return kept.join(" ").slice(0, 60);
+}
+
 /** RETRIEVE stage: run the resolver's tool plan in parallel, isolate provider failures, dedupe, apply dislike filter. */
 export async function retrieveEvidence(
   toolPlan: ToolCall[],
-  filters: { dislikes?: string[]; currency?: string; interests?: string[]; likes?: string[] } = {},
+  filters: { dislikes?: string[]; currency?: string; interests?: string[]; likes?: string[]; tripStart?: string | null; tripEnd?: string | null } = {},
   signal?: AbortSignal,
 ): Promise<RetrievedEvidence> {
   if (toolPlan.length === 0) return { ...EMPTY, retrievedAt: new Date().toISOString() };
@@ -112,11 +127,13 @@ export async function retrieveEvidence(
         const wantTicketmaster = Boolean(process.env.TICKETMASTER_CONSUMER_KEY || process.env.TICKETMASTER_API_KEY);
         const wantEventbrite = Boolean(process.env.EVENTBRITE_API_KEY);
         const wantGyg = Boolean(process.env.GETYOURGUIDE_API_KEY);
+        const keyword = cleanEventKeyword(call.query, call.location);
+        const dateWindow = { start: filters.tripStart ?? undefined, end: filters.tripEnd ?? undefined };
         const point = wantEventbrite ? await geocode(call.location) : null;
         const [tm, eb, gyg] = await Promise.all([
-          wantTicketmaster ? events(call.query, call.location, signal).catch(fail("ticketmaster")) : Promise.resolve(undefined),
-          wantEventbrite && point ? localEvents(call.query, point[1], point[0], signal).catch(fail("eventbrite")) : Promise.resolve(undefined),
-          wantGyg ? activities(`${call.query} ${call.location}`.trim(), filters.currency ?? "USD", signal).catch(fail("getyourguide")) : Promise.resolve(undefined),
+          wantTicketmaster ? events(keyword, call.location, dateWindow, signal).catch(fail("ticketmaster")) : Promise.resolve(undefined),
+          wantEventbrite && point ? localEvents(keyword, point[1], point[0], signal).catch(fail("eventbrite")) : Promise.resolve(undefined),
+          wantGyg ? activities(`${keyword} ${call.location}`.trim(), filters.currency ?? "USD", signal).catch(fail("getyourguide")) : Promise.resolve(undefined),
         ]);
         const tmEvents = (tm ?? []).map((event) => ({ title: event.title, url: event.url, date: event.date, venue: event.venue, source: "ticketmaster" }));
         const ebEvents = (eb ?? []).map((event) => ({ title: event.title, url: event.url, date: event.date, venue: event.venue, source: "eventbrite" }));

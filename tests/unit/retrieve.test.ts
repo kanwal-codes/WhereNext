@@ -1,6 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetProviderGuards } from "../../lib/server/provider-guard";
-import { retrieveEvidence } from "../../lib/application/retrieve";
+import { retrieveEvidence, cleanEventKeyword } from "../../lib/application/retrieve";
+
+describe("cleanEventKeyword", () => {
+  it("keeps the artist/genre, drops filler and the destination name", () => {
+    expect(cleanEventKeyword("katseye concert in montreal", "Montreal")).toBe("katseye");
+    expect(cleanEventKeyword("are there any punjabi concerts between my dates", "Montreal, Canada")).toBe("punjabi");
+    expect(cleanEventKeyword("english concert", "Montreal")).toBe("english");
+  });
+  it("returns empty when nothing meaningful is left", () => {
+    expect(cleanEventKeyword("any events happening this weekend", "Lisbon")).toBe("");
+  });
+});
 
 beforeEach(() => resetProviderGuards());
 afterEach(() => {
