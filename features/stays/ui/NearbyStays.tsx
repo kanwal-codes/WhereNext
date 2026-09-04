@@ -139,7 +139,7 @@ export function NearbyStays({
                   <div className="min-w-0"><p className="eyebrow">{optionKind}</p><p className="mt-1 truncate font-display text-base">{option.name}</p></div>
                   {option.thumbnail ? (
                     // eslint-disable-next-line @next/next/no-img-element -- provider image URL is arbitrary
-                    <img src={option.thumbnail} alt="" loading="lazy" className="h-12 w-16 shrink-0 rounded-lg object-cover" />
+                    <img src={option.thumbnail} alt="" loading="lazy" width={64} height={48} className="h-12 w-16 shrink-0 rounded-lg object-cover" />
                   ) : <div className="grid h-12 w-16 shrink-0 place-items-center rounded-lg bg-muted"><BedDouble className="h-4 w-4 text-muted-foreground" /></div>}
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">

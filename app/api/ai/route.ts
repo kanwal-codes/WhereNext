@@ -201,6 +201,34 @@ export const POST = withRoute(async function POST(request: Request) {
     logger.debug({ resolved }, "resolve");
     const language = resolved.language;
     const locationFocus = resolved.locationFocus ?? destination;
+    const respondWithoutCompose = (
+      content: string,
+      meta: AssistantTurnMeta,
+      tools: string[] = [],
+      providersFailed: string[] = [],
+    ) => new Response(
+      persistedAssistantStream(cannedStream(content), supabase, tripId, idempotencyKey, undefined, meta, async (finalText) => {
+        latencyMs.total = Math.round(performance.now() - t0);
+        tokensIn = estimateTokens(prompt);
+        tokensOut = estimateTokens(finalText);
+        const cost = Number(costUsd(process.env.AI_MODEL, tokensIn, tokensOut).toFixed(5));
+        await recordAiTurn(supabase, tripId, {
+          intent: resolved.intent,
+          tools,
+          providers_failed: providersFailed,
+          blocks: meta.blocks.map((block) => block.type),
+          tokens_in: tokensIn,
+          tokens_out: tokensOut,
+          cost_usd: cost,
+          resolve_ms: latencyMs.resolve,
+          retrieve_ms: latencyMs.retrieve,
+          total_ms: latencyMs.total,
+          model_resolve: process.env.RESOLVE_MODEL || process.env.AI_MODEL || undefined,
+          degraded: Boolean(resolved.degraded),
+        });
+      }),
+      { headers: SSE_HEADERS },
+    );
 
     // --- OUT OF SCOPE ------------------------------------------------------
     // No connection to travel or this trip. Decline in one line and stop — no retrieve, no
@@ -215,11 +243,8 @@ export const POST = withRoute(async function POST(request: Request) {
         suggestedFollowups: [],
         unavailableProviders: [],
       };
-      const deflection = `That one's outside what I do — I'm here to help plan and get the most out of your ${destination} trip. Ask me about places, food, getting around, what to book, or anything to do while you're there.`;
-      return new Response(
-        persistedAssistantStream(cannedStream(deflection), supabase, tripId, idempotencyKey, undefined, meta),
-        { headers: SSE_HEADERS },
-      );
+      const deflection = `I can't help with that — I'm here to help plan and get the most out of your ${destination} trip. Ask me about places, food, getting around, what to book, or anything to do while you're there.`;
+      return respondWithoutCompose(deflection, meta);
     }
 
     // --- CLARIFY -------------------------------------------------------------
@@ -233,10 +258,7 @@ export const POST = withRoute(async function POST(request: Request) {
         suggestedFollowups: resolved.suggestedFollowups,
         unavailableProviders: [],
       };
-      return new Response(
-        persistedAssistantStream(cannedStream(resolved.clarify.question), supabase, tripId, idempotencyKey, undefined, meta),
-        { headers: SSE_HEADERS },
-      );
+      return respondWithoutCompose(resolved.clarify.question, meta);
     }
 
     // --- RETRIEVE ---------------------------------------------------------------
@@ -250,7 +272,11 @@ export const POST = withRoute(async function POST(request: Request) {
     // The trip's real dates stand in when the model didn't name any.
     const tripStart = tripCtx.trip?.start_date ?? undefined;
     const tripEnd = tripCtx.trip?.end_date ?? undefined;
-    const toolPlan = resolved.toolPlan.map((call) =>
+    const requestedImages = /\b(photo|photos|image|images|picture|pictures)\b/i.test(prompt);
+    const plannedCalls = requestedImages && !resolved.toolPlan.some((call) => call.tool === "search_places")
+      ? [{ tool: "search_places" as const, query: prompt.slice(0, 200), location: locationFocus }, ...resolved.toolPlan].slice(0, 3)
+      : resolved.toolPlan;
+    const toolPlan = plannedCalls.map((call) =>
       call.tool === "search_places" ? { ...call, location: qualify(call.location) }
         : call.tool === "directions" ? { ...call, from: qualify(call.from), to: qualify(call.to) }
         : call.tool === "stays" ? { ...call, location: qualify(call.location), checkin: call.checkin ?? tripStart, checkout: call.checkout ?? tripEnd }
@@ -288,15 +314,11 @@ export const POST = withRoute(async function POST(request: Request) {
     if (needsGrounding && !hasGrounding) {
       const fallback = "I couldn't verify anything for this right now — the travel data providers returned nothing. Try again, or narrow it to a specific place or activity.";
       const meta: AssistantTurnMeta = { language, locationFocus: resolved.locationFocus, surface: "chat", blocks: [], sources: [], suggestedFollowups: resolved.suggestedFollowups, unavailableProviders: evidence.unavailableProviders.slice(0, 12) };
-      return new Response(
-        persistedAssistantStream(cannedStream(fallback), supabase, tripId, idempotencyKey, undefined, meta),
-        { headers: SSE_HEADERS },
-      );
+      return respondWithoutCompose(fallback, meta, toolPlan.map((call) => call.tool), evidence.unavailableProviders);
     }
 
     const origin = new URL(request.url).origin;
     const photoUrl = (name: string) => `${origin}/api/trips/${tripId}/places/google/photo?name=${encodeURIComponent(name)}`;
-    const requestedImages = /\b(photo|photos|image|images|picture|pictures)\b/i.test(prompt);
     // The model must only see the places it will actually get cards for, so its reply can't
     // reference a place with no card. This slice IS the `place_list` block below.
     const cardPlaces = evidence.places.slice(0, 6);
@@ -700,7 +722,7 @@ ${JSON.stringify({
     };
 
     return new Response(
-      persistedAssistantStream(stream, supabase, tripId, idempotencyKey, (content) => sanitizeAssistantContent(content, allowedUrls), meta, (finalText) => {
+      persistedAssistantStream(stream, supabase, tripId, idempotencyKey, (content) => sanitizeAssistantContent(content, allowedUrls), meta, async (finalText) => {
         latencyMs.compose = Math.round(performance.now() - tCompose);
         latencyMs.total = Math.round(performance.now() - t0);
         // A local fake / Cerebras may not report usage — fall back to a char/4 estimate.
@@ -725,7 +747,7 @@ ${JSON.stringify({
           },
           "ai turn",
         );
-        recordAiTurn(supabase, tripId, {
+        await recordAiTurn(supabase, tripId, {
           intent: resolved.intent,
           tools: toolsUsed,
           providers_failed: providersFailed,
@@ -747,7 +769,7 @@ ${JSON.stringify({
   } catch (error) {
     const status = typeof error === "object" && error !== null && "status" in error && typeof error.status === "number" ? error.status : 503;
     return NextResponse.json(
-      { error: status === 429 ? "The assistant is busy right now. Try again in a moment." : "The assistant is unavailable right now." },
+      { error: status === 429 ? "Roam is busy right now. Try again in a moment." : "Roam is unavailable right now." },
       { status, headers: status === 429 ? { "retry-after": "10" } : undefined },
     );
   }

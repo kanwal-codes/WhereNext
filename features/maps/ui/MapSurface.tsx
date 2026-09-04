@@ -113,7 +113,7 @@ export function MapSurface({ tripId }: { tripId: string }) {
   }, [tripId, destination, pins.length]);
 
   return (
-    <div className="space-y-5">
+    <div className="min-w-0 space-y-5">
       {/* mode pill */}
       <div className="inline-flex rounded-full border border-border p-0.5 text-sm">
         {(["trip", "browse"] as const).map((t) => (
@@ -187,8 +187,8 @@ export function MapSurface({ tripId }: { tripId: string }) {
           </>
         )
       ) : (
-        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)] lg:items-start lg:gap-6">
-          <div className="order-2 space-y-4 lg:order-1">
+        <div className="flex min-w-0 flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)] lg:items-start lg:gap-6">
+          <div className="order-2 min-w-0 space-y-4 lg:order-1">
             <AiSearchBar
               tripId={tripId}
               scope="getting-around"
@@ -200,7 +200,7 @@ export function MapSurface({ tripId }: { tripId: string }) {
             </p>
             <TransportSurface tripId={tripId} origin={origin} destination={destination} preset={gaPreset} onRoute={setBrowseLegs} />
           </div>
-          <div className="order-1 lg:order-2 lg:sticky lg:top-4">
+          <div className="order-1 min-w-0 lg:order-2 lg:sticky lg:top-4">
             <TripMap pins={[]} activeDay="all" center={center} browse={browseLegs && browseLegs.length ? browse : null} />
           </div>
         </div>

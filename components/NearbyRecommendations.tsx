@@ -334,9 +334,13 @@ export function NearbyRecommendations({
                   />
                 ))}
                 {shownEvents.map((event, idx) => (
-                  <span key={event.url} className="contents" onClickCapture={() => onSelect(lane.id, "event", event.url, idx)}>
-                    <EventCard tripId={tripId} event={event} className="w-[240px] shrink-0 snap-start" />
-                  </span>
+                  <EventCard
+                    key={event.url}
+                    tripId={tripId}
+                    event={event}
+                    className="w-[240px] shrink-0 snap-start"
+                    onSelect={() => onSelect(lane.id, "event", event.url, idx)}
+                  />
                 ))}
               </div>
             </section>

@@ -41,7 +41,7 @@ async function planLeg(from: Stop, to: Stop, signal?: AbortSignal): Promise<Rout
     return {
       ...base, kind: "longhaul", mode: "unknown", minutes: null, km, fare: null, departure: null, arrival: null,
       steps: [], polyline: [[from.lng, from.lat], [to.lng, to.lat]],
-      note: "Intercity hop — ask the assistant to compare flights, trains and coaches.",
+      note: "Intercity hop — ask Roam to compare flights, trains and coaches.",
     };
   }
 

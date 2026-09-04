@@ -63,12 +63,12 @@ vi.mock("@/features/conversation/infrastructure/conversationRepository", () => (
   scopedMessageIdempotencyKey: (role: string, key?: string) => (key ? `${role}:${key}` : null),
 }));
 
-async function post() {
+async function post(prompt = PROMPT) {
   const { POST } = await import("@/app/api/ai/route");
   const request = new Request("http://localhost/api/ai", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ tripId: TRIP, messages: [{ role: "user", content: PROMPT }], messageIdempotencyKey: KEY }),
+    body: JSON.stringify({ tripId: TRIP, messages: [{ role: "user", content: prompt }], messageIdempotencyKey: KEY }),
   });
   return POST(request, { params: Promise.resolve({}) });
 }
@@ -126,13 +126,37 @@ describe("POST /api/ai", () => {
     expect(appendArgs.content).toContain("verified clubs");
   });
 
+  it("photo requests always include a places lookup", async () => {
+    const prompt = "Show me photos of Notre-Dame Basilica in Montreal";
+    listRows = [{ role: "user", idempotency_key: `user:${KEY}`, content: prompt }];
+    resolveTurnMock.mockResolvedValue({
+      language: "en", locationFocus: "Montreal", intent: "history_culture", capabilities: [],
+      toolPlan: [{ tool: "research_web", query: "Notre-Dame Basilica Montreal photos" }],
+      clarify: null, suggestedFollowups: [], proposedProfileUpdate: null,
+    });
+    retrieveEvidenceMock.mockResolvedValue({
+      places: [{ provider: "google-places", providerId: "p1", name: "Notre-Dame Basilica", category: "church", latitude: 45.5, longitude: -73.5, address: "Montreal", sourceUrl: "https://maps.example/notre-dame", photoNames: ["places/p1/photos/x"] }],
+      sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "2026-09-02T00:00:00Z",
+    });
+
+    const response = await post(prompt);
+
+    expect(retrieveEvidenceMock.mock.calls[0]?.[0]).toEqual(expect.arrayContaining([
+      expect.objectContaining({ tool: "search_places", query: prompt }),
+      { tool: "research_web", query: "Notre-Dame Basilica Montreal photos" },
+    ]));
+    const { meta } = await readMeta(response);
+    const firstCard = (meta!.blocks as Array<{ places?: Array<Record<string, unknown>> }>).find((block) => block.places)?.places?.[0];
+    expect(String(firstCard?.photoUrl)).toContain("/places/google/photo?name=");
+  });
+
   it("out-of-scope turn declines in one line, with no retrieve and no compose", async () => {
     resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "Shanghai", intent: "other", outOfScope: true, capabilities: [], toolPlan: [], clarify: null, suggestedFollowups: [{ label: "x", prompt: "y" }], proposedProfileUpdate: null });
     const response = await post();
     expect(retrieveEvidenceMock).not.toHaveBeenCalled();
     expect(streamTextMock).not.toHaveBeenCalled();
     const { body, meta } = await readMeta(response);
-    expect(body.toLowerCase()).toContain("outside what i do");
+    expect(body.toLowerCase()).toContain("can't help with that");
     expect(meta!.blocks).toEqual([]);
     expect(meta!.suggestedFollowups).toEqual([]);
   });

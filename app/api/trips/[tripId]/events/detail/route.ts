@@ -7,6 +7,7 @@ import { createBulkGateway } from "@/packages/ai/gateway";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
 import { cached } from "@/lib/server/ttl-cache";
+import { ticketSellerLabel } from "@/lib/ticket-provider";
 
 const tmConfigured = () => Boolean(process.env.TICKETMASTER_CONSUMER_KEY || process.env.TICKETMASTER_API_KEY);
 const webConfigured = () => Boolean(process.env.TAVILY_API_KEY);
@@ -157,17 +158,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
       const ai = await enrich(title, { genre: tm?.genre, venue, date, performers }, notes, request.signal);
 
       const ticketOptions: EventDetail["ticketOptions"] = [];
-      const primaryUrl = tm?.url || (source !== "web" && url ? url : null);
-      if (primaryUrl) ticketOptions.push({ label: `Buy on ${tm?.url ? "Ticketmaster" : source}`, url: primaryUrl });
-      if (tm?.url && url && url !== tm.url && /^https?:/i.test(url)) ticketOptions.push({ label: `Also on ${source}`, url });
-      ticketOptions.push({
-        label: "Search all sellers",
-        url: `https://www.google.com/search?q=${encodeURIComponent(`${title} ${venue ?? ""} tickets`.trim())}`,
-      });
+      const primaryUrl = tm?.url || (ticketSellerLabel(source, url) ? url : null);
+      const primarySeller = ticketSellerLabel(tm?.url ? "ticketmaster" : source, primaryUrl);
+      if (primaryUrl && primarySeller) ticketOptions.push({ label: `Buy on ${primarySeller}`, url: primaryUrl });
+      const alternateSeller = ticketSellerLabel(source, url);
+      if (url && url !== primaryUrl && /^https?:/i.test(url) && alternateSeller) {
+        ticketOptions.push({ label: `Also on ${alternateSeller}`, url });
+      }
 
       return eventDetailSchema.parse({
         title,
-        source: tm?.url ? "ticketmaster" : source,
+        source: primarySeller ?? source,
         url: primaryUrl,
         imageUrl: tm?.imageUrl ?? q.get("img") ?? null,
         date,

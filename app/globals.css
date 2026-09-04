@@ -234,8 +234,25 @@
     outline-offset: 2px;
   }
 
-  * {
+  *,
+  *::before,
+  *::after {
     border-color: var(--color-border);
+    /* Grid and flex children must be allowed to shrink before they can widen the app canvas. */
+    min-width: 0;
+  }
+
+  img,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
+  }
+
+  input,
+  select,
+  textarea {
+    max-width: 100%;
   }
 
   body {
@@ -243,6 +260,12 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+  }
+
+  /* Data from providers and the assistant is not always word-spaced. Keep a long
+     name, URL, or identifier inside its surface instead of widening the viewport. */
+  main :where(p, li, dd, figcaption, blockquote) {
+    overflow-wrap: anywhere;
   }
 
   h1,

@@ -242,7 +242,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
       }
       if (!acc.trim()) throw new Error("empty");
     } catch {
-      setChat((c) => c.map((m, i) => (i === c.length - 1 ? { role: "assistant", content: "The assistant couldn’t answer just now. Try again in a moment." } : m)));
+      setChat((c) => c.map((m, i) => (i === c.length - 1 ? { role: "assistant", content: "Roam couldn’t answer just now. Try again in a moment." } : m)));
     } finally {
       setSending(false);
     }
@@ -310,6 +310,8 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
         className="flex shrink-0 items-center gap-2 border-t border-border p-3"
       >
         <input
+          aria-label="Ask about this item"
+          name="panel-question"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={panel.kind === "compare" ? "Ask about these — value, location, what to pick…" : "Ask about this — does it fit my trip?"}

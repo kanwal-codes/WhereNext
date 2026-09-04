@@ -165,14 +165,14 @@ export function PlaceDetailView({
 
   // Page view keeps the single sticky sidebar; the panel splits it around the body.
   const aside = (
-    <div className={cn("space-y-4", !panel && "lg:sticky lg:top-8")}>
+    <div className={cn("min-w-0 space-y-4", !panel && "lg:sticky lg:top-8")}>
       {asideAction}
       {asideSecondary}
     </div>
   );
 
   const body = (
-    <div className="space-y-8">
+    <div className="min-w-0 space-y-8">
       <Reveal delay={0.06}>
         <section>
           <h2 className="font-display text-xl">About</h2>
@@ -218,7 +218,7 @@ export function PlaceDetailView({
           <span>
             <span className="eyebrow">Why this may fit your trip</span>
             <span className="mt-1 block text-sm leading-[1.75]">
-              Ask the assistant — it weighs {name} against your budget, pace and the places you&rsquo;ve saved. The question is written for you; just hit send.
+              Ask Roam — it weighs {name} against your budget, pace and the places you&rsquo;ve saved. The question is written for you; just hit send.
             </span>
           </span>
         </Link>
@@ -319,7 +319,7 @@ export function PlaceDetailView({
             </Reveal>
           </div>
         ) : (
-          <div className="mt-7 grid gap-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+          <div className="mt-7 grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
             {body}
             <Reveal delay={0.1}>{aside}</Reveal>
           </div>

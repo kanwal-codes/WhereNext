@@ -44,7 +44,7 @@ test("no weather line on indoor / casual place detail pages", async ({ page }) =
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Password").fill(password);
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
-    await expect(page).toHaveURL(/\/trips$/);
+    await expect(page).toHaveURL(/\/trips(?:\/new)?$/);
 
     tripId = await createTripViaForm(page, { name: "Weather QA", destination: "Montreal, Canada", days: "5", travelers: "3" });
     // Near-future window: the weather feature would render a line here if the place allowed it.

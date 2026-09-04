@@ -57,14 +57,14 @@ export default function ChatPage() {
   const showToggle = !desktop || !panel;
 
   return (
-    <div className="flex h-[calc(100dvh-var(--topbar))] min-h-0 flex-col lg:h-screen">
+    <div className="flex h-[calc(100dvh-var(--topbar))] min-h-0 w-full max-w-full flex-col overflow-x-hidden lg:h-[100dvh]">
       {titleTag}
-      <motion.div initial={false} animate={{ gridTemplateColumns: columns }} transition={reduceMotion ? { duration: 0 } : spring} className="grid h-full min-h-0">
-        <motion.div layout transition={reduceMotion ? { duration: 0 } : spring} className="relative flex min-w-0 flex-col overflow-hidden px-4 py-4 sm:px-6 lg:border-r lg:border-border lg:py-5">
+      <motion.div initial={false} animate={{ gridTemplateColumns: columns }} transition={reduceMotion ? { duration: 0 } : spring} className="grid h-full min-h-0 w-full min-w-0 max-w-full">
+        <motion.div layout transition={reduceMotion ? { duration: 0 } : spring} className="relative flex min-w-0 max-w-full flex-col overflow-hidden px-4 py-4 sm:px-6 lg:border-r lg:border-border lg:py-5">
           <Reveal>
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="eyebrow">Travel assistant</p>
+                <p className="eyebrow">Roam</p>
                 <h1 className="mt-1 truncate font-display text-lg leading-tight lg:text-xl">Plan this the way you&rsquo;d talk about it</h1>
               </div>
               {showToggle && (

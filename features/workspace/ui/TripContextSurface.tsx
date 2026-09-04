@@ -478,7 +478,7 @@ export function TripContextSurface({
     row.id === "dates" ? editingDates : row.tripField ? editingField === row.tripField : editing != null && editing === row.editKey;
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       {/* Hero — clean card, the ring carries the colour */}
       <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-card px-4 py-4 shadow-[0_1px_3px_color-mix(in_oklab,var(--color-ink)_7%,transparent)]">
         <div>
@@ -549,7 +549,7 @@ export function TripContextSurface({
               </div>
             ))}
             <p className="mt-2 px-1 text-[11px] leading-relaxed text-muted-foreground">
-              Tap one to set it now, or just keep talking — the assistant fills these in as you plan.
+              Tap one to set it now, or just keep talking — Roam fills these in as you plan.
             </p>
           </div>
         </section>

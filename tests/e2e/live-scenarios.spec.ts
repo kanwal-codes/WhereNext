@@ -28,7 +28,7 @@ test("live multi-person travel scenarios return current, prompt-matched answers"
       await page.getByLabel("Email").fill(email);
       await page.getByLabel("Password").fill(password);
       await page.getByRole("button", { name: "Sign in", exact: true }).click();
-      await expect(page).toHaveURL(/\/trips$/);
+      await expect(page).toHaveURL(/\/trips(?:\/new)?$/);
       tripId = await createTripViaForm(page, { name: scenario.name, destination: scenario.destination, origin: scenario.origin, days: scenario.days, travelers: scenario.travelers, vibe: scenario.vibe });
       for (const prompt of scenario.prompts) {
         // Fresh page per prompt — a sequential send on the same composer can echo the prior reply.

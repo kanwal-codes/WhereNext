@@ -360,8 +360,8 @@ export function ConversationSurface({
       const aiError = err instanceof AssistantRequestError;
       const message = userSaved
         ? aiError && err.status === 429
-          ? "The assistant is busy right now — your message is saved."
-          : "The assistant couldn’t reply — your message is saved."
+          ? "Roam is busy right now — your message is saved."
+          : "Roam couldn’t reply — your message is saved."
         : "Your message didn’t send.";
       notifyToast(message, "error", { label: "Retry", onClick: () => void submit(content) });
     } finally {
@@ -404,9 +404,9 @@ export function ConversationSurface({
   const waiting = sending && messages[messages.length - 1]?.content.trim() === "";
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div ref={logRef} className="flex-1 overflow-y-auto scrollbar-slim">
-        <div className={cn("mx-auto space-y-6", rail ? "px-1 py-2" : "max-w-2xl py-2")}>
+    <div className="flex h-full min-h-0 w-full max-w-full flex-col overflow-x-hidden">
+      <div ref={logRef} className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden scrollbar-slim">
+        <div className={cn("mx-auto w-full max-w-full space-y-6", rail ? "px-1 py-2" : "max-w-2xl py-2")}>
           {!loaded && messages.length === 0 && (
             <div aria-hidden className="space-y-6">
               <div className="flex justify-end">

@@ -6,7 +6,6 @@ import { MapPin, Star } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
 import { BlurImage, Tactile } from "@/components/motion-primitives";
-import { ExternalLink } from "@/components/ExternalLink";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import { photoProxyUrl, priceLabel, priceRank } from "@/lib/places-ui";
 
@@ -75,11 +74,6 @@ export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place
         <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
           <AddToTripControl tripId={tripId} place={place} size="sm" />
           {panelCtx?.compareMode && <span className="rounded-full border border-border px-2 py-1 text-[11px] text-muted-foreground">{panelCtx.compareHas(place.providerId) ? "Selected" : "Click card to select"}</span>}
-          {place.sourceUrl && (
-            <ExternalLink href={place.sourceUrl} className="ml-auto">
-              Maps
-            </ExternalLink>
-          )}
         </div>
       </div>
     </Tactile>

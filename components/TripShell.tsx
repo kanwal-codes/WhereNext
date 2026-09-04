@@ -97,7 +97,7 @@ function NavRow({
       <Icon className="h-4 w-4 shrink-0 opacity-70" />
       <span
         className={cn(
-          "overflow-hidden whitespace-nowrap transition-all duration-200 ease-out",
+          "overflow-hidden whitespace-nowrap transition-[max-width,margin,opacity] duration-200 ease-out",
           collapsed ? "ml-0 max-w-0 opacity-0" : "ml-2.5 max-w-[12rem] opacity-100",
         )}
       >
@@ -192,7 +192,7 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
         )}
       >
         <MessageCircle className="h-4 w-4 shrink-0" />
-        <span className={cn("overflow-hidden whitespace-nowrap transition-all duration-200", collapsed && !onNavigate ? "max-w-0 opacity-0" : "max-w-[12rem] opacity-100")}>
+        <span className={cn("overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200", collapsed && !onNavigate ? "max-w-0 opacity-0" : "max-w-[12rem] opacity-100")}>
           Continue planning
         </span>
       </Link>
@@ -201,7 +201,7 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
 
   return (
     <motion.div
-      className="min-h-screen lg:grid"
+      className="min-h-screen w-full min-w-0 max-w-full overflow-x-hidden lg:grid"
       initial={false}
       animate={{ gridTemplateColumns: collapsed ? "76px minmax(0,1fr)" : "264px minmax(0,1fr)" }}
       transition={reduceMotion ? { duration: 0 } : motionTokens.standard}
@@ -209,7 +209,7 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "sticky top-0 hidden h-screen flex-col border-r border-sidebar-border bg-sidebar py-6 lg:flex",
+          "sticky top-0 hidden h-[100dvh] flex-col border-r border-sidebar-border bg-sidebar py-6 lg:flex",
           collapsed ? "px-3" : "px-4",
         )}
       >
@@ -273,7 +273,7 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
         {utility(() => setOpen(false))}
       </Sheet>
 
-      <main className="min-w-0">{children}</main>
+      <main className="w-full min-w-0 max-w-full overflow-x-hidden">{children}</main>
     </motion.div>
   );
 }

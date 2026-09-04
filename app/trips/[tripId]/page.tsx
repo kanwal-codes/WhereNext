@@ -64,7 +64,7 @@ export default function TripOverviewPage() {
     trip?.duration_days ? null : "How many days is the trip?",
     prefs.budget === undefined ? "What's a rough daily budget?" : null,
     str(prefs.pace) ? null : "How packed should the days be?",
-    saved.length === 0 ? "Nothing saved yet — start with Discover or the assistant." : null,
+    saved.length === 0 ? "Nothing saved yet — start with Discover or Roam." : null,
   ].filter(Boolean) as string[];
 
   const days = Array.from(new Set(itinerary.map((i) => i.day_index))).sort((a, b) => a - b).slice(0, 3);
@@ -115,8 +115,8 @@ export default function TripOverviewPage() {
           ))}
         </Stagger>
 
-        <div className="mt-9 grid gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-          <div className="space-y-8">
+        <div className="mt-9 grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+          <div className="min-w-0 space-y-8">
             <Reveal>
               <section>
                 <h2 className="font-display text-xl">What we know so far</h2>
@@ -133,7 +133,7 @@ export default function TripOverviewPage() {
                   <div className="mt-4 rounded-2xl border border-dashed border-border bg-card/50 px-4 py-4">
                     <p className="text-sm font-medium">Start shaping the trip</p>
                     <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                      Tell the assistant where you&rsquo;re going, what matters to you, and how you want the days to feel.
+                      Tell Roam where you&rsquo;re going, what matters to you, and how you want the days to feel.
                     </p>
                   </div>
                 )}
@@ -201,7 +201,7 @@ export default function TripOverviewPage() {
             </Reveal>
           </div>
 
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
             {trip?.destination && (
               <Reveal delay={0.04}>
                 {trip.destination && <TripWeather tripId={tripId} location={trip.destination} card />}

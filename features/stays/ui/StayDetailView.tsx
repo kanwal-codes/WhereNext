@@ -112,7 +112,7 @@ export function StayDetailView({
     : null;
 
   const body = (
-    <div className="space-y-10">
+    <div className="min-w-0 space-y-10">
       <Reveal delay={0.06}>
         <section>
           <div className="flex items-center gap-3">
@@ -356,7 +356,7 @@ export function StayDetailView({
       >
         <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
         <span>
-          <span className="eyebrow">Ask the assistant</span>
+          <span className="eyebrow">Ask Roam</span>
           <span className="mt-1 block leading-relaxed">Whether {name} fits your budget and the area you want to be in. The question is written for you.</span>
         </span>
       </Link>
@@ -372,7 +372,7 @@ export function StayDetailView({
 
   // Page view keeps the single sticky sidebar; the panel splits it around the body.
   const aside = (
-    <div className={cn("space-y-4", !panel && "lg:sticky lg:top-8")}>
+    <div className={cn("min-w-0 space-y-4", !panel && "lg:sticky lg:top-8")}>
       {datesForm}
       {asideSecondary}
     </div>
@@ -431,7 +431,7 @@ export function StayDetailView({
           </div>
         ) : (
           <>
-            <div className="mt-7 grid gap-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+            <div className="mt-7 grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
               {body}
               <Reveal delay={0.1}>{aside}</Reveal>
             </div>

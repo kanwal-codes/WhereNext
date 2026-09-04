@@ -31,7 +31,7 @@ export default async function NewTripPage() {
             Start with a feeling. We&rsquo;ll find the trip.
           </h1>
           <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-            No form to finish first. Tell Muse what&rsquo;s on your mind and shape the details when
+            No form to finish first. Tell Roam what&rsquo;s on your mind and shape the details when
             you&rsquo;re ready.
           </p>
         </Reveal>

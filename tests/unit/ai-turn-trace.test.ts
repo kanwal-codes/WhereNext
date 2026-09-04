@@ -17,36 +17,32 @@ function fakeSupabase(insert: (row: unknown) => unknown): SupabaseClient {
 describe("recordAiTurn", () => {
   it("inserts one row into ai_turn_traces with trip_id merged in", async () => {
     const insert = vi.fn().mockResolvedValue({ error: null });
-    recordAiTurn(fakeSupabase(insert), TRIP, trace);
-    await Promise.resolve();
+    await recordAiTurn(fakeSupabase(insert), TRIP, trace);
     expect(insert).toHaveBeenCalledWith({ trip_id: TRIP, ...trace });
   });
 
-  it("returns synchronously (void) and does not await the write", () => {
-    const insert = vi.fn(() => new Promise(() => {})); // never resolves
-    expect(recordAiTurn(fakeSupabase(insert), TRIP, trace)).toBeUndefined();
+  it("settles after the write so completed turns are immediately queryable", async () => {
+    const insert = vi.fn().mockResolvedValue({ error: null });
+    await expect(recordAiTurn(fakeSupabase(insert), TRIP, trace)).resolves.toBeUndefined();
   });
 
   it("swallows a rejected insert without throwing", async () => {
     const insert = vi.fn().mockRejectedValue(new Error("db down"));
-    expect(() => recordAiTurn(fakeSupabase(insert), TRIP, trace)).not.toThrow();
-    await Promise.resolve();
-    await Promise.resolve();
+    await expect(recordAiTurn(fakeSupabase(insert), TRIP, trace)).resolves.toBeUndefined();
   });
 
   it("swallows an insert that returns an { error } shape", async () => {
     const insert = vi.fn().mockResolvedValue({ error: { message: "rls denied" } });
-    expect(() => recordAiTurn(fakeSupabase(insert), TRIP, trace)).not.toThrow();
-    await Promise.resolve();
+    await expect(recordAiTurn(fakeSupabase(insert), TRIP, trace)).resolves.toBeUndefined();
   });
 
-  it("swallows a client that throws synchronously (missing table / wrong shape)", () => {
+  it("swallows a client that throws synchronously (missing table / wrong shape)", async () => {
     const bad = { from: () => { throw new Error("no such table"); } } as unknown as SupabaseClient;
-    expect(() => recordAiTurn(bad, TRIP, trace)).not.toThrow();
+    await expect(recordAiTurn(bad, TRIP, trace)).resolves.toBeUndefined();
   });
 
-  it("swallows a client with no .insert method", () => {
+  it("swallows a client with no .insert method", async () => {
     const bad = { from: () => ({}) } as unknown as SupabaseClient;
-    expect(() => recordAiTurn(bad, TRIP, trace)).not.toThrow();
+    await expect(recordAiTurn(bad, TRIP, trace)).resolves.toBeUndefined();
   });
 });

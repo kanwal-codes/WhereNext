@@ -59,7 +59,7 @@ export default function SignInPage() {
 
       <form className="space-y-5" onSubmit={submit}>
         <Field label="Email">
-          <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={inputClass} />
+          <input type="email" name="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={inputClass} />
         </Field>
 
         <Field
@@ -73,6 +73,8 @@ export default function SignInPage() {
           <div className="relative">
             <input
               type={show ? "text" : "password"}
+              name="password"
+              autoComplete="current-password"
               required
               minLength={8}
               value={password}

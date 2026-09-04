@@ -18,7 +18,7 @@ async function freshTrip(page: Page, opts: Parameters<typeof createTripViaForm>[
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page).toHaveURL(/\/trips$/);
+  await expect(page).toHaveURL(/\/trips(?:\/new)?$/);
   const tripId = await createTripViaForm(page, opts);
   return { db, userId: created.data.user.id, tripId };
 }
@@ -52,13 +52,20 @@ async function ask(page: Page, tripId: string, prompt: string, timeout = 90_000)
 
 /** Latest ai_turn_traces row for the trip. */
 async function lastTrace(db: SupabaseClient, tripId: string) {
-  const { data } = await db
-    .from("ai_turn_traces")
-    .select("tools, providers_failed, blocks, degraded, total_ms")
-    .eq("trip_id", tripId)
-    .order("created_at", { ascending: false })
-    .limit(1);
-  return (data?.[0] ?? null) as
+  let trace: {
+    tools: string[]; providers_failed: string[]; blocks: string[]; degraded: boolean; total_ms: number | null;
+  } | null = null;
+  await expect.poll(async () => {
+    const { data } = await db
+      .from("ai_turn_traces")
+      .select("tools, providers_failed, blocks, degraded, total_ms")
+      .eq("trip_id", tripId)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    trace = (data?.[0] ?? null) as typeof trace;
+    return trace;
+  }, { timeout: 5_000 }).not.toBeNull();
+  return trace as
     | { tools: string[]; providers_failed: string[]; blocks: string[]; degraded: boolean; total_ms: number | null }
     | null;
 }

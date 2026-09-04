@@ -31,7 +31,7 @@ export default function PrivacyPage() {
         </p>
         <p>
           <strong className="text-foreground">Trip content you enter.</strong> Destinations,
-          dates, messages to the assistant, saved places, itineraries, budgets, and similar
+          dates, messages to Roam, saved places, itineraries, budgets, and similar
           planning data you create in the app.
         </p>
         <p>
@@ -53,7 +53,7 @@ export default function PrivacyPage() {
         <p>
           Processors that run the product on our behalf: hosting (Vercel), authentication and
           database (Supabase), Google (sign-in if you choose it, and Maps/Places features),
-          and other travel or event data sources the assistant queries when you ask for
+          and other travel or event data sources Roam queries when you ask for
           recommendations. Those providers process data under their own terms.
         </p>
         <p>

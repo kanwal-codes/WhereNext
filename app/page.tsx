@@ -6,7 +6,7 @@ import { Landing } from "@/components/Landing";
 export const metadata: Metadata = {
   title: "Where next? — plan a trip by talking about it",
   description:
-    "A travel workspace where an assistant asks, remembers and proposes options you confirm — every place, stay, flight and forecast backed by live data with source links.",
+    "A travel workspace where Roam asks, remembers and proposes options you confirm — every place, stay, flight and forecast backed by live data with source links.",
   openGraph: {
     title: "Where next?",
     description: "Talk your way to a trip: discover places, map the days, pick where you stay and build the itinerary together.",

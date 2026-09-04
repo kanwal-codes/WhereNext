@@ -14,6 +14,7 @@ import { BlurImage, Reveal, Stagger, StaggerItem, Tactile, WordReveal } from "@/
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { askAssistantHref } from "@/lib/places-ui";
 import { cn } from "@/lib/utils";
+import { ticketSellerLabel } from "@/lib/ticket-provider";
 
 type Seed = { name: string; url: string; source: string; imageUrl?: string; date?: string; venue?: string };
 
@@ -118,7 +119,8 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
   const rawDate = d?.date ?? seed.date ?? null;
   const dt = readableDate(rawDate);
   const venueName = d?.venueName ?? seed.venue ?? null;
-  const ticketUrl = d?.url ?? (seed.source !== "web" ? seed.url : null);
+  const ticketUrl = d?.url ?? (ticketSellerLabel(seed.source, seed.url) ? seed.url : null);
+  const ticketSeller = ticketSellerLabel(d?.source ?? seed.source, ticketUrl);
   const mapsUrl =
     d?.latitude && d?.longitude
       ? `https://www.google.com/maps/search/?api=1&query=${d.latitude},${d.longitude}`
@@ -222,7 +224,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                       <h2 className="flex items-center gap-2 font-display text-lg">
                         <Ticket className="h-4 w-4 text-coral" /> Tickets
                       </h2>
-                      {(d?.source || seed.source) && <ProviderBadge source={d?.source ?? seed.source} />}
+                      {ticketSeller && <ProviderBadge source={ticketSeller} />}
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-3">
                       {ticketUrl && (
@@ -363,7 +365,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
             <Reveal delay={0.13}>
               <Tactile lift={2} className="inline-flex">
                 <Link href={askAssistantHref(tripId, { name: title, address: venueName ?? undefined })} className="btn-secondary inline-flex">
-                  Ask the assistant if it fits
+                  Ask Roam if it fits
                 </Link>
               </Tactile>
             </Reveal>

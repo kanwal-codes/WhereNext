@@ -103,7 +103,7 @@ export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids:
         <h3 className="font-display text-lg">Nothing to compare yet</h3>
         <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
           Pick two to four places from{" "}
-          <Link href={`/trips/${tripId}/discover`} className="font-medium text-primary">Discover</Link>, or ask the assistant to
+          <Link href={`/trips/${tripId}/discover`} className="font-medium text-primary">Discover</Link>, or ask Roam to
           &ldquo;compare these&rdquo;.
         </p>
       </div>

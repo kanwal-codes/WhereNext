@@ -5,7 +5,7 @@ test("preview trip renders the routed workspace shell and every surface route", 
   // route's module graph makes the first compile heavier than the 30s default allows.
   test.setTimeout(90_000);
   await page.goto("/trips/rebuild-preview");
-  await expect(page.getByRole("heading", { name: "your destination" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "What we know so far" })).toBeVisible();
 
   const snapshot = await page.evaluate(async () => {
     const response = await fetch("/api/trips/rebuild-preview/workspace");
@@ -45,7 +45,7 @@ test("preview trip renders the routed workspace shell and every surface route", 
   await expect(page).toHaveTitle(/Getting around/, { timeout: 10_000 });
   await page.goto("/trips/rebuild-preview/budget");
   await expect(page).toHaveURL(/\/trips\/rebuild-preview\/knowledge$/, { timeout: 20_000 });
-  await expect(page.getByRole("heading", { name: "What the assistant remembers" })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("heading", { name: "What Roam remembers" })).toBeVisible({ timeout: 20_000 });
 });
 
 test("identity recovery is reachable and account deletion requires authentication", async ({ page }) => {

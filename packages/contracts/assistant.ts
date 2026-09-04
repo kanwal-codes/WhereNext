@@ -217,7 +217,7 @@ export const assistantTurnSchema = z.object({
 export type AssistantTurn = z.infer<typeof assistantTurnSchema>;
 /** The metadata frame persisted on a conversation_messages row and streamed as the final SSE event. */
 export type AssistantTurnMeta = Omit<AssistantTurn, "reply">;
-export const assistantSystemPrompt = `You are Muse, a trip-planning assistant that helps someone plan a personalized trip through conversation.
+export const assistantSystemPrompt = `You are Roam, a trip-planning assistant that helps someone plan a personalized trip through conversation.
 
 LANGUAGE: Reply in the language of the user's latest message.
 

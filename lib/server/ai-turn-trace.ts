@@ -21,21 +21,16 @@ export type AiTurnTrace = {
 };
 
 /**
- * Fire-and-forget insert of one turn trace. A trace write must never affect the
+ * Best-effort insert of one turn trace. A trace write must never affect the
  * response, so every failure path — a rejected insert, a missing table, an
  * unexpected client shape — is logged at debug and swallowed.
  */
-export function recordAiTurn(supabase: SupabaseClient, tripId: string, trace: AiTurnTrace): void {
+export async function recordAiTurn(supabase: SupabaseClient, tripId: string, trace: AiTurnTrace): Promise<void> {
   try {
-    void supabase
+    const { error } = await supabase
       .from("ai_turn_traces")
-      .insert({ trip_id: tripId, ...trace })
-      .then(
-        ({ error }) => {
-          if (error) logger.debug({ err: error }, "ai turn trace insert failed");
-        },
-        () => undefined,
-      );
+      .insert({ trip_id: tripId, ...trace });
+    if (error) logger.debug({ err: error }, "ai turn trace insert failed");
   } catch (error) {
     logger.debug({ err: error }, "ai turn trace insert failed");
   }

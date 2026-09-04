@@ -112,7 +112,7 @@ export const resolvedTurnSchema = z.object({
 });
 export type ResolvedTurn = z.infer<typeof resolvedTurnSchema>;
 
-const SYSTEM = `You plan how the assistant "Muse" should answer ONE traveller message. Return exactly one JSON object, no prose.
+const SYSTEM = `You plan how the assistant "Roam" should answer ONE traveller message. Return exactly one JSON object, no prose.
 
 Fields:
 - language: BCP-47 code of the user's latest message ("en", "fr", "hi", "es", "ar", ...).

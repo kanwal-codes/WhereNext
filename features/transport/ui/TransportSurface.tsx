@@ -269,7 +269,7 @@ export function TransportSurface({
 
       {searched && !loading && routes.length === 0 && flights.length === 0 && !status && (
         <div className="rounded-2xl border border-dashed border-border p-5 text-sm text-muted-foreground">
-          Nothing came back for that pair. Try nearby stations, or ask the assistant for other options.
+          Nothing came back for that pair. Try nearby stations, or ask Roam for other options.
         </div>
       )}
 
@@ -417,7 +417,7 @@ export function TransportSurface({
           })}
           className="btn-secondary"
         >
-          Ask the assistant to compare these
+          Ask Roam to compare these
         </Link>
       )}
     </div>

@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowLeft, ArrowRight, MailCheck } from "lucide-react";
 import { AuthShell, Field, SubmitButton, inputClass } from "@/components/AuthShell";
 import { resetPassword } from "@/features/identity/application/authClient";
@@ -12,6 +12,7 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  const reduceMotion = useReducedMotion();
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -38,10 +39,10 @@ export default function ForgotPasswordPage() {
         {sent ? (
           <motion.div
             key="sent"
-            initial={{ opacity: 0, y: 12, filter: "blur(6px)" }}
+            initial={reduceMotion ? false : { opacity: 0, y: 12, filter: "blur(6px)" }}
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.45, ease: [0.22, 0.61, 0.36, 1] }}
+            exit={reduceMotion ? undefined : { opacity: 0, y: -8 }}
+            transition={reduceMotion ? { duration: 0 } : { duration: 0.45, ease: [0.22, 0.61, 0.36, 1] }}
             className="rounded-2xl border border-border bg-card p-6 shadow-soft"
           >
             <span className="grid h-10 w-10 place-items-center rounded-full bg-coral-soft text-coral">
@@ -61,9 +62,9 @@ export default function ForgotPasswordPage() {
             </button>
           </motion.div>
         ) : (
-          <motion.form key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -8 }} className="space-y-5" onSubmit={submit}>
+          <motion.form key="form" initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reduceMotion ? undefined : { opacity: 0, y: -8 }} transition={reduceMotion ? { duration: 0 } : undefined} className="space-y-5" onSubmit={submit}>
             <Field label="Email">
-              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={inputClass} />
+              <input type="email" name="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={inputClass} />
             </Field>
             {error && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">{error}</p>}
             <SubmitButton loading={loading} type="submit">

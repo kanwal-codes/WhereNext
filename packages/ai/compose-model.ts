@@ -5,8 +5,25 @@ import { resolveProvider, resolveProviderChain } from "./gateway";
 /** One entry in the COMPOSE model chain: the model plus any per-provider request options. */
 export type ComposeModel = { model: LanguageModel; providerOptions?: Record<string, Record<string, string | number | boolean>> };
 
+export function stripUnsupportedReasoningContent(body: Record<string, unknown>): Record<string, unknown> {
+  if (!Array.isArray(body.messages)) return body;
+  return {
+    ...body,
+    messages: body.messages.map((message) => {
+      if (!message || typeof message !== "object") return message;
+      const { reasoning_content: _reasoningContent, ...supported } = message as Record<string, unknown>;
+      return supported;
+    }),
+  };
+}
+
 function toComposeModel(r: ReturnType<typeof resolveProvider>): ComposeModel {
-  const model = createOpenAICompatible({ name: "compose", baseURL: r.baseUrl, apiKey: r.apiKey }).chatModel(r.model);
+  const model = createOpenAICompatible({
+    name: "compose",
+    baseURL: r.baseUrl,
+    apiKey: r.apiKey,
+    ...(r.supportsReasoningOptions ? { transformRequestBody: stripUnsupportedReasoningContent } : {}),
+  }).chatModel(r.model);
   // gpt-oss on Cerebras emits a harmony analysis channel; keep the effort (and the leak) low.
   // Harmless on models that ignore it; the streaming reasoning gate is the real backstop.
   return r.supportsReasoningOptions ? { model, providerOptions: { compose: { reasoningEffort: "low" } } } : { model };

@@ -45,6 +45,7 @@ export function Hero({
             alt={alt}
             width={1600}
             height={900}
+            fetchPriority="high"
             className="h-full w-full object-cover object-center"
             initial={{ scale: 1.1, opacity: 0 }}
             animate={{ scale: reduce ? 1.02 : 1.06, opacity: 1 }}
@@ -55,7 +56,7 @@ export function Hero({
           />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element -- filmic hero, arbitrary sources
-          <img src={image} alt={alt} width={1600} height={900} className="h-full w-full object-cover object-center" />
+          <img src={image} alt={alt} width={1600} height={900} fetchPriority="high" className="h-full w-full object-cover object-center" />
         )}
       </motion.div>
 

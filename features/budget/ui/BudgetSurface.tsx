@@ -59,7 +59,7 @@ export function BudgetSurface({
           </span>
         )}
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">An assumption you set — the assistant uses it to weigh options.</p>
+      <p className="mt-1 text-xs text-muted-foreground">An assumption you set — Roam uses it to weigh options.</p>
 
       <div className="mt-4 flex items-center gap-3">
         <input
@@ -74,6 +74,8 @@ export function BudgetSurface({
         />
         <input
           type="number"
+          aria-label="Daily budget per person"
+          name="daily-budget"
           min={0}
           value={daily}
           onChange={(e) => update(Number(e.target.value))}

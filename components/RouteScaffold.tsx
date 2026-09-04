@@ -20,7 +20,7 @@ export function RouteScaffold({
   children: ReactNode;
 }) {
   return (
-    <div className={cn("mx-auto px-5 py-10 sm:px-8", wide ? "max-w-6xl" : "max-w-5xl")}>
+    <div className={cn("mx-auto w-full min-w-0 px-5 py-10 sm:px-8", wide ? "max-w-6xl" : "max-w-5xl")}>
       <PageHeader eyebrow={eyebrow} title={title} description={description} action={action} />
       <Reveal delay={0.08}>
         <div className="mt-8">{children}</div>

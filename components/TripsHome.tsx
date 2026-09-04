@@ -75,11 +75,11 @@ export function TripsHome({ trips }: { trips: TripSummary[] }) {
       </Hero>
 
       <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
           <h2 className="min-w-0 font-display text-xl">
             {list.length > 0 ? `${list.length} trip${list.length === 1 ? "" : "s"}` : "No trips yet"}
           </h2>
-          <Link href="/trips/new" className="btn-primary shrink-0">
+          <Link href="/trips/new" className="btn-primary w-fit shrink-0 sm:justify-self-end">
             <Plus className="h-4 w-4" /> Create new trip
           </Link>
         </div>

@@ -74,7 +74,6 @@ export function AiSearchBar({
         onSubmit={(e) => { e.preventDefault(); void run(); }}
         className="flex items-center gap-2 rounded-2xl border border-input bg-card px-3 py-2 shadow-soft focus-within:ring-2 focus-within:ring-ring/25"
       >
-        <Sparkles className="h-4 w-4 shrink-0 text-coral" />
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}

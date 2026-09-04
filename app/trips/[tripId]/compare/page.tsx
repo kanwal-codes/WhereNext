@@ -36,7 +36,7 @@ export default function ComparePage() {
       wide
       eyebrow="Compare"
       title="Side by side, so you can decide"
-      description="Two to four places, aligned on rating, price, hours and where the data came from. You usually get here from Discover or by asking the assistant to compare."
+      description="Two to four places, aligned on rating, price, hours and where the data came from. You usually get here from Discover or by asking Roam to compare."
     >
       <Suspense fallback={<Skeleton className="h-72" />}>
         <CompareInner tripId={tripId} />

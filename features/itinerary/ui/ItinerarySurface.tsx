@@ -148,7 +148,7 @@ export function ItinerarySurface({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="min-w-0 space-y-8">
       <div className="flex justify-end">
         <a href={`/trips/${tripId}/today`} className="text-xs font-medium text-primary hover:underline">
           Today view →
@@ -174,7 +174,7 @@ export function ItinerarySurface({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Add something to the plan…"
-          className="min-w-[12rem] flex-1 bg-transparent px-1.5 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
+          className="min-w-0 flex-1 basis-48 bg-transparent px-1.5 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
         />
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground">

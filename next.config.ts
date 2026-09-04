@@ -38,7 +38,9 @@ const connectSrc = [
 // hardening is frame-ancestors / object-src / base-uri / form-action + the connect allow-list.
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  // va.vercel-scripts.com serves the Analytics/Speed Insights loader; both report back
+  // to same-origin /_vercel/... endpoints, already covered by 'self' in connect-src.
+  `script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   // dev runs the Next server on a sibling port behind the preview proxy, so same-origin
   // proxy URLs (photos, static maps) can carry that port — allow localhost in dev only.
@@ -67,7 +69,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  distDir: process.env.NEXT_DIST_DIR ?? ".next",
+  // Keep development output separate from production builds. Running `next build`
+  // beside `next dev` must never remove chunks from the live development server.
+  distDir: process.env.NEXT_DIST_DIR ?? (isDev ? ".next-dev" : ".next"),
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

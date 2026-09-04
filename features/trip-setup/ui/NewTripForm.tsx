@@ -37,7 +37,7 @@ export function NewTripForm() {
         <div className="border-b border-border/70 bg-surface/70 p-5 sm:p-7">
           <p className="eyebrow text-coral">A blank page, in the good way</p>
           <h2 className="mt-2 max-w-md font-display text-2xl leading-tight">One conversation. A trip that gets clearer as you go.</h2>
-          <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">Start anywhere: a place, a date, a mood, or nothing decided yet. Muse will keep the useful details in view.</p>
+          <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">Start anywhere: a place, a date, a mood, or nothing decided yet. Roam will keep the useful details in view.</p>
           <button type="button" onClick={() => void createTrip()} disabled={Boolean(busy)} className="btn-primary mt-6 inline-flex items-center gap-2">
             {busy === "trip" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} Start planning
           </button>

@@ -65,7 +65,7 @@ export function ShareTrip({ tripId }: { tripId: string }) {
       ) : (
         <>
           <div className="mt-3 flex items-center gap-2 rounded-xl border border-input bg-background px-3 py-2">
-            <input readOnly value={url} className="min-w-0 flex-1 bg-transparent text-xs outline-none" onFocus={(e) => e.currentTarget.select()} />
+            <input aria-label="Share link" name="share-link" readOnly value={url} className="min-w-0 flex-1 bg-transparent text-xs outline-none" onFocus={(e) => e.currentTarget.select()} />
             <button type="button" onClick={() => void copy()} className="shrink-0 text-xs font-medium text-primary">
               {copied ? <Check className="h-3.5 w-3.5" /> : "Copy"}
             </button>

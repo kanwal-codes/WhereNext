@@ -427,8 +427,7 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
                 type="button"
                 onClick={() => panelCtx.setCompareMode(!panelCtx.compareMode)}
                 className={cn(
-                  "shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium shadow-soft transition-all",
-                  "bg-foreground text-background hover:opacity-90",
+                  "shrink-0 rounded-full border border-foreground bg-background px-3.5 py-1.5 text-xs font-medium text-foreground shadow-soft transition-[background-color,box-shadow] hover:bg-accent",
                   panelCtx.compareMode && "ring-2 ring-coral ring-offset-2 ring-offset-background",
                 )}
               >
@@ -515,7 +514,7 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
         ) : (
           <p className="mt-8 rounded-2xl border border-dashed border-border px-5 py-10 text-center text-sm text-muted-foreground">
             {view === "saved"
-              ? "Nothing shortlisted yet. Use Add to trip on any card, or ask the assistant for ideas."
+              ? "Nothing shortlisted yet. Use Add to trip on any card, or ask Roam for ideas."
               : "Nothing here right now — try a different filter or search."}
           </p>
         )

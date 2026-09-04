@@ -23,7 +23,7 @@ export default function BookingsPage() {
     <RouteScaffold
       eyebrow="Bookings & essentials"
       title="Before you go"
-      description="What's locked in, and the practical checklist. For destination-specific essentials — visas, SIMs, customs — ask the assistant to build one."
+      description="What's locked in, and the practical checklist. For destination-specific essentials — visas, SIMs, customs — ask Roam to build one."
     >
       <div className="space-y-8">
         <section>
@@ -54,7 +54,7 @@ export default function BookingsPage() {
             <div className="mt-3 rounded-2xl border border-dashed border-border bg-card/50 px-4 py-5">
               <p className="text-sm font-medium">Nothing booked yet</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Lock a place to stay from the Stay tab, or ask the assistant to compare options.
+                Lock a place to stay from the Stay tab, or ask Roam to compare options.
               </p>
               <Link href={`/trips/${tripId}/stay`} className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary">
                 Find a stay <ArrowRight className="h-3 w-3" />
@@ -84,7 +84,7 @@ export default function BookingsPage() {
               <span>
                 <span className="font-medium">Get a checklist for {destination}</span>
                 <span className="mt-1 block text-sm text-muted-foreground">
-                  Visas, eSIM, plugs, currency, transit passes — the assistant builds one for exactly where you&rsquo;re going.
+                  Visas, eSIM, plugs, currency, transit passes — Roam builds one for exactly where you&rsquo;re going.
                 </span>
               </span>
             </Link>

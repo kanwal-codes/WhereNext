@@ -18,7 +18,7 @@ async function signIn(page: Page) {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page).toHaveURL(/\/trips$/);
+  await expect(page).toHaveURL(/\/trips(?:\/new)?$/);
   return { db, userId: created.data.user.id };
 }
 

@@ -36,7 +36,7 @@ export default function KnowledgePage() {
     <div className="mx-auto max-w-5xl px-5 py-10 sm:px-8">
       <PageHeader
         eyebrow="Trip knowledge"
-        title="What the assistant remembers"
+        title="What Roam remembers"
         description="All of it is editable. If something here is wrong, the plan built on top of it is wrong too."
       />
 

@@ -19,7 +19,7 @@ export function persistedAssistantStream(
   idempotencyKey: string,
   sanitize?: (content: string) => string,
   meta?: Record<string, unknown>,
-  onComplete?: (finalText: string) => void,
+  onComplete?: (finalText: string) => void | Promise<void>,
 ) {
   const reader = body.getReader();
   const decoder = new TextDecoder();
@@ -53,7 +53,7 @@ export function persistedAssistantStream(
           }
         }
         try {
-          onComplete?.(finalText);
+          await onComplete?.(finalText);
         } catch {
           /* tracing must never break the response */
         }
