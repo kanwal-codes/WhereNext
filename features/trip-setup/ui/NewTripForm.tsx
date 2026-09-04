@@ -5,6 +5,7 @@ import { ArrowRight, Loader2, Mic } from "lucide-react";
 import { useSpeechInput } from "@/lib/use-speech-input";
 import { currencyForLocale } from "@/lib/currency";
 import { cn } from "@/lib/utils";
+import { applyParsedTrip } from "@/features/trip-setup/lib/apply-parsed-trip";
 
 const fieldClass = "input-field";
 const linkClass = "text-xs font-medium text-primary hover:underline";
@@ -92,29 +93,15 @@ export function NewTripForm() {
         body: JSON.stringify({ prompt: text }),
       });
       if (!response.ok) throw new Error();
-      const { parsed } = (await response.json()) as { parsed: Record<string, unknown> };
-      const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
-      const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? String(v) : null);
-      const iso = (v: unknown) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
-      // Name: what the model gave, else fall back to the destination.
-      const parsedName = str(parsed.name) ?? str(parsed.destination);
-      if (parsedName) setName(parsedName);
-      if (str(parsed.destination)) setDestination(str(parsed.destination)!);
-      if (str(parsed.origin)) setOrigin(str(parsed.origin)!);
-      if (iso(parsed.startDate) && iso(parsed.endDate)) {
-        setStartDate(iso(parsed.startDate)!);
-        setEndDate(iso(parsed.endDate)!);
-        setUseLength(false);
-      } else if (num(parsed.durationDays)) {
-        setDurationDays(num(parsed.durationDays)!);
-        setUseLength(true);
-      }
-      if (num(parsed.travelerCount)) setTravelerCount(num(parsed.travelerCount)!);
-      if (str(parsed.vibe)) setVibe(str(parsed.vibe)!);
-      if (str(parsed.budget)) setBudget(str(parsed.budget)!);
-      if (str(parsed.pace)) setPace(str(parsed.pace)!);
-      if (str(parsed.transportPreference)) setTransportPreference(str(parsed.transportPreference)!);
-      if (str(parsed.dietaryNeeds)) setDietaryNeeds(str(parsed.dietaryNeeds)!);
+      const body = (await response.json()) as { parsed?: Record<string, unknown> };
+      const next = applyParsedTrip(
+        { name, destination, origin, startDate, endDate, durationDays, useLength, travelerCount, vibe, budget, pace, transportPreference, dietaryNeeds },
+        body.parsed ?? {},
+      );
+      setName(next.name); setDestination(next.destination); setOrigin(next.origin);
+      setStartDate(next.startDate); setEndDate(next.endDate); setDurationDays(next.durationDays); setUseLength(next.useLength);
+      setTravelerCount(next.travelerCount); setVibe(next.vibe); setBudget(next.budget); setPace(next.pace);
+      setTransportPreference(next.transportPreference); setDietaryNeeds(next.dietaryNeeds);
       setFilledFromPrompt(true);
     } catch {
       setError("We couldn’t read that — fill in the form below instead.");

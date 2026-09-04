@@ -79,9 +79,16 @@ export function resolveProviderChain(overrides: { model?: string } = {}): Resolv
   names.forEach((name, index) => {
     if (seen.has(name)) return;
     seen.add(name);
+    // Gemini's pinned default ids lapse silently (gemini-2.5-flash now 404s for new keys), so a
+    // gemini fallback with no explicit live model is a dead slot in the chain — skip it.
+    if (index > 0 && name === "gemini" && !(overrides.model || process.env.GEMINI_MODEL)) return;
     try {
       // index 0 is the primary — let it honour AI_BASE_URL / AI_MODEL; fallbacks are pinned.
-      chain.push(resolveProvider(index === 0 ? { model: overrides.model } : { provider: name, model: overrides.model }));
+      chain.push(resolveProvider(
+        index === 0
+          ? { model: overrides.model }
+          : { provider: name, model: overrides.model || (name === "gemini" ? process.env.GEMINI_MODEL : undefined) },
+      ));
     } catch (error) {
       firstError ??= error;
     }
@@ -126,6 +133,13 @@ export function createGatewayWithFallback(overrides: { model?: string } = {}) {
  * transparently falls back to the primary gateway, so nothing breaks without a key.
  */
 export function createBulkGateway(overrides: { model?: string } = {}) {
-  if (!process.env.GEMINI_API_KEY) return createAiGateway(overrides);
-  return createAiGateway({ provider: "gemini", model: overrides.model || process.env.GEMINI_BULK_MODEL || undefined });
+  // Gemini is opt-in for bulk work: only when a model is explicitly pinned via
+  // `GEMINI_BULK_MODEL` (or passed in). Its default model ids and free tier lapse silently
+  // in some projects, and a bulk call that 404s just drops back to raw, un-summarised text.
+  // Without a pin, run bulk work on the primary fail-over chain (Cerebras/OpenAI) instead.
+  const geminiModel = overrides.model || process.env.GEMINI_BULK_MODEL;
+  if (process.env.GEMINI_API_KEY && geminiModel) {
+    return createAiGateway({ provider: "gemini", model: geminiModel });
+  }
+  return createGatewayWithFallback(overrides);
 }

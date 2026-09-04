@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { ArrowUp, ChevronRight, Copy, Mic } from "lucide-react";
 import type { AssistantTurnMeta, PlaceCard, ProposedCommand, StayCardItem } from "@/packages/contracts/assistant";
+import type { EventSeed } from "@/components/TripPanelProvider";
 import type { Message } from "../domain/message";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
@@ -67,6 +68,7 @@ const THINKING_STATES = [
   "Checking live sources…",
   "Pulling the details together…",
   "Almost there…",
+  "Still working — this one's taking a bit…",
 ];
 
 function Typing() {
@@ -76,6 +78,7 @@ function Typing() {
       setTimeout(() => setPhase(1), 2500),
       setTimeout(() => setPhase(2), 6000),
       setTimeout(() => setPhase(3), 11000),
+      setTimeout(() => setPhase(4), 20000),
     ];
     return () => timers.forEach(clearTimeout);
   }, []);
@@ -100,6 +103,7 @@ export function ConversationSurface({
   onSurfaceSelect,
   onOpenPlace,
   onOpenStay,
+  onOpenEvent,
   viewContext,
   rail = false,
 }: {
@@ -108,6 +112,7 @@ export function ConversationSurface({
   onSurfaceSelect?: (surface: string) => void;
   onOpenPlace?: (place: PlaceCard) => void;
   onOpenStay?: (stay: StayCardItem, dates: { checkin: string; checkout: string }) => void;
+  onOpenEvent?: (seed: EventSeed) => void;
   /** Name of the place/stay the user has open beside the chat, for deictic references. */
   viewContext?: string;
   rail?: boolean;
@@ -176,9 +181,26 @@ export function ConversationSurface({
     endRef.current?.scrollIntoView({ block: "end" });
   }, []);
 
-  // First landing: open on the most recent message, past the "near bottom" guard.
+  // First landing: jump straight to the latest message. The log has
+  // `scroll-behavior: smooth` (nice while streaming), which Chromium also applies to
+  // scrollTop assignment — so without this override the page visibly scrolls
+  // top→bottom every time it mounts. Re-run once after layout in case card images
+  // reflow the height.
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: "end" });
+    const log = logRef.current;
+    if (!log) return;
+    const jump = () => {
+      const prev = log.style.scrollBehavior;
+      log.style.scrollBehavior = "auto";
+      log.scrollTop = log.scrollHeight;
+      log.style.scrollBehavior = prev;
+    };
+    jump();
+    // Card images / blocks reflow the log taller just after mount — keep it pinned
+    // to the bottom for a beat (no smoothing) so we don't land mid-conversation.
+    const ids = [60, 200, 500].map((ms) => window.setTimeout(jump, ms));
+    ids.push(requestAnimationFrame(jump));
+    return () => ids.forEach((id) => { clearTimeout(id); cancelAnimationFrame(id); });
   }, [loaded]);
 
   useEffect(() => {
@@ -314,6 +336,7 @@ export function ConversationSurface({
     },
     onOpenPlace,
     onOpenStay,
+    onOpenEvent,
   };
 
   const proposalRows = proposal ? describeProposal(proposal) : [];
@@ -337,6 +360,22 @@ export function ConversationSurface({
     <div className="flex h-full min-h-0 flex-col">
       <div ref={logRef} className="flex-1 overflow-y-auto scrollbar-slim">
         <div className={cn("mx-auto space-y-6", rail ? "px-1 py-2" : "max-w-2xl py-2")}>
+          {!loaded && messages.length === 0 && (
+            <div aria-hidden className="space-y-6">
+              <div className="flex justify-end">
+                <div className="h-9 w-40 animate-pulse rounded-2xl rounded-br-lg bg-muted" />
+              </div>
+              <div className="space-y-2">
+                <div className="h-3.5 w-11/12 animate-pulse rounded bg-muted" />
+                <div className="h-3.5 w-4/5 animate-pulse rounded bg-muted" />
+                <div className="mt-3 h-28 w-full animate-pulse rounded-2xl bg-muted" />
+              </div>
+              <div className="flex justify-end">
+                <div className="h-9 w-52 animate-pulse rounded-2xl rounded-br-lg bg-muted" />
+              </div>
+            </div>
+          )}
+
           {showHero && (
             <div className="pb-2">
               <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">

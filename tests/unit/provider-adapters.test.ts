@@ -111,20 +111,28 @@ describe("createAiGateway env resolution", () => {
     });
   });
 
-  it("createBulkGateway uses Gemini when GEMINI_API_KEY is set, else the primary gateway", () => {
+  it("createBulkGateway uses Gemini only when a model is pinned, else the primary fail-over chain", () => {
     process.env.AI_PROVIDER = "";
     process.env.AI_BASE_URL = "";
     process.env.OPENAI_API_KEY = "sk-real";
+    delete process.env.GEMINI_BULK_MODEL;
     const fetchMock = vi.fn((_url?: unknown, _init?: unknown) => Promise.resolve(new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), { status: 200 })));
     vi.stubGlobal("fetch", fetchMock);
 
     return createBulkGateway().generateText([{ role: "user", content: "x" }]).then(() => {
       expect(fetchMock.mock.calls[0][0]).toBe("https://api.openai.com/v1/chat/completions"); // no Gemini key → primary
+      // Gemini key alone is NOT enough — its default model ids lapse silently.
       process.env.GEMINI_API_KEY = "AIza-real";
       return createBulkGateway().generateText([{ role: "user", content: "x" }]);
     }).then(() => {
-      expect(fetchMock.mock.calls[1][0]).toBe("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
+      expect(fetchMock.mock.calls[1][0]).toBe("https://api.openai.com/v1/chat/completions"); // still primary
+      // key + an explicit model → opt in to Gemini
+      process.env.GEMINI_BULK_MODEL = "gemini-flash-latest";
+      return createBulkGateway().generateText([{ role: "user", content: "x" }]);
+    }).then(() => {
+      expect(fetchMock.mock.calls[2][0]).toBe("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
       delete process.env.GEMINI_API_KEY;
+      delete process.env.GEMINI_BULK_MODEL;
     });
   });
 });
@@ -141,6 +149,37 @@ describe("provider adapters", () => {
     process.env.TICKETMASTER_API_KEY = "test-key";
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ _embedded: { events: [{ name: "Festival", url: "https://tickets.example/festival", dates: { start: { localDate: "2026-09-04", localTime: "20:00:00" } }, _embedded: { venues: [{ name: "Arena", city: { name: "Montreal" } }] } }] } }), { status: 200 })));
     await expect(events("festival", "Montreal")).resolves.toMatchObject([{ title: "Festival", url: "https://tickets.example/festival", date: "2026-09-04 20:00", venue: "Arena, Montreal" }]);
+  });
+
+  it("eventDetailBySearch matches on name + date and maps the rich fields", async () => {
+    process.env.TICKETMASTER_API_KEY = "test-key";
+    const { eventDetailBySearch } = await import("../../packages/providers/ticketmaster/client");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      _embedded: { events: [
+        { name: "Some Other Show", dates: { start: { localDate: "2026-09-01" } } },
+        {
+          name: "ARLO PARKS - DESIRE TOUR", url: "https://ticketmaster.ca/x/event/ABC",
+          dates: { start: { localDate: "2026-09-03", localTime: "20:00:00" } },
+          classifications: [{ segment: { name: "Music" }, genre: { name: "Rock" }, subGenre: { name: "Alternative Rock" } }],
+          priceRanges: [{ min: 45, max: 89, currency: "CAD" }],
+          sales: { public: { startDateTime: "2026-03-13T14:00:00Z", endDateTime: "2026-09-04T02:00:00Z" } },
+          seatmap: { staticUrl: "https://maps.example/seat.png" },
+          pleaseNote: "Doors open at 6:30 PM. 18+ event.",
+          _embedded: { attractions: [{ name: "Arlo Parks" }, { name: "Baird" }], venues: [{ name: "MTELUS", city: { name: "Montreal" }, address: { line1: "59 Rue Sainte-Catherine Est" } }] },
+        },
+      ] },
+    }), { status: 200 })));
+    const d = await eventDetailBySearch("Arlo Parks - Desire Tour", "Montreal", "2026-09-03");
+    expect(d).toMatchObject({
+      title: "ARLO PARKS - DESIRE TOUR",
+      genre: "Music · Rock · Alternative Rock",
+      priceRange: "45–89 CAD",
+      performers: ["Arlo Parks", "Baird"],
+      seatmapUrl: "https://maps.example/seat.png",
+      doorsTime: expect.stringMatching(/6:30/),
+      ageInfo: expect.stringMatching(/18/),
+    });
+    expect(d?.venue?.name).toBe("MTELUS");
   });
 
   it("geocodes on the OpenWeather key and builds a current-plus-outlook summary from /forecast", async () => {

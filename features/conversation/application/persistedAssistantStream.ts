@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createConversationRepository } from "../infrastructure/conversationRepository";
 import { stripReasoning } from "@/lib/ai/strip-reasoning";
 import { createSseParser, parseSseJson } from "@/packages/ai/sse";
+import { logger } from "@/lib/server/logger";
 
 type StreamDelta = { choices?: Array<{ delta?: { content?: string } }> };
 
@@ -42,7 +43,14 @@ export function persistedAssistantStream(
         const clean = stripReasoning(assistant);
         const finalText = sanitize ? sanitize(clean) : clean;
         if (finalText || meta) {
-          await createConversationRepository(supabase).append(tripId, { role: "assistant", content: finalText, idempotencyKey, metadata: meta ?? {} });
+          try {
+            await createConversationRepository(supabase).append(tripId, { role: "assistant", content: finalText, idempotencyKey, metadata: meta ?? {} });
+          } catch (error) {
+            // Persistence failed (DB error, or a revalidate call landing outside a request
+            // context). The client still gets its answer + blocks from the meta frame below;
+            // never let a write problem turn a good answer into "the assistant couldn't reply".
+            logger.error({ err: error, tripId }, "assistant turn persist failed");
+          }
         }
         try {
           onComplete?.(finalText);

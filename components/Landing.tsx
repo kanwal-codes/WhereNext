@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { motion, useScroll, useTransform, useReducedMotion } from "motion/react";
 import { useRef, type ReactNode } from "react";
-import { ArrowRight } from "lucide-react";
 import { Reveal, WordReveal, ease } from "@/components/motion-primitives";
 import { BrandMark } from "@/components/BrandMark";
 import { cn } from "@/lib/utils";
@@ -225,9 +224,6 @@ export function Landing() {
           <p className="eyebrow">Start whenever</p>
           <h2 className="mt-4 max-w-3xl font-display text-4xl leading-[1.05] tracking-[-0.03em] sm:text-6xl">So — where next?</h2>
           <div className="mt-10 flex flex-wrap items-center gap-5">
-            <Link href="/sign-up" className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3.5 text-sm font-medium text-primary-foreground transition-transform hover:scale-[1.03]">
-              Create free account <ArrowRight className="h-4 w-4" />
-            </Link>
             <Link href="/sign-in" className="link-underline text-sm font-medium">
               Sign in
             </Link>

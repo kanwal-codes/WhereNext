@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { gatewayFor } from "@/packages/ai/model-policy";
+import { AI_DEADLINE_MS, gatewayFor, withDeadline } from "@/packages/ai/model-policy";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 import type { RetrievedEvidence } from "./retrieve";
 
@@ -34,7 +34,7 @@ export async function buildEssentialsChecklist(input: {
         { role: "system", content: SYSTEM },
         { role: "user", content: `Destination: ${input.destination}\nTrip so far: ${input.tripSummary}\nEvidence:\n${evidenceText || "(none)"}` },
       ],
-      input.signal,
+      withDeadline(input.signal, AI_DEADLINE_MS.sideBuilder),
     );
     const parsed = checklistSchema.parse(raw);
     return { type: "checklist", groups: parsed.groups };

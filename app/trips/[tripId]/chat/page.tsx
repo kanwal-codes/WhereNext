@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { PanelRight, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
-import { useTripPanel } from "@/components/TripPanelProvider";
+import { useTripPanel, type EventSeed } from "@/components/TripPanelProvider";
 import { TripPanel } from "@/components/TripPanel";
 import { Reveal } from "@/components/motion-primitives";
 import { ConversationSurface } from "@/features/conversation/ui/ConversationSurface";
@@ -39,6 +39,9 @@ export default function ChatPage() {
   }
   function openStay(stay: StayCardItem, dates: { checkin: string; checkout: string }) {
     openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name, checkin: dates.checkin, checkout: dates.checkout });
+  }
+  function openEvent(seed: EventSeed) {
+    openPanel({ kind: "event", seed });
   }
 
   const contextRail = (
@@ -91,6 +94,7 @@ export default function ChatPage() {
               initialMessages={data?.conversation}
               onOpenPlace={openPlace}
               onOpenStay={openStay}
+              onOpenEvent={openEvent}
               viewContext={panel?.kind === "place" || panel?.kind === "stay" ? panel.name : undefined}
               rail={desktop && Boolean(panel)}
             />

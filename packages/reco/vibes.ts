@@ -21,7 +21,7 @@ export type Vibe =
   | "food_scene"
   | "default";
 
-export type LaneAnchor = { name: string; city: string; lat?: number; lng?: number };
+export type LaneAnchor = { name: string; city: string; lat?: number; lng?: number; genre?: string | null };
 
 export type Lane = {
   id: string;

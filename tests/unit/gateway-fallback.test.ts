@@ -3,7 +3,7 @@ import { resolveProviderChain, createGatewayWithFallback } from "../../packages/
 
 afterEach(() => {
   vi.restoreAllMocks();
-  for (const k of ["AI_PROVIDER", "AI_FALLBACK_PROVIDERS", "AI_API_KEY", "OPENAI_API_KEY", "CEREBRAS_API_KEY", "GEMINI_API_KEY", "AI_MODEL", "AI_BASE_URL"]) delete process.env[k];
+  for (const k of ["AI_PROVIDER", "AI_FALLBACK_PROVIDERS", "AI_API_KEY", "OPENAI_API_KEY", "CEREBRAS_API_KEY", "GEMINI_API_KEY", "GEMINI_MODEL", "AI_MODEL", "AI_BASE_URL"]) delete process.env[k];
 });
 
 describe("resolveProviderChain", () => {
@@ -12,6 +12,7 @@ describe("resolveProviderChain", () => {
     process.env.CEREBRAS_API_KEY = "csk";
     process.env.AI_FALLBACK_PROVIDERS = "gemini, openai";
     process.env.GEMINI_API_KEY = "gk";
+    process.env.GEMINI_MODEL = "gemini-3.6-flash"; // gemini fallback needs an explicit live model
     process.env.OPENAI_API_KEY = "ok";
     const chain = resolveProviderChain();
     expect(chain.map((p) => p.baseUrl)).toEqual([
@@ -20,6 +21,17 @@ describe("resolveProviderChain", () => {
       "https://api.openai.com/v1",
     ]);
     expect(chain[0].model).toBe("gpt-oss-120b");
+    expect(chain[1].model).toBe("gemini-3.6-flash");
+  });
+
+  it("skips a gemini fallback when no live GEMINI_MODEL is pinned (its default ids lapse)", () => {
+    process.env.AI_PROVIDER = "cerebras";
+    process.env.CEREBRAS_API_KEY = "csk";
+    process.env.AI_FALLBACK_PROVIDERS = "gemini, openai";
+    process.env.GEMINI_API_KEY = "gk"; // key present, but no GEMINI_MODEL
+    process.env.OPENAI_API_KEY = "ok";
+    const chain = resolveProviderChain();
+    expect(chain.map((p) => p.baseUrl)).toEqual(["https://api.cerebras.ai/v1", "https://api.openai.com/v1"]);
   });
 
   it("drops fallbacks that have no key, keeps the ones that do", () => {

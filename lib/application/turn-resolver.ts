@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { gatewayFor } from "@/packages/ai/model-policy";
+import { AI_DEADLINE_MS, gatewayFor, withDeadline } from "@/packages/ai/model-policy";
 import { preferencesSchema } from "@/packages/contracts/preferences";
 import { SUGGESTION_KEYS } from "@/packages/contracts/suggestion";
 
@@ -58,7 +58,14 @@ export const resolvedTurnSchema = z.object({
     .enum(["discovery", "nightlife", "food", "activities", "history_culture", "weather", "transport", "stays", "events", "trip_memory", "compare", "essentials", "chitchat", "other"])
     .catch("other")
     .default("other"),
-  wantsComparison: z.boolean().catch(false).default(false),
+  // Which structured builders to run this turn — an open menu, not one boolean per feature.
+  // Adding a feature = a new menu entry + its builder, no schema surgery here.
+  capabilities: z
+    .array(z.enum(["comparison", "itinerary", "budget", "area_guide", "day_trips", "structured_answer"]))
+    .max(4)
+    .transform((list) => Array.from(new Set(list)))
+    .catch([])
+    .default([]),
   // Keep every valid lookup, drop only the malformed ones, cap at 3. A partially-bad plan
   // from the router still does useful work instead of collapsing the whole turn to tool-less.
   toolPlan: z
@@ -100,7 +107,13 @@ Fields:
 - language: BCP-47 code of the user's latest message ("en", "fr", "hi", "es", "ar", ...).
 - locationFocus: the place the conversation is about RIGHT NOW. If this message does not name a place, keep the place from earlier in the conversation. Use null only when no place is in play yet. Make it UNAMBIGUOUS: if the user names only a district or neighbourhood, append the trip's city and country (a Lisbon trip that mentions "Belém" means "Belém, Lisbon, Portugal", not Belém in Brazil).
 - intent: one of discovery, nightlife, food, activities, history_culture, weather, transport, stays, trip_memory, compare, essentials, chitchat, other.
-- wantsComparison: true ONLY if the user explicitly asks to weigh 2+ options they name against each other ("compare A and B", "A or B?"). Not for "which is best" or "what are the options".
+- capabilities: 0 to 3 structured answers to build for this turn, from this menu (add one only when it clearly fits; most turns are []):
+    * "comparison" — the user asks to weigh 2+ options THEY name against each other ("compare A and B", "A or B?"). Not "which is best" / "what are the options".
+    * "itinerary" — plan / schedule / map out / build a day-by-day plan ("plan our 4 days", "what should we do each day", "map out day 2"). Still add a search_places call for real venues. intent = activities.
+    * "budget" — what things cost per day / how much to set aside for on-the-ground spending: food, activities, transit, going out ("how much per day", "is $X a day enough"). NOT flights or hotels. Add a research_web call "<destination> daily travel costs food activities transit".
+    * "area_guide" — which neighbourhood / district / part of the city to base in or spend time ("which neighbourhood", "what area should we explore"). Add a research_web call "best neighbourhoods in <city> for <their vibe>".
+    * "day_trips" — trips OUT of the city for a day ("day trips from <city>", "anywhere nearby worth a day"). Add a research_web call "best day trips from <city>".
+    * "structured_answer" — the answer is best as 2-4 short sections of bullets and no other menu item fits: local customs / etiquette, how something works (the metro, tipping, a pass), a "things to know" rundown. Add a research_web call for the topic.
 - toolPlan: 0 to 3 read-only lookups to run now. Tools:
     {"tool":"search_places","query":"...","location":"<locationFocus>"}  - find places, venues, activities, restaurants, clubs, temples, museums.
     {"tool":"research_web","query":"..."}                                - current info, events, prices, "what is it known for", articles.
@@ -117,9 +130,9 @@ Fields:
   * intent stays ("where should we stay", "hotels in X", "places to stay", "cost of a hotel", "rooms at <hotel>")  ->  you MUST include ONE stays call (location = the city/area). Never set clarify for stay dates.
   * "how much to fly / flight cost / airfare / cheapest flight / flights to <far city>"  ->  intent transport, ONE flights call (origin = the trip's origin city, destination = the place asked about). Never set clarify for this - omit departureDate if no real date was given.
   * "how do I get / how to get from X to Y", "how far is X from Y", "can we walk from X to Y", "best way to X", "route for day N"  ->  ONE directions call (mode transit unless they say walk/drive). Resolve "day N" to the itinerary's place names. Give from/to as specific place names with the city.
-  * ANY weather question — "what's the weather in <place> in <month/season>", "how hot/cold is it", "is it rainy", "do I need an umbrella", "will it be sunny", "what to pack for the weather" -> intent weather.
-      - If the asked-about time is within ~8 days: ONE weather call for the place (live forecast).
-      - If it names a month, a season, a year, or a date more than ~8 days out: a research_web call "typical weather in <place> in <month>" (the live forecast can't reach it). Add the weather call too only if "now" or the next few days are also relevant. The answer must be framed as the USUAL conditions for that time of year, never as a forecast, and must say plainly whether it's hot / mild / cold / wet / dry and what to pack.
+  * ANY weather question — including a vague one ("how's the weather", "will it be nice", "is it cold", "do I need an umbrella", "what to pack for the weather") -> intent weather. A weather question with no time named is about the TRIP; read its dates from the trip profile above.
+      - Trip start (or the named date) within ~8 days of today: ONE weather call for the place (live forecast).
+      - Trip start (or the named month / season / date) more than ~8 days out: a research_web call "typical weather in <place> in <trip's month>" — NOT the weather call (the live forecast can't reach it). The answer is framed as the USUAL conditions for that time of year, never a forecast.
     Current events, prices, "known for", articles -> research_web.
   * intent essentials ("what should I pack", "what do I need to know before I go", visa, SIM, customs, safety)  ->  weather call PLUS a research_web call like "<destination> travel essentials visa currency etiquette".
   * If the message contains a URL, add a research_web call with that URL as the query.
@@ -155,7 +168,7 @@ export async function resolveTurn(input: {
     try {
       const raw = await gatewayFor("resolve").generateStructured(
         [{ role: "system", content: SYSTEM }, { role: "user", content: user }],
-        input.signal,
+        withDeadline(input.signal, AI_DEADLINE_MS.resolve),
       );
       return resolvedTurnSchema.parse(raw);
     } catch (error) {

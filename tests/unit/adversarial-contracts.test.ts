@@ -152,11 +152,11 @@ describe("assistantBlockSchema — adversarial blocks", () => {
 
 describe("resolvedTurnSchema / toolCallSchema — model plan overflow", () => {
   it("coerces an oversized locationFocus / language to the safe default rather than failing the turn", () => {
-    const out = resolvedTurnSchema.parse({ language: "<img src=x onerror=alert(1)>", locationFocus: "z".repeat(5000), intent: "banana", wantsComparison: "yes" });
+    const out = resolvedTurnSchema.parse({ language: "<img src=x onerror=alert(1)>", locationFocus: "z".repeat(5000), intent: "banana", capabilities: ["banana", "comparison"] });
     expect(out.language).toBe("en");
     expect(out.locationFocus).toBeNull();
     expect(out.intent).toBe("other");
-    expect(out.wantsComparison).toBe(false);
+    expect(out.capabilities).toEqual([]); // a bad member fails the array → safe default
   });
 
   it("truncates an over-long toolPlan to the first 3 valid lookups", () => {

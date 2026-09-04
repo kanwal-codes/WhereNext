@@ -103,11 +103,11 @@ describe("resolveTurn", () => {
     expect((await resolveTurn({ message: "x", history: [], tripSummary: "" })).suggestedFacts).toEqual([]);
   });
 
-  it("normalises a wild language code and reads wantsComparison", async () => {
-    mockModel(JSON.stringify({ language: "definitely-not-bcp47", intent: "compare", wantsComparison: true }));
+  it("normalises a wild language code and reads capabilities", async () => {
+    mockModel(JSON.stringify({ language: "definitely-not-bcp47", intent: "compare", capabilities: ["comparison", "comparison"] }));
     const resolved = await resolveTurn({ message: "A or B?", history: [], tripSummary: "" });
     expect(resolved.language).toBe("en");
-    expect(resolved.wantsComparison).toBe(true);
+    expect(resolved.capabilities).toEqual(["comparison"]); // deduped
   });
 
   it("retries once on an unparseable first response, then succeeds", async () => {

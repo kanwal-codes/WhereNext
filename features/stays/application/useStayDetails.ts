@@ -41,18 +41,31 @@ export function useStayDetails(
 
   useEffect(() => {
     const controller = new AbortController();
-    setState("loading");
-    setBody(null);
     const qs = new URLSearchParams();
     if (dates.checkin) qs.set("checkin", dates.checkin);
     if (dates.checkout) qs.set("checkout", dates.checkout);
     if (dates.adults) qs.set("adults", String(dates.adults));
+    // One fetch per hotel+dates per session — re-opening the same stay (or bouncing
+    // between the panel and the full page) shouldn't re-pull hotel/rooms/reviews.
+    const cacheKey = `stay-details:${tripId}:${hotelId}:${qs.toString()}`;
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const next = JSON.parse(cached) as Body;
+        setBody(next);
+        setState(next.hotel || next.rooms ? "ready" : "error");
+        return () => controller.abort();
+      }
+    } catch { /* unavailable or malformed cache */ }
+    setState("loading");
+    setBody(null);
     fetch(`/api/trips/${tripId}/stays/${encodeURIComponent(hotelId)}${qs.toString() ? `?${qs}` : ""}`, { signal: controller.signal })
       .then(async (r) => {
         if (!r.ok) throw new Error("details");
         return r.json() as Promise<Body>;
       })
       .then((next) => {
+        try { sessionStorage.setItem(cacheKey, JSON.stringify(next)); } catch { /* ignore */ }
         setBody(next);
         setState(next.hotel || next.rooms ? "ready" : "error");
       })

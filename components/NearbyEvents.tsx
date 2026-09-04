@@ -16,13 +16,25 @@ export function NearbyEvents({ tripId, location, query = "" }: { tripId: string;
       return;
     }
     let cancelled = false;
-    setLoading(true);
     const qs = new URLSearchParams({ location });
     if (query) qs.set("query", query);
+    // One events pull per city+query per session — this strip renders on every
+    // stay/place detail open, and the list barely moves within a sitting.
+    const cacheKey = `nearby-events:${tripId}:${qs.toString()}`;
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        setEvents(JSON.parse(cached) as NearbyEvent[]);
+        setLoading(false);
+        return () => { cancelled = true; };
+      }
+    } catch { /* ignore */ }
+    setLoading(true);
     fetch(`/api/trips/${tripId}/events?${qs}`)
       .then((r) => (r.ok ? r.json() : { events: [] }))
       .then((body) => {
         if (!cancelled) {
+          try { sessionStorage.setItem(cacheKey, JSON.stringify(body.events ?? [])); } catch { /* ignore */ }
           setEvents(body.events ?? []);
           setLoading(false);
         }

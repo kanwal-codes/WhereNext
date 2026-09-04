@@ -60,6 +60,16 @@ describe("persistedAssistantStream", () => {
     expect(noMeta).not.toContain('"meta"');
   });
 
+  it("a persist failure does not kill the stream — the meta frame still reaches the client", async () => {
+    appendMock.mockRejectedValueOnce(new Error("Invariant: static generation store missing in revalidateTag"));
+    const meta = { surface: "chat", blocks: [{ type: "place_list", places: [] }] };
+    const out = await drain(persistedAssistantStream(upstream(delta("the parks are A, B, C"), "data: [DONE]\n\n"), {} as never, TRIP, KEY, undefined, meta));
+    // the client still gets its answer + the structured blocks
+    expect(out).toContain(delta("the parks are A, B, C"));
+    const frame = JSON.parse(out.split("data: ").filter((l) => l.includes('"meta"'))[0].trim());
+    expect(frame.meta).toEqual(meta);
+  });
+
   it("calls onComplete with the final text, and a throwing onComplete does not break the stream or the persist", async () => {
     const onComplete = vi.fn(() => { throw new Error("trace blew up"); });
     const out = await drain(persistedAssistantStream(upstream(delta("done")), {} as never, TRIP, KEY, undefined, undefined, onComplete));

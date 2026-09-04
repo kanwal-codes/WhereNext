@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { gatewayFor } from "@/packages/ai/model-policy";
+import { AI_DEADLINE_MS, gatewayFor, withDeadline } from "@/packages/ai/model-policy";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 import type { RetrievedEvidence } from "./retrieve";
 
@@ -35,7 +35,7 @@ export async function buildComparison(input: {
         { role: "system", content: SYSTEM },
         { role: "user", content: `Traveller: ${input.tripSummary}\nRequest: ${input.prompt}\nEvidence:\n${evidenceText || "(none)"}` },
       ],
-      input.signal,
+      withDeadline(input.signal, AI_DEADLINE_MS.sideBuilder),
     );
     const parsed = comparisonSchema.parse(raw);
     return { type: "comparison", title: parsed.title, columns: parsed.columns, rows: parsed.rows, bestForYou: parsed.bestForYou };

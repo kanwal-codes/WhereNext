@@ -157,7 +157,7 @@ describe("POST /api/ai", () => {
   });
 
   it("adds a model-built comparison block when the user asks to compare", async () => {
-    resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "Japan", intent: "discovery", wantsComparison: true, toolPlan: [{ tool: "research_web", query: "Kyoto vs Kanazawa" }], clarify: null, suggestedFollowups: [], proposedProfileUpdate: null });
+    resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "Japan", intent: "discovery", capabilities: ["comparison"], toolPlan: [{ tool: "research_web", query: "Kyoto vs Kanazawa" }], clarify: null, suggestedFollowups: [], proposedProfileUpdate: null });
     retrieveEvidenceMock.mockResolvedValue({ places: [], sources: [{ title: "Guide", url: "https://g.example", content: "x" }], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" });
     buildComparisonMock.mockResolvedValue({ type: "comparison", title: "Kyoto vs Kanazawa", columns: ["Option", "Quiet", "Food"], rows: [{ label: "Kyoto", cells: ["Kyoto", "medium", "excellent"] }, { label: "Kanazawa", cells: ["Kanazawa", "high", "very good"] }], bestForYou: { label: "Kanazawa", reason: "quieter for a couple who dislike crowds" } });
     const { meta } = await readMeta(await post());

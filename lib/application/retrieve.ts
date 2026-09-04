@@ -1,7 +1,7 @@
 import type { Place } from "@/packages/contracts/place";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { research } from "@/packages/providers/tavily/client";
-import { weather } from "@/packages/providers/openweather/client";
+import { weather, type WeatherDay } from "@/packages/providers/openweather/client";
 import { events } from "@/packages/providers/ticketmaster/client";
 import { localEvents } from "@/packages/providers/eventbrite/client";
 import { activities } from "@/packages/providers/getyourguide/client";
@@ -59,6 +59,8 @@ export type RetrievedEvidence = {
   places: Place[];
   sources: Array<{ title: string; url: string; content: string }>;
   weather: string | null;
+  /** Per-day forecast buckets — only when the trip is inside the forecast window. */
+  weatherDays?: WeatherDay[];
   routes: RouteResult[];
   events: EventResult[];
   flights: FlightSearch[];
@@ -67,7 +69,7 @@ export type RetrievedEvidence = {
   retrievedAt: string;
 };
 
-const EMPTY: Omit<RetrievedEvidence, "retrievedAt"> = { places: [], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [] };
+const EMPTY: Omit<RetrievedEvidence, "retrievedAt"> = { places: [], sources: [], weather: null, weatherDays: [], routes: [], events: [], flights: [], stays: [], unavailableProviders: [] };
 
 const stem = (word: string) => word.replace(/(ies|es|s)$/, (match) => (match === "ies" ? "y" : ""));
 
@@ -143,6 +145,7 @@ export async function retrieveEvidence(
   const flights: FlightSearch[] = [];
   const stays: StaySearch[] = [];
   let weatherSummary: string | null = null;
+  let weatherDays: WeatherDay[] = [];
 
   const geocode = async (name: string): Promise<[number, number] | null> => {
     const hits = await new GooglePlacesProvider().search(name, signal).catch(fail("google-places"));
@@ -263,7 +266,7 @@ export async function retrieveEvidence(
         stays.push({ location: call.location, checkin, checkout, nights: result.nights, assumedDates, options: result.options, detail });
       } else if (call.tool === "weather") {
         const forecast = await weather(call.location, signal).catch(fail("openweather"));
-        if (forecast) weatherSummary = forecast.summary;
+        if (forecast) { weatherSummary = forecast.summary; weatherDays = forecast.days; }
       } else if (call.tool === "directions") {
         let got = false;
         if (call.mode === "transit") {
@@ -361,5 +364,5 @@ export async function retrieveEvidence(
     })
     .slice(0, 6);
 
-  return { places: uniquePlaces, sources: uniqueSources, weather: weatherSummary, routes, events: uniqueEvents, flights, stays, unavailableProviders, retrievedAt: new Date().toISOString() };
+  return { places: uniquePlaces, sources: uniqueSources, weather: weatherSummary, weatherDays, routes, events: uniqueEvents, flights, stays, unavailableProviders, retrievedAt: new Date().toISOString() };
 }

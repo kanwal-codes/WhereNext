@@ -274,16 +274,30 @@
 @utility scrollbar-slim {
   scroll-behavior: smooth;
   scrollbar-width: thin;
-  scrollbar-color: var(--color-border) transparent;
+  /* Subtle at rest, firmer on hover — a quiet pill, not a grey slab. */
+  scrollbar-color: color-mix(in oklab, var(--color-border) 55%, transparent) transparent;
 
   &::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
-
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 2px;
+  }
   &::-webkit-scrollbar-thumb {
-    background: var(--color-border);
+    background: color-mix(in oklab, var(--color-border) 45%, transparent);
     border-radius: 999px;
+    transition: background 0.18s ease;
+  }
+  &:hover {
+    scrollbar-color: color-mix(in oklab, var(--color-border) 95%, transparent) transparent;
+  }
+  &:hover::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--color-border) 90%, transparent);
+  }
+  &::-webkit-scrollbar-thumb:active {
+    background: var(--color-muted-foreground);
   }
 }
 
@@ -340,6 +354,14 @@
 @utility route-enter {
   animation: route-in 0.34s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
+
+/* Weather-card glyphs: a gentle idle motion so the card feels alive, not busy. */
+@keyframes wx-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@utility wx-bob { animation: wx-bob 3.4s ease-in-out infinite; }
+@utility wx-spin-slow { animation: spin 16s linear infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   *,

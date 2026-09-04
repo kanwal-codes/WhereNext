@@ -2,24 +2,76 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarClock, Info, MapPin, Ticket, Users } from "lucide-react";
+import { CalendarClock, ChevronDown, DoorOpen, Info, MapPin, Music, Sparkles, Ticket, Users } from "lucide-react";
 import type { EventDetail } from "@/packages/contracts/event";
 import { Hero } from "@/components/Hero";
 import { BackLink } from "@/components/BackLink";
 import { ExternalLink } from "@/components/ExternalLink";
 import { NearbyRecommendations } from "@/components/NearbyRecommendations";
 import { Skeleton, SkeletonLines } from "@/components/Skeleton";
-import { Reveal } from "@/components/motion-primitives";
+import { BlurImage, Reveal, Stagger, StaggerItem, Tactile, WordReveal } from "@/components/motion-primitives";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { askAssistantHref } from "@/lib/places-ui";
 import { cn } from "@/lib/utils";
 
 type Seed = { name: string; url: string; source: string; imageUrl?: string; date?: string; venue?: string };
 
-/** Rough "City, Country" from a formatted address. */
+/** "City, Country" from a formatted address. */
 function cityFrom(address: string | undefined | null): string {
   if (!address) return "";
   return address.split(",").map((p) => p.trim()).filter(Boolean).slice(-2).join(", ");
+}
+
+/** Split a "YYYY-MM-DD HH:MM" or looser string into a friendly day + time. */
+function readableDate(raw: string | null): { day: string; time: string | null } | null {
+  if (!raw) return null;
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
+  if (!m) return { day: raw, time: null };
+  const [, y, mo, d, hh, mm] = m;
+  const date = new Date(Number(y), Number(mo) - 1, Number(d));
+  const day = date.toLocaleDateString(undefined, { weekday: "short", month: "long", day: "numeric" });
+  const time = hh
+    ? new Date(0, 0, 0, Number(hh), Number(mm)).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+    : null;
+  return { day, time };
+}
+
+function Chip({ icon: Icon, children }: { icon: typeof CalendarClock; children: React.ReactNode }) {
+  return (
+    <Tactile lift={1} className="inline-flex">
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium shadow-soft">
+        <Icon className="h-3.5 w-3.5 text-coral" />
+        {children}
+      </span>
+    </Tactile>
+  );
+}
+
+/** Section wrapper — icon, title, and consistent rhythm. `boxed` gets a card surround. */
+function Section({
+  title,
+  icon: Icon,
+  boxed = false,
+  delay = 0,
+  children,
+}: {
+  title: string;
+  icon?: typeof CalendarClock;
+  boxed?: boolean;
+  delay?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <Reveal delay={delay}>
+      <section className={cn(boxed && "rounded-2xl border border-border bg-card p-5 shadow-soft")}>
+        <h2 className={cn("flex items-center gap-2 font-display", boxed ? "text-lg" : "text-xl")}>
+          {Icon && <Icon className="h-4 w-4 text-coral" />}
+          {title}
+        </h2>
+        <div className="mt-3">{children}</div>
+      </section>
+    </Reveal>
+  );
 }
 
 /** Full detail for one event — same layout on the routed page and the chat side panel. */
@@ -31,11 +83,11 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
 
   useEffect(() => {
     const controller = new AbortController();
-    const cacheKey = `event-detail:${tripId}:${seed.url}`;
+    const cacheKey = `event-detail:v3:${tripId}:${seed.url || seed.name}`;
     try {
-      const cached = sessionStorage.getItem(cacheKey);
-      if (cached) {
-        const body = JSON.parse(cached);
+      const hit = sessionStorage.getItem(cacheKey);
+      if (hit) {
+        const body = JSON.parse(hit);
         if (body.detail) { setDetail(body.detail); setState("ready"); return () => controller.abort(); }
       }
     } catch { /* unavailable or malformed cache */ }
@@ -62,30 +114,50 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
   const d = detail;
   const title = d?.title ?? seed.name;
   const image = d?.imageUrl ?? seed.imageUrl;
-  const date = d?.date ?? seed.date;
-  const venueName = d?.venueName ?? seed.venue;
-  const ticketUrl = d?.url ?? seed.url;
-  const mapsUrl = d?.latitude && d?.longitude ? `https://www.google.com/maps/search/?api=1&query=${d.latitude},${d.longitude}` : null;
+  const rawDate = d?.date ?? seed.date ?? null;
+  const dt = readableDate(rawDate);
+  const venueName = d?.venueName ?? seed.venue ?? null;
+  const ticketUrl = d?.url ?? (seed.source !== "web" ? seed.url : null);
+  const mapsUrl =
+    d?.latitude && d?.longitude
+      ? `https://www.google.com/maps/search/?api=1&query=${d.latitude},${d.longitude}`
+      : venueName
+        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${venueName} ${d?.venueAddress ?? d?.city ?? ""}`.trim())}`
+        : null;
 
-  const facts: Array<[string, string]> = [];
-  if (d?.genre) facts.push(["Type", d.genre]);
-  if (d?.priceRange) facts.push(["Price range", d.priceRange]);
-  if (d?.onSale) facts.push(["Tickets", d.onSale]);
-  if (d?.status) facts.push(["Status", d.status]);
-  if (d?.promoter) facts.push(["Promoter", d.promoter]);
+  const headliner = d?.performers?.[0];
+  const support = d?.performers?.slice(1) ?? [];
+  // Drop a lineup note that just echoes acts already listed as pills.
+  const lineupNote =
+    d?.lineupNote && !d.performers.every((p) => d.lineupNote!.toLowerCase().includes(p.toLowerCase())) ? d.lineupNote : null;
+  const onSale = d?.onSale?.replace(/^on sale\s*/i, "") ?? null;
+  const cityHint = cityFrom(d?.venueAddress) || d?.city || venueName || "";
+
+  const goodToKnow: Array<[string, string]> = [];
+  if (d?.ageInfo) goodToKnow.push(["Age", d.ageInfo]);
+  if (d?.promoter) goodToKnow.push(["Promoter", d.promoter]);
+  if (d?.status) goodToKnow.push(["Status", d.status]);
 
   return (
     <div>
       {titleTag}
-      <Hero image={image || "/design/trip-hero.jpg"} alt={title} plain className={cn(panel ? "h-44" : "h-[38vh] min-h-[240px] sm:h-[44vh] sm:max-h-[400px]")}>
-        <div className={cn("absolute inset-x-0 bottom-0", pad, "pb-5")}>
-          {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" />}
-          <p className="eyebrow mt-2">{d?.source ?? seed.source}</p>
-          <h1 className="mt-1 font-display text-2xl leading-tight sm:text-[1.75rem]">{title}</h1>
-          <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-            {date && (
+      <Hero image={image || "/design/trip-hero.jpg"} alt={title} plain className={cn(panel ? "h-44" : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]")}>
+        <div className={cn("absolute inset-x-0 bottom-0", pad, "pb-6")}>
+          {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className="shadow-soft" />}
+          <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-background/85 px-2.5 py-1 text-[11px] font-medium capitalize text-foreground backdrop-blur">
+            <Sparkles className="h-3 w-3 text-coral" /> {d?.source ?? seed.source}
+          </span>
+          <WordReveal
+            text={title}
+            as="h1"
+            delay={0.1}
+            className="mt-2 font-display text-[1.7rem] leading-[1.1] [text-wrap:balance] drop-shadow-sm sm:text-4xl"
+          />
+          <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-soft">
+            {dt && (
               <span className="inline-flex items-center gap-1.5">
-                <CalendarClock className="h-3.5 w-3.5" /> {date}
+                <CalendarClock className="h-3.5 w-3.5" /> {dt.day}
+                {dt.time ? ` · ${dt.time}` : ""}
               </span>
             )}
             {venueName && (
@@ -100,131 +172,213 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
       <div className={cn(pad, "pt-6 space-y-8")}>
         {state === "loading" ? (
           <>
-            <Skeleton className="h-3 w-24 rounded-md" />
+            <Skeleton className="h-9 w-2/3 rounded-full" />
+            <Skeleton className="h-28 w-full rounded-2xl" />
             <SkeletonLines lines={4} />
           </>
         ) : state === "error" && !d ? (
           <p className="text-sm text-muted-foreground">
             We couldn&rsquo;t load more about this event.{" "}
-            {ticketUrl && (
-              <ExternalLink href={ticketUrl} className="text-sm">
+            {(ticketUrl || seed.url) && (
+              <ExternalLink href={ticketUrl || seed.url} className="text-sm">
                 Open the event page
               </ExternalLink>
             )}
           </p>
         ) : (
           <>
-            <Reveal>
-              <section>
-                <h2 className="font-display text-xl">About</h2>
-                {d?.about ? (
-                  <p className="mt-2 whitespace-pre-line text-[15px] leading-[1.8] text-ink-soft">{d.about}</p>
-                ) : (
-                  <p className="mt-2 text-sm text-muted-foreground">No description was available for this event.</p>
+            {/* At a glance */}
+            {(dt || d?.doorsTime || d?.genre || d?.priceRange) && (
+              <Stagger className="flex flex-wrap gap-2" gap={0.05}>
+                {dt && (
+                  <StaggerItem>
+                    <Chip icon={CalendarClock}>
+                      {dt.day}
+                      {dt.time ? ` · ${dt.time}` : ""}
+                    </Chip>
+                  </StaggerItem>
                 )}
-              </section>
-            </Reveal>
+                {d?.doorsTime && <StaggerItem><Chip icon={DoorOpen}>Doors {d.doorsTime}</Chip></StaggerItem>}
+                {d?.genre && <StaggerItem><Chip icon={Music}>{d.genre}</Chip></StaggerItem>}
+                {d?.priceRange && <StaggerItem><Chip icon={Ticket}>from {d.priceRange}</Chip></StaggerItem>}
+              </Stagger>
+            )}
 
-            {d && d.performers.length > 0 && (
+            {/* Tickets — the primary action, up top */}
+            {(ticketUrl || (d?.ticketOptions?.length ?? 0) > 0) && (
               <Reveal delay={0.04}>
-                <section>
+                <section className="rounded-2xl border border-coral/25 bg-gradient-to-br from-card to-coral-soft/40 p-5 shadow-soft">
                   <h2 className="flex items-center gap-2 font-display text-lg">
-                    <Users className="h-4 w-4 text-coral" /> Line-up
+                    <Ticket className="h-4 w-4 text-coral" /> Tickets
                   </h2>
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {d.performers.map((p) => (
-                      <span key={p} className="rounded-full border border-border bg-card px-3 py-1 text-sm">
-                        {p}
-                      </span>
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    {ticketUrl && (
+                      <Tactile lift={2} className="inline-flex">
+                        <a
+                          href={ticketUrl}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground"
+                        >
+                          <Ticket className="h-4 w-4" /> Get tickets{d?.source === "ticketmaster" ? " on Ticketmaster" : ""}
+                        </a>
+                      </Tactile>
+                    )}
+                    {(d?.ticketOptions ?? []).filter((o) => o.url !== ticketUrl).map((o) => (
+                      <ExternalLink key={o.url} href={o.url} className="text-sm">
+                        {o.label}
+                      </ExternalLink>
                     ))}
                   </div>
+                  {(d?.priceRange || onSale) && (
+                    <dl className="mt-3 grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">
+                      {d?.priceRange && (
+                        <div className="flex gap-2">
+                          <dt className="w-20 shrink-0">Price</dt>
+                          <dd className="text-foreground">{d.priceRange}</dd>
+                        </div>
+                      )}
+                      {onSale && (
+                        <div className="flex gap-2">
+                          <dt className="w-20 shrink-0">On sale</dt>
+                          <dd className="text-foreground">{onSale}</dd>
+                        </div>
+                      )}
+                    </dl>
+                  )}
+                  <p className="mt-2 text-[11px] text-muted-foreground">Prices and availability change — confirm on the seller&rsquo;s page.</p>
                 </section>
               </Reveal>
             )}
 
-            <Reveal delay={0.06}>
-              <section>
-                <h2 className="flex items-center gap-2 font-display text-lg">
-                  <MapPin className="h-4 w-4 text-coral" /> When &amp; where
-                </h2>
-                <dl className="mt-3 space-y-2 text-sm">
-                  <div className="flex gap-2">
-                    <dt className="w-24 shrink-0 text-muted-foreground">Date</dt>
-                    <dd>{date ?? "Date to be confirmed"}</dd>
-                  </div>
-                  <div className="flex gap-2">
-                    <dt className="w-24 shrink-0 text-muted-foreground">Venue</dt>
-                    <dd>
-                      {venueName ?? "Venue to be confirmed"}
-                      {d?.venueAddress ? <span className="block text-muted-foreground">{d.venueAddress}</span> : null}
-                      {mapsUrl && <ExternalLink href={mapsUrl} className="mt-1 inline-block text-sm">Open in Google Maps</ExternalLink>}
-                    </dd>
-                  </div>
-                </dl>
-              </section>
-            </Reveal>
+            {/* About */}
+            {d?.about && (
+              <Section title="About" delay={0.06}>
+                <p className="whitespace-pre-line text-[15px] leading-[1.85] text-ink-soft">{d.about}</p>
+              </Section>
+            )}
 
-            {facts.length > 0 && (
-              <Reveal delay={0.08}>
-                <section className="rounded-2xl border border-border bg-card p-5">
-                  <p className="eyebrow">Good to know</p>
-                  <dl className="mt-2 space-y-2 text-sm">
-                    {facts.map(([k, v]) => (
-                      <div key={k} className="flex gap-2">
-                        <dt className="w-28 shrink-0 text-muted-foreground">{k}</dt>
+            {/* What to expect */}
+            {d?.whatToExpect && (
+              <Section title="What to expect" icon={Sparkles} delay={0.07}>
+                <p className="text-[15px] leading-[1.85] text-ink-soft">{d.whatToExpect}</p>
+              </Section>
+            )}
+
+            {/* Line-up */}
+            {(headliner || lineupNote) && (
+              <Section title="Line-up" icon={Users} delay={0.08}>
+                {headliner && (
+                  <p className="text-lg font-medium leading-tight">
+                    {headliner}
+                    {support.length > 0 && <span className="text-sm font-normal text-muted-foreground"> — headlining</span>}
+                  </p>
+                )}
+                {support.length > 0 && (
+                  <Stagger className="mt-2.5 flex flex-wrap gap-1.5" gap={0.04}>
+                    {support.map((p) => (
+                      <StaggerItem key={p}>
+                        <span className="inline-block rounded-full border border-border bg-card px-3 py-1 text-sm shadow-soft">{p}</span>
+                      </StaggerItem>
+                    ))}
+                  </Stagger>
+                )}
+                {lineupNote && <p className="mt-2.5 text-sm text-muted-foreground">{lineupNote}</p>}
+              </Section>
+            )}
+
+            {/* When & where */}
+            <Section title="When & where" icon={MapPin} delay={0.1}>
+              <dl className="space-y-3 text-sm">
+                <div className="flex gap-3">
+                  <dt className="w-24 shrink-0 pt-0.5 text-muted-foreground">Date</dt>
+                  <dd>
+                    {dt ? (
+                      <>
+                        <span className="font-medium">{dt.day}</span>
+                        {dt.time && <span className="text-muted-foreground"> · {dt.time}</span>}
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        Check the ticket page{" "}
+                        {ticketUrl && <ExternalLink href={ticketUrl} className="text-sm">here</ExternalLink>}
+                      </span>
+                    )}
+                    {d?.doorsTime && <span className="block text-muted-foreground">Doors {d.doorsTime}</span>}
+                  </dd>
+                </div>
+                <div className="flex gap-3">
+                  <dt className="w-24 shrink-0 pt-0.5 text-muted-foreground">Venue</dt>
+                  <dd>
+                    <span className="font-medium">{venueName ?? "See the ticket page"}</span>
+                    {d?.venueAddress ? <span className="block text-muted-foreground">{d.venueAddress}</span> : null}
+                    {mapsUrl && <ExternalLink href={mapsUrl} className="mt-1 inline-flex text-sm">Open in Google Maps</ExternalLink>}
+                  </dd>
+                </div>
+              </dl>
+            </Section>
+
+            {/* Seat map */}
+            {d?.seatmapUrl && (
+              <Section title="Seat map" delay={0.11}>
+                <BlurImage src={d.seatmapUrl} alt={`${title} seat map`} className="w-full rounded-2xl border border-border" />
+              </Section>
+            )}
+
+            {/* Good to know */}
+            {(goodToKnow.length > 0 || d?.pleaseNote) && (
+              <Section title="Good to know" icon={Info} boxed delay={0.12}>
+                {goodToKnow.length > 0 && (
+                  <dl className="space-y-2 text-sm">
+                    {goodToKnow.map(([k, v]) => (
+                      <div key={k} className="flex gap-3">
+                        <dt className="w-24 shrink-0 text-muted-foreground">{k}</dt>
                         <dd className="min-w-0">{v}</dd>
                       </div>
                     ))}
                   </dl>
-                  {d?.pleaseNote && (
-                    <p className="mt-3 flex gap-2 text-xs leading-relaxed text-muted-foreground">
-                      <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {d.pleaseNote}
-                    </p>
-                  )}
-                </section>
+                )}
+                {d?.pleaseNote && (
+                  <p className={cn("flex gap-2 text-xs leading-relaxed text-muted-foreground", goodToKnow.length > 0 && "mt-3")}>
+                    <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {d.pleaseNote}
+                  </p>
+                )}
+              </Section>
+            )}
+
+            <Reveal delay={0.13}>
+              <Tactile lift={2} className="inline-flex">
+                <Link href={askAssistantHref(tripId, { name: title, address: venueName ?? undefined })} className="btn-secondary inline-flex">
+                  Ask the assistant if it fits
+                </Link>
+              </Tactile>
+            </Reveal>
+
+            {d && d.sources.length > 0 && (
+              <Reveal delay={0.14}>
+                <details className="group text-xs">
+                  <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-muted-foreground hover:text-foreground">
+                    <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+                    <span className="font-medium">{d.sources.length} source{d.sources.length === 1 ? "" : "s"}</span>
+                  </summary>
+                  <ul className="mt-2 space-y-1 pl-5">
+                    {d.sources.map((s) => (
+                      <li key={s.url}>
+                        <ExternalLink href={s.url} className="text-[11px]">{s.title}</ExternalLink>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
               </Reveal>
             )}
 
-            <div className="flex flex-wrap items-center gap-3">
-              {ticketUrl && (
-                <a
-                  href={ticketUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-transform hover:scale-[1.02]"
-                >
-                  <Ticket className="h-4 w-4" /> Get tickets on {d?.source ?? seed.source}
-                </a>
-              )}
-              <Link href={askAssistantHref(tripId, { name: title, address: venueName ?? undefined })} className="btn-secondary">
-                Ask the assistant if it fits
-              </Link>
-            </div>
-
-            {d && d.sources.length > 0 && (
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                <span className="font-medium text-foreground">Sources</span>
-                <ul className="flex min-w-0 flex-wrap gap-x-3 gap-y-1">
-                  {d.sources.map((s) => (
-                    <li key={s.url}>
-                      <ExternalLink href={s.url} className="text-[11px]">
-                        {s.title}
-                      </ExternalLink>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <p className="text-[11px] text-muted-foreground">Confirm the date, line-up, price and availability on the ticket page.</p>
-
-            {(cityFrom(d?.venueAddress) || venueName) && (
+            {cityHint && (
               <NearbyRecommendations
                 tripId={tripId}
                 kind="event"
                 excludeId={ticketUrl ?? seed.url}
                 anchorName={venueName ?? title}
-                cityHint={cityFrom(d?.venueAddress) || venueName || ""}
+                cityHint={cityHint}
                 genre={d?.genre}
                 lat={d?.latitude ?? undefined}
                 lng={d?.longitude ?? undefined}

@@ -53,6 +53,8 @@ export const assistantBlockSchema = z.discriminatedUnion("type", [
       date: z.string().max(60).optional(),
       venue: z.string().max(160).optional(),
       source: z.string().max(40),
+      /** Provider hero image — drives the "featured" event cards in chat. */
+      imageUrl: httpUrl.optional(),
       /** Where the event falls relative to the trip: during it, or N days before/after. */
       relToTrip: z.enum(["in", "before", "after"]).optional(),
       offsetDays: z.number().int().nonnegative().optional(),
@@ -101,6 +103,92 @@ export const assistantBlockSchema = z.discriminatedUnion("type", [
     retrievedAt: z.string(),
   }),
   z.object({ type: z.literal("checklist"), groups: z.array(z.object({ title: z.string().max(80), items: z.array(z.object({ text: z.string().max(200), why: z.string().max(200).optional() })) })).max(8) }),
+  z.object({
+    type: z.literal("structured_answer"),
+    /** One-line framing shown as the reply. */
+    intro: z.string().max(200),
+    sections: z.array(z.object({
+      heading: z.string().max(80),
+      bullets: z.array(z.object({
+        text: z.string().max(200),
+        detail: z.string().max(200).optional(),
+      })).min(1).max(6),
+    })).min(1).max(5),
+  }),
+  z.object({
+    type: z.literal("options"),
+    kind: z.enum(["area", "daytrip"]),
+    intro: z.string().max(200),
+    items: z.array(z.object({
+      name: z.string().max(80),
+      blurb: z.string().max(240),
+      tags: z.array(z.string().max(24)).max(4).default([]),
+      /** area: "walkable · central"; daytrip: "1h by train". */
+      meta: z.string().max(60).optional(),
+      bestFor: z.string().max(80).optional(),
+    })).min(2).max(5),
+  }),
+  z.object({
+    type: z.literal("budget"),
+    currency: z.string().max(8),
+    /** true = figures are per person; false = whole group. */
+    perPerson: z.boolean(),
+    /** One-line framing shown as the reply. */
+    summary: z.string().max(200),
+    lines: z.array(z.object({
+      category: z.string().max(40),
+      low: z.number().nonnegative(),
+      typical: z.number().nonnegative(),
+      high: z.number().nonnegative(),
+      note: z.string().max(120).optional(),
+    })).min(2).max(6),
+    dailyTotal: z.object({ low: z.number().nonnegative(), typical: z.number().nonnegative(), high: z.number().nonnegative() }),
+    /** The traveller's stated daily budget, when they gave one — drives the "fits / over" line. */
+    setBudget: z.number().nonnegative().optional(),
+    tripNote: z.string().max(160).optional(),
+  }),
+  z.object({
+    type: z.literal("itinerary"),
+    title: z.string().max(80).optional(),
+    /** One-line framing shown as the reply, so the timeline isn't also dumped as prose. */
+    intro: z.string().max(200).optional(),
+    days: z.array(z.object({
+      label: z.string().max(40),
+      subtitle: z.string().max(80).optional(),
+      stops: z.array(z.object({
+        time: z.string().max(20).optional(),
+        title: z.string().max(120),
+        note: z.string().max(200).optional(),
+        /** Google provider id — set when the stop is a real place, so the card opens its panel. */
+        placeId: z.string().max(240).optional(),
+        kind: z.enum(["food", "sight", "activity", "nightlife", "transit", "event", "rest"]).optional(),
+      })).min(1).max(6),
+    })).min(1).max(7),
+  }),
+  z.object({
+    type: z.literal("weather"),
+    retrievedAt: z.string(),
+    location: z.string().max(120),
+    /** "forecast" = the trip is close enough for a real forecast; "seasonal" = typical conditions for the month. */
+    mode: z.enum(["forecast", "seasonal"]),
+    month: z.string().max(20).optional(),
+    /** One short line: the feel of it + a packing steer. */
+    headline: z.string().max(160),
+    highC: z.number().int().optional(),
+    lowC: z.number().int().optional(),
+    condition: z.enum(["clear", "clouds", "rain", "snow", "mixed"]).optional(),
+    /** seasonal only — typical wet days in the month. */
+    rainyDays: z.number().int().min(0).max(31).optional(),
+    packing: z.array(z.string().max(40)).max(5).default([]),
+    /** forecast only — the trip's own days. */
+    days: z.array(z.object({
+      label: z.string().max(12),
+      min: z.number().int(),
+      max: z.number().int(),
+      condition: z.enum(["clear", "clouds", "rain", "snow", "mixed"]),
+      wet: z.boolean(),
+    })).max(8).default([]),
+  }),
 ]);
 export type AssistantBlock = z.infer<typeof assistantBlockSchema>;
 
@@ -134,8 +222,8 @@ export const assistantSystemPrompt = `You are Muse, a trip-planning assistant th
 LANGUAGE: Reply in the language of the user's latest message.
 
 LENGTH AND SHAPE:
-- Default to 2 to 4 short sentences. Use a bulleted list only for 3 or more parallel points of reasoning.
-- Give at most 6 recommendations and never repeat one.
+- Default to 2 to 3 short sentences. One bulleted list only if you have 3+ genuinely parallel points of reasoning — never a list of place names.
+- Name at most 3 places in the reply, and only to make a point (why it fits, a trade-off between two). Never a roll-call of 4+ names with a sentence each — the cards already show the full set; your job is the reasoning.
 - Never put a comparison table in your reply. If the user asks to compare options, give a one or two sentence verdict and say the detailed comparison is opening next to the chat.
 
 PROSE AND CARDS:

@@ -15,6 +15,26 @@ import { createBulkGateway, createGatewayWithFallback } from "./gateway";
  */
 export type ModelRole = "resolve" | "compose" | "bulk";
 
+/**
+ * Hard deadlines for AI calls inside a chat turn — a stalled gateway (throttling, a slow
+ * fallback) must fail fast to its graceful path, never hang the turn. Tune here.
+ */
+export const AI_DEADLINE_MS = {
+  /** RESOLVE — one small structured call; a timeout drops to the degraded plan. */
+  resolve: 15_000,
+  /** Side-builders (comparison, checklist, itinerary, budget, options, weather) — a timeout drops the block. */
+  sideBuilder: 22_000,
+  /** COMPOSE time-to-first-token, per provider attempt — a timeout moves to the next model in the
+   *  chain. Generous: COMPOSE can legitimately make a tool round-trip before its first text token. */
+  composeTtft: 28_000,
+} as const;
+
+/** `signal` combined with a timeout — the turn's abort still wins, but a stall can't outlast `ms`. */
+export function withDeadline(signal: AbortSignal | undefined, ms: number): AbortSignal {
+  const timeout = AbortSignal.timeout(ms);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
+
 export function gatewayFor(role: ModelRole) {
   switch (role) {
     case "resolve":

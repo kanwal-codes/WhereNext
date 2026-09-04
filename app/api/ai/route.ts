@@ -5,6 +5,7 @@ import { aiRequestSchema, compactAiMessages } from "@/packages/contracts/ai-requ
 import { assistantSystemPrompt, type AssistantBlock, type AssistantTurnMeta, type PlaceCard } from "@/packages/contracts/assistant";
 import { composeModelChain } from "@/packages/ai/compose-model";
 import { buildComposeTools } from "@/packages/ai/compose-tools";
+import { AI_DEADLINE_MS, withDeadline } from "@/packages/ai/model-policy";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail, withRoute } from "@/lib/server/with-route";
@@ -19,6 +20,11 @@ import { nearest } from "@/lib/application/geo";
 import { feasibilityHint } from "@/lib/application/feasibility";
 import { buildEssentialsChecklist } from "@/lib/application/essentials";
 import { buildComparison } from "@/lib/application/comparison";
+import { buildItineraryPlan } from "@/lib/application/itinerary-plan";
+import { buildBudgetBreakdown } from "@/lib/application/budget-plan";
+import { buildExploreOptions } from "@/lib/application/explore-options";
+import { buildStructuredAnswer } from "@/lib/application/structured-answer";
+import { weatherCardFromForecast, weatherCardFromSeasonal, type WeatherCard } from "@/lib/application/weather-card";
 import { persistedAssistantStream } from "@/features/conversation/application/persistedAssistantStream";
 import { createConversationRepository } from "@/features/conversation/infrastructure/conversationRepository";
 import { sanitizeAssistantContent } from "@/lib/application/sanitize-assistant";
@@ -159,6 +165,10 @@ export const POST = withRoute(async function POST(request: Request) {
 
     // --- RESOLVE ---------------------------------------------------------------
     const resolved = await resolveTurn({ message: prompt, history: modelMessages, tripSummary, viewContext, signal: request.signal });
+    // Which structured builders this turn asked for. Dispatch is "for each capability, run its
+    // builder" — a new feature is a menu entry + a builder, nothing to wire here.
+    const caps = new Set(resolved.capabilities);
+    const exploreKind: "area" | "daytrip" | null = caps.has("area_guide") ? "area" : caps.has("day_trips") ? "daytrip" : null;
     latencyMs.resolve = Math.round(performance.now() - t0);
     logger.debug({ resolved }, "resolve");
     const language = resolved.language;
@@ -248,13 +258,12 @@ export const POST = withRoute(async function POST(request: Request) {
     }));
     const compactSources = evidence.sources.map((source) => ({ title: source.title, url: source.url, content: source.content.slice(0, 700) }));
     const compactEvents = evidence.events.slice(0, 8).map((event) => ({
-      name: event.title, date: event.date, venue: event.venue, url: event.url, via: event.source,
+      name: event.title, date: event.date, venue: event.venue, url: event.url,
       whenVsTrip: event.relToTrip === "in" ? "during the trip"
         : event.relToTrip === "before" ? `${event.offsetDays}d before the trip`
         : event.relToTrip === "after" ? `${event.offsetDays}d after the trip` : undefined,
-      // PredictHQ signal: 0-100 how big for the area, plus predicted turnout.
-      pull: typeof event.rank === "number" ? event.rank : undefined,
-      expectedCrowd: event.attendance,
+      // Internal ranking hint only — a coarse bucket, never a number the model can quote.
+      prominence: typeof event.rank === "number" ? (event.rank >= 70 ? "major" : event.rank >= 45 ? "notable" : "small") : undefined,
     }));
     const eventsInWindow = evidence.events.filter((event) => event.relToTrip === "in");
     const nearestEventMiss = evidence.events
@@ -264,8 +273,9 @@ export const POST = withRoute(async function POST(request: Request) {
     const eventsGuidance = compactEvents.length
       ? [
           "The events shown as cards are the ONLY events you may present as confirmed; never state a date or venue for one that is not a card, and do not restate every title/date/venue/link.",
+          "Describe an event the way a traveller would want to hear it: who is performing or what it is, what they're known for, the kind of night out it makes, and how it fits the traveller's interests. `prominence` is an internal hint for which one or two to lead with — never mention it, a popularity/pull score, a number, crowd size, or the data source. If you genuinely don't know the act, keep it to one plain line and don't pad with vague hype.",
           eventsInWindow.length
-            ? `${eventsInWindow.length} fall during the trip — name the one or two that best fit the traveller's interests and why.${evidence.events.some((e) => typeof e.rank === "number") ? " A `pull` score (0-100) marks how big each one is for the city; call out the standout." : ""}`
+            ? `${eventsInWindow.length} fall during the trip — lead with the one or two that best fit the traveller's interests, and say why in traveller terms.`
             : nearestEventMiss
               ? `NONE fall in the trip window. Lead with the closest: "${nearestEventMiss.title}"${nearestEventMiss.date ? ` on ${nearestEventMiss.date}` : ""}, ${nearestEventMiss.offsetDays} day${nearestEventMiss.offsetDays === 1 ? "" : "s"} ${nearestEventMiss.relToTrip === "before" ? "before the traveller arrives" : "after the traveller leaves"} — do not just say there is nothing on.`
               : "None are on for the trip dates — say so plainly.",
@@ -302,6 +312,68 @@ export const POST = withRoute(async function POST(request: Request) {
       ? "Use only the evidence below for facts. If a detail is not there, say it is unavailable — do not infer it. If the latest user message names a place different from the trip's stored destination, answer for the newly named place."
       : "You have no fresh provider evidence for this. Answer from the trip context only, or say plainly what you cannot confirm. Do not invent places, prices, or hours.";
 
+    // Weather → a card, not a paragraph. Forecast buckets when the trip is close; otherwise a
+    // structured "typical <month>" distilled from the web notes just retrieved.
+    const WEATHER_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const weatherMonth = (() => {
+      if (typeof tripStart !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(tripStart)) return null;
+      const name = WEATHER_MONTHS[Number(tripStart.slice(5, 7)) - 1];
+      const dom = Number(tripStart.slice(8, 10));
+      return dom >= 21 ? `late ${name}` : dom <= 10 ? `early ${name}` : name;
+    })();
+    // A budget question can be mis-tagged "essentials"; don't also drag in a weather card / checklist.
+    const weatherIntent = (resolved.intent === "weather" || resolved.intent === "essentials") && !caps.has("budget");
+    // A live forecast only means something if the trip is within its reach (or under way).
+    const daysToTrip = typeof tripStart === "string" && /^\d{4}-\d{2}-\d{2}$/.test(tripStart)
+      ? Math.round((Date.parse(tripStart) - Date.now()) / 86_400_000)
+      : null;
+    const tripInForecastWindow = daysToTrip !== null && daysToTrip <= 6 && daysToTrip >= -21;
+    const forecastReady = tripInForecastWindow && (evidence.weatherDays?.length ?? 0) > 0;
+    const seasonalReady = !forecastReady && Boolean(weatherMonth && compactSources.length > 0);
+    const willShowWeatherCard = weatherIntent && (forecastReady || seasonalReady);
+
+    const statedDailyBudget = typeof (tripCtx.preferences as Record<string, unknown>).budget === "number"
+      ? ((tripCtx.preferences as Record<string, unknown>).budget as number)
+      : undefined;
+    // Turns whose answer is fully carried by a structured block skip the compose model
+    // entirely — the block's own AI-written headline/intro is the one-line reply. Nothing
+    // templated, and no brittle "did the model obey the prompt" wrestling. Each falls through
+    // to a normal composed answer if its block can't be built. All run CONCURRENTLY — a
+    // multi-capability turn (e.g. weather + structured_answer) mustn't pay for them in series.
+    const [weatherCard, itineraryBlock, budgetBlock, optionsBlock, structuredAnswerBlock] = await Promise.all([
+      !willShowWeatherCard
+        ? Promise.resolve<WeatherCard | null>(null)
+        : forecastReady
+          ? Promise.resolve(weatherCardFromForecast(locationFocus, evidence.weatherDays!))
+          : weatherCardFromSeasonal(locationFocus, weatherMonth!, compactSources.map((source) => source.content).join("\n\n"), request.signal),
+      caps.has("itinerary")
+        ? buildItineraryPlan({ prompt, tripSummary, evidence, tripCtx, signal: request.signal })
+        : Promise.resolve(null),
+      caps.has("budget")
+        ? buildBudgetBreakdown({ prompt, tripSummary, currency: resolveCurrency(tripCtx.preferences), statedDailyBudget, evidence, tripCtx, signal: request.signal })
+        : Promise.resolve(null),
+      exploreKind
+        ? buildExploreOptions({ kind: exploreKind, prompt, tripSummary, evidence, tripCtx, signal: request.signal })
+        : Promise.resolve(null),
+      caps.has("structured_answer")
+        ? buildStructuredAnswer({ prompt, tripSummary, evidence, signal: request.signal })
+        : Promise.resolve(null),
+    ]);
+
+    // COMPOSE runs by default — it's for prose reasoning ("why this one", judgement, advice).
+    // But when a block fully answers the turn on its own, skip the model entirely and use the
+    // block's own one-line intro as the reply. No "a block is shown, don't repeat it" note to a
+    // model that ignores it — the coordination bug can't happen if COMPOSE never runs.
+    const composeSkipLine: string | null =
+      (budgetBlock?.type === "budget" && budgetBlock.summary) ||
+      (optionsBlock?.type === "options" && optionsBlock.intro) ||
+      (structuredAnswerBlock?.type === "structured_answer" && structuredAnswerBlock.intro) ||
+      (weatherCard && (resolved.intent === "essentials"
+        ? `${weatherCard.headline.replace(/[.!?]?\s*$/, "")}. The full checklist is below.`
+        : weatherCard.headline)) ||
+      (itineraryBlock?.type === "itinerary" && (itineraryBlock.intro || "Here's a rough day-by-day — tell me to rework any day.")) ||
+      null;
+
     const system = `${assistantSystemPrompt}
 
 ${groundingInstruction}
@@ -310,7 +382,7 @@ You have read-only lookup tools (places, web, weather, events, flights, directio
 You are talking about: ${locationFocus}.${viewContext ? `\nThe user has this open beside the chat: ${viewContext}. Read "there", "this place", "it" as this unless the message names somewhere else.` : ""}${dislikes.length ? `\nThe traveller dislikes: ${dislikes.join(", ")}. Do not recommend, list, or describe any of these, even if they are famous or in the evidence.` : ""}
 Previous messages are context only — never repeat their places, prices, or links unless they also appear in the fresh evidence below.${surfacedEarlier.size ? `\nAlready shown as cards earlier in this conversation: ${[...surfacedEarlier].slice(0, 30).join(", ")}. Don't present these again unless one is genuinely the best answer to the current question — and if so, say why it still fits.` : ""}${requestedImages ? "\nThe user asked for photos: include one markdown image per relevant place only if a supplied image URL exists; if none, say verified photos were not returned." : ""}
 ${feasibilityHint(typeof tripCtx.preferences.pace === "string" ? tripCtx.preferences.pace : undefined, tripCtx.itinerary.map((item) => item.day_index))}
-If a recommendation usually sells out or needs timed entry, say so and suggest booking ahead.${(resolved.intent === "weather" || resolved.intent === "essentials" || evidence.weather) ? `\nWeather question: ${evidence.weather ? `a live reading is in the evidence ("${evidence.weather}") — treat it as a forecast only if the trip is within a week, otherwise as the current picture.` : "there is no live forecast (the trip is too far out for one, or the provider was down)."} ${compactSources.length ? "The web sources describe the destination's typical conditions for that month/season — build the answer from them, call it typical/seasonal (not a forecast), and say plainly whether that time of year is hot, mild, cold, wet or dry there." : "If you have nothing on the season either, say the weather is unavailable rather than guessing."} Finish with one concrete packing takeaway (umbrella, layers, sun, warm coat). Never apologise for a missing forecast when you can still describe the season.` : ""}${eventsGuidance ? `\n${eventsGuidance}` : ""}${compactFlights.length ? `\nFlight fare estimates are shown as cards. Give a one-line read (cheapest vs fastest, nonstop or not). ${compactFlights.some((search) => search.exampleDate) ? "The travel date is an example — ask for their real dates." : ""} Do not quote fares or list airlines; do not invent routes.` : ""}${compactStays.length ? `\nHotel rates for ${compactStays[0].nights} night(s) are shown as cards. Say which one or two fit the budget, group, and locked places and why.${compactStays.some((search) => search.rooms) ? " Room-level rates for the hotel the user asked about are also shown; say which room type fits the group." : ""} ${compactStays.some((search) => search.exampleDates) ? "The check-in/out dates are an example — ask for their real dates." : ""} Do not list hotels or prices; do not invent any.` : ""}
+If a recommendation usually sells out or needs timed entry, say so and suggest booking ahead.${(resolved.intent === "weather" || resolved.intent === "essentials" || evidence.weather) ? `\nWeather question: ${evidence.weather ? `a live reading is in the evidence ("${evidence.weather}") — treat it as a forecast only if the trip is within a week, otherwise as the current picture.` : "there is no live forecast (the trip is too far out for one, or the provider was down)."} ${compactSources.length ? "The web sources describe the destination's typical conditions for that month/season — build the answer from them, call it typical/seasonal (not a forecast), and say plainly whether that time of year is hot, mild, cold, wet or dry there." : "If you have nothing on the season either, say the weather is unavailable rather than guessing."} Finish with one concrete packing takeaway (umbrella, layers, sun, warm coat). Never apologise for a missing forecast when you can still describe the season.` : ""}${caps.has("itinerary") ? `\nA day-by-day itinerary is shown as a structured timeline block. Do NOT rewrite it as prose or list the stops. Give 1–2 sentences only: the shape of the trip and one thing worth booking ahead.` : ""}${caps.has("budget") ? `\nA budget breakdown block with per-category figures is shown. Reply with ONE sentence only — the rough daily total and whether it fits their budget. Never restate the category numbers.` : ""}${exploreKind ? `\nA card list of ${exploreKind === "area" ? "neighbourhoods" : "day trips"} is shown. Reply with ONE sentence — your top pick and why. Do not describe every option.` : ""}${eventsGuidance ? `\n${eventsGuidance}` : ""}${compactFlights.length ? `\nFlight fare estimates are shown as cards. Give a one-line read (cheapest vs fastest, nonstop or not). ${compactFlights.some((search) => search.exampleDate) ? "The travel date is an example — ask for their real dates." : ""} Do not quote fares or list airlines; do not invent routes.` : ""}${compactStays.length ? `\nHotel rates for ${compactStays[0].nights} night(s) are shown as cards. Say which one or two fit the budget, group, and locked places and why.${compactStays.some((search) => search.rooms) ? " Room-level rates for the hotel the user asked about are also shown; say which room type fits the group." : ""} ${compactStays.some((search) => search.exampleDates) ? "The check-in/out dates are an example — ask for their real dates." : ""} Do not list hotels or prices; do not invent any.` : ""}
 
 Trip so far: ${tripSummary}
 
@@ -330,10 +402,10 @@ ${JSON.stringify({
     })}`;
 
     // Side builders start now and overlap with the queue slot + model TTFB; awaited when meta is assembled.
-    const checklistPromise = resolved.intent === "essentials"
+    const checklistPromise = resolved.intent === "essentials" && !caps.has("budget") && !caps.has("structured_answer")
       ? buildEssentialsChecklist({ destination: locationFocus, tripSummary, evidence, signal: request.signal })
       : Promise.resolve(null);
-    const comparisonPromise = resolved.wantsComparison
+    const comparisonPromise = caps.has("comparison")
       ? buildComparison({ prompt, tripSummary, evidence, signal: request.signal })
       : Promise.resolve(null);
 
@@ -347,13 +419,22 @@ ${JSON.stringify({
     });
     const tCompose = performance.now();
     const composeChain = composeModelChain();
-    const stream = await withTripAiStream(tripId, async () => {
+    const stream = composeSkipLine ? cannedStream(composeSkipLine) : await withTripAiStream(tripId, async () => {
       // Try the primary model, then each fallback, until one produces its first chunk. Forcing
       // the first step here also means a provider 4xx/5xx surfaces before the Response, so the
       // route's catch tail can still return a 429/503 rather than an empty stream.
       let iterator: AsyncIterator<string> | undefined;
       let firstChunk: IteratorResult<string> | undefined;
       let lastError: unknown;
+      // A stalled provider must not hang the turn: cap time-to-first-token per attempt (move to
+      // the next model in the chain), and cap the whole stream well above any real answer length.
+      const withTtft = <T,>(promise: Promise<T>): Promise<T> => {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const deadline = new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error("compose time-to-first-token exceeded")), AI_DEADLINE_MS.composeTtft);
+        });
+        return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
+      };
       for (let i = 0; i < composeChain.length; i += 1) {
         const entry = composeChain[i];
         const result = streamText({
@@ -362,13 +443,13 @@ ${JSON.stringify({
           messages: compactAiMessages(modelMessages, 12, 12_000),
           tools: composeTools,
           stopWhen: stepCountIs(4),
-          abortSignal: request.signal,
+          abortSignal: withDeadline(request.signal, 60_000),
           providerOptions: entry.providerOptions,
           onError: ({ error }) => logger.error({ err: error }, "compose stream error"),
         });
         try {
           const it = result.textStream[Symbol.asyncIterator]();
-          firstChunk = await it.next();
+          firstChunk = await withTtft(it.next());
           iterator = it;
           void result.totalUsage.then(
             (u) => { tokensIn += u.inputTokens ?? 0; tokensOut += u.outputTokens ?? 0; },
@@ -412,12 +493,21 @@ ${JSON.stringify({
 
     // --- STRUCTURE (assembled from evidence + resolver, not model JSON) ------
     const blocks: AssistantBlock[] = [];
+    // Side-builders were kicked off before COMPOSE and have been running concurrently.
+    const [checklist, comparison] = await Promise.all([checklistPromise, comparisonPromise]);
     const distanceToLocked = (place: { latitude: number; longitude: number }): string | undefined => {
       if (tripCtx.lockedPlaces.length === 0) return undefined;
       const hit = nearest({ latitude: place.latitude, longitude: place.longitude }, tripCtx.lockedPlaces);
       return hit ? `${hit.km < 1 ? `${Math.round(hit.km * 1000)} m` : `${hit.km.toFixed(1)} km`} from ${hit.target.title}` : undefined;
     };
-    if (cardPlaces.length > 0 && PLACE_INTENTS.has(resolved.intent)) {
+    // A concert / named-act / specific-kind event query is about the EVENT, not the venue.
+    // Suppress the place cards (the arena, the club) so the events block below carries the turn.
+    const eventFocused = resolved.intent === "events" || toolPlan.some((call) => call.tool === "events" && (call.artist || call.category));
+    if (itineraryBlock) blocks.push(itineraryBlock);
+    if (budgetBlock) blocks.push(budgetBlock);
+    if (optionsBlock) blocks.push(optionsBlock);
+    if (structuredAnswerBlock) blocks.push(structuredAnswerBlock);
+    if (cardPlaces.length > 0 && PLACE_INTENTS.has(resolved.intent) && !eventFocused && !itineraryBlock && !optionsBlock) {
       blocks.push({
         type: "place_list",
         places: cardPlaces.map((place): PlaceCard => ({
@@ -450,6 +540,7 @@ ${JSON.stringify({
           : {}),
         items: evidence.events.slice(0, 8).map((event) => ({
           title: event.title, url: event.url, date: event.date, venue: event.venue, source: event.source,
+          ...(event.imageUrl ? { imageUrl: event.imageUrl } : {}),
           ...(event.relToTrip ? { relToTrip: event.relToTrip, offsetDays: event.offsetDays } : {}),
           ...(typeof event.rank === "number" ? { rank: Math.round(event.rank) } : {}),
         })),
@@ -526,7 +617,7 @@ ${JSON.stringify({
         })),
       });
     }
-    const [checklist, comparison] = await Promise.all([checklistPromise, comparisonPromise]);
+    if (weatherCard) blocks.unshift({ type: "weather", retrievedAt: evidence.retrievedAt, ...weatherCard });
     if (checklist) blocks.push(checklist);
     if (comparison) {
       // When we're comparing real places, carry their ids so the chat can open a live side-by-side.

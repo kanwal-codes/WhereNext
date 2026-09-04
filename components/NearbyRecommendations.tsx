@@ -7,6 +7,7 @@ import type { Place } from "@/packages/contracts/place";
 import type { NearbyEvent } from "@/components/EventCard";
 import { EventCard } from "@/components/EventCard";
 import { Reveal } from "@/components/motion-primitives";
+import { cn } from "@/lib/utils";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import { photoProxyUrl } from "@/lib/places-ui";
@@ -62,7 +63,12 @@ function MiniCard({ tripId, place, why, onSelect }: { tripId: string; place: Pla
 
 function queryFor(lane: Lane, anchor: LaneAnchor): string {
   const base = (typeof lane.query === "function" ? lane.query(anchor) : lane.query).trim();
-  if (lane.source === "events") return base;
+  if (lane.source === "events") {
+    // "More concerts" from a Rock gig should surface rock gigs, not worship concerts —
+    // fold the anchor's genre into the keyword when we have it.
+    const g = (anchor.genre ?? "").split(/\s*·\s*/).slice(1).join(" ").trim();
+    return g && base ? `${base} ${g}` : base;
+  }
   // A radius lane is filtered client-side, so keep its query city-wide; others lean on the anchor.
   return lane.radiusKm ? `${base} in ${anchor.city}`.trim() : `${base} near ${anchor.name} ${anchor.city}`.trim();
 }
@@ -178,6 +184,7 @@ export function NearbyRecommendations({
   const [results, setResults] = useState<ShapedLane[]>([]);
   const [pageVibe, setPageVibe] = useState<Vibe>("default");
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const trip = useTripDataMaybe();
   const prefs = trip?.data?.preferences as Record<string, unknown> | undefined;
@@ -200,12 +207,31 @@ export function NearbyRecommendations({
   }, [prefs, savedPlaces, rejectedPlaceIds]);
 
   useEffect(() => {
-    const anchor: LaneAnchor = { name: anchorName, city: cityHint, lat, lng };
+    const anchor: LaneAnchor = { name: anchorName, city: cityHint, lat, lng, genre };
     const controller = new AbortController();
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(9_000)]);
     let cancelled = false;
     setLoading(true);
     setResults([]);
+
+    // Re-opening the same anchor in a session shouldn't re-run the whole fan-out
+    // (classify + a query per lane + the embedding re-rank). Keyed on the anchor's
+    // identity only — a fresh shortlist won't reorder these until the next session,
+    // which is fine for "around here" discovery.
+    const cacheKey = `nearby-reco:${tripId}:${kind}:${excludeId}:${cityHint}`;
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const { results: hit, vibe } = JSON.parse(cached) as { results: ShapedLane[]; vibe: Vibe };
+        setResults(hit);
+        setPageVibe(vibe);
+        setLoading(false);
+        return () => {
+          cancelled = true;
+          controller.abort();
+        };
+      }
+    } catch { /* unavailable or malformed cache */ }
 
     (async () => {
       const { vibe, secondary } = await classify(tripId, kind, { name: anchorName, primaryType, types, id: excludeId, genre }, signal);
@@ -235,6 +261,7 @@ export function NearbyRecommendations({
       setResults(shaped);
       setPageVibe(vibe);
       setLoading(false);
+      try { sessionStorage.setItem(cacheKey, JSON.stringify({ results: shaped, vibe })); } catch { /* ignore */ }
 
       logReco(
         tripId,
@@ -272,32 +299,50 @@ export function NearbyRecommendations({
         <p className="eyebrow">Around here</p>
         <p className="mt-1 text-sm text-muted-foreground">Picked to match {anchorName} — tap any to open it.</p>
       </div>
-      {results.map(({ lane, places, events }, i) => (
-        <Reveal key={lane.id} delay={0.05 * i}>
-          <section>
-            <h3 className="font-display text-lg">
-              {lane.title}
-              {lane.layout === "peek" && <span className="ml-2 text-xs font-normal text-muted-foreground">· a taste</span>}
-            </h3>
-            <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto scrollbar-slim pb-1">
-              {places.map((r, idx) => (
-                <MiniCard
-                  key={r.place.providerId}
-                  tripId={tripId}
-                  place={r.place}
-                  why={r.why}
-                  onSelect={() => onSelect(lane.id, "place", r.place.providerId, idx)}
-                />
-              ))}
-              {events.map((event, idx) => (
-                <span key={event.url} className="contents" onClickCapture={() => onSelect(lane.id, "event", event.url, idx)}>
-                  <EventCard tripId={tripId} event={event} className="w-[240px] shrink-0 snap-start" />
-                </span>
-              ))}
-            </div>
-          </section>
-        </Reveal>
-      ))}
+      {results.map(({ lane, places, events }, i) => {
+        const total = places.length + events.length;
+        const isOpen = expanded.has(lane.id);
+        const cap = isOpen ? total : 4;
+        const shownPlaces = places.slice(0, cap);
+        const shownEvents = events.slice(0, Math.max(0, cap - shownPlaces.length));
+        return (
+          <Reveal key={lane.id} delay={0.05 * i}>
+            <section>
+              <div className="flex items-baseline justify-between gap-3">
+                <h3 className="font-display text-lg">
+                  {lane.title}
+                  {lane.layout === "peek" && <span className="ml-2 text-xs font-normal text-muted-foreground">· a taste</span>}
+                </h3>
+                {total > 4 && (
+                  <button
+                    type="button"
+                    onClick={() => setExpanded((s) => { const n = new Set(s); if (n.has(lane.id)) n.delete(lane.id); else n.add(lane.id); return n; })}
+                    className="shrink-0 text-xs font-medium text-primary hover:underline"
+                  >
+                    {isOpen ? "Show less" : "See more"} <span aria-hidden>{isOpen ? "←" : "→"}</span>
+                  </button>
+                )}
+              </div>
+              <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto scrollbar-slim pb-1">
+                {shownPlaces.map((r, idx) => (
+                  <MiniCard
+                    key={r.place.providerId}
+                    tripId={tripId}
+                    place={r.place}
+                    why={r.why}
+                    onSelect={() => onSelect(lane.id, "place", r.place.providerId, idx)}
+                  />
+                ))}
+                {shownEvents.map((event, idx) => (
+                  <span key={event.url} className="contents" onClickCapture={() => onSelect(lane.id, "event", event.url, idx)}>
+                    <EventCard tripId={tripId} event={event} className="w-[240px] shrink-0 snap-start" />
+                  </span>
+                ))}
+              </div>
+            </section>
+          </Reveal>
+        );
+      })}
     </div>
   );
 }

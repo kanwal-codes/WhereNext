@@ -36,7 +36,12 @@ export default function TripOverviewPage() {
   const destination = trip?.destination ?? "your destination";
 
   const asList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
-  const budget = typeof prefs.budget === "number" ? `$${prefs.budget}/day` : typeof prefs.budget === "string" ? prefs.budget : "Not set";
+  const budget =
+    typeof prefs.budget === "number" && prefs.budget > 0
+      ? `$${prefs.budget}/day`
+      : typeof prefs.budget === "string" && prefs.budget.trim()
+        ? prefs.budget.trim()
+        : "Not set";
 
   const stats = [
     { icon: CalendarDays, label: "Dates", value: tripWhen(trip?.start_date, trip?.end_date, trip?.duration_days) },
