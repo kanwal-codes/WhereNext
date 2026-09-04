@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import {
   ArrowUpRight,
   BedDouble,
-  CalendarClock,
   Car,
   Cloud,
   CloudRain,
@@ -32,6 +31,7 @@ import type { Place } from "@/packages/contracts/place";
 import type { EventSeed } from "@/components/TripPanelProvider";
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
 import { ExternalLink } from "@/components/ExternalLink";
+import { EventPoster } from "@/components/EventPoster";
 import { CompareView } from "@/components/CompareView";
 import { cn } from "@/lib/utils";
 
@@ -60,6 +60,62 @@ const relToTripLabel = (e: EventItem): string | null =>
 
 const eventSeed = (e: EventItem): EventSeed => ({ name: e.title, url: e.url, source: e.source, imageUrl: e.imageUrl, date: e.date, venue: e.venue });
 
+/** Same act at the same venue on several nights → one card with a date selector, not N cards. */
+type EventOccurrence = { date?: string; url: string };
+type EventGroup = { base: EventItem; dates: EventOccurrence[] };
+
+/** Lowercased, accent- and punctuation-stripped, single-spaced. */
+const alnum = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
+/** Venue identity — the part before the first comma, spaces removed ("L'Olympia, Montreal" → "lolympia"). */
+const venueKey = (v?: string) => alnum((v ?? "").split(",")[0]).replace(/\s+/g, "");
+/** Act identity — the title with the venue name and connective noise stripped ("YEBBA at L Olympia" → "yebba"). */
+function actKey(title: string, venue?: string): string {
+  let t = alnum(title);
+  const v = alnum((venue ?? "").split(",")[0]);
+  if (v) t = t.split(v).join(" ");
+  t = t.replace(/\b(at|live|in concert|concert|show|tour|presents?|the|with|feat|featuring|and friends)\b/g, " ");
+  return t.replace(/\s+/g, "");
+}
+
+/** The calendar day of a date/datetime string, for comparing occurrences ("2026-10-26T20:00" → "2026-10-26"). */
+const dayOf = (raw?: string) => (raw ?? "").slice(0, 10);
+
+function groupEventOccurrences(items: EventItem[]): EventGroup[] {
+  const map = new Map<string, EventGroup>();
+  for (const item of items) {
+    // Same act at the same venue, however the provider spelled the title, is one group.
+    const key = `${actKey(item.title, item.venue) || alnum(item.title)}|${venueKey(item.venue)}`;
+    const group = map.get(key);
+    if (!group) {
+      map.set(key, { base: item, dates: [{ date: item.date, url: item.url }] });
+      continue;
+    }
+    // One occurrence per calendar day — a second provider (or a timed vs. date-only listing)
+    // for the same night is not a new date.
+    if (item.date && !group.dates.some((d) => dayOf(d.date) === dayOf(item.date))) group.dates.push({ date: item.date, url: item.url });
+    // Prefer the richest occurrence as the card's face (image / in-window).
+    if ((!group.base.imageUrl && item.imageUrl) || (item.relToTrip === "in" && group.base.relToTrip !== "in")) group.base = { ...item };
+  }
+  for (const group of map.values()) group.dates.sort((a, b) => dayOf(a.date).localeCompare(dayOf(b.date)));
+  return [...map.values()];
+}
+
+const fmtEventDate = (raw?: string) => {
+  if (!raw) return "Date TBA";
+  // A bare YYYY-MM-DD parses as UTC midnight — pin it to local so it doesn't slip a day back.
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T00:00:00` : raw);
+  return Number.isNaN(d.getTime()) ? raw : d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+};
+
+/** One date → that date. Several nights → a "Mon, Oct 26 – Tue, Oct 27" span (+ "· N dates" past two). */
+function formatEventDates(dates: EventOccurrence[]): string {
+  const days = [...new Set(dates.map((d) => dayOf(d.date)).filter(Boolean))].sort();
+  if (days.length === 0) return "Date TBA";
+  if (days.length === 1) return fmtEventDate(days[0]);
+  const range = `${fmtEventDate(days[0])} – ${fmtEventDate(days[days.length - 1])}`;
+  return days.length > 2 ? `${range} · ${days.length} dates` : range;
+}
+
 /** A popular event that also lands inside the trip earns a proper card, not a list row. */
 const isFeaturedEvent = (e: EventItem): boolean =>
   e.relToTrip === "in" && ((typeof e.rank === "number" && e.rank >= 60) || Boolean(e.imageUrl));
@@ -79,13 +135,23 @@ const TRUST_LABEL: Record<TrustLabel, string> = {
   unavailable: "Unavailable",
 };
 
-const card = "rounded-2xl border border-border bg-card shadow-soft";
+const card = "rounded-2xl border border-border/70 bg-card shadow-[0_1px_2px_color-mix(in_oklab,var(--color-ink)_6%,transparent)]";
+// A full-card click target. Sits behind the card content (z-0); real actions live in a
+// `relative z-10` row so they still receive their own clicks. Keeps card markup non-nested.
+const CardOpenOverlay = ({ label, onOpen }: { label: string; onOpen: () => void }) => (
+  <button
+    type="button"
+    aria-label={label}
+    onClick={onOpen}
+    className="absolute inset-0 z-0 rounded-2xl transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none"
+  />
+);
 const rowDivider = "border-b border-border last:border-b-0";
 const iconBtn = "btn-chip";
 const freshness = "mt-2 text-[11px] text-muted-foreground";
 // Left edge aligns with the message text; the row still scrolls sideways. No negative
 // margin — the chat column has no padding to bleed into, which left the first card clipped.
-const carousel = "flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto scrollbar-slim pb-2.5";
+const carousel = "flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto no-scrollbar pb-2.5";
 
 function fmtTime(value: string) {
   const d = new Date(value);
@@ -108,19 +174,9 @@ function PlaceCardView({
   );
 
   return (
-    <article className={cn(card, "group flex h-full flex-col overflow-hidden")}>
-      {onOpenPlace ? (
-        <button
-          type="button"
-          onClick={() => onOpenPlace(place)}
-          aria-label={`Open ${place.name}`}
-          className="block w-full text-left transition-colors hover:bg-accent/50"
-        >
-          {head}
-        </button>
-      ) : (
-        head
-      )}
+    <article className={cn(card, "group relative flex h-full flex-col overflow-hidden")}>
+      {onOpenPlace && <CardOpenOverlay label={`Open ${place.name}`} onOpen={() => onOpenPlace(place)} />}
+      {head}
       <div className="flex flex-1 flex-col gap-2 px-3.5 pt-2 pb-3.5">
         {(place.category || place.address) && (
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -142,7 +198,7 @@ function PlaceCardView({
         )}
         {/* "From provider" is the default for every card — only a non-default trust label carries information. */}
         {place.trust !== "sourced" && <p className="eyebrow">{TRUST_LABEL[place.trust] ?? place.trust}</p>}
-        <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
+        <div className="relative z-10 mt-auto flex flex-wrap items-center gap-2 pt-1">
           {/* One control: shortlist (still deciding) → a day (going in the plan) → remove. */}
           <AddToTripControl tripId={tripId} place={toPlace(place)} size="sm" />
           {onOpenPlace ? (
@@ -184,14 +240,9 @@ function StayCardView({ hotel, onOpen }: { hotel: StayCardItem; onOpen?: () => v
     .join(" · ");
 
   return (
-    <article className={cn(card, "group flex h-full flex-col overflow-hidden")}>
-      {onOpen ? (
-        <button type="button" onClick={onOpen} aria-label={`Open ${hotel.name}`} className="block w-full text-left transition-colors hover:bg-accent/50">
-          {head}
-        </button>
-      ) : (
-        head
-      )}
+    <article className={cn(card, "group relative flex h-full flex-col overflow-hidden")}>
+      {onOpen && <CardOpenOverlay label={`Open ${hotel.name}`} onOpen={onOpen} />}
+      {head}
       <div className="flex flex-1 flex-col gap-2 px-3.5 pt-2 pb-3.5">
         {meta && <p className="truncate text-xs text-muted-foreground">{meta}</p>}
         {hotel.distanceToLocked && (
@@ -210,7 +261,7 @@ function StayCardView({ hotel, onOpen }: { hotel: StayCardItem; onOpen?: () => v
           </p>
         )}
         {onOpen && (
-          <div className="mt-auto pt-1">
+          <div className="relative z-10 mt-auto pt-1">
             <button type="button" className={iconBtn} onClick={onOpen}>
               Rooms &amp; details <ArrowUpRight className="h-3.5 w-3.5" />
             </button>
@@ -221,36 +272,37 @@ function StayCardView({ hotel, onOpen }: { hotel: StayCardItem; onOpen?: () => v
   );
 }
 
-function FeaturedEventCard({ event, onOpen }: { event: EventItem; onOpen?: (seed: EventSeed) => void }) {
+function FeaturedEventCard({ group, onOpen }: { group: EventGroup; onOpen?: (seed: EventSeed) => void }) {
+  const event = group.base;
   const rel = relToTripLabel(event);
+  const active = group.dates[0] ?? { date: event.date, url: event.url };
+  const dateLabel = formatEventDates(group.dates);
   return (
-    <article className={cn(card, "flex h-full flex-col overflow-hidden")}>
+    <article className={cn(card, "relative flex h-full flex-col overflow-hidden")}>
+      {onOpen && <CardOpenOverlay label={`Open ${event.title}`} onOpen={() => onOpen({ ...eventSeed(event), url: active.url, date: active.date })} />}
       {event.imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element -- external event image
         <img src={event.imageUrl} alt={event.title} width={240} height={112} loading="lazy" className="h-28 w-full object-cover" />
       ) : (
-        <div className="flex h-12 w-full items-center gap-2 bg-gradient-to-br from-coral-soft/70 to-card px-3 text-coral">
-          <CalendarClock className="h-4 w-4 shrink-0" />
-          <span className="truncate text-[11px] font-medium">{event.date ?? "On during your trip"}</span>
-        </div>
+        <EventPoster title={event.title} className="h-24 w-full" />
       )}
       <div className="flex flex-1 flex-col gap-1.5 p-3">
         {typeof event.rank === "number" && event.rank >= 65 && <MajorEventPill />}
         <p className="line-clamp-2 font-display text-sm leading-tight">{event.title}</p>
-        {event.imageUrl && event.date && <p className="text-xs text-muted-foreground">{event.date}</p>}
+        <p className="text-xs text-muted-foreground">{dateLabel}</p>
         {event.venue && (
           <p className="flex items-center gap-1 text-xs text-muted-foreground">
             <MapPin className="h-3 w-3 shrink-0" /> <span className="truncate">{event.venue}</span>
           </p>
         )}
         {rel && <span className="w-fit rounded-full bg-leaf-soft px-2 py-0.5 text-[10px] font-medium text-leaf">{rel}</span>}
-        <div className="mt-auto flex items-center gap-1.5 pt-1">
+        <div className="relative z-10 mt-auto flex items-center gap-1.5 pt-1">
           {onOpen && (
-            <button type="button" className={iconBtn} onClick={() => onOpen(eventSeed(event))}>
+            <button type="button" className={iconBtn} onClick={() => onOpen({ ...eventSeed(event), url: active.url, date: active.date })}>
               Details <ArrowUpRight className="h-3.5 w-3.5" />
             </button>
           )}
-          <ExternalLink href={event.url} className="whitespace-nowrap">
+          <ExternalLink href={active.url} className="whitespace-nowrap">
             Tickets
           </ExternalLink>
         </div>
@@ -259,18 +311,22 @@ function FeaturedEventCard({ event, onOpen }: { event: EventItem; onOpen?: (seed
   );
 }
 
-function EventRow({ event, onOpen }: { event: EventItem; onOpen?: (seed: EventSeed) => void }) {
+function EventRow({ group, onOpen }: { group: EventGroup; onOpen?: (seed: EventSeed) => void }) {
+  const event = group.base;
   const rel = relToTripLabel(event);
+  const active = group.dates[0] ?? { date: event.date, url: event.url };
   return (
-    <div className="flex items-start justify-between gap-3 px-3.5 py-3 transition-colors hover:bg-accent/40">
+    <div className="relative flex items-start justify-between gap-3 px-3.5 py-3 transition-colors hover:bg-accent/40">
+      {onOpen && <CardOpenOverlay label={`Open ${event.title}`} onOpen={() => onOpen({ ...eventSeed(event), url: active.url, date: active.date })} />}
       <div className="min-w-0">
         <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium leading-tight">
           <span className="min-w-0 break-words">{event.title}</span>
           {typeof event.rank === "number" && event.rank >= 65 && <MajorEventPill />}
         </p>
-        {(event.date || event.venue) && (
-          <span className="mt-0.5 block text-xs text-muted-foreground">{[event.date, event.venue].filter(Boolean).join(" · ")}</span>
-        )}
+        <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+          <span>{formatEventDates(group.dates)}</span>
+          {event.venue && <span>· {event.venue}</span>}
+        </span>
         {rel && (
           <span
             className={cn(
@@ -282,14 +338,14 @@ function EventRow({ event, onOpen }: { event: EventItem; onOpen?: (seed: EventSe
           </span>
         )}
       </div>
-      <div className="flex shrink-0 flex-col items-end gap-1.5">
-        <ExternalLink href={event.url} className="whitespace-nowrap">
+      <div className="relative z-10 flex shrink-0 flex-col items-end gap-1.5">
+        <ExternalLink href={active.url} className="whitespace-nowrap">
           Tickets
         </ExternalLink>
         {onOpen && (
           <button
             type="button"
-            onClick={() => onOpen(eventSeed(event))}
+            onClick={() => onOpen({ ...eventSeed(event), url: active.url, date: active.date })}
             className="text-[11px] font-medium text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
           >
             Details
@@ -681,9 +737,10 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
         }
 
         if (block.type === "events") {
-          const featured = block.items.filter(isFeaturedEvent).slice(0, 3);
-          const featuredUrls = new Set(featured.map((e) => e.url));
-          const rest = block.items.filter((e) => !featuredUrls.has(e.url));
+          const groups = groupEventOccurrences(block.items);
+          const featured = groups.filter((g) => isFeaturedEvent(g.base)).slice(0, 3);
+          const featuredSet = new Set(featured);
+          const rest = groups.filter((g) => !featuredSet.has(g));
           const freshnessNote = (
             <p className={freshness}>
               <TicketCheck className="mr-1 inline h-3 w-3" />
@@ -698,9 +755,9 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
 
               {featured.length > 0 && (
                 <div className={carousel}>
-                  {featured.map((event, eventIndex) => (
-                    <div key={`${event.url}-${eventIndex}`} className="w-[240px] shrink-0 snap-start">
-                      <FeaturedEventCard event={event} onOpen={onOpenEvent} />
+                  {featured.map((group, groupIndex) => (
+                    <div key={`${group.base.title}-${groupIndex}`} className="w-[240px] shrink-0 snap-start">
+                      <FeaturedEventCard group={group} onOpen={onOpenEvent} />
                     </div>
                   ))}
                 </div>
@@ -714,8 +771,8 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
                     </p>
                   )}
                   <div className="divide-y divide-border/60">
-                    {rest.map((event, eventIndex) => (
-                      <EventRow key={`${event.url}-${eventIndex}`} event={event} onOpen={onOpenEvent} />
+                    {rest.map((group, groupIndex) => (
+                      <EventRow key={`${group.base.title}-${groupIndex}`} group={group} onOpen={onOpenEvent} />
                     ))}
                   </div>
                   <div className="px-3.5 py-2.5">{freshnessNote}</div>

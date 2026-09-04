@@ -53,7 +53,22 @@ const enrichmentSchema = z.object({
   lineupNote: z.string().max(300).nullable(),
   ageInfo: z.string().max(120).nullable(),
   doorsTime: z.string().max(40).nullable(),
+  showTime: z.string().max(40).nullable().optional(),
+  admission: z.string().max(120).nullable().optional(),
 });
+
+/**
+ * Clean one-line "about" from what we already know for certain — used when the AI pass
+ * can't produce a summary. Never wrong, never messy: no raw ticketing copy.
+ */
+function aboutFromFacts(name: string, known: { genre?: string | null; venue?: string | null; performers: string[] }): string {
+  const g = (known.genre ?? "").split(/\s*·\s*/).pop()?.trim().toLowerCase();
+  const kind = g && !/^(music|misc|undefined)$/.test(g) ? `${g} event` : "live event";
+  const at = known.venue ? ` at ${known.venue}` : "";
+  const support = known.performers.slice(1).filter(Boolean);
+  const supportLine = support.length ? ` Also on the bill: ${support.slice(0, 4).join(", ")}.` : "";
+  return `${name} — a ${kind}${at}.${supportLine}`.trim();
+}
 
 /** One structured pass over provider + web notes → the polished fields the page renders. */
 async function enrich(
@@ -62,37 +77,41 @@ async function enrich(
   notes: string,
   signal?: AbortSignal,
 ): Promise<z.infer<typeof enrichmentSchema>> {
-  const empty = { about: null, whatToExpect: null, lineupNote: null, ageInfo: null, doorsTime: null };
+  const empty = { about: null, whatToExpect: null, lineupNote: null, ageInfo: null, doorsTime: null, showTime: null, admission: null };
   const text = notes.trim();
-  if (!text || !aiConfigured()) return empty;
+  const factsAbout = aboutFromFacts(name, known);
+  if (!aiConfigured()) return { ...empty, about: factsAbout };
   try {
     const raw = await createBulkGateway().generateStructured(
       [
         {
           role: "system",
           content:
-            'You clean messy event notes into a JSON object. Keys: "about", "whatToExpect", "lineupNote", "ageInfo", "doorsTime". ' +
-            '"about" = 2–4 plain sentences on what the event is and who is performing/involved. ' +
-            '"whatToExpect" = 1–3 sentences on the practical night: format, running time, set times, support acts order, atmosphere — only what the notes actually support. ' +
+            'You clean messy event notes into a JSON object. Keys: "about", "whatToExpect", "lineupNote", "ageInfo", "doorsTime", "showTime", "admission". ' +
+            '"about" = 2–4 plain sentences on what the event is and who is performing/involved. Always write a real "about": if the notes are thin, lean on the event name, genre, venue and billed acts and your general knowledge of a well-known act — but never invent dates, prices, or claims the act would dispute. ' +
+            '"whatToExpect" = 1–3 sentences on the practical night: format, running time, set times, support-act order, atmosphere — only what the notes support, else null. ' +
             '"lineupNote" = one sentence naming support acts / who else is on the bill, or null. ' +
-            '"ageInfo" = the age policy verbatim if stated (e.g. "18+"), else null. "doorsTime" = doors/entry time if stated (e.g. "7:00 PM"), else null. ' +
+            '"ageInfo" = the age policy verbatim if stated (e.g. "18+", "All ages"), else null. ' +
+            '"doorsTime" = doors/entry time if stated (e.g. "7:00 PM"), else null. "showTime" = advertised stage/start time if stated (e.g. "8:00 PM"), else null. ' +
+            '"admission" = seating type if stated (e.g. "Standing room, general admission", "Reserved seating"), else null. ' +
             "Use British English. No ticket prices, no links, no source names, no marketing language, no headings, no lists. " +
-            "If the notes are too thin for a field, set it to null — never pad or guess. Output ONLY the JSON object.",
+            "For every field except \"about\", set it to null when the notes don't support it — never pad or guess. Output ONLY the JSON object.",
         },
         {
           role: "user",
           content:
             `Event: ${name}\n` +
             `Genre: ${known.genre ?? "unknown"} · Venue: ${known.venue ?? "unknown"} · Date: ${known.date ?? "unknown"}\n` +
-            `Billed acts: ${known.performers.join(", ") || "unknown"}\n\nNotes:\n${text.slice(0, 4000)}`,
+            `Billed acts: ${known.performers.join(", ") || "unknown"}\n\nNotes:\n${text.slice(0, 4000) || "(none — write about from the event name / genre / venue / acts)"}`,
         },
       ],
       signal,
     );
-    return enrichmentSchema.parse(raw);
+    const parsed = enrichmentSchema.parse(raw);
+    return { ...parsed, about: parsed.about?.trim() || factsAbout };
   } catch {
-    // Fall back to a trimmed raw blurb rather than nothing.
-    return { ...empty, about: text.slice(0, 500) || null };
+    // AI unavailable / bad JSON — a clean known-facts line, never a raw ticketing dump.
+    return { ...empty, about: factsAbout };
   }
 }
 
@@ -113,7 +132,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     const dateHint = (q.get("date") ?? "").trim();
     if (!name) return NextResponse.json({ error: "An event name is required" }, { status: 400 });
 
-    const key = `event-detail:v2:${(url || `${name}|${venueHint}`).toLowerCase()}`;
+    const key = `event-detail:v4:${(url || `${name}|${venueHint}`).toLowerCase()}`;
     const detail = await cached<EventDetail>(key, 30 * 60_000, async () => {
       const tm = await resolveTicketmaster(name, url, venueHint, dateHint, request.signal);
 
@@ -153,6 +172,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
         imageUrl: tm?.imageUrl ?? q.get("img") ?? null,
         date,
         doorsTime: tm?.doorsTime ?? ai.doorsTime ?? null,
+        showTime: ai.showTime ?? null,
+        admission: ai.admission ?? null,
         status: tm?.status ?? null,
         venueName: venue,
         venueAddress: tm?.venue?.address ?? null,

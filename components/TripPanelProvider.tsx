@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Scale } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +47,8 @@ type Ctx = {
   goBack: () => void;
   canGoBack: boolean;
   closePanel: () => void;
+  /** "back" when the last move was the in-panel back button, else "forward". Drives scroll restore. */
+  navDirection: "forward" | "back";
   compareList: CompareEntry[];
   compareHas: (id: string) => boolean;
   compareToggle: (entry: CompareEntry) => void;
@@ -57,13 +59,18 @@ type Ctx = {
   setCompareMode: (on: boolean) => void;
 };
 
-const panelKey = (panel: PanelState) => panel.kind === "place"
-  ? `place:${panel.placeId}`
-  : panel.kind === "stay"
-    ? `stay:${panel.hotelId}`
-    : panel.kind === "event"
-      ? `event:${panel.seed.url}`
-      : "compare";
+/** The stable identity of whatever the panel is showing — one definition, imported everywhere. */
+export function panelSubjectKey(panel: PanelState | null, compareIds: string[] = []): string {
+  if (!panel) return "none";
+  return panel.kind === "place"
+    ? `place:${panel.placeId}`
+    : panel.kind === "stay"
+      ? `stay:${panel.hotelId}`
+      : panel.kind === "event"
+        ? `event:${panel.seed.url}`
+        : `compare:${compareIds.join(",")}`;
+}
+const panelKey = (panel: PanelState) => panelSubjectKey(panel);
 
 const TripPanelCtx = createContext<Ctx | null>(null);
 
@@ -71,8 +78,10 @@ export function TripPanelProvider({ tripId, children }: { tripId: string; childr
   const key = `compare:${tripId}`;
   const [panel, setPanel] = useState<PanelState | null>(null);
   const [history, setHistory] = useState<PanelState[]>([]);
+  const [navDirection, setNavDirection] = useState<"forward" | "back">("forward");
   const [compareList, setCompareList] = useState<CompareEntry[]>([]);
   const [compareMode, setCompareMode] = useState(false);
+  const browserEntryRef = useRef(false);
 
   useEffect(() => {
     try {
@@ -91,6 +100,7 @@ export function TripPanelProvider({ tripId, children }: { tripId: string; childr
   }, [key, compareList]);
 
   const openPanel = useCallback((next: PanelState) => {
+    setNavDirection("forward");
     setPanel((current) => {
       if (current && panelKey(current) === panelKey(next)) return current;
       if (current) setHistory((stack) => [...stack, current]);
@@ -99,12 +109,38 @@ export function TripPanelProvider({ tripId, children }: { tripId: string; childr
   }, []);
   const closePanel = useCallback(() => { setPanel(null); setHistory([]); }, []);
   const goBack = useCallback(() => {
+    setNavDirection("back");
     setHistory((stack) => {
       const previous = stack.at(-1);
       if (!previous) return stack;
       setPanel(previous);
       return stack.slice(0, -1);
     });
+  }, []);
+
+  // Browser Back closes the panel — one history entry per open, popped on close, so the
+  // hardware/gesture back and the X button do the same thing.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const open = panel !== null;
+    if (open && !browserEntryRef.current) {
+      window.history.pushState({ ...(window.history.state as object | null), __tripPanel: true }, "");
+      browserEntryRef.current = true;
+    } else if (!open && browserEntryRef.current) {
+      browserEntryRef.current = false;
+      if ((window.history.state as { __tripPanel?: boolean } | null)?.__tripPanel) window.history.back();
+    }
+  }, [panel]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onPop = () => {
+      if (!browserEntryRef.current) return;
+      browserEntryRef.current = false;
+      setPanel(null);
+      setHistory([]);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
   }, []);
   const compareHas = useCallback((id: string) => compareList.some((e) => e.id === id), [compareList]);
   const compareToggle = useCallback((entry: CompareEntry) => {
@@ -119,6 +155,7 @@ export function TripPanelProvider({ tripId, children }: { tripId: string; childr
     setPanel((p) => (p?.kind === "compare" ? null : p));
   }, []);
   const openCompare = useCallback(() => {
+    setNavDirection("forward");
     setPanel((current) => {
       if (current?.kind === "compare") return current;
       if (current) setHistory((stack) => [...stack, current]);
@@ -128,8 +165,8 @@ export function TripPanelProvider({ tripId, children }: { tripId: string; childr
   }, []);
 
   const value = useMemo(
-    () => ({ panel, openPanel, closePanel, goBack, canGoBack: history.length > 0, compareList, compareHas, compareToggle, compareRemove, compareClear, openCompare, compareMode, setCompareMode }),
-    [panel, openPanel, closePanel, goBack, history.length, compareList, compareHas, compareToggle, compareRemove, compareClear, openCompare, compareMode],
+    () => ({ panel, openPanel, closePanel, goBack, canGoBack: history.length > 0, navDirection, compareList, compareHas, compareToggle, compareRemove, compareClear, openCompare, compareMode, setCompareMode }),
+    [panel, openPanel, closePanel, goBack, history.length, navDirection, compareList, compareHas, compareToggle, compareRemove, compareClear, openCompare, compareMode],
   );
   return <TripPanelCtx.Provider value={value}>{children}</TripPanelCtx.Provider>;
 }

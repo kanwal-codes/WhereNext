@@ -54,7 +54,7 @@ function MiniCard({ tripId, place, why, onSelect }: { tripId: string; place: Pla
           )}
           <span className="truncate">{(place.category ?? "").replaceAll("_", " ")}</span>
         </p>
-        {why && <p className="mt-1 truncate text-[11px] text-primary">{why}</p>}
+        {why && <p className="mt-1 truncate text-[11px]" style={{ color: "var(--color-accent-trip)" }}>{why}</p>}
         {panelCtx?.compareMode && <p className="mt-1 text-[10px] font-medium text-muted-foreground">{panelCtx.compareHas(place.providerId) ? "Selected" : "Click to compare"}</p>}
       </div>
     </Link>
@@ -296,7 +296,7 @@ export function NearbyRecommendations({
   return (
     <div className="mt-12 space-y-8 border-t border-border pt-8">
       <div>
-        <p className="eyebrow">Around here</p>
+        <p className="eyebrow" style={{ color: "var(--color-accent-trip)" }}>Around here</p>
         <p className="mt-1 text-sm text-muted-foreground">Picked to match {anchorName} — tap any to open it.</p>
       </div>
       {results.map(({ lane, places, events }, i) => {
@@ -323,7 +323,7 @@ export function NearbyRecommendations({
                   </button>
                 )}
               </div>
-              <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto scrollbar-slim pb-1">
+              <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto no-scrollbar pb-1">
                 {shownPlaces.map((r, idx) => (
                   <MiniCard
                     key={r.place.providerId}

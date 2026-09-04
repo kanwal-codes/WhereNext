@@ -4,9 +4,9 @@ import { useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { PanelRight, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
-import { useTripPanel, type EventSeed } from "@/components/TripPanelProvider";
+import { useTripPanel, panelSubjectKey, type EventSeed } from "@/components/TripPanelProvider";
 import { TripPanel } from "@/components/TripPanel";
-import { Reveal } from "@/components/motion-primitives";
+import { Reveal, motionTokens } from "@/components/motion-primitives";
 import { ConversationSurface } from "@/features/conversation/ui/ConversationSurface";
 import { TripContextSurface } from "@/features/workspace/ui/TripContextSurface";
 import { useMediaQuery } from "@/lib/use-media-query";
@@ -14,7 +14,7 @@ import { useDocumentTitle } from "@/lib/use-document-title";
 import type { PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { Trip } from "@/features/trip/domain/trip";
 
-const spring = { type: "spring" as const, stiffness: 260, damping: 28, mass: 0.9 };
+const spring = motionTokens.fast;
 
 export default function ChatPage() {
   const { tripId, data } = useTripData();
@@ -53,15 +53,7 @@ export default function ChatPage() {
     />
   );
 
-  const panelKey = panel
-    ? panel.kind === "place"
-      ? `place:${panel.placeId}`
-      : panel.kind === "stay"
-        ? `stay:${panel.hotelId}`
-        : panel.kind === "event"
-          ? `event:${panel.seed.url}`
-          : "compare"
-    : "none";
+  const panelKey = panelSubjectKey(panel);
   const showToggle = !desktop || !panel;
 
   return (
@@ -101,38 +93,53 @@ export default function ChatPage() {
           </div>
         </motion.div>
 
-        {desktop && (panel || showContext) && (
+        {desktop && (
           <div className="h-full min-h-0 overflow-hidden border-l border-border bg-surface">
-            {panel ? (
-              <motion.div
-                key={panelKey}
-                initial={{ opacity: 0, x: 24 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={reduceMotion ? { duration: 0 } : spring}
-                className="h-full min-h-0"
-              >
-                <TripPanel layout="inline" />
-              </motion.div>
-            ) : (
-              <div className="h-full overflow-y-auto scrollbar-slim px-4 py-5">{contextRail}</div>
-            )}
+            <AnimatePresence initial={false} mode="wait">
+              {panel ? (
+                <motion.div
+                  key={panelKey}
+                  initial={reduceMotion ? false : { opacity: 0, x: 24 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={reduceMotion ? undefined : { opacity: 0, x: -16 }}
+                  transition={reduceMotion ? { duration: 0 } : spring}
+                  className="h-full min-h-0"
+                >
+                  <TripPanel layout="inline" />
+                </motion.div>
+              ) : showContext ? (
+                <motion.div
+                  key="trip-context"
+                  initial={reduceMotion ? false : { opacity: 0, x: 16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={reduceMotion ? undefined : { opacity: 0, x: -12 }}
+                  transition={reduceMotion ? { duration: 0 } : spring}
+                  className="h-full overflow-y-auto scrollbar-slim px-4 py-5"
+                >
+                  {contextRail}
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </div>
         )}
       </motion.div>
 
       {!desktop && (
         <>
-          {panel && (
-            <motion.div
-              key={panelKey}
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              transition={reduceMotion ? { duration: 0 } : spring}
-              className="fixed inset-0 top-[var(--topbar)] z-40 bg-surface"
-            >
-              <TripPanel layout="inline" />
-            </motion.div>
-          )}
+          <AnimatePresence initial={false}>
+            {panel && (
+              <motion.div
+                key={panelKey}
+                initial={reduceMotion ? false : { y: "100%" }}
+                animate={{ y: 0 }}
+                exit={reduceMotion ? undefined : { y: "100%" }}
+                transition={reduceMotion ? { duration: 0 } : spring}
+                className="fixed inset-0 top-[var(--topbar)] z-40 bg-surface"
+              >
+                <TripPanel layout="inline" />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <AnimatePresence>
             {mobileContextOpen && (

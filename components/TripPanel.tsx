@@ -3,17 +3,17 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, ArrowUpRight, Eraser, Loader2, Maximize2, Scale, Send, Sparkles, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
-import { useTripPanelMaybe, type CompareEntry, type PanelState } from "@/components/TripPanelProvider";
+import { useTripPanelMaybe, panelSubjectKey, type CompareEntry, type PanelState } from "@/components/TripPanelProvider";
 import { PlaceDetailView } from "@/features/places/ui/PlaceDetailView";
 import { StayDetailView } from "@/features/stays/ui/StayDetailView";
 import { EventDetailView } from "@/features/events/ui/EventDetailView";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
-import { ease } from "@/components/motion-primitives";
+import { ContentSwap, Sheet } from "@/components/motion-primitives";
 
 const KIND_LABEL: Record<CompareEntry["kind"], string> = { place: "Place", stay: "Stay", event: "Event", route: "Route" };
 
@@ -147,49 +147,50 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   const { tripId, data } = useTripData();
   const pathname = usePathname();
   const desktop = useMediaQuery("(min-width: 1024px)");
-  const reduceMotion = useReducedMotion();
   const [chat, setChat] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const triggerRef = useRef<HTMLElement | null>(null);
+  const scrollMem = useRef(new Map<string, number>());
 
   const panel = ctx?.panel ?? null;
   const closePanel = ctx?.closePanel;
+  const navDirection = ctx?.navDirection ?? "forward";
   const compareList = ctx?.compareList ?? [];
-  const subjectKey = (p: PanelState): string =>
-    p.kind === "place"
-      ? `place:${p.placeId}`
-      : p.kind === "stay"
-        ? `stay:${p.hotelId}`
-        : p.kind === "event"
-          ? `event:${p.seed.url}`
-          : `compare:${compareList.map((e) => e.id).join(",")}`;
-  const sk = panel ? subjectKey(panel) : "none";
+  // The panel content survives a close so the sheet slides out with something in it.
+  const lastPanelRef = useRef<PanelState | null>(null);
+  if (panel) lastPanelRef.current = panel;
+  const shown = panel ?? lastPanelRef.current;
+  const sk = panelSubjectKey(shown, compareList.map((e) => e.id));
+
   // A scratch chat, scoped to whatever the panel currently shows. Cleared when the subject changes.
   useEffect(() => {
     setChat([]);
   }, [sk]);
+  // Inline (docked chat-rail) panel: Escape still closes it. The drawer's modal focus /
+  // scroll-lock / return-focus is handled by <Sheet> further down.
   useEffect(() => {
-    if (!panel || typeof document === "undefined") return;
-    triggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closePanel?.();
-    };
+    if (layout !== "inline" || !panel || typeof document === "undefined") return;
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") closePanel?.(); };
     document.addEventListener("keydown", onKeyDown);
-    requestAnimationFrame(() => closeButtonRef.current?.focus());
-    return () => {
-      document.body.style.overflow = previous;
-      document.removeEventListener("keydown", onKeyDown);
-      triggerRef.current?.focus();
-    };
-  }, [panel, closePanel]);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [layout, panel, closePanel]);
+  // Scroll memory: remember where each subject was left, restore it on the in-panel Back,
+  // land at the top on a forward open.
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    const el = scrollRef.current;
+    const mem = scrollMem.current;
+    const key = sk;
+    return () => { if (el) mem.set(key, el.scrollTop); };
   }, [sk]);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || sk === "none") return;
+    const target = navDirection === "back" ? scrollMem.current.get(sk) ?? 0 : 0;
+    const id = requestAnimationFrame(() => el.scrollTo({ top: target }));
+    return () => cancelAnimationFrame(id);
+  }, [sk, navDirection]);
 
   // The chat route renders its own <TripPanel layout="inline" />; the layout-level drawer stands down there.
   if (!ctx || (layout === "drawer" && pathname?.endsWith("/chat"))) return null;
@@ -247,55 +248,41 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
     }
   }
 
-  const body: ReactNode = !panel ? null : panel.kind === "place" ? (
-    <PlaceDetailView tripId={tripId} placeId={panel.placeId} variant="panel" />
-  ) : panel.kind === "stay" ? (
-    <StayDetailView tripId={tripId} hotelId={panel.hotelId} checkin={panel.checkin} checkout={panel.checkout} variant="panel" />
-  ) : panel.kind === "event" ? (
-    <EventDetailView tripId={tripId} seed={panel.seed} variant="panel" />
+  const body: ReactNode = !shown ? null : shown.kind === "place" ? (
+    <PlaceDetailView tripId={tripId} placeId={shown.placeId} variant="panel" />
+  ) : shown.kind === "stay" ? (
+    <StayDetailView tripId={tripId} hotelId={shown.hotelId} checkin={shown.checkin} checkout={shown.checkout} variant="panel" />
+  ) : shown.kind === "event" ? (
+    <EventDetailView tripId={tripId} seed={shown.seed} variant="panel" />
   ) : (
     <div className="p-4">
       <CompareGrid list={compareList} anchor={anchor} onRemove={compareRemove} />
     </div>
   );
-  const animatedBody = (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.div
-        key={sk}
-        initial={reduceMotion ? false : { opacity: 0, x: 12 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={reduceMotion ? undefined : { opacity: 0, x: -8 }}
-        transition={reduceMotion ? { duration: 0 } : { duration: 0.28, ease }}
-        className="min-h-full"
-      >
-        {body}
-      </motion.div>
-    </AnimatePresence>
-  );
-  const header = panel && (
+  // The surface (header + scroll frame) stays put; only this crossfades between subjects.
+  const animatedBody = <ContentSwap swapKey={sk} className="min-h-full">{body}</ContentSwap>;
+  const header = shown && (
     <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
-      <p className="inline-flex min-w-0 items-center gap-1.5 font-display text-sm">
+      <div className="inline-flex min-w-0 items-center gap-1.5 font-display text-sm">
         {canGoBack && <button type="button" onClick={goBack} aria-label="Back to previous item" className="mr-1 rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"><ArrowLeft className="h-4 w-4" /></button>}
-        {panel.kind === "compare" && <Scale className="h-3.5 w-3.5 shrink-0 text-coral" />}
-        <span className="truncate">{titleFor(panel)}</span>
-      </p>
+        {shown.kind === "compare" && <Scale className="h-3.5 w-3.5 shrink-0 text-coral" />}
+        <span className="min-w-0 truncate">{titleFor(shown)}</span>
+      </div>
       <div className="flex shrink-0 items-center gap-1.5">
         {chat.length > 0 && (
           <button type="button" onClick={() => setChat([])} aria-label="Clear this chat" title="Clear this chat" className="rounded-full border border-border p-1.5 text-muted-foreground hover:text-foreground">
             <Eraser className="h-3.5 w-3.5" />
           </button>
         )}
-        {layout === "drawer" && (
-          <Link
-            href={fullPageHref(panel, tripId, compareList.map((e) => e.id))}
-            onClick={() => closePanel?.()}
-            aria-label="Open full page"
-            title="Open full page"
-            className="rounded-full border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <Maximize2 className="h-3.5 w-3.5" />
-          </Link>
-        )}
+        <Link
+          href={fullPageHref(shown, tripId, compareList.map((e) => e.id))}
+          onClick={() => closePanel?.()}
+          aria-label="Expand to full page"
+          title="Expand to full page"
+          className="rounded-full border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <Maximize2 className="h-3.5 w-3.5" />
+        </Link>
         <button ref={closeButtonRef} type="button" onClick={closePanel} aria-label="Close panel" className="rounded-full border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground">
           <X className="h-4 w-4" />
         </button>
@@ -364,33 +351,16 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   return (
     <>
       <AnimatePresence>{pill}</AnimatePresence>
-      <AnimatePresence>
-        {panel && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className={cn("fixed inset-0 z-50 bg-ink/25 backdrop-blur-[2px]", desktop ? "flex justify-end" : "flex items-end")}
-            onClick={() => closePanel?.()}
-          >
-            <motion.aside
-              initial={desktop ? { x: "100%" } : { y: "100%" }}
-              animate={desktop ? { x: 0 } : { y: 0 }}
-              exit={desktop ? { x: "100%" } : { y: "100%" }}
-              transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 260, damping: 32, mass: 0.8 }}
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-              aria-label={titleFor(panel)}
-              className={cn("flex min-h-0 flex-col bg-surface shadow-lift", desktop ? "h-full w-full max-w-xl" : "max-h-[90vh] w-full rounded-t-3xl")}
-            >
-              {header}
-              <div ref={scrollRef} className="min-h-0 flex-1 overscroll-contain overflow-y-auto scrollbar-slim">{animatedBody}</div>
-              {composer}
-            </motion.aside>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Sheet
+        open={Boolean(panel)}
+        onClose={() => closePanel?.()}
+        side={desktop ? "right" : "bottom"}
+        ariaLabel={shown ? titleFor(shown) : undefined}
+      >
+        {header}
+        <div ref={scrollRef} className="min-h-0 flex-1 overscroll-contain overflow-y-auto scrollbar-slim">{animatedBody}</div>
+        {composer}
+      </Sheet>
     </>
   );
 }

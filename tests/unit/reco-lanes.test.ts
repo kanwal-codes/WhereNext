@@ -3,7 +3,7 @@ import { classifyPlaceVibe, lanesFor, type Lane, type Vibe } from "@/packages/re
 
 const ALL_VIBES: Vibe[] = [
   "green_space", "live_music", "nightlife", "sacred", "expo",
-  "performing_arts", "museum_culture", "beach_water", "sports", "food_scene", "default",
+  "performing_arts", "museum_culture", "beach_water", "sports", "food_scene", "lodging", "default",
 ];
 
 const resolveQuery = (lane: Lane) =>

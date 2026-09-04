@@ -32,6 +32,48 @@ const PROVIDER_LABEL: Record<string, string> = {
 };
 const unavailableLabels = (names?: string[]) => Array.from(new Set((names ?? []).map((name) => PROVIDER_LABEL[name] ?? name)));
 
+const conversationCacheKey = (tripId: string) => `where-next:conversation:${tripId}`;
+type ConversationCache = { savedAt: number; messages: Message[] };
+
+function readConversationCache(tripId: string): ConversationCache | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const parsed = JSON.parse(window.sessionStorage.getItem(conversationCacheKey(tripId)) ?? "null") as Partial<ConversationCache> | null;
+    if (!parsed || !Array.isArray(parsed.messages)) return null;
+    const messages = parsed.messages.filter((message): message is Message => Boolean(message && typeof message === "object" && (message as Message).role && typeof (message as Message).content === "string"));
+    return messages.length > 0 ? { savedAt: typeof parsed.savedAt === "number" ? parsed.savedAt : 0, messages } : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeConversationCache(tripId: string, messages: Message[]) {
+  if (typeof window === "undefined" || messages.length === 0) return;
+  try {
+    window.sessionStorage.setItem(conversationCacheKey(tripId), JSON.stringify({ savedAt: Date.now(), messages } satisfies ConversationCache));
+  } catch {
+    // Session storage can be unavailable or full; the server remains the source of truth.
+  }
+}
+
+export function mergeConversationMessages(current: Message[], fresh: Message[]): Message[] {
+  const byId = new Map(fresh.map((message) => [message.id, message]));
+  for (const message of current) {
+    if (byId.has(message.id)) continue;
+    // A locally-streamed message keeps its client-generated id, so it never matches the server
+    // row by id. Drop it once the server twin is present (same role, same settled text, close
+    // in time) — otherwise a background /conversation refetch renders the whole turn twice.
+    // Assistant twins get a wider window: compose can take tens of seconds before the row lands.
+    const hasServerTwin =
+      message.role === "user"
+        ? fresh.some((c) => c.role === "user" && c.content === message.content && Math.abs(Date.parse(c.created_at) - Date.parse(message.created_at)) < 60_000)
+        : message.content.trim().length > 0 &&
+          fresh.some((c) => c.role === "assistant" && c.content.trim() === message.content.trim() && Math.abs(Date.parse(c.created_at) - Date.parse(message.created_at)) < 5 * 60_000);
+    if (!hasServerTwin) byId.set(message.id, message);
+  }
+  return [...byId.values()].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+}
+
 const humanKey = (key: string) => key.replace(/[_-]+/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
 const humanValue = (value: unknown): string => {
   if (Array.isArray(value)) return value.map(humanValue).join(", ") || "—";
@@ -119,12 +161,11 @@ export function ConversationSurface({
 }) {
   const [messages, setMessages] = useState<Message[]>((initialMessages ?? []) as Message[]);
   const [input, setInput] = useState("");
-  const [error, setError] = useState("");
-  const [retryContent, setRetryContent] = useState("");
   const [sending, setSending] = useState(false);
   const [loaded, setLoaded] = useState(Boolean(initialMessages));
   const [confirming, setConfirming] = useState(false);
   const [proposal, setProposal] = useState<ProposedCommand | null>(null);
+  const [cacheReady, setCacheReady] = useState(false);
   const requestRef = useRef<AbortController | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
@@ -152,9 +193,16 @@ export function ConversationSurface({
     requestAnimationFrame(() => textareaRef.current?.focus());
   }, []);
 
-  // The layout already loads the conversation; only fetch when it didn't (preview route).
+  // Restore the last visible conversation immediately, then reconcile with the server in the
+  // background. This keeps tab changes instant without turning the client cache into truth.
   useEffect(() => {
-    if (initialMessages) return;
+    const cached = readConversationCache(tripId);
+    const initialLatest = Math.max(0, ...(initialMessages ?? []).map((message) => Date.parse(String(message.created_at ?? "")) || 0));
+    if (cached && cached.savedAt >= initialLatest) {
+      setMessages(cached.messages);
+      setLoaded(true);
+    }
+    setCacheReady(true);
     const controller = new AbortController();
     fetch(`/api/trips/${tripId}/conversation`, { signal: controller.signal })
       .then(async (response) => {
@@ -163,17 +211,21 @@ export function ConversationSurface({
       })
       .then((body) => {
         if (!controller.signal.aborted) {
-          setMessages(body.messages ?? []);
+          setMessages((current) => mergeConversationMessages(current, (body.messages ?? []) as Message[]));
           setLoaded(true);
         }
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        setError("Conversation could not load.");
+        if (!cached && !initialMessages) notifyToast("Couldn’t load the conversation — reload to try again.", "error");
         setLoaded(true);
       });
     return () => controller.abort();
   }, [tripId, initialMessages]);
+
+  useEffect(() => {
+    if (cacheReady) writeConversationCache(tripId, messages);
+  }, [cacheReady, messages, tripId]);
 
   const scrollIfNearBottom = useCallback(() => {
     const log = logRef.current;
@@ -239,7 +291,6 @@ export function ConversationSurface({
       if (!response.ok) throw new Error("command");
       const body = await response.json().catch(() => ({}));
       setProposal(null);
-      setError("");
       notifyToast(typeof body.changeImpact === "string" && body.changeImpact ? body.changeImpact : "Change saved.", "success");
       announceWorkspaceChange(
         command.type === "update_preferences"
@@ -251,7 +302,7 @@ export function ConversationSurface({
               : "itinerary",
       );
     } catch {
-      setError("That change could not be saved.");
+      notifyToast("That change couldn’t be saved.", "error");
     } finally {
       setConfirming(false);
     }
@@ -261,10 +312,8 @@ export function ConversationSurface({
     const content = rawContent.trim();
     if (!content || sending || !loaded) return;
     if (speech.listening) speech.stop();
-    setError("");
     setSending(true);
     setInput("");
-    setRetryContent("");
     const previous = messages;
     const userMessage: Message = { id: `local-${Date.now()}`, role: "user", content, created_at: new Date().toISOString() };
     const next = [...previous, userMessage];
@@ -309,14 +358,12 @@ export function ConversationSurface({
       if (err instanceof DOMException && err.name === "AbortError") return;
       setMessages(userSaved ? next : previous);
       const aiError = err instanceof AssistantRequestError;
-      if (userSaved) setRetryContent(content);
-      setError(
-        userSaved
-          ? aiError && err.status === 429
-            ? "Your message went through, but the assistant is busy right now. Try again in a moment."
-            : "Your message went through, but the assistant couldn’t reply. Try again in a moment."
-          : "Your message didn’t send. Nothing was added — try again.",
-      );
+      const message = userSaved
+        ? aiError && err.status === 429
+          ? "The assistant is busy right now — your message is saved."
+          : "The assistant couldn’t reply — your message is saved."
+        : "Your message didn’t send.";
+      notifyToast(message, "error", { label: "Retry", onClick: () => void submit(content) });
     } finally {
       requestRef.current = null;
       setSending(false);
@@ -554,23 +601,6 @@ export function ConversationSurface({
           )}
         </form>
 
-        {error && (
-          <p role="alert" className="mt-2 text-xs text-destructive">
-            {error}{" "}
-            {retryContent && (
-              <button
-                type="button"
-                onClick={() => {
-                  setRetryContent("");
-                  void submit(retryContent);
-                }}
-                className="underline"
-              >
-                Retry
-              </button>
-            )}
-          </p>
-        )}
       </div>
     </div>
   );

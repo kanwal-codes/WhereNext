@@ -19,6 +19,7 @@ export type Vibe =
   | "beach_water"
   | "sports"
   | "food_scene"
+  | "lodging"
   | "default";
 
 export type LaneAnchor = { name: string; city: string; lat?: number; lng?: number; genre?: string | null };
@@ -67,6 +68,7 @@ const TYPE_MAP: Record<string, Vibe> = {
 
   restaurant: "food_scene", cafe: "food_scene", bakery: "food_scene",
   food_court: "food_scene", market: "food_scene", farmers_market: "food_scene",
+  hotel: "lodging", motel: "lodging", hostel: "lodging", lodging: "lodging",
 };
 
 // Stems use a trailing `\w*` so inflected forms match ("botanic" → botanical, "amphitheat"
@@ -246,6 +248,12 @@ const LANES: Record<Vibe, Lane[]> = {
     { id: "restaurants", title: "Notable restaurants nearby", source: "places", query: "restaurant", radiusKm: 2 },
     { id: "bars", title: "Bars & cafés", source: "places", query: "bar or cafe", radiusKm: 2 },
     { id: "events", title: "What's on nearby", source: "events", query: "", layout: "peek" },
+  ],
+  lodging: [
+    { id: "food", title: "Food worth walking to", source: "places", query: "restaurants", radiusKm: 2, semantic: true },
+    { id: "coffee", title: "Coffee & breakfast nearby", source: "places", query: "cafes and coffee shops", radiusKm: 2 },
+    { id: "explore", title: "Things to do close by", source: "places", query: "popular places to visit and things to do", radiusKm: 3 },
+    { id: "shops", title: "Shops, markets & everyday stops", source: "places", query: "shops markets and bookstores", radiusKm: 2 },
   ],
   default: [
     { id: "stay", title: "Where to stay nearby", source: "places", query: "hotels" },

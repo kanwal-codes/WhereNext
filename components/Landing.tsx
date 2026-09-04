@@ -106,15 +106,14 @@ export function Landing() {
         <div className="absolute inset-x-0 top-0">
           <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 pt-7 sm:px-10">
             <Link href="/" className="inline-flex items-center gap-2">
-              <BrandMark variant="text" />
+              <BrandMark variant="text" textClassName="text-lg sm:text-xl" />
             </Link>
             <div className="flex items-center gap-3 sm:gap-5">
-              <Link href="/sign-in" className="link-underline rounded-full bg-white/60 px-3 py-1.5 text-sm font-medium backdrop-blur-sm">
+              <Link href="/sign-in" className="rounded-full bg-white/60 px-3 py-1.5 text-sm font-medium backdrop-blur-sm">
                 Sign in
               </Link>
               <Link href="/sign-up" className="rounded-full bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-transform hover:scale-[1.03] sm:px-4">
-                <span className="sm:hidden">Sign up</span>
-                <span className="hidden sm:inline">Create account</span>
+                Create account
               </Link>
             </div>
           </div>

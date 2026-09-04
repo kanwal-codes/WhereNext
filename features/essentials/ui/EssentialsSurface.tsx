@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
+import { notifyToast } from "@/lib/application/toast";
 import { cn } from "@/lib/utils";
 
 const ITEMS = [
@@ -16,14 +17,13 @@ const ITEMS = [
 
 export function EssentialsSurface({ tripId, initialCompleted }: { tripId: string; initialCompleted?: string[] }) {
   const [done, setDone] = useState<string[]>(initialCompleted ?? []);
-  const [error, setError] = useState("");
 
   useEffect(() => {
     if (initialCompleted) return;
     fetch(`/api/trips/${tripId}/essentials`)
       .then((r) => r.json())
       .then((body) => setDone(body.completed ?? []))
-      .catch(() => setError("We couldn't load your checklist. Try again in a moment."));
+      .catch(() => notifyToast("Couldn’t load your checklist — try again in a moment.", "error"));
   }, [tripId, initialCompleted]);
 
   async function toggle(item: string) {
@@ -36,7 +36,7 @@ export function EssentialsSurface({ tripId, initialCompleted }: { tripId: string
     });
     if (!r.ok) {
       setDone(done);
-      setError("That didn't save. Try again.");
+      notifyToast("That didn’t save — try again.", "error");
     } else announceWorkspaceChange("essentials");
   }
 
@@ -77,7 +77,6 @@ export function EssentialsSurface({ tripId, initialCompleted }: { tripId: string
           );
         })}
       </ul>
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     </div>
   );
 }

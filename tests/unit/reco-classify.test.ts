@@ -18,6 +18,7 @@ const TYPE_EXPECT: Record<string, Vibe> = {
   golf_course: "sports", ski_resort: "sports",
   restaurant: "food_scene", cafe: "food_scene", bakery: "food_scene", food_court: "food_scene",
   market: "food_scene", farmers_market: "food_scene",
+  hotel: "lodging", motel: "lodging", hostel: "lodging", lodging: "lodging",
 };
 
 describe("classifyPlaceVibe — TYPE_MAP", () => {

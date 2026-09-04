@@ -15,8 +15,8 @@ export function tripDurationDays(start?: string | null, end?: string | null): nu
 
 export const createTripInput = z
   .object({
-    name: z.string().trim().min(1).max(120),
-    destination: z.string().trim().min(1).max(160),
+    name: z.string().trim().min(1).max(120).default("Untitled trip"),
+    destination: z.string().trim().max(160).nullable().optional(),
     origin: z.string().trim().max(160).optional(),
     durationDays: z.coerce.number().int().min(1).max(365).optional(),
     startDate: isoDate.optional(),
@@ -32,7 +32,7 @@ export type CreateTripInput = z.infer<typeof createTripInput>;
 export type Trip = {
   id: string;
   name: string;
-  destination: string;
+  destination: string | null;
   origin?: string | null;
   duration_days?: number | null;
   start_date?: string | null;

@@ -58,6 +58,8 @@ export const resolvedTurnSchema = z.object({
     .enum(["discovery", "nightlife", "food", "activities", "history_culture", "weather", "transport", "stays", "events", "trip_memory", "compare", "essentials", "chitchat", "other"])
     .catch("other")
     .default("other"),
+  /** The message has nothing to do with travel/this trip — decline it, don't plan or retrieve. */
+  outOfScope: z.boolean().catch(false).default(false),
   // Which structured builders to run this turn — an open menu, not one boolean per feature.
   // Adding a feature = a new menu entry + its builder, no schema surgery here.
   capabilities: z
@@ -87,6 +89,15 @@ export const resolvedTurnSchema = z.object({
     .catch([])
     .default([]),
   proposedProfileUpdate: preferencesSchema.nullable().catch(null).default(null),
+  /** Explicit trip identity facts stated in the latest message. These are safe to persist immediately. */
+  proposedTripUpdate: z.object({
+    name: z.string().trim().min(1).max(120).optional(),
+    destination: z.string().trim().min(1).max(160).optional(),
+    origin: z.string().trim().max(160).nullable().optional(),
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+    travelerCount: z.number().int().min(1).max(100).nullable().optional(),
+  }).nullable().catch(null).default(null),
   suggestedFacts: z
     .array(z.object({
       key: z.enum(SUGGESTION_KEYS),
@@ -107,6 +118,7 @@ Fields:
 - language: BCP-47 code of the user's latest message ("en", "fr", "hi", "es", "ar", ...).
 - locationFocus: the place the conversation is about RIGHT NOW. If this message does not name a place, keep the place from earlier in the conversation. Use null only when no place is in play yet. Make it UNAMBIGUOUS: if the user names only a district or neighbourhood, append the trip's city and country (a Lisbon trip that mentions "Belém" means "Belém, Lisbon, Portugal", not Belém in Brazil).
 - intent: one of discovery, nightlife, food, activities, history_culture, weather, transport, stays, trip_memory, compare, essentials, chitchat, other.
+- outOfScope: true ONLY when the message has NO connection to travel, a trip, a place, or preparing for one — e.g. "solve 3x + 2 = 11", "write a Python function that sorts a list", "who won the 2010 World Cup" (asked as trivia, not "is there a match on our dates"), "give me a workout plan", "translate this contract". Set FALSE for anything a traveller would reasonably raise while planning or on the trip: an act / team / performer / person they'll go see, an activity they want to try (bungee, diving, a football match, a cooking class), what a place / dish / neighbourhood is known for, a destination's history or culture, safety, money, tipping, gear, "is X worth it", how a local thing works, jet lag, packing. It does NOT have to be about a hotel to count when a hotel is on screen — travel-adjacent is in scope. When unsure, choose FALSE and help. If true, set intent "other", capabilities [], toolPlan [], clarify null.
 - capabilities: 0 to 3 structured answers to build for this turn, from this menu (add one only when it clearly fits; most turns are []):
     * "comparison" — the user asks to weigh 2+ options THEY name against each other ("compare A and B", "A or B?"). Not "which is best" / "what are the options".
     * "itinerary" — plan / schedule / map out / build a day-by-day plan ("plan our 4 days", "what should we do each day", "map out day 2"). Still add a search_places call for real venues. intent = activities.
@@ -143,6 +155,7 @@ Fields:
     * likes / dislikes: an array of the NEW item(s) only, e.g. {"dislikes":["bungee jumping"]} or {"likes":["rooftop bars"]}. Never restate the whole list.
     * budget (number), pace, groupType, dietaryNeeds: the CORRECTED value when the user changes their mind - this replaces the old value.
     * Only what the user actually said - never infer.
+- proposedTripUpdate: if the user explicitly states or corrects a core trip fact, put only the changed fields here. This includes a destination, origin, exact start/end dates, traveller count, or trip name. Resolve relative dates against today's date. Never infer a destination, dates, or group size. If the user is vague or says to skip something, use null.
 - suggestedFacts: trip facts the conversation IMPLIES but that are NOT yet confirmed in the trip profile below. Array of {"key": one of [dates, occasion, base_area, getting_around, arrival, budget, group, pace, interests], "display": a short human-readable value, "rationale": one sentence on what the user said that implies it}. Rules:
     * ONLY from what the user actually said or clearly implied in this conversation. Never guess.
     * NEVER include a key that already has a confirmed value in the trip profile below.

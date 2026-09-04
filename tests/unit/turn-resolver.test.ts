@@ -40,7 +40,14 @@ describe("resolveTurn", () => {
   it("fills defaults for a sparse response", async () => {
     mockModel(JSON.stringify({ locationFocus: "Kyoto" }));
     const resolved = await resolveTurn({ message: "hi", history: [], tripSummary: "" });
-    expect(resolved).toMatchObject({ language: "en", locationFocus: "Kyoto", intent: "other", toolPlan: [], clarify: null });
+    expect(resolved).toMatchObject({ language: "en", locationFocus: "Kyoto", intent: "other", toolPlan: [], clarify: null, outOfScope: false });
+  });
+
+  it("reads outOfScope, defaulting it to false", async () => {
+    mockModel(JSON.stringify({ intent: "other", outOfScope: true }));
+    expect((await resolveTurn({ message: "solve 3x+2=11", history: [], tripSummary: "" })).outOfScope).toBe(true);
+    mockModel(JSON.stringify({ intent: "activities", outOfScope: "nope" }));
+    expect((await resolveTurn({ message: "bungee jumping spots?", history: [], tripSummary: "" })).outOfScope).toBe(false);
   });
 
   it("returns a safe default when the model output cannot be parsed", async () => {

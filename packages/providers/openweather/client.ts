@@ -45,10 +45,18 @@ async function geocode(place: string, signal?: AbortSignal): Promise<{ lat: numb
  */
 export async function weather(place: string, signal?: AbortSignal): Promise<WeatherResult> {
   const { lat, lon, name } = await geocode(place, signal);
-  const url = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey()}`;
-  const res = await guardedFetch("openweather", url, { signal: withProviderTimeout(signal) });
-  if (!res.ok) throw new Error(`OpenWeather forecast failed: ${res.status}`);
-  const fc = (await res.json()) as ForecastResponse;
+  // Cache the raw forecast 30 min, keyed on the rounded point — the API route, the AI retrieve
+  // path and Nearby all reach the same entry instead of each spending a quota call per view.
+  const fc = await cached(
+    `openweather:fc:${lat.toFixed(2)},${lon.toFixed(2)}`,
+    30 * 60_000,
+    async () => {
+      const url = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey()}`;
+      const res = await guardedFetch("openweather", url, { signal: withProviderTimeout(signal) });
+      if (!res.ok) throw new Error(`OpenWeather forecast failed: ${res.status}`);
+      return (await res.json()) as ForecastResponse;
+    },
+  );
 
   const slots = fc.list ?? [];
   if (slots.length === 0) throw new Error("OpenWeather returned no forecast slots");

@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { readStayDecision, type StayDecision } from "@/packages/contracts/stay";
 
 export type TripContext = {
-  trip: { name: string; destination: string; origin: string | null; duration_days: number | null; start_date: string | null; end_date: string | null; travelers: number | null } | null;
+  trip: { name: string; destination: string | null; origin: string | null; duration_days: number | null; start_date: string | null; end_date: string | null; travelers: number | null } | null;
   preferences: Record<string, unknown>;
   itinerary: Array<{ title: string; day_index: number; position?: number; locked: boolean; latitude?: number; longitude?: number }>;
   lockedTitles: string[];

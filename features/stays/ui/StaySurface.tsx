@@ -83,6 +83,21 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       if (boards.length) qs.set("boards", boards.join(","));
       if (refundable) qs.set("refundable", "1");
       if (priceMax) qs.set("priceMax", String(priceMax));
+      const cacheKey = `stay-search:${tripId}:${qs.toString()}`;
+      try {
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          const entry = JSON.parse(cached) as { savedAt?: number; result?: Result };
+          if (entry.result && Date.now() - (entry.savedAt ?? 0) < 5 * 60_000) {
+            if (mine !== reqId.current) return;
+            setResult(entry.result);
+            setStatus(entry.result.options.length === 0 ? "Nothing matched — loosen the filters or change the dates." : "");
+            return;
+          }
+          sessionStorage.removeItem(cacheKey);
+        }
+      } catch { /* storage is optional */ }
+
       const response = await fetch(`/api/trips/${tripId}/stays?${qs}`);
       const body = await response.json();
       if (mine !== reqId.current) return;
@@ -91,8 +106,10 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
         setStatus("We couldn't load hotels just now. Try again in a moment.");
         return;
       }
-      setResult(body as Result);
-      setStatus((body.options ?? []).length === 0 ? "Nothing matched — loosen the filters or change the dates." : "");
+      const next = body as Result;
+      try { sessionStorage.setItem(cacheKey, JSON.stringify({ savedAt: Date.now(), result: next })); } catch { /* storage is optional */ }
+      setResult(next);
+      setStatus((next.options ?? []).length === 0 ? "Nothing matched — loosen the filters or change the dates." : "");
     } catch {
       if (mine === reqId.current) {
         setResult(null);

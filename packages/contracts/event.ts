@@ -11,6 +11,10 @@ export const eventDetailSchema = z.object({
   date: z.string().nullable(),
   /** Doors / entry time when it differs from the start time. */
   doorsTime: z.string().max(40).nullable().default(null),
+  /** Advertised start / stage time, e.g. "8:00 PM". */
+  showTime: z.string().max(40).nullable().default(null),
+  /** Standing vs seated, general admission, etc. */
+  admission: z.string().max(120).nullable().default(null),
   status: z.string().nullable(),
   venueName: z.string().nullable(),
   venueAddress: z.string().nullable(),

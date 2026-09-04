@@ -6,6 +6,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireTripMember } from "@/lib/server/trip-auth";
 import { loadTripWorkspace, type TripWorkspaceData } from "@/features/workspace/application/loadTripWorkspace";
 import { TripShell, type ShellTrip } from "@/components/TripShell";
+import { TripAtmosphere } from "@/components/TripAtmosphere";
 import { TripDataProvider } from "@/components/TripDataProvider";
 import { TripPanelProvider } from "@/components/TripPanelProvider";
 import { TripPanel } from "@/components/TripPanel";
@@ -58,7 +59,7 @@ function shellFromData(data: TripWorkspaceData): ShellTrip {
   const { trip } = data;
   return {
     name: trip.name,
-    destination: trip.destination,
+    destination: trip.destination || "Your next place",
     dates: trip.duration_days ? `${trip.duration_days} days` : "Dates open",
     travellers: trip.travelers ? `${trip.travelers} traveller${trip.travelers === 1 ? "" : "s"}` : "Travellers open",
     progress: tripCompleteness({
@@ -97,9 +98,13 @@ export default async function TripLayout({
   if (!data) notFound();
   const me = await getViewer();
 
+  const startDate = (data.trip as { start_date?: string | null }).start_date;
+  const tripMonth = startDate ? new Date(`${startDate}T00:00:00`).getMonth() : null;
+
   return (
     <TripDataProvider tripId={tripId} data={data} me={me}>
       <TripPanelProvider tripId={tripId}>
+        <TripAtmosphere destination={data.trip.destination} month={tripMonth} />
         <TripShell tripId={tripId} trip={shellFromData(data)}>{children}</TripShell>
         <TripPanel layout="drawer" />
       </TripPanelProvider>

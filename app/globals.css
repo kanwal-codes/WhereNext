@@ -59,6 +59,11 @@
   --color-violet: var(--violet);
   --color-violet-soft: var(--violet-soft);
 
+  /* Trip Atmosphere: one contextual accent (destination + season), set at runtime by
+     <TripAtmosphere>. Defaults to coral so nothing changes until a trip resolves one. */
+  --color-accent-trip: var(--accent-trip);
+  --color-accent-trip-soft: var(--accent-trip-soft);
+
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -73,8 +78,8 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --shadow-soft: 0 1px 2px oklch(0.2 0.01 260 / 4%), 0 10px 26px -14px oklch(0.2 0.01 260 / 10%);
-  --shadow-lift: 0 2px 4px oklch(0.2 0.01 260 / 5%), 0 20px 44px -22px oklch(0.2 0.01 260 / 16%);
+  --shadow-soft: 0 1px 2px oklch(0.2 0.01 260 / 6%), 0 10px 26px -14px oklch(0.2 0.01 260 / 13%);
+  --shadow-lift: 0 2px 4px oklch(0.2 0.01 260 / 7%), 0 20px 44px -22px oklch(0.2 0.01 260 / 19%);
 }
 
 /*
@@ -87,12 +92,13 @@
   /* Mobile top bar height — the chat page and its sheets measure from it. */
   --topbar: 3.5rem;
 
+  /* 3-step ground: page → surface → card/raised, so panels and cards read as lifted. */
   --background: oklch(1 0 0);
   --foreground: oklch(0.17 0.005 260);
-  --surface: oklch(0.985 0.002 260);
+  --surface: oklch(0.974 0.002 260);
   --surface-raised: oklch(1 0 0);
 
-  --card: oklch(1 0 0);
+  --card: oklch(0.996 0.001 260);
   --card-foreground: oklch(0.17 0.005 260);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.17 0.005 260);
@@ -111,7 +117,8 @@
   --accent: oklch(0.968 0.002 260);
   --accent-foreground: oklch(0.2 0.006 260);
 
-  --destructive: oklch(0.6 0.16 32);
+  /* A real red — distinct from the coral accent (hue 32) so errors don't read as "highlight". */
+  --destructive: oklch(0.55 0.2 27);
   --destructive-foreground: oklch(1 0 0);
 
   --border: oklch(0.915 0.003 260);
@@ -144,6 +151,9 @@
   --amber-soft: var(--coral-soft);
   --violet: var(--coral);
   --violet-soft: var(--coral-soft);
+
+  --accent-trip: var(--coral);
+  --accent-trip-soft: var(--coral-soft);
 }
 
 .dark {
@@ -151,9 +161,9 @@
   --background: oklch(0.15 0.005 260);
   --foreground: oklch(0.97 0.002 260);
   --surface: oklch(0.185 0.005 260);
-  --surface-raised: oklch(0.21 0.005 260);
+  --surface-raised: oklch(0.225 0.005 260);
 
-  --card: oklch(0.185 0.005 260);
+  --card: oklch(0.205 0.005 260);
   --card-foreground: oklch(0.97 0.002 260);
   --popover: oklch(0.185 0.005 260);
   --popover-foreground: oklch(0.97 0.002 260);
@@ -172,7 +182,7 @@
   --accent: oklch(0.245 0.006 260);
   --accent-foreground: oklch(0.97 0.002 260);
 
-  --destructive: oklch(0.74 0.13 32);
+  --destructive: oklch(0.7 0.19 27);
   --destructive-foreground: oklch(0.16 0.005 260);
 
   --border: oklch(1 0 0 / 12%);
@@ -199,13 +209,29 @@
   --amber-soft: var(--coral-soft);
   --violet: var(--coral);
   --violet-soft: var(--coral-soft);
+
+  --accent-trip: var(--coral);
+  --accent-trip-soft: var(--coral-soft);
 }
 
+/*
+ * Radius scale (all off --radius: 1.25rem):
+ *   rounded-2xl  → containers, cards, panels, sheets
+ *   rounded-xl   → inputs, secondary / chip controls, small badges
+ *   rounded-full → the primary CTA, and genuinely pill things (avatars, toggles, status dots)
+ * Don't reach for arbitrary rounded-[Nrem]; use a token step.
+ */
 @layer base {
   :where(a, button, summary, [role="button"]) {
     transition-property: color, background-color, border-color, opacity, transform, box-shadow;
     transition-duration: 180ms;
     transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+
+  /* One consistent keyboard-focus treatment everywhere. Follows the element's own radius. */
+  :where(a, button, [role="button"], input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
   }
 
   * {
@@ -247,18 +273,19 @@
   @apply mt-1.5 w-full rounded-xl border border-input bg-card px-3.5 py-2.5 text-sm outline-none transition-shadow focus:ring-2 focus:ring-ring/25;
 }
 
-/* Buttons: one primary pill, one secondary pill, one small chip. */
+/* Buttons: the one loud pill (primary), a quieter soft-rect (secondary), a soft-rect chip.
+   Every one has a real pressed state; the primary is the only pill. */
 @utility btn-primary {
-  @apply inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-[transform,opacity] hover:scale-[1.02] disabled:opacity-60 disabled:hover:scale-100;
+  @apply inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-[transform,opacity] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:hover:scale-100;
 }
 @utility btn-primary-sm {
-  @apply inline-flex items-center justify-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-medium text-primary-foreground transition-opacity disabled:opacity-60;
+  @apply inline-flex items-center justify-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-medium text-primary-foreground transition-[transform,opacity] active:scale-[0.97] disabled:opacity-60;
 }
 @utility btn-secondary {
-  @apply inline-flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-60;
+  @apply inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium transition-[transform,background-color,border-color] hover:bg-accent active:scale-[0.98] disabled:opacity-60;
 }
 @utility btn-chip {
-  @apply inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-background px-3 text-xs text-ink-soft transition-colors hover:border-primary/40 hover:text-primary;
+  @apply inline-flex h-8 items-center gap-1.5 rounded-xl border border-border bg-background px-3 text-xs text-ink-soft transition-[transform,color,border-color] hover:border-primary/40 hover:text-primary active:scale-[0.97];
 }
 
 @utility hairline {
@@ -269,6 +296,16 @@
     transparent
   );
   height: 1px;
+}
+
+/* Horizontal card rails: the peeking next card is the affordance, so hide the bar entirely. */
+@utility no-scrollbar {
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @utility scrollbar-slim {

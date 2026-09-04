@@ -126,6 +126,17 @@ describe("POST /api/ai", () => {
     expect(appendArgs.content).toContain("verified clubs");
   });
 
+  it("out-of-scope turn declines in one line, with no retrieve and no compose", async () => {
+    resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "Shanghai", intent: "other", outOfScope: true, capabilities: [], toolPlan: [], clarify: null, suggestedFollowups: [{ label: "x", prompt: "y" }], proposedProfileUpdate: null });
+    const response = await post();
+    expect(retrieveEvidenceMock).not.toHaveBeenCalled();
+    expect(streamTextMock).not.toHaveBeenCalled();
+    const { body, meta } = await readMeta(response);
+    expect(body.toLowerCase()).toContain("outside what i do");
+    expect(meta!.blocks).toEqual([]);
+    expect(meta!.suggestedFollowups).toEqual([]);
+  });
+
   it("clarify turn streams the question and does not retrieve", async () => {
     resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "Shanghai", intent: "other", wantsComparison: false, toolPlan: [], clarify: { question: "How many nights?", chips: ["2", "3-4"] }, suggestedFollowups: [], proposedProfileUpdate: null });
     const response = await post();

@@ -13,7 +13,7 @@ import { tripWhen } from "@/lib/trip-dates";
 export type TripSummary = {
   id: string;
   name: string;
-  destination: string;
+  destination: string | null;
   origin: string | null;
   duration_days: number | null;
   start_date: string | null;
@@ -112,7 +112,7 @@ export function TripsHome({ trips }: { trips: TripSummary[] }) {
                       <h3 className="truncate font-display text-2xl">{trip.name}</h3>
                       <p className="mt-1 flex items-center gap-1.5 truncate text-sm text-muted-foreground">
                         <MapPin className="h-3.5 w-3.5 shrink-0" />
-                        {trip.destination}
+                        {trip.destination || "Destination not set"}
                       </p>
                     </div>
 

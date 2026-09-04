@@ -199,7 +199,7 @@ export function PlaceDetailView({
         <Reveal delay={0.08}>
           <section>
             <h2 className="font-display text-xl">Photos</h2>
-            <div className={cn("mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto scrollbar-slim px-1 pb-1", panel ? "" : "-mx-5 px-5 sm:mx-0 sm:px-0")}>
+            <div className={cn("mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto no-scrollbar px-1 pb-1", panel ? "" : "-mx-5 px-5 sm:mx-0 sm:px-0")}>
               {morePhotos.map((src) => (
                 // eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin proxy
                 <img key={src} src={src} alt={name} loading="lazy" width={288} height={192} className="h-44 w-72 shrink-0 snap-start rounded-2xl border border-border object-cover" />

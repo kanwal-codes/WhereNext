@@ -27,7 +27,10 @@ const PROVIDERS: Record<AiProviderName, { baseUrl: string; key: () => string | u
     // Gemini speaks OpenAI's protocol at this path, so the existing provider works unchanged.
     baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
     key: () => process.env.GEMINI_API_KEY,
-    defaultModel: "gemini-2.5-flash",
+    // "…-latest" auto-tracks the current Flash model so this doesn't rot when Google retires a
+    // pinned id (which they do often — 2.0-flash, 2.5-flash and 2.5-pro all 404 now). Override
+    // per-role with GEMINI_MODEL / GEMINI_BULK_MODEL.
+    defaultModel: "gemini-flash-latest",
     reasoning: false,
     envHint: "GEMINI_API_KEY",
   },
@@ -134,12 +137,22 @@ export function createGatewayWithFallback(overrides: { model?: string } = {}) {
  */
 export function createBulkGateway(overrides: { model?: string } = {}) {
   // Gemini is opt-in for bulk work: only when a model is explicitly pinned via
-  // `GEMINI_BULK_MODEL` (or passed in). Its default model ids and free tier lapse silently
-  // in some projects, and a bulk call that 404s just drops back to raw, un-summarised text.
-  // Without a pin, run bulk work on the primary fail-over chain (Cerebras/OpenAI) instead.
+  // `GEMINI_BULK_MODEL` (or passed in). Even then it is only the *first* try — a Gemini
+  // outage (503 / 429 / a lapsed model 404) must not sink an enrichment, so any failure
+  // transparently falls through to the primary provider chain (Cerebras/OpenAI).
   const geminiModel = overrides.model || process.env.GEMINI_BULK_MODEL;
-  if (process.env.GEMINI_API_KEY && geminiModel) {
-    return createAiGateway({ provider: "gemini", model: geminiModel });
-  }
-  return createGatewayWithFallback(overrides);
+  const chain = createGatewayWithFallback(overrides);
+  if (!(process.env.GEMINI_API_KEY && geminiModel)) return chain;
+
+  const gemini = createAiGateway({ provider: "gemini", model: geminiModel });
+  const withGeminiFirst = <T>(run: (g: typeof gemini | typeof chain) => Promise<T>): Promise<T> =>
+    run(gemini).catch((error) => {
+      if (isAbort(error)) throw error;
+      return run(chain);
+    });
+  return {
+    generateText: (...a: Parameters<typeof gemini.generateText>) => withGeminiFirst((g) => g.generateText(...a)),
+    generateStructured: (...a: Parameters<typeof gemini.generateStructured>) => withGeminiFirst((g) => g.generateStructured(...a)),
+    stream: (...a: Parameters<typeof gemini.stream>) => withGeminiFirst((g) => g.stream(...a)),
+  };
 }

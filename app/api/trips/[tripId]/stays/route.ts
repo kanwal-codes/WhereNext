@@ -26,7 +26,7 @@ export const GET = withRoute(async (request: Request, { params }: { params: Prom
     const currency = resolveCurrency(prefs.data?.data as Record<string, unknown> | undefined);
 
     const q = new URL(request.url).searchParams;
-    const location = (q.get("location") || trip.destination).trim();
+    const location = (q.get("location") || trip.destination || "").trim();
     const adults = Math.max(1, Math.min(Number(q.get("adults")) || trip.travelers || 2, 24));
     const rooms = Math.max(1, Math.min(Number(q.get("rooms")) || 1, 8));
     const { checkin, checkout, assumed } = resolveStayDates(q.get("checkin"), q.get("checkout"), {

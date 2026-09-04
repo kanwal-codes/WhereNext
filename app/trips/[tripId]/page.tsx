@@ -69,24 +69,36 @@ export default function TripOverviewPage() {
 
   const days = Array.from(new Set(itinerary.map((i) => i.day_index))).sort((a, b) => a - b).slice(0, 3);
   const recentAssistant = conversation.filter((m) => m.role === "assistant").slice(-3).reverse();
-  // A real photo of the destination; the stock plate only until it arrives, or when the provider has none.
-  const destinationPhoto = useDestinationPhoto(tripId, trip?.destination);
-  const heroImage = destinationPhoto ?? "/design/trip-hero.jpg";
+  // `undefined` while the Places lookup runs, `null` when there's no photo, else the URL.
+  const destinationPhoto = useDestinationPhoto(tripId, trip?.destination ?? undefined);
+  // Only mount the hero once we know which image it is — no stock-plate flash swapping to the real photo.
+  const heroReady = Boolean(data) && destinationPhoto !== undefined;
+  const heroImage = destinationPhoto || "/design/trip-hero.jpg";
 
   return (
     <div className="min-h-full">
-      <Hero key={heroImage} image={heroImage} alt={`${destination}`} className="h-56 sm:h-72">
-        <div className="absolute inset-x-0 bottom-0 px-5 pb-6 sm:px-8">
-          <Reveal delay={0.12}>
-            <div className="min-w-0">
-              <WordReveal text={trip?.name || destination} delay={0.24} className="truncate font-display text-4xl" />
-              <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-soft">
-                <MapPin className="h-3.5 w-3.5" /> {destination}
-              </p>
-            </div>
-          </Reveal>
+      {heroReady ? (
+        <Hero key={heroImage} image={heroImage} alt={`${destination}`} className="h-56 sm:h-72">
+          <div className="absolute inset-x-0 bottom-0 px-5 pb-6 sm:px-8">
+            <Reveal delay={0.12}>
+              <div className="min-w-0">
+                <WordReveal text={trip?.name || destination} delay={0.24} className="truncate font-display text-4xl" />
+                <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-soft">
+                  <MapPin className="h-3.5 w-3.5" /> {destination}
+                </p>
+              </div>
+            </Reveal>
+          </div>
+        </Hero>
+      ) : (
+        <div className="relative h-56 overflow-hidden bg-muted sm:h-72">
+          <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted to-card" />
+          <div className="absolute inset-x-0 bottom-0 px-5 pb-6 sm:px-8">
+            <div className="h-9 w-2/3 max-w-sm animate-pulse rounded-lg bg-background/60" />
+            <div className="mt-2 h-4 w-32 animate-pulse rounded bg-background/50" />
+          </div>
         </div>
-      </Hero>
+      )}
 
       <div className="mx-auto max-w-5xl px-5 py-8 sm:px-8">
         <Stagger className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -192,7 +204,7 @@ export default function TripOverviewPage() {
           <div className="space-y-6">
             {trip?.destination && (
               <Reveal delay={0.04}>
-                <TripWeather tripId={tripId} location={trip.destination} card />
+                {trip.destination && <TripWeather tripId={tripId} location={trip.destination} card />}
               </Reveal>
             )}
 

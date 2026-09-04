@@ -6,6 +6,7 @@ import { CalendarClock, ChevronDown, DoorOpen, Info, MapPin, Music, Sparkles, Ti
 import type { EventDetail } from "@/packages/contracts/event";
 import { Hero } from "@/components/Hero";
 import { BackLink } from "@/components/BackLink";
+import { ProviderBadge } from "@/components/ProviderBadge";
 import { ExternalLink } from "@/components/ExternalLink";
 import { NearbyRecommendations } from "@/components/NearbyRecommendations";
 import { Skeleton, SkeletonLines } from "@/components/Skeleton";
@@ -83,7 +84,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
 
   useEffect(() => {
     const controller = new AbortController();
-    const cacheKey = `event-detail:v3:${tripId}:${seed.url || seed.name}`;
+    const cacheKey = `event-detail:v4:${tripId}:${seed.url || seed.name}`;
     try {
       const hit = sessionStorage.getItem(cacheKey);
       if (hit) {
@@ -131,9 +132,20 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
   const lineupNote =
     d?.lineupNote && !d.performers.every((p) => d.lineupNote!.toLowerCase().includes(p.toLowerCase())) ? d.lineupNote : null;
   const onSale = d?.onSale?.replace(/^on sale\s*/i, "") ?? null;
+  // The route already summarises `about`; here we only tidy stray markdown heading marks,
+  // a lone "Title:" prefix, and blank-line runs — no line-dropping.
+  const aboutText = (d?.about ?? "")
+    .split("\n")
+    .map((line) => line.replace(/^\s*#{1,6}\s*/, "").replace(/^\s*Title:\s*/i, "").trimEnd())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
   const cityHint = cityFrom(d?.venueAddress) || d?.city || venueName || "";
 
   const goodToKnow: Array<[string, string]> = [];
+  if (d?.doorsTime) goodToKnow.push(["Doors", d.doorsTime]);
+  if (d?.showTime) goodToKnow.push(["Show", d.showTime]);
+  if (d?.admission) goodToKnow.push(["Admission", d.admission]);
   if (d?.ageInfo) goodToKnow.push(["Age", d.ageInfo]);
   if (d?.promoter) goodToKnow.push(["Promoter", d.promoter]);
   if (d?.status) goodToKnow.push(["Status", d.status]);
@@ -144,14 +156,11 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
       <Hero image={image || "/design/trip-hero.jpg"} alt={title} plain className={cn(panel ? "h-44" : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]")}>
         <div className={cn("absolute inset-x-0 bottom-0", pad, "pb-6")}>
           {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className="shadow-soft" />}
-          <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-background/85 px-2.5 py-1 text-[11px] font-medium capitalize text-foreground backdrop-blur">
-            <Sparkles className="h-3 w-3 text-coral" /> {d?.source ?? seed.source}
-          </span>
           <WordReveal
             text={title}
             as="h1"
             delay={0.1}
-            className="mt-2 font-display text-[1.7rem] leading-[1.1] [text-wrap:balance] drop-shadow-sm sm:text-4xl"
+            className="mt-3 font-display text-[1.7rem] leading-[1.1] [text-wrap:balance] drop-shadow-sm sm:text-4xl"
           />
           <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-soft">
             {dt && (
@@ -207,54 +216,59 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
             {/* Tickets — the primary action, up top */}
             {(ticketUrl || (d?.ticketOptions?.length ?? 0) > 0) && (
               <Reveal delay={0.04}>
-                <section className="rounded-2xl border border-coral/25 bg-gradient-to-br from-card to-coral-soft/40 p-5 shadow-soft">
-                  <h2 className="flex items-center gap-2 font-display text-lg">
-                    <Ticket className="h-4 w-4 text-coral" /> Tickets
-                  </h2>
-                  <div className="mt-3 flex flex-wrap items-center gap-3">
-                    {ticketUrl && (
-                      <Tactile lift={2} className="inline-flex">
-                        <a
-                          href={ticketUrl}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground"
-                        >
-                          <Ticket className="h-4 w-4" /> Get tickets{d?.source === "ticketmaster" ? " on Ticketmaster" : ""}
-                        </a>
-                      </Tactile>
+                <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
+                  <div className="border-l-2 border-coral p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <h2 className="flex items-center gap-2 font-display text-lg">
+                        <Ticket className="h-4 w-4 text-coral" /> Tickets
+                      </h2>
+                      {(d?.source || seed.source) && <ProviderBadge source={d?.source ?? seed.source} />}
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      {ticketUrl && (
+                        <Tactile lift={2} className="inline-flex">
+                          <a
+                            href={ticketUrl}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground"
+                          >
+                            <Ticket className="h-4 w-4" /> Get tickets
+                          </a>
+                        </Tactile>
+                      )}
+                      {(d?.ticketOptions ?? []).filter((o) => o.url !== ticketUrl).map((o) => (
+                        <ExternalLink key={o.url} href={o.url} className="text-sm">
+                          {o.label}
+                        </ExternalLink>
+                      ))}
+                    </div>
+                    {(d?.priceRange || onSale) && (
+                      <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+                        {d?.priceRange && (
+                          <div className="flex gap-2">
+                            <dt className="w-16 shrink-0 text-muted-foreground">Price</dt>
+                            <dd className="font-medium">{d.priceRange}</dd>
+                          </div>
+                        )}
+                        {onSale && (
+                          <div className="flex gap-2">
+                            <dt className="w-16 shrink-0 text-muted-foreground">On sale</dt>
+                            <dd className="font-medium">{onSale}</dd>
+                          </div>
+                        )}
+                      </dl>
                     )}
-                    {(d?.ticketOptions ?? []).filter((o) => o.url !== ticketUrl).map((o) => (
-                      <ExternalLink key={o.url} href={o.url} className="text-sm">
-                        {o.label}
-                      </ExternalLink>
-                    ))}
+                    <p className="mt-3 text-[11px] text-muted-foreground">Prices and availability change — confirm on the seller&rsquo;s page.</p>
                   </div>
-                  {(d?.priceRange || onSale) && (
-                    <dl className="mt-3 grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">
-                      {d?.priceRange && (
-                        <div className="flex gap-2">
-                          <dt className="w-20 shrink-0">Price</dt>
-                          <dd className="text-foreground">{d.priceRange}</dd>
-                        </div>
-                      )}
-                      {onSale && (
-                        <div className="flex gap-2">
-                          <dt className="w-20 shrink-0">On sale</dt>
-                          <dd className="text-foreground">{onSale}</dd>
-                        </div>
-                      )}
-                    </dl>
-                  )}
-                  <p className="mt-2 text-[11px] text-muted-foreground">Prices and availability change — confirm on the seller&rsquo;s page.</p>
                 </section>
               </Reveal>
             )}
 
             {/* About */}
-            {d?.about && (
+            {aboutText && (
               <Section title="About" delay={0.06}>
-                <p className="whitespace-pre-line text-[15px] leading-[1.85] text-ink-soft">{d.about}</p>
+                <p className="whitespace-pre-line text-[15px] leading-[1.85] text-ink-soft">{aboutText}</p>
               </Section>
             )}
 
@@ -310,7 +324,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                 <div className="flex gap-3">
                   <dt className="w-24 shrink-0 pt-0.5 text-muted-foreground">Venue</dt>
                   <dd>
-                    <span className="font-medium">{venueName ?? "See the ticket page"}</span>
+                    <span className="block font-medium">{venueName ?? "See the ticket page"}</span>
                     {d?.venueAddress ? <span className="block text-muted-foreground">{d.venueAddress}</span> : null}
                     {mapsUrl && <ExternalLink href={mapsUrl} className="mt-1 inline-flex text-sm">Open in Google Maps</ExternalLink>}
                   </dd>

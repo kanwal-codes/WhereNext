@@ -2,7 +2,8 @@
 
 import type { MouseEvent } from "react";
 import Link from "next/link";
-import { CalendarClock, MapPin } from "lucide-react";
+import { MapPin } from "lucide-react";
+import { EventPoster } from "@/components/EventPoster";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import { eventDetailHref } from "@/lib/places-ui";
 import { cn } from "@/lib/utils";
@@ -27,15 +28,13 @@ export function EventCard({ tripId, event, className }: { tripId: string; event:
       <Link
         href={href}
         onClick={open}
-        className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card text-left shadow-soft transition-shadow hover:shadow-lift"
+        className="flex h-full flex-col overflow-hidden rounded-2xl border border-border/70 bg-card text-left shadow-[0_1px_2px_color-mix(in_oklab,var(--color-ink)_6%,transparent)] transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-soft"
       >
       {event.imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element -- external event image
         <img src={event.imageUrl} alt={event.title} loading="lazy" width={280} height={128} className="h-32 w-full shrink-0 object-cover" />
       ) : (
-        <div className="grid h-32 w-full shrink-0 place-items-center bg-muted/50">
-          <CalendarClock className="h-6 w-6 text-muted-foreground/40" />
-        </div>
+        <EventPoster title={event.title} className="h-32 w-full shrink-0" />
       )}
       <div className="flex min-h-0 flex-1 flex-col gap-1.5 p-3.5">
         <span className="w-fit shrink-0 text-[10px] font-medium tracking-[0.12em] text-muted-foreground uppercase">{event.source}</span>

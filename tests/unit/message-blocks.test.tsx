@@ -53,7 +53,8 @@ describe("MessageBlocks", () => {
       { title: "Jazz Fest", url: "https://tm.example/jazz", date: "2026-09-12", venue: "Blue Note", source: "ticketmaster" },
     ] }]);
     expect(html).toContain("Jazz Fest");
-    expect(html).toContain("2026-09-12 · Blue Note");
+    expect(html).toContain("Sat, Sep 12"); // date is formatted for reading, venue shown alongside
+    expect(html).toContain("Blue Note");
     expect(html).toContain('href="https://tm.example/jazz"');
     expect(html).toMatch(/dates and availability can change/i);
   });
@@ -142,6 +143,20 @@ describe("MessageBlocks", () => {
     // the featured event is not repeated as a list row below the "More on…" header
     const listSection = html.slice(html.indexOf("More on"));
     expect(listSection).not.toContain("Michel Rivard");
+  });
+
+  it("events block: same act at the same venue on several nights collapses to one card with a date range", () => {
+    const html = render([{ type: "events", retrievedAt: "t", items: [
+      // Different provider spellings + a duplicate night — still one act.
+      { title: "Yebba", url: "https://tm/yebba-26", date: "2026-10-26", venue: "L'Olympia, Montreal", source: "ticketmaster" },
+      { title: "YEBBA at L Olympia", url: "https://phq/yebba-26", date: "2026-10-26", venue: "L'Olympia", source: "predicthq" },
+      { title: "YEBBA", url: "https://tm/yebba-27", date: "2026-10-27", venue: "L'Olympia", source: "ticketmaster" },
+      { title: "Some Other Act", url: "https://tm/other", date: "2026-10-28", venue: "Corona", source: "ticketmaster" },
+    ] }]);
+    expect((html.match(/Yebba|YEBBA/g) ?? [])).toHaveLength(1); // one card, not three
+    expect(html).toContain("Mon, Oct 26 – Tue, Oct 27"); // the date section shows the span
+    expect(html).not.toContain("· 3 dates"); // the duplicate night did not become a third date
+    expect(html).toContain("Some Other Act"); // a single-date act is untouched
   });
 
   it("events block: no side-panel opener without an onOpenEvent handler", () => {

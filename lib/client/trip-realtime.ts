@@ -7,6 +7,7 @@ import { getPublicEnv } from "@/lib/env";
 
 /** Which workspace slice a change to each published table maps to. */
 const TABLE_TO_CHANGE: Record<string, WorkspaceChange> = {
+  trips: "preferences",
   trip_itinerary_items: "itinerary",
   trip_places: "places",
   trip_preferences: "preferences",

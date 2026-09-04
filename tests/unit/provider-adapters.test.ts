@@ -105,7 +105,7 @@ describe("createAiGateway env resolution", () => {
     return createAiGateway({ provider: "gemini" }).generateText([{ role: "user", content: "hi" }]).then(() => {
       const [url, init] = fetchMock.mock.calls[0];
       expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
-      expect(JSON.parse(init.body as string).model).toBe("gemini-2.5-flash");
+      expect(JSON.parse(init.body as string).model).toBe("gemini-flash-latest");
       expect((init.headers as Record<string, string>).authorization).toBe("Bearer AIza-real");
       delete process.env.GEMINI_API_KEY;
     });

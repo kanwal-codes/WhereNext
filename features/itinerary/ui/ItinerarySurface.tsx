@@ -6,6 +6,7 @@ import { ArrowDown, ArrowUp, BedDouble, GripVertical, Lock, LockOpen, MapPin, Pl
 import type { ItineraryItem } from "@/features/itinerary/domain/item";
 import type { StayDecision } from "@/packages/contracts/stay";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
+import { notifyToast } from "@/lib/application/toast";
 import { cn } from "@/lib/utils";
 
 const fmtDay = (iso: string) => {
@@ -40,7 +41,6 @@ export function ItinerarySurface({
   const [title, setTitle] = useState("");
   const [day, setDay] = useState(1);
   const [removed, setRemoved] = useState<ItineraryItem | null>(null);
-  const [error, setError] = useState("");
   const [dragTitle, setDragTitle] = useState<string | null>(null);
   const [dropHint, setDropHint] = useState<string | null>(null); // `${day}:${beforeTitle ?? "end"}`
 
@@ -49,7 +49,7 @@ export function ItinerarySurface({
     fetch(`/api/trips/${tripId}/itinerary`)
       .then((r) => r.json())
       .then((body) => setItems(body.items ?? []))
-      .catch(() => setError("Itinerary could not load."));
+      .catch(() => notifyToast("Couldn’t load the itinerary.", "error"));
   }, [tripId, initialItems]);
 
   const patch = async (body: Record<string, unknown>, optimistic: (list: ItineraryItem[]) => ItineraryItem[]) => {
@@ -59,7 +59,7 @@ export function ItinerarySurface({
     if (r.ok) announceWorkspaceChange("itinerary");
     else {
       setItems(previous);
-      setError(r.status === 409 ? "Unlock the item first." : "That change could not be saved.");
+      notifyToast(r.status === 409 ? "Unlock the item first." : "That change couldn’t be saved.", "error");
     }
   };
 
@@ -72,11 +72,11 @@ export function ItinerarySurface({
       setItems((cur) => (cur.some((i) => i.title === body.item.title) ? cur : [...cur, body.item]));
       setTitle("");
       announceWorkspaceChange("itinerary");
-    } else setError("Item could not be added.");
+    } else notifyToast("Couldn’t add that item.", "error");
   }
 
   const move = (item: ItineraryItem, dir: -1 | 1) => {
-    if (item.metadata?.locked) return setError("Unlock the item first.");
+    if (item.metadata?.locked) return notifyToast("Unlock the item first.", "error");
     const next = Math.max(1, item.day_index + dir);
     if (next === item.day_index) return;
     reorder(item.title, next, null);
@@ -93,7 +93,7 @@ export function ItinerarySurface({
   function reorder(movedTitle: string, toDay: number, beforeTitle: string | null) {
     const moved = items.find((i) => i.title === movedTitle);
     if (!moved || moved.metadata?.locked === true) {
-      setError("Unlock the item first.");
+      notifyToast("Unlock the item first.", "error");
       return;
     }
     const fromDay = moved.day_index;
@@ -114,7 +114,7 @@ export function ItinerarySurface({
   }
 
   async function remove(item: ItineraryItem) {
-    if (item.metadata?.locked) return setError("Unlock the item first.");
+    if (item.metadata?.locked) return notifyToast("Unlock the item first.", "error");
     const previous = items;
     setItems((cur) => cur.filter((c) => c.id !== item.id));
     setRemoved(item);
@@ -123,7 +123,7 @@ export function ItinerarySurface({
     else {
       setItems(previous);
       setRemoved(null);
-      setError("Item could not be removed.");
+      notifyToast("Couldn’t remove that item.", "error");
     }
   }
 
@@ -134,7 +134,7 @@ export function ItinerarySurface({
     if (r.ok) {
       setItems((cur) => [...cur, item]);
       announceWorkspaceChange("itinerary");
-    } else setError("Item could not be restored.");
+    } else notifyToast("Couldn’t restore that item.", "error");
     setRemoved(null);
   }
 
@@ -333,7 +333,6 @@ export function ItinerarySurface({
           </button>
         </p>
       )}
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     </div>
   );
 }

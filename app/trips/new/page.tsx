@@ -6,7 +6,7 @@ import { Reveal } from "@/components/motion-primitives";
 
 export const metadata = {
   title: "Create a trip — Where next?",
-  description: "Start with a trip name and a destination. Everything else comes out of the conversation.",
+  description: "Start with a conversation. Your trip takes shape as you talk.",
 };
 
 export default async function NewTripPage() {
@@ -28,11 +28,11 @@ export default async function NewTripPage() {
         <Reveal>
           <p className="eyebrow mt-8">New trip</p>
           <h1 className="mt-3 max-w-lg font-display text-4xl leading-[1.15]">
-            A few things to start. The rest is a conversation.
+            Start with a feeling. We&rsquo;ll find the trip.
           </h1>
           <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-            Only a name and a destination are required. Everything you add here just gives the
-            assistant a head start.
+            No form to finish first. Tell Muse what&rsquo;s on your mind and shape the details when
+            you&rsquo;re ready.
           </p>
         </Reveal>
 

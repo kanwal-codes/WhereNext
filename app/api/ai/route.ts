@@ -31,6 +31,7 @@ import { sanitizeAssistantContent } from "@/lib/application/sanitize-assistant";
 import { withTripAiStream } from "@/lib/server/trip-ai-queue";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 import { recordAiTurn } from "@/lib/server/ai-turn-trace";
+import { tripDurationDays } from "@/features/trip/domain/trip";
 
 const SSE_HEADERS = { "content-type": "text/event-stream", "cache-control": "no-cache, no-transform", "x-accel-buffering": "no" };
 const PLACE_INTENTS = new Set(["discovery", "nightlife", "food", "activities", "history_culture", "stays", "compare"]);
@@ -121,13 +122,13 @@ export const POST = withRoute(async function POST(request: Request) {
 
   try {
     // Context, thread summary and the stored transcript are independent — one round-trip.
-    const [tripCtx, threadRow, storedMessages] = await Promise.all([
+    let [tripCtx, threadRow, storedMessages] = await Promise.all([
       loadTripContext(supabase, tripId),
       supabase.from("conversation_threads").select("summary").eq("trip_id", tripId).maybeSingle(),
       createConversationRepository(supabase).list(tripId),
     ]);
     const context = serializeTripContext(tripCtx);
-    const destination = tripCtx.trip?.destination ?? "the trip destination";
+    let destination = tripCtx.trip?.destination ?? "the trip destination";
     const threadSummary = (threadRow.data?.summary as string | null) ?? "";
     const tripSummary = [formatTripMemory(tripCtx), threadSummary && `Earlier in this conversation: ${threadSummary}`].filter(Boolean).join(" ");
     const prompt = parsed.data.messages.at(-1)?.content ?? "";
@@ -165,6 +166,33 @@ export const POST = withRoute(async function POST(request: Request) {
 
     // --- RESOLVE ---------------------------------------------------------------
     const resolved = await resolveTurn({ message: prompt, history: modelMessages, tripSummary, viewContext, signal: request.signal });
+    // Persist explicit core trip facts while this request is still active. This keeps the
+    // canonical trip row, the cached workspace, and the assistant's same-turn retrieval in sync.
+    const tripUpdate = resolved.proposedTripUpdate;
+    if (tripUpdate && Object.keys(tripUpdate).length > 0) {
+      const update: Record<string, unknown> = {};
+      if (tripUpdate.name !== undefined) update.name = tripUpdate.name;
+      if (tripUpdate.destination !== undefined) update.destination = tripUpdate.destination;
+      if (tripUpdate.origin !== undefined) update.origin = tripUpdate.origin;
+      if (tripUpdate.travelerCount !== undefined) update.travelers = tripUpdate.travelerCount;
+      if (tripUpdate.startDate !== undefined || tripUpdate.endDate !== undefined) {
+        const current = tripCtx.trip;
+        const start = tripUpdate.startDate !== undefined ? tripUpdate.startDate : current?.start_date ?? null;
+        const end = tripUpdate.endDate !== undefined ? tripUpdate.endDate : current?.end_date ?? null;
+        if (start && end && end < start) throw new Error("The trip dates are out of order");
+        update.start_date = start;
+        update.end_date = end;
+        const duration = tripDurationDays(start, end);
+        if (duration) update.duration_days = duration;
+      }
+      if (Object.keys(update).length > 0) {
+        const result = await supabase.from("trips").update(update).eq("id", tripId).select("id").single();
+        if (result.error) throw result.error;
+        invalidateWorkspace(tripId);
+        tripCtx = await loadTripContext(supabase, tripId);
+        destination = tripCtx.trip?.destination ?? "the trip destination";
+      }
+    }
     // Which structured builders this turn asked for. Dispatch is "for each capability, run its
     // builder" — a new feature is a menu entry + a builder, nothing to wire here.
     const caps = new Set(resolved.capabilities);
@@ -173,6 +201,26 @@ export const POST = withRoute(async function POST(request: Request) {
     logger.debug({ resolved }, "resolve");
     const language = resolved.language;
     const locationFocus = resolved.locationFocus ?? destination;
+
+    // --- OUT OF SCOPE ------------------------------------------------------
+    // No connection to travel or this trip. Decline in one line and stop — no retrieve, no
+    // compose, so there's nothing to jailbreak into doing homework / coding / general chat.
+    if (resolved.outOfScope) {
+      const meta: AssistantTurnMeta = {
+        language,
+        locationFocus: resolved.locationFocus,
+        surface: "chat",
+        blocks: [],
+        sources: [],
+        suggestedFollowups: [],
+        unavailableProviders: [],
+      };
+      const deflection = `That one's outside what I do — I'm here to help plan and get the most out of your ${destination} trip. Ask me about places, food, getting around, what to book, or anything to do while you're there.`;
+      return new Response(
+        persistedAssistantStream(cannedStream(deflection), supabase, tripId, idempotencyKey, undefined, meta),
+        { headers: SSE_HEADERS },
+      );
+    }
 
     // --- CLARIFY -------------------------------------------------------------
     if (resolved.clarify) {

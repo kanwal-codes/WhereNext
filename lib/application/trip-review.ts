@@ -93,7 +93,7 @@ export function reviewTrip(ctx: Pick<TripContext, "trip" | "preferences" | "itin
 
   // 5. Getting there — origin differs and nothing decided.
   const origin = (trip.origin ?? "").trim();
-  if (soon && origin && origin.toLowerCase() !== trip.destination.toLowerCase() && !kinds.has("transport") && !kinds.has("flight")) {
+  if (soon && origin && trip.destination && origin.toLowerCase() !== trip.destination.toLowerCase() && !kinds.has("transport") && !kinds.has("flight")) {
     findings.push({
       id: "transport-missing",
       kind: "transport",
