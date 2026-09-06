@@ -58,7 +58,7 @@ const toStayItem = (o: Record<string, unknown>): StayItem => ({
   rating: typeof o.rating === "number" ? o.rating : null,
 });
 
-export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; initialSaved?: Array<Record<string, unknown>> }) {
+export function DiscoverySurface({ tripId, initialSaved, initialQuery }: { tripId: string; initialSaved?: Array<Record<string, unknown>>; initialQuery?: string }) {
   const { data } = useTripData();
   const panelCtx = useTripPanelMaybe();
   const destination = data?.trip.destination?.trim() ?? "";
@@ -174,7 +174,9 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
     // Not keyed on saved places: the digest's *membership* doesn't change when you
     // shortlist something (only its ordering would), so tabbing away and back stays
     // instant instead of re-hitting five providers. 30-min TTL keeps events fresh.
-    const cacheKey = `discover:${tripId}:${destination}:${interestsKey}`;
+    // dislikesKey is part of the key, not just the ranking, so a newly-stated dislike takes
+    // effect immediately instead of waiting out a cached digest that was built before it existed.
+    const cacheKey = `discover:${tripId}:${destination}:${interestsKey}:${dislikesKey}`;
     try {
       const raw = sessionStorage.getItem(cacheKey);
       if (raw) {
@@ -208,7 +210,7 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
     try { sessionStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), bands: next })); } catch { /* ignore */ }
     setLoading(false);
     setMessage(next.length ? "" : "Nothing came back just now. Try a search or a different category.");
-  }, [fetchPlaces, fetchEvents, fetchStays, interests, interestsKey, destination, tripId, rankToItems]);
+  }, [fetchPlaces, fetchEvents, fetchStays, interests, interestsKey, dislikesKey, destination, tripId, rankToItems]);
 
   const loadMoreEvents = useCallback(async () => {
     if (eventsLoading.current || !eventsHasMore.current || !destination) return;
@@ -310,6 +312,17 @@ export function DiscoverySurface({ tripId, initialSaved }: { tripId: string; ini
     },
     [fetchPlaces, fetchEvents, destination, rankToItems],
   );
+
+  // Arriving from a "See more" elsewhere (a place's nearby recommendations) — run that
+  // lane's own query here instead of landing on the generic mixed feed.
+  const ranInitialQuery = useRef(false);
+  useEffect(() => {
+    if (!initialQuery || ranInitialQuery.current) return;
+    ranInitialQuery.current = true;
+    void runSearch(initialQuery);
+    setSearchLabel(initialQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once for the query the page mounted with
+  }, [initialQuery]);
 
   // Drive the feed from the active filter.
   useEffect(() => {

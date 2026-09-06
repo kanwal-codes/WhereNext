@@ -29,7 +29,7 @@ type Body = {
 export function useStayDetails(
   tripId: string,
   hotelId: string,
-  dates: { checkin?: string; checkout?: string; adults?: number } = {},
+  dates: { checkin?: string; checkout?: string; adults?: number; rooms?: number } = {},
 ) {
   const { data } = useTripData();
   const [body, setBody] = useState<Body | null>(null);
@@ -45,6 +45,7 @@ export function useStayDetails(
     if (dates.checkin) qs.set("checkin", dates.checkin);
     if (dates.checkout) qs.set("checkout", dates.checkout);
     if (dates.adults) qs.set("adults", String(dates.adults));
+    if (dates.rooms) qs.set("rooms", String(dates.rooms));
     // One fetch per hotel+dates per session — re-opening the same stay (or bouncing
     // between the panel and the full page) shouldn't re-pull hotel/rooms/reviews.
     const cacheKey = `stay-details:${tripId}:${hotelId}:${qs.toString()}`;
@@ -74,7 +75,7 @@ export function useStayDetails(
         setState("error");
       });
     return () => controller.abort();
-  }, [tripId, hotelId, dates.checkin, dates.checkout, dates.adults]);
+  }, [tripId, hotelId, dates.checkin, dates.checkout, dates.adults, dates.rooms]);
 
   async function lockRoom(room: StayRoom) {
     if (!body || busy) return;

@@ -37,6 +37,12 @@ describe("resolveTurn", () => {
     expect(resolved.toolPlan[0]).toMatchObject({ tool: "search_places", location: "Shanghai" });
   });
 
+  it("reports which model actually produced the plan, for the turn trace", async () => {
+    mockModel(JSON.stringify({ locationFocus: "Kyoto" }));
+    const resolved = await resolveTurn({ message: "hi", history: [], tripSummary: "" });
+    expect(resolved.modelUsed).toBe("gpt-4o"); // openai-compatible's default when AI_MODEL isn't set
+  });
+
   it("fills defaults for a sparse response", async () => {
     mockModel(JSON.stringify({ locationFocus: "Kyoto" }));
     const resolved = await resolveTurn({ message: "hi", history: [], tripSummary: "" });
@@ -60,6 +66,21 @@ describe("resolveTurn", () => {
     mockModel(JSON.stringify({ language: "en", toolPlan: [{ tool: "search_places" }] }));
     const resolved = await resolveTurn({ message: "x", history: [], tripSummary: "" });
     expect(resolved.toolPlan).toEqual([]);
+  });
+
+  it("keeps up to six valid tool calls so multi-topic requests can render sections", async () => {
+    mockModel(JSON.stringify({ language: "en", intent: "discovery", toolPlan: [
+      { tool: "search_places", query: "food", location: "Montreal" },
+      { tool: "search_places", query: "art museums", location: "Montreal" },
+      { tool: "search_places", query: "parks", location: "Montreal" },
+      { tool: "events", query: "concerts", location: "Montreal", category: "concerts" },
+      { tool: "weather", location: "Montreal" },
+      { tool: "research_web", query: "Montreal travel essentials" },
+      { tool: "search_places", query: "shopping", location: "Montreal" },
+    ] }));
+    const resolved = await resolveTurn({ message: "food, museums, parks, concerts and weather", history: [], tripSummary: "" });
+    expect(resolved.toolPlan).toHaveLength(6);
+    expect(resolved.toolPlan[3]).toMatchObject({ tool: "events", category: "concerts" });
   });
 
   it("parses a directions tool call", async () => {

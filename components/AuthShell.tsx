@@ -28,12 +28,14 @@ export function AuthShell({
   className?: string;
 }) {
   return (
-    <div className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
+    <div className="theme-light-scope grid min-h-screen bg-background text-foreground [color-scheme:light] lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
       <div className="relative flex flex-col px-5 py-8 sm:px-10 lg:px-14">
-        <Link href="/" className="inline-flex w-fit items-center gap-2 text-sm">
-          <BrandMark variant="compact" />
-          <BrandMark variant="text" />
-        </Link>
+        <div className="flex items-center justify-between gap-2">
+          <Link href="/" className="inline-flex w-fit items-center gap-2 text-sm">
+            <BrandMark variant="compact" />
+            <BrandMark variant="text" />
+          </Link>
+        </div>
 
         <div className="flex flex-1 items-center py-10">
           <div className={cn("w-full max-w-md", className)}>

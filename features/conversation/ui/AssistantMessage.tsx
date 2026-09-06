@@ -3,15 +3,10 @@ import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 import { MessageBlocks, type BlockHandlers } from "./blocks/MessageBlocks";
+import { isProxyPhotoUrl, portableProxyPhotoUrl } from "./portable-photo-url";
 
 export type { BlockHandlers };
-
-// Same shape enforced by the server photo proxy: /api/trips/<uuid>/places/google/photo?name=...
-const PROXY_PHOTO_URL = /^(?:https?:\/\/[^/\s]+)?\/api\/trips\/[0-9a-f-]{36}\/places\/google\/photo\?name=.+/i;
-
-export function isProxyPhotoUrl(src: unknown): src is string {
-  return typeof src === "string" && PROXY_PHOTO_URL.test(src);
-}
+export { isProxyPhotoUrl, portableProxyPhotoUrl } from "./portable-photo-url";
 
 // Markdown produced by the model. Raw HTML is dropped; only these tags render.
 const ALLOWED_ELEMENTS = [
@@ -34,9 +29,10 @@ const components: Components = {
       : <>{children}</>;
   },
   img({ src, alt }) {
-    if (!isProxyPhotoUrl(src)) return null;
+    const portableSrc = portableProxyPhotoUrl(src);
+    if (!portableSrc) return null;
     // eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin proxy; next/image can't size a remote proxy
-    return <img src={src} alt={alt || "Place photo"} width={640} height={400} loading="lazy" className="chat-photo" />;
+    return <img src={portableSrc} alt={alt || "Place photo"} width={640} height={400} loading="lazy" className="chat-photo" />;
   },
 };
 

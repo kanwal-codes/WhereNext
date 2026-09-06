@@ -1,7 +1,7 @@
 export type AiMessage = { role: "system" | "user" | "assistant"; content: string };
 import { OpenAiCompatibleProvider } from "./providers/openai-compatible";
 
-export type AiProviderName = "openai" | "openai-compatible" | "cerebras" | "gemini";
+export type AiProviderName = "openai" | "openai-compatible" | "cerebras" | "gemini" | "openrouter";
 
 // `||` not `??` everywhere below: the env template ships these keys blank, and an
 // empty string must fall through to the default, not count as a real value.
@@ -33,6 +33,15 @@ const PROVIDERS: Record<AiProviderName, { baseUrl: string; key: () => string | u
     defaultModel: "gemini-flash-latest",
     reasoning: false,
     envHint: "GEMINI_API_KEY",
+  },
+  openrouter: {
+    // OpenRouter speaks the same OpenAI-compatible chat-completions shape; model ids are
+    // "vendor/model", e.g. "anthropic/claude-sonnet-4.5" — set AI_MODEL to pick one.
+    baseUrl: "https://openrouter.ai/api/v1",
+    key: () => process.env.OPENROUTER_API_KEY,
+    defaultModel: "anthropic/claude-sonnet-4.5",
+    reasoning: false,
+    envHint: "OPENROUTER_API_KEY",
   },
 };
 
@@ -106,12 +115,18 @@ const isAbort = (error: unknown) =>
 /** A gateway that transparently fails over across `resolveProviderChain()` on a provider error
  *  (network, 401/403/429, 5xx). A 4xx that another provider can't fix, and aborts, propagate. */
 export function createGatewayWithFallback(overrides: { model?: string } = {}) {
-  const providers = resolveProviderChain(overrides).map((r) => new OpenAiCompatibleProvider(r));
+  const resolved = resolveProviderChain(overrides);
+  const providers = resolved.map((r) => new OpenAiCompatibleProvider(r));
+  // Which provider in the chain actually answered the last call — the trace's whole point
+  // is to say what really ran, not what was merely configured as the primary.
+  let lastModelUsed: string | undefined;
   async function withFailover<T>(op: (p: OpenAiCompatibleProvider) => Promise<T>): Promise<T> {
     let lastError: unknown;
     for (let i = 0; i < providers.length; i += 1) {
       try {
-        return await op(providers[i]);
+        const result = await op(providers[i]);
+        lastModelUsed = resolved[i].model;
+        return result;
       } catch (error) {
         if (isAbort(error)) throw error;
         const status = (error as { status?: number })?.status;
@@ -126,6 +141,7 @@ export function createGatewayWithFallback(overrides: { model?: string } = {}) {
     generateText: (...args: Parameters<OpenAiCompatibleProvider["generateText"]>) => withFailover((p) => p.generateText(...args)),
     generateStructured: (...args: Parameters<OpenAiCompatibleProvider["generateStructured"]>) => withFailover((p) => p.generateStructured(...args)),
     stream: (...args: Parameters<OpenAiCompatibleProvider["stream"]>) => withFailover((p) => p.stream(...args)),
+    get lastModelUsed() { return lastModelUsed; },
   };
 }
 

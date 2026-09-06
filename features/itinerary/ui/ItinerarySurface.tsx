@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowDown, ArrowUp, BedDouble, GripVertical, Lock, LockOpen, MapPin, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight, BedDouble, GripVertical, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
 import type { ItineraryItem } from "@/features/itinerary/domain/item";
 import type { StayDecision } from "@/packages/contracts/stay";
+import { useTripPanel } from "@/components/TripPanelProvider";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,7 @@ export function ItinerarySurface({
   startDate?: string | null;
   lockedStay?: StayDecision | null;
 }) {
+  const { openPanel } = useTripPanel();
   const [items, setItems] = useState<ItineraryItem[]>((initialItems ?? []) as ItineraryItem[]);
   const [title, setTitle] = useState("");
   const [day, setDay] = useState(1);
@@ -248,6 +250,7 @@ export function ItinerarySurface({
                 {dayItems.map((item) => {
                   const locked = item.metadata?.locked === true;
                   const hint = dropHint === `${d}:${item.title}`;
+                  const providerId = typeof item.metadata?.provider_id === "string" ? item.metadata.provider_id : null;
                   return (
                     <motion.div
                       key={item.id}
@@ -270,12 +273,12 @@ export function ItinerarySurface({
                         onDropAt(d, item.title);
                       }}
                     >
-                      <span className="absolute top-4 -left-6 grid h-4 w-4 place-items-center rounded-full border border-border bg-background">
+                      <span className="absolute top-1/2 -left-6 grid h-4 w-4 -translate-y-1/2 place-items-center rounded-full border border-border bg-background">
                         <span className={cn("h-1.5 w-1.5 rounded-full", locked ? "bg-leaf" : "bg-coral")} />
                       </span>
                       <div
                         className={cn(
-                          "grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 rounded-2xl border bg-card px-3 py-3 shadow-soft transition-colors",
+                          "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border bg-card px-3 py-3 shadow-soft transition-colors",
                           hint ? "border-coral" : "border-border",
                         )}
                       >
@@ -288,17 +291,24 @@ export function ItinerarySurface({
                             setDragTitle(null);
                             setDropHint(null);
                           }}
-                          className={cn("mt-0.5 cursor-grab rounded p-1 text-muted-foreground active:cursor-grabbing", locked && "cursor-not-allowed opacity-30")}
+                          className={cn("cursor-grab rounded p-1 text-muted-foreground active:cursor-grabbing", locked && "cursor-not-allowed opacity-30")}
                         >
                           <GripVertical className="h-3.5 w-3.5" />
                         </button>
                         <div className="min-w-0">
                           <p className="flex items-center gap-2 text-sm font-medium">
-                            <span className="truncate">{item.title}</span>
+                            {providerId ? (
+                              <button
+                                type="button"
+                                onClick={() => openPanel({ kind: "place", placeId: providerId, name: item.title })}
+                                className="truncate text-left hover:text-coral hover:underline"
+                              >
+                                {item.title} <ArrowUpRight className="inline h-3 w-3 align-[-1px] text-muted-foreground" />
+                              </button>
+                            ) : (
+                              <span className="truncate">{item.title}</span>
+                            )}
                             {locked && <Lock className="h-3 w-3 shrink-0 text-leaf" />}
-                          </p>
-                          <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <MapPin className="h-3 w-3 shrink-0" /> Day {item.day_index}
                           </p>
                         </div>
                         <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">

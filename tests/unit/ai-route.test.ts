@@ -14,7 +14,7 @@ const retrieveEvidenceMock = vi.fn();
 const { compose, streamTextMock, composeChainRef } = vi.hoisted(() => {
   const compose: { text: string; error?: Error; toolCall?: { name: string; args: Record<string, unknown> }; failFirstN: number } = { text: "Here are some verified clubs.", failFirstN: 0 };
   // Tests can swap in a multi-model chain to exercise the COMPOSE fallback loop.
-  const composeChainRef: { models: Array<{ model: unknown; providerOptions?: unknown }> } = { models: [{ model: { mock: true } }] };
+  const composeChainRef: { models: Array<{ model: unknown; providerOptions?: unknown; modelId?: string }> } = { models: [{ model: { mock: true } }] };
   const streamTextMock = vi.fn((opts: { tools: Record<string, { execute: (a: unknown, c: unknown) => Promise<unknown> }> }) => ({
     textStream: (async function* () {
       if (compose.failFirstN > 0) { compose.failFirstN -= 1; throw new Error("compose model chunk failed"); }
@@ -124,6 +124,28 @@ describe("POST /api/ai", () => {
     const appendArgs = appendSpy.mock.calls.at(-1)![1] as { content: string; metadata: { blocks: unknown[] } };
     expect(appendArgs.metadata.blocks).toHaveLength(2);
     expect(appendArgs.content).toContain("verified clubs");
+  });
+
+  it("keeps place cards for a food request that also mentions a named event, since intent isn't 'events'", async () => {
+    resolveTurnMock.mockResolvedValue({
+      language: "en", locationFocus: "Shanghai", intent: "food", wantsComparison: false,
+      toolPlan: [
+        { tool: "search_places", query: "restaurants", location: "Shanghai" },
+        { tool: "events", query: "", location: "Shanghai", artist: "Bruno Mars" },
+      ],
+      clarify: null, suggestedFollowups: [], proposedProfileUpdate: null,
+    });
+    retrieveEvidenceMock.mockResolvedValue({
+      places: [{ provider: "google-places", providerId: "p1", name: "Fu 1088", category: "restaurant", latitude: 31.2, longitude: 121.4, address: "Jing'an", sourceUrl: null }],
+      sources: [], weather: null, routes: [],
+      events: [{ title: "Bruno Mars", url: "https://tm.example/bm", source: "ticketmaster" }],
+      flights: [], stays: [], unavailableProviders: [], retrievedAt: "2026-09-02T00:00:00Z",
+    });
+    const response = await post();
+    const { meta } = await readMeta(response);
+    const types = (meta!.blocks as Array<{ type: string }>).map((b) => b.type);
+    expect(types).toContain("place_list");
+    expect(types).toContain("events");
   });
 
   it("photo requests always include a places lookup", async () => {
@@ -424,6 +446,22 @@ describe("POST /api/ai", () => {
     const { body } = await readMeta(response);
     expect(body).toContain("verified clubs");
     expect(streamTextMock).toHaveBeenCalledTimes(2); // primary threw, fallback produced the stream
+  });
+
+  it("traces which model actually answered the turn, not just the configured primary", async () => {
+    resolveTurnMock.mockResolvedValue({
+      language: "en", locationFocus: "Shanghai", intent: "nightlife", wantsComparison: false,
+      toolPlan: [{ tool: "search_places", query: "nightclubs", location: "Shanghai" }],
+      clarify: null, suggestedFollowups: [], proposedProfileUpdate: null,
+      modelUsed: "resolve-fallback-model",
+    });
+    composeChainRef.models = [{ model: { id: "primary" }, modelId: "primary-model" }, { model: { id: "fallback" }, modelId: "fallback-model" }];
+    compose.failFirstN = 1;
+    retrieveEvidenceMock.mockResolvedValue({ places: [{ provider: "g", providerId: "p", name: "X", category: null, latitude: 1, longitude: 1, address: null, sourceUrl: null }], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" });
+    await readMeta(await post());
+    const traceRow = (insertSpy.mock.calls.at(-1) as unknown as unknown[] | undefined)?.[0] as { model_resolve?: string; model_compose?: string } | undefined;
+    expect(traceRow?.model_resolve).toBe("resolve-fallback-model");
+    expect(traceRow?.model_compose).toBe("fallback-model"); // the primary threw — this is what really answered
   });
 
   it("surfaces a 5xx when every model in the COMPOSE chain fails", async () => {

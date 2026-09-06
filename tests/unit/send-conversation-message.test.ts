@@ -32,6 +32,40 @@ describe("sendConversationMessage", () => {
     expect(content).toBe("hello");
   });
 
+  it("reuses a caller-supplied idempotency key instead of minting a fresh one — a retry must collapse into the original row, not duplicate it", async () => {
+    const bodies: string[] = [];
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url.includes("/conversation")) {
+        bodies.push(String(init?.body));
+        return Promise.resolve(new Response("{}", { status: 201 }));
+      }
+      return Promise.resolve(new Response("data: [DONE]\n\n", { status: 200 }));
+    }));
+    const fixedKey = "retry-fixed-key";
+    // First attempt and a simulated retry both pass the SAME key, as ConversationSurface's
+    // retry button now does — the server upserts on (thread, idempotency_key).
+    await sendConversationMessage({ tripId: "trip", content: "Hello", idempotencyKey: fixedKey, onUserSaved: vi.fn(), onAssistantStart: vi.fn(), onAssistantDelta: vi.fn() }).catch(() => undefined);
+    await sendConversationMessage({ tripId: "trip", content: "Hello", idempotencyKey: fixedKey, onUserSaved: vi.fn(), onAssistantStart: vi.fn(), onAssistantDelta: vi.fn() }).catch(() => undefined);
+    expect(bodies).toHaveLength(2);
+    const keys = bodies.map((b) => (JSON.parse(b) as { idempotencyKey: string }).idempotencyKey);
+    expect(keys).toEqual([fixedKey, fixedKey]);
+  });
+
+  it("mints its own key when the caller doesn't supply one", async () => {
+    const bodies: string[] = [];
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url.includes("/conversation")) {
+        bodies.push(String(init?.body));
+        return Promise.resolve(new Response("{}", { status: 201 }));
+      }
+      return Promise.resolve(new Response("data: [DONE]\n\n", { status: 200 }));
+    }));
+    await sendConversationMessage({ tripId: "trip", content: "Hello", onUserSaved: vi.fn(), onAssistantStart: vi.fn(), onAssistantDelta: vi.fn() }).catch(() => undefined);
+    const key = (JSON.parse(bodies[0]) as { idempotencyKey: string }).idempotencyKey;
+    expect(typeof key).toBe("string");
+    expect(key.length).toBeGreaterThan(0);
+  });
+
   it("does not call AI when the user message cannot be persisted", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response("save failed", { status: 500 }));
     vi.stubGlobal("fetch", fetchMock);

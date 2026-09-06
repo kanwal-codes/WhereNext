@@ -35,6 +35,8 @@ export function withDeadline(signal: AbortSignal | undefined, ms: number): Abort
   return signal ? AbortSignal.any([signal, timeout]) : timeout;
 }
 
+export function gatewayFor(role: "resolve" | "compose"): ReturnType<typeof createGatewayWithFallback>;
+export function gatewayFor(role: "bulk"): ReturnType<typeof createBulkGateway>;
 export function gatewayFor(role: ModelRole) {
   switch (role) {
     case "resolve":

@@ -19,6 +19,7 @@ export const aiSearchDirectiveSchema = z.object({
   priceMax: z.number().positive().max(100000).optional().catch(undefined),
   stars: z.array(z.number().int().min(1).max(5)).optional().catch(undefined),
   boards: z.array(z.string().max(40)).optional().catch(undefined),
+  propertyTypes: z.array(z.string().max(40)).optional().catch(undefined),
   refundable: z.boolean().optional().catch(undefined),
   sort: z.enum(["price", "rating", "stars"]).optional().catch(undefined),
   adults: z.number().int().min(1).max(24).optional().catch(undefined),
@@ -36,7 +37,8 @@ Always include a short "interpretation" (max ~15 words) restating what you under
 Trip destination: ${ctx.destination || "unknown"}.
 Keys you may use:
 - location: a specific place the hotel should be near ("near Palais des congrès", "close to YUL airport", "walking distance to the old town"). Put the place name here, add the city if the sentence implies it.
-- priceMax (number, nightly), stars (array 1-5), refundable (boolean), sort ("price" | "rating" | "stars"), adults (int), rooms (int), boards (array like ["Breakfast included"]).`;
+- priceMax (number, nightly), stars (array 1-5), refundable (boolean), sort ("price" | "rating" | "stars"), adults (int), rooms (int), boards (array like ["Breakfast included"]).
+- propertyTypes (array like ["Apartment", "Villa", "Guest house"]) — only when they name a stay type instead of "hotel".`;
   }
   if (scope === "discover") {
     return `${common}

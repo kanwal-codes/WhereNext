@@ -42,13 +42,15 @@ export function persistedAssistantStream(
         absorb(parser.flush());
         const clean = stripReasoning(assistant);
         const finalText = sanitize ? sanitize(clean) : clean;
+        let persistFailed = false;
         if (finalText || meta) {
           try {
             await createConversationRepository(supabase).append(tripId, { role: "assistant", content: finalText, idempotencyKey, metadata: meta ?? {} });
           } catch (error) {
             // Persistence failed (DB error, or a revalidate call landing outside a request
-            // context). The client still gets its answer + blocks from the meta frame below;
-            // never let a write problem turn a good answer into "the assistant couldn't reply".
+            // context). The client still gets its answer + blocks from the meta frame below —
+            // but flagged, so it renders as "not saved" rather than a good answer gone quiet.
+            persistFailed = true;
             logger.error({ err: error, tripId }, "assistant turn persist failed");
           }
         }
@@ -59,7 +61,7 @@ export function persistedAssistantStream(
         }
         // The final frame carries the sanitized text too, so the client can settle on the persisted
         // content without refetching the conversation.
-        if (meta) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ meta, content: finalText })}\n\n`));
+        if (meta) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ meta: persistFailed ? { ...meta, persistFailed } : meta, content: finalText })}\n\n`));
         controller.close();
         return;
       }

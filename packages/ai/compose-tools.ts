@@ -61,11 +61,11 @@ export function buildComposeTools(deps: ComposeToolDeps) {
 
   const tools = {
     search_places: tool({
-      description: "Find venues/activities within a place (restaurants, bars, museums, sights, clubs). Use for follow-ups the evidence below doesn't already cover.",
+      description: "Find real places through Google Maps/Places (including rental shops, car/bike/equipment rentals, restaurants, bars, museums, sights, and clubs). Use for follow-ups the evidence below doesn't already cover.",
       inputSchema: z.object({ query: z.string().min(1).max(200), location: z.string().min(1).max(200) }),
       execute: async ({ query, location }) => {
         const ev = await run({ tool: "search_places", query, location: deps.qualify(location) });
-        return ev.places.slice(0, 6).map((p) => ({ name: p.name, category: p.category, address: p.address, rating: p.rating }));
+        return ev.places.slice(0, 6).map((p) => ({ name: p.name, category: p.category, address: p.address, phone: p.phone, website: p.websiteUri, rating: p.rating }));
       },
     }),
     research_web: tool({
@@ -97,7 +97,7 @@ export function buildComposeTools(deps: ComposeToolDeps) {
       inputSchema: z.object({ origin: z.string().min(1).max(120), destination: z.string().min(1).max(120), departureDate: isoDate.optional() }),
       execute: async ({ origin, destination, departureDate }) => {
         const ev = await run({ tool: "flights", origin, destination, departureDate: departureDate ?? deps.tripStart });
-        return ev.flights.flatMap((f) => f.offers.slice(0, 5).map((o) => ({ airline: o.airline, price: `${o.priceAmount} ${o.priceCurrency}`, stops: o.stops, hours: +(o.durationMinutes / 60).toFixed(1) })));
+        return ev.flights.flatMap((f) => f.offers.slice(0, 5).map((o) => ({ airline: o.airline, operatingAirline: o.operatingAirline, price: `${o.priceAmount} ${o.priceCurrency}`, airports: o.originAirport && o.destinationAirport ? `${o.originAirport} → ${o.destinationAirport}` : undefined, layovers: o.layoverAirports, cabin: o.cabinClass, baggage: o.baggage, aircraft: o.aircraft, fareConditions: o.fareConditions, stops: o.stops, hours: +(o.durationMinutes / 60).toFixed(1) })));
       },
     }),
     directions: tool({

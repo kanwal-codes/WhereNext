@@ -15,6 +15,8 @@ function StayDetail({ tripId, hotelId }: { tripId: string; hotelId: string }) {
       hotelId={hotelId}
       checkin={params.get("checkin") ?? undefined}
       checkout={params.get("checkout") ?? undefined}
+      adults={Number(params.get("adults")) || undefined}
+      rooms={Number(params.get("rooms")) || undefined}
       variant="page"
       onDatesChange={(ci, co) => {
         const qs = new URLSearchParams();

@@ -49,6 +49,26 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ tr
           .eq("id", tripId);
         if (write.error) throw write.error;
       }
+      if (key === "travelers") {
+        // "3", "3 travelers", "Party of 3" — the digit isn't always first, so pull it from anywhere.
+        const count = Number.parseInt(suggestion.display.match(/\d+/)?.[0] ?? "", 10);
+        if (Number.isFinite(count) && count > 0) {
+          const write = await supabase.from("trips").update({ travelers: count }).eq("id", tripId);
+          if (write.error) throw write.error;
+        }
+      }
+      if (key === "destination" && suggestion.display) {
+        const write = await supabase.from("trips").update({ destination: suggestion.display }).eq("id", tripId);
+        if (write.error) throw write.error;
+      }
+      if (key === "trip_length") {
+        // "About 5 days", "a 5-day trip" — same "pull the number out" approach as travelers.
+        const days = Number.parseInt(suggestion.display.match(/\d+/)?.[0] ?? "", 10);
+        if (Number.isFinite(days) && days > 0) {
+          const write = await supabase.from("trips").update({ duration_days: days }).eq("id", tripId);
+          if (write.error) throw write.error;
+        }
+      }
       if (key === "interests") {
         const existing = await supabase.from("trip_preferences").select("data").eq("trip_id", tripId).maybeSingle();
         if (existing.error) throw existing.error;

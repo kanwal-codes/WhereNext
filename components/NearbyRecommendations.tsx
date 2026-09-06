@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Loader2, Star } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
 import type { NearbyEvent } from "@/components/EventCard";
+import type { AssistantBlock } from "@/packages/contracts/assistant";
 import { EventCard } from "@/components/EventCard";
 import { Reveal } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
@@ -184,7 +185,7 @@ export function NearbyRecommendations({
   const [results, setResults] = useState<ShapedLane[]>([]);
   const [pageVibe, setPageVibe] = useState<Vibe>("default");
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const panelCtx = useTripPanelMaybe();
 
   const trip = useTripDataMaybe();
   const prefs = trip?.data?.preferences as Record<string, unknown> | undefined;
@@ -300,30 +301,36 @@ export function NearbyRecommendations({
         <p className="mt-1 text-sm text-muted-foreground">Picked to match {anchorName} — tap any to open it.</p>
       </div>
       {results.map(({ lane, places, events }, i) => {
-        const total = places.length + events.length;
-        const isOpen = expanded.has(lane.id);
-        const cap = isOpen ? total : 4;
-        const shownPlaces = places.slice(0, cap);
-        const shownEvents = events.slice(0, Math.max(0, cap - shownPlaces.length));
+        const shownPlaces = places.slice(0, 4);
+        const shownEvents = events.slice(0, Math.max(0, 4 - shownPlaces.length));
+        const hasMore = places.length > shownPlaces.length || events.length > shownEvents.length;
+        const collectionBlock: AssistantBlock = events.length > 0
+          ? ({
+              type: "events",
+              retrievedAt: new Date().toISOString(),
+              items: events,
+            } as AssistantBlock)
+          : ({
+              type: "place_list",
+              title: lane.title,
+              places: places.map((result) => result.place),
+            } as AssistantBlock);
         return (
           <Reveal key={lane.id} delay={0.05 * i}>
             <section>
               <div className="flex items-baseline justify-between gap-3">
-                <h3 className="font-display text-lg">
-                  {lane.title}
-                  {lane.layout === "peek" && <span className="ml-2 text-xs font-normal text-muted-foreground">· a taste</span>}
-                </h3>
-                {total > 4 && (
+                <h3 className="font-display text-lg">{lane.title}</h3>
+                {hasMore && panelCtx && (
                   <button
                     type="button"
-                    onClick={() => setExpanded((s) => { const n = new Set(s); if (n.has(lane.id)) n.delete(lane.id); else n.add(lane.id); return n; })}
+                    onClick={() => panelCtx.openPanel({ kind: "collection", title: lane.title, block: collectionBlock })}
                     className="shrink-0 text-xs font-medium text-primary hover:underline"
                   >
-                    {isOpen ? "Show less" : "See more"} <span aria-hidden>{isOpen ? "←" : "→"}</span>
+                    See more <span aria-hidden>→</span>
                   </button>
                 )}
               </div>
-              <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto no-scrollbar pb-1">
+              <div className="mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto no-scrollbar pb-1">
                 {shownPlaces.map((r, idx) => (
                   <MiniCard
                     key={r.place.providerId}

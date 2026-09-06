@@ -32,6 +32,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
     const item = itineraryItemSchema.parse(await request.json());
     const day = item.dayIndex ?? 1;
+    const existing = await supabase
+      .from("trip_itinerary_items")
+      .select(SELECT)
+      .eq("trip_id", tripId)
+      .eq("title", item.title)
+      .is("removed_at", null)
+      .maybeSingle();
+    if (existing.error) throw existing.error;
+    if (existing.data) return NextResponse.json({ item: existing.data, alreadyExists: true });
     // New items land at the end of their day.
     const last = await supabase
       .from("trip_itinerary_items")

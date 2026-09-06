@@ -87,6 +87,26 @@ describe("shapeLanes", () => {
     expect(called).toBe(false);
   });
 
+  it("keeps only one branch per chain, the best-ranked one, so a lane doesn't fill with one brand", async () => {
+    const out = await shapeLanes(
+      [
+        {
+          lane: lane(),
+          places: [
+            place("fb1", { name: "Food Bazaar", rating: 4.4 }),
+            place("market", { name: "Dekalb Market Hall", rating: 4.6 }),
+            place("fb2", { name: "FOOD BAZAAR", rating: 4.7 }), // same chain, different branch, better rated
+            place("fb3", { name: "food bazaar", rating: 4.3 }), // same chain again, case-different
+          ],
+          events: [],
+        },
+      ],
+      ctx(),
+    );
+    const names = out[0].places.map((p) => p.place.name);
+    expect(names).toEqual(["FOOD BAZAAR", "Dekalb Market Hall"]); // one Food Bazaar branch, the best-rated one
+  });
+
   it("dedupes events by url and drops empty lanes", async () => {
     const out = await shapeLanes(
       [

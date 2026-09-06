@@ -5,6 +5,7 @@ import { sendEmail } from "@/lib/server/email";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { loadTripContext } from "@/lib/application/trip-context";
 import { reviewTrip, pendingNotifications, type ReviewFinding } from "@/lib/application/trip-review";
+import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 export const runtime = "nodejs";
 
@@ -70,6 +71,7 @@ async function run(request: Request): Promise<Response> {
             { trip_id: trip.id, kind: "review_notified", source: "assistant", idempotency_key: `review_notified:${trip.id}`, value: { ids: [...notified, ...pending.map((f) => f.id)] } },
             { onConflict: "trip_id,idempotency_key" },
           );
+          invalidateWorkspace(trip.id);
         }
       }
       logger.info({ cron: "trip-review", tripId: trip.id, findings: findings.map((f) => f.id), pending: pending.map((f) => f.id) }, "trip reviewed");

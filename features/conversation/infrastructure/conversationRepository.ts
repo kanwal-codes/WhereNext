@@ -2,6 +2,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MessageInput } from "../domain/message";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
+type ConversationRow = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  idempotency_key: string | null;
+  created_at: string;
+  metadata: Record<string, unknown> | null;
+};
+
 export function scopedMessageIdempotencyKey(role: MessageInput["role"], key?: string) {
   return key ? `${role}:${key}` : null;
 }
@@ -32,19 +41,27 @@ export function createConversationRepository(supabase: SupabaseClient, writer: S
     return retry.data.id as string;
   }
   return {
-    async list(tripId: string) {
+    async list(tripId: string, options: { limit?: number } = {}) {
       const id = await getThreadId(tripId);
-      // Newest 200, returned oldest-first. Ordering ascending with a limit would silently drop
-      // the LATEST messages once a thread passes 200 — which broke the "user message persisted?"
-      // check in /api/ai (every new turn 409'd) on long-running conversations.
-      const result = await supabase
-        .from("conversation_messages")
-        .select("id,role,content,idempotency_key,created_at,metadata")
-        .eq("thread_id", id)
-        .order("created_at", { ascending: false })
-        .limit(200);
-      if (result.error) throw result.error;
-      return (result.data ?? []).reverse();
+      // Supabase limits result sets, so page the complete thread newest-first and only reverse
+      // after every page has arrived. This is the durable cross-device source of truth.
+      const pageSize = 500;
+      const newestFirst: ConversationRow[] = [];
+      for (let from = 0; ; from += pageSize) {
+        const remaining = options.limit == null ? pageSize : Math.min(pageSize, options.limit - from);
+        if (remaining <= 0) break;
+        const result = await supabase
+          .from("conversation_messages")
+          .select("id,role,content,idempotency_key,created_at,metadata")
+          .eq("thread_id", id)
+          .order("created_at", { ascending: false })
+          .range(from, from + remaining - 1);
+        if (result.error) throw result.error;
+        const page = (result.data ?? []) as ConversationRow[];
+        newestFirst.push(...page);
+        if (page.length < remaining) break;
+      }
+      return newestFirst.reverse();
     },
     async append(tripId: string, input: MessageInput & { metadata?: Record<string, unknown> }) {
       const id = await getThreadId(tripId);

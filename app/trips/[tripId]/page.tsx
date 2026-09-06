@@ -6,8 +6,8 @@ import { useTripData } from "@/components/TripDataProvider";
 import { Hero } from "@/components/Hero";
 import { Reveal, Stagger, StaggerItem, WordReveal } from "@/components/motion-primitives";
 import { CertaintyBadge } from "@/components/CertaintyBadge";
-import { certaintyFor, decisionSummary } from "@/lib/decisions-ui";
-import { tripWhen } from "@/lib/trip-dates";
+import { certaintyFor, decisionSummary, isDisplayableDecision } from "@/lib/decisions-ui";
+import { daysUntilTrip, tripDayIndex, tripWhen } from "@/lib/trip-dates";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { useDestinationPhoto } from "@/features/places/application/useDestinationPhoto";
 import { TripWeather } from "@/components/TripWeather";
@@ -31,9 +31,26 @@ export default function TripOverviewPage() {
   const itinerary = (data?.itinerary ?? []) as ItineraryRow[];
   const decisions = (data?.decisions ?? []) as DecisionRow[];
   const lockedStay = readStayDecision(decisions);
+  // Exclude decisions already shown elsewhere (the stay card below) or that are pure
+  // internal bookkeeping (review email/dismiss tracking) — this generic list is for
+  // everything else, not a second untranslated dump of every row in the table.
+  const displayableDecisions = decisions.filter((d) => isDisplayableDecision(d.kind));
   const conversation = (data?.conversation ?? []) as Array<{ role: string; content: string }>;
 
   const destination = trip?.destination ?? "your destination";
+
+  // A quick "where are we relative to this trip" read — future countdown, mid-trip day
+  // count, or a wrapped-up note. Silent (null) whenever there isn't a start date to anchor it.
+  const daysUntil = daysUntilTrip(trip?.start_date);
+  const dayIndex = tripDayIndex(trip?.start_date);
+  const tripStatus =
+    daysUntil == null ? null
+    : daysUntil > 1 ? `${daysUntil} days to go`
+    : daysUntil === 1 ? "Tomorrow"
+    : daysUntil === 0 ? "Starts today"
+    : trip?.duration_days && dayIndex != null && dayIndex <= trip.duration_days ? `Day ${dayIndex} of ${trip.duration_days}`
+    : trip?.duration_days ? "Trip complete"
+    : null;
 
   const asList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
   const budget =
@@ -79,6 +96,13 @@ export default function TripOverviewPage() {
     <div className="min-h-full">
       {heroReady ? (
         <Hero key={heroImage} image={heroImage} alt={`${destination}`} className="h-56 sm:h-72">
+          {tripStatus && (
+            <Reveal delay={0.12} className="absolute top-4 right-4 sm:top-5 sm:right-8">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/85 px-3 py-1.5 text-xs font-medium text-foreground shadow-soft backdrop-blur">
+                <CalendarDays className="h-3.5 w-3.5 text-coral" /> {tripStatus}
+              </span>
+            </Reveal>
+          )}
           <div className="absolute inset-x-0 bottom-0 px-5 pb-6 sm:px-8">
             <Reveal delay={0.12}>
               <div className="min-w-0">
@@ -263,12 +287,12 @@ export default function TripOverviewPage() {
               <ShareTrip tripId={tripId} />
             </Reveal>
 
-            {decisions.length > 0 && (
+            {displayableDecisions.length > 0 && (
               <Reveal delay={0.12}>
                 <section className="rounded-2xl border border-border bg-card p-5">
                   <h2 className="font-display text-lg">Decisions</h2>
                   <ul className="mt-3 space-y-2">
-                    {decisions.slice(0, 6).map((d) => (
+                    {displayableDecisions.slice(0, 6).map((d) => (
                       <li key={d.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border pb-2 last:border-0">
                         <div className="min-w-0">
                           <p className="text-[11px] tracking-[0.08em] text-muted-foreground uppercase">{d.kind.replaceAll("_", " ")}</p>

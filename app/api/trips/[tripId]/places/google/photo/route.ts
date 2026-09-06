@@ -13,7 +13,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     const contentType = response.headers.get("content-type") ?? "";
     if (!response.ok || !response.body || !contentType.toLowerCase().startsWith("image/")) return NextResponse.json({ error: "Place photo is unavailable" }, { status: 503 });
     // A photo resource name maps to immutable bytes; the route is authenticated, so keep it private.
-    return new Response(response.body, { headers: { "content-type": contentType, "cache-control": "private, max-age=86400, immutable" } });
+    return new Response(response.body, { headers: { "content-type": contentType, "cache-control": "private, max-age=604800, immutable" } });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Place photo is unavailable");
   }

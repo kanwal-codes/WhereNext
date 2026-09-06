@@ -7,7 +7,6 @@ import {
   ArrowRight,
   BedDouble,
   CalendarDays,
-  ChevronDown,
   Columns2,
   Compass,
   DownloadCloud,
@@ -101,29 +100,45 @@ function Tile({
   name,
   line,
   chip = false,
+  featured = false,
   className,
 }: {
   icon: LucideIcon;
   name: string;
   line: string;
   chip?: boolean;
+  featured?: boolean;
   className?: string;
 }) {
   return (
     <motion.div
       whileHover={{ y: -4 }}
       transition={{ type: "spring", stiffness: 300, damping: 24 }}
-      className={cn("flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-soft", className)}
+      className={cn(
+        "flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-soft",
+        featured && "bg-ink text-background sm:p-6",
+        className,
+      )}
     >
       {chip ? (
-        <span className="inline-flex size-9 items-center justify-center rounded-xl bg-coral-soft text-coral">
+        <span className={cn("inline-flex size-9 items-center justify-center rounded-xl bg-coral-soft text-coral", featured && "bg-white/10 text-coral-soft")}>
           <Icon className="size-4" strokeWidth={1.75} />
         </span>
       ) : (
         <Icon className="size-5 text-coral" strokeWidth={1.75} />
       )}
-      <h3 className={cn("font-display", chip ? "mt-4 text-lg" : "mt-3 text-base")}>{name}</h3>
-      <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">{line}</p>
+      <h3 className={cn("font-display", chip ? "mt-4 text-lg" : "mt-3 text-base", featured && "text-background")}>{name}</h3>
+      <p className={cn("mt-1.5 text-sm leading-relaxed text-ink-soft", featured && "text-background/70")}>{line}</p>
+      {featured && (
+        <div className="mt-auto grid grid-cols-3 gap-2 pt-8 text-[11px] text-background/65">
+          {["Conversation", "Evidence", "Plan"].map((step, i) => (
+            <div key={step} className="relative border-t border-white/20 pt-2">
+              <span className="mr-1 text-coral">0{i + 1}</span>{step}
+              {i < 2 && <span className="absolute right-1 top-[-1px] text-background/35">→</span>}
+            </div>
+          ))}
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -243,8 +258,8 @@ function DemoPlaceCard() {
   return (
     <div className="rounded-2xl border border-border/70 bg-card shadow-[0_1px_2px_color-mix(in_oklab,var(--color-ink)_6%,transparent)]">
       {/* eslint-disable-next-line @next/next/no-img-element -- static demo asset, no next/image sizing needed */}
-      <img src="/design/place-neighbourhood.jpg" alt="" className="h-28 w-full rounded-t-2xl object-cover" />
-      <div className="p-3.5">
+      <img src="/design/place-neighbourhood.jpg" alt="" className="h-20 w-full rounded-t-2xl object-cover" />
+      <div className="p-3">
         <h4 className="font-display text-base">Alfama</h4>
         <p className="mt-1 text-xs text-muted-foreground">4.7 · Historic quarter · 6 min walk to the river</p>
       </div>
@@ -296,11 +311,13 @@ function ChatDemo() {
   const typeTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const preTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const replayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimers = () => {
     if (typeTimer.current) clearInterval(typeTimer.current);
     if (preTimer.current) clearTimeout(preTimer.current);
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
-    typeTimer.current = preTimer.current = advanceTimer.current = null;
+    if (replayTimer.current) clearTimeout(replayTimer.current);
+    typeTimer.current = preTimer.current = advanceTimer.current = replayTimer.current = null;
   };
   useEffect(() => clearTimers, []);
 
@@ -343,6 +360,15 @@ function ChatDemo() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- autoplay kicks off once, when the section is first in view
   }, [canPlay]);
 
+  useEffect(() => {
+    if (!showCard || index !== EXCHANGES.length - 1 || !canPlay) return;
+    replayTimer.current = setTimeout(() => showExchange(0, true), 2600);
+    return () => {
+      if (replayTimer.current) clearTimeout(replayTimer.current);
+      replayTimer.current = null;
+    };
+  }, [showCard, index, canPlay]);
+
   const exchange = EXCHANGES[index];
   const replyDone = charCount >= exchange.assistant.length;
 
@@ -377,7 +403,13 @@ function ChatDemo() {
         onClick={handleTap}
         className="w-full cursor-pointer rounded-[2rem] border border-border bg-surface p-5 text-left shadow-lift transition-shadow hover:shadow-2xl sm:p-6"
       >
-        <motion.div layout transition={{ duration: 0.28, ease: [0.22, 0.61, 0.36, 1] }}>
+        {/* Fixed per breakpoint (not animated) — sized to the tallest state (the last
+            exchange plus its place card) so the panel never resizes as the demo plays.
+            Text and card share this one box, so any slack trails at the bottom instead of
+            sitting as a gap between them. */}
+        {/* Reserve the final transcript + place-card footprint up front. The card is revealed
+            inside this frame so the landing page never reflows when the third exchange lands. */}
+        <div className="h-[300px] sm:h-[270px] overflow-hidden">
           <ContentSwap swapKey={String(index)}>
             <div className="space-y-3">
               <div className="flex justify-end">
@@ -394,12 +426,12 @@ function ChatDemo() {
               )}
             </div>
           </ContentSwap>
-        </motion.div>
-        {showCard && (
-          <Reveal delay={0.1} className="mt-3">
-            <DemoPlaceCard />
-          </Reveal>
-        )}
+          {showCard && (
+            <Reveal delay={0.1} y={0} className="mt-3">
+              <DemoPlaceCard />
+            </Reveal>
+          )}
+        </div>
       </button>
 
       <div className="mt-4 flex items-center justify-center gap-3">
@@ -425,11 +457,6 @@ function ChatDemo() {
             </button>
           ))}
         </div>
-        {showCard && (
-          <button type="button" onClick={handleTap} className="text-xs font-medium text-primary hover:underline">
-            Watch again
-          </button>
-        )}
       </div>
       {hint && !showCard && <p className="mt-2 text-center text-[11px] text-muted-foreground">Tap to skip ahead</p>}
     </motion.div>
@@ -467,7 +494,10 @@ export function Landing() {
   const heroScale = useTransform(scrollYProgress, [0, 1], reduce ? [1, 1] : [1.04, 1.12]);
 
   return (
-    <div className="min-h-screen">
+    // Always the original light look, regardless of the app's dark-mode setting — the
+    // marketing page isn't part of the signed-in product, so it doesn't follow it. Paints its
+    // own background/text color rather than inheriting <body>'s (which stays dark-able).
+    <div className="theme-light-scope min-h-screen bg-background text-foreground">
       {/* ——— Cover ——— */}
       <header ref={heroRef} className="relative h-[76svh] min-h-[560px] w-full overflow-hidden">
         <motion.img src={mountainsImg} alt="Mist rolling over a mountain pass at sunrise" style={{ y: heroY, scale: heroScale }} className="absolute inset-0 h-full w-full object-cover" />
@@ -485,9 +515,11 @@ export function Landing() {
               <BrandMark variant="text" textClassName="text-lg sm:text-xl" />
             </Link>
             {/* Utility link only — the real CTA pair lives once, in the hero copy below. */}
-            <Link href="/sign-in" className="hero-eyebrow text-sm font-medium whitespace-nowrap transition-opacity hover:opacity-70">
-              Sign in
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link href="/sign-in" className="hero-eyebrow text-sm font-medium whitespace-nowrap transition-opacity hover:opacity-70">
+                Sign in
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -512,13 +544,6 @@ export function Landing() {
               </Link>
             </Reveal>
           </div>
-        </div>
-
-        {/* Scroll cue — hinting there's more below a hero this tall. Decorative only. */}
-        <div aria-hidden className="absolute right-6 bottom-6 hidden sm:right-10 sm:bottom-8 sm:block">
-          <span className="wx-bob inline-flex size-9 items-center justify-center rounded-full bg-white/30 backdrop-blur-sm">
-            <ChevronDown className="size-4 text-foreground/70" />
-          </span>
         </div>
       </header>
 
@@ -552,11 +577,11 @@ export function Landing() {
       </section>
 
       {/* ——— See it in action ——— */}
-      <section className="mx-auto max-w-[1200px] px-6 py-20 sm:px-10 lg:py-28">
+      <section className="mx-auto max-w-[1200px] px-6 py-14 sm:px-10 lg:py-20">
         <InView>
           <SectionHead eyebrow="Meet Roam" title="A conversation, not a form." />
         </InView>
-        <InView delay={0.1} className="mt-10">
+        <InView delay={0.1} className="mt-7">
           <ChatDemo />
         </InView>
       </section>
@@ -567,13 +592,13 @@ export function Landing() {
           <SectionHead
             eyebrow="One workspace"
             title="Everything the trip needs, in one place."
-            lead="No twelve tabs. Chat, the evidence, the map, stays and the itinerary sit together and stay in sync."
+            lead="One conversation carries the trip from a first idea to a plan you can actually follow."
           />
         </InView>
         <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
           {TILES.map((t, i) => (
             <InView key={t.name} className={t.span} delay={i * 0.05} y={18}>
-              <Tile icon={t.icon} name={t.name} line={t.line} chip />
+              <Tile icon={t.icon} name={t.name} line={t.line} chip featured={t.name === "Chat"} />
             </InView>
           ))}
         </div>
@@ -666,7 +691,6 @@ export function Landing() {
             <Link href="/terms" className="link-underline">
               Terms
             </Link>
-            <span>Plan by talking</span>
           </div>
         </div>
       </footer>

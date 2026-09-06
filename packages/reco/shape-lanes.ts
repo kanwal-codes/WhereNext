@@ -24,6 +24,7 @@ export type ShapeContext = {
 const SEMANTIC_WEIGHT = 2;
 
 const arr = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+const normalizeChainName = (name: string) => name.normalize("NFKC").trim().toLowerCase().replace(/\s+/g, " ");
 
 /**
  * Turn each lane's raw results into what the UI renders: drop the anchor and anything a
@@ -75,6 +76,17 @@ export async function shapeLanes<E extends { url: string }>(
         })
         .sort((a, b) => b.score - a.score);
     }
+
+    // A chain (Food Bazaar, Starbucks, ...) often has several branches nearby, each a distinct
+    // place with its own id — without this a lane can fill entirely with one brand's locations.
+    // `ranked` is best-first, so this keeps each chain's best branch and drops the rest.
+    const seenChain = new Set<string>();
+    ranked = ranked.filter((r) => {
+      const key = normalizeChainName(r.place.name);
+      if (seenChain.has(key)) return false;
+      seenChain.add(key);
+      return true;
+    });
 
     const finalPlaces = ranked.slice(0, cap);
     finalPlaces.forEach((r) => ctx.seenPlaceIds.add(r.place.providerId));

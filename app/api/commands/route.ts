@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { proposedCommandSchema } from "@/packages/contracts/assistant";
-import { mergePreferences, preferencesSchema } from "@/packages/contracts/preferences";
+import { mergePreferences, preferenceUpdateSchema, preferencesSchema } from "@/packages/contracts/preferences";
 import { stayDecisionSchema } from "@/packages/contracts/stay";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     const { supabase } = await requireTripMember(command.tripId, { role: "editor" });
 
     if (command.type === "update_preferences") {
-      const preferences = preferencesSchema.parse(command.preferences);
+      const preferences = preferenceUpdateSchema.parse(command.preferences);
       const existing = await supabase.from("trip_preferences").select("data").eq("trip_id", command.tripId).maybeSingle();
       if (existing.error) throw existing.error;
       const merged = preferencesSchema.parse(mergePreferences((existing.data?.data ?? {}) as Record<string, unknown>, preferences));
@@ -35,7 +35,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ result: { type: command.type, memory: result.data }, changeImpact });
     }
     if (command.type === "add_itinerary_item") {
-      const result = await supabase.from("trip_itinerary_items").upsert({ trip_id: command.tripId, title: command.title, day_index: command.dayIndex, metadata: { source: "assistant-proposal" } }, { onConflict: "trip_id,title" }).select("id,title,day_index,metadata,created_at").single();
+      const metadata: Record<string, unknown> = { source: "assistant-proposal" };
+      if (command.providerId) metadata.provider_id = command.providerId;
+      const existing = await supabase
+        .from("trip_itinerary_items")
+        .select("id,title,day_index,metadata,created_at")
+        .eq("trip_id", command.tripId)
+        .eq("title", command.title)
+        .is("removed_at", null)
+        .maybeSingle();
+      if (existing.error) throw existing.error;
+      if (existing.data) return NextResponse.json({ result: { type: command.type, item: existing.data, alreadyExists: true } });
+      const result = await supabase.from("trip_itinerary_items").upsert({ trip_id: command.tripId, title: command.title, day_index: command.dayIndex, metadata }, { onConflict: "trip_id,title" }).select("id,title,day_index,metadata,created_at").single();
       if (result.error) throw result.error;
       invalidateWorkspace(command.tripId);
       return NextResponse.json({ result: { type: command.type, item: result.data } });

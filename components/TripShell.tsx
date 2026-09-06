@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   BedDouble,
   CalendarDays,
@@ -17,11 +17,16 @@ import {
   Notebook,
   House,
   Ticket,
+  Check,
+  Loader2,
+  Pencil,
   X,
 } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
 import { Sheet, motionTokens } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
+import { announceWorkspaceChange } from "@/lib/application/workspace-events";
+import { notifyToast } from "@/lib/application/toast";
 
 export type ShellTrip = {
   name: string;
@@ -49,7 +54,6 @@ function NavRow({
   icon: Icon,
   active,
   collapsed,
-  layoutId,
   onNavigate,
   onPrefetch,
 }: {
@@ -58,7 +62,6 @@ function NavRow({
   icon: typeof LayoutGrid;
   active: boolean;
   collapsed?: boolean;
-  layoutId: string;
   onNavigate?: () => void;
   onPrefetch?: () => void;
 }) {
@@ -79,15 +82,9 @@ function NavRow({
     >
       {active && (
         <>
-          <motion.span
-            layoutId={layoutId}
-            transition={motionTokens.standard}
-            className="absolute inset-0 -z-10 rounded-xl bg-sidebar-accent"
-          />
+          <span className="absolute inset-0 -z-10 rounded-xl bg-sidebar-accent" />
           {!collapsed && (
-            <motion.span
-              layoutId={`${layoutId}-rule`}
-              transition={motionTokens.standard}
+            <span
               className="absolute top-1/2 left-0 h-4 w-[3px] -translate-y-1/2 rounded-full"
               style={{ background: "var(--color-accent-trip)" }}
             />
@@ -112,13 +109,11 @@ function NavList({
   pathname,
   onNavigate,
   collapsed,
-  idPrefix,
 }: {
   tripId: string;
   pathname: string;
   onNavigate?: () => void;
   collapsed?: boolean;
-  idPrefix: string;
 }) {
   const base = `/trips/${tripId}`;
   const router = useRouter();
@@ -136,7 +131,6 @@ function NavList({
             icon={item.icon}
             active={isActive}
             collapsed={collapsed}
-            layoutId={`${idPrefix}-nav-active`}
             onNavigate={onNavigate}
             onPrefetch={() => router.prefetch(href)}
           />
@@ -147,11 +141,60 @@ function NavList({
 }
 
 /** Trip name, where + when, and a slim planning-progress bar. */
-function TripIdentity({ trip, compact }: { trip: ShellTrip; compact?: boolean }) {
+function TripIdentity({ tripId, trip, compact }: { tripId: string; trip: ShellTrip; compact?: boolean }) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(trip.name);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => setDraft(trip.name), [trip.name]);
   const sub = [trip.destination, trip.dates].filter(Boolean).join(" · ");
+
+  async function save() {
+    const name = draft.trim();
+    if (!name || saving) return;
+    if (name === trip.name) { setEditing(false); return; }
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/trips/${tripId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!response.ok) throw new Error("rename");
+      setEditing(false);
+      announceWorkspaceChange("trip");
+      router.refresh();
+    } catch {
+      notifyToast("The trip name couldn’t be changed.", "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="min-w-0">
-      <h2 className={cn("truncate font-display leading-tight", compact ? "text-sm" : "text-lg")}>{trip.name}</h2>
+      {editing ? (
+        <form onSubmit={(event) => { event.preventDefault(); void save(); }} className="flex min-w-0 items-center gap-1">
+          <input
+            autoFocus
+            aria-label="Trip name"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => { if (event.key === "Escape") { setDraft(trip.name); setEditing(false); } }}
+            className="min-w-0 flex-1 rounded-lg border border-input bg-background px-2 py-1 font-display text-sm outline-none focus:ring-2 focus:ring-ring/25"
+          />
+          <button type="submit" disabled={!draft.trim() || saving} aria-label="Save trip name" className="rounded-full p-1.5 text-muted-foreground hover:text-foreground disabled:opacity-40">
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+          </button>
+        </form>
+      ) : (
+        <div className="flex min-w-0 items-center gap-1.5">
+          <h2 className={cn("min-w-0 truncate font-display leading-tight", compact ? "text-sm" : "text-lg")}>{draft}</h2>
+          <button type="button" onClick={() => setEditing(true)} aria-label="Edit trip name" className="shrink-0 rounded-full p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground">
+            <Pencil className="h-3 w-3" />
+          </button>
+        </div>
+      )}
       {!compact && sub && <p className="mt-0.5 truncate text-xs text-muted-foreground">{sub}</p>}
       {!compact && (
         <div className="mt-2">
@@ -179,7 +222,6 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
         icon={House}
         active={false}
         collapsed={collapsed && !onNavigate}
-        layoutId="none-all-trips"
         onNavigate={onNavigate}
       />
       <Link
@@ -219,10 +261,12 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
               <BrandMark variant="compact" />
             </Link>
           ) : (
-            <Link href={`/trips/${tripId}`} className="flex min-w-0 items-start gap-2" aria-label={trip.name}>
+            <div className="flex min-w-0 items-start gap-2">
+              <Link href={`/trips/${tripId}`} aria-label={`${trip.name} overview`}>
               <BrandMark variant="compact" className="mt-0.5 h-7 w-7 shrink-0 text-[11px]" />
-              <TripIdentity trip={trip} />
-            </Link>
+              </Link>
+              <TripIdentity tripId={tripId} trip={trip} />
+            </div>
           )}
           <button
             onClick={() => setCollapsed((c) => !c)}
@@ -235,7 +279,7 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-slim">
-          <NavList tripId={tripId} pathname={pathname} collapsed={collapsed} idPrefix="desk" />
+          <NavList tripId={tripId} pathname={pathname} collapsed={collapsed} />
         </div>
 
         <div className="hairline my-3 shrink-0" />
@@ -261,13 +305,13 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
       <Sheet open={open} onClose={() => setOpen(false)} side="left" ariaLabel="Trip navigation" className="max-w-[300px] bg-sidebar px-4 py-6">
         <div className="mb-5 flex items-start gap-2">
           <BrandMark variant="compact" className="mt-0.5 h-7 w-7 shrink-0 text-[11px]" />
-          <TripIdentity trip={trip} />
+          <TripIdentity tripId={tripId} trip={trip} />
           <button onClick={() => setOpen(false)} aria-label="Close navigation" className="-mr-1 -mt-1 shrink-0 rounded-full p-1.5 text-muted-foreground hover:text-foreground active:scale-95">
             <X className="h-4 w-4" />
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto scrollbar-slim">
-          <NavList tripId={tripId} pathname={pathname} onNavigate={() => setOpen(false)} idPrefix="mob" />
+          <NavList tripId={tripId} pathname={pathname} onNavigate={() => setOpen(false)} />
         </div>
         <div className="hairline my-3 shrink-0" />
         {utility(() => setOpen(false))}

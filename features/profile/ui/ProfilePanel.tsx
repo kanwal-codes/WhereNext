@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { Skeleton, SkeletonLines } from "@/components/Skeleton";
 import { notifyToast } from "@/lib/application/toast";
 import type { TravelerProfile } from "@/packages/contracts/profile";
 
@@ -79,7 +80,14 @@ export function ProfilePanel() {
     }
   }
 
-  if (loading) return <div className="mt-8 h-40 animate-pulse rounded-2xl border border-border bg-card" />;
+  if (loading) {
+    return (
+      <div aria-busy="true" aria-label="Loading travel profile" className="mt-8 space-y-5 rounded-2xl border border-border bg-card p-5">
+        <Skeleton className="h-5 w-32 rounded-md" />
+        <SkeletonLines lines={6} />
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={(e) => void save(e)} className="mt-8 space-y-4 rounded-2xl border border-border bg-card p-5">

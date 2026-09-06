@@ -33,6 +33,35 @@ describe("MessageBlocks", () => {
     expect(withoutOpen).not.toContain('aria-label="Open Belém Tower"');
   });
 
+  it("keeps conversation result sections to four cards and offers the complete set", () => {
+    const places = Array.from({ length: 6 }, (_, index) => ({
+      provider: "g",
+      providerId: `p${index}`,
+      name: `Museum ${index + 1}`,
+      category: "museum",
+      latitude: 1,
+      longitude: 2,
+      address: null,
+      sourceUrl: null,
+      trust: "sourced" as const,
+    }));
+    const html = renderToStaticMarkup(
+      <MessageBlocks
+        blocks={[{ type: "place_list", title: "art museums", places }]}
+        {...handlers}
+        onOpenCollection={vi.fn()}
+      />,
+    );
+    expect(html).toContain("Art museums");
+    expect(html).toContain("See more");
+    expect(html).toContain("Museum 4");
+    expect(html).not.toContain("Museum 5");
+
+    const full = renderToStaticMarkup(<MessageBlocks blocks={[{ type: "place_list", title: "art museums", places }]} {...handlers} preview={false} />);
+    expect(full).toContain("Museum 6");
+    expect(full).not.toContain("See more");
+  });
+
   it("renders a route_summary with steps", () => {
     const html = render([{ type: "route_summary", from: "Airport", to: "Belém", mode: "transit", durationSeconds: 4200, distanceMeters: 22000, steps: ["TRANSIT 208 → Cais Sodré (35 min)"], retrievedAt: "t" }]);
     expect(html).toContain("Airport");
@@ -264,6 +293,7 @@ describe("MessageBlocks", () => {
     expect(withOpen).toContain("Go early");
     expect(withOpen).toContain("Morning");
     expect(withOpen).toMatch(/<button[^>]*>Notre-Dame Basilica/); // real place → clickable
+    expect(withOpen).toContain("Add whole plan"); // bulk-commit action, not just per-place add
   });
 
   it("comparison block: attribute-major layout with option chips and a bestForYou line", () => {

@@ -31,7 +31,7 @@ import { sanitizeAssistantContent } from "@/lib/application/sanitize-assistant";
 import { withTripAiStream } from "@/lib/server/trip-ai-queue";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 import { recordAiTurn } from "@/lib/server/ai-turn-trace";
-import { tripDurationDays } from "@/features/trip/domain/trip";
+import { buildTripRowUpdate, withExplicitDestination } from "@/lib/application/trip-update";
 
 const SSE_HEADERS = { "content-type": "text/event-stream", "cache-control": "no-cache, no-transform", "x-accel-buffering": "no" };
 const PLACE_INTENTS = new Set(["discovery", "nightlife", "food", "activities", "history_culture", "stays", "compare"]);
@@ -125,12 +125,14 @@ export const POST = withRoute(async function POST(request: Request) {
     let [tripCtx, threadRow, storedMessages] = await Promise.all([
       loadTripContext(supabase, tripId),
       supabase.from("conversation_threads").select("summary").eq("trip_id", tripId).maybeSingle(),
-      createConversationRepository(supabase).list(tripId),
+      // The UI can page the full durable thread; model context stays bounded and is supplemented
+      // by the thread summary so a long-running trip does not balloon every AI request.
+      createConversationRepository(supabase).list(tripId, { limit: 200 }),
     ]);
-    const context = serializeTripContext(tripCtx);
+    let context = serializeTripContext(tripCtx);
     let destination = tripCtx.trip?.destination ?? "the trip destination";
     const threadSummary = (threadRow.data?.summary as string | null) ?? "";
-    const tripSummary = [formatTripMemory(tripCtx), threadSummary && `Earlier in this conversation: ${threadSummary}`].filter(Boolean).join(" ");
+    let tripSummary = [formatTripMemory(tripCtx), threadSummary && `Earlier in this conversation: ${threadSummary}`].filter(Boolean).join(" ");
     const prompt = parsed.data.messages.at(-1)?.content ?? "";
     const viewContext = parsed.data.viewContext;
     const idempotencyKey = `assistant:${parsed.data.messageIdempotencyKey}`;
@@ -154,8 +156,6 @@ export const POST = withRoute(async function POST(request: Request) {
       (message) => message.role === "user" && message.idempotency_key === `user:${parsed.data.messageIdempotencyKey}` && message.content === prompt,
     );
     if (!persistedPrompt) return NextResponse.json({ error: "Persist the user message before requesting an assistant response" }, { status: 409 });
-    void refreshThreadSummary(supabase, tripId, modelMessages, request.signal);
-
     const dislikes = readDislikes(tripCtx.preferences);
 
     // Per-turn trace timing + token accounting (COMPOSE usage arrives late, via the stream sniffer).
@@ -163,34 +163,25 @@ export const POST = withRoute(async function POST(request: Request) {
     const latencyMs: { resolve?: number; retrieve?: number; compose?: number; total?: number } = {};
     let tokensIn = 0;
     let tokensOut = 0;
+    // Which model in the COMPOSE fallback chain actually produced the streamed prose —
+    // undefined when a structured block's own intro answered the turn (COMPOSE never ran).
+    let composedModel: string | undefined;
 
     // --- RESOLVE ---------------------------------------------------------------
     const resolved = await resolveTurn({ message: prompt, history: modelMessages, tripSummary, viewContext, signal: request.signal });
     // Persist explicit core trip facts while this request is still active. This keeps the
     // canonical trip row, the cached workspace, and the assistant's same-turn retrieval in sync.
-    const tripUpdate = resolved.proposedTripUpdate;
+    const tripUpdate = withExplicitDestination(resolved.proposedTripUpdate, prompt, resolved.locationFocus);
     if (tripUpdate && Object.keys(tripUpdate).length > 0) {
-      const update: Record<string, unknown> = {};
-      if (tripUpdate.name !== undefined) update.name = tripUpdate.name;
-      if (tripUpdate.destination !== undefined) update.destination = tripUpdate.destination;
-      if (tripUpdate.origin !== undefined) update.origin = tripUpdate.origin;
-      if (tripUpdate.travelerCount !== undefined) update.travelers = tripUpdate.travelerCount;
-      if (tripUpdate.startDate !== undefined || tripUpdate.endDate !== undefined) {
-        const current = tripCtx.trip;
-        const start = tripUpdate.startDate !== undefined ? tripUpdate.startDate : current?.start_date ?? null;
-        const end = tripUpdate.endDate !== undefined ? tripUpdate.endDate : current?.end_date ?? null;
-        if (start && end && end < start) throw new Error("The trip dates are out of order");
-        update.start_date = start;
-        update.end_date = end;
-        const duration = tripDurationDays(start, end);
-        if (duration) update.duration_days = duration;
-      }
+      const update = buildTripRowUpdate(tripCtx.trip, tripUpdate);
       if (Object.keys(update).length > 0) {
         const result = await supabase.from("trips").update(update).eq("id", tripId).select("id").single();
         if (result.error) throw result.error;
         invalidateWorkspace(tripId);
         tripCtx = await loadTripContext(supabase, tripId);
         destination = tripCtx.trip?.destination ?? "the trip destination";
+        context = serializeTripContext(tripCtx);
+        tripSummary = [formatTripMemory(tripCtx), threadSummary && `Earlier context (current trip facts take precedence): ${threadSummary}`].filter(Boolean).join(" ");
       }
     }
     // Which structured builders this turn asked for. Dispatch is "for each capability, run its
@@ -223,9 +214,10 @@ export const POST = withRoute(async function POST(request: Request) {
           resolve_ms: latencyMs.resolve,
           retrieve_ms: latencyMs.retrieve,
           total_ms: latencyMs.total,
-          model_resolve: process.env.RESOLVE_MODEL || process.env.AI_MODEL || undefined,
+          model_resolve: resolved.modelUsed ?? (process.env.RESOLVE_MODEL || process.env.AI_MODEL || undefined),
           degraded: Boolean(resolved.degraded),
         });
+        await refreshThreadSummary(supabase, tripId);
       }),
       { headers: SSE_HEADERS },
     );
@@ -286,7 +278,7 @@ export const POST = withRoute(async function POST(request: Request) {
     const rejectedNames = tripCtx.places
       .filter((entry) => entry.status === "rejected" && entry.place?.name)
       .map((entry) => entry.place!.name);
-    const retrieveFilters = { dislikes, currency: resolveCurrency(tripCtx.preferences), interests: readStrList(tripCtx.preferences, "interests"), likes: readStrList(tripCtx.preferences, "likes"), tripStart: tripCtx.trip?.start_date, tripEnd: tripCtx.trip?.end_date, excludeNames: rejectedNames };
+    const retrieveFilters = { dislikes, currency: resolveCurrency(tripCtx.preferences), interests: readStrList(tripCtx.preferences, "interests"), likes: readStrList(tripCtx.preferences, "likes"), tripStart: tripCtx.trip?.start_date, tripEnd: tripCtx.trip?.end_date, excludeNames: rejectedNames, travelers: tripCtx.trip?.travelers };
     const grounded = (result: Awaited<ReturnType<typeof retrieveEvidence>>) =>
       result.places.length > 0 || result.sources.length > 0 || result.routes.length > 0 || result.events.length > 0 || result.flights.length > 0 || result.stays.length > 0 || Boolean(result.weather);
 
@@ -317,11 +309,14 @@ export const POST = withRoute(async function POST(request: Request) {
       return respondWithoutCompose(fallback, meta, toolPlan.map((call) => call.tool), evidence.unavailableProviders);
     }
 
-    const origin = new URL(request.url).origin;
-    const photoUrl = (name: string) => `${origin}/api/trips/${tripId}/places/google/photo?name=${encodeURIComponent(name)}`;
+    // Persist a same-origin path, never the hostname of the laptop/phone that created the turn.
+    const photoUrl = (name: string) => `/api/trips/${tripId}/places/google/photo?name=${encodeURIComponent(name)}`;
     // The model must only see the places it will actually get cards for, so its reply can't
     // reference a place with no card. This slice IS the `place_list` block below.
-    const cardPlaces = evidence.places.slice(0, 6);
+    const cardPlaceGroups = (evidence.placeGroups?.length ?? 0) > 1
+      ? evidence.placeGroups!.map((group) => ({ ...group, places: group.places.slice(0, 6) }))
+      : [{ label: "", places: evidence.places.slice(0, 6) }];
+    const cardPlaces = cardPlaceGroups.flatMap((group) => group.places);
     const compactPlaces = cardPlaces.map((place) => ({
       provider: place.provider, providerId: place.providerId, name: place.name, category: place.category, address: place.address,
       rating: place.rating, userRatingCount: place.userRatingCount, sourceUrl: place.sourceUrl, photoName: place.photoNames?.[0],
@@ -360,6 +355,8 @@ export const POST = withRoute(async function POST(request: Request) {
       origin: search.origin, destination: search.destination, departureDate: search.departureDate, exampleDate: search.assumedDate,
       offers: search.offers.map((offer) => ({
         airline: offer.airline, price: `${offer.priceAmount} ${offer.priceCurrency}`,
+        operatingAirline: offer.operatingAirline, cabinClass: offer.cabinClass, baggage: offer.baggage,
+        airports: offer.originAirport && offer.destinationAirport ? `${offer.originAirport} → ${offer.destinationAirport}` : undefined,
         hours: +(offer.durationMinutes / 60).toFixed(1), stops: offer.stops, departs: offer.departAt, arrives: offer.arriveAt,
       })),
     }));
@@ -521,6 +518,7 @@ ${JSON.stringify({
           const it = result.textStream[Symbol.asyncIterator]();
           firstChunk = await withTtft(it.next());
           iterator = it;
+          composedModel = entry.modelId;
           void result.totalUsage.then(
             (u) => { tokensIn += u.inputTokens ?? 0; tokensOut += u.outputTokens ?? 0; },
             () => undefined,
@@ -572,15 +570,19 @@ ${JSON.stringify({
     };
     // A concert / named-act / specific-kind event query is about the EVENT, not the venue.
     // Suppress the place cards (the arena, the club) so the events block below carries the turn.
-    const eventFocused = resolved.intent === "events" || toolPlan.some((call) => call.tool === "events" && (call.artist || call.category));
+    // Gated on `intent` alone (not "any events call exists") so a multi-topic turn — "restaurants
+    // near the Bruno Mars show" — keeps its unrelated search_places results; the router already
+    // sets intent "events" whenever the ask is actually about the event itself.
+    const eventFocused = resolved.intent === "events";
     if (itineraryBlock) blocks.push(itineraryBlock);
     if (budgetBlock) blocks.push(budgetBlock);
     if (optionsBlock) blocks.push(optionsBlock);
     if (structuredAnswerBlock) blocks.push(structuredAnswerBlock);
     if (cardPlaces.length > 0 && PLACE_INTENTS.has(resolved.intent) && !eventFocused && !itineraryBlock && !optionsBlock) {
-      blocks.push({
+      for (const group of cardPlaceGroups) blocks.push({
         type: "place_list",
-        places: cardPlaces.map((place): PlaceCard => ({
+        ...(group.label ? { title: group.label.slice(0, 80) } : {}),
+        places: group.places.map((place): PlaceCard => ({
           provider: place.provider, providerId: place.providerId, name: place.name, category: place.category,
           latitude: place.latitude, longitude: place.longitude, address: place.address,
           rating: place.rating, userRatingCount: place.userRatingCount, priceLevel: place.priceLevel,
@@ -595,7 +597,7 @@ ${JSON.stringify({
       blocks.push({
         type: "route_summary",
         from: route.from, to: route.to, mode: route.mode,
-        durationSeconds: route.durationSeconds, distanceMeters: route.distanceMeters,
+        durationSeconds: route.durationSeconds, distanceMeters: route.distanceMeters, fare: route.fare,
         steps: route.steps.slice(0, 12), departureTime: route.departureTime, arrivalTime: route.arrivalTime,
         retrievedAt: evidence.retrievedAt,
       });
@@ -637,13 +639,23 @@ ${JSON.stringify({
         destination: search.destination.slice(0, 80),
         dateNote: search.assumedDate ? `Example date ${search.departureDate} — no travel date set yet` : `Departing ${search.departureDate}`,
         items: search.offers.slice(0, 8).map((offer) => ({
+          id: offer.id?.slice(0, 240),
           airline: offer.airline.slice(0, 80),
+          operatingAirline: offer.operatingAirline?.slice(0, 80),
           price: offer.priceAmount.slice(0, 20),
           currency: offer.priceCurrency.slice(0, 8),
           durationMinutes: offer.durationMinutes,
           stops: offer.stops,
           departAt: offer.departAt.slice(0, 40),
           arriveAt: offer.arriveAt.slice(0, 40),
+          originAirport: offer.originAirport?.slice(0, 8),
+          destinationAirport: offer.destinationAirport?.slice(0, 8),
+          cabinClass: offer.cabinClass?.slice(0, 40),
+          baggage: offer.baggage?.slice(0, 120),
+          layoverAirports: offer.layoverAirports?.slice(0, 6),
+          aircraft: offer.aircraft?.slice(0, 120),
+          fareConditions: offer.fareConditions?.slice(0, 4),
+          expiresAt: offer.expiresAt?.slice(0, 40),
         })),
       });
     }
@@ -698,7 +710,7 @@ ${JSON.stringify({
 
     // Store any trip facts the resolver inferred as pending "suggestions" (one live row per key),
     // skipping keys the trip has already confirmed. The trip-context panel surfaces them to confirm.
-    void persistSuggestedFacts(supabase, tripId, resolved.suggestedFacts, tripCtx);
+    await persistSuggestedFacts(supabase, tripId, resolved.suggestedFacts, tripCtx);
 
     const proposedCommand = resolved.proposedProfileUpdate && Object.keys(resolved.proposedProfileUpdate).length > 0
       ? { type: "update_preferences" as const, tripId, preferences: resolved.proposedProfileUpdate }
@@ -759,10 +771,11 @@ ${JSON.stringify({
           retrieve_ms: latencyMs.retrieve,
           compose_ms: latencyMs.compose,
           total_ms: latencyMs.total,
-          model_resolve: process.env.RESOLVE_MODEL || process.env.AI_MODEL || undefined,
-          model_compose: process.env.AI_MODEL || undefined,
+          model_resolve: resolved.modelUsed ?? (process.env.RESOLVE_MODEL || process.env.AI_MODEL || undefined),
+          model_compose: composedModel,
           degraded: Boolean(resolved.degraded),
         });
+        await refreshThreadSummary(supabase, tripId);
       }),
       { headers: SSE_HEADERS },
     );

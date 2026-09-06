@@ -1,18 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ArrowRight, Link2, Loader2 } from "lucide-react";
 
 export function NewTripForm() {
   const [link, setLink] = useState("");
   const [busy, setBusy] = useState<"trip" | "link" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Stable for the life of this mount — reused across a manual retry (clicking "Start planning"
+  // again after a lost response) so the server can recognize it as the same attempt rather than
+  // creating a second blank trip. A fresh mount (new page load) gets a fresh key.
+  const idempotencyKeyRef = useRef(crypto.randomUUID());
 
   async function createTrip() {
     if (busy) return;
     setBusy("trip"); setError(null);
     try {
-      const response = await fetch("/api/trips", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "Untitled trip", destination: null }) });
+      const response = await fetch("/api/trips", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ destination: null, idempotencyKey: idempotencyKeyRef.current }) });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || !body.trip?.id) throw new Error();
       window.location.assign(`/trips/${body.trip.id}/chat`);

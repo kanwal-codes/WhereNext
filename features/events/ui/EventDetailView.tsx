@@ -114,6 +114,21 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
 
   const pad = panel ? "px-4 pb-8" : "mx-auto max-w-3xl px-5 pb-14 sm:px-8";
   const d = detail;
+
+  if (state === "loading") {
+    return (
+      <div aria-busy="true" aria-label="Loading event details">
+        <Skeleton className={cn("rounded-none", panel ? "h-44" : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]")} />
+        <div className={cn(pad, "pt-6 space-y-5")}>
+          <Skeleton className="h-3 w-24 rounded-md" />
+          <Skeleton className="h-9 w-2/3 rounded-lg" />
+          <Skeleton className="h-28 w-full rounded-2xl" />
+          <SkeletonLines lines={4} />
+        </div>
+      </div>
+    );
+  }
+
   const title = d?.title ?? seed.name;
   const image = d?.imageUrl ?? seed.imageUrl;
   const rawDate = d?.date ?? seed.date ?? null;
@@ -181,13 +196,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
       </Hero>
 
       <div className={cn(pad, "pt-6 space-y-8")}>
-        {state === "loading" ? (
-          <>
-            <Skeleton className="h-9 w-2/3 rounded-full" />
-            <Skeleton className="h-28 w-full rounded-2xl" />
-            <SkeletonLines lines={4} />
-          </>
-        ) : state === "error" && !d ? (
+        {state === "error" && !d ? (
           <p className="text-sm text-muted-foreground">
             We couldn&rsquo;t load more about this event.{" "}
             {(ticketUrl || seed.url) && (

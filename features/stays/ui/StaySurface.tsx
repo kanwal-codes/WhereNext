@@ -59,6 +59,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   const [rooms, setRooms] = useState(1);
   const [stars, setStars] = useState<number[]>([]);
   const [boards, setBoards] = useState<string[]>([]);
+  const [propertyTypes, setPropertyTypes] = useState<string[]>([]);
   const [refundable, setRefundable] = useState(false);
   const [priceMax, setPriceMax] = useState<number | null>(null);
   const [sort, setSort] = useState<"price" | "rating" | "stars">("price");
@@ -81,6 +82,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       if (checkout) qs.set("checkout", checkout);
       if (stars.length) qs.set("stars", stars.join(","));
       if (boards.length) qs.set("boards", boards.join(","));
+      if (propertyTypes.length) qs.set("propertyTypes", propertyTypes.join(","));
       if (refundable) qs.set("refundable", "1");
       if (priceMax) qs.set("priceMax", String(priceMax));
       const cacheKey = `stay-search:${tripId}:${qs.toString()}`;
@@ -118,7 +120,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
     } finally {
       if (mine === reqId.current) setLoading(false);
     }
-  }, [tripId, adults, rooms, sort, checkin, checkout, stars, boards, refundable, priceMax, near]);
+  }, [tripId, adults, rooms, sort, checkin, checkout, stars, boards, propertyTypes, refundable, priceMax, near]);
 
   useEffect(() => {
     void search();
@@ -131,6 +133,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
     if (d.priceMax !== undefined) setPriceMax(d.priceMax);
     if (d.stars?.length) setStars(d.stars);
     if (d.boards?.length) setBoards(d.boards);
+    if (d.propertyTypes?.length) setPropertyTypes(d.propertyTypes);
     if (d.refundable !== undefined) setRefundable(d.refundable);
     if (d.sort) setSort(d.sort);
     if (d.adults) setAdults(Math.max(1, Math.min(d.adults, 16)));
@@ -155,7 +158,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   const facets = result?.facets;
   const toggle = (list: string[], v: string, set: (l: string[]) => void) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
   const toggleN = (list: number[], v: number, set: (l: number[]) => void) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
-  const activeFilters = stars.length + boards.length + (refundable ? 1 : 0) + (priceMax ? 1 : 0);
+  const activeFilters = stars.length + boards.length + propertyTypes.length + (refundable ? 1 : 0) + (priceMax ? 1 : 0);
 
   return (
     <div className="space-y-5">
@@ -257,6 +260,23 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                 />
               </div>
             )}
+            {facets.propertyTypes.length > 1 && (
+              <div>
+                <span className="text-sm font-medium">Type of place</span>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {facets.propertyTypes.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => toggle(propertyTypes, t, setPropertyTypes)}
+                      className={cn("rounded-full border px-2.5 py-1 text-xs", propertyTypes.includes(t) ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-ink-soft")}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {facets.stars.length > 0 && (
               <div>
                 <span className="text-sm font-medium">Star rating</span>
@@ -296,7 +316,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
               Free cancellation only
             </label>
             {activeFilters > 0 && (
-              <button type="button" onClick={() => { setStars([]); setBoards([]); setRefundable(false); setPriceMax(null); }} className="text-xs font-medium text-primary hover:underline">
+              <button type="button" onClick={() => { setStars([]); setBoards([]); setPropertyTypes([]); setRefundable(false); setPriceMax(null); }} className="text-xs font-medium text-primary hover:underline">
                 Clear filters
               </button>
             )}
@@ -338,6 +358,9 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                       )}
                     </div>
                     <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                      {o.propertyType && o.propertyType !== "Hotel" && (
+                        <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-ink-soft">{o.propertyType}</span>
+                      )}
                       {typeof o.stars === "number" && o.stars > 0 && <span>{o.stars}★</span>}
                       {typeof o.rating === "number" && o.rating > 0 && (
                         <span className="inline-flex items-center gap-1 font-medium text-foreground">

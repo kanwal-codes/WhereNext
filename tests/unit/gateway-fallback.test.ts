@@ -89,6 +89,23 @@ describe("createGatewayWithFallback", () => {
     expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("openai.com"))).toBe(true);
   });
 
+  it("reports which model actually answered — the fallback, not the configured primary", async () => {
+    process.env.AI_PROVIDER = "cerebras";
+    process.env.CEREBRAS_API_KEY = "csk";
+    process.env.AI_FALLBACK_PROVIDERS = "openai";
+    process.env.OPENAI_API_KEY = "ok";
+    const fetchMock = vi.fn().mockImplementation((url: string) =>
+      url.includes("cerebras")
+        ? Promise.resolve(new Response("upstream boom", { status: 503 }))
+        : Promise.resolve(new Response(JSON.stringify({ choices: [{ message: { content: "from openai" } }] }), { status: 200 })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const gateway = createGatewayWithFallback();
+    expect(gateway.lastModelUsed).toBeUndefined(); // nothing has run yet
+    await gateway.generateText([{ role: "user", content: "hi" }]);
+    expect(gateway.lastModelUsed).toBe("gpt-4o"); // openai's default model, not cerebras's
+  });
+
   it("does not fall over on a 400 (another provider can't fix a bad request)", async () => {
     process.env.AI_PROVIDER = "cerebras";
     process.env.CEREBRAS_API_KEY = "csk";

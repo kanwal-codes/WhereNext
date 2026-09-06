@@ -155,7 +155,9 @@ export function AddToTripControl({
       onPlacementChange?.(next);
       notifyToast(res.queued ? `${place.name} — saved, will sync when you're back online.` : toast(place.name, next), res.queued ? "info" : "success");
     } catch {
-      setPlacement(previous);
+      // Revert only if nothing newer has already landed on top of this optimistic value — a
+      // rapid second click that already succeeded must not be clobbered by this failure.
+      setPlacement((current) => (same(current, next) ? previous : current));
       notifyToast(`Couldn’t update ${place.name}. Try again.`, "error");
     } finally {
       setBusy(false);

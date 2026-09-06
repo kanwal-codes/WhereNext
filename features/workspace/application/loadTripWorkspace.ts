@@ -5,7 +5,7 @@ import { createTripRepository } from "@/features/trip/infrastructure/tripReposit
 export type TripWorkspaceData = { trip: Trip; preferences: Record<string, unknown>; decisions: Array<Record<string, unknown>>; itinerary: Array<Record<string, unknown>>; savedPlaces: Array<Record<string, unknown>>; rejectedPlaceIds: string[]; conversation: Array<Record<string, unknown>>; essentials: string[] };
 
 export async function loadTripWorkspace(supabase: SupabaseClient, tripId: string): Promise<TripWorkspaceData | null> {
-  const conversation = (async () => { const thread = await supabase.from("conversation_threads").select("id").eq("trip_id", tripId).maybeSingle(); if (thread.error) throw thread.error; if (!thread.data) return []; const messages = await supabase.from("conversation_messages").select("id,role,content,created_at,metadata").eq("thread_id", thread.data.id).order("created_at", { ascending: true }).limit(200); if (messages.error) throw messages.error; return messages.data ?? []; })();
+  const conversation = (async () => { const thread = await supabase.from("conversation_threads").select("id").eq("trip_id", tripId).maybeSingle(); if (thread.error) throw thread.error; if (!thread.data) return []; const messages = await supabase.from("conversation_messages").select("id,role,content,created_at,metadata").eq("thread_id", thread.data.id).order("created_at", { ascending: false }).limit(200); if (messages.error) throw messages.error; return (messages.data ?? []).reverse(); })();
   // Nothing below depends on the trip row, so it joins the same fan-out (7 wide, one round-trip).
   const [trip, preferences, decisions, itinerary, savedPlaces, rejectedPlaces, essentials, conversationData] = await Promise.all([
     createTripRepository(supabase).get(tripId),

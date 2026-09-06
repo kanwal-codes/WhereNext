@@ -1,8 +1,10 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { Scale } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { AssistantBlock } from "@/packages/contracts/assistant";
 
 export const COMPARE_MAX = 4;
 
@@ -39,6 +41,7 @@ export type PanelState =
   | { kind: "place"; placeId: string; name: string }
   | { kind: "stay"; hotelId: string; name: string; checkin?: string; checkout?: string }
   | { kind: "event"; seed: EventSeed }
+  | { kind: "collection"; title: string; block: AssistantBlock }
   | { kind: "compare" }; // the multi-kind selection bucket → CompareGrid + scratch chat
 
 type Ctx = {
@@ -65,10 +68,12 @@ export function panelSubjectKey(panel: PanelState | null, compareIds: string[] =
   return panel.kind === "place"
     ? `place:${panel.placeId}`
     : panel.kind === "stay"
-      ? `stay:${panel.hotelId}`
+      ? `stay:${panel.hotelId}:${panel.checkin ?? ""}:${panel.checkout ?? ""}`
       : panel.kind === "event"
         ? `event:${panel.seed.url}`
-        : `compare:${compareIds.join(",")}`;
+        : panel.kind === "collection"
+          ? `collection:${panel.title}:${panel.block.type}`
+          : `compare:${compareIds.join(",")}`;
 }
 const panelKey = (panel: PanelState) => panelSubjectKey(panel);
 
@@ -76,12 +81,23 @@ const TripPanelCtx = createContext<Ctx | null>(null);
 
 export function TripPanelProvider({ tripId, children }: { tripId: string; children: ReactNode }) {
   const key = `compare:${tripId}`;
+  const pathname = usePathname();
   const [panel, setPanel] = useState<PanelState | null>(null);
   const [history, setHistory] = useState<PanelState[]>([]);
   const [navDirection, setNavDirection] = useState<"forward" | "back">("forward");
   const [compareList, setCompareList] = useState<CompareEntry[]>([]);
   const [compareMode, setCompareMode] = useState(false);
   const browserEntryRef = useRef(false);
+  const previousPathnameRef = useRef(pathname);
+
+  useEffect(() => {
+    if (previousPathnameRef.current !== pathname) {
+      browserEntryRef.current = false;
+      setPanel(null);
+      setHistory([]);
+      previousPathnameRef.current = pathname;
+    }
+  }, [pathname]);
 
   useEffect(() => {
     try {

@@ -5,15 +5,23 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { announceWorkspaceChange, type WorkspaceChange } from "@/lib/application/workspace-events";
 import { getPublicEnv } from "@/lib/env";
 
-/** Which workspace slice a change to each published table maps to. */
-const TABLE_TO_CHANGE: Record<string, WorkspaceChange> = {
+/** Which workspace slice a change to each published table maps to — every table a mutation
+ *  route writes needs an entry here, or a collaborator's edit to it never reaches other
+ *  devices watching the same trip until they manually reload. Exported so a test can catch
+ *  the next table that's added without this list being updated to match. */
+export const TABLE_TO_CHANGE: Record<string, WorkspaceChange> = {
   trips: "preferences",
   trip_itinerary_items: "itinerary",
   trip_places: "places",
   trip_preferences: "preferences",
   trip_decisions: "decision",
+  trip_essentials: "essentials",
   conversation_messages: "conversation",
 };
+
+export function realtimeFilterForTable(table: string, tripId: string): string {
+  return table === "trips" ? `id=eq.${tripId}` : `trip_id=eq.${tripId}`;
+}
 
 export type PresencePeer = { userId: string; name: string; viewingPath: string };
 
@@ -47,7 +55,7 @@ export function useTripRealtime(tripId: string, me?: { userId: string; name: str
     };
 
     for (const table of Object.keys(TABLE_TO_CHANGE)) {
-      channel.on("postgres_changes", { event: "*", schema: "public", table, filter: `trip_id=eq.${tripId}` }, () => schedule(TABLE_TO_CHANGE[table]));
+      channel.on("postgres_changes", { event: "*", schema: "public", table, filter: realtimeFilterForTable(table, tripId) }, () => schedule(TABLE_TO_CHANGE[table]));
     }
 
     channel.on("presence", { event: "sync" }, () => {

@@ -4,7 +4,9 @@ import React, { useState } from "react";
 import {
   ArrowUpRight,
   BedDouble,
+  CalendarPlus,
   Car,
+  Check,
   Cloud,
   CloudRain,
   CloudSnow,
@@ -14,12 +16,15 @@ import {
   Droplets,
   Footprints,
   Landmark,
+  Loader2,
   MapPin,
   Martini,
   Moon,
   Plane,
   Sparkles,
   Star,
+  Phone,
+  Globe,
   Sun,
   TicketCheck,
   TrainFront,
@@ -32,8 +37,13 @@ import type { EventSeed } from "@/components/TripPanelProvider";
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
 import { ExternalLink } from "@/components/ExternalLink";
 import { EventPoster } from "@/components/EventPoster";
+import { EventCard, type NearbyEvent } from "@/components/EventCard";
 import { CompareView } from "@/components/CompareView";
+import { BlurImage } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
+import { mutate } from "@/lib/client/mutation-queue";
+import { notifyToast } from "@/lib/application/toast";
+import { portableProxyPhotoUrl } from "../portable-photo-url";
 
 export type BlockHandlers = {
   /** The trip these blocks belong to — card actions write against it. */
@@ -45,7 +55,37 @@ export type BlockHandlers = {
   onOpenStay?: (stay: StayCardItem, dates: { checkin: string; checkout: string }) => void;
   /** When set, an event card/row opens the full event view in the chat side-panel. */
   onOpenEvent?: (seed: EventSeed) => void;
+  /** Opens the complete result set in the shared side panel. */
+  onOpenCollection?: (title: string, block: AssistantBlock) => void;
 };
+
+const MAX_CHAT_CARDS = 4;
+const cleanSectionTitle = (value?: string) => value
+  ? value.trim().replace(/^./, (letter) => letter.toUpperCase())
+  : undefined;
+
+function ResultBand({ title, onSeeAll }: { title?: string; onSeeAll?: () => void }) {
+  if (!title && !onSeeAll) return null;
+  return (
+    <div className="flex min-w-0 items-center justify-between gap-3 border-l-2 border-coral pl-3">
+      {title ? <h3 className="min-w-0 truncate font-display text-sm">{title}</h3> : <span />}
+      {onSeeAll && (
+        <button
+          type="button"
+          aria-label={`See all${title ? ` ${title}` : " results"}`}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onSeeAll();
+          }}
+          className="relative z-10 shrink-0 cursor-pointer text-xs font-medium text-foreground underline-offset-4 hover:underline"
+        >
+          See all &rarr;
+        </button>
+      )}
+    </div>
+  );
+}
 
 type EventItem = Extract<AssistantBlock, { type: "events" }>["items"][number];
 
@@ -152,6 +192,10 @@ const freshness = "mt-2 text-[11px] text-muted-foreground";
 // Left edge aligns with the message text; the row still scrolls sideways. No negative
 // margin — the chat column has no padding to bleed into, which left the first card clipped.
 const carousel = "flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto no-scrollbar pb-2.5";
+// The full collection panel (preview=false) has real room to breathe — lay cards out in a
+// grid that reflows to the panel's own width instead of one endless scrolling row. Sized off
+// the container, not the viewport, since the panel can be a narrow drawer or full-screen.
+const grid = "grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3";
 
 function fmtTime(value: string) {
   const d = new Date(value);
@@ -163,11 +207,15 @@ function PlaceCardView({
   tripId,
   onOpenPlace,
 }: { place: PlaceCard; tripId: string } & Pick<BlockHandlers, "onOpenPlace">) {
+  const portablePhoto = portableProxyPhotoUrl(place.photoUrl);
   const head = (
     <>
-      {place.photoUrl && (
-        // eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin proxy
-        <img src={place.photoUrl} alt={place.name} width={320} height={160} loading="lazy" className="h-32 w-full object-cover" />
+      {portablePhoto ? (
+        <BlurImage src={portablePhoto} alt={place.name} width={320} height={160} className="h-32 w-full object-cover" />
+      ) : (
+        <div className="grid h-32 w-full place-items-center bg-muted text-muted-foreground">
+          <MapPin className="h-6 w-6 opacity-40" />
+        </div>
       )}
       <h4 className="px-3.5 pt-3.5 font-display text-base leading-tight">{place.name}</h4>
     </>
@@ -195,6 +243,20 @@ function PlaceCardView({
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <MapPin className="h-3 w-3 shrink-0 text-coral" /> {place.distanceToLocked}
           </p>
+        )}
+        {(place.phone || place.websiteUri) && (
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            {place.phone && <a href={`tel:${place.phone}`} className="inline-flex items-center gap-1 hover:text-foreground"><Phone className="h-3 w-3" />{place.phone}</a>}
+            {place.websiteUri && <a href={place.websiteUri} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 hover:text-foreground"><Globe className="h-3 w-3" />Website</a>}
+          </div>
+        )}
+        {(place.openNow !== undefined || place.openingHours?.length || place.wheelchairAccessible !== undefined || place.reviewSummary) && (
+          <div className="space-y-1 text-[11px] text-muted-foreground">
+            {place.openNow !== undefined && <p>{place.openNow ? "Open now" : "Closed now"}</p>}
+            {place.openingHours?.[0] && <p className="truncate">{place.openingHours[0]}</p>}
+            {place.wheelchairAccessible && <p>Wheelchair-accessible entrance</p>}
+            {place.reviewSummary && <p className="line-clamp-2">{place.reviewSummary}</p>}
+          </div>
         )}
         {/* "From provider" is the default for every card — only a non-default trust label carries information. */}
         {place.trust !== "sourced" && <p className="eyebrow">{TRUST_LABEL[place.trust] ?? place.trust}</p>}
@@ -577,14 +639,67 @@ function BudgetBlockView({ block }: { block: BudgetBlockData }) {
 type ItineraryBlockData = Extract<AssistantBlock, { type: "itinerary" }>;
 const STOP_ICON = { food: Coffee, sight: Landmark, activity: Sparkles, nightlife: Martini, transit: TrainFront, event: TicketCheck, rest: Moon } as const;
 
-function ItineraryBlockView({ block, onOpenPlace }: { block: ItineraryBlockData } & Pick<BlockHandlers, "onOpenPlace">) {
+/** Day label -> 1-based day index ("Day 3" -> 3), falling back to the day's position in the plan. */
+const dayIndexFromLabel = (label: string, fallback: number): number => {
+  const match = label.match(/\d+/);
+  return match ? Number(match[0]) : fallback;
+};
+
+function ItineraryBlockView({ block, tripId, onOpenPlace }: { block: ItineraryBlockData; tripId: string } & Pick<BlockHandlers, "onOpenPlace">) {
   const [active, setActive] = useState(0);
+  const [status, setStatus] = useState<"idle" | "adding" | "added">("idle");
   const multi = block.days.length > 1;
   const day = block.days[Math.min(active, block.days.length - 1)];
+  const totalStops = block.days.reduce((n, d) => n + d.stops.length, 0);
+
+  async function addAll() {
+    if (status !== "idle") return;
+    setStatus("adding");
+    let failures = 0;
+    for (const [i, d] of block.days.entries()) {
+      const dayIndex = dayIndexFromLabel(d.label, i + 1);
+      for (const stop of d.stops) {
+        const res = await mutate("/api/commands", {
+          method: "POST",
+          // Carries the place id through when the stop is a real, known place — without it the
+          // itinerary row has nothing to open a detail panel from later.
+          body: { type: "add_itinerary_item", tripId, title: stop.title, dayIndex, ...(stop.placeId ? { providerId: stop.placeId } : {}) },
+          announce: ["itinerary"],
+        });
+        if (!res.ok) failures += 1;
+      }
+    }
+    if (failures === totalStops) {
+      setStatus("idle");
+      notifyToast("Couldn’t add the plan to your itinerary. Try again.", "error");
+    } else {
+      setStatus("added");
+      notifyToast(failures ? `Added the plan — ${failures} stop${failures === 1 ? "" : "s"} didn’t save.` : "Added the whole plan to your itinerary.", failures ? "info" : "success");
+    }
+  }
+
   return (
     <div className={cn(card, "overflow-hidden")}>
-      {block.title && (
-        <p className="border-b border-border/60 px-4 pt-3.5 pb-2 font-display text-sm">{block.title}</p>
+      <div className="flex items-center justify-between gap-3 border-b border-border/60 px-4 pt-3.5 pb-2">
+        <p className="min-w-0 truncate font-display text-sm">{block.title ?? (multi ? day.label : "")}</p>
+        <button
+          type="button"
+          onClick={() => void addAll()}
+          disabled={status !== "idle"}
+          className={cn(
+            "inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11px] font-medium transition-colors",
+            status === "added" ? "border-leaf/40 bg-leaf/10 text-leaf" : "hover:bg-accent",
+          )}
+        >
+          {status === "adding" ? <Loader2 className="h-3 w-3 animate-spin" /> : status === "added" ? <Check className="h-3 w-3" /> : <CalendarPlus className="h-3 w-3" />}
+          {status === "added" ? "Added to itinerary" : "Add whole plan"}
+        </button>
+      </div>
+      {block.intro && (
+        <div className="border-b border-border/60 bg-muted/20 px-4 py-3">
+          <p className="eyebrow">About this</p>
+          <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">{block.intro}</p>
+        </div>
       )}
       {multi && (
         <div className="flex gap-1.5 overflow-x-auto scrollbar-slim border-b border-border/60 px-4 py-2.5">
@@ -640,18 +755,26 @@ function ItineraryBlockView({ block, onOpenPlace }: { block: ItineraryBlockData 
   );
 }
 
-export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenStay, onOpenEvent }: { blocks: AssistantBlock[] } & BlockHandlers) {
+export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenStay, onOpenEvent, onOpenCollection, preview = true }: { blocks: AssistantBlock[]; preview?: boolean } & BlockHandlers) {
   return (
     <div className="mt-3 flex flex-col gap-3">
       {blocks.map((block, index) => {
         if (block.type === "place_list") {
+          const visible = preview ? block.places.slice(0, MAX_CHAT_CARDS) : block.places;
+          const title = cleanSectionTitle(block.title);
           return (
-            <div key={index} className={carousel}>
-              {block.places.map((place) => (
-                <div key={place.providerId} className="w-[228px] shrink-0 snap-start">
-                  <PlaceCardView place={place} tripId={tripId} onOpenPlace={onOpenPlace} />
-                </div>
-              ))}
+            <div key={index} className="flex min-w-0 flex-col gap-2.5">
+              <ResultBand
+                title={preview ? title : undefined}
+                onSeeAll={preview && block.places.length > MAX_CHAT_CARDS && onOpenCollection ? () => onOpenCollection(title ?? "All places", block) : undefined}
+              />
+              <div className={preview ? carousel : grid}>
+                {visible.map((place) => (
+                  <div key={place.providerId} className={preview ? "w-[228px] shrink-0 snap-start" : undefined}>
+                    <PlaceCardView place={place} tripId={tripId} onOpenPlace={onOpenPlace} />
+                  </div>
+                ))}
+              </div>
             </div>
           );
         }
@@ -702,6 +825,7 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
               </p>
               <p className="mt-1 text-xs text-muted-foreground tabular-nums">
                 {Math.round(block.durationSeconds / 60)} min · {(block.distanceMeters / 1000).toFixed(1)} km
+                {block.fare ? ` · ${block.fare.amount} ${block.fare.currency}` : ""}
                 {block.departureTime
                   ? ` · leaves ${new Date(block.departureTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
                   : ""}
@@ -737,10 +861,24 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
         }
 
         if (block.type === "events") {
+          if (!preview) {
+            return (
+              <div key={index} className={grid}>
+                {block.items.map((event) => (
+                  <EventCard
+                    key={event.url}
+                    tripId={tripId}
+                    event={event as NearbyEvent}
+                  />
+                ))}
+              </div>
+            );
+          }
           const groups = groupEventOccurrences(block.items);
-          const featured = groups.filter((g) => isFeaturedEvent(g.base)).slice(0, 3);
+          const visibleGroups = preview ? groups.slice(0, MAX_CHAT_CARDS) : groups;
+          const featured = visibleGroups.filter((g) => isFeaturedEvent(g.base)).slice(0, 3);
           const featuredSet = new Set(featured);
-          const rest = groups.filter((g) => !featuredSet.has(g));
+          const rest = visibleGroups.filter((g) => !featuredSet.has(g));
           const freshnessNote = (
             <p className={freshness}>
               <TicketCheck className="mr-1 inline h-3 w-3" />
@@ -749,14 +887,18 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
           );
           return (
             <div key={index} className="flex flex-col gap-2.5">
+              <ResultBand
+                title={preview ? "Events" : undefined}
+                onSeeAll={preview && groups.length > MAX_CHAT_CARDS && onOpenCollection ? () => onOpenCollection("All events", block) : undefined}
+              />
               {block.window && (
                 <p className="text-[11px] text-muted-foreground">Checked against your trip · {block.window.start} → {block.window.end}</p>
               )}
 
               {featured.length > 0 && (
-                <div className={carousel}>
+                <div className={preview ? carousel : grid}>
                   {featured.map((group, groupIndex) => (
-                    <div key={`${group.base.title}-${groupIndex}`} className="w-[240px] shrink-0 snap-start">
+                    <div key={`${group.base.title}-${groupIndex}`} className={preview ? "w-[240px] shrink-0 snap-start" : undefined}>
                       <FeaturedEventCard group={group} onOpen={onOpenEvent} />
                     </div>
                   ))}
@@ -795,14 +937,29 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
                 <div key={offerIndex} className={cn("flex items-baseline justify-between gap-3 py-2", rowDivider)}>
                   <span className="text-sm font-medium">{offer.airline}</span>
                   <span className="flex-1 text-xs text-muted-foreground">
+                    {offer.originAirport && offer.destinationAirport ? `${offer.originAirport} → ${offer.destinationAirport} · ` : ""}
                     {Math.floor(offer.durationMinutes / 60)}h {offer.durationMinutes % 60}m ·{" "}
                     {offer.stops === 0 ? "nonstop" : `${offer.stops} stop${offer.stops > 1 ? "s" : ""}`} · {fmtTime(offer.departAt)}
+                    {offer.cabinClass ? ` · ${offer.cabinClass}` : ""}
+                    {offer.baggage ? ` · ${offer.baggage}` : ""}
+                    {offer.layoverAirports?.length ? ` · via ${offer.layoverAirports.join(", ")}` : ""}
                   </span>
                   <span className="whitespace-nowrap text-sm font-semibold tabular-nums">
                     {offer.price} {offer.currency}
                   </span>
                 </div>
               ))}
+              {block.items.some((offer) => offer.aircraft || offer.fareConditions?.length) && (
+                <div className="mt-1 space-y-1 text-[11px] text-muted-foreground">
+                  {block.items.slice(0, 3).map((offer, offerIndex) => (
+                    <p key={`detail-${offerIndex}`}>
+                      {offer.aircraft ? `Aircraft: ${offer.aircraft}` : ""}
+                      {offer.aircraft && offer.fareConditions?.length ? " · " : ""}
+                      {offer.fareConditions?.join(" · ")}
+                    </p>
+                  ))}
+                </div>
+              )}
               <p className={freshness}>Fares change quickly — check the airline or a travel site before booking.</p>
             </div>
           );
@@ -810,18 +967,19 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
 
         if (block.type === "stays") {
           const dates = { checkin: block.checkin, checkout: block.checkout };
+          const visible = preview ? block.items.slice(0, MAX_CHAT_CARDS) : block.items;
           return (
             <div key={index} className="flex flex-col gap-2">
-              <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-display text-sm">
-                <BedDouble className="h-4 w-4 text-coral" /> Stays in {block.location}
-                <span className="text-xs font-normal text-muted-foreground">
-                  · {block.nights} night{block.nights > 1 ? "s" : ""}
-                  {block.dateNote ? ` · ${block.dateNote}` : ""}
-                </span>
+              <ResultBand
+                title={preview ? `Stays in ${block.location}` : undefined}
+                onSeeAll={preview && block.items.length > MAX_CHAT_CARDS && onOpenCollection ? () => onOpenCollection(`All stays in ${block.location}`, block) : undefined}
+              />
+              <p className="text-xs text-muted-foreground">
+                {block.nights} night{block.nights > 1 ? "s" : ""}{block.dateNote ? ` · ${block.dateNote}` : ""}
               </p>
-              <div className={carousel}>
-                {block.items.map((hotel, hotelIndex) => (
-                  <div key={hotel.hotelId || `${hotel.name}-${hotelIndex}`} className="w-[228px] shrink-0 snap-start">
+              <div className={preview ? carousel : grid}>
+                {visible.map((hotel, hotelIndex) => (
+                  <div key={hotel.hotelId || `${hotel.name}-${hotelIndex}`} className={preview ? "w-[228px] shrink-0 snap-start" : undefined}>
                     <StayCardView hotel={hotel} onOpen={onOpenStay && hotel.hotelId ? () => onOpenStay(hotel, dates) : undefined} />
                   </div>
                 ))}
@@ -851,7 +1009,7 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
         }
 
         if (block.type === "itinerary") {
-          return <div key={index}><ItineraryBlockView block={block} onOpenPlace={onOpenPlace} /></div>;
+          return <div key={index}><ItineraryBlockView block={block} tripId={tripId} onOpenPlace={onOpenPlace} /></div>;
         }
 
         if (block.type === "budget") {

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetProviderGuards } from "../../lib/server/provider-guard";
+import { clearMemoryCache } from "../../lib/server/ttl-cache";
 import { retrieveEvidence, cleanEventKeyword } from "../../lib/application/retrieve";
 
 describe("cleanEventKeyword", () => {
@@ -13,7 +14,12 @@ describe("cleanEventKeyword", () => {
   });
 });
 
-beforeEach(() => resetProviderGuards());
+beforeEach(() => {
+  resetProviderGuards();
+  // The stays branch now shares the same TTL cache the Stays tab route uses (finding 16); clear
+  // it between tests so one test's cached hotel search doesn't leak into the next.
+  clearMemoryCache();
+});
 afterEach(() => {
   vi.restoreAllMocks();
   delete process.env.GOOGLE_MAPS_API_KEY;
@@ -49,6 +55,25 @@ describe("retrieveEvidence", () => {
     expect(evidence.places).toHaveLength(1);
     expect(evidence.places[0].name).toBe("Club One");
     expect(fetchMock.mock.calls[0][1].body).toContain("retrieve-nightclubs in Mumbai");
+  });
+
+  it("keeps separate place searches as separate topical sections", async () => {
+    process.env.GOOGLE_MAPS_API_KEY = "k";
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+      const query = JSON.parse(String(init?.body ?? "{}")).textQuery as string;
+      const museum = query.includes("art museums");
+      return Promise.resolve(new Response(JSON.stringify({ places: [{
+        id: museum ? "museum-1" : "food-1",
+        displayName: { text: museum ? "Museum of Fine Arts" : "Damas" },
+        location: { latitude: 45.5, longitude: -73.6 },
+      }] }), { status: 200 }));
+    }));
+    const evidence = await retrieveEvidence([
+      { tool: "search_places", query: "food places", location: "Montreal" },
+      { tool: "search_places", query: "art museums", location: "Montreal" },
+    ]);
+    expect(evidence.placeGroups?.map((group) => group.label)).toEqual(["food places", "art museums"]);
+    expect(evidence.placeGroups?.map((group) => group.places[0]?.name)).toEqual(["Damas", "Museum of Fine Arts"]);
   });
 
   it("collects web sources and isolates a failed provider", async () => {
@@ -91,6 +116,25 @@ describe("retrieveEvidence", () => {
     );
     // The rejected name is gone; other cafés are untouched.
     expect(evidence.places.map((place) => place.name)).toEqual(["A Brasileira"]);
+  });
+
+  it("prices hotel rooms for the trip's actual party size instead of a 2-adult default", async () => {
+    process.env.GOOGLE_MAPS_API_KEY = "g";
+    process.env.CONNECT_API_KEY = "sand_x";
+    let ratesBody: { occupancies?: Array<{ adults: number }> } | undefined;
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: unknown, init?: { method?: string; body?: string }) => {
+      const url = String(input);
+      if (url.includes("places.googleapis.com")) return Promise.resolve(new Response(JSON.stringify({ places: [{ id: "g1", displayName: { text: "Lisbon" }, location: { latitude: 38.72, longitude: -9.14 } }] }), { status: 200 }));
+      if (url.includes("/data/hotels")) return Promise.resolve(new Response(JSON.stringify({ data: [{ id: "h1", name: "Hotel Alfama", city: "Lisbon", latitude: 38.71, longitude: -9.13 }] }), { status: 200 }));
+      if (url.includes("/hotels/rates") && init?.method === "POST") {
+        ratesBody = JSON.parse(init.body!);
+        return Promise.resolve(new Response(JSON.stringify({ data: [{ hotelId: "h1", roomTypes: [{ offerRetailRate: { amount: 360, currency: "EUR" }, rates: [{ name: "Double", boardName: "Breakfast", cancellationPolicies: { refundableTag: "RFN" } }] }] }] }), { status: 200 }));
+      }
+      return Promise.reject(new Error(`unexpected ${url}`));
+    }));
+    await retrieveEvidence([{ tool: "stays", location: "Lisbon" }], { travelers: 5 });
+    // 5 adults spread across the default single room, not the LiteAPI client's own 2-adult default.
+    expect(ratesBody?.occupancies).toEqual([{ adults: 5 }]);
   });
 
   it("falls back to web research when a transit directions call returns nothing", async () => {

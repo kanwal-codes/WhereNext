@@ -14,6 +14,7 @@ import { readStayDecision } from "@/packages/contracts/stay";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 import { ContentSwap, Sheet } from "@/components/motion-primitives";
+import { MessageBlocks } from "@/features/conversation/ui/blocks/MessageBlocks";
 
 const KIND_LABEL: Record<CompareEntry["kind"], string> = { place: "Place", stay: "Stay", event: "Event", route: "Route" };
 
@@ -39,6 +40,8 @@ function titleFor(panel: PanelState): string {
       return panel.name;
     case "event":
       return panel.seed.name;
+    case "collection":
+      return panel.title;
     default:
       return "Side by side";
   }
@@ -64,6 +67,8 @@ function fullPageHref(panel: PanelState, tripId: string, compareIds: string[]): 
       if (venue) qs.set("venue", venue);
       return `${base}/event?${qs}`;
     }
+    case "collection":
+      return `${base}/discover`;
     default:
       return `${base}/compare${compareIds.length ? `?ids=${compareIds.map(encodeURIComponent).join(",")}` : ""}`;
   }
@@ -213,6 +218,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
         lng: e.attrs.lng,
       }));
     }
+    if (p.kind === "collection") return [];
     return [{ name: titleFor(p), detail: p.kind === "stay" ? "Hotel" : p.kind === "event" ? "Event" : "Place" }];
   }
 
@@ -254,6 +260,18 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
     <StayDetailView tripId={tripId} hotelId={shown.hotelId} checkin={shown.checkin} checkout={shown.checkout} variant="panel" />
   ) : shown.kind === "event" ? (
     <EventDetailView tripId={tripId} seed={shown.seed} variant="panel" />
+  ) : shown.kind === "collection" ? (
+    <div className="p-4">
+      <MessageBlocks
+        blocks={[shown.block]}
+        tripId={tripId}
+        preview={false}
+        onFollowup={() => undefined}
+        onOpenPlace={(place) => ctx.openPanel({ kind: "place", placeId: place.providerId, name: place.name })}
+        onOpenStay={(stay, dates) => ctx.openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name, ...dates })}
+        onOpenEvent={(seed) => ctx.openPanel({ kind: "event", seed })}
+      />
+    </div>
   ) : (
     <div className="p-4">
       <CompareGrid list={compareList} anchor={anchor} onRemove={compareRemove} />

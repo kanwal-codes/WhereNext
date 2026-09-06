@@ -27,11 +27,26 @@ describe("rebuild contracts", () => {
     expect(result).toContain("group: friends");
     expect(result).toContain("Saved places: none yet.");
   });
-  it("merges preferences: dislikes accumulate, scalars replace", () => {
-    const merged = mergePreferences({ dislikes: ["museums"], budget: 100, pace: "relaxed" }, { dislikes: ["bungee"], budget: 200 });
+  it("merges preferences: lists accumulate, scalars replace", () => {
+    const merged = mergePreferences(
+      { likes: ["art"], dislikes: ["museums"], budget: 100, pace: "relaxed" },
+      { likes: ["parks"], dislikes: ["bungee"], budget: 200 },
+    );
+    expect(merged.likes).toEqual(["art", "parks"]);
     expect(merged.dislikes).toEqual(["museums", "bungee"]);
     expect(merged.budget).toBe(200);
     expect(merged.pace).toBe("relaxed");
+  });
+  it("supports explicit preference list operations", () => {
+    const removed = mergePreferences(
+      { likes: ["art", "parks"], dislikes: ["museums", "bungee"] },
+      { operations: [{ action: "remove", field: "dislikes", values: ["museums"] }, { action: "add", field: "likes", values: ["cafes"] }] },
+    );
+    expect(removed).toMatchObject({ likes: ["art", "parks", "cafes"], dislikes: ["bungee"] });
+    expect(removed).not.toHaveProperty("operations");
+
+    const cleared = mergePreferences({ likes: ["art"] }, { operations: [{ action: "clear", field: "likes" }] });
+    expect(cleared).not.toHaveProperty("likes");
   });
   it("accepts explicit preference commands", () => {
     expect(proposedCommandSchema.safeParse({ type: "update_preferences", tripId: "00000000-0000-0000-0000-000000000000", preferences: { vibe: "slow" } }).success).toBe(true);

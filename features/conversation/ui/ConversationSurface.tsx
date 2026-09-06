@@ -3,7 +3,8 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { ArrowUp, ChevronRight, Copy, Mic } from "lucide-react";
-import type { AssistantTurnMeta, PlaceCard, ProposedCommand, StayCardItem } from "@/packages/contracts/assistant";
+import { Sheet } from "@/components/motion-primitives";
+import type { AssistantBlock, AssistantTurnMeta, PlaceCard, ProposedCommand, StayCardItem } from "@/packages/contracts/assistant";
 import type { EventSeed } from "@/components/TripPanelProvider";
 import type { Message } from "../domain/message";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
@@ -34,6 +35,7 @@ const unavailableLabels = (names?: string[]) => Array.from(new Set((names ?? [])
 
 const conversationCacheKey = (tripId: string) => `where-next:conversation:${tripId}`;
 type ConversationCache = { savedAt: number; messages: Message[] };
+const CONVERSATION_CACHE_TTL_MS = 60_000;
 
 function readConversationCache(tripId: string): ConversationCache | null {
   if (typeof window === "undefined") return null;
@@ -47,10 +49,14 @@ function readConversationCache(tripId: string): ConversationCache | null {
   }
 }
 
-function writeConversationCache(tripId: string, messages: Message[]) {
+/** `verifiedAt` is when this content was last confirmed against the server — NOT "now". Passing
+ *  the real verification time (rather than always stamping the write) is what makes the 60s TTL
+ *  below mean anything: otherwise every local edit (an optimistic send, a settled stream) would
+ *  re-arm the freshness window and a revisit could skip server reconciliation indefinitely. */
+function writeConversationCache(tripId: string, messages: Message[], verifiedAt: number) {
   if (typeof window === "undefined" || messages.length === 0) return;
   try {
-    window.sessionStorage.setItem(conversationCacheKey(tripId), JSON.stringify({ savedAt: Date.now(), messages } satisfies ConversationCache));
+    window.sessionStorage.setItem(conversationCacheKey(tripId), JSON.stringify({ savedAt: verifiedAt, messages } satisfies ConversationCache));
   } catch {
     // Session storage can be unavailable or full; the server remains the source of truth.
   }
@@ -146,6 +152,7 @@ export function ConversationSurface({
   onOpenPlace,
   onOpenStay,
   onOpenEvent,
+  onOpenCollection,
   viewContext,
   rail = false,
 }: {
@@ -155,6 +162,7 @@ export function ConversationSurface({
   onOpenPlace?: (place: PlaceCard) => void;
   onOpenStay?: (stay: StayCardItem, dates: { checkin: string; checkout: string }) => void;
   onOpenEvent?: (seed: EventSeed) => void;
+  onOpenCollection?: (title: string, block: AssistantBlock) => void;
   /** Name of the place/stay the user has open beside the chat, for deictic references. */
   viewContext?: string;
   rail?: boolean;
@@ -172,6 +180,13 @@ export function ConversationSurface({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollFrame = useRef(0);
   const speechBaseRef = useRef("");
+  // When this state was last confirmed against the server — distinct from "now", so a local
+  // edit (optimistic send, settled stream) doesn't silently re-arm the cache's freshness TTL.
+  const verifiedAtRef = useRef(0);
+  // Message ids treated as already-settled — restored history (SSR props, cache, a background
+  // merge) must appear in place, not replay its whole entrance animation every time the log
+  // mounts. Seeded with whatever came from the server so the very first paint doesn't animate.
+  const seenMessageIdsRef = useRef<Set<string>>(new Set((initialMessages ?? []).map((m) => String(m.id))));
 
   // Dictation: transcript is appended after whatever was already typed when the mic started.
   const speech = useSpeechInput({
@@ -201,8 +216,14 @@ export function ConversationSurface({
     if (cached && cached.savedAt >= initialLatest) {
       setMessages(cached.messages);
       setLoaded(true);
+      // Preserve the cache's real verification time — restoring it must not look like a fresh check.
+      verifiedAtRef.current = cached.savedAt;
+      for (const m of cached.messages) seenMessageIdsRef.current.add(m.id);
     }
     setCacheReady(true);
+    // A quick tab round-trip should not hit the conversation API again. A new device has no
+    // session cache, so it still loads the durable server thread immediately.
+    if (cached && Date.now() - cached.savedAt < CONVERSATION_CACHE_TTL_MS) return;
     const controller = new AbortController();
     fetch(`/api/trips/${tripId}/conversation`, { signal: controller.signal })
       .then(async (response) => {
@@ -211,7 +232,10 @@ export function ConversationSurface({
       })
       .then((body) => {
         if (!controller.signal.aborted) {
-          setMessages((current) => mergeConversationMessages(current, (body.messages ?? []) as Message[]));
+          verifiedAtRef.current = Date.now();
+          const fresh = (body.messages ?? []) as Message[];
+          for (const m of fresh) seenMessageIdsRef.current.add(m.id);
+          setMessages((current) => mergeConversationMessages(current, fresh));
           setLoaded(true);
         }
       })
@@ -224,7 +248,7 @@ export function ConversationSurface({
   }, [tripId, initialMessages]);
 
   useEffect(() => {
-    if (cacheReady) writeConversationCache(tripId, messages);
+    if (cacheReady) writeConversationCache(tripId, messages, verifiedAtRef.current);
   }, [cacheReady, messages, tripId]);
 
   const scrollIfNearBottom = useCallback(() => {
@@ -268,12 +292,22 @@ export function ConversationSurface({
     });
   }, [scrollIfNearBottom]);
 
-  useEffect(() => {
+  const resizeTextarea = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
-  }, [input]);
+  }, []);
+  useEffect(() => resizeTextarea(), [input, resizeTextarea]);
+  // Text wraps differently once the composer's own width changes (a side panel opening/closing,
+  // a viewport rotation) — recompute then too, not just when the text itself changes.
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(resizeTextarea);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [resizeTextarea]);
 
   async function confirmProposal() {
     if (!proposal || confirming) return;
@@ -308,15 +342,21 @@ export function ConversationSurface({
     }
   }
 
-  async function submit(rawContent: string) {
+  async function submit(rawContent: string, retryKey?: string) {
     const content = rawContent.trim();
     if (!content || sending || !loaded) return;
     if (speech.listening) speech.stop();
     setSending(true);
     setInput("");
     const previous = messages;
-    const userMessage: Message = { id: `local-${Date.now()}`, role: "user", content, created_at: new Date().toISOString() };
-    const next = [...previous, userMessage];
+    // Stable across every retry of THIS send (never a fresh crypto.randomUUID() per attempt) —
+    // the server upserts on (thread, idempotency_key), so reusing it lets a retry collapse into
+    // the original row instead of silently duplicating a message that actually saved fine the
+    // first time but whose response the client never saw (a dropped connection, a timeout).
+    const messageIdempotencyKey = retryKey ?? crypto.randomUUID();
+    const userMessage: Message = { id: `local-${messageIdempotencyKey}`, role: "user", content, created_at: new Date().toISOString() };
+    // Same id across retries too — don't stack a second bubble for a message already showing.
+    const next = previous.some((m) => m.id === userMessage.id) ? previous : [...previous, userMessage];
     setMessages(next);
     let userSaved = false;
     try {
@@ -327,6 +367,7 @@ export function ConversationSurface({
         tripId,
         content,
         viewContext,
+        idempotencyKey: messageIdempotencyKey,
         onSurfaceSelect,
         onProposal: setProposal,
         onUserSaved: () => {
@@ -354,6 +395,9 @@ export function ConversationSurface({
             : m,
         ),
       );
+      // The resolver may have persisted core trip facts or pending suggestions during this turn.
+      // Refresh server-rendered workspace surfaces so “What we know” reflects the same response.
+      announceWorkspaceChange("preferences");
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       setMessages(userSaved ? next : previous);
@@ -363,7 +407,7 @@ export function ConversationSurface({
           ? "Roam is busy right now — your message is saved."
           : "Roam couldn’t reply — your message is saved."
         : "Your message didn’t send.";
-      notifyToast(message, "error", { label: "Retry", onClick: () => void submit(content) });
+      notifyToast(message, "error", { label: "Retry", onClick: () => void submit(content, messageIdempotencyKey) });
     } finally {
       requestRef.current = null;
       setSending(false);
@@ -384,6 +428,7 @@ export function ConversationSurface({
     onOpenPlace,
     onOpenStay,
     onOpenEvent,
+    onOpenCollection,
   };
 
   const proposalRows = proposal ? describeProposal(proposal) : [];
@@ -437,12 +482,16 @@ export function ConversationSurface({
             const streaming = message.role === "assistant" && sending && index === messages.length - 1;
             const dir =
               message.role === "assistant" && meta?.language && RTL.has(meta.language.slice(0, 2)) ? "rtl" : undefined;
+            // Only a message appearing for the first time in this mount gets the entrance
+            // animation; restored history settles in place immediately.
+            const isNew = !seenMessageIdsRef.current.has(message.id);
+            if (isNew) seenMessageIdsRef.current.add(message.id);
 
             if (message.role === "user") {
               return (
                 <motion.div
                   key={message.id}
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={isNew ? { opacity: 0, y: 10 } : false}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ type: "spring", stiffness: 260, damping: 26 }}
                   className="flex justify-end"
@@ -460,7 +509,7 @@ export function ConversationSurface({
             return (
               <motion.div
                 key={message.id}
-                initial={{ opacity: 0, y: 10 }}
+                initial={isNew ? { opacity: 0, y: 10 } : false}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ type: "spring", stiffness: 240, damping: 26 }}
                 dir={dir}
@@ -469,6 +518,9 @@ export function ConversationSurface({
                 <AssistantMessage content={message.content} blocks={meta?.blocks} handlers={handlers} />
                 {!streaming && meta?.degraded && (
                   <p className="text-[11px] text-muted-foreground">Answered from your trip details — the planner had trouble reading that one. Rephrasing may help.</p>
+                )}
+                {!streaming && meta?.persistFailed && (
+                  <p className="text-[11px] text-destructive">This reply wasn’t saved — it may be gone if you reload.</p>
                 )}
                 {unavailable.length > 0 && (
                   <p className="text-[11px] text-muted-foreground">Couldn’t check {unavailable.join(", ")} just now — this is from your trip so far.</p>
@@ -505,25 +557,12 @@ export function ConversationSurface({
         </div>
       </div>
 
-      <div className="sticky bottom-0 mt-2 border-t border-border bg-background/92 pt-3 backdrop-blur">
-        {proposal && (
-          <div role="alert" className="mb-3 rounded-xl border border-primary/25 bg-coral-soft/40 px-3 py-2.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="min-w-0 flex-1 text-xs">{proposalText}</p>
-              <button type="button" onClick={() => void confirmProposal()} disabled={confirming} className="btn-primary-sm">
-                {confirming ? "Saving…" : "Confirm"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setProposal(null)}
-                disabled={confirming}
-                className="rounded-full border border-border px-3 py-1.5 text-xs"
-              >
-                Cancel
-              </button>
-            </div>
+      <div className="sticky bottom-0 mt-2 w-full min-w-0 max-w-full border-t border-border bg-background/92 pt-3 backdrop-blur">
+        <Sheet open={Boolean(proposal)} onClose={() => (confirming ? undefined : setProposal(null))} ariaLabel="Confirm change">
+          <div className="px-5 pt-1 pb-6">
+            <p className="text-sm leading-relaxed">{proposalText}</p>
             {proposalRows.length > 0 && (
-              <details className="group mt-2">
+              <details className="group mt-3">
                 <summary className="flex cursor-pointer list-none items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground">
                   <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
                   See exactly what will be saved
@@ -538,15 +577,28 @@ export function ConversationSurface({
                 </dl>
               </details>
             )}
+            <div className="mt-4 flex items-center gap-2">
+              <button type="button" onClick={() => void confirmProposal()} disabled={confirming} className="btn-primary-sm">
+                {confirming ? "Saving…" : "Confirm"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setProposal(null)}
+                disabled={confirming}
+                className="rounded-full border border-border px-3 py-1.5 text-xs"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
-        )}
+        </Sheet>
 
         <form
           onSubmit={(event: FormEvent) => {
             event.preventDefault();
             void submit(input);
           }}
-          className="flex items-end gap-2 rounded-2xl border border-input bg-card px-3 py-2 shadow-soft focus-within:ring-2 focus-within:ring-ring/25"
+          className="flex w-full min-w-0 max-w-full items-end gap-1.5 overflow-hidden rounded-2xl border border-input bg-card px-2 py-2 shadow-soft focus-within:ring-2 focus-within:ring-ring/25 sm:gap-2 sm:px-3"
         >
           <textarea
             ref={textareaRef}
@@ -555,14 +607,16 @@ export function ConversationSurface({
             value={input}
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
+              // isComposing (and the legacy keyCode 229) is true for the Enter that CONFIRMS an
+              // IME candidate (Japanese/Chinese/Korean input) — that keystroke must not also submit.
+              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) {
                 event.preventDefault();
                 void submit(input);
               }
             }}
             placeholder={!loaded ? "Loading…" : speech.listening ? "Listening…" : sending ? "Type your next message…" : "Ask about your trip…"}
             disabled={!loaded}
-            className="max-h-40 min-w-0 flex-1 resize-none bg-transparent px-1.5 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
+            className="max-h-40 w-0 min-w-0 flex-1 resize-none bg-transparent px-1.5 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
           />
           {speech.supported && (
             <button

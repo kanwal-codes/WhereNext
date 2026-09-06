@@ -1,17 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ArrowRight, CalendarClock, ChevronUp, Loader2 } from "lucide-react";
+import { ArrowRight, CalendarClock, ChevronUp } from "lucide-react";
 import { EventCard, type NearbyEvent } from "@/components/EventCard";
 import { Reveal } from "@/components/motion-primitives";
+import { Skeleton } from "@/components/Skeleton";
 
 /** "What's on nearby" — Ticketmaster + Eventbrite events for a place's city. */
 export function NearbyEvents({ tripId, location, query = "" }: { tripId: string; location: string; query?: string }) {
   const [events, setEvents] = useState<NearbyEvent[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
-  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (!location) {
@@ -55,8 +54,13 @@ export function NearbyEvents({ tripId, location, query = "" }: { tripId: string;
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" /> Looking for events near {location}…
+      <div aria-busy="true" aria-label={`Loading events near ${location}`} className="space-y-3">
+        <div className="h-6 w-40 animate-pulse rounded-md bg-muted" />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+          <Skeleton className="hidden h-32 lg:block" />
+        </div>
       </div>
     );
   }
@@ -75,8 +79,12 @@ export function NearbyEvents({ tripId, location, query = "" }: { tripId: string;
           {hasMore && (
             <button
               type="button"
-              onClick={() => setExpanded((value) => !value)}
+              onClick={(event) => {
+                event.stopPropagation();
+                setExpanded((value) => !value);
+              }}
               aria-expanded={expanded}
+              aria-controls="nearby-events-list"
               className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
             >
               {expanded ? "Show less" : "See more"}
@@ -84,20 +92,11 @@ export function NearbyEvents({ tripId, location, query = "" }: { tripId: string;
             </button>
           )}
         </div>
-        <AnimatePresence initial={false} mode="popLayout">
-          <motion.div
-            key={expanded ? "all-events" : "featured-events"}
-            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={reduceMotion ? undefined : { opacity: 0, y: -8 }}
-            transition={reduceMotion ? { duration: 0 } : { duration: 0.2 }}
-            className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
-          >
+        <div id="nearby-events-list" className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {visibleEvents.map((event) => (
               <EventCard key={event.url} tripId={tripId} event={event} className="w-full" />
             ))}
-          </motion.div>
-        </AnimatePresence>
+        </div>
         {expanded && (
           <p className="mt-2 text-[11px] text-muted-foreground">Confirm dates and availability on the ticket page.</p>
         )}

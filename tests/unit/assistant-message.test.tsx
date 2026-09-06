@@ -1,7 +1,7 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { AssistantMessage, isProxyPhotoUrl } from "../../features/conversation/ui/AssistantMessage";
+import { AssistantMessage, isProxyPhotoUrl, portableProxyPhotoUrl } from "../../features/conversation/ui/AssistantMessage";
 
 const render = (content: string) => renderToStaticMarkup(<AssistantMessage content={content} />);
 const PROXY = "/api/trips/00000000-0000-0000-0000-000000000000/places/google/photo?name=places%2F1%2Fphotos%2Fp1";
@@ -56,5 +56,10 @@ describe("AssistantMessage", () => {
     expect(isProxyPhotoUrl("/api/trips/00000000-0000-0000-0000-000000000000/workspace")).toBe(false);
     expect(isProxyPhotoUrl("https://evil.example/x.png")).toBe(false);
     expect(isProxyPhotoUrl(undefined)).toBe(false);
+  });
+
+  it("rewrites a persisted photo from another host to the current origin", () => {
+    expect(portableProxyPhotoUrl(`http://localhost:3003${PROXY}`)).toBe(PROXY);
+    expect(portableProxyPhotoUrl(`https://preview.example${PROXY}`)).toBe(PROXY);
   });
 });

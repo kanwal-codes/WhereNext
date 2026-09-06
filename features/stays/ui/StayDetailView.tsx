@@ -42,6 +42,8 @@ export function StayDetailView({
   hotelId,
   checkin,
   checkout,
+  adults,
+  rooms,
   variant = "page",
   onDatesChange,
 }: {
@@ -49,6 +51,10 @@ export function StayDetailView({
   hotelId: string;
   checkin?: string;
   checkout?: string;
+  /** Party size / room count from wherever this hotel was found (a search, a chat card) — kept
+   *  so the detail view's room rates match what was already searched, not the trip's defaults. */
+  adults?: number;
+  rooms?: number;
   variant?: "page" | "panel";
   onDatesChange?: (checkin: string, checkout: string) => void;
 }) {
@@ -58,7 +64,7 @@ export function StayDetailView({
   const [amenityGroupOpen, setAmenityGroupOpen] = useState<string | null>(null);
   const [roomFilter, setRoomFilter] = useState<RoomFilter>("all");
   const [dates, setDates] = useState({ checkin: checkin ?? "", checkout: checkout ?? "" });
-  const s = useStayDetails(tripId, hotelId, { checkin: dates.checkin || undefined, checkout: dates.checkout || undefined });
+  const s = useStayDetails(tripId, hotelId, { checkin: dates.checkin || undefined, checkout: dates.checkout || undefined, adults, rooms });
   const titleTag = useDocumentTitle(panel ? null : s.hotel?.name ?? "Stay");
 
   const [ci, setCi] = useState(checkin ?? "");

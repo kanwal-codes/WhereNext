@@ -66,7 +66,7 @@ describe("resolveTurn — garbage router output", () => {
   it("caps a 500-tool plan and keeps only the valid, in-range calls", async () => {
     mockModelRaw(JSON.stringify({ language: "en", intent: "discovery", toolPlan: Array.from({ length: 500 }, (_, i) => ({ tool: "search_places", query: `q${i}`, location: "Lisbon" })) }));
     const out = await call();
-    expect(out.toolPlan).toHaveLength(3);
+    expect(out.toolPlan).toHaveLength(6);
   });
 
   it("strips an oversized / injection locationFocus and language back to the safe default", async () => {

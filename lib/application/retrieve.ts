@@ -12,6 +12,7 @@ import { transitAppPlan } from "@/packages/providers/transit-app/client";
 import { searchFlights, type FlightOffer } from "@/packages/providers/duffel/client";
 import { liteApiConfigured, searchStays } from "@/packages/providers/liteapi/client";
 import type { StayOption, StayRoom } from "@/packages/contracts/stay";
+import { cached } from "@/lib/server/ttl-cache";
 import { resolveStayDates } from "./stay-dates";
 import { rankPlaces } from "./rank-places";
 import type { ToolCall } from "./turn-resolver";
@@ -53,10 +54,13 @@ export type RouteResult = {
   steps: string[];
   departureTime?: string;
   arrivalTime?: string;
+  fare?: { amount: number; currency: string };
 };
 
 export type RetrievedEvidence = {
   places: Place[];
+  /** Results kept in the same topical lanes the resolver requested. */
+  placeGroups?: Array<{ label: string; places: Place[] }>;
   sources: Array<{ title: string; url: string; content: string }>;
   weather: string | null;
   /** Per-day forecast buckets — only when the trip is inside the forecast window. */
@@ -69,7 +73,7 @@ export type RetrievedEvidence = {
   retrievedAt: string;
 };
 
-const EMPTY: Omit<RetrievedEvidence, "retrievedAt"> = { places: [], sources: [], weather: null, weatherDays: [], routes: [], events: [], flights: [], stays: [], unavailableProviders: [] };
+const EMPTY: Omit<RetrievedEvidence, "retrievedAt"> = { places: [], placeGroups: [], sources: [], weather: null, weatherDays: [], routes: [], events: [], flights: [], stays: [], unavailableProviders: [] };
 
 const stem = (word: string) => word.replace(/(ies|es|s)$/, (match) => (match === "ies" ? "y" : ""));
 
@@ -125,6 +129,8 @@ export async function retrieveEvidence(
     tripEnd?: string | null;
     /** Exact place names to drop from results — the trip's rejected places. */
     excludeNames?: string[];
+    /** Trip party size — hotel rates should reflect who's actually going, not a 2-adult default. */
+    travelers?: number | null;
   } = {},
   signal?: AbortSignal,
 ): Promise<RetrievedEvidence> {
@@ -138,6 +144,7 @@ export async function retrieveEvidence(
   };
 
   const places: Place[] = [];
+  const rawPlaceGroups: Array<{ index: number; label: string; places: Place[] }> = [];
   const sources: Array<{ title: string; url: string; content: string }> = [];
   const routes: RouteResult[] = [];
   const eventList: EventResult[] = [];
@@ -171,10 +178,23 @@ export async function retrieveEvidence(
   };
 
   await Promise.all(
-    toolPlan.map(async (call) => {
+    toolPlan.map(async (call, index) => {
       if (call.tool === "search_places") {
         const results = await new GooglePlacesProvider().search(`${call.query} in ${call.location}`, signal).catch(fail("google-places"));
-        if (results) places.push(...results);
+        if (results) {
+          const provider = new GooglePlacesProvider();
+          const enriched = await Promise.all(results.slice(0, 6).map(async (place) => {
+            try {
+              const detail = await provider.details(place.providerId, signal) as { nationalPhoneNumber?: string; websiteUri?: string; regularOpeningHours?: { weekdayDescriptions?: string[]; openNow?: boolean }; accessibilityOptions?: { wheelchairAccessibleEntrance?: boolean }; editorialSummary?: { text?: string } };
+              return { ...place, phone: detail.nationalPhoneNumber, websiteUri: detail.websiteUri, openingHours: detail.regularOpeningHours?.weekdayDescriptions, openNow: detail.regularOpeningHours?.openNow, wheelchairAccessible: detail.accessibilityOptions?.wheelchairAccessibleEntrance, reviewSummary: detail.editorialSummary?.text };
+            } catch (error) {
+              if (signal?.aborted) throw error;
+              return place;
+            }
+          }));
+          places.push(...enriched, ...results.slice(6));
+          rawPlaceGroups.push({ index, label: call.query, places: enriched });
+        }
       } else if (call.tool === "research_web") {
         const results = await research(call.query, signal).catch(fail("tavily"));
         if (results) sources.push(...results.map(({ title, url, content }) => ({ title, url, content })));
@@ -248,13 +268,19 @@ export async function retrieveEvidence(
       } else if (call.tool === "stays") {
         if (!liteApiConfigured()) return;
         const { checkin, checkout, assumed: assumedDates } = resolveStayDates(call.checkin, call.checkout);
-        const point = await geocode(call.location);
-        const result = await searchStays(
-          point
-            ? { latitude: point[1], longitude: point[0], checkin, checkout, currency: filters.currency }
-            : { city: call.location, checkin, checkout, currency: filters.currency },
-          signal,
-        ).catch(fail("liteapi"));
+        const adults = filters.travelers ?? undefined;
+        // Same 5-minute, party/date-aware cache the Stays tab route uses — a chat ask for a hotel
+        // right after (or before) browsing the tab shouldn't re-hit the provider for the same search.
+        const cacheKey = `stays-tab:${call.location}:${checkin}:${checkout}:${adults ?? ""}:1:${filters.currency ?? ""}:{}`;
+        const result = await cached(cacheKey, 5 * 60_000, async () => {
+          const point = await geocode(call.location);
+          return searchStays(
+            point
+              ? { latitude: point[1], longitude: point[0], checkin, checkout, currency: filters.currency, adults }
+              : { city: call.location, checkin, checkout, currency: filters.currency, adults },
+            signal,
+          );
+        }).catch(fail("liteapi"));
         if (!result || result.options.length === 0) return;
         // Room rates were already in the search response — no second provider call.
         let detail: StaySearch["detail"];
@@ -279,6 +305,7 @@ export async function retrieveEvidence(
               distanceMeters: leg.distanceMeters, durationSeconds: leg.durationSeconds,
               departureTime: leg.departureTime, arrivalTime: leg.arrivalTime,
               steps: formatTransitSteps(leg.steps),
+              fare: leg.fare,
             });
           }
           if (!got) {
@@ -315,22 +342,33 @@ export async function retrieveEvidence(
   const dislikeStems = (filters.dislikes ?? [])
     .flatMap((phrase) => phrase.toLowerCase().split(/[^a-z]+/).filter((word) => word.length > 2))
     .map(stem);
-  const disliked = dislikeStems.length
-    ? places.filter((place) => {
+  const excludeNames = new Set((filters.excludeNames ?? []).map((name) => name.trim().toLowerCase()));
+  const filterAndRank = (input: Place[], limit: number) => {
+    const liked = dislikeStems.length
+      ? input.filter((place) => {
       const words = new Set(`${place.name} ${place.category ?? ""}`.toLowerCase().split(/[^a-z]+/).filter(Boolean).map(stem));
       return !dislikeStems.some((term) => words.has(term));
     })
-    : places;
-  // Drop anything the traveller has already rejected on this trip (exact name — a rejected
-  // "Hard Rock Cafe" must not also remove every café).
-  const excludeNames = new Set((filters.excludeNames ?? []).map((name) => name.trim().toLowerCase()));
-  const kept = excludeNames.size
-    ? disliked.filter((place) => !excludeNames.has(place.name.trim().toLowerCase()))
-    : disliked;
-  // Order by the same ranker Discover uses so the assistant's cards and the
-  // Discover feed stay coherent. No proximity anchor here — Discover has one.
-  const ranked = rankPlaces(kept, { interests: filters.interests, likes: filters.likes, dislikes: filters.dislikes }).map((r) => r.place);
-  const uniquePlaces = Array.from(new Map(ranked.map((place) => [`${place.provider}:${place.name.trim().toLowerCase()}`, place])).values()).slice(0, 6);
+      : input;
+    // Exact-name exclusion only: rejecting one cafe must not reject every cafe.
+    const kept = excludeNames.size ? liked.filter((place) => !excludeNames.has(place.name.trim().toLowerCase())) : liked;
+    const ranked = rankPlaces(kept, { interests: filters.interests, likes: filters.likes, dislikes: filters.dislikes }).map((r) => r.place);
+    return Array.from(new Map(ranked.map((place) => [`${place.provider}:${place.name.trim().toLowerCase()}`, place])).values()).slice(0, limit);
+  };
+  const uniquePlaces = filterAndRank(places, 12);
+  const usedAcrossGroups = new Set<string>();
+  const placeGroups = rawPlaceGroups
+    .sort((a, b) => a.index - b.index)
+    .map((group) => ({
+      label: group.label,
+      places: filterAndRank(group.places, 12).filter((place) => {
+        const key = `${place.provider}:${place.name.trim().toLowerCase()}`;
+        if (usedAcrossGroups.has(key)) return false;
+        usedAcrossGroups.add(key);
+        return true;
+      }),
+    }))
+    .filter((group) => group.places.length > 0);
   const uniqueSources = Array.from(new Map(sources.map((source) => [source.url, source])).values()).slice(0, 5);
   // De-dup by (title, day). When a PredictHQ row (no ticket link) collides with a Ticketmaster/
   // Eventbrite one, keep the ticketed copy but carry PredictHQ's rank + attendance onto it.
@@ -364,5 +402,5 @@ export async function retrieveEvidence(
     })
     .slice(0, 6);
 
-  return { places: uniquePlaces, sources: uniqueSources, weather: weatherSummary, weatherDays, routes, events: uniqueEvents, flights, stays, unavailableProviders, retrievedAt: new Date().toISOString() };
+  return { places: uniquePlaces, placeGroups, sources: uniqueSources, weather: weatherSummary, weatherDays, routes, events: uniqueEvents, flights, stays, unavailableProviders, retrievedAt: new Date().toISOString() };
 }

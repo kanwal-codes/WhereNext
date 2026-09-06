@@ -1,14 +1,15 @@
 import { z } from "zod";
 import { placeSchema, httpUrl } from "./place";
 import { stayItemSchema, stayRoomSchema } from "./stay";
+import { preferenceUpdateSchema } from "./preferences";
 export type { StayCardItem } from "./stay";
 export const assistantSurfaceSchema = z.enum(["chat","explore","transport","stay","map","days","budget","essentials"]);
 export const assistantIntentSchema = z.object({ reply: z.string().min(1).max(20000), surface: assistantSurfaceSchema, reason: z.string().max(240) });
 export type AssistantIntent = z.infer<typeof assistantIntentSchema>;
 export const proposedCommandSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("update_preferences"), tripId: z.string().uuid(), preferences: z.record(z.string(), z.unknown()) }),
+  z.object({ type: z.literal("update_preferences"), tripId: z.string().uuid(), preferences: preferenceUpdateSchema }),
   z.object({ type: z.literal("record_decision"), tripId: z.string().uuid(), kind: z.string().min(1).max(80), value: z.record(z.string(), z.unknown()), idempotencyKey: z.string().min(1).max(120).optional() }),
-  z.object({ type: z.literal("add_itinerary_item"), tripId: z.string().uuid(), title: z.string().trim().min(1).max(200), dayIndex: z.number().int().positive().default(1) }),
+  z.object({ type: z.literal("add_itinerary_item"), tripId: z.string().uuid(), title: z.string().trim().min(1).max(200), dayIndex: z.number().int().positive().default(1), providerId: z.string().trim().min(1).max(240).optional() }),
   z.object({ type: z.literal("save_place"), tripId: z.string().uuid(), place: placeSchema }),
 ]);
 export type ProposedCommand = z.infer<typeof proposedCommandSchema>;
@@ -30,7 +31,11 @@ export const placeCardSchema = placeSchema.extend({
 export type PlaceCard = z.infer<typeof placeCardSchema>;
 
 export const assistantBlockSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("place_list"), places: z.array(placeCardSchema).min(1).max(6) }),
+  z.object({
+    type: z.literal("place_list"),
+    title: z.string().trim().min(1).max(80).optional(),
+    places: z.array(placeCardSchema).min(1).max(6),
+  }),
   z.object({
     type: z.literal("comparison"),
     title: z.string().max(120),
@@ -69,13 +74,23 @@ export const assistantBlockSchema = z.discriminatedUnion("type", [
     destination: z.string().max(80),
     dateNote: z.string().max(120).optional(),
     items: z.array(z.object({
+      id: z.string().max(240).optional(),
       airline: z.string().max(80),
+      operatingAirline: z.string().max(80).optional(),
       price: z.string().max(20),
       currency: z.string().max(8),
       durationMinutes: z.number().int().nonnegative(),
       stops: z.number().int().nonnegative(),
       departAt: z.string().max(40),
       arriveAt: z.string().max(40),
+      originAirport: z.string().max(8).optional(),
+      destinationAirport: z.string().max(8).optional(),
+      cabinClass: z.string().max(40).optional(),
+      baggage: z.string().max(120).optional(),
+      layoverAirports: z.array(z.string().max(8)).max(6).optional(),
+      aircraft: z.string().max(120).optional(),
+      fareConditions: z.array(z.string().max(80)).max(4).optional(),
+      expiresAt: z.string().max(40).optional(),
     })).min(1).max(8),
   }),
   z.object({
@@ -97,6 +112,7 @@ export const assistantBlockSchema = z.discriminatedUnion("type", [
     mode: z.string().max(24),
     durationSeconds: z.number().nonnegative(),
     distanceMeters: z.number().nonnegative(),
+    fare: z.object({ amount: z.number().nonnegative(), currency: z.string().max(8) }).optional(),
     steps: z.array(z.string().max(160)).max(12).default([]),
     departureTime: z.string().optional(),
     arrivalTime: z.string().optional(),
@@ -213,6 +229,9 @@ export const assistantTurnSchema = z.object({
   /** True when turn planning fell back to its safe default (the router call failed) — the UI
    *  tells the user the answer is from trip data only. */
   degraded: z.boolean().optional(),
+  /** True when the reply streamed fine but the DB write failed — the UI must not treat this
+   *  turn as saved (it won't survive a reload) even though the user already saw the answer. */
+  persistFailed: z.boolean().optional(),
 });
 export type AssistantTurn = z.infer<typeof assistantTurnSchema>;
 /** The metadata frame persisted on a conversation_messages row and streamed as the final SSE event. */

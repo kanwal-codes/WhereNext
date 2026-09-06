@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, Pencil, X } from "lucide-react";
 import type { Trip } from "@/features/trip/domain/trip";
 import { cn } from "@/lib/utils";
-import { certaintyFor, decisionSummary } from "@/lib/decisions-ui";
+import { certaintyFor, decisionSummary, isDisplayableDecision } from "@/lib/decisions-ui";
 import { CertaintyBadge } from "@/components/CertaintyBadge";
 import { ProgressRing } from "@/components/ProgressRing";
 import { notifyToast } from "@/lib/application/toast";
@@ -52,14 +52,33 @@ export function TripContextSurface({
   trip,
   initialMemory,
   initialDecisions,
+  itinerary = [],
+  savedPlaces = [],
+  essentials = [],
+  conversation = [],
 }: {
   tripId: string;
   trip: Trip | null;
   initialMemory?: Record<string, unknown>;
   initialDecisions?: Array<Record<string, unknown>>;
+  /** Same workspace snapshot the trip shell's own progress ring uses — kept identical here so the
+   *  two "how complete is this trip" numbers shown to the user never disagree (see lib/design.ts). */
+  itinerary?: unknown[];
+  savedPlaces?: unknown[];
+  essentials?: unknown[];
+  conversation?: unknown[];
 }) {
   const [memory, setMemory] = useState<Record<string, unknown>>(initialMemory ?? {});
   const [decisions, setDecisions] = useState<Decision[]>((initialDecisions ?? []) as Decision[]);
+  // A collaborator's edit lands here as a fresh `initialMemory`/`initialDecisions` prop (via the
+  // realtime bus -> router.refresh() -> a re-rendered server parent), but useState's initializer
+  // only runs once — without this, this panel would keep showing what was true at first mount.
+  useEffect(() => {
+    if (initialMemory) setMemory(initialMemory);
+  }, [initialMemory]);
+  useEffect(() => {
+    if (initialDecisions) setDecisions(initialDecisions as Decision[]);
+  }, [initialDecisions]);
   const [editing, setEditing] = useState<PrefKey | null>(null);
   const [draft, setDraft] = useState("");
   const [savingKey, setSavingKey] = useState<PrefKey | null>(null);
@@ -135,11 +154,11 @@ export function TripContextSurface({
   const suggestions = useMemo(() => readSuggestions(decisions), [decisions]);
   const suggestionFor = (key: SuggestionKey) => suggestions.find((s) => s.key === key);
   const lockedStay = useMemo(() => readStayDecision(decisions), [decisions]);
-  const realDecisions = decisions.filter((d) => !["suggestion", "stay", "stay_area", "transport"].includes(d.kind));
+  const realDecisions = decisions.filter((d) => isDisplayableDecision(d.kind));
 
   const progress = useMemo(
-    () => tripCompleteness({ preferences: memory, decisions: decisions.filter((d) => d.kind !== "suggestion"), conversation: [], itinerary: [], savedPlaces: [], essentials: [] }),
-    [memory, decisions],
+    () => tripCompleteness({ preferences: memory, decisions: decisions.filter((d) => d.kind !== "suggestion"), conversation, itinerary, savedPlaces, essentials }),
+    [memory, decisions, conversation, itinerary, savedPlaces, essentials],
   );
 
   async function savePref(key: PrefKey, raw: string) {
@@ -217,12 +236,37 @@ export function TripContextSurface({
   const rows: Row[] = [];
   const push = (r: Row) => rows.push(r);
 
-  const fact = (id: string, label: string, value: string, tripField?: TripField) =>
-    push({ id, label, value, certainty: value ? "confirmed" : "undecided", tripField });
+  if (tripFacts.destination) {
+    push({ id: "destination", label: "Destination", value: tripFacts.destination, certainty: "confirmed", tripField: "destination" });
+  } else {
+    // A place only ever implied ("I want to see the Eiffel Tower"), never stated as the
+    // destination outright — confirm before it becomes the trip, same as any inferred fact.
+    const s = suggestionFor("destination");
+    if (s) push({ id: "destination", label: "Destination", value: s.display, certainty: "suggested", suggestionKey: "destination", note: s.rationale });
+    else push({ id: "destination", label: "Destination", value: "", certainty: "undecided", tripField: "destination" });
+  }
 
-  fact("destination", "Destination", tripFacts.destination, "destination");
-  fact("length", "Trip length", trip?.duration_days ? `${trip.duration_days} days` : "");
-  fact("travellers", "Travellers", tripFacts.travelers ? `${tripFacts.travelers}` : "", "travelers");
+  if (trip?.duration_days) {
+    push({ id: "length", label: "Trip length", value: `${trip.duration_days} days`, certainty: "confirmed" });
+  } else {
+    const s = suggestionFor("trip_length");
+    if (s) push({ id: "length", label: "Trip length", value: s.display, certainty: "suggested", suggestionKey: "trip_length", note: s.rationale });
+    else push({ id: "length", label: "Trip length", value: "", certainty: "undecided" });
+  }
+  // "Solo" already answers headcount unambiguously — don't leave this stuck in "to decide"
+  // (and thus looking unknown) when the chat already locked in who's travelling.
+  const impliedSoloCount = /\bsolo\b/i.test(csv(memory.groupType)) ? 1 : null;
+  if (tripFacts.travelers) {
+    push({ id: "travellers", label: "Travellers", value: `${tripFacts.travelers}`, certainty: "confirmed", tripField: "travelers" });
+  } else if (impliedSoloCount) {
+    push({ id: "travellers", label: "Travellers", value: "1 (solo)", certainty: "confirmed", tripField: "travelers" });
+  } else {
+    // A headcount only ever guessed at (a booking for N, never "there are N of us") — surfaced
+    // as a suggestion to confirm rather than saved outright, same as any other inferred fact.
+    const s = suggestionFor("travelers");
+    if (s) push({ id: "travellers", label: "Travellers", value: s.display, certainty: "suggested", suggestionKey: "travelers", note: s.rationale });
+    else push({ id: "travellers", label: "Travellers", value: "", certainty: "undecided", tripField: "travelers" });
+  }
 
   // A field that may be confirmed (from memory / a decision) OR carry a live suggestion.
   const softField = (id: string, label: string, confirmedValue: string, sKey: SuggestionKey, editKey?: PrefKey) => {
@@ -487,7 +531,13 @@ export function TripContextSurface({
             {setCount === 0 ? "Nothing locked in yet" : `${setCount} thing${setCount === 1 ? "" : "s"} locked in`}
           </p>
         </div>
-        <ProgressRing value={progress} size={56} />
+        {/* A separate, coarser "how far along is the whole trip" score (saved places, itinerary,
+            decisions, etc.) — not a percentage of the facts listed below, so it gets its own
+            caption rather than sitting unlabeled next to a count it doesn't correspond to. */}
+        <div className="flex flex-col items-center gap-1">
+          <ProgressRing value={progress} size={56} />
+          <span className="text-[10px] tracking-wide text-muted-foreground uppercase">Trip progress</span>
+        </div>
       </div>
 
       {/* Locked in */}

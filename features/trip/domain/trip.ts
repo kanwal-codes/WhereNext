@@ -23,6 +23,9 @@ export const createTripInput = z
     endDate: isoDate.optional(),
     travelerCount: z.coerce.number().int().min(1).max(100).optional(),
     preferences: tripPreferences.default({ interests: [] }),
+    /** Stable across retries of the SAME create attempt — lets the repository upsert instead of
+     *  inserting a duplicate trip when a request succeeded but the client never saw the response. */
+    idempotencyKey: z.string().trim().min(1).max(120).optional(),
   })
   .refine((v) => !(v.startDate && v.endDate) || v.endDate >= v.startDate, {
     message: "endDate must be on or after startDate",

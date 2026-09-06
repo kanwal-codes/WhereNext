@@ -5,14 +5,7 @@ import { GooglePlacesProvider } from "@/packages/providers/google-places/client"
 import { events as ticketmasterEvents } from "@/packages/providers/ticketmaster/client";
 import { localEvents } from "@/packages/providers/eventbrite/client";
 import { cached } from "@/lib/server/ttl-cache";
-
-export type NearbyEvent = { title: string; url: string; date?: string; venue?: string; source: string; imageUrl?: string };
-
-const presentEvent = (event: NearbyEvent): NearbyEvent => ({
-  ...event,
-  date: event.date?.trim() || "Date to be confirmed",
-  venue: event.venue?.trim() || "Venue to be confirmed",
-});
+import { mergeEventSources, presentEvent } from "@/lib/application/nearby-events";
 
 /** Ticketmaster + Eventbrite events near a place, for the detail-page "what's on" section. */
 export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
@@ -34,13 +27,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
         wantTm ? ticketmasterEvents(query, location, undefined, request.signal, "date", page) : Promise.resolve([]),
         wantEb && point ? localEvents(query, point.latitude, point.longitude, request.signal) : Promise.resolve([]),
       ]);
-      const list: NearbyEvent[] = [];
       const tmList = (tm.status === "fulfilled" ? tm.value : []).map((e) => ({ title: e.title, url: e.url, date: e.date, venue: e.venue, source: "ticketmaster", imageUrl: e.imageUrl }));
       const ebList = (eb.status === "fulfilled" ? eb.value : []).map((e) => ({ title: e.title, url: e.url, date: e.date, venue: e.venue, source: "eventbrite" as string }));
-      for (let i = 0; i < Math.max(tmList.length, ebList.length); i += 1) {
-        if (tmList[i]) list.push(tmList[i]);
-        if (ebList[i]) list.push(ebList[i]);
-      }
+      const list = mergeEventSources(tmList, ebList);
       const terms = query.toLowerCase().split(/\s+/).filter((term) => term.length > 2 && !["concert", "event", "events", "near"].includes(term));
       const relevant = terms.length ? list.filter((event) => terms.every((term) => event.title.toLowerCase().includes(term))) : list;
       return { events: (terms.length ? relevant : list).map(presentEvent), retrievedAt: new Date().toISOString() };

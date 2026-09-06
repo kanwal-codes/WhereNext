@@ -1,6 +1,6 @@
 import { defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, RuntimeCaching, SerwistGlobalConfig } from "serwist";
-import { CacheFirst, ExpirationPlugin, Serwist, StaleWhileRevalidate } from "serwist";
+import { ExpirationPlugin, NetworkFirst, Serwist, StaleWhileRevalidate } from "serwist";
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -11,10 +11,15 @@ declare const self: ServiceWorkerGlobalScope;
 
 const runtimeCaching: RuntimeCaching[] = [
   {
-    // The trip snapshot — keep the last good copy for offline "Today".
+    // The trip snapshot — always prefer a live fetch (offline-store.ts's primeTrip() calls this
+    // with cache: "no-store" specifically to warm the mirror with CURRENT data); only fall back
+    // to the last good copy when the network is actually unavailable. CacheFirst here would
+    // silently defeat that no-store intent and could prime the offline "Today" view with a
+    // snapshot up to a day stale even while online.
     matcher: ({ url }) => /\/api\/trips\/[^/]+\/workspace/.test(url.pathname),
-    handler: new CacheFirst({
+    handler: new NetworkFirst({
       cacheName: "trip-workspace",
+      networkTimeoutSeconds: 4,
       plugins: [new ExpirationPlugin({ maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 })],
     }),
   },

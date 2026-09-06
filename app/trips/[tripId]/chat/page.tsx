@@ -6,12 +6,12 @@ import { PanelRight, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanel, panelSubjectKey, type EventSeed } from "@/components/TripPanelProvider";
 import { TripPanel } from "@/components/TripPanel";
-import { Reveal, motionTokens } from "@/components/motion-primitives";
+import { Reveal, Sheet, motionTokens } from "@/components/motion-primitives";
 import { ConversationSurface } from "@/features/conversation/ui/ConversationSurface";
 import { TripContextSurface } from "@/features/workspace/ui/TripContextSurface";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { useDocumentTitle } from "@/lib/use-document-title";
-import type { PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
+import type { AssistantBlock, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { Trip } from "@/features/trip/domain/trip";
 
 const spring = motionTokens.fast;
@@ -43,6 +43,9 @@ export default function ChatPage() {
   function openEvent(seed: EventSeed) {
     openPanel({ kind: "event", seed });
   }
+  function openCollection(title: string, block: AssistantBlock) {
+    openPanel({ kind: "collection", title, block });
+  }
 
   const contextRail = (
     <TripContextSurface
@@ -50,6 +53,10 @@ export default function ChatPage() {
       trip={(data?.trip as Trip) ?? null}
       initialMemory={data?.preferences}
       initialDecisions={data?.decisions}
+      itinerary={data?.itinerary}
+      savedPlaces={data?.savedPlaces}
+      essentials={data?.essentials}
+      conversation={data?.conversation}
     />
   );
 
@@ -87,7 +94,16 @@ export default function ChatPage() {
               onOpenPlace={openPlace}
               onOpenStay={openStay}
               onOpenEvent={openEvent}
-              viewContext={panel?.kind === "place" || panel?.kind === "stay" ? panel.name : undefined}
+              onOpenCollection={openCollection}
+              viewContext={
+                panel?.kind === "place" || panel?.kind === "stay"
+                  ? panel.name
+                  : panel?.kind === "event"
+                    ? panel.seed.name
+                    : panel?.kind === "collection"
+                      ? panel.title
+                      : undefined
+              }
               rail={desktop && Boolean(panel)}
             />
           </div>
@@ -141,34 +157,15 @@ export default function ChatPage() {
             )}
           </AnimatePresence>
 
-          <AnimatePresence>
-            {mobileContextOpen && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 flex items-end bg-ink/30"
-                onClick={() => setMobileContextOpen(false)}
-              >
-                <motion.div
-                  initial={{ y: 260 }}
-                  animate={{ y: 0 }}
-                  exit={{ y: 260 }}
-              transition={reduceMotion ? { duration: 0 } : spring}
-                  onClick={(e) => e.stopPropagation()}
-                  className="max-h-[85vh] w-full overflow-y-auto scrollbar-slim rounded-t-3xl bg-surface px-4 pt-4 pb-8"
-                >
-                  <div className="mb-3 flex items-center justify-between">
-                    <p className="eyebrow">Trip context</p>
-                    <button onClick={() => setMobileContextOpen(false)} aria-label="Close">
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                  {contextRail}
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <Sheet open={mobileContextOpen} onClose={() => setMobileContextOpen(false)} side="bottom" ariaLabel="Trip context" className="max-h-[85vh] px-4 pt-4 pb-8">
+            <div className="mb-3 flex shrink-0 items-center justify-between">
+              <p className="eyebrow">Trip context</p>
+              <button onClick={() => setMobileContextOpen(false)} aria-label="Close">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto scrollbar-slim">{contextRail}</div>
+          </Sheet>
         </>
       )}
     </div>

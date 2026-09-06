@@ -26,6 +26,13 @@ export function EssentialsSurface({ tripId, initialCompleted }: { tripId: string
       .catch(() => notifyToast("Couldn’t load your checklist — try again in a moment.", "error"));
   }, [tripId, initialCompleted]);
 
+  // A collaborator's edit lands here as a fresh `initialCompleted` prop (this is the direct
+  // partner of trip_essentials now being in trip-realtime.ts's table list — without this, that
+  // realtime propagation has nothing to update, since useState's initializer only runs once).
+  useEffect(() => {
+    if (initialCompleted) setDone(initialCompleted);
+  }, [initialCompleted]);
+
   async function toggle(item: string) {
     const next = done.includes(item) ? done.filter((v) => v !== item) : [...done, item];
     setDone(next);
@@ -35,7 +42,10 @@ export function EssentialsSurface({ tripId, initialCompleted }: { tripId: string
       body: JSON.stringify({ completed: next }),
     });
     if (!r.ok) {
-      setDone(done);
+      // Undo only THIS item's toggle against current state — not the stale `done` snapshot from
+      // before this call, which could also wipe out a different item's toggle that saved fine
+      // while this request was in flight.
+      setDone((current) => (current.includes(item) ? current.filter((v) => v !== item) : [...current, item]));
       notifyToast("That didn’t save — try again.", "error");
     } else announceWorkspaceChange("essentials");
   }

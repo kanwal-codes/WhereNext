@@ -159,11 +159,11 @@ describe("resolvedTurnSchema / toolCallSchema — model plan overflow", () => {
     expect(out.capabilities).toEqual([]); // a bad member fails the array → safe default
   });
 
-  it("truncates an over-long toolPlan to the first 3 valid lookups", () => {
+  it("truncates an over-long toolPlan to the first 6 valid lookups", () => {
     const plan = Array.from({ length: 8 }, (_, i) => ({ tool: "search_places", query: `q${i}`, location: "Lisbon" }));
     const out = resolvedTurnSchema.parse({ toolPlan: plan }).toolPlan;
-    expect(out).toHaveLength(3);
-    expect(out.map((t) => (t as { query: string }).query)).toEqual(["q0", "q1", "q2"]);
+    expect(out).toHaveLength(6);
+    expect(out.map((t) => (t as { query: string }).query)).toEqual(["q0", "q1", "q2", "q3", "q4", "q5"]);
   });
 
   it("keeps the valid tool calls and drops only the malformed one", () => {

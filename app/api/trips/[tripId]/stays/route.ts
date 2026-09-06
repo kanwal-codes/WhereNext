@@ -34,12 +34,13 @@ export const GET = withRoute(async (request: Request, { params }: { params: Prom
       checkout: (trip as { end_date?: string | null }).end_date,
     });
 
-    const filters: Pick<StaySearchInput, "starRatings" | "boards" | "refundableOnly" | "priceMax" | "sort"> = {
+    const filters: Pick<StaySearchInput, "starRatings" | "boards" | "refundableOnly" | "priceMax" | "sort" | "propertyTypes"> = {
       starRatings: nums(q.get("stars")),
       boards: strs(q.get("boards")),
       refundableOnly: q.get("refundable") === "1",
       priceMax: Number(q.get("priceMax")) || undefined,
       sort: (["price", "rating", "stars"] as const).includes(q.get("sort") as never) ? (q.get("sort") as "price" | "rating" | "stars") : "price",
+      propertyTypes: strs(q.get("propertyTypes")),
     };
 
     const key = `stays-tab:${location}:${checkin}:${checkout}:${adults}:${rooms}:${currency}:${JSON.stringify(filters)}`;

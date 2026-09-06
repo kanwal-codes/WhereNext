@@ -60,12 +60,19 @@ describe("persistedAssistantStream", () => {
     expect(noMeta).not.toContain('"meta"');
   });
 
-  it("a persist failure does not kill the stream — the meta frame still reaches the client", async () => {
+  it("a persist failure does not kill the stream — the meta frame still reaches the client, flagged as unsaved", async () => {
     appendMock.mockRejectedValueOnce(new Error("Invariant: static generation store missing in revalidateTag"));
     const meta = { surface: "chat", blocks: [{ type: "place_list", places: [] }] };
     const out = await drain(persistedAssistantStream(upstream(delta("the parks are A, B, C"), "data: [DONE]\n\n"), {} as never, TRIP, KEY, undefined, meta));
-    // the client still gets its answer + the structured blocks
+    // the client still gets its answer + the structured blocks, but must not treat this as saved
     expect(out).toContain(delta("the parks are A, B, C"));
+    const frame = JSON.parse(out.split("data: ").filter((l) => l.includes('"meta"'))[0].trim());
+    expect(frame.meta).toEqual({ ...meta, persistFailed: true });
+  });
+
+  it("does not flag persistFailed when the write succeeds", async () => {
+    const meta = { surface: "chat", blocks: [] };
+    const out = await drain(persistedAssistantStream(upstream(delta("ok"), "data: [DONE]\n\n"), {} as never, TRIP, KEY, undefined, meta));
     const frame = JSON.parse(out.split("data: ").filter((l) => l.includes('"meta"'))[0].trim());
     expect(frame.meta).toEqual(meta);
   });
