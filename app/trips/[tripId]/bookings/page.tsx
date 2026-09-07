@@ -1,16 +1,29 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BedDouble, CalendarCheck, Sparkles } from "lucide-react";
+import { ArrowRight, BedDouble, CalendarCheck, Plane, Sparkles } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { RouteScaffold } from "@/components/RouteScaffold";
 import { EssentialsSurface } from "@/features/essentials/ui/EssentialsSurface";
-import { Reveal, Tactile } from "@/components/motion-primitives";
+import { Reveal, Stagger, StaggerItem, Tactile } from "@/components/motion-primitives";
+import { SkeletonLines } from "@/components/Skeleton";
+import { BookingDetailSheet } from "@/features/bookings/ui/BookingDetailSheet";
 import { readStayDecision } from "@/packages/contracts/stay";
+import { formatMoney } from "@/lib/currency";
+import { cn } from "@/lib/utils";
+import type { Booking } from "@/packages/contracts/booking";
 
 const fmtDay = (iso: string) => {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString([], { month: "short", day: "numeric" });
+};
+
+const STATUS_BADGE: Record<Booking["status"], string> = {
+  confirmed: "bg-leaf-soft text-leaf",
+  pending: "bg-muted text-muted-foreground",
+  failed: "bg-destructive/10 text-destructive",
+  cancelled: "bg-destructive/10 text-destructive",
 };
 
 export default function BookingsPage() {
@@ -18,6 +31,16 @@ export default function BookingsPage() {
   const decisions = (data?.decisions ?? []) as Array<{ kind: string; value: Record<string, unknown> }>;
   const stay = readStayDecision(decisions);
   const destination = data?.trip?.destination ?? "your destination";
+
+  const [bookings, setBookings] = useState<Booking[] | null>(null);
+  const [openBookingId, setOpenBookingId] = useState<string | null>(null);
+  useEffect(() => {
+    fetch(`/api/trips/${tripId}/bookings`)
+      .then((r) => r.json())
+      .then((body) => setBookings(body.bookings ?? []))
+      .catch(() => setBookings([]));
+  }, [tripId]);
+  const openBooking = bookings?.find((b) => b.id === openBookingId) ?? null;
 
   return (
     <RouteScaffold
@@ -28,6 +51,40 @@ export default function BookingsPage() {
       <div className="space-y-8">
         <section>
           <h2 className="font-display text-lg">Your bookings</h2>
+          {bookings === null ? (
+            <div className="mt-3 rounded-2xl border border-border bg-card p-4 shadow-soft">
+              <SkeletonLines lines={2} />
+            </div>
+          ) : bookings.length > 0 ? (
+            <Stagger className="mt-3 space-y-2">
+              {bookings.map((b) => (
+                <StaggerItem key={b.id}>
+                  <Tactile lift={2}>
+                    <button
+                      type="button"
+                      onClick={() => setOpenBookingId(b.id)}
+                      className={cn(
+                        "flex w-full items-center gap-3 rounded-2xl border bg-card p-4 text-left shadow-soft transition-shadow hover:shadow-lift",
+                        b.status === "cancelled" || b.status === "failed" ? "border-border" : "border-leaf/30",
+                      )}
+                    >
+                      {b.kind === "flight" ? <Plane className="h-4 w-4 shrink-0 text-leaf" /> : <BedDouble className="h-4 w-4 shrink-0 text-leaf" />}
+                      <div className="min-w-0 flex-1">
+                        <p className="flex items-center gap-2 text-sm font-medium capitalize">
+                          {b.kind}
+                          <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium capitalize", STATUS_BADGE[b.status])}>{b.status}</span>
+                        </p>
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                          {b.confirmationCode ? `Confirmation ${b.confirmationCode}` : b.providerReference}
+                          {b.totalAmount != null && b.currency ? ` · ${formatMoney(b.totalAmount, b.currency)}` : ""}
+                        </p>
+                      </div>
+                    </button>
+                  </Tactile>
+                </StaggerItem>
+              ))}
+            </Stagger>
+          ) : null}
           {stay ? (
             <Reveal delay={0.04}>
               <Tactile lift={2} className="mt-3 block">
@@ -52,7 +109,7 @@ export default function BookingsPage() {
             </Reveal>
           ) : (
             <div className="mt-3 rounded-2xl border border-dashed border-border bg-card/50 px-4 py-5">
-              <p className="text-sm font-medium">Nothing booked yet</p>
+              <p className="text-sm font-medium">{bookings && bookings.length > 0 ? "No stay locked in yet" : "Nothing booked yet"}</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Lock a place to stay from the Stay tab, or ask Roam to compare options.
               </p>
@@ -91,6 +148,13 @@ export default function BookingsPage() {
           </Tactile>
         </Reveal>
       </div>
+
+      <BookingDetailSheet
+        tripId={tripId}
+        booking={openBooking}
+        onClose={() => setOpenBookingId(null)}
+        onCancelled={(updated) => setBookings((list) => (list ?? []).map((b) => (b.id === updated.id ? updated : b)))}
+      />
     </RouteScaffold>
   );
 }

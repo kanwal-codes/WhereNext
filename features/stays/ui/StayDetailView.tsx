@@ -12,6 +12,7 @@ import { Skeleton, SkeletonLines } from "@/components/Skeleton";
 import { RoomRow } from "@/components/StayPanel";
 import { Reveal, WordReveal } from "@/components/motion-primitives";
 import { useStayDetails } from "@/features/stays/application/useStayDetails";
+import { BookingSheet } from "@/features/bookings/ui/BookingSheet";
 import { formatMoney } from "@/lib/currency";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { askAssistantHref } from "@/lib/places-ui";
@@ -64,6 +65,8 @@ export function StayDetailView({
   const [amenityGroupOpen, setAmenityGroupOpen] = useState<string | null>(null);
   const [roomFilter, setRoomFilter] = useState<RoomFilter>("all");
   const [dates, setDates] = useState({ checkin: checkin ?? "", checkout: checkout ?? "" });
+  const [bookingRoom, setBookingRoom] = useState<(StayRoom & { offerId: string }) | null>(null);
+  const [bookedRooms, setBookedRooms] = useState<Record<string, string>>({});
   const s = useStayDetails(tripId, hotelId, { checkin: dates.checkin || undefined, checkout: dates.checkout || undefined, adults, rooms });
   const titleTag = useDocumentTitle(panel ? null : s.hotel?.name ?? "Stay");
 
@@ -227,7 +230,15 @@ export function StayDetailView({
               ) : (
                 <div className="mt-3 space-y-2">
               {visibleRooms.map((room, i) => (
-                <RoomRow key={`${room.name}-${i}`} room={room} locked={isLocked(room)} busy={s.busy} onLock={(r) => void s.lockRoom(r)} />
+                <RoomRow
+                  key={`${room.name}-${i}`}
+                  room={room}
+                  locked={isLocked(room)}
+                  busy={s.busy}
+                  onLock={(r) => void s.lockRoom(r)}
+                  onBook={room.offerId ? (r) => setBookingRoom(r as StayRoom & { offerId: string }) : undefined}
+                  bookedConfirmation={room.offerId ? bookedRooms[room.offerId] ?? null : null}
+                />
               ))}
                 </div>
               )}
@@ -460,6 +471,14 @@ export function StayDetailView({
           </div>
         )}
       </div>
+
+      <BookingSheet
+        subject={bookingRoom ? { kind: "stay", tripId, hotelId, hotelName: name, room: bookingRoom, checkin: s.checkin, checkout: s.checkout, nights: s.nights } : null}
+        onClose={() => setBookingRoom(null)}
+        onBooked={(booking) => {
+          if (bookingRoom) setBookedRooms((r) => ({ ...r, [bookingRoom.offerId]: booking.confirmationCode ?? booking.providerReference ?? "confirmed" }));
+        }}
+      />
     </div>
   );
 }
