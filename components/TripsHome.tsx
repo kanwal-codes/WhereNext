@@ -9,6 +9,7 @@ import { Hero } from "@/components/Hero";
 import { Reveal, Stagger, StaggerItem, WordReveal } from "@/components/motion-primitives";
 import { notifyToast } from "@/lib/application/toast";
 import { tripWhen } from "@/lib/trip-dates";
+import { useIsDarkMode } from "@/lib/use-dark-mode";
 
 export type TripSummary = {
   id: string;
@@ -24,6 +25,7 @@ export type TripSummary = {
 export function TripsHome({ trips }: { trips: TripSummary[] }) {
   const [list, setList] = useState(trips);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const isDark = useIsDarkMode();
 
   async function removeTrip(trip: TripSummary) {
     if (!window.confirm(`Delete "${trip.name}" and everything in it? This cannot be undone.`)) return;
@@ -40,7 +42,7 @@ export function TripsHome({ trips }: { trips: TripSummary[] }) {
 
   return (
     <div className="min-h-screen">
-      <Hero image="/design/trip-hero.jpg" alt="Warm rooftops at dusk" className="h-[300px] sm:h-[380px]">
+      <Hero image={isDark ? "/design/trip-hero-night.jpg" : "/design/trip-hero.jpg"} alt="Warm rooftops at dusk" className="h-[300px] sm:h-[380px]">
         <div className="absolute inset-x-0 top-0">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 pt-6 sm:px-8">
             <Link href="/" className="inline-flex items-center gap-2">

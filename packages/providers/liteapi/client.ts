@@ -371,3 +371,54 @@ export async function hotelDetails(hotelId: string, signal?: AbortSignal): Promi
       })),
   };
 }
+
+export type StayGuest = { firstName: string; lastName: string; email: string; occupancyNumber: number };
+export type StayBooking = { bookingId: string; status: string; confirmationCode: string | null; totalAmount: number | null; currency: string | null; raw: unknown };
+
+const prebookSchema = z.object({ data: z.object({ prebookId: z.string() }) });
+const bookSchema = z.object({ data: z.object({
+  bookingId: z.string(),
+  status: z.string(),
+  hotelConfirmationCode: z.string().nullish(),
+  price: z.number().nullish(),
+  currency: z.string().nullish(),
+}) });
+
+/** Locks a `StayRoom.offerId` in for booking — price and cancellation terms are re-confirmed here, not trusted from search. */
+export async function prebookRate(offerId: string, signal?: AbortSignal): Promise<{ prebookId: string }> {
+  if (!key()) throw new Error("LITEAPI_KEY is not configured");
+  return prebookSchema.parse(await post("/rates/prebook", { offerId, usePaymentSdk: false }, signal)).data;
+}
+
+/**
+ * Completes a prebooked stay. `payment.method: "ACC_CREDIT_CARD"` with no card fields is
+ * LiteAPI's sandbox no-payment path (confirmed live against the `sand_...` key — no charge,
+ * `sandbox: true` on the response); going live needs real card collection instead.
+ */
+export async function bookStay(prebookId: string, guests: StayGuest[], signal?: AbortSignal): Promise<StayBooking> {
+  if (!key()) throw new Error("LITEAPI_KEY is not configured");
+  const holder = guests[0];
+  const body = {
+    prebookId,
+    holder: { firstName: holder.firstName, lastName: holder.lastName, email: holder.email },
+    guests: guests.map((g) => ({ firstName: g.firstName, lastName: g.lastName, email: g.email, occupancyNumber: g.occupancyNumber })),
+    payment: { method: "ACC_CREDIT_CARD" },
+  };
+  const raw = await post("/rates/book", body, signal);
+  const booking = bookSchema.parse(raw).data;
+  return { bookingId: booking.bookingId, status: booking.status, confirmationCode: booking.hotelConfirmationCode ?? null, totalAmount: booking.price ?? null, currency: booking.currency ?? null, raw };
+}
+
+/** Cancel a confirmed booking — `PUT /bookings/{bookingId}` (confirmed live against sandbox this session). */
+export async function cancelBooking(bookingId: string, signal?: AbortSignal): Promise<{ status: string }> {
+  if (!key()) throw new Error("LITEAPI_KEY is not configured");
+  const response = await guardedFetch("liteapi", `${API}/bookings/${encodeURIComponent(bookingId)}`, {
+    method: "PUT",
+    headers: HEADERS(),
+    body: JSON.stringify({}),
+    signal: withProviderTimeout(signal, 20_000),
+  });
+  if (!response.ok) throw new Error(`LiteAPI cancel booking failed: ${response.status}`);
+  const body = await response.json().catch(() => ({}));
+  return { status: (body as { data?: { status?: string } }).data?.status ?? "cancelled" };
+}

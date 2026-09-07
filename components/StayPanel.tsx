@@ -32,12 +32,17 @@ export function RoomRow({
   busy,
   onLock,
   compact,
+  onBook,
+  bookedConfirmation,
 }: {
   room: StayRoom;
   locked: boolean;
   busy: boolean;
   onLock: (room: StayRoom) => void;
   compact?: boolean;
+  /** Opens the booking sheet for this room — real (sandbox) order creation, separate from Lock which only records intent. Omit to hide the action. */
+  onBook?: (room: StayRoom) => void;
+  bookedConfirmation?: string | null;
 }) {
   return (
     <div className={cn("grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 rounded-2xl border bg-card p-3", locked ? "border-leaf/40" : "border-border")}>
@@ -79,6 +84,19 @@ export function RoomRow({
             "Lock this room"
           )}
         </button>
+        {onBook && room.offerId && (
+          bookedConfirmation ? (
+            <p className="text-[11px] font-medium text-leaf">Booked · {bookedConfirmation}</p>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onBook(room)}
+              className="inline-flex h-7 items-center rounded-full border border-foreground px-2.5 text-[11px] font-medium text-foreground transition-colors hover:bg-accent"
+            >
+              Book
+            </button>
+          )
+        )}
       </div>
     </div>
   );
