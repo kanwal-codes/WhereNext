@@ -75,6 +75,9 @@ function factAlreadyConfirmed(key: string, ctx: Awaited<ReturnType<typeof loadTr
     case "arrival": return typeof p.arrival === "string" && p.arrival !== "";
     case "getting_around": return (typeof p.transport === "string" && p.transport !== "") || ctx.decisions.some((d) => d.kind === "transport");
     case "base_area": return ctx.decisions.some((d) => d.kind === "stay_area");
+    case "destination": return Boolean(ctx.trip?.destination);
+    case "travelers": return typeof ctx.trip?.travelers === "number" && ctx.trip.travelers > 0;
+    case "trip_length": return typeof ctx.trip?.duration_days === "number" && ctx.trip.duration_days > 0;
     default: return false;
   }
 }

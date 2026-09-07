@@ -36,7 +36,7 @@ export function decisionSummary(kind: string, value: unknown): string {
  *  suggestion chip) or are pure internal bookkeeping (review email/dismiss tracking) —
  *  never worth a second, generic "Decisions" row. Shared so the rule can't drift between
  *  the trip-context panel and the overview page's own decisions list. */
-const HIDDEN_DECISION_KINDS = new Set(["suggestion", "stay", "stay_area", "transport", "review_notified", "review_dismissed"]);
+const HIDDEN_DECISION_KINDS = new Set(["suggestion", "stay", "stay_area", "transport", "leg_transport", "review_notified", "review_dismissed"]);
 export function isDisplayableDecision(kind: string): boolean {
   return !HIDDEN_DECISION_KINDS.has(kind);
 }

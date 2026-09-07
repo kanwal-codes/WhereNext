@@ -18,12 +18,15 @@ export function AiSearchBar({
   placeholder,
   onDirective,
   className,
+  variant = "card",
 }: {
   tripId: string;
   scope: AiSearchScope;
   placeholder: string;
   onDirective: (directive: AiSearchDirective, raw: string) => void;
   className?: string;
+  /** "plain" drops the bordered-card chrome for nesting inside another card (e.g. next to a manual search form). */
+  variant?: "card" | "plain";
 }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -72,7 +75,12 @@ export function AiSearchBar({
     <div className={className}>
       <form
         onSubmit={(e) => { e.preventDefault(); void run(); }}
-        className="flex items-center gap-2 rounded-2xl border border-input bg-card px-3 py-2 shadow-soft focus-within:ring-2 focus-within:ring-ring/25"
+        className={cn(
+          "flex items-center gap-2",
+          variant === "card"
+            ? "rounded-2xl border border-input bg-card px-3 py-2 shadow-soft focus-within:ring-2 focus-within:ring-ring/25"
+            : "border-b border-border pb-2",
+        )}
       >
         <input
           value={text}

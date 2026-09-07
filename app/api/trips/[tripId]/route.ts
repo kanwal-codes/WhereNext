@@ -32,6 +32,10 @@ const patchSchema = z
     startDate: isoDate.nullable().optional(),
     endDate: isoDate.nullable().optional(),
     travelerCount: z.coerce.number().int().min(1).max(100).nullable().optional(),
+    /** Resolved once client-side (a Google Places photo lookup on the destination) and saved
+     * here so every later load — any device — skips that lookup entirely. Empty string is a
+     * real value here (not "unset"): it means "checked, this destination has no photo". */
+    heroPhotoName: z.string().trim().max(2000).nullable().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: "nothing to update" });
 
@@ -49,6 +53,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ tr
     if (body.destination !== undefined) update.destination = body.destination;
     if (body.origin !== undefined) update.origin = body.origin;
     if (body.travelerCount !== undefined) update.travelers = body.travelerCount;
+    if (body.heroPhotoName !== undefined) update.hero_photo_name = body.heroPhotoName;
 
     // Dates move as a pair: recompute duration_days whenever either side changes.
     if (body.startDate !== undefined || body.endDate !== undefined) {

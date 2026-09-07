@@ -3,6 +3,7 @@ import { z } from "zod";
 import { canChangeLockedItem, itineraryItemSchema, itineraryReorderSchema } from "@/features/itinerary/domain/item";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
+import { geocodeStop } from "@/lib/server/geocode-stop";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 const SELECT = "id,title,day_index,position,metadata,created_at";
@@ -52,9 +53,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
       .limit(1)
       .maybeSingle();
     const position = item.position ?? ((last.data?.position ?? -1) + 1);
+    const coords = await geocodeStop(supabase, tripId, item.title);
+    const metadata: Record<string, unknown> = { locked: item.locked ?? false };
+    if (coords) Object.assign(metadata, coords);
+    if (item.time) metadata.time = item.time;
+    // removed_at must be explicit: upsert only touches columns present in the payload, so a title
+    // reused after being soft-deleted would otherwise resurrect with the old removed_at still set
+    // and stay invisible to every listing that filters on it.
     const result = await supabase
       .from("trip_itinerary_items")
-      .upsert({ trip_id: tripId, title: item.title, day_index: day, position, metadata: { locked: item.locked ?? false } }, { onConflict: "trip_id,title" })
+      .upsert({ trip_id: tripId, title: item.title, day_index: day, position, metadata, removed_at: null }, { onConflict: "trip_id,title" })
       .select(SELECT)
       .single();
     if (result.error) throw result.error;
@@ -94,7 +102,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ tr
     }
 
     const item = itineraryItemSchema
-      .refine((value) => value.dayIndex !== undefined || value.locked !== undefined || value.restore !== undefined || value.position !== undefined)
+      .refine((value) => value.dayIndex !== undefined || value.locked !== undefined || value.restore !== undefined || value.position !== undefined || value.time !== undefined)
       .parse(raw);
     const existing = await supabase.from("trip_itinerary_items").select("metadata").eq("trip_id", tripId).eq("title", item.title).maybeSingle();
     if (existing.error) throw existing.error;
@@ -104,7 +112,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ tr
     if (item.restore) update.removed_at = null;
     if (item.dayIndex !== undefined) update.day_index = item.dayIndex;
     if (item.position !== undefined) update.position = item.position;
-    if (item.locked !== undefined) update.metadata = { ...(existing.data.metadata ?? {}), locked: item.locked };
+    if (item.locked !== undefined || item.time !== undefined) {
+      const metadata: Record<string, unknown> = { ...(existing.data.metadata ?? {}) };
+      if (item.locked !== undefined) metadata.locked = item.locked;
+      if (item.time !== undefined) {
+        if (item.time === null) delete metadata.time;
+        else metadata.time = item.time;
+      }
+      update.metadata = metadata;
+    }
     const result = await supabase.from("trip_itinerary_items").update(update).eq("trip_id", tripId).eq("title", item.title).select(SELECT).maybeSingle();
     if (result.error) throw result.error;
     if (!result.data) return NextResponse.json({ error: "Item not found" }, { status: 404 });

@@ -1,30 +1,50 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTripData } from "@/components/TripDataProvider";
 import { RouteScaffold } from "@/components/RouteScaffold";
 import { SkeletonCards } from "@/components/Skeleton";
-import { DiscoverySurface } from "@/features/places/ui/DiscoverySurface";
+import { DiscoverTabs, DiscoverySurface } from "@/features/places/ui/DiscoverySurface";
 
-function DiscoverContent() {
+function DiscoverContent({
+  view,
+  onViewChange,
+  onSavedCountChange,
+}: {
+  view: "results" | "saved";
+  onViewChange: (v: "results" | "saved") => void;
+  onSavedCountChange: (n: number) => void;
+}) {
   const { tripId, data } = useTripData();
   // Arriving from "See more" on a place's nearby recommendations (?q=...) runs that
   // search here instead of landing on the generic mixed feed.
   const initialQuery = useSearchParams().get("q") ?? undefined;
-  return <DiscoverySurface tripId={tripId} initialSaved={data?.savedPlaces} initialQuery={initialQuery} />;
+  return (
+    <DiscoverySurface
+      tripId={tripId}
+      initialSaved={data?.savedPlaces}
+      initialQuery={initialQuery}
+      view={view}
+      onViewChange={onViewChange}
+      onSavedCountChange={onSavedCountChange}
+    />
+  );
 }
 
 export default function DiscoverPage() {
+  const [view, setView] = useState<"results" | "saved">("results");
+  const [savedCount, setSavedCount] = useState(0);
   return (
     <RouteScaffold
       wide
       eyebrow="Discover"
       title="Everything to do in one place"
       description="A mix built from your trip, then filter by what you're after — food, sights, nightlife, outdoors, activities, events, shopping, stays."
+      tabs={<DiscoverTabs view={view} onChange={setView} savedCount={savedCount} />}
     >
       <Suspense fallback={<SkeletonCards count={6} />}>
-        <DiscoverContent />
+        <DiscoverContent view={view} onViewChange={setView} onSavedCountChange={setSavedCount} />
       </Suspense>
     </RouteScaffold>
   );

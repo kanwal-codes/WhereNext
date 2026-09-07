@@ -458,6 +458,33 @@ describe("provider adapters", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).response_format).toEqual({ type: "json_object" });
   });
 
+  it("follows nextPageToken until maxResults is met, resending the same query", async () => {
+    process.env.GOOGLE_MAPS_API_KEY = "test-key";
+    const page = (n: number, token?: string) => new Response(JSON.stringify({ places: Array.from({ length: n }, (_, i) => ({ id: `places/${i}`, displayName: { text: `Place ${i}` }, location: { latitude: 1, longitude: 2 } })), nextPageToken: token }), { status: 200 });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(page(20, "token-2"))
+      .mockResolvedValueOnce(page(20, "token-3"))
+      .mockResolvedValueOnce(page(5));
+    vi.stubGlobal("fetch", fetchMock);
+    const places = await new GooglePlacesProvider().search("restaurants", undefined, 60);
+    expect(places).toHaveLength(45);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const bodies = fetchMock.mock.calls.map(([, init]) => JSON.parse((init as RequestInit).body as string));
+    expect(bodies[0]).toMatchObject({ textQuery: "restaurants", pageSize: 20 });
+    expect(bodies[1]).toMatchObject({ textQuery: "restaurants", pageSize: 20, pageToken: "token-2" });
+    expect(bodies[2]).toMatchObject({ textQuery: "restaurants", pageSize: 20, pageToken: "token-3" });
+  });
+
+  it("stops paginating once Google's 60-result ceiling is reached", async () => {
+    process.env.GOOGLE_MAPS_API_KEY = "test-key";
+    const page = () => new Response(JSON.stringify({ places: Array.from({ length: 20 }, (_, i) => ({ id: `places/${i}`, displayName: { text: `Place ${i}` }, location: { latitude: 1, longitude: 2 } })), nextPageToken: "more" }), { status: 200 });
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(page()));
+    vi.stubGlobal("fetch", fetchMock);
+    const places = await new GooglePlacesProvider().search("restaurants", undefined, 200);
+    expect(places).toHaveLength(60);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
   it("caches repeated production place searches", async () => {
     vi.stubEnv("NODE_ENV", "production");
     process.env.GOOGLE_MAPS_API_KEY = "test-cache-key";

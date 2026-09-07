@@ -1,3 +1,5 @@
+import greatCircle from "@turf/great-circle";
+
 type Point = { latitude: number; longitude: number };
 
 /** Straight-line distance in km. A rough proxy for "how close" — not travel time. */
@@ -9,6 +11,14 @@ export function haversineKm(a: Point, b: Point): number {
   const lat2 = toRad(b.latitude);
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
   return 6371 * 2 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/** A curved great-circle path between two [lng, lat] points, for drawing flight/long-haul legs
+ * on the map instead of a straight line. Falls back to a straight 2-point line for the (rare)
+ * antimeridian-crossing case, where turf's great-circle returns a MultiLineString. */
+export function greatCircleArc(from: [number, number], to: [number, number], npoints = 100): Array<[number, number]> {
+  const arc = greatCircle(from, to, { npoints });
+  return arc.geometry.type === "LineString" ? (arc.geometry.coordinates as Array<[number, number]>) : [from, to];
 }
 
 /** Nearest of `targets` to `from`, with its straight-line distance, or null if none have coordinates. */

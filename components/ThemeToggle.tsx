@@ -6,6 +6,14 @@ import { cn } from "@/lib/utils";
 
 type Theme = "light" | "dark";
 
+declare global {
+  interface Window {
+    /** Set once the user has manually toggled this session — tells ThemeSync's profile fetch
+     * (in flight from page load) not to overwrite a click that happened while it was pending. */
+    __themeManuallySet?: boolean;
+  }
+}
+
 /** Mirrors the inline no-flash script in layout.tsx — the source of truth is the
  *  `dark` class on <html>, not React state (which only exists to re-render the icon). */
 const currentTheme = (): Theme => (typeof document !== "undefined" && document.documentElement.classList.contains("dark") ? "dark" : "light");
@@ -23,6 +31,14 @@ export function ThemeToggle({ className }: { className?: string }) {
     setTheme(next);
     document.documentElement.classList.toggle("dark", next === "dark");
     try { localStorage.setItem("theme", next); } catch { /* private browsing, etc. */ }
+    // A manual toggle always wins over ThemeSync's in-flight (possibly now-stale) profile
+    // fetch from page load — without this flag, that fetch can resolve a beat later and stomp
+    // the click right back to whatever the account had saved before this one.
+    window.__themeManuallySet = true;
+    // Best-effort: carries the choice to the account so a new device picks it up too (see
+    // ThemeSync). Not awaited — the toggle itself must never wait on the network, and a logged
+    // -out visitor's 401 here is expected and harmless.
+    fetch("/api/profile", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ theme: next }) }).catch(() => {});
   }
 
   return (

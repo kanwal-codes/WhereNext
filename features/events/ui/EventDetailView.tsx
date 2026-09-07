@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarClock, ChevronDown, DoorOpen, Info, MapPin, Music, Sparkles, Ticket, Users } from "lucide-react";
+import { CalendarCheck, CalendarClock, ChevronDown, DoorOpen, Info, Loader2, MapPin, Music, Sparkles, Ticket, Users } from "lucide-react";
 import type { EventDetail } from "@/packages/contracts/event";
 import { Hero } from "@/components/Hero";
 import { BackLink } from "@/components/BackLink";
@@ -15,6 +15,10 @@ import { useDocumentTitle } from "@/lib/use-document-title";
 import { askAssistantHref } from "@/lib/places-ui";
 import { cn } from "@/lib/utils";
 import { ticketSellerLabel } from "@/lib/ticket-provider";
+import { useTripDataMaybe } from "@/components/TripDataProvider";
+import { mutate } from "@/lib/client/mutation-queue";
+import { notifyToast } from "@/lib/application/toast";
+import { extractEventDayIndex, extractEventTime } from "@/lib/application/event-schedule";
 
 type Seed = { name: string; url: string; source: string; imageUrl?: string; date?: string; venue?: string };
 
@@ -73,6 +77,57 @@ function Section({
         <div className="mt-3">{children}</div>
       </section>
     </Reveal>
+  );
+}
+
+/** Adds this event to the itinerary as a timed stop — day and time both derived from the
+ * event's real schedule (Ticketmaster's embedded time, or the trip's start date), not guessed. */
+function AddEventButton({ tripId, title, rawDate, showTime, latitude, longitude }: {
+  tripId: string; title: string; rawDate: string | null; showTime?: string | null;
+  latitude?: number | null; longitude?: number | null;
+}) {
+  const data = useTripDataMaybe()?.data ?? null;
+  const itinerary = (data?.itinerary ?? []) as Array<{ title?: string }>;
+  const tripStartDate = (data?.trip as { start_date?: string | null } | null)?.start_date;
+  const alreadyAdded = itinerary.some((i) => i.title?.trim().toLowerCase() === title.trim().toLowerCase());
+  const [busy, setBusy] = useState(false);
+
+  async function add() {
+    if (busy || alreadyAdded) return;
+    setBusy(true);
+    try {
+      const time = extractEventTime(rawDate, showTime);
+      const dayIndex = extractEventDayIndex(rawDate, tripStartDate) ?? 1;
+      const res = await mutate("/api/commands", {
+        method: "POST",
+        body: {
+          type: "add_itinerary_item", tripId, title, dayIndex,
+          ...(time ? { time } : {}),
+          ...(latitude != null && longitude != null ? { latitude, longitude } : {}),
+        },
+        announce: ["itinerary"],
+      });
+      if (!res.ok) throw new Error();
+      notifyToast(`Added to Day ${dayIndex}${time ? ` at ${new Date(`2000-01-01T${time}`).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}.`, "success");
+    } catch {
+      notifyToast(`Couldn't add ${title} to your trip. Try again.`, "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Tactile lift={2} className="inline-flex">
+      <button
+        type="button"
+        disabled={busy || alreadyAdded}
+        onClick={() => void add()}
+        className={cn("btn-primary inline-flex items-center gap-2", alreadyAdded && "opacity-70")}
+      >
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4" />}
+        {alreadyAdded ? "Added to trip" : "Add to trip"}
+      </button>
+    </Tactile>
   );
 }
 
@@ -372,11 +427,14 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
             )}
 
             <Reveal delay={0.13}>
-              <Tactile lift={2} className="inline-flex">
-                <Link href={askAssistantHref(tripId, { name: title, address: venueName ?? undefined })} className="btn-secondary inline-flex">
-                  Ask Roam if it fits
-                </Link>
-              </Tactile>
+              <div className="flex flex-wrap items-center gap-3">
+                <AddEventButton tripId={tripId} title={title} rawDate={rawDate} showTime={d?.showTime} latitude={d?.latitude} longitude={d?.longitude} />
+                <Tactile lift={2} className="inline-flex">
+                  <Link href={askAssistantHref(tripId, { name: title, address: venueName ?? undefined })} className="btn-secondary inline-flex">
+                    Ask Roam if it fits
+                  </Link>
+                </Tactile>
+              </div>
             </Reveal>
 
             {d && d.sources.length > 0 && (

@@ -11,5 +11,8 @@ export const travelerProfileSchema = preferencesSchema
   .extend({
     // ponytail: lives in profiles.data jsonb, not its own column — promote if flight search needs to query by it.
     homeAirport: z.string().trim().min(3).max(8).toUpperCase().optional(),
+    /** The account's light/dark choice, so it follows the user to a new device — localStorage
+     * alone only remembers it on the browser that set it. */
+    theme: z.enum(["light", "dark"]).optional(),
   });
 export type TravelerProfile = z.infer<typeof travelerProfileSchema>;

@@ -9,7 +9,7 @@ export type AssistantIntent = z.infer<typeof assistantIntentSchema>;
 export const proposedCommandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("update_preferences"), tripId: z.string().uuid(), preferences: preferenceUpdateSchema }),
   z.object({ type: z.literal("record_decision"), tripId: z.string().uuid(), kind: z.string().min(1).max(80), value: z.record(z.string(), z.unknown()), idempotencyKey: z.string().min(1).max(120).optional() }),
-  z.object({ type: z.literal("add_itinerary_item"), tripId: z.string().uuid(), title: z.string().trim().min(1).max(200), dayIndex: z.number().int().positive().default(1), providerId: z.string().trim().min(1).max(240).optional() }),
+  z.object({ type: z.literal("add_itinerary_item"), tripId: z.string().uuid(), title: z.string().trim().min(1).max(200), dayIndex: z.number().int().positive().default(1), providerId: z.string().trim().min(1).max(240).optional(), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(), latitude: z.number().min(-90).max(90).optional(), longitude: z.number().min(-180).max(180).optional() }),
   z.object({ type: z.literal("save_place"), tripId: z.string().uuid(), place: placeSchema }),
 ]);
 export type ProposedCommand = z.infer<typeof proposedCommandSchema>;

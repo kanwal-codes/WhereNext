@@ -94,7 +94,7 @@ export function NearbyEvents({ tripId, location, query = "" }: { tripId: string;
         </div>
         <div id="nearby-events-list" className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {visibleEvents.map((event) => (
-              <EventCard key={event.url} tripId={tripId} event={event} className="w-full" />
+              <EventCard key={`${event.url}|${event.date ?? ""}`} tripId={tripId} event={event} className="w-full" />
             ))}
         </div>
         {expanded && (
