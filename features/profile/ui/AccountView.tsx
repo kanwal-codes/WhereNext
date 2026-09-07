@@ -701,7 +701,7 @@ export function AccountView({
                 <Trash2 className="h-4 w-4 text-destructive" />
                 <div className="mr-auto">
                   <p className="text-sm font-medium text-destructive">Delete account</p>
-                  <p className="text-sm text-ink-soft">Removes your trips and shared links. This can't be undone.</p>
+                  <p className="text-sm text-ink-soft">Removes your trips and shared links. This can’t be undone.</p>
                 </div>
                 <button type="button" onClick={() => setDeleteOpen(true)} className="rounded-full bg-destructive px-4 py-2 text-sm text-destructive-foreground transition-opacity hover:opacity-90">Delete</button>
               </div>
