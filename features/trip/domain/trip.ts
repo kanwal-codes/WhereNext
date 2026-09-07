@@ -42,6 +42,8 @@ export type Trip = {
   end_date?: string | null;
   travelers?: number | null;
   preferences?: Record<string, unknown> | null;
+  /** Google Places photo name for the Overview hero image, resolved once and kept — see photoProxyUrl. */
+  hero_photo_name?: string | null;
 };
 
 /**

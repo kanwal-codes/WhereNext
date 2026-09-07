@@ -7,6 +7,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ToastHost } from "@/components/ToastHost";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
+import { ThemeSync } from "@/components/ThemeSync";
 import { MotionProvider } from "@/components/MotionProvider";
 
 // Runs before hydration so dark mode never flashes light-then-dark. An explicit choice
@@ -32,10 +33,16 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+// overflow-x-hidden lives on <html> only, not <body>. Per the CSS spec, setting only
+// overflow-x on an element forces its overflow-y to compute as `auto` — that alone makes the
+// element a "scrolling ancestor" for `position: sticky` purposes even though it never actually
+// scrolls itself (the real scroll stays on <html>/the viewport). Put it on <body> too and every
+// sticky descendant (the trip sidebar included) starts calculating its stuck position against
+// the wrong ancestor and drifts off-screen instead of staying pinned.
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${outfit.variable} ${figtree.variable}`} suppressHydrationWarning>
-      <body className="overflow-x-hidden">
+    <html lang="en" className={`${outfit.variable} ${figtree.variable} overflow-x-hidden`} suppressHydrationWarning>
+      <body>
         {/* beforeInteractive: Next.js injects this into <head> and runs it before hydration,
             so the `dark` class lands before first paint — no light-then-dark flash. */}
         <Script id="theme-init" strategy="beforeInteractive">{THEME_INIT}</Script>
@@ -43,6 +50,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           {children}
           <ToastHost />
           <ServiceWorkerRegister />
+          <ThemeSync />
           <Analytics />
           <SpeedInsights />
         </MotionProvider>

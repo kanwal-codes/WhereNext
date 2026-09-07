@@ -56,24 +56,28 @@ const offersSchema = z.object({
     total_amount: z.string(),
     total_currency: z.string(),
     expires_at: z.string().optional(),
-    owner: z.object({ name: z.string().optional() }).optional(),
+    // Duffel sends explicit `null` (not just an absent key) for any of these when the airline
+    // hasn't supplied that detail — `.optional()` alone rejects `null`, so every one of these
+    // nested objects needs `.nullable()` too or a real offer with an unset field 400s the whole search.
+    owner: z.object({ name: z.string().optional() }).nullable().optional(),
     slices: z.array(z.object({
       duration: z.string().optional(),
       segments: z.array(z.object({
         departing_at: z.string().optional(),
         arriving_at: z.string().optional(),
-        origin: z.object({ iata_code: z.string().optional() }).optional(),
-        destination: z.object({ iata_code: z.string().optional() }).optional(),
-        marketing_carrier: z.object({ name: z.string().optional() }).optional(),
-        operating_carrier: z.object({ name: z.string().optional() }).optional(),
-        aircraft: z.object({ name: z.string().optional() }).optional(),
+        origin: z.object({ iata_code: z.string().optional() }).nullable().optional(),
+        destination: z.object({ iata_code: z.string().optional() }).nullable().optional(),
+        marketing_carrier: z.object({ name: z.string().optional() }).nullable().optional(),
+        operating_carrier: z.object({ name: z.string().optional() }).nullable().optional(),
+        aircraft: z.object({ name: z.string().optional() }).nullable().optional(),
       })).default([]),
     })).default([]),
     conditions: z.object({
-      change_before_departure: z.object({ allowed: z.boolean().optional() }).optional(),
-      refund_before_departure: z.object({ allowed: z.boolean().optional() }).optional(),
-    }).optional(),
+      change_before_departure: z.object({ allowed: z.boolean().optional() }).nullable().optional(),
+      refund_before_departure: z.object({ allowed: z.boolean().optional() }).nullable().optional(),
+    }).nullable().optional(),
     passengers: z.array(z.object({
+      id: z.string().optional(),
       cabin_class: z.string().optional(),
       baggages: z.array(z.object({ type: z.string().optional(), quantity: z.number().optional() })).default([]),
     })).default([]),

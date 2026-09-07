@@ -1,17 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Bus, Car, ChevronDown, Footprints, Route, Ship, TrainFront } from "lucide-react";
+import { ChevronDown, TriangleAlert } from "lucide-react";
 import type { RouteDay, RouteLegStep } from "@/packages/contracts/route-plan";
+import { MODE_COLOR, MODE_ICON } from "@/lib/application/mode-visuals";
+import { formatClockTime } from "@/lib/application/clock-time";
+import { isTimeFitAtRisk } from "@/lib/application/time-fit";
 import { formatMoney } from "@/lib/currency";
 import { cn, formatDuration } from "@/lib/utils";
-
-const MODE_ICON: Record<string, typeof Bus> = {
-  walk: Footprints, bus: Bus, subway: TrainFront, tram: TrainFront, train: TrainFront, ferry: Ship, drive: Car, transit: Bus, unknown: Route,
-};
-const MODE_COLOR: Record<string, string> = {
-  walk: "#9aa0a6", bus: "#2563eb", subway: "#e2603f", tram: "#0891b2", train: "#16a34a", ferry: "#0d9488", drive: "#6b7280", transit: "#2563eb", unknown: "#9aa0a6",
-};
 
 const time = (iso: string | null) => {
   if (!iso) return null;
@@ -20,7 +16,7 @@ const time = (iso: string | null) => {
 };
 
 function StepLine({ s }: { s: RouteLegStep }) {
-  const Icon = MODE_ICON[s.mode] ?? Route;
+  const Icon = MODE_ICON[s.mode] ?? MODE_ICON.unknown;
   return (
     <div className="flex items-start gap-2 text-xs text-muted-foreground">
       <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: MODE_COLOR[s.mode] }} />
@@ -44,7 +40,40 @@ function StepLine({ s }: { s: RouteLegStep }) {
   );
 }
 
-export function RouteTimeline({ day, onHoverLeg }: { day: RouteDay; onHoverLeg?: (index: number | null) => void }) {
+function AltChip({ tripId, leg, alt, onChosen }: { tripId: string; leg: RouteDay["legs"][number]; alt: RouteDay["legs"][number]["alternatives"][number]; onChosen: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const Icon = MODE_ICON[alt.mode] ?? MODE_ICON.unknown;
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={async (e) => {
+        e.stopPropagation();
+        setBusy(true);
+        try {
+          const res = await fetch(`/api/trips/${tripId}/decisions`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              kind: "leg_transport",
+              value: { fromId: leg.fromId, toId: leg.toId, mode: alt.mode },
+              idempotencyKey: `leg:${leg.fromId}:${leg.toId}`,
+            }),
+          });
+          if (res.ok) onChosen();
+        } finally {
+          setBusy(false);
+        }
+      }}
+      className="flex shrink-0 items-center gap-1 rounded-full border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary hover:text-foreground disabled:opacity-50"
+    >
+      <Icon className="h-3 w-3" style={{ color: MODE_COLOR[alt.mode] }} />
+      {formatDuration(alt.minutes)}
+    </button>
+  );
+}
+
+export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen }: { day: RouteDay; tripId: string; onHoverLeg?: (index: number | null) => void; onLegChosen?: () => void }) {
   const [open, setOpen] = useState<number | null>(null);
 
   if (day.stops.length < 2) {
@@ -63,12 +92,13 @@ export function RouteTimeline({ day, onHoverLeg }: { day: RouteDay; onHoverLeg?:
       <ol className="mt-3">
         {day.stops.map((stop, i) => {
           const leg = i < day.legs.length ? day.legs[i] : null;
-          const LegIcon = leg ? MODE_ICON[leg.mode] ?? Route : Route;
+          const LegIcon = leg ? MODE_ICON[leg.mode] ?? MODE_ICON.unknown : MODE_ICON.unknown;
           return (
             <li key={stop.id}>
               <div className="flex items-center gap-2.5">
                 <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">{i + 1}</span>
                 <span className="truncate text-sm font-medium">{stop.name}</span>
+                {stop.time && <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{formatClockTime(stop.time)}</span>}
               </div>
 
               {leg && (
@@ -95,6 +125,22 @@ export function RouteTimeline({ day, onHoverLeg }: { day: RouteDay; onHoverLeg?:
                     </button>
                   )}
                   {leg.note && leg.kind === "local" && <p className="pb-1 text-[11px] text-muted-foreground">{leg.note}</p>}
+                  {isTimeFitAtRisk(leg.timeFit) && leg.timeFit && (
+                    <p className="flex items-center gap-1.5 pb-1 text-[11px] font-medium text-coral">
+                      <TriangleAlert className="h-3 w-3 shrink-0" />
+                      {leg.timeFit.availableMinutes <= 0
+                        ? `No time between these stops for a ${formatDuration(leg.timeFit.neededMinutes)} trip.`
+                        : `Only ${formatDuration(leg.timeFit.availableMinutes)} between these stops — this trip takes ~${formatDuration(leg.timeFit.neededMinutes)}.`}
+                    </p>
+                  )}
+                  {leg.kind === "local" && leg.alternatives.length > 0 && (
+                    <div className="flex items-center gap-1.5 pb-1.5">
+                      <span className="shrink-0 text-[10px] text-muted-foreground">Or:</span>
+                      {leg.alternatives.map((alt) => (
+                        <AltChip key={alt.mode} tripId={tripId} leg={leg} alt={alt} onChosen={() => onLegChosen?.()} />
+                      ))}
+                    </div>
+                  )}
                   {open === i && leg.steps.length > 0 && (
                     <div className="space-y-1.5 border-l border-dashed border-border pb-2 pl-3">
                       {leg.steps.map((st, k) => <StepLine key={k} s={st} />)}

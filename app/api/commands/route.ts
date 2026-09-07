@@ -7,6 +7,7 @@ import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createPlaceRepository } from "@/features/places/infrastructure/placeRepository";
+import { geocodeStop } from "@/lib/server/geocode-stop";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 const DECISION_IMPACT: Record<string, string> = {
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
     if (command.type === "add_itinerary_item") {
       const metadata: Record<string, unknown> = { source: "assistant-proposal" };
       if (command.providerId) metadata.provider_id = command.providerId;
+      if (command.time) metadata.time = command.time;
       const existing = await supabase
         .from("trip_itinerary_items")
         .select("id,title,day_index,metadata,created_at")
@@ -46,7 +48,16 @@ export async function POST(request: Request) {
         .maybeSingle();
       if (existing.error) throw existing.error;
       if (existing.data) return NextResponse.json({ result: { type: command.type, item: existing.data, alreadyExists: true } });
-      const result = await supabase.from("trip_itinerary_items").upsert({ trip_id: command.tripId, title: command.title, day_index: command.dayIndex, metadata }, { onConflict: "trip_id,title" }).select("id,title,day_index,metadata,created_at").single();
+      // A caller that already knows exactly where this is (e.g. an event's own venue
+      // coordinates) skips the geocode guess entirely — more accurate and one less API call.
+      const coords = command.latitude != null && command.longitude != null
+        ? { latitude: command.latitude, longitude: command.longitude }
+        : await geocodeStop(supabase, command.tripId, command.title, command.providerId);
+      if (coords) Object.assign(metadata, coords);
+      // removed_at must be explicit: upsert only touches columns present in the payload, so a
+      // title reused after being soft-deleted would otherwise resurrect with the old removed_at
+      // still set and stay invisible to every listing that filters on it.
+      const result = await supabase.from("trip_itinerary_items").upsert({ trip_id: command.tripId, title: command.title, day_index: command.dayIndex, metadata, removed_at: null }, { onConflict: "trip_id,title" }).select("id,title,day_index,metadata,created_at").single();
       if (result.error) throw result.error;
       invalidateWorkspace(command.tripId);
       return NextResponse.json({ result: { type: command.type, item: result.data } });

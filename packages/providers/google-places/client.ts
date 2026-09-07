@@ -45,18 +45,31 @@ export function broadenQuery(query: string): string {
   return query;
 }
 
+/** Google returns at most 20 places per page and 60 across all pages of one Text Search. */
+const GOOGLE_PAGE_SIZE = 20;
+const GOOGLE_MAX_RESULTS = 60;
+
 export class GooglePlacesProvider {
   private key() { const key = process.env.GOOGLE_MAPS_API_KEY; if (!key) throw new Error("GOOGLE_MAPS_API_KEY is not configured"); return key; }
-  async search(query: string, signal?: AbortSignal): Promise<Place[]> {
-    if (process.env.NODE_ENV === "test") return this.searchUncached(query, signal);
-    const cacheKey = `google-places:${query.trim().toLowerCase()}`;
-    return cached(cacheKey, 60_000, () => this.searchUncached(query, signal));
+  /** `maxResults` beyond one page (20) follows `nextPageToken` to fill out the browse view; callers that only need the top hit should leave it at the default so they don't pay for pages they'll discard. */
+  async search(query: string, signal?: AbortSignal, maxResults = GOOGLE_PAGE_SIZE): Promise<Place[]> {
+    if (process.env.NODE_ENV === "test") return this.searchUncached(query, signal, maxResults);
+    const cacheKey = `google-places:${query.trim().toLowerCase()}:${maxResults}`;
+    return cached(cacheKey, 60_000, () => this.searchUncached(query, signal, maxResults));
   }
-  private async searchUncached(query: string, signal?: AbortSignal): Promise<Place[]> {
-    const response = await guardedFetch("google-places", "https://places.googleapis.com/v1/places:searchText", { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": this.key(), "x-goog-fieldmask": "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.googleMapsUri,places.rating,places.userRatingCount,places.photos.name" }, body: JSON.stringify({ textQuery: broadenQuery(query), pageSize: 20 }), signal: withProviderTimeout(signal) });
-    if (!response.ok) throw new Error(`Google Places search failed: ${response.status}`);
-    const body = await response.json() as { places?: SearchPlace[] };
-    return (body.places ?? []).flatMap((place) => place.location ? [{ provider: "google-places", providerId: place.id, name: place.displayName?.text ?? "Unnamed place", category: place.primaryType ?? null, latitude: place.location.latitude, longitude: place.location.longitude, address: place.formattedAddress ?? null, rating: place.rating, userRatingCount: place.userRatingCount, sourceUrl: place.googleMapsUri ?? null, photoNames: place.photos?.map((photo) => photo.name) ?? [] }] : []);
+  private async searchUncached(query: string, signal?: AbortSignal, maxResults = GOOGLE_PAGE_SIZE): Promise<Place[]> {
+    const cap = Math.min(maxResults, GOOGLE_MAX_RESULTS);
+    const places: SearchPlace[] = [];
+    let pageToken: string | undefined;
+    do {
+      // Pagination requires resending the original query verbatim alongside pageToken, or Google 400s.
+      const response = await guardedFetch("google-places", "https://places.googleapis.com/v1/places:searchText", { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": this.key(), "x-goog-fieldmask": "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.googleMapsUri,places.rating,places.userRatingCount,places.photos.name,nextPageToken" }, body: JSON.stringify({ textQuery: broadenQuery(query), pageSize: GOOGLE_PAGE_SIZE, ...(pageToken ? { pageToken } : {}) }), signal: withProviderTimeout(signal) });
+      if (!response.ok) throw new Error(`Google Places search failed: ${response.status}`);
+      const body = await response.json() as { places?: SearchPlace[]; nextPageToken?: string };
+      places.push(...(body.places ?? []));
+      pageToken = body.nextPageToken;
+    } while (pageToken && places.length < cap);
+    return places.slice(0, cap).flatMap((place) => place.location ? [{ provider: "google-places", providerId: place.id, name: place.displayName?.text ?? "Unnamed place", category: place.primaryType ?? null, latitude: place.location.latitude, longitude: place.location.longitude, address: place.formattedAddress ?? null, rating: place.rating, userRatingCount: place.userRatingCount, sourceUrl: place.googleMapsUri ?? null, photoNames: place.photos?.map((photo) => photo.name) ?? [] }] : []);
   }
   /** Businesses of a Google place type (e.g. "car_rental") near a point, nearest first. */
   async nearby(type: string, center: { lat: number; lng: number }, radiusMeters = 15_000, signal?: AbortSignal): Promise<NearbyBusiness[]> {

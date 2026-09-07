@@ -23,9 +23,13 @@ const previewEnabled = (tripId: string) => tripId === PREVIEW_ID && process.env.
 // cached read itself uses the service client, because `unstable_cache` must not
 // close over cookie-scoped state. `revalidate` is only a backstop for changes that
 // bypass a mutation route — tag invalidation carries the normal case.
+// Deliberately doesn't swallow errors here — a caught failure would get cached as a
+// successful `null` result for the full `revalidate` window, turning one transient DB
+// hiccup into two minutes of false 404s. Let it throw; `getWorkspace`'s outer try/catch
+// below falls back to the per-request read instead.
 const loadWorkspaceCached = (tripId: string) =>
   unstable_cache(
-    async () => loadTripWorkspace(createSupabaseAdminClient(), tripId).catch(() => null),
+    () => loadTripWorkspace(createSupabaseAdminClient(), tripId),
     ["trip-workspace", tripId],
     { revalidate: 120, tags: [workspaceTag(tripId)] },
   )();

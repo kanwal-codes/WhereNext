@@ -87,7 +87,7 @@ export default function TripOverviewPage() {
   const days = Array.from(new Set(itinerary.map((i) => i.day_index))).sort((a, b) => a - b).slice(0, 3);
   const recentAssistant = conversation.filter((m) => m.role === "assistant").slice(-3).reverse();
   // `undefined` while the Places lookup runs, `null` when there's no photo, else the URL.
-  const destinationPhoto = useDestinationPhoto(tripId, trip?.destination ?? undefined);
+  const destinationPhoto = useDestinationPhoto(tripId, trip?.destination ?? undefined, trip?.hero_photo_name);
   // Only mount the hero once we know which image it is — no stock-plate flash swapping to the real photo.
   const heroReady = Boolean(data) && destinationPhoto !== undefined;
   const heroImage = destinationPhoto || "/design/trip-hero.jpg";

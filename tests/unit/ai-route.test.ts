@@ -6,6 +6,7 @@ const PROMPT = "best nightclubs in Shanghai";
 
 const appendSpy = vi.fn(async (_tripId: string, input: unknown) => ({ id: "a1", ...(input as object) }));
 const insertSpy = vi.hoisted(() => vi.fn(async () => ({ error: null })));
+const upsertSpy = vi.hoisted(() => vi.fn(async () => ({ error: null })));
 const loadTripContextMock = vi.fn();
 const resolveTurnMock = vi.fn();
 const retrieveEvidenceMock = vi.fn();
@@ -39,6 +40,7 @@ vi.mock("@/lib/supabase/server", () => ({
       q.select = chain; q.eq = chain; q.order = chain; q.limit = chain; q.is = chain;
       q.maybeSingle = async () => ({ data: member });
       q.insert = insertSpy; // ai_turn_traces best-effort write
+      q.upsert = upsertSpy; // trip_decisions suggestion upserts
       return q;
     },
   }),
@@ -103,6 +105,24 @@ describe("POST /api/ai", () => {
   it("returns 401 without a user", async () => { user = null; expect((await post()).status).toBe(401); });
   it("returns 404 for a non-member", async () => { member = null; expect((await post()).status).toBe(404); });
   it("returns 409 when the user message is not persisted first", async () => { listRows = []; expect((await post()).status).toBe(409); });
+
+  it("does not re-suggest a trip fact that's already confirmed on the trip row", async () => {
+    // Default loadTripContextMock trip already has destination/duration_days/travelers set.
+    resolveTurnMock.mockResolvedValue({
+      language: "en", locationFocus: "Shanghai", intent: "nightlife", wantsComparison: false,
+      toolPlan: [{ tool: "search_places", query: "nightclubs", location: "Shanghai" }],
+      clarify: null, suggestedFollowups: [], proposedProfileUpdate: null,
+      suggestedFacts: [
+        { key: "destination", display: "Lisbon", rationale: "mentioned wanting to see the Belem Tower" },
+        { key: "travelers", display: "3", rationale: "asked about a table for 3" },
+        { key: "trip_length", display: "About 5 days", rationale: "said they don't have long" },
+      ],
+    });
+    const response = await post();
+    expect(response.status).toBe(200);
+    await new Response(response.body).text();
+    expect(upsertSpy).not.toHaveBeenCalled();
+  });
 
   it("discovery turn retrieves for locationFocus and emits place_list + actions", async () => {
     retrieveEvidenceMock.mockResolvedValue({

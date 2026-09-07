@@ -243,7 +243,10 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
 
   return (
     <motion.div
-      className="min-h-screen w-full min-w-0 max-w-full overflow-x-hidden lg:grid"
+      // No overflow-x-hidden here — <html> already owns that (see the comment in app/layout.tsx),
+      // and adding it again on `<aside>`'s own parent would re-trigger the same sticky-breaking
+      // forced-overflow-y-auto quirk this whole component depends on not having.
+      className="min-h-screen w-full min-w-0 max-w-full lg:grid"
       initial={false}
       animate={{ gridTemplateColumns: collapsed ? "76px minmax(0,1fr)" : "264px minmax(0,1fr)" }}
       transition={reduceMotion ? { duration: 0 } : motionTokens.standard}
@@ -261,9 +264,9 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
               <BrandMark variant="compact" />
             </Link>
           ) : (
-            <div className="flex min-w-0 items-start gap-2">
-              <Link href={`/trips/${tripId}`} aria-label={`${trip.name} overview`}>
-              <BrandMark variant="compact" className="mt-0.5 h-7 w-7 shrink-0 text-[11px]" />
+            <div className="flex min-w-0 items-start gap-3">
+              <Link href={`/trips/${tripId}`} aria-label={`${trip.name} overview`} className="shrink-0">
+                <BrandMark variant="compact" className="mt-0.5 h-7 w-7 shrink-0 text-[11px]" />
               </Link>
               <TripIdentity tripId={tripId} trip={trip} />
             </div>
@@ -288,7 +291,7 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
 
       {/* Mobile top bar */}
       <div className="sticky top-0 z-30 grid h-[var(--topbar)] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/90 px-4 backdrop-blur lg:hidden">
-        <Link href={`/trips/${tripId}`} className="flex min-w-0 items-center gap-2" aria-label={trip.name}>
+        <Link href={`/trips/${tripId}`} className="flex min-w-0 items-center gap-3" aria-label={trip.name}>
           <BrandMark variant="compact" className="h-6 w-6 shrink-0 text-[10px]" />
           <h2 className="truncate font-display text-sm leading-tight">{trip.name}</h2>
         </Link>
@@ -303,7 +306,7 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
 
       {/* Mobile navigation sheet */}
       <Sheet open={open} onClose={() => setOpen(false)} side="left" ariaLabel="Trip navigation" className="max-w-[300px] bg-sidebar px-4 py-6">
-        <div className="mb-5 flex items-start gap-2">
+        <div className="mb-5 flex items-start gap-3">
           <BrandMark variant="compact" className="mt-0.5 h-7 w-7 shrink-0 text-[11px]" />
           <TripIdentity tripId={tripId} trip={trip} />
           <button onClick={() => setOpen(false)} aria-label="Close navigation" className="-mr-1 -mt-1 shrink-0 rounded-full p-1.5 text-muted-foreground hover:text-foreground active:scale-95">
@@ -317,7 +320,12 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
         {utility(() => setOpen(false))}
       </Sheet>
 
-      <main className="w-full min-w-0 max-w-full overflow-x-hidden">{children}</main>
+      {/* No overflow-x-hidden here — <html> already owns that (see app/layout.tsx). Per the CSS
+          spec, an element with overflow-x set but not overflow-y has its overflow-y computed as
+          `auto`, quietly turning this <main> into an intermediate scroll container. Any sticky
+          descendant (the Getting Around map, in Browse and My trip) then sticks relative to this
+          box instead of the real viewport and just scrolls away with the page. */}
+      <main className="w-full min-w-0 max-w-full">{children}</main>
     </motion.div>
   );
 }
