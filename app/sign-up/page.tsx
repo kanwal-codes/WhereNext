@@ -2,7 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { ArrowRight, Check, Eye, EyeOff } from "lucide-react";
 import { AuthShell, Divider, Field, SubmitButton, inputClass } from "@/components/AuthShell";
 import { GoogleAuthButton } from "@/features/identity/ui/GoogleAuthButton";
@@ -27,6 +27,7 @@ export default function SignUpPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const score = useMemo(() => strengthOf(pw), [pw]);
+  const reduceMotion = useReducedMotion();
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -57,12 +58,19 @@ export default function SignUpPage() {
       title="Start a trip by talking about it."
       subtitle="No long forms. Sign up, and the plan starts building from your first message."
       footer={
-        <p>
-          Already have an account?{" "}
-          <Link href="/sign-in" className="link-underline font-medium text-foreground">
-            Sign in
-          </Link>
-        </p>
+        <div className="space-y-2">
+          <p>
+            Already have an account?{" "}
+            <Link href="/sign-in" className="link-underline font-medium text-foreground">
+              Sign in
+            </Link>
+          </p>
+          <p>
+            <Link href="/privacy" className="link-underline">Privacy</Link>
+            {" · "}
+            <Link href="/terms" className="link-underline">Terms</Link>
+          </p>
+        </div>
       }
     >
       <GoogleAuthButton label="Sign up with Google" />
@@ -70,13 +78,15 @@ export default function SignUpPage() {
 
       <form className="space-y-5" onSubmit={submit}>
         <Field label="Email">
-          <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={inputClass} />
+          <input type="email" name="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={inputClass} />
         </Field>
 
         <Field label="Password">
           <div className="relative">
             <input
               type={show ? "text" : "password"}
+              name="password"
+              autoComplete="new-password"
               required
               minLength={8}
               value={pw}
@@ -102,7 +112,7 @@ export default function SignUpPage() {
                 key={i}
                 className="h-1 rounded-full bg-border"
                 animate={{ backgroundColor: i < score ? "var(--coral)" : "color-mix(in oklab, var(--border) 100%, transparent)" }}
-                transition={{ duration: 0.3 }}
+                transition={reduceMotion ? { duration: 0 } : { duration: 0.3 }}
               />
             ))}
           </div>

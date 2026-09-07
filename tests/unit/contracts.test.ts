@@ -27,11 +27,26 @@ describe("rebuild contracts", () => {
     expect(result).toContain("group: friends");
     expect(result).toContain("Saved places: none yet.");
   });
-  it("merges preferences: dislikes accumulate, scalars replace", () => {
-    const merged = mergePreferences({ dislikes: ["museums"], budget: 100, pace: "relaxed" }, { dislikes: ["bungee"], budget: 200 });
+  it("merges preferences: lists accumulate, scalars replace", () => {
+    const merged = mergePreferences(
+      { likes: ["art"], dislikes: ["museums"], budget: 100, pace: "relaxed" },
+      { likes: ["parks"], dislikes: ["bungee"], budget: 200 },
+    );
+    expect(merged.likes).toEqual(["art", "parks"]);
     expect(merged.dislikes).toEqual(["museums", "bungee"]);
     expect(merged.budget).toBe(200);
     expect(merged.pace).toBe("relaxed");
+  });
+  it("supports explicit preference list operations", () => {
+    const removed = mergePreferences(
+      { likes: ["art", "parks"], dislikes: ["museums", "bungee"] },
+      { operations: [{ action: "remove", field: "dislikes", values: ["museums"] }, { action: "add", field: "likes", values: ["cafes"] }] },
+    );
+    expect(removed).toMatchObject({ likes: ["art", "parks", "cafes"], dislikes: ["bungee"] });
+    expect(removed).not.toHaveProperty("operations");
+
+    const cleared = mergePreferences({ likes: ["art"] }, { operations: [{ action: "clear", field: "likes" }] });
+    expect(cleared).not.toHaveProperty("likes");
   });
   it("accepts explicit preference commands", () => {
     expect(proposedCommandSchema.safeParse({ type: "update_preferences", tripId: "00000000-0000-0000-0000-000000000000", preferences: { vibe: "slow" } }).success).toBe(true);
@@ -84,6 +99,21 @@ describe("rebuild contracts", () => {
     expect(assistantBlockSchema.safeParse({ type: "stays", retrievedAt: "t", location: "Lisbon", checkin: "2026-10-15", checkout: "2026-10-18", nights: 3, items: [hotel], rooms: [room] }).success).toBe(true);
     const { hotelId: _omit, ...anonymousHotel } = hotel;
     expect(assistantBlockSchema.safeParse({ type: "stays", retrievedAt: "t", location: "Lisbon", checkin: "2026-10-15", checkout: "2026-10-18", nights: 3, items: [anonymousHotel] }).success).toBe(false);
+  });
+  it("carries the trip window and per-event relToTrip / offsetDays / rank on an events block", () => {
+    const ok = assistantBlockSchema.safeParse({ type: "events", retrievedAt: "t",
+      window: { start: "2026-10-26", end: "2026-11-01" },
+      items: [
+        { title: "In-trip show", url: "https://x/1", date: "2026-10-29", source: "ticketmaster", relToTrip: "in", offsetDays: 0, rank: 72 },
+        { title: "Just after", url: "https://x/2", date: "2026-11-04", source: "eventbrite", relToTrip: "after", offsetDays: 3 },
+      ] });
+    expect(ok.success).toBe(true);
+    // rank is a 0–100 city-scale score; a negative offset or an out-of-range rank is rejected
+    expect(assistantBlockSchema.safeParse({ type: "events", retrievedAt: "t", items: [{ title: "X", url: "https://x/1", source: "predicthq", rank: 140 }] }).success).toBe(false);
+    expect(assistantBlockSchema.safeParse({ type: "events", retrievedAt: "t", items: [{ title: "X", url: "https://x/1", source: "predicthq", offsetDays: -2 }] }).success).toBe(false);
+    expect(assistantBlockSchema.safeParse({ type: "events", retrievedAt: "t", items: [{ title: "X", url: "https://x/1", source: "predicthq", relToTrip: "someday" }] }).success).toBe(false);
+    // window and the new item fields are all optional — a bare events block still parses
+    expect(assistantBlockSchema.safeParse({ type: "events", retrievedAt: "t", items: [{ title: "X", url: "https://x/1", source: "seatgeek" }] }).success).toBe(true);
   });
   it("validates and reads the locked-stay decision", () => {
     const value = { provider: "liteapi", hotelId: "h1", hotelName: "Torel Palace", roomName: "Deluxe", board: "Breakfast", refundable: true, checkin: "2026-10-15", checkout: "2026-10-18", nights: 3, nightlyAmount: 230, totalAmount: 690, currency: "EUR", latitude: 38.72, longitude: -9.14, address: "Rua Câmara Pestana", thumbnail: null };
@@ -146,7 +176,10 @@ describe("rebuild contracts", () => {
     expect(parsedTripSchema.parse("nonsense")).toEqual({});
   });
   it("parses an assistant turn envelope with defaults", () => {
-    expect(assistantTurnSchema.parse({ reply: "hi" })).toMatchObject({ language: "en", blocks: [], sources: [], suggestedFollowups: [] });
+    const base = assistantTurnSchema.parse({ reply: "hi" });
+    expect(base).toMatchObject({ language: "en", blocks: [], sources: [], suggestedFollowups: [] });
+    expect(base).not.toHaveProperty("degraded"); // absent unless the turn actually degraded
+    expect(assistantTurnSchema.parse({ reply: "hi", degraded: true }).degraded).toBe(true);
   });
   it("removes assistant links that are not in provider evidence", () => {
     const allowed = new Set(["https://official.example/place"]);

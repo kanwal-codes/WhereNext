@@ -26,7 +26,7 @@ export const GET = withRoute(async (request: Request, { params }: { params: Prom
     const currency = resolveCurrency(prefs.data?.data as Record<string, unknown> | undefined);
 
     const q = new URL(request.url).searchParams;
-    const location = (q.get("location") || trip.destination).trim();
+    const location = (q.get("location") || trip.destination || "").trim();
     const adults = Math.max(1, Math.min(Number(q.get("adults")) || trip.travelers || 2, 24));
     const rooms = Math.max(1, Math.min(Number(q.get("rooms")) || 1, 8));
     const { checkin, checkout, assumed } = resolveStayDates(q.get("checkin"), q.get("checkout"), {
@@ -34,12 +34,13 @@ export const GET = withRoute(async (request: Request, { params }: { params: Prom
       checkout: (trip as { end_date?: string | null }).end_date,
     });
 
-    const filters: Pick<StaySearchInput, "starRatings" | "boards" | "refundableOnly" | "priceMax" | "sort"> = {
+    const filters: Pick<StaySearchInput, "starRatings" | "boards" | "refundableOnly" | "priceMax" | "sort" | "propertyTypes"> = {
       starRatings: nums(q.get("stars")),
       boards: strs(q.get("boards")),
       refundableOnly: q.get("refundable") === "1",
       priceMax: Number(q.get("priceMax")) || undefined,
       sort: (["price", "rating", "stars"] as const).includes(q.get("sort") as never) ? (q.get("sort") as "price" | "rating" | "stars") : "price",
+      propertyTypes: strs(q.get("propertyTypes")),
     };
 
     const key = `stays-tab:${location}:${checkin}:${checkout}:${adults}:${rooms}:${currency}:${JSON.stringify(filters)}`;

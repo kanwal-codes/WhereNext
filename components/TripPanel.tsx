@@ -1,18 +1,20 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowUpRight, Eraser, Loader2, Scale, Send, Sparkles, X } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Eraser, Loader2, Maximize2, Scale, Send, Sparkles, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
-import { useTripPanelMaybe, type CompareEntry, type PanelState } from "@/components/TripPanelProvider";
+import { useTripPanelMaybe, panelSubjectKey, type CompareEntry, type PanelState } from "@/components/TripPanelProvider";
 import { PlaceDetailView } from "@/features/places/ui/PlaceDetailView";
 import { StayDetailView } from "@/features/stays/ui/StayDetailView";
 import { EventDetailView } from "@/features/events/ui/EventDetailView";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
+import { ContentSwap, Sheet } from "@/components/motion-primitives";
+import { MessageBlocks } from "@/features/conversation/ui/blocks/MessageBlocks";
 
 const KIND_LABEL: Record<CompareEntry["kind"], string> = { place: "Place", stay: "Stay", event: "Event", route: "Route" };
 
@@ -38,8 +40,37 @@ function titleFor(panel: PanelState): string {
       return panel.name;
     case "event":
       return panel.seed.name;
+    case "collection":
+      return panel.title;
     default:
       return "Side by side";
+  }
+}
+
+/** The routed full-page equivalent of whatever the panel is showing. */
+function fullPageHref(panel: PanelState, tripId: string, compareIds: string[]): string {
+  const base = `/trips/${tripId}`;
+  switch (panel.kind) {
+    case "place":
+      return `${base}/place/${encodeURIComponent(panel.placeId)}`;
+    case "stay": {
+      const qs = new URLSearchParams();
+      if (panel.checkin) qs.set("checkin", panel.checkin);
+      if (panel.checkout) qs.set("checkout", panel.checkout);
+      return `${base}/stay/${encodeURIComponent(panel.hotelId)}${qs.toString() ? `?${qs}` : ""}`;
+    }
+    case "event": {
+      const { name, url, source, imageUrl, date, venue } = panel.seed;
+      const qs = new URLSearchParams({ name, url, source });
+      if (imageUrl) qs.set("img", imageUrl);
+      if (date) qs.set("date", date);
+      if (venue) qs.set("venue", venue);
+      return `${base}/event?${qs}`;
+    }
+    case "collection":
+      return `${base}/discover`;
+    default:
+      return `${base}/compare${compareIds.length ? `?ids=${compareIds.map(encodeURIComponent).join(",")}` : ""}`;
   }
 }
 
@@ -124,26 +155,51 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   const [chat, setChat] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const scrollMem = useRef(new Map<string, number>());
 
   const panel = ctx?.panel ?? null;
+  const closePanel = ctx?.closePanel;
+  const navDirection = ctx?.navDirection ?? "forward";
   const compareList = ctx?.compareList ?? [];
-  const subjectKey = (p: PanelState): string =>
-    p.kind === "place"
-      ? `place:${p.placeId}`
-      : p.kind === "stay"
-        ? `stay:${p.hotelId}`
-        : p.kind === "event"
-          ? `event:${p.seed.url}`
-          : `compare:${compareList.map((e) => e.id).join(",")}`;
-  const sk = panel ? subjectKey(panel) : "none";
+  // The panel content survives a close so the sheet slides out with something in it.
+  const lastPanelRef = useRef<PanelState | null>(null);
+  if (panel) lastPanelRef.current = panel;
+  const shown = panel ?? lastPanelRef.current;
+  const sk = panelSubjectKey(shown, compareList.map((e) => e.id));
+
   // A scratch chat, scoped to whatever the panel currently shows. Cleared when the subject changes.
   useEffect(() => {
     setChat([]);
   }, [sk]);
+  // Inline (docked chat-rail) panel: Escape still closes it. The drawer's modal focus /
+  // scroll-lock / return-focus is handled by <Sheet> further down.
+  useEffect(() => {
+    if (layout !== "inline" || !panel || typeof document === "undefined") return;
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") closePanel?.(); };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [layout, panel, closePanel]);
+  // Scroll memory: remember where each subject was left, restore it on the in-panel Back,
+  // land at the top on a forward open.
+  useEffect(() => {
+    const el = scrollRef.current;
+    const mem = scrollMem.current;
+    const key = sk;
+    return () => { if (el) mem.set(key, el.scrollTop); };
+  }, [sk]);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || sk === "none") return;
+    const target = navDirection === "back" ? scrollMem.current.get(sk) ?? 0 : 0;
+    const id = requestAnimationFrame(() => el.scrollTo({ top: target }));
+    return () => cancelAnimationFrame(id);
+  }, [sk, navDirection]);
 
   // The chat route renders its own <TripPanel layout="inline" />; the layout-level drawer stands down there.
   if (!ctx || (layout === "drawer" && pathname?.endsWith("/chat"))) return null;
-  const { closePanel, compareRemove } = ctx;
+  const { compareRemove, goBack, canGoBack } = ctx;
 
   const stay = readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
   const anchor: Anchor = stay && stay.latitude != null && stay.longitude != null ? { name: stay.hotelName, lat: stay.latitude, lng: stay.longitude } : null;
@@ -162,6 +218,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
         lng: e.attrs.lng,
       }));
     }
+    if (p.kind === "collection") return [];
     return [{ name: titleFor(p), detail: p.kind === "stay" ? "Hotel" : p.kind === "event" ? "Event" : "Place" }];
   }
 
@@ -191,37 +248,60 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
       }
       if (!acc.trim()) throw new Error("empty");
     } catch {
-      setChat((c) => c.map((m, i) => (i === c.length - 1 ? { role: "assistant", content: "The assistant couldn’t answer just now. Try again in a moment." } : m)));
+      setChat((c) => c.map((m, i) => (i === c.length - 1 ? { role: "assistant", content: "Roam couldn’t answer just now. Try again in a moment." } : m)));
     } finally {
       setSending(false);
     }
   }
 
-  const body: ReactNode = !panel ? null : panel.kind === "place" ? (
-    <PlaceDetailView tripId={tripId} placeId={panel.placeId} variant="panel" />
-  ) : panel.kind === "stay" ? (
-    <StayDetailView tripId={tripId} hotelId={panel.hotelId} checkin={panel.checkin} checkout={panel.checkout} variant="panel" />
-  ) : panel.kind === "event" ? (
-    <EventDetailView tripId={tripId} seed={panel.seed} variant="panel" />
+  const body: ReactNode = !shown ? null : shown.kind === "place" ? (
+    <PlaceDetailView tripId={tripId} placeId={shown.placeId} variant="panel" />
+  ) : shown.kind === "stay" ? (
+    <StayDetailView tripId={tripId} hotelId={shown.hotelId} checkin={shown.checkin} checkout={shown.checkout} variant="panel" />
+  ) : shown.kind === "event" ? (
+    <EventDetailView tripId={tripId} seed={shown.seed} variant="panel" />
+  ) : shown.kind === "collection" ? (
+    <div className="p-4">
+      <MessageBlocks
+        blocks={[shown.block]}
+        tripId={tripId}
+        preview={false}
+        onFollowup={() => undefined}
+        onOpenPlace={(place) => ctx.openPanel({ kind: "place", placeId: place.providerId, name: place.name })}
+        onOpenStay={(stay, dates) => ctx.openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name, ...dates })}
+        onOpenEvent={(seed) => ctx.openPanel({ kind: "event", seed })}
+      />
+    </div>
   ) : (
     <div className="p-4">
       <CompareGrid list={compareList} anchor={anchor} onRemove={compareRemove} />
     </div>
   );
-
-  const header = panel && (
+  // The surface (header + scroll frame) stays put; only this crossfades between subjects.
+  const animatedBody = <ContentSwap swapKey={sk} className="min-h-full">{body}</ContentSwap>;
+  const header = shown && (
     <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
-      <p className="inline-flex min-w-0 items-center gap-1.5 font-display text-sm">
-        {panel.kind === "compare" && <Scale className="h-3.5 w-3.5 shrink-0 text-coral" />}
-        <span className="truncate">{titleFor(panel)}</span>
-      </p>
+      <div className="inline-flex min-w-0 items-center gap-1.5 font-display text-sm">
+        {canGoBack && <button type="button" onClick={goBack} aria-label="Back to previous item" className="mr-1 rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"><ArrowLeft className="h-4 w-4" /></button>}
+        {shown.kind === "compare" && <Scale className="h-3.5 w-3.5 shrink-0 text-coral" />}
+        <span className="min-w-0 truncate">{titleFor(shown)}</span>
+      </div>
       <div className="flex shrink-0 items-center gap-1.5">
         {chat.length > 0 && (
           <button type="button" onClick={() => setChat([])} aria-label="Clear this chat" title="Clear this chat" className="rounded-full border border-border p-1.5 text-muted-foreground hover:text-foreground">
             <Eraser className="h-3.5 w-3.5" />
           </button>
         )}
-        <button type="button" onClick={closePanel} aria-label="Close panel" className="rounded-full border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground">
+        <Link
+          href={fullPageHref(shown, tripId, compareList.map((e) => e.id))}
+          onClick={() => closePanel?.()}
+          aria-label="Expand to full page"
+          title="Expand to full page"
+          className="rounded-full border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <Maximize2 className="h-3.5 w-3.5" />
+        </Link>
+        <button ref={closeButtonRef} type="button" onClick={closePanel} aria-label="Close panel" className="rounded-full border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -230,7 +310,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
 
   const composer = layout === "drawer" && panel && (
     <>
-      {chat.length > 0 ? (
+      {chat.length > 0 && (
         <div className="max-h-[40%] shrink-0 space-y-3 overflow-y-auto scrollbar-slim border-t border-border px-4 py-3">
           {chat.map((m, i) => (
             <div key={i} className={cn("text-sm leading-relaxed", m.role === "user" ? "font-medium" : "text-ink-soft")}>
@@ -239,10 +319,6 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
             </div>
           ))}
         </div>
-      ) : (
-        <p className="shrink-0 border-t border-border px-4 pt-2.5 text-[11px] text-muted-foreground">
-          A scratch chat about {panel.kind === "compare" ? "these options" : "this"} — it knows your whole trip, but isn&rsquo;t saved to the conversation.
-        </p>
       )}
       <form
         onSubmit={(e) => {
@@ -252,6 +328,8 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
         className="flex shrink-0 items-center gap-2 border-t border-border p-3"
       >
         <input
+          aria-label="Ask about this item"
+          name="panel-question"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={panel.kind === "compare" ? "Ask about these — value, location, what to pick…" : "Ask about this — does it fit my trip?"}
@@ -269,7 +347,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
     return panel ? (
       <div className="flex h-full min-h-0 flex-col">
         {header}
-        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-slim">{body}</div>
+        <div ref={scrollRef} className="min-h-0 flex-1 overscroll-contain overflow-y-auto scrollbar-slim">{animatedBody}</div>
       </div>
     ) : null;
   }
@@ -293,30 +371,16 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   return (
     <>
       <AnimatePresence>{pill}</AnimatePresence>
-      <AnimatePresence>
-        {panel && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className={cn("fixed inset-0 z-50 bg-ink/30", desktop ? "flex justify-end" : "flex items-end")}
-            onClick={closePanel}
-          >
-            <motion.aside
-              initial={desktop ? { x: "100%" } : { y: "100%" }}
-              animate={desktop ? { x: 0 } : { y: 0 }}
-              exit={desktop ? { x: "100%" } : { y: "100%" }}
-              transition={{ type: "spring", stiffness: 240, damping: 30 }}
-              onClick={(e) => e.stopPropagation()}
-              className={cn("flex min-h-0 flex-col bg-surface shadow-lift", desktop ? "h-full w-full max-w-xl" : "max-h-[90vh] w-full rounded-t-3xl")}
-            >
-              {header}
-              <div className="min-h-0 flex-1 overflow-y-auto scrollbar-slim">{body}</div>
-              {composer}
-            </motion.aside>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Sheet
+        open={Boolean(panel)}
+        onClose={() => closePanel?.()}
+        side={desktop ? "right" : "bottom"}
+        ariaLabel={shown ? titleFor(shown) : undefined}
+      >
+        {header}
+        <div ref={scrollRef} className="min-h-0 flex-1 overscroll-contain overflow-y-auto scrollbar-slim">{animatedBody}</div>
+        {composer}
+      </Sheet>
     </>
   );
 }

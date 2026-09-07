@@ -39,12 +39,19 @@ export default function SignInPage() {
       title="Pick up where the plan left off."
       subtitle="Your trips, conversations and saved places are exactly as you left them."
       footer={
-        <p>
-          New here?{" "}
-          <Link href="/sign-up" className="link-underline font-medium text-foreground">
-            Create an account
-          </Link>
-        </p>
+        <div className="space-y-2">
+          <p>
+            New here?{" "}
+            <Link href="/sign-up" className="link-underline font-medium text-foreground">
+              Create an account
+            </Link>
+          </p>
+          <p>
+            <Link href="/privacy" className="link-underline">Privacy</Link>
+            {" · "}
+            <Link href="/terms" className="link-underline">Terms</Link>
+          </p>
+        </div>
       }
     >
       <GoogleAuthButton label="Sign in with Google" />
@@ -52,7 +59,7 @@ export default function SignInPage() {
 
       <form className="space-y-5" onSubmit={submit}>
         <Field label="Email">
-          <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={inputClass} />
+          <input type="email" name="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={inputClass} />
         </Field>
 
         <Field
@@ -66,6 +73,8 @@ export default function SignInPage() {
           <div className="relative">
             <input
               type={show ? "text" : "password"}
+              name="password"
+              autoComplete="current-password"
               required
               minLength={8}
               value={password}

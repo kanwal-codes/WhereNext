@@ -2,52 +2,47 @@
 
 import type { MouseEvent } from "react";
 import Link from "next/link";
-import { CalendarClock, MapPin } from "lucide-react";
-import { CompareButton, useTripPanelMaybe } from "@/components/TripPanelProvider";
+import { MapPin } from "lucide-react";
+import { EventPoster } from "@/components/EventPoster";
+import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import { eventDetailHref } from "@/lib/places-ui";
 import { cn } from "@/lib/utils";
+import { ticketSellerLabel } from "@/lib/ticket-provider";
 
 export type NearbyEvent = { title: string; url: string; date?: string; venue?: string; source: string; imageUrl?: string };
 
 /** A single event tile — opens the shared trip panel (falls back to the detail route). */
-export function EventCard({ tripId, event, className }: { tripId: string; event: NearbyEvent; className?: string }) {
+export function EventCard({ tripId, event, className, onSelect }: { tripId: string; event: NearbyEvent; className?: string; onSelect?: () => void }) {
   const href = eventDetailHref(tripId, event);
+  const seller = ticketSellerLabel(event.source, event.url);
   const panelCtx = useTripPanelMaybe();
+  const compareEntry: CompareEntry = { id: event.url, kind: "event", name: event.title, href, subtitle: seller ?? "Event", attrs: { when: event.date, address: event.venue, detail: "Event" } };
   const open = panelCtx
     ? (e: MouseEvent) => {
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
         e.preventDefault();
+        if (panelCtx.compareMode) { panelCtx.compareToggle(compareEntry); return; }
         panelCtx.openPanel({ kind: "event", seed: { name: event.title, url: event.url, source: event.source, imageUrl: event.imageUrl, date: event.date, venue: event.venue } });
       }
     : undefined;
   return (
     <div className={cn("relative h-[19rem]", className)}>
-      <CompareButton
-        entry={{
-          id: event.url,
-          kind: "event",
-          name: event.title,
-          href,
-          subtitle: event.source,
-          attrs: { when: event.date, address: event.venue, detail: "Event" },
-        }}
-        className="absolute right-2 top-2 z-10 backdrop-blur"
-      />
       <Link
         href={href}
-        onClick={open}
-        className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card text-left shadow-soft transition-shadow hover:shadow-lift"
+        onClick={(event) => {
+          onSelect?.();
+          open?.(event);
+        }}
+        className="flex h-full flex-col overflow-hidden rounded-2xl border border-border/70 bg-card text-left shadow-[0_1px_2px_color-mix(in_oklab,var(--color-ink)_6%,transparent)] transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-soft"
       >
       {event.imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element -- external event image
         <img src={event.imageUrl} alt={event.title} loading="lazy" width={280} height={128} className="h-32 w-full shrink-0 object-cover" />
       ) : (
-        <div className="grid h-32 w-full shrink-0 place-items-center bg-muted/50">
-          <CalendarClock className="h-6 w-6 text-muted-foreground/40" />
-        </div>
+        <EventPoster title={event.title} className="h-32 w-full shrink-0" />
       )}
       <div className="flex min-h-0 flex-1 flex-col gap-1.5 p-3.5">
-        <span className="w-fit shrink-0 text-[10px] font-medium tracking-[0.12em] text-muted-foreground uppercase">{event.source}</span>
+        {seller && <span className="w-fit shrink-0 text-[10px] font-medium tracking-[0.12em] text-muted-foreground uppercase">{seller}</span>}
         <p className="line-clamp-2 min-h-[2.5rem] text-sm font-medium leading-tight">{event.title}</p>
         {event.date && <p className="line-clamp-1 text-xs text-muted-foreground">{event.date}</p>}
         {event.venue && (

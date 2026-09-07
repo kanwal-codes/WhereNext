@@ -83,8 +83,8 @@ test("four real-life trips each survive a 50-question personalized conversation"
       await page.goto("/sign-in");
       await page.getByLabel("Email").fill(email);
       await page.getByLabel("Password").fill(password);
-      await page.getByRole("button", { name: "Sign in" }).click();
-      await expect(page).toHaveURL(/\/trips$/);
+      await page.getByRole("button", { name: "Sign in", exact: true }).click();
+      await expect(page).toHaveURL(/\/trips(?:\/new)?$/);
       tripId = await createTripViaForm(page, { name: scenario.name, destination: scenario.destination, origin: scenario.origin, days: scenario.days, travelers: scenario.travelers, vibe: scenario.vibe });
       await page.goto(`/trips/${tripId}/chat`);
       await page.getByRole("textbox", { name: "Message" }).waitFor();
@@ -122,8 +122,20 @@ test("four real-life trips each survive a 50-question personalized conversation"
             return { saved: saved.status, ai: 598 };
           }
           clearTimeout(aiTimeout);
-          await ai.text();
-          return { saved: saved.status, ai: ai.status };
+          // Read the stream to the end, timing first byte (TTFT) and completion.
+          const start = performance.now();
+          let ttftMs: number | null = null;
+          if (ai.body) {
+            const reader = ai.body.getReader();
+            for (;;) {
+              const { done } = await reader.read();
+              if (ttftMs === null) ttftMs = Math.round(performance.now() - start);
+              if (done) break;
+            }
+          } else {
+            await ai.text();
+          }
+          return { saved: saved.status, ai: ai.status, ttftMs, totalMs: Math.round(performance.now() - start) };
         }, { id: tripId, prompt, key: messageKey });
         if (requestStatus.saved !== 201 || requestStatus.ai !== 200) {
           report.push({ person: scenario.person, index: index + 1, prompt, status: "request_failed", requestStatus });
@@ -141,7 +153,7 @@ test("four real-life trips each survive a 50-question personalized conversation"
           report.push({ person: scenario.person, index: index + 1, prompt, status: "timeout", error: error instanceof Error ? error.message.slice(0, 120) : "unknown" });
           continue;
         }
-        report.push({ person: scenario.person, index: index + 1, prompt, status: "answered", chars: answer.length, links: stats.links, photos: stats.photos, refusal: /couldn.t verify|no verified .* information|no results/i.test(answer), mentionsDestination: answer.toLowerCase().includes(scenario.destination.split(",")[0].toLowerCase()), mentionsSeededItinerary: /qx9/i.test(answer) });
+        report.push({ person: scenario.person, index: index + 1, prompt, status: "answered", chars: answer.length, links: stats.links, photos: stats.photos, ttftMs: requestStatus.ttftMs ?? null, totalMs: requestStatus.totalMs ?? null, refusal: /couldn.t verify|no verified .* information|no results/i.test(answer), mentionsDestination: answer.toLowerCase().includes(scenario.destination.split(",")[0].toLowerCase()), mentionsSeededItinerary: /qx9/i.test(answer) });
         console.log(`SIMULATION ${scenario.person} ${index + 1}/50 answered`);
       }
     } finally {
@@ -155,6 +167,25 @@ test("four real-life trips each survive a 50-question personalized conversation"
   // A clean full-200 "answered" run needs a production server (`bun run build && start`);
   // `next dev` tends to drop a handful of streamed responses over ~30 min.
   expect(report).toHaveLength(200);
-  expect(report.filter((item) => item.status === "answered").length).toBeGreaterThanOrEqual(150);
+  const answered = report.filter((item) => item.status === "answered");
+  expect(answered.length).toBeGreaterThanOrEqual(150);
   expect(report.filter((item) => item.mentionsSeededItinerary).length).toBeGreaterThanOrEqual(4);
+
+  // Quality floor: the assistant should rarely hit a dead end across a broad conversation.
+  const refusalRate = answered.filter((item) => item.refusal).length / (answered.length || 1);
+  console.log(`FOUR_TRIP refusal rate ${(refusalRate * 100).toFixed(1)}%`);
+  expect(refusalRate).toBeLessThan(0.25);
+
+  // Latency regression gate — generous ceilings for `next dev` + live providers; ratchet down
+  // against a production build. Only asserted once there's a usable sample.
+  const timed = answered.map((item) => item.totalMs).filter((ms): ms is number => typeof ms === "number");
+  const ttfts = answered.map((item) => item.ttftMs).filter((ms): ms is number => typeof ms === "number");
+  const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
+  if (timed.length >= 20) {
+    const medTtft = median(ttfts);
+    const medTotal = median(timed);
+    console.log(`FOUR_TRIP latency — median TTFT ${medTtft}ms · median total ${medTotal}ms`);
+    expect(medTtft).toBeLessThan(9000);
+    expect(medTotal).toBeLessThan(30000);
+  }
 });

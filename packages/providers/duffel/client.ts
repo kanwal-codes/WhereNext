@@ -11,13 +11,23 @@ const HEADERS = () => ({
 });
 
 export type FlightOffer = {
+  id: string;
   airline: string;
+  operatingAirline?: string;
+  cabinClass?: string;
   priceAmount: string;
   priceCurrency: string;
   durationMinutes: number;
   stops: number;
   departAt: string;
   arriveAt: string;
+  originAirport?: string;
+  destinationAirport?: string;
+  baggage?: string;
+  layoverAirports?: string[];
+  aircraft?: string;
+  fareConditions?: string[];
+  expiresAt?: string;
 };
 
 const isoDurationToMinutes = (value?: string): number => {
@@ -42,12 +52,34 @@ async function resolveIata(query: string, signal?: AbortSignal): Promise<string 
 
 const offersSchema = z.object({
   data: z.array(z.object({
+    id: z.string().optional(),
     total_amount: z.string(),
     total_currency: z.string(),
-    owner: z.object({ name: z.string().optional() }).optional(),
+    expires_at: z.string().optional(),
+    // Duffel sends explicit `null` (not just an absent key) for any of these when the airline
+    // hasn't supplied that detail — `.optional()` alone rejects `null`, so every one of these
+    // nested objects needs `.nullable()` too or a real offer with an unset field 400s the whole search.
+    owner: z.object({ name: z.string().optional() }).nullable().optional(),
     slices: z.array(z.object({
       duration: z.string().optional(),
-      segments: z.array(z.object({ departing_at: z.string().optional(), arriving_at: z.string().optional() })).default([]),
+      segments: z.array(z.object({
+        departing_at: z.string().optional(),
+        arriving_at: z.string().optional(),
+        origin: z.object({ iata_code: z.string().optional() }).nullable().optional(),
+        destination: z.object({ iata_code: z.string().optional() }).nullable().optional(),
+        marketing_carrier: z.object({ name: z.string().optional() }).nullable().optional(),
+        operating_carrier: z.object({ name: z.string().optional() }).nullable().optional(),
+        aircraft: z.object({ name: z.string().optional() }).nullable().optional(),
+      })).default([]),
+    })).default([]),
+    conditions: z.object({
+      change_before_departure: z.object({ allowed: z.boolean().optional() }).nullable().optional(),
+      refund_before_departure: z.object({ allowed: z.boolean().optional() }).nullable().optional(),
+    }).nullable().optional(),
+    passengers: z.array(z.object({
+      id: z.string().optional(),
+      cabin_class: z.string().optional(),
+      baggages: z.array(z.object({ type: z.string().optional(), quantity: z.number().optional() })).default([]),
     })).default([]),
   })).default([]),
 });
@@ -91,13 +123,28 @@ export async function searchFlights(
     const segments = slice?.segments ?? [];
     if (segments.length === 0) return [];
     return [{
+      id: offer.id ?? `${segments[0].departing_at ?? "offer"}-${offer.total_amount}`,
       airline: offer.owner?.name ?? "Airline",
+      operatingAirline: segments[0].operating_carrier?.name,
+      cabinClass: offer.passengers[0]?.cabin_class,
       priceAmount: offer.total_amount,
       priceCurrency: offer.total_currency,
       durationMinutes: isoDurationToMinutes(slice?.duration),
       stops: segments.length - 1,
       departAt: segments[0].departing_at ?? "",
       arriveAt: segments[segments.length - 1].arriving_at ?? "",
+      originAirport: segments[0].origin?.iata_code,
+      destinationAirport: segments[segments.length - 1].destination?.iata_code,
+      baggage: offer.passengers[0]?.baggages.length
+        ? offer.passengers[0].baggages.map((bag) => `${bag.quantity ?? 0} ${bag.type ?? "bag"}`).join(", ")
+        : undefined,
+      layoverAirports: segments.slice(0, -1).map((segment) => segment.destination?.iata_code).filter((code): code is string => Boolean(code)),
+      aircraft: segments.map((segment) => segment.aircraft?.name).filter((name): name is string => Boolean(name)).filter((name, index, all) => all.indexOf(name) === index).join(", ") || undefined,
+      fareConditions: [
+        offer.conditions?.change_before_departure?.allowed === true ? "Changes allowed" : offer.conditions?.change_before_departure?.allowed === false ? "Changes not allowed" : undefined,
+        offer.conditions?.refund_before_departure?.allowed === true ? "Refunds allowed" : offer.conditions?.refund_before_departure?.allowed === false ? "Refunds not allowed" : undefined,
+      ].filter((condition): condition is string => Boolean(condition)),
+      expiresAt: offer.expires_at,
     }];
   });
 }

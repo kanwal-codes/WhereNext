@@ -15,14 +15,17 @@ export function tripDurationDays(start?: string | null, end?: string | null): nu
 
 export const createTripInput = z
   .object({
-    name: z.string().trim().min(1).max(120),
-    destination: z.string().trim().min(1).max(160),
+    name: z.string().trim().min(1).max(120).default("Untitled trip"),
+    destination: z.string().trim().max(160).nullable().optional(),
     origin: z.string().trim().max(160).optional(),
     durationDays: z.coerce.number().int().min(1).max(365).optional(),
     startDate: isoDate.optional(),
     endDate: isoDate.optional(),
     travelerCount: z.coerce.number().int().min(1).max(100).optional(),
     preferences: tripPreferences.default({ interests: [] }),
+    /** Stable across retries of the SAME create attempt — lets the repository upsert instead of
+     *  inserting a duplicate trip when a request succeeded but the client never saw the response. */
+    idempotencyKey: z.string().trim().min(1).max(120).optional(),
   })
   .refine((v) => !(v.startDate && v.endDate) || v.endDate >= v.startDate, {
     message: "endDate must be on or after startDate",
@@ -32,13 +35,15 @@ export type CreateTripInput = z.infer<typeof createTripInput>;
 export type Trip = {
   id: string;
   name: string;
-  destination: string;
+  destination: string | null;
   origin?: string | null;
   duration_days?: number | null;
   start_date?: string | null;
   end_date?: string | null;
   travelers?: number | null;
   preferences?: Record<string, unknown> | null;
+  /** Google Places photo name for the Overview hero image, resolved once and kept — see photoProxyUrl. */
+  hero_photo_name?: string | null;
 };
 
 /**

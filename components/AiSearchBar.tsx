@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { Loader2, Mic, Sparkles } from "lucide-react";
 import { useSpeechInput } from "@/lib/use-speech-input";
 import type { AiSearchDirective, AiSearchScope } from "@/lib/application/ai-search";
+import { notifyToast } from "@/lib/application/toast";
 import { cn } from "@/lib/utils";
 
 /**
@@ -16,23 +17,27 @@ export function AiSearchBar({
   scope,
   placeholder,
   onDirective,
+  className,
+  variant = "card",
 }: {
   tripId: string;
   scope: AiSearchScope;
   placeholder: string;
   onDirective: (directive: AiSearchDirective, raw: string) => void;
+  className?: string;
+  /** "plain" drops the bordered-card chrome for nesting inside another card (e.g. next to a manual search form). */
+  variant?: "card" | "plain";
 }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const base = useRef("");
   const abort = useRef<AbortController | null>(null);
 
   const speech = useSpeechInput({
     onStart: () => { base.current = text.trim() ? `${text.trim()} ` : ""; },
     onResult: (t) => setText(base.current + t),
-    onError: (m) => setError(m),
+    onError: (m) => notifyToast(m, "error"),
   });
 
   async function run() {
@@ -43,7 +48,6 @@ export function AiSearchBar({
     const req = new AbortController();
     abort.current = req;
     setBusy(true);
-    setError(null);
     try {
       const res = await fetch(`/api/trips/${tripId}/ai-search`, {
         method: "POST",
@@ -53,7 +57,7 @@ export function AiSearchBar({
       });
       const body = await res.json();
       if (!res.ok) {
-        setError("Something went wrong with that search. Try rephrasing it.");
+        notifyToast("Something went wrong with that search — try rephrasing it.", "error");
         return;
       }
       const directive = (body.directive ?? {}) as AiSearchDirective;
@@ -61,19 +65,23 @@ export function AiSearchBar({
       setNote(directive.interpretation ?? (actionable ? null : "Couldn’t pin that down — searching for it as typed."));
       onDirective(directive, query);
     } catch (e) {
-      if (!(e instanceof DOMException && e.name === "AbortError")) setError("Something went wrong with that search. Try again.");
+      if (!(e instanceof DOMException && e.name === "AbortError")) notifyToast("Something went wrong with that search — try again.", "error");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div>
+    <div className={className}>
       <form
         onSubmit={(e) => { e.preventDefault(); void run(); }}
-        className="flex items-center gap-2 rounded-2xl border border-input bg-card px-3 py-2 shadow-soft focus-within:ring-2 focus-within:ring-ring/25"
+        className={cn(
+          "flex items-center gap-2",
+          variant === "card"
+            ? "rounded-2xl border border-input bg-card px-3 py-2 shadow-soft focus-within:ring-2 focus-within:ring-ring/25"
+            : "border-b border-border pb-2",
+        )}
       >
-        <Sparkles className="h-4 w-4 shrink-0 text-coral" />
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -99,10 +107,10 @@ export function AiSearchBar({
           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Ask"}
         </button>
       </form>
-      {(note || error) && (
-        <p className={cn("mt-2 flex items-start gap-1.5 text-xs", error ? "text-destructive" : "text-muted-foreground")}>
-          {!error && <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-coral" />}
-          {error ?? note}
+      {note && (
+        <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
+          <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-coral" />
+          {note}
         </p>
       )}
     </div>

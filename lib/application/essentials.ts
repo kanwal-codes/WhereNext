@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createAiGateway } from "@/packages/ai/gateway";
+import { AI_DEADLINE_MS, gatewayFor, withDeadline } from "@/packages/ai/model-policy";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 import type { RetrievedEvidence } from "./retrieve";
 
@@ -29,12 +29,12 @@ export async function buildEssentialsChecklist(input: {
     ...input.evidence.sources.slice(0, 4).map((source) => `${source.title}: ${source.content.slice(0, 400)}`),
   ].filter(Boolean).join("\n");
   try {
-    const raw = await createAiGateway({ model: process.env.RESOLVE_MODEL || undefined }).generateStructured(
+    const raw = await gatewayFor("resolve").generateStructured(
       [
         { role: "system", content: SYSTEM },
         { role: "user", content: `Destination: ${input.destination}\nTrip so far: ${input.tripSummary}\nEvidence:\n${evidenceText || "(none)"}` },
       ],
-      input.signal,
+      withDeadline(input.signal, AI_DEADLINE_MS.sideBuilder),
     );
     const parsed = checklistSchema.parse(raw);
     return { type: "checklist", groups: parsed.groups };

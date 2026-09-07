@@ -1,18 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createConversationRepository } from "../infrastructure/conversationRepository";
+import { stripReasoning } from "@/lib/ai/strip-reasoning";
+import { createSseParser, parseSseJson } from "@/packages/ai/sse";
+import { logger } from "@/lib/server/logger";
 
 type StreamDelta = { choices?: Array<{ delta?: { content?: string } }> };
-
-function appendDelta(line: string, onContent: (content: string) => void) {
-  if (!line.startsWith("data: ") || line.includes("[DONE]")) return;
-  try {
-    const event = JSON.parse(line.slice(6)) as StreamDelta;
-    const content = event.choices?.[0]?.delta?.content;
-    if (content) onContent(content);
-  } catch {
-    // Preserve the provider stream when an individual event is malformed.
-  }
-}
 
 /**
  * Tees the provider SSE stream to the client while accumulating the assistant text.
@@ -27,39 +19,53 @@ export function persistedAssistantStream(
   idempotencyKey: string,
   sanitize?: (content: string) => string,
   meta?: Record<string, unknown>,
-  onComplete?: (finalText: string) => void,
+  onComplete?: (finalText: string) => void | Promise<void>,
 ) {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
-  let pending = "";
+  const parser = createSseParser();
   let assistant = "";
+  // A malformed provider event is dropped by parseSseJson; the raw stream still passes through.
+  const absorb = (payloads: string[]) => {
+    for (const payload of payloads) {
+      const content = parseSseJson<StreamDelta>(payload)?.choices?.[0]?.delta?.content;
+      if (content) assistant += content;
+    }
+  };
 
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
       const chunk = await reader.read();
       if (chunk.done) {
-        pending += decoder.decode();
-        appendDelta(pending, (content) => { assistant += content; });
-        const finalText = sanitize ? sanitize(assistant) : assistant;
+        absorb(parser.push(decoder.decode()));
+        absorb(parser.flush());
+        const clean = stripReasoning(assistant);
+        const finalText = sanitize ? sanitize(clean) : clean;
+        let persistFailed = false;
         if (finalText || meta) {
-          await createConversationRepository(supabase).append(tripId, { role: "assistant", content: finalText, idempotencyKey, metadata: meta ?? {} });
+          try {
+            await createConversationRepository(supabase).append(tripId, { role: "assistant", content: finalText, idempotencyKey, metadata: meta ?? {} });
+          } catch (error) {
+            // Persistence failed (DB error, or a revalidate call landing outside a request
+            // context). The client still gets its answer + blocks from the meta frame below —
+            // but flagged, so it renders as "not saved" rather than a good answer gone quiet.
+            persistFailed = true;
+            logger.error({ err: error, tripId }, "assistant turn persist failed");
+          }
         }
         try {
-          onComplete?.(finalText);
+          await onComplete?.(finalText);
         } catch {
           /* tracing must never break the response */
         }
         // The final frame carries the sanitized text too, so the client can settle on the persisted
         // content without refetching the conversation.
-        if (meta) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ meta, content: finalText })}\n\n`));
+        if (meta) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ meta: persistFailed ? { ...meta, persistFailed } : meta, content: finalText })}\n\n`));
         controller.close();
         return;
       }
-      pending += decoder.decode(chunk.value, { stream: true });
-      const lines = pending.split("\n");
-      pending = lines.pop() ?? "";
-      for (const line of lines) appendDelta(line, (content) => { assistant += content; });
+      absorb(parser.push(decoder.decode(chunk.value, { stream: true })));
       controller.enqueue(chunk.value);
     },
     async cancel() { await reader.cancel(); },

@@ -1,11 +1,42 @@
 "use client";
 
-import { motion, useReducedMotion, type HTMLMotionProps } from "motion/react";
-import { useEffect, useState, type ReactNode } from "react";
+import {
+  AnimatePresence,
+  motion,
+  useDragControls,
+  useReducedMotion,
+  type HTMLMotionProps,
+} from "motion/react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { cn } from "@/lib/utils";
 
 export const ease = [0.22, 0.61, 0.36, 1] as const;
-export const spring = { type: "spring" as const, stiffness: 260, damping: 28, mass: 0.9 };
+
+/**
+ * One motion vocabulary for the whole app. Reach for these instead of hand-typing a
+ * `{ type: "spring", stiffness: … }` literal.
+ *  - `fast`   — hover / press / colour / icon / small toggles (160–200ms)
+ *  - `swap`   — a content crossfade inside a stable surface
+ *  - `drawer` — sheets / drawers opening and closing (260–360ms)
+ *  - `panelSpring` — panels and sheets entering / leaving with a little life, no bounce
+ *  - `standard`    — the general-purpose layout spring (label = the old `spring`)
+ */
+export const motionTokens = {
+  fast: { duration: 0.18, ease },
+  swap: { duration: 0.26, ease },
+  drawer: { duration: 0.32, ease },
+  panelSpring: { type: "spring" as const, stiffness: 260, damping: 30, mass: 0.85 },
+  standard: { type: "spring" as const, stiffness: 260, damping: 28, mass: 0.9 },
+};
+
+/** @deprecated prefer `motionTokens.standard` — kept so existing imports keep working. */
+export const spring = motionTokens.standard;
 
 /**
  * Entrance animations are JS/RAF-driven — a tab that loads in the background would
@@ -14,7 +45,7 @@ export const spring = { type: "spring" as const, stiffness: 260, damping: 28, ma
  * server and first client paint, then upgrade to the motion entrance once we know
  * we're in a live, visible document.
  */
-function useAnimateIn(): boolean {
+export function useAnimateIn(): boolean {
   const reduce = useReducedMotion();
   const [on, setOn] = useState(false);
   useEffect(() => {
@@ -88,6 +119,9 @@ export function Stagger({
   );
 }
 
+/** Alias — the semantic name for `Stagger` when it wraps a group of `StaggerItem`s. */
+export const StaggerGroup = Stagger;
+
 export function StaggerItem({
   children,
   className,
@@ -147,7 +181,7 @@ export function WordReveal({
                 {word}
               </motion.span>
             </span>
-            {i < words.length - 1 ? "\u00a0" : ""}
+            {i < words.length - 1 ? " " : ""}
           </span>
         ))}
       </motion.span>
@@ -155,13 +189,21 @@ export function WordReveal({
   );
 }
 
-/** Press + hover feedback for buttons, cards and links. */
+/** Press + hover feedback for buttons, cards and links. Honours reduced-motion. */
 export function Tactile({
   children,
   className,
   lift = 2,
   ...rest
 }: { children: ReactNode; className?: string; lift?: number } & HTMLMotionProps<"div">) {
+  const reduce = useReducedMotion();
+  if (reduce) {
+    return (
+      <motion.div className={className} {...rest}>
+        {children}
+      </motion.div>
+    );
+  }
   return (
     <motion.div
       className={className}
@@ -173,6 +215,228 @@ export function Tactile({
       {children}
     </motion.div>
   );
+}
+
+/**
+ * The one tactile primitive for an interactive element (a `<button>`, `<a>`, etc.).
+ * Subtle lift on hover, a real 2% squeeze on press. Reduced-motion → nothing.
+ * Pass the element type via `as` is not supported — render your control as the child
+ * of `<Pressable asChild>` style is also out; instead use `motion.button`/`motion.a`
+ * directly where you need the tag, or wrap non-critical controls in this.
+ */
+export function Pressable({
+  children,
+  className,
+  ...rest
+}: { children: ReactNode; className?: string } & HTMLMotionProps<"span">) {
+  const reduce = useReducedMotion();
+  return (
+    <motion.span
+      className={cn("inline-flex", className)}
+      {...(reduce
+        ? {}
+        : {
+            whileHover: { y: -1 },
+            whileTap: { scale: 0.98 },
+            transition: motionTokens.fast,
+          })}
+      {...rest}
+    >
+      {children}
+    </motion.span>
+  );
+}
+
+/**
+ * Crossfade one keyed view into the next inside a surface that itself stays put.
+ * `key` change → old fades/slides out, new fades/slides in. Reduced-motion → instant.
+ */
+export function ContentSwap({
+  swapKey,
+  className,
+  children,
+}: {
+  swapKey: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  const reduce = useReducedMotion();
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={swapKey}
+        className={className}
+        initial={reduce ? false : { opacity: 0, x: 8 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={reduce ? undefined : { opacity: 0, x: -6 }}
+        transition={reduce ? { duration: 0 } : motionTokens.swap}
+      >
+        {children}
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+/**
+ * Modal focus plumbing shared by the panel and the mobile nav: focus moves into the
+ * dialog on open, `Escape` closes it, the page scroll locks, focus returns to whatever
+ * opened it on close, and Tab is kept inside the container.
+ */
+export function useFocusReturn(
+  active: boolean,
+  onEscape?: () => void,
+  container?: RefObject<HTMLElement | null>,
+  initialFocus?: RefObject<HTMLElement | null>,
+) {
+  useEffect(() => {
+    if (!active || typeof document === "undefined") return;
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const focusables = () =>
+      Array.from(
+        container?.current?.querySelectorAll<HTMLElement>(
+          'a[href],button:not([disabled]),textarea,input,select,summary,[tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      ).filter((el) => el.offsetParent !== null);
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onEscape?.();
+        return;
+      }
+      if (e.key !== "Tab" || !container?.current) return;
+      const items = focusables();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    // Two frames: the presence child needs to commit before it (and its ref) exist.
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        const target = initialFocus?.current ?? focusables()[0] ?? container?.current ?? null;
+        target?.focus?.({ preventScroll: true } as FocusOptions);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener("keydown", onKey);
+      trigger?.focus();
+    };
+  }, [active, onEscape, container, initialFocus]);
+}
+
+/**
+ * A native-feeling sheet. `side="bottom"` gets a drag handle and swipe-down-to-close;
+ * `side="right"` / `"left"` slide in from that edge. Owns its own backdrop, presence,
+ * focus handling and scroll lock. Render your header + scrollable body as children.
+ */
+export function Sheet({
+  open,
+  onClose,
+  side = "bottom",
+  ariaLabel,
+  initialFocus,
+  className,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  side?: "bottom" | "right" | "left";
+  ariaLabel?: string;
+  initialFocus?: RefObject<HTMLElement | null>;
+  className?: string;
+  children: ReactNode;
+}) {
+  const reduce = useReducedMotion();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const dragControls = useDragControls();
+  useFocusReturn(open, onClose, panelRef, initialFocus);
+
+  const closed =
+    side === "bottom" ? { y: "100%" } : side === "right" ? { x: "100%" } : { x: "-100%" };
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className={cn(
+            "fixed inset-0 z-50 flex bg-ink/25 backdrop-blur-[2px]",
+            side === "bottom" ? "items-end" : side === "right" ? "justify-end" : "justify-start",
+          )}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={reduce ? { duration: 0 } : motionTokens.fast}
+          onClick={onClose}
+        >
+          <motion.div
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={ariaLabel}
+            tabIndex={-1}
+            className={cn(
+              "relative flex min-h-0 flex-col bg-surface shadow-lift outline-none",
+              side === "bottom"
+                ? "max-h-[92dvh] w-full rounded-t-3xl"
+                : "h-full w-full max-w-xl",
+              className,
+            )}
+            initial={reduce ? false : closed}
+            animate={{ x: 0, y: 0 }}
+            exit={reduce ? undefined : closed}
+            transition={reduce ? { duration: 0 } : motionTokens.panelSpring}
+            onClick={(e) => e.stopPropagation()}
+            {...(side === "bottom" && !reduce
+              ? {
+                  drag: "y" as const,
+                  dragControls,
+                  dragListener: false,
+                  dragConstraints: { top: 0, bottom: 0 },
+                  dragElastic: { top: 0, bottom: 0.5 },
+                  onDragEnd: (_: unknown, info: { offset: { y: number }; velocity: { y: number } }) => {
+                    if (info.offset.y > 90 || info.velocity.y > 600) onClose();
+                  },
+                }
+              : {})}
+          >
+            {side === "bottom" && (
+              <div
+                className="flex shrink-0 cursor-grab touch-none justify-center pt-2.5 pb-1 active:cursor-grabbing"
+                onPointerDown={(e) => !reduce && dragControls.start(e)}
+                aria-hidden
+              >
+                <span className="h-1.5 w-10 rounded-full bg-border" />
+              </div>
+            )}
+            {children}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/**
+ * Consistent page-entry wrapper — a thin component over the `route-enter` CSS utility
+ * (opacity + de-blur, ~0.34s) so pages don't hand-apply the class. CSS-only, so it
+ * respects `prefers-reduced-motion` via the global clamp.
+ */
+export function RouteTransition({ className, children }: { className?: string; children: ReactNode }) {
+  return <div className={cn("route-enter", className)}>{children}</div>;
 }
 
 /** Image that resolves out of a soft blur instead of popping in. */

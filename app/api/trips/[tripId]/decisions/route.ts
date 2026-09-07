@@ -3,6 +3,7 @@ import { decisionInput } from "@/features/trip/domain/decision";
 import { stayDecisionSchema } from "@/packages/contracts/stay";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
+import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 const SELECT = "id,kind,value,source,created_at";
 
@@ -30,6 +31,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
       ? await supabase.from("trip_decisions").upsert(decision, { onConflict: "trip_id,idempotency_key" }).select(SELECT).single()
       : await supabase.from("trip_decisions").insert(decision).select(SELECT).single();
     if (result.error) throw result.error;
+    invalidateWorkspace(tripId);
     return NextResponse.json({ decision: result.data }, { status: 201 });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Decision could not be saved");

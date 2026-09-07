@@ -30,10 +30,39 @@ const supabase = {
 } as unknown as SupabaseClient;
 
 describe("loadTripContext", () => {
+  it("includes canonical trip identity even without recent conversation", async () => {
+    const context = await loadTripContext(supabase, "trip-1");
+    context.trip = { name: "Montreal trip", destination: "Montreal", origin: "Toronto", duration_days: 5, travelers: 3, start_date: null, end_date: null };
+    const memory = formatTripMemory(context);
+    expect(memory).toContain("destination: Montreal");
+    expect(memory).toContain("origin: Toronto");
+    expect(memory).toContain("duration: 5 days");
+    expect(memory).toContain("travellers: 3");
+    expect(memory).toContain("dates: undecided");
+  });
   it("puts the locked stay first among the anchors and exposes it as lockedStay", async () => {
     const context = await loadTripContext(supabase, "trip-1");
     expect(context.lockedStay).toMatchObject({ hotelName: "Hotel Alfama", roomName: "Deluxe" });
     expect(context.lockedPlaces.map((p) => p.title)).toEqual(["Hotel Alfama", "Belém Tower"]);
     expect(formatTripMemory(context)).toContain("Stay: Hotel Alfama, Deluxe, 2026-10-15→2026-10-18, 360 EUR.");
+  });
+
+  it("keeps internal review bookkeeping decisions out of the assistant's memory line", () => {
+    const context = {
+      trip: null,
+      preferences: {},
+      itinerary: [],
+      lockedTitles: [],
+      places: [],
+      decisions: [
+        { kind: "review_notified", value: { ids: ["missing-hotel"] }, source: "assistant", created_at: "t" },
+        { kind: "review_dismissed", value: { id: "missing-hotel" }, source: "user", created_at: "t" },
+        { kind: "transport", value: "Metro pass", source: "user", created_at: "t" },
+      ],
+    };
+    const memory = formatTripMemory(context);
+    expect(memory).not.toContain("review_notified");
+    expect(memory).not.toContain("review_dismissed");
+    expect(memory).toContain("transport: Metro pass");
   });
 });

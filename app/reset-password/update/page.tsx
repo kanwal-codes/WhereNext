@@ -45,10 +45,10 @@ export default function UpdatePasswordPage() {
     >
       <form className="space-y-5" onSubmit={submit}>
         <Field label="New password">
-          <input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} className={inputClass} />
+          <input type="password" name="password" autoComplete="new-password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} className={inputClass} />
         </Field>
         <Field label="Confirm password">
-          <input type="password" required minLength={8} value={confirmation} onChange={(e) => setConfirmation(e.target.value)} className={inputClass} />
+          <input type="password" name="password-confirmation" autoComplete="new-password" required minLength={8} value={confirmation} onChange={(e) => setConfirmation(e.target.value)} className={inputClass} />
         </Field>
         {error && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">{error}</p>}
         {message && <p role="status" className="rounded-xl border border-leaf/30 bg-leaf-soft/50 px-3 py-2 text-xs text-leaf">{message}</p>}

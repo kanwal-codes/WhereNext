@@ -7,6 +7,18 @@ const day = (iso: string) => {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString([], { month: "short", day: "numeric" });
 };
 
+/** Days from `now` until the trip starts (negative once it has); null with no start date.
+ *  Compares whole calendar days — `now`'s time-of-day never shifts the result, so "today"
+ *  reads as 0 whether it's 12:01am or 11:59pm. */
+export function daysUntilTrip(startDate?: string | null, now: number = Date.now()): number | null {
+  if (!startDate) return null;
+  const start = new Date(`${startDate}T00:00:00`).getTime();
+  if (Number.isNaN(start)) return null;
+  const todayMidnight = new Date(now);
+  todayMidnight.setHours(0, 0, 0, 0);
+  return Math.round((start - todayMidnight.getTime()) / 86_400_000);
+}
+
 /** 1-based day index for `now` given the trip start date; null before the trip or with no date. */
 export function tripDayIndex(startDate?: string | null, now: number = Date.now()): number | null {
   if (!startDate) return null;

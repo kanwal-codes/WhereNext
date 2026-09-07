@@ -16,13 +16,23 @@ const isDev = process.env.NODE_ENV !== "production";
 
 // Plain NDJSON to stdout — no pino `transport`, because its worker thread does not
 // bundle cleanly under Next.js. For readable local output: `bun run dev | bunx pino-pretty`.
-const base: Logger = pino({
-  level: process.env.LOG_LEVEL ?? (isDev ? "debug" : "info"),
-  redact: {
-    paths: ["*.authorization", "*.cookie", "*.password", "*.token", "*.apiKey", "*.api_key", "req.headers.authorization"],
-    censor: "[redacted]",
-  },
-});
+//
+// Memoised on globalThis: every API route is its own webpack module graph and `next dev`
+// re-evaluates them on recompile, so a bare `pino()` here runs dozens of times — and each
+// call registers a `process` exit listener (via pino → sonic-boom → on-exit-leak-free),
+// tripping "MaxListenersExceededWarning: 11 exit listeners added to [process]". One instance
+// per process fixes it.
+const globalForLogger = globalThis as unknown as { __appLogger?: Logger };
+const base: Logger =
+  globalForLogger.__appLogger ??
+  pino({
+    level: process.env.LOG_LEVEL ?? (isDev ? "debug" : "info"),
+    redact: {
+      paths: ["*.authorization", "*.cookie", "*.password", "*.token", "*.apiKey", "*.api_key", "req.headers.authorization"],
+      censor: "[redacted]",
+    },
+  });
+globalForLogger.__appLogger = base;
 
 type LogFn = (obj: Record<string, unknown> | string, msg?: string) => void;
 

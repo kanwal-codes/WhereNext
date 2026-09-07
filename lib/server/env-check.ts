@@ -20,6 +20,7 @@ const OPTIONAL_PROVIDERS: Record<string, string> = {
   TICKETMASTER_API_KEY: "events (Ticketmaster)",
   TICKETMASTER_CONSUMER_KEY: "events (Ticketmaster)",
   EVENTBRITE_API_KEY: "local events",
+  GETYOURGUIDE_API_KEY: "tours & activities (GetYourGuide)",
   OPENWEATHER_API_KEY: "weather forecasts",
   TRANSIT_API_KEY: "transit fallback",
   DUFFEL_API_KEY: "flight estimates",
@@ -39,8 +40,9 @@ const serverEnvSchema = z
     AI_API_KEY: z.string().min(1).optional(),
     OPENAI_API_KEY: z.string().min(1).optional(),
     CEREBRAS_API_KEY: z.string().min(1).optional(),
+    OPENROUTER_API_KEY: z.string().min(1).optional(),
   })
-  .refine((e) => Boolean(e.AI_API_KEY || e.OPENAI_API_KEY || e.CEREBRAS_API_KEY), {
+  .refine((e) => Boolean(e.AI_API_KEY || e.OPENAI_API_KEY || e.CEREBRAS_API_KEY || e.OPENROUTER_API_KEY), {
     message: "one of AI_API_KEY / OPENAI_API_KEY / CEREBRAS_API_KEY is required",
     path: ["AI_API_KEY"],
   });
@@ -71,6 +73,11 @@ export function reportEnv(log: MinimalLogger): void {
     log.error({ missing: report.missingRequired }, "startup: required environment variables are missing — auth or core providers will not work");
   }
   if (report.missingOptional.length) {
-    log.warn({ missing: report.missingOptional, disabled: report.missingOptional.map((k) => OPTIONAL_PROVIDERS[k]) }, "startup: optional provider keys missing — those features are disabled");
+    // Two keys can back the same feature (LITEAPI_KEY / CONNECT_API_KEY both mean "hotel
+    // rates") — only call a feature disabled when every key that could satisfy it is missing.
+    const disabled = [...new Set(report.missingOptional.map((k) => OPTIONAL_PROVIDERS[k]))].filter((label) =>
+      Object.entries(OPTIONAL_PROVIDERS).every(([k, v]) => v !== label || report.missingOptional.includes(k)),
+    );
+    if (disabled.length) log.warn({ missing: report.missingOptional, disabled }, "startup: optional provider keys missing — those features are disabled");
   }
 }

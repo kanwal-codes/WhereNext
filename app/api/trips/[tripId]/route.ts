@@ -3,6 +3,7 @@ import { z } from "zod";
 import { isoDate, tripDurationDays } from "@/features/trip/domain/trip";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
+import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 /** Delete a whole trip. Owner only; the DB cascades places, itinerary, conversation, decisions. */
 export async function DELETE(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
@@ -31,6 +32,10 @@ const patchSchema = z
     startDate: isoDate.nullable().optional(),
     endDate: isoDate.nullable().optional(),
     travelerCount: z.coerce.number().int().min(1).max(100).nullable().optional(),
+    /** Resolved once client-side (a Google Places photo lookup on the destination) and saved
+     * here so every later load — any device — skips that lookup entirely. Empty string is a
+     * real value here (not "unset"): it means "checked, this destination has no photo". */
+    heroPhotoName: z.string().trim().max(2000).nullable().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: "nothing to update" });
 
@@ -48,6 +53,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ tr
     if (body.destination !== undefined) update.destination = body.destination;
     if (body.origin !== undefined) update.origin = body.origin;
     if (body.travelerCount !== undefined) update.travelers = body.travelerCount;
+    if (body.heroPhotoName !== undefined) update.hero_photo_name = body.heroPhotoName;
 
     // Dates move as a pair: recompute duration_days whenever either side changes.
     if (body.startDate !== undefined || body.endDate !== undefined) {
@@ -65,6 +71,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ tr
     const result = await supabase.from("trips").update(update).eq("id", tripId).select("id,name,destination,origin,duration_days,start_date,end_date,travelers").maybeSingle();
     if (result.error) throw result.error;
     if (!result.data) return NextResponse.json({ error: "Trip could not be updated" }, { status: 500 });
+    invalidateWorkspace(tripId);
     return NextResponse.json({ trip: result.data });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid trip update" }, { status: 400 });

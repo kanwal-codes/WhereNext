@@ -37,6 +37,10 @@ const SENTINEL: Record<string, string> = {
     "select to_regclass('public.trip_invites') is not null as ok",
   "0010_realtime_publication.sql":
     "select exists (select 1 from information_schema.columns where table_schema='public' and table_name='conversation_messages' and column_name='trip_id') as ok",
+  "0011_ai_turn_traces.sql":
+    "select to_regclass('public.ai_turn_traces') is not null as ok",
+  "0012_reco_events.sql":
+    "select to_regclass('public.reco_events') is not null as ok",
 };
 
 const url = process.env.DATABASE_URL;

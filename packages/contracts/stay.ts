@@ -34,11 +34,13 @@ export type StayOption = {
   currency: string;
   boardName: string | null;
   refundable: boolean;
+  /** LiteAPI's property type label — "Hotel", "Apartment", "Villa", etc. */
+  propertyType: string | null;
   rooms: StayRoom[];
 };
 
 /** What the current result set makes available, so the UI can build real filter controls. */
-export type StayFacets = { priceMin: number; priceMax: number; stars: number[]; boards: string[] };
+export type StayFacets = { priceMin: number; priceMax: number; stars: number[]; boards: string[]; propertyTypes: string[] };
 export type StaySearchResult = { nights: number; options: StayOption[]; facets: StayFacets };
 
 /** One guest review for a hotel (LiteAPI `/data/reviews`). */

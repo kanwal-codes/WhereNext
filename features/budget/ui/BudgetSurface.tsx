@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
@@ -33,14 +33,32 @@ export function BudgetSurface({
       .catch(() => undefined);
   }, [tripId, seeded]);
 
-  async function update(value: number) {
-    setDaily(value);
-    setSaved(false);
+  // A collaborator's edit lands here as a fresh `initialBudget` prop (realtime -> router.refresh()
+  // -> a re-rendered server parent) — useState's initializer only runs once, so without this the
+  // budget shown would keep whatever was true at first mount.
+  useEffect(() => {
+    if (typeof initialBudget === "number") setDaily(initialBudget);
+  }, [initialBudget]);
+
+  // The range input fires onChange on every drag step (dozens of events per gesture) — persist
+  // only the settled value, not one PUT + workspace-wide refresh per pixel of drag.
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current); }, []);
+
+  async function persist(value: number) {
     const r = await fetch(`/api/trips/${tripId}/memory`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ budget: value }) });
     if (r.ok) {
       setSaved(true);
       announceWorkspaceChange("preferences");
     } else notifyToast("That didn't save. Try again.", "error");
+  }
+
+  function update(value: number) {
+    if (!Number.isFinite(value)) return; // an emptied/invalid number field must not persist as budget: null
+    setDaily(value);
+    setSaved(false);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => void persist(value), 400);
   }
 
   const rows: Array<[string, string]> = [
@@ -59,7 +77,7 @@ export function BudgetSurface({
           </span>
         )}
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">An assumption you set — the assistant uses it to weigh options.</p>
+      <p className="mt-1 text-xs text-muted-foreground">An assumption you set — Roam uses it to weigh options.</p>
 
       <div className="mt-4 flex items-center gap-3">
         <input
@@ -74,7 +92,9 @@ export function BudgetSurface({
         />
         <input
           type="number"
-          min={0}
+          aria-label="Daily budget per person"
+          name="daily-budget"
+          min={20}
           value={daily}
           onChange={(e) => update(Number(e.target.value))}
           className="w-20 rounded-xl border border-input bg-background px-2.5 py-1.5 text-sm tabular-nums"

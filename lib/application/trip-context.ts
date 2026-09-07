@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { readStayDecision, type StayDecision } from "@/packages/contracts/stay";
 
 export type TripContext = {
-  trip: { name: string; destination: string; origin: string | null; duration_days: number | null; start_date: string | null; end_date: string | null; travelers: number | null } | null;
+  trip: { name: string; destination: string | null; origin: string | null; duration_days: number | null; start_date: string | null; end_date: string | null; travelers: number | null } | null;
   preferences: Record<string, unknown>;
   itinerary: Array<{ title: string; day_index: number; position?: number; locked: boolean; latitude?: number; longitude?: number }>;
   lockedTitles: string[];
@@ -108,7 +108,11 @@ export function formatTripMemory(
   const dislikes = asList(preferences.dislikes);
   const dietary = asList(preferences.dietaryNeeds);
   const profile = [
-    context.trip?.start_date && context.trip?.end_date ? `dates: ${context.trip.start_date} to ${context.trip.end_date}` : null,
+    context.trip ? `trip: ${context.trip.name}; destination: ${context.trip.destination || "undecided"}; origin: ${context.trip.origin || "undecided"}` : null,
+    context.trip?.duration_days != null ? `duration: ${context.trip.duration_days} days` : null,
+    context.trip?.travelers != null ? `travellers: ${context.trip.travelers}` : null,
+    context.trip ? `dates: ${context.trip.start_date || "undecided"}${context.trip.end_date ? ` to ${context.trip.end_date}` : ""}` : null,
+    typeof preferences.currency === "string" ? `currency: ${preferences.currency}` : null,
     typeof preferences.groupType === "string" && preferences.groupType ? `group: ${preferences.groupType}` : null,
     preferences.budget !== undefined && preferences.budget !== "" ? `budget: ${preferences.budget}` : null,
     typeof preferences.pace === "string" && preferences.pace ? `pace: ${preferences.pace}` : null,
@@ -126,7 +130,7 @@ export function formatTripMemory(
     .filter(Boolean);
   const stay = readStayDecision(context.decisions);
   const decisions = context.decisions
-    .filter((item) => item.kind !== "stay")
+    .filter((item) => !["stay", "review_notified", "review_dismissed"].includes(item.kind))
     .map((item) => (item.kind ? `${item.kind}: ${typeof item.value === "string" ? item.value : JSON.stringify(item.value)}` : ""))
     .filter(Boolean);
 

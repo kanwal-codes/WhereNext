@@ -1,17 +1,38 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetProviderGuards } from "../../lib/server/provider-guard";
-import { retrieveEvidence } from "../../lib/application/retrieve";
+import { clearMemoryCache } from "../../lib/server/ttl-cache";
+import { retrieveEvidence, cleanEventKeyword } from "../../lib/application/retrieve";
 
-beforeEach(() => resetProviderGuards());
+describe("cleanEventKeyword", () => {
+  it("keeps the artist/genre, drops filler and the destination name", () => {
+    expect(cleanEventKeyword("katseye concert in montreal", "Montreal")).toBe("katseye");
+    expect(cleanEventKeyword("are there any punjabi concerts between my dates", "Montreal, Canada")).toBe("punjabi");
+    expect(cleanEventKeyword("english concert", "Montreal")).toBe("english");
+  });
+  it("returns empty when nothing meaningful is left", () => {
+    expect(cleanEventKeyword("any events happening this weekend", "Lisbon")).toBe("");
+  });
+});
+
+beforeEach(() => {
+  resetProviderGuards();
+  // The stays branch now shares the same TTL cache the Stays tab route uses (finding 16); clear
+  // it between tests so one test's cached hotel search doesn't leak into the next.
+  clearMemoryCache();
+});
 afterEach(() => {
   vi.restoreAllMocks();
   delete process.env.GOOGLE_MAPS_API_KEY;
   delete process.env.TAVILY_API_KEY;
   delete process.env.TICKETMASTER_CONSUMER_KEY;
+  delete process.env.TICKETMASTER_API_KEY;
   delete process.env.EVENTBRITE_API_KEY;
+  delete process.env.GETYOURGUIDE_API_KEY;
+  delete process.env.PREDICTHQ_API_KEY;
   delete process.env.DUFFEL_API_KEY;
   delete process.env.LITEAPI_KEY;
   delete process.env.CONNECT_API_KEY;
+  delete process.env.OPENWEATHER_API_KEY;
 });
 
 describe("retrieveEvidence", () => {
@@ -34,6 +55,25 @@ describe("retrieveEvidence", () => {
     expect(evidence.places).toHaveLength(1);
     expect(evidence.places[0].name).toBe("Club One");
     expect(fetchMock.mock.calls[0][1].body).toContain("retrieve-nightclubs in Mumbai");
+  });
+
+  it("keeps separate place searches as separate topical sections", async () => {
+    process.env.GOOGLE_MAPS_API_KEY = "k";
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+      const query = JSON.parse(String(init?.body ?? "{}")).textQuery as string;
+      const museum = query.includes("art museums");
+      return Promise.resolve(new Response(JSON.stringify({ places: [{
+        id: museum ? "museum-1" : "food-1",
+        displayName: { text: museum ? "Museum of Fine Arts" : "Damas" },
+        location: { latitude: 45.5, longitude: -73.6 },
+      }] }), { status: 200 }));
+    }));
+    const evidence = await retrieveEvidence([
+      { tool: "search_places", query: "food places", location: "Montreal" },
+      { tool: "search_places", query: "art museums", location: "Montreal" },
+    ]);
+    expect(evidence.placeGroups?.map((group) => group.label)).toEqual(["food places", "art museums"]);
+    expect(evidence.placeGroups?.map((group) => group.places[0]?.name)).toEqual(["Damas", "Museum of Fine Arts"]);
   });
 
   it("collects web sources and isolates a failed provider", async () => {
@@ -62,6 +102,39 @@ describe("retrieveEvidence", () => {
     // dislike stated as the plural "museums"
     const evidence = await retrieveEvidence([{ tool: "search_places", query: "retrieve-historic", location: "Lisbon" }], { dislikes: ["museums"] });
     expect(evidence.places.map((place) => place.name)).toEqual(["Riverside Bar"]);
+  });
+
+  it("drops places the trip has already rejected, by exact name only", async () => {
+    process.env.GOOGLE_MAPS_API_KEY = "k";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ places: [
+      { id: "r1", displayName: { text: "Hard Rock Cafe" }, primaryType: "cafe", location: { latitude: 1, longitude: 1 } },
+      { id: "r2", displayName: { text: "A Brasileira" }, primaryType: "cafe", location: { latitude: 1, longitude: 1 } },
+    ] }), { status: 200 })));
+    const evidence = await retrieveEvidence(
+      [{ tool: "search_places", query: "retrieve-cafes", location: "Lisbon" }],
+      { excludeNames: ["hard rock cafe"] },
+    );
+    // The rejected name is gone; other cafés are untouched.
+    expect(evidence.places.map((place) => place.name)).toEqual(["A Brasileira"]);
+  });
+
+  it("prices hotel rooms for the trip's actual party size instead of a 2-adult default", async () => {
+    process.env.GOOGLE_MAPS_API_KEY = "g";
+    process.env.CONNECT_API_KEY = "sand_x";
+    let ratesBody: { occupancies?: Array<{ adults: number }> } | undefined;
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: unknown, init?: { method?: string; body?: string }) => {
+      const url = String(input);
+      if (url.includes("places.googleapis.com")) return Promise.resolve(new Response(JSON.stringify({ places: [{ id: "g1", displayName: { text: "Lisbon" }, location: { latitude: 38.72, longitude: -9.14 } }] }), { status: 200 }));
+      if (url.includes("/data/hotels")) return Promise.resolve(new Response(JSON.stringify({ data: [{ id: "h1", name: "Hotel Alfama", city: "Lisbon", latitude: 38.71, longitude: -9.13 }] }), { status: 200 }));
+      if (url.includes("/hotels/rates") && init?.method === "POST") {
+        ratesBody = JSON.parse(init.body!);
+        return Promise.resolve(new Response(JSON.stringify({ data: [{ hotelId: "h1", roomTypes: [{ offerRetailRate: { amount: 360, currency: "EUR" }, rates: [{ name: "Double", boardName: "Breakfast", cancellationPolicies: { refundableTag: "RFN" } }] }] }] }), { status: 200 }));
+      }
+      return Promise.reject(new Error(`unexpected ${url}`));
+    }));
+    await retrieveEvidence([{ tool: "stays", location: "Lisbon" }], { travelers: 5 });
+    // 5 adults spread across the default single room, not the LiteAPI client's own 2-adult default.
+    expect(ratesBody?.occupancies).toEqual([{ adults: 5 }]);
   });
 
   it("falls back to web research when a transit directions call returns nothing", async () => {
@@ -93,6 +166,203 @@ describe("retrieveEvidence", () => {
     const evidence = await retrieveEvidence([{ tool: "events", query: "music", location: "Lisbon" }]);
     expect(evidence.events.map((e) => `${e.source}:${e.title}`)).toEqual(["ticketmaster:Jazz Fest", "eventbrite:Indie Night"]);
     expect(evidence.events[1]).toMatchObject({ date: "2026-09-15", venue: "MusicBox", url: "https://eb.example/indie" });
+  });
+
+  it("date-scopes events to a buffer around the trip and tags each one's relation to it", async () => {
+    process.env.TICKETMASTER_CONSUMER_KEY = "tm";
+    let tmUrl = "";
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: unknown) => {
+      tmUrl = String(input);
+      return Promise.resolve(new Response(JSON.stringify({ _embedded: { events: [
+        { name: "In-Trip Gig", url: "https://tm/1", dates: { start: { localDate: "2026-10-28" } }, _embedded: { venues: [{ name: "V1" }] } },
+        { name: "Just After", url: "https://tm/2", dates: { start: { localDate: "2026-11-04" } }, _embedded: { venues: [{ name: "V2" }] } },
+        { name: "Way Off (April)", url: "https://tm/3", dates: { start: { localDate: "2027-04-10" } }, _embedded: { venues: [{ name: "V3" }] } },
+      ] } }), { status: 200 }));
+    }));
+    const evidence = await retrieveEvidence(
+      [{ tool: "events", query: "concerts", location: "Montreal" }],
+      { tripStart: "2026-10-26", tripEnd: "2026-11-01" },
+    );
+    // Ticketmaster was queried for the buffered window (trip ± 14d), not the exact dates.
+    expect(tmUrl).toContain("startDateTime=2026-10-12");
+    expect(tmUrl).toContain("endDateTime=2026-11-15");
+    // The April show is outside the buffer -> gone. The other two are tagged.
+    expect(evidence.events.map((e) => [e.title, e.relToTrip, e.offsetDays])).toEqual([
+      ["In-Trip Gig", "in", 0],
+      ["Just After", "after", 3],
+    ]);
+  });
+
+  it("a named-artist events call shows only that artist, with a wider buffer", async () => {
+    process.env.TICKETMASTER_CONSUMER_KEY = "tm";
+    let tmUrl = "";
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: unknown) => {
+      tmUrl = String(input);
+      return Promise.resolve(new Response(JSON.stringify({ _embedded: { events: [
+        { name: "Bruno Mars", url: "https://tm/a", dates: { start: { localDate: "2026-10-29" } }, _embedded: { venues: [{ name: "Bell" }] } },
+        { name: "Bruno Mars", url: "https://tm/b", dates: { start: { localDate: "2026-10-31" } }, _embedded: { venues: [{ name: "Bell" }] } },
+        { name: "Some Other Band", url: "https://tm/c", dates: { start: { localDate: "2026-10-30" } }, _embedded: { venues: [{ name: "MTelus" }] } },
+      ] } }), { status: 200 }));
+    }));
+    const evidence = await retrieveEvidence(
+      [{ tool: "events", query: "is Bruno Mars playing", location: "Montreal", artist: "Bruno Mars" }],
+      { tripStart: "2026-10-26", tripEnd: "2026-11-01" },
+    );
+    expect(tmUrl).toContain("keyword=Bruno+Mars");
+    expect(tmUrl).toContain("startDateTime=2026-09-26"); // trip ± 30d
+    expect(evidence.events.map((e) => e.title)).toEqual(["Bruno Mars", "Bruno Mars"]); // "Some Other Band" filtered out
+  });
+
+  it("orders a broad 'what's on' list by pull (bigger acts first) and asks Ticketmaster for relevance", async () => {
+    process.env.TICKETMASTER_CONSUMER_KEY = "tm";
+    let tmUrl = "";
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: unknown) => {
+      tmUrl = String(input);
+      return Promise.resolve(new Response(JSON.stringify({ _embedded: { events: [
+        { name: "Open Mic Night", url: "https://tm/1", dates: { start: { localDate: "2026-10-27" } }, _embedded: { venues: [{ name: "Cafe" }] } },
+        { name: "Headliner Tour", url: "https://tm/2", dates: { start: { localDate: "2026-10-30" } }, images: [{ url: "https://img/h.jpg" }], _embedded: { venues: [{ name: "Arena" }] } },
+      ] } }), { status: 200 }));
+    }));
+    const evidence = await retrieveEvidence(
+      [{ tool: "events", query: "any events happening this weekend", location: "Montreal" }],
+      { tripStart: "2026-10-26", tripEnd: "2026-11-01" },
+    );
+    expect(tmUrl).toContain("sort=relevance%2Cdesc");
+    expect(evidence.events.map((e) => e.title)).toEqual(["Headliner Tour", "Open Mic Night"]);
+  });
+
+  it("does not call GetYourGuide for a date-scoped events turn", async () => {
+    process.env.TICKETMASTER_CONSUMER_KEY = "tm";
+    process.env.GETYOURGUIDE_API_KEY = "gyg";
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ _embedded: { events: [] } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await retrieveEvidence(
+      [{ tool: "events", query: "concerts", location: "Montreal" }],
+      { tripStart: "2026-10-26", tripEnd: "2026-11-01" },
+    );
+    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("getyourguide"))).toBe(false);
+  });
+
+  it("uses PredictHQ rank to order a broad list and merges rank onto a matching Ticketmaster row", async () => {
+    process.env.TICKETMASTER_CONSUMER_KEY = "tm";
+    process.env.PREDICTHQ_API_KEY = "phq";
+    process.env.GOOGLE_MAPS_API_KEY = "g"; // PredictHQ needs a geocoded point
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: unknown) => {
+      const url = String(input);
+      if (url.includes("places.googleapis.com")) return Promise.resolve(new Response(JSON.stringify({ places: [{ id: "g1", displayName: { text: "Montreal" }, location: { latitude: 45.5, longitude: -73.6 } }] }), { status: 200 }));
+      if (url.includes("app.ticketmaster.com")) return Promise.resolve(new Response(JSON.stringify({ _embedded: { events: [
+        { name: "Small Local Gig", url: "https://tm/small", dates: { start: { localDate: "2026-10-28" } }, _embedded: { venues: [{ name: "Bar" }] } },
+        { name: "Big Festival", url: "https://tm/big", dates: { start: { localDate: "2026-10-30" } }, _embedded: { venues: [{ name: "Park" }] } },
+      ] } }), { status: 200 }));
+      // PredictHQ: ranks Big Festival high, and also knows a show TM doesn't
+      return Promise.resolve(new Response(JSON.stringify({ results: [
+        { title: "Big Festival", start: "2026-10-30T18:00:00", local_rank: 88, phq_attendance: 40000, entities: [{ type: "venue", name: "Park" }] },
+        { title: "Comedy Gala", start: "2026-10-29T20:00:00", local_rank: 71, entities: [{ type: "venue", name: "Theatre" }] },
+      ] }), { status: 200 }));
+    }));
+    const evidence = await retrieveEvidence(
+      [{ tool: "events", query: "anything happening", location: "Montreal" }],
+      { tripStart: "2026-10-26", tripEnd: "2026-11-01" },
+    );
+    // Ordered by rank: Big Festival (88, TM url kept) > Comedy Gala (71) > Small Local Gig (no rank).
+    expect(evidence.events.map((e) => [e.title, e.source, e.rank])).toEqual([
+      ["Big Festival", "ticketmaster", 88],
+      ["Comedy Gala", "predicthq", 71],
+      ["Small Local Gig", "ticketmaster", undefined],
+    ]);
+  });
+
+  it("near-misses order by closeness to the trip — a show just before beats one further after", async () => {
+    process.env.TICKETMASTER_CONSUMER_KEY = "tm";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ _embedded: { events: [
+      { name: "Five After", url: "https://tm/a", dates: { start: { localDate: "2026-11-06" } }, _embedded: { venues: [{ name: "V" }] } },
+      { name: "Two Before", url: "https://tm/b", dates: { start: { localDate: "2026-10-24" } }, _embedded: { venues: [{ name: "V" }] } },
+      { name: "Three After", url: "https://tm/c", dates: { start: { localDate: "2026-11-04" } }, _embedded: { venues: [{ name: "V" }] } },
+    ] } }), { status: 200 })));
+    const evidence = await retrieveEvidence(
+      [{ tool: "events", query: "concerts", location: "Montreal" }],
+      { tripStart: "2026-10-26", tripEnd: "2026-11-01" },
+    );
+    // before-group ahead of after-group; within a group, smaller offset first.
+    expect(evidence.events.map((e) => [e.title, e.relToTrip, e.offsetDays])).toEqual([
+      ["Two Before", "before", 2],
+      ["Three After", "after", 3],
+      ["Five After", "after", 5],
+    ]);
+  });
+
+  const undatedBody = () => JSON.stringify({ _embedded: { events: [
+    { name: "Dated Gig", url: "https://tm/1", dates: { start: { localDate: "2026-10-29" } }, _embedded: { venues: [{ name: "V" }] } },
+    { name: "No Date Listed", url: "https://tm/2", _embedded: { venues: [{ name: "V" }] } },
+  ] } });
+
+  it("drops an undated event on a date-scoped turn — it can't be placed against the trip", async () => {
+    process.env.TICKETMASTER_CONSUMER_KEY = "tm";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(undatedBody(), { status: 200 })));
+    const evidence = await retrieveEvidence(
+      [{ tool: "events", query: "jazz", location: "Montreal" }],
+      { tripStart: "2026-10-26", tripEnd: "2026-11-01" },
+    );
+    expect(evidence.events.map((e) => e.title)).toEqual(["Dated Gig"]);
+  });
+
+  it("keeps an undated event when the events turn isn't date-scoped", async () => {
+    process.env.TICKETMASTER_CONSUMER_KEY = "tm";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(undatedBody(), { status: 200 })));
+    const evidence = await retrieveEvidence(
+      [{ tool: "events", query: "jazz", location: "Montreal", dateScoped: false }],
+      { tripStart: "2026-10-26", tripEnd: "2026-11-01" },
+    );
+    expect(evidence.events.map((e) => e.title).sort()).toEqual(["Dated Gig", "No Date Listed"]);
+  });
+
+  it("isolates a PredictHQ failure without losing the ticketed events", async () => {
+    process.env.TICKETMASTER_CONSUMER_KEY = "tm";
+    process.env.PREDICTHQ_API_KEY = "phq";
+    process.env.GOOGLE_MAPS_API_KEY = "g";
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: unknown) => {
+      const url = String(input);
+      if (url.includes("places.googleapis.com")) return Promise.resolve(new Response(JSON.stringify({ places: [{ id: "g1", displayName: { text: "Montreal" }, location: { latitude: 45.5, longitude: -73.6 } }] }), { status: 200 }));
+      if (url.includes("app.ticketmaster.com")) return Promise.resolve(new Response(JSON.stringify({ _embedded: { events: [
+        { name: "Local Show", url: "https://tm/1", dates: { start: { localDate: "2026-10-29" } }, _embedded: { venues: [{ name: "V" }] } },
+      ] } }), { status: 200 }));
+      return Promise.reject(new Error("predicthq 500")); // PHQ endpoint blows up
+    }));
+    const evidence = await retrieveEvidence(
+      [{ tool: "events", query: "anything happening", location: "Montreal" }],
+      { tripStart: "2026-10-26", tripEnd: "2026-11-01" },
+    );
+    expect(evidence.events.map((e) => e.title)).toEqual(["Local Show"]);
+    expect(evidence.unavailableProviders).toContain("predicthq");
+  });
+
+  it("resolves a weather tool call into a forecast summary, self-geocoding the place name", async () => {
+    process.env.OPENWEATHER_API_KEY = "ow";
+    let geoUrl = "";
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: unknown) => {
+      const url = String(input);
+      if (url.includes("/geo/1.0/direct")) { geoUrl = url; return Promise.resolve(new Response(JSON.stringify([{ name: "Porto", lat: 41.15, lon: -8.61 }]), { status: 200 })); }
+      return Promise.resolve(new Response(JSON.stringify({ city: { name: "Porto", timezone: 0 }, list: [
+        { dt: 1_760_000_000, main: { temp: 18, temp_min: 14, temp_max: 21 }, weather: [{ main: "Rain", description: "light rain" }], rain: {} },
+      ] }), { status: 200 }));
+    }));
+    const evidence = await retrieveEvidence([{ tool: "weather", location: "Porto weather uniq" }]);
+    expect(geoUrl).toContain("q=Porto%20weather%20uniq");
+    expect(evidence.weather).toMatch(/18°C now/);
+    expect(evidence.weather).toMatch(/wet/);
+    expect(evidence.unavailableProviders).not.toContain("openweather");
+  });
+
+  it("isolates an OpenWeather forecast failure — weather stays null, flagged unavailable", async () => {
+    process.env.OPENWEATHER_API_KEY = "ow";
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: unknown) => {
+      const url = String(input);
+      if (url.includes("/geo/1.0/direct")) return Promise.resolve(new Response(JSON.stringify([{ name: "Split", lat: 43.5, lon: 16.4 }]), { status: 200 }));
+      return Promise.resolve(new Response("nope", { status: 500 }));
+    }));
+    const evidence = await retrieveEvidence([{ tool: "weather", location: "Split forecast uniq" }]);
+    expect(evidence.weather).toBeNull();
+    expect(evidence.unavailableProviders).toContain("openweather");
   });
 
   it("skips events entirely when no event provider is configured", async () => {

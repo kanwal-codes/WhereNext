@@ -15,12 +15,12 @@ import {
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
 import { Hero } from "@/components/Hero";
 import { NearbyRecommendations } from "@/components/NearbyRecommendations";
-import { NearbyEvents } from "@/components/NearbyEvents";
 import { BackLink } from "@/components/BackLink";
 import { ExternalLink } from "@/components/ExternalLink";
 import { Skeleton, SkeletonLines } from "@/components/Skeleton";
 import { TripWeather } from "@/components/TripWeather";
 import { Reveal, WordReveal } from "@/components/motion-primitives";
+import { isWeatherRelevantPlace } from "@/packages/reco/vibes";
 import { usePlaceDetails } from "@/features/places/application/usePlaceDetails";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { askAssistantHref, businessStatusLabel, categoryLabel, detailsToPlace, photoProxyUrl, priceLabel, secondaryTypes, type GoogleReview } from "@/lib/places-ui";
@@ -112,19 +112,20 @@ export function PlaceDetailView({
   const city = cityFrom(details.formattedAddress);
 
   const place = detailsToPlace(details);
-  const aside = (
-    <div className={cn("space-y-4", !panel && "lg:sticky lg:top-8")}>
-      <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-        {place ? (
-          <AddToTripControl tripId={tripId} place={place} size="md" block />
-        ) : (
-          <p className="text-sm text-muted-foreground">This place can&rsquo;t be added &mdash; we don&rsquo;t have a location for it.</p>
-        )}
-        <p className="mt-2.5 text-[11px] leading-relaxed text-muted-foreground">
-          <span className="font-medium text-foreground">Shortlist</span> while you&rsquo;re deciding &mdash; open the menu to drop it on a day when it&rsquo;s going in the plan.
-        </p>
-      </div>
+  // The one action, up top. No card wrapper — it's a button, not a module.
+  const asideAction = place ? (
+    <div>
+      <AddToTripControl tripId={tripId} place={place} size="md" block />
+      <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+        <span className="font-medium text-foreground">Shortlist</span> while you&rsquo;re deciding &mdash; open the menu to drop it on a day.
+      </p>
+    </div>
+  ) : (
+    <p className="text-sm text-muted-foreground">This place can&rsquo;t be added &mdash; we don&rsquo;t have a location for it.</p>
+  );
 
+  const asideSecondary = (
+    <>
       {(details.nationalPhoneNumber || details.websiteUri || wheelchair) && (
         <div className="rounded-2xl border border-border bg-card p-5">
           <p className="eyebrow">Details</p>
@@ -152,16 +153,26 @@ export function PlaceDetailView({
         </div>
       )}
 
-      <div className="rounded-2xl border border-dashed border-border p-5">
-        <p className="eyebrow">Where this came from</p>
-        <p className="mt-2 text-sm leading-relaxed text-ink-soft">Details and reviews from Google Maps.</p>
-        {details.googleMapsUri && <ExternalLink href={details.googleMapsUri} className="mt-3">Open in Google Maps</ExternalLink>}
+      <div className="rounded-xl border border-dashed border-border px-3 py-2.5">
+        <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Source</p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          <span>Google Maps</span>
+          {details.googleMapsUri && <ExternalLink href={details.googleMapsUri} className="text-xs">Open map</ExternalLink>}
+        </div>
       </div>
+    </>
+  );
+
+  // Page view keeps the single sticky sidebar; the panel splits it around the body.
+  const aside = (
+    <div className={cn("min-w-0 space-y-4", !panel && "lg:sticky lg:top-8")}>
+      {asideAction}
+      {asideSecondary}
     </div>
   );
 
   const body = (
-    <div className="space-y-8">
+    <div className="min-w-0 space-y-8">
       <Reveal delay={0.06}>
         <section>
           <h2 className="font-display text-xl">About</h2>
@@ -188,7 +199,7 @@ export function PlaceDetailView({
         <Reveal delay={0.08}>
           <section>
             <h2 className="font-display text-xl">Photos</h2>
-            <div className={cn("mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto scrollbar-slim pb-1", panel ? "-mx-4 px-4" : "-mx-5 px-5 sm:mx-0 sm:px-0")}>
+            <div className={cn("mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto no-scrollbar px-1 pb-1", panel ? "" : "-mx-5 px-5 sm:mx-0 sm:px-0")}>
               {morePhotos.map((src) => (
                 // eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin proxy
                 <img key={src} src={src} alt={name} loading="lazy" width={288} height={192} className="h-44 w-72 shrink-0 snap-start rounded-2xl border border-border object-cover" />
@@ -207,7 +218,7 @@ export function PlaceDetailView({
           <span>
             <span className="eyebrow">Why this may fit your trip</span>
             <span className="mt-1 block text-sm leading-[1.75]">
-              Ask the assistant — it weighs {name} against your budget, pace and the places you&rsquo;ve saved. The question is written for you; just hit send.
+              Ask Roam — it weighs {name} against your budget, pace and the places you&rsquo;ve saved. The question is written for you; just hit send.
             </span>
           </span>
         </Link>
@@ -248,8 +259,6 @@ export function PlaceDetailView({
           </section>
         </Reveal>
       )}
-
-      <NearbyEvents tripId={tripId} location={city} />
 
       {hours.length > 0 && (
         <Reveal delay={0.14}>
@@ -295,23 +304,37 @@ export function PlaceDetailView({
               {price && <span>{price}</span>}
               {status && <span>{status}</span>}
             </p>
-            {city && <TripWeather tripId={tripId} location={city} className="mt-1.5" />}
+            {city && isWeatherRelevantPlace({ primaryType: details.primaryType, types: details.types }) && (
+              <TripWeather tripId={tripId} location={city} className="mt-1.5" />
+            )}
           </div>
         </Reveal>
 
         {panel ? (
           <div className="mt-6 space-y-8">
-            <Reveal delay={0.08}>{aside}</Reveal>
+            <Reveal delay={0.08}>{asideAction}</Reveal>
             {body}
+            <Reveal delay={0.1}>
+              <div className="space-y-4">{asideSecondary}</div>
+            </Reveal>
           </div>
         ) : (
-          <div className="mt-7 grid gap-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+          <div className="mt-7 grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
             {body}
             <Reveal delay={0.1}>{aside}</Reveal>
           </div>
         )}
 
-        <NearbyRecommendations tripId={tripId} excludeId={placeId} anchorName={name} cityHint={city} />
+        <NearbyRecommendations
+          tripId={tripId}
+          excludeId={placeId}
+          anchorName={name}
+          cityHint={city}
+          primaryType={details.primaryType}
+          types={details.types}
+          lat={details.location?.latitude}
+          lng={details.location?.longitude}
+        />
       </div>
     </div>
   );

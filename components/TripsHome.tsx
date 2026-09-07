@@ -13,7 +13,7 @@ import { tripWhen } from "@/lib/trip-dates";
 export type TripSummary = {
   id: string;
   name: string;
-  destination: string;
+  destination: string | null;
   origin: string | null;
   duration_days: number | null;
   start_date: string | null;
@@ -75,11 +75,11 @@ export function TripsHome({ trips }: { trips: TripSummary[] }) {
       </Hero>
 
       <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
           <h2 className="min-w-0 font-display text-xl">
             {list.length > 0 ? `${list.length} trip${list.length === 1 ? "" : "s"}` : "No trips yet"}
           </h2>
-          <Link href="/trips/new" className="btn-primary shrink-0">
+          <Link href="/trips/new" className="btn-primary w-fit shrink-0 sm:justify-self-end">
             <Plus className="h-4 w-4" /> Create new trip
           </Link>
         </div>
@@ -112,7 +112,7 @@ export function TripsHome({ trips }: { trips: TripSummary[] }) {
                       <h3 className="truncate font-display text-2xl">{trip.name}</h3>
                       <p className="mt-1 flex items-center gap-1.5 truncate text-sm text-muted-foreground">
                         <MapPin className="h-3.5 w-3.5 shrink-0" />
-                        {trip.destination}
+                        {trip.destination || "Destination not set"}
                       </p>
                     </div>
 

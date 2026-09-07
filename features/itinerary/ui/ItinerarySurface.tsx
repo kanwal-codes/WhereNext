@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowDown, ArrowUp, BedDouble, GripVertical, Lock, LockOpen, MapPin, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight, BedDouble, Clock, GripVertical, Loader2, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
 import type { ItineraryItem } from "@/features/itinerary/domain/item";
 import type { StayDecision } from "@/packages/contracts/stay";
+import { useTripPanel } from "@/components/TripPanelProvider";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
+import { notifyToast } from "@/lib/application/toast";
 import { cn } from "@/lib/utils";
 
 const fmtDay = (iso: string) => {
@@ -30,26 +32,53 @@ export function ItinerarySurface({
   initialItems,
   startDate = null,
   lockedStay = null,
+  destination = null,
 }: {
   tripId: string;
   initialItems?: Array<Record<string, unknown>>;
   startDate?: string | null;
   lockedStay?: StayDecision | null;
+  destination?: string | null;
 }) {
+  const { openPanel } = useTripPanel();
   const [items, setItems] = useState<ItineraryItem[]>((initialItems ?? []) as ItineraryItem[]);
   const [title, setTitle] = useState("");
   const [day, setDay] = useState(1);
   const [removed, setRemoved] = useState<ItineraryItem | null>(null);
-  const [error, setError] = useState("");
   const [dragTitle, setDragTitle] = useState<string | null>(null);
   const [dropHint, setDropHint] = useState<string | null>(null); // `${day}:${beforeTitle ?? "end"}`
+  const [resolvingTitle, setResolvingTitle] = useState<string | null>(null);
+
+  /** Most itinerary items already carry a provider_id (added from a real place search) and open
+   * the panel directly; a few are typed straight into chat with no known place behind them yet
+   * — those get looked up by name on click instead of staying a dead label forever. */
+  async function openPlace(item: ItineraryItem, providerId: string | null) {
+    if (providerId) {
+      openPanel({ kind: "place", placeId: providerId, name: item.title });
+      return;
+    }
+    if (resolvingTitle) return;
+    setResolvingTitle(item.title);
+    try {
+      const query = destination ? `${item.title}, ${destination}` : item.title;
+      const r = await fetch(`/api/trips/${tripId}/places?query=${encodeURIComponent(query)}`);
+      const body = await r.json();
+      const hit = (body.places ?? [])[0] as { providerId?: string } | undefined;
+      if (hit?.providerId) openPanel({ kind: "place", placeId: hit.providerId, name: item.title });
+      else notifyToast(`Couldn’t find details for ${item.title}.`, "info");
+    } catch {
+      notifyToast(`Couldn’t find details for ${item.title}.`, "error");
+    } finally {
+      setResolvingTitle(null);
+    }
+  }
 
   useEffect(() => {
     if (initialItems) return;
     fetch(`/api/trips/${tripId}/itinerary`)
       .then((r) => r.json())
       .then((body) => setItems(body.items ?? []))
-      .catch(() => setError("Itinerary could not load."));
+      .catch(() => notifyToast("Couldn’t load the itinerary.", "error"));
   }, [tripId, initialItems]);
 
   const patch = async (body: Record<string, unknown>, optimistic: (list: ItineraryItem[]) => ItineraryItem[]) => {
@@ -59,7 +88,7 @@ export function ItinerarySurface({
     if (r.ok) announceWorkspaceChange("itinerary");
     else {
       setItems(previous);
-      setError(r.status === 409 ? "Unlock the item first." : "That change could not be saved.");
+      notifyToast(r.status === 409 ? "Unlock the item first." : "That change couldn’t be saved.", "error");
     }
   };
 
@@ -72,11 +101,11 @@ export function ItinerarySurface({
       setItems((cur) => (cur.some((i) => i.title === body.item.title) ? cur : [...cur, body.item]));
       setTitle("");
       announceWorkspaceChange("itinerary");
-    } else setError("Item could not be added.");
+    } else notifyToast("Couldn’t add that item.", "error");
   }
 
   const move = (item: ItineraryItem, dir: -1 | 1) => {
-    if (item.metadata?.locked) return setError("Unlock the item first.");
+    if (item.metadata?.locked) return notifyToast("Unlock the item first.", "error");
     const next = Math.max(1, item.day_index + dir);
     if (next === item.day_index) return;
     reorder(item.title, next, null);
@@ -89,11 +118,25 @@ export function ItinerarySurface({
     );
   };
 
+  /** `time` is "HH:MM" to set it, or `null` to clear it. */
+  const setTime = (item: ItineraryItem, time: string | null) => {
+    if (item.metadata?.locked) return notifyToast("Unlock the item first.", "error");
+    void patch({ title: item.title, time }, (list) =>
+      list.map((c) => {
+        if (c.id !== item.id) return c;
+        const metadata = { ...(c.metadata ?? {}) };
+        if (time === null) delete metadata.time;
+        else metadata.time = time;
+        return { ...c, metadata };
+      }),
+    );
+  };
+
   /** Move `dragTitle` to `toDay`, positioned before `beforeTitle` (or at the end). Renumbers the touched days and persists them in one request. */
   function reorder(movedTitle: string, toDay: number, beforeTitle: string | null) {
     const moved = items.find((i) => i.title === movedTitle);
     if (!moved || moved.metadata?.locked === true) {
-      setError("Unlock the item first.");
+      notifyToast("Unlock the item first.", "error");
       return;
     }
     const fromDay = moved.day_index;
@@ -114,7 +157,7 @@ export function ItinerarySurface({
   }
 
   async function remove(item: ItineraryItem) {
-    if (item.metadata?.locked) return setError("Unlock the item first.");
+    if (item.metadata?.locked) return notifyToast("Unlock the item first.", "error");
     const previous = items;
     setItems((cur) => cur.filter((c) => c.id !== item.id));
     setRemoved(item);
@@ -123,7 +166,7 @@ export function ItinerarySurface({
     else {
       setItems(previous);
       setRemoved(null);
-      setError("Item could not be removed.");
+      notifyToast("Couldn’t remove that item.", "error");
     }
   }
 
@@ -134,7 +177,7 @@ export function ItinerarySurface({
     if (r.ok) {
       setItems((cur) => [...cur, item]);
       announceWorkspaceChange("itinerary");
-    } else setError("Item could not be restored.");
+    } else notifyToast("Couldn’t restore that item.", "error");
     setRemoved(null);
   }
 
@@ -148,7 +191,7 @@ export function ItinerarySurface({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="min-w-0 space-y-8">
       <div className="flex justify-end">
         <a href={`/trips/${tripId}/today`} className="text-xs font-medium text-primary hover:underline">
           Today view →
@@ -174,21 +217,23 @@ export function ItinerarySurface({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Add something to the plan…"
-          className="min-w-0 flex-1 bg-transparent px-1.5 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
+          className="min-w-0 flex-1 basis-48 bg-transparent px-1.5 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
         />
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          Day
-          <input
-            type="number"
-            min={1}
-            value={day}
-            onChange={(e) => setDay(Math.max(1, Number(e.target.value)))}
-            className="w-14 rounded-lg border border-border bg-background px-2 py-1 text-sm"
-          />
-        </label>
-        <button type="submit" className="btn-primary-sm">
-          Add
-        </button>
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            Day
+            <input
+              type="number"
+              min={1}
+              value={day}
+              onChange={(e) => setDay(Math.max(1, Number(e.target.value)))}
+              className="w-14 rounded-lg border border-border bg-background px-2 py-1 text-sm"
+            />
+          </label>
+          <button type="submit" className="btn-primary-sm">
+            Add
+          </button>
+        </div>
       </form>
 
       {days.map((d) => {
@@ -246,6 +291,7 @@ export function ItinerarySurface({
                 {dayItems.map((item) => {
                   const locked = item.metadata?.locked === true;
                   const hint = dropHint === `${d}:${item.title}`;
+                  const providerId = typeof item.metadata?.provider_id === "string" ? item.metadata.provider_id : null;
                   return (
                     <motion.div
                       key={item.id}
@@ -253,7 +299,7 @@ export function ItinerarySurface({
                       initial={{ opacity: 0, x: -8 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 12, height: 0 }}
-                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      transition={{ type: "spring", stiffness: 260, damping: 28, mass: 0.9 }}
                       className={cn("group relative mb-3", dragTitle === item.title && "opacity-40")}
                       onDragOver={(e) => {
                         if (!dragTitle || dragTitle === item.title) return;
@@ -268,12 +314,12 @@ export function ItinerarySurface({
                         onDropAt(d, item.title);
                       }}
                     >
-                      <span className="absolute top-4 -left-6 grid h-4 w-4 place-items-center rounded-full border border-border bg-background">
+                      <span className="absolute top-1/2 -left-6 grid h-4 w-4 -translate-y-1/2 place-items-center rounded-full border border-border bg-background">
                         <span className={cn("h-1.5 w-1.5 rounded-full", locked ? "bg-leaf" : "bg-coral")} />
                       </span>
                       <div
                         className={cn(
-                          "grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 rounded-2xl border bg-card px-3 py-3 shadow-soft transition-colors",
+                          "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border bg-card px-3 py-3 shadow-soft transition-colors",
                           hint ? "border-coral" : "border-border",
                         )}
                       >
@@ -286,18 +332,53 @@ export function ItinerarySurface({
                             setDragTitle(null);
                             setDropHint(null);
                           }}
-                          className={cn("mt-0.5 cursor-grab rounded p-1 text-muted-foreground active:cursor-grabbing", locked && "cursor-not-allowed opacity-30")}
+                          className={cn("cursor-grab rounded p-1 text-muted-foreground active:cursor-grabbing", locked && "cursor-not-allowed opacity-30")}
                         >
                           <GripVertical className="h-3.5 w-3.5" />
                         </button>
                         <div className="min-w-0">
                           <p className="flex items-center gap-2 text-sm font-medium">
-                            <span className="truncate">{item.title}</span>
+                            <button
+                              type="button"
+                              onClick={() => void openPlace(item, providerId)}
+                              disabled={resolvingTitle === item.title}
+                              className="truncate text-left hover:text-coral hover:underline disabled:opacity-60"
+                            >
+                              {item.title}{" "}
+                              {resolvingTitle === item.title ? (
+                                <Loader2 className="inline h-3 w-3 animate-spin align-[-1px] text-muted-foreground" />
+                              ) : (
+                                <ArrowUpRight className="inline h-3 w-3 align-[-1px] text-muted-foreground" />
+                              )}
+                            </button>
                             {locked && <Lock className="h-3 w-3 shrink-0 text-leaf" />}
                           </p>
-                          <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <MapPin className="h-3 w-3 shrink-0" /> Day {item.day_index}
-                          </p>
+                          {(() => {
+                            const time = typeof item.metadata?.time === "string" ? item.metadata.time : "";
+                            return (
+                              <div className="relative mt-0.5 inline-flex items-center">
+                                <input
+                                  type="time"
+                                  aria-label={`Target time for ${item.title}`}
+                                  value={time}
+                                  disabled={locked}
+                                  onChange={(e) => setTime(item, e.target.value || null)}
+                                  className={cn(
+                                    "rounded border-none bg-transparent p-0 text-xs outline-none [color-scheme:auto] disabled:opacity-50",
+                                    time ? "text-muted-foreground hover:text-foreground" : "text-transparent",
+                                  )}
+                                />
+                                {/* The native empty-time placeholder ("--:-- --") reads as broken, not
+                                    "click to set a time" — this sits on top of the (still functional,
+                                    just transparent) input to say that instead. */}
+                                {!time && (
+                                  <span className="pointer-events-none absolute left-0 flex items-center gap-1 text-xs text-muted-foreground">
+                                    <Clock className="h-3 w-3" /> Add time
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
                         <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                           <button aria-label="Move to previous day" onClick={() => move(item, -1)} disabled={locked} className="rounded-lg p-1.5 hover:bg-accent disabled:opacity-30">
@@ -331,7 +412,6 @@ export function ItinerarySurface({
           </button>
         </p>
       )}
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     </div>
   );
 }

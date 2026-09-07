@@ -10,7 +10,7 @@ export default function ItineraryPage() {
   const lockedStay = readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
   return (
     <RouteScaffold eyebrow="Itinerary" title="The plan, day by day" description="Lock what's fixed; move the rest between days.">
-      <ItinerarySurface tripId={tripId} initialItems={data?.itinerary} startDate={data?.trip?.start_date ?? null} lockedStay={lockedStay} />
+      <ItinerarySurface tripId={tripId} initialItems={data?.itinerary} startDate={data?.trip?.start_date ?? null} lockedStay={lockedStay} destination={data?.trip?.destination ?? null} />
     </RouteScaffold>
   );
 }

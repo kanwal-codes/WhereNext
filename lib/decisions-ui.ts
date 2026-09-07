@@ -32,6 +32,15 @@ export function decisionSummary(kind: string, value: unknown): string {
   return JSON.stringify(value);
 }
 
+/** Decision kinds that already have their own dedicated UI elsewhere (a stay lock, a
+ *  suggestion chip) or are pure internal bookkeeping (review email/dismiss tracking) —
+ *  never worth a second, generic "Decisions" row. Shared so the rule can't drift between
+ *  the trip-context panel and the overview page's own decisions list. */
+const HIDDEN_DECISION_KINDS = new Set(["suggestion", "stay", "stay_area", "transport", "leg_transport", "review_notified", "review_dismissed"]);
+export function isDisplayableDecision(kind: string): boolean {
+  return !HIDDEN_DECISION_KINDS.has(kind);
+}
+
 /** Who made the decision decides how firm it reads. */
 export function certaintyFor(source: string | undefined | null): Certainty {
   if (source === "user") return "confirmed";

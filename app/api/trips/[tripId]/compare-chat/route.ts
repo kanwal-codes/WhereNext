@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { loadTripContext, serializeTripContext } from "@/lib/application/trip-context";
-import { createAiGateway } from "@/packages/ai/gateway";
+import { gatewayFor } from "@/packages/ai/model-policy";
+import { createSseParser, parseSseJson } from "@/packages/ai/sse";
 
 /**
  * A throwaway comparison conversation. It has the full trip context (so it can reason
@@ -60,7 +61,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
       ...itemLines,
     ].join("\n");
 
-    const upstream = await createAiGateway({ model: process.env.RESOLVE_MODEL || undefined }).stream(
+    const upstream = await gatewayFor("resolve").stream(
       [{ role: "system", content: system }, ...messages],
       request.signal,
     );
@@ -69,32 +70,27 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     const reader = upstream.getReader();
     const decoder = new TextDecoder();
     const encoder = new TextEncoder();
-    let buffer = "";
+    const parser = createSseParser();
+    /** Enqueue the content deltas in `payloads`; returns true once `[DONE]` closed the stream. */
+    const drain = (controller: ReadableStreamDefaultController<Uint8Array>, payloads: string[]): boolean => {
+      for (const payload of payloads) {
+        if (payload === "[DONE]") {
+          controller.close();
+          return true;
+        }
+        const delta = parseSseJson<{ choices?: Array<{ delta?: { content?: string } }> }>(payload)?.choices?.[0]?.delta?.content;
+        if (delta) controller.enqueue(encoder.encode(delta));
+      }
+      return false;
+    };
     const stream = new ReadableStream<Uint8Array>({
       async pull(controller) {
         const { done, value } = await reader.read();
         if (done) {
-          controller.close();
+          if (!drain(controller, [...parser.push(decoder.decode()), ...parser.flush()])) controller.close();
           return;
         }
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed.startsWith("data:")) continue;
-          const data = trimmed.slice(5).trim();
-          if (data === "[DONE]") {
-            controller.close();
-            return;
-          }
-          try {
-            const delta = (JSON.parse(data) as { choices?: Array<{ delta?: { content?: string } }> }).choices?.[0]?.delta?.content;
-            if (delta) controller.enqueue(encoder.encode(delta));
-          } catch {
-            /* keep-alive / partial line */
-          }
-        }
+        drain(controller, parser.push(decoder.decode(value, { stream: true })));
       },
       cancel() {
         reader.cancel().catch(() => {});

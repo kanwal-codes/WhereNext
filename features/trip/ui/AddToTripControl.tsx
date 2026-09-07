@@ -3,7 +3,7 @@
 import React, { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Bookmark, BookmarkCheck, CalendarCheck, Check, ChevronDown, Loader2, Trash2 } from "lucide-react";
+import { Bookmark, CalendarCheck, Check, Loader2, Trash2 } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
 import { type Placement, placementDay } from "@/packages/contracts/placement";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
@@ -17,6 +17,13 @@ const MAX_DAY_ROWS = 30;
 const same = (a: Placement, b: Placement) => JSON.stringify(a) === JSON.stringify(b);
 const norm = (s: string) => s.trim().toLowerCase();
 
+function isSaved(
+  savedPlaces: Array<{ places?: { provider_id?: string } | null; provider_id?: string; providerId?: string }>,
+  providerId: string,
+) {
+  return savedPlaces.some((s) => (s.places?.provider_id ?? s.provider_id ?? s.providerId) === providerId);
+}
+
 function toast(name: string, placement: Placement): string {
   const day = placementDay(placement);
   if (day) return `${name} added to Day ${day}.`;
@@ -27,8 +34,8 @@ function toast(name: string, placement: Placement): string {
 /**
  * One control for a place's whole relationship to the trip: not in it →
  * shortlisted (still deciding) → scheduled on a day. A plain click on the left
- * shortlists; the caret opens a menu to pick a day or remove. Scheduling a
- * place also shortlists it; removing it from a day leaves it shortlisted.
+ * opens a menu to pick a day or remove. The bookmark remains an independent
+ * saved-place action.
  *
  * Current state and the trip's day count are read from the trip snapshot when
  * one is in context; pass `initialPlacement` to override.
@@ -78,7 +85,9 @@ export function AddToTripControl({
 
   const shellRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const savedDerived = isSaved(savedPlaces, place.providerId);
   const [placement, setPlacement] = useState<Placement>(derived);
+  const [saved, setSaved] = useState(savedDerived);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
   // The menu is portalled to <body> so a card's overflow/stacking can't clip it.
@@ -99,8 +108,11 @@ export function AddToTripControl({
   // Re-sync from the snapshot when it refreshes and we're not mid-write.
   const derivedKey = JSON.stringify(derived);
   useEffect(() => {
-    if (!busyRef.current) setPlacement(JSON.parse(derivedKey) as Placement);
-  }, [derivedKey]);
+    if (!busyRef.current) {
+      setPlacement(JSON.parse(derivedKey) as Placement);
+      setSaved(savedDerived);
+    }
+  }, [derivedKey, savedDerived]);
 
   useLayoutEffect(() => {
     if (open) place_menu();
@@ -143,7 +155,33 @@ export function AddToTripControl({
       onPlacementChange?.(next);
       notifyToast(res.queued ? `${place.name} — saved, will sync when you're back online.` : toast(place.name, next), res.queued ? "info" : "success");
     } catch {
-      setPlacement(previous);
+      // Revert only if nothing newer has already landed on top of this optimistic value — a
+      // rapid second click that already succeeded must not be clobbered by this failure.
+      setPlacement((current) => (same(current, next) ? previous : current));
+      notifyToast(`Couldn’t update ${place.name}. Try again.`, "error");
+    } finally {
+      setBusy(false);
+      busyRef.current = false;
+    }
+  }
+
+  async function toggleBookmark() {
+    if (busy) return;
+    const previous = saved;
+    const next = !previous;
+    setSaved(next);
+    setBusy(true);
+    busyRef.current = true;
+    try {
+      const res = await mutate(`/api/trips/${tripId}/places/bookmark`, {
+        method: "PUT",
+        body: { place, saved: next },
+        announce: ["places"],
+      });
+      if (!res.ok) throw new Error();
+      notifyToast(!previous ? `${place.name} saved.` : `${place.name} removed from saved places.`, "success");
+    } catch {
+      setSaved(previous);
       notifyToast(`Couldn’t update ${place.name}. Try again.`, "error");
     } finally {
       setBusy(false);
@@ -152,20 +190,16 @@ export function AddToTripControl({
   }
 
   const day = placementDay(placement);
-  const state: "none" | "shortlist" | "day" = day ? "day" : placement === "shortlist" ? "shortlist" : "none";
-  const Icon = busy ? Loader2 : state === "day" ? CalendarCheck : state === "shortlist" ? BookmarkCheck : Bookmark;
-  const label = state === "day" ? `Day ${day}` : state === "shortlist" ? "Shortlisted" : "Add to trip";
+  const bookmarked = saved;
+  const state: "none" | "day" = day ? "day" : "none";
+  const label = state === "day" ? `Day ${day}` : "Add to trip";
 
   const sm = size === "sm";
   const shell = cn(
     "items-stretch overflow-hidden rounded-full border text-left transition-colors",
     block ? "flex w-full" : "inline-flex",
     sm ? "text-xs" : "text-sm",
-    state === "day"
-      ? "border-leaf/50 bg-leaf text-primary-foreground"
-      : state === "shortlist"
-        ? "border-leaf/40 bg-leaf-soft text-leaf"
-        : "border-border bg-background text-ink-soft",
+    "border-border bg-background text-ink-soft",
     busy && "opacity-70",
   );
 
@@ -175,23 +209,27 @@ export function AddToTripControl({
         <button
           type="button"
           disabled={busy}
-          onClick={() => (state === "none" ? void apply("shortlist") : setOpen((o) => !o))}
-          aria-label={state === "none" ? `Shortlist ${place.name}` : `Change how ${place.name} is in the trip`}
+          onClick={() => setOpen((o) => !o)}
+          aria-label={`Choose an itinerary day for ${place.name}`}
           className={cn(
             "inline-flex items-center justify-center gap-1.5 font-medium transition-colors",
             block && "flex-1",
             sm ? "h-8 pl-3 pr-2.5" : "h-10 pl-4 pr-3",
-            state === "none" && "hover:border-primary/40 hover:text-primary",
+            day ? "bg-leaf text-primary-foreground hover:bg-leaf hover:text-primary-foreground" : "hover:text-primary",
           )}
         >
-          <Icon className={cn(sm ? "h-3.5 w-3.5" : "h-4 w-4", busy && "animate-spin")} />
+          {busy ? (
+            <Loader2 className={cn(sm ? "h-3.5 w-3.5" : "h-4 w-4", "animate-spin")} />
+          ) : day ? (
+            <CalendarCheck className={cn(sm ? "h-3.5 w-3.5" : "h-4 w-4")} />
+          ) : null}
           <AnimatePresence mode="wait" initial={false}>
             <motion.span
               key={label}
               initial={reduce ? false : { opacity: 0, y: 3 }}
               animate={{ opacity: 1, y: 0 }}
               exit={reduce ? { opacity: 0 } : { opacity: 0, y: -3 }}
-              transition={{ duration: 0.12 }}
+              transition={{ duration: reduce ? 0 : 0.12 }}
             >
               {label}
             </motion.span>
@@ -200,18 +238,15 @@ export function AddToTripControl({
         <button
           type="button"
           disabled={busy}
-          onClick={() => setOpen((o) => !o)}
-          aria-label="Choose a day or remove"
-          aria-haspopup="menu"
-          aria-expanded={open}
-          aria-controls={menuId}
+          onClick={() => void toggleBookmark()}
+          aria-label={saved ? `Remove ${place.name} from saved places` : `Save ${place.name}`}
           className={cn(
-            "inline-flex items-center border-l border-inherit transition-colors",
+            "inline-flex items-center border-l border-inherit px-2 transition-colors",
             sm ? "px-1.5" : "px-2",
-            state === "none" && "hover:bg-accent",
+            "bg-background text-primary hover:bg-accent",
           )}
         >
-          <ChevronDown className={cn("transition-transform", sm ? "h-3.5 w-3.5" : "h-4 w-4", open && "rotate-180")} />
+          <Bookmark className={cn(sm ? "h-3.5 w-3.5" : "h-4 w-4", bookmarked && "fill-current")} />
         </button>
       </div>
 
@@ -226,7 +261,7 @@ export function AddToTripControl({
                 initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: menuPos.up ? 4 : -4 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: menuPos.up ? 4 : -4 }}
-                transition={{ duration: 0.14, ease: [0.22, 0.61, 0.36, 1] }}
+                transition={{ duration: reduce ? 0 : 0.14, ease: [0.22, 0.61, 0.36, 1] }}
                 style={{
                   position: "fixed",
                   left: menuPos.left,
@@ -237,16 +272,6 @@ export function AddToTripControl({
                   menuPos.up ? "origin-bottom-right" : "origin-top-right",
                 )}
               >
-            <MenuRow
-              selected={placement === "shortlist"}
-              onClick={() => void apply("shortlist")}
-              title="Shortlist"
-              hint="still deciding"
-              Icon={Bookmark}
-            />
-
-            <div className="mx-2 my-1.5 hairline" />
-
             {dayCount > 0 ? (
               <div className={cn(dayCount > 6 && "max-h-56 overflow-y-auto scrollbar-slim")}>
                 {Array.from({ length: dayCount }, (_, i) => i + 1).map((d) => (
@@ -257,7 +282,7 @@ export function AddToTripControl({
               <MenuRow selected={Boolean(day)} onClick={() => void apply({ dayIndex: 1 })} title="Add to itinerary" hint="order it later" Icon={CalendarCheck} />
             )}
 
-            {state !== "none" && (
+            {state === "day" && (
               <>
                 <div className="mx-2 my-1.5 hairline" />
                 <button
@@ -267,7 +292,7 @@ export function AddToTripControl({
                   className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-destructive transition-colors hover:bg-destructive/10"
                 >
                   <Trash2 className="h-3.5 w-3.5 shrink-0" />
-                  Remove from trip
+                  Remove from itinerary
                 </button>
               </>
             )}

@@ -13,7 +13,7 @@ export function feasibilityHint(pace: string | undefined, itineraryDayIndexes: n
   const capacity = dayCapacity(pace);
   const perDay = new Map<number, number>();
   for (const day of itineraryDayIndexes) perDay.set(day, (perDay.get(day) ?? 0) + 1);
-  const overloaded = [...perDay.entries()].filter(([, count]) => count > capacity).map(([day]) => day + 1);
+  const overloaded = [...perDay.entries()].filter(([day, count]) => day >= 1 && count > capacity).map(([day]) => day);
   const base = `The traveller's pace is ${pace || "unspecified"}; a realistic day is about ${capacity} stops once travel, queues and meals are counted.`;
   return overloaded.length
     ? `${base} Day${overloaded.length > 1 ? "s" : ""} ${overloaded.join(", ")} already exceed that — say so and offer to trim or split.`

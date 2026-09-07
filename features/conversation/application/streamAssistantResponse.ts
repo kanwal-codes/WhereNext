@@ -1,4 +1,5 @@
 import type { AssistantTurnMeta } from "@/packages/contracts/assistant";
+import { sseJson } from "@/packages/ai/sse";
 
 type AssistantDelta = {
   choices?: Array<{ delta?: { content?: string } }>;
@@ -19,11 +20,13 @@ export async function streamAssistantResponse(
   onDelta: (content: string) => void,
   signal: AbortSignal | undefined,
   messageIdempotencyKey: string,
+  /** What the user is currently looking at (an open place/stay panel), for deictic references. */
+  viewContext?: string,
 ): Promise<{ content: string; meta?: AssistantTurnMeta }> {
   const response = await fetch("/api/ai", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ tripId, messages, messageIdempotencyKey }),
+    body: JSON.stringify({ tripId, messages, messageIdempotencyKey, ...(viewContext ? { viewContext } : {}) }),
     signal,
   });
   if (!response.ok || !response.body) {
@@ -31,38 +34,20 @@ export async function streamAssistantResponse(
     throw new AssistantRequestError(response.status, body?.error ?? "Assistant unavailable");
   }
 
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let pending = "";
   let content = "";
   let meta: AssistantTurnMeta | undefined;
 
-  const handle = (line: string) => {
-    if (!line.startsWith("data: ") || line.includes("[DONE]")) return;
-    try {
-      const event = JSON.parse(line.slice(6)) as AssistantDelta;
-      if (event.meta) {
-        meta = event.meta;
-        if (typeof event.content === "string") content = event.content;
-        return;
-      }
-      const delta = event.choices?.[0]?.delta?.content ?? "";
-      content += delta;
-      if (delta) onDelta(content);
-    } catch {
-      // Ignore malformed provider events; the server persists valid content.
+  // A malformed provider event is skipped inside sseJson; the server persists the valid content.
+  for await (const event of sseJson<AssistantDelta>(response.body)) {
+    if (event.meta) {
+      meta = event.meta;
+      // The meta frame carries the final sanitized text — it replaces the accumulated stream.
+      if (typeof event.content === "string") content = event.content;
+      continue;
     }
-  };
-
-  while (true) {
-    const chunk = await reader.read();
-    if (chunk.done) break;
-    pending += decoder.decode(chunk.value, { stream: true });
-    const lines = pending.split("\n");
-    pending = lines.pop() ?? "";
-    for (const line of lines) handle(line);
+    const delta = event.choices?.[0]?.delta?.content ?? "";
+    content += delta;
+    if (delta) onDelta(content);
   }
-  pending += decoder.decode();
-  if (pending) handle(pending.startsWith("data: ") ? pending : `data: ${pending}`);
   return { content, meta };
 }

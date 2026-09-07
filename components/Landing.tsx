@@ -2,17 +2,29 @@
 
 import Link from "next/link";
 import { motion, useScroll, useTransform, useReducedMotion } from "motion/react";
-import { useRef, type ReactNode } from "react";
-import { ArrowRight } from "lucide-react";
-import { Reveal, WordReveal, ease } from "@/components/motion-primitives";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  ArrowRight,
+  BedDouble,
+  CalendarDays,
+  Columns2,
+  Compass,
+  DownloadCloud,
+  Info,
+  Link2,
+  Map,
+  MessageSquare,
+  NotebookPen,
+  Share2,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
+import { ContentSwap, Reveal, WordReveal, ease, useAnimateIn } from "@/components/motion-primitives";
 import { BrandMark } from "@/components/BrandMark";
 import { cn } from "@/lib/utils";
 
-const mountainsImg = "/design/land-mountains.jpg";
-const friendsImg = "/design/land-friends-v3.png";
-const cityImg = "/design/land-city-v3.png";
-const stayImg = "/design/land-stay.jpg";
-const coastImg = "/design/land-coast-v3.png";
+const mountainsImg = "/design/land-mountains-right-v2.webp";
+const coastImg = "/design/land-coast-v3.webp";
 
 /** Scroll-triggered rise. Editorial pacing: slow, once, never bouncy. */
 function InView({ children, className, delay = 0, y = 22 }: { children: ReactNode; className?: string; delay?: number; y?: number }) {
@@ -23,7 +35,7 @@ function InView({ children, className, delay = 0, y = 22 }: { children: ReactNod
       initial={{ opacity: 0, y: reduce ? 0 : y }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-12% 0px -12% 0px" }}
-      transition={{ duration: 0.85, ease, delay }}
+      transition={reduce ? { duration: 0 } : { duration: 0.85, ease, delay }}
     >
       {children}
     </motion.div>
@@ -71,19 +83,408 @@ function Plate({
   );
 }
 
-function Chapter({ index, label, title, body, note }: { index: string; label: string; title: string; body: string; note?: string }) {
+/** Eyebrow + heading (+ optional lead paragraph), shared by every section below the hero. */
+function SectionHead({ eyebrow, title, lead }: { eyebrow: string; title: string; lead?: string }) {
   return (
-    <div>
-      <div className="flex items-baseline gap-3">
-        <span className="font-display text-sm text-coral">{index}</span>
-        <span className="eyebrow">{label}</span>
-      </div>
-      <h2 className="mt-4 font-display text-3xl leading-[1.12] sm:text-4xl lg:text-[2.75rem]">{title}</h2>
-      <p className="mt-4 max-w-md text-[0.95rem] leading-relaxed text-ink-soft">{body}</p>
-      {note && <p className="mt-6 max-w-md text-sm leading-relaxed text-muted-foreground">{note}</p>}
+    <div className="max-w-2xl">
+      <p className="eyebrow">{eyebrow}</p>
+      <h2 className="mt-3 font-display text-3xl leading-[1.12] tracking-[-0.02em] sm:text-4xl lg:text-[2.75rem]">{title}</h2>
+      {lead && <p className="mt-4 text-[0.95rem] leading-relaxed text-ink-soft">{lead}</p>}
     </div>
   );
 }
+
+/** One card for both the bento grid (`chip`: icon in a coral square) and the feature band (bare icon). */
+function Tile({
+  icon: Icon,
+  name,
+  line,
+  chip = false,
+  featured = false,
+  className,
+}: {
+  icon: LucideIcon;
+  name: string;
+  line: string;
+  chip?: boolean;
+  featured?: boolean;
+  className?: string;
+}) {
+  return (
+    <motion.div
+      whileHover={{ y: -4 }}
+      transition={{ type: "spring", stiffness: 300, damping: 24 }}
+      className={cn(
+        "flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-soft",
+        featured && "bg-ink text-background sm:p-6",
+        className,
+      )}
+    >
+      {chip ? (
+        <span className={cn("inline-flex size-9 items-center justify-center rounded-xl bg-coral-soft text-coral", featured && "bg-white/10 text-coral-soft")}>
+          <Icon className="size-4" strokeWidth={1.75} />
+        </span>
+      ) : (
+        <Icon className="size-5 text-coral" strokeWidth={1.75} />
+      )}
+      <h3 className={cn("font-display", chip ? "mt-4 text-lg" : "mt-3 text-base", featured && "text-background")}>{name}</h3>
+      <p className={cn("mt-1.5 text-sm leading-relaxed text-ink-soft", featured && "text-background/70")}>{line}</p>
+      {featured && (
+        <div className="mt-auto grid grid-cols-3 gap-2 pt-8 text-[11px] text-background/65">
+          {["Conversation", "Evidence", "Plan"].map((step, i) => (
+            <div key={step} className="relative border-t border-white/20 pt-2">
+              <span className="mr-1 text-coral">0{i + 1}</span>{step}
+              {i < 2 && <span className="absolute right-1 top-[-1px] text-background/35">→</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+const MOCK_PLACES = [
+  { name: "Café Lento", meta: "8 min walk · opens 08:00", base: 82, tags: ["Quiet", "Veg-friendly"], image: "/design/place-cafe.jpg" },
+  { name: "Harbour Walk", meta: "12 min walk · free", base: 77, tags: ["Slow", "Outdoors"], image: "/design/land-coast-v3.webp" },
+];
+
+// A chip's `matches` is the place tag it rewards when active — "YYZ" (home airport) never
+// touches a place's score, same as in the real ranker: not everything you set moves every card.
+const MOCK_CHIPS = [
+  { label: "Slow pace", matches: "Slow" },
+  { label: "Vegetarian", matches: "Veg-friendly" },
+  { label: "YYZ", matches: null },
+] as const;
+const MOCK_MATCH_BONUS = 14;
+
+/** A live-ish Discover ranking: toggle a chip and the two cards actually re-sort. Hand-built
+ * from tokens, not a screenshot — nothing here calls the real ranker. */
+function DiscoverMock() {
+  const [active, setActive] = useState<Set<string>>(() => new Set(MOCK_CHIPS.map((c) => c.label)));
+  const toggle = (label: string) =>
+    setActive((cur) => {
+      const next = new Set(cur);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+
+  const ranked = MOCK_PLACES.map((p) => {
+    const bonus = MOCK_CHIPS.filter((c) => active.has(c.label) && c.matches && p.tags.includes(c.matches)).length * MOCK_MATCH_BONUS;
+    return { ...p, score: Math.min(99, p.base + bonus) };
+  }).sort((a, b) => b.score - a.score);
+
+  return (
+    <div className="mx-auto w-full max-w-sm rounded-[2rem] border border-border bg-surface p-4 shadow-lift sm:p-5 lg:max-w-none">
+      <div className="flex flex-wrap gap-2">
+        {MOCK_CHIPS.map((c) => {
+          const on = active.has(c.label);
+          return (
+            <button
+              key={c.label}
+              type="button"
+              aria-pressed={on}
+              onClick={() => toggle(c.label)}
+              className={cn(
+                "inline-flex h-7 items-center rounded-full px-3 text-xs font-medium transition-colors",
+                on ? "bg-coral-soft text-coral" : "border border-border text-muted-foreground hover:border-primary/40 hover:text-primary",
+              )}
+            >
+              {c.label}
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-1.5 text-[11px] text-muted-foreground">Tap a filter — the ranking follows it.</p>
+
+      <p className="mt-3 text-[11px] font-medium tracking-[0.12em] text-muted-foreground uppercase">Near your stay</p>
+
+      <div className="mt-2 space-y-2.5">
+        {ranked.map((p) => (
+          <motion.div
+            key={p.name}
+            layout
+            whileHover={{ y: -2 }}
+            transition={{ type: "spring", stiffness: 300, damping: 26 }}
+            className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- static demo asset, no next/image sizing needed */}
+            <img src={p.image} alt="" className="size-12 shrink-0 rounded-xl object-cover" />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <p className="truncate font-display text-sm">{p.name}</p>
+                <span className="shrink-0 text-xs font-medium text-coral">{p.score}% match</span>
+              </div>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">{p.meta}</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {p.tags.map((t) => (
+                  <span key={t} className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-ink-soft">
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+type Exchange = { user: string; assistant: string };
+
+const EXCHANGES: Exchange[] = [
+  {
+    user: "We’ve got 5 days in Lisbon in October. Two of us, mid-range budget, love food and walking.",
+    assistant: "Got it — 5 days, October, food-and-walking pace. I’m Roam — I’ll keep flights and stays under mid-range and lean the itinerary toward neighbourhoods you can wander. Coastal day trip, or stay in the city the whole time?",
+  },
+  {
+    user: "Stay in the city, but a coastal day trip sounds good.",
+    assistant: "Sintra’s the easy call — 40 minutes by train. I found three neighbourhoods that fit your budget near the centre, each walking distance to the food spots you’d like.",
+  },
+  {
+    user: "Show me the neighbourhoods.",
+    assistant: "Here’s the top match — quiet, walkable, close to the river.",
+  },
+];
+
+const TYPE_MS_PER_CHAR = 18;
+const PRE_REPLY_PAUSE_MS = 600;
+const POST_REPLY_PAUSE_MS = 1400;
+
+/** Static illustration of a Discover-card result, hardcoded — same shell the real
+ * conversation's place cards use (`MessageBlocks.tsx`). */
+function DemoPlaceCard() {
+  return (
+    <div className="rounded-2xl border border-border/70 bg-card shadow-[0_1px_2px_color-mix(in_oklab,var(--color-ink)_6%,transparent)]">
+      {/* eslint-disable-next-line @next/next/no-img-element -- static demo asset, no next/image sizing needed */}
+      <img src="/design/place-neighbourhood.jpg" alt="" className="h-20 w-full rounded-t-2xl object-cover" />
+      <div className="p-3">
+        <h4 className="font-display text-base">Alfama</h4>
+        <p className="mt-1 text-xs text-muted-foreground">4.7 · Historic quarter · 6 min walk to the river</p>
+      </div>
+    </div>
+  );
+}
+
+/** All three exchanges laid out at once, no typing — the reduced-motion / not-yet-in-view
+ * fallback, so the demo never gets stuck mid-conversation. */
+function StaticTranscript() {
+  return (
+    <div className="space-y-3">
+      {EXCHANGES.map((e) => (
+        <div key={e.user} className="space-y-3">
+          <div className="flex justify-end">
+            <p className="max-w-[85%] rounded-2xl rounded-br-lg bg-primary px-4 py-2.5 text-sm leading-relaxed text-primary-foreground">
+              {e.user}
+            </p>
+          </div>
+          <div className="chat-prose">
+            <p>{e.assistant}</p>
+          </div>
+        </div>
+      ))}
+      <DemoPlaceCard />
+    </div>
+  );
+}
+
+/**
+ * A scripted, hardcoded preview of talking to Roam — no live API calls. Autoplays once,
+ * typing each reply, when scrolled into view. From then on it's touchable: tap the panel
+ * to skip the typing or jump to the next line, or use the dots to jump straight to one.
+ * Reduced motion (or a backgrounded tab, via `useAnimateIn`) skips straight to the full
+ * static transcript instead of animating.
+ */
+function ChatDemo() {
+  const reduce = useReducedMotion();
+  const animateIn = useAnimateIn();
+  const [inView, setInView] = useState(false);
+  const canPlay = inView && animateIn;
+
+  const [index, setIndex] = useState(0);
+  const [replying, setReplying] = useState(false);
+  const [charCount, setCharCount] = useState(0);
+  const [showCard, setShowCard] = useState(false);
+  const [hint, setHint] = useState(true);
+
+  const typeTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const preTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const replayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearTimers = () => {
+    if (typeTimer.current) clearInterval(typeTimer.current);
+    if (preTimer.current) clearTimeout(preTimer.current);
+    if (advanceTimer.current) clearTimeout(advanceTimer.current);
+    if (replayTimer.current) clearTimeout(replayTimer.current);
+    typeTimer.current = preTimer.current = advanceTimer.current = replayTimer.current = null;
+  };
+  useEffect(() => clearTimers, []);
+
+  /** Show exchange `i`. `typed`: play the pause-then-type-then-advance sequence (autoplay,
+   * replay); otherwise show its reply in full immediately (manual navigation). */
+  const showExchange = (i: number, typed: boolean) => {
+    clearTimers();
+    setIndex(i);
+    setShowCard(false);
+    const text = EXCHANGES[i].assistant;
+
+    if (!typed) {
+      setReplying(true);
+      setCharCount(text.length);
+      if (i === EXCHANGES.length - 1) setShowCard(true);
+      return;
+    }
+    setReplying(false);
+    setCharCount(0);
+    preTimer.current = setTimeout(() => {
+      setReplying(true);
+      let count = 0;
+      typeTimer.current = setInterval(() => {
+        count += 1;
+        setCharCount(Math.min(count, text.length));
+        if (count >= text.length) {
+          if (typeTimer.current) clearInterval(typeTimer.current);
+          advanceTimer.current = setTimeout(() => {
+            if (i < EXCHANGES.length - 1) showExchange(i + 1, true);
+            else setShowCard(true);
+          }, POST_REPLY_PAUSE_MS);
+        }
+      }, TYPE_MS_PER_CHAR);
+    }, PRE_REPLY_PAUSE_MS);
+  };
+
+  useEffect(() => {
+    if (!canPlay) return;
+    showExchange(0, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- autoplay kicks off once, when the section is first in view
+  }, [canPlay]);
+
+  useEffect(() => {
+    if (!showCard || index !== EXCHANGES.length - 1 || !canPlay) return;
+    replayTimer.current = setTimeout(() => showExchange(0, true), 2600);
+    return () => {
+      if (replayTimer.current) clearTimeout(replayTimer.current);
+      replayTimer.current = null;
+    };
+  }, [showCard, index, canPlay]);
+
+  const exchange = EXCHANGES[index];
+  const replyDone = charCount >= exchange.assistant.length;
+
+  const handleTap = () => {
+    setHint(false);
+    if (showCard) return showExchange(0, true); // replay, with the typing show
+    if (!replying) return; // still in the pre-reply pause — nothing to skip yet
+    if (!replyDone) {
+      // mid-typing — snap straight to the full line
+      clearTimers();
+      setCharCount(exchange.assistant.length);
+      if (index === EXCHANGES.length - 1) setShowCard(true);
+      return;
+    }
+    // already read — move on, instantly, since the visitor is driving now
+    if (index < EXCHANGES.length - 1) showExchange(index + 1, false);
+    else setShowCard(true);
+  };
+
+  if (reduce) {
+    return (
+      <div className="mx-auto w-full max-w-lg rounded-[2rem] border border-border bg-surface p-5 shadow-lift sm:p-6">
+        <StaticTranscript />
+      </div>
+    );
+  }
+
+  return (
+    <motion.div viewport={{ once: true, margin: "-15% 0px -15% 0px" }} onViewportEnter={() => setInView(true)} className="mx-auto w-full max-w-lg">
+      <button
+        type="button"
+        onClick={handleTap}
+        className="w-full cursor-pointer rounded-[2rem] border border-border bg-surface p-5 text-left shadow-lift transition-shadow hover:shadow-2xl sm:p-6"
+      >
+        {/* Fixed per breakpoint (not animated) — sized to the tallest state (the last
+            exchange plus its place card) so the panel never resizes as the demo plays.
+            Text and card share this one box, so any slack trails at the bottom instead of
+            sitting as a gap between them. */}
+        {/* Reserve the final transcript + place-card footprint up front. The card is revealed
+            inside this frame so the landing page never reflows when the third exchange lands. */}
+        <div className="h-[300px] sm:h-[270px] overflow-hidden">
+          <ContentSwap swapKey={String(index)}>
+            <div className="space-y-3">
+              <div className="flex justify-end">
+                <p className="max-w-[85%] rounded-2xl rounded-br-lg bg-primary px-4 py-2.5 text-sm leading-relaxed text-primary-foreground">
+                  {exchange.user}
+                </p>
+              </div>
+              {replying && (
+                <div className={cn(!replyDone && "chat-streaming")}>
+                  <div className="chat-prose">
+                    <p>{exchange.assistant.slice(0, charCount)}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </ContentSwap>
+          {showCard && (
+            <Reveal delay={0.1} y={0} className="mt-3">
+              <DemoPlaceCard />
+            </Reveal>
+          )}
+        </div>
+      </button>
+
+      <div className="mt-4 flex items-center justify-center gap-3">
+        <div className="flex items-center">
+          {EXCHANGES.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              aria-label={`Show exchange ${i + 1} of ${EXCHANGES.length}`}
+              aria-current={i === index && !showCard}
+              onClick={() => {
+                setHint(false);
+                showExchange(i, false);
+              }}
+              className="group p-2"
+            >
+              <span
+                className={cn(
+                  "block h-1.5 rounded-full transition-[width,background-color]",
+                  i === index && !showCard ? "w-6 bg-coral" : "w-1.5 bg-border group-hover:bg-muted-foreground/50",
+                )}
+              />
+            </button>
+          ))}
+        </div>
+      </div>
+      {hint && !showCard && <p className="mt-2 text-center text-[11px] text-muted-foreground">Tap to skip ahead</p>}
+    </motion.div>
+  );
+}
+
+const STEPS = [
+  { n: "01", title: "Talk it through", body: "Tell it what you’re after in plain words. It asks the right follow-ups and keeps every answer." },
+  { n: "02", title: "See the evidence", body: "Places, stays, flights, events and weather come from live data — each with a link to its source." },
+  { n: "03", title: "Lock in your choices", body: "Wave options off or confirm them. What you keep flows straight into the itinerary." },
+];
+
+const TILES: Array<{ name: string; icon: LucideIcon; line: string; span: string }> = [
+  { name: "Chat", icon: MessageSquare, line: "Talk the trip through. It asks, remembers your answers and proposes options you confirm.", span: "sm:col-span-2 lg:col-span-4" },
+  { name: "Discover", icon: Compass, line: "Places ranked by what you like and where you’re staying, each with a source link.", span: "lg:col-span-2" },
+  { name: "Map / getting around", icon: Map, line: "See how the days connect and how you’d move between them.", span: "lg:col-span-2" },
+  { name: "Stays", icon: BedDouble, line: "Compare places to stay night by night, close to what you’ve planned.", span: "lg:col-span-2" },
+  { name: "Itinerary", icon: CalendarDays, line: "Confirmed choices land in a day-by-day plan you can follow.", span: "lg:col-span-2" },
+  { name: "Compare", icon: Columns2, line: "Put a shortlist side by side so the pick is obvious.", span: "lg:col-span-3" },
+  { name: "Trip notes", icon: NotebookPen, line: "Decisions, constraints and open questions stay where you left them.", span: "lg:col-span-3" },
+];
+
+const FEATURES: Array<{ name: string; icon: LucideIcon; line: string }> = [
+  { name: "Import from a link", icon: Link2, line: "Paste a guide or blog URL and it pulls the destination and places into a new trip." },
+  { name: "Plan together, live", icon: Users, line: "Invite friends as editors or viewers. Edits and presence sync as they happen." },
+  { name: "Comes with you", icon: DownloadCloud, line: "Install it like an app. The day’s plan works offline, and a pre-trip review flags the gaps before you leave." },
+  { name: "Share", icon: Share2, line: "Publish a read-only itinerary and map anyone can open." },
+];
 
 export function Landing() {
   const heroRef = useRef<HTMLDivElement>(null);
@@ -93,9 +494,12 @@ export function Landing() {
   const heroScale = useTransform(scrollYProgress, [0, 1], reduce ? [1, 1] : [1.04, 1.12]);
 
   return (
-    <div className="min-h-screen">
+    // Always the original light look, regardless of the app's dark-mode setting — the
+    // marketing page isn't part of the signed-in product, so it doesn't follow it. Paints its
+    // own background/text color rather than inheriting <body>'s (which stays dark-able).
+    <div className="theme-light-scope min-h-screen bg-background text-foreground">
       {/* ——— Cover ——— */}
-      <header ref={heroRef} className="relative h-[86svh] min-h-[560px] w-full overflow-hidden">
+      <header ref={heroRef} className="relative h-[76svh] min-h-[560px] w-full overflow-hidden">
         <motion.img src={mountainsImg} alt="Mist rolling over a mountain pass at sunrise" style={{ y: heroY, scale: heroScale }} className="absolute inset-0 h-full w-full object-cover" />
         <div className="pointer-events-none absolute inset-0 vignette" />
         <div className="pointer-events-none absolute inset-0 grain" />
@@ -105,16 +509,15 @@ export function Landing() {
         />
 
         <div className="absolute inset-x-0 top-0">
-          <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 pt-7 sm:px-10">
-            <Link href="/" className="inline-flex items-center gap-2 rounded-full bg-white/60 px-3 py-1.5 backdrop-blur-sm">
-              <BrandMark variant="text" />
+          <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-3 px-4 pt-5 sm:px-10 sm:pt-7">
+            <Link href="/" className="inline-flex items-center gap-2">
+              <BrandMark variant="compact" />
+              <BrandMark variant="text" textClassName="text-lg sm:text-xl" />
             </Link>
-            <div className="flex items-center gap-5">
-              <Link href="/sign-in" className="link-underline text-sm font-medium">
+            {/* Utility link only — the real CTA pair lives once, in the hero copy below. */}
+            <div className="flex items-center gap-3">
+              <Link href="/sign-in" className="hero-eyebrow text-sm font-medium whitespace-nowrap transition-opacity hover:opacity-70">
                 Sign in
-              </Link>
-              <Link href="/sign-up" className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-transform hover:scale-[1.03]">
-                Create account
               </Link>
             </div>
           </div>
@@ -132,6 +535,14 @@ export function Landing() {
                 No forms, no twelve open tabs. A conversation that remembers, and a trip that quietly builds itself around your answers.
               </p>
             </Reveal>
+            <Reveal delay={1.0} className="mt-8 flex flex-wrap items-center gap-3">
+              <Link href="/sign-up" className="btn-primary">
+                Create free account <ArrowRight className="size-4" />
+              </Link>
+              <Link href="/sign-in" className="rounded-full bg-white/60 px-4 py-2.5 text-sm font-medium backdrop-blur-sm transition-colors hover:bg-white/80">
+                Sign in
+              </Link>
+            </Reveal>
           </div>
         </div>
       </header>
@@ -146,99 +557,141 @@ export function Landing() {
         </InView>
       </section>
 
-      {/* ——— 01 Conversation ——— */}
+      {/* ——— How it works ——— */}
+      <section className="mx-auto max-w-[1200px] px-6 py-20 sm:px-10 lg:py-28">
+        <InView>
+          <SectionHead eyebrow="How it works" title="Talk first. The plan follows." />
+        </InView>
+        <div className="mt-12 grid gap-8 sm:grid-cols-3 sm:gap-6">
+          {STEPS.map((s, i) => (
+            <InView key={s.n} delay={i * 0.08} y={18}>
+              <div className="flex items-baseline gap-3">
+                <span className="font-display text-sm text-coral">{s.n}</span>
+                <span className="hairline flex-1" />
+              </div>
+              <h3 className="mt-4 font-display text-xl">{s.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-soft">{s.body}</p>
+            </InView>
+          ))}
+        </div>
+      </section>
+
+      {/* ——— See it in action ——— */}
+      <section className="mx-auto max-w-[1200px] px-6 py-14 sm:px-10 lg:py-20">
+        <InView>
+          <SectionHead eyebrow="Meet Roam" title="A conversation, not a form." />
+        </InView>
+        <InView delay={0.1} className="mt-7">
+          <ChatDemo />
+        </InView>
+      </section>
+
+      {/* ——— One workspace, the flagship bento ——— */}
+      <section className="mx-auto max-w-[1200px] px-6 py-20 sm:px-10 lg:py-28">
+        <InView>
+          <SectionHead
+            eyebrow="One workspace"
+            title="Everything the trip needs, in one place."
+            lead="One conversation carries the trip from a first idea to a plan you can actually follow."
+          />
+        </InView>
+        <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
+          {TILES.map((t, i) => (
+            <InView key={t.name} className={t.span} delay={i * 0.05} y={18}>
+              <Tile icon={t.icon} name={t.name} line={t.line} chip featured={t.name === "Chat"} />
+            </InView>
+          ))}
+        </div>
+      </section>
+
+      {/* ——— Tuned to you ——— */}
+      <section className="mx-auto max-w-[1200px] px-6 py-20 sm:px-10 lg:py-28">
+        <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
+          <InView>
+            <SectionHead
+              eyebrow="Tuned to you"
+              title="Set your travel style once."
+              lead="Interests, pace, budget, dietary needs, home airport — set them once and everything after is ranked around them. Change them any time and the trip re-sorts."
+            />
+          </InView>
+          <InView delay={0.1}>
+            <DiscoverMock />
+          </InView>
+        </div>
+      </section>
+
+      {/* ——— Feature band ——— */}
+      <section className="mx-auto max-w-[1200px] px-6 py-20 sm:px-10 lg:py-28">
+        <InView>
+          <SectionHead eyebrow="Also in the workspace" title="Built for real trips." />
+        </InView>
+        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {FEATURES.map((f, i) => (
+            <InView key={f.name} delay={i * 0.06} y={18}>
+              <Tile icon={f.icon} name={f.name} line={f.line} />
+            </InView>
+          ))}
+        </div>
+      </section>
+
+      {/* ——— A visual breath ——— */}
       <section className="mx-auto max-w-[1200px] px-6 sm:px-10">
-        <div className="grid items-center gap-10 lg:grid-cols-12 lg:gap-16">
-          <InView className="lg:col-span-5">
-            <Chapter
-              index="01"
-              label="Conversation"
-              title="It asks. You answer. It remembers."
-              body="Tell it you have nine days and a soft spot for old harbour towns. It asks the right follow-ups, keeps every answer, and proposes options you either confirm or wave off."
-              note="Travel style is set once — interests, pace, budget, dietary needs, home airport — and everything after that is ranked around it."
-            />
-          </InView>
-          <InView className="lg:col-span-7" delay={0.1}>
-            <Plate src={friendsImg} alt="Friends laughing around a long dinner table at dusk" ratio="aspect-[4/3] lg:aspect-[5/4]" className="rounded-[2rem]" />
-          </InView>
-        </div>
+        <InView>
+          <Plate src={coastImg} alt="A coastal road curving above turquoise water" ratio="aspect-[21/9] sm:aspect-[28/9]" className="rounded-[2rem]" />
+        </InView>
       </section>
 
-      {/* ——— 02 Evidence, full bleed ——— */}
-      <section className="relative mt-24 lg:mt-36">
-        <Plate src={cityImg} alt="An old town street at blue hour, cafés lit along the cobblestones" ratio="aspect-[16/10] sm:aspect-[21/9]" fade="both" className="w-full" />
-        <div className="relative z-10 mx-auto -mt-10 max-w-[1200px] px-6 sm:-mt-16 sm:px-10">
-          <div className="grid gap-10 lg:grid-cols-12">
-            <InView className="lg:col-span-6 lg:col-start-7">
-              <Chapter
-                index="02"
-                label="Evidence"
-                title="Everything it shows, it can point to."
-                body="Places, stays, flights, events and the weather come from live data — each with a source link. Nothing invented, nothing quietly out of date."
-                note="Discover ranks by what you like and where you're staying. Compare puts the shortlist side by side so the choice is obvious."
-              />
-            </InView>
+      {/* ——— Honesty note ——— */}
+      <section className="mx-auto max-w-[1200px] px-6 py-8 sm:px-10">
+        <InView>
+          <div className="flex items-center gap-3 rounded-2xl border border-border bg-surface px-5 py-4">
+            <Info className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />
+            <p className="text-sm text-ink-soft">Where next? helps you plan and decide. It doesn&rsquo;t book anything or take payment.</p>
           </div>
-        </div>
-      </section>
-
-      {/* ——— 03 The days ——— */}
-      <section className="mx-auto mt-24 max-w-[1200px] px-6 sm:px-10 lg:mt-36">
-        <div className="grid items-center gap-10 lg:grid-cols-12 lg:gap-16">
-          <InView className="lg:col-span-7">
-            <Plate src={stayImg} alt="Morning light through a balcony door in a quiet room" ratio="aspect-[4/3]" className="rounded-[2rem]" />
-          </InView>
-          <InView className="lg:col-span-5" delay={0.1}>
-            <Chapter
-              index="03"
-              label="The days"
-              title="A plan that holds together."
-              body="Confirmed choices land in one place: where you're based night by night, how the days connect on the map, and an itinerary you can actually follow."
-              note="Trip notes keep the decisions, the constraints and the still-open questions where you left them."
-            />
-          </InView>
-        </div>
-      </section>
-
-      {/* ——— 04 Together, full bleed ——— */}
-      <section className="relative mt-24 lg:mt-36">
-        <Plate src={coastImg} alt="A coastal road curving above turquoise water" ratio="aspect-[21/9] sm:aspect-[24/9]" fade="both" className="w-full" />
-        <div className="relative z-10 mx-auto -mt-10 max-w-[1200px] px-6 sm:-mt-16 sm:px-10">
-          <div className="grid gap-10 lg:grid-cols-12">
-            <InView className="lg:col-span-6">
-              <Chapter
-                index="04"
-                label="Together, and on the road"
-                title="Bring the people coming with you."
-                body="Invite friends or family as editors or viewers — edits and presence sync live. Publish a read-only itinerary and map for everyone else."
-                note="Install it like an app: the day's plan works offline, and a pre-trip review flags the gaps before you leave. Paste a guide or blog link and it pulls the destination and places into a new trip."
-              />
-            </InView>
-          </div>
-        </div>
+        </InView>
       </section>
 
       {/* ——— Close ——— */}
-      <section className="mx-auto max-w-[1200px] px-6 py-24 sm:px-10 lg:py-36">
+      <section className="mx-auto max-w-[1200px] px-6 pt-8 pb-24 sm:px-10 lg:pb-32">
         <InView>
-          <p className="eyebrow">Start whenever</p>
-          <h2 className="mt-4 max-w-3xl font-display text-4xl leading-[1.05] tracking-[-0.03em] sm:text-6xl">So — where next?</h2>
-          <div className="mt-10 flex flex-wrap items-center gap-5">
-            <Link href="/sign-up" className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3.5 text-sm font-medium text-primary-foreground transition-transform hover:scale-[1.03]">
-              Create free account <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link href="/sign-in" className="link-underline text-sm font-medium">
-              Sign in
-            </Link>
+          <div className="overflow-hidden rounded-[2rem] bg-primary px-6 py-16 text-center text-primary-foreground sm:px-10 lg:py-20">
+            <p className="text-[11px] font-medium tracking-[0.14em] text-primary-foreground/70 uppercase">One conversation away</p>
+            <h2 className="mx-auto mt-4 max-w-2xl font-display text-4xl leading-[1.05] tracking-[-0.03em] sm:text-5xl lg:text-6xl">
+              So — where next?
+            </h2>
+            <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-primary-foreground/80">
+              A conversation that remembers, and a trip that builds itself around your answers.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <Link
+                href="/sign-up"
+                className="inline-flex items-center gap-2 rounded-full bg-primary-foreground px-5 py-2.5 text-sm font-medium text-primary transition-transform hover:scale-[1.02]"
+              >
+                Create free account <ArrowRight className="size-4" />
+              </Link>
+              <Link
+                href="/sign-in"
+                className="inline-flex items-center rounded-full border border-primary-foreground/25 px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-foreground/10"
+              >
+                Sign in
+              </Link>
+            </div>
           </div>
         </InView>
       </section>
 
       <footer className="mx-auto max-w-[1200px] px-6 pb-12 sm:px-10">
         <div className="hairline" />
-        <div className="flex items-center justify-between pt-6">
+        <div className="flex flex-wrap items-center justify-between gap-4 pt-6">
           <BrandMark variant="text" />
-          <p className="text-xs text-muted-foreground">Plan by talking</p>
+          <div className="flex flex-wrap items-center gap-5 text-xs text-muted-foreground">
+            <Link href="/privacy" className="link-underline">
+              Privacy
+            </Link>
+            <Link href="/terms" className="link-underline">
+              Terms
+            </Link>
+          </div>
         </div>
       </footer>
     </div>

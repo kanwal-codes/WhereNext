@@ -5,9 +5,12 @@ import { fail } from "@/lib/server/with-route";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { transit } from "@/packages/providers/google-places/transit";
 import { route as mapboxRoute } from "@/packages/providers/mapbox/client";
+import { greatCircleArc } from "@/lib/application/geo";
+import { pickLegOption, type LegOption } from "@/lib/application/leg-options";
+import { computeTimeFit } from "@/lib/application/time-fit";
 import { cached } from "@/lib/server/ttl-cache";
 
-type Stop = { id: string; name: string; lat: number; lng: number };
+type Stop = { id: string; name: string; lat: number; lng: number; time?: string };
 
 const R = 6371;
 const haversineKm = (a: Stop, b: Stop) => {
@@ -32,65 +35,83 @@ async function coordsFor(title: string, anchor: string, meta: Record<string, unk
   }
 }
 
-/** One hop between two stops: transit if it's local, driving as a fallback, a "compare options" note if it's intercity. */
-async function planLeg(from: Stop, to: Stop, signal?: AbortSignal): Promise<RouteLeg> {
+/** All viable ways to make this hop, cached by geography alone (independent of any trip's saved choice). */
+async function computeLegOptions(from: Stop, to: Stop, km: number, signal?: AbortSignal): Promise<LegOption[]> {
+  const cacheKey = `route-leg-options:${from.lat.toFixed(4)},${from.lng.toFixed(4)}:${to.lat.toFixed(4)},${to.lng.toFixed(4)}`;
+  return cached<LegOption[]>(cacheKey, 30 * 60_000, async () => {
+    const [transitResult, driveResult, walkResult] = await Promise.allSettled([
+      transit({ origin: [from.lng, from.lat], destination: [to.lng, to.lat] }, signal),
+      mapboxRoute({ origin: [from.lng, from.lat], destination: [to.lng, to.lat], profile: "driving" }, signal),
+      km <= 3 ? mapboxRoute({ origin: [from.lng, from.lat], destination: [to.lng, to.lat], profile: "walking" }, signal) : Promise.reject(new Error("too far to walk")),
+    ]);
+
+    const options: LegOption[] = [];
+    const fallback: Array<[number, number]> = [[from.lng, from.lat], [to.lng, to.lat]];
+
+    if (transitResult.status === "fulfilled" && transitResult.value[0]?.steps.length) {
+      const best = transitResult.value[0];
+      const ride = best.steps.find((s) => s.mode !== "walk");
+      const line = best.polyline?.length ? best.polyline : best.steps.flatMap((s) => s.polyline ?? []);
+      options.push({
+        mode: ride?.mode ?? "walk",
+        minutes: Math.max(1, Math.round(best.durationSeconds / 60)),
+        km,
+        fare: best.fare ?? null,
+        departure: best.departureTime ?? null,
+        arrival: best.arrivalTime ?? null,
+        steps: best.steps.map((s) => ({
+          mode: s.mode, minutes: Math.round(s.durationSeconds / 60),
+          line: s.line, agency: s.agency, color: s.color, headsign: s.headsign, stopCount: s.stopCount,
+          from: s.departureStop, to: s.arrivalStop,
+        })),
+        polyline: line.length ? line : fallback,
+      });
+    }
+    if (walkResult.status === "fulfilled") {
+      options.push({
+        mode: "walk", minutes: Math.max(1, Math.round(walkResult.value.durationSeconds / 60)), km,
+        fare: null, departure: null, arrival: null, steps: [],
+        polyline: (walkResult.value.geometry?.coordinates as Array<[number, number]>) ?? fallback,
+      });
+    }
+    if (driveResult.status === "fulfilled") {
+      options.push({
+        mode: "drive", minutes: Math.max(1, Math.round(driveResult.value.durationSeconds / 60)), km,
+        fare: null, departure: null, arrival: null, steps: [],
+        polyline: (driveResult.value.geometry?.coordinates as Array<[number, number]>) ?? fallback,
+      });
+    }
+    return options;
+  });
+}
+
+/** One hop between two stops: the rider's saved choice (if any and still available) wins, else transit-first, driving-if-nothing-else, a "compare options" note if it's intercity. */
+async function planLeg(from: Stop, to: Stop, chosenMode: RouteLeg["mode"] | undefined, signal?: AbortSignal): Promise<RouteLeg> {
   const base = { fromId: from.id, fromName: from.name, toId: to.id, toName: to.name };
   const km = Math.round(haversineKm(from, to) * 10) / 10;
 
   if (km > 120) {
     return {
-      ...base, kind: "longhaul", mode: "unknown", minutes: null, km, fare: null, departure: null, arrival: null,
-      steps: [], polyline: [[from.lng, from.lat], [to.lng, to.lat]],
-      note: "Intercity hop — ask the assistant to compare flights, trains and coaches.",
+      ...base, kind: "longhaul", mode: "flight", minutes: null, km, fare: null, departure: null, arrival: null,
+      steps: [], polyline: greatCircleArc([from.lng, from.lat], [to.lng, to.lat]),
+      note: "Intercity hop — ask Roam to compare flights, trains and coaches.",
+      alternatives: [], timeFit: null,
     };
   }
 
-  const cacheKey = `route-leg:${from.lat.toFixed(4)},${from.lng.toFixed(4)}:${to.lat.toFixed(4)},${to.lng.toFixed(4)}`;
-  return cached<RouteLeg>(cacheKey, 30 * 60_000, async () => {
-    try {
-      const best = (await transit({ origin: [from.lng, from.lat], destination: [to.lng, to.lat] }, signal))[0];
-      if (best && best.steps.length) {
-        const ride = best.steps.find((s) => s.mode !== "walk");
-        const line = best.polyline?.length
-          ? best.polyline
-          : best.steps.flatMap((s) => s.polyline ?? []);
-        return {
-          ...base, kind: "local",
-          mode: ride?.mode ?? "walk",
-          minutes: Math.max(1, Math.round(best.durationSeconds / 60)),
-          km,
-          fare: best.fare ?? null,
-          departure: best.departureTime ?? null,
-          arrival: best.arrivalTime ?? null,
-          steps: best.steps.map((s) => ({
-            mode: s.mode, minutes: Math.round(s.durationSeconds / 60),
-            line: s.line, agency: s.agency, color: s.color, headsign: s.headsign, stopCount: s.stopCount,
-            from: s.departureStop, to: s.arrivalStop,
-          })),
-          polyline: line.length ? line : [[from.lng, from.lat], [to.lng, to.lat]],
-          note: null,
-        } satisfies RouteLeg;
-      }
-    } catch {
-      /* fall through to driving */
-    }
-    try {
-      const drive = await mapboxRoute({ origin: [from.lng, from.lat], destination: [to.lng, to.lat], profile: "driving" }, signal);
-      return {
-        ...base, kind: "local", mode: "drive",
-        minutes: Math.max(1, Math.round(drive.durationSeconds / 60)),
-        km, fare: null, departure: null, arrival: null, steps: [],
-        polyline: (drive.geometry?.coordinates as Array<[number, number]>) ?? [[from.lng, from.lat], [to.lng, to.lat]],
-        note: "No transit route found — driving time shown.",
-      } satisfies RouteLeg;
-    } catch {
-      return {
-        ...base, kind: "local", mode: "unknown", minutes: null, km, fare: null, departure: null, arrival: null, steps: [],
-        polyline: [[from.lng, from.lat], [to.lng, to.lat]],
-        note: "Couldn't work out a route for this hop.",
-      } satisfies RouteLeg;
-    }
-  });
+  const options = await computeLegOptions(from, to, km, signal);
+  if (options.length === 0) {
+    return {
+      ...base, kind: "local", mode: "unknown", minutes: null, km, fare: null, departure: null, arrival: null, steps: [],
+      polyline: [[from.lng, from.lat], [to.lng, to.lat]],
+      note: "Couldn't work out a route for this hop.",
+      alternatives: [], timeFit: null,
+    };
+  }
+
+  const { picked, note, alternatives } = pickLegOption(options, chosenMode);
+  const timeFit = computeTimeFit(from.time, to.time, picked.minutes);
+  return { ...base, kind: "local", ...picked, note, alternatives, timeFit } satisfies RouteLeg;
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
@@ -98,12 +119,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId);
 
-    const [tripRow, itinRes] = await Promise.all([
+    const [tripRow, itinRes, choiceRes] = await Promise.all([
       supabase.from("trips").select("destination").eq("id", tripId).maybeSingle(),
       supabase.from("trip_itinerary_items").select("id,title,day_index,metadata,created_at").eq("trip_id", tripId).is("removed_at", null).order("day_index").order("created_at"),
+      supabase.from("trip_decisions").select("value").eq("trip_id", tripId).eq("kind", "leg_transport"),
     ]);
     const anchor = (tripRow.data?.destination ?? "").trim();
     const items = (itinRes.data ?? []) as Array<{ id: string; title: string; day_index: number; metadata: Record<string, unknown> | null }>;
+    const legChoices = new Map<string, RouteLeg["mode"]>();
+    for (const row of (choiceRes.data ?? []) as Array<{ value: { fromId?: string; toId?: string; mode?: string } }>) {
+      if (row.value?.fromId && row.value?.toId && row.value?.mode) legChoices.set(`${row.value.fromId}:${row.value.toId}`, row.value.mode as RouteLeg["mode"]);
+    }
 
     const byDay = new Map<number, typeof items>();
     for (const it of items) {
@@ -118,7 +144,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
       const stops: Stop[] = [];
       for (const it of dayItems) {
         const c = await coordsFor(it.title, anchor, it.metadata, request.signal);
-        if (c) stops.push({ id: it.id, name: it.title, lat: c.lat, lng: c.lng });
+        const stopTime = typeof it.metadata?.time === "string" ? it.metadata.time : undefined;
+        if (c) stops.push({ id: it.id, name: it.title, lat: c.lat, lng: c.lng, ...(stopTime ? { time: stopTime } : {}) });
         else unplaced.push(it.title);
       }
       if (stops.length < 2) {
@@ -126,7 +153,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
         continue;
       }
       const pairs = stops.slice(0, -1).map((from, i) => [from, stops[i + 1]] as [Stop, Stop]);
-      const legs = await Promise.all(pairs.map(([a, b]) => planLeg(a, b, request.signal)));
+      const legs = await Promise.all(pairs.map(([a, b]) => planLeg(a, b, legChoices.get(`${a.id}:${b.id}`), request.signal)));
       const movingMinutes = legs.reduce((t, l) => t + (l.minutes ?? 0), 0);
       const transitRides = legs.reduce((t, l) => t + l.steps.filter((s) => s.mode !== "walk").length, 0);
       const fareCur = legs.find((l) => l.fare)?.fare?.currency ?? null;

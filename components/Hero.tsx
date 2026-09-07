@@ -2,6 +2,7 @@
 
 import { useRef, type ReactNode } from "react";
 import { motion, useReducedMotion, useScroll, useTransform } from "motion/react";
+import { useAnimateIn } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
 
 /**
@@ -27,26 +28,36 @@ export function Hero({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion();
+  const animateIn = useAnimateIn();
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
   const y = useTransform(scrollYProgress, [0, 1], ["0%", reduce ? "0%" : "14%"]);
-  const fog = useTransform(scrollYProgress, [0, 1], [1, reduce ? 1 : 1.6]);
+  const fog = useTransform(scrollYProgress, [0, 1], [1, reduce ? 1 : 1.15]);
 
   return (
     <div ref={ref} className={cn("relative isolate overflow-hidden", className)}>
       <motion.div style={{ y }} className="absolute inset-0 -z-10">
-        <motion.img
-          src={image}
-          alt={alt}
-          width={1600}
-          height={900}
-          className="h-full w-full object-cover object-center"
-          initial={{ scale: 1.1, opacity: 0 }}
-          animate={{ scale: reduce ? 1.02 : 1.06, opacity: 1 }}
-          transition={{
-            opacity: { duration: 1, ease: [0.22, 0.61, 0.36, 1] },
-            scale: { duration: 18, ease: "linear" },
-          }}
-        />
+        {/* The fade/scale-in is rAF-driven — only mount the animated img once the
+            document is live and visible, so a background-tab load never leaves the
+            hero stuck at opacity 0. Until then, render it plain and visible. */}
+        {animateIn ? (
+          <motion.img
+            src={image}
+            alt={alt}
+            width={1600}
+            height={900}
+            fetchPriority="high"
+            className="h-full w-full object-cover object-center"
+            initial={{ scale: 1.1, opacity: 0 }}
+            animate={{ scale: reduce ? 1.02 : 1.06, opacity: 1 }}
+            transition={{
+              opacity: { duration: 1, ease: [0.22, 0.61, 0.36, 1] },
+              scale: { duration: reduce ? 0 : 18, ease: "linear" },
+            }}
+          />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element -- filmic hero, arbitrary sources
+          <img src={image} alt={alt} width={1600} height={900} fetchPriority="high" className="h-full w-full object-cover object-center" />
+        )}
       </motion.div>
 
       {!plain && (
@@ -63,7 +74,7 @@ export function Hero({
           plain ? "h-2/5 via-background/55" : "h-1/2 via-background/70",
         )}
       />
-      <div className="pointer-events-none absolute inset-x-0 -bottom-px h-16 bg-background [mask-image:linear-gradient(to_top,black,transparent)] backdrop-blur-md" />
+      <div className="pointer-events-none absolute inset-x-0 -bottom-px h-10 bg-background/70 [mask-image:linear-gradient(to_top,black,transparent)] backdrop-blur-sm" />
 
       {children}
     </div>

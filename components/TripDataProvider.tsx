@@ -32,16 +32,25 @@ export function TripDataProvider({
 
   // Mutations across the app announce a change on the window event bus; route it
   // through Next's data refresh so server components re-render with fresh data.
-  useEffect(() => subscribeWorkspaceChanges(() => router.refresh()), [router]);
+  useEffect(() => subscribeWorkspaceChanges(() => {
+    if (typeof navigator !== "undefined" && "serviceWorker" in navigator) navigator.serviceWorker.controller?.postMessage({ type: "invalidate-trip-workspace" });
+    void router.refresh();
+  }), [router]);
 
   // Supabase Realtime re-broadcasts a collaborator's row changes onto that same
   // bus, and reports who else is here.
   const peers = useTripRealtime(tripId, me);
 
-  // Keep an offline mirror warm for the "Today" view.
+  // Keep an offline mirror warm for the "Today" view. `data` is a fresh object on every
+  // server render — including a plain navigation between sibling trip pages, where the
+  // underlying content hasn't changed at all — so depending on the object itself would
+  // re-run this (a live, no-store re-fetch plus an imagery cache warm) on every click around
+  // the app. Depending on its serialized content instead only re-primes when something
+  // actually changed.
+  const dataSignature = data ? JSON.stringify(data) : null;
   useEffect(() => {
-    if (data && typeof navigator !== "undefined" && navigator.onLine) void primeTrip(tripId);
-  }, [tripId, data]);
+    if (dataSignature && typeof navigator !== "undefined" && navigator.onLine) void primeTrip(tripId);
+  }, [tripId, dataSignature]);
 
   return (
     <TripDataContext.Provider value={{ tripId, data, peers }}>

@@ -22,8 +22,16 @@ test("authenticated user can create and reload a trip workspace", async ({ page 
     await page.goto("/sign-in");
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Password").fill(password);
-    await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page).toHaveURL(/\/trips$/, { timeout: 15_000 });
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(page).toHaveURL(/\/trips(?:\/new)?$/, { timeout: 15_000 });
+
+    await page.goto("/trips/new");
+    await page.getByRole("button", { name: "Start planning" }).click();
+    await expect(page).toHaveURL(/\/trips\/[0-9a-f-]{36}\/chat$/i, { timeout: 30_000 });
+    await expect(page.getByRole("heading", { name: "Plan this the way you’d talk about it" })).toBeVisible();
+    const draftTripId = page.url().match(/\/trips\/([0-9a-f-]{36})/i)?.[1];
+    if (draftTripId) await admin.from("trips").delete().eq("id", draftTripId);
+
     const tripId = await createTripViaForm(page, { name: "Rebuild verification", destination: "Montreal", origin: "Toronto", days: "6", travelers: "2", vibe: "architecture" });
     await expect(page.locator("main").getByRole("heading", { name: "Rebuild verification" })).toBeVisible();
     await page.reload();

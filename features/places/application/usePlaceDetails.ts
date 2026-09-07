@@ -17,6 +17,19 @@ export function usePlaceDetails(tripId: string, placeId: string) {
 
   useEffect(() => {
     const controller = new AbortController();
+    const cacheKey = `place-details:${tripId}:${placeId}`;
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const body = JSON.parse(cached);
+        if (body.place) {
+          setDetails(body.place);
+          setFreshness(body.freshness?.retrievedAt ? new Date(body.freshness.retrievedAt).toLocaleString() : "");
+          setState("ready");
+          return () => controller.abort();
+        }
+      }
+    } catch { /* unavailable or malformed cache */ }
     setState("loading");
     setDetails(null);
     fetch(`/api/trips/${tripId}/places/google?placeId=${encodeURIComponent(placeId)}`, { signal: controller.signal })
@@ -25,6 +38,7 @@ export function usePlaceDetails(tripId: string, placeId: string) {
         return r.json();
       })
       .then((body) => {
+        try { sessionStorage.setItem(cacheKey, JSON.stringify(body)); } catch { /* ignore */ }
         setDetails(body.place ?? null);
         setFreshness(body.freshness?.retrievedAt ? new Date(body.freshness.retrievedAt).toLocaleString() : "");
         setState(body.place ? "ready" : "error");

@@ -21,11 +21,14 @@ export function TripWeather({ tripId, location, className, card = false }: { tri
       return;
     }
     let cancelled = false;
+    const key = `weather:${tripId}:${location}`;
+    try { const cached = sessionStorage.getItem(key); if (cached) { setData(JSON.parse(cached)); setLoading(false); return () => { cancelled = true; }; } } catch { /* ignore */ }
     setLoading(true);
     fetch(`/api/trips/${tripId}/weather?location=${encodeURIComponent(location)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((body) => {
         if (!cancelled) {
+          try { sessionStorage.setItem(key, JSON.stringify(body)); } catch { /* ignore */ }
           setData(body ?? null);
           setLoading(false);
         }

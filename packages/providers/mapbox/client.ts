@@ -13,5 +13,8 @@ export function staticMapUrl(points: Array<[number, number]>, size: { width: num
   const viewport = pins ? "auto" : "0,20,1";
   const w = Math.min(1280, Math.max(120, Math.round(size.width)));
   const h = Math.min(1280, Math.max(120, Math.round(size.height)));
-  return `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/${overlay ? `${overlay}/` : ""}${viewport}/${w}x${h}@2x?access_token=${token}&padding=48`;
+  // `padding` is only accepted with the `auto` viewport — pairing it with an
+  // explicit lon,lat,zoom centre makes Mapbox 422 (the empty-markers case).
+  const padding = viewport === "auto" ? "&padding=48" : "";
+  return `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/${overlay ? `${overlay}/` : ""}${viewport}/${w}x${h}@2x?access_token=${token}${padding}`;
 }

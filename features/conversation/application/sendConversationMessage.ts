@@ -5,6 +5,11 @@ import { streamAssistantResponse } from "./streamAssistantResponse";
 export async function sendConversationMessage(input: {
   tripId: string;
   content: string;
+  /** Name of whatever the user has open (a place/stay panel) so "there" / "this place" resolve. */
+  viewContext?: string;
+  /** Stable across retries of the SAME logical send — a fresh key on retry would let a message
+   *  whose save actually succeeded (but whose response was lost) get persisted a second time. */
+  idempotencyKey?: string;
   onSurfaceSelect?: (surface: string) => void;
   onProposal?: (proposal: ProposedCommand) => void;
   onUserSaved: () => void;
@@ -12,7 +17,7 @@ export async function sendConversationMessage(input: {
   onAssistantDelta: (content: string) => void;
   signal?: AbortSignal;
 }): Promise<{ meta?: AssistantTurnMeta; content: string }> {
-  const messageIdempotencyKey = await persistUserMessage(input.tripId, input.content, crypto.randomUUID());
+  const messageIdempotencyKey = await persistUserMessage(input.tripId, input.content, input.idempotencyKey ?? crypto.randomUUID());
   input.onUserSaved();
   const responseId = crypto.randomUUID();
   input.onAssistantStart(responseId);
@@ -22,6 +27,7 @@ export async function sendConversationMessage(input: {
     input.onAssistantDelta,
     input.signal,
     messageIdempotencyKey,
+    input.viewContext,
   );
   if (!content.trim() && !meta?.blocks?.length) throw new Error("Assistant returned an empty response");
   if (meta?.proposedCommand) input.onProposal?.(meta.proposedCommand);

@@ -1,45 +1,70 @@
 import { withProviderTimeout } from "../request-signal";
 import { guardedFetch } from "@/lib/server/provider-guard";
+import { cached } from "@/lib/server/ttl-cache";
 
 export type WeatherDay = { label: string; min: number; max: number; condition: string; wet: boolean };
 export type WeatherResult = { location: string; summary: string; days: WeatherDay[]; retrievedAt: string };
 
-type CurrentResponse = { main?: { temp?: number }; weather?: Array<{ description?: string; main?: string }> };
+type GeoHit = { name?: string; lat?: number; lon?: number };
 type ForecastResponse = {
-  city?: { timezone?: number };
+  city?: { name?: string; timezone?: number };
   list?: Array<{ dt: number; main?: { temp?: number; temp_min?: number; temp_max?: number }; weather?: Array<{ main?: string; description?: string }>; rain?: unknown; snow?: unknown }>;
 };
 
 const WET = new Set(["Rain", "Drizzle", "Thunderstorm", "Snow"]);
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-/**
- * Current conditions + a ~5-day outlook. Uses the free 2.5 endpoints
- * (`/weather` + `/forecast`) — One Call 3.0 needs a paid subscription and 401s
- * on a standard key.
- */
-export async function weather(
-  location: { latitude: number; longitude: number; name: string },
-  signal?: AbortSignal,
-): Promise<WeatherResult> {
+function apiKey(): string {
   const key = process.env.OPENWEATHER_API_KEY;
   if (!key) throw new Error("OPENWEATHER_API_KEY is not configured");
-  const qs = `lat=${location.latitude}&lon=${location.longitude}&units=metric&appid=${key}`;
-  const timeout = withProviderTimeout(signal);
+  return key;
+}
 
-  const [curRes, fcRes] = await Promise.all([
-    guardedFetch("openweather", `https://api.openweathermap.org/data/2.5/weather?${qs}`, { signal: timeout }),
-    guardedFetch("openweather", `https://api.openweathermap.org/data/2.5/forecast?${qs}`, { signal: timeout }),
-  ]);
-  if (!curRes.ok && !fcRes.ok) throw new Error(`OpenWeather request failed: ${curRes.status}/${fcRes.status}`);
+/**
+ * Free `/geo/1.0/direct` lookup, cached a day. Same key and same circuit breaker as the
+ * forecast, so a weather reading no longer depends on Google Places (whose breaker trips on
+ * unrelated traffic and used to take weather down with it). A throw here is not cached.
+ */
+async function geocode(place: string, signal?: AbortSignal): Promise<{ lat: number; lon: number; name: string }> {
+  return cached(`openweather:geo:${place.trim().toLowerCase()}`, 24 * 60 * 60_000, async () => {
+    const url = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(place)}&limit=1&appid=${apiKey()}`;
+    const res = await guardedFetch("openweather", url, { signal: withProviderTimeout(signal) });
+    if (!res.ok) throw new Error(`OpenWeather geocoding failed: ${res.status}`);
+    const hit = ((await res.json()) as GeoHit[])[0];
+    if (typeof hit?.lat !== "number" || typeof hit?.lon !== "number") throw new Error(`OpenWeather could not locate "${place}"`);
+    return { lat: hit.lat, lon: hit.lon, name: hit.name ?? place };
+  });
+}
 
-  const cur = (curRes.ok ? await curRes.json() : {}) as CurrentResponse;
-  const fc = (fcRes.ok ? await fcRes.json() : {}) as ForecastResponse;
+/**
+ * Current conditions + a ~5-day outlook for a place name. One geocoding call and one
+ * `/forecast` call, both on the free 2.5/geo endpoints (One Call 3.0 needs a paid plan).
+ * The "now" line is read from the nearest forecast slot rather than a separate `/weather`
+ * call — halves the quota spend and removes the partial-response case where one endpoint
+ * answered and the other 401'd.
+ */
+export async function weather(place: string, signal?: AbortSignal): Promise<WeatherResult> {
+  const { lat, lon, name } = await geocode(place, signal);
+  // Cache the raw forecast 30 min, keyed on the rounded point — the API route, the AI retrieve
+  // path and Nearby all reach the same entry instead of each spending a quota call per view.
+  const fc = await cached(
+    `openweather:fc:${lat.toFixed(2)},${lon.toFixed(2)}`,
+    30 * 60_000,
+    async () => {
+      const url = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey()}`;
+      const res = await guardedFetch("openweather", url, { signal: withProviderTimeout(signal) });
+      if (!res.ok) throw new Error(`OpenWeather forecast failed: ${res.status}`);
+      return (await res.json()) as ForecastResponse;
+    },
+  );
+
+  const slots = fc.list ?? [];
+  if (slots.length === 0) throw new Error("OpenWeather returned no forecast slots");
 
   // Bucket the 3-hour slots into local calendar days.
   const tz = fc.city?.timezone ?? 0;
   const buckets = new Map<string, { order: number; dow: number; min: number; max: number; conditions: string[]; wet: boolean }>();
-  for (const slot of fc.list ?? []) {
+  for (const slot of slots) {
     const local = new Date((slot.dt + tz) * 1000);
     const dayKey = local.toISOString().slice(0, 10);
     const t = slot.main?.temp;
@@ -75,8 +100,10 @@ export async function weather(
       };
     });
 
-  const nowTemp = cur.main?.temp;
-  const nowDesc = cur.weather?.[0]?.description;
+  // ponytail: "now" = nearest 3-hour forecast slot (up to ~3h off), not a live /weather call.
+  const now = slots[0];
+  const nowTemp = now.main?.temp;
+  const nowDesc = now.weather?.[0]?.description;
   const head = [nowTemp === undefined ? null : `${Math.round(nowTemp)}°C now`, nowDesc].filter(Boolean).join(", ");
   const outlook = days
     .map((d) => `${d.label} ${d.min}–${d.max}°C${d.condition ? ` ${d.condition}` : ""}${d.wet ? " (wet)" : ""}`)
@@ -84,5 +111,5 @@ export async function weather(
   const summary = [head, outlook].filter(Boolean).join(". ");
 
   if (!summary) throw new Error("OpenWeather returned nothing usable");
-  return { location: location.name, summary, days, retrievedAt: new Date().toISOString() };
+  return { location: name, summary, days, retrievedAt: new Date().toISOString() };
 }

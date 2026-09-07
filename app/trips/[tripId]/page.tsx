@@ -6,8 +6,8 @@ import { useTripData } from "@/components/TripDataProvider";
 import { Hero } from "@/components/Hero";
 import { Reveal, Stagger, StaggerItem, WordReveal } from "@/components/motion-primitives";
 import { CertaintyBadge } from "@/components/CertaintyBadge";
-import { certaintyFor, decisionSummary } from "@/lib/decisions-ui";
-import { tripWhen } from "@/lib/trip-dates";
+import { certaintyFor, decisionSummary, isDisplayableDecision } from "@/lib/decisions-ui";
+import { daysUntilTrip, tripDayIndex, tripWhen } from "@/lib/trip-dates";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { useDestinationPhoto } from "@/features/places/application/useDestinationPhoto";
 import { TripWeather } from "@/components/TripWeather";
@@ -31,12 +31,34 @@ export default function TripOverviewPage() {
   const itinerary = (data?.itinerary ?? []) as ItineraryRow[];
   const decisions = (data?.decisions ?? []) as DecisionRow[];
   const lockedStay = readStayDecision(decisions);
+  // Exclude decisions already shown elsewhere (the stay card below) or that are pure
+  // internal bookkeeping (review email/dismiss tracking) — this generic list is for
+  // everything else, not a second untranslated dump of every row in the table.
+  const displayableDecisions = decisions.filter((d) => isDisplayableDecision(d.kind));
   const conversation = (data?.conversation ?? []) as Array<{ role: string; content: string }>;
 
   const destination = trip?.destination ?? "your destination";
 
+  // A quick "where are we relative to this trip" read — future countdown, mid-trip day
+  // count, or a wrapped-up note. Silent (null) whenever there isn't a start date to anchor it.
+  const daysUntil = daysUntilTrip(trip?.start_date);
+  const dayIndex = tripDayIndex(trip?.start_date);
+  const tripStatus =
+    daysUntil == null ? null
+    : daysUntil > 1 ? `${daysUntil} days to go`
+    : daysUntil === 1 ? "Tomorrow"
+    : daysUntil === 0 ? "Starts today"
+    : trip?.duration_days && dayIndex != null && dayIndex <= trip.duration_days ? `Day ${dayIndex} of ${trip.duration_days}`
+    : trip?.duration_days ? "Trip complete"
+    : null;
+
   const asList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
-  const budget = typeof prefs.budget === "number" ? `$${prefs.budget}/day` : typeof prefs.budget === "string" ? prefs.budget : "Not set";
+  const budget =
+    typeof prefs.budget === "number" && prefs.budget > 0
+      ? `$${prefs.budget}/day`
+      : typeof prefs.budget === "string" && prefs.budget.trim()
+        ? prefs.budget.trim()
+        : "Not set";
 
   const stats = [
     { icon: CalendarDays, label: "Dates", value: tripWhen(trip?.start_date, trip?.end_date, trip?.duration_days) },
@@ -59,29 +81,48 @@ export default function TripOverviewPage() {
     trip?.duration_days ? null : "How many days is the trip?",
     prefs.budget === undefined ? "What's a rough daily budget?" : null,
     str(prefs.pace) ? null : "How packed should the days be?",
-    saved.length === 0 ? "Nothing saved yet — start with Discover or the assistant." : null,
+    saved.length === 0 ? "Nothing saved yet — start with Discover or Roam." : null,
   ].filter(Boolean) as string[];
 
   const days = Array.from(new Set(itinerary.map((i) => i.day_index))).sort((a, b) => a - b).slice(0, 3);
   const recentAssistant = conversation.filter((m) => m.role === "assistant").slice(-3).reverse();
-  // A real photo of the destination; the stock plate only until it arrives, or when the provider has none.
-  const destinationPhoto = useDestinationPhoto(tripId, trip?.destination);
-  const heroImage = destinationPhoto ?? "/design/trip-hero.jpg";
+  // `undefined` while the Places lookup runs, `null` when there's no photo, else the URL.
+  const destinationPhoto = useDestinationPhoto(tripId, trip?.destination ?? undefined, trip?.hero_photo_name);
+  // Only mount the hero once we know which image it is — no stock-plate flash swapping to the real photo.
+  const heroReady = Boolean(data) && destinationPhoto !== undefined;
+  const heroImage = destinationPhoto || "/design/trip-hero.jpg";
 
   return (
     <div className="min-h-full">
-      <Hero key={heroImage} image={heroImage} alt={`${destination}`} className="h-56 sm:h-72">
-        <div className="absolute inset-x-0 bottom-0 px-5 pb-6 sm:px-8">
-          <Reveal delay={0.12}>
-            <div className="min-w-0">
-              <WordReveal text={trip?.name || destination} delay={0.24} className="truncate font-display text-4xl" />
-              <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-soft">
-                <MapPin className="h-3.5 w-3.5" /> {destination}
-              </p>
-            </div>
-          </Reveal>
+      {heroReady ? (
+        <Hero key={heroImage} image={heroImage} alt={`${destination}`} className="h-56 sm:h-72">
+          {tripStatus && (
+            <Reveal delay={0.12} className="absolute top-4 right-4 sm:top-5 sm:right-8">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/85 px-3 py-1.5 text-xs font-medium text-foreground shadow-soft backdrop-blur">
+                <CalendarDays className="h-3.5 w-3.5 text-coral" /> {tripStatus}
+              </span>
+            </Reveal>
+          )}
+          <div className="absolute inset-x-0 bottom-0 px-5 pb-6 sm:px-8">
+            <Reveal delay={0.12}>
+              <div className="min-w-0">
+                <WordReveal text={trip?.name || destination} delay={0.24} className="truncate font-display text-4xl" />
+                <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-soft">
+                  <MapPin className="h-3.5 w-3.5" /> {destination}
+                </p>
+              </div>
+            </Reveal>
+          </div>
+        </Hero>
+      ) : (
+        <div className="relative h-56 overflow-hidden bg-muted sm:h-72">
+          <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted to-card" />
+          <div className="absolute inset-x-0 bottom-0 px-5 pb-6 sm:px-8">
+            <div className="h-9 w-2/3 max-w-sm animate-pulse rounded-lg bg-background/60" />
+            <div className="mt-2 h-4 w-32 animate-pulse rounded bg-background/50" />
+          </div>
         </div>
-      </Hero>
+      )}
 
       <div className="mx-auto max-w-5xl px-5 py-8 sm:px-8">
         <Stagger className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -98,8 +139,8 @@ export default function TripOverviewPage() {
           ))}
         </Stagger>
 
-        <div className="mt-9 grid gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-          <div className="space-y-8">
+        <div className="mt-9 grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+          <div className="min-w-0 space-y-8">
             <Reveal>
               <section>
                 <h2 className="font-display text-xl">What we know so far</h2>
@@ -113,9 +154,12 @@ export default function TripOverviewPage() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="mt-4 rounded-2xl border border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
-                    Nothing captured yet. Tell the assistant what you&rsquo;re after.
-                  </p>
+                  <div className="mt-4 rounded-2xl border border-dashed border-border bg-card/50 px-4 py-4">
+                    <p className="text-sm font-medium">Start shaping the trip</p>
+                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                      Tell Roam where you&rsquo;re going, what matters to you, and how you want the days to feel.
+                    </p>
+                  </div>
                 )}
               </section>
             </Reveal>
@@ -169,18 +213,22 @@ export default function TripOverviewPage() {
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-4 rounded-2xl border border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
-                    No saved places yet.
-                  </p>
+                  <div className="mt-4 rounded-2xl border border-dashed border-border bg-card/50 px-4 py-4">
+                    <p className="text-sm font-medium">Nothing saved yet</p>
+                    <p className="mt-1 text-sm text-muted-foreground">Explore places that fit the way you want this trip to feel.</p>
+                    <Link href={`/trips/${tripId}/discover`} className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary">
+                      Discover places <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  </div>
                 )}
               </section>
             </Reveal>
           </div>
 
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
             {trip?.destination && (
               <Reveal delay={0.04}>
-                <TripWeather tripId={tripId} location={trip.destination} card />
+                {trip.destination && <TripWeather tripId={tripId} location={trip.destination} card />}
               </Reveal>
             )}
 
@@ -239,12 +287,12 @@ export default function TripOverviewPage() {
               <ShareTrip tripId={tripId} />
             </Reveal>
 
-            {decisions.length > 0 && (
+            {displayableDecisions.length > 0 && (
               <Reveal delay={0.12}>
                 <section className="rounded-2xl border border-border bg-card p-5">
                   <h2 className="font-display text-lg">Decisions</h2>
                   <ul className="mt-3 space-y-2">
-                    {decisions.slice(0, 6).map((d) => (
+                    {displayableDecisions.slice(0, 6).map((d) => (
                       <li key={d.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border pb-2 last:border-0">
                         <div className="min-w-0">
                           <p className="text-[11px] tracking-[0.08em] text-muted-foreground uppercase">{d.kind.replaceAll("_", " ")}</p>

@@ -48,13 +48,26 @@ export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids:
     const missing = ids.filter((id) => !(id in items));
     if (missing.length === 0) return;
     setLoading(true);
+    // Share the per-session cache `usePlaceDetails` fills, so viewing a place and
+    // then comparing it (or vice versa) is one fetch, not two.
     Promise.all(
-      missing.map((id) =>
-        fetch(`/api/trips/${tripId}/places/google?placeId=${encodeURIComponent(id)}`)
+      missing.map((id) => {
+        const ck = `place-details:${tripId}:${id}`;
+        try {
+          const hit = sessionStorage.getItem(ck);
+          if (hit) {
+            const b = JSON.parse(hit);
+            if (b?.place) return Promise.resolve([id, b.place] as const);
+          }
+        } catch { /* ignore */ }
+        return fetch(`/api/trips/${tripId}/places/google?placeId=${encodeURIComponent(id)}`)
           .then((r) => (r.ok ? r.json() : null))
-          .then((b) => [id, b?.place ?? null] as const)
-          .catch(() => [id, null] as const),
-      ),
+          .then((b) => {
+            if (b?.place) { try { sessionStorage.setItem(ck, JSON.stringify(b)); } catch { /* ignore */ } }
+            return [id, b?.place ?? null] as const;
+          })
+          .catch(() => [id, null] as const);
+      }),
     )
       .then((pairs) => setItems((cur) => ({ ...cur, ...Object.fromEntries(pairs) })))
       .finally(() => setLoading(false));
@@ -90,7 +103,7 @@ export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids:
         <h3 className="font-display text-lg">Nothing to compare yet</h3>
         <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
           Pick two to four places from{" "}
-          <Link href={`/trips/${tripId}/discover`} className="font-medium text-primary">Discover</Link>, or ask the assistant to
+          <Link href={`/trips/${tripId}/discover`} className="font-medium text-primary">Discover</Link>, or ask Roam to
           &ldquo;compare these&rdquo;.
         </p>
       </div>

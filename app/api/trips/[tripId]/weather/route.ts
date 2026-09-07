@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
-import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { weather } from "@/packages/providers/openweather/client";
 import { research } from "@/packages/providers/tavily/client";
 import { createAiGateway } from "@/packages/ai/gateway";
@@ -78,22 +77,22 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     if (!tripOver && daysUntilStart !== null && daysUntilStart <= 6) {
       if (!process.env.OPENWEATHER_API_KEY) return NextResponse.json({ kind: "none" });
       const result = await cached(`weather:fc:${location.toLowerCase()}`, 30 * 60_000, async () => {
-        const anchor = (await new GooglePlacesProvider().search(location, request.signal))[0];
-        if (!anchor) throw new Error("no anchor");
-        const fc = await weather({ latitude: anchor.latitude, longitude: anchor.longitude, name: anchor.name }, request.signal);
+        const fc = await weather(location, request.signal);
         return { summary: fc.summary, retrievedAt: fc.retrievedAt };
-      });
+      }).catch(() => null);
+      if (!result?.summary) return NextResponse.json({ kind: "none" });
       return NextResponse.json({ kind: "forecast", location, summary: result.summary, freshness: { provider: "openweather", retrievedAt: result.retrievedAt } });
     }
 
     // --- seasonal: a month is known but the trip is too far out for a forecast
     const month = tripOver ? null : monthOf(start, (prefs.data?.data as Record<string, unknown> | undefined)?.dates);
     if (month) {
-      const result = await cached(`weather:season:${location.toLowerCase()}:${month}`, 24 * 60 * 60_000, async () => ({
-        summary: await seasonalSummary(location, month, request.signal),
-        retrievedAt: new Date().toISOString(),
-      }));
-      if (!result.summary) return NextResponse.json({ kind: "none" });
+      const result = await cached(`weather:season:${location.toLowerCase()}:${month}`, 24 * 60 * 60_000, async () => {
+        const summary = await seasonalSummary(location, month, request.signal);
+        if (!summary) throw new Error("no seasonal summary"); // don't cache a miss for 24h
+        return { summary, retrievedAt: new Date().toISOString() };
+      }).catch(() => null);
+      if (!result?.summary) return NextResponse.json({ kind: "none" });
       return NextResponse.json({ kind: "seasonal", location, month, summary: result.summary, freshness: { provider: "web", retrievedAt: result.retrievedAt } });
     }
 

@@ -16,6 +16,9 @@ export const SUGGESTION_KEYS = [
   "group",
   "pace",
   "interests",
+  "travelers",
+  "destination",
+  "trip_length",
 ] as const;
 export type SuggestionKey = (typeof SUGGESTION_KEYS)[number];
 
@@ -29,6 +32,9 @@ export const SUGGESTION_LABEL: Record<SuggestionKey, string> = {
   group: "Who's travelling",
   pace: "Pace",
   interests: "Interests",
+  travelers: "Travellers",
+  destination: "Destination",
+  trip_length: "Trip length",
 };
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);

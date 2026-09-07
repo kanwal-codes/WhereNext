@@ -59,6 +59,11 @@
   --color-violet: var(--violet);
   --color-violet-soft: var(--violet-soft);
 
+  /* Trip Atmosphere: one contextual accent (destination + season), set at runtime by
+     <TripAtmosphere>. Defaults to coral so nothing changes until a trip resolves one. */
+  --color-accent-trip: var(--accent-trip);
+  --color-accent-trip-soft: var(--accent-trip-soft);
+
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -73,8 +78,8 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --shadow-soft: 0 1px 2px oklch(0.2 0.01 260 / 4%), 0 10px 26px -14px oklch(0.2 0.01 260 / 10%);
-  --shadow-lift: 0 2px 4px oklch(0.2 0.01 260 / 5%), 0 20px 44px -22px oklch(0.2 0.01 260 / 16%);
+  --shadow-soft: 0 1px 2px oklch(0.2 0.01 260 / 6%), 0 10px 26px -14px oklch(0.2 0.01 260 / 13%);
+  --shadow-lift: 0 2px 4px oklch(0.2 0.01 260 / 7%), 0 20px 44px -22px oklch(0.2 0.01 260 / 19%);
 }
 
 /*
@@ -87,12 +92,13 @@
   /* Mobile top bar height — the chat page and its sheets measure from it. */
   --topbar: 3.5rem;
 
+  /* 3-step ground: page → surface → card/raised, so panels and cards read as lifted. */
   --background: oklch(1 0 0);
   --foreground: oklch(0.17 0.005 260);
-  --surface: oklch(0.985 0.002 260);
+  --surface: oklch(0.974 0.002 260);
   --surface-raised: oklch(1 0 0);
 
-  --card: oklch(1 0 0);
+  --card: oklch(0.996 0.001 260);
   --card-foreground: oklch(0.17 0.005 260);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.17 0.005 260);
@@ -111,7 +117,8 @@
   --accent: oklch(0.968 0.002 260);
   --accent-foreground: oklch(0.2 0.006 260);
 
-  --destructive: oklch(0.6 0.16 32);
+  /* A real red — distinct from the coral accent (hue 32) so errors don't read as "highlight". */
+  --destructive: oklch(0.55 0.2 27);
   --destructive-foreground: oklch(1 0 0);
 
   --border: oklch(0.915 0.003 260);
@@ -144,6 +151,9 @@
   --amber-soft: var(--coral-soft);
   --violet: var(--coral);
   --violet-soft: var(--coral-soft);
+
+  --accent-trip: var(--coral);
+  --accent-trip-soft: var(--coral-soft);
 }
 
 .dark {
@@ -151,9 +161,9 @@
   --background: oklch(0.15 0.005 260);
   --foreground: oklch(0.97 0.002 260);
   --surface: oklch(0.185 0.005 260);
-  --surface-raised: oklch(0.21 0.005 260);
+  --surface-raised: oklch(0.225 0.005 260);
 
-  --card: oklch(0.185 0.005 260);
+  --card: oklch(0.205 0.005 260);
   --card-foreground: oklch(0.97 0.002 260);
   --popover: oklch(0.185 0.005 260);
   --popover-foreground: oklch(0.97 0.002 260);
@@ -172,7 +182,7 @@
   --accent: oklch(0.245 0.006 260);
   --accent-foreground: oklch(0.97 0.002 260);
 
-  --destructive: oklch(0.74 0.13 32);
+  --destructive: oklch(0.7 0.19 27);
   --destructive-foreground: oklch(0.16 0.005 260);
 
   --border: oklch(1 0 0 / 12%);
@@ -199,11 +209,149 @@
   --amber-soft: var(--coral-soft);
   --violet: var(--coral);
   --violet-soft: var(--coral-soft);
+
+  --accent-trip: var(--coral);
+  --accent-trip-soft: var(--coral-soft);
 }
 
+/* The landing page keeps its original light-only look regardless of the app's dark-mode
+ * setting. `@theme inline` above bakes `--color-X: var(--X)` into a snapshot at build time,
+ * not a live reference — so overriding the bare `--X` tokens alone (as below, kept for
+ * anything that reads them directly) never reaches the `--color-X` custom properties Tailwind
+ * utilities actually use. Both layers are re-asserted here, scoped to this subtree. */
+.dark .theme-light-scope {
+  color-scheme: light;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.17 0.005 260);
+  --surface: oklch(0.974 0.002 260);
+  --surface-raised: oklch(1 0 0);
+  --card: oklch(0.996 0.001 260);
+  --card-foreground: oklch(0.17 0.005 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.17 0.005 260);
+  --primary: oklch(0.19 0.006 260);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.97 0.002 260);
+  --secondary-foreground: oklch(0.2 0.006 260);
+  --muted: oklch(0.972 0.002 260);
+  --muted-foreground: oklch(0.53 0.008 260);
+  --ink: oklch(0.17 0.005 260);
+  --ink-soft: oklch(0.4 0.007 260);
+  --accent: oklch(0.968 0.002 260);
+  --accent-foreground: oklch(0.2 0.006 260);
+  --destructive: oklch(0.55 0.2 27);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.915 0.003 260);
+  --input: oklch(0.9 0.004 260);
+  --ring: oklch(0.19 0.006 260);
+  --sidebar: oklch(0.988 0.002 260);
+  --sidebar-foreground: oklch(0.28 0.006 260);
+  --sidebar-primary: oklch(0.19 0.006 260);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.962 0.002 260);
+  --sidebar-accent-foreground: oklch(0.17 0.005 260);
+  --sidebar-border: oklch(0.915 0.003 260);
+  --sidebar-ring: oklch(0.19 0.006 260);
+  --coral: oklch(0.6 0.16 32);
+  --coral-soft: oklch(0.955 0.03 32);
+  --water: var(--coral);
+  --water-soft: var(--coral-soft);
+  --leaf: var(--coral);
+  --leaf-soft: var(--coral-soft);
+  --amber: var(--coral);
+  --amber-soft: var(--coral-soft);
+  --violet: var(--coral);
+  --violet-soft: var(--coral-soft);
+  --accent-trip: var(--coral);
+  --accent-trip-soft: var(--coral-soft);
+
+  /* The layer Tailwind utilities (bg-background, text-muted-foreground, ...) actually read —
+   * @theme inline snapshots these from the tokens above, so they don't cascade on their own. */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-water: var(--water);
+  --color-water-soft: var(--water-soft);
+  --color-leaf: var(--leaf);
+  --color-leaf-soft: var(--leaf-soft);
+  --color-coral: var(--coral);
+  --color-coral-soft: var(--coral-soft);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-violet: var(--violet);
+  --color-violet-soft: var(--violet-soft);
+  --color-accent-trip: var(--accent-trip);
+  --color-accent-trip-soft: var(--accent-trip-soft);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/*
+ * Radius scale (all off --radius: 1.25rem):
+ *   rounded-2xl  → containers, cards, panels, sheets
+ *   rounded-xl   → inputs, secondary / chip controls, small badges
+ *   rounded-full → the primary CTA, and genuinely pill things (avatars, toggles, status dots)
+ * Don't reach for arbitrary rounded-[Nrem]; use a token step.
+ */
 @layer base {
-  * {
+  :where(a, button, summary, [role="button"]) {
+    transition-property: color, background-color, border-color, opacity, transform, box-shadow;
+    transition-duration: 180ms;
+    transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+
+  /* One consistent keyboard-focus treatment everywhere. Follows the element's own radius. */
+  :where(a, button, [role="button"], input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  *,
+  *::before,
+  *::after {
     border-color: var(--color-border);
+    /* Grid and flex children must be allowed to shrink before they can widen the app canvas. */
+    min-width: 0;
+  }
+
+  img,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
+  }
+
+  input,
+  select,
+  textarea {
+    max-width: 100%;
   }
 
   body {
@@ -211,6 +359,12 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+  }
+
+  /* Data from providers and the assistant is not always word-spaced. Keep a long
+     name, URL, or identifier inside its surface instead of widening the viewport. */
+  main :where(p, li, dd, figcaption, blockquote) {
+    overflow-wrap: anywhere;
   }
 
   h1,
@@ -232,8 +386,8 @@
 }
 
 @utility hero-eyebrow {
-  color: var(--color-ink-soft);
-  text-shadow: 0 0 5px rgb(255 255 255 / 90%), 0 1px 2px rgb(255 255 255 / 70%);
+  color: var(--color-foreground);
+  text-shadow: none;
 }
 
 /* One text/date/select field for every form in the app. */
@@ -241,18 +395,19 @@
   @apply mt-1.5 w-full rounded-xl border border-input bg-card px-3.5 py-2.5 text-sm outline-none transition-shadow focus:ring-2 focus:ring-ring/25;
 }
 
-/* Buttons: one primary pill, one secondary pill, one small chip. */
+/* Buttons: the one loud pill (primary), a quieter soft-rect (secondary), a soft-rect chip.
+   Every one has a real pressed state; the primary is the only pill. */
 @utility btn-primary {
-  @apply inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-[transform,opacity] hover:scale-[1.02] disabled:opacity-60 disabled:hover:scale-100;
+  @apply inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-[transform,opacity] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:hover:scale-100;
 }
 @utility btn-primary-sm {
-  @apply inline-flex items-center justify-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-medium text-primary-foreground transition-opacity disabled:opacity-60;
+  @apply inline-flex items-center justify-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-medium text-primary-foreground transition-[transform,opacity] active:scale-[0.97] disabled:opacity-60;
 }
 @utility btn-secondary {
-  @apply inline-flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-60;
+  @apply inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium transition-[transform,background-color,border-color] hover:bg-accent active:scale-[0.98] disabled:opacity-60;
 }
 @utility btn-chip {
-  @apply inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-background px-3 text-xs text-ink-soft transition-colors hover:border-primary/40 hover:text-primary;
+  @apply inline-flex h-8 items-center gap-1.5 rounded-xl border border-border bg-background px-3 text-xs text-ink-soft transition-[transform,color,border-color] hover:border-primary/40 hover:text-primary active:scale-[0.97];
 }
 
 @utility hairline {
@@ -265,18 +420,43 @@
   height: 1px;
 }
 
+/* Horizontal card rails: the peeking next card is the affordance, so hide the bar entirely. */
+@utility no-scrollbar {
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @utility scrollbar-slim {
+  scroll-behavior: smooth;
   scrollbar-width: thin;
-  scrollbar-color: var(--color-border) transparent;
+  /* Subtle at rest, firmer on hover — a quiet pill, not a grey slab. */
+  scrollbar-color: color-mix(in oklab, var(--color-border) 55%, transparent) transparent;
 
   &::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
-
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 2px;
+  }
   &::-webkit-scrollbar-thumb {
-    background: var(--color-border);
+    background: color-mix(in oklab, var(--color-border) 45%, transparent);
     border-radius: 999px;
+    transition: background 0.18s ease;
+  }
+  &:hover {
+    scrollbar-color: color-mix(in oklab, var(--color-border) 95%, transparent) transparent;
+  }
+  &:hover::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--color-border) 90%, transparent);
+  }
+  &::-webkit-scrollbar-thumb:active {
+    background: var(--color-muted-foreground);
   }
 }
 
@@ -322,15 +502,25 @@
 @keyframes route-in {
   from {
     opacity: 0;
+    filter: blur(2px);
   }
   to {
     opacity: 1;
+    filter: blur(0);
   }
 }
 
 @utility route-enter {
-  animation: route-in 0.42s cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation: route-in 0.34s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
+
+/* Weather-card glyphs: a gentle idle motion so the card feels alive, not busy. */
+@keyframes wx-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@utility wx-bob { animation: wx-bob 3.4s ease-in-out infinite; }
+@utility wx-spin-slow { animation: spin 16s linear infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   *,

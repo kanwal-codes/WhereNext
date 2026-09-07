@@ -1,8 +1,23 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createBulkGateway } from "@/packages/ai/gateway";
+import { gatewayFor } from "@/packages/ai/model-policy";
 
 const SUMMARY_THRESHOLD = 16;
-const SUMMARY_EVERY = 4; // refresh once every N messages past the threshold, not every turn
+const SUMMARY_BATCH_SIZE = 8;
+const SUMMARY_WINDOW = 48;
+
+type ThreadSummaryRow = {
+  id: string;
+  summary: string | null;
+  summarized_through_message_id: string | null;
+  summarized_through_created_at: string | null;
+};
+
+type SummaryMessageRow = {
+  id: string;
+  role: string;
+  content: string;
+  created_at: string;
+};
 
 /**
  * Best-effort rolling summary. Once a thread is long, keep a <=600-char digest on
@@ -13,20 +28,55 @@ const SUMMARY_EVERY = 4; // refresh once every N messages past the threshold, no
 export async function refreshThreadSummary(
   supabase: SupabaseClient,
   tripId: string,
-  messages: Array<{ role: string; content: string }>,
+  _messages?: Array<{ role: string; content: string }>,
   signal?: AbortSignal,
 ): Promise<void> {
-  if (messages.length <= SUMMARY_THRESHOLD || messages.length % SUMMARY_EVERY !== 0) return;
-  const transcript = messages.slice(-40).map((message) => `${message.role}: ${message.content}`).join("\n").slice(0, 8_000);
+  const thread = await supabase
+    .from("conversation_threads")
+    .select("id,summary,summarized_through_message_id,summarized_through_created_at")
+    .eq("trip_id", tripId)
+    .maybeSingle();
+  if (thread.error || !thread.data) return;
+
+  const row = thread.data as ThreadSummaryRow;
+  let query = supabase
+    .from("conversation_messages")
+    .select("id,role,content,created_at")
+    .eq("thread_id", row.id)
+    .order("created_at", { ascending: true });
+  if (row.summarized_through_created_at) query = query.gt("created_at", row.summarized_through_created_at);
+
+  const result = await query.limit(SUMMARY_WINDOW);
+  if (result.error) return;
+  const newMessages = ((result.data ?? []) as SummaryMessageRow[])
+    .filter((message) => message.role === "user" || message.role === "assistant");
+  if (newMessages.length === 0) return;
+  if (!row.summary && newMessages.length <= SUMMARY_THRESHOLD) return;
+  if (row.summary && newMessages.length < SUMMARY_BATCH_SIZE) return;
+
+  const lastMessage = newMessages.at(-1);
+  if (!lastMessage) return;
+  const previous = row.summary?.trim();
+  const transcript = newMessages
+    .map((message) => `${message.role}: ${message.content}`)
+    .join("\n")
+    .slice(0, 8_000);
   try {
-    const summary = await createBulkGateway({ model: process.env.SUMMARY_MODEL || undefined }).generateText(
+    const summary = await gatewayFor("bulk").generateText(
       [
-        { role: "system", content: "Summarize this trip-planning conversation in 600 characters or fewer: the traveller's confirmed decisions, stated likes and dislikes, budget, group size, and the place or topic they are focused on now. Plain text, no preamble, no list markers." },
-        { role: "user", content: transcript },
+        { role: "system", content: "Maintain a rolling trip-planning memory in 600 characters or fewer. Preserve confirmed decisions, corrections, stated likes/dislikes, budget, group size, dates, destination, and the current focus. Merge the previous memory with the new completed messages. Plain text, no preamble, no list markers." },
+        { role: "user", content: [previous ? `Previous memory:\n${previous}` : "", `New messages:\n${transcript}`].filter(Boolean).join("\n\n") },
       ],
       signal,
     );
-    await supabase.from("conversation_threads").update({ summary: summary.trim().slice(0, 600) }).eq("trip_id", tripId);
+    await supabase
+      .from("conversation_threads")
+      .update({
+        summary: summary.trim().slice(0, 600),
+        summarized_through_message_id: lastMessage.id,
+        summarized_through_created_at: lastMessage.created_at,
+      })
+      .eq("trip_id", tripId);
   } catch {
     // Non-fatal: the next long turn retries.
   }

@@ -10,9 +10,11 @@ import { transitAppPlan } from "../../packages/providers/transit-app/client";
 import { searchFlights } from "../../packages/providers/duffel/client";
 import { hotelDetails, searchStays, stayRooms } from "../../packages/providers/liteapi/client";
 import { localEvents } from "../../packages/providers/eventbrite/client";
+import { activities } from "../../packages/providers/getyourguide/client";
 import { withProviderTimeout } from "../../packages/providers/request-signal";
 import { events } from "../../packages/providers/ticketmaster/client";
 import { weather } from "../../packages/providers/openweather/client";
+import { predictHqEvents } from "../../packages/providers/predicthq/client";
 
 beforeEach(() => resetProviderGuards());
 afterEach(() => {
@@ -24,9 +26,11 @@ afterEach(() => {
   delete process.env.OPENWEATHER_API_KEY;
   delete process.env.TRANSIT_API_KEY;
   delete process.env.EVENTBRITE_API_KEY;
+  delete process.env.GETYOURGUIDE_API_KEY;
   delete process.env.DUFFEL_API_KEY;
   delete process.env.LITEAPI_KEY;
   delete process.env.CONNECT_API_KEY;
+  delete process.env.PREDICTHQ_API_KEY;
   delete process.env.AI_PROVIDER;
   delete process.env.CEREBRAS_API_KEY;
   delete process.env.AI_API_KEY;
@@ -81,7 +85,7 @@ describe("createAiGateway env resolution", () => {
     return createAiGateway().generateText([{ role: "user", content: "hi" }]).then(() => {
       const [url, init] = fetchMock.mock.calls[0];
       expect(url).toBe("https://api.openai.com/v1/chat/completions");
-      expect(JSON.parse(init.body as string).model).toBe("gpt-4o-mini");
+      expect(JSON.parse(init.body as string).model).toBe("gpt-4o");
       expect((init.headers as Record<string, string>).authorization).toBe("Bearer sk-real");
     });
   });
@@ -101,26 +105,34 @@ describe("createAiGateway env resolution", () => {
     return createAiGateway({ provider: "gemini" }).generateText([{ role: "user", content: "hi" }]).then(() => {
       const [url, init] = fetchMock.mock.calls[0];
       expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
-      expect(JSON.parse(init.body as string).model).toBe("gemini-2.5-flash");
+      expect(JSON.parse(init.body as string).model).toBe("gemini-flash-latest");
       expect((init.headers as Record<string, string>).authorization).toBe("Bearer AIza-real");
       delete process.env.GEMINI_API_KEY;
     });
   });
 
-  it("createBulkGateway uses Gemini when GEMINI_API_KEY is set, else the primary gateway", () => {
+  it("createBulkGateway uses Gemini only when a model is pinned, else the primary fail-over chain", () => {
     process.env.AI_PROVIDER = "";
     process.env.AI_BASE_URL = "";
     process.env.OPENAI_API_KEY = "sk-real";
+    delete process.env.GEMINI_BULK_MODEL;
     const fetchMock = vi.fn((_url?: unknown, _init?: unknown) => Promise.resolve(new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), { status: 200 })));
     vi.stubGlobal("fetch", fetchMock);
 
     return createBulkGateway().generateText([{ role: "user", content: "x" }]).then(() => {
       expect(fetchMock.mock.calls[0][0]).toBe("https://api.openai.com/v1/chat/completions"); // no Gemini key → primary
+      // Gemini key alone is NOT enough — its default model ids lapse silently.
       process.env.GEMINI_API_KEY = "AIza-real";
       return createBulkGateway().generateText([{ role: "user", content: "x" }]);
     }).then(() => {
-      expect(fetchMock.mock.calls[1][0]).toBe("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
+      expect(fetchMock.mock.calls[1][0]).toBe("https://api.openai.com/v1/chat/completions"); // still primary
+      // key + an explicit model → opt in to Gemini
+      process.env.GEMINI_BULK_MODEL = "gemini-flash-latest";
+      return createBulkGateway().generateText([{ role: "user", content: "x" }]);
+    }).then(() => {
+      expect(fetchMock.mock.calls[2][0]).toBe("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
       delete process.env.GEMINI_API_KEY;
+      delete process.env.GEMINI_BULK_MODEL;
     });
   });
 });
@@ -139,34 +151,99 @@ describe("provider adapters", () => {
     await expect(events("festival", "Montreal")).resolves.toMatchObject([{ title: "Festival", url: "https://tickets.example/festival", date: "2026-09-04 20:00", venue: "Arena, Montreal" }]);
   });
 
-  it("builds a current-plus-outlook summary from the free 2.5 endpoints", async () => {
+  it("eventDetailBySearch matches on name + date and maps the rich fields", async () => {
+    process.env.TICKETMASTER_API_KEY = "test-key";
+    const { eventDetailBySearch } = await import("../../packages/providers/ticketmaster/client");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      _embedded: { events: [
+        { name: "Some Other Show", dates: { start: { localDate: "2026-09-01" } } },
+        {
+          name: "ARLO PARKS - DESIRE TOUR", url: "https://ticketmaster.ca/x/event/ABC",
+          dates: { start: { localDate: "2026-09-03", localTime: "20:00:00" } },
+          classifications: [{ segment: { name: "Music" }, genre: { name: "Rock" }, subGenre: { name: "Alternative Rock" } }],
+          priceRanges: [{ min: 45, max: 89, currency: "CAD" }],
+          sales: { public: { startDateTime: "2026-03-13T14:00:00Z", endDateTime: "2026-09-04T02:00:00Z" } },
+          seatmap: { staticUrl: "https://maps.example/seat.png" },
+          pleaseNote: "Doors open at 6:30 PM. 18+ event.",
+          _embedded: { attractions: [{ name: "Arlo Parks" }, { name: "Baird" }], venues: [{ name: "MTELUS", city: { name: "Montreal" }, address: { line1: "59 Rue Sainte-Catherine Est" } }] },
+        },
+      ] },
+    }), { status: 200 })));
+    const d = await eventDetailBySearch("Arlo Parks - Desire Tour", "Montreal", "2026-09-03");
+    expect(d).toMatchObject({
+      title: "ARLO PARKS - DESIRE TOUR",
+      genre: "Music · Rock · Alternative Rock",
+      priceRange: "45–89 CAD",
+      performers: ["Arlo Parks", "Baird"],
+      seatmapUrl: "https://maps.example/seat.png",
+      doorsTime: expect.stringMatching(/6:30/),
+      ageInfo: expect.stringMatching(/18/),
+    });
+    expect(d?.venue?.name).toBe("MTELUS");
+  });
+
+  it("geocodes on the OpenWeather key and builds a current-plus-outlook summary from /forecast", async () => {
     process.env.OPENWEATHER_API_KEY = "test-key";
     const slot = (dt: number, temp: number, main: string) => ({ dt, main: { temp, temp_min: temp - 2, temp_max: temp + 2 }, weather: [{ main, description: main.toLowerCase() }] });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn((url: string) =>
-        Promise.resolve(
-          url.includes("/2.5/weather")
-            ? new Response(JSON.stringify({ main: { temp: 21 }, weather: [{ description: "clear sky", main: "Clear" }] }), { status: 200 })
-            : new Response(
-                JSON.stringify({
-                  city: { timezone: -14400 },
-                  list: [
-                    slot(1_756_000_000, 22, "Clouds"),
-                    slot(1_756_000_000 + 43_200, 24, "Rain"),
-                    slot(1_756_086_400, 19, "Clouds"),
-                  ],
-                }),
-                { status: 200 },
-              ),
-        ),
+    const fetchMock = vi.fn((url: string) =>
+      Promise.resolve(
+        url.includes("/geo/1.0/direct")
+          ? new Response(JSON.stringify([{ name: "Montreal", lat: 45.5, lon: -73.56 }]), { status: 200 })
+          : new Response(
+              JSON.stringify({
+                city: { timezone: -14400 },
+                list: [
+                  slot(1_756_000_000, 21, "Clear"),
+                  slot(1_756_000_000 + 43_200, 24, "Rain"),
+                  slot(1_756_086_400, 19, "Clouds"),
+                ],
+              }),
+              { status: 200 },
+            ),
       ),
     );
-    const result = await weather({ latitude: 45.5, longitude: -73.56, name: "Montreal" });
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await weather("Montreal");
     expect(result.location).toBe("Montreal");
-    expect(result.summary).toContain("21°C now, clear sky");
+    expect(result.summary).toContain("21°C now, clear");
     expect(result.days.length).toBeGreaterThan(0);
     expect(result.days[0]).toMatchObject({ label: "Today" });
+    expect(fetchMock.mock.calls.some(([u]) => String(u).includes("/2.5/weather"))).toBe(false);
+  });
+
+  it("PredictHQ: builds the query, parses rank/venue, and only rank-filters a broad sweep", async () => {
+    process.env.PREDICTHQ_API_KEY = "phq-key";
+    let seen = "";
+    const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+      seen = String(url);
+      expect((init?.headers as Record<string, string>).authorization).toBe("Bearer phq-key");
+      return Promise.resolve(new Response(JSON.stringify({ results: [
+        { title: "Big Festival", start: "2026-10-30T18:00:00", local_rank: 88, phq_attendance: 40000, category: "festivals", entities: [{ type: "venue", name: "Parc Jean-Drapeau" }] },
+        { title: "Undated Thing", local_rank: 40 },       // no start -> no date
+        { start: "2026-10-31", local_rank: 10 },          // no title -> dropped
+      ] }), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const broad = await predictHqEvents("", [-73.5673, 45.5017], { start: "2026-10-12", end: "2026-11-15" }, undefined, true);
+    expect(seen).toContain("within=25km%4045.5017%2C-73.5673");
+    expect(seen).toContain("active.gte=2026-10-12");
+    expect(seen).toContain("active.lte=2026-11-15");
+    expect(seen).toContain("rank_level=3%2C4%2C5"); // broad only
+    expect(seen).toContain("sort=-rank");
+    expect(broad.map((e) => e.title)).toEqual(["Big Festival", "Undated Thing"]); // titleless dropped
+    expect(broad[0]).toMatchObject({ rank: 88, attendance: 40000, venue: "Parc Jean-Drapeau", startDate: "2026-10-30" });
+    expect(broad[0].url).toContain("google.com/search"); // no ticket link -> web-search fallback
+    expect(broad[1].startDate).toBeUndefined();
+
+    seen = "";
+    await predictHqEvents("Bruno Mars", [-73.5673, 45.5017], {}, undefined, false);
+    expect(seen).toContain("q=Bruno+Mars");
+    expect(seen).not.toContain("rank_level"); // specific query -> no rank floor
+  });
+
+  it("PredictHQ: throws when no key is configured", async () => {
+    await expect(predictHqEvents("x", [0, 0], {})).rejects.toThrow(/PREDICTHQ_API_KEY/);
   });
 
   it("normalizes Google transit routes and requests only valid fieldmask paths", async () => {
@@ -201,6 +278,25 @@ describe("provider adapters", () => {
     expect(found).toHaveLength(2);
     expect(found[0]).toMatchObject({ title: "Night Market", url: "https://www.eventbrite.ca/e/night-market", date: "2026-09-14", venue: "Distillery District", provider: "eventbrite" });
     expect(found[1]).toMatchObject({ title: "Book Launch", date: "2026-09-20" });
+  });
+
+  it("normalizes GetYourGuide tours into activity results", async () => {
+    process.env.GETYOURGUIDE_API_KEY = "gyg-token";
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { tours: [
+      { tour_id: 62484, title: "Old Town Walking Tour", abstract: "See the historic centre with a local guide.", url: "https://www.getyourguide.com/-l1/-t62484", overall_rating: 4.7, price: { values: { amount: "29.00", currency: "EUR" } } },
+      { title: "No URL Tour", url: "" },
+      { url: "https://x/only-url" },
+    ] } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const found = await activities("things to do Lisbon", "EUR");
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({ title: "Old Town Walking Tour", url: "https://www.getyourguide.com/-l1/-t62484", provider: "getyourguide" });
+    expect(found[0].content).toContain("from 29.00 EUR");
+    expect(found[0].content).toContain("4.7★");
+    const url = new URL(fetchMock.mock.calls[0][0] as string);
+    expect(url.origin + url.pathname).toBe("https://api.getyourguide.com/1/tours");
+    expect(url.searchParams.get("currency")).toBe("EUR");
+    expect((fetchMock.mock.calls[0][1] as { headers: Record<string, string> }).headers["x-access-token"]).toBe("gyg-token");
   });
 
   it("normalizes a Transit App plan and returns null when uncovered", async () => {
@@ -360,6 +456,33 @@ describe("provider adapters", () => {
     const result = await new OpenAiCompatibleProvider({ apiKey: "key", baseUrl: "https://example.test/v1", model: "model" }).generateStructured([{ role: "user", content: "hi" }]);
     expect(result).toEqual({ language: "fr", toolPlan: [] });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).response_format).toEqual({ type: "json_object" });
+  });
+
+  it("follows nextPageToken until maxResults is met, resending the same query", async () => {
+    process.env.GOOGLE_MAPS_API_KEY = "test-key";
+    const page = (n: number, token?: string) => new Response(JSON.stringify({ places: Array.from({ length: n }, (_, i) => ({ id: `places/${i}`, displayName: { text: `Place ${i}` }, location: { latitude: 1, longitude: 2 } })), nextPageToken: token }), { status: 200 });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(page(20, "token-2"))
+      .mockResolvedValueOnce(page(20, "token-3"))
+      .mockResolvedValueOnce(page(5));
+    vi.stubGlobal("fetch", fetchMock);
+    const places = await new GooglePlacesProvider().search("restaurants", undefined, 60);
+    expect(places).toHaveLength(45);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const bodies = fetchMock.mock.calls.map(([, init]) => JSON.parse((init as RequestInit).body as string));
+    expect(bodies[0]).toMatchObject({ textQuery: "restaurants", pageSize: 20 });
+    expect(bodies[1]).toMatchObject({ textQuery: "restaurants", pageSize: 20, pageToken: "token-2" });
+    expect(bodies[2]).toMatchObject({ textQuery: "restaurants", pageSize: 20, pageToken: "token-3" });
+  });
+
+  it("stops paginating once Google's 60-result ceiling is reached", async () => {
+    process.env.GOOGLE_MAPS_API_KEY = "test-key";
+    const page = () => new Response(JSON.stringify({ places: Array.from({ length: 20 }, (_, i) => ({ id: `places/${i}`, displayName: { text: `Place ${i}` }, location: { latitude: 1, longitude: 2 } })), nextPageToken: "more" }), { status: 200 });
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(page()));
+    vi.stubGlobal("fetch", fetchMock);
+    const places = await new GooglePlacesProvider().search("restaurants", undefined, 200);
+    expect(places).toHaveLength(60);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("caches repeated production place searches", async () => {

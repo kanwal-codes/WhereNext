@@ -10,29 +10,22 @@ export type TripFormInput = {
   vibe?: string;
 };
 
-/**
- * Fill and submit the new-trip form, returning the created trip id. Kept here so
- * the form's field contract lives in one place — the form has a Dates block with
- * a "length instead" toggle, not a "Days" field.
- */
+/** Create a configured trip for tests whose subject is downstream of trip setup. */
 export async function createTripViaForm(page: Page, t: TripFormInput): Promise<string> {
-  await page.goto("/trips/new");
-  await page.getByLabel("Trip name").fill(t.name);
-  await page.getByLabel("Destination").fill(t.destination);
-  if (t.origin) await page.getByLabel("Starting from").fill(t.origin);
-  if (t.travelers) await page.getByLabel("Travelers").fill(t.travelers);
-  if (t.vibe) await page.getByLabel("Vibe").fill(t.vibe);
-  if (t.days) {
-    await page.getByRole("button", { name: "Not sure yet? Set length instead" }).click();
-    await page.getByPlaceholder("Number of days").fill(t.days);
-  }
-  await page.getByRole("button", { name: "Create trip" }).click();
-  // The app redirects a new trip straight to .../chat (sometimes with ?ask=…).
-  // Generous timeout: the chat route is the heaviest and cold-compiles on first hit in `next dev`.
-  await expect(page).toHaveURL(/\/trips\/[0-9a-f-]{36}(\/|\?|$)/i, { timeout: 30_000 });
-  const id = page.url().match(/\/trips\/([0-9a-f-]{36})/i)?.[1];
-  if (!id) throw new Error(`no trip id in ${page.url()}`);
-  // Land on the overview regardless of where the app sent us, so callers get a stable page.
+  const response = await page.request.post("/api/trips", {
+    data: {
+      name: t.name,
+      destination: t.destination,
+      origin: t.origin,
+      durationDays: t.days,
+      travelerCount: t.travelers,
+      preferences: { interests: [], ...(t.vibe ? { vibe: t.vibe } : {}) },
+    },
+  });
+  const body = (await response.json()) as { trip?: { id?: string } };
+  expect(response.status(), JSON.stringify(body)).toBe(201);
+  const id = body.trip?.id;
+  if (!id) throw new Error("trip creation returned no id");
   await page.goto(`/trips/${id}`);
   return id;
 }
@@ -41,10 +34,8 @@ export type ConvoMessage = { role: string; content: string; metadata?: Record<st
 
 /** Fetch the trip conversation from inside the browser (auth cookie in scope). */
 export async function conversation(page: Page, tripId: string): Promise<ConvoMessage[]> {
-  return page.evaluate(async (id) => {
-    const r = await fetch(`/api/trips/${id}/conversation`);
-    return r.ok ? ((await r.json()).messages ?? []) : [];
-  }, tripId);
+  const response = await page.request.get(`/api/trips/${tripId}/conversation`);
+  return response.ok() ? ((await response.json()).messages ?? []) : [];
 }
 
 /**

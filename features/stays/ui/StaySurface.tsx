@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowUpRight, BedDouble, Check, Loader2, MapPin, Minus, Plus, SlidersHorizontal, Star, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { AiSearchBar } from "@/components/AiSearchBar";
-import { CompareButton, useTripPanelMaybe } from "@/components/TripPanelProvider";
+import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { readStayDecision, type StayFacets, type StayOption } from "@/packages/contracts/stay";
 import { SkeletonCards } from "@/components/Skeleton";
@@ -59,6 +59,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   const [rooms, setRooms] = useState(1);
   const [stars, setStars] = useState<number[]>([]);
   const [boards, setBoards] = useState<string[]>([]);
+  const [propertyTypes, setPropertyTypes] = useState<string[]>([]);
   const [refundable, setRefundable] = useState(false);
   const [priceMax, setPriceMax] = useState<number | null>(null);
   const [sort, setSort] = useState<"price" | "rating" | "stars">("price");
@@ -81,8 +82,24 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       if (checkout) qs.set("checkout", checkout);
       if (stars.length) qs.set("stars", stars.join(","));
       if (boards.length) qs.set("boards", boards.join(","));
+      if (propertyTypes.length) qs.set("propertyTypes", propertyTypes.join(","));
       if (refundable) qs.set("refundable", "1");
       if (priceMax) qs.set("priceMax", String(priceMax));
+      const cacheKey = `stay-search:${tripId}:${qs.toString()}`;
+      try {
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          const entry = JSON.parse(cached) as { savedAt?: number; result?: Result };
+          if (entry.result && Date.now() - (entry.savedAt ?? 0) < 5 * 60_000) {
+            if (mine !== reqId.current) return;
+            setResult(entry.result);
+            setStatus(entry.result.options.length === 0 ? "Nothing matched — loosen the filters or change the dates." : "");
+            return;
+          }
+          sessionStorage.removeItem(cacheKey);
+        }
+      } catch { /* storage is optional */ }
+
       const response = await fetch(`/api/trips/${tripId}/stays?${qs}`);
       const body = await response.json();
       if (mine !== reqId.current) return;
@@ -91,8 +108,10 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
         setStatus("We couldn't load hotels just now. Try again in a moment.");
         return;
       }
-      setResult(body as Result);
-      setStatus((body.options ?? []).length === 0 ? "Nothing matched — loosen the filters or change the dates." : "");
+      const next = body as Result;
+      try { sessionStorage.setItem(cacheKey, JSON.stringify({ savedAt: Date.now(), result: next })); } catch { /* storage is optional */ }
+      setResult(next);
+      setStatus((next.options ?? []).length === 0 ? "Nothing matched — loosen the filters or change the dates." : "");
     } catch {
       if (mine === reqId.current) {
         setResult(null);
@@ -101,7 +120,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
     } finally {
       if (mine === reqId.current) setLoading(false);
     }
-  }, [tripId, adults, rooms, sort, checkin, checkout, stars, boards, refundable, priceMax, near]);
+  }, [tripId, adults, rooms, sort, checkin, checkout, stars, boards, propertyTypes, refundable, priceMax, near]);
 
   useEffect(() => {
     void search();
@@ -114,6 +133,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
     if (d.priceMax !== undefined) setPriceMax(d.priceMax);
     if (d.stars?.length) setStars(d.stars);
     if (d.boards?.length) setBoards(d.boards);
+    if (d.propertyTypes?.length) setPropertyTypes(d.propertyTypes);
     if (d.refundable !== undefined) setRefundable(d.refundable);
     if (d.sort) setSort(d.sort);
     if (d.adults) setAdults(Math.max(1, Math.min(d.adults, 16)));
@@ -123,16 +143,22 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   const detailHref = (hotelId: string) =>
     `/trips/${tripId}/stay/${encodeURIComponent(hotelId)}?checkin=${result?.checkin ?? checkin}&checkout=${result?.checkout ?? checkout}&adults=${adults}&rooms=${rooms}`;
   const panelCtx = useTripPanelMaybe();
+  const stayEntry = (o: StayOption): CompareEntry => ({
+    id: o.hotelId, kind: "stay", name: o.name, href: detailHref(o.hotelId),
+    subtitle: [o.stars ? `${o.stars}★` : null, o.boardName].filter(Boolean).join(" · ") || undefined,
+    attrs: { price: `${money(o.nightlyAmount)}/night`, priceValue: o.nightlyAmount, rating: typeof o.rating === "number" && o.rating > 0 ? `${o.rating.toFixed(1)}/10` : undefined, ratingValue: typeof o.rating === "number" && o.rating > 0 ? o.rating : undefined, lat: o.latitude ?? undefined, lng: o.longitude ?? undefined, detail: [o.stars ? `${o.stars}-star` : null, o.boardName, o.refundable ? "free cancellation" : null].filter(Boolean).join(", ") || "Hotel" },
+  });
   const openStay = (o: StayOption) => (e: MouseEvent) => {
     if (!panelCtx || e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
     e.preventDefault();
+    if (panelCtx.compareMode) { panelCtx.compareToggle(stayEntry(o)); return; }
     panelCtx.openPanel({ kind: "stay", hotelId: o.hotelId, name: o.name, checkin: result?.checkin ?? checkin, checkout: result?.checkout ?? checkout });
   };
   const money = (n: number) => formatMoney(n, result?.currency ?? "CAD");
   const facets = result?.facets;
   const toggle = (list: string[], v: string, set: (l: string[]) => void) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
   const toggleN = (list: number[], v: number, set: (l: number[]) => void) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
-  const activeFilters = stars.length + boards.length + (refundable ? 1 : 0) + (priceMax ? 1 : 0);
+  const activeFilters = stars.length + boards.length + propertyTypes.length + (refundable ? 1 : 0) + (priceMax ? 1 : 0);
 
   return (
     <div className="space-y-5">
@@ -234,6 +260,23 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                 />
               </div>
             )}
+            {facets.propertyTypes.length > 1 && (
+              <div>
+                <span className="text-sm font-medium">Type of place</span>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {facets.propertyTypes.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => toggle(propertyTypes, t, setPropertyTypes)}
+                      className={cn("rounded-full border px-2.5 py-1 text-xs", propertyTypes.includes(t) ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-ink-soft")}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {facets.stars.length > 0 && (
               <div>
                 <span className="text-sm font-medium">Star rating</span>
@@ -273,7 +316,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
               Free cancellation only
             </label>
             {activeFilters > 0 && (
-              <button type="button" onClick={() => { setStars([]); setBoards([]); setRefundable(false); setPriceMax(null); }} className="text-xs font-medium text-primary hover:underline">
+              <button type="button" onClick={() => { setStars([]); setBoards([]); setPropertyTypes([]); setRefundable(false); setPriceMax(null); }} className="text-xs font-medium text-primary hover:underline">
                 Clear filters
               </button>
             )}
@@ -315,6 +358,9 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                       )}
                     </div>
                     <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                      {o.propertyType && o.propertyType !== "Hotel" && (
+                        <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-ink-soft">{o.propertyType}</span>
+                      )}
                       {typeof o.stars === "number" && o.stars > 0 && <span>{o.stars}★</span>}
                       {typeof o.rating === "number" && o.rating > 0 && (
                         <span className="inline-flex items-center gap-1 font-medium text-foreground">
@@ -331,24 +377,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                         <span className="block text-[11px] font-normal text-muted-foreground">/night · {money(o.totalAmount)} total</span>
                       </span>
                       <div className="flex items-center gap-2">
-                        <CompareButton
-                          entry={{
-                            id: o.hotelId,
-                            kind: "stay",
-                            name: o.name,
-                            href: detailHref(o.hotelId),
-                            subtitle: [o.stars ? `${o.stars}★` : null, o.boardName].filter(Boolean).join(" · ") || undefined,
-                            attrs: {
-                              price: `${money(o.nightlyAmount)}/night`,
-                              priceValue: o.nightlyAmount,
-                              rating: typeof o.rating === "number" && o.rating > 0 ? `${o.rating.toFixed(1)}/10` : undefined,
-                              ratingValue: typeof o.rating === "number" && o.rating > 0 ? o.rating : undefined,
-                              lat: o.latitude ?? undefined,
-                              lng: o.longitude ?? undefined,
-                              detail: [o.stars ? `${o.stars}-star` : null, o.boardName, o.refundable ? "free cancellation" : null].filter(Boolean).join(", ") || "Hotel",
-                            },
-                          }}
-                        />
+                        {panelCtx?.compareMode && <span className="text-[11px] text-muted-foreground">{panelCtx.compareHas(o.hotelId) ? "Selected" : "Select in compare mode"}</span>}
                         <Link href={detailHref(o.hotelId)} onClick={openStay(o)} className="inline-flex items-center gap-1 text-xs font-medium text-primary">
                           View <ArrowUpRight className="h-3 w-3" />
                         </Link>

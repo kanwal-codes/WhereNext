@@ -28,12 +28,14 @@ export function AuthShell({
   className?: string;
 }) {
   return (
-    <div className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
+    <div className="theme-light-scope grid min-h-screen bg-background text-foreground [color-scheme:light] lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
       <div className="relative flex flex-col px-5 py-8 sm:px-10 lg:px-14">
-        <Link href="/" className="inline-flex w-fit items-center gap-2 text-sm">
-          <BrandMark variant="compact" />
-          <BrandMark variant="text" />
-        </Link>
+        <div className="flex items-center justify-between gap-2">
+          <Link href="/" className="inline-flex w-fit items-center gap-2 text-sm">
+            <BrandMark variant="compact" />
+            <BrandMark variant="text" />
+          </Link>
+        </div>
 
         <div className="flex flex-1 items-center py-10">
           <div className={cn("w-full max-w-md", className)}>
@@ -45,14 +47,12 @@ export function AuthShell({
               <p className="mt-3 text-sm leading-relaxed text-ink-soft">{subtitle}</p>
             </Reveal>
 
-            <motion.div
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.28, ease: [0.22, 0.61, 0.36, 1] }}
-              className="mt-8"
-            >
+            {/* Reveal, not a raw motion.div: it renders visible on the server and
+                first paint, then upgrades — a background-tab load never leaves the
+                form stuck at opacity 0. */}
+            <Reveal delay={0.28} className="mt-8">
               {children}
-            </motion.div>
+            </Reveal>
           </div>
         </div>
 

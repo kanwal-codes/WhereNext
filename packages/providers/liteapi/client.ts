@@ -26,8 +26,29 @@ const hotelsSchema = z.object({
     rating: z.number().nullish(),
     reviewCount: z.number().nullish(),
     thumbnail: z.string().nullish(),
+    hotelTypeId: z.number().nullish(),
   })).default([]),
 });
+
+// LiteAPI's `/data/hotelTypes` reference list — hardcoded since it's stable static data,
+// not worth a live call on every search. Refresh from that endpoint if labels drift.
+const HOTEL_TYPE_LABELS: Record<number, string> = {
+  201: "Apartment", 203: "Hostel", 204: "Hotel", 205: "Motel", 206: "Resort", 207: "Residence",
+  208: "Bed and breakfast", 209: "Ryokan", 210: "Farm stay", 212: "Holiday park", 213: "Villa",
+  214: "Campsite", 215: "Boat", 216: "Guest house", 218: "Inn", 219: "Aparthotel", 220: "Holiday home",
+  221: "Lodge", 222: "Homestay", 223: "Country house", 224: "Luxury tent", 225: "Capsule hotel",
+  226: "Love hotel", 227: "Riad", 228: "Chalet", 229: "Condo", 230: "Cottage", 231: "Economy hotel",
+  232: "Gite", 233: "Health resort", 234: "Cruise", 235: "Student accommodation", 243: "Tree house",
+  247: "Pension", 250: "Vacation home", 251: "Pousada", 252: "Country house", 254: "Campsite",
+  257: "Cabin", 258: "Holiday park", 262: "Affittacamere", 264: "Hostel", 265: "Houseboat",
+  268: "Ranch", 271: "Agritourism property", 272: "Mobile home", 273: "Safari tent",
+  274: "All-inclusive property", 276: "Castle", 277: "Property", 278: "Palace",
+};
+const propertyTypeLabel = (id?: number | null) => (id != null ? HOTEL_TYPE_LABELS[id] : undefined) ?? "Hotel";
+
+/** "Home"-style categories LiteAPI's default relevance ranking buries far behind traditional
+ * hotels — fetched with an explicit type filter so apartments/villas/etc. actually show up. */
+const HOME_TYPE_IDS = [201, 207, 208, 213, 216, 219, 220, 221, 222, 223, 228, 229, 230, 232, 250, 252, 257, 265];
 
 const priceSchema = z.array(z.object({ amount: z.number(), currency: z.string() })).default([]);
 const ratesSchema = z.object({
@@ -155,17 +176,27 @@ async function hotelIndex(
   limit: number,
   signal?: AbortSignal,
 ) {
-  const params: Record<string, string> = { language: "en", limit: String(Math.min(Math.max(limit, 20), 60)) };
+  const baseParams: Record<string, string> = { language: "en" };
   if (input.latitude != null && input.longitude != null) {
-    params.latitude = String(input.latitude);
-    params.longitude = String(input.longitude);
-    params.radius = "6000";
+    baseParams.latitude = String(input.latitude);
+    baseParams.longitude = String(input.longitude);
+    baseParams.radius = "6000";
   } else {
-    if (input.countryCode) params.countryCode = input.countryCode;
-    if (input.city) params.cityName = input.city;
+    if (input.countryCode) baseParams.countryCode = input.countryCode;
+    if (input.city) baseParams.cityName = input.city;
   }
-  if (input.starRatings?.length) params.starRating = input.starRatings.join(",");
-  return hotelsSchema.parse(await get("/data/hotels", params, signal)).data;
+  if (input.starRatings?.length) baseParams.starRating = input.starRatings.join(",");
+
+  // LiteAPI's relevance ranking is hotel-heavy regardless of what's in scope, so a plain
+  // call almost never surfaces apartments/villas within a normal result page — fetch a
+  // guaranteed slice of them explicitly and merge, rather than leave it to chance.
+  const [general, homes] = await Promise.all([
+    hotelsSchema.parse(await get("/data/hotels", { ...baseParams, limit: String(Math.min(Math.max(limit, 20), 60)) }, signal)).data,
+    hotelsSchema.parse(await get("/data/hotels", { ...baseParams, hotelTypeIds: HOME_TYPE_IDS.join(","), limit: String(Math.min(limit, 24)) }, signal).catch(() => ({ data: [] }))).data,
+  ]);
+  const byId = new Map(general.map((h) => [h.id, h]));
+  for (const h of homes) if (!byId.has(h.id)) byId.set(h.id, h);
+  return Array.from(byId.values());
 }
 
 const reviewsSchema = z.object({
@@ -212,7 +243,7 @@ export type StaySearchInput = {
   city?: string; countryCode?: string; latitude?: number; longitude?: number;
   checkin: string; checkout: string;
   adults?: number; rooms?: number; currency?: string; limit?: number;
-  starRatings?: number[]; boards?: string[]; refundableOnly?: boolean; priceMax?: number;
+  starRatings?: number[]; boards?: string[]; refundableOnly?: boolean; priceMax?: number; propertyTypes?: string[];
   sort?: "price" | "rating" | "stars";
 };
 
@@ -224,7 +255,7 @@ export async function searchStays(input: StaySearchInput, signal?: AbortSignal):
   // Cast a wider net when filters are on, since many will be dropped after pricing.
   const netWidth = limit + (input.starRatings?.length || input.boards?.length || input.refundableOnly || input.priceMax ? 24 : 6);
   const hotels = await hotelIndex({ ...input, starRatings: input.starRatings }, netWidth, signal);
-  const empty: StayFacets = { priceMin: 0, priceMax: 0, stars: [], boards: [] };
+  const empty: StayFacets = { priceMin: 0, priceMax: 0, stars: [], boards: [], propertyTypes: [] };
   if (hotels.length === 0) return { nights, options: [], facets: empty };
 
   const byId = new Map(hotels.map((hotel) => [hotel.id, hotel]));
@@ -253,6 +284,7 @@ export async function searchStays(input: StaySearchInput, signal?: AbortSignal):
       currency: cheapest.currency,
       boardName: cheapest.boardName,
       refundable: cheapest.refundable,
+      propertyType: propertyTypeLabel(hotel.hotelTypeId),
       rooms,
     });
   }
@@ -263,12 +295,15 @@ export async function searchStays(input: StaySearchInput, signal?: AbortSignal):
     priceMax: options.length ? Math.max(...options.map((o) => o.nightlyAmount)) : 0,
     stars: Array.from(new Set(options.map((o) => o.stars).filter((s): s is number => typeof s === "number" && s > 0))).sort((a, b) => b - a),
     boards: Array.from(new Set(options.flatMap((o) => o.rooms.map((r) => r.boardName)).filter((b): b is string => Boolean(b)))).sort(),
+    propertyTypes: Array.from(new Set(options.map((o) => o.propertyType).filter((t): t is string => Boolean(t))))
+      .sort((a, b) => (a === "Hotel" ? -1 : b === "Hotel" ? 1 : a.localeCompare(b))),
   };
 
   if (input.starRatings?.length) options = options.filter((o) => o.stars != null && input.starRatings!.includes(Math.round(o.stars)));
   if (input.boards?.length) options = options.filter((o) => o.rooms.some((r) => r.boardName && input.boards!.includes(r.boardName)));
   if (input.refundableOnly) options = options.filter((o) => o.rooms.some((r) => r.refundable));
   if (typeof input.priceMax === "number") options = options.filter((o) => o.nightlyAmount <= input.priceMax!);
+  if (input.propertyTypes?.length) options = options.filter((o) => o.propertyType && input.propertyTypes!.includes(o.propertyType));
 
   const sort = input.sort ?? "price";
   options.sort((a, b) =>

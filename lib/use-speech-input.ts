@@ -49,7 +49,11 @@ export function useSpeechInput(opts: {
   onError?: (message: string) => void;
 }) {
   const { onStart, onResult, onError } = opts;
-  const [supported] = useState(() => recognitionCtor() != null);
+  // Must be false on the first client render so it matches the server (which has no
+  // SpeechRecognition) — deciding it during useState's initializer instead produces a
+  // hydration mismatch on the send/mic button. Resolve the real value after mount.
+  const [supported, setSupported] = useState(false);
+  useEffect(() => setSupported(recognitionCtor() != null), []);
   const [listening, setListening] = useState(false);
   const recRef = useRef<Recognition | null>(null);
   const cb = useRef({ onStart, onResult, onError });

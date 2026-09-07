@@ -33,7 +33,7 @@ begin
     return; -- not a Supabase database (e.g. plain local Postgres) — nothing to publish to
   end if;
   foreach tbl in array array[
-    'trip_itinerary_items', 'trip_places', 'trip_preferences', 'trip_decisions', 'conversation_messages'
+    'trips', 'trip_itinerary_items', 'trip_places', 'trip_preferences', 'trip_decisions', 'conversation_messages'
   ] loop
     if not exists (
       select 1 from pg_publication_tables

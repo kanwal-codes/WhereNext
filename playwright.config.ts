@@ -10,7 +10,7 @@ export default defineConfig({
   // The live specs need reliable tool-calling: force the OpenAI path with a capable RESOLVE model
   // (the .env.local default AI_PROVIDER=cerebras under-calls the retrieval tools).
   webServer: {
-    command: "E2E_PREVIEW=1 AI_PROVIDER=openai RESOLVE_MODEL=gpt-4o bun run dev -- --hostname 127.0.0.1 --port 3100",
+    command: "NEXT_DIST_DIR=.next-e2e E2E_PREVIEW=1 AI_PROVIDER=openai RESOLVE_MODEL=gpt-4o bun run dev -- --hostname 127.0.0.1 --port 3100",
     url: "http://127.0.0.1:3100",
     reuseExistingServer: true,
     timeout: 60_000,

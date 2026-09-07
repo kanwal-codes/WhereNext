@@ -7,6 +7,7 @@ import { fail } from "@/lib/server/with-route";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createPlaceRepository } from "@/features/places/infrastructure/placeRepository";
 import { cached } from "@/lib/server/ttl-cache";
+import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
@@ -14,7 +15,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     const { supabase } = await requireTripMember(tripId);
     const query = new URL(request.url).searchParams.get("query")?.trim();
     if (!query) return NextResponse.json({ places: await createPlaceRepository(supabase).saved(tripId) });
-    const result = await cached(`places:search:${query.toLowerCase()}`, 300_000, async () => ({ places: await new GooglePlacesProvider().search(query, request.signal), retrievedAt: new Date().toISOString() }));
+    // maxResults 60 = Google's own ceiling across pages, so a "restaurants near X" browse doesn't stop at the first 20.
+    const result = await cached(`places:search:${query.toLowerCase()}`, 300_000, async () => ({ places: await new GooglePlacesProvider().search(query, request.signal, 60), retrievedAt: new Date().toISOString() }));
     return NextResponse.json({ places: result.places, freshness: { provider: "google-places", retrievedAt: result.retrievedAt, cacheTtlSeconds: 300 } });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Place search unavailable");
@@ -26,7 +28,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
     const place = placeSchema.parse(await request.json());
-    return NextResponse.json({ place: await createPlaceRepository(supabase, createSupabaseAdminClient()).save(tripId, place) }, { status: 201 });
+    const saved = await createPlaceRepository(supabase, createSupabaseAdminClient()).save(tripId, place);
+    invalidateWorkspace(tripId);
+    return NextResponse.json({ place: saved }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid place" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "Place could not be saved");
@@ -46,6 +50,7 @@ async function placeAction(request: Request, tripId: string, status: "rejected" 
     const removed = await supabase.from("trip_places").delete().eq("trip_id", tripId).eq("place_id", result.data.id);
     if (removed.error) throw removed.error;
   }
+  invalidateWorkspace(tripId);
   return NextResponse.json({ [status]: true });
 }
 

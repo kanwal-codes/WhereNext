@@ -5,6 +5,7 @@ import { fail } from "@/lib/server/with-route";
 import { mergePreferences, preferencesSchema } from "@/packages/contracts/preferences";
 import { suggestionActionSchema, suggestionValueSchema, type SuggestionKey } from "@/packages/contracts/suggestion";
 import { tripDurationDays } from "@/features/trip/domain/trip";
+import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 const splitList = (value: string) => value.split(/[,·;/]| and /i).map((s) => s.trim()).filter(Boolean).slice(0, 20);
 
@@ -48,6 +49,26 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ tr
           .eq("id", tripId);
         if (write.error) throw write.error;
       }
+      if (key === "travelers") {
+        // "3", "3 travelers", "Party of 3" — the digit isn't always first, so pull it from anywhere.
+        const count = Number.parseInt(suggestion.display.match(/\d+/)?.[0] ?? "", 10);
+        if (Number.isFinite(count) && count > 0) {
+          const write = await supabase.from("trips").update({ travelers: count }).eq("id", tripId);
+          if (write.error) throw write.error;
+        }
+      }
+      if (key === "destination" && suggestion.display) {
+        const write = await supabase.from("trips").update({ destination: suggestion.display }).eq("id", tripId);
+        if (write.error) throw write.error;
+      }
+      if (key === "trip_length") {
+        // "About 5 days", "a 5-day trip" — same "pull the number out" approach as travelers.
+        const days = Number.parseInt(suggestion.display.match(/\d+/)?.[0] ?? "", 10);
+        if (Number.isFinite(days) && days > 0) {
+          const write = await supabase.from("trips").update({ duration_days: days }).eq("id", tripId);
+          if (write.error) throw write.error;
+        }
+      }
       if (key === "interests") {
         const existing = await supabase.from("trip_preferences").select("data").eq("trip_id", tripId).maybeSingle();
         if (existing.error) throw existing.error;
@@ -74,6 +95,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ tr
 
     const remove = await supabase.from("trip_decisions").delete().eq("id", row.data.id);
     if (remove.error) throw remove.error;
+    invalidateWorkspace(tripId);
     return NextResponse.json({ ok: true, key, action });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid suggestion" }, { status: 400 });
