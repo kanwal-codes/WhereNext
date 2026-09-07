@@ -342,7 +342,7 @@ export function NearbyRecommendations({
                 ))}
                 {shownEvents.map((event, idx) => (
                   <EventCard
-                    key={event.url}
+                    key={`${event.url}|${event.date ?? ""}|${idx}`}
                     tripId={tripId}
                     event={event}
                     className="w-[240px] shrink-0 snap-start"

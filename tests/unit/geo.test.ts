@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { haversineKm, nearest } from "../../lib/application/geo";
+import { greatCircleArc, haversineKm, nearest } from "../../lib/application/geo";
 
 describe("geo", () => {
   it("measures straight-line distance", () => {
@@ -22,5 +22,18 @@ describe("geo", () => {
 
   it("returns null when nothing has coordinates", () => {
     expect(nearest({ latitude: 1, longitude: 1 }, [{ title: "x", latitude: NaN, longitude: NaN }])).toBeNull();
+  });
+});
+
+describe("greatCircleArc", () => {
+  it("returns a multi-point curved path starting and ending at the given coordinates", () => {
+    const jfk: [number, number] = [-73.7789, 40.6413];
+    const lhr: [number, number] = [-0.4543, 51.47];
+    const arc = greatCircleArc(jfk, lhr, 20);
+    expect(arc.length).toBeGreaterThan(2);
+    expect(arc[0][0]).toBeCloseTo(jfk[0], 1);
+    expect(arc[0][1]).toBeCloseTo(jfk[1], 1);
+    expect(arc[arc.length - 1][0]).toBeCloseTo(lhr[0], 1);
+    expect(arc[arc.length - 1][1]).toBeCloseTo(lhr[1], 1);
   });
 });

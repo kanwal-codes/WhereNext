@@ -42,7 +42,7 @@ export default async function AccountPage() {
         <div className="mt-6 flex items-center gap-4 rounded-2xl border border-border bg-card p-5 shadow-soft">
           <span
             aria-hidden
-            className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-border bg-white font-display text-lg font-semibold text-foreground"
+            className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-border bg-primary font-display text-lg font-semibold text-primary-foreground"
           >
             {initials(displayName)}
           </span>

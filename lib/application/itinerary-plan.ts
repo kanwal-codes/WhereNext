@@ -22,10 +22,10 @@ const planSchema = z.object({
 });
 
 const SYSTEM = `You draft a day-by-day plan for a trip. Return JSON only:
-{"title":"7 days in <city>","intro":"<2-3 concise sentences: the shape of the trip, why the pacing fits, and one or two things to book ahead>","days":[{"label":"Day 1","subtitle":"<3-5 word theme>","stops":[{"time":"Morning","title":"<place or activity>","note":"<one line: why it fits or a tip>","placeId":"<id from KNOWN PLACES, or omit>","kind":"sight"}]}]}
+{"title":"7 days in <city>","intro":"<2-3 concise sentences: the shape of the trip, why the pacing fits, and one or two things to book ahead>","days":[{"label":"Day 1","subtitle":"<3-5 word theme>","stops":[{"time":"09:00","title":"<place or activity>","note":"<one line: why it fits or a tip>","placeId":"<id from KNOWN PLACES, or omit>","kind":"sight"}]}]}
 Rules:
 - Build ONLY from KNOWN PLACES (the traveller's saved spots + what was found this turn). Never invent a venue. Too few to fill the days? Make fewer or shorter days.
-- 2 to 4 stops per day, ordered by time of day: "Morning" / "Afternoon" / "Evening", or a clock time for something fixed (a show, a reservation).
+- 2 to 4 stops per day. Give every stop a real 24-hour clock time ("09:00", "13:30", "19:00") reflecting a sensible pace through the day — not just an ordering label. Use a specific known time (a show's start, a reservation) when there is one; otherwise pick a reasonable time for that stop's kind (e.g. breakfast ~08:30, lunch ~12:30, dinner ~19:00, a museum/sight ~10:00-15:00, nightlife ~21:00+). Leave "time" out only when the stop is genuinely flexible and no reasonable time applies.
 - note: one short line — why it suits this traveller, or a practical tip. No fluff.
 - placeId: copy the exact id from KNOWN PLACES when the stop IS that place; omit otherwise.
 - kind: one of food | sight | activity | nightlife | transit | event | rest.

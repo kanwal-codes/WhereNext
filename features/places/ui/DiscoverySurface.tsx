@@ -46,7 +46,9 @@ const inDestination = (place: Place, destination: string) => {
 };
 type Band = { key: string | null; label: string; items: Item[] };
 
-const idOf = (item: Item) => (item.kind === "place" ? item.place.providerId : item.kind === "event" ? item.event.url : item.stay.hotelId);
+// Same URL + different date is a distinct showtime (recurring events often share one ticket
+// page across slots) — include the date so dedup doesn't collapse them into a single listing.
+const idOf = (item: Item) => (item.kind === "place" ? item.place.providerId : item.kind === "event" ? `${item.event.url}|${item.event.date ?? ""}` : item.stay.hotelId);
 const starBand = (stars: number | null) => (!stars ? 0 : stars >= 5 ? 4 : stars >= 4 ? 3 : stars >= 3 ? 2 : 1);
 const toStayItem = (o: Record<string, unknown>): StayItem => ({
   hotelId: String(o.hotelId ?? ""),
@@ -58,7 +60,40 @@ const toStayItem = (o: Record<string, unknown>): StayItem => ({
   rating: typeof o.rating === "number" ? o.rating : null,
 });
 
-export function DiscoverySurface({ tripId, initialSaved, initialQuery }: { tripId: string; initialSaved?: Array<Record<string, unknown>>; initialQuery?: string }) {
+export function DiscoverTabs({ view, onChange, savedCount }: { view: "results" | "saved"; onChange: (v: "results" | "saved") => void; savedCount: number }) {
+  return (
+    <div className="flex justify-center">
+      <div className="inline-flex rounded-full bg-muted p-1 text-sm">
+        {(["results", "saved"] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => onChange(v)}
+            className={cn("rounded-full px-5 py-2 font-medium transition-colors", view === v ? "bg-card text-foreground shadow-soft" : "text-muted-foreground hover:text-foreground")}
+          >
+            {v === "saved" ? `Saved (${savedCount})` : "Discover"}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function DiscoverySurface({
+  tripId,
+  initialSaved,
+  initialQuery,
+  view,
+  onViewChange,
+  onSavedCountChange,
+}: {
+  tripId: string;
+  initialSaved?: Array<Record<string, unknown>>;
+  initialQuery?: string;
+  view: "results" | "saved";
+  onViewChange: (v: "results" | "saved") => void;
+  onSavedCountChange?: (n: number) => void;
+}) {
   const { data } = useTripData();
   const panelCtx = useTripPanelMaybe();
   const destination = data?.trip.destination?.trim() ?? "";
@@ -94,9 +129,11 @@ export function DiscoverySurface({ tripId, initialSaved, initialQuery }: { tripI
     if (!initialSaved) refreshSaved();
     return subscribeWorkspaceChanges(refreshSaved);
   }, [refreshSaved, initialSaved]);
+  useEffect(() => {
+    onSavedCountChange?.(saved.length);
+  }, [saved.length, onSavedCountChange]);
 
   // --- filter + feed state ------------------------------------------
-  const [view, setView] = useState<"results" | "saved">("results");
   const [catKey, setCatKey] = useState<string | null>(null); // null = "All"
   const [subs, setSubs] = useState<string[]>([]);
   const [flat, setFlat] = useState(false);
@@ -225,8 +262,8 @@ export function DiscoverySurface({ tripId, initialSaved, initialQuery }: { tripI
       eventsPage.current = nextPage;
       setBands((current) => current?.map((band) => {
         if (band.key !== "events") return band;
-        const existing = new Set(band.items.map((item) => item.kind === "event" ? item.event.url : ""));
-        const additions = next.filter((event) => !existing.has(event.url)).map((event) => ({ kind: "event", event }) as Item);
+        const existing = new Set(band.items.map((item) => item.kind === "event" ? `${item.event.url}|${item.event.date ?? ""}` : ""));
+        const additions = next.filter((event) => !existing.has(`${event.url}|${event.date ?? ""}`)).map((event) => ({ kind: "event", event }) as Item);
         return additions.length ? { ...band, items: [...band.items, ...additions] } : band;
       }) ?? current);
     } finally {
@@ -386,7 +423,7 @@ export function DiscoverySurface({ tripId, initialSaved, initialQuery }: { tripI
     }
     if (item.kind === "event") {
       return (
-        <StaggerItem key={`e:${item.event.url}`}>
+        <StaggerItem key={`e:${item.event.url}|${item.event.date ?? ""}`}>
           <EventCard tripId={tripId} event={item.event} />
         </StaggerItem>
       );
@@ -418,23 +455,9 @@ export function DiscoverySurface({ tripId, initialSaved, initialQuery }: { tripI
         </p>
       )}
 
-      {/* Tier 1 — Discover / Saved toggle + broad categories. One row, scrolls sideways. */}
-      <div className="mt-4 flex items-center gap-2 overflow-x-auto scrollbar-slim pb-1">
-        <div className="flex shrink-0 rounded-full border border-border p-0.5 text-xs">
-          {(["results", "saved"] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setView(v)}
-              className={cn("rounded-full px-3 py-1 font-medium transition-colors", view === v ? "bg-primary text-primary-foreground" : "text-ink-soft")}
-            >
-              {v === "saved" ? `Saved (${saved.length})` : "Discover"}
-            </button>
-          ))}
-        </div>
-
-        {view === "results" && (
-          <>
+      {/* Tier 1 — Compare + broad categories (Discover/Saved lives in the page header now). One row, scrolls sideways. */}
+      {view === "results" && (
+        <div className="mt-4 flex items-center gap-2 overflow-x-auto scrollbar-slim pb-1">
             {panelCtx && (
               <button
                 type="button"
@@ -474,9 +497,8 @@ export function DiscoverySurface({ tripId, initialSaved, initialQuery }: { tripI
                 </button>
               );
             })}
-          </>
-        )}
-      </div>
+        </div>
+      )}
       {panelCtx?.compareMode && panelCtx.compareList.length >= 2 && <button type="button" onClick={panelCtx.openCompare} className="mt-3 rounded-full bg-primary px-4 py-2 text-xs font-medium text-primary-foreground">Compare selected</button>}
 
       {/* Tier 2 — sub-types for the active category. One row, scrolls sideways. */}

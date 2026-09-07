@@ -43,6 +43,7 @@ import { BlurImage } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
 import { mutate } from "@/lib/client/mutation-queue";
 import { notifyToast } from "@/lib/application/toast";
+import { formatClockTime, parseClockTime } from "@/lib/application/clock-time";
 import { portableProxyPhotoUrl } from "../portable-photo-url";
 
 export type BlockHandlers = {
@@ -659,11 +660,13 @@ function ItineraryBlockView({ block, tripId, onOpenPlace }: { block: ItineraryBl
     for (const [i, d] of block.days.entries()) {
       const dayIndex = dayIndexFromLabel(d.label, i + 1);
       for (const stop of d.stops) {
+        const time = parseClockTime(stop.time);
         const res = await mutate("/api/commands", {
           method: "POST",
           // Carries the place id through when the stop is a real, known place — without it the
-          // itinerary row has nothing to open a detail panel from later.
-          body: { type: "add_itinerary_item", tripId, title: stop.title, dayIndex, ...(stop.placeId ? { providerId: stop.placeId } : {}) },
+          // itinerary row has nothing to open a detail panel from later. A vague "Morning"/
+          // "Afternoon" label doesn't parse to a real time and is left off rather than guessed.
+          body: { type: "add_itinerary_item", tripId, title: stop.title, dayIndex, ...(stop.placeId ? { providerId: stop.placeId } : {}), ...(time ? { time } : {}) },
           announce: ["itinerary"],
         });
         if (!res.ok) failures += 1;
@@ -732,7 +735,7 @@ function ItineraryBlockView({ block, tripId, onOpenPlace }: { block: ItineraryBl
                   <Icon className="h-3.5 w-3.5" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  {stop.time && <span className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">{stop.time}</span>}
+                  {stop.time && <span className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">{formatClockTime(stop.time)}</span>}
                   {clickable ? (
                     <button
                       type="button"
@@ -866,7 +869,7 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
               <div key={index} className={grid}>
                 {block.items.map((event) => (
                   <EventCard
-                    key={event.url}
+                    key={`${event.url}|${event.date ?? ""}`}
                     tripId={tripId}
                     event={event as NearbyEvent}
                   />

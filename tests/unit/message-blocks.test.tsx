@@ -53,7 +53,7 @@ describe("MessageBlocks", () => {
       />,
     );
     expect(html).toContain("Art museums");
-    expect(html).toContain("See more");
+    expect(html).toContain("See all");
     expect(html).toContain("Museum 4");
     expect(html).not.toContain("Museum 5");
 

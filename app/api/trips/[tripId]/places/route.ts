@@ -15,7 +15,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     const { supabase } = await requireTripMember(tripId);
     const query = new URL(request.url).searchParams.get("query")?.trim();
     if (!query) return NextResponse.json({ places: await createPlaceRepository(supabase).saved(tripId) });
-    const result = await cached(`places:search:${query.toLowerCase()}`, 300_000, async () => ({ places: await new GooglePlacesProvider().search(query, request.signal), retrievedAt: new Date().toISOString() }));
+    // maxResults 60 = Google's own ceiling across pages, so a "restaurants near X" browse doesn't stop at the first 20.
+    const result = await cached(`places:search:${query.toLowerCase()}`, 300_000, async () => ({ places: await new GooglePlacesProvider().search(query, request.signal, 60), retrievedAt: new Date().toISOString() }));
     return NextResponse.json({ places: result.places, freshness: { provider: "google-places", retrievedAt: result.retrievedAt, cacheTtlSeconds: 300 } });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Place search unavailable");

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowDown, ArrowUp, ArrowUpRight, BedDouble, GripVertical, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight, BedDouble, Clock, GripVertical, Loader2, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
 import type { ItineraryItem } from "@/features/itinerary/domain/item";
 import type { StayDecision } from "@/packages/contracts/stay";
 import { useTripPanel } from "@/components/TripPanelProvider";
@@ -32,11 +32,13 @@ export function ItinerarySurface({
   initialItems,
   startDate = null,
   lockedStay = null,
+  destination = null,
 }: {
   tripId: string;
   initialItems?: Array<Record<string, unknown>>;
   startDate?: string | null;
   lockedStay?: StayDecision | null;
+  destination?: string | null;
 }) {
   const { openPanel } = useTripPanel();
   const [items, setItems] = useState<ItineraryItem[]>((initialItems ?? []) as ItineraryItem[]);
@@ -45,6 +47,31 @@ export function ItinerarySurface({
   const [removed, setRemoved] = useState<ItineraryItem | null>(null);
   const [dragTitle, setDragTitle] = useState<string | null>(null);
   const [dropHint, setDropHint] = useState<string | null>(null); // `${day}:${beforeTitle ?? "end"}`
+  const [resolvingTitle, setResolvingTitle] = useState<string | null>(null);
+
+  /** Most itinerary items already carry a provider_id (added from a real place search) and open
+   * the panel directly; a few are typed straight into chat with no known place behind them yet
+   * — those get looked up by name on click instead of staying a dead label forever. */
+  async function openPlace(item: ItineraryItem, providerId: string | null) {
+    if (providerId) {
+      openPanel({ kind: "place", placeId: providerId, name: item.title });
+      return;
+    }
+    if (resolvingTitle) return;
+    setResolvingTitle(item.title);
+    try {
+      const query = destination ? `${item.title}, ${destination}` : item.title;
+      const r = await fetch(`/api/trips/${tripId}/places?query=${encodeURIComponent(query)}`);
+      const body = await r.json();
+      const hit = (body.places ?? [])[0] as { providerId?: string } | undefined;
+      if (hit?.providerId) openPanel({ kind: "place", placeId: hit.providerId, name: item.title });
+      else notifyToast(`Couldn’t find details for ${item.title}.`, "info");
+    } catch {
+      notifyToast(`Couldn’t find details for ${item.title}.`, "error");
+    } finally {
+      setResolvingTitle(null);
+    }
+  }
 
   useEffect(() => {
     if (initialItems) return;
@@ -88,6 +115,20 @@ export function ItinerarySurface({
     const locked = !(item.metadata?.locked === true);
     void patch({ title: item.title, locked }, (list) =>
       list.map((c) => (c.id === item.id ? { ...c, metadata: { ...(c.metadata ?? {}), locked } } : c)),
+    );
+  };
+
+  /** `time` is "HH:MM" to set it, or `null` to clear it. */
+  const setTime = (item: ItineraryItem, time: string | null) => {
+    if (item.metadata?.locked) return notifyToast("Unlock the item first.", "error");
+    void patch({ title: item.title, time }, (list) =>
+      list.map((c) => {
+        if (c.id !== item.id) return c;
+        const metadata = { ...(c.metadata ?? {}) };
+        if (time === null) delete metadata.time;
+        else metadata.time = time;
+        return { ...c, metadata };
+      }),
     );
   };
 
@@ -297,19 +338,47 @@ export function ItinerarySurface({
                         </button>
                         <div className="min-w-0">
                           <p className="flex items-center gap-2 text-sm font-medium">
-                            {providerId ? (
-                              <button
-                                type="button"
-                                onClick={() => openPanel({ kind: "place", placeId: providerId, name: item.title })}
-                                className="truncate text-left hover:text-coral hover:underline"
-                              >
-                                {item.title} <ArrowUpRight className="inline h-3 w-3 align-[-1px] text-muted-foreground" />
-                              </button>
-                            ) : (
-                              <span className="truncate">{item.title}</span>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => void openPlace(item, providerId)}
+                              disabled={resolvingTitle === item.title}
+                              className="truncate text-left hover:text-coral hover:underline disabled:opacity-60"
+                            >
+                              {item.title}{" "}
+                              {resolvingTitle === item.title ? (
+                                <Loader2 className="inline h-3 w-3 animate-spin align-[-1px] text-muted-foreground" />
+                              ) : (
+                                <ArrowUpRight className="inline h-3 w-3 align-[-1px] text-muted-foreground" />
+                              )}
+                            </button>
                             {locked && <Lock className="h-3 w-3 shrink-0 text-leaf" />}
                           </p>
+                          {(() => {
+                            const time = typeof item.metadata?.time === "string" ? item.metadata.time : "";
+                            return (
+                              <div className="relative mt-0.5 inline-flex items-center">
+                                <input
+                                  type="time"
+                                  aria-label={`Target time for ${item.title}`}
+                                  value={time}
+                                  disabled={locked}
+                                  onChange={(e) => setTime(item, e.target.value || null)}
+                                  className={cn(
+                                    "rounded border-none bg-transparent p-0 text-xs outline-none [color-scheme:auto] disabled:opacity-50",
+                                    time ? "text-muted-foreground hover:text-foreground" : "text-transparent",
+                                  )}
+                                />
+                                {/* The native empty-time placeholder ("--:-- --") reads as broken, not
+                                    "click to set a time" — this sits on top of the (still functional,
+                                    just transparent) input to say that instead. */}
+                                {!time && (
+                                  <span className="pointer-events-none absolute left-0 flex items-center gap-1 text-xs text-muted-foreground">
+                                    <Clock className="h-3 w-3" /> Add time
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
                         <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                           <button aria-label="Move to previous day" onClick={() => move(item, -1)} disabled={locked} className="rounded-lg p-1.5 hover:bg-accent disabled:opacity-30">
