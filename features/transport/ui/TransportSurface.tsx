@@ -9,6 +9,7 @@ import { notifyToast } from "@/lib/application/toast";
 import { estimateRideshare } from "@/lib/application/rideshare-estimate";
 import { greatCircleArc } from "@/lib/application/geo";
 import { cn, durationFromSeconds, formatDuration } from "@/lib/utils";
+import { BookingSheet } from "@/features/bookings/ui/BookingSheet";
 
 const hexColor = (c?: string) => (c ? `#${c.replace(/^#/, "")}` : undefined);
 
@@ -34,7 +35,7 @@ type Route = {
   fare?: { amount: number; currency: string };
   polyline?: Array<[number, number]>;
 };
-type Flight = { airline: string; priceAmount: string; priceCurrency: string; durationMinutes: number; stops: number; departAt: string; arriveAt: string };
+export type Flight = { id: string; airline: string; priceAmount: string; priceCurrency: string; durationMinutes: number; stops: number; departAt: string; arriveAt: string; passengerIds: string[]; originAirport?: string; destinationAirport?: string; fareConditions?: string[] };
 type DriveRoute = { distanceMeters: number; durationSeconds: number; geometry: { coordinates: Array<[number, number]> } };
 
 /** What the AI search bar (or a caller) can push in to run a search without the user retyping. */
@@ -129,6 +130,7 @@ export function TransportSurface({
   const [loading, setLoading] = useState(false);
   const controller = useRef<AbortController | null>(null);
   const modesRef = useRef<string[]>([]);
+  const [bookingOffer, setBookingOffer] = useState<Flight | null>(null);
 
   function choose(i: number) {
     const next = selected === i ? null : i;
@@ -394,13 +396,18 @@ export function TransportSurface({
               </p>
             )}
             <p className="mt-2 text-xs text-muted-foreground">Fares and seats change fast — book on the airline’s site or a travel agent.</p>
-            <button
-              type="button"
-              onClick={() => void saveChoice({ mode: "flight", airline: f.airline, minutes: f.durationMinutes, fare: `${f.priceAmount} ${f.priceCurrency}`, stops: f.stops, departAt: f.departAt, arriveAt: f.arriveAt, summary: `${f.airline}, ${price}, ${formatDuration(f.durationMinutes)}, ${f.stops === 0 ? "non-stop" : `${f.stops} stop(s)`}` })}
-              className="btn-secondary mt-3"
-            >
-              Save to my trip
-            </button>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => void saveChoice({ mode: "flight", airline: f.airline, minutes: f.durationMinutes, fare: `${f.priceAmount} ${f.priceCurrency}`, stops: f.stops, departAt: f.departAt, arriveAt: f.arriveAt, summary: `${f.airline}, ${price}, ${formatDuration(f.durationMinutes)}, ${f.stops === 0 ? "non-stop" : `${f.stops} stop(s)`}` })}
+                className="btn-secondary"
+              >
+                Save to my trip
+              </button>
+              <button type="button" onClick={() => setBookingOffer(f)} className="btn-primary">
+                Book
+              </button>
+            </div>
           </div>
         );
       })}
@@ -517,6 +524,8 @@ export function TransportSurface({
           Ask Roam to compare these
         </Link>
       )}
+
+      <BookingSheet subject={bookingOffer ? { kind: "flight", tripId, offer: bookingOffer } : null} onClose={() => setBookingOffer(null)} />
     </div>
   );
 }

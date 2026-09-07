@@ -28,7 +28,21 @@ export type FlightOffer = {
   aircraft?: string;
   fareConditions?: string[];
   expiresAt?: string;
+  /** Duffel passenger ids (`pas_...`) this offer was priced for — required to book it. */
+  passengerIds: string[];
 };
+
+export type BookingPassenger = {
+  id: string;
+  title: string;
+  givenName: string;
+  familyName: string;
+  bornOn: string;
+  gender: string;
+  email: string;
+  phoneNumber: string;
+};
+export type FlightOrder = { orderId: string; bookingReference: string; status: string; totalAmount: string; totalCurrency: string; raw: unknown };
 
 const isoDurationToMinutes = (value?: string): number => {
   const match = /P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?/.exec(value ?? "");
@@ -145,6 +159,73 @@ export async function searchFlights(
         offer.conditions?.refund_before_departure?.allowed === true ? "Refunds allowed" : offer.conditions?.refund_before_departure?.allowed === false ? "Refunds not allowed" : undefined,
       ].filter((condition): condition is string => Boolean(condition)),
       expiresAt: offer.expires_at,
+      passengerIds: offer.passengers.map((p) => p.id).filter((id): id is string => Boolean(id)),
     }];
   });
+}
+
+/**
+ * Book a searched offer. `offerId`/`passengerIds` come straight from the matching `FlightOffer` —
+ * Duffel ties passenger records to ids minted for that specific offer request, so they can't be
+ * invented at booking time. Pays with a `balance` payment: in test mode Duffel auto-funds this
+ * (no card needed); going live needs real balance funding or Duffel's own card Components instead.
+ */
+export async function createOrder(offerId: string, passengerIds: string[], passengers: BookingPassenger[], signal?: AbortSignal): Promise<FlightOrder> {
+  if (!process.env.DUFFEL_API_KEY) throw new Error("DUFFEL_API_KEY is not configured");
+  const byId = new Map(passengers.map((p) => [p.id, p]));
+  const orderPassengers = passengerIds.map((id) => {
+    const p = byId.get(id);
+    if (!p) throw new Error(`Missing passenger details for ${id}`);
+    return { id: p.id, title: p.title, given_name: p.givenName, family_name: p.familyName, born_on: p.bornOn, gender: p.gender, email: p.email, phone_number: p.phoneNumber };
+  });
+  // Amount must match the offer exactly, so fetch it fresh rather than trust a client-supplied total.
+  const offerResponse = await guardedFetch("duffel", `${API}/air/offers/${encodeURIComponent(offerId)}`, { headers: HEADERS(), signal: withProviderTimeout(signal) });
+  if (!offerResponse.ok) throw new Error(`Duffel offer lookup failed: ${offerResponse.status}`);
+  const offer = (await offerResponse.json() as { data?: { total_amount?: string; total_currency?: string } }).data;
+  if (!offer?.total_amount || !offer.total_currency) throw new Error("Duffel offer is no longer available");
+
+  const response = await guardedFetch("duffel", `${API}/air/orders`, {
+    method: "POST",
+    headers: HEADERS(),
+    body: JSON.stringify({ data: { type: "instant", selected_offers: [offerId], passengers: orderPassengers, payments: [{ type: "balance", amount: offer.total_amount, currency: offer.total_currency }] } }),
+    signal: withProviderTimeout(signal),
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(`Duffel order creation failed: ${response.status} ${JSON.stringify(body.errors ?? body)}`);
+  const order = body.data as { id: string; booking_reference: string; total_amount: string; total_currency: string; payment_status?: { paid_at?: string | null } };
+  return { orderId: order.id, bookingReference: order.booking_reference, status: order.payment_status?.paid_at ? "confirmed" : "pending", totalAmount: order.total_amount, totalCurrency: order.total_currency, raw: body.data };
+}
+
+export type OrderCancellation = { status: "cancelled" | "pending"; refundAmount: string | null; refundCurrency: string | null };
+
+/**
+ * Cancel a confirmed order. Duffel is a quote-then-confirm flow: request a cancellation
+ * (returns the refund quote), then confirm it — done together here since the UI keeps
+ * cancellation to a single tap rather than a separate refund-preview step.
+ */
+export async function cancelOrder(orderId: string, signal?: AbortSignal): Promise<OrderCancellation> {
+  if (!process.env.DUFFEL_API_KEY) throw new Error("DUFFEL_API_KEY is not configured");
+  const quoteResponse = await guardedFetch("duffel", `${API}/air/order_cancellations`, {
+    method: "POST",
+    headers: HEADERS(),
+    body: JSON.stringify({ data: { order_id: orderId } }),
+    signal: withProviderTimeout(signal),
+  });
+  const quoteBody = await quoteResponse.json();
+  if (!quoteResponse.ok) throw new Error(`Duffel cancellation quote failed: ${quoteResponse.status} ${JSON.stringify(quoteBody.errors ?? quoteBody)}`);
+  const quote = quoteBody.data as { id: string; refund_amount?: string | null; refund_currency?: string | null };
+
+  const confirmResponse = await guardedFetch("duffel", `${API}/air/order_cancellations/${encodeURIComponent(quote.id)}/actions/confirm`, {
+    method: "POST",
+    headers: HEADERS(),
+    signal: withProviderTimeout(signal),
+  });
+  const confirmBody = await confirmResponse.json();
+  if (!confirmResponse.ok) throw new Error(`Duffel cancellation confirm failed: ${confirmResponse.status} ${JSON.stringify(confirmBody.errors ?? confirmBody)}`);
+  const confirmed = confirmBody.data as { confirmed_at?: string | null; refund_amount?: string | null; refund_currency?: string | null };
+  return {
+    status: confirmed.confirmed_at ? "cancelled" : "pending",
+    refundAmount: confirmed.refund_amount ?? quote.refund_amount ?? null,
+    refundCurrency: confirmed.refund_currency ?? quote.refund_currency ?? null,
+  };
 }
