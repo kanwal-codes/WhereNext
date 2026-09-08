@@ -126,7 +126,7 @@ export function NearbyStays({
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">A short list around this hotel, priced for your dates.</p>
         </div>
         {mode === "preview" ? (
-          <Link href={seeMoreHref} className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground">See more <ArrowUpRight className="h-3.5 w-3.5" /></Link>
+          <Link href={seeMoreHref} className="shrink-0 text-xs font-medium text-primary hover:underline">See more <span aria-hidden="true">→</span></Link>
         ) : <BedDouble className="mt-1 h-5 w-5 text-coral" aria-hidden="true" />}
       </div>
 
@@ -173,8 +173,8 @@ export function NearbyStays({
         </div>
       )}
       {mode === "preview" && !loading && matched.length > alternatives.length && (
-        <Link href={seeMoreHref} className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-primary">
-          See all {matched.length} {kind === "All" ? "stays" : kind.toLowerCase()} <ArrowUpRight className="h-3.5 w-3.5" />
+        <Link href={seeMoreHref} className="mt-4 inline-block text-xs font-medium text-primary hover:underline">
+          See all {matched.length} {kind === "All" ? "stays" : kind.toLowerCase()} <span aria-hidden="true">→</span>
         </Link>
       )}
       <p className="mt-4 text-[11px] text-muted-foreground">Prices are an estimate for the selected dates and can change.</p>
