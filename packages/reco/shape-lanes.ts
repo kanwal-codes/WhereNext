@@ -23,6 +23,10 @@ export type ShapeContext = {
 /** How much a unit of cosine similarity is worth against `rankPlaces`'s own score. */
 const SEMANTIC_WEIGHT = 2;
 
+/** Not a display limit — a real provider response never gets close to this. Only stops a
+ *  malformed/abusive one from rendering thousands of DOM nodes. */
+const SAFETY_CAP = 50;
+
 const arr = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
 const normalizeChainName = (name: string) => name.normalize("NFKC").trim().toLowerCase().replace(/\s+/g, " ");
 
@@ -46,8 +50,6 @@ export async function shapeLanes<E extends { url: string }>(
   };
 
   for (const { lane, places, events } of inputs) {
-    const cap = lane.layout === "peek" ? 1 : 8;
-
     // Drop the anchor / already-shown places AND collapse a provider that returned the
     // same place twice in one response (broadened queries can re-surface a hit).
     const localSeen = new Set<string>();
@@ -88,7 +90,9 @@ export async function shapeLanes<E extends { url: string }>(
       return true;
     });
 
-    const finalPlaces = ranked.slice(0, cap);
+    // No curatorial cap — a lane shows everything it finds. This ceiling exists only to
+    // survive a pathological provider response (thousands of results), not to limit a normal one.
+    const finalPlaces = ranked.slice(0, SAFETY_CAP);
     finalPlaces.forEach((r) => ctx.seenPlaceIds.add(r.place.providerId));
 
     const localEventSeen = new Set<string>();
@@ -98,7 +102,7 @@ export async function shapeLanes<E extends { url: string }>(
         localEventSeen.add(e.url);
         return true;
       })
-      .slice(0, cap);
+      .slice(0, SAFETY_CAP);
     finalEvents.forEach((e) => ctx.seenEventUrls.add(e.url));
 
     out.push({ lane, places: finalPlaces, events: finalEvents });

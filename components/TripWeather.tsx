@@ -6,6 +6,28 @@ import { cn } from "@/lib/utils";
 
 type Outlook = { kind: "forecast" | "seasonal" | "none"; summary?: string | null; month?: string };
 
+// Same request can be kicked off twice in quick succession for one key (two TripWeather
+// instances on one page, or a render that runs the effect more than once) — a plain
+// sessionStorage check-then-write race doesn't catch that, since both checks land before
+// either write. De-dupe in-flight requests by key, same pattern as the server's ttl-cache.
+const inflight = new Map<string, Promise<Outlook | null>>();
+
+function fetchWeather(tripId: string, location: string): Promise<Outlook | null> {
+  const key = `weather:${tripId}:${location}`;
+  const pending = inflight.get(key);
+  if (pending) return pending;
+  const request = fetch(`/api/trips/${tripId}/weather?location=${encodeURIComponent(location)}`)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((body: Outlook | null) => {
+      try { sessionStorage.setItem(key, JSON.stringify(body)); } catch { /* ignore */ }
+      return body;
+    })
+    .catch(() => null)
+    .finally(() => inflight.delete(key));
+  inflight.set(key, request);
+  return request;
+}
+
 /**
  * Weather sized to the trip, not to today. A forecast only when the trip is
  * within a few days; otherwise the typical weather for the trip's month; nothing
@@ -24,21 +46,12 @@ export function TripWeather({ tripId, location, className, card = false }: { tri
     const key = `weather:${tripId}:${location}`;
     try { const cached = sessionStorage.getItem(key); if (cached) { setData(JSON.parse(cached)); setLoading(false); return () => { cancelled = true; }; } } catch { /* ignore */ }
     setLoading(true);
-    fetch(`/api/trips/${tripId}/weather?location=${encodeURIComponent(location)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((body) => {
-        if (!cancelled) {
-          try { sessionStorage.setItem(key, JSON.stringify(body)); } catch { /* ignore */ }
-          setData(body ?? null);
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setData(null);
-          setLoading(false);
-        }
-      });
+    fetchWeather(tripId, location).then((body) => {
+      if (!cancelled) {
+        setData(body);
+        setLoading(false);
+      }
+    });
     return () => {
       cancelled = true;
     };

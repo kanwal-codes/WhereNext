@@ -280,7 +280,7 @@ export function PlaceDetailView({
   return (
     <div>
       {titleTag}
-      <Hero image={photo ?? "/design/place-neighbourhood.jpg"} alt={name} plain className={cn(panel ? "h-44" : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")}>
+      <Hero image={photo ?? "/design/place-neighbourhood.jpg"} alt={name} plain surface={panel} className={cn(panel ? "h-44" : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")}>
         {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className="absolute top-4 left-4" />}
       </Hero>
 

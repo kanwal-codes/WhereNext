@@ -449,9 +449,9 @@ export function ConversationSurface({
   const waiting = sending && messages[messages.length - 1]?.content.trim() === "";
 
   return (
-    <div className="flex h-full min-h-0 w-full max-w-full flex-col overflow-x-hidden">
+    <div className="relative flex h-full min-h-0 w-full max-w-full flex-col overflow-x-hidden">
       <div ref={logRef} className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden scrollbar-slim">
-        <div className={cn("mx-auto w-full max-w-full space-y-6", rail ? "px-1 py-2" : "max-w-2xl py-2")}>
+        <div className={cn("mx-auto w-full max-w-full space-y-6 pt-2 pb-20", rail ? "px-1" : "max-w-2xl")}>
           {!loaded && messages.length === 0 && (
             <div aria-hidden className="space-y-6">
               <div className="flex justify-end">
@@ -557,104 +557,105 @@ export function ConversationSurface({
         </div>
       </div>
 
-      <div className="sticky bottom-0 mt-2 w-full min-w-0 max-w-full border-t border-border bg-background/92 pt-3 backdrop-blur">
-        <Sheet open={Boolean(proposal)} onClose={() => (confirming ? undefined : setProposal(null))} ariaLabel="Confirm change">
-          <div className="px-5 pt-1 pb-6">
-            <p className="text-sm leading-relaxed">{proposalText}</p>
-            {proposalRows.length > 0 && (
-              <details className="group mt-3">
-                <summary className="flex cursor-pointer list-none items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground">
-                  <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
-                  See exactly what will be saved
-                </summary>
-                <dl className="mt-1.5 space-y-1 rounded-lg border border-border/60 bg-background/70 px-2.5 py-2 text-[11px] leading-relaxed">
-                  {proposalRows.map(([key, value]) => (
-                    <div key={key} className="flex gap-2">
-                      <dt className="w-24 shrink-0 font-medium text-muted-foreground">{key}</dt>
-                      <dd className="min-w-0 break-words">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </details>
-            )}
-            <div className="mt-4 flex items-center gap-2">
-              <button type="button" onClick={() => void confirmProposal()} disabled={confirming} className="btn-primary-sm">
-                {confirming ? "Saving…" : "Confirm"}
-              </button>
+      <Sheet open={Boolean(proposal)} onClose={() => (confirming ? undefined : setProposal(null))} ariaLabel="Confirm change">
+        <div className="px-5 pt-1 pb-6">
+          <p className="text-sm leading-relaxed">{proposalText}</p>
+          {proposalRows.length > 0 && (
+            <details className="group mt-3">
+              <summary className="flex cursor-pointer list-none items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground">
+                <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
+                See exactly what will be saved
+              </summary>
+              <dl className="mt-1.5 space-y-1 rounded-lg border border-border/60 bg-background/70 px-2.5 py-2 text-[11px] leading-relaxed">
+                {proposalRows.map(([key, value]) => (
+                  <div key={key} className="flex gap-2">
+                    <dt className="w-24 shrink-0 font-medium text-muted-foreground">{key}</dt>
+                    <dd className="min-w-0 break-words">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </details>
+          )}
+          <div className="mt-4 flex items-center gap-2">
+            <button type="button" onClick={() => void confirmProposal()} disabled={confirming} className="btn-primary-sm">
+              {confirming ? "Saving…" : "Confirm"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setProposal(null)}
+              disabled={confirming}
+              className="rounded-full border border-border px-3 py-1.5 text-xs"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </Sheet>
+
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-3 pb-3">
+        <div className={cn("pointer-events-auto mx-auto w-full min-w-0", rail ? "max-w-full" : "max-w-2xl")}>
+          <form
+            onSubmit={(event: FormEvent) => {
+              event.preventDefault();
+              void submit(input);
+            }}
+            className="flex w-full min-w-0 max-w-full items-end gap-1.5 overflow-hidden rounded-full border border-input bg-card px-2.5 py-2 shadow-lift focus-within:ring-2 focus-within:ring-ring/25 sm:gap-2 sm:px-3.5"
+          >
+            <textarea
+              ref={textareaRef}
+              aria-label="Message"
+              rows={1}
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={(event) => {
+                // isComposing (and the legacy keyCode 229) is true for the Enter that CONFIRMS an
+                // IME candidate (Japanese/Chinese/Korean input) — that keystroke must not also submit.
+                if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) {
+                  event.preventDefault();
+                  void submit(input);
+                }
+              }}
+              placeholder={!loaded ? "Loading…" : speech.listening ? "Listening…" : sending ? "Type your next message…" : "Ask about your trip…"}
+              disabled={!loaded}
+              className="max-h-40 w-0 min-w-0 flex-1 resize-none bg-transparent px-1.5 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
+            />
+            {speech.supported && (
               <button
                 type="button"
-                onClick={() => setProposal(null)}
-                disabled={confirming}
-                className="rounded-full border border-border px-3 py-1.5 text-xs"
+                onClick={speech.toggle}
+                aria-label={speech.listening ? "Stop dictation" : "Dictate your message"}
+                aria-pressed={speech.listening}
+                disabled={!loaded || sending}
+                className={cn(
+                  "mb-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-35",
+                  speech.listening
+                    ? "border-destructive/50 bg-destructive/10 text-destructive"
+                    : "border-border text-muted-foreground hover:text-foreground",
+                )}
               >
-                Cancel
+                <Mic className={cn("h-4 w-4", speech.listening && "animate-pulse")} />
               </button>
-            </div>
-          </div>
-        </Sheet>
-
-        <form
-          onSubmit={(event: FormEvent) => {
-            event.preventDefault();
-            void submit(input);
-          }}
-          className="flex w-full min-w-0 max-w-full items-end gap-1.5 overflow-hidden rounded-2xl border border-input bg-card px-2 py-2 shadow-soft focus-within:ring-2 focus-within:ring-ring/25 sm:gap-2 sm:px-3"
-        >
-          <textarea
-            ref={textareaRef}
-            aria-label="Message"
-            rows={1}
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            onKeyDown={(event) => {
-              // isComposing (and the legacy keyCode 229) is true for the Enter that CONFIRMS an
-              // IME candidate (Japanese/Chinese/Korean input) — that keystroke must not also submit.
-              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) {
-                event.preventDefault();
-                void submit(input);
-              }
-            }}
-            placeholder={!loaded ? "Loading…" : speech.listening ? "Listening…" : sending ? "Type your next message…" : "Ask about your trip…"}
-            disabled={!loaded}
-            className="max-h-40 w-0 min-w-0 flex-1 resize-none bg-transparent px-1.5 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
-          />
-          {speech.supported && (
-            <button
-              type="button"
-              onClick={speech.toggle}
-              aria-label={speech.listening ? "Stop dictation" : "Dictate your message"}
-              aria-pressed={speech.listening}
-              disabled={!loaded || sending}
-              className={cn(
-                "mb-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-35",
-                speech.listening
-                  ? "border-destructive/50 bg-destructive/10 text-destructive"
-                  : "border-border text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Mic className={cn("h-4 w-4", speech.listening && "animate-pulse")} />
-            </button>
-          )}
-          {sending ? (
-            <button
-              type="button"
-              onClick={stop}
-              className="mb-0.5 shrink-0 rounded-full border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive"
-            >
-              Stop
-            </button>
-          ) : (
-            <button
-              type="submit"
-              aria-label="Send"
-              disabled={!loaded || !input.trim()}
-              className="mb-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-35"
-            >
-              <ArrowUp className="h-4 w-4" />
-            </button>
-          )}
-        </form>
-
+            )}
+            {sending ? (
+              <button
+                type="button"
+                onClick={stop}
+                className="mb-0.5 shrink-0 rounded-full border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive"
+              >
+                Stop
+              </button>
+            ) : (
+              <button
+                type="submit"
+                aria-label="Send"
+                disabled={!loaded || !input.trim()}
+                className="mb-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-35"
+              >
+                <ArrowUp className="h-4 w-4" />
+              </button>
+            )}
+          </form>
+        </div>
       </div>
     </div>
   );

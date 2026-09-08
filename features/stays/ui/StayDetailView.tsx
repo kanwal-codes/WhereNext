@@ -398,7 +398,7 @@ export function StayDetailView({
   return (
     <div>
       {titleTag}
-      <Hero image={images[0] ?? "/design/place-hotel.jpg"} alt={name} plain className={cn(panel ? "h-56" : "h-[38vh] min-h-[280px] sm:h-[46vh] sm:max-h-[460px]")}>
+      <Hero image={images[0] ?? "/design/place-hotel.jpg"} alt={name} plain surface={panel} className={cn(panel ? "h-56" : "h-[38vh] min-h-[280px] sm:h-[46vh] sm:max-h-[460px]")}>
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/65 via-ink/10 to-transparent" />
         <div className="absolute inset-x-4 bottom-4 flex items-end justify-end gap-3 text-white sm:inset-x-6 sm:bottom-6">
           {typeof hotel?.rating === "number" && (

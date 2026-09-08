@@ -18,19 +18,26 @@ export function Hero({
   alt,
   className,
   plain = false,
+  surface = false,
   children,
 }: {
   image: string;
   alt: string;
   className?: string;
   plain?: boolean;
+  /** Dissolve into `surface` instead of `background` — for a hero sitting on a card/sheet/panel
+   *  whose fill is the surface token, where fading to background would leave a visible seam. */
+  surface?: boolean;
   children?: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion();
   const animateIn = useAnimateIn();
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
-  const y = useTransform(scrollYProgress, [0, 1], ["0%", reduce ? "0%" : "14%"]);
+  // `plain` keeps only the bottom dissolve (per the docstring above) — the parallax drift is
+  // part of the film filter it drops, and left on it can start the image mid-drift (a visible
+  // gap at the top) in the short, non-scrolling panels `plain` is used in.
+  const y = useTransform(scrollYProgress, [0, 1], ["0%", reduce || plain ? "0%" : "14%"]);
   const fog = useTransform(scrollYProgress, [0, 1], [1, reduce ? 1 : 1.15]);
 
   return (
@@ -70,11 +77,16 @@ export function Hero({
       <motion.div
         style={{ opacity: fog }}
         className={cn(
-          "pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background to-transparent",
-          plain ? "h-2/5 via-background/55" : "h-1/2 via-background/70",
+          "pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t to-transparent",
+          surface ? "from-surface via-surface/70" : "from-background via-background/70",
         )}
       />
-      <div className="pointer-events-none absolute inset-x-0 -bottom-px h-10 bg-background/70 [mask-image:linear-gradient(to_top,black,transparent)] backdrop-blur-sm" />
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-x-0 -bottom-px h-10 [mask-image:linear-gradient(to_top,black,transparent)] backdrop-blur-sm",
+          surface ? "bg-surface/70" : "bg-background/70",
+        )}
+      />
 
       {children}
     </div>
