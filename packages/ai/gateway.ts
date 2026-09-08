@@ -124,6 +124,15 @@ export function resolveProviderChain(overrides: { model?: string; fast?: boolean
 const isAbort = (error: unknown) =>
   error instanceof DOMException ? error.name === "AbortError" : (error as { name?: string })?.name === "AbortError";
 
+/** A provider whose first byte doesn't show up within this long is treated as failed — the
+ *  fallback chain moves on instead of the caller waiting indefinitely on a stalled connection
+ *  that already returned headers. Only `stream()` is exposed to this; only one caller uses
+ *  it today (compare-chat's short, fast "compose" answer) so a tight bound is safe. Kept well
+ *  under the client's own 30s hard timeout even at the worst case (4 providers deep in the
+ *  default AI_PROVIDER + AI_FALLBACK_PROVIDERS chain), so a full walk through every provider
+ *  still finishes — or fails cleanly — before the client gives up on its own. */
+const STREAM_FIRST_CHUNK_DEADLINE_MS = 6_000;
+
 /** A gateway that transparently fails over across `resolveProviderChain()` on a provider error
  *  (network, 401/403/429, 5xx). A 4xx that another provider can't fix, and aborts, propagate. */
 export function createGatewayWithFallback(overrides: { model?: string; fast?: boolean } = {}) {
@@ -132,7 +141,7 @@ export function createGatewayWithFallback(overrides: { model?: string; fast?: bo
   // Which provider in the chain actually answered the last call — the trace's whole point
   // is to say what really ran, not what was merely configured as the primary.
   let lastModelUsed: string | undefined;
-  async function withFailover<T>(op: (p: OpenAiCompatibleProvider) => Promise<T>): Promise<T> {
+  async function withFailover<T>(externalSignal: AbortSignal | undefined, op: (p: OpenAiCompatibleProvider) => Promise<T>): Promise<T> {
     let lastError: unknown;
     for (let i = 0; i < providers.length; i += 1) {
       try {
@@ -140,19 +149,59 @@ export function createGatewayWithFallback(overrides: { model?: string; fast?: bo
         lastModelUsed = resolved[i].model;
         return result;
       } catch (error) {
-        if (isAbort(error)) throw error;
+        // `fetch` always throws "AbortError" on any abort, whether it came from the caller's
+        // own signal (a real cancellation — stop, don't waste time on more providers) or from
+        // this provider's internal per-attempt timeout (exactly what failover is for). Only
+        // the caller's signal being aborted means the whole request is being torn down.
+        if (isAbort(error) && externalSignal?.aborted) throw error;
         const status = (error as { status?: number })?.status;
-        const worthRetrying = !status || status === 401 || status === 403 || status === 429 || status >= 500;
+        const worthRetrying = !status || status === 401 || status === 403 || status === 429 || status >= 500 || isAbort(error);
         if (!worthRetrying || i === providers.length - 1) throw error;
         lastError = error;
       }
     }
     throw lastError;
   }
+  /** `stream()`'s own failover: a provider that returns headers but then goes quiet (never
+   *  emits a first chunk) looks identical to success to `withFailover` above — the promise it
+   *  awaits already resolved. Peeks the first chunk under a deadline so a stall counts as a
+   *  failure of that provider too, then re-attaches it to the stream for the real consumer. */
+  async function streamWithFailover(...args: Parameters<OpenAiCompatibleProvider["stream"]>): Promise<ReadableStream<Uint8Array>> {
+    const externalSignal = args[1];
+    return withFailover(externalSignal, async (p) => {
+      const body = await p.stream(...args);
+      const reader = body.getReader();
+      let first: ReadableStreamReadResult<Uint8Array>;
+      try {
+        first = await Promise.race([
+          reader.read(),
+          new Promise<never>((_, reject) => {
+            const t = setTimeout(() => reject(Object.assign(new Error("stream stalled before first chunk"), { name: "AbortError" })), STREAM_FIRST_CHUNK_DEADLINE_MS);
+            externalSignal?.addEventListener("abort", () => clearTimeout(t), { once: true });
+          }),
+        ]);
+      } catch (error) {
+        reader.cancel().catch(() => {});
+        throw error;
+      }
+      return new ReadableStream<Uint8Array>({
+        start(controller) {
+          if (first.done) { controller.close(); return; }
+          controller.enqueue(first.value);
+        },
+        async pull(controller) {
+          const { done, value } = await reader.read();
+          if (done) { controller.close(); return; }
+          controller.enqueue(value);
+        },
+        cancel() { reader.cancel().catch(() => {}); },
+      });
+    });
+  }
   return {
-    generateText: (...args: Parameters<OpenAiCompatibleProvider["generateText"]>) => withFailover((p) => p.generateText(...args)),
-    generateStructured: (...args: Parameters<OpenAiCompatibleProvider["generateStructured"]>) => withFailover((p) => p.generateStructured(...args)),
-    stream: (...args: Parameters<OpenAiCompatibleProvider["stream"]>) => withFailover((p) => p.stream(...args)),
+    generateText: (...args: Parameters<OpenAiCompatibleProvider["generateText"]>) => withFailover(args[1], (p) => p.generateText(...args)),
+    generateStructured: (...args: Parameters<OpenAiCompatibleProvider["generateStructured"]>) => withFailover(args[1], (p) => p.generateStructured(...args)),
+    stream: (...args: Parameters<OpenAiCompatibleProvider["stream"]>) => streamWithFailover(...args),
     get lastModelUsed() { return lastModelUsed; },
   };
 }
