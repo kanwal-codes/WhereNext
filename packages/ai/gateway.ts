@@ -13,14 +13,17 @@ const OPENAI = {
   envHint: "AI_API_KEY or OPENAI_API_KEY",
 } as const;
 
-const PROVIDERS: Record<AiProviderName, { baseUrl: string; key: () => string | undefined; defaultModel: string; reasoning: boolean; envHint: string }> = {
+const PROVIDERS: Record<AiProviderName, { baseUrl: string; key: () => string | undefined; defaultModel: string; reasoning: boolean | ((model: string) => boolean); envHint: string }> = {
   openai: OPENAI,
   "openai-compatible": OPENAI,
   cerebras: {
     baseUrl: "https://api.cerebras.ai/v1",
     key: () => process.env.CEREBRAS_API_KEY,
     defaultModel: "gpt-oss-120b",
-    reasoning: true,
+    // Cerebras hosts a mix of reasoning and plain chat models — only gpt-oss emits the
+    // harmony analysis channel these options gate; gemma/qwen reject reasoning_format
+    // outright (400) if it's sent.
+    reasoning: (model) => model === "gpt-oss-120b",
     envHint: "CEREBRAS_API_KEY",
   },
   gemini: {
@@ -59,11 +62,12 @@ export function resolveProvider(overrides: { model?: string; provider?: AiProvid
   const p = PROVIDERS[name] ?? PROVIDERS["openai-compatible"];
   const key = p.key();
   if (!key) throw new Error(`${p.envHint} is not configured`);
+  const model = overrides.model || (pinned ? p.defaultModel : process.env.AI_MODEL || p.defaultModel);
   return {
     apiKey: key,
-    model: overrides.model || (pinned ? p.defaultModel : process.env.AI_MODEL || p.defaultModel),
+    model,
     baseUrl: pinned ? p.baseUrl : process.env.AI_BASE_URL || p.baseUrl,
-    supportsReasoningOptions: p.reasoning,
+    supportsReasoningOptions: typeof p.reasoning === "function" ? p.reasoning(model) : p.reasoning,
   };
 }
 

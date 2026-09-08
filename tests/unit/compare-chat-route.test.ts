@@ -21,7 +21,7 @@ vi.mock("@/lib/application/trip-context", () => ({
   loadTripContext: loadTripContextMock,
   serializeTripContext: () => '{"trip":"ctx"}',
 }));
-vi.mock("@/packages/ai/model-policy", () => ({ gatewayFor: () => ({ stream: streamMock }) }));
+vi.mock("@/packages/ai/gateway", () => ({ createAiGateway: () => ({ stream: streamMock }) }));
 
 function sse(...contents: string[]): ReadableStream<Uint8Array> {
   const enc = new TextEncoder();

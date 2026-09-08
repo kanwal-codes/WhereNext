@@ -175,10 +175,14 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   }, [sk]);
   // A raw side-by-side table doesn't tell anyone which option to actually pick — kick off
   // Roam's take the moment a fresh comparison (2+ items) opens, so there's always a plain-
-  // language verdict above the numbers, not just the numbers themselves.
+  // language verdict above the numbers, not just the numbers themselves. Aborted on cleanup
+  // so Strict Mode's dev-only double-invoke (mount → cleanup → mount) cancels the first,
+  // stale call instead of leaving two concurrent requests racing to write the same state.
   useEffect(() => {
     if (panel?.kind !== "compare" || compareList.length < 2) return;
-    void ask("Which of these should I pick, and why? One short paragraph.", []);
+    const controller = new AbortController();
+    void ask("Which of these should I pick, and why? One short paragraph.", [], controller.signal);
+    return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sk]);
   // Inline (docked chat-rail) panel: Escape still closes it. The drawer's modal focus /
@@ -230,7 +234,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
     return [{ name: titleFor(p), detail: p.kind === "stay" ? "Hotel" : p.kind === "event" ? "Event" : "Place" }];
   }
 
-  async function ask(raw: string, historyOverride?: Array<{ role: "user" | "assistant"; content: string }>) {
+  async function ask(raw: string, historyOverride?: Array<{ role: "user" | "assistant"; content: string }>, externalSignal?: AbortSignal) {
     if (!panel) return;
     const q = raw.trim();
     if (!q || sending) return;
@@ -242,12 +246,13 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
     // already-open stream can go quiet mid-response — without this, a stall leaves the
     // spinner running forever with no way out.
     const timeout = AbortSignal.timeout(30_000);
+    const signal = externalSignal ? AbortSignal.any([timeout, externalSignal]) : timeout;
     try {
       const res = await fetch(`/api/trips/${tripId}/compare-chat`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ items: itemsFor(panel), messages: [...history, { role: "user", content: q }] }),
-        signal: timeout,
+        signal,
       });
       if (!res.ok || !res.body) throw new Error("compare-chat");
       const reader = res.body.getReader();
@@ -261,6 +266,9 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
       }
       if (!acc.trim()) throw new Error("empty");
     } catch {
+      // Superseded by a newer call (React Strict Mode's double-invoke, or the comparison set
+      // changed again mid-flight) — that call owns the chat now; don't stomp its state.
+      if (externalSignal?.aborted) return;
       setChat((c) => c.map((m, i) => (i === c.length - 1 ? { role: "assistant", content: "Roam couldn’t answer just now. Try again in a moment." } : m)));
     } finally {
       setSending(false);
