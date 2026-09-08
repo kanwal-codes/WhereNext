@@ -2,29 +2,18 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { BedDouble, Check, ChevronDown, Clock, MapPin, MessageCircle, Star } from "lucide-react";
+import { ChevronDown, Clock, MapPin, MessageCircle, Star } from "lucide-react";
 import { Hero } from "@/components/Hero";
 import { BackLink } from "@/components/BackLink";
 import { NearbyEvents } from "@/components/NearbyEvents";
 import { NearbyStays } from "@/features/stays/ui/NearbyStays";
 import { NearbyRecommendations } from "@/components/NearbyRecommendations";
 import { Skeleton, SkeletonLines } from "@/components/Skeleton";
-import { RoomRow } from "@/components/StayPanel";
 import { Reveal, WordReveal } from "@/components/motion-primitives";
 import { useStayDetails } from "@/features/stays/application/useStayDetails";
-import { BookingSheet } from "@/features/bookings/ui/BookingSheet";
-import { formatMoney } from "@/lib/currency";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { askAssistantHref } from "@/lib/places-ui";
-import type { StayRoom } from "@/packages/contracts/stay";
 import { cn } from "@/lib/utils";
-
-const fmtDay = (iso: string) => {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString([], { month: "short", day: "numeric" });
-};
-
-type RoomFilter = "all" | "refundable" | "best-value";
 
 const facilityGroup = (facility: string) => {
   const value = facility.toLowerCase();
@@ -43,35 +32,19 @@ export function StayDetailView({
   hotelId,
   checkin,
   checkout,
-  adults,
-  rooms,
   variant = "page",
-  onDatesChange,
 }: {
   tripId: string;
   hotelId: string;
   checkin?: string;
   checkout?: string;
-  /** Party size / room count from wherever this hotel was found (a search, a chat card) — kept
-   *  so the detail view's room rates match what was already searched, not the trip's defaults. */
-  adults?: number;
-  rooms?: number;
   variant?: "page" | "panel";
-  onDatesChange?: (checkin: string, checkout: string) => void;
 }) {
   const panel = variant === "panel";
   const [reviewsOpen, setReviewsOpen] = useState(false);
-  const [roomsOpen, setRoomsOpen] = useState(false);
   const [amenityGroupOpen, setAmenityGroupOpen] = useState<string | null>(null);
-  const [roomFilter, setRoomFilter] = useState<RoomFilter>("all");
-  const [dates, setDates] = useState({ checkin: checkin ?? "", checkout: checkout ?? "" });
-  const [bookingRoom, setBookingRoom] = useState<(StayRoom & { offerId: string }) | null>(null);
-  const [bookedRooms, setBookedRooms] = useState<Record<string, string>>({});
-  const s = useStayDetails(tripId, hotelId, { checkin: dates.checkin || undefined, checkout: dates.checkout || undefined, adults, rooms });
+  const s = useStayDetails(tripId, hotelId, { checkin, checkout });
   const titleTag = useDocumentTitle(panel ? null : s.hotel?.name ?? "Stay");
-
-  const [ci, setCi] = useState(checkin ?? "");
-  const [co, setCo] = useState(checkout ?? "");
 
   const pad = panel ? "px-4 pb-8" : "mx-auto max-w-5xl px-5 pb-14 sm:px-8";
 
@@ -101,13 +74,6 @@ export function StayDetailView({
   const hotel = s.hotel;
   const name = hotel?.name ?? "Hotel";
   const images = hotel?.images ?? [];
-  const isLocked = (room: StayRoom) => s.lockedStay?.hotelId === hotelId && s.lockedStay.roomName === room.name;
-  const lockedHere = s.lockedStay?.hotelId === hotelId ? s.lockedStay : null;
-  const roomOptions = (s.rooms ?? []).filter((room) => roomFilter !== "refundable" || room.refundable);
-  const orderedRooms = roomFilter === "best-value"
-    ? [...roomOptions].sort((a, b) => a.totalAmount - b.totalAmount)
-    : roomOptions;
-  const visibleRooms = roomsOpen ? orderedRooms : orderedRooms.slice(0, 4);
   const groupedFacilities = (hotel?.facilities ?? []).slice(0, 32).reduce<Record<string, string[]>>((groups, facility) => {
     const group = facilityGroup(facility);
     (groups[group] ??= []).push(facility);
@@ -198,60 +164,6 @@ export function StayDetailView({
         </Reveal>
       )}
 
-      <Reveal delay={0.12}>
-        <section>
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <div className="flex items-center gap-3">
-              <span className="h-px w-7 bg-coral" />
-              <h2 className="font-display text-xl">Choose your room</h2>
-            </div>
-            {s.checkin && (
-              <p className="text-xs text-muted-foreground">
-                {fmtDay(s.checkin)} → {fmtDay(s.checkout)} · {s.nights} night{s.nights === 1 ? "" : "s"}
-                {s.assumedDates ? " · example dates" : ""}
-              </p>
-            )}
-          </div>
-          {s.roomsUnavailable || (s.rooms && s.rooms.length === 0) ? (
-            <p className="mt-3 rounded-2xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
-              Room rates are unavailable for these dates right now.
-            </p>
-          ) : (
-            <>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                {(["all", "refundable", "best-value"] as RoomFilter[]).map((filter) => (
-                  <button key={filter} type="button" onClick={() => { setRoomFilter(filter); setRoomsOpen(false); }} className={cn("rounded-full border px-3 py-1.5 text-xs transition-colors", roomFilter === filter ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground")}>
-                    {filter === "all" ? `All rooms (${s.rooms?.length ?? 0})` : filter === "refundable" ? `Refundable (${(s.rooms ?? []).filter((room) => room.refundable).length})` : "Best price"}
-                  </button>
-                ))}
-              </div>
-              {visibleRooms.length === 0 ? (
-                <p className="mt-3 rounded-2xl border border-dashed border-border px-4 py-5 text-sm text-muted-foreground">No refundable rooms are available for these dates.</p>
-              ) : (
-                <div className="mt-3 space-y-2">
-              {visibleRooms.map((room, i) => (
-                <RoomRow
-                  key={`${room.name}-${i}`}
-                  room={room}
-                  locked={isLocked(room)}
-                  busy={s.busy}
-                  onLock={(r) => void s.lockRoom(r)}
-                  onBook={room.offerId ? (r) => setBookingRoom(r as StayRoom & { offerId: string }) : undefined}
-                  bookedConfirmation={room.offerId ? bookedRooms[room.offerId] ?? null : null}
-                />
-              ))}
-                </div>
-              )}
-              {orderedRooms.length > 4 && (
-                <button type="button" onClick={() => setRoomsOpen((open) => !open)} className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary">
-                  {roomsOpen ? "Show fewer rooms" : `Show all ${orderedRooms.length} rooms`} <span aria-hidden="true">{roomsOpen ? "↑" : "→"}</span>
-                </button>
-              )}
-            </>
-          )}
-        </section>
-      </Reveal>
-
       {(s.sentiment || s.reviews.length > 0) && (
         <Reveal delay={0.14}>
           <section>
@@ -310,90 +222,21 @@ export function StayDetailView({
 
   // The dates form drives the room rates below it, so it stays directly above the
   // content. Everything else is context that reads better after it.
-  const datesForm = (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        setDates({ checkin: ci, checkout: co });
-        onDatesChange?.(ci, co);
-      }}
-      className="rounded-[1.5rem] border border-border/80 bg-card/75 p-4 shadow-[0_12px_40px_-28px_rgba(20,24,32,0.55)] backdrop-blur-sm sm:p-5"
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="eyebrow text-coral">Plan your stay</p>
-          <p className="mt-1 font-display text-lg">Your dates</p>
-        </div>
-        <span className="rounded-full bg-coral/10 px-2.5 py-1 text-[11px] font-medium text-coral">For your dates</span>
-      </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <label className="block text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-          Check-in
-          <input type="date" value={ci} onChange={(e) => setCi(e.target.value)} className="input-field mt-1.5 [color-scheme:light_dark]" />
-        </label>
-        <label className="block text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-          Check-out
-          <input type="date" value={co} min={ci || undefined} onChange={(e) => setCo(e.target.value)} className="input-field mt-1.5 [color-scheme:light_dark]" />
-        </label>
-      </div>
-      <button type="submit" className="btn-primary-sm mt-4 w-full justify-center">Update rates <span aria-hidden="true">&rarr;</span></button>
-    </form>
-  );
-
   const asideSecondary = (
-    <>
-      {lockedHere ? (
-          <div className="rounded-[1.5rem] border border-leaf/30 bg-leaf-soft/45 p-5">
-          <p className="eyebrow inline-flex items-center gap-1 text-leaf">
-            <Check className="h-3 w-3" /> Your stay
-          </p>
-          <p className="mt-2 text-sm font-medium">{lockedHere.roomName}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {fmtDay(lockedHere.checkin)} → {fmtDay(lockedHere.checkout)} · {lockedHere.nights} night{lockedHere.nights === 1 ? "" : "s"}
-          </p>
-          <p className="mt-1 text-sm tabular-nums">
-            {formatMoney(lockedHere.nightlyAmount, lockedHere.currency)}/night · {formatMoney(lockedHere.totalAmount, lockedHere.currency)} total
-          </p>
-          <p className="mt-2 text-[11px] text-muted-foreground">Pick another room above to change it.</p>
-        </div>
-      ) : (
-        <div className="rounded-[1.5rem] border border-border/80 bg-card/65 p-5">
-          <p className="eyebrow inline-flex items-center gap-1">
-            <BedDouble className="h-3 w-3" /> Not locked yet
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-            Lock a room to make this hotel the anchor for walking distances and the itinerary.
-          </p>
-        </div>
-      )}
-
-      <Link
-        href={askAssistantHref(tripId, { name, address: [hotel?.address, hotel?.city].filter(Boolean).join(", "), kind: "stay" })}
-        className="flex items-start gap-3 rounded-[1.5rem] border border-border/80 bg-surface/80 p-4 text-sm transition-colors hover:bg-accent"
-      >
-        <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-        <span>
-          <span className="eyebrow">Ask Roam</span>
-          <span className="mt-1 block leading-relaxed">Whether {name} fits your budget and the area you want to be in. The question is written for you.</span>
-        </span>
-      </Link>
-
-      <div className="rounded-[1.5rem] border border-dashed border-border/80 bg-card/30 p-5">
-        <p className="eyebrow">Good to know</p>
-        <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-          Prices can change and rooms sell out. Taxes and fees may be added at checkout — confirm the total when you book.
-        </p>
-      </div>
-    </>
+    <Link
+      href={askAssistantHref(tripId, { name, address: [hotel?.address, hotel?.city].filter(Boolean).join(", "), kind: "stay" })}
+      className="flex items-start gap-3 rounded-[1.5rem] border border-border/80 bg-surface/80 p-4 text-sm transition-colors hover:bg-accent"
+    >
+      <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+      <span>
+        <span className="eyebrow">Ask Roam</span>
+        <span className="mt-1 block leading-relaxed">Whether {name} fits your budget and the area you want to be in. The question is written for you.</span>
+      </span>
+    </Link>
   );
 
   // Page view keeps the single sticky sidebar; the panel splits it around the body.
-  const aside = (
-    <div className={cn("min-w-0 space-y-4", !panel && "lg:sticky lg:top-8")}>
-      {datesForm}
-      {asideSecondary}
-    </div>
-  );
+  const aside = <div className={cn("min-w-0 space-y-4", !panel && "lg:sticky lg:top-8")}>{asideSecondary}</div>;
 
   return (
     <div>
@@ -430,7 +273,6 @@ export function StayDetailView({
 
         {panel ? (
           <div className="mt-6 space-y-8">
-            <Reveal delay={0.08}>{datesForm}</Reveal>
             {body}
             <NearbyStays
               tripId={tripId}
@@ -471,14 +313,6 @@ export function StayDetailView({
           </div>
         )}
       </div>
-
-      <BookingSheet
-        subject={bookingRoom ? { kind: "stay", tripId, hotelId, hotelName: name, room: bookingRoom, checkin: s.checkin, checkout: s.checkout, nights: s.nights } : null}
-        onClose={() => setBookingRoom(null)}
-        onBooked={(booking) => {
-          if (bookingRoom) setBookedRooms((r) => ({ ...r, [bookingRoom.offerId]: booking.confirmationCode ?? booking.providerReference ?? "confirmed" }));
-        }}
-      />
     </div>
   );
 }
