@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BedDouble } from "lucide-react";
+import { BedDouble, Check } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
 import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { useTripData } from "@/components/TripDataProvider";
@@ -466,7 +466,7 @@ export function DiscoverySurface({
 
       {/* Tier 1 — Compare + broad categories (Discover/Saved lives in the page header now). One row, scrolls sideways. */}
       {view === "results" && (
-        <div className="mt-4 flex items-center gap-2 overflow-x-auto scrollbar-slim pb-1">
+        <div className="mt-4 flex items-center gap-2 overflow-x-auto scrollbar-slim px-1 py-1">
             {panelCtx && (
               <button
                 type="button"
@@ -632,7 +632,7 @@ function StayMiniCard({ tripId, stay }: { tripId: string; stay: StayItem }) {
         if (panelCtx.compareMode) panelCtx.compareToggle(entry);
         else panelCtx.openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name });
       }}
-      className="group flex h-[19rem] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-shadow hover:shadow-lift"
+      className="group relative flex h-[19rem] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-shadow hover:shadow-lift"
     >
       {stay.thumbnail ? (
         // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
@@ -641,6 +641,17 @@ function StayMiniCard({ tripId, stay }: { tripId: string; stay: StayItem }) {
         <div className="grid h-40 w-full shrink-0 place-items-center bg-muted text-muted-foreground">
           <BedDouble className="h-6 w-6 opacity-40" />
         </div>
+      )}
+      {panelCtx?.compareMode && (
+        <span
+          aria-hidden
+          className={cn(
+            "absolute top-2 right-2 grid h-6 w-6 place-items-center rounded-full border-2 shadow-sm transition-colors",
+            panelCtx.compareHas(stay.hotelId) ? "border-coral bg-coral text-white" : "border-white bg-black/25 text-transparent",
+          )}
+        >
+          <Check className="h-3.5 w-3.5" strokeWidth={3} />
+        </span>
       )}
       <div className="flex min-h-0 flex-1 flex-col gap-1.5 p-4">
         <h3 className="truncate font-display text-base leading-tight">{stay.name}</h3>

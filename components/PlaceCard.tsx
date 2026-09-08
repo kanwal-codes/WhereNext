@@ -2,7 +2,8 @@
 
 import type { MouseEvent } from "react";
 import Link from "next/link";
-import { MapPin, Star } from "lucide-react";
+import { Check, MapPin, Star } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { Place } from "@/packages/contracts/place";
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
 import { BlurImage, Tactile } from "@/components/motion-primitives";
@@ -37,7 +38,7 @@ export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place
 
   return (
     <Tactile lift={4} className="group flex h-[19rem] flex-col rounded-2xl border border-border bg-card shadow-soft transition-shadow hover:shadow-lift">
-      <Link href={href} onClick={open} className="block h-40 shrink-0 overflow-hidden rounded-t-2xl">
+      <Link href={href} onClick={open} className="relative block h-40 shrink-0 overflow-hidden rounded-t-2xl">
         {photo ? (
           <BlurImage
             src={photo}
@@ -48,6 +49,17 @@ export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place
           <div className="grid h-full w-full place-items-center bg-muted text-muted-foreground">
             <MapPin className="h-6 w-6 opacity-40" />
           </div>
+        )}
+        {panelCtx?.compareMode && (
+          <span
+            aria-hidden
+            className={cn(
+              "absolute top-2 right-2 grid h-6 w-6 place-items-center rounded-full border-2 shadow-sm transition-colors",
+              panelCtx.compareHas(place.providerId) ? "border-coral bg-coral text-white" : "border-white bg-black/25 text-transparent",
+            )}
+          >
+            <Check className="h-3.5 w-3.5" strokeWidth={3} />
+          </span>
         )}
       </Link>
 
