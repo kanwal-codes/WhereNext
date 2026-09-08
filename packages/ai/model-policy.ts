@@ -5,8 +5,12 @@ import { createBulkGateway, createGatewayWithFallback } from "./gateway";
  *
  *   resolve — turn planning / structured extraction (tool selection, search directives,
  *             comparison + checklist JSON). Needs strong instruction-following. `RESOLVE_MODEL`.
- *   compose — the streamed conversational answer (only compare-chat now; the main COMPOSE
- *             loop uses `composeModel()` directly). `AI_MODEL` / provider default.
+ *   compose — the streamed comparison verdict (compare-chat only; the main COMPOSE loop uses
+ *             `composeModel()` directly). A short, decisive 2-4 sentence answer, not a
+ *             structured/reasoning call — resolves each provider in the fallback chain to
+ *             its `fastModel`, since routing this through a reasoning model (Cerebras's
+ *             `gpt-oss-120b`, the plain provider default) "thinks" invisibly for 9-30s
+ *             before any content streams. `AI_MODEL` / provider default still wins if set.
  *   bulk    — cheap, high-context summarisation (thread summary, web-page import, blurb
  *             rewrites). Routes to Gemini Flash when keyed. `SUMMARY_MODEL`.
  *
@@ -42,7 +46,7 @@ export function gatewayFor(role: ModelRole) {
     case "resolve":
       return createGatewayWithFallback({ model: process.env.RESOLVE_MODEL || undefined });
     case "compose":
-      return createGatewayWithFallback();
+      return createGatewayWithFallback({ fast: true });
     case "bulk":
       return createBulkGateway({ model: process.env.SUMMARY_MODEL || undefined });
   }

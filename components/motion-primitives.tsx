@@ -288,11 +288,28 @@ export function useFocusReturn(
   container?: RefObject<HTMLElement | null>,
   initialFocus?: RefObject<HTMLElement | null>,
 ) {
+  // A ref, not a dependency: callers almost always pass an inline `() => ...` for onEscape,
+  // a fresh function every render. If that sat in the effect's own deps, typing anywhere
+  // inside the panel (which re-renders the caller on every keystroke) would re-run this
+  // whole effect mid-type — re-focusing the panel's first focusable element and yanking
+  // focus out of whatever was just typed into.
+  const onEscapeRef = useRef(onEscape);
+  useEffect(() => {
+    onEscapeRef.current = onEscape;
+  });
   useEffect(() => {
     if (!active || typeof document === "undefined") return;
     const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    // `overflow: hidden` alone stops desktop wheel-scroll but not touch-scroll on mobile
+    // Safari, which still rubber-bands the body underneath a fixed overlay — pinning the
+    // body in place (and restoring the scroll position on close) blocks both.
+    const scrollY = window.scrollY;
+    const body = document.body.style;
+    const prev = { position: body.position, top: body.top, width: body.width, overflow: body.overflow };
+    body.position = "fixed";
+    body.top = `-${scrollY}px`;
+    body.width = "100%";
+    body.overflow = "hidden";
 
     const focusables = () =>
       Array.from(
@@ -303,7 +320,7 @@ export function useFocusReturn(
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onEscape?.();
+        onEscapeRef.current?.();
         return;
       }
       if (e.key !== "Tab" || !container?.current) return;
@@ -331,11 +348,15 @@ export function useFocusReturn(
     return () => {
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(raf2);
-      document.body.style.overflow = prevOverflow;
+      body.position = prev.position;
+      body.top = prev.top;
+      body.width = prev.width;
+      body.overflow = prev.overflow;
+      window.scrollTo(0, scrollY);
       document.removeEventListener("keydown", onKey);
       trigger?.focus();
     };
-  }, [active, onEscape, container, initialFocus]);
+  }, [active, container, initialFocus]);
 }
 
 /**
