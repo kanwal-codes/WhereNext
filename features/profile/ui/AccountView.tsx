@@ -192,6 +192,7 @@ export function AccountView({
   const [saved, setSaved] = useState(false);
   const [styleSaved, setStyleSaved] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
+  const [avatarError, setAvatarError] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
@@ -209,6 +210,7 @@ export function AccountView({
     setUploadingAvatar(false);
     if (error || !url) { notifyToast("That photo couldn’t be uploaded.", "error"); return; }
     setAvatarUrl(url);
+    setAvatarError(false);
     notifyToast("Photo updated", "success");
   }
   const touch = () => { setDirty(true); setSaved(false); };
@@ -373,9 +375,9 @@ export function AccountView({
                   aria-label="Change photo"
                   className="group relative block h-24 w-24 overflow-hidden rounded-[22px] bg-primary sm:h-32 sm:w-32"
                 >
-                  {avatarUrl ? (
+                  {avatarUrl && !avatarError ? (
                     // eslint-disable-next-line @next/next/no-img-element -- external/user-uploaded, not a static asset
-                    <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                    <img src={avatarUrl} alt="" className="h-full w-full object-cover" onError={() => setAvatarError(true)} />
                   ) : (
                     <span aria-hidden className="grid h-full w-full place-items-center font-display text-2xl font-semibold text-primary-foreground">
                       {initials(name || "Traveller")}
