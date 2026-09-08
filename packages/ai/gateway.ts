@@ -9,17 +9,23 @@ const OPENAI = {
   baseUrl: "https://api.openai.com/v1",
   key: () => process.env.AI_API_KEY || process.env.OPENAI_API_KEY,
   defaultModel: "gpt-4o",
+  // A cheap, low-latency model for the `fast` role — short streamed answers that don't
+  // need gpt-4o's extra capability.
+  fastModel: "gpt-4o-mini",
   reasoning: false,
   envHint: "AI_API_KEY or OPENAI_API_KEY",
 } as const;
 
-const PROVIDERS: Record<AiProviderName, { baseUrl: string; key: () => string | undefined; defaultModel: string; reasoning: boolean | ((model: string) => boolean); envHint: string }> = {
+const PROVIDERS: Record<AiProviderName, { baseUrl: string; key: () => string | undefined; defaultModel: string; fastModel?: string; reasoning: boolean | ((model: string) => boolean); envHint: string }> = {
   openai: OPENAI,
   "openai-compatible": OPENAI,
   cerebras: {
     baseUrl: "https://api.cerebras.ai/v1",
     key: () => process.env.CEREBRAS_API_KEY,
     defaultModel: "gpt-oss-120b",
+    // gemma-4-31b is a plain chat model, no reasoning phase — answers a short prompt in
+    // ~0.3s versus gpt-oss's 9-30s "thinking" (invisible on the wire either way).
+    fastModel: "gemma-4-31b",
     // Cerebras hosts a mix of reasoning and plain chat models — only gpt-oss emits the
     // harmony analysis channel these options gate; gemma/qwen reject reasoning_format
     // outright (400) if it's sent.
@@ -34,6 +40,7 @@ const PROVIDERS: Record<AiProviderName, { baseUrl: string; key: () => string | u
     // pinned id (which they do often — 2.0-flash, 2.5-flash and 2.5-pro all 404 now). Override
     // per-role with GEMINI_MODEL / GEMINI_BULK_MODEL.
     defaultModel: "gemini-flash-latest",
+    fastModel: "gemini-flash-latest", // already the fast one
     reasoning: false,
     envHint: "GEMINI_API_KEY",
   },
@@ -56,13 +63,14 @@ export type ResolvedProvider = { apiKey: string; model: string; baseUrl: string;
  * pinned provider ignores `AI_BASE_URL` / `AI_MODEL` and uses its own defaults. Shared by
  * `createAiGateway` (structured/legacy calls) and `composeModel` (the AI SDK tool loop).
  */
-export function resolveProvider(overrides: { model?: string; provider?: AiProviderName } = {}): ResolvedProvider {
+export function resolveProvider(overrides: { model?: string; provider?: AiProviderName; fast?: boolean } = {}): ResolvedProvider {
   const pinned = overrides.provider != null;
   const name: AiProviderName = overrides.provider ?? (process.env.AI_PROVIDER as AiProviderName) ?? "openai-compatible";
   const p = PROVIDERS[name] ?? PROVIDERS["openai-compatible"];
   const key = p.key();
   if (!key) throw new Error(`${p.envHint} is not configured`);
-  const model = overrides.model || (pinned ? p.defaultModel : process.env.AI_MODEL || p.defaultModel);
+  const fallbackDefault = overrides.fast ? (p.fastModel ?? p.defaultModel) : p.defaultModel;
+  const model = overrides.model || (pinned ? fallbackDefault : process.env.AI_MODEL || fallbackDefault);
   return {
     apiKey: key,
     model,
@@ -72,7 +80,7 @@ export function resolveProvider(overrides: { model?: string; provider?: AiProvid
 }
 
 /** The chat/reasoning gateway used by every structured call (`generateText` / `generateStructured`). */
-export function createAiGateway(overrides: { model?: string; provider?: AiProviderName } = {}) {
+export function createAiGateway(overrides: { model?: string; provider?: AiProviderName; fast?: boolean } = {}) {
   return new OpenAiCompatibleProvider(resolveProvider(overrides));
 }
 
@@ -83,7 +91,7 @@ export function createAiGateway(overrides: { model?: string; provider?: AiProvid
  * endpoint + default model. Providers with no configured key are dropped. Throws only if
  * nothing in the chain is usable (with the primary's env hint).
  */
-export function resolveProviderChain(overrides: { model?: string } = {}): ResolvedProvider[] {
+export function resolveProviderChain(overrides: { model?: string; fast?: boolean } = {}): ResolvedProvider[] {
   const names = [
     (process.env.AI_PROVIDER as AiProviderName) || "openai-compatible",
     ...(process.env.AI_FALLBACK_PROVIDERS ?? "")
@@ -102,8 +110,8 @@ export function resolveProviderChain(overrides: { model?: string } = {}): Resolv
       // index 0 is the primary — let it honour AI_BASE_URL / AI_MODEL; fallbacks are pinned.
       chain.push(resolveProvider(
         index === 0
-          ? { model: overrides.model }
-          : { provider: name, model: overrides.model || (name === "gemini" ? process.env.GEMINI_MODEL : undefined) },
+          ? { model: overrides.model, fast: overrides.fast }
+          : { provider: name, model: overrides.model || (name === "gemini" ? process.env.GEMINI_MODEL : undefined), fast: overrides.fast },
       ));
     } catch (error) {
       firstError ??= error;
@@ -118,7 +126,7 @@ const isAbort = (error: unknown) =>
 
 /** A gateway that transparently fails over across `resolveProviderChain()` on a provider error
  *  (network, 401/403/429, 5xx). A 4xx that another provider can't fix, and aborts, propagate. */
-export function createGatewayWithFallback(overrides: { model?: string } = {}) {
+export function createGatewayWithFallback(overrides: { model?: string; fast?: boolean } = {}) {
   const resolved = resolveProviderChain(overrides);
   const providers = resolved.map((r) => new OpenAiCompatibleProvider(r));
   // Which provider in the chain actually answered the last call — the trace's whole point

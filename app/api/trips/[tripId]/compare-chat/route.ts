@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { loadTripContext, serializeTripContext } from "@/lib/application/trip-context";
-import { createAiGateway } from "@/packages/ai/gateway";
+import { gatewayFor } from "@/packages/ai/model-policy";
 import { createSseParser, parseSseJson } from "@/packages/ai/sse";
 
 /**
@@ -61,11 +61,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
       ...itemLines,
     ].join("\n");
 
-    // Pinned, not routed through the resolve/compose role chain: this only needs a quick
-    // 2-4 sentence take, and Cerebras's reasoning model (the role chain's default) answers
-    // this exact kind of prompt anywhere from 9-30s with zero visible output the whole time
-    // (its reasoning phase isn't streamed). gemma-4-31b answers the same prompt in ~0.3s.
-    const upstream = await createAiGateway({ provider: "cerebras", model: "gemma-4-31b" }).stream(
+    const upstream = await gatewayFor("compose").stream(
       [{ role: "system", content: system }, ...messages],
       request.signal,
     );

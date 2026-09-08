@@ -68,6 +68,24 @@ describe("resolveProviderChain", () => {
     expect(primary).toMatchObject({ baseUrl: "https://proxy.example/v1", model: "gpt-4o-mini" });
     expect(fallback).toMatchObject({ baseUrl: "https://api.cerebras.ai/v1", model: "gpt-oss-120b" });
   });
+
+  it("fast: true resolves every provider in the chain to its own fast model, not a shared one", () => {
+    process.env.AI_PROVIDER = "cerebras";
+    process.env.CEREBRAS_API_KEY = "csk";
+    process.env.AI_FALLBACK_PROVIDERS = "openai";
+    process.env.OPENAI_API_KEY = "ok";
+    const [primary, fallback] = resolveProviderChain({ fast: true });
+    expect(primary).toMatchObject({ model: "gemma-4-31b", supportsReasoningOptions: false });
+    expect(fallback).toMatchObject({ model: "gpt-4o-mini" });
+  });
+
+  it("fast: true still lets an explicit AI_MODEL override the primary's fast default", () => {
+    process.env.AI_PROVIDER = "cerebras";
+    process.env.CEREBRAS_API_KEY = "csk";
+    process.env.AI_MODEL = "gpt-oss-120b";
+    const [primary] = resolveProviderChain({ fast: true });
+    expect(primary).toMatchObject({ model: "gpt-oss-120b", supportsReasoningOptions: true });
+  });
 });
 
 describe("createGatewayWithFallback", () => {
