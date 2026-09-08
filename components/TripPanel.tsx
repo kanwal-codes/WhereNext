@@ -15,8 +15,12 @@ import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 import { ContentSwap, Sheet } from "@/components/motion-primitives";
 import { MessageBlocks } from "@/features/conversation/ui/blocks/MessageBlocks";
+import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
 
 const KIND_LABEL: Record<CompareEntry["kind"], string> = { place: "Place", stay: "Stay", event: "Event", route: "Route" };
+/** The question auto-asked the moment a fresh comparison opens — never shown as a "user" bubble
+ *  since the traveller didn't type it; only Roam's answer to it is worth displaying. */
+const COMPARE_VERDICT_PROMPT = "Which of these should I pick, and why? One short paragraph.";
 
 const R = 6371;
 const toRad = (n: number) => (n * Math.PI) / 180;
@@ -181,7 +185,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   useEffect(() => {
     if (panel?.kind !== "compare" || compareList.length < 2) return;
     const controller = new AbortController();
-    void ask("Which of these should I pick, and why? One short paragraph.", [], controller.signal);
+    void ask(COMPARE_VERDICT_PROMPT, [], controller.signal);
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sk]);
@@ -332,18 +336,25 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   const composer = layout === "drawer" && panel && (
     <>
       {chat.length > 0 && (
-        <div className="max-h-[40%] shrink-0 space-y-3 overflow-y-auto scrollbar-slim border-t border-border px-4 py-3">
-          {chat.map((m, i) => (
-            <div key={i} className={cn("text-sm leading-relaxed", m.role === "user" ? "font-medium" : "text-ink-soft")}>
-              {m.role === "assistant" && <Sparkles className="mr-1.5 inline h-3.5 w-3.5 text-coral" />}
-              {m.content ||
-                (sending && i === chat.length - 1 ? (
-                  <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+        <div className="max-h-[40%] shrink-0 space-y-3 overscroll-contain overflow-y-auto scrollbar-slim border-t border-border px-4 py-3">
+          {chat.map((m, i) => {
+            // The auto-verdict prompt is never something the traveller typed — show its answer, not the prompt.
+            if (m.role === "user" && m.content === COMPARE_VERDICT_PROMPT) return null;
+            const loading = sending && i === chat.length - 1;
+            if (m.role === "user") return <div key={i} className="text-sm leading-relaxed font-medium">{m.content}</div>;
+            return (
+              <div key={i} className="flex items-start gap-2 rounded-2xl border border-coral/20 bg-coral-soft/40 px-3 py-2.5">
+                <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-coral" />
+                {m.content ? (
+                  <AssistantMessage content={m.content} />
+                ) : loading ? (
+                  <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" /> Thinking…
                   </span>
-                ) : null)}
-            </div>
-          ))}
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       )}
       <form
@@ -378,7 +389,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
     ) : null;
   }
 
-  const pill = compareList.length > 0 && panel?.kind !== "compare" && (
+  const pill = ctx.compareMode && compareList.length > 0 && panel?.kind !== "compare" && (
     <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 24 }} className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2">
       <div className="flex items-center gap-2 rounded-full border border-border bg-card px-2 py-1.5 shadow-lift">
         <span className="inline-flex items-center gap-1.5 pl-2 text-sm font-medium">
