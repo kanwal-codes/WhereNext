@@ -13,6 +13,7 @@ import {
   Star,
 } from "lucide-react";
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
+import { GetYourGuideCard } from "@/components/GetYourGuideCard";
 import { Hero } from "@/components/Hero";
 import { NearbyRecommendations } from "@/components/NearbyRecommendations";
 import { BackLink } from "@/components/BackLink";
@@ -222,6 +223,10 @@ export function PlaceDetailView({
             </span>
           </span>
         </Link>
+      </Reveal>
+
+      <Reveal delay={0.11}>
+        <GetYourGuideCard query={name} label={`Find tours and tickets for ${name}`} />
       </Reveal>
 
       {reviews.length > 0 && (
