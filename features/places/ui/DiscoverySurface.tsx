@@ -44,6 +44,10 @@ const inDestination = (place: Place, destination: string) => {
   const city = folded(destination.split(",")[0]?.trim() ?? destination);
   return !city || folded(place.address ?? "").includes(city);
 };
+// A "guided tours" text search matches loosely — Google mixes in famous landmarks that merely
+// mention tours, not the tour operators themselves. Keep only actual tour/travel businesses.
+const isTourOperator = (place: Place) =>
+  place.category === "tour_agency" || place.category === "travel_agency" || /\btour(s)?\b/i.test(place.name);
 type Band = { key: string | null; label: string; items: Item[] };
 
 // Same URL + different date is a distinct showtime (recurring events often share one ticket
@@ -223,10 +227,11 @@ export function DiscoverySurface({
     } catch { /* ignore */ }
     setLoading(true);
     setMessage("");
-    const [forYou, sights, eat, ev, st] = await Promise.allSettled([
+    const [forYou, sights, eat, tours, ev, st] = await Promise.allSettled([
       fetchPlaces(interests.length ? interests.join(", ") : "highly rated things to do"),
       fetchPlaces("top sights and landmarks"),
       fetchPlaces("well-reviewed restaurants and cafes"),
+      fetchPlaces("guided tours"),
       fetchEvents(""),
       fetchStays(),
     ]);
@@ -240,6 +245,10 @@ export function DiscoverySurface({
         items: rankToItems(ok(forYou)),
       },
       { key: "eat", label: "Where to eat", items: rankToItems(ok(eat).filter((place) => inDestination(place, destination))) },
+      // Real, dynamic tour operators from Google Places — not GetYourGuide's own catalog (no API
+      // access there). Opening one still surfaces a "Book on GetYourGuide" link once configured,
+      // via PlaceDetailView's GetYourGuideCard.
+      { key: "activities", label: "Tours & activities", items: rankToItems(ok(tours).filter(isTourOperator)) },
       { key: "events", label: "On while you’re there", items: ok(ev).map((e) => ({ kind: "event", event: e }) as Item) },
       { key: "stays", label: "Places to stay", items: ok(st).slice(0, 4).map((s) => ({ kind: "stay", stay: s }) as Item) },
     ].filter((b) => b.items.length);
