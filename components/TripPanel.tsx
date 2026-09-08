@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowLeft, ArrowUpRight, Eraser, Loader2, Maximize2, Scale, Send, Sparkles, X } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Eraser, Loader2, Maximize2, Scale, Send, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, panelSubjectKey, type CompareEntry, type PanelState } from "@/components/TripPanelProvider";
 import { PlaceDetailView } from "@/features/places/ui/PlaceDetailView";
@@ -343,8 +343,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
             const loading = sending && i === chat.length - 1;
             if (m.role === "user") return <div key={i} className="text-sm leading-relaxed font-medium">{m.content}</div>;
             return (
-              <div key={i} className="flex items-start gap-2 rounded-2xl border border-coral/20 bg-coral-soft/40 px-3 py-2.5">
-                <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-coral" />
+              <div key={i} className="space-y-2">
                 {m.content ? (
                   <AssistantMessage content={m.content} />
                 ) : loading ? (
