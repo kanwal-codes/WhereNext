@@ -20,12 +20,15 @@ type RawLane = LaneInput<NearbyEvent>;
 type ShapedLane = LaneOutput<NearbyEvent>;
 
 const asList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((s): s is string => typeof s === "string") : []);
+const norm = (s: string) => s.trim().toLowerCase();
 
 function MiniCard({ tripId, place, why, onSelect }: { tripId: string; place: Place; why?: string | null; onSelect?: () => void }) {
   const photo = photoProxyUrl(tripId, place.photoNames?.[0]);
   const panelCtx = useTripPanelMaybe();
   const href = `/trips/${tripId}/place/${encodeURIComponent(place.providerId)}`;
-  const entry: CompareEntry = { id: place.providerId, kind: "place", name: place.name, href, subtitle: place.address ?? undefined, attrs: { rating: typeof place.rating === "number" ? place.rating.toFixed(1) : undefined, ratingValue: place.rating, address: place.address ?? undefined, lat: place.latitude, lng: place.longitude } };
+  const itinerary = (useTripDataMaybe()?.data?.itinerary ?? []) as Array<{ title?: string; day_index?: number }>;
+  const itinDay = itinerary.find((i) => i.title && norm(i.title) === norm(place.name))?.day_index;
+  const entry: CompareEntry = { id: place.providerId, kind: "place", name: place.name, href, subtitle: place.address ?? undefined, attrs: { rating: typeof place.rating === "number" ? place.rating.toFixed(1) : undefined, ratingValue: place.rating, address: place.address ?? undefined, lat: place.latitude, lng: place.longitude, when: itinDay ? `Day ${itinDay}` : undefined } };
   return (
     <Link
       href={href}

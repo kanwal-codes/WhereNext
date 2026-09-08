@@ -6,19 +6,25 @@ import { MapPin, Star } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
 import { BlurImage, Tactile } from "@/components/motion-primitives";
+import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import { photoProxyUrl, priceLabel, priceRank } from "@/lib/places-ui";
+
+const norm = (s: string) => s.trim().toLowerCase();
 
 export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place; why?: string }) {
   const photo = photoProxyUrl(tripId, place.photoNames?.[0]);
   const price = priceLabel(place.priceLevel);
   const href = `/trips/${tripId}/place/${encodeURIComponent(place.providerId)}`;
   const panelCtx = useTripPanelMaybe();
+  const itinerary = (useTripDataMaybe()?.data?.itinerary ?? []) as Array<{ title?: string; day_index?: number }>;
+  const itinDay = itinerary.find((i) => i.title && norm(i.title) === norm(place.name))?.day_index;
   const compareEntry: CompareEntry = {
     id: place.providerId, kind: "place", name: place.name, href, subtitle: place.address ?? undefined,
     attrs: { price: priceLabel(place.priceLevel) ?? undefined, priceValue: place.priceLevel ? priceRank(place.priceLevel) : undefined,
       rating: typeof place.rating === "number" ? place.rating.toFixed(1) : undefined, ratingValue: typeof place.rating === "number" ? place.rating : undefined,
-      lat: place.latitude, lng: place.longitude, address: place.address ?? undefined, detail: place.category ? place.category.replaceAll("_", " ") : undefined },
+      lat: place.latitude, lng: place.longitude, address: place.address ?? undefined, detail: place.category ? place.category.replaceAll("_", " ") : undefined,
+      when: itinDay ? `Day ${itinDay}` : undefined },
   };
   const open = panelCtx
     ? (e: MouseEvent) => {
