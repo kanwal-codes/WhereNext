@@ -472,7 +472,7 @@ export function DiscoverySurface({
                 type="button"
                 onClick={() => panelCtx.setCompareMode(!panelCtx.compareMode)}
                 className={cn(
-                  "shrink-0 rounded-full border border-foreground bg-background px-3.5 py-1.5 text-xs font-medium text-foreground shadow-soft transition-[background-color,box-shadow] hover:bg-accent",
+                  "shrink-0 rounded-full border border-foreground bg-background px-3 py-1 text-xs font-medium text-foreground shadow-soft transition-[background-color,box-shadow] hover:bg-accent",
                   panelCtx.compareMode && "ring-2 ring-coral ring-offset-2 ring-offset-background",
                 )}
               >
