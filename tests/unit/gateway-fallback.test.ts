@@ -68,24 +68,6 @@ describe("resolveProviderChain", () => {
     expect(primary).toMatchObject({ baseUrl: "https://proxy.example/v1", model: "gpt-4o-mini" });
     expect(fallback).toMatchObject({ baseUrl: "https://api.cerebras.ai/v1", model: "gpt-oss-120b" });
   });
-
-  it("fast: true resolves every provider in the chain to its own fast model, not a shared one", () => {
-    process.env.AI_PROVIDER = "cerebras";
-    process.env.CEREBRAS_API_KEY = "csk";
-    process.env.AI_FALLBACK_PROVIDERS = "openai";
-    process.env.OPENAI_API_KEY = "ok";
-    const [primary, fallback] = resolveProviderChain({ fast: true });
-    expect(primary).toMatchObject({ model: "gemma-4-31b", supportsReasoningOptions: false });
-    expect(fallback).toMatchObject({ model: "gpt-4o-mini" });
-  });
-
-  it("fast: true still lets an explicit AI_MODEL override the primary's fast default", () => {
-    process.env.AI_PROVIDER = "cerebras";
-    process.env.CEREBRAS_API_KEY = "csk";
-    process.env.AI_MODEL = "gpt-oss-120b";
-    const [primary] = resolveProviderChain({ fast: true });
-    expect(primary).toMatchObject({ model: "gpt-oss-120b", supportsReasoningOptions: true });
-  });
 });
 
 describe("createGatewayWithFallback", () => {
@@ -176,54 +158,14 @@ describe("createGatewayWithFallback", () => {
     expect(await new Response(body).text()).toContain('"content":"hi"');
   });
 
-  it("fails over on stream() when a provider connects but never emits a first chunk", async () => {
-    vi.useFakeTimers();
-    process.env.AI_PROVIDER = "cerebras";
-    process.env.CEREBRAS_API_KEY = "csk";
-    process.env.AI_FALLBACK_PROVIDERS = "openai";
-    process.env.OPENAI_API_KEY = "ok";
-    // Headers arrive fine, but the body stream never enqueues or closes — the exact shape of
-    // a provider that "connected" but then went quiet, which a bare connect-error check misses.
-    const stalledBody = new ReadableStream<Uint8Array>({ start() {} });
-    const good = new Response('data: {"choices":[{"delta":{"content":"hi"}}]}\n\ndata: [DONE]\n\n', {
-      status: 200, headers: { "content-type": "text/event-stream" },
-    });
-    const fetchMock = vi.fn().mockImplementation((url: string) =>
-      Promise.resolve(String(url).includes("cerebras")
-        ? new Response(stalledBody, { status: 200, headers: { "content-type": "text/event-stream" } })
-        : good));
-    vi.stubGlobal("fetch", fetchMock);
-    const streamPromise = createGatewayWithFallback().stream([{ role: "user", content: "x" }]);
-    await vi.advanceTimersByTimeAsync(6_000);
-    const body = await streamPromise;
-    expect(await new Response(body).text()).toContain('"content":"hi"');
-    vi.useRealTimers();
-  });
-
-  it("retries another provider when a provider's own timeout aborts it (fetch always throws AbortError either way)", async () => {
+  it("does not retry another provider on an AbortError", async () => {
     process.env.AI_PROVIDER = "cerebras";
     process.env.CEREBRAS_API_KEY = "csk";
     process.env.AI_FALLBACK_PROVIDERS = "openai";
     process.env.OPENAI_API_KEY = "ok";
     const fetchMock = vi.fn().mockRejectedValue(new DOMException("Aborted", "AbortError"));
     vi.stubGlobal("fetch", fetchMock);
-    // No caller signal passed — nothing external ever asked to cancel, so this can only be
-    // this provider's own connect-timeout, which failover should treat like any other error.
     await expect(createGatewayWithFallback().generateText([{ role: "user", content: "x" }])).rejects.toMatchObject({ name: "AbortError" });
-    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("cerebras"))).toBe(true);
-    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("openai"))).toBe(true);
-  });
-
-  it("does not retry once the caller's own signal is the one that's aborted", async () => {
-    process.env.AI_PROVIDER = "cerebras";
-    process.env.CEREBRAS_API_KEY = "csk";
-    process.env.AI_FALLBACK_PROVIDERS = "openai";
-    process.env.OPENAI_API_KEY = "ok";
-    const controller = new AbortController();
-    controller.abort();
-    const fetchMock = vi.fn().mockRejectedValue(new DOMException("Aborted", "AbortError"));
-    vi.stubGlobal("fetch", fetchMock);
-    await expect(createGatewayWithFallback().generateText([{ role: "user", content: "x" }], controller.signal)).rejects.toMatchObject({ name: "AbortError" });
     expect(fetchMock.mock.calls.every((c) => String(c[0]).includes("cerebras"))).toBe(true);
   });
 });

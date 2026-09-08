@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowLeft, ArrowUpRight, Eraser, Loader2, Maximize2, Send, X } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Eraser, Loader2, Maximize2, Scale, Send, Sparkles, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, panelSubjectKey, type CompareEntry, type PanelState } from "@/components/TripPanelProvider";
 import { PlaceDetailView } from "@/features/places/ui/PlaceDetailView";
@@ -15,12 +15,8 @@ import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 import { ContentSwap, Sheet } from "@/components/motion-primitives";
 import { MessageBlocks } from "@/features/conversation/ui/blocks/MessageBlocks";
-import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
 
 const KIND_LABEL: Record<CompareEntry["kind"], string> = { place: "Place", stay: "Stay", event: "Event", route: "Route" };
-/** The question auto-asked the moment a fresh comparison opens — never shown as a "user" bubble
- *  since the traveller didn't type it; only Roam's answer to it is worth displaying. */
-const COMPARE_VERDICT_PROMPT = "Which of these should I pick, and why? One short paragraph.";
 
 const R = 6371;
 const toRad = (n: number) => (n * Math.PI) / 180;
@@ -47,7 +43,7 @@ function titleFor(panel: PanelState): string {
     case "collection":
       return panel.title;
     default:
-      return "Compare";
+      return "Side by side";
   }
 }
 
@@ -177,23 +173,6 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   useEffect(() => {
     setChat([]);
   }, [sk]);
-  // A raw side-by-side table doesn't tell anyone which option to actually pick — kick off
-  // Roam's take the moment a fresh comparison (2+ items) opens, so there's always a plain-
-  // language verdict above the numbers, not just the numbers themselves. Aborted on cleanup
-  // so Strict Mode's dev-only double-invoke (mount → cleanup → mount) cancels the first,
-  // stale call instead of leaving two concurrent requests racing to write the same state.
-  //
-  // Depends on panel?.kind too, not just sk: compareList reaches its final 2+ items (and sk
-  // its final value) while the user is still picking cards, before the panel ever opens —
-  // clicking "Open" afterward flips panel.kind to "compare" without sk changing at all, so
-  // sk alone misses that transition and a second comparison in the same session never asks.
-  useEffect(() => {
-    if (panel?.kind !== "compare" || compareList.length < 2) return;
-    const controller = new AbortController();
-    void ask(COMPARE_VERDICT_PROMPT, [], controller.signal);
-    return () => controller.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sk, panel?.kind]);
   // Inline (docked chat-rail) panel: Escape still closes it. The drawer's modal focus /
   // scroll-lock / return-focus is handled by <Sheet> further down.
   useEffect(() => {
@@ -243,25 +222,19 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
     return [{ name: titleFor(p), detail: p.kind === "stay" ? "Hotel" : p.kind === "event" ? "Event" : "Place" }];
   }
 
-  async function ask(raw: string, historyOverride?: Array<{ role: "user" | "assistant"; content: string }>, externalSignal?: AbortSignal) {
+  async function ask(raw: string) {
     if (!panel) return;
     const q = raw.trim();
     if (!q || sending) return;
     setInput("");
-    const history = historyOverride ?? chat.filter((m) => m.content.trim());
+    const history = chat.filter((m) => m.content.trim());
     setChat((c) => [...c, { role: "user", content: q }, { role: "assistant", content: "" }]);
     setSending(true);
-    // The upstream call has its own connect-time deadline, but nothing bounds how long an
-    // already-open stream can go quiet mid-response — without this, a stall leaves the
-    // spinner running forever with no way out.
-    const timeout = AbortSignal.timeout(30_000);
-    const signal = externalSignal ? AbortSignal.any([timeout, externalSignal]) : timeout;
     try {
       const res = await fetch(`/api/trips/${tripId}/compare-chat`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ items: itemsFor(panel), messages: [...history, { role: "user", content: q }] }),
-        signal,
       });
       if (!res.ok || !res.body) throw new Error("compare-chat");
       const reader = res.body.getReader();
@@ -275,9 +248,6 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
       }
       if (!acc.trim()) throw new Error("empty");
     } catch {
-      // Superseded by a newer call (React Strict Mode's double-invoke, or the comparison set
-      // changed again mid-flight) — that call owns the chat now; don't stomp its state.
-      if (externalSignal?.aborted) return;
       setChat((c) => c.map((m, i) => (i === c.length - 1 ? { role: "assistant", content: "Roam couldn’t answer just now. Try again in a moment." } : m)));
     } finally {
       setSending(false);
@@ -313,6 +283,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
     <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
       <div className="inline-flex min-w-0 items-center gap-1.5 font-display text-sm">
         {canGoBack && <button type="button" onClick={goBack} aria-label="Back to previous item" className="mr-1 rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"><ArrowLeft className="h-4 w-4" /></button>}
+        {shown.kind === "compare" && <Scale className="h-3.5 w-3.5 shrink-0 text-coral" />}
         <span className="min-w-0 truncate">{titleFor(shown)}</span>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
@@ -340,32 +311,13 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   const composer = layout === "drawer" && panel && (
     <>
       {chat.length > 0 && (
-        <div className="max-h-[40%] shrink-0 space-y-3 overscroll-contain overflow-y-auto scrollbar-slim border-t border-border px-4 py-3">
-          {chat.map((m, i) => {
-            // The auto-verdict prompt is never something the traveller typed — show its answer, not the prompt.
-            if (m.role === "user" && m.content === COMPARE_VERDICT_PROMPT) return null;
-            const loading = sending && i === chat.length - 1;
-            if (m.role === "user") {
-              return (
-                <div key={i} className="flex justify-end">
-                  <p className="max-w-[85%] rounded-2xl rounded-br-lg bg-primary px-4 py-2.5 text-sm leading-relaxed text-primary-foreground">
-                    {m.content}
-                  </p>
-                </div>
-              );
-            }
-            return (
-              <div key={i} className="space-y-2">
-                {m.content ? (
-                  <AssistantMessage content={m.content} />
-                ) : loading ? (
-                  <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Thinking…
-                  </span>
-                ) : null}
-              </div>
-            );
-          })}
+        <div className="max-h-[40%] shrink-0 space-y-3 overflow-y-auto scrollbar-slim border-t border-border px-4 py-3">
+          {chat.map((m, i) => (
+            <div key={i} className={cn("text-sm leading-relaxed", m.role === "user" ? "font-medium" : "text-ink-soft")}>
+              {m.role === "assistant" && <Sparkles className="mr-1.5 inline h-3.5 w-3.5 text-coral" />}
+              {m.content || (sending && i === chat.length - 1 ? <Loader2 className="inline h-3.5 w-3.5 animate-spin" /> : null)}
+            </div>
+          ))}
         </div>
       )}
       <form
@@ -400,11 +352,11 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
     ) : null;
   }
 
-  const pill = ctx.compareMode && compareList.length > 0 && panel?.kind !== "compare" && (
+  const pill = compareList.length > 0 && panel?.kind !== "compare" && (
     <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 24 }} className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2">
       <div className="flex items-center gap-2 rounded-full border border-border bg-card px-2 py-1.5 shadow-lift">
         <span className="inline-flex items-center gap-1.5 pl-2 text-sm font-medium">
-          Compare {compareList.length}
+          <Scale className="h-3.5 w-3.5 text-coral" /> Compare {compareList.length}
         </span>
         <button type="button" onClick={ctx.openCompare} className="btn-primary-sm">
           Open

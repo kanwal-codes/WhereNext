@@ -24,7 +24,7 @@ export function RouteScaffold({
   return (
     <div className={cn("mx-auto w-full min-w-0 px-5 py-10 sm:px-8", wide ? "max-w-6xl" : "max-w-5xl")}>
       {tabs && <div className="mb-6">{tabs}</div>}
-      <PageHeader eyebrow={eyebrow} title={title} description={description} action={action} hideEyebrow={Boolean(tabs)} />
+      <PageHeader eyebrow={eyebrow} title={title} description={description} action={action} />
       <Reveal delay={0.08}>
         <div className="mt-8">{children}</div>
       </Reveal>

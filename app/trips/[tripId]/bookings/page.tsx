@@ -9,7 +9,6 @@ import { EssentialsSurface } from "@/features/essentials/ui/EssentialsSurface";
 import { Reveal, Stagger, StaggerItem, Tactile } from "@/components/motion-primitives";
 import { SkeletonLines } from "@/components/Skeleton";
 import { BookingDetailSheet } from "@/features/bookings/ui/BookingDetailSheet";
-import { GetYourGuideCard } from "@/components/GetYourGuideCard";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { formatMoney } from "@/lib/currency";
 import { cn } from "@/lib/utils";
@@ -147,10 +146,6 @@ export default function BookingsPage() {
               </span>
             </Link>
           </Tactile>
-        </Reveal>
-
-        <Reveal delay={0.09}>
-          <GetYourGuideCard query={destination} label={`Browse tours and activities in ${destination}`} />
         </Reveal>
       </div>
 

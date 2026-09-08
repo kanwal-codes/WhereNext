@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BedDouble, Check } from "lucide-react";
+import { BedDouble } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
 import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { useTripData } from "@/components/TripDataProvider";
@@ -44,10 +44,6 @@ const inDestination = (place: Place, destination: string) => {
   const city = folded(destination.split(",")[0]?.trim() ?? destination);
   return !city || folded(place.address ?? "").includes(city);
 };
-// A "guided tours" text search matches loosely — Google mixes in famous landmarks that merely
-// mention tours, not the tour operators themselves. Keep only actual tour/travel businesses.
-const isTourOperator = (place: Place) =>
-  place.category === "tour_agency" || place.category === "travel_agency" || /\btour(s)?\b/i.test(place.name);
 type Band = { key: string | null; label: string; items: Item[] };
 
 // Same URL + different date is a distinct showtime (recurring events often share one ticket
@@ -227,11 +223,10 @@ export function DiscoverySurface({
     } catch { /* ignore */ }
     setLoading(true);
     setMessage("");
-    const [forYou, sights, eat, tours, ev, st] = await Promise.allSettled([
+    const [forYou, sights, eat, ev, st] = await Promise.allSettled([
       fetchPlaces(interests.length ? interests.join(", ") : "highly rated things to do"),
       fetchPlaces("top sights and landmarks"),
       fetchPlaces("well-reviewed restaurants and cafes"),
-      fetchPlaces("guided tours"),
       fetchEvents(""),
       fetchStays(),
     ]);
@@ -245,10 +240,6 @@ export function DiscoverySurface({
         items: rankToItems(ok(forYou)),
       },
       { key: "eat", label: "Where to eat", items: rankToItems(ok(eat).filter((place) => inDestination(place, destination))) },
-      // Real, dynamic tour operators from Google Places — not GetYourGuide's own catalog (no API
-      // access there). Opening one still surfaces a "Book on GetYourGuide" link once configured,
-      // via PlaceDetailView's GetYourGuideCard.
-      { key: "activities", label: "Tours & activities", items: rankToItems(ok(tours).filter(isTourOperator)) },
       { key: "events", label: "On while you’re there", items: ok(ev).map((e) => ({ kind: "event", event: e }) as Item) },
       { key: "stays", label: "Places to stay", items: ok(st).slice(0, 4).map((s) => ({ kind: "stay", stay: s }) as Item) },
     ].filter((b) => b.items.length);
@@ -466,16 +457,13 @@ export function DiscoverySurface({
 
       {/* Tier 1 — Compare + broad categories (Discover/Saved lives in the page header now). One row, scrolls sideways. */}
       {view === "results" && (
-        <div className="mt-4 flex items-center gap-2 overflow-x-auto scrollbar-slim px-1 py-1">
+        <div className="mt-4 flex items-center gap-2 overflow-x-auto scrollbar-slim pb-1">
             {panelCtx && (
               <button
                 type="button"
-                onClick={() => {
-                  panelCtx.setCompareMode(!panelCtx.compareMode);
-                  panelCtx.compareClear();
-                }}
+                onClick={() => panelCtx.setCompareMode(!panelCtx.compareMode)}
                 className={cn(
-                  "shrink-0 rounded-full border border-foreground bg-background px-3 py-1 text-xs font-medium text-foreground shadow-soft transition-[background-color,box-shadow] hover:bg-accent",
+                  "shrink-0 rounded-full border border-foreground bg-background px-3.5 py-1.5 text-xs font-medium text-foreground shadow-soft transition-[background-color,box-shadow] hover:bg-accent",
                   panelCtx.compareMode && "ring-2 ring-coral ring-offset-2 ring-offset-background",
                 )}
               >
@@ -511,6 +499,8 @@ export function DiscoverySurface({
             })}
         </div>
       )}
+      {panelCtx?.compareMode && panelCtx.compareList.length >= 2 && <button type="button" onClick={panelCtx.openCompare} className="mt-3 rounded-full bg-primary px-4 py-2 text-xs font-medium text-primary-foreground">Compare selected</button>}
+
       {/* Tier 2 — sub-types for the active category. One row, scrolls sideways. */}
       <AnimatePresence initial={false}>
         {view === "results" && activeCat && activeCat.subs.length > 0 && (
@@ -591,11 +581,11 @@ export function DiscoverySurface({
                     <h3 className="font-display text-lg">{band.label}</h3>
                     {band.key && (
                       <button type="button" onClick={() => pickCategory(band.key)} className="shrink-0 text-xs font-medium text-primary hover:underline">
-                        See all &rarr;
+                        Search all &rarr;
                       </button>
                     )}
                   </div>
-                  {/* Two rows of three per band; the rest lives behind "See all". */}
+                  {/* Two rows of three per band; the rest lives behind "Search all". */}
                   <Stagger className={cn("mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3")}>
                     {band.items.slice(0, 6).map((it) => renderItem(it))}
                   </Stagger>
@@ -605,7 +595,7 @@ export function DiscoverySurface({
                       onClick={() => pickCategory(band.key)}
                       className="mt-3 inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium shadow-soft transition-colors hover:bg-accent"
                     >
-                      See all {band.label.toLowerCase()} &rarr;
+                      Search all {band.label.toLowerCase()} &rarr;
                     </button>
                   )}
                   {band.key === "events" && <div ref={eventsSentinel} aria-hidden className="h-8" />}
@@ -633,7 +623,7 @@ function StayMiniCard({ tripId, stay }: { tripId: string; stay: StayItem }) {
         if (panelCtx.compareMode) panelCtx.compareToggle(entry);
         else panelCtx.openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name });
       }}
-      className="group relative flex h-[19rem] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-shadow hover:shadow-lift"
+      className="group flex h-[19rem] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-shadow hover:shadow-lift"
     >
       {stay.thumbnail ? (
         // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
@@ -642,17 +632,6 @@ function StayMiniCard({ tripId, stay }: { tripId: string; stay: StayItem }) {
         <div className="grid h-40 w-full shrink-0 place-items-center bg-muted text-muted-foreground">
           <BedDouble className="h-6 w-6 opacity-40" />
         </div>
-      )}
-      {panelCtx?.compareMode && (
-        <span
-          aria-hidden
-          className={cn(
-            "absolute top-2 right-2 grid h-6 w-6 place-items-center rounded-full border-2 shadow-sm transition-colors",
-            panelCtx.compareHas(stay.hotelId) ? "border-coral bg-coral text-white" : "border-white bg-black/25 text-transparent",
-          )}
-        >
-          <Check className="h-3.5 w-3.5" strokeWidth={3} />
-        </span>
       )}
       <div className="flex min-h-0 flex-1 flex-col gap-1.5 p-4">
         <h3 className="truncate font-display text-base leading-tight">{stay.name}</h3>

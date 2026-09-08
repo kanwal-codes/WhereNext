@@ -4,7 +4,7 @@ const TRIP = "11111111-1111-4111-8111-111111111111";
 
 const requireTripMemberMock = vi.fn();
 const loadTripContextMock = vi.fn();
-const generateTextMock = vi.fn();
+const streamMock = vi.fn();
 
 class TripAuthError extends Error {
   constructor(readonly status: 401 | 403 | 404, message: string) { super(message); this.name = "TripAuthError"; }
@@ -21,7 +21,19 @@ vi.mock("@/lib/application/trip-context", () => ({
   loadTripContext: loadTripContextMock,
   serializeTripContext: () => '{"trip":"ctx"}',
 }));
-vi.mock("@/packages/ai/model-policy", () => ({ gatewayFor: () => ({ generateText: generateTextMock }) }));
+vi.mock("@/packages/ai/model-policy", () => ({ gatewayFor: () => ({ stream: streamMock }) }));
+
+function sse(...contents: string[]): ReadableStream<Uint8Array> {
+  const enc = new TextEncoder();
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const c of contents) controller.enqueue(enc.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: c } }] })}\n\n`));
+      controller.enqueue(enc.encode("data: [DONE]\n\n"));
+      controller.enqueue(enc.encode("data: {\"choices\":[{\"delta\":{\"content\":\"AFTER DONE\"}}]}\n\n"));
+      controller.close();
+    },
+  });
+}
 
 async function post(body: unknown) {
   const mod = await import("@/app/api/trips/[tripId]/compare-chat/route");
@@ -34,16 +46,17 @@ beforeEach(() => {
   vi.clearAllMocks();
   requireTripMemberMock.mockResolvedValue({ supabase: {}, user: { id: "u1" }, role: "owner" });
   loadTripContextMock.mockResolvedValue({ lockedStay: null });
-  generateTextMock.mockResolvedValue("The Plateau.");
+  streamMock.mockResolvedValue(sse("The ", "Plateau."));
 });
 afterEach(() => vi.resetModules());
 
 describe("POST /api/trips/:tripId/compare-chat", () => {
-  it("returns the model's answer as plain text — one buffered call, not a stream", async () => {
+  it("re-emits the model deltas as a plain-text stream, stopping at [DONE]", async () => {
     const res = await post(validBody);
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toMatch(/text\/plain/);
-    expect(await res.text()).toBe("The Plateau.");
+    const text = await res.text();
+    expect(text).toBe("The Plateau."); // no SSE wrapping, and "AFTER DONE" was dropped
   });
 
   it("400 'Invalid compare request' on a bad body", async () => {
@@ -57,7 +70,7 @@ describe("POST /api/trips/:tripId/compare-chat", () => {
       expect(res.status).toBe(400);
       expect((await res.json()).error).toBe("Invalid compare request");
     }
-    expect(generateTextMock).not.toHaveBeenCalled();
+    expect(streamMock).not.toHaveBeenCalled();
   });
 
   it("maps an auth error to its status", async () => {
@@ -65,16 +78,16 @@ describe("POST /api/trips/:tripId/compare-chat", () => {
     expect((await post(validBody)).status).toBe(404);
   });
 
-  it("503 when the model call throws", async () => {
-    generateTextMock.mockRejectedValue(new Error("provider 500"));
+  it("503 when the model stream call throws", async () => {
+    streamMock.mockRejectedValue(new Error("provider 500"));
     const res = await post(validBody);
     expect(res.status).toBe(503);
     expect((await res.json()).error).toMatch(/unavailable/i);
   });
 
   it("system prompt lists the options, the trip context, and the no-stay-locked note", async () => {
-    await post(validBody);
-    const system = String((generateTextMock.mock.calls[0] as unknown as [Array<{ content: string }>])[0][0].content);
+    await post(validBody).then((r) => r.text());
+    const system = String((streamMock.mock.calls[0] as unknown as [Array<{ content: string }>])[0][0].content);
     expect(system).toContain("1. Alfama");
     expect(system).toContain("2. Bairro Alto");
     expect(system).toContain('{"trip":"ctx"}');
@@ -86,8 +99,8 @@ describe("POST /api/trips/:tripId/compare-chat", () => {
     await post({
       items: [{ name: "Rooftop Bar", lat: 38.72, lng: -9.13 }],
       messages: [{ role: "user", content: "good?" }],
-    });
-    const system = String((generateTextMock.mock.calls[0] as unknown as [Array<{ content: string }>])[0][0].content);
+    }).then((r) => r.text());
+    const system = String((streamMock.mock.calls[0] as unknown as [Array<{ content: string }>])[0][0].content);
     expect(system).toMatch(/staying at Hotel Bairro/);
     expect(system).toMatch(/~\d+\.\d km straight-line from Hotel Bairro/);
   });

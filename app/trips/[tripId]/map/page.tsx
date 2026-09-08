@@ -11,7 +11,7 @@ export default function MapPage() {
   return (
     <RouteScaffold
       eyebrow="Getting around"
-      title={tab === "trip" ? "Your trip on a map" : "Find your way there"}
+      title="Your trip on a map"
       tabs={<GettingAroundTabs tab={tab} onChange={setTab} />}
     >
       <MapSurface tripId={tripId} tab={tab} />

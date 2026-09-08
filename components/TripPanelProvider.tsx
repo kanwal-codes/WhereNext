@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { Scale } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 
@@ -217,6 +218,7 @@ export function CompareButton({ entry, className }: { entry: CompareEntry; class
         className,
       )}
     >
+      <Scale className="h-3 w-3" />
       {on ? "Comparing" : "Compare"}
     </button>
   );

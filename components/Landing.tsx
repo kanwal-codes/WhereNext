@@ -509,11 +509,17 @@ export function Landing() {
         />
 
         <div className="absolute inset-x-0 top-0">
-          <div className="mx-auto flex max-w-[1200px] items-center px-4 pt-5 sm:px-10 sm:pt-7">
+          <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-3 px-4 pt-5 sm:px-10 sm:pt-7">
             <Link href="/" className="inline-flex items-center gap-2">
               <BrandMark variant="compact" />
               <BrandMark variant="text" textClassName="text-lg sm:text-xl" />
             </Link>
+            {/* Utility link only — the real CTA pair lives once, in the hero copy below. */}
+            <div className="flex items-center gap-3">
+              <Link href="/sign-in" className="hero-eyebrow text-sm font-medium whitespace-nowrap transition-opacity hover:opacity-70">
+                Sign in
+              </Link>
+            </div>
           </div>
         </div>
 

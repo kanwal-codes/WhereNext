@@ -288,28 +288,11 @@ export function useFocusReturn(
   container?: RefObject<HTMLElement | null>,
   initialFocus?: RefObject<HTMLElement | null>,
 ) {
-  // A ref, not a dependency: callers almost always pass an inline `() => ...` for onEscape,
-  // a fresh function every render. If that sat in the effect's own deps, typing anywhere
-  // inside the panel (which re-renders the caller on every keystroke) would re-run this
-  // whole effect mid-type — re-focusing the panel's first focusable element and yanking
-  // focus out of whatever was just typed into.
-  const onEscapeRef = useRef(onEscape);
-  useEffect(() => {
-    onEscapeRef.current = onEscape;
-  });
   useEffect(() => {
     if (!active || typeof document === "undefined") return;
     const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    // `overflow: hidden` alone stops desktop wheel-scroll but not touch-scroll on mobile
-    // Safari, which still rubber-bands the body underneath a fixed overlay — pinning the
-    // body in place (and restoring the scroll position on close) blocks both.
-    const scrollY = window.scrollY;
-    const body = document.body.style;
-    const prev = { position: body.position, top: body.top, width: body.width, overflow: body.overflow };
-    body.position = "fixed";
-    body.top = `-${scrollY}px`;
-    body.width = "100%";
-    body.overflow = "hidden";
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
 
     const focusables = () =>
       Array.from(
@@ -320,7 +303,7 @@ export function useFocusReturn(
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onEscapeRef.current?.();
+        onEscape?.();
         return;
       }
       if (e.key !== "Tab" || !container?.current) return;
@@ -348,15 +331,11 @@ export function useFocusReturn(
     return () => {
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(raf2);
-      body.position = prev.position;
-      body.top = prev.top;
-      body.width = prev.width;
-      body.overflow = prev.overflow;
-      window.scrollTo(0, scrollY);
+      document.body.style.overflow = prevOverflow;
       document.removeEventListener("keydown", onKey);
       trigger?.focus();
     };
-  }, [active, container, initialFocus]);
+  }, [active, onEscape, container, initialFocus]);
 }
 
 /**
@@ -400,13 +379,9 @@ export function Sheet({
             "fixed inset-0 z-50 flex bg-ink/25 backdrop-blur-[2px]",
             side === "center" ? "items-center justify-center p-4" : side === "bottom" ? "items-end" : side === "right" ? "justify-end" : "justify-start",
           )}
-          initial={{ opacity: 0, pointerEvents: "none" }}
-          animate={{ opacity: 1, pointerEvents: "auto" }}
-          // `pointerEvents: "none"` lands the instant the exit starts (Framer applies a
-          // non-animatable value immediately, not interpolated) — an invisible backdrop
-          // fading out, or ever stuck mid-exit for any reason, must never keep swallowing
-          // clicks across the whole viewport while it's not actually open.
-          exit={{ opacity: 0, pointerEvents: "none" }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
           transition={reduce ? { duration: 0 } : motionTokens.fast}
           onClick={onClose}
         >

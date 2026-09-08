@@ -2,30 +2,23 @@
 
 import type { MouseEvent } from "react";
 import Link from "next/link";
-import { Check, MapPin, Star } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { MapPin, Star } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
 import { BlurImage, Tactile } from "@/components/motion-primitives";
-import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import { photoProxyUrl, priceLabel, priceRank } from "@/lib/places-ui";
-
-const norm = (s: string) => s.trim().toLowerCase();
 
 export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place; why?: string }) {
   const photo = photoProxyUrl(tripId, place.photoNames?.[0]);
   const price = priceLabel(place.priceLevel);
   const href = `/trips/${tripId}/place/${encodeURIComponent(place.providerId)}`;
   const panelCtx = useTripPanelMaybe();
-  const itinerary = (useTripDataMaybe()?.data?.itinerary ?? []) as Array<{ title?: string; day_index?: number }>;
-  const itinDay = itinerary.find((i) => i.title && norm(i.title) === norm(place.name))?.day_index;
   const compareEntry: CompareEntry = {
     id: place.providerId, kind: "place", name: place.name, href, subtitle: place.address ?? undefined,
     attrs: { price: priceLabel(place.priceLevel) ?? undefined, priceValue: place.priceLevel ? priceRank(place.priceLevel) : undefined,
       rating: typeof place.rating === "number" ? place.rating.toFixed(1) : undefined, ratingValue: typeof place.rating === "number" ? place.rating : undefined,
-      lat: place.latitude, lng: place.longitude, address: place.address ?? undefined, detail: place.category ? place.category.replaceAll("_", " ") : undefined,
-      when: itinDay ? `Day ${itinDay}` : undefined },
+      lat: place.latitude, lng: place.longitude, address: place.address ?? undefined, detail: place.category ? place.category.replaceAll("_", " ") : undefined },
   };
   const open = panelCtx
     ? (e: MouseEvent) => {
@@ -38,7 +31,7 @@ export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place
 
   return (
     <Tactile lift={4} className="group flex h-[19rem] flex-col rounded-2xl border border-border bg-card shadow-soft transition-shadow hover:shadow-lift">
-      <Link href={href} onClick={open} className="relative block h-40 shrink-0 overflow-hidden rounded-t-2xl">
+      <Link href={href} onClick={open} className="block h-40 shrink-0 overflow-hidden rounded-t-2xl">
         {photo ? (
           <BlurImage
             src={photo}
@@ -49,17 +42,6 @@ export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place
           <div className="grid h-full w-full place-items-center bg-muted text-muted-foreground">
             <MapPin className="h-6 w-6 opacity-40" />
           </div>
-        )}
-        {panelCtx?.compareMode && (
-          <span
-            aria-hidden
-            className={cn(
-              "absolute top-2 right-2 grid h-6 w-6 place-items-center rounded-full border-2 shadow-sm transition-colors",
-              panelCtx.compareHas(place.providerId) ? "border-coral bg-coral text-white" : "border-white bg-black/25 text-transparent",
-            )}
-          >
-            <Check className="h-3.5 w-3.5" strokeWidth={3} />
-          </span>
         )}
       </Link>
 
