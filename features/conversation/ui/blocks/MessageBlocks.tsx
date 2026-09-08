@@ -262,8 +262,10 @@ function PlaceCardView({
         {/* "From provider" is the default for every card — only a non-default trust label carries information. */}
         {place.trust !== "sourced" && <p className="eyebrow">{TRUST_LABEL[place.trust] ?? place.trust}</p>}
         <div className="relative z-10 mt-auto flex flex-wrap items-center gap-2 pt-1">
-          {/* One control: shortlist (still deciding) → a day (going in the plan) → remove. */}
-          <AddToTripControl tripId={tripId} place={toPlace(place)} size="sm" />
+          {/* One control: shortlist (still deciding) → a day (going in the plan) → remove.
+              Always its own row — "Add to trip" and "Day N" are different widths, so letting
+              flex-wrap decide left Details sharing a row only when the label was short. */}
+          <AddToTripControl tripId={tripId} place={toPlace(place)} size="sm" className="w-full" />
           {onOpenPlace ? (
             <button type="button" className={iconBtn} onClick={() => onOpenPlace(place)}>
               Details <ArrowUpRight className="h-3.5 w-3.5" />

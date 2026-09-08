@@ -379,9 +379,13 @@ export function Sheet({
             "fixed inset-0 z-50 flex bg-ink/25 backdrop-blur-[2px]",
             side === "center" ? "items-center justify-center p-4" : side === "bottom" ? "items-end" : side === "right" ? "justify-end" : "justify-start",
           )}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          initial={{ opacity: 0, pointerEvents: "none" }}
+          animate={{ opacity: 1, pointerEvents: "auto" }}
+          // `pointerEvents: "none"` lands the instant the exit starts (Framer applies a
+          // non-animatable value immediately, not interpolated) — an invisible backdrop
+          // fading out, or ever stuck mid-exit for any reason, must never keep swallowing
+          // clicks across the whole viewport while it's not actually open.
+          exit={{ opacity: 0, pointerEvents: "none" }}
           transition={reduce ? { duration: 0 } : motionTokens.fast}
           onClick={onClose}
         >
