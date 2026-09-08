@@ -349,7 +349,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
             if (m.role === "user") {
               return (
                 <div key={i} className="flex justify-end">
-                  <p className="max-w-[85%] rounded-2xl rounded-br-lg bg-muted px-4 py-2.5 text-sm leading-relaxed text-foreground">
+                  <p className="max-w-[85%] rounded-2xl rounded-br-lg bg-primary px-4 py-2.5 text-sm leading-relaxed text-primary-foreground">
                     {m.content}
                   </p>
                 </div>
