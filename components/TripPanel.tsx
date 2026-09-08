@@ -346,7 +346,15 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
             // The auto-verdict prompt is never something the traveller typed — show its answer, not the prompt.
             if (m.role === "user" && m.content === COMPARE_VERDICT_PROMPT) return null;
             const loading = sending && i === chat.length - 1;
-            if (m.role === "user") return <div key={i} className="text-sm leading-relaxed font-medium">{m.content}</div>;
+            if (m.role === "user") {
+              return (
+                <div key={i} className="flex justify-end">
+                  <p className="max-w-[85%] rounded-2xl rounded-br-lg bg-muted px-4 py-2.5 text-sm leading-relaxed text-foreground">
+                    {m.content}
+                  </p>
+                </div>
+              );
+            }
             return (
               <div key={i} className="space-y-2">
                 {m.content ? (
