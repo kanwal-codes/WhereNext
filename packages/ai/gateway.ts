@@ -9,18 +9,27 @@ const OPENAI = {
   baseUrl: "https://api.openai.com/v1",
   key: () => process.env.AI_API_KEY || process.env.OPENAI_API_KEY,
   defaultModel: "gpt-4o",
+  // A cheap, low-latency model for the `fast` role — short streamed answers that don't
+  // need gpt-4o's extra capability.
+  fastModel: "gpt-4o-mini",
   reasoning: false,
   envHint: "AI_API_KEY or OPENAI_API_KEY",
 } as const;
 
-const PROVIDERS: Record<AiProviderName, { baseUrl: string; key: () => string | undefined; defaultModel: string; reasoning: boolean; envHint: string }> = {
+const PROVIDERS: Record<AiProviderName, { baseUrl: string; key: () => string | undefined; defaultModel: string; fastModel?: string; reasoning: boolean | ((model: string) => boolean); envHint: string }> = {
   openai: OPENAI,
   "openai-compatible": OPENAI,
   cerebras: {
     baseUrl: "https://api.cerebras.ai/v1",
     key: () => process.env.CEREBRAS_API_KEY,
     defaultModel: "gpt-oss-120b",
-    reasoning: true,
+    // gemma-4-31b is a plain chat model, no reasoning phase — answers a short prompt in
+    // ~0.3s versus gpt-oss's 9-30s "thinking" (invisible on the wire either way).
+    fastModel: "gemma-4-31b",
+    // Cerebras hosts a mix of reasoning and plain chat models — only gpt-oss emits the
+    // harmony analysis channel these options gate; gemma/qwen reject reasoning_format
+    // outright (400) if it's sent.
+    reasoning: (model) => model === "gpt-oss-120b",
     envHint: "CEREBRAS_API_KEY",
   },
   gemini: {
@@ -31,6 +40,7 @@ const PROVIDERS: Record<AiProviderName, { baseUrl: string; key: () => string | u
     // pinned id (which they do often — 2.0-flash, 2.5-flash and 2.5-pro all 404 now). Override
     // per-role with GEMINI_MODEL / GEMINI_BULK_MODEL.
     defaultModel: "gemini-flash-latest",
+    fastModel: "gemini-flash-latest", // already the fast one
     reasoning: false,
     envHint: "GEMINI_API_KEY",
   },
@@ -53,22 +63,24 @@ export type ResolvedProvider = { apiKey: string; model: string; baseUrl: string;
  * pinned provider ignores `AI_BASE_URL` / `AI_MODEL` and uses its own defaults. Shared by
  * `createAiGateway` (structured/legacy calls) and `composeModel` (the AI SDK tool loop).
  */
-export function resolveProvider(overrides: { model?: string; provider?: AiProviderName } = {}): ResolvedProvider {
+export function resolveProvider(overrides: { model?: string; provider?: AiProviderName; fast?: boolean } = {}): ResolvedProvider {
   const pinned = overrides.provider != null;
   const name: AiProviderName = overrides.provider ?? (process.env.AI_PROVIDER as AiProviderName) ?? "openai-compatible";
   const p = PROVIDERS[name] ?? PROVIDERS["openai-compatible"];
   const key = p.key();
   if (!key) throw new Error(`${p.envHint} is not configured`);
+  const fallbackDefault = overrides.fast ? (p.fastModel ?? p.defaultModel) : p.defaultModel;
+  const model = overrides.model || (pinned ? fallbackDefault : process.env.AI_MODEL || fallbackDefault);
   return {
     apiKey: key,
-    model: overrides.model || (pinned ? p.defaultModel : process.env.AI_MODEL || p.defaultModel),
+    model,
     baseUrl: pinned ? p.baseUrl : process.env.AI_BASE_URL || p.baseUrl,
-    supportsReasoningOptions: p.reasoning,
+    supportsReasoningOptions: typeof p.reasoning === "function" ? p.reasoning(model) : p.reasoning,
   };
 }
 
 /** The chat/reasoning gateway used by every structured call (`generateText` / `generateStructured`). */
-export function createAiGateway(overrides: { model?: string; provider?: AiProviderName } = {}) {
+export function createAiGateway(overrides: { model?: string; provider?: AiProviderName; fast?: boolean } = {}) {
   return new OpenAiCompatibleProvider(resolveProvider(overrides));
 }
 
@@ -79,7 +91,7 @@ export function createAiGateway(overrides: { model?: string; provider?: AiProvid
  * endpoint + default model. Providers with no configured key are dropped. Throws only if
  * nothing in the chain is usable (with the primary's env hint).
  */
-export function resolveProviderChain(overrides: { model?: string } = {}): ResolvedProvider[] {
+export function resolveProviderChain(overrides: { model?: string; fast?: boolean } = {}): ResolvedProvider[] {
   const names = [
     (process.env.AI_PROVIDER as AiProviderName) || "openai-compatible",
     ...(process.env.AI_FALLBACK_PROVIDERS ?? "")
@@ -98,8 +110,8 @@ export function resolveProviderChain(overrides: { model?: string } = {}): Resolv
       // index 0 is the primary — let it honour AI_BASE_URL / AI_MODEL; fallbacks are pinned.
       chain.push(resolveProvider(
         index === 0
-          ? { model: overrides.model }
-          : { provider: name, model: overrides.model || (name === "gemini" ? process.env.GEMINI_MODEL : undefined) },
+          ? { model: overrides.model, fast: overrides.fast }
+          : { provider: name, model: overrides.model || (name === "gemini" ? process.env.GEMINI_MODEL : undefined), fast: overrides.fast },
       ));
     } catch (error) {
       firstError ??= error;
@@ -112,15 +124,24 @@ export function resolveProviderChain(overrides: { model?: string } = {}): Resolv
 const isAbort = (error: unknown) =>
   error instanceof DOMException ? error.name === "AbortError" : (error as { name?: string })?.name === "AbortError";
 
+/** A provider whose first byte doesn't show up within this long is treated as failed — the
+ *  fallback chain moves on instead of the caller waiting indefinitely on a stalled connection
+ *  that already returned headers. Only `stream()` is exposed to this; only one caller uses
+ *  it today (compare-chat's short, fast "compose" answer) so a tight bound is safe. Kept well
+ *  under the client's own 30s hard timeout even at the worst case (4 providers deep in the
+ *  default AI_PROVIDER + AI_FALLBACK_PROVIDERS chain), so a full walk through every provider
+ *  still finishes — or fails cleanly — before the client gives up on its own. */
+const STREAM_FIRST_CHUNK_DEADLINE_MS = 6_000;
+
 /** A gateway that transparently fails over across `resolveProviderChain()` on a provider error
  *  (network, 401/403/429, 5xx). A 4xx that another provider can't fix, and aborts, propagate. */
-export function createGatewayWithFallback(overrides: { model?: string } = {}) {
+export function createGatewayWithFallback(overrides: { model?: string; fast?: boolean } = {}) {
   const resolved = resolveProviderChain(overrides);
   const providers = resolved.map((r) => new OpenAiCompatibleProvider(r));
   // Which provider in the chain actually answered the last call — the trace's whole point
   // is to say what really ran, not what was merely configured as the primary.
   let lastModelUsed: string | undefined;
-  async function withFailover<T>(op: (p: OpenAiCompatibleProvider) => Promise<T>): Promise<T> {
+  async function withFailover<T>(externalSignal: AbortSignal | undefined, op: (p: OpenAiCompatibleProvider) => Promise<T>): Promise<T> {
     let lastError: unknown;
     for (let i = 0; i < providers.length; i += 1) {
       try {
@@ -128,19 +149,59 @@ export function createGatewayWithFallback(overrides: { model?: string } = {}) {
         lastModelUsed = resolved[i].model;
         return result;
       } catch (error) {
-        if (isAbort(error)) throw error;
+        // `fetch` always throws "AbortError" on any abort, whether it came from the caller's
+        // own signal (a real cancellation — stop, don't waste time on more providers) or from
+        // this provider's internal per-attempt timeout (exactly what failover is for). Only
+        // the caller's signal being aborted means the whole request is being torn down.
+        if (isAbort(error) && externalSignal?.aborted) throw error;
         const status = (error as { status?: number })?.status;
-        const worthRetrying = !status || status === 401 || status === 403 || status === 429 || status >= 500;
+        const worthRetrying = !status || status === 401 || status === 403 || status === 429 || status >= 500 || isAbort(error);
         if (!worthRetrying || i === providers.length - 1) throw error;
         lastError = error;
       }
     }
     throw lastError;
   }
+  /** `stream()`'s own failover: a provider that returns headers but then goes quiet (never
+   *  emits a first chunk) looks identical to success to `withFailover` above — the promise it
+   *  awaits already resolved. Peeks the first chunk under a deadline so a stall counts as a
+   *  failure of that provider too, then re-attaches it to the stream for the real consumer. */
+  async function streamWithFailover(...args: Parameters<OpenAiCompatibleProvider["stream"]>): Promise<ReadableStream<Uint8Array>> {
+    const externalSignal = args[1];
+    return withFailover(externalSignal, async (p) => {
+      const body = await p.stream(...args);
+      const reader = body.getReader();
+      let first: ReadableStreamReadResult<Uint8Array>;
+      try {
+        first = await Promise.race([
+          reader.read(),
+          new Promise<never>((_, reject) => {
+            const t = setTimeout(() => reject(Object.assign(new Error("stream stalled before first chunk"), { name: "AbortError" })), STREAM_FIRST_CHUNK_DEADLINE_MS);
+            externalSignal?.addEventListener("abort", () => clearTimeout(t), { once: true });
+          }),
+        ]);
+      } catch (error) {
+        reader.cancel().catch(() => {});
+        throw error;
+      }
+      return new ReadableStream<Uint8Array>({
+        start(controller) {
+          if (first.done) { controller.close(); return; }
+          controller.enqueue(first.value);
+        },
+        async pull(controller) {
+          const { done, value } = await reader.read();
+          if (done) { controller.close(); return; }
+          controller.enqueue(value);
+        },
+        cancel() { reader.cancel().catch(() => {}); },
+      });
+    });
+  }
   return {
-    generateText: (...args: Parameters<OpenAiCompatibleProvider["generateText"]>) => withFailover((p) => p.generateText(...args)),
-    generateStructured: (...args: Parameters<OpenAiCompatibleProvider["generateStructured"]>) => withFailover((p) => p.generateStructured(...args)),
-    stream: (...args: Parameters<OpenAiCompatibleProvider["stream"]>) => withFailover((p) => p.stream(...args)),
+    generateText: (...args: Parameters<OpenAiCompatibleProvider["generateText"]>) => withFailover(args[1], (p) => p.generateText(...args)),
+    generateStructured: (...args: Parameters<OpenAiCompatibleProvider["generateStructured"]>) => withFailover(args[1], (p) => p.generateStructured(...args)),
+    stream: (...args: Parameters<OpenAiCompatibleProvider["stream"]>) => streamWithFailover(...args),
     get lastModelUsed() { return lastModelUsed; },
   };
 }

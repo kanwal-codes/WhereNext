@@ -2,7 +2,6 @@ import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { loadTripContext, serializeTripContext } from "@/lib/application/trip-context";
 import { gatewayFor } from "@/packages/ai/model-policy";
-import { createSseParser, parseSseJson } from "@/packages/ai/sse";
 
 /**
  * A throwaway comparison conversation. It has the full trip context (so it can reason
@@ -61,43 +60,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
       ...itemLines,
     ].join("\n");
 
-    const upstream = await gatewayFor("resolve").stream(
+    // Not streamed: this is 2-4 sentences, and a real streamed response gives no clean way to
+    // fail over mid-stream if a provider stalls (content already sent to the client can't be
+    // un-sent). One buffered call is fully covered by the fallback chain's own timeout+retry —
+    // it either fully succeeds or fully fails, with no partial-answer state in between.
+    const text = await gatewayFor("compose").generateText(
       [{ role: "system", content: system }, ...messages],
       request.signal,
     );
 
-    // Re-emit the upstream OpenAI SSE as a plain UTF-8 text stream of content deltas.
-    const reader = upstream.getReader();
-    const decoder = new TextDecoder();
-    const encoder = new TextEncoder();
-    const parser = createSseParser();
-    /** Enqueue the content deltas in `payloads`; returns true once `[DONE]` closed the stream. */
-    const drain = (controller: ReadableStreamDefaultController<Uint8Array>, payloads: string[]): boolean => {
-      for (const payload of payloads) {
-        if (payload === "[DONE]") {
-          controller.close();
-          return true;
-        }
-        const delta = parseSseJson<{ choices?: Array<{ delta?: { content?: string } }> }>(payload)?.choices?.[0]?.delta?.content;
-        if (delta) controller.enqueue(encoder.encode(delta));
-      }
-      return false;
-    };
-    const stream = new ReadableStream<Uint8Array>({
-      async pull(controller) {
-        const { done, value } = await reader.read();
-        if (done) {
-          if (!drain(controller, [...parser.push(decoder.decode()), ...parser.flush()])) controller.close();
-          return;
-        }
-        drain(controller, parser.push(decoder.decode(value, { stream: true })));
-      },
-      cancel() {
-        reader.cancel().catch(() => {});
-      },
-    });
-
-    return new Response(stream, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" } });
+    return new Response(text, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" } });
   } catch (error) {
     if (error instanceof z.ZodError) return new Response(JSON.stringify({ error: "Invalid compare request" }), { status: 400, headers: { "content-type": "application/json" } });
     return tripAuthResponse(error) ?? new Response(JSON.stringify({ error: "The comparison assistant is unavailable right now" }), { status: 503, headers: { "content-type": "application/json" } });

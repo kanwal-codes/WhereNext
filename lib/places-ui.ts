@@ -1,4 +1,5 @@
 import type { Place } from "@/packages/contracts/place";
+import { getPublicEnv } from "@/lib/env";
 
 /** Same-origin authenticated proxy for a Google photo resource name. */
 export function photoProxyUrl(tripId: string, photoName: string | undefined): string | undefined {
@@ -44,6 +45,19 @@ export function askAssistantHref(
     `\n${opts.name}${opts.address ? ` — ${opts.address}` : ""}${opts.mapsUrl ? `\n${opts.mapsUrl}` : ""}` +
     (opts.context ? `\n\nWhat's on my screen right now:\n${opts.context.slice(0, 1600)}` : "");
   return `/trips/${tripId}/chat?ask=${encodeURIComponent(question)}`;
+}
+
+/**
+ * Deep link into GetYourGuide's search results for `query`, tagged with our affiliate
+ * partner_id — an outbound-only link, not an API call: no live pricing or availability,
+ * just the standard affiliate deep-link format from their partner docs. Returns null
+ * (render nothing) until the affiliate signup is done and the id is configured.
+ */
+export function getYourGuideHref(query: string): string | null {
+  const partnerId = getPublicEnv().NEXT_PUBLIC_GETYOURGUIDE_PARTNER_ID;
+  if (!partnerId) return null;
+  const q = new URLSearchParams({ q: query, partner_id: partnerId, utm_medium: "online_publisher", utm_source: "wherenext" });
+  return `https://www.getyourguide.com/s/?${q.toString()}`;
 }
 
 /** Link to the full event detail page, carrying the card's data so it can paint before the fetch. */

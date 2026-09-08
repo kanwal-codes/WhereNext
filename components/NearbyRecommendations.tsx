@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Loader2, Star } from "lucide-react";
+import { Check, Loader2, Star } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
 import type { NearbyEvent } from "@/components/EventCard";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
@@ -20,12 +20,15 @@ type RawLane = LaneInput<NearbyEvent>;
 type ShapedLane = LaneOutput<NearbyEvent>;
 
 const asList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((s): s is string => typeof s === "string") : []);
+const norm = (s: string) => s.trim().toLowerCase();
 
 function MiniCard({ tripId, place, why, onSelect }: { tripId: string; place: Place; why?: string | null; onSelect?: () => void }) {
   const photo = photoProxyUrl(tripId, place.photoNames?.[0]);
   const panelCtx = useTripPanelMaybe();
   const href = `/trips/${tripId}/place/${encodeURIComponent(place.providerId)}`;
-  const entry: CompareEntry = { id: place.providerId, kind: "place", name: place.name, href, subtitle: place.address ?? undefined, attrs: { rating: typeof place.rating === "number" ? place.rating.toFixed(1) : undefined, ratingValue: place.rating, address: place.address ?? undefined, lat: place.latitude, lng: place.longitude } };
+  const itinerary = (useTripDataMaybe()?.data?.itinerary ?? []) as Array<{ title?: string; day_index?: number }>;
+  const itinDay = itinerary.find((i) => i.title && norm(i.title) === norm(place.name))?.day_index;
+  const entry: CompareEntry = { id: place.providerId, kind: "place", name: place.name, href, subtitle: place.address ?? undefined, attrs: { rating: typeof place.rating === "number" ? place.rating.toFixed(1) : undefined, ratingValue: place.rating, address: place.address ?? undefined, lat: place.latitude, lng: place.longitude, when: itinDay ? `Day ${itinDay}` : undefined } };
   return (
     <Link
       href={href}
@@ -36,13 +39,24 @@ function MiniCard({ tripId, place, why, onSelect }: { tripId: string; place: Pla
         if (panelCtx.compareMode) panelCtx.compareToggle(entry);
         else panelCtx.openPanel({ kind: "place", placeId: place.providerId, name: place.name });
       }}
-      className="block w-[196px] shrink-0 snap-start overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-shadow hover:shadow-lift"
+      className="relative block w-[196px] shrink-0 snap-start overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-shadow hover:shadow-lift"
     >
       {photo ? (
         // eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin proxy
         <img src={photo} alt={place.name} width={196} height={110} loading="lazy" className="h-28 w-full object-cover" />
       ) : (
         <div className="h-28 w-full bg-muted" />
+      )}
+      {panelCtx?.compareMode && (
+        <span
+          aria-hidden
+          className={cn(
+            "absolute top-1.5 right-1.5 grid h-5 w-5 place-items-center rounded-full border-2 shadow-sm transition-colors",
+            panelCtx.compareHas(place.providerId) ? "border-coral bg-coral text-white" : "border-white bg-black/25 text-transparent",
+          )}
+        >
+          <Check className="h-3 w-3" strokeWidth={3} />
+        </span>
       )}
       <div className="p-3">
         <p className="truncate text-sm font-medium">{place.name}</p>

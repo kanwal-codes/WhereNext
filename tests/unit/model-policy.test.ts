@@ -27,9 +27,9 @@ describe("gatewayFor", () => {
     expect(createGatewayWithFallback).toHaveBeenCalledWith({ model: undefined });
   });
 
-  it("compose → the fallback chain with the provider default model", () => {
+  it("compose → the fallback chain, asking for each provider's fast model", () => {
     gatewayFor("compose");
-    expect(createGatewayWithFallback).toHaveBeenCalledWith();
+    expect(createGatewayWithFallback).toHaveBeenCalledWith({ fast: true });
   });
 
   it("bulk → the bulk gateway, reading SUMMARY_MODEL", () => {
