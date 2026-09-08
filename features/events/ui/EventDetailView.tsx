@@ -225,7 +225,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
   return (
     <div>
       {titleTag}
-      <Hero image={image || "/design/trip-hero.jpg"} alt={title} plain className={cn(panel ? "h-44" : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]")}>
+      <Hero image={image || "/design/trip-hero.jpg"} alt={title} plain surface={panel} className={cn(panel ? "h-44" : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]")}>
         <div className={cn("absolute inset-x-0 bottom-0", pad, "pb-6")}>
           {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className="shadow-soft" />}
           <WordReveal

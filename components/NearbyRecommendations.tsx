@@ -313,7 +313,10 @@ export function NearbyRecommendations({
           : ({
               type: "place_list",
               title: lane.title,
-              places: places.map((result) => result.place),
+              // The collection panel's PlaceCardView reads `photoUrl` (a resolved proxy URL), not
+              // the raw `photoNames` this Place carries — without this every card falls back to
+              // the pin-icon placeholder.
+              places: places.map((result) => ({ ...result.place, photoUrl: photoProxyUrl(tripId, result.place.photoNames?.[0]) })),
             } as AssistantBlock);
         return (
           <Reveal key={lane.id} delay={0.05 * i}>

@@ -343,7 +343,7 @@ export function MapSurface({ tripId, tab }: { tripId: string; tab: "trip" | "bro
         ) : (
           // Map fills the whole box; the day panel floats over its left edge and scrolls on its
           // own, like Google Maps' results panel — no page-scroll-linked positioning to fight.
-          <div className="relative h-[75vh] min-h-[520px] w-full overflow-hidden rounded-2xl border border-border">
+          <div className="relative h-[70vh] min-h-[480px] w-full overflow-hidden rounded-2xl border border-border">
             <TripMap className="absolute inset-0 h-full w-full rounded-none border-0" pins={pins} legs={mapLegs} activeDay={activeDay} />
             <MapPanel collapsedLabel={activeDay !== "all" ? `Day ${activeDay}` : undefined}>
               {days.length > 0 && (
@@ -391,7 +391,7 @@ export function MapSurface({ tripId, tab }: { tripId: string; tab: "trip" | "bro
           </div>
         )
       ) : (
-        <div className="relative h-[75vh] min-h-[520px] w-full overflow-hidden rounded-2xl border border-border">
+        <div className="relative h-[70vh] min-h-[480px] w-full overflow-hidden rounded-2xl border border-border">
           <TripMap className="absolute inset-0 h-full w-full rounded-none border-0" pins={[]} activeDay="all" center={center} browse={browseLegs && browseLegs.length ? browse : null} />
           <MapPanel>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
