@@ -511,8 +511,6 @@ export function DiscoverySurface({
             })}
         </div>
       )}
-      {panelCtx?.compareMode && panelCtx.compareList.length >= 2 && <button type="button" onClick={panelCtx.openCompare} className="mt-3 rounded-full bg-primary px-4 py-2 text-xs font-medium text-primary-foreground">Compare selected</button>}
-
       {/* Tier 2 — sub-types for the active category. One row, scrolls sideways. */}
       <AnimatePresence initial={false}>
         {view === "results" && activeCat && activeCat.subs.length > 0 && (
