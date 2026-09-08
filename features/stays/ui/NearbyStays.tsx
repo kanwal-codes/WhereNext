@@ -36,6 +36,8 @@ export function NearbyStays({
   anchor,
   currency = "CAD",
   mode = "preview",
+  initialOrder = "nearby",
+  initialKind = "All",
 }: {
   tripId: string;
   currentHotelId: string;
@@ -46,11 +48,14 @@ export function NearbyStays({
   anchor?: { lat: number; lng: number } | null;
   currency?: string;
   mode?: "preview" | "full";
+  /** Seeds the sort/type filter — lets "See more" land here with the same filter already applied. */
+  initialOrder?: Order;
+  initialKind?: Kind | "All";
 }) {
   const panel = useTripPanelMaybe();
   const [options, setOptions] = useState<StayOption[]>([]);
-  const [order, setOrder] = useState<Order>("nearby");
-  const [kind, setKind] = useState<Kind | "All">("All");
+  const [order, setOrder] = useState<Order>(initialOrder);
+  const [kind, setKind] = useState<Kind | "All">(initialKind);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -89,17 +94,28 @@ export function NearbyStays({
     return () => { cancelled = true; };
   }, [tripId, location, checkin, checkout, adults]);
 
-  const alternatives = useMemo(() => {
+  const matched = useMemo(() => {
     const next = options
       .filter((option) => option.hotelId !== currentHotelId)
       .map((option) => ({ option, distance: anchor && option.latitude != null && option.longitude != null ? distanceKm(anchor, { lat: option.latitude, lng: option.longitude }) : null, kind: stayKind(option.name) }))
       .filter((entry) => kind === "All" || entry.kind === kind);
     next.sort((a, b) => order === "price" ? a.option.nightlyAmount - b.option.nightlyAmount : order === "rating" ? (b.option.rating ?? 0) - (a.option.rating ?? 0) : (a.distance ?? Number.POSITIVE_INFINITY) - (b.distance ?? Number.POSITIVE_INFINITY));
-    return mode === "full" ? next : next.slice(0, 3);
-  }, [options, currentHotelId, anchor, order, kind, mode]);
+    return next;
+  }, [options, currentHotelId, anchor, order, kind]);
+  const alternatives = mode === "full" ? matched : matched.slice(0, 3);
   const availableKinds = useMemo(() => Array.from(new Set(options.filter((option) => option.hotelId !== currentHotelId).map((option) => stayKind(option.name)))), [options, currentHotelId]);
 
   if (!loading && alternatives.length === 0) return null;
+
+  // Carries the active sort/type filter along, so "See more" lands on the full list already
+  // narrowed the same way instead of resetting to Closest / All.
+  const seeMoreHref = `/trips/${tripId}/stay/alternatives?${new URLSearchParams({
+    location,
+    checkin: checkin ?? "",
+    checkout: checkout ?? "",
+    order,
+    kind,
+  })}`;
 
   return (
     <section className="border-t border-border/70 pt-8">
@@ -110,16 +126,19 @@ export function NearbyStays({
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">A short list around this hotel, priced for your dates.</p>
         </div>
         {mode === "preview" ? (
-          <Link href={`/trips/${tripId}/stay/alternatives?location=${encodeURIComponent(location)}&checkin=${encodeURIComponent(checkin ?? "")}&checkout=${encodeURIComponent(checkout ?? "")}`} className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground">See more <ArrowUpRight className="h-3.5 w-3.5" /></Link>
+          <Link href={seeMoreHref} className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground">See more <ArrowUpRight className="h-3.5 w-3.5" /></Link>
         ) : <BedDouble className="mt-1 h-5 w-5 text-coral" aria-hidden="true" />}
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2" aria-label="Alternative stay sorting">
+      <div className="mt-4 flex flex-wrap items-center gap-2" aria-label="Alternative stay sorting">
+        <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">Sort</span>
         {(["nearby", "price", "rating"] as Order[]).map((value) => (
           <button key={value} type="button" onClick={() => setOrder(value)} className={cn("rounded-full border px-3 py-1.5 text-xs transition-colors", order === value ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:text-foreground")}>
             {value === "nearby" ? "Closest" : value === "price" ? "Best price" : "Guest score"}
           </button>
         ))}
+        <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden="true" />
+        <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">Type</span>
         {(["All", ...availableKinds] as Array<Kind | "All">).map((value) => (
           <button key={value} type="button" onClick={() => setKind(value)} className={cn("rounded-full border px-3 py-1.5 text-xs transition-colors", kind === value ? "border-coral bg-coral-soft text-coral" : "border-border bg-background text-muted-foreground hover:text-foreground")}>
             {value}
@@ -152,6 +171,11 @@ export function NearbyStays({
             return panel ? <button key={option.hotelId} type="button" onClick={open} className="group rounded-lg border border-border/80 bg-card/70 p-4 text-left transition-colors hover:border-primary/40 hover:bg-card">{content}<span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary">View stay <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" /></span></button> : <a key={option.hotelId} href={`/trips/${tripId}/stay/${encodeURIComponent(option.hotelId)}?checkin=${checkin ?? ""}&checkout=${checkout ?? ""}`} className="group rounded-lg border border-border/80 bg-card/70 p-4 transition-colors hover:border-primary/40 hover:bg-card">{content}<span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary">View stay <ArrowUpRight className="h-3.5 w-3.5" /></span></a>;
           })}
         </div>
+      )}
+      {mode === "preview" && !loading && matched.length > alternatives.length && (
+        <Link href={seeMoreHref} className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-primary">
+          See all {matched.length} {kind === "All" ? "stays" : kind.toLowerCase()} <ArrowUpRight className="h-3.5 w-3.5" />
+        </Link>
       )}
       <p className="mt-4 text-[11px] text-muted-foreground">Prices are an estimate for the selected dates and can change.</p>
     </section>
