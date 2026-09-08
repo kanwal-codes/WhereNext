@@ -288,6 +288,15 @@ export function useFocusReturn(
   container?: RefObject<HTMLElement | null>,
   initialFocus?: RefObject<HTMLElement | null>,
 ) {
+  // A ref, not a dependency: callers almost always pass an inline `() => ...` for onEscape,
+  // a fresh function every render. If that sat in the effect's own deps, typing anywhere
+  // inside the panel (which re-renders the caller on every keystroke) would re-run this
+  // whole effect mid-type — re-focusing the panel's first focusable element and yanking
+  // focus out of whatever was just typed into.
+  const onEscapeRef = useRef(onEscape);
+  useEffect(() => {
+    onEscapeRef.current = onEscape;
+  });
   useEffect(() => {
     if (!active || typeof document === "undefined") return;
     const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -311,7 +320,7 @@ export function useFocusReturn(
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onEscape?.();
+        onEscapeRef.current?.();
         return;
       }
       if (e.key !== "Tab" || !container?.current) return;
@@ -347,7 +356,7 @@ export function useFocusReturn(
       document.removeEventListener("keydown", onKey);
       trigger?.focus();
     };
-  }, [active, onEscape, container, initialFocus]);
+  }, [active, container, initialFocus]);
 }
 
 /**

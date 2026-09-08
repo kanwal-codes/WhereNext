@@ -47,7 +47,7 @@ function titleFor(panel: PanelState): string {
     case "collection":
       return panel.title;
     default:
-      return "Side by side";
+      return "Compare";
   }
 }
 
@@ -182,13 +182,18 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   // language verdict above the numbers, not just the numbers themselves. Aborted on cleanup
   // so Strict Mode's dev-only double-invoke (mount → cleanup → mount) cancels the first,
   // stale call instead of leaving two concurrent requests racing to write the same state.
+  //
+  // Depends on panel?.kind too, not just sk: compareList reaches its final 2+ items (and sk
+  // its final value) while the user is still picking cards, before the panel ever opens —
+  // clicking "Open" afterward flips panel.kind to "compare" without sk changing at all, so
+  // sk alone misses that transition and a second comparison in the same session never asks.
   useEffect(() => {
     if (panel?.kind !== "compare" || compareList.length < 2) return;
     const controller = new AbortController();
     void ask(COMPARE_VERDICT_PROMPT, [], controller.signal);
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sk]);
+  }, [sk, panel?.kind]);
   // Inline (docked chat-rail) panel: Escape still closes it. The drawer's modal focus /
   // scroll-lock / return-focus is handled by <Sheet> further down.
   useEffect(() => {
