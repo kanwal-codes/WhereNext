@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowLeft, ArrowUpRight, Eraser, Loader2, Maximize2, Scale, Send, X } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Eraser, Loader2, Maximize2, Send, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, panelSubjectKey, type CompareEntry, type PanelState } from "@/components/TripPanelProvider";
 import { PlaceDetailView } from "@/features/places/ui/PlaceDetailView";
@@ -313,7 +313,6 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
     <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
       <div className="inline-flex min-w-0 items-center gap-1.5 font-display text-sm">
         {canGoBack && <button type="button" onClick={goBack} aria-label="Back to previous item" className="mr-1 rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"><ArrowLeft className="h-4 w-4" /></button>}
-        {shown.kind === "compare" && <Scale className="h-3.5 w-3.5 shrink-0 text-coral" />}
         <span className="min-w-0 truncate">{titleFor(shown)}</span>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
@@ -405,7 +404,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
     <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 24 }} className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2">
       <div className="flex items-center gap-2 rounded-full border border-border bg-card px-2 py-1.5 shadow-lift">
         <span className="inline-flex items-center gap-1.5 pl-2 text-sm font-medium">
-          <Scale className="h-3.5 w-3.5 text-coral" /> Compare {compareList.length}
+          Compare {compareList.length}
         </span>
         <button type="button" onClick={ctx.openCompare} className="btn-primary-sm">
           Open
