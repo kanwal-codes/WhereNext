@@ -74,10 +74,10 @@ describe("shapeLanes — edge cases", () => {
     ]);
   });
 
-  it("a non-peek lane caps at 8", async () => {
+  it("does not cap a lane's results — all ranked places are kept", async () => {
     const many = Array.from({ length: 20 }, (_, i) => place(`p${i}`));
     const out = await shapeLanes([{ lane: lane(), places: many, events: [] }], ctx());
-    expect(out[0].places).toHaveLength(8);
+    expect(out[0].places).toHaveLength(20);
   });
 
   it("dislikes drop a matching candidate (rankCtx passthrough)", async () => {

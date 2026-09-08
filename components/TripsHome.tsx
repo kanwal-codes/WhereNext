@@ -6,7 +6,7 @@ import { motion } from "motion/react";
 import { ArrowRight, CalendarDays, Loader2, MapPin, Plus, Trash2, UserRound, Users } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
 import { Hero } from "@/components/Hero";
-import { Reveal, Stagger, StaggerItem, WordReveal } from "@/components/motion-primitives";
+import { Reveal, Sheet, Stagger, StaggerItem, WordReveal } from "@/components/motion-primitives";
 import { notifyToast } from "@/lib/application/toast";
 import { tripWhen } from "@/lib/trip-dates";
 import { useIsDarkMode } from "@/lib/use-dark-mode";
@@ -25,10 +25,11 @@ export type TripSummary = {
 export function TripsHome({ trips }: { trips: TripSummary[] }) {
   const [list, setList] = useState(trips);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<TripSummary | null>(null);
   const isDark = useIsDarkMode();
 
   async function removeTrip(trip: TripSummary) {
-    if (!window.confirm(`Delete "${trip.name}" and everything in it? This cannot be undone.`)) return;
+    setPendingDelete(null);
     setDeleting(trip.id);
     const response = await fetch(`/api/trips/${trip.id}`, { method: "DELETE" });
     setDeleting(null);
@@ -36,7 +37,7 @@ export function TripsHome({ trips }: { trips: TripSummary[] }) {
       setList((current) => current.filter((t) => t.id !== trip.id));
       notifyToast(`"${trip.name}" deleted.`, "success");
     } else {
-      notifyToast("That trip couldn't be deleted. Try again.", "error");
+      notifyToast("That trip couldn’t be deleted. Try again.", "error");
     }
   }
 
@@ -141,7 +142,7 @@ export function TripsHome({ trips }: { trips: TripSummary[] }) {
                   </Link>
                   <button
                     type="button"
-                    onClick={() => void removeTrip(trip)}
+                    onClick={() => setPendingDelete(trip)}
                     disabled={deleting === trip.id}
                     aria-label={`Delete ${trip.name}`}
                     className="absolute top-4 right-4 rounded-full border border-border bg-background/90 p-1.5 text-muted-foreground opacity-0 backdrop-blur transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-60"
@@ -154,6 +155,34 @@ export function TripsHome({ trips }: { trips: TripSummary[] }) {
           </Stagger>
         )}
       </div>
+
+      <Sheet open={!!pendingDelete} onClose={() => setPendingDelete(null)} ariaLabel="Delete trip" side="center">
+        <div className="space-y-4 p-6">
+          <div>
+            <h3 className="font-display text-xl">Delete this trip?</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {pendingDelete && (
+                <>
+                  <span className="font-medium text-foreground">&ldquo;{pendingDelete.name}&rdquo;</span> and everything in it —
+                  itinerary, saved places, decisions — will be removed. This can’t be undone.
+                </>
+              )}
+            </p>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={() => setPendingDelete(null)} className="rounded-full border border-border px-4 py-2 text-sm">
+              Keep trip
+            </button>
+            <button
+              type="button"
+              onClick={() => pendingDelete && void removeTrip(pendingDelete)}
+              className="inline-flex items-center gap-2 rounded-full bg-destructive px-4 py-2 text-sm text-destructive-foreground transition-opacity hover:opacity-90"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Delete trip
+            </button>
+          </div>
+        </div>
+      </Sheet>
     </div>
   );
 }

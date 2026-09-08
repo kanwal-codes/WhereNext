@@ -57,12 +57,12 @@ describe("shapeLanes", () => {
     expect(out[0].places.map((p) => p.place.providerId)).toEqual(["near"]);
   });
 
-  it("caps a peek lane at one item", async () => {
+  it("does not cap a peek lane — every ranked place is kept", async () => {
     const out = await shapeLanes(
       [{ lane: lane({ layout: "peek" }), places: [place("a"), place("b"), place("c")], events: [] }],
       ctx(),
     );
-    expect(out[0].places).toHaveLength(1);
+    expect(out[0].places).toHaveLength(3);
   });
 
   it("blends the semantic score so a strong match climbs", async () => {

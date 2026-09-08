@@ -40,7 +40,6 @@ export default function DiscoverPage() {
       wide
       eyebrow="Discover"
       title="Everything to do in one place"
-      description="A mix built from your trip, then filter by what you're after — food, sights, nightlife, outdoors, activities, events, shopping, stays."
       tabs={<DiscoverTabs view={view} onChange={setView} savedCount={savedCount} />}
     >
       <Suspense fallback={<SkeletonCards count={6} />}>

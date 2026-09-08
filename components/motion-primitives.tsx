@@ -354,7 +354,7 @@ export function Sheet({
 }: {
   open: boolean;
   onClose: () => void;
-  side?: "bottom" | "right" | "left";
+  side?: "bottom" | "right" | "left" | "center";
   ariaLabel?: string;
   initialFocus?: RefObject<HTMLElement | null>;
   className?: string;
@@ -365,8 +365,11 @@ export function Sheet({
   const dragControls = useDragControls();
   useFocusReturn(open, onClose, panelRef, initialFocus);
 
+  // "center" is a real dialog box, not an edge-anchored sheet — it scales/fades in
+  // instead of sliding, since a translate-from-offscreen entrance doesn't read as a
+  // popup when the box isn't pinned to that edge.
   const closed =
-    side === "bottom" ? { y: "100%" } : side === "right" ? { x: "100%" } : { x: "-100%" };
+    side === "center" ? { opacity: 0, scale: 0.96 } : side === "bottom" ? { y: "100%" } : side === "right" ? { x: "100%" } : { x: "-100%" };
 
   return (
     <AnimatePresence>
@@ -374,7 +377,7 @@ export function Sheet({
         <motion.div
           className={cn(
             "fixed inset-0 z-50 flex bg-ink/25 backdrop-blur-[2px]",
-            side === "bottom" ? "items-end" : side === "right" ? "justify-end" : "justify-start",
+            side === "center" ? "items-center justify-center p-4" : side === "bottom" ? "items-end" : side === "right" ? "justify-end" : "justify-start",
           )}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -390,13 +393,11 @@ export function Sheet({
             tabIndex={-1}
             className={cn(
               "relative flex min-h-0 flex-col bg-surface shadow-lift outline-none",
-              side === "bottom"
-                ? "max-h-[92dvh] w-full rounded-t-3xl"
-                : "h-full w-full max-w-xl",
+              side === "center" ? "w-full max-w-sm rounded-3xl" : side === "bottom" ? "max-h-[92dvh] w-full rounded-t-3xl" : "h-full w-full max-w-xl",
               className,
             )}
             initial={reduce ? false : closed}
-            animate={{ x: 0, y: 0 }}
+            animate={{ x: 0, y: 0, opacity: 1, scale: 1 }}
             exit={reduce ? undefined : closed}
             transition={reduce ? { duration: 0 } : motionTokens.panelSpring}
             onClick={(e) => e.stopPropagation()}
@@ -447,9 +448,16 @@ export function BlurImage({
   ...rest
 }: { src: string; alt: string; className?: string } & React.ImgHTMLAttributes<HTMLImageElement>) {
   const [loaded, setLoaded] = useState(false);
+  // A cached image is already `complete` by the time this ref callback runs, so the
+  // `load` event below never fires again — without this check the image stays stuck
+  // at opacity-0 on every repeat visit (only a first, uncached load ever showed it).
+  const checkLoaded = (img: HTMLImageElement | null) => {
+    if (img?.complete) setLoaded(true);
+  };
   return (
     // eslint-disable-next-line @next/next/no-img-element -- decorative, arbitrary sources
     <img
+      ref={checkLoaded}
       src={src}
       alt={alt}
       loading="lazy"
