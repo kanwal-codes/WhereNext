@@ -590,11 +590,11 @@ export function DiscoverySurface({
                     <h3 className="font-display text-lg">{band.label}</h3>
                     {band.key && (
                       <button type="button" onClick={() => pickCategory(band.key)} className="shrink-0 text-xs font-medium text-primary hover:underline">
-                        Search all &rarr;
+                        See all &rarr;
                       </button>
                     )}
                   </div>
-                  {/* Two rows of three per band; the rest lives behind "Search all". */}
+                  {/* Two rows of three per band; the rest lives behind "See all". */}
                   <Stagger className={cn("mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3")}>
                     {band.items.slice(0, 6).map((it) => renderItem(it))}
                   </Stagger>
@@ -604,7 +604,7 @@ export function DiscoverySurface({
                       onClick={() => pickCategory(band.key)}
                       className="mt-3 inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium shadow-soft transition-colors hover:bg-accent"
                     >
-                      Search all {band.label.toLowerCase()} &rarr;
+                      See all {band.label.toLowerCase()} &rarr;
                     </button>
                   )}
                   {band.key === "events" && <div ref={eventsSentinel} aria-hidden className="h-8" />}
