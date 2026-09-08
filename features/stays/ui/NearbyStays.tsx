@@ -153,7 +153,7 @@ export function NearbyStays({
           })}
         </div>
       )}
-      {mode === "full" && <p className="mt-4 text-[11px] text-muted-foreground">Prices and availability are checked for the selected dates and can change.</p>}
+      <p className="mt-4 text-[11px] text-muted-foreground">Prices are an estimate for the selected dates and can change.</p>
     </section>
   );
 }

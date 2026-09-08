@@ -151,7 +151,7 @@ export function StayDetailView({
                 if (!remaining.length) return null;
                 const open = amenityGroupOpen === group;
                 return (
-                  <div key={group} className="w-full sm:w-auto">
+                  <div key={group}>
                     <button type="button" onClick={() => setAmenityGroupOpen(open ? null : group)} aria-expanded={open} className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors", open ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:text-foreground")}>
                       {group} <span className="opacity-70">{remaining.length}</span><ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
                     </button>
