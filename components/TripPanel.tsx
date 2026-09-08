@@ -173,6 +173,14 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   useEffect(() => {
     setChat([]);
   }, [sk]);
+  // A raw side-by-side table doesn't tell anyone which option to actually pick — kick off
+  // Roam's take the moment a fresh comparison (2+ items) opens, so there's always a plain-
+  // language verdict above the numbers, not just the numbers themselves.
+  useEffect(() => {
+    if (panel?.kind !== "compare" || compareList.length < 2) return;
+    void ask("Which of these should I pick, and why? One short paragraph.", []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sk]);
   // Inline (docked chat-rail) panel: Escape still closes it. The drawer's modal focus /
   // scroll-lock / return-focus is handled by <Sheet> further down.
   useEffect(() => {
@@ -222,19 +230,24 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
     return [{ name: titleFor(p), detail: p.kind === "stay" ? "Hotel" : p.kind === "event" ? "Event" : "Place" }];
   }
 
-  async function ask(raw: string) {
+  async function ask(raw: string, historyOverride?: Array<{ role: "user" | "assistant"; content: string }>) {
     if (!panel) return;
     const q = raw.trim();
     if (!q || sending) return;
     setInput("");
-    const history = chat.filter((m) => m.content.trim());
+    const history = historyOverride ?? chat.filter((m) => m.content.trim());
     setChat((c) => [...c, { role: "user", content: q }, { role: "assistant", content: "" }]);
     setSending(true);
+    // The upstream call has its own connect-time deadline, but nothing bounds how long an
+    // already-open stream can go quiet mid-response — without this, a stall leaves the
+    // spinner running forever with no way out.
+    const timeout = AbortSignal.timeout(30_000);
     try {
       const res = await fetch(`/api/trips/${tripId}/compare-chat`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ items: itemsFor(panel), messages: [...history, { role: "user", content: q }] }),
+        signal: timeout,
       });
       if (!res.ok || !res.body) throw new Error("compare-chat");
       const reader = res.body.getReader();
@@ -315,7 +328,12 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
           {chat.map((m, i) => (
             <div key={i} className={cn("text-sm leading-relaxed", m.role === "user" ? "font-medium" : "text-ink-soft")}>
               {m.role === "assistant" && <Sparkles className="mr-1.5 inline h-3.5 w-3.5 text-coral" />}
-              {m.content || (sending && i === chat.length - 1 ? <Loader2 className="inline h-3.5 w-3.5 animate-spin" /> : null)}
+              {m.content ||
+                (sending && i === chat.length - 1 ? (
+                  <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Thinking…
+                  </span>
+                ) : null)}
             </div>
           ))}
         </div>
