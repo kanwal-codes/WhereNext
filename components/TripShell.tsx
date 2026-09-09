@@ -11,6 +11,7 @@ import {
   LayoutGrid,
   Map,
   MessageCircle,
+  Users,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
@@ -39,6 +40,7 @@ export type ShellTrip = {
 const nav = [
   { seg: "", label: "Overview", icon: LayoutGrid, exact: true },
   { seg: "chat", label: "Conversation", icon: MessageCircle },
+  { seg: "group", label: "Group chat", icon: Users },
   { seg: "discover", label: "Discover", icon: Compass },
   { seg: "map", label: "Getting around", icon: Map },
   { seg: "stay", label: "Stay", icon: BedDouble },

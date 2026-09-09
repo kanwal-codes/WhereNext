@@ -4,7 +4,7 @@ const TRIP = "11111111-1111-4111-8111-111111111111";
 const KEY = "idem-1";
 const PROMPT = "best nightclubs in Shanghai";
 
-const appendSpy = vi.fn(async (_tripId: string, input: unknown) => ({ id: "a1", ...(input as object) }));
+const appendSpy = vi.fn(async (_tripId: string, _userId: string, input: unknown) => ({ id: "a1", ...(input as object) }));
 const insertSpy = vi.hoisted(() => vi.fn(async () => ({ error: null })));
 const upsertSpy = vi.hoisted(() => vi.fn(async () => ({ error: null })));
 const loadTripContextMock = vi.fn();
@@ -141,7 +141,7 @@ describe("POST /api/ai", () => {
     const firstCard = (meta!.blocks as Array<{ places: Array<Record<string, unknown>> }>)[0].places[0];
     expect(firstCard).toMatchObject({ providerId: "p1", name: "M1NT", trust: "sourced" });
     expect(String(firstCard.photoUrl)).toContain("/places/google/photo?name=");
-    const appendArgs = appendSpy.mock.calls.at(-1)![1] as { content: string; metadata: { blocks: unknown[] } };
+    const appendArgs = appendSpy.mock.calls.at(-1)![2] as { content: string; metadata: { blocks: unknown[] } };
     expect(appendArgs.metadata.blocks).toHaveLength(2);
     expect(appendArgs.content).toContain("verified clubs");
   });
@@ -420,7 +420,7 @@ describe("POST /api/ai", () => {
     expect(body).not.toContain("analysis");
     expect(body).not.toContain("do not ask");
     expect(body).toContain("Bar Rouge is the pick");
-    const appendArgs = appendSpy.mock.calls.at(-1)![1] as { content: string };
+    const appendArgs = appendSpy.mock.calls.at(-1)![2] as { content: string };
     expect(appendArgs.content).toBe("Bar Rouge is the pick for a Bund view.");
   });
 
@@ -498,7 +498,7 @@ describe("POST /api/ai", () => {
     const response = await post();
     expect(response.status).toBe(200);
     await readMeta(response);
-    const persisted = (appendSpy.mock.calls.at(-1)![1] as { content: string }).content;
+    const persisted = (appendSpy.mock.calls.at(-1)![2] as { content: string }).content;
     expect(persisted.length).toBeGreaterThan(200_000);
     expect(persisted.startsWith("Bar Rouge is the pick.")).toBe(true);
   });

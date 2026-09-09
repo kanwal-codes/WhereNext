@@ -13,7 +13,7 @@ import { extractEntities, isGrounded } from "../support/extract-entities";
 const TRIP = "11111111-1111-4111-8111-111111111111";
 const KEY = "eval-1";
 
-const appendSpy = vi.fn(async (_t: string, input: unknown) => ({ id: "a1", ...(input as object) }));
+const appendSpy = vi.fn(async (_t: string, _u: string, input: unknown) => ({ id: "a1", ...(input as object) }));
 const loadTripContextMock = vi.fn();
 const resolveTurnMock = vi.fn();
 const retrieveEvidenceMock = vi.fn();
@@ -60,7 +60,7 @@ async function turn(promptText: string) {
   const response = await POST(request, { params: Promise.resolve({}) });
   const bodyText = await new Response(response.body).text();
   await new Promise((r) => setTimeout(r, 0)); // let the persist microtask run
-  const persisted = appendSpy.mock.calls.at(-1)?.[1] as { content: string; metadata: { blocks?: Array<{ type: string }> } } | undefined;
+  const persisted = appendSpy.mock.calls.at(-1)?.[2] as { content: string; metadata: { blocks?: Array<{ type: string }> } } | undefined;
   return { status: response.status, bodyText, persisted };
 }
 

@@ -35,3 +35,29 @@ export async function withTripAiStream(tripId: string, task: () => Promise<Reada
     throw error;
   }
 }
+
+/**
+ * Same per-trip queue + rate-limit slot as `withTripAiStream`, for a caller that resolves a
+ * plain value instead of teeing a stream (the buffered group-chat @Roam compose call). A
+ * separate function rather than a shared abstraction — `withTripAiStream`'s release timing is
+ * tied to the returned stream being fully read/cancelled, not to the task itself resolving, so
+ * unifying them would be a bigger, riskier diff than this one small sibling.
+ */
+export async function withTripAiTask<T>(tripId: string, task: () => Promise<T>): Promise<T> {
+  const previous = queues.get(tripId) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => { release = resolve; });
+  const chain = previous.then(() => current);
+  queues.set(tripId, chain);
+  await previous;
+  await waitForStartSlot(tripId);
+  try {
+    return await task();
+  } finally {
+    release();
+    // Unlike withTripAiStream's cleanup, `lastStarted` is deliberately kept — a buffered task has
+    // no "still draining" phase to defer this past, so clearing it here would let every very-next
+    // call for the trip skip the throttle entirely, the moment after each call finishes.
+    if (queues.get(tripId) === chain) queues.delete(tripId);
+  }
+}

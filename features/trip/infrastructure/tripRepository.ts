@@ -60,7 +60,7 @@ export function createTripRepository(supabase: SupabaseClient) { return {
     // A seed-message failure must never fail trip creation.
     const opener = seedOpener(input);
     await createConversationRepository(supabase)
-      .append(tripId, { role: "assistant", content: opener.content, idempotencyKey: "opener", metadata: { blocks: opener.blocks } })
+      .append(tripId, userId, { role: "assistant", content: opener.content, idempotencyKey: "opener", metadata: { blocks: opener.blocks } })
       .catch(() => undefined);
 
     const created = await supabase.from("trips").select(COLUMNS).eq("id", tripId).single();

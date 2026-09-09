@@ -27,10 +27,14 @@ const previewEnabled = (tripId: string) => tripId === PREVIEW_ID && process.env.
 // successful `null` result for the full `revalidate` window, turning one transient DB
 // hiccup into two minutes of false 404s. Let it throw; `getWorkspace`'s outer try/catch
 // below falls back to the per-request read instead.
-const loadWorkspaceCached = (tripId: string) =>
+// Cache key includes userId because the conversation slice (personal thread) is now
+// per-member, not identical across the trip — the rest of the snapshot still is, but
+// splitting the cache further than per-(trip,user) isn't worth it. `revalidateTag` still
+// busts every user's cached entry for the trip at once, since the tag stays trip-scoped.
+const loadWorkspaceCached = (tripId: string, userId: string) =>
   unstable_cache(
-    () => loadTripWorkspace(createSupabaseAdminClient(), tripId),
-    ["trip-workspace", tripId],
+    () => loadTripWorkspace(createSupabaseAdminClient(), tripId, userId),
+    ["trip-workspace", tripId, userId],
     { revalidate: 120, tags: [workspaceTag(tripId)] },
   )();
 
@@ -38,17 +42,18 @@ const loadWorkspaceCached = (tripId: string) =>
 // (these routes are "use client" and can't export metadata) — the layout must NOT render
 // a competing <title>, or React reconciliation clobbers the client-set one.
 const getWorkspace = cache(async (tripId: string): Promise<TripWorkspaceData | null> => {
+  let userId: string;
   try {
-    await requireTripMember(tripId);
+    ({ user: { id: userId } } = await requireTripMember(tripId));
   } catch {
     return null; // no session, or not a member → notFound() upstream
   }
   try {
-    return await loadWorkspaceCached(tripId);
+    return await loadWorkspaceCached(tripId, userId);
   } catch {
     // Service role not configured — fall back to a per-request cookie-scoped read.
     const supabase = await createSupabaseServerClient();
-    return loadTripWorkspace(supabase, tripId).catch(() => null);
+    return loadTripWorkspace(supabase, tripId, userId).catch(() => null);
   }
 });
 

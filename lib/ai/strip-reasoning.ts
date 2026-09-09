@@ -1,10 +1,46 @@
 /**
+ * Some providers occasionally narrate a follow-up tool call as raw JSON in the visible
+ * completion instead of issuing a proper structured call — seen with gpt-oss-class models on a
+ * second/third COMPOSE tool call, most often once the step budget (`stopWhen`) is nearly spent.
+ * The AI SDK's own tool-calling protocol never puts this in `.text` when it works correctly, so
+ * this is pure leakage — brace-matched (not a flat regex) so a nested `"arguments": {...}` object
+ * doesn't truncate the match early, and gated on seeing BOTH a `"tool"`/`"function"` key and a
+ * `"call"`/`"arguments"` key so ordinary JSON a user pasted into chat is never touched.
+ */
+function stripLeakedToolCalls(text: string): string {
+  const signature = /\{\s*"(?:tool|function)"\s*:/;
+  let out = text;
+  for (let guard = 0; guard < 5; guard++) {
+    const match = signature.exec(out);
+    if (!match) break;
+    const start = match.index;
+    let depth = 0;
+    let end = -1;
+    for (let i = start; i < out.length; i++) {
+      if (out[i] === "{") depth++;
+      else if (out[i] === "}" && --depth === 0) {
+        end = i + 1;
+        break;
+      }
+    }
+    if (end === -1) {
+      out = out.slice(0, start); // unterminated — a truncated stream; drop the dangling fragment
+      break;
+    }
+    const blob = out.slice(start, end);
+    if (!/"(call|arguments)"\s*:/.test(blob)) break; // JSON-shaped, but not this leak — leave it
+    out = out.slice(0, start) + out.slice(end);
+  }
+  return out.trim();
+}
+
+/**
  * Remove reasoning-model scratchpad that some providers (gpt-oss on Cerebras,
  * DeepSeek/Qwen "think" blocks) leak into the assistant's visible content.
  * Only strips clearly-delimited reasoning — never touches ordinary prose.
  */
 export function stripReasoning(text: string): string {
-  let out = text;
+  let out = stripLeakedToolCalls(text);
 
   // OpenAI "harmony" channels: keep only the final channel's message.
   const finalMarker = /<\|channel\|>\s*final\s*<\|message\|>/gi;
@@ -97,6 +133,11 @@ if (import.meta.main) {
   assert(stripReasoning("no close <think> tag here stays") === "no close <think> tag here stays", "mid-prose unclosed think untouched");
   assert(stripReasoning("<think>truncated mid thought, stream cut") === "", "leading unclosed think dropped");
   assert(stripReasoning("<think>outer <think>inner</think> tail</think>Answer.") === "Answer.", "nested think blocks peeled");
+  assert(
+    stripReasoning('A great spot.{"tool": "functions.search_places", "call": {"name": "search_places", "arguments": {"query": "tacos"}}}') === "A great spot.",
+    "leaked tool-call JSON stripped",
+  );
+  assert(stripReasoning('Fine: {"tool": "hammer", "size": "16oz"}') === 'Fine: {"tool": "hammer", "size": "16oz"}', "ordinary JSON without call/arguments untouched");
 
   // Gate: harmony reasoning is held until the final channel, then streams clean.
   const g1 = createReasoningGate();

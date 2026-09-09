@@ -21,6 +21,9 @@ const KIND_LABEL: Record<CompareEntry["kind"], string> = { place: "Place", stay:
 /** The question auto-asked the moment a fresh comparison opens — never shown as a "user" bubble
  *  since the traveller didn't type it; only Roam's answer to it is worth displaying. */
 const COMPARE_VERDICT_PROMPT = "Which of these should I pick, and why? One short paragraph.";
+/** Routes that mount their own `layout="inline"` TripPanel (via RoamShell) — the layout-level
+ *  drawer instance stands down on these so the two don't both try to show the same panel. */
+const SELF_HOSTED_INLINE_PANEL_ROUTES = ["/chat", "/group"];
 
 const R = 6371;
 const toRad = (n: number) => (n * Math.PI) / 180;
@@ -218,8 +221,10 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
     return () => cancelAnimationFrame(id);
   }, [sk, navDirection]);
 
-  // The chat route renders its own <TripPanel layout="inline" />; the layout-level drawer stands down there.
-  if (!ctx || (layout === "drawer" && pathname?.endsWith("/chat"))) return null;
+  // RoamShell (Roam + Group chat) renders its own <TripPanel layout="inline" />; the
+  // layout-level drawer stands down on those routes. `endsWith` doesn't match "/group/details",
+  // which has no inline panel of its own and must keep using this ambient drawer normally.
+  if (!ctx || (layout === "drawer" && SELF_HOSTED_INLINE_PANEL_ROUTES.some((seg) => pathname?.endsWith(seg)))) return null;
   const { compareRemove, goBack, canGoBack } = ctx;
 
   const stay = readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);

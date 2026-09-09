@@ -17,6 +17,10 @@ export const TABLE_TO_CHANGE: Record<string, WorkspaceChange> = {
   trip_decisions: "decision",
   trip_essentials: "essentials",
   conversation_messages: "conversation",
+  group_messages: "groupChat",
+  group_message_reactions: "groupChat",
+  trip_date_availability: "availability",
+  trip_expenses: "expenses",
 };
 
 export function realtimeFilterForTable(table: string, tripId: string): string {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildItineraryPlan } from "../../lib/application/itinerary-plan";
+import { buildItineraryPlan, dayIndexForDate } from "../../lib/application/itinerary-plan";
 import type { RetrievedEvidence } from "../../lib/application/retrieve";
 
 const place = (id: string, name: string) => ({
@@ -107,5 +107,86 @@ describe("buildItineraryPlan", () => {
       prompt: "plan", tripSummary: "", evidence: evidence([place("a", "One"), place("b", "Two")]), tripCtx,
     });
     expect(block).toBeNull();
+  });
+
+  describe("anchor event", () => {
+    const anchorTripCtx = { places: [], itinerary: [], preferences: {}, trip: { start_date: "2026-11-10" } } as never;
+    const anchorEvent = { title: "Drake — It's All A Blur Tour", venue: "Scotiabank Arena", date: "2026-11-13", time: "20:00" };
+
+    it("keeps the model's own anchor stop, on its real day, even with no matching known place", async () => {
+      stubModel({
+        days: [
+          { label: "Day 1", stops: [{ title: "Museum A", placeId: "p1", time: "10:00" }] },
+          { label: "Day 2", stops: [{ title: "Park B", placeId: "p2", time: "11:00" }] },
+          { label: "Day 4", stops: [{ title: "Museum A", placeId: "p1", time: "11:00" }, { title: "Drake — It's All A Blur Tour", time: "20:00", kind: "event" }] },
+        ],
+      });
+      const block = await buildItineraryPlan({
+        prompt: "plan my trip around the Drake concert", tripSummary: "",
+        evidence: evidence([place("p1", "Museum A"), place("p2", "Park B")]), tripCtx: anchorTripCtx, anchorEvent,
+      });
+      const days = (block as { days: Array<{ label: string; stops: Array<{ title: string; kind?: string; time?: string }> }> }).days;
+      const day3 = days.find((d) => d.label === "Day 4")!;
+      expect(day3.stops).toContainEqual({ title: "Drake — It's All A Blur Tour", time: "20:00", kind: "event", note: "Scotiabank Arena" });
+    });
+
+    it("splices the anchor onto its day when the model drops or mistitles it", async () => {
+      // Model built Day 4 but never mentioned the concert at all (only a place stop).
+      stubModel({
+        days: [
+          { label: "Day 1", stops: [{ title: "Museum A", placeId: "p1" }] },
+          { label: "Day 4", stops: [{ title: "Park B", placeId: "p2" }] },
+        ],
+      });
+      const block = await buildItineraryPlan({
+        prompt: "plan my trip around the Drake concert", tripSummary: "",
+        evidence: evidence([place("p1", "Museum A"), place("p2", "Park B")]), tripCtx: anchorTripCtx, anchorEvent,
+      });
+      const days = (block as { days: Array<{ label: string; stops: Array<{ title: string; kind?: string }> }> }).days;
+      const day3 = days.find((d) => d.label === "Day 4")!;
+      expect(day3.stops.some((s) => s.title === anchorEvent.title && s.kind === "event")).toBe(true);
+    });
+
+    it("appends a fresh day for the anchor when the model drops its entire day on a full-trip build", async () => {
+      // Only two days came back; the concert's Day 4 (Nov 13, start_date Nov 10) never appears.
+      stubModel({
+        days: [
+          { label: "Day 1", stops: [{ title: "Museum A", placeId: "p1" }] },
+          { label: "Day 2", stops: [{ title: "Park B", placeId: "p2" }] },
+        ],
+      });
+      const block = await buildItineraryPlan({
+        prompt: "plan my whole trip around the Drake concert", tripSummary: "",
+        evidence: evidence([place("p1", "Museum A"), place("p2", "Park B")]), tripCtx: anchorTripCtx, anchorEvent,
+      });
+      const days = (block as { days: Array<{ label: string; stops: Array<{ title: string }> }> }).days;
+      expect(days.map((d) => d.label)).toEqual(["Day 1", "Day 2", "Day 4"]);
+      expect(days[2].stops).toEqual([{ title: anchorEvent.title, time: "20:00", kind: "event", note: "Scotiabank Arena" }]);
+    });
+
+    it("degrades to ordinary planning when the trip has no start_date to anchor against", async () => {
+      stubModel({ days: [{ label: "Day 1", stops: [{ title: "Museum A", placeId: "p1" }, { title: "Park B", placeId: "p2" }] }] });
+      const block = await buildItineraryPlan({
+        prompt: "plan my trip around the Drake concert", tripSummary: "",
+        evidence: evidence([place("p1", "Museum A"), place("p2", "Park B")]),
+        tripCtx: { places: [], itinerary: [], preferences: {} } as never,
+        anchorEvent,
+      });
+      expect(JSON.stringify(block)).not.toContain("Drake");
+      expect(block).toMatchObject({ days: [{ stops: [{ title: "Museum A" }, { title: "Park B" }] }] });
+    });
+  });
+});
+
+describe("dayIndexForDate", () => {
+  it("computes a 1-based day index from the trip's start date", () => {
+    expect(dayIndexForDate("2026-11-10", "2026-11-10")).toBe(1);
+    expect(dayIndexForDate("2026-11-10", "2026-11-13")).toBe(4);
+  });
+  it("returns null with no start date, a malformed date, or a date outside a sane trip length", () => {
+    expect(dayIndexForDate(undefined, "2026-11-13")).toBeNull();
+    expect(dayIndexForDate("2026-11-10", "not-a-date")).toBeNull();
+    expect(dayIndexForDate("2026-11-10", "2020-01-01")).toBeNull(); // in the past relative to start
+    expect(dayIndexForDate("2026-11-10", "2027-06-01")).toBeNull(); // absurdly far out
   });
 });

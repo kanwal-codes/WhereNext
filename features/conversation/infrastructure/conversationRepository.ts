@@ -23,26 +23,26 @@ export function scopedMessageIdempotencyKey(role: MessageInput["role"], key?: st
  * user-scoped client so RLS still applies.
  */
 export function createConversationRepository(supabase: SupabaseClient, writer: SupabaseClient = supabase) {
-  async function getThreadId(tripId: string) {
-    const existing = await supabase.from("conversation_threads").select("id").eq("trip_id", tripId).maybeSingle();
+  async function getThreadId(tripId: string, userId: string) {
+    const existing = await supabase.from("conversation_threads").select("id").eq("trip_id", tripId).eq("user_id", userId).maybeSingle();
     if (existing.error) throw existing.error;
     if (existing.data) return existing.data.id as string;
 
     const created = await writer
       .from("conversation_threads")
-      .upsert({ trip_id: tripId }, { onConflict: "trip_id", ignoreDuplicates: true })
+      .upsert({ trip_id: tripId, user_id: userId }, { onConflict: "trip_id,user_id", ignoreDuplicates: true })
       .select("id")
       .maybeSingle();
     if (created.error) throw created.error;
     if (created.data?.id) return created.data.id as string;
 
-    const retry = await supabase.from("conversation_threads").select("id").eq("trip_id", tripId).single();
+    const retry = await supabase.from("conversation_threads").select("id").eq("trip_id", tripId).eq("user_id", userId).single();
     if (retry.error) throw retry.error;
     return retry.data.id as string;
   }
   return {
-    async list(tripId: string, options: { limit?: number } = {}) {
-      const id = await getThreadId(tripId);
+    async list(tripId: string, userId: string, options: { limit?: number } = {}) {
+      const id = await getThreadId(tripId, userId);
       // Supabase limits result sets, so page the complete thread newest-first and only reverse
       // after every page has arrived. This is the durable cross-device source of truth.
       const pageSize = 500;
@@ -63,8 +63,8 @@ export function createConversationRepository(supabase: SupabaseClient, writer: S
       }
       return newestFirst.reverse();
     },
-    async append(tripId: string, input: MessageInput & { metadata?: Record<string, unknown> }) {
-      const id = await getThreadId(tripId);
+    async append(tripId: string, userId: string, input: MessageInput & { metadata?: Record<string, unknown> }) {
+      const id = await getThreadId(tripId, userId);
       const idempotencyKey = scopedMessageIdempotencyKey(input.role, input.idempotencyKey);
       const row = { thread_id: id, role: input.role, content: input.content, idempotency_key: idempotencyKey, metadata: input.metadata ?? {} };
       const result = idempotencyKey
