@@ -348,11 +348,11 @@ export function TransportSurface({
                 </p>
                 <p className="mt-1.5 text-xs text-muted-foreground">A rough estimate from driving distance and time — not a live quote. Actual fares vary with demand.</p>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <a href={uberHref} className="btn-secondary">
+                  <a href={uberHref} target="_blank" rel="noreferrer noopener" className="btn-secondary">
                     Open in Uber <ExternalLink className="h-3.5 w-3.5" />
                   </a>
                   {lyftHref && (
-                    <a href={lyftHref} className="btn-secondary">
+                    <a href={lyftHref} target="_blank" rel="noreferrer noopener" className="btn-secondary">
                       Open in Lyft <ExternalLink className="h-3.5 w-3.5" />
                     </a>
                   )}

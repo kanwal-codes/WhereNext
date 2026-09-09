@@ -13,6 +13,8 @@ type TripDataValue = {
   data: TripWorkspaceData | null;
   /** Collaborators currently viewing this trip (includes you). */
   peers: PresencePeer[];
+  /** The signed-in viewer; undefined only in the credential-free `rebuild-preview` route. */
+  me?: { userId: string; name: string };
 };
 
 const TripDataContext = createContext<TripDataValue | null>(null);
@@ -53,7 +55,7 @@ export function TripDataProvider({
   }, [tripId, dataSignature]);
 
   return (
-    <TripDataContext.Provider value={{ tripId, data, peers }}>
+    <TripDataContext.Provider value={{ tripId, data, peers, me }}>
       {children}
     </TripDataContext.Provider>
   );

@@ -28,13 +28,14 @@ type SummaryMessageRow = {
 export async function refreshThreadSummary(
   supabase: SupabaseClient,
   tripId: string,
-  _messages?: Array<{ role: string; content: string }>,
+  userId: string,
   signal?: AbortSignal,
 ): Promise<void> {
   const thread = await supabase
     .from("conversation_threads")
     .select("id,summary,summarized_through_message_id,summarized_through_created_at")
     .eq("trip_id", tripId)
+    .eq("user_id", userId)
     .maybeSingle();
   if (thread.error || !thread.data) return;
 
@@ -76,7 +77,7 @@ export async function refreshThreadSummary(
         summarized_through_message_id: lastMessage.id,
         summarized_through_created_at: lastMessage.created_at,
       })
-      .eq("trip_id", tripId);
+      .eq("id", row.id);
   } catch {
     // Non-fatal: the next long turn retries.
   }

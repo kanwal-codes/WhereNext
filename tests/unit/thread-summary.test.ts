@@ -18,20 +18,20 @@ function fakeSupabase(options: { existingSummary?: string | null; cursorAt?: str
   const supabase = {
     from: vi.fn((table: string) => {
       if (table === "conversation_threads") {
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({
-                data: {
-                  id: "thread-1",
-                  summary: options.existingSummary ?? null,
-                  summarized_through_message_id: null,
-                  summarized_through_created_at: options.cursorAt ?? null,
-                },
-                error: null,
-              }),
-            }),
+        const selectQuery = {
+          eq: () => selectQuery,
+          maybeSingle: async () => ({
+            data: {
+              id: "thread-1",
+              summary: options.existingSummary ?? null,
+              summarized_through_message_id: null,
+              summarized_through_created_at: options.cursorAt ?? null,
+            },
+            error: null,
           }),
+        };
+        return {
+          select: () => selectQuery,
           update,
         };
       }
@@ -57,7 +57,7 @@ describe("refreshThreadSummary", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const { supabase, update } = fakeSupabase({ messageCount: 12 });
-    await refreshThreadSummary(supabase, "t");
+    await refreshThreadSummary(supabase, "t", "u1");
     expect(fetchMock).not.toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
   });
@@ -66,7 +66,7 @@ describe("refreshThreadSummary", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const { supabase } = fakeSupabase({ existingSummary: "Travelling with friends.", cursorAt: "2026-09-04T00:16:00.000Z", messageCount: 18 });
-    await refreshThreadSummary(supabase, "t");
+    await refreshThreadSummary(supabase, "t", "u1");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -75,7 +75,7 @@ describe("refreshThreadSummary", () => {
     process.env.AI_API_KEY = "k";
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: "  5 friends, into nightlife, no museums, focused on Shanghai.  " } }] }), { status: 200 })));
     const { supabase, update } = fakeSupabase();
-    await refreshThreadSummary(supabase, "t");
+    await refreshThreadSummary(supabase, "t", "u1");
     expect(update).toHaveBeenCalledWith({
       summary: "5 friends, into nightlife, no museums, focused on Shanghai.",
       summarized_through_message_id: "m-19",
@@ -89,7 +89,7 @@ describe("refreshThreadSummary", () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: "Montreal trip, now solo, likes food and art." } }] }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
     const { supabase } = fakeSupabase({ existingSummary: "Montreal trip with friends, likes nightlife.", cursorAt: "2026-09-04T00:11:00.000Z", messageCount: 20 });
-    await refreshThreadSummary(supabase, "t");
+    await refreshThreadSummary(supabase, "t", "u1");
     const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as { messages: Array<{ content: string }> };
     expect(body.messages.at(-1)?.content).toContain("Previous memory:");
     expect(body.messages.at(-1)?.content).toContain("Montreal trip with friends");
@@ -100,7 +100,7 @@ describe("refreshThreadSummary", () => {
     process.env.AI_API_KEY = "k";
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("busy", { status: 500 })));
     const { supabase, update } = fakeSupabase();
-    await expect(refreshThreadSummary(supabase, "t")).resolves.toBeUndefined();
+    await expect(refreshThreadSummary(supabase, "t", "u1")).resolves.toBeUndefined();
     expect(update).not.toHaveBeenCalled();
   });
 });

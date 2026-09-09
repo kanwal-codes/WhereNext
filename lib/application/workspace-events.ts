@@ -1,4 +1,4 @@
-export type WorkspaceChange = "trip" | "conversation" | "preferences" | "decision" | "itinerary" | "places" | "essentials";
+export type WorkspaceChange = "trip" | "conversation" | "preferences" | "decision" | "itinerary" | "places" | "essentials" | "groupChat" | "availability" | "expenses";
 const eventName = "trip-workspace-changed";
 export function announceWorkspaceChange(change: WorkspaceChange) { if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent<WorkspaceChange>(eventName, { detail: change })); }
 export function subscribeWorkspaceChanges(listener: () => void) { if (typeof window === "undefined") return () => undefined; const handler = () => listener(); window.addEventListener(eventName, handler); return () => window.removeEventListener(eventName, handler); }

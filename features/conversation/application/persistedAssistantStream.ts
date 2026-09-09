@@ -16,6 +16,7 @@ export function persistedAssistantStream(
   body: ReadableStream<Uint8Array>,
   supabase: SupabaseClient,
   tripId: string,
+  userId: string,
   idempotencyKey: string,
   sanitize?: (content: string) => string,
   meta?: Record<string, unknown>,
@@ -45,7 +46,7 @@ export function persistedAssistantStream(
         let persistFailed = false;
         if (finalText || meta) {
           try {
-            await createConversationRepository(supabase).append(tripId, { role: "assistant", content: finalText, idempotencyKey, metadata: meta ?? {} });
+            await createConversationRepository(supabase).append(tripId, userId, { role: "assistant", content: finalText, idempotencyKey, metadata: meta ?? {} });
           } catch (error) {
             // Persistence failed (DB error, or a revalidate call landing outside a request
             // context). The client still gets its answer + blocks from the meta frame below —
