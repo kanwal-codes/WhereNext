@@ -1,28 +1,38 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+/** RESOLVE calls `generateObject` (via Gateway) instead of hand-parsing a raw fetch response —
+ *  mock at that boundary. (Phase 2.6.1 tried `streamObject` here; live-verified to hang inside
+ *  this app's actual Next.js route context, reverted — see `packages/ai/model-policy.ts`'s
+ *  `generateStructured` doc comment.) The mock still runs the real schema through `schema.parse`,
+ *  exactly like the real `generateObject` validates the model's JSON against the schema it was
+ *  given, so every test below still exercises turn-resolver.ts's actual lenient-parsing logic
+ *  (dropped malformed entries, coercions, defaults) — only the network call itself is faked. */
+const { generateObjectMock } = vi.hoisted(() => ({ generateObjectMock: vi.fn() }));
+vi.mock("ai", async (importOriginal) => ({ ...(await importOriginal<object>()), generateObject: generateObjectMock }));
+
 import { resolveTurn, resolvedTurnSchema } from "../../lib/application/turn-resolver";
 
 afterEach(() => {
   vi.restoreAllMocks();
-  delete process.env.AI_PROVIDER;
-  delete process.env.AI_API_KEY;
-  delete process.env.OPENAI_API_KEY;
 });
 
-const reply = (content: string) => new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 });
+type Schema = { parse: (v: unknown) => unknown };
 
 function mockModel(content: string) {
-  process.env.AI_PROVIDER = "openai-compatible";
-  process.env.AI_API_KEY = "test-key";
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(reply(content)));
+  generateObjectMock.mockImplementation(async ({ schema }: { schema: Schema }) => ({
+    object: schema.parse(JSON.parse(content)),
+    usage: { inputTokens: 10, outputTokens: 10 },
+  }));
 }
 /** Distinct responses per call — for exercising the 2-attempt retry. */
 function mockModelSequence(...contents: string[]) {
-  process.env.AI_PROVIDER = "openai-compatible";
-  process.env.AI_API_KEY = "test-key";
-  const fetchMock = vi.fn();
-  for (const c of contents) fetchMock.mockResolvedValueOnce(reply(c));
-  vi.stubGlobal("fetch", fetchMock);
-  return fetchMock;
+  for (const content of contents) {
+    generateObjectMock.mockImplementationOnce(async ({ schema }: { schema: Schema }) => ({
+      object: schema.parse(JSON.parse(content)),
+      usage: { inputTokens: 10, outputTokens: 10 },
+    }));
+  }
+  return generateObjectMock;
 }
 
 describe("resolveTurn", () => {
@@ -40,7 +50,7 @@ describe("resolveTurn", () => {
   it("reports which model actually produced the plan, for the turn trace", async () => {
     mockModel(JSON.stringify({ locationFocus: "Kyoto" }));
     const resolved = await resolveTurn({ message: "hi", history: [], tripSummary: "" });
-    expect(resolved.modelUsed).toBe("gpt-4o"); // openai-compatible's default when AI_MODEL isn't set
+    expect(resolved.modelUsed).toBe("openai/gpt-oss-120b"); // resolve role's default lead model (Cerebras-pinned, Phase 2.2)
   });
 
   it("fills defaults for a sparse response", async () => {
@@ -108,9 +118,8 @@ describe("resolveTurn", () => {
     mockModel(JSON.stringify({ language: "en", intent: "events", toolPlan: [{ tool: "events", query: "comedy", location: "Montreal", dateScoped: "yes-please" }] }));
     const resolved = await resolveTurn({ message: "any comedy", history: [], tripSummary: "" });
     expect(resolved.toolPlan).toHaveLength(1);
-    expect(resolved.toolPlan[0]).toMatchObject({ tool: "events", query: "comedy" });
-    expect(resolved.toolPlan[0]).not.toHaveProperty("category");
-    expect((resolved.toolPlan[0] as { dateScoped?: unknown }).dateScoped).toBeUndefined();
+    expect(resolved.toolPlan[0]).toMatchObject({ tool: "events", query: "comedy", category: null });
+    expect((resolved.toolPlan[0] as { dateScoped?: unknown }).dateScoped).toBeNull();
   });
 
   it("parses a clarifying question with chips, and drops a malformed one", async () => {
@@ -138,20 +147,47 @@ describe("resolveTurn", () => {
     expect(resolved.capabilities).toEqual(["comparison"]); // deduped
   });
 
+  it("adds the budget capability when the model recognized the topic (right research_web query) but left capabilities empty", async () => {
+    // Live-tested gap: the model reliably chose this exact query for a per-day spending
+    // question but repeatedly left "budget" out of capabilities across many real calls, even
+    // with an explicit imperative prompt tying the two together — this deterministic backstop
+    // is what actually closes the gap. See BUDGET_PHRASING in turn-resolver.ts.
+    mockModel(JSON.stringify({ language: "en", intent: "activities", capabilities: [], toolPlan: [{ tool: "research_web", query: "Lisbon daily travel costs food activities transit" }] }));
+    const resolved = await resolveTurn({ message: "How much should we budget per day for food and activities in Lisbon?", history: [], tripSummary: "" });
+    expect(resolved.capabilities).toEqual(["budget"]);
+  });
+
+  it("does not force the budget capability onto an unrelated question", async () => {
+    mockModel(JSON.stringify({ language: "en", intent: "essentials", capabilities: [] }));
+    const resolved = await resolveTurn({ message: "What should we pack for Lisbon?", history: [], tripSummary: "" });
+    expect(resolved.capabilities).toEqual([]);
+  });
+
+  it("does not force the budget capability onto an out-of-scope message even if it mentions 'per day'", async () => {
+    mockModel(JSON.stringify({ language: "en", intent: "other", outOfScope: true, capabilities: [] }));
+    const resolved = await resolveTurn({ message: "how much per day does a gym membership cost back home", history: [], tripSummary: "" });
+    expect(resolved.capabilities).toEqual([]);
+  });
+
+  it("doesn't duplicate 'budget' when the model already included it", async () => {
+    mockModel(JSON.stringify({ language: "en", intent: "activities", capabilities: ["budget"] }));
+    const resolved = await resolveTurn({ message: "how much per day for food", history: [], tripSummary: "" });
+    expect(resolved.capabilities).toEqual(["budget"]);
+  });
+
   it("retries once on an unparseable first response, then succeeds", async () => {
-    const fetchMock = mockModelSequence("garbage no json", JSON.stringify({ language: "en", intent: "food", toolPlan: [] }));
+    const mock = mockModelSequence("garbage no json", JSON.stringify({ language: "en", intent: "food", toolPlan: [] }));
     const resolved = await resolveTurn({ message: "food", history: [], tripSummary: "" });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(mock).toHaveBeenCalledTimes(2);
     expect(resolved.intent).toBe("food");
     expect(resolved.degraded).toBeUndefined(); // not the safe-default path
-
   });
 
   it("passes viewContext into the prompt so 'there' resolves to the open panel", async () => {
-    const fetchMock = mockModelSequence(JSON.stringify({ language: "en", intent: "transport", toolPlan: [] }));
+    const mock = mockModelSequence(JSON.stringify({ language: "en", intent: "transport", toolPlan: [] }));
     await resolveTurn({ message: "how do I get there?", history: [], tripSummary: "trip: Lisbon", viewContext: "Hotel Memmo Alfama" });
-    const body = JSON.parse((fetchMock.mock.calls[0][1] as { body: string }).body);
-    const userMsg = body.messages.find((m: { role: string }) => m.role === "user").content;
+    const call = mock.mock.calls[0][0] as { messages: Array<{ role: string; content: string }> };
+    const userMsg = call.messages.find((m) => m.role === "user")!.content;
     expect(userMsg).toContain("Hotel Memmo Alfama");
     expect(userMsg).toMatch(/there.*this place.*it/i);
   });

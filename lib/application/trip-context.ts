@@ -1,14 +1,25 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { readStayDecision, type StayDecision } from "@/packages/contracts/stay";
+import { cached } from "@/lib/server/ttl-cache";
 
 export type TripContext = {
-  trip: { name: string; destination: string | null; origin: string | null; duration_days: number | null; start_date: string | null; end_date: string | null; travelers: number | null } | null;
+  trip: { name: string; destination: string | null; origin: string | null; duration_days: number | null; start_date: string | null; end_date: string | null; travelers: number | null; updated_at?: string | null } | null;
   preferences: Record<string, unknown>;
-  itinerary: Array<{ title: string; day_index: number; position?: number; locked: boolean; latitude?: number; longitude?: number }>;
+  /** `time` ("HH:MM") is the traveller's own explicit target time for the item, set via the
+   *  itinerary view's time picker — optional, and usually unset. Only ever use it as a real
+   *  fact (e.g. "you'll be at X around dinner"); never guess a time from `position` order —
+   *  see `inferMealAnchor` in itinerary-anchor.ts. */
+  itinerary: Array<{ title: string; day_index: number; position?: number; locked: boolean; latitude?: number; longitude?: number; time?: string }>;
   lockedTitles: string[];
   /** The locked stay first (when it has coordinates), then locked itinerary items — the anchors for "distance from" on cards. */
   lockedPlaces: Array<{ title: string; latitude: number; longitude: number }>;
   lockedStay: StayDecision | null;
+  /** The locked stay's own coordinates, when it has them — the single preferred "distance from
+   *  your accommodation" anchor, distinct from `lockedPlaces`' nearest-of-several-locked-things.
+   *  A cafe's distance to a stay is meaningful in a way its distance to, say, a locked breakfast
+   *  reservation isn't; this is null until a stay is actually locked, so a caller that wants that
+   *  specific meaning (rather than "nearest anything locked") can tell the two apart. */
+  accommodationAnchor: { title: string; latitude: number; longitude: number } | null;
   places: Array<{ status: string; place: { name: string; category: string | null; address: string | null } | null }>;
   decisions: Array<{ kind: string; value: unknown; source: string; created_at: string }>;
 };
@@ -20,10 +31,19 @@ const coord = (metadata: Record<string, unknown> | null, key: "latitude" | "long
 
 const MAX_CONTEXT_CHARS = 20_000;
 
-/** Durable trip state the assistant is allowed to see. One query set, reused by every AI route. */
-export async function loadTripContext(supabase: SupabaseClient, tripId: string): Promise<TripContext> {
+/** Durable trip state the assistant is allowed to see. One query set, reused by every AI route.
+ *  Cached briefly per trip (not per user/client — every table read here is a membership-gated
+ *  trip-wide read, identical regardless of which member's client or the admin client runs it),
+ *  busted by the same `invalidateWorkspace(tripId)` every mutation route already calls. Without
+ *  this, every single turn re-ran all 5 queries even for back-to-back messages seconds apart, or
+ *  two members triggering the personal/group/compare-chat routes for the same trip at once. */
+export function loadTripContext(supabase: SupabaseClient, tripId: string): Promise<TripContext> {
+  return cached(`trip-context:${tripId}`, 15_000, () => loadTripContextUncached(supabase, tripId));
+}
+
+async function loadTripContextUncached(supabase: SupabaseClient, tripId: string): Promise<TripContext> {
   const [trip, preferences, itinerary, places, decisions] = await Promise.all([
-    supabase.from("trips").select("name,destination,origin,duration_days,start_date,end_date,travelers").eq("id", tripId).maybeSingle(),
+    supabase.from("trips").select("name,destination,origin,duration_days,start_date,end_date,travelers,updated_at").eq("id", tripId).maybeSingle(),
     supabase.from("trip_preferences").select("data").eq("trip_id", tripId).maybeSingle(),
     supabase.from("trip_itinerary_items").select("title,day_index,position,metadata").eq("trip_id", tripId).is("removed_at", null).order("day_index").order("position").limit(50),
     supabase.from("trip_places").select("status,places(name,category,address)").eq("trip_id", tripId).limit(50),
@@ -40,6 +60,7 @@ export async function loadTripContext(supabase: SupabaseClient, tripId: string):
       locked: metadata?.locked === true,
       latitude: coord(metadata, "latitude"),
       longitude: coord(metadata, "longitude"),
+      time: typeof metadata?.time === "string" ? metadata.time : undefined,
     };
   });
   // "suggestion" rows are the assistant's own pending guesses — they must not read back as confirmed facts.
@@ -60,6 +81,7 @@ export async function loadTripContext(supabase: SupabaseClient, tripId: string):
         .map((item) => ({ title: item.title, latitude: item.latitude as number, longitude: item.longitude as number })),
     ],
     lockedStay,
+    accommodationAnchor: stayAnchor[0] ?? null,
     places: (places.data ?? []).map((item) => {
       const place = Array.isArray(item.places) ? item.places[0] : item.places;
       return { status: item.status, place: place ? { name: place.name, category: place.category, address: place.address } : null };
@@ -94,7 +116,10 @@ export function serializeTripContext(context: TripContext): string {
   });
 }
 
-const asList = (value: unknown): string[] =>
+/** A preferences field, coerced to a clean string list — array or comma-separated string,
+ *  trimmed, blanks dropped. Shared (Phase 1.4, docs/overhaul/roadmap/phase-1-structural-refactor.md)
+ *  with compare-chat, which had drifted to its own array-only, untrimmed local copy. */
+export const asList = (value: unknown): string[] =>
   (Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [])
     .map((entry) => String(entry).trim())
     .filter(Boolean);

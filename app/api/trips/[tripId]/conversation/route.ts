@@ -14,11 +14,16 @@ function threadWriter() {
   }
 }
 
+// Matches the cap `loadTripWorkspace` already uses for this same thread's initial server-rendered
+// seed — this route re-fetches in the background for reconciliation (see ConversationSurface),
+// and had no limit at all, unlike every other caller of this repository's `list()`.
+const HISTORY_LIMIT = 200;
+
 export async function GET(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
-    const { supabase } = await requireTripMember(tripId);
-    return NextResponse.json({ messages: await createConversationRepository(supabase, threadWriter()).list(tripId) });
+    const { supabase, user } = await requireTripMember(tripId);
+    return NextResponse.json({ messages: await createConversationRepository(supabase, threadWriter()).list(tripId, user.id, { limit: HISTORY_LIMIT }) });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Conversation unavailable");
   }
@@ -27,10 +32,10 @@ export async function GET(_: Request, { params }: { params: Promise<{ tripId: st
 export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
-    const { supabase } = await requireTripMember(tripId);
+    const { supabase, user } = await requireTripMember(tripId);
     const parsed = userMessageInput.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: "Invalid message" }, { status: 400 });
-    return NextResponse.json({ message: await createConversationRepository(supabase, threadWriter()).append(tripId, parsed.data) }, { status: 201 });
+    return NextResponse.json({ message: await createConversationRepository(supabase, threadWriter()).append(tripId, user.id, parsed.data) }, { status: 201 });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Conversation unavailable");
   }

@@ -2,18 +2,20 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarCheck, CalendarClock, ChevronDown, DoorOpen, Info, Loader2, MapPin, Music, Sparkles, Ticket, Users } from "lucide-react";
+import { CalendarCheck, CalendarClock, ChevronDown, DoorOpen, Info, Loader2, MapPin, Music, Ticket } from "lucide-react";
 import type { EventDetail } from "@/packages/contracts/event";
 import { Hero } from "@/components/Hero";
+import { DetailSectionHeading } from "@/components/DetailSectionHeading";
 import { BackLink } from "@/components/BackLink";
 import { ProviderBadge } from "@/components/ProviderBadge";
 import { ExternalLink } from "@/components/ExternalLink";
+import { SourceCard } from "@/components/SourceCard";
 import { NearbyRecommendations } from "@/components/NearbyRecommendations";
 import { Skeleton, SkeletonLines } from "@/components/Skeleton";
 import { BlurImage, Reveal, Stagger, StaggerItem, Tactile, WordReveal } from "@/components/motion-primitives";
 import { useDocumentTitle } from "@/lib/use-document-title";
-import { askAssistantHref } from "@/lib/places-ui";
-import { cn } from "@/lib/utils";
+import { askAssistantHref, cityFrom } from "@/lib/places-ui";
+import { cn, safeHref } from "@/lib/utils";
 import { ticketSellerLabel } from "@/lib/ticket-provider";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { mutate } from "@/lib/client/mutation-queue";
@@ -21,12 +23,6 @@ import { notifyToast } from "@/lib/application/toast";
 import { extractEventDayIndex, extractEventTime } from "@/lib/application/event-schedule";
 
 type Seed = { name: string; url: string; source: string; imageUrl?: string; date?: string; venue?: string };
-
-/** "City, Country" from a formatted address. */
-function cityFrom(address: string | undefined | null): string {
-  if (!address) return "";
-  return address.split(",").map((p) => p.trim()).filter(Boolean).slice(-2).join(", ");
-}
 
 /** Split a "YYYY-MM-DD HH:MM" or looser string into a friendly day + time. */
 function readableDate(raw: string | null): { day: string; time: string | null } | null {
@@ -53,16 +49,15 @@ function Chip({ icon: Icon, children }: { icon: typeof CalendarClock; children: 
   );
 }
 
-/** Section wrapper — icon, title, and consistent rhythm. `boxed` gets a card surround. */
+/** Section wrapper — title and consistent rhythm, the same plain heading every detail view
+ *  uses (`DetailSectionHeading`). `boxed` gets a card surround. */
 function Section({
   title,
-  icon: Icon,
   boxed = false,
   delay = 0,
   children,
 }: {
   title: string;
-  icon?: typeof CalendarClock;
   boxed?: boolean;
   delay?: number;
   children: React.ReactNode;
@@ -70,10 +65,7 @@ function Section({
   return (
     <Reveal delay={delay}>
       <section className={cn(boxed && "rounded-2xl border border-border bg-card p-5 shadow-soft")}>
-        <h2 className={cn("flex items-center gap-2 font-display", boxed ? "text-lg" : "text-xl")}>
-          {Icon && <Icon className="h-4 w-4 text-coral" />}
-          {title}
-        </h2>
+        <DetailSectionHeading className={boxed ? "text-lg" : undefined}>{title}</DetailSectionHeading>
         <div className="mt-3">{children}</div>
       </section>
     </Reveal>
@@ -294,7 +286,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                       {ticketUrl && (
                         <Tactile lift={2} className="inline-flex">
                           <a
-                            href={ticketUrl}
+                            href={safeHref(ticketUrl)}
                             target="_blank"
                             rel="noreferrer noopener"
                             className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground"
@@ -331,6 +323,23 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
               </Reveal>
             )}
 
+            {/* Add to trip / Ask Roam — used to sit at the very bottom, after About, Line-up,
+                When & where, Seat map, and Good to know, so it was only ever visible after
+                scrolling past the entire rest of the page. Placed here, right under Tickets
+                (the actual primary action for an event page), so it's visible immediately —
+                same fix as PlaceDetailView's "Add to trip" moving up from its own former sidebar
+                spot below Photos/Reviews/Hours. */}
+            <Reveal delay={0.05}>
+              <div className="flex flex-wrap items-center gap-3">
+                <AddEventButton tripId={tripId} title={title} rawDate={rawDate} showTime={d?.showTime} latitude={d?.latitude} longitude={d?.longitude} />
+                <Tactile lift={2} className="inline-flex">
+                  <Link href={askAssistantHref(tripId, { name: title, address: venueName ?? undefined })} className="btn-secondary inline-flex">
+                    Ask Roam if it fits
+                  </Link>
+                </Tactile>
+              </div>
+            </Reveal>
+
             {/* About */}
             {aboutText && (
               <Section title="About" delay={0.06}>
@@ -340,14 +349,14 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
 
             {/* What to expect */}
             {d?.whatToExpect && (
-              <Section title="What to expect" icon={Sparkles} delay={0.07}>
+              <Section title="What to expect" delay={0.07}>
                 <p className="text-[15px] leading-[1.85] text-ink-soft">{d.whatToExpect}</p>
               </Section>
             )}
 
             {/* Line-up */}
             {(headliner || lineupNote) && (
-              <Section title="Line-up" icon={Users} delay={0.08}>
+              <Section title="Line-up" delay={0.08}>
                 {headliner && (
                   <p className="text-lg font-medium leading-tight">
                     {headliner}
@@ -368,7 +377,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
             )}
 
             {/* When & where */}
-            <Section title="When & where" icon={MapPin} delay={0.1}>
+            <Section title="When & where" delay={0.1}>
               <dl className="space-y-3 text-sm">
                 <div className="flex gap-3">
                   <dt className="w-24 shrink-0 pt-0.5 text-muted-foreground">Date</dt>
@@ -392,10 +401,14 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                   <dd>
                     <span className="block font-medium">{venueName ?? "See the ticket page"}</span>
                     {d?.venueAddress ? <span className="block text-muted-foreground">{d.venueAddress}</span> : null}
-                    {mapsUrl && <ExternalLink href={mapsUrl} className="mt-1 inline-flex text-sm">Open in Google Maps</ExternalLink>}
                   </dd>
                 </div>
               </dl>
+              {mapsUrl && (
+                <div className="mt-4">
+                  <SourceCard provider="Google Maps" href={mapsUrl} />
+                </div>
+              )}
             </Section>
 
             {/* Seat map */}
@@ -407,7 +420,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
 
             {/* Good to know */}
             {(goodToKnow.length > 0 || d?.pleaseNote) && (
-              <Section title="Good to know" icon={Info} boxed delay={0.12}>
+              <Section title="Good to know" boxed delay={0.12}>
                 {goodToKnow.length > 0 && (
                   <dl className="space-y-2 text-sm">
                     {goodToKnow.map(([k, v]) => (
@@ -425,17 +438,6 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                 )}
               </Section>
             )}
-
-            <Reveal delay={0.13}>
-              <div className="flex flex-wrap items-center gap-3">
-                <AddEventButton tripId={tripId} title={title} rawDate={rawDate} showTime={d?.showTime} latitude={d?.latitude} longitude={d?.longitude} />
-                <Tactile lift={2} className="inline-flex">
-                  <Link href={askAssistantHref(tripId, { name: title, address: venueName ?? undefined })} className="btn-secondary inline-flex">
-                    Ask Roam if it fits
-                  </Link>
-                </Tactile>
-              </div>
-            </Reveal>
 
             {d && d.sources.length > 0 && (
               <Reveal delay={0.14}>

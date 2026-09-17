@@ -25,7 +25,9 @@ export type Guest = z.infer<typeof guestSchema>;
 export const bookFlightInput = z.object({
   offerId: z.string().min(1).max(120),
   passengers: z.array(passengerSchema).min(1).max(9),
-  idempotencyKey: z.string().min(1).max(120),
+  // `flight:${offerId}:${attemptNonce}` — offerId up to 120 chars plus a 36-char uuid nonce
+  // (so two distinct booking attempts on the same offer don't collide), plus headroom.
+  idempotencyKey: z.string().min(1).max(200),
 });
 export type BookFlightInput = z.infer<typeof bookFlightInput>;
 

@@ -31,6 +31,13 @@ function client(): Redis | null {
   if (redis !== undefined) return redis;
   const url = process.env.REDIS_URL;
   if (!url) {
+    // On serverless (Vercel), every cold function instance starts with an empty in-process
+    // map — without Redis, most of this cache's real-world hit rate (and the daily rate-limit
+    // ceiling in rate-limit.ts, which shares this same fallback) silently evaporates in
+    // production. Loud on purpose: this is easy to miss since the app runs fine either way.
+    if (process.env.NODE_ENV === "production") {
+      console.warn("[ttl-cache] REDIS_URL is not set in production — falling back to a per-instance in-memory cache. Provider caching and the daily AI rate limit will not be shared across serverless instances.");
+    }
     redis = null;
     return null;
   }
@@ -125,6 +132,22 @@ async function cachedRedis<T>(r: Redis, key: string, ttlMs: number, load: () => 
 export function cached<T>(key: string, ttlMs: number, load: () => Promise<T>): Promise<T> {
   const r = client();
   return r && r.status === "ready" ? cachedRedis(r, key, ttlMs, load) : cachedMemory(key, ttlMs, load);
+}
+
+/** Drop one key from both layers — for a write that must be visible on the next
+ *  read immediately, not after the TTL (stale-while-revalidate would otherwise still
+ *  hand back the pre-write value at least once). */
+export async function invalidate(key: string): Promise<void> {
+  entries.delete(key);
+  inflight.delete(key);
+  const r = client();
+  if (r && r.status === "ready") {
+    try {
+      await r.del(PREFIX + key);
+    } catch {
+      /* best-effort — a stray Redis error here must not fail the caller's write */
+    }
+  }
 }
 
 /** Test hook: forget everything in the in-process cache and reset counters. */

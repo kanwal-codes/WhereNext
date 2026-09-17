@@ -44,7 +44,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   requireTripMemberMock.mockResolvedValue({ supabase: {}, user: { id: "u1" }, role: "owner" });
   listMock.mockResolvedValue([{ id: "m1", role: "user", content: "hi" }]);
-  appendMock.mockImplementation(async (_t, input) => ({ id: "m2", ...input }));
+  appendMock.mockImplementation(async (_t, _u, input) => ({ id: "m2", ...input }));
 });
 afterEach(() => vi.resetModules());
 
@@ -53,7 +53,7 @@ describe("GET /api/trips/:tripId/conversation", () => {
     const res = await GET();
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ messages: [{ id: "m1", role: "user", content: "hi" }] });
-    expect(listMock).toHaveBeenCalledWith(TRIP);
+    expect(listMock).toHaveBeenCalledWith(TRIP, "u1", { limit: 200 });
   });
 
   it("maps an auth error to its status (404 for a non-member — existence is not leaked)", async () => {
@@ -78,7 +78,7 @@ describe("POST /api/trips/:tripId/conversation", () => {
   it("appends a valid user message and returns 201", async () => {
     const res = await POST({ role: "user", content: "any concerts?", idempotencyKey: "abc" });
     expect(res.status).toBe(201);
-    expect(appendMock).toHaveBeenCalledWith(TRIP, { role: "user", content: "any concerts?", idempotencyKey: "abc" });
+    expect(appendMock).toHaveBeenCalledWith(TRIP, "u1", { role: "user", content: "any concerts?", idempotencyKey: "abc" });
     expect((await res.json()).message).toMatchObject({ id: "m2", content: "any concerts?" });
   });
 

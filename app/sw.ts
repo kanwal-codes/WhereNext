@@ -1,6 +1,6 @@
 import { defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, RuntimeCaching, SerwistGlobalConfig } from "serwist";
-import { ExpirationPlugin, NetworkFirst, Serwist, StaleWhileRevalidate } from "serwist";
+import { ExpirationPlugin, Serwist, StaleWhileRevalidate } from "serwist";
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -9,20 +9,13 @@ declare global {
 }
 declare const self: ServiceWorkerGlobalScope;
 
+// Deliberately NOT cached by the service worker: `/api/trips/:tripId/workspace` returns
+// per-member data (the personal conversation slice differs by viewer), but the Cache API keys
+// purely on URL — a shared/kiosk device signed in as a different member could be served the
+// previous member's cached trip content if a fetch ever fell back to cache. It's always fetched
+// live instead; offline-store.ts's IndexedDB mirror (already keyed for the "Today" view) is the
+// real offline fallback for this data, not the service worker's HTTP cache.
 const runtimeCaching: RuntimeCaching[] = [
-  {
-    // The trip snapshot — always prefer a live fetch (offline-store.ts's primeTrip() calls this
-    // with cache: "no-store" specifically to warm the mirror with CURRENT data); only fall back
-    // to the last good copy when the network is actually unavailable. CacheFirst here would
-    // silently defeat that no-store intent and could prime the offline "Today" view with a
-    // snapshot up to a day stale even while online.
-    matcher: ({ url }) => /\/api\/trips\/[^/]+\/workspace/.test(url.pathname),
-    handler: new NetworkFirst({
-      cacheName: "trip-workspace",
-      networkTimeoutSeconds: 4,
-      plugins: [new ExpirationPlugin({ maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 })],
-    }),
-  },
   {
     // Map imagery + place photos — fine to serve stale while revalidating.
     matcher: ({ url }) =>
@@ -44,12 +37,6 @@ const serwist = new Serwist({
   fallbacks: {
     entries: [{ url: "/~offline", matcher: ({ request }) => request.destination === "document" }],
   },
-});
-
-self.addEventListener("message", (event) => {
-  if (event.data?.type === "invalidate-trip-workspace") {
-    void caches.delete("trip-workspace");
-  }
 });
 
 serwist.addEventListeners();

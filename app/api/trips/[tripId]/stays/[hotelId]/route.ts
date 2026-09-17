@@ -4,7 +4,7 @@ import { fail } from "@/lib/server/with-route";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
 import { hotelDetails, liteApiConfigured, stayReviews, stayRooms } from "@/packages/providers/liteapi/client";
 import { research } from "@/packages/providers/tavily/client";
-import { createBulkGateway } from "@/packages/ai/gateway";
+import { generateText } from "@/packages/ai/model-policy";
 import { resolveStayDates } from "@/lib/application/stay-dates";
 import { resolveCurrency } from "@/lib/currency";
 import { cached } from "@/lib/server/ttl-cache";
@@ -12,10 +12,11 @@ import { cached } from "@/lib/server/ttl-cache";
 /** Tighten LiteAPI's marketing description into 2–3 honest sentences. Falls back to a trimmed original. */
 async function summariseAbout(name: string, raw: string, signal?: AbortSignal): Promise<string> {
   const text = raw.trim();
-  if (text.length < 240 || !(process.env.AI_API_KEY || process.env.OPENAI_API_KEY || process.env.CEREBRAS_API_KEY)) return text.slice(0, 700);
+  if (text.length < 240 || !process.env.AI_GATEWAY_API_KEY) return text.slice(0, 700);
   try {
     return (
-      await createBulkGateway().generateText(
+      await generateText(
+        "bulk",
         [
           {
             role: "system",
@@ -43,10 +44,11 @@ async function guestSentiment(name: string, city: string | null, signal?: AbortS
     return null;
   }
   if (!notes) return null;
-  if (!(process.env.AI_API_KEY || process.env.OPENAI_API_KEY || process.env.CEREBRAS_API_KEY)) return notes.slice(0, 400);
+  if (!process.env.AI_GATEWAY_API_KEY) return notes.slice(0, 400);
   try {
     return (
-      await createBulkGateway().generateText(
+      await generateText(
+        "bulk",
         [
           {
             role: "system",

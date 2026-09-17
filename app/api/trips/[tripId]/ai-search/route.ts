@@ -24,8 +24,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
       categories: scope === "discover" ? [...DISCOVER_CATEGORY_KEYS] : undefined,
     };
 
+    // `origin` is embedded in the "getting-around" prompt (a "default from" directive), so it
+    // has to be part of the key too — otherwise two trips sharing a destination but different
+    // starting points can be served each other's cached, origin-specific answer for a day.
     const directive = await cached(
-      `ai-search:${scope}:${ctx.destination ?? ""}:${query.toLowerCase()}`,
+      `ai-search:${scope}:${ctx.destination ?? ""}:${ctx.origin ?? ""}:${query.toLowerCase()}`,
       24 * 60 * 60_000,
       () => parseAiSearch(scope as AiSearchScope, query, ctx, request.signal),
     );

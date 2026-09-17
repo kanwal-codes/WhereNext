@@ -5,7 +5,6 @@ const BRAND: Record<string, string> = {
   ticketmaster: "Ticketmaster",
   eventbrite: "Eventbrite",
   eventbriteapi: "Eventbrite",
-  getyourguide: "GetYourGuide",
   seatgeek: "SeatGeek",
   vividseats: "Vivid Seats",
   axs: "AXS",
@@ -15,7 +14,7 @@ const BRAND: Record<string, string> = {
   showclix: "ShowClix",
 };
 
-const ICON_SLUG = new Set(["ticketmaster", "eventbrite", "eventbriteapi", "getyourguide"]);
+const ICON_SLUG = new Set(["ticketmaster", "eventbrite", "eventbriteapi"]);
 
 /**
  * A "where this came from" chip: a near-black pill, off-white text, and the provider's real
@@ -31,7 +30,7 @@ export function ProviderBadge({
   className?: string;
 }) {
   const key = source.toLowerCase();
-  if (key === "predicthq" || key === "predict hq" || key === "web") return null;
+  if (key === "web") return null;
   const label = BRAND[key] ?? (source ? source[0].toUpperCase() + source.slice(1) : "Web");
   const hasIcon = ICON_SLUG.has(key);
   const dims = size === "md" ? "h-4 w-4" : "h-3.5 w-3.5";

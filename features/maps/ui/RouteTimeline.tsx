@@ -40,7 +40,7 @@ function StepLine({ s }: { s: RouteLegStep }) {
   );
 }
 
-function AltChip({ tripId, leg, alt, onChosen }: { tripId: string; leg: RouteDay["legs"][number]; alt: RouteDay["legs"][number]["alternatives"][number]; onChosen: () => void }) {
+function AltChip({ tripId, dayIndex, leg, alt, onChosen }: { tripId: string; dayIndex: number; leg: RouteDay["legs"][number]; alt: RouteDay["legs"][number]["alternatives"][number]; onChosen: () => void }) {
   const [busy, setBusy] = useState(false);
   const Icon = MODE_ICON[alt.mode] ?? MODE_ICON.unknown;
   return (
@@ -56,8 +56,10 @@ function AltChip({ tripId, leg, alt, onChosen }: { tripId: string; leg: RouteDay
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
               kind: "leg_transport",
-              value: { fromId: leg.fromId, toId: leg.toId, mode: alt.mode },
-              idempotencyKey: `leg:${leg.fromId}:${leg.toId}`,
+              // dayIndex is part of identity, not just metadata — a trip that revisits the same
+              // two stops on a later day needs its own choice, not one shared with the first visit.
+              value: { fromId: leg.fromId, toId: leg.toId, mode: alt.mode, dayIndex },
+              idempotencyKey: `leg:${dayIndex}:${leg.fromId}:${leg.toId}`,
             }),
           });
           if (res.ok) onChosen();
@@ -137,7 +139,7 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen }: { day: R
                     <div className="flex items-center gap-1.5 pb-1.5">
                       <span className="shrink-0 text-[10px] text-muted-foreground">Or:</span>
                       {leg.alternatives.map((alt) => (
-                        <AltChip key={alt.mode} tripId={tripId} leg={leg} alt={alt} onChosen={() => onLegChosen?.()} />
+                        <AltChip key={alt.mode} tripId={tripId} dayIndex={day.day} leg={leg} alt={alt} onChosen={() => onLegChosen?.()} />
                       ))}
                     </div>
                   )}

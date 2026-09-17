@@ -7,4 +7,4 @@ export const messageInput = z.object({
 });
 export const userMessageInput = messageInput.extend({ role: z.literal("user") });
 export type MessageInput = z.infer<typeof messageInput>;
-export type Message = { id: string; role: "user" | "assistant"; content: string; created_at: string; metadata?: Record<string, unknown> };
+export type Message = { id: string; role: "user" | "assistant"; content: string; created_at: string; metadata?: Record<string, unknown>; idempotency_key?: string | null };

@@ -6,18 +6,28 @@ import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createPlaceRepository } from "@/features/places/infrastructure/placeRepository";
-import { cached } from "@/lib/server/ttl-cache";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId);
-    const query = new URL(request.url).searchParams.get("query")?.trim();
+    const url = new URL(request.url);
+    const query = url.searchParams.get("query")?.trim();
     if (!query) return NextResponse.json({ places: await createPlaceRepository(supabase).saved(tripId) });
-    // maxResults 60 = Google's own ceiling across pages, so a "restaurants near X" browse doesn't stop at the first 20.
-    const result = await cached(`places:search:${query.toLowerCase()}`, 300_000, async () => ({ places: await new GooglePlacesProvider().search(query, request.signal, 60), retrievedAt: new Date().toISOString() }));
-    return NextResponse.json({ places: result.places, freshness: { provider: "google-places", retrievedAt: result.retrievedAt, cacheTtlSeconds: 300 } });
+    // Optional — a caller with a real anchor point (e.g. a place-detail page's "around here"
+    // lanes) passes it so Google biases toward that city instead of trusting the query text
+    // alone (see LocationBias's doc comment for the live-found bug this fixes).
+    const lat = Number(url.searchParams.get("lat"));
+    const lng = Number(url.searchParams.get("lng"));
+    const locationBias = Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : undefined;
+    // maxResults 60 = Google's own ceiling across pages, so a "restaurants near X" browse doesn't
+    // stop at the first 20. No cache here — `.search()` itself already caches by (query,
+    // maxResults); a second cache layer on top of it, under a different key and a different TTL,
+    // could never be invalidated in step with the one underneath it.
+    const retrievedAt = new Date().toISOString();
+    const places = await new GooglePlacesProvider().search(query, request.signal, 60, locationBias);
+    return NextResponse.json({ places, freshness: { provider: "google-places", retrievedAt, cacheTtlSeconds: 60 } });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Place search unavailable");
   }

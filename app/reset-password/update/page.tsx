@@ -43,7 +43,10 @@ export default function UpdatePasswordPage() {
         </Link>
       }
     >
-      <form className="space-y-5" onSubmit={submit}>
+      {/* method="post" defense-in-depth fallback — see app/sign-in/page.tsx's identical form for
+          the live-caught reason (a password leaking into the URL/server logs via the browser's
+          own default GET submission, if a click lands before React hydrates onSubmit below). */}
+      <form className="space-y-5" method="post" onSubmit={submit}>
         <Field label="New password">
           <input type="password" name="password" autoComplete="new-password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} className={inputClass} />
         </Field>

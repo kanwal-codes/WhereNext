@@ -5,9 +5,10 @@
  *     bun run bench -- --target all [--url http://localhost:3000] [--conn 20] [--dur 15]
  *
  * Auth can't be faked — grab a real session cookie from a signed-in browser (DevTools →
- * Application → Cookies) or mint one via the Supabase admin API. The `ai` target needs an
- * OpenAI-compatible endpoint at AI_BASE_URL (a local fake, or Ollama on :11434/v1) so you
- * aren't billed / rate-limited by a real model.
+ * Application → Cookies) or mint one via the Supabase admin API. The `ai` target hits the real
+ * Vercel AI Gateway (AI_GATEWAY_API_KEY) and a real configured model — every request is a real,
+ * billed call. Leave `ai` out of --target unless you're deliberately load-testing real model
+ * latency and accept the cost.
  */
 import autocannon from "autocannon";
 

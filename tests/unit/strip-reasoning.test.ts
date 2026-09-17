@@ -39,6 +39,28 @@ describe("stripReasoning", () => {
       "<|channel|>final<|message|>the real answer<|return|>";
     expect(stripReasoning(raw)).toBe("the real answer");
   });
+
+  it("strips a leaked follow-up tool call narrated as raw JSON (the reported group-chat bug)", () => {
+    const raw =
+      'For day 2, a bright brunch at Janine Café‑Brunch will give you a relaxed start before heading into the afternoon sights.' +
+      '{\n  "tool": "functions.search_places",\n  "call": {\n    "name": "search_places",\n    "arguments": {\n      "query": "Janine Café-Brunch Montreal",\n      "location": "Montreal, QC"\n    }\n  }\n}';
+    expect(stripReasoning(raw)).toBe("For day 2, a bright brunch at Janine Café‑Brunch will give you a relaxed start before heading into the afternoon sights.");
+  });
+
+  it("strips a leaked tool call even when it's not at the very end", () => {
+    const raw = 'Sure — one moment.{"tool":"search_places","call":{"name":"search_places","arguments":{"query":"tacos","location":"Montreal"}}} Here are a few options.';
+    expect(stripReasoning(raw)).toBe("Sure — one moment. Here are a few options.");
+  });
+
+  it("drops a leaked tool call truncated by a cut stream (unterminated JSON)", () => {
+    const raw = 'One sec, let me check.{"tool": "functions.search_places", "call": {"name": "search_places", "arguments": {"query": "tacos"';
+    expect(stripReasoning(raw)).toBe("One sec, let me check.");
+  });
+
+  it("leaves ordinary JSON a user might paste untouched (no call/arguments key)", () => {
+    const raw = 'Sure, that config looks fine: {"tool": "hammer", "size": "16oz"}';
+    expect(stripReasoning(raw)).toBe(raw);
+  });
 });
 
 describe("createReasoningGate (streaming)", () => {

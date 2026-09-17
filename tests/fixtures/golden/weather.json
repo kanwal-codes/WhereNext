@@ -1,0 +1,56 @@
+{
+  "places": [],
+  "placeGroups": [],
+  "sources": [],
+  "weather": "26°C now, clear sky. Today 23–26°C clear · Tomorrow 19–27°C clear · Thu 18–28°C clouds · Fri 18–29°C clouds · Sat 20–29°C clear · Sun 21–32°C clear",
+  "weatherDays": [
+    {
+      "label": "Today",
+      "min": 23,
+      "max": 26,
+      "condition": "clear",
+      "wet": false
+    },
+    {
+      "label": "Tomorrow",
+      "min": 19,
+      "max": 27,
+      "condition": "clear",
+      "wet": false
+    },
+    {
+      "label": "Thu",
+      "min": 18,
+      "max": 28,
+      "condition": "clouds",
+      "wet": false
+    },
+    {
+      "label": "Fri",
+      "min": 18,
+      "max": 29,
+      "condition": "clouds",
+      "wet": false
+    },
+    {
+      "label": "Sat",
+      "min": 20,
+      "max": 29,
+      "condition": "clear",
+      "wet": false
+    },
+    {
+      "label": "Sun",
+      "min": 21,
+      "max": 32,
+      "condition": "clear",
+      "wet": false
+    }
+  ],
+  "routes": [],
+  "events": [],
+  "flights": [],
+  "stays": [],
+  "unavailableProviders": [],
+  "retrievedAt": "<normalized>"
+}

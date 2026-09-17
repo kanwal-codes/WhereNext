@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   BedDouble,
   CalendarDays,
@@ -11,34 +11,30 @@ import {
   LayoutGrid,
   Map,
   MessageCircle,
+  Users,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
   Notebook,
   House,
   Ticket,
-  Check,
-  Loader2,
-  Pencil,
   X,
 } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
 import { Sheet, motionTokens } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
-import { announceWorkspaceChange } from "@/lib/application/workspace-events";
-import { notifyToast } from "@/lib/application/toast";
 
 export type ShellTrip = {
   name: string;
   destination: string;
   dates: string;
   travellers: string;
-  progress: number;
 };
 
 const nav = [
   { seg: "", label: "Overview", icon: LayoutGrid, exact: true },
   { seg: "chat", label: "Conversation", icon: MessageCircle },
+  { seg: "group", label: "Group chat", icon: Users },
   { seg: "discover", label: "Discover", icon: Compass },
   { seg: "map", label: "Getting around", icon: Map },
   { seg: "stay", label: "Stay", icon: BedDouble },
@@ -91,10 +87,10 @@ function NavRow({
           )}
         </>
       )}
-      <Icon className="h-4 w-4 shrink-0 opacity-70" />
+      <Icon className={cn("h-4 w-4 shrink-0", active ? "opacity-100" : "opacity-70")} />
       <span
         className={cn(
-          "overflow-hidden whitespace-nowrap transition-[max-width,margin,opacity] duration-200 ease-out",
+          "truncate transition-[max-width,margin,opacity] duration-200 ease-out",
           collapsed ? "ml-0 max-w-0 opacity-0" : "ml-2.5 max-w-[12rem] opacity-100",
         )}
       >
@@ -140,70 +136,17 @@ function NavList({
   );
 }
 
-/** Trip name, where + when, and a slim planning-progress bar. */
-function TripIdentity({ tripId, trip, compact }: { tripId: string; trip: ShellTrip; compact?: boolean }) {
-  const router = useRouter();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(trip.name);
-  const [saving, setSaving] = useState(false);
-  useEffect(() => setDraft(trip.name), [trip.name]);
+/** Trip name and where + when. Renaming the trip lives on the Overview page's hero now, not
+ *  here — this is a pure display. */
+function TripIdentity({ trip, compact, titleAction }: { trip: ShellTrip; compact?: boolean; titleAction?: ReactNode }) {
   const sub = [trip.destination, trip.dates].filter(Boolean).join(" · ");
-
-  async function save() {
-    const name = draft.trim();
-    if (!name || saving) return;
-    if (name === trip.name) { setEditing(false); return; }
-    setSaving(true);
-    try {
-      const response = await fetch(`/api/trips/${tripId}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      if (!response.ok) throw new Error("rename");
-      setEditing(false);
-      announceWorkspaceChange("trip");
-      router.refresh();
-    } catch {
-      notifyToast("The trip name couldn’t be changed.", "error");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
     <div className="min-w-0">
-      {editing ? (
-        <form onSubmit={(event) => { event.preventDefault(); void save(); }} className="flex min-w-0 items-center gap-1">
-          <input
-            autoFocus
-            aria-label="Trip name"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => { if (event.key === "Escape") { setDraft(trip.name); setEditing(false); } }}
-            className="min-w-0 flex-1 rounded-lg border border-input bg-background px-2 py-1 font-display text-sm outline-none focus:ring-2 focus:ring-ring/25"
-          />
-          <button type="submit" disabled={!draft.trim() || saving} aria-label="Save trip name" className="rounded-full p-1.5 text-muted-foreground hover:text-foreground disabled:opacity-40">
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-          </button>
-        </form>
-      ) : (
-        <div className="flex min-w-0 items-center gap-1.5">
-          <h2 className={cn("min-w-0 truncate font-display leading-tight", compact ? "text-sm" : "text-lg")}>{draft}</h2>
-          <button type="button" onClick={() => setEditing(true)} aria-label="Edit trip name" className="shrink-0 rounded-full p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground">
-            <Pencil className="h-3 w-3" />
-          </button>
-        </div>
-      )}
+      <div className="flex min-w-0 items-center gap-1.5">
+        <h2 className={cn("min-w-0 truncate font-display leading-tight", compact ? "text-sm" : "text-lg")}>{trip.name}</h2>
+        {titleAction}
+      </div>
       {!compact && sub && <p className="mt-0.5 truncate text-xs text-muted-foreground">{sub}</p>}
-      {!compact && (
-        <div className="mt-2">
-          <div className="h-1 overflow-hidden rounded-full bg-sidebar-accent">
-            <div className="h-full rounded-full bg-primary transition-[width] duration-500" style={{ width: `${Math.max(4, trip.progress)}%` }} />
-          </div>
-          <p className="mt-1 text-[10px] tracking-[0.08em] text-muted-foreground uppercase">Planning {trip.progress}%</p>
-        </div>
-      )}
     </div>
   );
 }
@@ -229,7 +172,7 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
         onClick={onNavigate}
         title="Continue planning"
         className={cn(
-          "mt-3 flex items-center justify-center gap-2 rounded-full bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-transform hover:scale-[1.02] active:scale-[0.98]",
+          "mt-3 flex items-center justify-center gap-2.5 rounded-full bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-transform hover:scale-[1.02] active:scale-[0.98]",
           collapsed && !onNavigate ? "px-0" : "px-4",
         )}
       >
@@ -254,34 +197,48 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "sticky top-0 hidden h-[100dvh] flex-col border-r border-sidebar-border bg-sidebar py-6 lg:flex",
+          "group sticky top-0 hidden h-[100dvh] flex-col border-r border-sidebar-border bg-sidebar py-6 lg:flex",
           collapsed ? "px-3" : "px-4",
         )}
       >
-        <div className={cn("mb-6 flex gap-2", collapsed ? "flex-col items-center gap-3" : "items-start justify-between px-2")}>
+        <div className={cn("mb-6", collapsed ? "flex flex-col items-center gap-3" : "px-2")}>
           {collapsed ? (
-            <Link href="/trips" aria-label="Where next? — all trips">
-              <BrandMark variant="compact" />
-            </Link>
-          ) : (
-            <div className="flex min-w-0 items-start gap-3">
-              <Link href={`/trips/${tripId}`} aria-label={`${trip.name} overview`} className="shrink-0">
-                <BrandMark variant="compact" className="mt-0.5 h-7 w-7 shrink-0 text-[11px]" />
+            <div className="relative grid h-8 w-8 place-items-center">
+              <Link
+                href="/trips"
+                aria-label="Where next? — all trips"
+                className="absolute inset-0 grid place-items-center opacity-100 transition-opacity group-hover:opacity-0 group-focus-within:opacity-0"
+              >
+                <BrandMark variant="compact" />
               </Link>
-              <TripIdentity tripId={tripId} trip={trip} />
+              <button
+                onClick={() => setCollapsed(false)}
+                aria-label="Expand sidebar"
+                title="Expand sidebar"
+                className="absolute inset-0 grid place-items-center rounded-full border border-sidebar-border bg-background/60 text-muted-foreground opacity-0 pointer-events-none transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 hover:text-foreground active:scale-95"
+              >
+                <PanelLeftOpen className="h-4 w-4" />
+              </button>
             </div>
+          ) : (
+            <TripIdentity
+              trip={trip}
+              titleAction={
+                <button
+                  type="button"
+                  onClick={() => setCollapsed(true)}
+                  aria-label="Collapse sidebar"
+                  title="Collapse sidebar"
+                  className="shrink-0 rounded-full p-1 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-sidebar-accent hover:text-foreground"
+                >
+                  <PanelLeftClose className="h-3.5 w-3.5" />
+                </button>
+              }
+            />
           )}
-          <button
-            onClick={() => setCollapsed((c) => !c)}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="shrink-0 rounded-full border border-sidebar-border bg-background/60 p-1.5 text-muted-foreground transition-colors hover:text-foreground active:scale-95"
-          >
-            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-          </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar-slim">
+        <div className="flex-1 overflow-y-auto overscroll-contain scrollbar-slim">
           <NavList tripId={tripId} pathname={pathname} collapsed={collapsed} />
         </div>
 
@@ -308,12 +265,12 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
       <Sheet open={open} onClose={() => setOpen(false)} side="left" ariaLabel="Trip navigation" className="max-w-[300px] bg-sidebar px-4 py-6">
         <div className="mb-5 flex items-start gap-3">
           <BrandMark variant="compact" className="mt-0.5 h-7 w-7 shrink-0 text-[11px]" />
-          <TripIdentity tripId={tripId} trip={trip} />
+          <TripIdentity trip={trip} />
           <button onClick={() => setOpen(false)} aria-label="Close navigation" className="-mr-1 -mt-1 shrink-0 rounded-full p-1.5 text-muted-foreground hover:text-foreground active:scale-95">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-slim">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-slim">
           <NavList tripId={tripId} pathname={pathname} onNavigate={() => setOpen(false)} />
         </div>
         <div className="hairline my-3 shrink-0" />

@@ -11,11 +11,13 @@ export type BookingSubject =
   | { kind: "flight"; tripId: string; offer: Flight }
   | { kind: "stay"; tripId: string; hotelId: string; hotelName: string; room: StayRoom & { offerId: string }; checkin: string; checkout: string; nights: number };
 
-export type PassengerForm = { title: string; givenName: string; familyName: string; bornOn: string; email: string; phoneNumber: string };
-export type GuestForm = { firstName: string; lastName: string; email: string };
+// rowId is a stable React key only — never sent as `id` to the booking APIs, which use that
+// name for the provider's own passenger-slot id (see confirm() below).
+export type PassengerForm = { rowId: string; title: string; givenName: string; familyName: string; bornOn: string; email: string; phoneNumber: string };
+export type GuestForm = { rowId: string; firstName: string; lastName: string; email: string };
 
-const emptyPassenger: PassengerForm = { title: "mr", givenName: "", familyName: "", bornOn: "", email: "", phoneNumber: "" };
-const emptyGuest: GuestForm = { firstName: "", lastName: "", email: "" };
+const makePassenger = (): PassengerForm => ({ rowId: crypto.randomUUID(), title: "mr", givenName: "", familyName: "", bornOn: "", email: "", phoneNumber: "" });
+const makeGuest = (): GuestForm => ({ rowId: crypto.randomUUID(), firstName: "", lastName: "", email: "" });
 
 export type Stage = "details" | "review" | "success";
 
@@ -23,10 +25,16 @@ export type Stage = "details" | "review" | "success";
 export function useBookingFlow(subject: BookingSubject, onBooked?: (booking: Booking) => void) {
   const [stage, setStage] = useState<Stage>("details");
   const [submitting, setSubmitting] = useState(false);
+  // Stable for the life of this flow instance (one mount = one booking attempt), so a double-
+  // click or a retry of a failed `confirm()` reuses the same idempotency key — but a genuinely
+  // new attempt (the sheet reopened for a second room/seat on the same rate offer) gets a fresh
+  // one. Keying the idempotency key on the offer id alone made a second, real, distinct booking
+  // collide with the first and get silently treated as "already booked."
+  const [attemptNonce] = useState(() => crypto.randomUUID());
   const [passengers, setPassengers] = useState<PassengerForm[]>(
-    subject.kind === "flight" ? subject.offer.passengerIds.map(() => ({ ...emptyPassenger })) : [],
+    subject.kind === "flight" ? subject.offer.passengerIds.map(() => makePassenger()) : [],
   );
-  const [guests, setGuests] = useState<GuestForm[]>(subject.kind === "stay" ? [{ ...emptyGuest }] : []);
+  const [guests, setGuests] = useState<GuestForm[]>(subject.kind === "stay" ? [makeGuest()] : []);
   const [booking, setBooking] = useState<Booking | null>(null);
 
   const maxGuests = subject.kind === "stay" ? Math.max(1, subject.room.maxOccupancy ?? 1) : 0;
@@ -38,7 +46,7 @@ export function useBookingFlow(subject: BookingSubject, onBooked?: (booking: Boo
     setGuests((list) => list.map((g, i) => (i === index ? { ...g, ...patch } : g)));
   }
   function addGuest() {
-    setGuests((list) => (list.length >= maxGuests ? list : [...list, { ...emptyGuest }]));
+    setGuests((list) => (list.length >= maxGuests ? list : [...list, makeGuest()]));
   }
   function removeGuest(index: number) {
     setGuests((list) => (list.length <= 1 ? list : list.filter((_, i) => i !== index)));
@@ -60,7 +68,7 @@ export function useBookingFlow(subject: BookingSubject, onBooked?: (booking: Boo
               body: JSON.stringify({
                 offerId: subject.offer.id,
                 passengers: subject.offer.passengerIds.map((id, i) => ({ id, ...passengers[i], gender: passengers[i].title === "mr" ? "m" : "f" })),
-                idempotencyKey: `flight:${subject.offer.id}`,
+                idempotencyKey: `flight:${subject.offer.id}:${attemptNonce}`,
               }),
               signal: AbortSignal.timeout(20_000),
             })
@@ -70,7 +78,7 @@ export function useBookingFlow(subject: BookingSubject, onBooked?: (booking: Boo
               body: JSON.stringify({
                 offerId: subject.room.offerId,
                 guests: guests.map((g, i) => ({ ...g, occupancyNumber: i + 1 })),
-                idempotencyKey: `stay:${subject.room.offerId}`,
+                idempotencyKey: `stay:${subject.room.offerId}:${attemptNonce}`,
               }),
               signal: AbortSignal.timeout(20_000),
             });

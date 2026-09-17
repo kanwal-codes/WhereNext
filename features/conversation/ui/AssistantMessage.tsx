@@ -36,7 +36,20 @@ const components: Components = {
   },
 };
 
-export function AssistantMessage({ content, blocks, handlers }: { content: string; blocks?: AssistantBlock[]; handlers?: BlockHandlers }) {
+export function AssistantMessage({ content, blocks, handlers, streaming }: { content: string; blocks?: AssistantBlock[]; handlers?: BlockHandlers; streaming?: boolean }) {
+  // sanitizeAssistantContent (the allowedUrls link/image allow-list) only runs once, on the
+  // fully-assembled text, right before it's persisted — the raw provider bytes are what's
+  // rendered live during streaming. Markdown-parsing that raw text would make an
+  // unvetted link or image clickable/visible for the whole streaming window, before the
+  // allow-list ever gets a chance to strip it. Plain text during streaming is inert (no <a>,
+  // no <img> can come out of it); the real Markdown render only ever sees already-sanitized text.
+  if (streaming) {
+    return (
+      <div className="chat-prose">
+        <p style={{ whiteSpace: "pre-wrap" }}>{content}</p>
+      </div>
+    );
+  }
   return (
     <div className="chat-prose">
       <Markdown

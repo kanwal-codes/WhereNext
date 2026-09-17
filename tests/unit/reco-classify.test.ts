@@ -105,17 +105,6 @@ describe("classifyPlaceVibe — no keyword-derived secondary", () => {
 
 // ── classifyEventVibe ────────────────────────────────────────────────────────
 describe("classifyEventVibe", () => {
-  it("PredictHQ category takes precedence over TM segment", () => {
-    expect(classifyEventVibe({ predicthqCategory: "expos", tmSegment: "Music" })).toBe("expo");
-  });
-  for (const [cat, vibe] of Object.entries({
-    concerts: "live_music", festivals: "live_music", "performing-arts": "performing_arts",
-    sports: "sports", community: "default", expos: "expo", conferences: "expo",
-  })) {
-    it(`predicthqCategory "${cat}" → ${vibe}`, () => {
-      expect(classifyEventVibe({ predicthqCategory: cat })).toBe(vibe as Vibe);
-    });
-  }
   for (const [seg, vibe] of Object.entries({
     Music: "live_music", "Arts & Theatre": "performing_arts", Sports: "sports",
     Film: "performing_arts", Miscellaneous: "default",
@@ -135,6 +124,6 @@ describe("classifyEventVibe", () => {
   });
   it("empty / null everything → default", () => {
     expect(classifyEventVibe({})).toBe("default");
-    expect(classifyEventVibe({ predicthqCategory: null, tmSegment: null, title: undefined })).toBe("default");
+    expect(classifyEventVibe({ tmSegment: null, title: undefined })).toBe("default");
   });
 });

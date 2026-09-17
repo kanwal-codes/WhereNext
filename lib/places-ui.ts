@@ -7,6 +7,36 @@ export function photoProxyUrl(tripId: string, photoName: string | undefined): st
   return `/api/trips/${tripId}/places/google/photo?name=${encodeURIComponent(photoName)}`;
 }
 
+/**
+ * Rough "City, Country" from a Google formatted address (no structured `addressComponents` are
+ * fetched from the Places API, only the single `formattedAddress` string). Used to bias a
+ * "nearby" places/events search, so getting the actual city matters.
+ *
+ * Live-testing regression (2026-09-16): the old version just took the address's last two
+ * comma-separated segments, assuming "..., City, Country" — true for a 3-segment address, but a
+ * North American one is usually 4 segments ("Street, City, Region PostalCode, Country"), so it
+ * silently grabbed "Region PostalCode, Country" instead (e.g. "QC H2X 2T6, Canada" for a
+ * Montreal address) — confirmed live to pull in wrong-city results (Quebec City sights on a
+ * Montreal trip) and roughly halve the candidate count for every citywide lane on the page.
+ *
+ * Fix: walk backward from the segment before the country, skipping any segment that's a bare
+ * region/postal-code blob (all caps and digits, no lowercase letters — "QC H2X 2T6", "NY 10012")
+ * rather than an actual place name. A segment WITH lowercase letters is kept as the city, and a
+ * postal code glued onto the front of it in the same segment ("75001 Paris") is stripped off.
+ */
+export function cityFrom(address: string | undefined | null): string {
+  if (!address) return "";
+  const parts = address.split(",").map((p) => p.trim()).filter(Boolean);
+  if (parts.length === 0) return "";
+  const country = parts[parts.length - 1];
+  for (let i = parts.length - 2; i >= 0; i -= 1) {
+    if (!/[a-z]/.test(parts[i])) continue; // no lowercase letters → a region/postal code, not a name
+    const city = parts[i].replace(/^[\d-]+\s*/, "");
+    if (city) return `${city}, ${country}`;
+  }
+  return country;
+}
+
 const PRICE_LEVEL: Record<string, string> = {
   PRICE_LEVEL_FREE: "Free",
   PRICE_LEVEL_INEXPENSIVE: "$",
@@ -135,7 +165,35 @@ export type GooglePlaceDetails = {
   };
   reviews?: GoogleReview[];
   photos?: Array<{ name?: string }>;
+  outdoorSeating?: boolean;
+  liveMusic?: boolean;
+  servesCocktails?: boolean;
+  goodForGroups?: boolean;
+  goodForChildren?: boolean;
+  dineIn?: boolean;
+  takeout?: boolean;
+  delivery?: boolean;
+  reservable?: boolean;
+  allowsDogs?: boolean;
 };
+
+const AMENITY_LABEL: Array<[keyof GooglePlaceDetails, string]> = [
+  ["outdoorSeating", "Outdoor seating"],
+  ["liveMusic", "Live music"],
+  ["servesCocktails", "Serves cocktails"],
+  ["reservable", "Reservable"],
+  ["goodForGroups", "Good for groups"],
+  ["goodForChildren", "Good for kids"],
+  ["allowsDogs", "Dog friendly"],
+  ["dineIn", "Dine-in"],
+  ["takeout", "Takeout"],
+  ["delivery", "Delivery"],
+];
+
+/** Amenity chips actually true on this place, e.g. "Outdoor seating", "Reservable". */
+export function amenityChips(d: GooglePlaceDetails): string[] {
+  return AMENITY_LABEL.filter(([key]) => d[key] === true).map(([, label]) => label);
+}
 
 const STATUS_LABEL: Record<string, string> = {
   OPERATIONAL: "Open for business",

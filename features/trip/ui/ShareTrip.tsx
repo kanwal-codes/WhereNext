@@ -1,15 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Link2, Loader2 } from "lucide-react";
 import { notifyToast } from "@/lib/application/toast";
 
-// ponytail: share state isn't preloaded from the trip row — the enable POST is
-// idempotent (keeps an existing slug), so a re-enable is harmless.
 export function ShareTrip({ tripId }: { tripId: string }) {
   const [slug, setSlug] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/trips/${tripId}/share`)
+      .then((r) => (r.ok ? r.json() : { slug: null }))
+      .then((body) => { if (!cancelled) setSlug(body.slug ?? null); })
+      .catch(() => undefined)
+      .finally(() => { if (!cancelled) setLoaded(true); });
+    return () => { cancelled = true; };
+  }, [tripId]);
 
   const url = slug ? `${typeof window !== "undefined" ? window.location.origin : ""}/s/${slug}` : "";
 
@@ -55,7 +64,9 @@ export function ShareTrip({ tripId }: { tripId: string }) {
       <h2 className="flex items-center gap-2 font-display text-lg">
         <Link2 className="h-4 w-4 text-coral" /> Share this trip
       </h2>
-      {!slug ? (
+      {!loaded ? (
+        <div className="mt-4 h-10 animate-pulse rounded-full bg-muted" />
+      ) : !slug ? (
         <>
           <p className="mt-2 text-sm text-muted-foreground">Create an unlisted link to a read-only view of the itinerary.</p>
           <button type="button" onClick={() => void enable()} disabled={busy} className="btn-primary mt-4 w-full">
@@ -64,7 +75,7 @@ export function ShareTrip({ tripId }: { tripId: string }) {
         </>
       ) : (
         <>
-          <div className="mt-3 flex items-center gap-2 rounded-xl border border-input bg-background px-3 py-2">
+          <div className="mt-3 flex items-center gap-2 rounded-xl border border-input bg-background px-3 py-2 focus-within:ring-2 focus-within:ring-ring/25">
             <input aria-label="Share link" name="share-link" readOnly value={url} className="min-w-0 flex-1 bg-transparent text-xs outline-none" onFocus={(e) => e.currentTarget.select()} />
             <button type="button" onClick={() => void copy()} className="shrink-0 text-xs font-medium text-primary">
               {copied ? <Check className="h-3.5 w-3.5" /> : "Copy"}

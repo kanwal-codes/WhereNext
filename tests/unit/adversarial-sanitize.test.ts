@@ -63,12 +63,86 @@ describe("sanitizeAssistantContent — link laundering attempts", () => {
     expect(out).not.toContain("evil.example");
   });
 
+  it("FIXED: a same-origin relative image URL is checked against the allow-list, not skipped", () => {
+    // The photo proxy (/api/trips/<id>/places/google/photo?...) is a relative URL added to
+    // allowedUrls by assistant-turn.ts — the old https?://-only regex silently never matched
+    // this shape at all, so an unvetted relative URL (e.g. a different trip's photo endpoint)
+    // reached the renderer with no allow-list check whatsoever.
+    const allowed = new Set(["https://official.example/a", "/api/trips/aaa/places/google/photo?name=p1"]);
+    const clean = (s: string) => sanitizeAssistantContent(s, allowed);
+    expect(clean("![museum](/api/trips/aaa/places/google/photo?name=p1)")).toBe("![museum](/api/trips/aaa/places/google/photo?name=p1)");
+    expect(clean("![other trip](/api/trips/bbb/places/google/photo?name=p1)")).toBe("");
+  });
+
+  it("FIXED: a same-origin relative markdown link is checked against the allow-list, not skipped", () => {
+    const allowed = new Set(["/join/abc123"]);
+    const clean = (s: string) => sanitizeAssistantContent(s, allowed);
+    expect(clean("[join here](/join/abc123)")).toBe("[join here](/join/abc123)");
+    expect(clean("[reset your password](/admin/reset-password)")).toBe("reset your password");
+  });
+
   it("strips every invented link in a long mixed blob, keeps every allowed one", () => {
     const blob = Array.from({ length: 200 }, (_, i) =>
       i % 2 ? `[a](https://official.example/a)` : `[b](https://evil.example/${i})`).join(" and ");
     const out = clean(blob);
     expect(out).not.toContain("evil.example");
     expect(out).toContain("https://official.example/a");
+  });
+});
+
+describe("sanitizeAssistantContent — unverified price claims", () => {
+  const GROUNDING = JSON.stringify({ hotels: [{ name: "Hotel A", nightlyPrice: "120" }], flights: [{ price: "450 USD" }] });
+
+  it("neutralizes a currency amount that never appears in the evidence", () => {
+    const out = sanitizeAssistantContent("It's usually around $80 a night.", new Set(), GROUNDING);
+    expect(out).not.toContain("$80");
+    expect(out).toContain("an amount I can't verify here");
+  });
+
+  it("leaves a plain number alone (not a price) even with grounding supplied", () => {
+    expect(sanitizeAssistantContent("It's a 3 day trip, see you on Day 2.", new Set(), GROUNDING)).toBe("It's a 3 day trip, see you on Day 2.");
+  });
+
+  it("keeps a currency amount that IS backed by the evidence", () => {
+    expect(sanitizeAssistantContent("Flights run about 450 USD.", new Set(), GROUNDING)).toBe("Flights run about 450 USD.");
+  });
+
+  it("does nothing when no grounding text is supplied (existing callers unaffected)", () => {
+    expect(sanitizeAssistantContent("It's usually around $80 a night.", new Set())).toBe("It's usually around $80 a night.");
+  });
+
+  it("keeps a rounded/paraphrased figure that's close to a real grounded price (not an exact quote)", () => {
+    // Evidence gives $120; the model rounds to $125 summarizing across sources — a real,
+    // reasonable estimate, not a fabrication, and should not be blanked out.
+    const grounding = "nightly rate around $120 per room";
+    expect(sanitizeAssistantContent("Hotels run about $125 a night.", new Set(), grounding)).toBe("Hotels run about $125 a night.");
+  });
+
+  it("still blanks a figure nowhere near any grounded price", () => {
+    const grounding = "nightly rate around $120 per room";
+    expect(sanitizeAssistantContent("Hotels run about $900 a night.", new Set(), grounding)).toContain("an amount I can't verify here");
+  });
+
+  it("does not leave a dangling number when only the front of a range is unverifiable", () => {
+    // The whole "$40-60" range must be treated (and replaced) as one unit — see the regex
+    // comment above MONEY_PATTERN for why matching only "$40" leaves a stray "-60" behind.
+    const out = sanitizeAssistantContent("Budget $40-60 per day.", new Set(), GROUNDING);
+    expect(out).not.toMatch(/-\s*60/);
+    expect(out).toBe("Budget an amount I can't verify here per day.");
+  });
+
+  it("does not leave a dangling country-code letter prefix in front of the replacement phrase", () => {
+    // Live-caught: "CA$X to CA$Y" (an Uber-fare answer) rendered as "CAan amount I can't verify
+    // here to CAan amount I can't verify here" — the match started at the `$`, leaving "CA" as
+    // untouched literal text right before the fallback phrase.
+    const out = sanitizeAssistantContent("It typically averages around CA$15 to CA$25 for a standard ride.", new Set(), GROUNDING);
+    expect(out).not.toContain("CAan amount");
+    expect(out).toBe("It typically averages around an amount I can't verify here to an amount I can't verify here for a standard ride.");
+  });
+
+  it("still keeps a country-prefixed amount that IS backed by the evidence", () => {
+    const grounding = "typical fare CA$20";
+    expect(sanitizeAssistantContent("It costs about CA$20.", new Set(), grounding)).toBe("It costs about CA$20.");
   });
 });
 

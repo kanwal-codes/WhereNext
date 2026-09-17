@@ -6,6 +6,7 @@ import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { AuthShell, Divider, Field, SubmitButton, inputClass } from "@/components/AuthShell";
 import { GoogleAuthButton } from "@/features/identity/ui/GoogleAuthButton";
 import { signIn } from "@/features/identity/application/authClient";
+import { safeRedirect } from "@/lib/client/safe-redirect";
 
 export default function SignInPage() {
   const [email, setEmail] = useState("");
@@ -13,10 +14,13 @@ export default function SignInPage() {
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [redirect, setRedirect] = useState<string | null>(null);
 
   useEffect(() => {
-    const fromUrl = new URLSearchParams(window.location.search).get("error");
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = params.get("error");
     if (fromUrl) setError(fromUrl);
+    setRedirect(params.get("redirect"));
   }, []);
 
   async function submit(event: FormEvent) {
@@ -29,8 +33,7 @@ export default function SignInPage() {
       setLoading(false);
       return;
     }
-    const redirect = new URLSearchParams(window.location.search).get("redirect");
-    location.assign(redirect && redirect.startsWith("/") && !redirect.startsWith("//") ? redirect : "/trips");
+    location.assign(safeRedirect(redirect, "/trips"));
   }
 
   return (
@@ -42,7 +45,7 @@ export default function SignInPage() {
         <div className="space-y-2">
           <p>
             New here?{" "}
-            <Link href="/sign-up" className="link-underline font-medium text-foreground">
+            <Link href={redirect ? `/sign-up?redirect=${encodeURIComponent(redirect)}` : "/sign-up"} className="link-underline font-medium text-foreground">
               Create an account
             </Link>
           </p>
@@ -54,10 +57,16 @@ export default function SignInPage() {
         </div>
       }
     >
-      <GoogleAuthButton label="Sign in with Google" />
+      <GoogleAuthButton label="Sign in with Google" redirectTo={redirect ?? undefined} />
       <Divider label="or" />
 
-      <form className="space-y-5" onSubmit={submit}>
+      {/* method="post" is a defense-in-depth fallback, not the real submit path (onSubmit
+          preventDefault()s it below): live-caught a race where a click landed before React
+          hydrated the handler, and the browser's own default GET submission put the password
+          straight into the URL — visible in browser history and this dev server's own access
+          log. A plain POST with no matching route handler still fails to sign in, but the
+          credentials land in the request body, never the URL, if that race happens again. */}
+      <form className="space-y-5" method="post" onSubmit={submit}>
         <Field label="Email">
           <input type="email" name="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={inputClass} />
         </Field>

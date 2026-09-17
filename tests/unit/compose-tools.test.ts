@@ -41,7 +41,7 @@ describe("buildComposeTools", () => {
     const { tools } = makeTools();
     await tools.stays.execute!({ location: "Alfama" }, {} as never);
     expect(retrieveEvidenceMock).toHaveBeenCalledWith(
-      [{ tool: "stays", location: "Alfama, Lisbon", checkin: "2026-06-10", checkout: "2026-06-17", hotelName: undefined }],
+      [{ tool: "stays", location: "Alfama, Lisbon", checkin: "2026-06-10", checkout: "2026-06-17", hotelName: null }],
       {}, undefined,
     );
   });
@@ -74,13 +74,21 @@ describe("buildComposeTools", () => {
     expect(out[0].excerpt.length).toBe(500);
   });
 
-  it("events: passes the query straight through and adds event URLs to the allow-list", async () => {
+  it("weather: qualifies the location before retrieving", async () => {
+    retrieveEvidenceMock.mockResolvedValue({ ...emptyEv, weather: { summary: "Mild, some rain" } });
+    const { tools } = makeTools();
+    const out = await tools.weather.execute!({ location: "Belém" }, {} as never);
+    expect(retrieveEvidenceMock).toHaveBeenCalledWith([{ tool: "weather", location: "Belém, Lisbon" }], {}, undefined);
+    expect(out).toEqual({ summary: "Mild, some rain" });
+  });
+
+  it("events: qualifies the location, passes the query straight through, and adds event URLs to the allow-list", async () => {
     retrieveEvidenceMock.mockResolvedValue({ ...emptyEv, events: [
       { title: "Jazz Night", url: "https://tm.example/j", date: "2026-06-12", venue: "Hot Club", source: "ticketmaster" },
     ] });
     const { tools, allowedUrls } = makeTools();
     const out = await tools.events.execute!({ query: "jazz", location: "Lisbon" }, {} as never);
-    expect(retrieveEvidenceMock).toHaveBeenCalledWith([{ tool: "events", query: "jazz", location: "Lisbon" }], {}, undefined);
+    expect(retrieveEvidenceMock).toHaveBeenCalledWith([{ tool: "events", query: "jazz", location: "Lisbon, Lisbon", artist: null, category: null, dateScoped: null }], {}, undefined);
     expect(out).toEqual([{ title: "Jazz Night", date: "2026-06-12", venue: "Hot Club", source: "ticketmaster" }]);
     expect(allowedUrls.has("https://tm.example/j")).toBe(true);
   });
@@ -94,7 +102,7 @@ describe("buildComposeTools", () => {
     const { tools } = makeTools();
     await tools.flights.execute!({ origin: "Lisbon", destination: "Porto" }, {} as never);
     expect(retrieveEvidenceMock).toHaveBeenCalledWith(
-      [{ tool: "flights", origin: "Lisbon", destination: "Porto", departureDate: "2026-06-10" }], {}, undefined,
+      [{ tool: "flights", origin: "Lisbon", destination: "Porto", departureDate: "2026-06-10", returnDate: null }], {}, undefined,
     );
   });
 

@@ -6,6 +6,7 @@ import { mergePreferences, preferencesSchema } from "@/packages/contracts/prefer
 import { suggestionActionSchema, suggestionValueSchema, type SuggestionKey } from "@/packages/contracts/suggestion";
 import { tripDurationDays } from "@/features/trip/domain/trip";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
+import { updateTripPreferences } from "@/lib/server/trip-preferences";
 
 const splitList = (value: string) => value.split(/[,·;/]| and /i).map((s) => s.trim()).filter(Boolean).slice(0, 20);
 
@@ -70,21 +71,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ tr
         }
       }
       if (key === "interests") {
-        const existing = await supabase.from("trip_preferences").select("data").eq("trip_id", tripId).maybeSingle();
-        if (existing.error) throw existing.error;
-        const merged = preferencesSchema.parse(
-          mergePreferences((existing.data?.data ?? {}) as Record<string, unknown>, { interests: splitList(suggestion.display) }),
-        );
-        const write = await supabase.from("trip_preferences").upsert({ trip_id: tripId, data: merged });
-        if (write.error) throw write.error;
+        await updateTripPreferences(supabase, tripId, (previous) => mergePreferences(previous, { interests: splitList(suggestion.display) }));
       } else if (prefField) {
-        const existing = await supabase.from("trip_preferences").select("data").eq("trip_id", tripId).maybeSingle();
-        if (existing.error) throw existing.error;
         const raw = suggestion.display;
         const value = key === "budget" && raw && !Number.isNaN(Number(raw)) ? Number(raw) : raw;
-        const merged = preferencesSchema.parse(mergePreferences((existing.data?.data ?? {}) as Record<string, unknown>, { [prefField]: value }));
-        const write = await supabase.from("trip_preferences").upsert({ trip_id: tripId, data: merged });
-        if (write.error) throw write.error;
+        await updateTripPreferences(supabase, tripId, (previous) => mergePreferences(previous, { [prefField]: value }));
       } else if (key === "base_area") {
         const write = await supabase
           .from("trip_decisions")

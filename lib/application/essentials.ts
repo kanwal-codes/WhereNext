@@ -1,6 +1,8 @@
 import { z } from "zod";
-import { AI_DEADLINE_MS, gatewayFor, withDeadline } from "@/packages/ai/model-policy";
+import { AI_DEADLINE_MS, withDeadline } from "@/packages/ai/model-policy";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
+import type { UsageEntry } from "@/lib/ai/pricing";
+import { runBulkBuilder } from "./bulk-builder";
 import type { RetrievedEvidence } from "./retrieve";
 
 const checklistSchema = z.object({
@@ -10,7 +12,8 @@ const checklistSchema = z.object({
   })).min(1).max(8),
 });
 
-const SYSTEM = `You produce a practical, trip-specific readiness checklist as JSON only: {"groups":[{"title":"...","items":[{"text":"...","why":"..."}]}]}.
+const SYSTEM = (language: string = "en") => `You produce a practical, trip-specific readiness checklist as JSON only: {"groups":[{"title":"...","items":[{"text":"...","why":"..."}]}]}.
+Write every text field in language "${language}" (BCP-47).
 Cover only what matters for THIS trip and its dates and activities. Reasonable groups: Packing, Documents & entry, Money, Connectivity, Getting around, Customs & dress, Safety, Language.
 Rules:
 - Use the supplied evidence for facts (weather, what the place is known for). If you are not sure of a visa rule, currency, or price, say "check the official source" in "why" - never assert a specific rule or number you cannot support.
@@ -22,23 +25,20 @@ export async function buildEssentialsChecklist(input: {
   destination: string;
   tripSummary: string;
   evidence: RetrievedEvidence;
+  language?: string;
   signal?: AbortSignal;
+  onUsage?: (entry: UsageEntry) => void;
 }): Promise<AssistantBlock | null> {
   const evidenceText = [
     input.evidence.weather ? `Weather: ${input.evidence.weather}` : "",
     ...input.evidence.sources.slice(0, 4).map((source) => `${source.title}: ${source.content.slice(0, 400)}`),
   ].filter(Boolean).join("\n");
-  try {
-    const raw = await gatewayFor("resolve").generateStructured(
-      [
-        { role: "system", content: SYSTEM },
-        { role: "user", content: `Destination: ${input.destination}\nTrip so far: ${input.tripSummary}\nEvidence:\n${evidenceText || "(none)"}` },
-      ],
-      withDeadline(input.signal, AI_DEADLINE_MS.sideBuilder),
-    );
-    const parsed = checklistSchema.parse(raw);
-    return { type: "checklist", groups: parsed.groups };
-  } catch {
-    return null;
-  }
+  const parsed = await runBulkBuilder(
+    SYSTEM(input.language),
+    `Destination: ${input.destination}\nTrip so far: ${input.tripSummary}\nEvidence:\n${evidenceText || "(none)"}`,
+    checklistSchema,
+    withDeadline(input.signal, AI_DEADLINE_MS.sideBuilder),
+    input.onUsage,
+  );
+  return parsed ? { type: "checklist", groups: parsed.groups } : null;
 }

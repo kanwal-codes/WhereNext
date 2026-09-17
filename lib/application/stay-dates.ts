@@ -23,3 +23,23 @@ export function resolveStayDates(
   const co = explicitOut ?? tripOut ?? iso(Date.parse(ci) + 3 * DAY);
   return { checkin: ci, checkout: co, assumed };
 }
+
+/** The Stays tab's filters when the user hasn't touched any filter control — what a
+ *  chat-triggered stay search should key its cache under, so the two can actually share a hit
+ *  instead of silently missing under two differently-shaped keys. */
+export const DEFAULT_STAY_FILTERS = { starRatings: [] as number[], boards: [] as string[], refundableOnly: false, sort: "price" as const, propertyTypes: [] as string[] };
+
+/** One cache key format for a stay search, shared by the Stays tab route and the chat "stays"
+ *  tool branch — so a chat ask for a hotel right after (or before) browsing the tab reuses the
+ *  same cached search instead of each keying it differently and never colliding. */
+export function staysCacheKey(params: {
+  location: string;
+  checkin: string;
+  checkout: string;
+  adults: number | string;
+  rooms: number | string;
+  currency: string;
+  filters: Record<string, unknown>;
+}): string {
+  return `stays-tab:${params.location}:${params.checkin}:${params.checkout}:${params.adults}:${params.rooms}:${params.currency}:${JSON.stringify(params.filters)}`;
+}

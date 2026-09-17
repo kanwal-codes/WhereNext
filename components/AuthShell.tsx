@@ -2,10 +2,10 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { Quote } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
-import { Reveal, WordReveal } from "@/components/motion-primitives";
+import { Reveal, WordReveal, motionTokens } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
 
 /**
@@ -27,6 +27,7 @@ export function AuthShell({
   footer?: ReactNode;
   className?: string;
 }) {
+  const reduce = useReducedMotion();
   return (
     <div className="theme-light-scope grid min-h-screen bg-background text-foreground [color-scheme:light] lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
       <div className="relative flex flex-col px-5 py-8 sm:px-10 lg:px-14">
@@ -72,8 +73,8 @@ export function AuthShell({
           height={1536}
           className="absolute inset-0 h-full w-full object-cover"
           initial={{ scale: 1.12, opacity: 0 }}
-          animate={{ scale: 1.04, opacity: 1 }}
-          transition={{ opacity: { duration: 1.1 }, scale: { duration: 22, ease: "linear" } }}
+          animate={{ scale: reduce ? 1.02 : 1.04, opacity: 1 }}
+          transition={{ opacity: { duration: 1.1 }, scale: { duration: reduce ? 0 : 22, ease: "linear" } }}
         />
         <div className="grain pointer-events-none absolute inset-0" />
         <div className="vignette pointer-events-none absolute inset-0" />
@@ -117,12 +118,11 @@ export function SubmitButton({
   loading,
   ...rest
 }: { children: ReactNode; loading?: boolean } & Omit<React.ComponentProps<typeof motion.button>, "children">) {
+  const reduce = useReducedMotion();
   return (
     <motion.button
-      whileHover={{ y: -2 }}
-      whileTap={{ scale: 0.98 }}
-      transition={{ type: "spring", stiffness: 380, damping: 26 }}
-      className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground disabled:opacity-70"
+      {...(reduce ? {} : { whileHover: { y: -2 }, whileTap: { scale: 0.98 }, transition: motionTokens.lift })}
+      className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
       disabled={loading}
       {...rest}
     >

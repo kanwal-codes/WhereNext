@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { greatCircleArc, haversineKm, nearest } from "../../lib/application/geo";
+import { distanceDecay, greatCircleArc, haversineKm, nearest } from "../../lib/application/geo";
 
 describe("geo", () => {
   it("measures straight-line distance", () => {
@@ -22,6 +22,25 @@ describe("geo", () => {
 
   it("returns null when nothing has coordinates", () => {
     expect(nearest({ latitude: 1, longitude: 1 }, [{ title: "x", latitude: NaN, longitude: NaN }])).toBeNull();
+  });
+});
+
+describe("distanceDecay", () => {
+  // Phase 4.2.1 (docs/overhaul/roadmap/phase-4-recommendation-ranking.md) — the actual curve
+  // shape, not just "it returns a number": full score inside the offset, the named `decay` value
+  // exactly at `scale` km past it, and well below that far beyond.
+  it("scores 1.0 anywhere within the offset radius", () => {
+    expect(distanceDecay(0, { offset: 2, scale: 2 })).toBe(1);
+    expect(distanceDecay(2, { offset: 2, scale: 2 })).toBe(1);
+  });
+
+  it("scores exactly the decay value at offset + scale km", () => {
+    expect(distanceDecay(2 + 5, { offset: 2, scale: 5 })).toBeCloseTo(0.5, 10);
+    expect(distanceDecay(2 + 5, { offset: 2, scale: 5, decay: 0.3 })).toBeCloseTo(0.3, 10);
+  });
+
+  it("approaches 0 well beyond scale", () => {
+    expect(distanceDecay(2 + 50, { offset: 2, scale: 5 })).toBeLessThan(0.001);
   });
 });
 

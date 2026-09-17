@@ -25,6 +25,7 @@ import {
   Star,
   Phone,
   Globe,
+  RefreshCw,
   Sun,
   TicketCheck,
   TrainFront,
@@ -40,7 +41,7 @@ import { EventPoster } from "@/components/EventPoster";
 import { EventCard, type NearbyEvent } from "@/components/EventCard";
 import { CompareView } from "@/components/CompareView";
 import { BlurImage } from "@/components/motion-primitives";
-import { cn } from "@/lib/utils";
+import { cn, safeHref } from "@/lib/utils";
 import { mutate } from "@/lib/client/mutation-queue";
 import { notifyToast } from "@/lib/application/toast";
 import { formatClockTime, parseClockTime } from "@/lib/application/clock-time";
@@ -176,7 +177,7 @@ const TRUST_LABEL: Record<TrustLabel, string> = {
   unavailable: "Unavailable",
 };
 
-const card = "rounded-2xl border border-border/70 bg-card shadow-[0_1px_2px_color-mix(in_oklab,var(--color-ink)_6%,transparent)]";
+const card = "rounded-2xl border border-border bg-card shadow-soft";
 // A full-card click target. Sits behind the card content (z-0); real actions live in a
 // `relative z-10` row so they still receive their own clicks. Keeps card markup non-nested.
 const CardOpenOverlay = ({ label, onOpen }: { label: string; onOpen: () => void }) => (
@@ -192,7 +193,7 @@ const iconBtn = "btn-chip";
 const freshness = "mt-2 text-[11px] text-muted-foreground";
 // Left edge aligns with the message text; the row still scrolls sideways. No negative
 // margin — the chat column has no padding to bleed into, which left the first card clipped.
-const carousel = "flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto no-scrollbar pb-2.5";
+const carousel = "flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto overscroll-x-contain no-scrollbar pb-2.5";
 // The full collection panel (preview=false) has real room to breathe — lay cards out in a
 // grid that reflows to the panel's own width instead of one endless scrolling row. Sized off
 // the container, not the viewport, since the panel can be a narrow drawer or full-screen.
@@ -212,9 +213,9 @@ function PlaceCardView({
   const head = (
     <>
       {portablePhoto ? (
-        <BlurImage src={portablePhoto} alt={place.name} width={320} height={160} className="h-32 w-full object-cover" />
+        <BlurImage src={portablePhoto} alt={place.name} width={320} height={160} className="h-32 w-full rounded-t-2xl object-cover" />
       ) : (
-        <div className="grid h-32 w-full place-items-center bg-muted text-muted-foreground">
+        <div className="grid h-32 w-full place-items-center rounded-t-2xl bg-muted text-muted-foreground">
           <MapPin className="h-6 w-6 opacity-40" />
         </div>
       )}
@@ -223,16 +224,13 @@ function PlaceCardView({
   );
 
   return (
-    <article className={cn(card, "group relative flex h-full flex-col overflow-hidden")}>
+    // `overflow-hidden` is on the photo itself (`rounded-t-2xl` above), not this card — on the
+    // same box as `shadow-soft`, it was clipping off the shadow's own soft, diffuse layer,
+    // leaving only the tight 1px contact line and reading flat instead of gently lifted.
+    <article className={cn(card, "group relative flex h-full flex-col")}>
       {onOpenPlace && <CardOpenOverlay label={`Open ${place.name}`} onOpen={() => onOpenPlace(place)} />}
       {head}
       <div className="flex flex-1 flex-col gap-2 px-3.5 pt-2 pb-3.5">
-        {(place.category || place.address) && (
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <MapPin className="h-3 w-3 shrink-0" />
-            <span className="truncate">{[place.category?.replaceAll("_", " "), place.address].filter(Boolean).join(" · ")}</span>
-          </p>
-        )}
         {typeof place.rating === "number" && (
           <p className="flex items-center gap-1 text-xs text-muted-foreground">
             <Star className="h-3 w-3 fill-current text-coral" />
@@ -248,7 +246,7 @@ function PlaceCardView({
         {(place.phone || place.websiteUri) && (
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
             {place.phone && <a href={`tel:${place.phone}`} className="inline-flex items-center gap-1 hover:text-foreground"><Phone className="h-3 w-3" />{place.phone}</a>}
-            {place.websiteUri && <a href={place.websiteUri} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 hover:text-foreground"><Globe className="h-3 w-3" />Website</a>}
+            {place.websiteUri && <a href={safeHref(place.websiteUri)} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 hover:text-foreground"><Globe className="h-3 w-3" />Website</a>}
           </div>
         )}
         {(place.openNow !== undefined || place.openingHours?.length || place.wheelchairAccessible !== undefined || place.reviewSummary) && (
@@ -261,18 +259,18 @@ function PlaceCardView({
         )}
         {/* "From provider" is the default for every card — only a non-default trust label carries information. */}
         {place.trust !== "sourced" && <p className="eyebrow">{TRUST_LABEL[place.trust] ?? place.trust}</p>}
-        <div className="relative z-10 mt-auto flex flex-wrap items-center gap-2 pt-1">
+        <div className="relative z-10 mt-auto flex items-center gap-2 pt-1">
           {/* One control: shortlist (still deciding) → a day (going in the plan) → remove.
-              Always its own row — "Add to trip" and "Day N" are different widths, so letting
-              flex-wrap decide left Details sharing a row only when the label was short. */}
-          <AddToTripControl tripId={tripId} place={toPlace(place)} size="sm" className="w-full" />
+              `block` + `flex-1` so it shares the row with Details/Maps instead of stacking —
+              its own label ("Add to trip" / "Day N") is always short enough to share space. */}
+          <AddToTripControl tripId={tripId} place={toPlace(place)} size="sm" block className="min-w-0 flex-1" />
           {onOpenPlace ? (
-            <button type="button" className={iconBtn} onClick={() => onOpenPlace(place)}>
+            <button type="button" className={cn(iconBtn, "shrink-0")} onClick={() => onOpenPlace(place)}>
               Details <ArrowUpRight className="h-3.5 w-3.5" />
             </button>
           ) : (
             place.sourceUrl && /^https?:\/\//i.test(place.sourceUrl) && (
-              <a href={place.sourceUrl} target="_blank" rel="noreferrer noopener" className={iconBtn}>
+              <a href={place.sourceUrl} target="_blank" rel="noreferrer noopener" className={cn(iconBtn, "shrink-0")}>
                 Maps <ArrowUpRight className="h-3.5 w-3.5" />
               </a>
             )
@@ -288,9 +286,9 @@ function StayCardView({ hotel, onOpen }: { hotel: StayCardItem; onOpen?: () => v
     <>
       {hotel.thumbnailUrl ? (
         // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
-        <img src={hotel.thumbnailUrl} alt={hotel.name} width={320} height={160} loading="lazy" className="h-32 w-full object-cover" />
+        <img src={hotel.thumbnailUrl} alt={hotel.name} width={320} height={160} loading="lazy" className="h-32 w-full rounded-t-2xl object-cover" />
       ) : (
-        <div className="grid h-32 w-full place-items-center bg-muted">
+        <div className="grid h-32 w-full place-items-center rounded-t-2xl bg-muted">
           <BedDouble className="h-6 w-6 text-muted-foreground/40" />
         </div>
       )}
@@ -305,7 +303,8 @@ function StayCardView({ hotel, onOpen }: { hotel: StayCardItem; onOpen?: () => v
     .join(" · ");
 
   return (
-    <article className={cn(card, "group relative flex h-full flex-col overflow-hidden")}>
+    // Same shadow-clipping fix as PlaceCardView above — see its comment.
+    <article className={cn(card, "group relative flex h-full flex-col")}>
       {onOpen && <CardOpenOverlay label={`Open ${hotel.name}`} onOpen={onOpen} />}
       {head}
       <div className="flex flex-1 flex-col gap-2 px-3.5 pt-2 pb-3.5">
@@ -343,13 +342,14 @@ function FeaturedEventCard({ group, onOpen }: { group: EventGroup; onOpen?: (see
   const active = group.dates[0] ?? { date: event.date, url: event.url };
   const dateLabel = formatEventDates(group.dates);
   return (
-    <article className={cn(card, "relative flex h-full flex-col overflow-hidden")}>
+    // Same shadow-clipping fix as PlaceCardView above — see its comment.
+    <article className={cn(card, "relative flex h-full flex-col")}>
       {onOpen && <CardOpenOverlay label={`Open ${event.title}`} onOpen={() => onOpen({ ...eventSeed(event), url: active.url, date: active.date })} />}
       {event.imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element -- external event image
-        <img src={event.imageUrl} alt={event.title} width={240} height={112} loading="lazy" className="h-28 w-full object-cover" />
+        <img src={event.imageUrl} alt={event.title} width={240} height={112} loading="lazy" className="h-28 w-full rounded-t-2xl object-cover" />
       ) : (
-        <EventPoster title={event.title} className="h-24 w-full" />
+        <EventPoster title={event.title} className="h-24 w-full rounded-t-2xl" />
       )}
       <div className="flex flex-1 flex-col gap-1.5 p-3">
         {typeof event.rank === "number" && event.rank >= 65 && <MajorEventPill />}
@@ -444,7 +444,7 @@ function WeatherBlockView({ block }: { block: WeatherBlockData }) {
     return (
       <div className={cn(card, "p-3.5")}>
         <p className="text-sm font-medium">{block.headline}</p>
-        <div className="mt-3 flex gap-2 overflow-x-auto scrollbar-slim pb-1">
+        <div className="mt-3 flex gap-2 overflow-x-auto overscroll-x-contain scrollbar-slim pb-1">
           {block.days.map((day, dayIndex) => (
             <div key={dayIndex} className="flex w-16 shrink-0 flex-col items-center gap-1 rounded-xl border border-border bg-background/60 px-1.5 py-2">
               <span className="text-[10px] font-medium text-muted-foreground">{day.label}</span>
@@ -464,7 +464,10 @@ function WeatherBlockView({ block }: { block: WeatherBlockData }) {
     <div className={cn(card, "flex items-start gap-4 p-4")}>
       <WeatherGlyph condition={block.condition} className="h-12 w-12 shrink-0" />
       <div className="min-w-0 flex-1">
-        <p className="eyebrow">Typical {block.month ?? "weather"}{block.location ? ` · ${block.location}` : ""}</p>
+        <p className="eyebrow">
+          Typical {block.month ?? "weather"}{block.location ? ` · ${block.location}` : ""}
+          {block.estimated && <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">Estimated</span>}
+        </p>
         {(typeof block.highC === "number" || typeof block.lowC === "number") && (
           <p className="mt-1 flex items-baseline gap-1.5">
             {typeof block.highC === "number" && <span className="font-display text-2xl tabular-nums">{block.highC}°</span>}
@@ -558,6 +561,9 @@ function OptionsBlockView({ block, onFollowup }: { block: OptionsBlockData } & P
       : `Tell me more about a day trip to ${name} — how to get there, how long to spend, and what to see.`;
   return (
     <div className="flex flex-col gap-2">
+      {block.estimated && (
+        <p className="text-[11px] text-muted-foreground">Estimated from general knowledge — not backed by a current source.</p>
+      )}
       {block.items.map((item, i) => (
         <div key={i} className={cn(card, "p-3.5")}>
           <div className="flex items-baseline justify-between gap-3">
@@ -596,8 +602,11 @@ function BudgetBlockView({ block }: { block: BudgetBlockData }) {
   const under = typeof block.setBudget === "number" && block.dailyTotal.typical <= block.setBudget;
   return (
     <div className={cn(card, "overflow-hidden")}>
-      <p className="eyebrow flex items-center gap-1.5 border-b border-border/60 px-4 pt-3.5 pb-2">
+      <p className="flex items-center gap-1.5 border-b border-border/60 px-4 pt-3.5 pb-2 font-display text-sm">
         <Wallet className="h-3.5 w-3.5 text-coral" /> Daily spend · {block.perPerson ? "per person" : "for the group"}
+        {block.estimated && (
+          <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">Estimated</span>
+        )}
       </p>
       <div className="divide-y divide-border/60">
         {block.lines.map((line, i) => (
@@ -707,7 +716,7 @@ function ItineraryBlockView({ block, tripId, onOpenPlace }: { block: ItineraryBl
         </div>
       )}
       {multi && (
-        <div className="flex gap-1.5 overflow-x-auto scrollbar-slim border-b border-border/60 px-4 py-2.5">
+        <div className="flex gap-1.5 overflow-x-auto overscroll-x-contain scrollbar-slim border-b border-border/60 px-4 py-2.5">
           {block.days.map((d, i) => (
             <button
               key={i}
@@ -760,10 +769,137 @@ function ItineraryBlockView({ block, tripId, onOpenPlace }: { block: ItineraryBl
   );
 }
 
+type TripUpdateBlockData = Extract<AssistantBlock, { type: "trip_update" }>;
+
+/** A visible "Destination updated: Toronto -> Osaka" receipt for a trip fact the assistant just
+ *  changed on the user's own explicit say-so. Applied immediately, never gated behind a confirm
+ *  dialog — but shown plainly, with a one-tap Undo that just re-sends the reverse statement
+ *  through the same chat pipeline rather than a separate undo code path. */
+function TripUpdateBlockView({ block, onFollowup }: { block: TripUpdateBlockData } & Pick<BlockHandlers, "onFollowup">) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      {block.changes.map((change, i) => (
+        <div key={i} className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-full border border-border/60 bg-muted/40 px-3 py-1.5 text-xs">
+          <RefreshCw className="h-3 w-3 shrink-0 text-coral" />
+          <span className="font-medium">{change.label} updated:</span>
+          <span className="text-muted-foreground">
+            {change.from ?? "not set"} <span aria-hidden>&rarr;</span> {change.to ?? "not set"}
+          </span>
+          {change.undoPrompt && (
+            <button
+              type="button"
+              onClick={() => onFollowup(change.undoPrompt!)}
+              className="ml-auto text-[11px] font-medium text-primary underline-offset-2 hover:underline"
+            >
+              Undo
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+type RouteSummaryBlockData = Extract<AssistantBlock, { type: "route_summary" }>;
+type RouteGroupBlock = { type: "route_group"; from: string; to: string; routes: RouteSummaryBlockData[] };
+type RenderBlock = AssistantBlock | RouteGroupBlock;
+
+const ROUTE_MODE_LABEL: Record<string, string> = { driving: "Drive", walking: "Walk", transit: "Transit" };
+const routeModeIcon = (mode: string) => (mode === "walking" ? Footprints : mode === "driving" ? Car : TrainFront);
+
+/**
+ * A "how do I get there" question now asks for more than one mode when none was named
+ * (turn-resolver.ts), so the SAME from/to can arrive as several consecutive `route_summary`
+ * blocks — one per mode. Grouping them here, at render time only, turns that into one "ways to
+ * get there" comparison instead of N stacked identical-looking cards; the wire contract still
+ * carries one block per mode.
+ */
+function groupRouteSummaries(blocks: AssistantBlock[]): RenderBlock[] {
+  const sameRoute = (a: RouteSummaryBlockData, b: RouteSummaryBlockData) =>
+    a.from.trim().toLowerCase() === b.from.trim().toLowerCase() && a.to.trim().toLowerCase() === b.to.trim().toLowerCase();
+  const out: RenderBlock[] = [];
+  for (const block of blocks) {
+    if (block.type !== "route_summary") {
+      out.push(block);
+      continue;
+    }
+    const prev = out[out.length - 1];
+    if (prev && prev.type === "route_group" && sameRoute(prev.routes[0], block)) {
+      prev.routes.push(block);
+    } else {
+      out.push({ type: "route_group", from: block.from, to: block.to, routes: [block] });
+    }
+  }
+  return out;
+}
+
+function RouteSummaryCard({ route }: { route: RouteSummaryBlockData }) {
+  const Icon = routeModeIcon(route.mode);
+  return (
+    <div className={cn(card, "p-3.5")}>
+      <p className="flex items-center gap-2 font-display text-sm">
+        <Icon className="h-4 w-4 text-coral" /> {route.from} → {route.to}
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground tabular-nums">
+        {Math.round(route.durationSeconds / 60)} min · {(route.distanceMeters / 1000).toFixed(1)} km
+        {route.fare ? ` · ${route.fare.amount} ${route.fare.currency}` : ""}
+        {route.departureTime
+          ? ` · leaves ${new Date(route.departureTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+          : ""}
+      </p>
+      {route.steps.length > 0 && (
+        <ol className="mt-2 list-decimal pl-4 text-xs text-ink-soft marker:text-muted-foreground">
+          {route.steps.map((step, stepIndex) => (
+            <li key={stepIndex} className="my-0.5">{step}</li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+/** 2+ modes between the same two places — one row each, fastest called out, sorted quickest first. */
+function RouteComparisonCard({ from, to, routes }: { from: string; to: string; routes: RouteSummaryBlockData[] }) {
+  const sorted = [...routes].sort((a, b) => a.durationSeconds - b.durationSeconds);
+  const fastest = sorted[0];
+  return (
+    <div className={cn(card, "divide-y divide-border/60 overflow-hidden")}>
+      <p className="px-3.5 pt-3.5 pb-2.5 font-display text-sm">
+        {from} → {to}
+      </p>
+      {sorted.map((route, i) => {
+        const Icon = routeModeIcon(route.mode);
+        return (
+          <div key={i} className="flex items-center gap-3 px-3.5 py-2.5">
+            <Icon className="h-4 w-4 shrink-0 text-coral" />
+            <div className="min-w-0 flex-1">
+              <p className="flex items-center gap-1.5 text-sm font-medium">
+                {ROUTE_MODE_LABEL[route.mode] ?? route.mode}
+                {route === fastest && <span className="text-[10px] font-medium text-leaf">Fastest</span>}
+              </p>
+              {route.steps[0] && <p className="truncate text-xs text-muted-foreground">{route.steps[0]}</p>}
+            </div>
+            <p className="shrink-0 text-right tabular-nums">
+              <span className="block text-sm font-semibold">{Math.round(route.durationSeconds / 60)} min</span>
+              <span className="text-xs text-muted-foreground">
+                {(route.distanceMeters / 1000).toFixed(1)} km{route.fare ? ` · ${route.fare.amount} ${route.fare.currency}` : ""}
+              </span>
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenStay, onOpenEvent, onOpenCollection, preview = true }: { blocks: AssistantBlock[]; preview?: boolean } & BlockHandlers) {
   return (
     <div className="mt-3 flex flex-col gap-3">
-      {blocks.map((block, index) => {
+      {groupRouteSummaries(blocks).map((block, index) => {
+        if (block.type === "trip_update") {
+          return <div key={index}><TripUpdateBlockView block={block} onFollowup={onFollowup} /></div>;
+        }
+
         if (block.type === "place_list") {
           const visible = preview ? block.places.slice(0, MAX_CHAT_CARDS) : block.places;
           const title = cleanSectionTitle(block.title);
@@ -775,7 +911,7 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
               />
               <div className={preview ? carousel : grid}>
                 {visible.map((place) => (
-                  <div key={place.providerId} className={preview ? "w-[228px] shrink-0 snap-start" : undefined}>
+                  <div key={place.providerId} className={preview ? "w-64 shrink-0 snap-start" : undefined}>
                     <PlaceCardView place={place} tripId={tripId} onOpenPlace={onOpenPlace} />
                   </div>
                 ))}
@@ -821,26 +957,13 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
           );
         }
 
-        if (block.type === "route_summary") {
-          const Icon = block.mode === "walking" ? Footprints : block.mode === "driving" ? Car : TrainFront;
+        if (block.type === "route_group") {
           return (
-            <div key={index} className={cn(card, "p-3.5")}>
-              <p className="flex items-center gap-2 font-display text-sm">
-                <Icon className="h-4 w-4 text-coral" /> {block.from} → {block.to}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground tabular-nums">
-                {Math.round(block.durationSeconds / 60)} min · {(block.distanceMeters / 1000).toFixed(1)} km
-                {block.fare ? ` · ${block.fare.amount} ${block.fare.currency}` : ""}
-                {block.departureTime
-                  ? ` · leaves ${new Date(block.departureTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-                  : ""}
-              </p>
-              {block.steps.length > 0 && (
-                <ol className="mt-2 list-decimal pl-4 text-xs text-ink-soft marker:text-muted-foreground">
-                  {block.steps.map((step, stepIndex) => (
-                    <li key={stepIndex} className="my-0.5">{step}</li>
-                  ))}
-                </ol>
+            <div key={index}>
+              {block.routes.length === 1 ? (
+                <RouteSummaryCard route={block.routes[0]} />
+              ) : (
+                <RouteComparisonCard from={block.from} to={block.to} routes={block.routes} />
               )}
             </div>
           );

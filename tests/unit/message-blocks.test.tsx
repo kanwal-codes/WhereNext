@@ -70,6 +70,31 @@ describe("MessageBlocks", () => {
     expect(html).toContain("Cais Sodré");
   });
 
+  it("groups consecutive route_summary blocks for the same from/to into one comparison, fastest first", () => {
+    const html = render([
+      { type: "route_summary", from: "Hotel", to: "Belém", mode: "driving", durationSeconds: 900, distanceMeters: 8000, steps: [], retrievedAt: "t" },
+      { type: "route_summary", from: "Hotel", to: "Belém", mode: "transit", durationSeconds: 1800, distanceMeters: 9000, steps: [], retrievedAt: "t" },
+    ]);
+    expect(html).toContain("Drive");
+    expect(html).toContain("Transit");
+    expect(html).toContain("Fastest");
+    expect(html).toContain("15 min");
+    expect(html).toContain("30 min");
+    // Only one "Fastest" tag, and it belongs to the shorter (driving) leg.
+    expect(html.match(/Fastest/g)?.length).toBe(1);
+    expect(html.indexOf("Drive")).toBeLessThan(html.indexOf("Fastest"));
+  });
+
+  it("does not group route_summary blocks for different from/to pairs", () => {
+    const html = render([
+      { type: "route_summary", from: "Hotel", to: "Belém", mode: "driving", durationSeconds: 900, distanceMeters: 8000, steps: [], retrievedAt: "t" },
+      { type: "route_summary", from: "Belém", to: "Airport", mode: "driving", durationSeconds: 1200, distanceMeters: 15000, steps: [], retrievedAt: "t" },
+    ]);
+    expect(html).not.toContain("Fastest"); // single-route cards, no comparison rendered
+    expect(html).toContain("Hotel");
+    expect(html).toContain("Airport");
+  });
+
   it("renders a checklist grouped with reasons", () => {
     const html = render([{ type: "checklist", groups: [{ title: "Packing", items: [{ text: "Rain shell", why: "showers likely" }] }] }]);
     expect(html).toContain("Packing");
@@ -151,7 +176,7 @@ describe("MessageBlocks", () => {
 
   it("events block: 'Major event' badge only at rank ≥ 65", () => {
     const html = render([{ type: "events", retrievedAt: "t", items: [
-      { title: "Huge Festival", url: "https://x/a", source: "predicthq", rank: 88 },
+      { title: "Huge Festival", url: "https://x/a", source: "ticketmaster", rank: 88 },
       { title: "Small Gig", url: "https://x/b", source: "eventbrite", rank: 30 },
     ] }]);
     const major = html.match(/Major event/g) ?? [];
@@ -178,7 +203,7 @@ describe("MessageBlocks", () => {
     const html = render([{ type: "events", retrievedAt: "t", items: [
       // Different provider spellings + a duplicate night — still one act.
       { title: "Yebba", url: "https://tm/yebba-26", date: "2026-10-26", venue: "L'Olympia, Montreal", source: "ticketmaster" },
-      { title: "YEBBA at L Olympia", url: "https://phq/yebba-26", date: "2026-10-26", venue: "L'Olympia", source: "predicthq" },
+      { title: "YEBBA at L Olympia", url: "https://eb/yebba-26", date: "2026-10-26", venue: "L'Olympia", source: "eventbrite" },
       { title: "YEBBA", url: "https://tm/yebba-27", date: "2026-10-27", venue: "L'Olympia", source: "ticketmaster" },
       { title: "Some Other Act", url: "https://tm/other", date: "2026-10-28", venue: "Corona", source: "ticketmaster" },
     ] }]);

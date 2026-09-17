@@ -20,6 +20,9 @@ export async function requireTripMember(tripId: string, opts: { role?: "owner" |
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new TripAuthError(401, "Authentication required");
   const membership = await supabase.from("trip_members").select("role").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle();
+  // A query failure (outage, timeout) must not read as "not a member" — that's a real 404 the
+  // route callers treat as final (e.g. notFound() in trip layout), while this is retryable.
+  if (membership.error) throw membership.error;
   if (!membership.data) throw new TripAuthError(404, "Trip not found");
   const role = String((membership.data as { role?: string }).role ?? "viewer");
   if (opts.role === "owner" && role !== "owner") throw new TripAuthError(403, "Trip owner required");

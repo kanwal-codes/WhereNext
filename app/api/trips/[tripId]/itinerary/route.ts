@@ -41,7 +41,34 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
       .is("removed_at", null)
       .maybeSingle();
     if (existing.error) throw existing.error;
-    if (existing.data) return NextResponse.json({ item: existing.data, alreadyExists: true });
+    if (existing.data) {
+      // Title is unique per trip (not per day), so a title collision doesn't mean "nothing to
+      // do" — the caller may be asking to move this to a different day than where it already
+      // sits. Silently returning the stale row here used to drop that request entirely.
+      if (item.dayIndex !== undefined && item.dayIndex !== existing.data.day_index) {
+        const lastAtTarget = await supabase
+          .from("trip_itinerary_items")
+          .select("position")
+          .eq("trip_id", tripId)
+          .eq("day_index", item.dayIndex)
+          .is("removed_at", null)
+          .order("position", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const movedPosition = item.position ?? ((lastAtTarget.data?.position ?? -1) + 1);
+        const moved = await supabase
+          .from("trip_itinerary_items")
+          .update({ day_index: item.dayIndex, position: movedPosition })
+          .eq("trip_id", tripId)
+          .eq("id", existing.data.id)
+          .select(SELECT)
+          .single();
+        if (moved.error) throw moved.error;
+        invalidateWorkspace(tripId);
+        return NextResponse.json({ item: moved.data, alreadyExists: true, moved: true });
+      }
+      return NextResponse.json({ item: existing.data, alreadyExists: true });
+    }
     // New items land at the end of their day.
     const last = await supabase
       .from("trip_itinerary_items")
@@ -80,21 +107,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ tr
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
     const raw = await request.json();
 
-    // Bulk reorder — the full new ordering for the days that moved.
+    // Bulk reorder — the full new ordering for the days that moved. One atomic call
+    // (reorder_itinerary_items, 0031) instead of N sequential per-row updates: a failure
+    // partway through used to leave the itinerary in a half-reordered state with no rollback.
     const reorder = itineraryReorderSchema.safeParse(raw);
     if (reorder.success) {
-      const locked = await supabase.from("trip_itinerary_items").select("title").eq("trip_id", tripId).is("removed_at", null).contains("metadata", { locked: true });
-      if (locked.error) throw locked.error;
-      const lockedTitles = new Set((locked.data ?? []).map((r) => r.title));
-      for (const row of reorder.data.order) {
-        if (lockedTitles.has(row.title)) continue; // locked items don't move
-        const upd = await supabase
-          .from("trip_itinerary_items")
-          .update({ day_index: row.dayIndex, position: row.position })
-          .eq("trip_id", tripId)
-          .eq("title", row.title);
-        if (upd.error) throw upd.error;
-      }
+      const payload = reorder.data.order.map((row) => ({ title: row.title, day_index: row.dayIndex, position: row.position }));
+      const rpc = await supabase.rpc("reorder_itinerary_items", { p_trip_id: tripId, p_order: payload });
+      if (rpc.error) throw rpc.error;
       const items = await supabase.from("trip_itinerary_items").select(SELECT).eq("trip_id", tripId).is("removed_at", null).order("day_index").order("position").order("created_at");
       if (items.error) throw items.error;
       invalidateWorkspace(tripId);

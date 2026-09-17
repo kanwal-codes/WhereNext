@@ -7,11 +7,12 @@ import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { safeFetch, readCapped, UnsafeUrlError } from "@/lib/server/safe-fetch";
 import { htmlToText } from "@/lib/server/html-text";
 import { tripImportResultSchema } from "@/packages/contracts/trip-import";
-import { createBulkGateway } from "@/packages/ai/gateway";
+import { generateStructured } from "@/packages/ai/model-policy";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { createPlaceRepository } from "@/features/places/infrastructure/placeRepository";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
 import { createTrip } from "@/features/trip/application/createTrip";
+import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 const GEOCODE_CAP = 15;
 
@@ -46,19 +47,29 @@ export async function POST(request: Request) {
     }
     if (pageText.length < 200) return NextResponse.json({ error: "There wasn’t enough on that page to import." }, { status: 422 });
 
-    const raw = await createBulkGateway().generateStructured(
+    const result = await generateStructured(
+      "bulk",
       [{ role: "system", content: EXTRACTOR }, { role: "user", content: pageText }],
+      tripImportResultSchema,
       request.signal,
     );
-    const result = tripImportResultSchema.parse(raw);
     if (!result.destination) return NextResponse.json({ error: "Couldn’t tell where that trip is." }, { status: 422 });
 
     // Geocode the named places against the destination; keep only ones that resolve.
     const provider = new GooglePlacesProvider();
+    // Phase 4 (docs/overhaul/roadmap/phase-4-recommendation-ranking.md) locationBias fix,
+    // extended here too: a single upfront geocode of the destination itself, biasing every
+    // per-place search that follows toward the same point. Lower risk than the generic-query
+    // case that motivated the original fix (a specific named place + city is Google's most
+    // reliable text-search shape already), but a same-named place existing in more than one city
+    // is a real possibility for a page recommending, say, "Cafe de Paris" — nothing previously
+    // told Google which one this trip's own destination means.
+    const [destHit] = await provider.search(result.destination, request.signal, 1).catch(() => []);
+    const locationBias = destHit ? { lat: destHit.latitude, lng: destHit.longitude } : undefined;
     const geocoded = (
       await Promise.all(
         result.places.slice(0, GEOCODE_CAP).map((p) =>
-          provider.search(`${p.name} ${result.destination}`, request.signal).then((hits) => hits[0] ?? null, () => null),
+          provider.search(`${p.name} ${result.destination}`, request.signal, undefined, locationBias).then((hits) => hits[0] ?? null, () => null),
         ),
       )
     ).filter((p): p is NonNullable<typeof p> => p !== null);
@@ -74,10 +85,16 @@ export async function POST(request: Request) {
         } as Parameters<typeof createTrip>[2])).id;
 
     const places = createPlaceRepository(supabase, createSupabaseAdminClient());
-    let saved = 0;
-    for (const place of geocoded) {
-      await places.save(tripId, place).then(() => (saved += 1), () => undefined);
-    }
+    // Each place save is an independent upsert (no shared ordering/position to preserve), so
+    // they run concurrently instead of one round trip at a time.
+    const saveResults = await Promise.allSettled(geocoded.map((place) => places.save(tripId, place)));
+    const saved = saveResults.filter((r) => r.status === "fulfilled").length;
+    // Every other trip_places writer calls this; this route was the one gap — bulk-importing
+    // into an ALREADY-OPEN trip left its 15s workspace cache stale, so the assistant's very next
+    // turn could miss (or wrongly deny) the places just imported. New-trip imports don't need
+    // this (nothing was cached yet for a brand-new id), but calling it unconditionally is cheap
+    // and correct either way.
+    if (saved > 0) invalidateWorkspace(tripId);
 
     return NextResponse.json({
       tripId,

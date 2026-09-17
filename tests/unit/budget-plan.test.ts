@@ -1,4 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+const { generateObjectMock } = vi.hoisted(() => ({ generateObjectMock: vi.fn() }));
+vi.mock("ai", async (importOriginal) => ({ ...(await importOriginal<object>()), generateObject: generateObjectMock }));
+
 import { buildBudgetBreakdown } from "../../lib/application/budget-plan";
 import type { RetrievedEvidence } from "../../lib/application/retrieve";
 
@@ -7,16 +11,16 @@ const tripCtx = { places: [] } as never;
 
 afterEach(() => {
   vi.restoreAllMocks();
-  delete process.env.AI_PROVIDER;
-  delete process.env.AI_API_KEY;
 });
 
+/** bulk block-builders now call `generateObject` (via Gateway) instead of hand-parsing a raw
+ *  fetch response — the mock still runs the schema, so it still exercises the builder's own
+ *  post-processing/validation logic, just without a real network call. */
 const stubModel = (content: unknown) => {
-  process.env.AI_PROVIDER = "openai-compatible";
-  process.env.AI_API_KEY = "k";
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
-    new Response(JSON.stringify({ choices: [{ message: { content: typeof content === "string" ? content : JSON.stringify(content) } }] }), { status: 200 }),
-  ));
+  generateObjectMock.mockImplementation(async ({ schema }: { schema: { parse: (v: unknown) => unknown } }) => ({
+    object: schema.parse(typeof content === "string" ? JSON.parse(content) : content),
+    usage: { inputTokens: 10, outputTokens: 10 },
+  }));
 };
 
 describe("buildBudgetBreakdown", () => {

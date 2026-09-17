@@ -1,19 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowDown, ArrowUp, ArrowUpRight, BedDouble, Clock, GripVertical, Loader2, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight, BedDouble, ChevronDown, ChevronUp, Clock, GripVertical, Loader2, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
 import type { ItineraryItem } from "@/features/itinerary/domain/item";
 import type { StayDecision } from "@/packages/contracts/stay";
 import { useTripPanel } from "@/components/TripPanelProvider";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
 import { cn } from "@/lib/utils";
-
-const fmtDay = (iso: string) => {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString([], { month: "short", day: "numeric" });
-};
+import { fmtDay } from "@/lib/trip-dates";
 
 /** The calendar date for day N (1-based) given the trip's start date, or null when there's no start date. */
 function dayDate(startDate: string | null | undefined, dayN: number): string | null {
@@ -81,6 +77,14 @@ export function ItinerarySurface({
       .catch(() => notifyToast("Couldn’t load the itinerary.", "error"));
   }, [tripId, initialItems]);
 
+  // A collaborator's edit lands as a fresh `initialItems` prop via the surrounding page's
+  // router.refresh() — this component stays mounted across that (no remount), so without
+  // re-syncing here, `items` would keep showing whatever was in state at first mount forever,
+  // never picking up a change made anywhere but this exact browser tab.
+  useEffect(() => {
+    if (initialItems) setItems(initialItems as ItineraryItem[]);
+  }, [initialItems]);
+
   const patch = async (body: Record<string, unknown>, optimistic: (list: ItineraryItem[]) => ItineraryItem[]) => {
     const previous = items;
     setItems(optimistic);
@@ -95,13 +99,21 @@ export function ItinerarySurface({
   async function add() {
     const value = title.trim();
     if (!value) return;
+    // Cleared BEFORE the request, not after: the POST includes a live geocode and can take a
+    // couple of seconds, and a user typing the next item while it's in flight was appending onto
+    // this one's still-present text — live-caught as a real corrupted title ("...MontrealDinner
+    // at Schwartz's Deli"), two items concatenated with no separator. Restored on failure only,
+    // so a real error doesn't lose what they typed.
+    setTitle("");
     const r = await fetch(`/api/trips/${tripId}/itinerary`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: value, dayIndex: day }) });
     if (r.ok) {
       const body = await r.json();
       setItems((cur) => (cur.some((i) => i.title === body.item.title) ? cur : [...cur, body.item]));
-      setTitle("");
       announceWorkspaceChange("itinerary");
-    } else notifyToast("Couldn’t add that item.", "error");
+    } else {
+      setTitle((cur) => cur || value);
+      notifyToast("Couldn’t add that item.", "error");
+    }
   }
 
   const move = (item: ItineraryItem, dir: -1 | 1) => {
@@ -109,6 +121,27 @@ export function ItinerarySurface({
     const next = Math.max(1, item.day_index + dir);
     if (next === item.day_index) return;
     reorder(item.title, next, null);
+  };
+
+  /**
+   * Swap `item` with its previous/next sibling within the same day. The only other way to
+   * reorder within a day is dragging the grip handle, which has no keyboard equivalent — this
+   * gives keyboard and screen-reader users the same "make this earlier/later today" action.
+   */
+  const moveWithinDay = (item: ItineraryItem, dir: -1 | 1) => {
+    if (item.metadata?.locked) return notifyToast("Unlock the item first.", "error");
+    const dayList = (itemsByDay.get(item.day_index) ?? []).slice();
+    const idx = dayList.findIndex((i) => i.title === item.title);
+    const swapIdx = idx + dir;
+    if (idx < 0 || swapIdx < 0 || swapIdx >= dayList.length) return;
+    if (dayList[swapIdx].metadata?.locked) return notifyToast("The item next to it is locked.", "error");
+    [dayList[idx], dayList[swapIdx]] = [dayList[swapIdx], dayList[idx]];
+    const renumbered = dayList.map((i, position) => ({ ...i, position }));
+    const byTitle = new Map(renumbered.map((i) => [i.title, i]));
+    void patch(
+      { order: renumbered.map((i) => ({ title: i.title, dayIndex: i.day_index, position: i.position ?? 0 })) },
+      (list) => list.map((i) => byTitle.get(i.title) ?? i),
+    );
   };
 
   const toggleLock = (item: ItineraryItem) => {
@@ -181,7 +214,19 @@ export function ItinerarySurface({
     setRemoved(null);
   }
 
-  const days = Array.from(new Set([...items.map((i) => i.day_index), 1])).sort((a, b) => a - b);
+  // Both derived from `items` alone — memoized so typing in the "add" title input (or any other
+  // state change that doesn't touch `items`) doesn't re-scan and re-sort the whole list.
+  const days = useMemo(() => Array.from(new Set([...items.map((i) => i.day_index), 1])).sort((a, b) => a - b), [items]);
+  const itemsByDay = useMemo(() => {
+    const map = new Map<number, ItineraryItem[]>();
+    for (const item of items) {
+      const list = map.get(item.day_index);
+      if (list) list.push(item);
+      else map.set(item.day_index, [item]);
+    }
+    for (const list of map.values()) list.sort(byOrder);
+    return map;
+  }, [items]);
 
   function onDropAt(toDay: number, beforeTitle: string | null) {
     setDropHint(null);
@@ -210,7 +255,7 @@ export function ItinerarySurface({
           e.preventDefault();
           void add();
         }}
-        className="flex flex-wrap items-center gap-2 rounded-2xl border border-input bg-card px-3 py-2 shadow-soft"
+        className="flex flex-wrap items-center gap-2 rounded-2xl border border-input bg-card px-3 py-2 shadow-soft focus-within:ring-2 focus-within:ring-ring/25"
       >
         <input
           aria-label="Add itinerary item"
@@ -237,7 +282,7 @@ export function ItinerarySurface({
       </form>
 
       {days.map((d) => {
-        const dayItems = items.filter((i) => i.day_index === d).sort(byOrder);
+        const dayItems = itemsByDay.get(d) ?? [];
         const date = dayDate(startDate, d);
         return (
           <section
@@ -281,14 +326,14 @@ export function ItinerarySurface({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     className={cn(
-                      "rounded-xl border border-dashed px-4 py-6 text-sm text-muted-foreground",
+                      "rounded-2xl border border-dashed px-5 py-6 text-sm text-muted-foreground",
                       dropHint === `${d}:end` ? "border-coral bg-coral-soft/40" : "border-border",
                     )}
                   >
                     Nothing scheduled for this day.
                   </motion.p>
                 )}
-                {dayItems.map((item) => {
+                {dayItems.map((item, itemIndex) => {
                   const locked = item.metadata?.locked === true;
                   const hint = dropHint === `${d}:${item.title}`;
                   const providerId = typeof item.metadata?.provider_id === "string" ? item.metadata.provider_id : null;
@@ -342,7 +387,7 @@ export function ItinerarySurface({
                               type="button"
                               onClick={() => void openPlace(item, providerId)}
                               disabled={resolvingTitle === item.title}
-                              className="truncate text-left hover:text-coral hover:underline disabled:opacity-60"
+                              className="text-left hover:text-coral hover:underline disabled:opacity-60"
                             >
                               {item.title}{" "}
                               {resolvingTitle === item.title ? (
@@ -381,6 +426,22 @@ export function ItinerarySurface({
                           })()}
                         </div>
                         <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                          <button
+                            aria-label={`Move ${item.title} earlier in the day`}
+                            onClick={() => moveWithinDay(item, -1)}
+                            disabled={locked || itemIndex === 0}
+                            className="rounded-lg p-1.5 hover:bg-accent disabled:opacity-30"
+                          >
+                            <ChevronUp className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            aria-label={`Move ${item.title} later in the day`}
+                            onClick={() => moveWithinDay(item, 1)}
+                            disabled={locked || itemIndex === dayItems.length - 1}
+                            className="rounded-lg p-1.5 hover:bg-accent disabled:opacity-30"
+                          >
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          </button>
                           <button aria-label="Move to previous day" onClick={() => move(item, -1)} disabled={locked} className="rounded-lg p-1.5 hover:bg-accent disabled:opacity-30">
                             <ArrowUp className="h-3.5 w-3.5" />
                           </button>

@@ -118,18 +118,6 @@ const TM_SEGMENT_MAP: Record<string, Vibe> = {
   Miscellaneous: "default",
 };
 
-/** PredictHQ `category` → vibe. Optional provider; this map is only consulted when
- *  a PredictHQ-sourced event carries a category. */
-const PREDICTHQ_CATEGORY_MAP: Record<string, Vibe> = {
-  concerts: "live_music",
-  festivals: "live_music",
-  "performing-arts": "performing_arts",
-  sports: "sports",
-  community: "default",
-  expos: "expo",
-  conferences: "expo",
-};
-
 /**
  * Sync vibe for a place: the Google type map first, then a keyword scan of the name, then
  * "default". No `secondary` here — a keyword hit is a single weak signal and pairing it as
@@ -152,16 +140,14 @@ export function classifyPlaceVibe(anchor: {
 }
 
 export function classifyEventVibe(event: {
-  predicthqCategory?: string | null;
   tmSegment?: string | null;
   title?: string;
   venue?: string;
 }): Vibe {
-  const phq = typeof event.predicthqCategory === "string" ? PREDICTHQ_CATEGORY_MAP[event.predicthqCategory] : undefined;
   const tm = typeof event.tmSegment === "string" ? TM_SEGMENT_MAP[event.tmSegment] : undefined;
   const title = typeof event.title === "string" ? event.title : "";
   const venue = typeof event.venue === "string" ? event.venue : "";
-  return phq || tm || keywordVibe(`${title} ${venue}`) || "default";
+  return tm || keywordVibe(`${title} ${venue}`) || "default";
 }
 
 /** Vibes where being outdoors / exposed to weather is inherent to the visit. */

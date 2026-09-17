@@ -80,7 +80,7 @@ export function buildComposeTools(deps: ComposeToolDeps) {
       description: "A live weather reading for a place (only useful for the next several days).",
       inputSchema: z.object({ location: z.string().min(1).max(200) }),
       execute: async ({ location }) => {
-        const ev = await run({ tool: "weather", location });
+        const ev = await run({ tool: "weather", location: deps.qualify(location) });
         return ev.weather ?? "no live reading available";
       },
     }),
@@ -88,7 +88,7 @@ export function buildComposeTools(deps: ComposeToolDeps) {
       description: "Concerts, festivals, sports, shows in a city. Add a research_web call alongside for context.",
       inputSchema: z.object({ query: z.string().max(200).default(""), location: z.string().min(1).max(200) }),
       execute: async ({ query, location }) => {
-        const ev = await run({ tool: "events", query, location });
+        const ev = await run({ tool: "events", query, location: deps.qualify(location), artist: null, category: null, dateScoped: null });
         return ev.events.slice(0, 8).map((e) => ({ title: e.title, date: e.date, venue: e.venue, source: e.source }));
       },
     }),
@@ -96,12 +96,12 @@ export function buildComposeTools(deps: ComposeToolDeps) {
       description: "Airfare estimates between two cities. Omit dates unless the user gave a real future one.",
       inputSchema: z.object({ origin: z.string().min(1).max(120), destination: z.string().min(1).max(120), departureDate: isoDate.optional() }),
       execute: async ({ origin, destination, departureDate }) => {
-        const ev = await run({ tool: "flights", origin, destination, departureDate: departureDate ?? deps.tripStart });
+        const ev = await run({ tool: "flights", origin, destination, departureDate: (departureDate ?? deps.tripStart) ?? null, returnDate: null });
         return ev.flights.flatMap((f) => f.offers.slice(0, 5).map((o) => ({ airline: o.airline, operatingAirline: o.operatingAirline, price: `${o.priceAmount} ${o.priceCurrency}`, airports: o.originAirport && o.destinationAirport ? `${o.originAirport} → ${o.destinationAirport}` : undefined, layovers: o.layoverAirports, cabin: o.cabinClass, baggage: o.baggage, aircraft: o.aircraft, fareConditions: o.fareConditions, stops: o.stops, hours: +(o.durationMinutes / 60).toFixed(1) })));
       },
     }),
     directions: tool({
-      description: "How to travel between two named places (transit, walking, or driving).",
+      description: "How to travel between two named places. Call once per mode (transit, driving, walking) when the traveller didn't name one — this shows a real comparison instead of a single guessed mode.",
       inputSchema: z.object({ from: z.string().min(1).max(160), to: z.string().min(1).max(160), mode: z.enum(["transit", "walking", "driving"]).default("transit") }),
       execute: async ({ from, to, mode }) => {
         const ev = await run({ tool: "directions", from: deps.qualify(from), to: deps.qualify(to), mode });
@@ -112,7 +112,7 @@ export function buildComposeTools(deps: ComposeToolDeps) {
       description: "Hotel options and nightly rates in an area. Set hotelName only when the user asked about one specific hotel.",
       inputSchema: z.object({ location: z.string().min(1).max(200), checkin: isoDate.optional(), checkout: isoDate.optional(), hotelName: z.string().max(160).optional() }),
       execute: async ({ location, checkin, checkout, hotelName }) => {
-        const ev = await run({ tool: "stays", location: deps.qualify(location), checkin: checkin ?? deps.tripStart, checkout: checkout ?? deps.tripEnd, hotelName });
+        const ev = await run({ tool: "stays", location: deps.qualify(location), checkin: (checkin ?? deps.tripStart) ?? null, checkout: (checkout ?? deps.tripEnd) ?? null, hotelName: hotelName ?? null });
         return ev.stays.flatMap((s) => s.options.slice(0, 6).map((o) => ({ name: o.name, nightly: `${o.nightlyAmount} ${o.currency}`, stars: o.stars, rating: o.rating })));
       },
     }),

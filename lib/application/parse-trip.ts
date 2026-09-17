@@ -1,4 +1,4 @@
-import { createBulkGateway } from "@/packages/ai/gateway";
+import { generateStructured } from "@/packages/ai/model-policy";
 import { parsedTripSchema, type ParsedTrip } from "@/features/trip/domain/trip";
 
 function system(today: string) {
@@ -24,14 +24,15 @@ Rules:
 /** One structured model call: a free-text trip description -> form fields. Never throws for a bad parse; returns {} instead. */
 export async function parseTripPrompt(prompt: string, signal?: AbortSignal): Promise<ParsedTrip> {
   try {
-    const raw = await createBulkGateway().generateStructured(
+    return await generateStructured(
+      "bulk",
       [
         { role: "system", content: system(new Date().toISOString().slice(0, 10)) },
         { role: "user", content: prompt.slice(0, 600) },
       ],
+      parsedTripSchema,
       signal,
     );
-    return parsedTripSchema.parse(raw);
   } catch {
     return {};
   }

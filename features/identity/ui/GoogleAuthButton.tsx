@@ -14,13 +14,17 @@ function GoogleIcon({ className }: { className?: string }) {
   );
 }
 
-/** "Continue with Google" — redirects to Supabase's Google OAuth, which returns to /auth-callback. */
-export function GoogleAuthButton({ label = "Continue with Google" }: { label?: string }) {
+/** "Continue with Google" — redirects to Supabase's Google OAuth, which returns to /auth-callback.
+ *  `redirectTo` is an internal path (e.g. a pending `/join/[token]`) `/auth-callback` sends the
+ *  browser on to once the OAuth exchange finishes — otherwise it defaults to `/trips`, silently
+ *  dropping whatever deep link brought the user to sign in/up in the first place. */
+export function GoogleAuthButton({ label = "Continue with Google", redirectTo }: { label?: string; redirectTo?: string }) {
   const [loading, setLoading] = useState(false);
 
   async function go() {
     setLoading(true);
-    const { error } = await signInWithGoogle(`${location.origin}/auth-callback`);
+    const callback = `${location.origin}/auth-callback${redirectTo ? `?next=${encodeURIComponent(redirectTo)}` : ""}`;
+    const { error } = await signInWithGoogle(callback);
     if (error) {
       setLoading(false); // on success the browser is already navigating away
       window.location.assign(`/sign-in?error=${encodeURIComponent(error.message)}`);

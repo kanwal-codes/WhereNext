@@ -47,14 +47,14 @@ describe("shapeLanes", () => {
     expect(out[0].places.map((p) => p.place.providerId)).toEqual(["keep"]);
   });
 
-  it("radius-filters when the lane asks and an anchor point exists", async () => {
+  it("decay-weights distance for a radius lane — closer ranks first, but a far place still appears (Phase 4.2.2, not a hard cutoff)", async () => {
     const near = place("near", { latitude: 0.001, longitude: 0.001 });
     const far = place("far", { latitude: 5, longitude: 5 });
     const out = await shapeLanes(
       [{ lane: lane({ radiusKm: 1 }), places: [near, far], events: [] }],
       ctx({ anchorPoint: { latitude: 0, longitude: 0 } }),
     );
-    expect(out[0].places.map((p) => p.place.providerId)).toEqual(["near"]);
+    expect(out[0].places.map((p) => p.place.providerId)).toEqual(["near", "far"]);
   });
 
   it("does not cap a peek lane — every ranked place is kept", async () => {

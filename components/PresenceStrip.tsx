@@ -1,13 +1,13 @@
 "use client";
 
-import { useTripDataMaybe } from "@/components/TripDataProvider";
+import { useTripPresence } from "@/components/TripDataProvider";
 
 const initials = (name: string) => name.trim().slice(0, 2).toUpperCase();
 const hue = (id: string) => [...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
 
 /** "N here" + coloured initials for everyone currently viewing the trip. Hidden when you're alone. */
 export function PresenceStrip({ className = "" }: { className?: string }) {
-  const peers = useTripDataMaybe()?.peers ?? [];
+  const peers = useTripPresence();
   if (peers.length < 2) return null;
   return (
     <div className={`flex items-center gap-2 ${className}`}>

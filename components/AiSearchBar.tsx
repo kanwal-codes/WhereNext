@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Loader2, Mic, Sparkles } from "lucide-react";
+import { Loader2, Mic } from "lucide-react";
 import { useSpeechInput } from "@/lib/use-speech-input";
 import type { AiSearchDirective, AiSearchScope } from "@/lib/application/ai-search";
 import { notifyToast } from "@/lib/application/toast";
@@ -9,8 +9,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Natural-language search. Sends the sentence to `/api/trips/:id/ai-search`, which
- * returns a typed directive; the parent applies it to its own filter state. Shows
- * the model's one-line interpretation so the user can see what it understood.
+ * returns a typed directive; the parent applies it to its own filter state.
  */
 export function AiSearchBar({
   tripId,
@@ -30,7 +29,6 @@ export function AiSearchBar({
 }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
   const base = useRef("");
   const abort = useRef<AbortController | null>(null);
 
@@ -61,8 +59,6 @@ export function AiSearchBar({
         return;
       }
       const directive = (body.directive ?? {}) as AiSearchDirective;
-      const actionable = Object.keys(directive).some((k) => k !== "interpretation");
-      setNote(directive.interpretation ?? (actionable ? null : "Couldn’t pin that down — searching for it as typed."));
       onDirective(directive, query);
     } catch (e) {
       if (!(e instanceof DOMException && e.name === "AbortError")) notifyToast("Something went wrong with that search — try again.", "error");
@@ -107,12 +103,6 @@ export function AiSearchBar({
           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Ask"}
         </button>
       </form>
-      {note && (
-        <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
-          <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-coral" />
-          {note}
-        </p>
-      )}
     </div>
   );
 }

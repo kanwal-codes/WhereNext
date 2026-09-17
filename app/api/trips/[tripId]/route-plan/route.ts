@@ -3,31 +3,34 @@ import type { RouteDay, RouteLeg, RoutePlan } from "@/packages/contracts/route-p
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
+import { destinationBias } from "@/lib/server/geocode-stop";
 import { transit } from "@/packages/providers/google-places/transit";
 import { route as mapboxRoute } from "@/packages/providers/mapbox/client";
-import { greatCircleArc } from "@/lib/application/geo";
+import { greatCircleArc, haversineKm as haversineKmPoint } from "@/lib/application/geo";
 import { pickLegOption, type LegOption } from "@/lib/application/leg-options";
 import { computeTimeFit } from "@/lib/application/time-fit";
 import { cached } from "@/lib/server/ttl-cache";
 
 type Stop = { id: string; name: string; lat: number; lng: number; time?: string };
 
-const R = 6371;
-const haversineKm = (a: Stop, b: Stop) => {
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(b.lat - a.lat);
-  const dLng = toRad(b.lng - a.lng);
-  const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(s));
-};
+// A local reimplementation of this used to live here, missing the `Math.min(1, ...)` clamp
+// `lib/application/geo.ts`'s canonical `haversineKm` applies before `Math.asin()` — that guard
+// exists because floating-point rounding can push the pre-asin value fractionally past 1 for
+// two very close or near-antipodal points, and `Math.asin()` of anything past 1 is `NaN`. The
+// duplicate silently lost that fix. Thin adapter instead of a second copy of the formula.
+const haversineKm = (a: Stop, b: Stop) => haversineKmPoint({ latitude: a.lat, longitude: a.lng }, { latitude: b.lat, longitude: b.lng });
 
 async function coordsFor(title: string, anchor: string, meta: Record<string, unknown> | null, signal?: AbortSignal): Promise<{ lat: number; lng: number } | null> {
   const lat = Number(meta?.latitude);
   const lng = Number(meta?.longitude);
   if (Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0)) return { lat, lng };
   try {
+    const provider = new GooglePlacesProvider();
+    // Phase 4 locationBias fix (docs/overhaul/roadmap/phase-4-recommendation-ranking.md),
+    // shared with lib/server/geocode-stop.ts's own use of the same helper.
+    const locationBias = anchor ? await destinationBias(provider, anchor) : undefined;
     const hit = (await cached(`geocode:${(title + anchor).toLowerCase()}`, 24 * 60 * 60_000, () =>
-      new GooglePlacesProvider().search(anchor ? `${title}, ${anchor}` : title, signal),
+      provider.search(anchor ? `${title}, ${anchor}` : title, signal, undefined, locationBias),
     ))[0];
     return hit ? { lat: hit.latitude, lng: hit.longitude } : null;
   } catch {
@@ -126,9 +129,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     ]);
     const anchor = (tripRow.data?.destination ?? "").trim();
     const items = (itinRes.data ?? []) as Array<{ id: string; title: string; day_index: number; metadata: Record<string, unknown> | null }>;
+    // Keyed by day too, not just the stop pair — a multi-day trip that revisits the same two
+    // stops later on has two distinct legs sharing a pair id; without the day prefix, picking a
+    // mode for one silently overwrote the stored choice for the other (both read and write side).
     const legChoices = new Map<string, RouteLeg["mode"]>();
-    for (const row of (choiceRes.data ?? []) as Array<{ value: { fromId?: string; toId?: string; mode?: string } }>) {
-      if (row.value?.fromId && row.value?.toId && row.value?.mode) legChoices.set(`${row.value.fromId}:${row.value.toId}`, row.value.mode as RouteLeg["mode"]);
+    for (const row of (choiceRes.data ?? []) as Array<{ value: { fromId?: string; toId?: string; mode?: string; dayIndex?: number } }>) {
+      if (row.value?.fromId && row.value?.toId && row.value?.mode && row.value?.dayIndex != null) {
+        legChoices.set(`${row.value.dayIndex}:${row.value.fromId}:${row.value.toId}`, row.value.mode as RouteLeg["mode"]);
+      }
     }
 
     const byDay = new Map<number, typeof items>();
@@ -141,19 +149,27 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     const unplaced: string[] = [];
     const days: RouteDay[] = [];
     for (const [day, dayItems] of [...byDay.entries()].sort((a, b) => a[0] - b[0])) {
-      const stops: Stop[] = [];
-      for (const it of dayItems) {
+      // Each stop's geocode is independent — resolved in parallel (like the leg-planning
+      // Promise.all just below) instead of one `await` per stop in a loop, which serialized what
+      // should be concurrent external lookups (a day with several un-geocoded stops paid for
+      // each one's full round trip back-to-back). `Promise.all` still preserves `dayItems`'
+      // order regardless of which resolves first, so stop order is unaffected.
+      const geocoded = await Promise.all(dayItems.map(async (it) => {
         const c = await coordsFor(it.title, anchor, it.metadata, request.signal);
         const stopTime = typeof it.metadata?.time === "string" ? it.metadata.time : undefined;
-        if (c) stops.push({ id: it.id, name: it.title, lat: c.lat, lng: c.lng, ...(stopTime ? { time: stopTime } : {}) });
-        else unplaced.push(it.title);
+        return c ? { title: it.title, stop: { id: it.id, name: it.title, lat: c.lat, lng: c.lng, ...(stopTime ? { time: stopTime } : {}) } as Stop } : { title: it.title, stop: null };
+      }));
+      const stops: Stop[] = [];
+      for (const { title, stop } of geocoded) {
+        if (stop) stops.push(stop);
+        else unplaced.push(title);
       }
       if (stops.length < 2) {
         days.push({ day, stops, legs: [], summary: { movingMinutes: 0, transitRides: 0, fare: null } });
         continue;
       }
       const pairs = stops.slice(0, -1).map((from, i) => [from, stops[i + 1]] as [Stop, Stop]);
-      const legs = await Promise.all(pairs.map(([a, b]) => planLeg(a, b, legChoices.get(`${a.id}:${b.id}`), request.signal)));
+      const legs = await Promise.all(pairs.map(([a, b]) => planLeg(a, b, legChoices.get(`${day}:${a.id}:${b.id}`), request.signal)));
       const movingMinutes = legs.reduce((t, l) => t + (l.minutes ?? 0), 0);
       const transitRides = legs.reduce((t, l) => t + l.steps.filter((s) => s.mode !== "walk").length, 0);
       const fareCur = legs.find((l) => l.fare)?.fare?.currency ?? null;

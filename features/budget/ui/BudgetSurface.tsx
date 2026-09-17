@@ -45,20 +45,33 @@ export function BudgetSurface({
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current); }, []);
 
-  async function persist(value: number) {
+  const MIN_DAILY = 20;
+
+  async function persist(value: number, previous: number) {
     const r = await fetch(`/api/trips/${tripId}/memory`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ budget: value }) });
     if (r.ok) {
       setSaved(true);
       announceWorkspaceChange("preferences");
-    } else notifyToast("That didn't save. Try again.", "error");
+    } else {
+      // The server correctly 400s an out-of-range value the client let through — without this
+      // the input stays showing that rejected number until a full reload, looking saved when
+      // it never was.
+      setDaily(previous);
+      notifyToast("That didn't save. Try again.", "error");
+    }
   }
 
   function update(value: number) {
     if (!Number.isFinite(value)) return; // an emptied/invalid number field must not persist as budget: null
-    setDaily(value);
+    // The range input's `min` is enforced natively by the browser, but the free-typed number
+    // field's `min` attribute is only checked on form submit, not on every keystroke — a typed
+    // negative value reaches here uncapped otherwise.
+    const clamped = Math.max(MIN_DAILY, Math.round(value));
+    const previous = daily;
+    setDaily(clamped);
     setSaved(false);
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => void persist(value), 400);
+    saveTimer.current = setTimeout(() => void persist(clamped, previous), 400);
   }
 
   const rows: Array<[string, string]> = [

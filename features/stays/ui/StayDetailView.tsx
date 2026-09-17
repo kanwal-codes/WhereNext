@@ -1,19 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, Clock, MapPin, MessageCircle, Star } from "lucide-react";
 import { Hero } from "@/components/Hero";
+import { DetailSectionHeading } from "@/components/DetailSectionHeading";
 import { BackLink } from "@/components/BackLink";
 import { NearbyEvents } from "@/components/NearbyEvents";
 import { NearbyStays } from "@/features/stays/ui/NearbyStays";
 import { NearbyRecommendations } from "@/components/NearbyRecommendations";
 import { Skeleton, SkeletonLines } from "@/components/Skeleton";
 import { Reveal, WordReveal } from "@/components/motion-primitives";
+import { PhotoLightbox, usePhotoLightbox } from "@/components/PhotoLightbox";
 import { useStayDetails } from "@/features/stays/application/useStayDetails";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { askAssistantHref } from "@/lib/places-ui";
 import { cn } from "@/lib/utils";
+
+// Stable reference so the memos below don't see a "new" empty array (and recompute for
+// nothing) on every render for a hotel with no facilities yet.
+const NO_FACILITIES: string[] = [];
 
 const facilityGroup = (facility: string) => {
   const value = facility.toLowerCase();
@@ -43,8 +49,29 @@ export function StayDetailView({
   const panel = variant === "panel";
   const [reviewsOpen, setReviewsOpen] = useState(false);
   const [amenityGroupOpen, setAmenityGroupOpen] = useState<string | null>(null);
+  const lightbox = usePhotoLightbox();
   const s = useStayDetails(tripId, hotelId, { checkin, checkout });
   const titleTag = useDocumentTitle(panel ? null : s.hotel?.name ?? "Stay");
+
+  // Derived from `s.hotel`/`s.reviews` alone — memoized (and computed before the loading/error
+  // early returns below, so the hook order stays fixed) so toggling `amenityGroupOpen` or
+  // `reviewsOpen` doesn't re-run the facility classification and review averaging on every render.
+  const facilities = s.hotel?.facilities ?? NO_FACILITIES;
+  const groupedFacilities = useMemo(() => facilities.slice(0, 32).reduce<Record<string, string[]>>((groups, facility) => {
+    const group = facilityGroup(facility);
+    (groups[group] ??= []).push(facility);
+    return groups;
+  }, {}), [facilities]);
+  const importantFacilities = useMemo(
+    () => facilities.filter((facility) => /wifi|wi-fi|internet|air conditioning|heating|non-smoking|family|front desk|restaurant|room service|parking|breakfast/i.test(facility)).slice(0, 8),
+    [facilities],
+  );
+  const importantSet = useMemo(() => new Set(importantFacilities), [importantFacilities]);
+  const ratedReviews = useMemo(() => s.reviews.filter((review) => typeof review.rating === "number"), [s.reviews]);
+  const reviewScore = useMemo(
+    () => (ratedReviews.length ? ratedReviews.reduce((total, review) => total + (review.rating ?? 0), 0) / ratedReviews.length : null),
+    [ratedReviews],
+  );
 
   const pad = panel ? "px-4 pb-8" : "mx-auto max-w-5xl px-5 pb-14 sm:px-8";
 
@@ -74,26 +101,12 @@ export function StayDetailView({
   const hotel = s.hotel;
   const name = hotel?.name ?? "Hotel";
   const images = hotel?.images ?? [];
-  const groupedFacilities = (hotel?.facilities ?? []).slice(0, 32).reduce<Record<string, string[]>>((groups, facility) => {
-    const group = facilityGroup(facility);
-    (groups[group] ??= []).push(facility);
-    return groups;
-  }, {});
-  const importantFacilities = (hotel?.facilities ?? []).filter((facility) => /wifi|wi-fi|internet|air conditioning|heating|non-smoking|family|front desk|restaurant|room service|parking|breakfast/i.test(facility)).slice(0, 8);
-  const importantSet = new Set(importantFacilities);
-  const ratedReviews = s.reviews.filter((review) => typeof review.rating === "number");
-  const reviewScore = ratedReviews.length
-    ? ratedReviews.reduce((total, review) => total + (review.rating ?? 0), 0) / ratedReviews.length
-    : null;
 
   const body = (
     <div className="min-w-0 space-y-10">
       <Reveal delay={0.06}>
         <section>
-          <div className="flex items-center gap-3">
-            <span className="h-px w-7 bg-coral" />
-            <h2 className="font-display text-xl">The stay</h2>
-          </div>
+          <DetailSectionHeading>The stay</DetailSectionHeading>
           {hotel?.description ? (
             <p className="mt-2 text-[15px] leading-[1.8] text-ink-soft">{hotel.description}</p>
           ) : (
@@ -116,14 +129,19 @@ export function StayDetailView({
       {images.length > 1 && (
         <Reveal delay={0.08}>
           <section>
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="font-display text-xl">A feel for the place</h2>
-              <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Photos</span>
-            </div>
-            <div className={cn("mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto no-scrollbar pb-1", panel ? "-mr-4 pr-4" : "-mx-5 px-5 sm:mx-0 sm:px-0")}>
-              {images.slice(1).map((src) => (
-                // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
-                <img key={src} src={src} alt={name} loading="lazy" width={288} height={192} className="h-44 w-72 shrink-0 snap-start rounded-2xl border border-border object-cover" />
+            <DetailSectionHeading>A feel for the place</DetailSectionHeading>
+            <div className={cn("mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain no-scrollbar pb-1", panel ? "-mr-4 pr-4" : "-mx-5 px-5 sm:mx-0 sm:px-0")}>
+              {images.slice(1).map((src, i) => (
+                <button
+                  key={src}
+                  type="button"
+                  onClick={() => lightbox.open(i)}
+                  aria-label={`Expand photo ${i + 1} of ${name}`}
+                  className="shrink-0 snap-start rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI */}
+                  <img src={src} alt={name} loading="lazy" width={288} height={192} className="h-44 w-72 rounded-2xl border border-border object-cover transition-opacity hover:opacity-90" />
+                </button>
               ))}
             </div>
           </section>
@@ -133,10 +151,7 @@ export function StayDetailView({
       {(hotel?.facilities.length ?? 0) > 0 && (
         <Reveal delay={0.1}>
           <section>
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="font-display text-xl">What&rsquo;s included</h2>
-              <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Amenities</span>
-            </div>
+            <DetailSectionHeading>What&rsquo;s included</DetailSectionHeading>
             <div className="mt-3 rounded-[1.5rem] border border-border/80 bg-card/60 p-4">
               <p className="text-xs leading-relaxed text-muted-foreground">The essentials for a comfortable stay.</p>
               {importantFacilities.length > 0 ? (
@@ -167,10 +182,7 @@ export function StayDetailView({
       {(s.sentiment || s.reviews.length > 0) && (
         <Reveal delay={0.14}>
           <section>
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="font-display text-xl">What guests say</h2>
-              <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Recent stays</span>
-            </div>
+            <DetailSectionHeading>What guests say</DetailSectionHeading>
             <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]">
               {reviewScore !== null && (
                 <div className="rounded-[1.5rem] border border-border/80 bg-card/75 p-4">
@@ -241,15 +253,20 @@ export function StayDetailView({
   return (
     <div>
       {titleTag}
-      <Hero image={images[0] ?? "/design/place-hotel.jpg"} alt={name} plain surface={panel} className={cn(panel ? "h-56" : "h-[38vh] min-h-[280px] sm:h-[46vh] sm:max-h-[460px]")}>
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/65 via-ink/10 to-transparent" />
-        <div className="absolute inset-x-4 bottom-4 flex items-end justify-end gap-3 text-white sm:inset-x-6 sm:bottom-6">
-          {typeof hotel?.rating === "number" && (
-            <div className="flex items-center gap-1.5 rounded-full bg-ink/35 px-3 py-1.5 text-xs backdrop-blur-md">
+      <Hero
+        image={images[0] ?? "/design/place-hotel.jpg"}
+        alt={name}
+        plain
+        surface={panel}
+        className={cn(panel ? "h-44" : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")}
+        ratingBadge={
+          typeof hotel?.rating === "number" && (
+            <>
               <Star className="h-3.5 w-3.5 fill-current text-coral" /> {hotel.rating}/10
-            </div>
-          )}
-        </div>
+            </>
+          )
+        }
+      >
         {!panel && <BackLink fallback={`/trips/${tripId}/stay`} label="Back" className="absolute left-4 top-4 border-white/30 bg-ink/25 text-white hover:bg-ink/45" />}
       </Hero>
 
@@ -257,10 +274,10 @@ export function StayDetailView({
         <Reveal>
           <div className="pt-6">
             <div className="flex items-center gap-2">
-              <span className="eyebrow text-coral">Hotel</span>
+              <span className="eyebrow">Hotel</span>
               {typeof hotel?.stars === "number" && <span className="text-xs text-muted-foreground">{hotel.stars} star{hotel.stars === 1 ? "" : "s"}</span>}
             </div>
-            <WordReveal text={name} delay={0.18} className={cn("mt-2 max-w-2xl font-display leading-[1.05] tracking-[-0.03em]", panel ? "text-3xl" : "text-4xl sm:text-5xl")} />
+            <WordReveal text={name} delay={0.18} className={cn("mt-2 max-w-2xl font-display leading-tight", panel ? "text-2xl" : "text-4xl")} />
             <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
               {hotel?.address && (
                 <span className="inline-flex items-center gap-1.5">
@@ -313,6 +330,8 @@ export function StayDetailView({
           </div>
         )}
       </div>
+
+      <PhotoLightbox photos={images.slice(1)} index={lightbox.index} onIndexChange={lightbox.open} onClose={lightbox.close} alt={name} />
     </div>
   );
 }

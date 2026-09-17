@@ -26,10 +26,6 @@ describe("classifyPlaceVibe", () => {
 });
 
 describe("classifyEventVibe", () => {
-  it("prefers the PredictHQ category", () => {
-    expect(classifyEventVibe({ predicthqCategory: "expos", tmSegment: "Music" })).toBe("expo");
-  });
-
   it("falls back to the Ticketmaster segment", () => {
     expect(classifyEventVibe({ tmSegment: "Arts & Theatre" })).toBe("performing_arts");
   });

@@ -109,9 +109,9 @@ describe("rebuild contracts", () => {
       ] });
     expect(ok.success).toBe(true);
     // rank is a 0–100 city-scale score; a negative offset or an out-of-range rank is rejected
-    expect(assistantBlockSchema.safeParse({ type: "events", retrievedAt: "t", items: [{ title: "X", url: "https://x/1", source: "predicthq", rank: 140 }] }).success).toBe(false);
-    expect(assistantBlockSchema.safeParse({ type: "events", retrievedAt: "t", items: [{ title: "X", url: "https://x/1", source: "predicthq", offsetDays: -2 }] }).success).toBe(false);
-    expect(assistantBlockSchema.safeParse({ type: "events", retrievedAt: "t", items: [{ title: "X", url: "https://x/1", source: "predicthq", relToTrip: "someday" }] }).success).toBe(false);
+    expect(assistantBlockSchema.safeParse({ type: "events", retrievedAt: "t", items: [{ title: "X", url: "https://x/1", source: "ticketmaster", rank: 140 }] }).success).toBe(false);
+    expect(assistantBlockSchema.safeParse({ type: "events", retrievedAt: "t", items: [{ title: "X", url: "https://x/1", source: "ticketmaster", offsetDays: -2 }] }).success).toBe(false);
+    expect(assistantBlockSchema.safeParse({ type: "events", retrievedAt: "t", items: [{ title: "X", url: "https://x/1", source: "ticketmaster", relToTrip: "someday" }] }).success).toBe(false);
     // window and the new item fields are all optional — a bare events block still parses
     expect(assistantBlockSchema.safeParse({ type: "events", retrievedAt: "t", items: [{ title: "X", url: "https://x/1", source: "seatgeek" }] }).success).toBe(true);
   });

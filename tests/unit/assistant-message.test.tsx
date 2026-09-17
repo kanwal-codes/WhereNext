@@ -62,4 +62,17 @@ describe("AssistantMessage", () => {
     expect(portableProxyPhotoUrl(`http://localhost:3003${PROXY}`)).toBe(PROXY);
     expect(portableProxyPhotoUrl(`https://preview.example${PROXY}`)).toBe(PROXY);
   });
+
+  it("renders plain inert text while streaming, even for content that would otherwise become a link or image", () => {
+    // The live stream carries raw provider text before sanitizeAssistantContent's allowedUrls
+    // check ever runs on it — while streaming, nothing should be clickable or renderable as
+    // markdown, regardless of what the in-progress text contains.
+    const html = renderToStaticMarkup(
+      <AssistantMessage content={`Check out [this link](https://not-yet-vetted.example) and ![img](${PROXY})`} streaming />,
+    );
+    expect(html).not.toContain("<a");
+    expect(html).not.toContain("<img");
+    expect(html).not.toContain("target=\"_blank\"");
+    expect(html).toContain("this link");
+  });
 });

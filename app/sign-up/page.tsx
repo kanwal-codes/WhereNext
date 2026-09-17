@@ -1,12 +1,13 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "motion/react";
 import { ArrowRight, Check, Eye, EyeOff } from "lucide-react";
 import { AuthShell, Divider, Field, SubmitButton, inputClass } from "@/components/AuthShell";
 import { GoogleAuthButton } from "@/features/identity/ui/GoogleAuthButton";
 import { signUp } from "@/features/identity/application/authClient";
+import { safeRedirect } from "@/lib/client/safe-redirect";
 
 function strengthOf(pw: string) {
   let score = 0;
@@ -28,6 +29,11 @@ export default function SignUpPage() {
   const [message, setMessage] = useState("");
   const score = useMemo(() => strengthOf(pw), [pw]);
   const reduceMotion = useReducedMotion();
+  const [redirect, setRedirect] = useState<string | null>(null);
+
+  useEffect(() => {
+    setRedirect(new URLSearchParams(window.location.search).get("redirect"));
+  }, []);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -38,7 +44,11 @@ export default function SignUpPage() {
     setError("");
     setMessage("");
     setLoading(true);
-    const result = await signUp(email, pw, `${location.origin}/auth-callback`);
+    // A pending invite (or any other deep link) rides along as `next` on the confirmation-email
+    // callback — without this, confirming the email always landed a brand-new user on their own
+    // /trips list, having never actually joined whatever they signed up to join.
+    const callback = `${location.origin}/auth-callback${redirect ? `?next=${encodeURIComponent(redirect)}` : ""}`;
+    const result = await signUp(email, pw, callback);
     if (result.error) {
       setError(result.error.message);
       setLoading(false);
@@ -49,7 +59,9 @@ export default function SignUpPage() {
       setLoading(false);
       return;
     }
-    location.assign("/trips/new");
+    // No pending redirect → the normal new-signup path (straight into the conversational
+    // starter); a pending one (e.g. a group invite) takes priority over that default.
+    location.assign(redirect ? safeRedirect(redirect, "/trips/new") : "/trips/new");
   }
 
   return (
@@ -61,7 +73,7 @@ export default function SignUpPage() {
         <div className="space-y-2">
           <p>
             Already have an account?{" "}
-            <Link href="/sign-in" className="link-underline font-medium text-foreground">
+            <Link href={redirect ? `/sign-in?redirect=${encodeURIComponent(redirect)}` : "/sign-in"} className="link-underline font-medium text-foreground">
               Sign in
             </Link>
           </p>
@@ -73,10 +85,13 @@ export default function SignUpPage() {
         </div>
       }
     >
-      <GoogleAuthButton label="Sign up with Google" />
+      <GoogleAuthButton label="Sign up with Google" redirectTo={redirect ?? undefined} />
       <Divider label="or" />
 
-      <form className="space-y-5" onSubmit={submit}>
+      {/* method="post" defense-in-depth fallback — see app/sign-in/page.tsx's identical form for
+          the live-caught reason (a password leaking into the URL/server logs via the browser's
+          own default GET submission, if a click lands before React hydrates onSubmit below). */}
+      <form className="space-y-5" method="post" onSubmit={submit}>
         <Field label="Email">
           <input type="email" name="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={inputClass} />
         </Field>

@@ -1,4 +1,18 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+
+// Montreal QA pass (2026-09-16): every non-LIVE case in this file was failing with intent
+// "other" (`resolveTurn`'s own degraded fallback) instead of the replayed `ideal.intent`. Root
+// cause: this mocked fetch + AI_PROVIDER="openai-compatible" — a leftover from before the
+// provider chain was consolidated behind the Vercel AI Gateway's own `generateObject` call
+// (see the "every provider now goes through the SAME client" comment in packages/ai/gateway.ts).
+// `gateway()`/`generateObject` never reads AI_PROVIDER/AI_API_KEY and doesn't necessarily reach
+// the stubbed global fetch either, so every replayed call threw, `resolveTurn` exhausted both
+// attempts, and fell back to `resolvedTurnSchema.parse({})` — intent "other" by construction.
+// Fixed by mocking `generateObject` itself, the same pattern already used by
+// tests/unit/evaluator.test.ts for the exact same underlying call.
+const { generateObjectMock } = vi.hoisted(() => ({ generateObjectMock: vi.fn() }));
+vi.mock("ai", async (importOriginal) => ({ ...(await importOriginal<object>()), generateObject: generateObjectMock }));
+
 import { resolveTurn } from "@/lib/application/turn-resolver";
 import { RESOLVE_GRADE_SET } from "../support/resolve-grade-set";
 import { scoreToolPlan, summariseScores, type PlanScore } from "../support/score-tool-plan";
@@ -18,22 +32,14 @@ const LIVE = process.env.EVAL_LIVE === "1";
 const collected: Array<{ id: string; score: PlanScore; got: { intent: string; tools: string[] } }> = [];
 
 function replay(idealJson: unknown) {
-  process.env.AI_PROVIDER = "openai-compatible";
-  process.env.AI_API_KEY = "test-key";
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(idealJson) } }] }), { status: 200 }),
-    ),
-  );
+  generateObjectMock.mockImplementation(async ({ schema }: { schema: { parse: (v: unknown) => unknown } }) => ({
+    object: schema.parse(idealJson),
+    usage: { inputTokens: 10, outputTokens: 10 },
+  }));
 }
 
 afterEach(() => {
   vi.restoreAllMocks();
-  if (!LIVE) {
-    delete process.env.AI_PROVIDER;
-    delete process.env.AI_API_KEY;
-  }
 });
 
 describe(`RESOLVE tool-plan accuracy${LIVE ? " (LIVE)" : " (replayed)"}`, () => {

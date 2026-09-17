@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BedDouble, Check } from "lucide-react";
+import { BedDouble, Check, Compass } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
 import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { useTripData } from "@/components/TripDataProvider";
@@ -12,8 +12,10 @@ import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProv
 import { useInfiniteReveal } from "@/lib/use-infinite-reveal";
 import { PlaceCard } from "@/components/PlaceCard";
 import { rankPlaces, type RankAnchor } from "@/lib/application/rank-places";
+import { readStayDecision } from "@/packages/contracts/stay";
 import { EventCard, type NearbyEvent } from "@/components/EventCard";
 import { SkeletonCards } from "@/components/Skeleton";
+import { EmptyState } from "@/components/EmptyState";
 import { Stagger, StaggerItem } from "@/components/motion-primitives";
 import { CATEGORIES, CATEGORY_BY_KEY, type DiscoverCategory } from "./discoverTaxonomy";
 import { cn } from "@/lib/utils";
@@ -149,34 +151,39 @@ export function DiscoverySurface({
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const reqId = useRef(0);
+  // Cancels the in-flight provider requests from whatever `loadAll`/`loadCategory` call this one
+  // supersedes — `reqId` already discards a stale *result*, but without this the superseded
+  // request keeps running server-side to completion regardless, burning provider quota and
+  // backend load on every fast category switch or re-search.
+  const abortRef = useRef<AbortController | null>(null);
   const eventsPage = useRef(0);
   const eventsLoading = useRef(false);
   const eventsHasMore = useRef(true);
   const eventsSentinel = useRef<HTMLDivElement | null>(null);
 
   const fetchPlaces = useCallback(
-    async (q: string): Promise<Place[]> => {
-      const r = await fetch(`/api/trips/${tripId}/places?query=${encodeURIComponent(scope(q))}`);
+    async (q: string, signal?: AbortSignal): Promise<Place[]> => {
+      const r = await fetch(`/api/trips/${tripId}/places?query=${encodeURIComponent(scope(q))}`, { signal });
       const body = await r.json().catch(() => ({}));
       return r.ok ? (body.places ?? []) : [];
     },
     [tripId, scope],
   );
   const fetchEvents = useCallback(
-    async (q: string, page = 0): Promise<NearbyEvent[]> => {
+    async (q: string, page = 0, signal?: AbortSignal): Promise<NearbyEvent[]> => {
       if (!destination) return [];
       const qs = new URLSearchParams({ location: destination });
       if (q) qs.set("query", q);
       if (page > 0) qs.set("page", String(page));
-      const r = await fetch(`/api/trips/${tripId}/events?${qs}`);
+      const r = await fetch(`/api/trips/${tripId}/events?${qs}`, { signal });
       const body = await r.json().catch(() => ({}));
       return r.ok ? (body.events ?? []) : [];
     },
     [tripId, destination],
   );
-  const fetchStays = useCallback(async (): Promise<StayItem[]> => {
+  const fetchStays = useCallback(async (signal?: AbortSignal): Promise<StayItem[]> => {
     if (!destination) return [];
-    const r = await fetch(`/api/trips/${tripId}/stays`);
+    const r = await fetch(`/api/trips/${tripId}/stays`, { signal });
     const body = await r.json().catch(() => ({}));
     return r.ok ? ((body.options ?? []) as Array<Record<string, unknown>>).map(toStayItem).filter((s) => s.hotelId) : [];
   }, [tripId, destination]);
@@ -185,24 +192,33 @@ export function DiscoverySurface({
   // RETRIEVE uses, so Discover and chat stay coherent.
   const dislikesKey = asList(prefs.dislikes).join(",").toLowerCase();
   const savedKey = saved.map((p) => p.providerId).sort().join(",");
+  const rejectedKey = (data?.rejectedPlaceIds ?? []).slice().sort().join(",");
   const itinKey = (data?.itinerary ?? [])
     .map((i) => (i.metadata as { latitude?: number; longitude?: number } | null) ?? {})
     .map((m) => `${num(m.latitude) ?? ""},${num(m.longitude) ?? ""}`)
     .join("|");
+  // Distinct from the `anchor` centroid below: only ever a real, confirmed hotel, so the
+  // ranker's "why" label can honestly say "from your stay" (see rank-places.ts's stayAnchor doc).
+  const lockedStay = readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
+  const stayKey = lockedStay?.latitude != null && lockedStay?.longitude != null ? `${lockedStay.latitude},${lockedStay.longitude}` : "";
   const rankCtx = useMemo(() => {
     const pts = itinKey.split("|").map((s) => s.split(",")).filter((xy) => xy[0] && xy[1]).map(([a, b]) => ({ latitude: Number(a), longitude: Number(b) }));
     const anchor: RankAnchor | null = pts.length
       ? { latitude: pts.reduce((s, p) => s + p.latitude, 0) / pts.length, longitude: pts.reduce((s, p) => s + p.longitude, 0) / pts.length }
       : null;
+    const [stayLat, stayLng] = stayKey.split(",");
+    const stayAnchor: RankAnchor | null = stayKey ? { latitude: Number(stayLat), longitude: Number(stayLng) } : null;
     return {
       interests: asList(prefs.interests),
       likes: asList(prefs.likes),
       dislikes: dislikesKey.split(",").filter(Boolean),
       savedIds: savedKey.split(",").filter(Boolean),
+      rejectedIds: rejectedKey.split(",").filter(Boolean),
       anchor,
+      stayAnchor,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- primitive keys stand in for the object deps
-  }, [interestsKey, dislikesKey, savedKey, itinKey]);
+  }, [interestsKey, dislikesKey, savedKey, rejectedKey, itinKey, stayKey]);
   const rankToItems = useCallback(
     (places: Place[]): Item[] => rankPlaces(places, rankCtx).map((r) => ({ kind: "place", place: r.place, why: r.why })),
     [rankCtx],
@@ -210,6 +226,9 @@ export function DiscoverySurface({
 
   const loadAll = useCallback(async () => {
     const mine = ++reqId.current;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     eventsPage.current = 0;
     eventsHasMore.current = true;
     // Not keyed on saved places: the digest's *membership* doesn't change when you
@@ -228,12 +247,12 @@ export function DiscoverySurface({
     setLoading(true);
     setMessage("");
     const [forYou, sights, eat, tours, ev, st] = await Promise.allSettled([
-      fetchPlaces(interests.length ? interests.join(", ") : "highly rated things to do"),
-      fetchPlaces("top sights and landmarks"),
-      fetchPlaces("well-reviewed restaurants and cafes"),
-      fetchPlaces("guided tours"),
-      fetchEvents(""),
-      fetchStays(),
+      fetchPlaces(interests.length ? interests.join(", ") : "highly rated things to do", controller.signal),
+      fetchPlaces("top sights and landmarks", controller.signal),
+      fetchPlaces("well-reviewed restaurants and cafes", controller.signal),
+      fetchPlaces("guided tours", controller.signal),
+      fetchEvents("", 0, controller.signal),
+      fetchStays(controller.signal),
     ]);
     if (mine !== reqId.current) return;
     const ok = <T,>(r: PromiseSettledResult<T[]>): T[] => (r.status === "fulfilled" ? r.value : []);
@@ -253,7 +272,16 @@ export function DiscoverySurface({
       { key: "stays", label: "Places to stay", items: ok(st).slice(0, 4).map((s) => ({ kind: "stay", stay: s }) as Item) },
     ].filter((b) => b.items.length);
     setBands(next);
-    try { sessionStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), bands: next })); } catch { /* ignore */ }
+    // Live-caught: every provider call can transiently return nothing at once (a rate limit, a
+    // blip) — caching THAT for 30 minutes meant one bad load left the page stuck showing "Nothing
+    // came back" with no way to recover short of waiting out the TTL, since a reload just replays
+    // the cached empty digest without ever re-fetching. A genuinely empty destination is not a
+    // real case these generic category queries ("top sights", "restaurants", ...) hit in
+    // practice, so only a non-empty digest is worth caching — an empty one leaves the cache alone
+    // and tries again fresh next visit.
+    if (next.length > 0) {
+      try { sessionStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), bands: next })); } catch { /* ignore */ }
+    }
     setLoading(false);
     setMessage(next.length ? "" : "Nothing came back just now. Try a search or a different category.");
   }, [fetchPlaces, fetchEvents, fetchStays, interests, interestsKey, dislikesKey, destination, tripId, rankToItems]);
@@ -293,44 +321,54 @@ export function DiscoverySurface({
   const loadCategory = useCallback(
     async (cat: DiscoverCategory, chosen: string[]) => {
       const mine = ++reqId.current;
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
       setLoading(true);
       setMessage("");
-      const subQ = (label: string) => cat.subs.find((s) => s.label === label)?.q ?? label;
-      const cacheKey = `${tripId}:${cat.key}:${cat.kind === "stay" ? "" : [...chosen].sort().join("|")}`;
-      const cachedRaw = categoryRawCache.get(cacheKey);
-      let next: Item[] = [];
-      if (cat.kind === "place") {
-        let places = cachedRaw as Place[] | undefined;
-        if (!places) {
-          const queries = chosen.length ? chosen.map(subQ) : [cat.q];
-          const lists = await Promise.all(queries.map(fetchPlaces));
-          const map = new Map<string, Place>();
-          for (const list of lists) for (const p of list) map.set(p.providerId, p);
-          places = [...map.values()];
-          categoryRawCache.set(cacheKey, places);
+      try {
+        const subQ = (label: string) => cat.subs.find((s) => s.label === label)?.q ?? label;
+        const cacheKey = `${tripId}:${cat.key}:${cat.kind === "stay" ? "" : [...chosen].sort().join("|")}`;
+        const cachedRaw = categoryRawCache.get(cacheKey);
+        let next: Item[] = [];
+        if (cat.kind === "place") {
+          let places = cachedRaw as Place[] | undefined;
+          if (!places) {
+            const queries = chosen.length ? chosen.map(subQ) : [cat.q];
+            const lists = await Promise.all(queries.map((q) => fetchPlaces(q, controller.signal)));
+            const map = new Map<string, Place>();
+            for (const list of lists) for (const p of list) map.set(p.providerId, p);
+            places = [...map.values()];
+            categoryRawCache.set(cacheKey, places);
+          }
+          next = rankToItems(places);
+        } else if (cat.kind === "event") {
+          let events = cachedRaw as NearbyEvent[] | undefined;
+          if (!events) {
+            events = await fetchEvents(chosen.map(subQ).join(" "), 0, controller.signal);
+            categoryRawCache.set(cacheKey, events);
+          }
+          next = events.map((e) => ({ kind: "event", event: e }));
+        } else {
+          let all = cachedRaw as StayItem[] | undefined;
+          if (!all) {
+            all = await fetchStays(controller.signal);
+            categoryRawCache.set(cacheKey, all);
+          }
+          const wanted = chosen.length ? new Set(chosen.map((l) => Number(subQ(l)))) : null;
+          const list = wanted ? all.filter((s) => wanted.has(starBand(s.stars))) : all;
+          next = list.map((s) => ({ kind: "stay", stay: s }));
         }
-        next = rankToItems(places);
-      } else if (cat.kind === "event") {
-        let events = cachedRaw as NearbyEvent[] | undefined;
-        if (!events) {
-          events = await fetchEvents(chosen.map(subQ).join(" "));
-          categoryRawCache.set(cacheKey, events);
-        }
-        next = events.map((e) => ({ kind: "event", event: e }));
-      } else {
-        let all = cachedRaw as StayItem[] | undefined;
-        if (!all) {
-          all = await fetchStays();
-          categoryRawCache.set(cacheKey, all);
-        }
-        const wanted = chosen.length ? new Set(chosen.map((l) => Number(subQ(l)))) : null;
-        const list = wanted ? all.filter((s) => wanted.has(starBand(s.stars))) : all;
-        next = list.map((s) => ({ kind: "stay", stay: s }));
+        if (mine !== reqId.current) return;
+        setItems(next);
+        setLoading(false);
+        setMessage(next.length ? "" : `Nothing came back for ${cat.label.toLowerCase()}${chosen.length ? " with those filters" : ""}.`);
+      } catch (error) {
+        if (mine !== reqId.current) return; // superseded — the newer call owns loading/message state now
+        if (error instanceof DOMException && error.name === "AbortError") return; // this call was the one cancelled
+        setLoading(false);
+        setMessage(`Nothing came back for ${cat.label.toLowerCase()}${chosen.length ? " with those filters" : ""}.`);
       }
-      if (mine !== reqId.current) return;
-      setItems(next);
-      setLoading(false);
-      setMessage(next.length ? "" : `Nothing came back for ${cat.label.toLowerCase()}${chosen.length ? " with those filters" : ""}.`);
     },
     [tripId, fetchPlaces, fetchEvents, fetchStays, rankToItems],
   );
@@ -346,15 +384,25 @@ export function DiscoverySurface({
       setLoading(true);
       setMessage("");
       const mine = ++reqId.current;
-      const eventCategory = CATEGORY_BY_KEY.get("events");
-      const eventIntent = eventCategory && q.toLowerCase().includes("concert");
-      const places = eventIntent ? [] : await fetchPlaces(q);
-      const events = eventIntent ? await fetchEvents(q) : [];
-      if (mine !== reqId.current) return;
-      setItems(eventIntent ? events.map((event) => ({ kind: "event", event }) as Item) : rankToItems(places));
-      setLoading(false);
-      const count = eventIntent ? events.length : places.length;
-      setMessage(count ? `“${q}” · ${count} near ${destination || "your destination"}` : "Nothing came back — try different words.");
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      try {
+        const eventCategory = CATEGORY_BY_KEY.get("events");
+        const eventIntent = eventCategory && q.toLowerCase().includes("concert");
+        const places = eventIntent ? [] : await fetchPlaces(q, controller.signal);
+        const events = eventIntent ? await fetchEvents(q, 0, controller.signal) : [];
+        if (mine !== reqId.current) return;
+        setItems(eventIntent ? events.map((event) => ({ kind: "event", event }) as Item) : rankToItems(places));
+        setLoading(false);
+        const count = eventIntent ? events.length : places.length;
+        setMessage(count ? `“${q}” · ${count} near ${destination || "your destination"}` : "Nothing came back — try different words.");
+      } catch (error) {
+        if (mine !== reqId.current) return;
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setLoading(false);
+        setMessage("Nothing came back — try different words.");
+      }
     },
     [fetchPlaces, fetchEvents, destination, rankToItems],
   );
@@ -421,6 +469,10 @@ export function DiscoverySurface({
     const seen = new Set<string>();
     return (bands ?? []).flatMap((b) => b.items).filter((it) => (seen.has(idOf(it)) ? false : (seen.add(idOf(it)), true)));
   }, [bands]);
+  // "Just show everything" is every band's items deduped into one list — same windowing the
+  // grid view already gets, so asking to see more doesn't mount every card (150+, for a full
+  // digest) synchronously in one pass.
+  const { visible: visibleFlat, sentinel: flatSentinel, more: moreFlat } = useInfiniteReveal(flatItems.length, PAGE, flatItems);
 
   const renderItem = (item: Item) => {
     if (item.kind === "place") {
@@ -466,7 +518,7 @@ export function DiscoverySurface({
 
       {/* Tier 1 — Compare + broad categories (Discover/Saved lives in the page header now). One row, scrolls sideways. */}
       {view === "results" && (
-        <div className="mt-4 flex items-center gap-2 overflow-x-auto scrollbar-slim px-1 py-1">
+        <div className="mt-4 flex items-center gap-2 overflow-x-auto overscroll-x-contain scrollbar-slim px-1 py-1">
             {panelCtx && (
               <button
                 type="button"
@@ -521,7 +573,7 @@ export function DiscoverySurface({
             transition={{ duration: 0.28, ease: [0.22, 0.61, 0.36, 1] }}
             className="overflow-hidden"
           >
-            <div className="mt-3 flex gap-1.5 overflow-x-auto scrollbar-slim pb-1">
+            <div className="mt-3 flex gap-1.5 overflow-x-auto overscroll-x-contain scrollbar-slim pb-1">
               {activeCat.subs.map((s) => (
                 <button
                   key={s.label}
@@ -557,11 +609,11 @@ export function DiscoverySurface({
             {more && <div ref={sentinel} aria-hidden className="h-8" />}
           </>
         ) : (
-          <p className="mt-8 rounded-2xl border border-dashed border-border px-5 py-10 text-center text-sm text-muted-foreground">
+          <EmptyState icon={Compass} className="mt-8">
             {view === "saved"
               ? "Nothing shortlisted yet. Use Add to trip on any card, or ask Roam for ideas."
               : "Nothing here right now — try a different filter or search."}
-          </p>
+          </EmptyState>
         )
       ) : (
         // "All" digest
@@ -578,11 +630,14 @@ export function DiscoverySurface({
           {loading && !bands ? (
             <SkeletonCards count={6} className="mt-4 grid-cols-2 sm:grid-cols-3" />
           ) : !bands || bands.length === 0 ? (
-            <p className="mt-8 rounded-2xl border border-dashed border-border px-5 py-10 text-center text-sm text-muted-foreground">
+            <EmptyState icon={Compass} className="mt-8">
               {destination ? "Nothing came back just now. Try a search or a different category." : "Set a destination for this trip to see ideas here."}
-            </p>
+            </EmptyState>
           ) : flat ? (
-            <Stagger className={cn(grid, "mt-4")}>{flatItems.map((it) => renderItem(it))}</Stagger>
+            <>
+              <Stagger className={cn(grid, "mt-4")}>{flatItems.slice(0, visibleFlat).map((it) => renderItem(it))}</Stagger>
+              {moreFlat && <div ref={flatSentinel} aria-hidden className="h-8" />}
+            </>
           ) : (
             <div className="mt-4 space-y-9">
               {(bands ?? []).map((band) => (

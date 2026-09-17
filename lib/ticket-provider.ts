@@ -4,9 +4,9 @@ const SELLERS: Array<[string, string]> = [
   ["universe", "Universe"], ["showclix", "ShowClix"],
 ];
 
-/** Returns a seller users can actually buy from; intelligence providers are never surfaced. */
+/** Returns a seller users can actually buy from; unrecognized sources are never surfaced. */
 export function ticketSellerLabel(source?: string | null, url?: string | null): string | null {
   const haystack = `${source ?? ""} ${url ?? ""}`.toLowerCase();
-  if (!haystack || /predicthq|predict hq/.test(haystack)) return null;
+  if (!haystack) return null;
   return SELLERS.find(([key]) => haystack.includes(key))?.[1] ?? null;
 }
