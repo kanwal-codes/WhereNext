@@ -27,6 +27,9 @@ export const TABLE_TO_CHANGE: Record<string, WorkspaceChange> = {
   group_message_reactions: "groupChat",
   trip_date_availability: "availability",
   trip_expenses: "expenses",
+  // A friend joining via the invite link, a role change, or someone leaving otherwise never
+  // reaches another member's already-open group chat / member list / @mention target list.
+  trip_members: "members",
 };
 
 export function realtimeFilterForTable(table: string, tripId: string): string {

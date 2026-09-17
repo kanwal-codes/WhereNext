@@ -1,4 +1,4 @@
-export type WorkspaceChange = "trip" | "conversation" | "preferences" | "decision" | "itinerary" | "places" | "essentials" | "groupChat" | "availability" | "expenses";
+export type WorkspaceChange = "trip" | "conversation" | "preferences" | "decision" | "itinerary" | "places" | "essentials" | "groupChat" | "availability" | "expenses" | "members";
 const eventName = "trip-workspace-changed";
 /** A burst of realtime writes can touch several change types at once (e.g. a saved place also
  *  updates the itinerary) — dispatched as one event carrying all of them, so a listener that

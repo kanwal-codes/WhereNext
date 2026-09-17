@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
 
 export type TripMember = { userId: string; email: string | null; isYou: boolean };
 
@@ -28,15 +29,27 @@ function fetchMembers(tripId: string): Promise<TripMember[]> {
 export function useTripMembers(tripId: string): { members: TripMember[]; loaded: boolean } {
   const [members, setMembers] = useState<TripMember[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const requestIdRef = useRef(0);
+
+  const refresh = useCallback(() => {
+    const mine = ++requestIdRef.current;
+    fetchMembers(tripId)
+      .then((list) => { if (mine === requestIdRef.current) setMembers(list); })
+      .catch(() => { if (mine === requestIdRef.current) setMembers([]); })
+      .finally(() => { if (mine === requestIdRef.current) setLoaded(true); });
+  }, [tripId]);
 
   useEffect(() => {
-    let cancelled = false;
-    fetchMembers(tripId)
-      .then((list) => { if (!cancelled) setMembers(list); })
-      .catch(() => { if (!cancelled) setMembers([]); })
-      .finally(() => { if (!cancelled) setLoaded(true); });
-    return () => { cancelled = true; };
-  }, [tripId]);
+    refresh();
+  }, [refresh]);
+
+  // A friend joining via the invite link, a role change, or someone leaving otherwise never
+  // reaches another member's already-open group chat / member badge / @mention list — only a
+  // full reload picked it up, since this was the one workspace slice with no realtime listener
+  // at all (see trip-realtime.ts's TABLE_TO_CHANGE).
+  useEffect(() => subscribeWorkspaceChanges((changes) => {
+    if (changes.includes("members")) refresh();
+  }), [refresh]);
 
   return { members, loaded };
 }

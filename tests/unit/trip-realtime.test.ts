@@ -45,6 +45,7 @@ describe("TABLE_TO_CHANGE", () => {
       trip_essentials: "essentials",
       conversation_messages: "conversation",
       bookings: "decision",
+      trip_members: "members",
     });
   });
 });
