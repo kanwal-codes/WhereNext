@@ -18,6 +18,7 @@ const appendMock = vi.fn();
 const getByIdempotencyKeyMock = vi.fn();
 const getByIdMock = vi.fn();
 const generateTextMock = vi.fn();
+const recordAiTurnMock = vi.fn(async () => undefined);
 
 class TripAuthError extends Error {
   constructor(readonly status: 401 | 403 | 404, message: string) {
@@ -90,7 +91,7 @@ vi.mock("@/lib/application/evaluator", async (importOriginal) => {
 const composeChainRef = vi.hoisted(() => ({ models: [{ model: { mock: true }, modelId: "test-model" }] as Array<{ model: unknown; modelId: string; providerOptions?: { gateway: { only: string[] } } }> }));
 vi.mock("@/packages/ai/compose-model", () => ({ composeModelChain: () => composeChainRef.models }));
 vi.mock("@/lib/server/trip-ai-queue", () => ({ withTripAiTask: (_tripId: string, _userId: string, task: () => unknown) => task() }));
-vi.mock("@/lib/server/ai-turn-trace", () => ({ recordAiTurn: vi.fn(async () => undefined) }));
+vi.mock("@/lib/server/ai-turn-trace", () => ({ recordAiTurn: recordAiTurnMock }));
 vi.mock("@/features/group-chat/infrastructure/groupChatRepository", () => ({
   createGroupChatRepository: () => ({ list: listMock, append: appendMock, getByIdempotencyKey: getByIdempotencyKeyMock, getById: getByIdMock }),
 }));
@@ -190,11 +191,16 @@ describe("POST /api/trips/:tripId/group-chat/roam", () => {
       content: "I can't help with that.",
       meta: EMPTY_META,
       timings: { resolveMs: 3 },
+      usage: [],
     });
     const res = await post();
     expect(res.status).toBe(201);
     expect(generateTextMock).not.toHaveBeenCalled();
     expect(appendMock).toHaveBeenCalledWith(TRIP, expect.objectContaining({ content: "I can't help with that.", metadata: expect.objectContaining(EMPTY_META) }));
+    // Live-caught: this path used to return with no trace at all — an "ungrounded" reply left
+    // zero record of what RESOLVE planned or which providers failed, impossible to diagnose
+    // after the fact. Every outcome now gets recorded, not just the ones that reach COMPOSE.
+    expect(recordAiTurnMock).toHaveBeenCalledWith(expect.anything(), TRIP, expect.objectContaining({ intent: "other", resolve_ms: 3 }));
   });
 
   it("409s and never calls the model when the referenced message doesn't mention @Roam", async () => {

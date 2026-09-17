@@ -175,6 +175,35 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
         metadata: { ...result.meta, replyToMessageId: target.id },
         idempotencyKey,
       });
+      // No COMPOSE call on this path, but it still deserves a trace — this route used to return
+      // here with none at all, so an "ungrounded" reply (e.g. "@Roam where can we go in
+      // montreal" coming back "couldn't verify anything") left zero record of what RESOLVE
+      // planned or which providers failed, impossible to diagnose after the fact. Matches the
+      // personal /api/ai route's identical handling of this same three-way outcome.
+      const declinedResult = result;
+      const usage: UsageEntry[] = declinedResult.usage.length
+        ? declinedResult.usage
+        : [{ model: declinedResult.resolved.modelUsed ?? (process.env.RESOLVE_MODEL || undefined), promptTokens: estimateTokens(target.content), completionTokens: estimateTokens(declinedResult.content) }];
+      const tokensIn = usage.reduce((sum, u) => sum + u.promptTokens, 0);
+      const tokensOut = usage.reduce((sum, u) => sum + u.completionTokens, 0);
+      const cost = Number(sumCostUsd(usage).toFixed(5));
+      after(() =>
+        recordAiTurn(supabase, tripId, {
+          intent: declinedResult.resolved.intent,
+          tools: declinedResult.kind === "ungrounded" ? declinedResult.toolsUsed : [],
+          providers_failed: declinedResult.kind === "ungrounded" ? declinedResult.providersFailed : [],
+          blocks: declinedResult.meta.blocks.map((block) => block.type),
+          tokens_in: tokensIn,
+          tokens_out: tokensOut,
+          cost_usd: cost,
+          resolve_ms: declinedResult.timings.resolveMs,
+          retrieve_ms: declinedResult.timings.retrieveMs,
+          compose_ms: 0,
+          total_ms: Math.round(performance.now() - t0),
+          model_resolve: declinedResult.resolved.modelUsed ?? (process.env.RESOLVE_MODEL || undefined),
+          degraded: Boolean(declinedResult.resolved.degraded),
+        }),
+      );
       return NextResponse.json({ message }, { status: 201 });
     }
 
