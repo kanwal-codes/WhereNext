@@ -141,10 +141,31 @@ export function useTripRealtime(tripId: string, me?: { userId: string; name: str
 
     connect();
 
+    // The socket can die silently while a tab is backgrounded — mobile OSes (and some desktop
+    // browsers) suspend an inactive tab's WebSocket with no CHANNEL_ERROR/CLOSED event ever
+    // firing, so the reconnect-with-backoff logic above never triggers. Live-caught: a member
+    // returning to a group chat tab that sat backgrounded saw no new messages until a manual
+    // reload, even though someone else had sent one minutes earlier. Coming back to a visible
+    // tab both forces an immediate reconnect if the channel died, and — regardless of whether it
+    // did — re-announces every change type once, so any mounted component (group chat, the
+    // itinerary, etc.) refetches instead of trusting a channel that may have missed events while
+    // backgrounded.
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      if (!subscribedRef.current) {
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+        attempt = 0;
+        connect();
+      }
+      announceWorkspaceChanges([...new Set(Object.values(TABLE_TO_CHANGE))]);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
     return () => {
       cancelled = true;
       channelRef.current = null;
       subscribedRef.current = false;
+      document.removeEventListener("visibilitychange", onVisible);
       if (timer.current) clearTimeout(timer.current);
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (channel) void supabase.removeChannel(channel);
