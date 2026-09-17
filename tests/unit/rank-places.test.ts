@@ -47,7 +47,7 @@ describe("rankPlaces", () => {
     const match = p({ name: "Ramen Bar", category: "restaurant", rating: 4.2, userRatingCount: 300 });
     const out = rankPlaces([generic, match], { interests: ["ramen", "food"] });
     expect(out[0].place.name).toBe("Ramen Bar");
-    expect(out[0].why).toMatch(/matches/i);
+    expect(out[0].why).toBe("Ramen");
   });
 
   it("prefers a place near the anchor, but does NOT label it as the stay unless a real stayAnchor is given", () => {

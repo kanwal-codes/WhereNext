@@ -264,9 +264,14 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
               ) : showContext ? (
                 <motion.div
                   key="trip-context"
-                  initial={reduceMotion ? false : { opacity: 0, x: 16 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={reduceMotion ? undefined : { opacity: 0, x: -12 }}
+                  // Opacity-only: an `x` slide here leaves a lingering `transform` on the
+                  // scrollable div's ancestor (components/motion-primitives.tsx doesn't own
+                  // this one), which forces GPU compositing on this whole panel and makes a
+                  // slow scroll inside it visibly juddery — live-caught on the trip-context
+                  // rail specifically, the one animated container here that wraps a scroll area.
+                  initial={reduceMotion ? false : { opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={reduceMotion ? undefined : { opacity: 0 }}
                   transition={reduceMotion ? { duration: 0 } : spring}
                   className="flex h-full flex-col overflow-hidden"
                 >

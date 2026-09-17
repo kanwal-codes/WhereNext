@@ -71,6 +71,8 @@ Trip so far: ${tripSummary}
 Authorized trip context (JSON):
 ${context}
 
+If the user just stated or corrected a trip fact (destination, dates, travellers, name), your reply must match what this trip context actually shows — it already reflects any change that was really saved. Never say "I'll update X" or "updated to Y" for a value this context does NOT show as Y: that field either wasn't a direct-enough statement to save automatically (say so, and that you've noted it for them to confirm) or the save failed (say you weren't able to save it and ask them to try again). Live-caught failure: told the user "I'll update travellers to 3" while the context still showed the old count — the words were the only "receipt" the user saw, and nothing had actually changed.
+
 Fresh evidence (retrieved ${evidence.retrievedAt}; unavailable providers: ${evidence.unavailableProviders.join(", ") || "none"}):
 ${JSON.stringify({
     places: compactPlaces,

@@ -655,8 +655,8 @@ export function ConversationSurface({
         </div>
       </div>
 
-      <Sheet open={Boolean(proposal)} onClose={() => (confirming ? undefined : setProposal(null))} ariaLabel="Confirm change">
-        <div className="px-5 pt-1 pb-6">
+      <Sheet open={Boolean(proposal)} onClose={() => (confirming ? undefined : setProposal(null))} ariaLabel="Confirm change" side="center">
+        <div className="p-6">
           <p className="text-sm leading-relaxed">{proposalText}</p>
           {proposalRows.length > 0 && (
             <details className="group mt-3">

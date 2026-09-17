@@ -81,7 +81,10 @@ export function rankPlaces(places: Place[], ctx: RankContext = {}): RankedPlace[
       const stayKm = haversineKm(ctx.stayAnchor, place);
       if (stayKm <= NEARBY_STAY_KM) why = `${formatDistanceKm(stayKm)} from your stay`;
     }
-    if (!why && overlap > 0) why = `Matches ${[...wanted].filter((w) => haystack.has(w)).slice(0, 2).join(", ")}`;
+    if (!why && overlap > 0) {
+      const matched = [...wanted].filter((w) => haystack.has(w)).slice(0, 2);
+      why = matched.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(", ");
+    }
     if (!why && quality >= 3) why = "Top-rated";
 
     scored.push({ place, score, why });

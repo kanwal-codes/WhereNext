@@ -87,6 +87,21 @@ describe("GET /api/trips/[tripId]/places/google", () => {
     expect(body.webSummary ?? null).toBeNull();
   });
 
+  it("cuts a raw scrape excerpt at an embedded splice marker instead of showing it verbatim — live-caught: Montmorency Falls", async () => {
+    detailsMock.mockResolvedValue({ id: "place-1", displayName: { text: "Montmorency Falls" }, formattedAddress: "Québec City, QC, Canada" });
+    researchMock.mockResolvedValue([{
+      title: "TripAdvisor",
+      url: "https://example.com/montmorency-falls",
+      content: "Montmorency Falls offers visitors a rewarding experience with its stunning natural beauty and multiple viewpoints. A visit typically lasts 2-3 hours. Visitors commend the [...] The Happy Traveler ·Jul 2026 Montmorency Falks is a beautiful place to visit while in Quebec City.",
+    }]);
+    const body = await getDetails();
+    expect(body.webSummary?.content).toBe(
+      "Montmorency Falls offers visitors a rewarding experience with its stunning natural beauty and multiple viewpoints. A visit typically lasts 2-3 hours.",
+    );
+    expect(body.webSummary?.content).not.toContain("[...]");
+    expect(body.webSummary?.content).not.toContain("The Happy Traveler");
+  });
+
   it("caches the web summary per place id — a second lookup doesn't re-call Tavily", async () => {
     researchMock.mockResolvedValue([{ title: "Eater Montreal", url: "https://eater.com/bar-george", content: "Bar George is a grand, wood-panelled spot inside Le Mount Stephen." }]);
     await getDetails();

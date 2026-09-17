@@ -72,25 +72,22 @@ export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place
                   "Montreal M...", losing the one thing the card exists to show. */}
               <h3 className="line-clamp-2">{place.name}</h3>
             </Link>
-            {place.address && (
-              <p className="mt-1 flex items-center gap-1.5 truncate text-xs text-muted-foreground">
-                <MapPin className="h-3 w-3 shrink-0" />
-                <span className="truncate">{place.address}</span>
-              </p>
-            )}
           </div>
           {price && <p className="font-display text-base">{price}</p>}
         </div>
 
-        {typeof place.rating === "number" && (
-          <p className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Star className="h-3 w-3 fill-current text-coral" />
-            <span className="text-foreground">{place.rating.toFixed(1)}</span>
-            {place.userRatingCount ? <span>({place.userRatingCount.toLocaleString()})</span> : null}
-          </p>
+        {(typeof place.rating === "number" || why) && (
+          <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+            {typeof place.rating === "number" && (
+              <p className="flex shrink-0 items-center gap-1">
+                <Star className="h-3 w-3 fill-current text-coral" />
+                <span className="text-foreground">{place.rating.toFixed(1)}</span>
+                {place.userRatingCount ? <span>({place.userRatingCount.toLocaleString()})</span> : null}
+              </p>
+            )}
+            {why && <span className="min-w-0 truncate rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">{why}</span>}
+          </div>
         )}
-
-        {why && <p className="truncate text-[11px] font-medium text-primary/80">{why}</p>}
 
         <div className="mt-auto flex items-center gap-2 pt-1">
           <AddToTripControl tripId={tripId} place={place} size="sm" block className="min-w-0 flex-1" />
