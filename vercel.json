@@ -3,6 +3,6 @@
   "regions": ["pdx1"],
   "crons": [
     { "path": "/api/cron/trip-review", "schedule": "0 14 * * *" },
-    { "path": "/api/cron/fallback-rate", "schedule": "*/15 * * * *" }
+    { "path": "/api/cron/fallback-rate", "schedule": "0 15 * * *" }
   ]
 }

@@ -7,7 +7,11 @@ import { fallbackRate } from "@/lib/application/fallback-rate";
 
 export const runtime = "nodejs";
 
-const WINDOW_MINUTES = 15;
+// Was 15 (checked every 15 minutes) until the Hobby plan's cron limit (daily jobs only) forced
+// this to run once a day instead — kept at 15 with a once-daily trigger would have covered only
+// the last 15 minutes of each 24h gap, missing the other 23h45m and starving MIN_SAMPLE most
+// days. 24h keeps the check actually covering the period since its last run.
+const WINDOW_MINUTES = 24 * 60;
 const MIN_SAMPLE = 5;
 
 /**
