@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Landing } from "@/components/Landing";
+import { TripsHome } from "@/components/TripsHome";
+import { loadTripsIndex } from "@/lib/server/trips-index";
 
 export const metadata: Metadata = {
   title: "Where next? — plan a trip by talking about it",
@@ -16,13 +18,19 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  let authed = false;
+  // Was `getUser()` here to decide "redirect to /trips or not", then `/trips` doing its own
+  // `getUser()` + trips query again after the redirect landed — two sequential Supabase round
+  // trips (plus the redirect's own network hop) for what a signed-in visitor experiences as one
+  // click. `loadTripsIndex` does the real check once; a signed-in visitor renders straight into
+  // the same `TripsHome` `/trips` would show, no redirect needed. `/trips` stays a real,
+  // independently-loading route of its own — sign-in flows and other code link to it directly.
+  let data: Awaited<ReturnType<typeof loadTripsIndex>> = null;
   try {
-    const { data: { user } } = await (await createSupabaseServerClient()).auth.getUser();
-    authed = Boolean(user);
+    data = await loadTripsIndex(await createSupabaseServerClient());
   } catch {
     /* Supabase unavailable — show the public landing. */
   }
-  if (authed) redirect("/trips");
-  return <Landing />;
+  if (!data) return <Landing />;
+  if (data.trips.length === 0) redirect("/trips/new");
+  return <TripsHome trips={data.trips} displayName={data.displayName} />;
 }

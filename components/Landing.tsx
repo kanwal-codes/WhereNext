@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion, useScroll, useTransform, useReducedMotion } from "motion/react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowRight,
   BedDouble,
@@ -312,18 +312,22 @@ function ChatDemo() {
   const preTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const replayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const clearTimers = () => {
+  const clearTimers = useCallback(() => {
     if (typeTimer.current) clearInterval(typeTimer.current);
     if (preTimer.current) clearTimeout(preTimer.current);
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
     if (replayTimer.current) clearTimeout(replayTimer.current);
     typeTimer.current = preTimer.current = advanceTimer.current = replayTimer.current = null;
-  };
-  useEffect(() => clearTimers, []);
+  }, []);
+  useEffect(() => clearTimers, [clearTimers]);
 
   /** Show exchange `i`. `typed`: play the pause-then-type-then-advance sequence (autoplay,
-   * replay); otherwise show its reply in full immediately (manual navigation). */
-  const showExchange = (i: number, typed: boolean) => {
+   * replay); otherwise show its reply in full immediately (manual navigation).
+   * Wrapped in `useCallback` (stable across renders, only `clearTimers` as a dep — also stable)
+   * so the two effects below can list it as a real dependency instead of an
+   * eslint-disable-exhaustive-deps escape hatch: an unstable `showExchange` would have made
+   * either effect re-run on every unrelated render once actually included in their deps. */
+  const showExchange = useCallback((i: number, typed: boolean) => {
     clearTimers();
     setIndex(i);
     setShowCard(false);
@@ -352,13 +356,12 @@ function ChatDemo() {
         }
       }, TYPE_MS_PER_CHAR);
     }, PRE_REPLY_PAUSE_MS);
-  };
+  }, [clearTimers]);
 
   useEffect(() => {
     if (!canPlay) return;
     showExchange(0, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- autoplay kicks off once, when the section is first in view
-  }, [canPlay]);
+  }, [canPlay, showExchange]);
 
   useEffect(() => {
     if (!showCard || index !== EXCHANGES.length - 1 || !canPlay) return;
@@ -367,7 +370,7 @@ function ChatDemo() {
       if (replayTimer.current) clearTimeout(replayTimer.current);
       replayTimer.current = null;
     };
-  }, [showCard, index, canPlay]);
+  }, [showCard, index, canPlay, showExchange]);
 
   const exchange = EXCHANGES[index];
   const replyDone = charCount >= exchange.assistant.length;

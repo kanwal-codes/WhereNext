@@ -15,16 +15,19 @@ import {
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
 import { GetYourGuideCard } from "@/components/GetYourGuideCard";
 import { Hero } from "@/components/Hero";
+import { DetailSectionHeading } from "@/components/DetailSectionHeading";
 import { NearbyRecommendations } from "@/components/NearbyRecommendations";
 import { BackLink } from "@/components/BackLink";
 import { ExternalLink } from "@/components/ExternalLink";
+import { SourceCard } from "@/components/SourceCard";
 import { Skeleton, SkeletonLines } from "@/components/Skeleton";
 import { TripWeather } from "@/components/TripWeather";
 import { Reveal, WordReveal } from "@/components/motion-primitives";
+import { PhotoLightbox, usePhotoLightbox } from "@/components/PhotoLightbox";
 import { isWeatherRelevantPlace } from "@/packages/reco/vibes";
 import { usePlaceDetails } from "@/features/places/application/usePlaceDetails";
 import { useDocumentTitle } from "@/lib/use-document-title";
-import { askAssistantHref, businessStatusLabel, categoryLabel, detailsToPlace, photoProxyUrl, priceLabel, secondaryTypes, type GoogleReview } from "@/lib/places-ui";
+import { amenityChips, askAssistantHref, businessStatusLabel, categoryLabel, cityFrom, detailsToPlace, photoProxyUrl, priceLabel, secondaryTypes, type GoogleReview } from "@/lib/places-ui";
 import { cn } from "@/lib/utils";
 
 function ReviewFigure({ r }: { r: GoogleReview }) {
@@ -50,12 +53,6 @@ function ReviewFigure({ r }: { r: GoogleReview }) {
   );
 }
 
-/** Rough "City, Country" from a Google formatted address. */
-function cityFrom(address: string | undefined): string {
-  if (!address) return "";
-  return address.split(",").map((p) => p.trim()).filter(Boolean).slice(-2).join(", ");
-}
-
 /**
  * The full place detail — same content and styling everywhere. `variant="page"`
  * is the routed `/place/[id]`; `variant="panel"` is the chat side rail (one
@@ -71,9 +68,10 @@ export function PlaceDetailView({
   variant?: "page" | "panel";
 }) {
   const panel = variant === "panel";
-  const { details, state } = usePlaceDetails(tripId, placeId);
+  const { details, webSummary, state } = usePlaceDetails(tripId, placeId);
   const titleTag = useDocumentTitle(panel ? null : details?.displayName?.text ?? "Place");
   const [reviewsOpen, setReviewsOpen] = useState(false);
+  const lightbox = usePhotoLightbox();
 
   const pad = panel ? "px-4 pb-8" : "mx-auto max-w-5xl px-5 pb-14 sm:px-8";
 
@@ -111,15 +109,19 @@ export function PlaceDetailView({
   const wheelchair = Boolean(a11y && (a11y.wheelchairAccessibleEntrance || a11y.wheelchairAccessibleParking || a11y.wheelchairAccessibleRestroom || a11y.wheelchairAccessibleSeating));
   const reviews = (details.reviews ?? []).filter((r) => r.text?.text || r.originalText?.text).slice(0, 4);
   const city = cityFrom(details.formattedAddress);
+  const amenities = amenityChips(details);
 
   const place = detailsToPlace(details);
   // The one action, up top. No card wrapper — it's a button, not a module.
+  // `max-w-sm`: `block` stretches the button to fill whatever container it's in, which is
+  // right for a genuinely narrow sidebar column — but the page variant's aside only becomes an
+  // actual sidebar at the `lg` breakpoint (see the grid below); under that, it sits BELOW the
+  // body at the body's own full width, and an unconstrained full-width button there stretched
+  // into a very long, thin bar spanning nearly the whole page. Capping it keeps it looking like
+  // a button at every width instead of a banner at in-between ones.
   const asideAction = place ? (
-    <div>
+    <div className="max-w-sm">
       <AddToTripControl tripId={tripId} place={place} size="md" block />
-      <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-        <span className="font-medium text-foreground">Shortlist</span> while you&rsquo;re deciding &mdash; open the menu to drop it on a day.
-      </p>
     </div>
   ) : (
     <p className="text-sm text-muted-foreground">This place can&rsquo;t be added &mdash; we don&rsquo;t have a location for it.</p>
@@ -154,20 +156,17 @@ export function PlaceDetailView({
         </div>
       )}
 
-      <div className="rounded-xl border border-dashed border-border px-3 py-2.5">
-        <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Source</p>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-          <span>Google Maps</span>
-          {details.googleMapsUri && <ExternalLink href={details.googleMapsUri} className="text-xs">Open map</ExternalLink>}
-        </div>
-      </div>
+      <SourceCard provider="Google Maps" href={details.googleMapsUri} />
     </>
   );
 
   // Page view keeps the single sticky sidebar; the panel splits it around the body.
+  // `asideAction` (Add to trip) is NOT repeated here for the page view — it now sits inline
+  // next to the title instead (see the header block below), so it's visible immediately rather
+  // than only after scrolling past Photos/Reviews/Hours to reach this sidebar. The panel variant
+  // still places it separately, right under its own (narrower) title block.
   const aside = (
     <div className={cn("min-w-0 space-y-4", !panel && "lg:sticky lg:top-8")}>
-      {asideAction}
       {asideSecondary}
     </div>
   );
@@ -176,14 +175,26 @@ export function PlaceDetailView({
     <div className="min-w-0 space-y-8">
       <Reveal delay={0.06}>
         <section>
-          <h2 className="font-display text-xl">About</h2>
+          <DetailSectionHeading>About</DetailSectionHeading>
           {details.editorialSummary?.text ? (
             <p className="mt-2 text-[15px] leading-[1.8] text-ink-soft">{details.editorialSummary.text}</p>
           ) : (
             <p className="mt-2 text-sm text-muted-foreground">
               {details.userRatingCount
-                ? `A ${categoryLabel(details.primaryType).toLowerCase()} rated ${details.rating?.toFixed(1)} across ${details.userRatingCount.toLocaleString()} reviews. What people say is below.`
+                ? `A ${categoryLabel(details.primaryType).toLowerCase()} rated ${details.rating?.toFixed(1)} across ${details.userRatingCount.toLocaleString()} reviews.${reviews.length > 0 ? " What people say is below." : ""}`
                 : `No description for this ${categoryLabel(details.primaryType).toLowerCase()} yet.`}
+            </p>
+          )}
+          {/* Google's own editorialSummary above is only written for a subset of well-known
+              places, and even then is often one generic sentence — this supplements it with a
+              real excerpt from the web, clearly sourced rather than presented as Google's own
+              words, so a thin or missing summary still leaves the traveller with something. */}
+          {webSummary && (
+            <p className="mt-2 text-sm leading-[1.75] text-muted-foreground">
+              {webSummary.content}{" "}
+              <ExternalLink href={webSummary.source.url} className="text-xs whitespace-nowrap">
+                {webSummary.source.title}
+              </ExternalLink>
             </p>
           )}
           {typeChips.length > 0 && (
@@ -193,17 +204,32 @@ export function PlaceDetailView({
               ))}
             </div>
           )}
+          {amenities.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {amenities.map((a) => (
+                <span key={a} className="rounded-full border border-border px-2.5 py-1 text-[11px] text-ink-soft">{a}</span>
+              ))}
+            </div>
+          )}
         </section>
       </Reveal>
 
       {morePhotos.length > 0 && (
         <Reveal delay={0.08}>
           <section>
-            <h2 className="font-display text-xl">Photos</h2>
-            <div className={cn("mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto no-scrollbar px-1 pb-1", panel ? "" : "-mx-5 px-5 sm:mx-0 sm:px-0")}>
-              {morePhotos.map((src) => (
-                // eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin proxy
-                <img key={src} src={src} alt={name} loading="lazy" width={288} height={192} className="h-44 w-72 shrink-0 snap-start rounded-2xl border border-border object-cover" />
+            <DetailSectionHeading>Photos</DetailSectionHeading>
+            <div className={cn("mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain no-scrollbar px-1 pb-1", panel ? "" : "-mx-5 px-5 sm:mx-0 sm:px-0")}>
+              {morePhotos.map((src, i) => (
+                <button
+                  key={src}
+                  type="button"
+                  onClick={() => lightbox.open(i)}
+                  aria-label={`Expand photo ${i + 1} of ${name}`}
+                  className="shrink-0 snap-start rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin proxy */}
+                  <img src={src} alt={name} loading="lazy" width={288} height={192} className="h-44 w-72 rounded-2xl border border-border object-cover transition-opacity hover:opacity-90" />
+                </button>
               ))}
             </div>
           </section>
@@ -232,7 +258,7 @@ export function PlaceDetailView({
       {reviews.length > 0 && (
         <Reveal delay={0.12}>
           <section>
-            <h2 className="font-display text-xl">What people say</h2>
+            <DetailSectionHeading>What people say</DetailSectionHeading>
             {reviewsOpen || reviews.length === 1 ? (
               <div className="mt-4 space-y-3">
                 {reviews.map((r, i) => (
@@ -268,7 +294,7 @@ export function PlaceDetailView({
       {hours.length > 0 && (
         <Reveal delay={0.14}>
           <section>
-            <h2 className="font-display text-xl">Hours</h2>
+            <DetailSectionHeading>Hours</DetailSectionHeading>
             <ul className="mt-3 space-y-1 text-sm text-ink-soft">
               {hours.map((h) => (
                 <li key={h} className="flex items-center gap-2">
@@ -285,25 +311,44 @@ export function PlaceDetailView({
   return (
     <div>
       {titleTag}
-      <Hero image={photo ?? "/design/place-neighbourhood.jpg"} alt={name} plain surface={panel} className={cn(panel ? "h-44" : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")}>
+      <Hero
+        image={photo ?? "/design/place-neighbourhood.jpg"}
+        alt={name}
+        plain
+        surface={panel}
+        className={cn(panel ? "h-44" : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")}
+        ratingBadge={
+          typeof details.rating === "number" && (
+            <>
+              <Star className="h-3.5 w-3.5 fill-current text-coral" /> {details.rating.toFixed(1)}
+              {details.userRatingCount ? ` (${details.userRatingCount.toLocaleString()})` : ""}
+            </>
+          )
+        }
+      >
         {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className="absolute top-4 left-4" />}
       </Hero>
 
       <div className={pad}>
         <Reveal>
           <div className="pt-6">
-            <span className="eyebrow">{categoryLabel(details.primaryType)}</span>
-            <WordReveal text={name} delay={0.18} className={cn("mt-2 font-display leading-tight", panel ? "text-2xl" : "text-4xl")} />
+            {/* Add to trip sits beside the title on its own row (not stacked below it) so it's
+                visible immediately — it used to only appear in a sidebar that, below the `lg`
+                breakpoint, rendered AFTER Photos/Reviews/Hours, past a full scroll of content.
+                Stacks back below the title on narrow (mobile) widths, where a side-by-side row
+                would leave neither the name nor the button enough room. Panel keeps its own
+                separate, already-visible placement (a narrow drawer has no "beside" to offer). */}
+            <div className={cn(!panel && "sm:flex sm:items-start sm:justify-between sm:gap-6")}>
+              <div className="min-w-0">
+                <span className="eyebrow">{categoryLabel(details.primaryType)}</span>
+                <WordReveal text={name} delay={0.18} className={cn("mt-2 font-display leading-tight", panel ? "text-2xl" : "text-4xl")} />
+              </div>
+              {!panel && <div className="mt-4 max-w-sm shrink-0 sm:mt-2 sm:w-64">{asideAction}</div>}
+            </div>
             <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
               {details.formattedAddress && (
                 <span className="inline-flex items-center gap-1.5">
                   <MapPin className="h-3.5 w-3.5" /> {details.formattedAddress}
-                </span>
-              )}
-              {typeof details.rating === "number" && (
-                <span className="inline-flex items-center gap-1.5">
-                  <Star className="h-3.5 w-3.5 fill-current text-coral" /> {details.rating.toFixed(1)}
-                  {details.userRatingCount ? ` (${details.userRatingCount.toLocaleString()})` : ""}
                 </span>
               )}
               {price && <span>{price}</span>}
@@ -341,6 +386,8 @@ export function PlaceDetailView({
           lng={details.location?.longitude}
         />
       </div>
+
+      <PhotoLightbox photos={morePhotos} index={lightbox.index} onIndexChange={lightbox.open} onClose={lightbox.close} alt={name} />
     </div>
   );
 }

@@ -70,7 +70,6 @@ describe("classifyEventVibe — 2,000 random garbage events", () => {
         title: rand() < 0.8 ? randomName(rand) : undefined,
         venue: rand() < 0.5 ? randomName(rand) : undefined,
         tmSegment: rand() < 0.3 ? randomName(rand).slice(0, 15) : undefined,
-        predicthqCategory: rand() < 0.3 ? randomName(rand).slice(0, 15) : undefined,
       };
       let v: Vibe = "default";
       expect(() => {

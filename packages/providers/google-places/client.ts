@@ -49,21 +49,46 @@ export function broadenQuery(query: string): string {
 const GOOGLE_PAGE_SIZE = 20;
 const GOOGLE_MAX_RESULTS = 60;
 
+/** A soft nudge toward a point, not a hard restriction — Google can still return a better-matching
+ *  result further out (per Google's own local-ranking guidance, see
+ *  docs/overhaul/recommendation-system/ranking-signals.md), it just stops treating every city on
+ *  earth as equally plausible for a generic query. 20km comfortably covers "this city". */
+export type LocationBias = { lat: number; lng: number; radiusMeters?: number };
+const DEFAULT_BIAS_RADIUS_METERS = 20_000;
+
 export class GooglePlacesProvider {
   private key() { const key = process.env.GOOGLE_MAPS_API_KEY; if (!key) throw new Error("GOOGLE_MAPS_API_KEY is not configured"); return key; }
-  /** `maxResults` beyond one page (20) follows `nextPageToken` to fill out the browse view; callers that only need the top hit should leave it at the default so they don't pay for pages they'll discard. */
-  async search(query: string, signal?: AbortSignal, maxResults = GOOGLE_PAGE_SIZE): Promise<Place[]> {
-    if (process.env.NODE_ENV === "test") return this.searchUncached(query, signal, maxResults);
-    const cacheKey = `google-places:${query.trim().toLowerCase()}:${maxResults}`;
-    return cached(cacheKey, 60_000, () => this.searchUncached(query, signal, maxResults));
+  /**
+   * `maxResults` beyond one page (20) follows `nextPageToken` to fill out the browse view; callers
+   * that only need the top hit should leave it at the default so they don't pay for pages they'll
+   * discard.
+   *
+   * `locationBias` — live-testing regression (2026-09-16): Google's Text Search was never given
+   * any structured location, only whatever city name happened to be embedded in the free-text
+   * query — so a generic, low-specificity query ("well-reviewed restaurants and cafes in
+   * Montreal") could come back dominated by a completely different city (confirmed live:
+   * Toronto/Ontario results for a Montreal-anchored query), with nothing in the request telling
+   * Google where "around here" actually is. Optional and additive — every existing caller that
+   * doesn't have a coordinate handy keeps working exactly as before.
+   */
+  async search(query: string, signal?: AbortSignal, maxResults = GOOGLE_PAGE_SIZE, locationBias?: LocationBias): Promise<Place[]> {
+    if (process.env.NODE_ENV === "test") return this.searchUncached(query, signal, maxResults, locationBias);
+    // Bias rounded to ~1km so nearby anchors on the same page share a cache entry instead of
+    // fragmenting it per exact coordinate.
+    const biasKey = locationBias ? `:${locationBias.lat.toFixed(2)},${locationBias.lng.toFixed(2)}` : "";
+    const cacheKey = `google-places:${query.trim().toLowerCase()}:${maxResults}${biasKey}`;
+    return cached(cacheKey, 60_000, () => this.searchUncached(query, signal, maxResults, locationBias));
   }
-  private async searchUncached(query: string, signal?: AbortSignal, maxResults = GOOGLE_PAGE_SIZE): Promise<Place[]> {
+  private async searchUncached(query: string, signal?: AbortSignal, maxResults = GOOGLE_PAGE_SIZE, locationBias?: LocationBias): Promise<Place[]> {
     const cap = Math.min(maxResults, GOOGLE_MAX_RESULTS);
     const places: SearchPlace[] = [];
     let pageToken: string | undefined;
+    const bias = locationBias
+      ? { circle: { center: { latitude: locationBias.lat, longitude: locationBias.lng }, radius: locationBias.radiusMeters ?? DEFAULT_BIAS_RADIUS_METERS } }
+      : undefined;
     do {
       // Pagination requires resending the original query verbatim alongside pageToken, or Google 400s.
-      const response = await guardedFetch("google-places", "https://places.googleapis.com/v1/places:searchText", { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": this.key(), "x-goog-fieldmask": "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.googleMapsUri,places.rating,places.userRatingCount,places.photos.name,nextPageToken" }, body: JSON.stringify({ textQuery: broadenQuery(query), pageSize: GOOGLE_PAGE_SIZE, ...(pageToken ? { pageToken } : {}) }), signal: withProviderTimeout(signal) });
+      const response = await guardedFetch("google-places", "https://places.googleapis.com/v1/places:searchText", { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": this.key(), "x-goog-fieldmask": "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.googleMapsUri,places.rating,places.userRatingCount,places.photos.name,nextPageToken" }, body: JSON.stringify({ textQuery: broadenQuery(query), pageSize: GOOGLE_PAGE_SIZE, ...(bias ? { locationBias: bias } : {}), ...(pageToken ? { pageToken } : {}) }), signal: withProviderTimeout(signal) });
       if (!response.ok) throw new Error(`Google Places search failed: ${response.status}`);
       const body = await response.json() as { places?: SearchPlace[]; nextPageToken?: string };
       places.push(...(body.places ?? []));
@@ -104,6 +129,62 @@ export class GooglePlacesProvider {
     }] : []);
   }
 
-  async details(placeId: string, signal?: AbortSignal) { const response = await guardedFetch("google-places", `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, { headers: { "x-goog-api-key": this.key(), "x-goog-fieldmask": "id,displayName,formattedAddress,location,primaryType,types,googleMapsUri,websiteUri,nationalPhoneNumber,businessStatus,priceLevel,rating,userRatingCount,editorialSummary,regularOpeningHours,accessibilityOptions,reviews,photos" }, signal: withProviderTimeout(signal) }); if (!response.ok) throw new Error(`Google Place details failed: ${response.status}`); return response.json(); }
+  /** City/region typeahead for a destination field — restricted to locality-level results so
+   *  "Paris" surfaces the city, not a bakery chain, the way a general text search would. */
+  async autocompleteRegions(input: string, signal?: AbortSignal): Promise<Array<{ placeId: string; text: string; secondaryText: string | null }>> {
+    const response = await guardedFetch("google-places", "https://places.googleapis.com/v1/places:autocomplete", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-goog-api-key": this.key() },
+      body: JSON.stringify({ input, includedPrimaryTypes: ["locality", "administrative_area_level_1", "administrative_area_level_2", "country"] }),
+      signal: withProviderTimeout(signal),
+    });
+    if (!response.ok) throw new Error(`Google Places autocomplete failed: ${response.status}`);
+    const body = await response.json() as {
+      suggestions?: Array<{ placePrediction?: { placeId?: string; text?: { text?: string }; structuredFormat?: { mainText?: { text?: string }; secondaryText?: { text?: string } } } }>;
+    };
+    return (body.suggestions ?? []).flatMap((s) => {
+      const p = s.placePrediction;
+      const text = p?.structuredFormat?.mainText?.text ?? p?.text?.text;
+      if (!p?.placeId || !text) return [];
+      return [{ placeId: p.placeId, text, secondaryText: p.structuredFormat?.secondaryText?.text ?? null }];
+    });
+  }
+
+  /** Same place's details are asked for repeatedly within seconds — a card shown, then reopened,
+   *  then a chat tool call about it — so this is cached exactly like `.search()` above. Not tied
+   *  to any one caller's `signal`: the cached load is shared, so one caller's abort must not cancel
+   *  it out from under a concurrent caller who's still waiting on it.
+   *
+   *  `fields`: "full" (default) is the on-demand Details view a user opens for one selected
+   *  place — it additionally includes `reviews`/`photos`. "light" drops those two fields for a
+   *  caller (RETRIEVE's background per-search-result enrichment, up to 6 places per search) that
+   *  never reads them, saving on response size/parsing for results that mostly get discarded by
+   *  ranking anyway. It does NOT reach a cheaper Places SKU tier, despite the name: both masks
+   *  request `accessibilityOptions` and `editorialSummary`, and those two fields alone already
+   *  put the call in Google's priciest "Enterprise + Atmosphere" tier — the same tier
+   *  `reviews`/`photos` are in. This is a deliberate, accepted tradeoff, not a bug: accessibility
+   *  info is load-bearing for a real hard-constraint safety feature (never recommend a place
+   *  known to fail a stated accessibility need — see `filterAndRank` in `lib/application/retrieve.ts`),
+   *  and the editorial summary feeds place descriptions. Dropping either to chase the cheap tier
+   *  would be a user-harming regression, not a cleanup. See
+   *  docs/overhaul/chatbot-overhaul/data-providers.md and
+   *  docs/overhaul/roadmap/overhaul-roadmap.md ("Google Places field-mask 'billing bug'"). */
+  async details(placeId: string, signal?: AbortSignal, fields: "full" | "light" = "full") {
+    if (process.env.NODE_ENV === "test") return this.detailsUncached(placeId, signal, fields);
+    return cached(`google-place-details:${fields}:${placeId}`, 60_000, () => this.detailsUncached(placeId, undefined, fields));
+  }
+  private async detailsUncached(placeId: string, signal?: AbortSignal, fields: "full" | "light" = "full") {
+    // The amenity booleans below (outdoorSeating..allowsDogs) are already in the same
+    // "Enterprise + Atmosphere" SKU tier as accessibilityOptions/editorialSummary above (see the
+    // billing note on this function) — adding them to the "full" mask costs nothing extra, and
+    // they're what actually make the detail page's About section say something specific instead
+    // of just repeating the rating.
+    const fieldMask = fields === "light"
+      ? "id,displayName,formattedAddress,location,primaryType,googleMapsUri,websiteUri,nationalPhoneNumber,businessStatus,priceLevel,rating,userRatingCount,editorialSummary,regularOpeningHours,accessibilityOptions"
+      : "id,displayName,formattedAddress,location,primaryType,types,googleMapsUri,websiteUri,nationalPhoneNumber,businessStatus,priceLevel,rating,userRatingCount,editorialSummary,regularOpeningHours,accessibilityOptions,reviews,photos,outdoorSeating,liveMusic,servesCocktails,goodForGroups,goodForChildren,dineIn,takeout,delivery,reservable,allowsDogs";
+    const response = await guardedFetch("google-places", `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, { headers: { "x-goog-api-key": this.key(), "x-goog-fieldmask": fieldMask }, signal: withProviderTimeout(signal) });
+    if (!response.ok) throw new Error(`Google Place details failed: ${response.status}`);
+    return response.json();
+  }
   photoUrl(photoName: string) { return `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=800&key=${encodeURIComponent(this.key())}`; }
 }

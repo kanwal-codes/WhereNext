@@ -24,15 +24,10 @@ vi.mock("@/lib/server/trip-auth", async () => {
 function makeSupabase(opts: { existing: boolean; insertErrorCode?: string }) {
   const deleteChain = {
     eq: () => deleteChain,
-    then: (resolve: (v: { error: unknown }) => void) => resolve({ error: null }),
-  };
-  const selectChain = {
-    eq: () => selectChain,
-    maybeSingle: async () => ({ data: opts.existing ? { message_id: MESSAGE } : null, error: null }),
+    select: async () => ({ data: opts.existing ? [{ message_id: MESSAGE }] : [], error: null }),
   };
   return {
     from: () => ({
-      select: () => selectChain,
       delete: () => deleteChain,
       insert: async () => ({ error: opts.insertErrorCode ? { code: opts.insertErrorCode, message: "duplicate key" } : null }),
     }),

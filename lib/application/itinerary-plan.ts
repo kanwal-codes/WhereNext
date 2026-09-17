@@ -1,6 +1,8 @@
 import { z } from "zod";
-import { AI_DEADLINE_MS, gatewayFor, withDeadline } from "@/packages/ai/model-policy";
+import { AI_DEADLINE_MS, withDeadline } from "@/packages/ai/model-policy";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
+import type { UsageEntry } from "@/lib/ai/pricing";
+import { runBulkBuilder } from "./bulk-builder";
 import type { RetrievedEvidence } from "./retrieve";
 import type { TripContext } from "./trip-context";
 
@@ -22,7 +24,7 @@ const planSchema = z.object({
 });
 type PlanStop = z.infer<typeof stopSchema>;
 
-const SYSTEM = `You draft a day-by-day plan for a trip. Return JSON only:
+const SYSTEM = (language: string = "en") => `You draft a day-by-day plan for a trip. Write every text field ("title", "intro", "subtitle", "note") in language "${language}" (BCP-47) — never "time" or "kind", which stay in their given formats. Return JSON only:
 {"title":"7 days in <city>","intro":"<2-3 concise sentences: the shape of the trip, why the pacing fits, and one or two things to book ahead>","days":[{"label":"Day 1","subtitle":"<3-5 word theme>","stops":[{"time":"09:00","title":"<place or activity>","note":"<one line: why it fits or a tip>","placeId":"<id from KNOWN PLACES, or omit>","kind":"sight"}]}]}
 Rules:
 - Build ONLY from KNOWN PLACES (the traveller's saved spots + what was found this turn). Never invent a venue. Too few to fill the days? Make fewer or shorter days.
@@ -59,7 +61,9 @@ export async function buildItineraryPlan(input: {
    *  the day matching its real date. Null when there's no single clear anchor, or no trip
    *  start_date yet to place it against (the event still shows as its own card either way). */
   anchorEvent?: AnchorEvent | null;
+  language?: string;
   signal?: AbortSignal;
+  onUsage?: (entry: UsageEntry) => void;
 }): Promise<AssistantBlock | null> {
   const found = input.evidence.places.slice(0, 12).map((p) => `- ${p.name} | id:${p.providerId} | ${p.category ?? "place"}${p.address ? ` | ${p.address}` : ""}`);
   const saved = input.tripCtx.places
@@ -81,19 +85,15 @@ export async function buildItineraryPlan(input: {
     ? `\n\nANCHOR EVENT (already booked — must appear exactly once, on Day ${anchorDay}, kind "event", using this exact time): ${input.anchorEvent!.title}${input.anchorEvent!.venue ? ` at ${input.anchorEvent!.venue}` : ""}${input.anchorEvent!.time ? `, ${input.anchorEvent!.time}` : ""}`
     : "";
 
-  try {
-    const raw = await gatewayFor("resolve").generateStructured(
-      [
-        { role: "system", content: SYSTEM },
-        {
-          role: "user",
-          content: `Traveller: ${input.tripSummary}\nTrip length: ${duration ? `${duration} days` : "unspecified"}\nPace: ${pace}\nRequest: ${input.prompt}\n\nExisting itinerary:\n${existing}\n\nKNOWN PLACES:\n${known.join("\n")}${anchorLine}`,
-        },
-      ],
-      withDeadline(input.signal, AI_DEADLINE_MS.sideBuilder),
-    );
-    const parsed = planSchema.parse(raw);
-    const byId = new Map(input.evidence.places.map((p) => [p.providerId, p]));
+  const parsed = await runBulkBuilder(
+    SYSTEM(input.language),
+    `Traveller: ${input.tripSummary}\nTrip length: ${duration ? `${duration} days` : "unspecified"}\nPace: ${pace}\nRequest: ${input.prompt}\n\nExisting itinerary:\n${existing}\n\nKNOWN PLACES:\n${known.join("\n")}${anchorLine}`,
+    planSchema,
+    withDeadline(input.signal, AI_DEADLINE_MS.sideBuilder),
+    input.onUsage,
+  );
+  if (!parsed) return null;
+  const byId = new Map(input.evidence.places.map((p) => [p.providerId, p]));
     const normalize = (name: string) => name.normalize("NFKC").trim().replace(/\s+/g, " ").toLowerCase();
     const byName = new Map<string, { name: string; providerId?: string }>();
     for (const entry of input.tripCtx.places) {
@@ -149,14 +149,11 @@ export async function buildItineraryPlan(input: {
       days.push({ label: `Day ${anchorDay}`, stops: [anchorStop] });
       days.sort((a, b) => (Number(a.label.match(/\d+/)?.[0]) || 0) - (Number(b.label.match(/\d+/)?.[0]) || 0));
     }
-    if (!days.length) return null;
-    return {
-      type: "itinerary",
-      ...(parsed.title ? { title: parsed.title } : {}),
-      ...(parsed.intro ? { intro: parsed.intro } : {}),
-      days,
-    };
-  } catch {
-    return null;
-  }
+  if (!days.length) return null;
+  return {
+    type: "itinerary",
+    ...(parsed.title ? { title: parsed.title } : {}),
+    ...(parsed.intro ? { intro: parsed.intro } : {}),
+    days,
+  };
 }

@@ -1,235 +1,153 @@
-export type AiMessage = { role: "system" | "user" | "assistant"; content: string };
-import { OpenAiCompatibleProvider } from "./providers/openai-compatible";
+import { gateway, generateObject, generateText as sdkGenerateText, streamObject, type DeepPartial, type ModelMessage } from "ai";
+import type { z } from "zod";
+import type { UsageEntry } from "@/lib/ai/pricing";
+// Type-only: model-policy.ts imports real values from this file, so a value import back would
+// be circular. `import type` is fully erased at compile time — zero runtime dependency either way.
+import type { ModelChainEntry } from "./model-policy";
 
-export type AiProviderName = "openai" | "openai-compatible" | "cerebras" | "gemini" | "openrouter";
+export type { ModelMessage };
 
-// `||` not `??` everywhere below: the env template ships these keys blank, and an
-// empty string must fall through to the default, not count as a real value.
-const OPENAI = {
-  baseUrl: "https://api.openai.com/v1",
-  key: () => process.env.AI_API_KEY || process.env.OPENAI_API_KEY,
-  defaultModel: "gpt-4o",
-  // A cheap, low-latency model for the `fast` role — short streamed answers that don't
-  // need gpt-4o's extra capability.
-  fastModel: "gpt-4o-mini",
-  reasoning: false,
-  envHint: "AI_API_KEY or OPENAI_API_KEY",
-} as const;
-
-const PROVIDERS: Record<AiProviderName, { baseUrl: string; key: () => string | undefined; defaultModel: string; fastModel?: string; reasoning: boolean | ((model: string) => boolean); envHint: string }> = {
-  openai: OPENAI,
-  "openai-compatible": OPENAI,
-  cerebras: {
-    baseUrl: "https://api.cerebras.ai/v1",
-    key: () => process.env.CEREBRAS_API_KEY,
-    defaultModel: "gpt-oss-120b",
-    // gemma-4-31b is a plain chat model, no reasoning phase — answers a short prompt in
-    // ~0.3s versus gpt-oss's 9-30s "thinking" (invisible on the wire either way).
-    fastModel: "gemma-4-31b",
-    // Cerebras hosts a mix of reasoning and plain chat models — only gpt-oss emits the
-    // harmony analysis channel these options gate; gemma/qwen reject reasoning_format
-    // outright (400) if it's sent.
-    reasoning: (model) => model === "gpt-oss-120b",
-    envHint: "CEREBRAS_API_KEY",
-  },
-  gemini: {
-    // Gemini speaks OpenAI's protocol at this path, so the existing provider works unchanged.
-    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
-    key: () => process.env.GEMINI_API_KEY,
-    // "…-latest" auto-tracks the current Flash model so this doesn't rot when Google retires a
-    // pinned id (which they do often — 2.0-flash, 2.5-flash and 2.5-pro all 404 now). Override
-    // per-role with GEMINI_MODEL / GEMINI_BULK_MODEL.
-    defaultModel: "gemini-flash-latest",
-    fastModel: "gemini-flash-latest", // already the fast one
-    reasoning: false,
-    envHint: "GEMINI_API_KEY",
-  },
-  openrouter: {
-    // OpenRouter speaks the same OpenAI-compatible chat-completions shape; model ids are
-    // "vendor/model", e.g. "anthropic/claude-sonnet-4.5" — set AI_MODEL to pick one.
-    baseUrl: "https://openrouter.ai/api/v1",
-    key: () => process.env.OPENROUTER_API_KEY,
-    defaultModel: "anthropic/claude-sonnet-4.5",
-    reasoning: false,
-    envHint: "OPENROUTER_API_KEY",
-  },
+const chainEntryId = (entry: ModelChainEntry): string => (typeof entry === "string" ? entry : entry.id);
+/** Exported so `compose-model.ts`'s `ComposeModel.providerOptions` can reference this exact shape
+ *  instead of hand-duplicating it — keeps the two in sync if this ever gains another option. */
+export type GatewayProviderOptions = { gateway: { only?: string[]; caching?: "auto" } };
+/** `providerOptions` for a Gateway call: `only` pins one specific underlying inference provider
+ *  (bare string entry = no pin), `caching` asks the Gateway to cache this prompt (Phase 2.4,
+ *  docs/overhaul/roadmap/phase-2-speed.md) — a no-op for a provider that already caches
+ *  implicitly, only doing anything real for an explicit-caching one (Anthropic/MiniMax/Alibaba).
+ *  `undefined` when neither applies, so a plain call stays byte-identical to before either existed. */
+const providerOptionsFor = (entry: ModelChainEntry, caching?: "auto"): GatewayProviderOptions | undefined => {
+  const only = typeof entry === "string" ? undefined : entry.only;
+  return only || caching ? { gateway: { ...(only ? { only } : {}), ...(caching ? { caching } : {}) } } : undefined;
 };
-
-export type ResolvedProvider = { apiKey: string; model: string; baseUrl: string; supportsReasoningOptions: boolean };
-
-/**
- * Resolve the OpenAI-compatible endpoint to talk to. `AI_PROVIDER` (+ `AI_BASE_URL` /
- * `AI_MODEL`) picks the primary provider; `{ provider }` pins one regardless of env — a
- * pinned provider ignores `AI_BASE_URL` / `AI_MODEL` and uses its own defaults. Shared by
- * `createAiGateway` (structured/legacy calls) and `composeModel` (the AI SDK tool loop).
- */
-export function resolveProvider(overrides: { model?: string; provider?: AiProviderName; fast?: boolean } = {}): ResolvedProvider {
-  const pinned = overrides.provider != null;
-  const name: AiProviderName = overrides.provider ?? (process.env.AI_PROVIDER as AiProviderName) ?? "openai-compatible";
-  const p = PROVIDERS[name] ?? PROVIDERS["openai-compatible"];
-  const key = p.key();
-  if (!key) throw new Error(`${p.envHint} is not configured`);
-  const fallbackDefault = overrides.fast ? (p.fastModel ?? p.defaultModel) : p.defaultModel;
-  const model = overrides.model || (pinned ? fallbackDefault : process.env.AI_MODEL || fallbackDefault);
-  return {
-    apiKey: key,
-    model,
-    baseUrl: pinned ? p.baseUrl : process.env.AI_BASE_URL || p.baseUrl,
-    supportsReasoningOptions: typeof p.reasoning === "function" ? p.reasoning(model) : p.reasoning,
-  };
-}
-
-/** The chat/reasoning gateway used by every structured call (`generateText` / `generateStructured`). */
-export function createAiGateway(overrides: { model?: string; provider?: AiProviderName; fast?: boolean } = {}) {
-  return new OpenAiCompatibleProvider(resolveProvider(overrides));
-}
-
-/**
- * Primary + fallback providers. `AI_PROVIDER` is the primary (honours `AI_BASE_URL` /
- * `AI_MODEL`); `AI_FALLBACK_PROVIDERS` is a comma list tried in order when the primary
- * fails (`AI_FALLBACK_PROVIDERS=gemini,openai`). Each fallback is pinned to its own
- * endpoint + default model. Providers with no configured key are dropped. Throws only if
- * nothing in the chain is usable (with the primary's env hint).
- */
-export function resolveProviderChain(overrides: { model?: string; fast?: boolean } = {}): ResolvedProvider[] {
-  const names = [
-    (process.env.AI_PROVIDER as AiProviderName) || "openai-compatible",
-    ...(process.env.AI_FALLBACK_PROVIDERS ?? "")
-      .split(",").map((s) => s.trim()).filter(Boolean) as AiProviderName[],
-  ];
-  const seen = new Set<string>();
-  const chain: ResolvedProvider[] = [];
-  let firstError: unknown;
-  names.forEach((name, index) => {
-    if (seen.has(name)) return;
-    seen.add(name);
-    // Gemini's pinned default ids lapse silently (gemini-2.5-flash now 404s for new keys), so a
-    // gemini fallback with no explicit live model is a dead slot in the chain — skip it.
-    if (index > 0 && name === "gemini" && !(overrides.model || process.env.GEMINI_MODEL)) return;
-    try {
-      // index 0 is the primary — let it honour AI_BASE_URL / AI_MODEL; fallbacks are pinned.
-      chain.push(resolveProvider(
-        index === 0
-          ? { model: overrides.model, fast: overrides.fast }
-          : { provider: name, model: overrides.model || (name === "gemini" ? process.env.GEMINI_MODEL : undefined), fast: overrides.fast },
-      ));
-    } catch (error) {
-      firstError ??= error;
-    }
-  });
-  if (chain.length === 0) throw firstError ?? new Error("no AI provider configured");
-  return chain;
-}
 
 const isAbort = (error: unknown) =>
   error instanceof DOMException ? error.name === "AbortError" : (error as { name?: string })?.name === "AbortError";
 
-/** A provider whose first byte doesn't show up within this long is treated as failed — the
- *  fallback chain moves on instead of the caller waiting indefinitely on a stalled connection
- *  that already returned headers. Only `stream()` is exposed to this; only one caller uses
- *  it today (compare-chat's short, fast "compose" answer) so a tight bound is safe. Kept well
- *  under the client's own 30s hard timeout even at the worst case (4 providers deep in the
- *  default AI_PROVIDER + AI_FALLBACK_PROVIDERS chain), so a full walk through every provider
- *  still finishes — or fails cleanly — before the client gives up on its own. */
-const STREAM_FIRST_CHUNK_DEADLINE_MS = 6_000;
-
-/** A gateway that transparently fails over across `resolveProviderChain()` on a provider error
- *  (network, 401/403/429, 5xx). A 4xx that another provider can't fix, and aborts, propagate. */
-export function createGatewayWithFallback(overrides: { model?: string; fast?: boolean } = {}) {
-  const resolved = resolveProviderChain(overrides);
-  const providers = resolved.map((r) => new OpenAiCompatibleProvider(r));
-  // Which provider in the chain actually answered the last call — the trace's whole point
-  // is to say what really ran, not what was merely configured as the primary.
-  let lastModelUsed: string | undefined;
-  async function withFailover<T>(externalSignal: AbortSignal | undefined, op: (p: OpenAiCompatibleProvider) => Promise<T>): Promise<T> {
-    let lastError: unknown;
-    for (let i = 0; i < providers.length; i += 1) {
-      try {
-        const result = await op(providers[i]);
-        lastModelUsed = resolved[i].model;
-        return result;
-      } catch (error) {
-        // `fetch` always throws "AbortError" on any abort, whether it came from the caller's
-        // own signal (a real cancellation — stop, don't waste time on more providers) or from
-        // this provider's internal per-attempt timeout (exactly what failover is for). Only
-        // the caller's signal being aborted means the whole request is being torn down.
-        if (isAbort(error) && externalSignal?.aborted) throw error;
-        const status = (error as { status?: number })?.status;
-        const worthRetrying = !status || status === 401 || status === 403 || status === 429 || status >= 500 || isAbort(error);
-        if (!worthRetrying || i === providers.length - 1) throw error;
-        lastError = error;
-      }
-    }
-    throw lastError;
-  }
-  /** `stream()`'s own failover: a provider that returns headers but then goes quiet (never
-   *  emits a first chunk) looks identical to success to `withFailover` above — the promise it
-   *  awaits already resolved. Peeks the first chunk under a deadline so a stall counts as a
-   *  failure of that provider too, then re-attaches it to the stream for the real consumer. */
-  async function streamWithFailover(...args: Parameters<OpenAiCompatibleProvider["stream"]>): Promise<ReadableStream<Uint8Array>> {
-    const externalSignal = args[1];
-    return withFailover(externalSignal, async (p) => {
-      const body = await p.stream(...args);
-      const reader = body.getReader();
-      let first: ReadableStreamReadResult<Uint8Array>;
-      try {
-        first = await Promise.race([
-          reader.read(),
-          new Promise<never>((_, reject) => {
-            const t = setTimeout(() => reject(Object.assign(new Error("stream stalled before first chunk"), { name: "AbortError" })), STREAM_FIRST_CHUNK_DEADLINE_MS);
-            externalSignal?.addEventListener("abort", () => clearTimeout(t), { once: true });
-          }),
-        ]);
-      } catch (error) {
-        reader.cancel().catch(() => {});
-        throw error;
-      }
-      return new ReadableStream<Uint8Array>({
-        start(controller) {
-          if (first.done) { controller.close(); return; }
-          controller.enqueue(first.value);
-        },
-        async pull(controller) {
-          const { done, value } = await reader.read();
-          if (done) { controller.close(); return; }
-          controller.enqueue(value);
-        },
-        cancel() { reader.cancel().catch(() => {}); },
-      });
-    });
-  }
-  return {
-    generateText: (...args: Parameters<OpenAiCompatibleProvider["generateText"]>) => withFailover(args[1], (p) => p.generateText(...args)),
-    generateStructured: (...args: Parameters<OpenAiCompatibleProvider["generateStructured"]>) => withFailover(args[1], (p) => p.generateStructured(...args)),
-    stream: (...args: Parameters<OpenAiCompatibleProvider["stream"]>) => streamWithFailover(...args),
-    get lastModelUsed() { return lastModelUsed; },
-  };
+/** Same retry policy the old hand-rolled multi-provider chain used: fail over on anything that
+ *  might be transient (no status at all, auth hiccup, rate limit, 5xx, or an internal abort from
+ *  a per-attempt timeout) — never on a real 4xx the next model can't fix either. */
+function isRetryable(error: unknown): boolean {
+  const status = (error as { status?: number; statusCode?: number })?.status ?? (error as { statusCode?: number })?.statusCode;
+  return !status || status === 401 || status === 403 || status === 429 || status >= 500;
 }
 
 /**
- * Cheap, huge-context model for bulk extraction / summarisation of long or
- * low-stakes text — web-page import, event blurbs, hotel descriptions, thread
- * summaries. Routes to Gemini Flash when `GEMINI_API_KEY` is set; otherwise it
- * transparently falls back to the primary gateway, so nothing breaks without a key.
+ * Try each Gateway model id in order until one succeeds. Every provider now goes through the
+ * SAME client (Vercel AI Gateway, one API key) — there is no more per-provider baseURL/key/
+ * reasoning-flag resolution to hand-roll; "fallback" here is purely "which model answered."
+ * `externalSignal` is the caller's own abort (Stop, navigation) — an abort from THAT signal
+ * propagates immediately instead of being treated as a retryable per-model failure.
  */
-export function createBulkGateway(overrides: { model?: string } = {}) {
-  // Gemini is opt-in for bulk work: only when a model is explicitly pinned via
-  // `GEMINI_BULK_MODEL` (or passed in). Even then it is only the *first* try — a Gemini
-  // outage (503 / 429 / a lapsed model 404) must not sink an enrichment, so any failure
-  // transparently falls through to the primary provider chain (Cerebras/OpenAI).
-  const geminiModel = overrides.model || process.env.GEMINI_BULK_MODEL;
-  const chain = createGatewayWithFallback(overrides);
-  if (!(process.env.GEMINI_API_KEY && geminiModel)) return chain;
+async function withModelFallback<T>(
+  chain: ModelChainEntry[],
+  op: (model: ReturnType<typeof gateway>, modelId: string, providerOptions?: GatewayProviderOptions) => Promise<T>,
+  externalSignal?: AbortSignal,
+  caching?: "auto",
+): Promise<T> {
+  let lastError: unknown;
+  for (let i = 0; i < chain.length; i += 1) {
+    const entry = chain[i];
+    const modelId = chainEntryId(entry);
+    try {
+      return await op(gateway(modelId), modelId, providerOptionsFor(entry, caching));
+    } catch (error) {
+      if (isAbort(error) && externalSignal?.aborted) throw error;
+      if (!isRetryable(error) || i === chain.length - 1) throw error;
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
 
-  const gemini = createAiGateway({ provider: "gemini", model: geminiModel });
-  const withGeminiFirst = <T>(run: (g: typeof gemini | typeof chain) => Promise<T>): Promise<T> =>
-    run(gemini).catch((error) => {
-      if (isAbort(error)) throw error;
-      return run(chain);
-    });
-  return {
-    generateText: (...a: Parameters<typeof gemini.generateText>) => withGeminiFirst((g) => g.generateText(...a)),
-    generateStructured: (...a: Parameters<typeof gemini.generateStructured>) => withGeminiFirst((g) => g.generateStructured(...a)),
-    stream: (...a: Parameters<typeof gemini.stream>) => withGeminiFirst((g) => g.stream(...a)),
-  };
+/**
+ * One structured-JSON call through the Gateway, trying each model in `chain` in order.
+ * Uses the AI SDK's native `generateObject` — schema-constrained decoding on providers that
+ * support it, full Zod validation (including lenient `.catch()`/`.transform()` recovery) on
+ * the result either way. Replaces the old hand-rolled `response_format: json_object` +
+ * regex-extract-the-first-`{...}` + manual `.parse()` pattern.
+ */
+export async function generateStructured<T>(
+  chain: ModelChainEntry[],
+  messages: ModelMessage[],
+  schema: z.ZodType<T>,
+  signal?: AbortSignal,
+  onUsage?: (entry: UsageEntry) => void,
+  opts?: { caching?: "auto" },
+): Promise<T> {
+  return withModelFallback(chain, async (model, modelId, providerOptions) => {
+    const result = await generateObject({ model, schema, messages, abortSignal: signal, allowSystemInMessages: true, ...(providerOptions ? { providerOptions } : {}) });
+    onUsage?.({ model: modelId, promptTokens: result.usage.inputTokens ?? 0, completionTokens: result.usage.outputTokens ?? 0 });
+    return result.object;
+  }, signal, opts?.caching);
+}
+
+/**
+ * NOT CALLED FROM LIVE CODE — see the long comment on `model-policy.ts`'s `generateStructured`.
+ * Live-verified: `result.object` hangs forever when invoked from inside this app's actual
+ * Next.js route context (works fine as a standalone script). Kept correct and unit-tested
+ * (`tests/unit/gateway-fallback.test.ts`) as a documented, known-broken-in-this-app starting
+ * point for whoever investigates the Next.js/AI-SDK streaming interaction later — do not wire
+ * this back into `model-policy.ts` without first confirming that root cause is actually fixed.
+ *
+ * Like `generateStructured`, but backed by the AI SDK's `streamObject` (Phase 2.6.1,
+ * docs/overhaul/roadmap/phase-2-speed.md) instead of `generateObject` — a caller watching the raw
+ * HTTP response can see JSON arrive progressively instead of a single silent wait, without
+ * changing what's ultimately returned: this still resolves (or rejects, on the same retryable-
+ * error/fallback terms as `generateStructured`) with the one final, fully-validated object.
+ * `onPartial`, when given, is called with each partial object as it streams in, for progress UI —
+ * it never affects the awaited return value, and a consumer that throws doesn't fail the call.
+ */
+export async function streamStructured<T>(
+  chain: ModelChainEntry[],
+  messages: ModelMessage[],
+  schema: z.ZodType<T>,
+  signal?: AbortSignal,
+  onUsage?: (entry: UsageEntry) => void,
+  opts?: { caching?: "auto"; onPartial?: (partial: DeepPartial<T>) => void },
+): Promise<T> {
+  return withModelFallback(chain, async (model, modelId, providerOptions) => {
+    const result = streamObject({ model, schema, messages, abortSignal: signal, allowSystemInMessages: true, ...(providerOptions ? { providerOptions } : {}) });
+    if (opts?.onPartial) {
+      const onPartial = opts.onPartial;
+      // Detached: this loop and the `await result.object` below both read the same underlying
+      // stream independently (the SDK tees it, same pattern the COMPOSE route already relies on
+      // for `textStream` + `totalUsage`) — a partial-consumer error must not fail the real call.
+      void (async () => {
+        try {
+          for await (const partial of result.partialObjectStream) onPartial(partial as DeepPartial<T>);
+        } catch {
+          // Swallowed — `await result.object` below is the call's real success/failure signal.
+        }
+      })();
+    }
+    const [object, usage] = await Promise.all([result.object, result.usage]);
+    onUsage?.({ model: modelId, promptTokens: usage.inputTokens ?? 0, completionTokens: usage.outputTokens ?? 0 });
+    return object;
+  }, signal, opts?.caching);
+}
+
+/** One plain-text call through the Gateway, same model-fallback semantics as `generateStructured`. */
+export async function generateText(
+  chain: ModelChainEntry[],
+  messages: ModelMessage[],
+  signal?: AbortSignal,
+  onUsage?: (entry: UsageEntry) => void,
+): Promise<string> {
+  return withModelFallback(chain, async (model, modelId, providerOptions) => {
+    const result = await sdkGenerateText({ model, messages, abortSignal: signal, allowSystemInMessages: true, ...(providerOptions ? { providerOptions } : {}) });
+    onUsage?.({ model: modelId, promptTokens: result.usage.inputTokens ?? 0, completionTokens: result.usage.outputTokens ?? 0 });
+    if (!result.text) throw new Error("AI provider returned an empty response");
+    return result.text;
+  }, signal);
+}
+
+/** The COMPOSE stage's model chain as real AI SDK `LanguageModel`s, for the routes' own
+ *  streaming + bounded tool-calling loop — that needs per-attempt time-to-first-token racing
+ *  and manual step control that a single `generateText`/`generateStructured` call above doesn't
+ *  expose. Each entry is just a Gateway-resolved model; there is no more per-provider request
+ *  shape to build. `providerOptions` is included only when the entry actually pins a provider —
+ *  compose's own chain has no pinned entries today, so this is `undefined` in practice. */
+export function gatewayModelChain(chain: ModelChainEntry[]): Array<{ model: ReturnType<typeof gateway>; modelId: string; providerOptions?: GatewayProviderOptions }> {
+  return chain.map((entry) => ({ model: gateway(chainEntryId(entry)), modelId: chainEntryId(entry), providerOptions: providerOptionsFor(entry) }));
 }

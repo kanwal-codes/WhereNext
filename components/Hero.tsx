@@ -19,6 +19,7 @@ export function Hero({
   className,
   plain = false,
   surface = false,
+  ratingBadge,
   children,
 }: {
   image: string;
@@ -28,6 +29,13 @@ export function Hero({
   /** Dissolve into `surface` instead of `background` — for a hero sitting on a card/sheet/panel
    *  whose fill is the surface token, where fading to background would leave a visible seam. */
   surface?: boolean;
+  /** A rating label ("4.6 (8,259)", "8.4/10") shown as one frosted pill in the hero's
+   *  bottom-right corner, with the dark scrim it needs to stay legible over any photo — the single
+   *  rating treatment shared by every detail view (place/stay/event) instead of each hand-rolling
+   *  its own scrim+badge markup, which had drifted into two different presentations (an inline
+   *  text row on one view, an image-overlay badge with its own bespoke scrim on another). Pass the
+   *  icon + value as children (e.g. `<Star .../> 4.6`); omit for a view with no rating to show. */
+  ratingBadge?: ReactNode;
   children?: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -74,6 +82,18 @@ export function Hero({
           <div className="pointer-events-none absolute inset-0 bg-background/25" />
         </>
       )}
+
+      {/* Rating badge's own legibility scrim goes UNDER the fog dissolve below, not over it —
+          it used to render after (on top of) the fog, and its from-ink/65 stop is anchored at
+          the very same bottom edge the fog fades to solid surface/background at. Painted on
+          top, that 65%-opacity dark tint won by winning the last-paint slot, so the true bottom
+          row stayed image-dark instead of resolving to the page's own background color — a hard
+          seam right where this hero meets the next block. The fog is the one thing that has to
+          have the final say at that exact edge. */}
+      {ratingBadge && (
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/65 via-ink/10 to-transparent" />
+      )}
+
       <motion.div
         style={{ opacity: fog }}
         className={cn(
@@ -87,6 +107,16 @@ export function Hero({
           surface ? "bg-surface/70" : "bg-background/70",
         )}
       />
+
+      {/* The pill itself renders last (on top of the fog) so it stays crisp regardless of the
+          wash behind it — it carries its own ink/35 + blur background for contrast. */}
+      {ratingBadge && (
+        <div className="absolute inset-x-4 bottom-4 flex items-end justify-end gap-3 text-white sm:inset-x-6 sm:bottom-6">
+          <div className="flex items-center gap-1.5 rounded-full bg-ink/35 px-3 py-1.5 text-xs backdrop-blur-md">
+            {ratingBadge}
+          </div>
+        </div>
+      )}
 
       {children}
     </div>

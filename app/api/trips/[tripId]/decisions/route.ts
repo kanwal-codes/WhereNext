@@ -26,7 +26,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     const parsed = decisionInput.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: "Invalid decision" }, { status: 400 });
     if (parsed.data.kind === "stay" && !stayDecisionSchema.safeParse(parsed.data.value).success) return NextResponse.json({ error: "Invalid stay decision" }, { status: 400 });
-    const decision = { trip_id: tripId, kind: parsed.data.kind, value: parsed.data.value, source: parsed.data.source, ...(parsed.data.idempotencyKey ? { idempotency_key: parsed.data.idempotencyKey } : {}) };
+    // "assistant"/"provider" sources are written by trusted server code that talks to the
+    // database directly (assistant-turn.ts, the trip-review cron) — never through this route,
+    // so a client-supplied source here is never legitimate. Force it rather than trust the body,
+    // or any editor could tag their own typed-in decision with a fake "provider-verified" badge.
+    const decision = { trip_id: tripId, kind: parsed.data.kind, value: parsed.data.value, source: "user" as const, ...(parsed.data.idempotencyKey ? { idempotency_key: parsed.data.idempotencyKey } : {}) };
     const result = parsed.data.idempotencyKey
       ? await supabase.from("trip_decisions").upsert(decision, { onConflict: "trip_id,idempotency_key" }).select(SELECT).single()
       : await supabase.from("trip_decisions").insert(decision).select(SELECT).single();

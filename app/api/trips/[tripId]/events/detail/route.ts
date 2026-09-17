@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eventDetailSchema, type EventDetail } from "@/packages/contracts/event";
 import { eventDetail as ticketmasterDetail, eventDetailBySearch, ticketmasterIdFromUrl, type TicketmasterEventDetail } from "@/packages/providers/ticketmaster/client";
 import { research } from "@/packages/providers/tavily/client";
-import { createBulkGateway } from "@/packages/ai/gateway";
+import { generateStructured } from "@/packages/ai/model-policy";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
 import { cached } from "@/lib/server/ttl-cache";
@@ -11,7 +11,7 @@ import { ticketSellerLabel } from "@/lib/ticket-provider";
 
 const tmConfigured = () => Boolean(process.env.TICKETMASTER_CONSUMER_KEY || process.env.TICKETMASTER_API_KEY);
 const webConfigured = () => Boolean(process.env.TAVILY_API_KEY);
-const aiConfigured = () => Boolean(process.env.AI_API_KEY || process.env.OPENAI_API_KEY || process.env.CEREBRAS_API_KEY || process.env.GEMINI_API_KEY);
+const aiConfigured = () => Boolean(process.env.AI_GATEWAY_API_KEY);
 
 /** Ticketmaster's `pleaseNote` is often just bilingual terms-and-conditions boilerplate — drop that. */
 function usefulNote(note: string | null | undefined): string | null {
@@ -30,7 +30,7 @@ function cityFrom(address: string | null | undefined): string | null {
 
 /**
  * Find the Ticketmaster event behind this card. A TM url gives it directly; otherwise
- * (Eventbrite / PredictHQ / a web hit) search TM by name + city and match on the title.
+ * (Eventbrite / a web hit) search TM by name + city and match on the title.
  */
 async function resolveTicketmaster(
   name: string,
@@ -83,7 +83,8 @@ async function enrich(
   const factsAbout = aboutFromFacts(name, known);
   if (!aiConfigured()) return { ...empty, about: factsAbout };
   try {
-    const raw = await createBulkGateway().generateStructured(
+    const parsed = await generateStructured(
+      "bulk",
       [
         {
           role: "system",
@@ -106,9 +107,9 @@ async function enrich(
             `Billed acts: ${known.performers.join(", ") || "unknown"}\n\nNotes:\n${text.slice(0, 4000) || "(none — write about from the event name / genre / venue / acts)"}`,
         },
       ],
+      enrichmentSchema,
       signal,
     );
-    const parsed = enrichmentSchema.parse(raw);
     return { ...parsed, about: parsed.about?.trim() || factsAbout };
   } catch {
     // AI unavailable / bad JSON — a clean known-facts line, never a raw ticketing dump.

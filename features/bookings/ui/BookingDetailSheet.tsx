@@ -63,7 +63,7 @@ export function BookingDetailSheet({
             </button>
           </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto scrollbar-slim px-5 py-5">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-slim px-5 py-5">
             <div className="flex flex-col items-center py-4 text-center">
               <Reveal>
                 <div className={cn("grid h-14 w-14 place-items-center rounded-full", booking.status === "cancelled" || booking.status === "failed" ? "bg-destructive/10" : "bg-leaf-soft")}>
@@ -101,12 +101,7 @@ export function BookingDetailSheet({
                       <p className="text-sm font-medium text-destructive">Cancel this booking?</p>
                       <p className="mt-1 text-xs text-muted-foreground">This can’t be undone in the sandbox.</p>
                       <div className="mt-3 flex gap-2">
-                        <button
-                          type="button"
-                          disabled={cancelling}
-                          onClick={() => void cancel()}
-                          className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-destructive px-4 py-2.5 text-sm font-medium text-white transition-[transform,opacity] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:hover:scale-100"
-                        >
+                        <button type="button" disabled={cancelling} onClick={() => void cancel()} className="btn-destructive flex-1">
                           {cancelling ? "Cancelling…" : "Yes, cancel"}
                         </button>
                         <button type="button" onClick={() => setConfirmingCancel(false)} className="btn-secondary flex-1 justify-center">

@@ -1,31 +1,34 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, CalendarDays, MapPin, Users, Wallet } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowRight, CalendarDays, Check, Loader2, MapPin, Pencil, Users, Wallet } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { Hero } from "@/components/Hero";
 import { Reveal, Stagger, StaggerItem, WordReveal } from "@/components/motion-primitives";
 import { CertaintyBadge } from "@/components/CertaintyBadge";
 import { certaintyFor, decisionSummary, isDisplayableDecision } from "@/lib/decisions-ui";
-import { daysUntilTrip, tripDayIndex, tripWhen } from "@/lib/trip-dates";
+import { daysUntilTrip, fmtDay, tripDayIndex, tripWhen } from "@/lib/trip-dates";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { useDestinationPhoto } from "@/features/places/application/useDestinationPhoto";
 import { TripWeather } from "@/components/TripWeather";
 import { ShareTrip } from "@/features/trip/ui/ShareTrip";
 import { TripReviewPanel } from "@/features/workspace/ui/TripReviewPanel";
+import { announceWorkspaceChange } from "@/lib/application/workspace-events";
+import { notifyToast } from "@/lib/application/toast";
 
 type SavedPlace = { status?: string; places?: { id: string; name: string; category?: string | null; address?: string | null } };
 type ItineraryRow = { id: string; title: string; day_index: number };
 type DecisionRow = { id: string; kind: string; value: Record<string, unknown>; source?: string };
 
-const fmtDay = (iso: string) => {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString([], { month: "short", day: "numeric" });
-};
-
 export default function TripOverviewPage() {
   const { tripId, data } = useTripData();
+  const router = useRouter();
   const trip = data?.trip;
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [savingName, setSavingName] = useState(false);
   const prefs = (data?.preferences ?? {}) as Record<string, unknown>;
   const saved = ((data?.savedPlaces ?? []) as SavedPlace[]).map((s) => s.places).filter(Boolean) as NonNullable<SavedPlace["places"]>[];
   const itinerary = (data?.itinerary ?? []) as ItineraryRow[];
@@ -92,6 +95,35 @@ export default function TripOverviewPage() {
   const heroReady = Boolean(data) && destinationPhoto !== undefined;
   const heroImage = destinationPhoto || "/design/trip-hero.jpg";
 
+  const startEditingName = () => {
+    setNameDraft(trip?.name || destination);
+    setEditingName(true);
+  };
+
+  const saveName = async () => {
+    const name = nameDraft.trim();
+    if (!name || name === trip?.name) {
+      setEditingName(false);
+      return;
+    }
+    setSavingName(true);
+    try {
+      const res = await fetch(`/api/trips/${tripId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) throw new Error("Failed to rename trip");
+      announceWorkspaceChange("trip");
+      router.refresh();
+      setEditingName(false);
+    } catch {
+      notifyToast("Couldn't rename the trip. Try again.");
+    } finally {
+      setSavingName(false);
+    }
+  };
+
   return (
     <div className="min-h-full">
       {heroReady ? (
@@ -106,7 +138,48 @@ export default function TripOverviewPage() {
           <div className="absolute inset-x-0 bottom-0 px-5 pb-6 sm:px-8">
             <Reveal delay={0.12}>
               <div className="min-w-0">
-                <WordReveal text={trip?.name || destination} delay={0.24} className="truncate font-display text-4xl" />
+                {editingName ? (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void saveName();
+                    }}
+                    className="flex max-w-md items-center gap-2"
+                  >
+                    <input
+                      autoFocus
+                      value={nameDraft}
+                      onChange={(e) => setNameDraft(e.target.value)}
+                      onBlur={() => void saveName()}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") setEditingName(false);
+                      }}
+                      disabled={savingName}
+                      className="min-w-0 flex-1 rounded-lg border border-border/60 bg-background/90 px-3 py-1.5 font-display text-3xl text-foreground shadow-soft backdrop-blur outline-none focus:border-primary"
+                    />
+                    <button
+                      type="submit"
+                      disabled={savingName}
+                      aria-label="Save trip name"
+                      className="shrink-0 rounded-full border border-border/60 bg-background/85 p-2 text-foreground shadow-soft backdrop-blur transition-[transform,background-color] hover:bg-background active:scale-[0.94] disabled:opacity-60"
+                    >
+                      {savingName ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                    </button>
+                  </form>
+                ) : (
+                  <div className="group/name flex min-w-0 items-center gap-2">
+                    <WordReveal text={trip?.name || destination} delay={0.24} className="truncate font-display text-4xl" />
+                    <button
+                      type="button"
+                      onClick={startEditingName}
+                      aria-label="Rename trip"
+                      title="Rename trip"
+                      className="shrink-0 rounded-full border border-border/60 bg-background/85 p-1.5 text-foreground opacity-0 shadow-soft backdrop-blur transition-opacity group-hover/name:opacity-100 group-focus-within/name:opacity-100 hover:bg-background"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
                 <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-soft">
                   <MapPin className="h-3.5 w-3.5" /> {destination}
                 </p>

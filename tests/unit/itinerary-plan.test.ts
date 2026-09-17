@@ -1,4 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+const { generateObjectMock } = vi.hoisted(() => ({ generateObjectMock: vi.fn() }));
+vi.mock("ai", async (importOriginal) => ({ ...(await importOriginal<object>()), generateObject: generateObjectMock }));
+
 import { buildItineraryPlan, dayIndexForDate } from "../../lib/application/itinerary-plan";
 import type { RetrievedEvidence } from "../../lib/application/retrieve";
 
@@ -12,16 +16,13 @@ const tripCtx = { places: [], itinerary: [], preferences: { pace: "relaxed" } } 
 
 afterEach(() => {
   vi.restoreAllMocks();
-  delete process.env.AI_PROVIDER;
-  delete process.env.AI_API_KEY;
 });
 
 const stubModel = (content: unknown) => {
-  process.env.AI_PROVIDER = "openai-compatible";
-  process.env.AI_API_KEY = "k";
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
-    new Response(JSON.stringify({ choices: [{ message: { content: typeof content === "string" ? content : JSON.stringify(content) } }] }), { status: 200 }),
-  ));
+  generateObjectMock.mockImplementation(async ({ schema }: { schema: { parse: (v: unknown) => unknown } }) => ({
+    object: schema.parse(typeof content === "string" ? JSON.parse(content) : content),
+    usage: { inputTokens: 10, outputTokens: 10 },
+  }));
 };
 
 describe("buildItineraryPlan", () => {

@@ -68,7 +68,7 @@ function BookingFlowContent({ subject, onClose, onBooked }: { subject: BookingSu
         </button>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-slim px-5 py-5">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-slim px-5 py-5">
         <ContentSwap swapKey={flow.stage}>
           {flow.stage === "details" && <DetailsStage subject={subject} flow={flow} />}
           {flow.stage === "review" && <ReviewStage subject={subject} flow={flow} />}
@@ -92,7 +92,7 @@ function DetailsStage({ subject, flow }: { subject: BookingSubject; flow: Flow }
       {subject.kind === "flight" ? (
         <div className="space-y-3">
           {flow.passengers.map((p, i) => (
-            <div key={i} className="rounded-2xl border border-border bg-card p-4">
+            <div key={p.rowId} className="rounded-2xl border border-border bg-card p-4">
               {flow.passengers.length > 1 && <p className="mb-3 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">Traveler {i + 1}</p>}
               <div className="grid grid-cols-2 gap-2.5">
                 <select value={p.title} onChange={(e) => flow.updatePassenger(i, { title: e.target.value })} className="input-field col-span-2 sm:col-span-1">
@@ -114,7 +114,7 @@ function DetailsStage({ subject, flow }: { subject: BookingSubject; flow: Flow }
       ) : (
         <div className="space-y-3">
           {flow.guests.map((g, i) => (
-            <div key={i} className="rounded-2xl border border-border bg-card p-4">
+            <div key={g.rowId} className="rounded-2xl border border-border bg-card p-4">
               <div className="mb-3 flex items-center justify-between">
                 <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">Guest {i + 1}</p>
                 {flow.guests.length > 1 && (

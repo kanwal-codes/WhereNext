@@ -43,11 +43,11 @@ beforeEach(() => {
 afterEach(() => vi.resetModules());
 
 describe("GET /api/trips/:tripId/group-chat", () => {
-  it("returns the shared message list, scoped by trip only (not per-user)", async () => {
+  it("returns the shared message list, scoped by trip only (not per-user), capped to recent history", async () => {
     const res = await GET();
     expect(res.status).toBe(200);
     expect((await res.json()).messages).toHaveLength(1);
-    expect(listMock).toHaveBeenCalledWith(TRIP, "u1");
+    expect(listMock).toHaveBeenCalledWith(TRIP, "u1", { limit: 200 });
   });
 
   it("maps an auth error to its status", async () => {

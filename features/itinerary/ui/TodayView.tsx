@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CloudOff } from "lucide-react";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
+import { Reveal } from "@/components/motion-primitives";
 import { readTrip } from "@/lib/client/offline-store";
 import { tripDayIndex } from "@/lib/trip-dates";
 import { readStayDecision } from "@/packages/contracts/stay";
@@ -44,33 +45,37 @@ export function TodayView({ tripId }: { tripId: string }) {
         </p>
       )}
 
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {dayIndex == null ? "Your itinerary" : `Today · Day ${dayIndex}`}
-      </p>
-      <h1 className="mt-1 font-display text-2xl">{data.trip.name}</h1>
+      <Reveal>
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {dayIndex == null ? "Your itinerary" : `Today · Day ${dayIndex}`}
+        </p>
+        <h1 className="mt-1 font-display text-2xl">{data.trip.name}</h1>
 
-      {stay && (
-        <div className="mt-4 rounded-2xl border border-leaf/30 bg-card p-4">
-          <p className="text-[11px] uppercase tracking-wide text-leaf">Your stay</p>
-          <p className="mt-0.5 truncate font-medium">{stay.hotelName}</p>
-          <p className="truncate text-xs text-muted-foreground">{stay.roomName}</p>
-        </div>
-      )}
-
-      <ol className="mt-5 space-y-2">
-        {items.length === 0 ? (
-          <li className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-            {dayIndex == null ? "No itinerary items yet." : "Nothing scheduled for today."}
-          </li>
-        ) : (
-          items.map((it) => (
-            <li key={it.id} className="rounded-2xl border border-border bg-card px-4 py-3">
-              <p className="text-sm">{it.title}</p>
-              {dayIndex == null && <p className="mt-0.5 text-[11px] text-muted-foreground">Day {it.day_index}</p>}
-            </li>
-          ))
+        {stay && (
+          <div className="mt-4 rounded-2xl border border-leaf/30 bg-card p-4">
+            <p className="text-[11px] uppercase tracking-wide text-leaf">Your stay</p>
+            <p className="mt-0.5 truncate font-medium">{stay.hotelName}</p>
+            <p className="truncate text-xs text-muted-foreground">{stay.roomName}</p>
+          </div>
         )}
-      </ol>
+      </Reveal>
+
+      <Reveal delay={0.1}>
+        <ol className="mt-5 space-y-2">
+          {items.length === 0 ? (
+            <li className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+              {dayIndex == null ? "No itinerary items yet." : "Nothing scheduled for today."}
+            </li>
+          ) : (
+            items.map((it) => (
+              <li key={it.id} className="rounded-2xl border border-border bg-card px-4 py-3">
+                <p className="text-sm">{it.title}</p>
+                {dayIndex == null && <p className="mt-0.5 text-[11px] text-muted-foreground">Day {it.day_index}</p>}
+              </li>
+            ))
+          )}
+        </ol>
+      </Reveal>
     </div>
   );
 }

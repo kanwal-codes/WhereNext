@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { type GooglePlaceDetails } from "@/lib/places-ui";
 
 type State = "loading" | "ready" | "error";
+export type WebSummary = { content: string; source: { title: string; url: string } };
 
 /**
  * Fetches a Google place's details for a trip. Shared by the full `/place/[id]`
@@ -12,6 +13,7 @@ type State = "loading" | "ready" | "error";
  */
 export function usePlaceDetails(tripId: string, placeId: string) {
   const [details, setDetails] = useState<GooglePlaceDetails | null>(null);
+  const [webSummary, setWebSummary] = useState<WebSummary | null>(null);
   const [freshness, setFreshness] = useState("");
   const [state, setState] = useState<State>("loading");
 
@@ -24,6 +26,7 @@ export function usePlaceDetails(tripId: string, placeId: string) {
         const body = JSON.parse(cached);
         if (body.place) {
           setDetails(body.place);
+          setWebSummary(body.webSummary ?? null);
           setFreshness(body.freshness?.retrievedAt ? new Date(body.freshness.retrievedAt).toLocaleString() : "");
           setState("ready");
           return () => controller.abort();
@@ -32,6 +35,7 @@ export function usePlaceDetails(tripId: string, placeId: string) {
     } catch { /* unavailable or malformed cache */ }
     setState("loading");
     setDetails(null);
+    setWebSummary(null);
     fetch(`/api/trips/${tripId}/places/google?placeId=${encodeURIComponent(placeId)}`, { signal: controller.signal })
       .then(async (r) => {
         if (!r.ok) throw new Error("details");
@@ -40,6 +44,7 @@ export function usePlaceDetails(tripId: string, placeId: string) {
       .then((body) => {
         try { sessionStorage.setItem(cacheKey, JSON.stringify(body)); } catch { /* ignore */ }
         setDetails(body.place ?? null);
+        setWebSummary(body.webSummary ?? null);
         setFreshness(body.freshness?.retrievedAt ? new Date(body.freshness.retrievedAt).toLocaleString() : "");
         setState(body.place ? "ready" : "error");
       })
@@ -50,5 +55,5 @@ export function usePlaceDetails(tripId: string, placeId: string) {
     return () => controller.abort();
   }, [tripId, placeId]);
 
-  return { details, freshness, state };
+  return { details, webSummary, freshness, state };
 }

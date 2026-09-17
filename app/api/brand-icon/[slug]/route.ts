@@ -9,8 +9,6 @@ import { cached } from "@/lib/server/ttl-cache";
 const DOMAIN: Record<string, string> = {
   ticketmaster: "ticketmaster.com",
   eventbrite: "eventbrite.com",
-  getyourguide: "getyourguide.com",
-  predicthq: "predicthq.com",
   eventbriteapi: "eventbrite.com",
 };
 

@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Trash2, Plus } from "lucide-react";
+import { Skeleton } from "@/components/Skeleton";
 import { notifyToast } from "@/lib/application/toast";
-import { announceWorkspaceChange } from "@/lib/application/workspace-events";
+import { announceWorkspaceChange, subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
+import { useTripMembers } from "@/lib/client/use-trip-members";
 import { cn } from "@/lib/utils";
 import type { Overlap } from "../domain/overlap";
 
-type Range = { startDate: string; endDate: string };
-type Member = { userId: string; isYou: boolean };
+type Range = { id: string; startDate: string; endDate: string };
+type AvailabilityRange = { id: string; userId: string; startDate: string; endDate: string };
 
 async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url);
@@ -17,27 +19,49 @@ async function fetchJson<T>(url: string): Promise<T> {
 }
 
 export function AvailabilityPanel({ tripId }: { tripId: string }) {
-  const [loaded, setLoaded] = useState(false);
-  const [myRanges, setMyRanges] = useState<Range[]>([{ startDate: "", endDate: "" }]);
+  const { members, loaded: membersLoaded } = useTripMembers(tripId);
+  const [availabilityLoaded, setAvailabilityLoaded] = useState(false);
+  const [availabilityRanges, setAvailabilityRanges] = useState<AvailabilityRange[] | null>(null);
+  const [myRanges, setMyRanges] = useState<Range[]>([{ id: crypto.randomUUID(), startDate: "", endDate: "" }]);
   const [overlaps, setOverlaps] = useState<Overlap[]>([]);
-  const [memberCount, setMemberCount] = useState(1);
   const [saving, setSaving] = useState(false);
   const [locking, setLocking] = useState<Overlap | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetchJson<{ ranges: Array<{ id: string; userId: string; startDate: string; endDate: string }>; overlaps: Overlap[] }>(`/api/trips/${tripId}/availability`),
-      fetchJson<{ members: Member[] }>(`/api/trips/${tripId}/members`),
-    ])
-      .then(([availability, membersBody]) => {
+    fetchJson<{ ranges: AvailabilityRange[]; overlaps: Overlap[] }>(`/api/trips/${tripId}/availability`)
+      .then((availability) => {
+        setAvailabilityRanges(availability.ranges);
         setOverlaps(availability.overlaps);
-        setMemberCount(membersBody.members.length || 1);
-        const mine = availability.ranges.filter((r) => r.userId === membersBody.members.find((m) => m.isYou)?.userId);
-        if (mine.length > 0) setMyRanges(mine.map((r) => ({ startDate: r.startDate, endDate: r.endDate })));
       })
       .catch(() => notifyToast("Couldn’t load availability.", "error"))
-      .finally(() => setLoaded(true));
+      .finally(() => setAvailabilityLoaded(true));
+
+    // Another member submitting their own dates should update the shared overlap view live —
+    // but never overwrite this viewer's own range inputs, which only ever change through their
+    // own save() below (an in-progress, unsaved edit here must survive someone else's update).
+    return subscribeWorkspaceChanges((changes) => {
+      if (!changes.includes("availability")) return;
+      fetchJson<{ overlaps: Overlap[] }>(`/api/trips/${tripId}/availability`)
+        .then((body) => setOverlaps(body.overlaps))
+        .catch(() => undefined);
+    });
   }, [tripId]);
+
+  // Seed the input state from the viewer's own saved ranges exactly once, as soon as both the
+  // availability fetch and the (separately loading) member roster are ready — never again after
+  // that, so a member joining later, or the roster simply re-rendering, can't clobber whatever
+  // this viewer has since typed into the date inputs below.
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (seededRef.current || !availabilityLoaded || !membersLoaded || availabilityRanges === null) return;
+    seededRef.current = true;
+    const myUserId = members.find((m) => m.isYou)?.userId;
+    const mine = availabilityRanges.filter((r) => r.userId === myUserId);
+    if (mine.length > 0) setMyRanges(mine.map((r) => ({ id: crypto.randomUUID(), startDate: r.startDate, endDate: r.endDate })));
+  }, [availabilityLoaded, membersLoaded, availabilityRanges, members]);
+
+  const loaded = availabilityLoaded && membersLoaded;
+  const memberCount = members.length || 1;
 
   function updateRange(index: number, field: keyof Range, value: string) {
     setMyRanges((current) => current.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
@@ -52,12 +76,19 @@ export function AvailabilityPanel({ tripId }: { tripId: string }) {
       notifyToast("Add at least one date range.", "error");
       return;
     }
+    // The two fields aren't linked to each other, so nothing stops picking an end date before
+    // the start — the server correctly rejects it, but catch it here with a message that says
+    // which thing is wrong instead of a generic "couldn't save".
+    if (complete.some((r) => r.endDate < r.startDate)) {
+      notifyToast("End date can’t be before the start date.", "error");
+      return;
+    }
     setSaving(true);
     try {
       const response = await fetch(`/api/trips/${tripId}/availability`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ranges: complete }),
+        body: JSON.stringify({ ranges: complete.map((r) => ({ startDate: r.startDate, endDate: r.endDate })) }),
       });
       if (!response.ok) throw new Error("save failed");
       const fresh = await fetchJson<{ overlaps: Overlap[] }>(`/api/trips/${tripId}/availability`);
@@ -90,7 +121,7 @@ export function AvailabilityPanel({ tripId }: { tripId: string }) {
   }
 
   if (!loaded) {
-    return <div aria-hidden className="space-y-3 px-5 pt-1 pb-6"><div className="h-9 w-full animate-pulse rounded-xl bg-muted" /></div>;
+    return <div className="space-y-3 px-5 pt-1 pb-6"><Skeleton className="h-9 w-full rounded-xl" /></div>;
   }
 
   return (
@@ -100,7 +131,7 @@ export function AvailabilityPanel({ tripId }: { tripId: string }) {
         <p className="mt-0.5 text-[11px] text-muted-foreground">Add every stretch of dates you could do — this doesn’t lock anything, it just shows the group where things overlap.</p>
         <div className="mt-3 space-y-2">
           {myRanges.map((range, index) => (
-            <div key={index} className="flex items-center gap-2">
+            <div key={range.id} className="flex items-center gap-2">
               <input type="date" value={range.startDate} onChange={(e) => updateRange(index, "startDate", e.target.value)} className="input-field flex-1 text-sm" aria-label="Start date" />
               <span className="text-muted-foreground">–</span>
               <input type="date" value={range.endDate} onChange={(e) => updateRange(index, "endDate", e.target.value)} className="input-field flex-1 text-sm" aria-label="End date" />
@@ -112,7 +143,7 @@ export function AvailabilityPanel({ tripId }: { tripId: string }) {
             </div>
           ))}
         </div>
-        <button type="button" onClick={() => setMyRanges((c) => [...c, { startDate: "", endDate: "" }])} className="btn-chip mt-2 gap-1">
+        <button type="button" onClick={() => setMyRanges((c) => [...c, { id: crypto.randomUUID(), startDate: "", endDate: "" }])} className="btn-chip mt-2 gap-1">
           <Plus className="h-3 w-3" /> Add another range
         </button>
         <button type="button" onClick={() => void save()} disabled={saving} className="btn-primary-sm mt-3 w-full">

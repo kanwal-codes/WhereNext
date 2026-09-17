@@ -102,11 +102,87 @@ describe("persistedAssistantStream", () => {
     expect(out).toContain("data: {bad json");
   });
 
+  it("flags truncated in both the persisted metadata and the meta frame when the upstream signals an early end", async () => {
+    const meta = { surface: "chat", blocks: [] };
+    const truncatedFrame = `data: ${JSON.stringify({ truncated: true })}\n\n`;
+    const out = await drain(persistedAssistantStream(upstream(delta("partial answer cut o"), truncatedFrame, "data: [DONE]\n\n"), {} as never, TRIP, USER, KEY, undefined, meta));
+    expect(appendMock).toHaveBeenCalledWith(TRIP, USER, expect.objectContaining({ content: "partial answer cut o", metadata: { ...meta, truncated: true } }));
+    const frame = JSON.parse(out.split("data: ").filter((l) => l.includes('"meta"'))[0].trim());
+    expect(frame.meta).toEqual({ ...meta, truncated: true });
+  });
+
+  it("does not flag truncated on a clean finish", async () => {
+    const meta = { surface: "chat", blocks: [] };
+    const out = await drain(persistedAssistantStream(upstream(delta("a full answer"), "data: [DONE]\n\n"), {} as never, TRIP, USER, KEY, undefined, meta));
+    const frame = JSON.parse(out.split("data: ").filter((l) => l.includes('"meta"'))[0].trim());
+    expect(frame.meta).toEqual(meta);
+  });
+
   it("cancel() cancels the upstream reader", async () => {
     const cancel = vi.fn();
     const body = new ReadableStream<Uint8Array>({ start() {}, cancel });
     const stream = persistedAssistantStream(body, {} as never, TRIP, USER, KEY);
     await stream.cancel();
     expect(cancel).toHaveBeenCalled();
+  });
+
+  it("runs sanitize and the meta thunk concurrently, not one after the other (Phase 3.2.2 mitigation)", async () => {
+    // docs/overhaul/roadmap/phase-3-accuracy.md's 3.2.2: the grounding evaluator (sanitize) and a
+    // caller's own side-builder wait (meta) don't depend on each other — before this, awaiting
+    // them one after another stacked their durations together for no reason. Proof of concurrency:
+    // both start (both mocks get called) before EITHER is allowed to resolve.
+    let releaseSanitize: ((v: string) => void) | undefined;
+    let releaseMeta: ((v: Record<string, unknown>) => void) | undefined;
+    const sanitize = vi.fn(() => new Promise<string>((resolve) => { releaseSanitize = resolve; }));
+    const meta = vi.fn(() => new Promise<Record<string, unknown>>((resolve) => { releaseMeta = resolve; }));
+    const stream = persistedAssistantStream(upstream(delta("draft answer"), "data: [DONE]\n\n"), {} as never, TRIP, USER, KEY, sanitize, meta);
+    const reader = stream.getReader();
+    await reader.read(); // the raw delta, teed through unchanged
+    await reader.read(); // the [DONE] sentinel, teed through unchanged
+    const thirdRead = reader.read(); // pull() now blocked inside Promise.all([sanitize(), meta()])
+    await new Promise((r) => setTimeout(r, 0));
+
+    // Both already called — neither waited for the other to resolve first.
+    expect(sanitize).toHaveBeenCalledWith("draft answer");
+    expect(meta).toHaveBeenCalledTimes(1);
+
+    releaseMeta?.({ blocks: [] });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(appendMock).not.toHaveBeenCalled(); // still waiting on sanitize — meta resolving alone isn't enough
+
+    releaseSanitize?.("FINAL TEXT");
+    await thirdRead;
+    expect(appendMock).toHaveBeenCalledWith(TRIP, USER, expect.objectContaining({ content: "FINAL TEXT", metadata: { blocks: [] } }));
+  });
+
+  it("does not crash and still persists once resolved, when a disconnect fires while an async sanitize call (Phase 3.2's grounding evaluator) is still in flight", async () => {
+    // Phase 3.2 widened `sanitize` to allow a real async model round-trip — a disconnect racing
+    // against that in-flight call, rather than against the plain synchronous regex sanitizer this
+    // parameter used to carry alone, was never exercised by any existing test. A `ReadableStream`
+    // can't reach into an already-running `pull()`, so the in-flight sanitize call resolves on its
+    // own regardless of the cancel; the subsequent stale `controller.enqueue`/`close()` calls DO
+    // throw (confirmed directly: "Invalid state: Controller is already closed"), guarded by this
+    // file's own try/catch — but even without that guard, the runtime's own ReadableStream
+    // machinery already swallows a `pull()`-internal throw after cancellation rather than letting
+    // it surface as an unhandled rejection (confirmed the same way). So this test can't
+    // specifically pin the try/catch as load-bearing; what it verifies is the actual externally-
+    // observable guarantee that matters — the persist still completes correctly with the right
+    // (late-arriving) text, and nothing hangs or crashes the test itself.
+    let releaseSanitize: ((value: string) => void) | undefined;
+    const sanitize = vi.fn(() => new Promise<string>((resolve) => { releaseSanitize = resolve; }));
+    const stream = persistedAssistantStream(upstream(delta("draft answer"), "data: [DONE]\n\n"), {} as never, TRIP, USER, KEY, sanitize, { blocks: [] });
+    const reader = stream.getReader();
+    await reader.read(); // the raw delta, teed through unchanged
+    await reader.read(); // the [DONE] sentinel, teed through unchanged
+    const thirdRead = reader.read(); // pull() now blocked inside `await sanitize(...)`
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sanitize).toHaveBeenCalledWith("draft answer");
+
+    await expect(reader.cancel()).resolves.toBeUndefined(); // the simulated disconnect
+    await expect(thirdRead).resolves.toBeDefined(); // never hangs or rejects
+
+    releaseSanitize?.("SANITIZED ANSWER"); // let the still-in-flight evaluator call resolve late
+    await new Promise((r) => setTimeout(r, 0)); // let its continuation (persist, stale enqueue/close) run
+    expect(appendMock).toHaveBeenCalledWith(TRIP, USER, expect.objectContaining({ content: "SANITIZED ANSWER" }));
   });
 });

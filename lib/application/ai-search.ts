@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { gatewayFor } from "@/packages/ai/model-policy";
+import { generateStructured } from "@/packages/ai/model-policy";
 
 export type AiSearchScope = "stays" | "discover" | "getting-around";
 
@@ -64,14 +64,15 @@ export async function parseAiSearch(
   signal?: AbortSignal,
 ): Promise<AiSearchDirective> {
   try {
-    const raw = await gatewayFor("resolve").generateStructured(
+    return await generateStructured(
+      "resolve",
       [
         { role: "system", content: prompt(scope, ctx) },
         { role: "user", content: query.slice(0, 400) },
       ],
+      aiSearchDirectiveSchema,
       signal,
     );
-    return aiSearchDirectiveSchema.parse(raw);
   } catch {
     return {};
   }

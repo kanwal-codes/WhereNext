@@ -54,7 +54,11 @@ export function createConversationRepository(supabase: SupabaseClient, writer: S
           .from("conversation_messages")
           .select("id,role,content,idempotency_key,created_at,metadata")
           .eq("thread_id", id)
+          // Postgres doesn't guarantee row order across separate paginated queries when rows
+          // share a created_at value — a secondary tiebreaker on the primary key keeps paging
+          // stable instead of risking a duplicated or skipped row at a page boundary.
           .order("created_at", { ascending: false })
+          .order("id", { ascending: false })
           .range(from, from + remaining - 1);
         if (result.error) throw result.error;
         const page = (result.data ?? []) as ConversationRow[];

@@ -1,12 +1,8 @@
 import type { Certainty } from "@/lib/design";
 import { stayDecisionSchema } from "@/packages/contracts/stay";
+import { fmtDay } from "@/lib/trip-dates";
 
 const PREFERRED_KEYS = ["name", "title", "label", "hotelName", "destination", "area", "mode", "summary", "value"];
-
-const fmtDay = (iso: string) => {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString([], { month: "short", day: "numeric" });
-};
 
 /** One readable line for a trip decision, whatever shape its value has. */
 export function decisionSummary(kind: string, value: unknown): string {

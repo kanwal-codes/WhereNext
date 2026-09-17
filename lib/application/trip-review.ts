@@ -1,5 +1,5 @@
 import { dayCapacity } from "./feasibility";
-import { tripDayIndex } from "@/lib/trip-dates";
+import { tripDayIndex, daysUntilTrip } from "@/lib/trip-dates";
 import type { TripContext } from "./trip-context";
 
 export type ReviewFinding = {
@@ -14,12 +14,6 @@ export type ReviewFinding = {
   askAssistant?: string;
 };
 
-const daysUntil = (startDate: string | null | undefined, now = Date.now()): number | null => {
-  if (!startDate) return null;
-  const start = new Date(`${startDate}T00:00:00`).getTime();
-  return Number.isNaN(start) ? null : Math.ceil((start - now) / 86_400_000);
-};
-
 /**
  * Pure trip review. Given the loaded trip context, return the handful of things
  * worth nudging the traveller about. No IO — the route caches it and filters out
@@ -30,7 +24,7 @@ export function reviewTrip(ctx: Pick<TripContext, "trip" | "preferences" | "itin
   const trip = ctx.trip;
   if (!trip) return findings;
 
-  const until = daysUntil(trip.start_date, now);
+  const until = daysUntilTrip(trip.start_date, now);
   const started = tripDayIndex(trip.start_date, now) != null;
   const soon = until != null && until <= 21 && !started;
   const kinds = new Set(ctx.decisions.map((d) => d.kind));

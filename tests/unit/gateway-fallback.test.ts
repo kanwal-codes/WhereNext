@@ -1,229 +1,222 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resolveProviderChain, createGatewayWithFallback } from "../../packages/ai/gateway";
+import { z } from "zod";
 
-afterEach(() => {
-  vi.restoreAllMocks();
-  for (const k of ["AI_PROVIDER", "AI_FALLBACK_PROVIDERS", "AI_API_KEY", "OPENAI_API_KEY", "CEREBRAS_API_KEY", "GEMINI_API_KEY", "GEMINI_MODEL", "AI_MODEL", "AI_BASE_URL"]) delete process.env[k];
-});
+/** Every provider now goes through the SAME client (Vercel AI Gateway) — "fallback" is purely
+ *  "try model id A, then B, then C" via `ai`'s own `generateObject`/`generateText`, so these
+ *  tests mock at that boundary instead of `fetch`. This tests the retry/fallback LOGIC in
+ *  `packages/ai/gateway.ts` (which errors are retryable, that usage is tagged with the model
+ *  that actually answered, that a real 4xx doesn't burn through the whole chain) without being
+ *  coupled to the Gateway's wire format. */
+const { gatewayMock, generateObjectMock, generateTextMock, streamObjectMock } = vi.hoisted(() => ({
+  gatewayMock: vi.fn((modelId: string) => ({ __modelId: modelId })),
+  generateObjectMock: vi.fn(),
+  generateTextMock: vi.fn(),
+  streamObjectMock: vi.fn(),
+}));
+vi.mock("ai", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  gateway: gatewayMock,
+  generateObject: generateObjectMock,
+  generateText: generateTextMock,
+  streamObject: streamObjectMock,
+}));
 
-describe("resolveProviderChain", () => {
-  it("is primary then AI_FALLBACK_PROVIDERS, each pinned to its own endpoint", () => {
-    process.env.AI_PROVIDER = "cerebras";
-    process.env.CEREBRAS_API_KEY = "csk";
-    process.env.AI_FALLBACK_PROVIDERS = "gemini, openai";
-    process.env.GEMINI_API_KEY = "gk";
-    process.env.GEMINI_MODEL = "gemini-3.6-flash"; // gemini fallback needs an explicit live model
-    process.env.OPENAI_API_KEY = "ok";
-    const chain = resolveProviderChain();
-    expect(chain.map((p) => p.baseUrl)).toEqual([
-      "https://api.cerebras.ai/v1",
-      "https://generativelanguage.googleapis.com/v1beta/openai",
-      "https://api.openai.com/v1",
-    ]);
-    expect(chain[0].model).toBe("gpt-oss-120b");
-    expect(chain[1].model).toBe("gemini-3.6-flash");
+import { generateStructured, generateText, gatewayModelChain, streamStructured } from "../../packages/ai/gateway";
+
+/** A `streamObject` result stub: `object`/`usage` resolve (or reject) independently of whatever
+ *  `partialObjectStream` yields — mirrors the real SDK shape closely enough for these tests. */
+function streamObjectResult(object: unknown, partials: unknown[] = []) {
+  return {
+    object: object instanceof Error ? Promise.reject(object) : Promise.resolve(object),
+    usage: Promise.resolve({ inputTokens: 2, outputTokens: 2 }),
+    partialObjectStream: (async function* () { for (const p of partials) yield p; })(),
+  };
+}
+
+afterEach(() => vi.clearAllMocks());
+
+const schema = z.object({ intent: z.string() });
+
+describe("generateStructured — Gateway model fallback", () => {
+  it("tries each model id in order until one succeeds", async () => {
+    generateObjectMock
+      .mockRejectedValueOnce(Object.assign(new Error("down"), { status: 503 }))
+      .mockResolvedValueOnce({ object: { intent: "food" }, usage: { inputTokens: 10, outputTokens: 5 } });
+    const result = await generateStructured(["a/model1", "b/model2"], [{ role: "user", content: "x" }], schema);
+    expect(result).toEqual({ intent: "food" });
+    expect(generateObjectMock).toHaveBeenCalledTimes(2);
+    expect(gatewayMock).toHaveBeenNthCalledWith(1, "a/model1");
+    expect(gatewayMock).toHaveBeenNthCalledWith(2, "b/model2");
   });
 
-  it("skips a gemini fallback when no live GEMINI_MODEL is pinned (its default ids lapse)", () => {
-    process.env.AI_PROVIDER = "cerebras";
-    process.env.CEREBRAS_API_KEY = "csk";
-    process.env.AI_FALLBACK_PROVIDERS = "gemini, openai";
-    process.env.GEMINI_API_KEY = "gk"; // key present, but no GEMINI_MODEL
-    process.env.OPENAI_API_KEY = "ok";
-    const chain = resolveProviderChain();
-    expect(chain.map((p) => p.baseUrl)).toEqual(["https://api.cerebras.ai/v1", "https://api.openai.com/v1"]);
+  it("reports usage tagged with the model that actually answered, not the first one tried", async () => {
+    generateObjectMock
+      .mockRejectedValueOnce(Object.assign(new Error("down"), { status: 500 }))
+      .mockResolvedValueOnce({ object: { intent: "food" }, usage: { inputTokens: 3, outputTokens: 7 } });
+    const onUsage = vi.fn();
+    await generateStructured(["a/model1", "b/model2"], [{ role: "user", content: "x" }], schema, undefined, onUsage);
+    expect(onUsage).toHaveBeenCalledWith({ model: "b/model2", promptTokens: 3, completionTokens: 7 });
   });
 
-  it("drops fallbacks that have no key, keeps the ones that do", () => {
-    process.env.AI_PROVIDER = "cerebras";
-    process.env.CEREBRAS_API_KEY = "csk";
-    process.env.AI_FALLBACK_PROVIDERS = "gemini,openai";
-    process.env.OPENAI_API_KEY = "ok"; // no GEMINI_API_KEY
-    const chain = resolveProviderChain();
-    expect(chain.map((p) => p.baseUrl)).toEqual(["https://api.cerebras.ai/v1", "https://api.openai.com/v1"]);
+  it("does not fall over on a 400 (another model can't fix a bad request)", async () => {
+    generateObjectMock.mockRejectedValue(Object.assign(new Error("bad"), { status: 400 }));
+    await expect(generateStructured(["a/model1", "b/model2"], [], schema)).rejects.toThrow();
+    expect(generateObjectMock).toHaveBeenCalledTimes(1);
   });
 
-  it("throws the primary's env hint when nothing is configured", () => {
-    process.env.AI_PROVIDER = "cerebras";
-    expect(() => resolveProviderChain()).toThrow(/CEREBRAS_API_KEY/);
+  it("falls over on 401/403/429/5xx and on an error with no status at all", async () => {
+    for (const status of [401, 403, 429, 500, 503, undefined]) {
+      generateObjectMock.mockReset();
+      generateObjectMock
+        .mockRejectedValueOnce(status === undefined ? new Error("network") : Object.assign(new Error("x"), { status }))
+        .mockResolvedValueOnce({ object: { intent: "ok" }, usage: { inputTokens: 1, outputTokens: 1 } });
+      const result = await generateStructured(["a/model1", "b/model2"], [], schema);
+      expect(result).toEqual({ intent: "ok" });
+    }
   });
 
-  it("de-duplicates a provider that appears as both primary and fallback", () => {
-    process.env.AI_PROVIDER = "openai";
-    process.env.OPENAI_API_KEY = "ok";
-    process.env.AI_FALLBACK_PROVIDERS = "openai, cerebras";
-    process.env.CEREBRAS_API_KEY = "csk";
-    const chain = resolveProviderChain();
-    expect(chain.map((p) => p.baseUrl)).toEqual(["https://api.openai.com/v1", "https://api.cerebras.ai/v1"]);
+  it("throws the last error once every model in the chain has failed", async () => {
+    generateObjectMock.mockRejectedValue(Object.assign(new Error("all down"), { status: 500 }));
+    await expect(generateStructured(["a/model1", "b/model2"], [], schema)).rejects.toThrow("all down");
+    expect(generateObjectMock).toHaveBeenCalledTimes(2);
   });
 
-  it("the primary honours AI_MODEL / AI_BASE_URL; fallbacks stay pinned to their own", () => {
-    process.env.AI_PROVIDER = "openai";
-    process.env.OPENAI_API_KEY = "ok";
-    process.env.AI_MODEL = "gpt-4o-mini";
-    process.env.AI_BASE_URL = "https://proxy.example/v1";
-    process.env.AI_FALLBACK_PROVIDERS = "cerebras";
-    process.env.CEREBRAS_API_KEY = "csk";
-    const [primary, fallback] = resolveProviderChain();
-    expect(primary).toMatchObject({ baseUrl: "https://proxy.example/v1", model: "gpt-4o-mini" });
-    expect(fallback).toMatchObject({ baseUrl: "https://api.cerebras.ai/v1", model: "gpt-oss-120b" });
-  });
-
-  it("fast: true resolves every provider in the chain to its own fast model, not a shared one", () => {
-    process.env.AI_PROVIDER = "cerebras";
-    process.env.CEREBRAS_API_KEY = "csk";
-    process.env.AI_FALLBACK_PROVIDERS = "openai";
-    process.env.OPENAI_API_KEY = "ok";
-    const [primary, fallback] = resolveProviderChain({ fast: true });
-    expect(primary).toMatchObject({ model: "gemma-4-31b", supportsReasoningOptions: false });
-    expect(fallback).toMatchObject({ model: "gpt-4o-mini" });
-  });
-
-  it("fast: true still lets an explicit AI_MODEL override the primary's fast default", () => {
-    process.env.AI_PROVIDER = "cerebras";
-    process.env.CEREBRAS_API_KEY = "csk";
-    process.env.AI_MODEL = "gpt-oss-120b";
-    const [primary] = resolveProviderChain({ fast: true });
-    expect(primary).toMatchObject({ model: "gpt-oss-120b", supportsReasoningOptions: true });
-  });
-});
-
-describe("createGatewayWithFallback", () => {
-  it("falls over to the next provider on a 5xx and returns its result", async () => {
-    process.env.AI_PROVIDER = "cerebras";
-    process.env.CEREBRAS_API_KEY = "csk";
-    process.env.AI_FALLBACK_PROVIDERS = "openai";
-    process.env.OPENAI_API_KEY = "ok";
-    const fetchMock = vi.fn().mockImplementation((url: string) =>
-      url.includes("cerebras")
-        ? Promise.resolve(new Response("upstream boom", { status: 503 }))
-        : Promise.resolve(new Response(JSON.stringify({ choices: [{ message: { content: "from openai" } }] }), { status: 200 })));
-    vi.stubGlobal("fetch", fetchMock);
-
-    const text = await createGatewayWithFallback().generateText([{ role: "user", content: "hi" }]);
-    expect(text).toBe("from openai");
-    // cerebras tried (twice — its own retry), then openai.
-    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("cerebras"))).toBe(true);
-    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("openai.com"))).toBe(true);
-  });
-
-  it("reports which model actually answered — the fallback, not the configured primary", async () => {
-    process.env.AI_PROVIDER = "cerebras";
-    process.env.CEREBRAS_API_KEY = "csk";
-    process.env.AI_FALLBACK_PROVIDERS = "openai";
-    process.env.OPENAI_API_KEY = "ok";
-    const fetchMock = vi.fn().mockImplementation((url: string) =>
-      url.includes("cerebras")
-        ? Promise.resolve(new Response("upstream boom", { status: 503 }))
-        : Promise.resolve(new Response(JSON.stringify({ choices: [{ message: { content: "from openai" } }] }), { status: 200 })));
-    vi.stubGlobal("fetch", fetchMock);
-
-    const gateway = createGatewayWithFallback();
-    expect(gateway.lastModelUsed).toBeUndefined(); // nothing has run yet
-    await gateway.generateText([{ role: "user", content: "hi" }]);
-    expect(gateway.lastModelUsed).toBe("gpt-4o"); // openai's default model, not cerebras's
-  });
-
-  it("does not fall over on a 400 (another provider can't fix a bad request)", async () => {
-    process.env.AI_PROVIDER = "cerebras";
-    process.env.CEREBRAS_API_KEY = "csk";
-    process.env.AI_FALLBACK_PROVIDERS = "openai";
-    process.env.OPENAI_API_KEY = "ok";
-    const fetchMock = vi.fn().mockResolvedValue(new Response("bad", { status: 400 }));
-    vi.stubGlobal("fetch", fetchMock);
-    await expect(createGatewayWithFallback().generateText([{ role: "user", content: "hi" }])).rejects.toThrow();
-    expect(fetchMock.mock.calls.every((c) => String(c[0]).includes("cerebras"))).toBe(true);
-  });
-
-  it("DOES fall over on a 401 (a stale key is a per-provider problem)", async () => {
-    process.env.AI_PROVIDER = "cerebras";
-    process.env.CEREBRAS_API_KEY = "csk";
-    process.env.AI_FALLBACK_PROVIDERS = "openai";
-    process.env.OPENAI_API_KEY = "ok";
-    const fetchMock = vi.fn().mockImplementation((url: string) =>
-      Promise.resolve(String(url).includes("cerebras")
-        ? new Response("unauthorized", { status: 401 })
-        : new Response(JSON.stringify({ choices: [{ message: { content: "openai" } }] }), { status: 200 })));
-    vi.stubGlobal("fetch", fetchMock);
-    expect(await createGatewayWithFallback().generateText([{ role: "user", content: "hi" }])).toBe("openai");
-  });
-
-  it("fails over on generateStructured and returns the next provider's JSON", async () => {
-    process.env.AI_PROVIDER = "cerebras";
-    process.env.CEREBRAS_API_KEY = "csk";
-    process.env.AI_FALLBACK_PROVIDERS = "openai";
-    process.env.OPENAI_API_KEY = "ok";
-    const fetchMock = vi.fn().mockImplementation((url: string) =>
-      Promise.resolve(String(url).includes("cerebras")
-        ? new Response("boom", { status: 502 })
-        : new Response(JSON.stringify({ choices: [{ message: { content: '{"intent":"food"}' } }] }), { status: 200 })));
-    vi.stubGlobal("fetch", fetchMock);
-    expect(await createGatewayWithFallback().generateStructured([{ role: "user", content: "x" }])).toEqual({ intent: "food" });
-  });
-
-  it("fails over on stream() and returns the next provider's stream", async () => {
-    process.env.AI_PROVIDER = "cerebras";
-    process.env.CEREBRAS_API_KEY = "csk";
-    process.env.AI_FALLBACK_PROVIDERS = "openai";
-    process.env.OPENAI_API_KEY = "ok";
-    const good = new Response('data: {"choices":[{"delta":{"content":"hi"}}]}\n\ndata: [DONE]\n\n', {
-      status: 200, headers: { "content-type": "text/event-stream" },
-    });
-    const fetchMock = vi.fn().mockImplementation((url: string) =>
-      Promise.resolve(String(url).includes("cerebras") ? new Response("boom", { status: 500 }) : good));
-    vi.stubGlobal("fetch", fetchMock);
-    const body = await createGatewayWithFallback().stream([{ role: "user", content: "x" }]);
-    expect(await new Response(body).text()).toContain('"content":"hi"');
-  });
-
-  it("fails over on stream() when a provider connects but never emits a first chunk", async () => {
-    vi.useFakeTimers();
-    process.env.AI_PROVIDER = "cerebras";
-    process.env.CEREBRAS_API_KEY = "csk";
-    process.env.AI_FALLBACK_PROVIDERS = "openai";
-    process.env.OPENAI_API_KEY = "ok";
-    // Headers arrive fine, but the body stream never enqueues or closes — the exact shape of
-    // a provider that "connected" but then went quiet, which a bare connect-error check misses.
-    const stalledBody = new ReadableStream<Uint8Array>({ start() {} });
-    const good = new Response('data: {"choices":[{"delta":{"content":"hi"}}]}\n\ndata: [DONE]\n\n', {
-      status: 200, headers: { "content-type": "text/event-stream" },
-    });
-    const fetchMock = vi.fn().mockImplementation((url: string) =>
-      Promise.resolve(String(url).includes("cerebras")
-        ? new Response(stalledBody, { status: 200, headers: { "content-type": "text/event-stream" } })
-        : good));
-    vi.stubGlobal("fetch", fetchMock);
-    const streamPromise = createGatewayWithFallback().stream([{ role: "user", content: "x" }]);
-    await vi.advanceTimersByTimeAsync(6_000);
-    const body = await streamPromise;
-    expect(await new Response(body).text()).toContain('"content":"hi"');
-    vi.useRealTimers();
-  });
-
-  it("retries another provider when a provider's own timeout aborts it (fetch always throws AbortError either way)", async () => {
-    process.env.AI_PROVIDER = "cerebras";
-    process.env.CEREBRAS_API_KEY = "csk";
-    process.env.AI_FALLBACK_PROVIDERS = "openai";
-    process.env.OPENAI_API_KEY = "ok";
-    const fetchMock = vi.fn().mockRejectedValue(new DOMException("Aborted", "AbortError"));
-    vi.stubGlobal("fetch", fetchMock);
-    // No caller signal passed — nothing external ever asked to cancel, so this can only be
-    // this provider's own connect-timeout, which failover should treat like any other error.
-    await expect(createGatewayWithFallback().generateText([{ role: "user", content: "x" }])).rejects.toMatchObject({ name: "AbortError" });
-    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("cerebras"))).toBe(true);
-    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("openai"))).toBe(true);
-  });
-
-  it("does not retry once the caller's own signal is the one that's aborted", async () => {
-    process.env.AI_PROVIDER = "cerebras";
-    process.env.CEREBRAS_API_KEY = "csk";
-    process.env.AI_FALLBACK_PROVIDERS = "openai";
-    process.env.OPENAI_API_KEY = "ok";
+  it("propagates the caller's own abort instead of trying the next model", async () => {
     const controller = new AbortController();
     controller.abort();
-    const fetchMock = vi.fn().mockRejectedValue(new DOMException("Aborted", "AbortError"));
-    vi.stubGlobal("fetch", fetchMock);
-    await expect(createGatewayWithFallback().generateText([{ role: "user", content: "x" }], controller.signal)).rejects.toMatchObject({ name: "AbortError" });
-    expect(fetchMock.mock.calls.every((c) => String(c[0]).includes("cerebras"))).toBe(true);
+    generateObjectMock.mockRejectedValue(Object.assign(new DOMException("Aborted", "AbortError")));
+    await expect(generateStructured(["a/model1", "b/model2"], [], schema, controller.signal)).rejects.toMatchObject({ name: "AbortError" });
+    expect(generateObjectMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("streamStructured — Gateway model fallback (Phase 2.6.1)", () => {
+  it("resolves with the final object once streamObject's own `object` promise settles", async () => {
+    streamObjectMock.mockReturnValueOnce(streamObjectResult({ intent: "food" }));
+    const result = await streamStructured(["a/model1"], [], schema);
+    expect(result).toEqual({ intent: "food" });
+  });
+
+  it("falls over to the next model when the first model's `object` promise rejects retryably", async () => {
+    streamObjectMock
+      .mockReturnValueOnce(streamObjectResult(Object.assign(new Error("down"), { status: 503 })))
+      .mockReturnValueOnce(streamObjectResult({ intent: "food" }));
+    const result = await streamStructured(["a/model1", "b/model2"], [], schema);
+    expect(result).toEqual({ intent: "food" });
+    expect(streamObjectMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not fall over on a 400 — matches generateStructured's retry policy exactly", async () => {
+    streamObjectMock.mockReturnValue(streamObjectResult(Object.assign(new Error("bad"), { status: 400 })));
+    await expect(streamStructured(["a/model1", "b/model2"], [], schema)).rejects.toThrow();
+    expect(streamObjectMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls onPartial with every partial object streamed before the final object resolves", async () => {
+    streamObjectMock.mockReturnValueOnce(streamObjectResult({ intent: "food" }, [{ intent: "fo" }, { intent: "food" }]));
+    const partials: unknown[] = [];
+    const result = await streamStructured(["a/model1"], [], schema, undefined, undefined, { onPartial: (p) => partials.push(p) });
+    expect(result).toEqual({ intent: "food" });
+    expect(partials).toEqual([{ intent: "fo" }, { intent: "food" }]);
+  });
+
+  it("a throwing onPartial does not fail the call — the final `object` await is still the real signal", async () => {
+    streamObjectMock.mockReturnValueOnce(streamObjectResult({ intent: "food" }, [{ intent: "fo" }]));
+    const result = await streamStructured(["a/model1"], [], schema, undefined, undefined, {
+      onPartial: () => { throw new Error("progress UI blew up"); },
+    });
+    expect(result).toEqual({ intent: "food" });
+  });
+
+  it("passes caching:'auto' to streamObject when opts.caching is set", async () => {
+    streamObjectMock.mockReturnValueOnce(streamObjectResult({ intent: "food" }));
+    await streamStructured(["google/gemini-3.8-flash"], [], schema, undefined, undefined, { caching: "auto" });
+    expect(streamObjectMock).toHaveBeenCalledWith(expect.objectContaining({ providerOptions: { gateway: { caching: "auto" } } }));
+  });
+
+  it("reports usage tagged with the model that actually answered", async () => {
+    streamObjectMock
+      .mockReturnValueOnce(streamObjectResult(Object.assign(new Error("down"), { status: 500 })))
+      .mockReturnValueOnce(streamObjectResult({ intent: "food" }));
+    const onUsage = vi.fn();
+    await streamStructured(["a/model1", "b/model2"], [], schema, undefined, onUsage);
+    expect(onUsage).toHaveBeenCalledWith({ model: "b/model2", promptTokens: 2, completionTokens: 2 });
+  });
+});
+
+describe("generateText — Gateway model fallback", () => {
+  it("falls over on a provider error and returns the next model's text", async () => {
+    generateTextMock
+      .mockRejectedValueOnce(Object.assign(new Error("down"), { status: 503 }))
+      .mockResolvedValueOnce({ text: "from model2", usage: { inputTokens: 4, outputTokens: 6 } });
+    const text = await generateText(["a/model1", "b/model2"], [{ role: "user", content: "hi" }]);
+    expect(text).toBe("from model2");
+  });
+
+  it("treats an empty response as a failure worth falling over for", async () => {
+    generateTextMock
+      .mockResolvedValueOnce({ text: "", usage: { inputTokens: 1, outputTokens: 0 } })
+      .mockResolvedValueOnce({ text: "real answer", usage: { inputTokens: 1, outputTokens: 3 } });
+    const text = await generateText(["a/model1", "b/model2"], [{ role: "user", content: "hi" }]);
+    expect(text).toBe("real answer");
+  });
+});
+
+describe("gatewayModelChain", () => {
+  it("resolves each model id through the Gateway, preserving order", () => {
+    const chain = gatewayModelChain(["a/model1", "b/model2"]);
+    expect(chain).toEqual([
+      { model: { __modelId: "a/model1" }, modelId: "a/model1" },
+      { model: { __modelId: "b/model2" }, modelId: "b/model2" },
+    ]);
+  });
+
+  // Phase 2.1.2 (docs/overhaul/roadmap/phase-2-speed.md) — checking the plumbing, not real
+  // Cerebras behavior: a chain entry that pins a provider must actually carry that pin through
+  // to the resolved chain, distinct from an unpinned fallback entry right next to it.
+  it("carries a pinned entry's providerOptions, leaves an unpinned entry's undefined", () => {
+    const chain = gatewayModelChain([{ id: "openai/gpt-oss-120b", only: ["cerebras"] }, "google/gemini-3.8-flash"]);
+    expect(chain[0]).toMatchObject({ modelId: "openai/gpt-oss-120b", providerOptions: { gateway: { only: ["cerebras"] } } });
+    expect(chain[1]).toMatchObject({ modelId: "google/gemini-3.8-flash", providerOptions: undefined });
+  });
+});
+
+describe("provider pinning reaches the underlying Gateway call", () => {
+  it("generateStructured passes a pinned entry's providerOptions to generateObject", async () => {
+    generateObjectMock.mockResolvedValueOnce({ object: { intent: "food" }, usage: { inputTokens: 1, outputTokens: 1 } });
+    await generateStructured([{ id: "openai/gpt-oss-120b", only: ["cerebras"] }], [], schema);
+    expect(generateObjectMock).toHaveBeenCalledWith(expect.objectContaining({ providerOptions: { gateway: { only: ["cerebras"] } } }));
+  });
+
+  it("generateStructured passes no providerOptions for a bare, unpinned entry", async () => {
+    generateObjectMock.mockResolvedValueOnce({ object: { intent: "food" }, usage: { inputTokens: 1, outputTokens: 1 } });
+    await generateStructured(["google/gemini-3.8-flash"], [], schema);
+    expect(generateObjectMock).toHaveBeenCalledWith(expect.not.objectContaining({ providerOptions: expect.anything() }));
+  });
+
+  it("generateText passes a pinned entry's providerOptions to the SDK's generateText", async () => {
+    generateTextMock.mockResolvedValueOnce({ text: "hi", usage: { inputTokens: 1, outputTokens: 1 } });
+    await generateText([{ id: "openai/gpt-oss-120b", only: ["cerebras"] }], []);
+    expect(generateTextMock).toHaveBeenCalledWith(expect.objectContaining({ providerOptions: { gateway: { only: ["cerebras"] } } }));
+  });
+});
+
+describe("prompt caching (Phase 2.4, opts.caching) reaches the underlying Gateway call", () => {
+  it("generateStructured passes caching:'auto' for a bare, unpinned entry when opts.caching is set", async () => {
+    generateObjectMock.mockResolvedValueOnce({ object: { intent: "food" }, usage: { inputTokens: 1, outputTokens: 1 } });
+    await generateStructured(["google/gemini-3.8-flash"], [], schema, undefined, undefined, { caching: "auto" });
+    expect(generateObjectMock).toHaveBeenCalledWith(expect.objectContaining({ providerOptions: { gateway: { caching: "auto" } } }));
+  });
+
+  it("merges caching:'auto' alongside a pinned entry's `only`, without losing the pin", async () => {
+    generateObjectMock.mockResolvedValueOnce({ object: { intent: "food" }, usage: { inputTokens: 1, outputTokens: 1 } });
+    await generateStructured([{ id: "openai/gpt-oss-120b", only: ["cerebras"] }], [], schema, undefined, undefined, { caching: "auto" });
+    expect(generateObjectMock).toHaveBeenCalledWith(expect.objectContaining({ providerOptions: { gateway: { only: ["cerebras"], caching: "auto" } } }));
+  });
+
+  it("does not add a providerOptions key at all when opts.caching is unset and the entry is unpinned", async () => {
+    generateObjectMock.mockResolvedValueOnce({ object: { intent: "food" }, usage: { inputTokens: 1, outputTokens: 1 } });
+    await generateStructured(["google/gemini-3.8-flash"], [], schema);
+    expect(generateObjectMock).toHaveBeenCalledWith(expect.not.objectContaining({ providerOptions: expect.anything() }));
   });
 });

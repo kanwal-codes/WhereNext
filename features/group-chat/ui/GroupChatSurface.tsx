@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowUp, CalendarRange, Reply, SmilePlus, X } from "lucide-react";
 import { Sheet, Pressable } from "@/components/motion-primitives";
@@ -11,6 +12,8 @@ import { notifyToast } from "@/lib/application/toast";
 import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
 import type { AssistantBlock, AssistantTurnMeta, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import { mentionsRoam, type GroupMessage } from "../domain/message";
+import { memberInitials } from "@/lib/member-initials";
+import { useTripMembers, type TripMember } from "@/lib/client/use-trip-members";
 import { cn } from "@/lib/utils";
 
 const COMMON_EMOJI = ["👍", "❤️", "😂", "🎉", "😍", "🤔"];
@@ -18,19 +21,11 @@ const COMMON_EMOJI = ["👍", "❤️", "😂", "🎉", "😍", "🤔"];
 const GROUP_WINDOW_MS = 5 * 60_000;
 const LONG_PRESS_MS = 450;
 
-type Member = { userId: string; email: string | null; isYou: boolean };
-
-function displayName(userId: string | null, members: Member[], meId: string | undefined): string {
+function displayName(userId: string | null, members: TripMember[], meId: string | undefined): string {
   if (!userId) return "Roam";
   if (userId === meId) return "You";
   const member = members.find((m) => m.userId === userId);
   return member?.email?.split("@")[0] ?? "Someone";
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/[\s._-]+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  return parts.length === 1 ? parts[0].slice(0, 2).toUpperCase() : (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
 /** Splits on "@Roam" (any casing) and colors just that token, so a mention stands out in the sentence. */
@@ -55,7 +50,7 @@ function Avatar({ name, isRoam }: { name: string; isRoam: boolean }) {
         isRoam ? "bg-gradient-to-br from-primary to-primary/80 text-primary-foreground" : "bg-primary/10 text-primary",
       )}
     >
-      {isRoam ? "R" : initials(name)}
+      {isRoam ? "R" : memberInitials(name)}
     </span>
   );
 }
@@ -77,11 +72,34 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
   return response.json();
 }
 
-export function GroupChatSurface({ tripId }: { tripId: string }) {
-  const { me } = useTripData();
+export function GroupChatSurface({
+  tripId,
+  onLogScroll,
+}: {
+  tripId: string;
+  /** Wired directly to this surface's own scrollable log — see the identical prop's doc comment
+   *  on `ConversationSurface` for why an ancestor capture listener sniffing scroll events isn't
+   *  reliable here (a horizontal card carousel, or this surface's own background auto-scroll
+   *  while the other tab is the visible one, both fire scroll events that aren't this log
+   *  actually being scrolled by the user). The parent passes this only while this tab is active. */
+  onLogScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
+}) {
+  const { me, data } = useTripData();
   const { openPanel } = useTripPanel();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // `/join/[token]` sends a freshly-joined member here with `?joined=1` — otherwise they land in
+  // the thread with zero acknowledgment that the invite actually worked. One-time only: the
+  // param is stripped right after so a refresh (or coming back later) doesn't repeat it.
+  useEffect(() => {
+    if (searchParams.get("joined") !== "1") return;
+    notifyToast(`You're in${data?.trip.name ? ` — welcome to ${data.trip.name}` : ""}!`, "success");
+    router.replace(`/trips/${tripId}/group`, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once for the param that brought us here, not on every searchParams identity change
+  }, []);
   const [messages, setMessages] = useState<GroupMessage[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
+  const { members } = useTripMembers(tripId);
   const [loaded, setLoaded] = useState(false);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -90,10 +108,21 @@ export function GroupChatSurface({ tripId }: { tripId: string }) {
   const [pressingId, setPressingId] = useState<string | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<{ id: string; preview: string } | null>(null);
+  // Which @Roam asks are currently in flight — the buffered (non-streamed) reply can take a
+  // while, and until now nothing at all told the user a reply was coming. Keyed by messageId so
+  // several concurrent asks (different members, or a retry) each get their own indicator.
+  const [pendingRoamIds, setPendingRoamIds] = useState<Set<string>>(new Set());
   const logRef = useRef<HTMLDivElement>(null);
-  const endRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
+  // Guards against the server-side toggle race: a delete-then-insert isn't atomic, so two
+  // near-simultaneous taps on the same (message, emoji) can both see "not reacted yet" and
+  // both insert, or the second can re-add what the first just removed. Blocking a second
+  // request for the same key while one is in flight covers the common trigger (a fast
+  // double-tap); it doesn't cover two separate tabs racing, which would need a DB-side atomic
+  // upsert-toggle (ponytail: revisit with a stored procedure if that's ever actually seen).
+  const pendingReactionsRef = useRef<Set<string>>(new Set());
+  const refreshIdRef = useRef(0);
   const bubbleRefs = useRef<Map<string, HTMLElement>>(new Map());
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Which Roam replies have already been considered for the auto-continue prefill below —
@@ -106,35 +135,58 @@ export function GroupChatSurface({ tripId }: { tripId: string }) {
   const pressMoved = useRef(false);
 
   const refresh = useCallback(async () => {
+    // Same request-id guard as DiscoverySurface/StaySurface: refresh() fires from three
+    // independent triggers (mount, every realtime "groupChat" event, right after sending) with
+    // no ordering guarantee between them — without this, an earlier call's response landing
+    // after a newer one's would overwrite the fresh list with stale data.
+    const mine = ++refreshIdRef.current;
     try {
       const body = await fetch(`/api/trips/${tripId}/group-chat`).then((r) => (r.ok ? r.json() : Promise.reject(new Error("load"))));
+      if (mine !== refreshIdRef.current) return;
       setMessages(body.messages ?? []);
     } catch {
       // Best-effort — the last successfully loaded state stays on screen.
     } finally {
-      setLoaded(true);
+      if (mine === refreshIdRef.current) setLoaded(true);
     }
   }, [tripId]);
 
   useEffect(() => {
     void refresh();
-    fetch(`/api/trips/${tripId}/members`)
-      .then((r) => (r.ok ? r.json() : { members: [] }))
-      .then((body) => setMembers(body.members ?? []))
-      .catch(() => undefined);
   }, [tripId, refresh]);
 
-  // Any workspace change (not just this trip's group chat) re-triggers a refetch — matches
-  // the bus's existing broadcast-any-change shape (see TripDataProvider); one extra fetch on
-  // an unrelated change is cheap and simpler than threading the change type through.
-  useEffect(() => subscribeWorkspaceChanges(() => void refresh()), [refresh]);
+  // Only a real group-chat change (a message, a reaction) should pay for this refetch — the
+  // bus carries the change type specifically so an itinerary edit or a saved place elsewhere
+  // on the trip doesn't retrigger a full history reload here.
+  useEffect(() => subscribeWorkspaceChanges((changes) => {
+    if (changes.includes("groupChat")) void refresh();
+  }), [refresh]);
 
   const scrollToEnd = useCallback(() => {
-    endRef.current?.scrollIntoView({ block: "end" });
+    const log = logRef.current;
+    if (!log) return;
+    // Scroll the log itself to its true max, not `endRef.scrollIntoView({block:"end"})` — that
+    // aligned `endRef`'s position (right after the last message, BEFORE the `pb-20` clearance
+    // below it) with the container's bottom edge, so the reserved 80px gap sat scrolled past,
+    // off-screen, doing nothing — the last message landed flush with the container's bottom
+    // edge instead, exactly where the floating composer overlay sits on top of it. Live-caught:
+    // the latest message ended up hidden behind the composer both on initial load and right
+    // after sending. Scrolling the container to `scrollHeight` instead lands on the true
+    // bottom, which correctly includes the `pb-20` padding as visible trailing space above the
+    // composer. See the identical fix + longer explanation in ConversationSurface.tsx.
+    const jump = () => log.scrollTo({ top: log.scrollHeight, behavior: "smooth" });
+    jump();
+    // A reply's place/event card images finish downloading a moment after the message row
+    // lands, growing the log taller than it was when `jump()` first measured `scrollHeight` —
+    // one call alone can still fall short, live-caught leaving the last card partly behind the
+    // composer even with the fix above. Fire-and-forget: a redundant `scrollTo` landing after
+    // the user has since scrolled away, or after unmount, is a harmless no-op either way.
+    setTimeout(jump, 200);
+    setTimeout(jump, 600);
   }, []);
   useEffect(() => {
     scrollToEnd();
-  }, [messages.length, scrollToEnd]);
+  }, [messages.length, pendingRoamIds.size, scrollToEnd]);
 
   // Keeps a continuing exchange with Roam going without re-typing the mention every turn: once
   // a fresh reply lands answering something *you* said, pre-fill "@Roam " so your next message
@@ -173,9 +225,16 @@ export function GroupChatSurface({ tripId }: { tripId: string }) {
   // `explicit` is the "Ask Roam about this" message action (long-press / inline-expand, same
   // surface as reactions) — it works on any member's message, not just one that says "@Roam".
   function askRoam(messageId: string, options: { explicit?: boolean } = {}) {
+    setPendingRoamIds((current) => new Set(current).add(messageId));
     void postJson(`/api/trips/${tripId}/group-chat/roam`, { messageId, ...options })
       .then(() => void refresh())
-      .catch(() => notifyToast("Roam didn’t reply to that.", "error", { label: "Retry", onClick: () => askRoam(messageId, options) }));
+      .catch(() => notifyToast("Roam didn’t reply to that.", "error", { label: "Retry", onClick: () => askRoam(messageId, options) }))
+      .finally(() => setPendingRoamIds((current) => {
+        if (!current.has(messageId)) return current;
+        const next = new Set(current);
+        next.delete(messageId);
+        return next;
+      }));
   }
 
   // The explicit "Reply" action on a Roam message — pre-fills the mention so continuing the
@@ -229,6 +288,9 @@ export function GroupChatSurface({ tripId }: { tripId: string }) {
   }
 
   async function toggleReaction(messageId: string, emoji: string) {
+    const key = `${messageId}:${emoji}`;
+    if (pendingReactionsRef.current.has(key)) return;
+    pendingReactionsRef.current.add(key);
     setReactingTo(null);
     setExpandedReactionFor(null);
     // Optimistic flip so the tap feels instant; refresh() reconciles shortly after via the
@@ -249,6 +311,8 @@ export function GroupChatSurface({ tripId }: { tripId: string }) {
       await postJson(`/api/trips/${tripId}/group-chat/${messageId}/reactions`, { emoji });
     } catch {
       void refresh();
+    } finally {
+      pendingReactionsRef.current.delete(key);
     }
   }
 
@@ -320,7 +384,10 @@ export function GroupChatSurface({ tripId }: { tripId: string }) {
 
   return (
     <div className="relative flex h-full min-h-0 w-full max-w-full flex-col overflow-x-hidden">
-      <div ref={logRef} className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden scrollbar-slim">
+      {/* `overscroll-contain` — see the identical comment in ConversationSurface.tsx: keeps the
+          rubber-band bounce at the top/bottom confined to this log instead of chaining into the
+          page. */}
+      <div ref={logRef} onScroll={onLogScroll} className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim">
         <div className="mx-auto w-full max-w-2xl space-y-1 pt-3 pb-20">
           {!loaded && (
             <div aria-hidden className="space-y-5">
@@ -389,6 +456,9 @@ export function GroupChatSurface({ tripId }: { tripId: string }) {
                   blocks={(message.metadata as Partial<AssistantTurnMeta> | undefined)?.blocks}
                   handlers={{ tripId, onFollowup, onOpenPlace, onOpenStay, onOpenEvent, onOpenCollection }}
                 />
+                {(message.metadata as Partial<AssistantTurnMeta> | undefined)?.unverified && (
+                  <p className="text-[11px] text-muted-foreground">A figure or detail above is an estimate and hasn’t been independently verified.</p>
+                )}
               </div>
             ) : (
               <p
@@ -522,7 +592,27 @@ export function GroupChatSurface({ tripId }: { tripId: string }) {
               </div>
             );
           })}
-          <div ref={endRef} />
+          {pendingRoamIds.size > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-3 flex items-start gap-2"
+            >
+              <div className="w-7 shrink-0">
+                <Avatar name="Roam" isRoam />
+              </div>
+              <div className="flex items-center gap-1 rounded-2xl rounded-tl-lg px-4 py-2.5">
+                {[0, 1, 2].map((i) => (
+                  <motion.span
+                    key={i}
+                    className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50"
+                    animate={{ opacity: [0.3, 1, 0.3] }}
+                    transition={{ duration: 1.1, repeat: Infinity, delay: i * 0.15 }}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          )}
         </div>
 
         <div className="pointer-events-none sticky bottom-0 left-0 -mt-10 h-10 w-full bg-gradient-to-t from-background to-transparent" />

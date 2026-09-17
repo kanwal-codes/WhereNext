@@ -28,7 +28,6 @@ const PROVIDER_LABEL: Record<string, string> = {
   mapbox: "directions",
   openweather: "the weather",
   tavily: "the web",
-  predicthq: "events",
   "google-places": "places",
 };
 const unavailableLabels = (names?: string[]) => Array.from(new Set((names ?? []).map((name) => PROVIDER_LABEL[name] ?? name)));
@@ -67,14 +66,24 @@ export function mergeConversationMessages(current: Message[], fresh: Message[]):
   for (const message of current) {
     if (byId.has(message.id)) continue;
     // A locally-streamed message keeps its client-generated id, so it never matches the server
-    // row by id. Drop it once the server twin is present (same role, same settled text, close
-    // in time) — otherwise a background /conversation refetch renders the whole turn twice.
-    // Assistant twins get a wider window: compose can take tens of seconds before the row lands.
-    const hasServerTwin =
-      message.role === "user"
-        ? fresh.some((c) => c.role === "user" && c.content === message.content && Math.abs(Date.parse(c.created_at) - Date.parse(message.created_at)) < 60_000)
-        : message.content.trim().length > 0 &&
-          fresh.some((c) => c.role === "assistant" && c.content.trim() === message.content.trim() && Math.abs(Date.parse(c.created_at) - Date.parse(message.created_at)) < 5 * 60_000);
+    // row by id. Both roles' local ids are deterministic from the turn's own send idempotency
+    // key (`local-${key}` for the user's own echo, `local-assistant-${key}` for the reply
+    // placeholder — see sendConversationMessage.ts), and the server row carries that same key
+    // back (`user:${key}` / `assistant:${key}`, see scopedMessageIdempotencyKey) — matching on
+    // that instead of content+timing means two genuinely identical messages/replies sent
+    // moments apart each match their own row, rather than the second one matching the first's
+    // already-confirmed twin and vanishing (or, under a slow/backed-up queue, surviving past
+    // the old fixed 5-minute window as a visible duplicate).
+    const userLocalKey = message.role === "user" && message.id.startsWith("local-") ? message.id.slice("local-".length) : null;
+    const assistantLocalKey = message.role === "assistant" && message.id.startsWith("local-assistant-") ? message.id.slice("local-assistant-".length) : null;
+    const hasServerTwin = userLocalKey
+      ? fresh.some((c) => c.role === "user" && c.idempotency_key === `user:${userLocalKey}`)
+      : assistantLocalKey
+        ? fresh.some((c) => c.role === "assistant" && c.idempotency_key === `assistant:${assistantLocalKey}`)
+        : message.role === "user"
+          ? fresh.some((c) => c.role === "user" && c.content === message.content && Math.abs(Date.parse(c.created_at) - Date.parse(message.created_at)) < 60_000)
+          : message.content.trim().length > 0 &&
+            fresh.some((c) => c.role === "assistant" && c.content.trim() === message.content.trim() && Math.abs(Date.parse(c.created_at) - Date.parse(message.created_at)) < 5 * 60_000);
     if (!hasServerTwin) byId.set(message.id, message);
   }
   return [...byId.values()].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
@@ -88,11 +97,26 @@ const humanValue = (value: unknown): string => {
   return String(value);
 };
 
-/** The exact fields a proposed change will write — shown behind an expander so the user can check before confirming. */
-function describeProposal(proposal: ProposedCommand): Array<[string, string]> {
+/** The exact fields a proposed change will write — shown behind an expander so the user can check before confirming.
+ *  Exported for `tests/unit/describe-proposal.test.ts` — a pure function, no need to mount the component to test it. */
+export function describeProposal(proposal: ProposedCommand): Array<[string, string]> {
   switch (proposal.type) {
     case "update_preferences":
-      return Object.entries(proposal.preferences).map(([key, value]) => [humanKey(key), humanValue(value)]);
+      // `operations` (add/remove/replace/clear on a list field) is the update's own control
+      // structure, not a preference — showing it as a raw "Operations: —" row is meaningless to a
+      // user, and worse, misleading when the model includes an empty `operations: []` alongside a
+      // real field (seen live: a single-field update rendered a phantom "Operations" row). Expand
+      // each operation into a proper labeled row instead of hiding it outright, so a pure
+      // list-edit (e.g. "remove museums from dislikes") still shows what's actually changing.
+      return Object.entries(proposal.preferences).flatMap(([key, value]) => {
+        if (key !== "operations") return [[humanKey(key), humanValue(value)] as [string, string]];
+        const ops = value as Array<{ action: string; field: string; values?: string[] }> | undefined;
+        if (!ops || ops.length === 0) return [];
+        return ops.map((op) => [
+          humanKey(op.field),
+          op.action === "clear" ? "clear" : `${op.action}: ${humanValue(op.values)}`,
+        ] as [string, string]);
+      });
     case "record_decision":
       return [["Type", proposal.kind.replaceAll("_", " ")], ...Object.entries(proposal.value).map(([key, value]) => [humanKey(key), humanValue(value)] as [string, string])];
     case "add_itinerary_item":
@@ -108,9 +132,16 @@ function describeProposal(proposal: ProposedCommand): Array<[string, string]> {
   }
 }
 
-// The turn does real work before the first token (plan the turn, hit live providers, start the
-// model). Advance the label on a timer so a 3–8s wait reads as progress, not a stall. Purely
-// cosmetic — mounts fresh each turn, so the timers reset with it.
+// Phase 2.6.2 (docs/overhaul/roadmap/phase-2-speed.md): the first three labels now track real
+// backend milestones (RESOLVE started / RETRIEVE started / COMPOSE started — see `progressStage`,
+// driven by streamAssistantResponse's `onProgress`), not a fixed-timer guess. The last two stay
+// timer-driven: once COMPOSE starts there's no finer server-side signal until its first token
+// arrives, so these are a fallback ceiling for a turn that's still genuinely slow at that point —
+// `Math.max` in `Typing` below means they only ever ADVANCE the label past wherever the real
+// stage already put it, never regress it back to a stale-sounding one.
+// index 1 ("Checking live sources…") is itself a fallback now — `Typing` swaps it for
+// `progressLabel` ("Checking places…", "Getting directions…") whenever RESOLVE planned a tool
+// this session recognizes, so the wait names what's actually happening instead of staying generic.
 const THINKING_STATES = [
   "Thinking through your trip…",
   "Checking live sources…",
@@ -118,18 +149,22 @@ const THINKING_STATES = [
   "Almost there…",
   "Still working — this one's taking a bit…",
 ];
+const STAGE_PHASE: Record<"resolve" | "retrieve" | "compose", number> = { resolve: 0, retrieve: 1, compose: 2 };
 
-function Typing() {
-  const [phase, setPhase] = useState(0);
+function Typing({ stage, label }: { stage?: "resolve" | "retrieve" | "compose"; label?: string }) {
+  const [timerPhase, setTimerPhase] = useState(0);
   useEffect(() => {
     const timers = [
-      setTimeout(() => setPhase(1), 2500),
-      setTimeout(() => setPhase(2), 6000),
-      setTimeout(() => setPhase(3), 11000),
-      setTimeout(() => setPhase(4), 20000),
+      setTimeout(() => setTimerPhase(3), 11000),
+      setTimeout(() => setTimerPhase(4), 20000),
     ];
     return () => timers.forEach(clearTimeout);
   }, []);
+  const phase = Math.max(stage ? STAGE_PHASE[stage] : 0, timerPhase);
+  // `label` names what RESOLVE actually planned ("checking places") — only meaningful while
+  // "retrieve" is still the current phase; once the timer or a later stage has moved past it,
+  // the phase-indexed generic text below takes back over rather than a now-stale activity name.
+  const text = label && phase === STAGE_PHASE.retrieve ? `${label[0]!.toUpperCase()}${label.slice(1)}…` : THINKING_STATES[phase];
   return (
     <div className="flex items-center gap-1.5 px-1 py-2">
       {[0, 1, 2].map((i) => (
@@ -140,7 +175,7 @@ function Typing() {
           transition={{ duration: 1.1, repeat: Infinity, delay: i * 0.15 }}
         />
       ))}
-      <span className="ml-2 text-xs text-muted-foreground">{THINKING_STATES[phase]}</span>
+      <span className="ml-2 text-xs text-muted-foreground">{text}</span>
     </div>
   );
 }
@@ -155,6 +190,7 @@ export function ConversationSurface({
   onOpenCollection,
   viewContext,
   rail = false,
+  onLogScroll,
 }: {
   tripId: string;
   initialMessages?: Array<Record<string, unknown>>;
@@ -166,6 +202,13 @@ export function ConversationSurface({
   /** Name of the place/stay the user has open beside the chat, for deictic references. */
   viewContext?: string;
   rail?: boolean;
+  /** Wired directly to this surface's own scrollable log — not sniffed via a capture listener
+   *  on some ancestor, which used to also pick up scroll events from horizontal card carousels
+   *  (their `scrollTop` is always 0) and, once both chat surfaces stayed permanently mounted,
+   *  from this surface's OWN background auto-scroll-to-bottom firing while the OTHER tab was the
+   *  one actually visible. Both produced bogus deltas that flipped a shared header's visibility
+   *  at the wrong moment. The parent passes this only when this surface is the active tab. */
+  onLogScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
 }) {
   const [messages, setMessages] = useState<Message[]>((initialMessages ?? []) as Message[]);
   const [input, setInput] = useState("");
@@ -173,12 +216,17 @@ export function ConversationSurface({
   const [loaded, setLoaded] = useState(Boolean(initialMessages));
   const [confirming, setConfirming] = useState(false);
   const [proposal, setProposal] = useState<ProposedCommand | null>(null);
+  // Phase 2.6.2 (docs/overhaul/roadmap/phase-2-speed.md): the real backend milestone for the
+  // in-flight turn, driving Typing's label — replaces a purely time-based guess.
+  const [progressStage, setProgressStage] = useState<"resolve" | "retrieve" | "compose" | undefined>(undefined);
+  // What RESOLVE actually planned to look up ("checking places", "getting directions"), shown
+  // during "retrieve" instead of Typing's generic label — undefined falls back to that generic
+  // text (no tools planned, or none the label map recognizes).
+  const [progressLabel, setProgressLabel] = useState<string | undefined>(undefined);
   const [cacheReady, setCacheReady] = useState(false);
   const requestRef = useRef<AbortController | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
-  const endRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const scrollFrame = useRef(0);
   const speechBaseRef = useRef("");
   // When this state was last confirmed against the server — distinct from "now", so a local
   // edit (optimistic send, settled stream) doesn't silently re-arm the cache's freshness TTL.
@@ -187,6 +235,13 @@ export function ConversationSurface({
   // merge) must appear in place, not replay its whole entrance animation every time the log
   // mounts. Seeded with whatever came from the server so the very first paint doesn't animate.
   const seenMessageIdsRef = useRef<Set<string>>(new Set((initialMessages ?? []).map((m) => String(m.id))));
+  // `data.conversation` (this component's `initialMessages` prop) is a fresh array reference on
+  // every server render — TripDataProvider's router.refresh() fires for ANY workspace change,
+  // not just a conversation one, and this component's own submit() triggers exactly that after
+  // every send. Reading it via a ref keeps the reconciliation effect below from treating that
+  // reference churn as new data to reconcile against on every single turn.
+  const initialMessagesRef = useRef(initialMessages);
+  initialMessagesRef.current = initialMessages;
 
   // Dictation: transcript is appended after whatever was already typed when the mic started.
   const speech = useSpeechInput({
@@ -212,7 +267,7 @@ export function ConversationSurface({
   // background. This keeps tab changes instant without turning the client cache into truth.
   useEffect(() => {
     const cached = readConversationCache(tripId);
-    const initialLatest = Math.max(0, ...(initialMessages ?? []).map((message) => Date.parse(String(message.created_at ?? "")) || 0));
+    const initialLatest = Math.max(0, ...(initialMessagesRef.current ?? []).map((message) => Date.parse(String(message.created_at ?? "")) || 0));
     if (cached && cached.savedAt >= initialLatest) {
       setMessages(cached.messages);
       setLoaded(true);
@@ -241,36 +296,53 @@ export function ConversationSurface({
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        if (!cached && !initialMessages) notifyToast("Couldn’t load the conversation — reload to try again.", "error");
+        if (!cached && !initialMessagesRef.current) notifyToast("Couldn’t load the conversation — reload to try again.", "error");
         setLoaded(true);
       });
     return () => controller.abort();
-  }, [tripId, initialMessages]);
+    // Deliberately not depending on initialMessages — see initialMessagesRef above. This effect
+    // is a one-time-per-trip reconciliation, not a continuous sync with the parent's data prop.
+  }, [tripId]);
 
   useEffect(() => {
     if (cacheReady) writeConversationCache(tripId, messages, verifiedAtRef.current);
   }, [cacheReady, messages, tripId]);
 
-  const scrollIfNearBottom = useCallback(() => {
+  // Every message in THIS log is the direct result of the viewer's own action — typing and
+  // pressing send, or tapping a follow-up/suggestion chip on an older message further up the
+  // log (unlike group chat, personal chat has no other party whose message could land here
+  // passively) — so a new one is always worth revealing, regardless of where the viewer is
+  // currently scrolled. Live-caught: tapping "Tell me more →" on a card from earlier in the
+  // conversation silently sent a new question with zero visual feedback, because this used to
+  // only scroll when already within 160px of the bottom — correct for not yanking someone away
+  // from content they're passively reading, wrong for an action they just deliberately took and
+  // are waiting to see the result of. This scrolls unconditionally on that one event and then
+  // stops — it does NOT keep chasing the reply as it streams in afterwards (see
+  // `onAssistantDelta` below): reveal that a new exchange has started, then let the viewer read
+  // at their own pace, exactly the balance asked for.
+  const scrollToLatestMessage = useCallback(() => {
     const log = logRef.current;
-    if (log && log.scrollHeight - log.scrollTop - log.clientHeight > 160) return;
-    endRef.current?.scrollIntoView({ block: "end" });
+    if (!log) return;
+    // Scroll the log itself to its true max, not `endRef.scrollIntoView({block:"end"})` — that
+    // aligned `endRef`'s position (right after the last message/followup chips, BEFORE the
+    // `pb-20` clearance below it) with the container's bottom edge, so the reserved 80px gap
+    // sat scrolled past, off-screen, doing nothing — the last message/card/suggestion landed
+    // flush with the container's bottom edge instead, exactly where the floating composer
+    // overlay sits on top of it. Live-caught: a fresh reply's follow-up chips ended up hidden
+    // behind the composer both on initial load and right after sending. Scrolling the container
+    // to `scrollHeight` instead lands on the true bottom, which correctly includes the `pb-20`
+    // padding as visible trailing space above the composer.
+    log.scrollTo({ top: log.scrollHeight, behavior: "smooth" });
   }, []);
 
-  // First landing: jump straight to the latest message. The log has
-  // `scroll-behavior: smooth` (nice while streaming), which Chromium also applies to
-  // scrollTop assignment — so without this override the page visibly scrolls
-  // top→bottom every time it mounts. Re-run once after layout in case card images
-  // reflow the height.
+  // First landing: jump straight to the latest message, instantly. `scrollbar-slim` (the log's
+  // own class) deliberately carries no `scroll-behavior: smooth` — see its definition in
+  // app/globals.css for why — so a plain `scrollTop` assignment is already an instant jump,
+  // no save/restore dance needed. Re-run once after layout in case card images reflow the height.
   useEffect(() => {
     const log = logRef.current;
     if (!log) return;
-    const jump = () => {
-      const prev = log.style.scrollBehavior;
-      log.style.scrollBehavior = "auto";
-      log.scrollTop = log.scrollHeight;
-      log.style.scrollBehavior = prev;
-    };
+    const jump = () => { log.scrollTop = log.scrollHeight; };
     jump();
     // Card images / blocks reflow the log taller just after mount — keep it pinned
     // to the bottom for a beat (no smoothing) so we don't land mid-conversation.
@@ -280,17 +352,18 @@ export function ConversationSurface({
   }, [loaded]);
 
   useEffect(() => {
-    scrollIfNearBottom();
-  }, [messages.length, scrollIfNearBottom]);
-
-  // One scroll per frame while tokens stream, not one per token.
-  const scheduleScroll = useCallback(() => {
-    if (scrollFrame.current) return;
-    scrollFrame.current = requestAnimationFrame(() => {
-      scrollFrame.current = 0;
-      scrollIfNearBottom();
-    });
-  }, [scrollIfNearBottom]);
+    scrollToLatestMessage();
+    // A new message can carry place/event card images that finish loading a moment after this
+    // fires, growing the log taller than what `scrollToLatestMessage` just measured — one call
+    // can still fall short (live-caught: the last card partly behind the composer). Retry
+    // shortly after to catch that late reflow. Scoped to this per-new-message effect (fires once
+    // per real message, not per streamed token) rather than baked into `scrollToLatestMessage`
+    // itself — see that function's own comment for why doing it there caused the page to
+    // visibly bounce while a reply was actively streaming in.
+    const t1 = setTimeout(scrollToLatestMessage, 200);
+    const t2 = setTimeout(scrollToLatestMessage, 600);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [messages.length, scrollToLatestMessage]);
 
   const resizeTextarea = useCallback(() => {
     const el = textareaRef.current;
@@ -363,6 +436,8 @@ export function ConversationSurface({
       const controller = new AbortController();
       requestRef.current = controller;
       let assistantId = "";
+      setProgressStage(undefined);
+      setProgressLabel(undefined);
       const result = await sendConversationMessage({
         tripId,
         content,
@@ -382,7 +457,13 @@ export function ConversationSurface({
         },
         onAssistantDelta: (assistant) => {
           setMessages((current) => current.map((m) => (m.id === assistantId ? { ...m, content: assistant } : m)));
-          scheduleScroll();
+          // No auto-scroll here (deliberately — see `scrollToLatestMessage`'s comment). The
+          // reveal already happened once, when this message was added; the user reads down into
+          // it at their own pace rather than being dragged along as it keeps growing.
+        },
+        onProgress: (stage, label) => {
+          setProgressStage(stage);
+          setProgressLabel(label);
         },
         signal: controller.signal,
       });
@@ -450,20 +531,24 @@ export function ConversationSurface({
 
   return (
     <div className="relative flex h-full min-h-0 w-full max-w-full flex-col overflow-x-hidden">
-      <div ref={logRef} className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden scrollbar-slim">
+      {/* `overscroll-contain`: without it, running out of content to scroll at the top/bottom
+          lets the gesture "chain" into bouncing the whole page instead of staying inside this
+          log — the rubber-band should feel self-contained here, the same way a native app's
+          message list never drags the rest of the screen along with it. */}
+      <div ref={logRef} onScroll={onLogScroll} className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim">
         <div className={cn("mx-auto w-full max-w-full space-y-6 pt-2 pb-20", rail ? "px-1" : "max-w-2xl")}>
           {!loaded && messages.length === 0 && (
             <div aria-hidden className="space-y-6">
               <div className="flex justify-end">
-                <div className="h-9 w-40 animate-pulse rounded-2xl rounded-br-lg bg-muted" />
+                <div className="h-9 w-40 animate-pulse bg-foreground/8 rounded-2xl rounded-br-lg" />
               </div>
               <div className="space-y-2">
-                <div className="h-3.5 w-11/12 animate-pulse rounded bg-muted" />
-                <div className="h-3.5 w-4/5 animate-pulse rounded bg-muted" />
-                <div className="mt-3 h-28 w-full animate-pulse rounded-2xl bg-muted" />
+                <div className="h-3.5 w-11/12 animate-pulse bg-foreground/8 rounded" />
+                <div className="h-3.5 w-4/5 animate-pulse bg-foreground/8 rounded" />
+                <div className="mt-3 h-28 w-full animate-pulse bg-foreground/8 rounded-2xl" />
               </div>
               <div className="flex justify-end">
-                <div className="h-9 w-52 animate-pulse rounded-2xl rounded-br-lg bg-muted" />
+                <div className="h-9 w-52 animate-pulse bg-foreground/8 rounded-2xl rounded-br-lg" />
               </div>
             </div>
           )}
@@ -513,14 +598,28 @@ export function ConversationSurface({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ type: "spring", stiffness: 240, damping: 26 }}
                 dir={dir}
-                className={cn("space-y-2", streaming && "chat-streaming")}
+                // `chat-streaming` (app/globals.css) blinks a "▍" cursor after the last child of
+                // `.chat-prose` — meant to sit after the growing text while it streams in. Gated
+                // on content being non-empty: `streaming` alone is also true during the earlier
+                // RESOLVE/RETRIEVE "thinking" phase, before any tokens have arrived, when the
+                // message is still `""` — with no real text before it, the cursor rendered as a
+                // lone blinking bar floating with nothing to sit after, redundant with (and
+                // confusing alongside) the separate "Pulling the details together…" indicator
+                // already shown for that same phase.
+                className={cn("space-y-2", streaming && message.content && "chat-streaming")}
               >
-                <AssistantMessage content={message.content} blocks={meta?.blocks} handlers={handlers} />
+                <AssistantMessage content={message.content} blocks={meta?.blocks} handlers={handlers} streaming={streaming} />
                 {!streaming && meta?.degraded && (
                   <p className="text-[11px] text-muted-foreground">Answered from your trip details — the planner had trouble reading that one. Rephrasing may help.</p>
                 )}
                 {!streaming && meta?.persistFailed && (
                   <p className="text-[11px] text-destructive">This reply wasn’t saved — it may be gone if you reload.</p>
+                )}
+                {!streaming && meta?.truncated && (
+                  <p className="text-[11px] text-muted-foreground">This answer may have been cut off — ask again if it looks incomplete.</p>
+                )}
+                {!streaming && meta?.unverified && (
+                  <p className="text-[11px] text-muted-foreground">A figure or detail above is an estimate and hasn’t been independently verified.</p>
                 )}
                 {unavailable.length > 0 && (
                   <p className="text-[11px] text-muted-foreground">Couldn’t check {unavailable.join(", ")} just now — this is from your trip so far.</p>
@@ -552,8 +651,7 @@ export function ConversationSurface({
             );
           })}
 
-          <div role="status" aria-live="polite">{waiting && <Typing />}</div>
-          <div ref={endRef} />
+          <div role="status" aria-live="polite">{waiting && <Typing stage={progressStage} label={progressLabel} />}</div>
         </div>
       </div>
 

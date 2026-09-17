@@ -22,13 +22,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     if (!wantTm && !wantEb) return NextResponse.json({ error: "Events are not configured" }, { status: 503 });
 
     const result = await cached(`events:${location.toLowerCase()}:${query.toLowerCase()}:page:${page}`, 10 * 60_000, async () => {
-      const point = wantEb ? await new GooglePlacesProvider().search(location, request.signal).then((hits) => hits[0]).catch(() => null) : null;
-      const [tm, eb] = await Promise.allSettled([
+      // The geocode is only needed for Eventbrite (it takes lat/lng, not a place name) — Ticketmaster
+      // doesn't depend on it at all, so the two start together instead of Ticketmaster waiting on a
+      // lookup it has no use for.
+      const [tm, pointResult] = await Promise.allSettled([
         wantTm ? ticketmasterEvents(query, location, undefined, request.signal, "date", page) : Promise.resolve([]),
-        wantEb && point ? localEvents(query, point.latitude, point.longitude, request.signal) : Promise.resolve([]),
+        wantEb ? new GooglePlacesProvider().search(location, request.signal).then((hits) => hits[0]) : Promise.resolve(null),
       ]);
+      const point = pointResult.status === "fulfilled" ? pointResult.value : null;
+      const eb = wantEb && point ? await localEvents(query, point.latitude, point.longitude, request.signal).catch(() => null) : null;
       const tmList = (tm.status === "fulfilled" ? tm.value : []).map((e) => ({ title: e.title, url: e.url, date: e.date, venue: e.venue, source: "ticketmaster", imageUrl: e.imageUrl }));
-      const ebList = (eb.status === "fulfilled" ? eb.value : []).map((e) => ({ title: e.title, url: e.url, date: e.date, venue: e.venue, source: "eventbrite" as string }));
+      const ebList = (eb ?? []).map((e) => ({ title: e.title, url: e.url, date: e.date, venue: e.venue, source: "eventbrite" as string }));
       const list = mergeEventSources(tmList, ebList);
       const terms = query.toLowerCase().split(/\s+/).filter((term) => term.length > 2 && !["concert", "event", "events", "near"].includes(term));
       const relevant = terms.length ? list.filter((event) => terms.every((term) => event.title.toLowerCase().includes(term))) : list;

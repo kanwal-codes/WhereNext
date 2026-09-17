@@ -2,7 +2,7 @@
 
 import type { MouseEvent } from "react";
 import Link from "next/link";
-import { Check, MapPin, Star } from "lucide-react";
+import { ArrowUpRight, Check, MapPin, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Place } from "@/packages/contracts/place";
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
@@ -37,7 +37,7 @@ export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place
     : undefined;
 
   return (
-    <Tactile lift={4} className="group flex h-[19rem] flex-col rounded-2xl border border-border bg-card shadow-soft transition-shadow hover:shadow-lift">
+    <Tactile lift={4} className="group flex h-[21rem] flex-col rounded-2xl border border-border bg-card shadow-soft transition-shadow hover:shadow-lift">
       <Link href={href} onClick={open} className="relative block h-40 shrink-0 overflow-hidden rounded-t-2xl">
         {photo ? (
           <BlurImage
@@ -66,8 +66,11 @@ export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place
       <div className="flex min-h-0 flex-1 flex-col gap-2 p-4">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
           <div className="min-w-0">
-            <Link href={href} onClick={open} className="block truncate font-display text-lg leading-tight transition-colors hover:text-primary">
-              <h3 className="truncate">{place.name}</h3>
+            <Link href={href} onClick={open} className="block font-display text-lg leading-tight transition-colors hover:text-primary">
+              {/* 2 lines, not 1 — on a narrow 2-column mobile grid a single-line truncate was
+                  cutting a name like "Montreal Museum of Archaeology and History" down to
+                  "Montreal M...", losing the one thing the card exists to show. */}
+              <h3 className="line-clamp-2">{place.name}</h3>
             </Link>
             {place.address && (
               <p className="mt-1 flex items-center gap-1.5 truncate text-xs text-muted-foreground">
@@ -89,10 +92,15 @@ export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place
 
         {why && <p className="truncate text-[11px] font-medium text-primary/80">{why}</p>}
 
-        <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
-          <AddToTripControl tripId={tripId} place={place} size="sm" />
-          {panelCtx?.compareMode && <span className="rounded-full border border-border px-2 py-1 text-[11px] text-muted-foreground">{panelCtx.compareHas(place.providerId) ? "Selected" : "Click card to select"}</span>}
+        <div className="mt-auto flex items-center gap-2 pt-1">
+          <AddToTripControl tripId={tripId} place={place} size="sm" block className="min-w-0 flex-1" />
+          <Link href={href} onClick={open} className="btn-chip shrink-0">
+            Details <ArrowUpRight className="h-3.5 w-3.5" />
+          </Link>
         </div>
+        {panelCtx?.compareMode && (
+          <p className="text-[11px] text-muted-foreground">{panelCtx.compareHas(place.providerId) ? "Selected" : "Click card to select"}</p>
+        )}
       </div>
     </Tactile>
   );

@@ -156,7 +156,10 @@ describe("resolvedTurnSchema / toolCallSchema — model plan overflow", () => {
     expect(out.language).toBe("en");
     expect(out.locationFocus).toBeNull();
     expect(out.intent).toBe("other");
-    expect(out.capabilities).toEqual([]); // a bad member fails the array → safe default
+    // Each array member is validated independently (same as toolPlan below) — one bad member
+    // ("banana") is dropped, not one that sinks the whole array and silently drops every
+    // capability the model actually asked for correctly ("comparison").
+    expect(out.capabilities).toEqual(["comparison"]);
   });
 
   it("truncates an over-long toolPlan to the first 6 valid lookups", () => {

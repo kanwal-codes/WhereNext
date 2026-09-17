@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
+import { cached } from "@/lib/server/ttl-cache";
+
+const DAY = 86_400_000;
 
 export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
@@ -9,11 +12,23 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     await requireTripMember(tripId);
     const name = new URL(request.url).searchParams.get("name") ?? "";
     if (!/^places\/[^/]+\/photos\/[^/]+$/.test(name)) return NextResponse.json({ error: "Invalid Google photo name" }, { status: 400 });
-    const response = await fetch(new GooglePlacesProvider().photoUrl(name), { signal: request.signal });
-    const contentType = response.headers.get("content-type") ?? "";
-    if (!response.ok || !response.body || !contentType.toLowerCase().startsWith("image/")) return NextResponse.json({ error: "Place photo is unavailable" }, { status: 503 });
-    // A photo resource name maps to immutable bytes; the route is authenticated, so keep it private.
-    return new Response(response.body, { headers: { "content-type": contentType, "cache-control": "private, max-age=604800, immutable" } });
+    // A photo resource name maps to immutable bytes, so the bytes themselves are cached
+    // server-side (same pattern as the brand-icon proxy) — every viewer re-fetching the same
+    // place photo was otherwise re-billing Google's Photo API for an image that never changes.
+    const photo = await cached(`place-photo:${name}`, 30 * DAY, async () => {
+      // Not `request.signal`: this load is shared across every caller waiting on the same
+      // cache key, so one caller navigating away must not abort it for the others.
+      const response = await fetch(new GooglePlacesProvider().photoUrl(name), { signal: AbortSignal.timeout(8000) });
+      const contentType = response.headers.get("content-type") ?? "";
+      if (!response.ok || !response.body || !contentType.toLowerCase().startsWith("image/")) throw new Error("Place photo is unavailable");
+      const buf = Buffer.from(await response.arrayBuffer());
+      return { b64: buf.toString("base64"), contentType };
+    });
+    // The route stays authenticated (trip membership above); the response itself is still
+    // only cached privately in the browser, even though the bytes are shared server-side.
+    return new Response(Buffer.from(photo.b64, "base64"), {
+      headers: { "content-type": photo.contentType, "cache-control": "private, max-age=604800, immutable" },
+    });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Place photo is unavailable");
   }

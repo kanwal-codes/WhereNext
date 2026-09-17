@@ -9,9 +9,12 @@ import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProv
 import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { readStayDecision, type StayFacets, type StayOption } from "@/packages/contracts/stay";
 import { SkeletonCards } from "@/components/Skeleton";
+import { EmptyState } from "@/components/EmptyState";
 import { formatMoney } from "@/lib/currency";
 import { useInfiniteReveal } from "@/lib/use-infinite-reveal";
+import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache";
 import { cn } from "@/lib/utils";
+import { fmtDay } from "@/lib/trip-dates";
 
 type Result = {
   location: string;
@@ -24,11 +27,6 @@ type Result = {
   currency: string;
   options: StayOption[];
   facets: StayFacets;
-};
-
-const fmtDay = (iso: string) => {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString([], { month: "short", day: "numeric" });
 };
 
 function Stepper({ label, value, set, min, max }: { label: string; value: number; set: (n: number) => void; min: number; max: number }) {
@@ -70,9 +68,16 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const reqId = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
 
   const search = useCallback(async () => {
     const mine = ++reqId.current;
+    // Cancel a still-in-flight prior search instead of just ignoring its response — otherwise
+    // rapid filter changes (stars, boards, dates) kept every earlier request running against the
+    // hotel provider for nothing, same fix DiscoverySurface already has for its own searches.
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setLoading(true);
     setStatus("");
     try {
@@ -86,21 +91,15 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       if (refundable) qs.set("refundable", "1");
       if (priceMax) qs.set("priceMax", String(priceMax));
       const cacheKey = `stay-search:${tripId}:${qs.toString()}`;
-      try {
-        const cached = sessionStorage.getItem(cacheKey);
-        if (cached) {
-          const entry = JSON.parse(cached) as { savedAt?: number; result?: Result };
-          if (entry.result && Date.now() - (entry.savedAt ?? 0) < 5 * 60_000) {
-            if (mine !== reqId.current) return;
-            setResult(entry.result);
-            setStatus(entry.result.options.length === 0 ? "Nothing matched — loosen the filters or change the dates." : "");
-            return;
-          }
-          sessionStorage.removeItem(cacheKey);
-        }
-      } catch { /* storage is optional */ }
+      const cachedResult = readSessionCache<Result>(cacheKey, 5 * 60_000);
+      if (cachedResult) {
+        if (mine !== reqId.current) return;
+        setResult(cachedResult);
+        setStatus(cachedResult.options.length === 0 ? "Nothing matched — loosen the filters or change the dates." : "");
+        return;
+      }
 
-      const response = await fetch(`/api/trips/${tripId}/stays?${qs}`);
+      const response = await fetch(`/api/trips/${tripId}/stays?${qs}`, { signal: controller.signal });
       const body = await response.json();
       if (mine !== reqId.current) return;
       if (!response.ok) {
@@ -109,10 +108,11 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
         return;
       }
       const next = body as Result;
-      try { sessionStorage.setItem(cacheKey, JSON.stringify({ savedAt: Date.now(), result: next })); } catch { /* storage is optional */ }
+      writeSessionCache(cacheKey, next);
       setResult(next);
       setStatus((next.options ?? []).length === 0 ? "Nothing matched — loosen the filters or change the dates." : "");
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
       if (mine === reqId.current) {
         setResult(null);
         setStatus("We couldn't load hotels just now. Try again in a moment.");
@@ -350,7 +350,11 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                   </Link>
                   <div className="flex min-h-0 flex-1 flex-col p-4">
                     <div className="flex items-start justify-between gap-2">
-                      <Link href={detailHref(o.hotelId)} onClick={openStay(o)} className="truncate font-display text-base leading-tight hover:text-primary">{o.name}</Link>
+                      {/* line-clamp-2, not truncate — a real hotel name ("Holiday Inn Hotel &
+                          Suites - Montreal Centre-ville Ouest by IHG") was cutting off almost
+                          immediately on a narrow card; this list item's height is already
+                          content-driven (no fixed height to fight), so 2 lines costs nothing. */}
+                      <Link href={detailHref(o.hotelId)} onClick={openStay(o)} className="min-w-0 flex-1 line-clamp-2 font-display text-base leading-tight hover:text-primary">{o.name}</Link>
                       {locked && (
                         <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-leaf-soft px-2 py-0.5 text-[10px] font-medium text-leaf">
                           <Check className="h-3 w-3" /> Locked
@@ -393,9 +397,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
         </>
       ) : (
         !loading && (
-          <p className="rounded-2xl border border-dashed border-border px-5 py-10 text-center text-sm text-muted-foreground">
-            {status || "No stays to show yet."}
-          </p>
+          <EmptyState icon={BedDouble}>{status || "No stays to show yet."}</EmptyState>
         )
       )}
     </div>

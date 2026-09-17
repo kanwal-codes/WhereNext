@@ -78,7 +78,7 @@ export const RESOLVE_GRADE_SET: GradeCase[] = [
     message: "where should we stay in Lisbon?",
     tripSummary: LISBON,
     expect: { intent: "stays", tools: ["stays"] },
-    ideal: { intent: "stays", locationFocus: "Lisbon, Portugal", toolPlan: [{ tool: "stays", location: "Lisbon, Portugal" }] },
+    ideal: { intent: "stays", locationFocus: "Lisbon, Portugal", toolPlan: [{ tool: "stays", location: "Lisbon, Portugal", checkin: null, checkout: null, hotelName: null }] },
   },
   {
     id: "stays/hotel-cost",
@@ -99,7 +99,7 @@ export const RESOLVE_GRADE_SET: GradeCase[] = [
     message: "how much does it cost to fly from Toronto to Lisbon?",
     tripSummary: LISBON,
     expect: { intent: "transport", tools: ["flights"] },
-    ideal: { intent: "transport", locationFocus: "Lisbon, Portugal", toolPlan: [{ tool: "flights", origin: "Toronto", destination: "Lisbon" }] },
+    ideal: { intent: "transport", locationFocus: "Lisbon, Portugal", toolPlan: [{ tool: "flights", origin: "Toronto", destination: "Lisbon", departureDate: null, returnDate: null }] },
   },
   {
     id: "transport/cheapest-flight",
@@ -156,7 +156,7 @@ export const RESOLVE_GRADE_SET: GradeCase[] = [
     expect: { intent: "events", tools: ["events", "research_web"] },
     ideal: {
       intent: "events", locationFocus: "Lisbon, Portugal",
-      toolPlan: [{ tool: "events", query: "concerts", location: "Lisbon" }, web("concerts and live music in Lisbon this month")],
+      toolPlan: [{ tool: "events", query: "concerts", location: "Lisbon", artist: null, category: null, dateScoped: null }, web("concerts and live music in Lisbon this month")],
     },
   },
   {

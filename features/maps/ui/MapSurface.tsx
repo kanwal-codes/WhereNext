@@ -66,7 +66,7 @@ function HScrollFade({ className, children }: { className?: string; children: Re
 
   return (
     <div className="relative">
-      <div ref={ref} className={cn("overflow-x-auto scrollbar-slim", className)}>
+      <div ref={ref} className={cn("overflow-x-auto overscroll-x-contain scrollbar-slim", className)}>
         {children}
       </div>
       {more.left && (
@@ -320,8 +320,15 @@ export function MapSurface({ tripId, tab }: { tripId: string; tab: "trip" | "bro
 
   // Fall-back centre for Browse when nothing is pinned yet — geocode the destination once.
   const [center, setCenter] = useState<[number, number] | undefined>();
-  // Same anchor used for the empty-map fallback, preferring a real pin (e.g. the locked stay) when one exists.
-  const rentalCenter = pins[0] ? { lat: pins[0].lat, lng: pins[0].lng } : center ? { lat: center[1], lng: center[0] } : null;
+  // Same anchor used for the empty-map fallback, preferring a real pin (e.g. the locked stay)
+  // when one exists. Memoized (like `browse` above) — RentalCarList's fetch effect depends on
+  // this object by reference, and an unmemoized literal here was a fresh object every render,
+  // re-fetching /car-rentals on every re-render while that panel was open (e.g. each `onRoute`
+  // callback `TransportSurface` fires mid-search) for no reason.
+  const rentalCenter = useMemo(
+    () => (pins[0] ? { lat: pins[0].lat, lng: pins[0].lng } : center ? { lat: center[1], lng: center[0] } : null),
+    [pins, center],
+  );
   useEffect(() => {
     if (!destination || pins.length > 0) return;
     let cancelled = false;
@@ -362,7 +369,7 @@ export function MapSurface({ tripId, tab }: { tripId: string; tab: "trip" | "bro
                   </HScrollFade>
                 </div>
               )}
-              <div className="min-h-0 flex-1 overflow-y-auto p-3">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
                 {planDays.length > 0 && planDays.some((d) => d.legs.length > 0) ? (
                   <div className="space-y-6">
                     {planDays.map((d) => (
@@ -394,7 +401,7 @@ export function MapSurface({ tripId, tab }: { tripId: string; tab: "trip" | "bro
         <div className="relative h-[70vh] min-h-[480px] w-full overflow-hidden rounded-2xl border border-border">
           <TripMap className="absolute inset-0 h-full w-full rounded-none border-0" pins={[]} activeDay="all" center={center} browse={browseLegs && browseLegs.length ? browse : null} />
           <MapPanel>
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-3">
               <TransportSurface
                 tripId={tripId}
                 preset={gaPreset}

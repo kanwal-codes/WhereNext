@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, BedDouble, CalendarCheck, Plane, Sparkles } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
+import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
+import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache";
 import { RouteScaffold } from "@/components/RouteScaffold";
 import { EssentialsSurface } from "@/features/essentials/ui/EssentialsSurface";
 import { Reveal, Stagger, StaggerItem, Tactile } from "@/components/motion-primitives";
@@ -11,14 +13,12 @@ import { SkeletonLines } from "@/components/Skeleton";
 import { BookingDetailSheet } from "@/features/bookings/ui/BookingDetailSheet";
 import { GetYourGuideCard } from "@/components/GetYourGuideCard";
 import { readStayDecision } from "@/packages/contracts/stay";
-import { formatMoney } from "@/lib/currency";
+import { fmtDay } from "@/lib/trip-dates";
+import { formatMoney, resolveCurrency } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 import type { Booking } from "@/packages/contracts/booking";
-
-const fmtDay = (iso: string) => {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString([], { month: "short", day: "numeric" });
-};
+import { ExpensesPanel } from "@/features/expenses/ui/ExpensesPanel";
+import { Wallet } from "lucide-react";
 
 const STATUS_BADGE: Record<Booking["status"], string> = {
   confirmed: "bg-leaf-soft text-leaf",
@@ -36,10 +36,29 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [openBookingId, setOpenBookingId] = useState<string | null>(null);
   useEffect(() => {
-    fetch(`/api/trips/${tripId}/bookings`)
-      .then((r) => r.json())
-      .then((body) => setBookings(body.bookings ?? []))
-      .catch(() => setBookings([]));
+    // Instant paint from the last fetch on a quick tab hop (this route remounts on every
+    // navigation) — read inside the effect, not the state initializer: sessionStorage isn't
+    // available during SSR, so seeding the initializer from it mismatches the server's render
+    // and trips a hydration error. The fetch below still always runs to reconcile live.
+    const cached = readSessionCache<Booking[]>(`bookings:${tripId}`, 60_000);
+    if (cached) setBookings(cached);
+    const load = () =>
+      fetch(`/api/trips/${tripId}/bookings`)
+        .then((r) => r.json())
+        .then((body) => {
+          const next = body.bookings ?? [];
+          writeSessionCache(`bookings:${tripId}`, next);
+          setBookings(next);
+        })
+        .catch(() => setBookings((current) => current ?? []));
+    void load();
+    // A booking announces "decision" once it settles (useBookingFlow) and a realtime write to
+    // the bookings table maps to the same type (trip-realtime.ts) — without this, neither this
+    // tab's own just-completed booking nor a collaborator's booked-on-another-device one ever
+    // showed up here without a manual reload.
+    return subscribeWorkspaceChanges((changes) => {
+      if (changes.includes("decision")) void load();
+    });
   }, [tripId]);
   const openBooking = bookings?.find((b) => b.id === openBookingId) ?? null;
 
@@ -119,6 +138,15 @@ export default function BookingsPage() {
               </Link>
             </div>
           )}
+        </section>
+
+        <section>
+          <h2 className="flex items-center gap-2 font-display text-lg">
+            <Wallet className="h-4 w-4 text-leaf" /> Shared expenses
+          </h2>
+          <div className="mt-3">
+            <ExpensesPanel tripId={tripId} defaultCurrency={resolveCurrency(data?.preferences)} />
+          </div>
         </section>
 
         <section>

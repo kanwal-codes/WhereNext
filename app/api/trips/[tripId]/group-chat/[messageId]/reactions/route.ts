@@ -17,27 +17,29 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     if (!parsed.success) return NextResponse.json({ error: "Invalid reaction" }, { status: 400 });
     const { emoji } = parsed.data;
 
-    const existing = await supabase
+    // Toggle in as few round trips as possible: the delete's own `RETURNING` (via `.select()`)
+    // says whether a row existed, instead of a separate SELECT just to decide which branch to
+    // take — the common "un-react" tap then costs one round trip instead of two.
+    const removed = await supabase
       .from("group_message_reactions")
-      .select("message_id")
+      .delete()
       .eq("message_id", messageId)
       .eq("user_id", user.id)
       .eq("emoji", emoji)
-      .maybeSingle();
-    if (existing.error) throw existing.error;
+      .select("message_id");
+    if (removed.error) throw removed.error;
 
-    if (existing.data) {
-      const result = await supabase.from("group_message_reactions").delete().eq("message_id", messageId).eq("user_id", user.id).eq("emoji", emoji);
-      if (result.error) throw result.error;
-    } else {
-      const result = await supabase.from("group_message_reactions").insert({ message_id: messageId, user_id: user.id, emoji });
-      // A racing double-tap can lose the read-then-write check above to another request for the
-      // same (message, user, emoji) — the primary key then rejects the second insert. That's the
-      // same end state the caller wanted (reacted), so treat it as success rather than a 500.
-      if (result.error && result.error.code !== "23505") throw result.error;
+    let reacted = false;
+    if (removed.data.length === 0) {
+      const inserted = await supabase.from("group_message_reactions").insert({ message_id: messageId, user_id: user.id, emoji });
+      // A racing double-tap can lose this check to another request for the same (message, user,
+      // emoji) — the primary key then rejects the second insert. That's the same end state the
+      // caller wanted (reacted), so treat it as success rather than a 500.
+      if (inserted.error && inserted.error.code !== "23505") throw inserted.error;
+      reacted = true;
     }
     invalidateWorkspace(tripId);
-    return NextResponse.json({ reacted: !existing.data });
+    return NextResponse.json({ reacted });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Reaction unavailable");
   }

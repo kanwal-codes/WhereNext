@@ -14,8 +14,7 @@ import { notifyToast } from "@/lib/application/toast";
 import { cn } from "@/lib/utils";
 import { updateName, updateEmail, updatePassword, disconnectGoogle, signInWithGoogle, signOut as signOutUser, uploadAvatar } from "@/features/identity/application/authClient";
 import type { TravelerProfile } from "@/packages/contracts/profile";
-
-const initials = (name: string) => name.trim().slice(0, 2).toUpperCase();
+import { memberInitials } from "@/lib/member-initials";
 
 const SECTIONS = [
   { id: "profile", label: "Profile & account" },
@@ -380,7 +379,7 @@ export function AccountView({
                     <img src={avatarUrl} alt="" className="h-full w-full object-cover" onError={() => setAvatarError(true)} />
                   ) : (
                     <span aria-hidden className="grid h-full w-full place-items-center font-display text-2xl font-semibold text-primary-foreground">
-                      {initials(name || "Traveller")}
+                      {memberInitials(name || "Traveller")}
                     </span>
                   )}
                   <span className="absolute inset-0 grid place-items-center bg-black/55 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
@@ -434,7 +433,7 @@ export function AccountView({
 
         {/* Rail + body */}
         <div className="mt-14 gap-14 lg:grid lg:grid-cols-[200px_minmax(0,1fr)]">
-          <nav className="sticky top-0 z-20 -mx-5 mb-8 overflow-x-auto border-b border-border bg-background/85 px-5 py-3 backdrop-blur-md scrollbar-slim sm:-mx-8 sm:px-8 lg:top-10 lg:mx-0 lg:mb-0 lg:self-start lg:overflow-visible lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+          <nav className="sticky top-0 z-20 -mx-5 mb-8 overflow-x-auto overscroll-x-contain border-b border-border bg-background/85 px-5 py-3 backdrop-blur-md scrollbar-slim sm:-mx-8 sm:px-8 lg:top-10 lg:mx-0 lg:mb-0 lg:self-start lg:overflow-visible lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
             <ul className="flex gap-1 lg:flex-col">
               {SECTIONS.map((s) => (
                 <li key={s.id}>
@@ -687,7 +686,7 @@ export function AccountView({
                   <p className="text-sm font-medium">Sign out</p>
                   <p className="text-sm text-ink-soft">Ends this session on this device.</p>
                 </div>
-                <button type="button" onClick={() => void signOutUser().then(() => window.location.assign("/sign-in"))} className="rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-secondary">Sign out</button>
+                <button type="button" onClick={() => void signOutUser().then(() => window.location.assign("/sign-in"))} className="rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-secondary active:scale-[0.98]">Sign out</button>
               </div>
 
               <div className="flex flex-wrap items-center gap-3 border-b border-border pb-6">
@@ -696,7 +695,7 @@ export function AccountView({
                   <p className="text-sm font-medium">Export my data</p>
                   <p className="text-sm text-ink-soft">Every trip, itinerary item and saved place as a single file.</p>
                 </div>
-                <button type="button" onClick={() => void exportData()} className="rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-secondary">Export</button>
+                <button type="button" onClick={() => void exportData()} className="rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-secondary active:scale-[0.98]">Export</button>
               </div>
 
               <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 px-5 py-5">
@@ -705,7 +704,7 @@ export function AccountView({
                   <p className="text-sm font-medium text-destructive">Delete account</p>
                   <p className="text-sm text-ink-soft">Removes your trips and shared links. This can’t be undone.</p>
                 </div>
-                <button type="button" onClick={() => setDeleteOpen(true)} className="rounded-full bg-destructive px-4 py-2 text-sm text-destructive-foreground transition-opacity hover:opacity-90">Delete</button>
+                <button type="button" onClick={() => setDeleteOpen(true)} className="btn-destructive">Delete</button>
               </div>
             </SettingSection>
           </div>

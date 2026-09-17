@@ -33,6 +33,8 @@ export const motionTokens = {
   drawer: { duration: 0.32, ease },
   panelSpring: { type: "spring" as const, stiffness: 260, damping: 30, mass: 0.85 },
   standard: { type: "spring" as const, stiffness: 260, damping: 28, mass: 0.9 },
+  /** Hover-lift / press-in on a card or button — what `Tactile` uses internally. */
+  lift: { type: "spring" as const, stiffness: 380, damping: 26 },
 };
 
 /** @deprecated prefer `motionTokens.standard` — kept so existing imports keep working. */
@@ -209,7 +211,7 @@ export function Tactile({
       className={className}
       whileHover={{ y: -lift }}
       whileTap={{ scale: 0.975 }}
-      transition={{ type: "spring", stiffness: 380, damping: 26 }}
+      transition={motionTokens.lift}
       {...rest}
     >
       {children}

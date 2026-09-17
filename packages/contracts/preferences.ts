@@ -16,18 +16,29 @@ export const preferencesSchema = z.object({
   /** ISO 4217, e.g. "CAD". Prices across the app are requested and shown in this. */
   currency: z.string().trim().length(3).toUpperCase().optional(),
   dietaryNeeds: z.union([z.array(z.string().trim().max(80)).max(20), z.string().trim().max(240)]).optional(),
+  /** Stated accessibility requirements ("wheelchair accessible", "no stairs", "step-free access")
+   *  — a hard constraint for place/venue filtering, not just a preference to mention in prose. */
+  accessibilityNeeds: z.union([z.array(z.string().trim().max(80)).max(20), z.string().trim().max(240)]).optional(),
 }).partial();
 export type Preferences = z.infer<typeof preferencesSchema>;
 
-const listPreferenceFieldSchema = z.enum(["interests", "likes", "dislikes", "dietaryNeeds"]);
-export const preferenceOperationSchema = z.discriminatedUnion("action", [
+const listPreferenceFieldSchema = z.enum(["interests", "likes", "dislikes", "dietaryNeeds", "accessibilityNeeds"]);
+// A plain z.union, not z.discriminatedUnion — see the same fix + comment in turn-resolver.ts's
+// toolCallSchema: a discriminated union compiles to JSON Schema's "oneOf", which model providers'
+// structured-output modes reject; a plain union compiles to "anyOf", which they accept.
+export const preferenceOperationSchema = z.union([
   z.object({ action: z.literal("add"), field: listPreferenceFieldSchema, values: z.array(z.string().trim().min(1).max(80)).min(1).max(30) }),
   z.object({ action: z.literal("remove"), field: listPreferenceFieldSchema, values: z.array(z.string().trim().min(1).max(80)).min(1).max(30) }),
   z.object({ action: z.literal("replace"), field: listPreferenceFieldSchema, values: z.array(z.string().trim().min(1).max(80)).max(30) }),
   z.object({ action: z.literal("clear"), field: listPreferenceFieldSchema }),
 ]);
 export const preferenceUpdateSchema = preferencesSchema.extend({
-  operations: z.array(preferenceOperationSchema).max(20).optional(),
+  // A cap via `.transform` + `.slice`, not `.max()`: Gemini's structured-output schema mode
+  // rejects `z.array(unionType).max(n)` outright (a distinct provider quirk from the "oneOf"
+  // one above) whenever a union branch itself contains a bounded nested array, which every
+  // branch here does (`values`). `.max()` would add a JSON Schema "maxItems" the request never
+  // even gets past; truncating after the fact keeps the same cap without touching the schema.
+  operations: z.array(preferenceOperationSchema).transform((list) => list.slice(0, 20)).optional(),
 });
 export type PreferenceUpdate = z.infer<typeof preferenceUpdateSchema>;
 
@@ -48,7 +59,7 @@ const removeStrings = (previous: unknown, values: string[]): string[] => {
 export function mergePreferences(previous: Record<string, unknown>, update: Record<string, unknown>): Record<string, unknown> {
   const { operations, ...plainUpdate } = update as PreferenceUpdate;
   const merged: Record<string, unknown> = { ...previous, ...plainUpdate };
-  for (const field of ["interests", "likes", "dislikes", "dietaryNeeds"] as const) {
+  for (const field of ["interests", "likes", "dislikes", "dietaryNeeds", "accessibilityNeeds"] as const) {
     if (plainUpdate[field] !== undefined) merged[field] = uniqueStrings(previous[field], plainUpdate[field]);
   }
   for (const operation of operations ?? []) {

@@ -29,3 +29,17 @@ export function formatMoney(amount: number, currency: string): string {
     return `${Math.round(amount)} ${currency}`;
   }
 }
+
+/**
+ * Round to 2 decimal places without `.toFixed(2)`'s known binary-float rounding bug — e.g.
+ * `(1.005).toFixed(2)` is `"1.00"`, not `"1.01"`, because 1.005 is actually stored as
+ * 1.00499999999999989341... in IEEE754 double. The `Number.EPSILON` nudge before rounding is
+ * the standard fix. Any caller that persists or bills a money amount should round through this
+ * once, at the boundary, rather than let each consumer round (or not) independently — see the
+ * expenses route, where the un-rounded amount used to be stored locally while Splitwise got a
+ * separately (and sometimes differently) rounded one, permanently diverging the two records for
+ * any amount typed with 3+ decimal places.
+ */
+export function roundMoney(amount: number): number {
+  return Math.round((amount + Number.EPSILON) * 100) / 100;
+}

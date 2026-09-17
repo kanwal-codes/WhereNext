@@ -1,7 +1,8 @@
 import type { Place } from "@/packages/contracts/place";
-import { haversineKm } from "@/lib/application/geo";
+import { distanceDecay, haversineKm } from "@/lib/application/geo";
+import { filterByPreferences } from "@/lib/application/preference-filter";
 import { rankPlaces, type RankContext, type RankedPlace } from "@/lib/application/rank-places";
-import type { Lane } from "./vibes";
+import { classifyPlaceVibe, type Lane } from "./vibes";
 
 /** One lane's raw provider results, before dedupe / filter / rank. */
 export type LaneInput<E extends { url: string }> = { lane: Lane; places: Place[]; events: E[] };
@@ -16,12 +17,20 @@ export type ShapeContext = {
   anchorPoint: { latitude: number; longitude: number } | null;
   /** interests / likes / dislikes / savedIds — the traveller-fit signals for `rankPlaces`. */
   rankCtx: Omit<RankContext, "anchor">;
+  /** Phase 4.4 — same hard requirement the chatbot's RETRIEVE stage enforces (preference-filter.ts):
+   *  a place KNOWN to fail a stated accessibility need is dropped, not just deprioritised. */
+  accessibilityNeeds?: string[];
   /** Cosine scores by providerId for a `semantic` lane's candidates. Omit to skip the re-rank. */
   score?: (lane: Lane, candidates: Place[]) => Promise<Record<string, number>>;
 };
 
 /** How much a unit of cosine similarity is worth against `rankPlaces`'s own score. */
 const SEMANTIC_WEIGHT = 2;
+
+/** How much a unit of distance-decay score (0..1) is worth against `rankPlaces`'s own score —
+ *  same scale as SEMANTIC_WEIGHT, so a lane's old `radiusKm` still dominates ordering within
+ *  it without acting as a hard cliff (Phase 4.2.2). */
+const RADIUS_DECAY_WEIGHT = 2;
 
 /** Not a display limit — a real provider response never gets close to this. Only stops a
  *  malformed/abusive one from rendering thousands of DOM nodes. */
@@ -32,9 +41,10 @@ const normalizeChainName = (name: string) => name.normalize("NFKC").trim().toLow
 
 /**
  * Turn each lane's raw results into what the UI renders: drop the anchor and anything a
- * higher lane already claimed (first lane wins), radius-filter the lanes that ask for it,
- * rank by traveller fit + proximity, and — for a "more like this" lane — blend in the
- * embedding-similarity score. Pure apart from the injected `score` callback.
+ * higher lane already claimed (first lane wins), drop stated dislikes/accessibility misses,
+ * rank by traveller fit + proximity + prominence, decay-weight a radius lane's distance (not a
+ * hard cutoff), and — for a "more like this" lane — blend in the embedding-similarity score.
+ * Pure apart from the injected `score` callback.
  */
 export async function shapeLanes<E extends { url: string }>(
   inputs: Array<LaneInput<E>>,
@@ -48,6 +58,21 @@ export async function shapeLanes<E extends { url: string }>(
     likes: arr(ctx.rankCtx.likes),
     dislikes: arr(ctx.rankCtx.dislikes),
   };
+  const accessibilityNeeds = arr(ctx.accessibilityNeeds);
+
+  // A semantic lane's re-score only re-weights ORDER within places that already survived
+  // cross-lane dedup, chain dedup, and the safety cap below — it never changes WHICH places
+  // those are. So it can't affect `ctx.seenPlaceIds`/`ctx.seenEventUrls` or any other lane's
+  // candidate set, and every semantic lane's score call is independent of every other one
+  // (same anchor, different candidates). Collected here and awaited together after the loop,
+  // instead of one `await` per semantic lane inside it — on a page with two semantic lanes
+  // (a vibe's own lane plus a secondary-vibe facet lane), that was a fully serialized second
+  // network round trip for no reason.
+  // ponytail: this does mean a semantic score can no longer flip which branch of a chain (e.g.
+  // two branches of the same restaurant) survives chain-dedupe — dedupe now always keeps
+  // whichever branch `rankPlaces` preferred before any semantic boost. Revisit if that specific
+  // case ever turns out to matter; it's a narrower trade than serializing the network calls.
+  const semanticWork: Array<{ lane: Lane; places: RankedPlace[]; apply: (scored: RankedPlace[]) => void }> = [];
 
   for (const { lane, places, events } of inputs) {
     // Drop the anchor / already-shown places AND collapse a provider that returned the
@@ -58,23 +83,32 @@ export async function shapeLanes<E extends { url: string }>(
       localSeen.add(p.providerId);
       return true;
     });
-    if (lane.radiusKm && ctx.anchorPoint) {
-      candidates = candidates.filter(
-        (p) =>
-          Number.isFinite(p.latitude) &&
-          Number.isFinite(p.longitude) &&
-          haversineKm(ctx.anchorPoint!, p) <= lane.radiusKm!,
-      );
-    }
+    // Phase 4.4 — same shared dislikes/accessibility filter the chatbot's RETRIEVE stage uses,
+    // applied before ranking (previously the reco system never filtered on preferences at all).
+    candidates = filterByPreferences(candidates, { dislikes: rankCtx.dislikes });
+    candidates = filterByPreferences(candidates, { accessibilityNeeds });
+    // Live-testing finding (2026-09-16): a text search for "nightclub"/"restaurant"/etc.
+    // occasionally returns a short-term rental whose SEO-stuffed name matches the keyword (e.g.
+    // "Montreal Nightlife with Sophistication Style - Newly Renovated Downtown Plateau", Google
+    // category "lodging") — a listing, not a venue to go to. No lane in `LANES` (vibes.ts) ever
+    // intends to surface lodging (even the `lodging` vibe's own lanes are food/coffee/things-to-do
+    // NEAR a hotel, never "more hotels"), so this is always wrong, not vibe-dependent.
+    candidates = candidates.filter((p) => classifyPlaceVibe({ primaryType: p.category, name: p.name }).vibe !== "lodging");
 
     let ranked = rankPlaces(candidates, { ...rankCtx, anchor: ctx.anchorPoint });
-    if (lane.semantic && ctx.score && ranked.length > 1) {
-      const raw = await ctx.score(lane, ranked.map((r) => r.place)).catch(() => null);
-      const scores = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, number>) : {};
+
+    // Phase 4.2.2 — a lane's `radiusKm` used to be a hard cutoff; now it's the decay function's
+    // `offset`/`scale` (per docs/overhaul/recommendation-system/ranking-signals.md), so a place
+    // just outside it can still appear, scored down rather than excluded outright. No coords →
+    // no bonus (equivalent to "far"), not a crash or an exclusion.
+    if (lane.radiusKm && ctx.anchorPoint) {
+      const origin = ctx.anchorPoint;
+      const radiusKm = lane.radiusKm;
       ranked = ranked
         .map((r) => {
-          const s = scores[r.place.providerId];
-          return { ...r, score: r.score + SEMANTIC_WEIGHT * (typeof s === "number" && Number.isFinite(s) ? s : 0) };
+          const hasCoords = Number.isFinite(r.place.latitude) && Number.isFinite(r.place.longitude);
+          const weight = hasCoords ? distanceDecay(haversineKm(origin, r.place), { offset: radiusKm, scale: radiusKm }) : 0;
+          return { ...r, score: r.score + RADIUS_DECAY_WEIGHT * weight };
         })
         .sort((a, b) => b.score - a.score);
     }
@@ -105,7 +139,28 @@ export async function shapeLanes<E extends { url: string }>(
       .slice(0, SAFETY_CAP);
     finalEvents.forEach((e) => ctx.seenEventUrls.add(e.url));
 
-    out.push({ lane, places: finalPlaces, events: finalEvents });
+    const output: LaneOutput<E> = { lane, places: finalPlaces, events: finalEvents };
+    out.push(output);
+    if (lane.semantic && ctx.score && finalPlaces.length > 1) {
+      semanticWork.push({ lane, places: finalPlaces, apply: (scored) => { output.places = scored; } });
+    }
+  }
+
+  if (semanticWork.length > 0) {
+    await Promise.all(
+      semanticWork.map(async ({ lane, places, apply }) => {
+        const raw = await ctx.score!(lane, places.map((r) => r.place)).catch(() => null);
+        const scores = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, number>) : {};
+        apply(
+          places
+            .map((r) => {
+              const s = scores[r.place.providerId];
+              return { ...r, score: r.score + SEMANTIC_WEIGHT * (typeof s === "number" && Number.isFinite(s) ? s : 0) };
+            })
+            .sort((a, b) => b.score - a.score),
+        );
+      }),
+    );
   }
 
   return out.filter((r) => r.places.length > 0 || r.events.length > 0);

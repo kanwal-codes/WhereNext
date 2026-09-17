@@ -1,4 +1,6 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { readStayDecision, type StayDecision } from "@/packages/contracts/stay";
+import { cached } from "@/lib/server/ttl-cache";
 
 export type PublicTrip = {
   name: string;
@@ -8,7 +10,10 @@ export type PublicTrip = {
   endDate: string | null;
   itinerary: Array<{ dayIndex: number; title: string; latitude: number | null; longitude: number | null }>;
   places: Array<{ name: string; category: string | null; address: string | null; latitude: number | null; longitude: number | null }>;
-  decisions: Array<{ kind: string; value: Record<string, unknown> }>;
+  /** The locked stay, if any — the only decision kind with a typed, safely-renderable shape.
+   *  "transport"/"flight"/"stay_area" decisions are recorded as loosely-typed freeform JSON
+   *  with no schema anywhere in the app, so there's nothing reliable to render them from yet. */
+  stay: StayDecision | null;
 };
 
 const coord = (m: unknown, key: "latitude" | "longitude"): number | null => {
@@ -22,7 +27,7 @@ const coord = (m: unknown, key: "latitude" | "longitude"): number | null => {
  * and the visibility check ARE the access control. Returns null for a bad slug
  * or a trip that is no longer shared.
  */
-export async function loadPublicTrip(slug: string): Promise<PublicTrip | null> {
+async function fetchPublicTrip(slug: string): Promise<PublicTrip | null> {
   if (!/^[a-f0-9]{8,64}$/.test(slug)) return null;
   const admin = createSupabaseAdminClient();
 
@@ -31,7 +36,8 @@ export async function loadPublicTrip(slug: string): Promise<PublicTrip | null> {
     .select("id,name,destination,duration_days,start_date,end_date,share_visibility")
     .eq("share_slug", slug)
     .maybeSingle();
-  if (trip.error || !trip.data || trip.data.share_visibility !== "link") return null;
+  if (trip.error) throw trip.error;
+  if (!trip.data || trip.data.share_visibility !== "link") return null;
 
   const [itinerary, places, decisions] = await Promise.all([
     admin.from("trip_itinerary_items").select("title,day_index,metadata").eq("trip_id", trip.data.id).is("removed_at", null).order("day_index").order("position").order("created_at"),
@@ -63,6 +69,21 @@ export async function loadPublicTrip(slug: string): Promise<PublicTrip | null> {
         longitude: coord(one.metadata, "longitude"),
       }];
     }),
-    decisions: (decisions.data ?? []).map((d) => ({ kind: String(d.kind), value: (d.value ?? {}) as Record<string, unknown> })),
+    stay: readStayDecision((decisions.data ?? []).map((d) => ({ kind: String(d.kind), value: d.value }))),
   };
+}
+
+/**
+ * `fetchPublicTrip`, cached briefly. A single page view calls this three separate times — once
+ * for `generateMetadata`, once for the page body, and once more from the static-map image's own
+ * request — each of which was a fresh trip lookup plus 3 parallel queries with no cache at all.
+ * `cached()`'s own in-flight dedupe already collapses the first two (same request, calls close
+ * together); the short TTL covers the third (a genuinely separate HTTP request) and repeat
+ * visits/crawlers, without needing a live query every time.
+ * ponytail: TTL-only, no tag-based invalidation — wiring `revalidateTag` into every itinerary/
+ * places/decisions/share mutation route is real plumbing for a page that's read-only and rarely
+ * edited moment-to-moment. Revisit if a fresher-than-60s shared link ever actually matters.
+ */
+export function loadPublicTrip(slug: string): Promise<PublicTrip | null> {
+  return cached(`public-trip:${slug}`, 60_000, () => fetchPublicTrip(slug));
 }

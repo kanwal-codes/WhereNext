@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { proposedCommandSchema } from "@/packages/contracts/assistant";
-import { mergePreferences, preferenceUpdateSchema, preferencesSchema } from "@/packages/contracts/preferences";
+import { mergePreferences, preferenceUpdateSchema } from "@/packages/contracts/preferences";
 import { stayDecisionSchema } from "@/packages/contracts/stay";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
@@ -9,6 +9,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createPlaceRepository } from "@/features/places/infrastructure/placeRepository";
 import { geocodeStop } from "@/lib/server/geocode-stop";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
+import { updateTripPreferences } from "@/lib/server/trip-preferences";
 
 const DECISION_IMPACT: Record<string, string> = {
   destination: "This resets the plan — places, stay area, transport and budget all refresh for the new destination.",
@@ -26,14 +27,15 @@ export async function POST(request: Request) {
 
     if (command.type === "update_preferences") {
       const preferences = preferenceUpdateSchema.parse(command.preferences);
-      const existing = await supabase.from("trip_preferences").select("data").eq("trip_id", command.tripId).maybeSingle();
-      if (existing.error) throw existing.error;
-      const merged = preferencesSchema.parse(mergePreferences((existing.data?.data ?? {}) as Record<string, unknown>, preferences));
-      const result = await supabase.from("trip_preferences").upsert({ trip_id: command.tripId, data: merged }).select("data,updated_at").single();
-      if (result.error) return NextResponse.json({ error: "Command failed" }, { status: 503 });
+      let result;
+      try {
+        result = await updateTripPreferences(supabase, command.tripId, (previous) => mergePreferences(previous, preferences));
+      } catch {
+        return NextResponse.json({ error: "Command failed" }, { status: 503 });
+      }
       invalidateWorkspace(command.tripId);
       const changeImpact = "budget" in preferences ? "Budget updated — cost estimates will use the new figure." : undefined;
-      return NextResponse.json({ result: { type: command.type, memory: result.data }, changeImpact });
+      return NextResponse.json({ result: { type: command.type, memory: result }, changeImpact });
     }
     if (command.type === "add_itinerary_item") {
       const metadata: Record<string, unknown> = { source: "assistant-proposal" };
@@ -47,7 +49,23 @@ export async function POST(request: Request) {
         .is("removed_at", null)
         .maybeSingle();
       if (existing.error) throw existing.error;
-      if (existing.data) return NextResponse.json({ result: { type: command.type, item: existing.data, alreadyExists: true } });
+      if (existing.data) {
+        // Same fix as the itinerary route's own POST: title is unique per trip, not per day, so
+        // a collision can mean "move this to the day being asked for" rather than "nothing to do".
+        if (command.dayIndex !== existing.data.day_index) {
+          const moved = await supabase
+            .from("trip_itinerary_items")
+            .update({ day_index: command.dayIndex })
+            .eq("trip_id", command.tripId)
+            .eq("id", existing.data.id)
+            .select("id,title,day_index,metadata,created_at")
+            .single();
+          if (moved.error) throw moved.error;
+          invalidateWorkspace(command.tripId);
+          return NextResponse.json({ result: { type: command.type, item: moved.data, alreadyExists: true, moved: true } });
+        }
+        return NextResponse.json({ result: { type: command.type, item: existing.data, alreadyExists: true } });
+      }
       // A caller that already knows exactly where this is (e.g. an event's own venue
       // coordinates) skips the geocode guess entirely — more accurate and one less API call.
       const coords = command.latitude != null && command.longitude != null

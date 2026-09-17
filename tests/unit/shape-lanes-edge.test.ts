@@ -33,12 +33,12 @@ describe("shapeLanes — edge cases", () => {
     expect(out[0].places.map((p) => p.place.providerId)).toEqual(["far"]);
   });
 
-  it("places with non-finite coords are dropped by a radius lane", async () => {
+  it("a place with non-finite coords gets no distance-decay bonus in a radius lane, but still appears", async () => {
     const out = await shapeLanes(
       [{ lane: lane({ radiusKm: 5 }), places: [place("nocoord", { latitude: NaN, longitude: NaN }), place("ok", { latitude: 0.01, longitude: 0.01 })], events: [] }],
       ctx({ anchorPoint: { latitude: 0, longitude: 0 } }),
     );
-    expect(out[0].places.map((p) => p.place.providerId)).toEqual(["ok"]);
+    expect(out[0].places.map((p) => p.place.providerId)).toEqual(["ok", "nocoord"]);
   });
 
   it("a scorer that throws is swallowed — the lane still renders, just without the semantic blend", async () => {
@@ -86,6 +86,41 @@ describe("shapeLanes — edge cases", () => {
       ctx({ rankCtx: { dislikes: ["casino"] } }),
     );
     expect(out[0].places.map((p) => p.place.providerId)).toEqual(["keep"]);
+  });
+
+  it("a stated accessibility need drops a place known not to meet it (Phase 4.4 — shared with the chatbot's own filter)", async () => {
+    const out = await shapeLanes(
+      [
+        {
+          lane: lane(),
+          places: [place("accessible", { wheelchairAccessible: true }), place("not-accessible", { wheelchairAccessible: false }), place("unknown")],
+          events: [],
+        },
+      ],
+      ctx({ accessibilityNeeds: ["wheelchair accessible"] }),
+    );
+    // "unknown" (no enrichment) stays in — "we don't know" is not the same claim as "not accessible".
+    expect(out[0].places.map((p) => p.place.providerId).sort()).toEqual(["accessible", "unknown"]);
+  });
+
+  it("drops a lodging listing that slipped into a venue-search lane (live-testing regression, 2026-09-16)", async () => {
+    // A real "nightclub" text search returned a short-term rental with an SEO-stuffed name
+    // ("Montreal Nightlife with Sophistication Style...", Google category "lodging") mixed in
+    // with real clubs — no lane in vibes.ts ever intends to surface lodging.
+    const out = await shapeLanes(
+      [
+        {
+          lane: lane(),
+          places: [
+            place("club", { name: "Medellin Bar", category: "night_club" }),
+            place("rental", { name: "Montreal Nightlife with Sophistication Style", category: "lodging" }),
+          ],
+          events: [],
+        },
+      ],
+      ctx(),
+    );
+    expect(out[0].places.map((p) => p.place.providerId)).toEqual(["club"]);
   });
 
   it("seeded rejected ids never surface even across lanes", async () => {

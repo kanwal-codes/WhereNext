@@ -1,10 +1,23 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
-import { weather } from "@/packages/providers/openweather/client";
-import { research } from "@/packages/providers/tavily/client";
-import { createAiGateway } from "@/packages/ai/gateway";
+import { weather as openWeather } from "@/packages/providers/openweather/client";
+import { weather as googleWeather } from "@/packages/providers/google-weather/client";
+import { research as tavilyResearch } from "@/packages/providers/tavily/client";
+import { research as exaResearch } from "@/packages/providers/exa/client";
+import { generateText } from "@/packages/ai/model-policy";
 import { cached } from "@/lib/server/ttl-cache";
+
+// Phase 5 (docs/overhaul/roadmap/phase-5-optional-improvements.md) — same opt-in pilot gating as
+// the RETRIEVE handlers (weather.ts, research-web.ts): this route hits both providers directly
+// (it predates the registry split) and must pick the same way, or the chat and this widget would
+// silently disagree about which provider is "the" weather/research source mid-rollout.
+// Named without a `use` prefix on purpose — these are plain feature-flag checks in a server
+// route, not React hooks, but a `use`-prefixed function being *called* is exactly what trips
+// ESLint's `react-hooks/rules-of-hooks` (it can't tell a real hook from a same-shaped plain
+// function by name alone) — four real lint errors here from a name that only looked like a hook.
+const googleWeatherPilotEnabled = () => Boolean(process.env.GOOGLE_WEATHER_API_KEY);
+const exaPilotEnabled = () => Boolean(process.env.EXA_API_KEY);
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const DAY = 864e5;
@@ -22,19 +35,21 @@ function monthOf(startDate: string | null | undefined, datesText: unknown): stri
 /** Clean 1–2 sentence "typical weather in <place> in <month>" line ending with a packing cue. */
 async function seasonalSummary(place: string, month: string, signal?: AbortSignal): Promise<string | null> {
   let notes = "";
-  if (process.env.TAVILY_API_KEY) {
+  if (process.env.TAVILY_API_KEY || exaPilotEnabled()) {
     try {
-      const hits = await research(`typical weather in ${place} in ${month} — average temperature, rain, humidity, what to pack`, signal);
+      const query = `typical weather in ${place} in ${month} — average temperature, rain, humidity, what to pack`;
+      const hits = await (exaPilotEnabled() ? exaResearch(query, signal) : tavilyResearch(query, signal));
       notes = hits.map((h) => h.content).filter(Boolean).join("\n\n").slice(0, 3000);
     } catch {
       /* fall through */
     }
   }
   if (!notes) return null;
-  if (!(process.env.AI_API_KEY || process.env.OPENAI_API_KEY || process.env.CEREBRAS_API_KEY)) return notes.slice(0, 300);
+  if (!process.env.AI_GATEWAY_API_KEY) return notes.slice(0, 300);
   try {
     return (
-      await createAiGateway().generateText(
+      await generateText(
+        "bulk",
         [
           {
             role: "system",
@@ -75,13 +90,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
 
     // --- forecast window: the trip is happening now or within the forecast reach
     if (!tripOver && daysUntilStart !== null && daysUntilStart <= 6) {
-      if (!process.env.OPENWEATHER_API_KEY) return NextResponse.json({ kind: "none" });
-      const result = await cached(`weather:fc:${location.toLowerCase()}`, 30 * 60_000, async () => {
-        const fc = await weather(location, request.signal);
+      const pilot = googleWeatherPilotEnabled();
+      if (!pilot && !process.env.OPENWEATHER_API_KEY) return NextResponse.json({ kind: "none" });
+      const provider = pilot ? "google-weather" : "openweather";
+      const result = await cached(`weather:fc:${provider}:${location.toLowerCase()}`, 30 * 60_000, async () => {
+        const fc = await (pilot ? googleWeather(location, request.signal) : openWeather(location, request.signal));
         return { summary: fc.summary, retrievedAt: fc.retrievedAt };
       }).catch(() => null);
       if (!result?.summary) return NextResponse.json({ kind: "none" });
-      return NextResponse.json({ kind: "forecast", location, summary: result.summary, freshness: { provider: "openweather", retrievedAt: result.retrievedAt } });
+      return NextResponse.json({ kind: "forecast", location, summary: result.summary, freshness: { provider, retrievedAt: result.retrievedAt } });
     }
 
     // --- seasonal: a month is known but the trip is too far out for a forecast

@@ -72,6 +72,23 @@ const nextConfig: NextConfig = {
   // Keep development output separate from production builds. Running `next build`
   // beside `next dev` must never remove chunks from the live development server.
   distDir: process.env.NEXT_DIST_DIR ?? (isDev ? ".next-dev" : ".next"),
+  experimental: {
+    // Next's default (0s for dynamic segments) treats every trip layout as stale
+    // immediately, so each in-app navigation re-runs requireTripMember's live
+    // Supabase auth check + membership query before rendering anything — the
+    // multi-second lag switching between trip tabs. The original 30s fix here was
+    // still short of how long someone actually spends reading a page before
+    // clicking the next thing, so most real navigations kept landing on a cold
+    // cache anyway. 300s (5 min) covers a normal browsing session without
+    // re-paying that cost on every click; `app/trips/[tripId]/loading.tsx` (and
+    // `app/trips/loading.tsx`) now also give a cold navigation an instant
+    // skeleton instead of a frozen screen, so a cache miss here is no longer the
+    // dead-freeze it used to be — this is about frequency, not just severity. A
+    // removed member can still see cached trip content for up to this window,
+    // which mutation routes' `revalidateTag`/`router.refresh()` don't shorten
+    // (those refresh data, not this navigation cache).
+    staleTimes: { dynamic: 300 },
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
@@ -82,7 +99,11 @@ const withSerwist = withSerwistInit({
   swDest: "public/sw.js",
   // No SW in `next dev` — keeps Playwright and hot-reload unaffected.
   disable: process.env.NODE_ENV === "development",
-  reloadOnOnline: true,
+  // Not reloadOnOnline: it force-reloads the whole page the instant connectivity returns, with
+  // no regard for unsaved input (a mid-typed message, an open form) — common on mobile where
+  // connectivity flaps. App-shell freshness is already covered by `skipWaiting`/`clientsClaim`
+  // below, and data freshness by the realtime + workspace-change refresh path (trip-realtime.ts,
+  // TripDataProvider) — Supabase Realtime reconnects on its own once the network returns.
 });
 
 // The Sentry runtime SDK is a no-op without SENTRY_DSN; the build plugin is a no-op

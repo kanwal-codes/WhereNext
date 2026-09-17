@@ -5,13 +5,14 @@ import { z } from "zod";
  * reference this from `middleware.ts` or an edge route; use `lib/env.ts` there.
  */
 
-/** Required for the app to function at all (auth + the always-used providers + one AI key). */
+/** Required for the app to function at all (auth + the always-used providers + the AI Gateway key). */
 const REQUIRED = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
   "SUPABASE_SERVICE_ROLE_KEY",
   "GOOGLE_MAPS_API_KEY",
   "MAPBOX_ACCESS_TOKEN",
+  "AI_GATEWAY_API_KEY",
 ] as const;
 
 /** Missing → a feature quietly degrades ("could not check ..."), not a crash. */
@@ -20,32 +21,24 @@ const OPTIONAL_PROVIDERS: Record<string, string> = {
   TICKETMASTER_API_KEY: "events (Ticketmaster)",
   TICKETMASTER_CONSUMER_KEY: "events (Ticketmaster)",
   EVENTBRITE_API_KEY: "local events",
-  GETYOURGUIDE_API_KEY: "tours & activities (GetYourGuide)",
   OPENWEATHER_API_KEY: "weather forecasts",
   TRANSIT_API_KEY: "transit fallback",
   DUFFEL_API_KEY: "flight estimates",
   LITEAPI_KEY: "hotel rates",
   CONNECT_API_KEY: "hotel rates",
   REDIS_URL: "shared cache (falls back to in-process)",
+  UPSTASH_REDIS_REST_URL: "shared rate limiting (falls back to in-process)",
   SENTRY_DSN: "error tracking",
 };
 
-const serverEnvSchema = z
-  .object({
-    NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
-    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
-    SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
-    GOOGLE_MAPS_API_KEY: z.string().min(1),
-    MAPBOX_ACCESS_TOKEN: z.string().min(1),
-    AI_API_KEY: z.string().min(1).optional(),
-    OPENAI_API_KEY: z.string().min(1).optional(),
-    CEREBRAS_API_KEY: z.string().min(1).optional(),
-    OPENROUTER_API_KEY: z.string().min(1).optional(),
-  })
-  .refine((e) => Boolean(e.AI_API_KEY || e.OPENAI_API_KEY || e.CEREBRAS_API_KEY || e.OPENROUTER_API_KEY), {
-    message: "one of AI_API_KEY / OPENAI_API_KEY / CEREBRAS_API_KEY is required",
-    path: ["AI_API_KEY"],
-  });
+const serverEnvSchema = z.object({
+  NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  GOOGLE_MAPS_API_KEY: z.string().min(1),
+  MAPBOX_ACCESS_TOKEN: z.string().min(1),
+  AI_GATEWAY_API_KEY: z.string().min(1),
+});
 
 export type ServerEnvReport = { ok: boolean; missingRequired: string[]; missingOptional: string[] };
 

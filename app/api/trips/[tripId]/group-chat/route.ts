@@ -4,11 +4,17 @@ import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
 import { createGroupChatRepository } from "@/features/group-chat/infrastructure/groupChatRepository";
 
+// The UI has no "load older messages" affordance yet, so this is a ceiling, not real pagination —
+// it just stops a long-running group trip's chat from paging through its entire history (in
+// 500-row round trips) on every single load. ponytail: add a cursor + "load more" once a trip's
+// history regularly exceeds this.
+const HISTORY_LIMIT = 200;
+
 export async function GET(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
     const { supabase, user } = await requireTripMember(tripId);
-    return NextResponse.json({ messages: await createGroupChatRepository(supabase).list(tripId, user.id) });
+    return NextResponse.json({ messages: await createGroupChatRepository(supabase).list(tripId, user.id, { limit: HISTORY_LIMIT }) });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Group chat unavailable");
   }

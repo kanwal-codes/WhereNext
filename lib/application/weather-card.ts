@@ -1,7 +1,8 @@
 import { z } from "zod";
 import type { WeatherDay } from "@/packages/providers/openweather/client";
-import { createBulkGateway } from "@/packages/ai/gateway";
 import { AI_DEADLINE_MS, withDeadline } from "@/packages/ai/model-policy";
+import type { UsageEntry } from "@/lib/ai/pricing";
+import { runBulkBuilder } from "./bulk-builder";
 
 /** The weather-block fields (everything except `type`/`retrievedAt`, which the route adds). */
 export type WeatherCard = {
@@ -13,6 +14,12 @@ export type WeatherCard = {
   lowC?: number;
   condition?: "clear" | "clouds" | "rain" | "snow" | "mixed";
   rainyDays?: number;
+  /** True when the seasonal read came from thin web notes — the specific highC/lowC/rainyDays
+   *  figures lean more on general knowledge than the supplied sources, same as budget/explore-
+   *  options' `estimated` flag for the same reason: a precise-looking number from a vague
+   *  source ("warm in July") shouldn't render as if it were equally well-sourced as one backed
+   *  by substantial notes. */
+  estimated?: boolean;
   packing: string[];
   days: Array<{ label: string; min: number; max: number; condition: "clear" | "clouds" | "rain" | "snow" | "mixed"; wet: boolean }>;
 };
@@ -80,12 +87,20 @@ const seasonalSchema = z.object({
   packing: z.array(z.string().max(40)).max(5),
 });
 
-const SEASONAL_SYSTEM =
+const SEASONAL_SYSTEM = (language: string) =>
   "You are given web notes about a destination's TYPICAL weather in a given month (climate normals, not a forecast). " +
+  `Write "headline" and "packing" entries in language "${language}" (BCP-47). ` +
   "Return ONLY JSON: {\"highC\":int,\"lowC\":int,\"condition\":\"clear|clouds|rain|snow|mixed\",\"rainyDays\":int,\"headline\":string,\"packing\":string[]}. " +
   "highC/lowC = typical daily high/low in Celsius for that month. rainyDays = typical number of wet days in the month. " +
   "condition = the month's dominant sky. headline = ONE short phrase: the feel of it plus a packing steer (e.g. \"Cool and damp — bring layers and a waterproof shell\"). " +
   "packing = 2–4 short items (e.g. \"Warm layer\", \"Waterproof shell\", \"Comfortable boots\"). No prose outside the JSON.";
+
+// Below this, the source notes barely say more than "warm in July" — a specific highC/lowC
+// pulled from that is mostly the model's general knowledge wearing the notes as cover, same
+// reasoning as budget-plan.ts's `estimated` flag. The 80-char floor below stays the bar for
+// even ATTEMPTING this (nothing usable at all), this is a stricter bar for calling the result
+// well-sourced.
+const RICH_NOTES_CHARS = 300;
 
 /**
  * Structured typical-weather for a month, distilled from web notes the pipeline already
@@ -95,32 +110,31 @@ export async function weatherCardFromSeasonal(
   location: string,
   month: string,
   notes: string,
+  language: string = "en",
   signal?: AbortSignal,
+  onUsage?: (entry: UsageEntry) => void,
 ): Promise<WeatherCard | null> {
   const trimmed = notes.trim();
   if (trimmed.length < 80) return null;
-  try {
-    const raw = await createBulkGateway().generateStructured(
-      [
-        { role: "system", content: SEASONAL_SYSTEM },
-        { role: "user", content: `${location} — typical weather in ${month}:\n${trimmed.slice(0, 3500)}` },
-      ],
-      withDeadline(signal, AI_DEADLINE_MS.sideBuilder),
-    );
-    const parsed = seasonalSchema.parse(raw);
-    return {
-      location,
-      mode: "seasonal",
-      month,
-      headline: parsed.headline,
-      highC: parsed.highC,
-      lowC: parsed.lowC,
-      condition: parsed.condition,
-      rainyDays: parsed.rainyDays,
-      packing: parsed.packing.length ? parsed.packing.slice(0, 5) : packingFor(band(parsed.highC), parsed.rainyDays >= 8),
-      days: [],
-    };
-  } catch {
-    return null;
-  }
+  const parsed = await runBulkBuilder(
+    SEASONAL_SYSTEM(language),
+    `${location} — typical weather in ${month}:\n${trimmed.slice(0, 3500)}`,
+    seasonalSchema,
+    withDeadline(signal, AI_DEADLINE_MS.sideBuilder),
+    onUsage,
+  );
+  if (!parsed) return null;
+  return {
+    location,
+    mode: "seasonal",
+    month,
+    headline: parsed.headline,
+    highC: parsed.highC,
+    lowC: parsed.lowC,
+    condition: parsed.condition,
+    rainyDays: parsed.rainyDays,
+    ...(trimmed.length < RICH_NOTES_CHARS ? { estimated: true } : {}),
+    packing: parsed.packing.length ? parsed.packing.slice(0, 5) : packingFor(band(parsed.highC), parsed.rainyDays >= 8),
+    days: [],
+  };
 }

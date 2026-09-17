@@ -41,6 +41,20 @@ const SENTINEL: Record<string, string> = {
     "select to_regclass('public.ai_turn_traces') is not null as ok",
   "0012_reco_events.sql":
     "select to_regclass('public.reco_events') is not null as ok",
+  "0021_personal_conversation_threads.sql":
+    "select exists (select 1 from pg_constraint where conname = 'conversation_threads_trip_id_user_id_key') as ok",
+  "0022_group_chat.sql":
+    "select to_regclass('public.group_messages') is not null as ok",
+  "0023_date_availability.sql":
+    "select to_regclass('public.trip_date_availability') is not null as ok",
+  "0024_splitwise_accounts.sql":
+    "select to_regclass('public.splitwise_accounts') is not null as ok",
+  "0025_trip_expenses.sql":
+    "select to_regclass('public.trip_expenses') is not null as ok",
+  "0026_group_chat_advisor_hardening.sql":
+    "select exists (select 1 from pg_policies where schemaname='public' and tablename='group_message_reactions' and policyname='members can insert own reactions') as ok",
+  "0027_group_messages_role_integrity.sql":
+    "select exists (select 1 from pg_policies where schemaname='public' and tablename='group_messages' and policyname='members can insert own group messages') as ok",
 };
 
 const url = process.env.DATABASE_URL;

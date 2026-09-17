@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// after() needs Next's own request-scope AsyncLocalStorage, which doesn't exist when a test
+// calls the route handler directly (not through Next's actual server) — run the callback
+// immediately instead, same as this file's own withTripAiTask mock does for testability.
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  after: (cb: () => unknown) => { void cb(); },
+}));
+
 const TRIP = "11111111-1111-4111-8111-111111111111";
 
 const requireTripMemberMock = vi.fn();
@@ -7,6 +15,8 @@ const loadTripContextMock = vi.fn();
 const runAssistantTurnMock = vi.fn();
 const listMock = vi.fn();
 const appendMock = vi.fn();
+const getByIdempotencyKeyMock = vi.fn();
+const getByIdMock = vi.fn();
 const generateTextMock = vi.fn();
 
 class TripAuthError extends Error {
@@ -35,6 +45,7 @@ function readyResult(overrides: Partial<Record<string, unknown>> = {}) {
     cardPlaceProviderIds: [],
     sideBuilders: { checklistPromise: Promise.resolve(null), comparisonPromise: Promise.resolve(null) },
     timings: { resolveMs: 5, retrieveMs: 5 },
+    usage: [],
     ...overrides,
   };
 }
@@ -50,16 +61,38 @@ vi.mock("@/lib/application/trip-context", () => ({
   loadTripContext: loadTripContextMock,
   formatTripMemory: () => "trip memory",
 }));
-vi.mock("@/lib/application/assistant-turn", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/application/assistant-turn")>()),
+vi.mock("@/lib/application/orchestrate/run-turn", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/application/orchestrate/run-turn")>()),
   runAssistantTurn: runAssistantTurnMock,
 }));
 vi.mock("ai", async (importOriginal) => ({ ...(await importOriginal<object>()), generateText: generateTextMock }));
-vi.mock("@/packages/ai/compose-model", () => ({ composeModelChain: () => [{ model: { mock: true }, providerOptions: {}, modelId: "test-model" }] }));
-vi.mock("@/lib/server/trip-ai-queue", () => ({ withTripAiTask: (_id: string, task: () => unknown) => task() }));
+// Same reasoning as ai-route.test.ts: Phase 3.2's grounding evaluator is a real model call —
+// stubbed so this stays hermetic; default (empty claims) preserves every existing test's
+// pre-3.2 behavior exactly, since the real regex sanitizer still runs underneath it.
+const evaluateGroundingMock = vi.hoisted(() => vi.fn(async () => ({ unsupportedClaims: [] as string[] })));
+vi.mock("@/lib/application/evaluator", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/application/evaluator")>();
+  const { sanitizeAssistantContent } = await import("@/lib/application/sanitize-assistant");
+  return {
+    ...actual,
+    finalizeAssistantText: async (
+      content: string, allowedUrls: ReadonlySet<string>, groundingText: string,
+      _signal?: AbortSignal, _onUsage?: unknown, _intent?: string, onUnverified?: () => void,
+    ) => {
+      const sanitized = sanitizeAssistantContent(content, allowedUrls, groundingText);
+      const evaluation = await evaluateGroundingMock();
+      if (actual.hasUnsupportedClaim(sanitized, evaluation.unsupportedClaims)) onUnverified?.();
+      return sanitized;
+    },
+  };
+});
+/** A test may reassign `composeChainRef.models` to exercise a pinned vs. unpinned chain entry. */
+const composeChainRef = vi.hoisted(() => ({ models: [{ model: { mock: true }, modelId: "test-model" }] as Array<{ model: unknown; modelId: string; providerOptions?: { gateway: { only: string[] } } }> }));
+vi.mock("@/packages/ai/compose-model", () => ({ composeModelChain: () => composeChainRef.models }));
+vi.mock("@/lib/server/trip-ai-queue", () => ({ withTripAiTask: (_tripId: string, _userId: string, task: () => unknown) => task() }));
 vi.mock("@/lib/server/ai-turn-trace", () => ({ recordAiTurn: vi.fn(async () => undefined) }));
 vi.mock("@/features/group-chat/infrastructure/groupChatRepository", () => ({
-  createGroupChatRepository: () => ({ list: listMock, append: appendMock }),
+  createGroupChatRepository: () => ({ list: listMock, append: appendMock, getByIdempotencyKey: getByIdempotencyKeyMock, getById: getByIdMock }),
 }));
 vi.mock("@/lib/supabase/admin", () => ({
   createSupabaseAdminClient: () => ({
@@ -84,10 +117,15 @@ beforeEach(() => {
   loadTripContextMock.mockResolvedValue({ lockedStay: null });
   runAssistantTurnMock.mockResolvedValue(readyResult());
   generateTextMock.mockResolvedValue({ text: "It opens at 9am." });
+  composeChainRef.models = [{ model: { mock: true }, modelId: "test-model" }];
   listMock.mockResolvedValue([
     { id: "m1", userId: "u1", role: "user", kind: "text", content: "hey @Roam what time does this cafe open", created_at: "2026-01-01T00:00:00Z", reactions: [] },
   ]);
+  // Direct-by-id fallback lookup, used when a target message has aged out of list()'s window —
+  // defaults to "not found" so the existing does-not-exist tests still 409 without opting in.
+  getByIdMock.mockResolvedValue(null);
   appendMock.mockImplementation(async (_t, input) => ({ id: "m2", userId: input.userId, role: input.role, kind: input.kind, content: input.content, created_at: "2026-01-01T00:01:00Z", reactions: [], metadata: input.metadata ?? {} }));
+  getByIdempotencyKeyMock.mockResolvedValue(null);
 });
 afterEach(() => vi.resetModules());
 
@@ -98,6 +136,17 @@ describe("POST /api/trips/:tripId/group-chat/roam", () => {
     expect(generateTextMock).toHaveBeenCalledTimes(1);
     expect(generateTextMock.mock.calls[0][0]).toMatchObject({ tools: {}, stopWhen: expect.anything() });
     expect(await res.json()).toMatchObject({ message: expect.objectContaining({ content: "It opens at 9am." }) });
+  });
+
+  it("forwards a chain entry's providerOptions (Gateway provider pin) to generateText", async () => {
+    composeChainRef.models = [{ model: { mock: true }, modelId: "test-model", providerOptions: { gateway: { only: ["cerebras"] } } }];
+    await post();
+    expect(generateTextMock.mock.calls[0][0]).toMatchObject({ providerOptions: { gateway: { only: ["cerebras"] } } });
+  });
+
+  it("does not pass a providerOptions key to generateText for an unpinned chain entry", async () => {
+    await post();
+    expect(generateTextMock.mock.calls[0][0]).not.toHaveProperty("providerOptions");
   });
 
   it("runs the shared RESOLVE/RETRIEVE/COMPOSE pipeline with the unprefixed prompt", async () => {
@@ -115,6 +164,22 @@ describe("POST /api/trips/:tripId/group-chat/roam", () => {
     expect(appendMock).toHaveBeenCalledWith(
       TRIP,
       expect.objectContaining({ userId: null, role: "assistant", metadata: expect.objectContaining({ blocks: [block] }) }),
+    );
+  });
+
+  it("passes surfacedEarlier from prior group-chat replies' persisted blocks, so Roam doesn't re-list the same places", async () => {
+    listMock.mockResolvedValue([
+      {
+        id: "m0", userId: null, role: "assistant", kind: "text", content: "Try Olive et Gourmando or Modavie.",
+        created_at: "2025-12-31T00:00:00Z", reactions: [],
+        metadata: { blocks: [{ type: "place_list", places: [{ name: "Olive et Gourmando" }, { name: "Modavie" }] }, { type: "stays", items: [{ name: "Hotel Nelligan" }] }] },
+      },
+      { id: "m1", userId: "u1", role: "user", kind: "text", content: "hey @Roam what time does this cafe open", created_at: "2026-01-01T00:00:00Z", reactions: [] },
+    ]);
+    await post();
+    expect(runAssistantTurnMock).toHaveBeenCalledWith(
+      { supabase: {}, tripId: TRIP },
+      expect.objectContaining({ surfacedEarlier: new Set(["Olive et Gourmando", "Modavie", "Hotel Nelligan"]) }),
     );
   });
 
@@ -147,6 +212,17 @@ describe("POST /api/trips/:tripId/group-chat/roam", () => {
     expect(appendMock).not.toHaveBeenCalled();
   });
 
+  it("falls back to a direct lookup, and still replies, when the target has aged out of the recent-history window", async () => {
+    // list() (bounded to HISTORY_LIMIT) no longer contains the target — but a direct-by-id
+    // lookup still finds it, so "Ask Roam about this" on an older message doesn't 409.
+    listMock.mockResolvedValue([]);
+    getByIdMock.mockResolvedValue({ id: "old-message", userId: "u1", role: "user", kind: "text", content: "hey @Roam what time does this cafe open", created_at: "2025-01-01T00:00:00Z", reactions: [] });
+    const res = await post("old-message");
+    expect(res.status).toBe(201);
+    expect(getByIdMock).toHaveBeenCalledWith(TRIP, "old-message", "u1");
+    expect(runAssistantTurnMock).toHaveBeenCalled();
+  });
+
   it("409s when the referenced message belongs to a different member — a client can't puppet someone else's mention", async () => {
     listMock.mockResolvedValue([
       { id: "m1", userId: "someone-else", role: "user", kind: "text", content: "hey @Roam what time does this cafe open", created_at: "2026-01-01T00:00:00Z", reactions: [] },
@@ -154,6 +230,20 @@ describe("POST /api/trips/:tripId/group-chat/roam", () => {
     const res = await post();
     expect(res.status).toBe(409);
     expect(appendMock).not.toHaveBeenCalled();
+  });
+
+  it("returns an existing reply without recomputing when one already exists for this (message, asker)", async () => {
+    const existing = { id: "m2", userId: null, role: "assistant" as const, kind: "text" as const, content: "It opens at 9am.", created_at: "2026-01-01T00:01:00Z", reactions: [], metadata: { replyToMessageId: "m1" } };
+    getByIdempotencyKeyMock.mockResolvedValue(existing);
+    const res = await post("m1");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ message: existing });
+    // The whole point: a concurrent duplicate request must not pay for a second LLM turn, and
+    // must not risk returning different text than what's actually persisted.
+    expect(runAssistantTurnMock).not.toHaveBeenCalled();
+    expect(generateTextMock).not.toHaveBeenCalled();
+    expect(appendMock).not.toHaveBeenCalled();
+    expect(getByIdempotencyKeyMock).toHaveBeenCalledWith(TRIP, "assistant", "roam-reply:m1:u1");
   });
 
   it("400s when no message id is given", async () => {

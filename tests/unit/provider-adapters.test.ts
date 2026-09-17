@@ -2,8 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetProviderGuards } from "../../lib/server/provider-guard";
 import { broadenQuery, GooglePlacesProvider } from "../../packages/providers/google-places/client";
 import { ticketmasterIdFromUrl } from "../../packages/providers/ticketmaster/client";
-import { OpenAiCompatibleProvider } from "../../packages/ai/providers/openai-compatible";
-import { createAiGateway, createBulkGateway } from "../../packages/ai/gateway";
 import { route } from "../../packages/providers/mapbox/client";
 import { transit } from "../../packages/providers/google-places/transit";
 import { transitAppPlan } from "../../packages/providers/transit-app/client";
@@ -11,11 +9,9 @@ import { searchFlights } from "../../packages/providers/duffel/client";
 import { bookStay, cancelBooking, hotelDetails, prebookRate, searchStays, stayRooms } from "../../packages/providers/liteapi/client";
 import { cancelOrder, createOrder } from "../../packages/providers/duffel/client";
 import { localEvents } from "../../packages/providers/eventbrite/client";
-import { activities } from "../../packages/providers/getyourguide/client";
 import { withProviderTimeout } from "../../packages/providers/request-signal";
 import { events } from "../../packages/providers/ticketmaster/client";
 import { weather } from "../../packages/providers/openweather/client";
-import { predictHqEvents } from "../../packages/providers/predicthq/client";
 
 beforeEach(() => resetProviderGuards());
 afterEach(() => {
@@ -27,11 +23,9 @@ afterEach(() => {
   delete process.env.OPENWEATHER_API_KEY;
   delete process.env.TRANSIT_API_KEY;
   delete process.env.EVENTBRITE_API_KEY;
-  delete process.env.GETYOURGUIDE_API_KEY;
   delete process.env.DUFFEL_API_KEY;
   delete process.env.LITEAPI_KEY;
   delete process.env.CONNECT_API_KEY;
-  delete process.env.PREDICTHQ_API_KEY;
   delete process.env.AI_PROVIDER;
   delete process.env.CEREBRAS_API_KEY;
   delete process.env.AI_API_KEY;
@@ -71,70 +65,6 @@ describe("ticketmasterIdFromUrl", () => {
   it("returns null when there is no id-shaped segment", () => {
     expect(ticketmasterIdFromUrl("https://example.com/events")).toBeNull();
     expect(ticketmasterIdFromUrl("not a url")).toBeNull();
-  });
-});
-
-describe("createAiGateway env resolution", () => {
-  it("falls through blank env vars to the OpenAI defaults", () => {
-    process.env.AI_PROVIDER = "";
-    process.env.AI_API_KEY = "";
-    process.env.AI_MODEL = "";
-    process.env.AI_BASE_URL = "";
-    process.env.OPENAI_API_KEY = "sk-real";
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
-    return createAiGateway().generateText([{ role: "user", content: "hi" }]).then(() => {
-      const [url, init] = fetchMock.mock.calls[0];
-      expect(url).toBe("https://api.openai.com/v1/chat/completions");
-      expect(JSON.parse(init.body as string).model).toBe("gpt-4o");
-      expect((init.headers as Record<string, string>).authorization).toBe("Bearer sk-real");
-    });
-  });
-
-  it("throws a clear error when no key is resolvable", () => {
-    process.env.AI_PROVIDER = "openai-compatible";
-    process.env.AI_API_KEY = "";
-    expect(() => createAiGateway()).toThrow(/AI_API_KEY or OPENAI_API_KEY/);
-  });
-
-  it("routes a pinned gemini provider to the Gemini OpenAI endpoint and ignores AI_BASE_URL / AI_MODEL", () => {
-    process.env.AI_BASE_URL = "https://proxy.example/v1";
-    process.env.AI_MODEL = "gpt-4o";
-    process.env.GEMINI_API_KEY = "AIza-real";
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
-    return createAiGateway({ provider: "gemini" }).generateText([{ role: "user", content: "hi" }]).then(() => {
-      const [url, init] = fetchMock.mock.calls[0];
-      expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
-      expect(JSON.parse(init.body as string).model).toBe("gemini-flash-latest");
-      expect((init.headers as Record<string, string>).authorization).toBe("Bearer AIza-real");
-      delete process.env.GEMINI_API_KEY;
-    });
-  });
-
-  it("createBulkGateway uses Gemini only when a model is pinned, else the primary fail-over chain", () => {
-    process.env.AI_PROVIDER = "";
-    process.env.AI_BASE_URL = "";
-    process.env.OPENAI_API_KEY = "sk-real";
-    delete process.env.GEMINI_BULK_MODEL;
-    const fetchMock = vi.fn((_url?: unknown, _init?: unknown) => Promise.resolve(new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), { status: 200 })));
-    vi.stubGlobal("fetch", fetchMock);
-
-    return createBulkGateway().generateText([{ role: "user", content: "x" }]).then(() => {
-      expect(fetchMock.mock.calls[0][0]).toBe("https://api.openai.com/v1/chat/completions"); // no Gemini key → primary
-      // Gemini key alone is NOT enough — its default model ids lapse silently.
-      process.env.GEMINI_API_KEY = "AIza-real";
-      return createBulkGateway().generateText([{ role: "user", content: "x" }]);
-    }).then(() => {
-      expect(fetchMock.mock.calls[1][0]).toBe("https://api.openai.com/v1/chat/completions"); // still primary
-      // key + an explicit model → opt in to Gemini
-      process.env.GEMINI_BULK_MODEL = "gemini-flash-latest";
-      return createBulkGateway().generateText([{ role: "user", content: "x" }]);
-    }).then(() => {
-      expect(fetchMock.mock.calls[2][0]).toBe("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
-      delete process.env.GEMINI_API_KEY;
-      delete process.env.GEMINI_BULK_MODEL;
-    });
   });
 });
 
@@ -212,41 +142,6 @@ describe("provider adapters", () => {
     expect(fetchMock.mock.calls.some(([u]) => String(u).includes("/2.5/weather"))).toBe(false);
   });
 
-  it("PredictHQ: builds the query, parses rank/venue, and only rank-filters a broad sweep", async () => {
-    process.env.PREDICTHQ_API_KEY = "phq-key";
-    let seen = "";
-    const fetchMock = vi.fn((url: string, init?: RequestInit) => {
-      seen = String(url);
-      expect((init?.headers as Record<string, string>).authorization).toBe("Bearer phq-key");
-      return Promise.resolve(new Response(JSON.stringify({ results: [
-        { title: "Big Festival", start: "2026-10-30T18:00:00", local_rank: 88, phq_attendance: 40000, category: "festivals", entities: [{ type: "venue", name: "Parc Jean-Drapeau" }] },
-        { title: "Undated Thing", local_rank: 40 },       // no start -> no date
-        { start: "2026-10-31", local_rank: 10 },          // no title -> dropped
-      ] }), { status: 200 }));
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    const broad = await predictHqEvents("", [-73.5673, 45.5017], { start: "2026-10-12", end: "2026-11-15" }, undefined, true);
-    expect(seen).toContain("within=25km%4045.5017%2C-73.5673");
-    expect(seen).toContain("active.gte=2026-10-12");
-    expect(seen).toContain("active.lte=2026-11-15");
-    expect(seen).toContain("rank_level=3%2C4%2C5"); // broad only
-    expect(seen).toContain("sort=-rank");
-    expect(broad.map((e) => e.title)).toEqual(["Big Festival", "Undated Thing"]); // titleless dropped
-    expect(broad[0]).toMatchObject({ rank: 88, attendance: 40000, venue: "Parc Jean-Drapeau", startDate: "2026-10-30" });
-    expect(broad[0].url).toContain("google.com/search"); // no ticket link -> web-search fallback
-    expect(broad[1].startDate).toBeUndefined();
-
-    seen = "";
-    await predictHqEvents("Bruno Mars", [-73.5673, 45.5017], {}, undefined, false);
-    expect(seen).toContain("q=Bruno+Mars");
-    expect(seen).not.toContain("rank_level"); // specific query -> no rank floor
-  });
-
-  it("PredictHQ: throws when no key is configured", async () => {
-    await expect(predictHqEvents("x", [0, 0], {})).rejects.toThrow(/PREDICTHQ_API_KEY/);
-  });
-
   it("normalizes Google transit routes and requests only valid fieldmask paths", async () => {
     process.env.GOOGLE_MAPS_API_KEY = "test-key";
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ routes: [{
@@ -279,25 +174,6 @@ describe("provider adapters", () => {
     expect(found).toHaveLength(2);
     expect(found[0]).toMatchObject({ title: "Night Market", url: "https://www.eventbrite.ca/e/night-market", date: "2026-09-14", venue: "Distillery District", provider: "eventbrite" });
     expect(found[1]).toMatchObject({ title: "Book Launch", date: "2026-09-20" });
-  });
-
-  it("normalizes GetYourGuide tours into activity results", async () => {
-    process.env.GETYOURGUIDE_API_KEY = "gyg-token";
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { tours: [
-      { tour_id: 62484, title: "Old Town Walking Tour", abstract: "See the historic centre with a local guide.", url: "https://www.getyourguide.com/-l1/-t62484", overall_rating: 4.7, price: { values: { amount: "29.00", currency: "EUR" } } },
-      { title: "No URL Tour", url: "" },
-      { url: "https://x/only-url" },
-    ] } }), { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
-    const found = await activities("things to do Lisbon", "EUR");
-    expect(found).toHaveLength(1);
-    expect(found[0]).toMatchObject({ title: "Old Town Walking Tour", url: "https://www.getyourguide.com/-l1/-t62484", provider: "getyourguide" });
-    expect(found[0].content).toContain("from 29.00 EUR");
-    expect(found[0].content).toContain("4.7★");
-    const url = new URL(fetchMock.mock.calls[0][0] as string);
-    expect(url.origin + url.pathname).toBe("https://api.getyourguide.com/1/tours");
-    expect(url.searchParams.get("currency")).toBe("EUR");
-    expect((fetchMock.mock.calls[0][1] as { headers: Record<string, string> }).headers["x-access-token"]).toBe("gyg-token");
   });
 
   it("normalizes a Transit App plan and returns null when uncovered", async () => {
@@ -507,33 +383,6 @@ describe("provider adapters", () => {
     expect(timedOut.aborted).toBe(true);
   });
 
-  it("keeps reasoning options provider-specific", async () => {
-    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), { status: 200 })));
-    vi.stubGlobal("fetch", fetchMock);
-    await new OpenAiCompatibleProvider({ apiKey: "key", baseUrl: "https://example.test/v1", model: "model" }).generateText([{ role: "user", content: "hi" }]);
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject({ max_completion_tokens: 1600 });
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).not.toHaveProperty("reasoning_format");
-    await new OpenAiCompatibleProvider({ apiKey: "key", baseUrl: "https://example.test/v1", model: "model", supportsReasoningOptions: true }).generateText([{ role: "user", content: "hi" }]);
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toMatchObject({ reasoning_effort: "low", reasoning_format: "hidden" });
-  });
-
-  it("retries text generation after a provider rate limit", async () => {
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response("busy", { status: 429, headers: { "retry-after": "0" } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
-    await expect(new OpenAiCompatibleProvider({ apiKey: "key", baseUrl: "https://example.test/v1", model: "model" }).generateText([{ role: "user", content: "hi" }])).resolves.toBe("ok");
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
-
-  it("parses a JSON object from generateStructured and asks for json_object format", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: 'noise {"language":"fr","toolPlan":[]} trailing' } }] }), { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
-    const result = await new OpenAiCompatibleProvider({ apiKey: "key", baseUrl: "https://example.test/v1", model: "model" }).generateStructured([{ role: "user", content: "hi" }]);
-    expect(result).toEqual({ language: "fr", toolPlan: [] });
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).response_format).toEqual({ type: "json_object" });
-  });
-
   it("follows nextPageToken until maxResults is met, resending the same query", async () => {
     process.env.GOOGLE_MAPS_API_KEY = "test-key";
     const page = (n: number, token?: string) => new Response(JSON.stringify({ places: Array.from({ length: n }, (_, i) => ({ id: `places/${i}`, displayName: { text: `Place ${i}` }, location: { latitude: 1, longitude: 2 } })), nextPageToken: token }), { status: 200 });
@@ -571,15 +420,5 @@ describe("provider adapters", () => {
     await provider.search(" UNIQUE CACHE QUERY ");
     expect(fetchMock).toHaveBeenCalledOnce();
     vi.unstubAllEnvs();
-  });
-
-  it("cancels retry backoff when the caller aborts", async () => {
-    const controller = new AbortController();
-    const fetchMock = vi.fn().mockResolvedValue(new Response("busy", { status: 429 }));
-    vi.stubGlobal("fetch", fetchMock);
-    const pending = new OpenAiCompatibleProvider({ apiKey: "key", baseUrl: "https://example.test/v1", model: "model" }).stream([{ role: "user", content: "hi" }], controller.signal);
-    controller.abort();
-    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

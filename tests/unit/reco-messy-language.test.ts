@@ -135,7 +135,6 @@ describe("classifyEventVibe — messy / natural-language event titles", () => {
     [{ title: "⚽ the big game ⚽" }, "default"],
     [{ title: "temple fair / festival" }, "sacred"],            // "temple" hits before nothing
     [{ tmSegment: "Music", title: "asdfghjkl" }, "live_music"], // segment saves it
-    [{ predicthqCategory: "expos", title: "" }, "expo"],
     [{ title: "   " }, "default"],
     [{ title: "🎵🎵🎵" }, "default"],
   ];

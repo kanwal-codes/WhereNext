@@ -44,7 +44,13 @@ async function run(request: Request): Promise<Response> {
     let flagged = 0;
     let emailed = 0;
     for (const trip of trips.data ?? []) {
-      const ctx = await loadTripContext(admin, trip.id).catch(() => null);
+      const ctx = await loadTripContext(admin, trip.id).catch((err) => {
+        // The trip id just came from a successful query above — a failure loading its context
+        // is a real bug or outage, not a legitimate empty case, and skips this trip's review
+        // for the day silently unless logged.
+        logger.warn({ err, cron: "trip-review", tripId: trip.id }, "failed to load trip context; skipping this trip for today's sweep");
+        return null;
+      });
       if (!ctx) continue;
       const findings = reviewTrip(ctx);
       if (findings.length) flagged += 1;

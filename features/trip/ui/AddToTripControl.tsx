@@ -273,7 +273,7 @@ export function AddToTripControl({
                 )}
               >
             {dayCount > 0 ? (
-              <div className={cn(dayCount > 6 && "max-h-56 overflow-y-auto scrollbar-slim")}>
+              <div className={cn(dayCount > 6 && "max-h-56 overflow-y-auto overscroll-contain scrollbar-slim")}>
                 {Array.from({ length: dayCount }, (_, i) => i + 1).map((d) => (
                   <MenuRow key={d} selected={day === d} onClick={() => void apply({ dayIndex: d })} title={`Day ${d}`} Icon={CalendarCheck} />
                 ))}

@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { boundedRecord } from "@/packages/contracts/shared";
 
 export const groupMessageInput = z.object({
   content: z.string().trim().min(1).max(4000),
   kind: z.enum(["text", "content_share"]).default("text"),
-  shareCard: z.record(z.string(), z.unknown()).optional(),
+  shareCard: boundedRecord().optional(),
   idempotencyKey: z.string().min(1).max(120).optional(),
 });
 export type GroupMessageInput = z.infer<typeof groupMessageInput>;

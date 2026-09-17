@@ -53,7 +53,7 @@ describe("GET /api/trips/:tripId/conversation", () => {
     const res = await GET();
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ messages: [{ id: "m1", role: "user", content: "hi" }] });
-    expect(listMock).toHaveBeenCalledWith(TRIP, "u1");
+    expect(listMock).toHaveBeenCalledWith(TRIP, "u1", { limit: 200 });
   });
 
   it("maps an auth error to its status (404 for a non-member — existence is not leaked)", async () => {

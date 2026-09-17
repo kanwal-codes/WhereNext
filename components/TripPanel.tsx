@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { ContentSwap, Sheet } from "@/components/motion-primitives";
 import { MessageBlocks } from "@/features/conversation/ui/blocks/MessageBlocks";
 import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
+import { haversineKm } from "@/lib/application/geo";
 
 const KIND_LABEL: Record<CompareEntry["kind"], string> = { place: "Place", stay: "Stay", event: "Event", route: "Route" };
 /** The question auto-asked the moment a fresh comparison opens — never shown as a "user" bubble
@@ -25,18 +26,14 @@ const COMPARE_VERDICT_PROMPT = "Which of these should I pick, and why? One short
  *  drawer instance stands down on these so the two don't both try to show the same panel. */
 const SELF_HOSTED_INLINE_PANEL_ROUTES = ["/chat", "/group"];
 
-const R = 6371;
-const toRad = (n: number) => (n * Math.PI) / 180;
-function km(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
-  const dLat = toRad(b.lat - a.lat);
-  const dLng = toRad(b.lng - a.lng);
-  const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(s));
-}
 type Anchor = { name: string; lat: number; lng: number } | null;
 function distanceLabel(entry: CompareEntry, anchor: Anchor): string {
   if (!anchor || entry.attrs.lat == null || entry.attrs.lng == null) return "—";
-  const d = km(anchor, { lat: entry.attrs.lat, lng: entry.attrs.lng });
+  // Was a private re-implementation of `lib/application/geo.ts`'s `haversineKm` — missing that
+  // function's `Math.min(1, ...)` clamp before `Math.asin()`, which guards against floating-point
+  // rounding pushing the pre-asin value fractionally past 1 (asin of >1 is `NaN`) for two very
+  // close or near-antipodal points. Same bug, same fix as `route-plan/route.ts`'s copy.
+  const d = haversineKm({ latitude: anchor.lat, longitude: anchor.lng }, { latitude: entry.attrs.lat, longitude: entry.attrs.lng });
   return d < 1 ? `${Math.round(d * 1000)} m` : `${d.toFixed(1)} km`;
 }
 function titleFor(panel: PanelState): string {
@@ -121,7 +118,7 @@ function CompareGrid({ list, anchor, onRemove }: { list: CompareEntry[]; anchor:
   }
 
   return (
-    <div className="overflow-x-auto scrollbar-slim">
+    <div className="overflow-x-auto overscroll-x-contain scrollbar-slim">
       <div className="grid gap-x-3" style={{ gridTemplateColumns: `104px repeat(${list.length}, minmax(150px, 1fr))` }}>
         <div />
         {list.map((e) => (
@@ -333,7 +330,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
           title="Expand to full page"
           className="rounded-full border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
         >
-          <Maximize2 className="h-3.5 w-3.5" />
+          <Maximize2 className="h-4 w-4" />
         </Link>
         <button ref={closeButtonRef} type="button" onClick={closePanel} aria-label="Close panel" className="rounded-full border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground">
           <X className="h-4 w-4" />

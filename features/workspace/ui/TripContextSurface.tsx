@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import { certaintyFor, decisionSummary, isDisplayableDecision } from "@/lib/decisions-ui";
 import { CertaintyBadge } from "@/components/CertaintyBadge";
 import { ProgressRing } from "@/components/ProgressRing";
+import { DestinationCombobox } from "@/components/DestinationCombobox";
+import { DateRangeField } from "@/components/DateRangeField";
 import { notifyToast } from "@/lib/application/toast";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { tripCompleteness, type Certainty } from "@/lib/design";
@@ -14,7 +16,7 @@ import { readStayDecision } from "@/packages/contracts/stay";
 import { readSuggestions, type SuggestionKey } from "@/packages/contracts/suggestion";
 
 type Decision = { id: string; kind: string; value: Record<string, unknown>; source: string; created_at?: string };
-type PrefKey = "budget" | "groupType" | "pace" | "interests" | "dislikes" | "dietaryNeeds";
+type PrefKey = "budget" | "groupType" | "pace" | "interests" | "dislikes" | "dietaryNeeds" | "occasion" | "arrival" | "transport";
 
 const csv = (value: unknown): string =>
   Array.isArray(value) ? value.join(", ") : typeof value === "string" ? value : value === undefined || value === null ? "" : String(value);
@@ -31,6 +33,9 @@ const PREF_PLACEHOLDER: Record<PrefKey, string> = {
   interests: "food, bookshops, long walks",
   dislikes: "museums, early starts",
   dietaryNeeds: "vegetarian, halal…",
+  occasion: "birthday, honeymoon, reunion…",
+  arrival: "flight number, or landing time",
+  transport: "rental car, transit, rideshare…",
 };
 
 type Row = {
@@ -294,7 +299,7 @@ export function TripContextSurface({
     else push({ id: "dates", label: "Dates", value: "", certainty: "undecided", editable: true });
   }
 
-  softField("occasion", "Occasion", csv(memory.occasion), "occasion");
+  softField("occasion", "Occasion", csv(memory.occasion), "occasion", "occasion");
   softField("budget", "Budget", csv(memory.budget), "budget", "budget");
   softField("group", "Who's travelling", csv(memory.groupType), "group", "groupType");
   softField("pace", "Pace", csv(memory.pace), "pace", "pace");
@@ -323,8 +328,9 @@ export function TripContextSurface({
         return d ? decisionSummary("transport", d.value) : "";
       })(),
     "getting_around",
+    "transport",
   );
-  softField("arrival", "Arrival", csv(memory.arrival), "arrival");
+  softField("arrival", "Arrival", csv(memory.arrival), "arrival", "arrival");
 
   push({ id: "dislikes", label: "Avoid", value: csv(memory.dislikes), certainty: csv(memory.dislikes) ? "confirmed" : "undecided", editKey: "dislikes" });
   push({ id: "dietary", label: "Dietary", value: csv(memory.dietaryNeeds), certainty: csv(memory.dietaryNeeds) ? "confirmed" : "undecided", editKey: "dietaryNeeds" });
@@ -366,27 +372,7 @@ export function TripContextSurface({
 
         {isEditing && row.id === "dates" ? (
                 <div className="mt-1.5 space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="date"
-                      aria-label="Start date"
-                      value={dStart}
-                      onChange={(e) => {
-                        setDStart(e.target.value);
-                        if (dEnd && e.target.value && dEnd < e.target.value) setDEnd(e.target.value);
-                      }}
-                      className="min-w-0 flex-1 rounded-lg border border-input bg-background px-2 py-1 text-sm outline-none [color-scheme:light_dark] focus:ring-2 focus:ring-ring/40"
-                    />
-                    <span className="text-xs text-muted-foreground">to</span>
-                    <input
-                      type="date"
-                      aria-label="End date"
-                      value={dEnd}
-                      min={dStart || undefined}
-                      onChange={(e) => setDEnd(e.target.value)}
-                      className="min-w-0 flex-1 rounded-lg border border-input bg-background px-2 py-1 text-sm outline-none [color-scheme:light_dark] focus:ring-2 focus:ring-ring/40"
-                    />
-                  </div>
+                  <DateRangeField start={dStart} end={dEnd} onChange={(s, e) => { setDStart(s); setDEnd(e); }} />
                   <div className="flex items-center gap-3">
                     <button type="button" onClick={() => void saveDates()} disabled={savingDates} className="btn-primary-sm">
                       {savingDates ? "…" : "Save"}
@@ -401,21 +387,41 @@ export function TripContextSurface({
                     )}
                   </div>
                 </div>
+              ) : isEditing && row.tripField === "destination" ? (
+                <div className="mt-1.5 space-y-1.5">
+                  <DestinationCombobox
+                    tripId={tripId}
+                    value={fieldDraft}
+                    onChange={setFieldDraft}
+                    onSelect={(text) => { setFieldDraft(text); void saveTripField("destination", text); }}
+                    placeholder="City or region"
+                    autoFocus
+                    disabled={savingField}
+                  />
+                  <div className="flex items-center gap-3">
+                    <button type="button" onClick={() => void saveTripField("destination", fieldDraft)} disabled={savingField} className="btn-primary-sm">
+                      {savingField ? "…" : "Save"}
+                    </button>
+                    <button type="button" onClick={() => setEditingField(null)} className="text-[11px] text-muted-foreground hover:text-foreground">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               ) : isEditing && row.tripField ? (
                 <div className="mt-1.5 space-y-1.5">
                   <input
                     autoFocus
-                    type={row.tripField === "travelers" ? "number" : "text"}
-                    inputMode={row.tripField === "travelers" ? "numeric" : undefined}
-                    min={row.tripField === "travelers" ? 1 : undefined}
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
                     value={fieldDraft}
                     onChange={(e) => setFieldDraft(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") void saveTripField(row.tripField!, fieldDraft);
                       if (e.key === "Escape") setEditingField(null);
                     }}
-                    placeholder={row.tripField === "destination" ? "City or region" : "How many of you"}
-                    className="w-full rounded-lg border border-input bg-background px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-ring/40"
+                    placeholder="How many of you"
+                    className="w-full rounded-lg border border-input bg-background px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-ring/25"
                   />
                   <div className="flex items-center gap-3">
                     <button type="button" onClick={() => void saveTripField(row.tripField!, fieldDraft)} disabled={savingField} className="btn-primary-sm">
@@ -437,7 +443,7 @@ export function TripContextSurface({
                       if (e.key === "Escape") setEditing(null);
                     }}
                     placeholder={PREF_PLACEHOLDER[row.editKey!]}
-                    className="w-full rounded-lg border border-input bg-background px-2 py-1 text-sm outline-none [color-scheme:light_dark] focus:ring-2 focus:ring-ring/40"
+                    className="w-full rounded-lg border border-input bg-background px-2 py-1 text-sm outline-none [color-scheme:light_dark] focus:ring-2 focus:ring-ring/25"
                   />
                   <div className="flex items-center gap-3">
                     <button type="button" onClick={() => void savePref(row.editKey!, draft)} disabled={savingKey === row.editKey} className="btn-primary-sm">

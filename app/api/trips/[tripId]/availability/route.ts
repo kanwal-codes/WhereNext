@@ -33,14 +33,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ trip
     const parsed = availabilityInput.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: "Invalid availability" }, { status: 400 });
 
-    const del = await supabase.from("trip_date_availability").delete().eq("trip_id", tripId).eq("user_id", user.id);
-    if (del.error) throw del.error;
-    const rows = parsed.data.ranges.map((r) => ({ trip_id: tripId, user_id: user.id, start_date: r.startDate, end_date: r.endDate }));
-    const inserted = await supabase.from("trip_date_availability").insert(rows).select("id,user_id,start_date,end_date");
-    if (inserted.error) throw inserted.error;
+    // One atomic delete+insert (0032_atomic_availability_replace.sql) instead of two separate
+    // statements — a failure between them used to leave the member with no availability at all.
+    const ranges = parsed.data.ranges.map((r) => ({ start_date: r.startDate, end_date: r.endDate }));
+    const replaced = await supabase.rpc("replace_trip_date_availability", { p_trip_id: tripId, p_user_id: user.id, p_ranges: ranges });
+    if (replaced.error) throw replaced.error;
 
     invalidateWorkspace(tripId);
-    return NextResponse.json({ ranges: (inserted.data as Row[]).map((r) => ({ id: r.id, userId: r.user_id, startDate: r.start_date, endDate: r.end_date })) });
+    return NextResponse.json({ ranges: (replaced.data as Row[]).map((r) => ({ id: r.id, userId: r.user_id, startDate: r.start_date, endDate: r.end_date })) });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Availability unavailable");
   }

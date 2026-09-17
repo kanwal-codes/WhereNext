@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createMockSupabase } from "../support/mock-supabase";
+
+// after() needs Next's own request-scope AsyncLocalStorage, which doesn't exist when a test
+// calls the route handler directly (not through Next's actual server) — run the callback
+// immediately instead.
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  after: (cb: () => unknown) => { void cb(); },
+}));
 import { evidence, evidenceNames, place } from "../support/fixture-evidence";
 import { extractEntities, isGrounded } from "../support/extract-entities";
 
@@ -40,9 +48,20 @@ vi.mock("@/lib/application/trip-context", () => ({
 vi.mock("@/lib/application/thread-summary", () => ({ refreshThreadSummary: vi.fn(async () => undefined) }));
 vi.mock("@/lib/application/essentials", () => ({ buildEssentialsChecklist: vi.fn(async () => null) }));
 vi.mock("@/lib/application/comparison", () => ({ buildComparison: vi.fn(async () => null) }));
-vi.mock("@/lib/application/turn-resolver", () => ({ resolveTurn: resolveTurnMock }));
+vi.mock("@/lib/application/turn-resolver", () => ({ resolveTurn: resolveTurnMock, MAX_TOOL_CALLS: 6 }));
 vi.mock("@/lib/application/retrieve", () => ({ retrieveEvidence: retrieveEvidenceMock }));
-vi.mock("@/lib/server/trip-ai-queue", () => ({ withTripAiStream: (_id: string, task: () => unknown) => task() }));
+// Phase 3.2's grounding evaluator is a real model call — stubbed so this stays hermetic. The
+// real regex sanitizer still runs underneath it, so this eval's own link/entity-grounding
+// assertions (which depend on the real sanitizer) are unaffected.
+vi.mock("@/lib/application/evaluator", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/application/evaluator")>();
+  const { sanitizeAssistantContent } = await import("@/lib/application/sanitize-assistant");
+  return {
+    ...actual,
+    finalizeAssistantText: async (content: string, allowedUrls: ReadonlySet<string>, groundingText: string) => sanitizeAssistantContent(content, allowedUrls, groundingText),
+  };
+});
+vi.mock("@/lib/server/trip-ai-queue", () => ({ withTripAiStream: (_tripId: string, _userId: string, task: () => unknown) => task() }));
 vi.mock("@/packages/ai/compose-model", () => ({ composeModelChain: () => [{ model: { mock: true } }] }));
 vi.mock("ai", async (importOriginal) => ({ ...(await importOriginal() as object), streamText: streamTextMock }));
 vi.mock("@/features/conversation/infrastructure/conversationRepository", () => ({

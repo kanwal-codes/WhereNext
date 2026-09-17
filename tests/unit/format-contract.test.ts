@@ -54,4 +54,16 @@ describe("assistant format contract", () => {
   it("binds the reply and the cards to the same evidence set", () => {
     expect(prompt).toMatch(/reply and the cards must describe the same set/);
   });
+
+  it("requires correctly punctuated, capitalized, grammatically complete prose", () => {
+    expect(prompt).toMatch(/capital letter/);
+    expect(prompt).toMatch(/correct punctuation/);
+    expect(prompt).toMatch(/complete sentence/);
+  });
+
+  it("scales reply length to what was actually asked, in both directions", () => {
+    expect(prompt).toMatch(/match the length to what was actually asked/);
+    expect(prompt).toMatch(/earns real paragraphs/);
+    expect(prompt).toMatch(/don'?t pad it with unrequested context/);
+  });
 });

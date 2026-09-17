@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import { photoProxyUrl } from "@/lib/places-ui";
+import { readStayDecision } from "@/packages/contracts/stay";
 import { type RankContext, type RankedPlace } from "@/lib/application/rank-places";
 import { classifyEventVibe, classifyPlaceVibe, lanesFor, type Lane, type LaneAnchor, type Vibe } from "@/packages/reco/vibes";
 import { shapeLanes, type LaneInput, type LaneOutput } from "@/packages/reco/shape-lanes";
@@ -60,15 +61,12 @@ function MiniCard({ tripId, place, why, onSelect }: { tripId: string; place: Pla
       )}
       <div className="p-3">
         <p className="truncate text-sm font-medium">{place.name}</p>
-        <p className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-          {typeof place.rating === "number" && (
-            <span className="inline-flex items-center gap-1">
-              <Star className="h-3 w-3 fill-current text-coral" />
-              {place.rating.toFixed(1)}
-            </span>
-          )}
-          <span className="truncate">{(place.category ?? "").replaceAll("_", " ")}</span>
-        </p>
+        {typeof place.rating === "number" && (
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+            <Star className="h-3 w-3 fill-current text-coral" />
+            {place.rating.toFixed(1)}
+          </p>
+        )}
         {why && <p className="mt-1 truncate text-[11px]" style={{ color: "var(--color-accent-trip)" }}>{why}</p>}
         {panelCtx?.compareMode && <p className="mt-1 text-[10px] font-medium text-muted-foreground">{panelCtx.compareHas(place.providerId) ? "Selected" : "Click to compare"}</p>}
       </div>
@@ -98,7 +96,15 @@ async function fetchLane(tripId: string, lane: Lane, anchor: LaneAnchor, signal:
       const body = await fetch(`/api/trips/${tripId}/events?${qs}`, { signal }).then((r) => (r.ok ? r.json() : { events: [] }));
       return { lane, places: [], events: (body.events ?? []) as NearbyEvent[] };
     }
-    const body = await fetch(`/api/trips/${tripId}/places?query=${encodeURIComponent(q)}`, { signal }).then((r) => (r.ok ? r.json() : { places: [] }));
+    // Bias toward the anchor's own coordinates when known — the query text naming a city isn't
+    // enough on its own for Google to reliably stay in that city (see LocationBias's doc comment
+    // in packages/providers/google-places/client.ts for the live-found bug this fixes).
+    const qs = new URLSearchParams({ query: q });
+    if (Number.isFinite(anchor.lat) && Number.isFinite(anchor.lng)) {
+      qs.set("lat", String(anchor.lat));
+      qs.set("lng", String(anchor.lng));
+    }
+    const body = await fetch(`/api/trips/${tripId}/places?${qs}`, { signal }).then((r) => (r.ok ? r.json() : { places: [] }));
     return { lane, places: (body.places ?? []) as Place[], events: [] };
   } catch {
     return { lane, places: [], events: [] };
@@ -205,6 +211,13 @@ export function NearbyRecommendations({
   const prefs = trip?.data?.preferences as Record<string, unknown> | undefined;
   const savedPlaces = trip?.data?.savedPlaces;
   const rejectedPlaceIds = trip?.data?.rejectedPlaceIds;
+  // Distinct from `anchorPoint` below (the place this whole "around here" section is anchored
+  // to) — only ever a real, confirmed hotel, so the ranker's "why" label can honestly say "from
+  // your stay" (see rank-places.ts's stayAnchor doc). Read as primitives (not the `lockedStay`
+  // object itself) so the memo below only recomputes when the actual coordinates change.
+  const lockedStay = readStayDecision((trip?.data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
+  const stayLat = lockedStay?.latitude ?? null;
+  const stayLng = lockedStay?.longitude ?? null;
   const rankCtx = useMemo<Omit<RankContext, "anchor">>(() => {
     const savedIds = (savedPlaces ?? [])
       .map((row) => {
@@ -218,8 +231,10 @@ export function NearbyRecommendations({
       dislikes: asList(prefs?.dislikes),
       savedIds,
       rejectedIds: rejectedPlaceIds ?? [],
+      stayAnchor: stayLat != null && stayLng != null ? { latitude: stayLat, longitude: stayLng } : null,
     };
-  }, [prefs, savedPlaces, rejectedPlaceIds]);
+  }, [prefs, savedPlaces, rejectedPlaceIds, stayLat, stayLng]);
+  const accessibilityNeeds = useMemo(() => asList(prefs?.accessibilityNeeds), [prefs]);
 
   useEffect(() => {
     const anchor: LaneAnchor = { name: anchorName, city: cityHint, lat, lng, genre };
@@ -269,6 +284,7 @@ export function NearbyRecommendations({
         seenEventUrls: new Set<string>(kind === "event" ? [excludeId] : []),
         anchorPoint,
         rankCtx,
+        accessibilityNeeds,
         score: (_lane, candidates) => semanticScores(tripId, anchorText, candidates, signal),
       });
 
@@ -283,10 +299,19 @@ export function NearbyRecommendations({
         kind,
         excludeId,
         vibe,
-        shaped.flatMap(({ lane, places, events }) => [
-          ...places.map((r, idx): LogRow => ({ laneId: lane.id, action: "impression", itemKind: "place", itemId: r.place.providerId, position: idx })),
-          ...events.map((e, idx): LogRow => ({ laneId: lane.id, action: "impression", itemKind: "event", itemId: e.url, position: idx })),
-        ]),
+        // Only the cards actually rendered (the same `slice(0, 4)` the JSX below applies) count
+        // as an "impression" — logging every ranked-but-offscreen place was always semantically
+        // wrong, and became a real bug once Phase 4.2.2 stopped hard-capping a radius lane's
+        // result count: a lane's full ranked list could then exceed the `log` op's 60-row cap
+        // and the whole beacon would silently 400.
+        shaped.flatMap(({ lane, places, events }) => {
+          const shownPlaces = places.slice(0, 4);
+          const shownEvents = events.slice(0, Math.max(0, 4 - shownPlaces.length));
+          return [
+            ...shownPlaces.map((r, idx): LogRow => ({ laneId: lane.id, action: "impression", itemKind: "place", itemId: r.place.providerId, position: idx })),
+            ...shownEvents.map((e, idx): LogRow => ({ laneId: lane.id, action: "impression", itemKind: "event", itemId: e.url, position: idx })),
+          ];
+        }),
       );
     })();
 
@@ -294,7 +319,7 @@ export function NearbyRecommendations({
       cancelled = true;
       controller.abort();
     };
-  }, [tripId, excludeId, anchorName, cityHint, kind, primaryType, types, genre, lat, lng, rankCtx, rejectedPlaceIds]);
+  }, [tripId, excludeId, anchorName, cityHint, kind, primaryType, types, genre, lat, lng, rankCtx, rejectedPlaceIds, accessibilityNeeds]);
 
   if (loading) {
     return (
@@ -347,7 +372,7 @@ export function NearbyRecommendations({
                   </button>
                 )}
               </div>
-              <div className="mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto no-scrollbar pb-1">
+              <div className="mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain no-scrollbar pb-1">
                 {shownPlaces.map((r, idx) => (
                   <MiniCard
                     key={r.place.providerId}

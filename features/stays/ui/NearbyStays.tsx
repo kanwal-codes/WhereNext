@@ -3,21 +3,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, BedDouble, ChevronRight, MapPin, Star } from "lucide-react";
 import { useTripPanelMaybe } from "@/components/TripPanelProvider";
+import { Skeleton } from "@/components/Skeleton";
 import Link from "next/link";
 import type { StayOption } from "@/packages/contracts/stay";
 import { formatMoney } from "@/lib/currency";
+import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache";
+import { haversineKm } from "@/lib/application/geo";
 import { cn } from "@/lib/utils";
 
 type Order = "nearby" | "price" | "rating";
 type Kind = "Hotel" | "Motel" | "Hostel / dorm" | "Apartment-style";
 
-const distanceKm = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
-  const rad = Math.PI / 180;
-  const lat = (b.lat - a.lat) * rad;
-  const lng = (b.lng - a.lng) * rad;
-  const n = Math.sin(lat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(lng / 2) ** 2;
-  return 6371 * 2 * Math.asin(Math.sqrt(n));
-};
+// Was a private re-implementation of `lib/application/geo.ts`'s `haversineKm` — see that
+// function's `Math.min(1, ...)` clamp before `Math.asin()`, missing here (and in two other
+// duplicate copies found across the codebase — TripPanel.tsx and route-plan/route.ts — all
+// now pointed at this same shared implementation instead).
+const distanceKm = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) =>
+  haversineKm({ latitude: a.lat, longitude: a.lng }, { latitude: b.lat, longitude: b.lng });
 
 const stayKind = (name: string): Kind => {
   if (/hostel|dorm/i.test(name)) return "Hostel / dorm";
@@ -67,31 +69,29 @@ export function NearbyStays({
     if (checkin) qs.set("checkin", checkin);
     if (checkout) qs.set("checkout", checkout);
     const cacheKey = `nearby-stays:${tripId}:${qs.toString()}`;
-    let cancelled = false;
+    // An AbortController, not just a `cancelled` flag — a flag only stops the state update, the
+    // fetch itself kept running against the hotel provider on every location/date change. Same
+    // fix DiscoverySurface already applies to its own searches.
+    const controller = new AbortController();
     const load = async () => {
+      const cachedOptions = readSessionCache<StayOption[]>(cacheKey, 5 * 60_000);
+      if (cachedOptions) {
+        setOptions(cachedOptions);
+        setLoading(false);
+        return;
+      }
       try {
-        const cached = sessionStorage.getItem(cacheKey);
-        if (cached) {
-          const entry = JSON.parse(cached) as { savedAt?: number; options?: StayOption[] };
-          if (Array.isArray(entry.options) && Date.now() - (entry.savedAt ?? 0) < 5 * 60_000) {
-            if (!cancelled) setOptions(entry.options);
-            setLoading(false);
-            return;
-          }
-        }
-      } catch { /* storage is optional */ }
-      try {
-        const response = await fetch(`/api/trips/${tripId}/stays?${qs}`);
+        const response = await fetch(`/api/trips/${tripId}/stays?${qs}`, { signal: controller.signal });
         const body = await response.json() as { options?: StayOption[] };
-        if (!response.ok || cancelled) return;
+        if (!response.ok || controller.signal.aborted) return;
         const next = Array.isArray(body.options) ? body.options : [];
-        try { sessionStorage.setItem(cacheKey, JSON.stringify({ savedAt: Date.now(), options: next })); } catch { /* storage is optional */ }
+        writeSessionCache(cacheKey, next);
         setOptions(next);
-      } catch { /* alternatives are optional content */ }
-      if (!cancelled) setLoading(false);
+      } catch { /* alternatives are optional content, including a cancelled/aborted request */ }
+      if (!controller.signal.aborted) setLoading(false);
     };
     void load();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [tripId, location, checkin, checkout, adults]);
 
   const matched = useMemo(() => {
@@ -147,7 +147,7 @@ export function NearbyStays({
       </div>
 
       {loading ? (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2"><div className="h-28 animate-pulse rounded-2xl bg-muted" /><div className="h-28 animate-pulse rounded-2xl bg-muted" /></div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2"><Skeleton className="h-28" /><Skeleton className="h-28" /></div>
       ) : (
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {alternatives.map(({ option, distance, kind: optionKind }) => {

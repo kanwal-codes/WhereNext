@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTripData } from "@/components/TripDataProvider";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
+import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache";
 import { readStayDecision, type StayDecision, type StayDetails, type StayReview, type StayRoom } from "@/packages/contracts/stay";
 
 type State = "loading" | "ready" | "error";
@@ -46,18 +47,16 @@ export function useStayDetails(
     if (dates.checkout) qs.set("checkout", dates.checkout);
     if (dates.adults) qs.set("adults", String(dates.adults));
     if (dates.rooms) qs.set("rooms", String(dates.rooms));
-    // One fetch per hotel+dates per session — re-opening the same stay (or bouncing
-    // between the panel and the full page) shouldn't re-pull hotel/rooms/reviews.
+    // One fetch per hotel+dates per session — re-opening the same stay (or bouncing between the
+    // panel and the full page) shouldn't re-pull hotel/rooms/reviews. Same 5-minute TTL as the
+    // stay search caches (StaySurface, NearbyStays) — rates refresh server-side on that cadence.
     const cacheKey = `stay-details:${tripId}:${hotelId}:${qs.toString()}`;
-    try {
-      const cached = sessionStorage.getItem(cacheKey);
-      if (cached) {
-        const next = JSON.parse(cached) as Body;
-        setBody(next);
-        setState(next.hotel || next.rooms ? "ready" : "error");
-        return () => controller.abort();
-      }
-    } catch { /* unavailable or malformed cache */ }
+    const cachedBody = readSessionCache<Body>(cacheKey, 5 * 60_000);
+    if (cachedBody) {
+      setBody(cachedBody);
+      setState(cachedBody.hotel || cachedBody.rooms ? "ready" : "error");
+      return () => controller.abort();
+    }
     setState("loading");
     setBody(null);
     fetch(`/api/trips/${tripId}/stays/${encodeURIComponent(hotelId)}${qs.toString() ? `?${qs}` : ""}`, { signal: controller.signal })
@@ -66,7 +65,7 @@ export function useStayDetails(
         return r.json() as Promise<Body>;
       })
       .then((next) => {
-        try { sessionStorage.setItem(cacheKey, JSON.stringify(next)); } catch { /* ignore */ }
+        writeSessionCache(cacheKey, next);
         setBody(next);
         setState(next.hotel || next.rooms ? "ready" : "error");
       })

@@ -74,6 +74,23 @@ export default async function PublicTripPage({ params }: { params: Promise<{ slu
         </section>
       )}
 
+      {trip.stay && (
+        <section className="mt-8 overflow-hidden rounded-2xl border border-border bg-card">
+          {trip.stay.thumbnail && (
+            // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
+            <img src={trip.stay.thumbnail} alt={trip.stay.hotelName} width={640} height={200} className="h-40 w-full object-cover" />
+          )}
+          <div className="p-5">
+            <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Staying at</h2>
+            <p className="mt-1 font-display text-lg">{trip.stay.hotelName}</p>
+            <p className="text-sm text-muted-foreground">{trip.stay.roomName}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {fmt(trip.stay.checkin)} → {fmt(trip.stay.checkout)} · {trip.stay.nights} night{trip.stay.nights === 1 ? "" : "s"}
+            </p>
+          </div>
+        </section>
+      )}
+
       {trip.places.length > 0 && (
         <section className="mt-8">
           <h2 className="font-display text-lg">Saved places</h2>
@@ -88,7 +105,7 @@ export default async function PublicTripPage({ params }: { params: Promise<{ slu
         </section>
       )}
 
-      {days.length === 0 && trip.places.length === 0 && (
+      {days.length === 0 && trip.places.length === 0 && !trip.stay && (
         <p className="mt-8 text-sm text-muted-foreground">This trip doesn’t have an itinerary yet.</p>
       )}
 

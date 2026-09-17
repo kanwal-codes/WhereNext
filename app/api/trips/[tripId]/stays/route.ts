@@ -4,7 +4,7 @@ import { withRoute, fail } from "@/lib/server/with-route";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { liteApiConfigured, searchStays, type StaySearchInput } from "@/packages/providers/liteapi/client";
-import { resolveStayDates } from "@/lib/application/stay-dates";
+import { resolveStayDates, staysCacheKey } from "@/lib/application/stay-dates";
 import { resolveCurrency } from "@/lib/currency";
 import { cached } from "@/lib/server/ttl-cache";
 
@@ -43,7 +43,7 @@ export const GET = withRoute(async (request: Request, { params }: { params: Prom
       propertyTypes: strs(q.get("propertyTypes")),
     };
 
-    const key = `stays-tab:${location}:${checkin}:${checkout}:${adults}:${rooms}:${currency}:${JSON.stringify(filters)}`;
+    const key = staysCacheKey({ location, checkin, checkout, adults, rooms, currency, filters });
     const result = await cached(key, 5 * 60_000, async () => {
       const anchor = (await new GooglePlacesProvider().search(location, request.signal).catch(() => null))?.[0];
       const out = await searchStays(

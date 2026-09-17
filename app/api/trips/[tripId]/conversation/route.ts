@@ -14,11 +14,16 @@ function threadWriter() {
   }
 }
 
+// Matches the cap `loadTripWorkspace` already uses for this same thread's initial server-rendered
+// seed — this route re-fetches in the background for reconciliation (see ConversationSurface),
+// and had no limit at all, unlike every other caller of this repository's `list()`.
+const HISTORY_LIMIT = 200;
+
 export async function GET(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
     const { supabase, user } = await requireTripMember(tripId);
-    return NextResponse.json({ messages: await createConversationRepository(supabase, threadWriter()).list(tripId, user.id) });
+    return NextResponse.json({ messages: await createConversationRepository(supabase, threadWriter()).list(tripId, user.id, { limit: HISTORY_LIMIT }) });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Conversation unavailable");
   }

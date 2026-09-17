@@ -25,15 +25,14 @@ const selectRows = [
 ];
 
 function fakeSupabase() {
-  const deleteEq2 = vi.fn(async () => ({ error: null }));
-  const deleteEq1 = vi.fn(() => ({ eq: deleteEq2 }));
-  const insertSelect = vi.fn(async () => ({ data: [{ id: "r3", user_id: "u1", start_date: "2026-07-01", end_date: "2026-07-05" }], error: null }));
+  // PUT now replaces via the atomic replace_trip_date_availability RPC (0032 migration) instead
+  // of a separate delete + insert — see that migration's comment for why (a failure between the
+  // two used to leave the member with no availability at all).
+  const rpc = vi.fn(async () => ({ data: [{ id: "r3", user_id: "u1", start_date: "2026-07-01", end_date: "2026-07-05" }], error: null }));
   const table = {
     select: () => ({ eq: () => ({ order: async () => ({ data: selectRows, error: null }) }) }),
-    delete: () => ({ eq: deleteEq1 }),
-    insert: () => ({ select: insertSelect }),
   };
-  return { supabase: { from: () => table } as never };
+  return { supabase: { from: () => table, rpc } };
 }
 
 async function get() {
@@ -67,6 +66,25 @@ describe("PUT /api/trips/:tripId/availability", () => {
     const res = await put({ ranges: [{ startDate: "2026-07-01", endDate: "2026-07-05" }] });
     expect(res.status).toBe(200);
     expect((await res.json()).ranges).toEqual([{ id: "r3", userId: "u1", startDate: "2026-07-01", endDate: "2026-07-05" }]);
+  });
+
+  it("calls the atomic replace RPC with the trip, the caller's own user id, and the new ranges — not a separate delete + insert", async () => {
+    const { supabase } = fakeSupabase();
+    requireTripMemberMock.mockResolvedValue({ supabase, user: { id: "u1" }, role: "owner" });
+    await put({ ranges: [{ startDate: "2026-07-01", endDate: "2026-07-05" }] });
+    expect(supabase.rpc).toHaveBeenCalledWith("replace_trip_date_availability", {
+      p_trip_id: TRIP,
+      p_user_id: "u1",
+      p_ranges: [{ start_date: "2026-07-01", end_date: "2026-07-05" }],
+    });
+  });
+
+  it("surfaces a 5xx instead of silently succeeding when the replace RPC fails", async () => {
+    const table = { select: () => ({ eq: () => ({ order: async () => ({ data: selectRows, error: null }) }) }) };
+    const rpc = vi.fn(async () => ({ data: null, error: new Error("db down") }));
+    requireTripMemberMock.mockResolvedValue({ supabase: { from: () => table, rpc } as never, user: { id: "u1" }, role: "owner" });
+    const res = await put({ ranges: [{ startDate: "2026-07-01", endDate: "2026-07-05" }] });
+    expect(res.status).toBeGreaterThanOrEqual(500);
   });
 
   it("400 on an empty range list", async () => {
