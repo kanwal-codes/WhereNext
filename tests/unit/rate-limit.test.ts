@@ -66,3 +66,24 @@ describe("withinRateLimit — Upstash-backed", () => {
     expect(await fresh("k", 10, 1_000)).toBe(true);
   });
 });
+
+// Live-caught: this project's actual Vercel Redis integration exposes REDIS_KV_REST_API_URL/
+// _TOKEN, not UPSTASH_REDIS_REST_URL/_TOKEN — the rate limiter silently ran on the in-memory
+// fallback in production until this fallback name was added.
+describe("withinRateLimit — REDIS_KV_REST_API_* fallback naming", () => {
+  afterEach(() => {
+    delete process.env.REDIS_KV_REST_API_URL;
+    delete process.env.REDIS_KV_REST_API_TOKEN;
+  });
+
+  it("uses the Redis-backed path when only the REDIS_KV_REST_API_* names are set", async () => {
+    vi.resetModules();
+    process.env.REDIS_KV_REST_API_URL = "https://example.upstash.io";
+    process.env.REDIS_KV_REST_API_TOKEN = "token";
+    const { withinRateLimit: fresh } = await import("../../lib/server/rate-limit");
+    limitMock.mockResolvedValueOnce({ success: true }).mockResolvedValueOnce({ success: false });
+    expect(await fresh("k2", 10, 1_000)).toBe(true);
+    expect(await fresh("k2", 10, 1_000)).toBe(false);
+    expect(limitMock).toHaveBeenCalledWith("k2");
+  });
+});

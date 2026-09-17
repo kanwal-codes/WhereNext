@@ -4,10 +4,18 @@ import { Ratelimit } from "@upstash/ratelimit";
 /**
  * Fixed-window rate limiter — `limit` requests per `windowMs` per key. Upstash-backed (HTTP,
  * so no TCP connection / `lazyConnect` cold-start tax on serverless — a real fit for this
- * runtime, unlike a raw `ioredis` connection) when `UPSTASH_REDIS_REST_URL`/
- * `UPSTASH_REDIS_REST_TOKEN` are set (shared across instances); an in-process Map otherwise
- * (single-instance fallback, resets on deploy — acceptable here since this blunts scripted
- * abuse, it isn't a hard security boundary).
+ * runtime, unlike a raw `ioredis` connection) when a REST URL/token pair is available (shared
+ * across instances); an in-process Map otherwise (single-instance fallback, resets on deploy —
+ * acceptable here since this blunts scripted abuse, it isn't a hard security boundary).
+ *
+ * Live-caught: this only ever checked `UPSTASH_REDIS_REST_URL`/`_TOKEN`, but this project's
+ * actual Vercel Redis integration exposes `REDIS_KV_REST_API_URL`/`_TOKEN` instead — the names
+ * Vercel's own Marketplace Redis/KV integration has used at various points. Neither var was ever
+ * set under the name this file was looking for, so `client()` always returned null in production
+ * and every rate-limit check silently ran on the in-process fallback — meaningless protection
+ * across ephemeral, multi-instance serverless functions. Checking both naming conventions makes
+ * this resilient to whichever one is actually configured, without needing to know or copy the
+ * underlying secret value.
  */
 
 const memoryWindows = new Map<string, { count: number; resetAt: number }>();
@@ -16,8 +24,8 @@ const MAX_MEMORY_KEYS = 1024;
 let redis: Redis | null | undefined;
 function client(): Redis | null {
   if (redis !== undefined) return redis;
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.REDIS_KV_REST_API_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.REDIS_KV_REST_API_TOKEN;
   redis = url && token ? new Redis({ url, token }) : null;
   return redis;
 }
