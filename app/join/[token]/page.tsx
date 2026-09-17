@@ -46,13 +46,15 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   const admin = createSupabaseAdminClient();
   const invite = await admin
     .from("trip_invites")
-    .select("trip_id, accepted_at, expires_at, created_by, trips(name, destination)")
+    .select("trip_id, email, accepted_at, expires_at, created_by, trips(name, destination)")
     .eq("token", token)
     .maybeSingle()
     .then((r) => r.data, () => null);
 
   if (!invite) return <DeadInvite reason="This link doesn’t exist. Ask whoever sent it for a fresh one." />;
-  if (invite.accepted_at) return <DeadInvite reason="This link has already been used. Ask for a fresh one if you still need to join." />;
+  // A generic (no addressed email) link is meant to be reused by every friend who has it — only
+  // an invite sent to one specific email is single-use. See accept_trip_invite's own comment.
+  if (invite.email && invite.accepted_at) return <DeadInvite reason="This link has already been used. Ask for a fresh one if you still need to join." />;
   if (new Date(invite.expires_at) < new Date()) return <DeadInvite reason="This link has expired. Ask for a fresh one." />;
 
   const trip = invite.trips as unknown as { name: string; destination: string | null } | null;
