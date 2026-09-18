@@ -122,7 +122,7 @@ export async function retrieveEvidence(
     // made a real, reproducible google-places failure indistinguishable from "no results exist"
     // until this line existed — the only way to tell a 403 (key/IP restriction) from a 429
     // (quota) from a genuine empty result was to add this and wait for the next occurrence.
-    logger.warn({ provider: name, err: error instanceof Error ? error.message : String(error) }, "retrieve: provider call failed");
+    logger.warn({ provider: name, err: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined }, "retrieve: provider call failed");
     if (!unavailableProviders.includes(name)) unavailableProviders.push(name);
     return undefined;
   };
@@ -144,7 +144,17 @@ export async function retrieveEvidence(
     const key = name.trim().toLowerCase();
     const existing = geocodeCache.get(key);
     if (existing) return existing;
-    const promise = cached(`geocode:${key}`, 24 * 60 * 60_000, () =>
+    // "geocode-bias" (not the bare "geocode:" prefix) is deliberate: app/api/trips/[tripId]/
+    // geocode/route.ts and route-plan/route.ts both also cache under a "geocode:<name>" key for
+    // the exact same place strings, but store a `{lat, lng}` OBJECT — this function stores a
+    // `[lng, lat]` TUPLE. Sharing the prefix meant whichever wrote first "won" the key for 24h
+    // (up to 96h with this cache's stale-serve extension), and the other side's `point[1]`/
+    // `point[0]` silently read `undefined` off the wrong shape. Live-caught: the Browse map's
+    // geocode lookup for "Montreal, Canada" poisoned this key, and every @Roam search_places call
+    // for Montreal afterward crashed with "Cannot read properties of undefined (reading 'toFixed')"
+    // deep inside GooglePlacesProvider.search — caught only as a bare "google-places unavailable"
+    // until this cache write and the fix above.
+    const promise = cached(`geocode-bias:${key}`, 24 * 60 * 60_000, () =>
       new GooglePlacesProvider().search(name).then((hits) => {
         const first = hits?.[0];
         return first ? ([first.longitude, first.latitude] as [number, number]) : null;

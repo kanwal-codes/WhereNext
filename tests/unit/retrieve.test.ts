@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetProviderGuards } from "../../lib/server/provider-guard";
-import { clearMemoryCache } from "../../lib/server/ttl-cache";
+import { cached, clearMemoryCache } from "../../lib/server/ttl-cache";
 import { retrieveEvidence, cleanEventKeyword } from "../../lib/application/retrieve";
 
 describe("cleanEventKeyword", () => {
@@ -75,6 +75,28 @@ describe("retrieveEvidence", () => {
     const geocodeCall = bodies.find((b) => b.textQuery === "Montreal");
     const searchCall = bodies.find((b) => String(b.textQuery).includes("restaurants in Montreal"));
     expect(geocodeCall).toBeTruthy(); // ctx.geocode(call.location) ran
+    expect(searchCall?.locationBias).toEqual({ circle: { center: { latitude: 45.5, longitude: -73.6 }, radius: 20_000 } });
+  });
+
+  it("isn't poisoned by another feature's own \"geocode:<name>\" cache entry for the same place (live-caught, 2026-09-18)", async () => {
+    // app/api/trips/[tripId]/geocode/route.ts (the Browse map's center-point lookup) and
+    // route-plan/route.ts both cache under a bare "geocode:<name>" key too, but store a
+    // `{lat, lng}` OBJECT — this module's own geocode() stores a `[lng, lat]` TUPLE under
+    // "geocode-bias:<name>" specifically so the two can never collide. Simulate the old,
+    // pre-fix collision by seeding the shared "geocode:montreal" key with that other shape:
+    // if this module ever regresses back to the bare "geocode:" prefix, reading it back as a
+    // tuple crashes (`point[1]` on an object is `undefined`, then `.toFixed()` throws) exactly
+    // as it did in production.
+    await cached("geocode:montreal", 24 * 60 * 60_000, async () => ({ lng: -1, lat: -1 }));
+    process.env.GOOGLE_MAPS_API_KEY = "k";
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({
+      places: [{ id: "x", displayName: { text: "X" }, location: { latitude: 45.5, longitude: -73.6 } }],
+    }), { status: 200 })));
+    vi.stubGlobal("fetch", fetchMock);
+    const evidence = await retrieveEvidence([{ tool: "search_places", query: "restaurants", location: "Montreal" }]);
+    expect(evidence.unavailableProviders).toEqual([]);
+    const bodies = fetchMock.mock.calls.filter((c) => (c[1] as RequestInit)?.body).map((c) => JSON.parse(String((c[1] as RequestInit).body)));
+    const searchCall = bodies.find((b) => String(b.textQuery).includes("restaurants in Montreal"));
     expect(searchCall?.locationBias).toEqual({ circle: { center: { latitude: 45.5, longitude: -73.6 }, radius: 20_000 } });
   });
 
