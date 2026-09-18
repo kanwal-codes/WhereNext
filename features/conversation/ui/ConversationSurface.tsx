@@ -720,8 +720,8 @@ export function ConversationSurface({
                   aria-pressed={speech.listening}
                   disabled={!loaded || sending}
                   className={cn(
-                    "grid h-8 w-8 shrink-0 place-items-center rounded-full transition-colors disabled:opacity-35",
-                    speech.listening ? "bg-destructive/10 text-destructive" : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                    "grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-40",
+                    speech.listening ? "border-destructive/50 bg-destructive/10 text-destructive" : "border-border/60 text-muted-foreground hover:text-foreground",
                   )}
                 >
                   <Mic className={cn("h-4 w-4", speech.listening && "animate-pulse")} />
@@ -740,7 +740,7 @@ export function ConversationSurface({
                   type="submit"
                   aria-label="Send"
                   disabled={!loaded || !input.trim()}
-                  className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-35"
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-35"
                 >
                   <ArrowUp className="h-4 w-4" />
                 </button>

@@ -4,10 +4,11 @@ import { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, us
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowUp, CalendarRange, ListChecks, Plus, Reply, SmilePlus, X } from "lucide-react";
+import { ArrowUp, CalendarRange, ListChecks, Mic, Plus, Reply, SmilePlus, X } from "lucide-react";
 import { Sheet, Pressable } from "@/components/motion-primitives";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { useAutoGrowTextarea } from "@/lib/use-autogrow-textarea";
+import { useSpeechInput } from "@/lib/use-speech-input";
 import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanel, type EventSeed } from "@/components/TripPanelProvider";
 import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
@@ -132,6 +133,7 @@ export function GroupChatSurface({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const plusMenuRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const speechBaseRef = useRef("");
   const seenIdsRef = useRef<Set<string>>(new Set());
   // Guards against the server-side toggle race: a delete-then-insert isn't atomic, so two
   // near-simultaneous taps on the same (message, emoji) can both see "not reacted yet" and
@@ -268,6 +270,7 @@ export function GroupChatSurface({
   async function submit(raw: string) {
     const content = raw.trim();
     if (!content || sending) return;
+    if (speech.listening) speech.stop();
     setSending(true);
     setInput("");
     const idempotencyKey = crypto.randomUUID();
@@ -456,6 +459,15 @@ export function GroupChatSurface({
 
   const isMultiline = useAutoGrowTextarea(textareaRef, input);
 
+  // Dictation: transcript is appended after whatever was already typed when the mic started.
+  const speech = useSpeechInput({
+    onStart: () => {
+      speechBaseRef.current = input.trim() ? `${input.trim()} ` : "";
+    },
+    onResult: (text) => setInput(speechBaseRef.current + text),
+    onError: (message) => notifyToast(message, "error"),
+  });
+
   // The dropdown is portaled to <body> (below) so the pill's own `overflow-hidden` — needed for
   // its rounded shape — can't clip it; position it from the button's own rect instead of relying
   // on normal document flow. Opens upward, unconditionally: this composer only ever sits at the
@@ -496,8 +508,8 @@ export function GroupChatSurface({
         onClick={() => setPlusMenuOpen((current) => !current)}
         disabled={!loaded}
         className={cn(
-          "grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40",
-          plusMenuOpen && "bg-accent text-foreground",
+          "grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-40",
+          plusMenuOpen ? "border-input bg-accent text-foreground" : "border-border/60 text-muted-foreground hover:text-foreground",
         )}
       >
         <Plus className={cn("h-4 w-4 transition-transform", plusMenuOpen && "rotate-45")} />
@@ -505,12 +517,28 @@ export function GroupChatSurface({
     </div>
   );
 
+  const micButton = speech.supported && (
+    <button
+      type="button"
+      onClick={speech.toggle}
+      aria-label={speech.listening ? "Stop dictation" : "Dictate your message"}
+      aria-pressed={speech.listening}
+      disabled={!loaded || sending}
+      className={cn(
+        "grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-40",
+        speech.listening ? "border-destructive/50 bg-destructive/10 text-destructive" : "border-border/60 text-muted-foreground hover:text-foreground",
+      )}
+    >
+      <Mic className={cn("h-4 w-4", speech.listening && "animate-pulse")} />
+    </button>
+  );
+
   const sendButton = (
     <button
       type="submit"
       aria-label="Send"
       disabled={!loaded || !input.trim()}
-      className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-primary to-primary/85 text-primary-foreground shadow-sm transition-opacity disabled:opacity-35"
+      className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-primary to-primary/85 text-primary-foreground shadow-sm transition-opacity disabled:opacity-35"
     >
       <ArrowUp className="h-4 w-4" />
     </button>
@@ -544,7 +572,7 @@ export function GroupChatSurface({
             void submit(input);
           }
         }}
-        placeholder={!loaded ? "Loading…" : "Message the group — try @Roam…"}
+        placeholder={!loaded ? "Loading…" : speech.listening ? "Listening…" : "Message the group — try @Roam…"}
         disabled={!loaded}
         className="max-h-[88px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent px-1 py-1 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
       />
@@ -951,13 +979,17 @@ export function GroupChatSurface({
                 {messageTextarea}
                 <div className="flex items-center justify-between gap-1.5">
                   {plusButton}
-                  {sendButton}
+                  <div className="flex items-center gap-1">
+                    {micButton}
+                    {sendButton}
+                  </div>
                 </div>
               </>
             ) : (
               <>
                 {plusButton}
                 <div className="min-w-0 flex-1">{messageTextarea}</div>
+                {micButton}
                 {sendButton}
               </>
             )}
