@@ -3,8 +3,9 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowUp, CalendarRange, ListChecks, Reply, SmilePlus, X } from "lucide-react";
+import { ArrowUp, CalendarRange, ListChecks, Plus, Reply, SmilePlus, X } from "lucide-react";
 import { Sheet, Pressable } from "@/components/motion-primitives";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanel, type EventSeed } from "@/components/TripPanelProvider";
 import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
@@ -109,6 +110,12 @@ export function GroupChatSurface({
   const [pressingId, setPressingId] = useState<string | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<{ id: string; preview: string } | null>(null);
+  // md breakpoint (tablet and up) — a full-screen-width bottom sheet reads fine on a phone but
+  // looks disconnected from the small "+" trigger on a wider screen, where a compact, centered
+  // dialog box (Sheet's own "center" mode — already used for TripsHome's delete-trip confirm)
+  // is the better fit.
+  const desktop = useMediaQuery("(min-width: 768px)");
+  const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [pollSheetOpen, setPollSheetOpen] = useState(false);
   const [pollQuestion, setPollQuestion] = useState("");
   const [pollOptions, setPollOptions] = useState(["", ""]);
@@ -120,6 +127,7 @@ export function GroupChatSurface({
   const [pendingRoamIds, setPendingRoamIds] = useState<Set<string>>(new Set());
   const logRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const plusMenuRef = useRef<HTMLDivElement>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
   // Guards against the server-side toggle race: a delete-then-insert isn't atomic, so two
   // near-simultaneous taps on the same (message, emoji) can both see "not reacted yet" and
@@ -442,6 +450,20 @@ export function GroupChatSurface({
     setInput((current) => current.replace(/@r?o?a?m?$/i, "@Roam "));
   }
 
+  useEffect(() => {
+    if (!plusMenuOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (!plusMenuRef.current?.contains(e.target as Node)) setPlusMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setPlusMenuOpen(false);
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [plusMenuOpen]);
+
   return (
     <div className="relative flex h-full min-h-0 w-full max-w-full flex-col overflow-x-hidden">
       {/* `overscroll-contain` — see the identical comment in ConversationSurface.tsx: keeps the
@@ -495,36 +517,42 @@ export function GroupChatSurface({
               return (
                 <div key={message.id}>
                   {divider}
-                  <div className="mx-auto w-full max-w-sm rounded-2xl border border-border bg-card p-4 shadow-soft">
-                    <p className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-                      <ListChecks className="h-3.5 w-3.5" /> {name} started a poll
+                  {/* Same template language as Roam's own structured blocks (Budget's per-category
+                      rows especially): a bordered header, divide-y rows inside one continuous
+                      card, and a thin rounded-full track+fill bar per row — not a separate pill
+                      per option, which was this card's own invented pattern before. */}
+                  <div className="mx-auto w-full max-w-sm overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
+                    <p className="flex flex-wrap items-center gap-1.5 border-b border-border/60 px-4 pt-3.5 pb-2.5 font-display text-sm">
+                      <ListChecks className="h-3.5 w-3.5 shrink-0 text-coral" />
+                      <span className="min-w-0">{message.content}</span>
+                      <span className="ml-auto shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">{name}</span>
                     </p>
-                    <p className="mt-1.5 font-display text-base">{message.content}</p>
                     {poll && (
-                      <div className="mt-3 space-y-1.5">
-                        {poll.options.map((option) => {
-                          const pct = poll.totalVotes > 0 ? Math.round((option.count / poll.totalVotes) * 100) : 0;
-                          return (
-                            <button
-                              key={option.key}
-                              type="button"
-                              disabled={pendingVoteFor === poll.id}
-                              onClick={() => void castVote(message.id, poll.id, option.key)}
-                              className={cn(
-                                "relative w-full overflow-hidden rounded-xl border px-3 py-2 text-left text-sm transition-colors disabled:opacity-70",
-                                option.mine ? "border-primary bg-primary/5" : "border-border hover:bg-accent",
-                              )}
-                            >
-                              <span className="absolute inset-y-0 left-0 bg-primary/10" style={{ width: `${pct}%` }} aria-hidden="true" />
-                              <span className="relative flex items-center justify-between gap-2">
-                                <span className={cn("truncate", option.mine && "font-medium text-primary")}>{option.label}</span>
-                                <span className="shrink-0 tabular-nums text-xs text-muted-foreground">{option.count} · {pct}%</span>
-                              </span>
-                            </button>
-                          );
-                        })}
-                        <p className="pt-1 text-[11px] text-muted-foreground">{poll.totalVotes} vote{poll.totalVotes === 1 ? "" : "s"}</p>
-                      </div>
+                      <>
+                        <div className="divide-y divide-border/60">
+                          {poll.options.map((option) => {
+                            const pct = poll.totalVotes > 0 ? Math.round((option.count / poll.totalVotes) * 100) : 0;
+                            return (
+                              <button
+                                key={option.key}
+                                type="button"
+                                disabled={pendingVoteFor === poll.id}
+                                onClick={() => void castVote(message.id, poll.id, option.key)}
+                                className="block w-full px-4 py-2.5 text-left transition-colors hover:bg-accent disabled:opacity-70"
+                              >
+                                <div className="flex items-baseline justify-between gap-3">
+                                  <span className={cn("truncate text-sm", option.mine ? "font-semibold text-primary" : "font-medium")}>{option.label}</span>
+                                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{option.count} · {pct}%</span>
+                                </div>
+                                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+                                  <div className={cn("h-full rounded-full transition-[width] duration-500 ease-out", option.mine ? "bg-primary" : "bg-primary/40")} style={{ width: `${pct}%` }} />
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <p className="border-t border-border/60 px-4 py-2 text-[11px] text-muted-foreground">{poll.totalVotes} vote{poll.totalVotes === 1 ? "" : "s"}</p>
+                      </>
                     )}
                   </div>
                 </div>
@@ -738,7 +766,7 @@ export function GroupChatSurface({
         </div>
       </Sheet>
 
-      <Sheet open={pollSheetOpen} onClose={() => (pollSaving ? undefined : setPollSheetOpen(false))} ariaLabel="Start a poll" side="bottom">
+      <Sheet open={pollSheetOpen} onClose={() => (pollSaving ? undefined : setPollSheetOpen(false))} ariaLabel="Start a poll" side={desktop ? "center" : "bottom"}>
         <div className="px-5 pt-1 pb-6">
           <p className="mb-3 text-sm font-medium">Start a poll</p>
           <input
@@ -818,23 +846,53 @@ export function GroupChatSurface({
               </button>
             </div>
           )}
-          <form
-            onSubmit={(event: FormEvent) => {
-              event.preventDefault();
-              void submit(input);
-            }}
-            className="flex w-full items-end gap-1.5 overflow-hidden rounded-full border border-input bg-card px-2.5 py-2 shadow-lift transition-shadow focus-within:shadow-xl focus-within:ring-2 focus-within:ring-ring/25 sm:gap-2 sm:px-3.5"
-          >
-            <button
-              type="button"
-              aria-label="Start a poll"
-              title="Start a poll"
-              onClick={() => setPollSheetOpen(true)}
-              disabled={!loaded}
-              className="mb-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
+          <div className="flex w-full items-end gap-1.5">
+            {/* Outside the form's own overflow-hidden pill on purpose — its dropdown is
+                absolutely positioned relative to this button, and a hidden overflow on an
+                ancestor would clip it. Opens upward, unconditionally: this composer only ever
+                sits at the bottom of the screen, so there's never a "not enough room below"
+                case to detect the way a floating menu elsewhere in the app has to. */}
+            <div ref={plusMenuRef} className="relative">
+              <button
+                type="button"
+                aria-label="Add to the chat"
+                aria-expanded={plusMenuOpen}
+                title="Add"
+                onClick={() => setPlusMenuOpen((current) => !current)}
+                disabled={!loaded}
+                className={cn(
+                  "mb-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full border border-input bg-card text-muted-foreground shadow-lift transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40",
+                  plusMenuOpen && "bg-accent text-foreground",
+                )}
+              >
+                <Plus className={cn("h-4 w-4 transition-transform", plusMenuOpen && "rotate-45")} />
+              </button>
+              {plusMenuOpen && (
+                <div
+                  role="menu"
+                  className="absolute bottom-full left-0 z-20 mb-2 w-44 overflow-hidden rounded-2xl border border-border bg-card py-1 shadow-lift"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setPlusMenuOpen(false);
+                      setPollSheetOpen(true);
+                    }}
+                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm transition-colors hover:bg-accent"
+                  >
+                    <ListChecks className="h-4 w-4 text-coral" /> Poll
+                  </button>
+                </div>
+              )}
+            </div>
+            <form
+              onSubmit={(event: FormEvent) => {
+                event.preventDefault();
+                void submit(input);
+              }}
+              className="flex w-0 min-w-0 flex-1 items-end gap-1.5 overflow-hidden rounded-full border border-input bg-card px-2.5 py-2 shadow-lift transition-shadow focus-within:shadow-xl focus-within:ring-2 focus-within:ring-ring/25 sm:gap-2 sm:px-3.5"
             >
-              <ListChecks className="h-4 w-4" />
-            </button>
             <div className="relative w-0 min-w-0 flex-1">
               {/* Ghost completion — sits behind the (transparent-background) textarea, so the
                   real typed text visually covers its invisible spacer span and only the
@@ -875,7 +933,8 @@ export function GroupChatSurface({
             >
               <ArrowUp className="h-4 w-4" />
             </button>
-          </form>
+            </form>
+          </div>
         </div>
       </div>
     </div>
