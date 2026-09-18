@@ -184,13 +184,13 @@ export function GroupChatSurface({
     const log = logRef.current;
     if (!log) return;
     // Scroll the log itself to its true max, not `endRef.scrollIntoView({block:"end"})` — that
-    // aligned `endRef`'s position (right after the last message, BEFORE the `pb-20` clearance
-    // below it) with the container's bottom edge, so the reserved 80px gap sat scrolled past,
+    // aligned `endRef`'s position (right after the last message, BEFORE the `pb-28` clearance
+    // below it) with the container's bottom edge, so the reserved 112px gap sat scrolled past,
     // off-screen, doing nothing — the last message landed flush with the container's bottom
     // edge instead, exactly where the floating composer overlay sits on top of it. Live-caught:
     // the latest message ended up hidden behind the composer both on initial load and right
     // after sending. Scrolling the container to `scrollHeight` instead lands on the true
-    // bottom, which correctly includes the `pb-20` padding as visible trailing space above the
+    // bottom, which correctly includes the `pb-28` padding as visible trailing space above the
     // composer. See the identical fix + longer explanation in ConversationSurface.tsx.
     const jump = () => log.scrollTo({ top: log.scrollHeight, behavior: "smooth" });
     jump();
@@ -492,7 +492,7 @@ export function GroupChatSurface({
           rubber-band bounce at the top/bottom confined to this log instead of chaining into the
           page. */}
       <div ref={logRef} onScroll={onLogScroll} className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim">
-        <div className="mx-auto w-full max-w-2xl space-y-1 pt-3 pb-20">
+        <div className="mx-auto w-full max-w-2xl space-y-1 pt-3 pb-28">
           {!loaded && (
             <div aria-hidden className="space-y-5">
               <div className="h-9 w-40 animate-pulse rounded-2xl rounded-br-lg bg-muted" />
@@ -873,22 +873,67 @@ export function GroupChatSurface({
               event.preventDefault();
               void submit(input);
             }}
-            className="flex w-full items-end gap-1.5 overflow-hidden rounded-full border border-input bg-card px-2.5 py-2 shadow-lift transition-shadow focus-within:shadow-xl focus-within:ring-2 focus-within:ring-ring/25 sm:gap-2 sm:px-3.5"
+            className="flex w-full flex-col gap-1 overflow-hidden rounded-3xl border border-input bg-card px-3 py-2 shadow-lift transition-shadow focus-within:shadow-xl focus-within:ring-2 focus-within:ring-ring/25"
           >
-            <div ref={plusMenuRef} className="shrink-0">
-              <button
-                type="button"
-                aria-label="Add to the chat"
-                aria-expanded={plusMenuOpen}
-                title="Add"
-                onClick={() => setPlusMenuOpen((current) => !current)}
+            <div className="relative w-full">
+              {/* Ghost completion — sits behind the (transparent-background) textarea, so the
+                  real typed text visually covers its invisible spacer span and only the
+                  suggested remainder ("oam", "am", "m", ...) shows through in muted gray. */}
+              {mentionGhost && (
+                <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden text-sm leading-relaxed break-words whitespace-pre-wrap px-1 py-1">
+                  <span className="invisible">{input}</span>
+                  <span className="text-muted-foreground">{mentionGhost}</span>
+                </div>
+              )}
+              <textarea
+                ref={textareaRef}
+                aria-label="Message the group"
+                rows={1}
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Tab" && mentionActive) {
+                    event.preventDefault();
+                    insertRoamMention();
+                    return;
+                  }
+                  if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) {
+                    event.preventDefault();
+                    void submit(input);
+                  }
+                }}
+                placeholder={!loaded ? "Loading…" : "Message the group — try @Roam…"}
                 disabled={!loaded}
-                className={cn(
-                  "mb-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full border border-input text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40",
-                  plusMenuOpen && "bg-accent text-foreground",
-                )}
+                className="max-h-[88px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent px-1 py-1 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
+              />
+            </div>
+            {/* A fixed row below the growing text, not inline beside it — so the buttons sit in
+                exactly the same spot whether the composer holds one line or three, instead of
+                drifting as the textarea grows. */}
+            <div className="flex items-center justify-between gap-1.5">
+              <div ref={plusMenuRef} className="shrink-0">
+                <button
+                  type="button"
+                  aria-label="Add to the chat"
+                  aria-expanded={plusMenuOpen}
+                  title="Add"
+                  onClick={() => setPlusMenuOpen((current) => !current)}
+                  disabled={!loaded}
+                  className={cn(
+                    "grid h-8 w-8 shrink-0 place-items-center rounded-full border border-input text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40",
+                    plusMenuOpen && "bg-accent text-foreground",
+                  )}
+                >
+                  <Plus className={cn("h-4 w-4 transition-transform", plusMenuOpen && "rotate-45")} />
+                </button>
+              </div>
+              <button
+                type="submit"
+                aria-label="Send"
+                disabled={!loaded || !input.trim()}
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-primary to-primary/85 text-primary-foreground shadow-sm transition-opacity disabled:opacity-35"
               >
-                <Plus className={cn("h-4 w-4 transition-transform", plusMenuOpen && "rotate-45")} />
+                <ArrowUp className="h-4 w-4" />
               </button>
             </div>
             {/* Portaled to <body> — the pill's own `overflow-hidden` (needed for its rounded
@@ -917,46 +962,6 @@ export function GroupChatSurface({
                 ),
                 document.body,
               )}
-            <div className="relative w-0 min-w-0 flex-1">
-              {/* Ghost completion — sits behind the (transparent-background) textarea, so the
-                  real typed text visually covers its invisible spacer span and only the
-                  suggested remainder ("oam", "am", "m", ...) shows through in muted gray. */}
-              {mentionGhost && (
-                <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden text-sm leading-relaxed break-words whitespace-pre-wrap px-1.5 py-2">
-                  <span className="invisible">{input}</span>
-                  <span className="text-muted-foreground">{mentionGhost}</span>
-                </div>
-              )}
-              <textarea
-                ref={textareaRef}
-                aria-label="Message the group"
-                rows={1}
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Tab" && mentionActive) {
-                    event.preventDefault();
-                    insertRoamMention();
-                    return;
-                  }
-                  if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) {
-                    event.preventDefault();
-                    void submit(input);
-                  }
-                }}
-                placeholder={!loaded ? "Loading…" : "Message the group — try @Roam…"}
-                disabled={!loaded}
-                className="max-h-[88px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent px-1.5 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
-              />
-            </div>
-            <button
-              type="submit"
-              aria-label="Send"
-              disabled={!loaded || !input.trim()}
-              className="mb-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-primary to-primary/85 text-primary-foreground shadow-sm transition-opacity disabled:opacity-35"
-            >
-              <ArrowUp className="h-4 w-4" />
-            </button>
           </form>
         </div>
       </div>

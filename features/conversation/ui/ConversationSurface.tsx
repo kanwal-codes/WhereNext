@@ -326,12 +326,12 @@ export function ConversationSurface({
     if (!log) return;
     // Scroll the log itself to its true max, not `endRef.scrollIntoView({block:"end"})` — that
     // aligned `endRef`'s position (right after the last message/followup chips, BEFORE the
-    // `pb-20` clearance below it) with the container's bottom edge, so the reserved 80px gap
+    // `pb-28` clearance below it) with the container's bottom edge, so the reserved 112px gap
     // sat scrolled past, off-screen, doing nothing — the last message/card/suggestion landed
     // flush with the container's bottom edge instead, exactly where the floating composer
     // overlay sits on top of it. Live-caught: a fresh reply's follow-up chips ended up hidden
     // behind the composer both on initial load and right after sending. Scrolling the container
-    // to `scrollHeight` instead lands on the true bottom, which correctly includes the `pb-20`
+    // to `scrollHeight` instead lands on the true bottom, which correctly includes the `pb-28`
     // padding as visible trailing space above the composer.
     log.scrollTo({ top: log.scrollHeight, behavior: "smooth" });
   }, []);
@@ -522,7 +522,7 @@ export function ConversationSurface({
           log — the rubber-band should feel self-contained here, the same way a native app's
           message list never drags the rest of the screen along with it. */}
       <div ref={logRef} onScroll={onLogScroll} className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim">
-        <div className={cn("mx-auto w-full max-w-full space-y-6 pt-2 pb-20", rail ? "px-1" : "max-w-2xl")}>
+        <div className={cn("mx-auto w-full max-w-full space-y-6 pt-2 pb-28", rail ? "px-1" : "max-w-2xl")}>
           {!loaded && messages.length === 0 && (
             <div aria-hidden className="space-y-6">
               <div className="flex justify-end">
@@ -683,7 +683,7 @@ export function ConversationSurface({
               event.preventDefault();
               void submit(input);
             }}
-            className="flex w-full min-w-0 max-w-full items-end gap-1.5 overflow-hidden rounded-full border border-input bg-card px-2.5 py-2 shadow-lift focus-within:ring-2 focus-within:ring-ring/25 sm:gap-2 sm:px-3.5"
+            className="flex w-full min-w-0 max-w-full flex-col gap-1 rounded-3xl border border-input bg-card px-3 py-2 shadow-lift focus-within:ring-2 focus-within:ring-ring/25"
           >
             <textarea
               ref={textareaRef}
@@ -701,43 +701,48 @@ export function ConversationSurface({
               }}
               placeholder={!loaded ? "Loading…" : speech.listening ? "Listening…" : sending ? "Type your next message…" : "Ask about your trip…"}
               disabled={!loaded}
-              className="max-h-[88px] w-0 min-w-0 flex-1 resize-none overflow-y-auto scrollbar-slim bg-transparent px-1.5 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
+              className="max-h-[88px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent px-1 py-1 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
             />
-            {speech.supported && (
-              <button
-                type="button"
-                onClick={speech.toggle}
-                aria-label={speech.listening ? "Stop dictation" : "Dictate your message"}
-                aria-pressed={speech.listening}
-                disabled={!loaded || sending}
-                className={cn(
-                  "mb-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-35",
-                  speech.listening
-                    ? "border-destructive/50 bg-destructive/10 text-destructive"
-                    : "border-border text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <Mic className={cn("h-4 w-4", speech.listening && "animate-pulse")} />
-              </button>
-            )}
-            {sending ? (
-              <button
-                type="button"
-                onClick={stop}
-                className="mb-0.5 shrink-0 rounded-full border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive"
-              >
-                Stop
-              </button>
-            ) : (
-              <button
-                type="submit"
-                aria-label="Send"
-                disabled={!loaded || !input.trim()}
-                className="mb-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-35"
-              >
-                <ArrowUp className="h-4 w-4" />
-              </button>
-            )}
+            {/* A fixed row below the growing text, not inline beside it — so the buttons sit in
+                exactly the same spot whether the composer holds one line or three, instead of
+                drifting as the textarea grows. */}
+            <div className="flex items-center justify-end gap-1.5">
+              {speech.supported && (
+                <button
+                  type="button"
+                  onClick={speech.toggle}
+                  aria-label={speech.listening ? "Stop dictation" : "Dictate your message"}
+                  aria-pressed={speech.listening}
+                  disabled={!loaded || sending}
+                  className={cn(
+                    "grid h-8 w-8 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-35",
+                    speech.listening
+                      ? "border-destructive/50 bg-destructive/10 text-destructive"
+                      : "border-border text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Mic className={cn("h-4 w-4", speech.listening && "animate-pulse")} />
+                </button>
+              )}
+              {sending ? (
+                <button
+                  type="button"
+                  onClick={stop}
+                  className="shrink-0 rounded-full border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive"
+                >
+                  Stop
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  aria-label="Send"
+                  disabled={!loaded || !input.trim()}
+                  className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-35"
+                >
+                  <ArrowUp className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </form>
         </div>
       </div>
