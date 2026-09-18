@@ -515,6 +515,41 @@ export function ConversationSurface({
   const showHero = loaded && messages.length === 0 && !rail;
   const waiting = sending && messages[messages.length - 1]?.content.trim() === "";
 
+  const micButton = speech.supported && (
+    <button
+      type="button"
+      onClick={speech.toggle}
+      aria-label={speech.listening ? "Stop dictation" : "Dictate your message"}
+      aria-pressed={speech.listening}
+      disabled={!loaded || sending}
+      className={cn(
+        "pointer-events-auto grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-40",
+        speech.listening ? "border-destructive/50 bg-destructive/10 text-destructive" : "border-border/60 text-muted-foreground hover:text-foreground",
+      )}
+    >
+      <Mic className={cn("h-4 w-4", speech.listening && "animate-pulse")} />
+    </button>
+  );
+
+  const sendOrStopButton = sending ? (
+    <button
+      type="button"
+      onClick={stop}
+      className="pointer-events-auto shrink-0 rounded-full border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive"
+    >
+      Stop
+    </button>
+  ) : (
+    <button
+      type="submit"
+      aria-label="Send"
+      disabled={!loaded || !input.trim()}
+      className="pointer-events-auto grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-35"
+    >
+      <ArrowUp className="h-4 w-4" />
+    </button>
+  );
+
   return (
     <div className="relative flex h-full min-h-0 w-full max-w-full flex-col overflow-x-hidden">
       {/* `overscroll-contain`: without it, running out of content to scroll at the top/bottom
@@ -683,15 +718,21 @@ export function ConversationSurface({
               event.preventDefault();
               void submit(input);
             }}
-            className={cn(
-              "flex w-full min-w-0 max-w-full gap-1.5 rounded-3xl border border-input bg-card px-3 py-2 shadow-lift focus-within:ring-2 focus-within:ring-ring/25",
-              // One inline row for a single line of text — text and buttons share the same
-              // baseline, like any plain search bar. Once it wraps, the buttons drop to a fixed
-              // row below the (now multi-line) text instead of drifting up with it.
-              isMultiline ? "flex-col" : "flex-row items-center",
-            )}
+            className="flex w-full min-w-0 max-w-full flex-col gap-1 rounded-3xl border border-input bg-card px-3 py-2 shadow-lift focus-within:ring-2 focus-within:ring-ring/25"
           >
-            <div className={isMultiline ? "w-full" : "min-w-0 flex-1"}>
+            {/* The buttons overlay this box (single line) or sit in their own row below it
+                (multiple lines) — see the matching comment on GroupChatSurface's identical
+                pattern for why: switching which JSX branch renders the TEXTAREA itself (not just
+                the buttons around it) used to tear the DOM node down and rebuild it on every line
+                wrap, dropping focus and the cursor mid-keystroke — live-caught as "the box grows
+                but I can't type on the new line until I press Enter again," and the padding
+                below is reserved unconditionally (not just while the overlay is showing) so the
+                text's own wrapping width never changes between the two layouts — letting it
+                change was a second bug, where text that wrapped to 2 lines at the narrower width
+                could fit back on 1 at the wider one, flipping the layout back, narrowing it
+                again, wrapping again — the "gets stuck and won't shrink back down" the box
+                never actually settled at. */}
+            <div className="relative w-full">
               <textarea
                 ref={textareaRef}
                 aria-label="Message"
@@ -708,44 +749,21 @@ export function ConversationSurface({
                 }}
                 placeholder={!loaded ? "Loading…" : speech.listening ? "Listening…" : sending ? "Type your next message…" : "Ask about your trip…"}
                 disabled={!loaded}
-                className="max-h-[88px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent px-1 py-1 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
+                className="max-h-[88px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent py-1 pr-28 text-sm leading-relaxed outline-none transition-[height] duration-150 ease-out placeholder:text-muted-foreground disabled:opacity-60"
               />
-            </div>
-            <div className={cn("flex items-center gap-1", isMultiline ? "justify-end" : "shrink-0")}>
-              {speech.supported && (
-                <button
-                  type="button"
-                  onClick={speech.toggle}
-                  aria-label={speech.listening ? "Stop dictation" : "Dictate your message"}
-                  aria-pressed={speech.listening}
-                  disabled={!loaded || sending}
-                  className={cn(
-                    "grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-40",
-                    speech.listening ? "border-destructive/50 bg-destructive/10 text-destructive" : "border-border/60 text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <Mic className={cn("h-4 w-4", speech.listening && "animate-pulse")} />
-                </button>
-              )}
-              {sending ? (
-                <button
-                  type="button"
-                  onClick={stop}
-                  className="shrink-0 rounded-full border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive"
-                >
-                  Stop
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  aria-label="Send"
-                  disabled={!loaded || !input.trim()}
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-35"
-                >
-                  <ArrowUp className="h-4 w-4" />
-                </button>
+              {!isMultiline && (
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center gap-1">
+                  {micButton}
+                  {sendOrStopButton}
+                </div>
               )}
             </div>
+            {isMultiline && (
+              <div className="flex items-center justify-end gap-1">
+                {micButton}
+                {sendOrStopButton}
+              </div>
+            )}
           </form>
         </div>
       </div>

@@ -12,23 +12,38 @@ export const COMPOSER_TEXTAREA_MAX_HEIGHT = 88;
  *  value change and whenever the textarea's own width changes (a side panel opening/closing,
  *  a viewport rotation reflows the wrapped text without the value itself changing).
  *
- *  Returns whether the box has actually wrapped past its first line — a composer's caller uses
- *  this to switch its buttons from sitting inline beside a single line of text to a fixed row
- *  below several, the same reflow a growing message composer elsewhere already does. */
-export function useAutoGrowTextarea(ref: RefObject<HTMLTextAreaElement | null>, value: string, maxHeightPx: number = COMPOSER_TEXTAREA_MAX_HEIGHT) {
+ *  Returns whether the box has wrapped past its first line — a composer uses this to switch its
+ *  buttons from sitting inline beside a single line of text to a fixed row below several.
+ *
+ *  Pass `mirrorRef` when that switch itself changes the textarea's OWN available width (e.g. its
+ *  side padding shrinks once the buttons move out of the way) — point it at a hidden element
+ *  permanently pinned to the single-line width, and the flip is decided from that instead of the
+ *  real textarea. Without it in that situation, the decision would feed back on itself: growing
+ *  the available width could let the very same text re-fit on one line, flipping back, narrowing
+ *  the width again, wrapping it again — an infinite oscillation live-caught as a box that
+ *  "gets stuck and won't shrink back down." Omit it when the textarea's width stays constant
+ *  across the switch (that alone already prevents the loop). */
+export function useAutoGrowTextarea(
+  ref: RefObject<HTMLTextAreaElement | null>,
+  value: string,
+  maxHeightPx: number = COMPOSER_TEXTAREA_MAX_HEIGHT,
+  mirrorRef?: RefObject<HTMLElement | null>,
+) {
   const [isMultiline, setIsMultiline] = useState(false);
   // Measured once, from the first (empty, one-line) layout — the yardstick every later
-  // scrollHeight is compared against to decide whether the text has actually wrapped.
+  // measurement is compared against to decide whether the text has actually wrapped.
   const singleLineHeight = useRef<number | null>(null);
 
   const resize = useCallback(() => {
     const el = ref.current;
     if (!el) return;
     el.style.height = "auto";
-    if (singleLineHeight.current == null) singleLineHeight.current = el.scrollHeight;
     el.style.height = `${Math.min(el.scrollHeight, maxHeightPx)}px`;
-    setIsMultiline(el.scrollHeight > singleLineHeight.current + 1);
-  }, [ref, maxHeightPx]);
+
+    const measured = mirrorRef?.current?.scrollHeight ?? el.scrollHeight;
+    if (singleLineHeight.current == null) singleLineHeight.current = measured;
+    setIsMultiline(measured > singleLineHeight.current + 1);
+  }, [ref, mirrorRef, maxHeightPx]);
 
   useEffect(() => resize(), [value, resize]);
 
