@@ -18,4 +18,14 @@ export type TripExpense = {
   createdAt: string;
 };
 
-export type SplitwiseBalance = { fromUserId: number; toUserId: number; amount: string; currency: string };
+export type SplitwiseBalance = {
+  fromUserId: number;
+  toUserId: number;
+  amount: string;
+  currency: string;
+  /** Resolved trip-member display names — "You" when the viewer is that side of the debt.
+   *  Falls back to "Someone" only if the Splitwise id can't be matched to a connected member
+   *  (e.g. someone added directly on Splitwise, outside this app). */
+  fromName: string;
+  toName: string;
+};

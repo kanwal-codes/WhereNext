@@ -123,8 +123,10 @@ export function ExpensesPanel({ tripId, defaultCurrency }: { tripId: string; def
           <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">Who owes what</p>
           <ul className="mt-2 space-y-1 text-sm">
             {state.balances.map((b, i) => (
-              <li key={i} className="tabular-nums">
-                {formatMoney(Number(b.amount), b.currency)} owed
+              <li key={i}>
+                <span className="font-medium text-foreground">{b.fromName}</span> owes{" "}
+                <span className="font-medium text-foreground">{b.toName}</span>{" "}
+                <span className="tabular-nums">{formatMoney(Number(b.amount), b.currency)}</span>
               </li>
             ))}
           </ul>

@@ -38,10 +38,29 @@ export async function GET(_: Request, { params }: { params: Promise<{ tripId: st
 
     let balances: SplitwiseBalance[] | null = null;
     if (groupId && accessToken) {
-      balances = await getGroupBalances(accessToken, groupId).catch((error: unknown) => {
+      const debts = await getGroupBalances(accessToken, groupId).catch((error: unknown) => {
         logger.warn({ err: error, tripId }, "failed to load live splitwise balances");
         return null;
       });
+      if (debts) {
+        // getGroupBalances only ever returns Splitwise's OWN numeric user ids ("from": 123,
+        // "to": 456) — live-caught: the panel rendered these as a bare "$42.00 owed" with no
+        // name attached, because nothing resolved them back to a trip member. splitwise_accounts
+        // is RLS-locked to each user's own row, so a security-definer RPC (mirroring
+        // trip_splitwise_connection_status) is the only way to read every connected member's
+        // mapping from here.
+        const [idRows, identities] = await Promise.all([
+          supabase.rpc("trip_splitwise_user_ids", { target_trip_id: tripId }),
+          tripMemberIdentities(tripId),
+        ]);
+        if (idRows.error) throw idRows.error;
+        const nameFor = new Map(
+          ((idRows.data ?? []) as Array<{ user_id: string; splitwise_user_id: string }>).map(
+            ({ user_id, splitwise_user_id }) => [splitwise_user_id, user_id === user.id ? "You" : (identities.get(user_id)?.name ?? "Someone")],
+          ),
+        );
+        balances = debts.map((d) => ({ ...d, fromName: nameFor.get(String(d.fromUserId)) ?? "Someone", toName: nameFor.get(String(d.toUserId)) ?? "Someone" }));
+      }
     }
 
     return NextResponse.json({ expenses: (expensesRes.data ?? []).map(toTripExpense), connected: Boolean(accessToken), groupId, balances });
