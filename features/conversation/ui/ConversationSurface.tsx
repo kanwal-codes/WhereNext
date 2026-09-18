@@ -366,7 +366,7 @@ export function ConversationSurface({
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [messages.length, scrollToLatestMessage]);
 
-  useAutoGrowTextarea(textareaRef, input);
+  const isMultiline = useAutoGrowTextarea(textareaRef, input);
 
   async function confirmProposal() {
     if (!proposal || confirming) return;
@@ -683,30 +683,35 @@ export function ConversationSurface({
               event.preventDefault();
               void submit(input);
             }}
-            className="flex w-full min-w-0 max-w-full flex-col gap-1 rounded-3xl border border-input bg-card px-3 py-2 shadow-lift focus-within:ring-2 focus-within:ring-ring/25"
+            className={cn(
+              "flex w-full min-w-0 max-w-full gap-1.5 rounded-3xl border border-input bg-card px-3 py-2 shadow-lift focus-within:ring-2 focus-within:ring-ring/25",
+              // One inline row for a single line of text — text and buttons share the same
+              // baseline, like any plain search bar. Once it wraps, the buttons drop to a fixed
+              // row below the (now multi-line) text instead of drifting up with it.
+              isMultiline ? "flex-col" : "flex-row items-center",
+            )}
           >
-            <textarea
-              ref={textareaRef}
-              aria-label="Message"
-              rows={1}
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={(event) => {
-                // isComposing (and the legacy keyCode 229) is true for the Enter that CONFIRMS an
-                // IME candidate (Japanese/Chinese/Korean input) — that keystroke must not also submit.
-                if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) {
-                  event.preventDefault();
-                  void submit(input);
-                }
-              }}
-              placeholder={!loaded ? "Loading…" : speech.listening ? "Listening…" : sending ? "Type your next message…" : "Ask about your trip…"}
-              disabled={!loaded}
-              className="max-h-[88px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent px-1 py-1 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
-            />
-            {/* A fixed row below the growing text, not inline beside it — so the buttons sit in
-                exactly the same spot whether the composer holds one line or three, instead of
-                drifting as the textarea grows. */}
-            <div className="flex items-center justify-end gap-1.5">
+            <div className={isMultiline ? "w-full" : "min-w-0 flex-1"}>
+              <textarea
+                ref={textareaRef}
+                aria-label="Message"
+                rows={1}
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={(event) => {
+                  // isComposing (and the legacy keyCode 229) is true for the Enter that CONFIRMS an
+                  // IME candidate (Japanese/Chinese/Korean input) — that keystroke must not also submit.
+                  if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) {
+                    event.preventDefault();
+                    void submit(input);
+                  }
+                }}
+                placeholder={!loaded ? "Loading…" : speech.listening ? "Listening…" : sending ? "Type your next message…" : "Ask about your trip…"}
+                disabled={!loaded}
+                className="max-h-[88px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent px-1 py-1 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
+              />
+            </div>
+            <div className={cn("flex items-center gap-1", isMultiline ? "justify-end" : "shrink-0")}>
               {speech.supported && (
                 <button
                   type="button"
@@ -715,10 +720,8 @@ export function ConversationSurface({
                   aria-pressed={speech.listening}
                   disabled={!loaded || sending}
                   className={cn(
-                    "grid h-8 w-8 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-35",
-                    speech.listening
-                      ? "border-destructive/50 bg-destructive/10 text-destructive"
-                      : "border-border text-muted-foreground hover:text-foreground",
+                    "grid h-8 w-8 shrink-0 place-items-center rounded-full transition-colors disabled:opacity-35",
+                    speech.listening ? "bg-destructive/10 text-destructive" : "text-muted-foreground hover:bg-accent hover:text-foreground",
                   )}
                 >
                   <Mic className={cn("h-4 w-4", speech.listening && "animate-pulse")} />

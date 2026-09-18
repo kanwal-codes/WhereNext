@@ -454,7 +454,7 @@ export function GroupChatSurface({
     setInput((current) => current.replace(/@r?o?a?m?$/i, "@Roam "));
   }
 
-  useAutoGrowTextarea(textareaRef, input);
+  const isMultiline = useAutoGrowTextarea(textareaRef, input);
 
   // The dropdown is portaled to <body> (below) so the pill's own `overflow-hidden` — needed for
   // its rounded shape — can't clip it; position it from the button's own rect instead of relying
@@ -485,6 +485,71 @@ export function GroupChatSurface({
       window.removeEventListener("resize", onResize);
     };
   }, [plusMenuOpen]);
+
+  const plusButton = (
+    <div ref={plusMenuRef} className="shrink-0">
+      <button
+        type="button"
+        aria-label="Add to the chat"
+        aria-expanded={plusMenuOpen}
+        title="Add"
+        onClick={() => setPlusMenuOpen((current) => !current)}
+        disabled={!loaded}
+        className={cn(
+          "grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40",
+          plusMenuOpen && "bg-accent text-foreground",
+        )}
+      >
+        <Plus className={cn("h-4 w-4 transition-transform", plusMenuOpen && "rotate-45")} />
+      </button>
+    </div>
+  );
+
+  const sendButton = (
+    <button
+      type="submit"
+      aria-label="Send"
+      disabled={!loaded || !input.trim()}
+      className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-primary to-primary/85 text-primary-foreground shadow-sm transition-opacity disabled:opacity-35"
+    >
+      <ArrowUp className="h-4 w-4" />
+    </button>
+  );
+
+  const messageTextarea = (
+    <div className="relative w-full">
+      {/* Ghost completion — sits behind the (transparent-background) textarea, so the real
+          typed text visually covers its invisible spacer span and only the suggested
+          remainder ("oam", "am", "m", ...) shows through in muted gray. */}
+      {mentionGhost && (
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden text-sm leading-relaxed break-words whitespace-pre-wrap px-1 py-1">
+          <span className="invisible">{input}</span>
+          <span className="text-muted-foreground">{mentionGhost}</span>
+        </div>
+      )}
+      <textarea
+        ref={textareaRef}
+        aria-label="Message the group"
+        rows={1}
+        value={input}
+        onChange={(event) => setInput(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Tab" && mentionActive) {
+            event.preventDefault();
+            insertRoamMention();
+            return;
+          }
+          if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) {
+            event.preventDefault();
+            void submit(input);
+          }
+        }}
+        placeholder={!loaded ? "Loading…" : "Message the group — try @Roam…"}
+        disabled={!loaded}
+        className="max-h-[88px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent px-1 py-1 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
+      />
+    </div>
+  );
 
   return (
     <div className="relative flex h-full min-h-0 w-full max-w-full flex-col overflow-x-hidden">
@@ -873,69 +938,29 @@ export function GroupChatSurface({
               event.preventDefault();
               void submit(input);
             }}
-            className="flex w-full flex-col gap-1 overflow-hidden rounded-3xl border border-input bg-card px-3 py-2 shadow-lift transition-shadow focus-within:shadow-xl focus-within:ring-2 focus-within:ring-ring/25"
+            className={cn(
+              "flex w-full gap-1.5 overflow-hidden rounded-3xl border border-input bg-card px-3 py-2 shadow-lift transition-shadow focus-within:shadow-xl focus-within:ring-2 focus-within:ring-ring/25",
+              // One inline row for a single line of text — text and buttons share the same
+              // baseline, like any plain search bar. Once it wraps, the buttons drop to a fixed
+              // row below the (now multi-line) text instead of drifting up with it.
+              isMultiline ? "flex-col" : "flex-row items-center",
+            )}
           >
-            <div className="relative w-full">
-              {/* Ghost completion — sits behind the (transparent-background) textarea, so the
-                  real typed text visually covers its invisible spacer span and only the
-                  suggested remainder ("oam", "am", "m", ...) shows through in muted gray. */}
-              {mentionGhost && (
-                <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden text-sm leading-relaxed break-words whitespace-pre-wrap px-1 py-1">
-                  <span className="invisible">{input}</span>
-                  <span className="text-muted-foreground">{mentionGhost}</span>
+            {isMultiline ? (
+              <>
+                {messageTextarea}
+                <div className="flex items-center justify-between gap-1.5">
+                  {plusButton}
+                  {sendButton}
                 </div>
-              )}
-              <textarea
-                ref={textareaRef}
-                aria-label="Message the group"
-                rows={1}
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Tab" && mentionActive) {
-                    event.preventDefault();
-                    insertRoamMention();
-                    return;
-                  }
-                  if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) {
-                    event.preventDefault();
-                    void submit(input);
-                  }
-                }}
-                placeholder={!loaded ? "Loading…" : "Message the group — try @Roam…"}
-                disabled={!loaded}
-                className="max-h-[88px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent px-1 py-1 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
-              />
-            </div>
-            {/* A fixed row below the growing text, not inline beside it — so the buttons sit in
-                exactly the same spot whether the composer holds one line or three, instead of
-                drifting as the textarea grows. */}
-            <div className="flex items-center justify-between gap-1.5">
-              <div ref={plusMenuRef} className="shrink-0">
-                <button
-                  type="button"
-                  aria-label="Add to the chat"
-                  aria-expanded={plusMenuOpen}
-                  title="Add"
-                  onClick={() => setPlusMenuOpen((current) => !current)}
-                  disabled={!loaded}
-                  className={cn(
-                    "grid h-8 w-8 shrink-0 place-items-center rounded-full border border-input text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40",
-                    plusMenuOpen && "bg-accent text-foreground",
-                  )}
-                >
-                  <Plus className={cn("h-4 w-4 transition-transform", plusMenuOpen && "rotate-45")} />
-                </button>
-              </div>
-              <button
-                type="submit"
-                aria-label="Send"
-                disabled={!loaded || !input.trim()}
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-primary to-primary/85 text-primary-foreground shadow-sm transition-opacity disabled:opacity-35"
-              >
-                <ArrowUp className="h-4 w-4" />
-              </button>
-            </div>
+              </>
+            ) : (
+              <>
+                {plusButton}
+                <div className="min-w-0 flex-1">{messageTextarea}</div>
+                {sendButton}
+              </>
+            )}
             {/* Portaled to <body> — the pill's own `overflow-hidden` (needed for its rounded
                 shape) would otherwise clip a dropdown positioned relative to a button inside it. */}
             {typeof document !== "undefined" &&
