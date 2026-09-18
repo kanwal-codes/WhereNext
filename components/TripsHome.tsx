@@ -190,7 +190,7 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
             <h2 className="min-w-0 font-display text-xl">
               {list.length > 0 ? `${list.length} trip${list.length === 1 ? "" : "s"}` : "No trips yet"}
             </h2>
-            <Link href="/trips/new" className="btn-secondary w-fit shrink-0 sm:justify-self-end">
+            <Link href="/trips/new" className="btn-primary w-fit shrink-0 sm:justify-self-end">
               <Plus className="h-4 w-4" /> Create new trip
             </Link>
           </div>

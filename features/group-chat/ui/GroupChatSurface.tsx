@@ -532,8 +532,8 @@ export function GroupChatSurface({
         onClick={() => setPlusMenuOpen((current) => !current)}
         disabled={!loaded}
         className={cn(
-          "grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-40",
-          plusMenuOpen ? "border-input bg-accent text-foreground" : "border-border/60 text-muted-foreground hover:text-foreground",
+          "grid h-9 w-9 shrink-0 place-items-center rounded-full transition-colors disabled:opacity-40",
+          plusMenuOpen ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground",
         )}
       >
         <Plus className={cn("h-4 w-4 transition-transform", plusMenuOpen && "rotate-45")} />
