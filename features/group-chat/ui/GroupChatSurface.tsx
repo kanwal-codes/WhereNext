@@ -71,10 +71,16 @@ function dayLabel(iso: string): string {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: date.getFullYear() === today.getFullYear() ? undefined : "numeric" });
 }
 
-async function postJson<T>(url: string, body: unknown): Promise<T> {
-  const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  if (!response.ok) throw new Error(`request failed: ${response.status}`);
-  return response.json();
+async function postJson<T>(url: string, body: unknown, timeoutMs?: number): Promise<T> {
+  const controller = timeoutMs != null ? new AbortController() : undefined;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
+  try {
+    const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: controller?.signal });
+    if (!response.ok) throw new Error(`request failed: ${response.status}`);
+    return response.json();
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 export function GroupChatSurface({
@@ -163,7 +169,9 @@ export function GroupChatSurface({
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pressMoved = useRef(false);
 
-  const refresh = useCallback(async () => {
+  // Returns the freshly-fetched list (or undefined on failure/supersession) so a caller can
+  // check whether something it was waiting on actually landed — see `askRoam`'s catch handler.
+  const refresh = useCallback(async (): Promise<GroupMessage[] | undefined> => {
     // Same request-id guard as DiscoverySurface/StaySurface: refresh() fires from three
     // independent triggers (mount, every realtime "groupChat" event, right after sending) with
     // no ordering guarantee between them — without this, an earlier call's response landing
@@ -171,10 +179,13 @@ export function GroupChatSurface({
     const mine = ++refreshIdRef.current;
     try {
       const body = await fetch(`/api/trips/${tripId}/group-chat`).then((r) => (r.ok ? r.json() : Promise.reject(new Error("load"))));
-      if (mine !== refreshIdRef.current) return;
-      setMessages(body.messages ?? []);
+      if (mine !== refreshIdRef.current) return undefined;
+      const fresh = (body.messages ?? []) as GroupMessage[];
+      setMessages(fresh);
+      return fresh;
     } catch {
       // Best-effort — the last successfully loaded state stays on screen.
+      return undefined;
     } finally {
       if (mine === refreshIdRef.current) setLoaded(true);
     }
@@ -271,9 +282,27 @@ export function GroupChatSurface({
   // surface as reactions) — it works on any member's message, not just one that says "@Roam".
   function askRoam(messageId: string, options: { explicit?: boolean } = {}) {
     setPendingRoamIds((current) => new Set(current).add(messageId));
-    void postJson(`/api/trips/${tripId}/group-chat/roam`, { messageId, ...options })
+    // The generous ceiling (well above the server's own worst-case RESOLVE+RETRIEVE+COMPOSE
+    // budget — see AI_DEADLINE_MS in packages/ai/model-policy.ts, whose slowest chain tops out
+    // well under this) is deliberate: aborting from here cancels the request the server is still
+    // working on (it's wired to the same signal), so firing early would cause exactly the missed
+    // reply this whole handler exists to recover from. This is a backstop for a truly dead
+    // connection, not a normal-operation timeout — the "thinking" indicator should never hang
+    // forever with nothing to show for it.
+    void postJson(`/api/trips/${tripId}/group-chat/roam`, { messageId, ...options }, 150_000)
       .then(() => void refresh())
-      .catch(() => notifyToast("Roam didn’t reply to that.", "error", { label: "Retry", onClick: () => askRoam(messageId, options) }))
+      .catch(async () => {
+        // A failure here doesn't necessarily mean the turn itself failed — this reply is a
+        // buffered, potentially slow round trip, and a dropped connection or a proxy timeout can
+        // lose the RESPONSE after the server has already finished and persisted it. Check before
+        // reporting an error: live-caught without this, the toast said "didn't reply" (or nothing
+        // at all, if it was missed while the tab was backgrounded) right as the real reply sat
+        // fully written in the database — only surfacing once some unrelated later refresh swept
+        // it in, alongside whatever was asked at that point.
+        const fresh = await refresh();
+        const alreadyAnswered = fresh?.some((m) => (m.metadata as { replyToMessageId?: string } | null)?.replyToMessageId === messageId);
+        if (!alreadyAnswered) notifyToast("Roam didn’t reply to that.", "error", { label: "Retry", onClick: () => askRoam(messageId, options) });
+      })
       .finally(() => setPendingRoamIds((current) => {
         if (!current.has(messageId)) return current;
         const next = new Set(current);
