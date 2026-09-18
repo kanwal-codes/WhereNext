@@ -89,7 +89,15 @@ export class GooglePlacesProvider {
     do {
       // Pagination requires resending the original query verbatim alongside pageToken, or Google 400s.
       const response = await guardedFetch("google-places", "https://places.googleapis.com/v1/places:searchText", { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": this.key(), "x-goog-fieldmask": "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.googleMapsUri,places.rating,places.userRatingCount,places.photos.name,nextPageToken" }, body: JSON.stringify({ textQuery: broadenQuery(query), pageSize: GOOGLE_PAGE_SIZE, ...(bias ? { locationBias: bias } : {}), ...(pageToken ? { pageToken } : {}) }), signal: withProviderTimeout(signal) });
-      if (!response.ok) throw new Error(`Google Places search failed: ${response.status}`);
+      if (!response.ok) {
+        // Google's own error body (e.g. "API_KEY_HTTP_REFERRER_BLOCKED", "RESOURCE_EXHAUSTED")
+        // is the one thing that actually distinguishes a key/IP restriction from a quota hit
+        // from a malformed request — a bare status code alone left every one of those looking
+        // identical to whatever caught this ("google-places unavailable"), with no way to tell
+        // them apart short of reproducing the exact call outside the app.
+        const detail = await response.text().catch(() => "");
+        throw new Error(`Google Places search failed: ${response.status} ${detail.slice(0, 500)}`);
+      }
       const body = await response.json() as { places?: SearchPlace[]; nextPageToken?: string };
       places.push(...(body.places ?? []));
       pageToken = body.nextPageToken;

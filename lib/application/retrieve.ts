@@ -4,6 +4,7 @@ import type { WeatherDay } from "@/packages/providers/openweather/client";
 import type { FlightOffer } from "@/packages/providers/duffel/client";
 import type { StayOption, StayRoom } from "@/packages/contracts/stay";
 import { cached } from "@/lib/server/ttl-cache";
+import { logger } from "@/lib/server/logger";
 import { rankPlaces } from "./rank-places";
 import { filterByPreferences } from "./preference-filter";
 import { classifyPlaceVibe } from "@/packages/reco/vibes";
@@ -115,6 +116,13 @@ export async function retrieveEvidence(
   const unavailableProviders: string[] = [];
   const fail = (name: string) => (error: unknown) => {
     if (signal?.aborted) throw error;
+    // Live-caught: a provider failure was only ever visible as its bare name in
+    // `unavailableProviders` (and the "ungrounded" fallback message) — the actual HTTP status
+    // or error text that caused it was silently dropped right here, with nothing logged. That
+    // made a real, reproducible google-places failure indistinguishable from "no results exist"
+    // until this line existed — the only way to tell a 403 (key/IP restriction) from a 429
+    // (quota) from a genuine empty result was to add this and wait for the next occurrence.
+    logger.warn({ provider: name, err: error instanceof Error ? error.message : String(error) }, "retrieve: provider call failed");
     if (!unavailableProviders.includes(name)) unavailableProviders.push(name);
     return undefined;
   };
