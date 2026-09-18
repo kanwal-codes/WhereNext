@@ -10,6 +10,7 @@ import type { Message } from "../domain/message";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
 import { useSpeechInput } from "@/lib/use-speech-input";
+import { useAutoGrowTextarea } from "@/lib/use-autogrow-textarea";
 import { AssistantMessage } from "./AssistantMessage";
 import { AssistantRequestError } from "../application/streamAssistantResponse";
 import { sendConversationMessage } from "../application/sendConversationMessage";
@@ -365,22 +366,7 @@ export function ConversationSurface({
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [messages.length, scrollToLatestMessage]);
 
-  const resizeTextarea = useCallback(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
-  }, []);
-  useEffect(() => resizeTextarea(), [input, resizeTextarea]);
-  // Text wraps differently once the composer's own width changes (a side panel opening/closing,
-  // a viewport rotation) — recompute then too, not just when the text itself changes.
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(resizeTextarea);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [resizeTextarea]);
+  useAutoGrowTextarea(textareaRef, input);
 
   async function confirmProposal() {
     if (!proposal || confirming) return;
@@ -715,7 +701,7 @@ export function ConversationSurface({
               }}
               placeholder={!loaded ? "Loading…" : speech.listening ? "Listening…" : sending ? "Type your next message…" : "Ask about your trip…"}
               disabled={!loaded}
-              className="max-h-40 w-0 min-w-0 flex-1 resize-none bg-transparent px-1.5 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
+              className="max-h-[88px] w-0 min-w-0 flex-1 resize-none overflow-y-auto scrollbar-slim bg-transparent px-1.5 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
             />
             {speech.supported && (
               <button

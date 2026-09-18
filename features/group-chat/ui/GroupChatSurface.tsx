@@ -1,11 +1,13 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowUp, CalendarRange, ListChecks, Plus, Reply, SmilePlus, X } from "lucide-react";
 import { Sheet, Pressable } from "@/components/motion-primitives";
 import { useMediaQuery } from "@/lib/use-media-query";
+import { useAutoGrowTextarea } from "@/lib/use-autogrow-textarea";
 import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanel, type EventSeed } from "@/components/TripPanelProvider";
 import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
@@ -125,9 +127,11 @@ export function GroupChatSurface({
   // while, and until now nothing at all told the user a reply was coming. Keyed by messageId so
   // several concurrent asks (different members, or a retry) each get their own indicator.
   const [pendingRoamIds, setPendingRoamIds] = useState<Set<string>>(new Set());
+  const [menuPos, setMenuPos] = useState<{ left: number; bottom: number } | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const plusMenuRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
   // Guards against the server-side toggle race: a delete-then-insert isn't atomic, so two
   // near-simultaneous taps on the same (message, emoji) can both see "not reacted yet" and
@@ -450,17 +454,35 @@ export function GroupChatSurface({
     setInput((current) => current.replace(/@r?o?a?m?$/i, "@Roam "));
   }
 
+  useAutoGrowTextarea(textareaRef, input);
+
+  // The dropdown is portaled to <body> (below) so the pill's own `overflow-hidden` — needed for
+  // its rounded shape — can't clip it; position it from the button's own rect instead of relying
+  // on normal document flow. Opens upward, unconditionally: this composer only ever sits at the
+  // bottom of the screen, so there's never a "not enough room below" case to detect the way a
+  // floating menu elsewhere in the app has to.
+  useLayoutEffect(() => {
+    if (!plusMenuOpen) return;
+    const r = plusMenuRef.current?.getBoundingClientRect();
+    if (!r) return;
+    setMenuPos({ left: r.left, bottom: window.innerHeight - r.top + 8 });
+  }, [plusMenuOpen]);
+
   useEffect(() => {
     if (!plusMenuOpen) return;
     const onDown = (e: PointerEvent) => {
-      if (!plusMenuRef.current?.contains(e.target as Node)) setPlusMenuOpen(false);
+      const t = e.target as Node;
+      if (!plusMenuRef.current?.contains(t) && !dropdownRef.current?.contains(t)) setPlusMenuOpen(false);
     };
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setPlusMenuOpen(false);
+    const onResize = () => setPlusMenuOpen(false);
     document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", onResize);
     return () => {
       document.removeEventListener("pointerdown", onDown);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onResize);
     };
   }, [plusMenuOpen]);
 
@@ -846,13 +868,14 @@ export function GroupChatSurface({
               </button>
             </div>
           )}
-          <div className="flex w-full items-end gap-1.5">
-            {/* Outside the form's own overflow-hidden pill on purpose — its dropdown is
-                absolutely positioned relative to this button, and a hidden overflow on an
-                ancestor would clip it. Opens upward, unconditionally: this composer only ever
-                sits at the bottom of the screen, so there's never a "not enough room below"
-                case to detect the way a floating menu elsewhere in the app has to. */}
-            <div ref={plusMenuRef} className="relative">
+          <form
+            onSubmit={(event: FormEvent) => {
+              event.preventDefault();
+              void submit(input);
+            }}
+            className="flex w-full items-end gap-1.5 overflow-hidden rounded-full border border-input bg-card px-2.5 py-2 shadow-lift transition-shadow focus-within:shadow-xl focus-within:ring-2 focus-within:ring-ring/25 sm:gap-2 sm:px-3.5"
+          >
+            <div ref={plusMenuRef} className="shrink-0">
               <button
                 type="button"
                 aria-label="Add to the chat"
@@ -861,38 +884,39 @@ export function GroupChatSurface({
                 onClick={() => setPlusMenuOpen((current) => !current)}
                 disabled={!loaded}
                 className={cn(
-                  "mb-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full border border-input bg-card text-muted-foreground shadow-lift transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40",
+                  "mb-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full border border-input text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40",
                   plusMenuOpen && "bg-accent text-foreground",
                 )}
               >
                 <Plus className={cn("h-4 w-4 transition-transform", plusMenuOpen && "rotate-45")} />
               </button>
-              {plusMenuOpen && (
-                <div
-                  role="menu"
-                  className="absolute bottom-full left-0 z-20 mb-2 w-44 overflow-hidden rounded-2xl border border-border bg-card py-1 shadow-lift"
-                >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setPlusMenuOpen(false);
-                      setPollSheetOpen(true);
-                    }}
-                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm transition-colors hover:bg-accent"
-                  >
-                    <ListChecks className="h-4 w-4 text-coral" /> Poll
-                  </button>
-                </div>
-              )}
             </div>
-            <form
-              onSubmit={(event: FormEvent) => {
-                event.preventDefault();
-                void submit(input);
-              }}
-              className="flex w-0 min-w-0 flex-1 items-end gap-1.5 overflow-hidden rounded-full border border-input bg-card px-2.5 py-2 shadow-lift transition-shadow focus-within:shadow-xl focus-within:ring-2 focus-within:ring-ring/25 sm:gap-2 sm:px-3.5"
-            >
+            {/* Portaled to <body> — the pill's own `overflow-hidden` (needed for its rounded
+                shape) would otherwise clip a dropdown positioned relative to a button inside it. */}
+            {typeof document !== "undefined" &&
+              createPortal(
+                plusMenuOpen && menuPos && (
+                  <div
+                    ref={dropdownRef}
+                    role="menu"
+                    style={{ position: "fixed", left: menuPos.left, bottom: menuPos.bottom }}
+                    className="z-20 w-44 overflow-hidden rounded-2xl border border-border bg-card py-1 shadow-lift"
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setPlusMenuOpen(false);
+                        setPollSheetOpen(true);
+                      }}
+                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm transition-colors hover:bg-accent"
+                    >
+                      <ListChecks className="h-4 w-4 text-coral" /> Poll
+                    </button>
+                  </div>
+                ),
+                document.body,
+              )}
             <div className="relative w-0 min-w-0 flex-1">
               {/* Ghost completion — sits behind the (transparent-background) textarea, so the
                   real typed text visually covers its invisible spacer span and only the
@@ -922,7 +946,7 @@ export function GroupChatSurface({
                 }}
                 placeholder={!loaded ? "Loading…" : "Message the group — try @Roam…"}
                 disabled={!loaded}
-                className="max-h-40 w-full resize-none bg-transparent px-1.5 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
+                className="max-h-[88px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent px-1.5 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
               />
             </div>
             <button
@@ -933,8 +957,7 @@ export function GroupChatSurface({
             >
               <ArrowUp className="h-4 w-4" />
             </button>
-            </form>
-          </div>
+          </form>
         </div>
       </div>
     </div>
