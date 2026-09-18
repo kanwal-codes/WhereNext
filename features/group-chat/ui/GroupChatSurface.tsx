@@ -376,7 +376,14 @@ export function GroupChatSurface({
     });
   }, [messages]);
 
-  const mentionHint = /(^|\s)@r?o?a?m?$/i.test(input) && input.trim().length > 0;
+  // Inline ghost-text autocomplete for "@Roam" — replaces the old suggestion pill. Matches a
+  // partial mention token at the very end of the input ("@", "@r", "@ro", ... "@roam", any
+  // case) and, while it's a genuine prefix of "roam", offers Tab to complete it.
+  const mentionToken = input.match(/(^|\s)(@[a-zA-Z]{0,4})$/)?.[2];
+  const mentionActive = Boolean(mentionToken && "@roam".startsWith(mentionToken.toLowerCase()) && input.trim().length > 0);
+  // The remaining letters of "Roam" not yet typed — e.g. "@r" -> "oam", "@roam" -> "" (nothing
+  // left to suggest, though Tab still normalizes casing/adds the trailing space below).
+  const mentionGhost = mentionActive && mentionToken ? "Roam".slice(mentionToken.length - 1) : "";
 
   function insertRoamMention() {
     setInput((current) => current.replace(/@r?o?a?m?$/i, "@Roam "));
@@ -657,18 +664,6 @@ export function GroupChatSurface({
               </button>
             </div>
           )}
-          {mentionHint && (
-            <motion.button
-              type="button"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              onClick={insertRoamMention}
-              className="btn-chip mb-2 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              <span className="grid h-4 w-4 place-items-center rounded-full bg-primary-foreground/20 text-[9px] font-bold">R</span>
-              Ask Roam
-            </motion.button>
-          )}
           <form
             onSubmit={(event: FormEvent) => {
               event.preventDefault();
@@ -676,22 +671,38 @@ export function GroupChatSurface({
             }}
             className="flex w-full items-end gap-1.5 overflow-hidden rounded-full border border-input bg-card px-2.5 py-2 shadow-lift transition-shadow focus-within:shadow-xl focus-within:ring-2 focus-within:ring-ring/25 sm:gap-2 sm:px-3.5"
           >
-            <textarea
-              ref={textareaRef}
-              aria-label="Message the group"
-              rows={1}
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) {
-                  event.preventDefault();
-                  void submit(input);
-                }
-              }}
-              placeholder={!loaded ? "Loading…" : "Message the group — try @Roam…"}
-              disabled={!loaded}
-              className="max-h-40 w-0 min-w-0 flex-1 resize-none bg-transparent px-1.5 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
-            />
+            <div className="relative w-0 min-w-0 flex-1">
+              {/* Ghost completion — sits behind the (transparent-background) textarea, so the
+                  real typed text visually covers its invisible spacer span and only the
+                  suggested remainder ("oam", "am", "m", ...) shows through in muted gray. */}
+              {mentionGhost && (
+                <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden text-sm leading-relaxed break-words whitespace-pre-wrap px-1.5 py-2">
+                  <span className="invisible">{input}</span>
+                  <span className="text-muted-foreground">{mentionGhost}</span>
+                </div>
+              )}
+              <textarea
+                ref={textareaRef}
+                aria-label="Message the group"
+                rows={1}
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Tab" && mentionActive) {
+                    event.preventDefault();
+                    insertRoamMention();
+                    return;
+                  }
+                  if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) {
+                    event.preventDefault();
+                    void submit(input);
+                  }
+                }}
+                placeholder={!loaded ? "Loading…" : "Message the group — try @Roam…"}
+                disabled={!loaded}
+                className="max-h-40 w-full resize-none bg-transparent px-1.5 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground disabled:opacity-60"
+              />
+            </div>
             <button
               type="submit"
               aria-label="Send"
