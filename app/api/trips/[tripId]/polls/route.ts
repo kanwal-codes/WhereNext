@@ -5,6 +5,7 @@ import { fail } from "@/lib/server/with-route";
 import { createPollInput } from "@/packages/contracts/poll";
 import { createGroupChatRepository } from "@/features/group-chat/infrastructure/groupChatRepository";
 import { resolvePolls } from "@/lib/server/poll";
+import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 /** Starts a poll — any member, same as sending a group message (a poll IS a message, just a
  *  structured one). Announced as its own group_messages row (kind "poll", metadata: {pollId})
@@ -32,6 +33,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     });
 
     const resolved = await resolvePolls(supabase, [pollId], user.id);
+    invalidateWorkspace(tripId);
     return NextResponse.json({ message: { ...message, metadata: { ...message.metadata, poll: resolved.get(pollId) } } }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid poll" }, { status: 400 });

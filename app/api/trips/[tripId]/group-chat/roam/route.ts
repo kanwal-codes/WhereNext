@@ -19,6 +19,7 @@ import { createGroupChatRepository } from "@/features/group-chat/infrastructure/
 import { mentionsRoam } from "@/features/group-chat/domain/message";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { tripMemberIdentities } from "@/lib/server/trip-member-identities";
+import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 import type { AssistantTurnMeta } from "@/packages/contracts/assistant";
 
 const HISTORY_LIMIT = 50;
@@ -175,6 +176,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
         metadata: { ...result.meta, replyToMessageId: target.id },
         idempotencyKey,
       });
+      invalidateWorkspace(tripId);
       // No COMPOSE call on this path, but it still deserves a trace — this route used to return
       // here with none at all, so an "ungrounded" reply (e.g. "@Roam where can we go in
       // montreal" coming back "couldn't verify anything") left zero record of what RESOLVE
@@ -273,6 +275,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
       metadata: { ...meta, replyToMessageId: target.id },
       idempotencyKey,
     });
+    invalidateWorkspace(tripId);
 
     const composeMs = Math.round(performance.now() - tCompose);
     const totalMs = Math.round(performance.now() - t0);

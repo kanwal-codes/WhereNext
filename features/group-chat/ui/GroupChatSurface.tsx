@@ -79,9 +79,14 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
 
 export function GroupChatSurface({
   tripId,
+  initialMessages,
   onLogScroll,
 }: {
   tripId: string;
+  /** Server-rendered history (`data.groupChat` from `loadTripWorkspace`) — lets this open already
+   *  populated instead of a fetch-then-flash on every mount, same as `ConversationSurface`'s own
+   *  `initialMessages`. */
+  initialMessages?: Array<Record<string, unknown>>;
   /** Wired directly to this surface's own scrollable log — see the identical prop's doc comment
    *  on `ConversationSurface` for why an ancestor capture listener sniffing scroll events isn't
    *  reliable here (a horizontal card carousel, or this surface's own background auto-scroll
@@ -103,9 +108,9 @@ export function GroupChatSurface({
     router.replace(`/trips/${tripId}/group`, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once for the param that brought us here, not on every searchParams identity change
   }, []);
-  const [messages, setMessages] = useState<GroupMessage[]>([]);
+  const [messages, setMessages] = useState<GroupMessage[]>((initialMessages ?? []) as GroupMessage[]);
   const { members } = useTripMembers(tripId);
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(Boolean(initialMessages));
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [reactingTo, setReactingTo] = useState<string | null>(null);
@@ -134,7 +139,10 @@ export function GroupChatSurface({
   const plusMenuRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const speechBaseRef = useRef("");
-  const seenIdsRef = useRef<Set<string>>(new Set());
+  // Seeded from server-rendered history so it doesn't all play the "new message" entrance
+  // animation on every mount — only a message that arrives after this surface is already up
+  // (a live reply, someone else's send) should ever be treated as new.
+  const seenIdsRef = useRef<Set<string>>(new Set((initialMessages ?? []).map((m) => String(m.id))));
   // Guards against the server-side toggle race: a delete-then-insert isn't atomic, so two
   // near-simultaneous taps on the same (message, emoji) can both see "not reacted yet" and
   // both insert, or the second can re-add what the first just removed. Blocking a second
@@ -207,6 +215,22 @@ export function GroupChatSurface({
   useEffect(() => {
     scrollToEnd();
   }, [messages.length, pendingRoamIds.size, scrollToEnd]);
+
+  // First landing: jump straight to the latest message, instantly — not the smooth `scrollToEnd`
+  // above, which would otherwise visibly animate down the entire history on every single mount
+  // (including just switching back from another route, since this surface remounts then). Runs
+  // synchronously before the smooth effect's own initial call, so that one lands on an already-
+  // correct position and has nothing left to animate. See the identical fix + comment in
+  // ConversationSurface.tsx.
+  useEffect(() => {
+    const log = logRef.current;
+    if (!log) return;
+    const jump = () => { log.scrollTop = log.scrollHeight; };
+    jump();
+    const ids = [60, 200, 500].map((ms) => window.setTimeout(jump, ms));
+    ids.push(requestAnimationFrame(jump));
+    return () => ids.forEach((id) => { clearTimeout(id); cancelAnimationFrame(id); });
+  }, [loaded]);
 
   // Keeps a continuing exchange with Roam going without re-typing the mention every turn: once
   // a fresh reply lands answering something *you* said, pre-fill "@Roam " so your next message

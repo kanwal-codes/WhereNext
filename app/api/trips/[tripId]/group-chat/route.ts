@@ -3,6 +3,7 @@ import { groupMessageInput } from "@/features/group-chat/domain/message";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
 import { createGroupChatRepository } from "@/features/group-chat/infrastructure/groupChatRepository";
+import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 // The UI has no "load older messages" affordance yet, so this is a ceiling, not real pagination —
 // it just stops a long-running group trip's chat from paging through its entire history (in
@@ -37,6 +38,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
       metadata: parsed.data.shareCard ? { shareCard: parsed.data.shareCard } : {},
       idempotencyKey: parsed.data.idempotencyKey,
     });
+    invalidateWorkspace(tripId);
     return NextResponse.json({ message }, { status: 201 });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Group chat unavailable");
