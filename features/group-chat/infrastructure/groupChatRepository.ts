@@ -1,12 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { GroupMessage, GroupMessageReaction } from "../domain/message";
+import type { GroupMessage, GroupMessageReaction, GroupMessageKind } from "../domain/message";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
+import { resolvePolls } from "@/lib/server/poll";
 
 type GroupMessageRow = {
   id: string;
   user_id: string | null;
   role: "user" | "assistant" | "system";
-  kind: "text" | "content_share" | "expense" | "system";
+  kind: GroupMessageKind;
   content: string;
   metadata: Record<string, unknown> | null;
   created_at: string;
@@ -22,6 +23,19 @@ const toMessage = (row: GroupMessageRow, reactions: GroupMessageReaction[]): Gro
   created_at: row.created_at,
   reactions,
 });
+
+/** Embeds each poll-kind message's LIVE tally into its metadata — a poll's card must show
+ *  current results every time messages are (re)fetched, not just what was true at creation. */
+async function withResolvedPolls(supabase: SupabaseClient, messages: GroupMessage[], viewerId: string): Promise<GroupMessage[]> {
+  const pollIds = messages.filter((m) => m.kind === "poll").map((m) => (m.metadata as { pollId?: string }).pollId).filter((id): id is string => Boolean(id));
+  if (pollIds.length === 0) return messages;
+  const resolved = await resolvePolls(supabase, pollIds, viewerId);
+  return messages.map((m) => {
+    const pollId = (m.metadata as { pollId?: string }).pollId;
+    const poll = pollId ? resolved.get(pollId) : undefined;
+    return poll ? { ...m, metadata: { ...m.metadata, poll } } : m;
+  });
+}
 
 async function reactionsByMessage(supabase: SupabaseClient, messageIds: string[], viewerId: string): Promise<Map<string, GroupMessageReaction[]>> {
   const map = new Map<string, GroupMessageReaction[]>();
@@ -80,14 +94,15 @@ export function createGroupChatRepository(supabase: SupabaseClient) {
       }
       const oldestFirst = newestFirst.reverse();
       const reactions = await reactionsByMessage(supabase, oldestFirst.map((row) => row.id), viewerId);
-      return oldestFirst.map((row) => toMessage(row, reactions.get(row.id) ?? []));
+      const messages = oldestFirst.map((row) => toMessage(row, reactions.get(row.id) ?? []));
+      return withResolvedPolls(supabase, messages, viewerId);
     },
     async append(
       tripId: string,
       input: {
         userId: string | null;
         role: "user" | "assistant" | "system";
-        kind: "text" | "content_share" | "expense" | "system";
+        kind: GroupMessageKind;
         content: string;
         metadata?: Record<string, unknown>;
         idempotencyKey?: string;
@@ -124,7 +139,8 @@ export function createGroupChatRepository(supabase: SupabaseClient) {
       if (result.error) throw result.error;
       if (!result.data) return null;
       const reactions = await reactionsByMessage(supabase, [messageId], viewerId);
-      return toMessage(result.data as GroupMessageRow, reactions.get(messageId) ?? []);
+      const [message] = await withResolvedPolls(supabase, [toMessage(result.data as GroupMessageRow, reactions.get(messageId) ?? [])], viewerId);
+      return message;
     },
     /** Look up an already-written row by its pre-scoping key, so a caller about to do
      *  expensive work (an LLM turn) to build the content for that same key can check first

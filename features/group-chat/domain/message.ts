@@ -10,7 +10,7 @@ export const groupMessageInput = z.object({
 export type GroupMessageInput = z.infer<typeof groupMessageInput>;
 
 export type GroupMessageRole = "user" | "assistant" | "system";
-export type GroupMessageKind = "text" | "content_share" | "expense" | "system";
+export type GroupMessageKind = "text" | "content_share" | "expense" | "system" | "poll";
 
 export type GroupMessageReaction = { emoji: string; count: number; mine: boolean };
 

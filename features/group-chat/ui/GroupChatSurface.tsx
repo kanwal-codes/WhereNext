@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowUp, CalendarRange, Reply, SmilePlus, X } from "lucide-react";
+import { ArrowUp, CalendarRange, ListChecks, Reply, SmilePlus, X } from "lucide-react";
 import { Sheet, Pressable } from "@/components/motion-primitives";
 import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanel, type EventSeed } from "@/components/TripPanelProvider";
@@ -11,6 +11,7 @@ import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
 import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
 import type { AssistantBlock, AssistantTurnMeta, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
+import type { Poll } from "@/packages/contracts/poll";
 import { mentionsRoam, type GroupMessage } from "../domain/message";
 import { memberInitials } from "@/lib/member-initials";
 import { useTripMembers, type TripMember } from "@/lib/client/use-trip-members";
@@ -108,6 +109,11 @@ export function GroupChatSurface({
   const [pressingId, setPressingId] = useState<string | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<{ id: string; preview: string } | null>(null);
+  const [pollSheetOpen, setPollSheetOpen] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState(["", ""]);
+  const [pollSaving, setPollSaving] = useState(false);
+  const [pendingVoteFor, setPendingVoteFor] = useState<string | null>(null);
   // Which @Roam asks are currently in flight — the buffered (non-streamed) reply can take a
   // while, and until now nothing at all told the user a reply was coming. Keyed by messageId so
   // several concurrent asks (different members, or a retry) each get their own indicator.
@@ -287,6 +293,53 @@ export function GroupChatSurface({
     void submit(mentionsRoam(prompt) ? prompt : `@Roam ${prompt}`);
   }
 
+  async function createPoll() {
+    const question = pollQuestion.trim();
+    const options = pollOptions.map((o) => o.trim()).filter(Boolean);
+    if (!question || options.length < 2 || pollSaving) return;
+    setPollSaving(true);
+    try {
+      const { message } = await postJson<{ message: GroupMessage }>(`/api/trips/${tripId}/polls`, { question, options });
+      setMessages((current) => [...current, message]);
+      setPollSheetOpen(false);
+      setPollQuestion("");
+      setPollOptions(["", ""]);
+    } catch {
+      notifyToast("Couldn’t start that poll.", "error");
+    } finally {
+      setPollSaving(false);
+    }
+  }
+
+  // Optimistic: flips this member's own selection immediately in the local list (the poll's
+  // realtime "groupChat" change confirms it — and corrects it — for every viewer shortly after).
+  async function castVote(messageId: string, pollId: string, optionKey: string) {
+    if (pendingVoteFor === pollId) return;
+    setPendingVoteFor(pollId);
+    const previous = messages;
+    setMessages((current) =>
+      current.map((m) => {
+        const poll = (m.metadata as { poll?: Poll } | undefined)?.poll;
+        if (m.id !== messageId || !poll) return m;
+        const already = poll.options.find((o) => o.mine);
+        const options = poll.options.map((o) => ({
+          ...o,
+          mine: o.key === optionKey,
+          count: o.key === optionKey ? o.count + (already?.key === optionKey ? 0 : 1) : o.key === already?.key ? o.count - 1 : o.count,
+        }));
+        return { ...m, metadata: { ...m.metadata, poll: { ...poll, options, totalVotes: already ? poll.totalVotes : poll.totalVotes + 1 } } };
+      }),
+    );
+    try {
+      await postJson(`/api/trips/${tripId}/polls/${pollId}/vote`, { optionKey });
+    } catch {
+      setMessages(previous);
+      notifyToast("Your vote didn’t save.", "error");
+    } finally {
+      setPendingVoteFor(null);
+    }
+  }
+
   async function toggleReaction(messageId: string, emoji: string) {
     const key = `${messageId}:${emoji}`;
     if (pendingReactionsRef.current.has(key)) return;
@@ -433,6 +486,47 @@ export function GroupChatSurface({
                 <div key={message.id}>
                   {divider}
                   <p className="mx-auto max-w-fit rounded-full bg-muted px-3 py-1 text-center text-[11px] text-muted-foreground">{message.content}</p>
+                </div>
+              );
+            }
+
+            if (message.kind === "poll") {
+              const poll = (message.metadata as { poll?: Poll } | undefined)?.poll;
+              return (
+                <div key={message.id}>
+                  {divider}
+                  <div className="mx-auto w-full max-w-sm rounded-2xl border border-border bg-card p-4 shadow-soft">
+                    <p className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                      <ListChecks className="h-3.5 w-3.5" /> {name} started a poll
+                    </p>
+                    <p className="mt-1.5 font-display text-base">{message.content}</p>
+                    {poll && (
+                      <div className="mt-3 space-y-1.5">
+                        {poll.options.map((option) => {
+                          const pct = poll.totalVotes > 0 ? Math.round((option.count / poll.totalVotes) * 100) : 0;
+                          return (
+                            <button
+                              key={option.key}
+                              type="button"
+                              disabled={pendingVoteFor === poll.id}
+                              onClick={() => void castVote(message.id, poll.id, option.key)}
+                              className={cn(
+                                "relative w-full overflow-hidden rounded-xl border px-3 py-2 text-left text-sm transition-colors disabled:opacity-70",
+                                option.mine ? "border-primary bg-primary/5" : "border-border hover:bg-accent",
+                              )}
+                            >
+                              <span className="absolute inset-y-0 left-0 bg-primary/10" style={{ width: `${pct}%` }} aria-hidden="true" />
+                              <span className="relative flex items-center justify-between gap-2">
+                                <span className={cn("truncate", option.mine && "font-medium text-primary")}>{option.label}</span>
+                                <span className="shrink-0 tabular-nums text-xs text-muted-foreground">{option.count} · {pct}%</span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                        <p className="pt-1 text-[11px] text-muted-foreground">{poll.totalVotes} vote{poll.totalVotes === 1 ? "" : "s"}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             }
@@ -644,6 +738,66 @@ export function GroupChatSurface({
         </div>
       </Sheet>
 
+      <Sheet open={pollSheetOpen} onClose={() => (pollSaving ? undefined : setPollSheetOpen(false))} ariaLabel="Start a poll" side="bottom">
+        <div className="px-5 pt-1 pb-6">
+          <p className="mb-3 text-sm font-medium">Start a poll</p>
+          <input
+            value={pollQuestion}
+            onChange={(e) => setPollQuestion(e.target.value)}
+            placeholder="Which hotel?"
+            aria-label="Poll question"
+            maxLength={200}
+            className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/25"
+          />
+          <div className="mt-2.5 space-y-2">
+            {pollOptions.map((option, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input
+                  value={option}
+                  onChange={(e) => setPollOptions((current) => current.map((o, idx) => (idx === i ? e.target.value : o)))}
+                  placeholder={`Option ${i + 1}`}
+                  aria-label={`Poll option ${i + 1}`}
+                  maxLength={80}
+                  className="min-w-0 flex-1 rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/25"
+                />
+                {pollOptions.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => setPollOptions((current) => current.filter((_, idx) => idx !== i))}
+                    aria-label={`Remove option ${i + 1}`}
+                    className="shrink-0 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          {pollOptions.length < 6 && (
+            <button
+              type="button"
+              onClick={() => setPollOptions((current) => [...current, ""])}
+              className="mt-2 text-xs font-medium text-primary hover:underline"
+            >
+              + Add option
+            </button>
+          )}
+          <div className="mt-4 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void createPoll()}
+              disabled={pollSaving || !pollQuestion.trim() || pollOptions.filter((o) => o.trim()).length < 2}
+              className="btn-primary-sm"
+            >
+              {pollSaving ? "Starting…" : "Start poll"}
+            </button>
+            <button type="button" onClick={() => setPollSheetOpen(false)} disabled={pollSaving} className="rounded-full border border-border px-3 py-1.5 text-xs">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </Sheet>
+
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-3 pb-3">
         <div className="pointer-events-auto mx-auto w-full max-w-2xl">
           {replyingTo && (
@@ -671,6 +825,16 @@ export function GroupChatSurface({
             }}
             className="flex w-full items-end gap-1.5 overflow-hidden rounded-full border border-input bg-card px-2.5 py-2 shadow-lift transition-shadow focus-within:shadow-xl focus-within:ring-2 focus-within:ring-ring/25 sm:gap-2 sm:px-3.5"
           >
+            <button
+              type="button"
+              aria-label="Start a poll"
+              title="Start a poll"
+              onClick={() => setPollSheetOpen(true)}
+              disabled={!loaded}
+              className="mb-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
+            >
+              <ListChecks className="h-4 w-4" />
+            </button>
             <div className="relative w-0 min-w-0 flex-1">
               {/* Ghost completion — sits behind the (transparent-background) textarea, so the
                   real typed text visually covers its invisible spacer span and only the

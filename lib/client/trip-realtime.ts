@@ -25,6 +25,11 @@ export const TABLE_TO_CHANGE: Record<string, WorkspaceChange> = {
   conversation_messages: "conversation",
   group_messages: "groupChat",
   group_message_reactions: "groupChat",
+  // A poll IS a group message (its own kind, with a live tally embedded from trip_poll_votes) —
+  // reuses "groupChat" rather than a new WorkspaceChange variant, since a vote should trigger
+  // exactly the same message-list refetch a new message already does.
+  trip_polls: "groupChat",
+  trip_poll_votes: "groupChat",
   trip_date_availability: "availability",
   trip_expenses: "expenses",
   // A friend joining via the invite link, a role change, or someone leaving otherwise never

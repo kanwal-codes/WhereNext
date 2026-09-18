@@ -46,6 +46,8 @@ describe("TABLE_TO_CHANGE", () => {
       conversation_messages: "conversation",
       bookings: "decision",
       trip_members: "members",
+      trip_polls: "groupChat",
+      trip_poll_votes: "groupChat",
     });
   });
 });
