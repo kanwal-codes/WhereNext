@@ -243,7 +243,7 @@ function Planning({ still, sw, dotR }: Draw) {
           transition={{
             d: { ...cycle, times: [0, 0.3, 0.45, 0.7, 1] },
             pathLength: { ...cycle, times: [0, 0.3, 0.45, 0.7, 1], delay: i * 0.1 },
-            opacity: { ...cycle, times: [0, 0.04, 0.45, 0.7, 1], delay: i * 0.1 },
+            opacity: { ...cycle, times: [0, 0.14, 0.45, 0.7, 1], delay: i * 0.1 },
           }}
         />
       ))}
