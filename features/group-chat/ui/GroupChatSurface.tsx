@@ -20,6 +20,7 @@ import { mentionsRoam, type GroupMessage } from "../domain/message";
 import { memberInitials } from "@/lib/member-initials";
 import { useTripMembers, type TripMember } from "@/lib/client/use-trip-members";
 import { cn } from "@/lib/utils";
+import { RoamMark } from "@/features/roam/ui/RoamMark";
 
 const COMMON_EMOJI = ["👍", "❤️", "😂", "🎉", "😍", "🤔"];
 // Same sender, close enough in time to read as one turn — collapses the repeated avatar/name.
@@ -52,10 +53,10 @@ function Avatar({ name, isRoam }: { name: string; isRoam: boolean }) {
       aria-hidden
       className={cn(
         "grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-semibold shadow-sm",
-        isRoam ? "bg-gradient-to-br from-primary to-primary/80 text-primary-foreground" : "bg-primary/10 text-primary",
+        isRoam ? "border border-border bg-card text-foreground" : "bg-primary/10 text-primary",
       )}
     >
-      {isRoam ? "R" : memberInitials(name)}
+      {isRoam ? <RoamMark size={16} animated={false} /> : memberInitials(name)}
     </span>
   );
 }
@@ -933,15 +934,8 @@ export function GroupChatSurface({
               <div className="w-7 shrink-0">
                 <Avatar name="Roam" isRoam />
               </div>
-              <div className="flex items-center gap-1 rounded-2xl rounded-tl-lg px-4 py-2.5">
-                {[0, 1, 2].map((i) => (
-                  <motion.span
-                    key={i}
-                    className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50"
-                    animate={{ opacity: [0.3, 1, 0.3] }}
-                    transition={{ duration: 1.1, repeat: Infinity, delay: i * 0.15 }}
-                  />
-                ))}
+              <div className="flex items-center rounded-2xl rounded-tl-lg px-4 py-2">
+                <RoamMark state="thinking" size={18} className="text-foreground" />
               </div>
             </motion.div>
           )}

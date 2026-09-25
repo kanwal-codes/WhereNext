@@ -15,6 +15,7 @@ import { AssistantMessage } from "./AssistantMessage";
 import { AssistantRequestError } from "../application/streamAssistantResponse";
 import { sendConversationMessage } from "../application/sendConversationMessage";
 import { cn } from "@/lib/utils";
+import { RoamMark } from "@/features/roam/ui/RoamMark";
 
 const RTL = new Set(["ar", "he", "fa", "ur", "ps", "sd"]);
 
@@ -168,15 +169,10 @@ function Typing({ stage, label }: { stage?: "resolve" | "retrieve" | "compose"; 
   const text = label && phase === STAGE_PHASE.retrieve ? `${label[0]!.toUpperCase()}${label.slice(1)}…` : THINKING_STATES[phase];
   return (
     <div className="flex items-center gap-1.5 px-1 py-2">
-      {[0, 1, 2].map((i) => (
-        <motion.span
-          key={i}
-          className="h-1.5 w-1.5 rounded-full bg-muted-foreground"
-          animate={{ opacity: [0.25, 1, 0.25], y: [0, -2, 0] }}
-          transition={{ duration: 1.1, repeat: Infinity, delay: i * 0.15 }}
-        />
-      ))}
-      <span className="ml-2 text-xs text-muted-foreground">{text}</span>
+      {/* Roam's path mark mirrors the real stage: wandering while it works out what you asked,
+          weighing routes while it checks sources, then leading the way once it's composing. */}
+      <RoamMark state={phase === 0 ? "thinking" : phase === 1 ? "planning" : "answering"} size={18} className="text-foreground" />
+      <span className="ml-1 text-xs text-muted-foreground">{text}</span>
     </div>
   );
 }
