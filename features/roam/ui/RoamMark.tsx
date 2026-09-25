@@ -4,34 +4,30 @@ import { motion, useReducedMotion, type Transition } from "motion/react";
 import { cn } from "@/lib/utils";
 
 /**
- * Roam's one mark: a single flowing path. It never swaps for a different icon — the same
- * route just behaves differently depending on what Roam is doing.
+ * Roam's one mark: a single route that sets off, loops once (the wander), and heads out.
+ * It never swaps for a different icon — the same route just behaves differently:
  *
- *   idle      — a calm route that breathes gently
- *   thinking  — the route wanders while a side trail branches off, searching
- *   planning  — several candidate routes fan out, then fold back into one
- *   answering — the route reveals itself forward, leading the way
- *   arrived   — the route settles and ends in a destination dot
- *   error     — the route breaks, hesitates, then reconnects
+ *   idle      — the route at rest
+ *   thinking  — a stroke travels the faint route back and forth, looping as it searches
+ *   planning  — candidate routes sketch in beside it, then fade as the real one takes shape
+ *   answering — the route keeps drawing itself forward, leading the way
+ *   arrived   — the route draws in once and settles on a destination dot
+ *   error     — the route parts in the middle, hesitates, then rejoins
  *
- * Drawn in `currentColor`, so it inherits text colour (black on white in light mode).
- * Every `d` below shares the same command shape (M + C + S) so motion can morph between them.
+ * Everything animates along the fixed route (draw / travel / fade) rather than bending it,
+ * so the mark stays recognisable in every state. Drawn in `currentColor`.
  */
 export type RoamMarkState = "idle" | "thinking" | "planning" | "answering" | "arrived" | "error";
 
-const ROUTE = "M8 38 C16 38 15 25 24 24 S32 10 40 10";
-const ROUTE_BREATHE = "M8 37 C17 39 14 26 24 24 S31 11 40 11";
-const WANDER = [ROUTE, "M8 38 C12 30 20 32 24 24 S36 14 40 10", "M8 38 C18 42 10 22 24 24 S28 8 40 10", ROUTE];
-const BRANCH = "M24 24 S30 30 38 30";
-const BRANCH_ALT = "M24 24 S20 12 14 10";
-const ALT_HIGH = "M8 38 C8 26 18 16 24 14 S34 10 40 10";
-const ALT_LOW = "M8 38 C20 40 30 34 34 24 S38 14 40 10";
-// The route split at its midpoint, for the "error" break.
-const FIRST_HALF = "M8 38 C16 38 15 25 24 24";
-const SECOND_HALF = "M24 24 C28 23.5 32 10 40 10";
+const ROUTE = "M6 38 C18 38 31 33 31 22 C31 13 20 13 20 20 C20 29 34 30 42 10";
+// The route split where it enters the loop, for the "error" break.
+const ROUTE_IN = "M6 38 C18 38 31 33 31 22";
+const ROUTE_OUT = "M31 22 C31 13 20 13 20 20 C20 29 34 30 42 10";
+// Candidate routes for "planning": same origin and destination, no wander.
+const ALTERNATES = ["M6 38 C10 22 26 12 42 10", "M6 38 C24 40 40 30 42 10"];
 
-const ease = [0.45, 0, 0.2, 1] as const;
-const loop = (duration: number, extra?: Transition): Transition => ({ duration, ease, repeat: Infinity, ...extra });
+const ease = [0.65, 0, 0.35, 1] as const;
+const TRACE_OPACITY = 0.14;
 
 export function RoamMark({
   state = "idle",
@@ -50,7 +46,7 @@ export function RoamMark({
 }) {
   const reduceMotion = useReducedMotion();
   const still = !animated || Boolean(reduceMotion);
-  const stroke = { fill: "none", stroke: "currentColor", strokeWidth: 3.5, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+  const stroke = { fill: "none", stroke: "currentColor", strokeWidth: 3, strokeLinecap: "round", strokeLinejoin: "round" } as const;
 
   return (
     <svg
@@ -63,92 +59,158 @@ export function RoamMark({
       className={cn("shrink-0 overflow-visible", className)}
       data-roam-state={state}
     >
-      {state === "error" ? (
-        <>
-          <path d={FIRST_HALF} {...stroke} />
-          <motion.path
-            d={SECOND_HALF}
-            {...stroke}
-            initial={false}
-            animate={still ? { x: 3, y: 2, opacity: 0.5 } : { x: [0, 3, 2, 3, 0], y: [0, 2, 3, 2, 0], opacity: [1, 0.45, 0.6, 0.45, 1] }}
-            transition={still ? { duration: 0 } : loop(2.4, { times: [0, 0.2, 0.45, 0.7, 1], repeatDelay: 0.6 })}
-          />
-        </>
-      ) : (
-        <>
-          {state === "thinking" && !still && (
-            <motion.path
-              {...stroke}
-              strokeWidth={2.5}
-              initial={{ d: BRANCH, pathLength: 0, opacity: 0 }}
-              animate={{ d: [BRANCH, BRANCH, BRANCH_ALT, BRANCH_ALT], pathLength: [0, 1, 0, 1], opacity: [0, 0.5, 0, 0.5] }}
-              transition={loop(3.2, { repeatType: "reverse" })}
-            />
-          )}
-          {state === "planning" &&
-            [ALT_HIGH, ALT_LOW].map((alt, i) => (
-              <motion.path
-                key={alt}
-                {...stroke}
-                strokeWidth={2.5}
-                initial={{ d: ROUTE, opacity: 0 }}
-                animate={still ? { d: alt, opacity: 0.3 } : { d: [ROUTE, alt, alt, ROUTE], opacity: [0, 0.4, 0.4, 0] }}
-                transition={still ? { duration: 0 } : loop(2.8, { times: [0, 0.35, 0.65, 1], delay: i * 0.15, repeatDelay: 0.3 })}
-              />
-            ))}
-          {state === "answering" && !still && <path d={ROUTE} {...stroke} opacity={0.2} />}
-          <motion.path
-            {...stroke}
-            initial={false}
-            animate={mainPose(state, still)}
-            transition={mainTransition(state, still)}
-          />
-          {state === "arrived" && (
-            <motion.circle
-              cx={40}
-              cy={10}
-              r={4.5}
-              fill="currentColor"
-              initial={still ? false : { scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: still ? 0 : 0.55, type: "spring", stiffness: 380, damping: 18 }}
-              style={{ transformOrigin: "40px 10px" }}
-            />
-          )}
-        </>
-      )}
+      {/* `key={state}` restarts each state's animation cleanly instead of blending two loops. */}
+      <g key={state}>{still ? <Resting state={state} stroke={stroke} /> : <Moving state={state} stroke={stroke} />}</g>
     </svg>
   );
 }
 
-function mainPose(state: Exclude<RoamMarkState, "error">, still: boolean) {
-  if (still) return { d: ROUTE, pathLength: 1, opacity: 1 };
-  switch (state) {
-    case "idle":
-      return { d: [ROUTE, ROUTE_BREATHE], pathLength: 1, opacity: 1 };
-    case "thinking":
-      return { d: WANDER, pathLength: 1, opacity: 1 };
-    case "planning":
-      return { d: ROUTE, pathLength: 1, opacity: [0.55, 1, 1, 0.55] };
-    case "answering":
-      return { d: ROUTE, pathLength: [0, 1, 1], opacity: [1, 1, 0] };
-    case "arrived":
-      return { d: ROUTE, pathLength: [0, 1], opacity: 1 };
+type Stroke = Record<string, string | number>;
+
+function Resting({ state, stroke }: { state: RoamMarkState; stroke: Stroke }) {
+  if (state === "error") {
+    return (
+      <>
+        <motion.path d={ROUTE_IN} {...stroke} initial={false} animate={{ pathLength: 0.7 }} />
+        <motion.path d={ROUTE_OUT} {...stroke} opacity={0.4} initial={false} animate={{ pathOffset: 0.16, pathLength: 0.84 }} />
+      </>
+    );
   }
+  return (
+    <>
+      <path d={ROUTE} {...stroke} />
+      {state === "arrived" && <circle cx={42} cy={10} r={4} fill="currentColor" />}
+    </>
+  );
 }
 
-function mainTransition(state: Exclude<RoamMarkState, "error">, still: boolean): Transition {
-  if (still) return { duration: 0.4, ease };
+function Moving({ state, stroke }: { state: RoamMarkState; stroke: Stroke }) {
+  const trace = <path d={ROUTE} {...stroke} opacity={TRACE_OPACITY} />;
+
   switch (state) {
     case "idle":
-      return loop(3, { repeatType: "mirror" });
+      return (
+        <motion.path
+          d={ROUTE}
+          {...stroke}
+          initial={{ pathLength: 0, opacity: 0 }}
+          animate={{ pathLength: 1, opacity: 1 }}
+          transition={{ duration: 0.9, ease }}
+        />
+      );
+
     case "thinking":
-      return loop(3.6);
-    case "planning":
-      return loop(2.8, { times: [0, 0.35, 0.65, 1], repeatDelay: 0.3 });
-    case "answering":
-      return loop(1.8, { times: [0, 0.75, 1], repeatDelay: 0.1 });
+      return (
+        <>
+          {trace}
+          <motion.path
+            d={ROUTE}
+            {...stroke}
+            initial={{ pathLength: 0.28, pathOffset: 0 }}
+            animate={{ pathLength: [0.28, 0.4, 0.28], pathOffset: [0, 0.3, 0.72] }}
+            transition={{ duration: 1.6, ease, repeat: Infinity, repeatType: "reverse" }}
+          />
+        </>
+      );
+
+    case "planning": {
+      // Per-property timing: a stroke is only made visible once it has length, so the
+      // round caps never flash as dots at the route's ends.
+      const cycle = { duration: 3.2, repeat: Infinity, ease };
+      return (
+        <>
+          {trace}
+          {ALTERNATES.map((d, i) => (
+            <motion.path
+              key={d}
+              d={d}
+              {...stroke}
+              strokeWidth={2}
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ pathLength: [0, 1, 1], opacity: [0, 0.4, 0.4, 0, 0] }}
+              transition={{
+                pathLength: { ...cycle, times: [0, 0.35, 1], delay: i * 0.12 },
+                opacity: { ...cycle, times: [0, 0.03, 0.55, 0.8, 1], delay: i * 0.12 },
+              }}
+            />
+          ))}
+          <motion.path
+            d={ROUTE}
+            {...stroke}
+            initial={{ pathLength: 0, opacity: 0 }}
+            animate={{ pathLength: [0, 0, 1, 1], opacity: [0, 0, 1, 1, 0] }}
+            transition={{
+              pathLength: { ...cycle, times: [0, 0.25, 0.6, 1] },
+              opacity: { ...cycle, times: [0, 0.25, 0.27, 0.9, 1] },
+            }}
+          />
+        </>
+      );
+    }
+
+    case "answering": {
+      const cycle = { duration: 2, repeat: Infinity, ease: "easeInOut", repeatDelay: 0.1 } as const;
+      return (
+        <>
+          {trace}
+          <motion.path
+            d={ROUTE}
+            {...stroke}
+            initial={{ pathLength: 0, pathOffset: 0, opacity: 0 }}
+            animate={{ pathLength: [0, 1, 0], pathOffset: [0, 0, 1], opacity: [0, 1, 1, 0] }}
+            transition={{
+              pathLength: { ...cycle, times: [0, 0.55, 1] },
+              pathOffset: { ...cycle, times: [0, 0.55, 1] },
+              opacity: { ...cycle, ease: "linear", times: [0, 0.03, 0.97, 1] },
+            }}
+          />
+        </>
+      );
+    }
+
     case "arrived":
-      return { duration: 0.7, ease };
+      return (
+        <>
+          <motion.path
+            d={ROUTE}
+            {...stroke}
+            initial={{ pathLength: 0, opacity: 0 }}
+            animate={{ pathLength: 1, opacity: 1 }}
+            transition={{ duration: 0.9, ease }}
+          />
+          <motion.circle
+            cx={42}
+            cy={10}
+            r={4}
+            fill="currentColor"
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.8, type: "spring", stiffness: 420, damping: 16 }}
+            style={{ transformBox: "fill-box", transformOrigin: "center" }}
+          />
+        </>
+      );
+
+    case "error": {
+      const wobble: Transition = { duration: 2.6, ease, repeat: Infinity, times: [0, 0.2, 0.6, 0.8, 1] };
+      return (
+        <>
+          <motion.path
+            d={ROUTE_IN}
+            {...stroke}
+            initial={{ pathLength: 1 }}
+            animate={{ pathLength: [1, 0.7, 0.7, 1, 1] }}
+            transition={wobble}
+          />
+          <motion.path
+            d={ROUTE_OUT}
+            {...stroke}
+            initial={{ pathOffset: 0, pathLength: 1, opacity: 1 }}
+            animate={{ pathOffset: [0, 0.16, 0.16, 0, 0], pathLength: [1, 0.84, 0.84, 1, 1], opacity: [1, 0.4, 0.4, 1, 1] }}
+            transition={wobble}
+          />
+        </>
+      );
+    }
   }
 }
