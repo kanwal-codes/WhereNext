@@ -42,7 +42,7 @@ function RoamTabs({ tripId, activeTab, onSelect }: { tripId: string; activeTab: 
             activeTab === tab.key ? "bg-card text-foreground shadow-soft" : "text-muted-foreground hover:text-foreground",
           )}
         >
-          {tab.key === "roam" && <RoamMark size={14} animated={false} />}
+          {tab.key === "roam" && <RoamMark size={22} animated={false} />}
           {tab.label}
         </Link>
       ))}

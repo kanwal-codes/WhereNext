@@ -56,7 +56,7 @@ function Avatar({ name, isRoam }: { name: string; isRoam: boolean }) {
         isRoam ? "border border-border bg-card text-foreground" : "bg-primary/10 text-primary",
       )}
     >
-      {isRoam ? <RoamMark size={16} animated={false} /> : memberInitials(name)}
+      {isRoam ? <RoamMark size={20} animated={false} /> : memberInitials(name)}
     </span>
   );
 }
@@ -935,7 +935,7 @@ export function GroupChatSurface({
                 <Avatar name="Roam" isRoam />
               </div>
               <div className="flex items-center rounded-2xl rounded-tl-lg px-4 py-2">
-                <RoamMark state="thinking" size={18} className="text-foreground" />
+                <RoamMark state="thinking" size={32} className="text-foreground" />
               </div>
             </motion.div>
           )}

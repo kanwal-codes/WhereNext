@@ -151,6 +151,7 @@ const THINKING_STATES = [
   "Almost there…",
   "Still working — this one's taking a bit…",
 ];
+const TYPING_MARK = ["thinking", "searching", "planning", "answering"] as const;
 const STAGE_PHASE: Record<"resolve" | "retrieve" | "compose", number> = { resolve: 0, retrieve: 1, compose: 2 };
 
 function Typing({ stage, label }: { stage?: "resolve" | "retrieve" | "compose"; label?: string }) {
@@ -169,9 +170,9 @@ function Typing({ stage, label }: { stage?: "resolve" | "retrieve" | "compose"; 
   const text = label && phase === STAGE_PHASE.retrieve ? `${label[0]!.toUpperCase()}${label.slice(1)}…` : THINKING_STATES[phase];
   return (
     <div className="flex items-center gap-1.5 px-1 py-2">
-      {/* Roam's path mark mirrors the real stage: wandering while it works out what you asked,
-          weighing routes while it checks sources, then leading the way once it's composing. */}
-      <RoamMark state={phase === 0 ? "thinking" : phase === 1 ? "planning" : "answering"} size={18} className="text-foreground" />
+      {/* Roam's path mark mirrors the real stage: branching while it works out what you asked,
+          searching while it checks sources, folding routes into one while it composes. */}
+      <RoamMark state={TYPING_MARK[Math.min(phase, TYPING_MARK.length - 1)]} size={32} className="text-foreground" />
       <span className="ml-1 text-xs text-muted-foreground">{text}</span>
     </div>
   );
@@ -572,7 +573,8 @@ export function ConversationSurface({
 
           {showHero && (
             <div className="pb-2">
-              <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
+              <RoamMark state="idle" size={112} label="Roam" className="mx-auto block text-foreground" />
+              <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">
                 No forms. Tell me as much or as little as you like — I&rsquo;ll keep the trip details organised and open a
                 proper view when something is easier to see than to describe.
               </p>
