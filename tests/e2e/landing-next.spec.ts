@@ -168,43 +168,16 @@ test.describe("landing page overhaul", () => {
     await expect(plansChange.getByRole("button", { name: "Fix Saturday" })).toBeAttached();
   });
 
-  test("bookings scene presents confirmations around the itinerary", async ({ page }) => {
+  test("bookings scene presents a static confirmation cluster around the itinerary", async ({ page }) => {
     await page.goto("/landing-next");
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.waitForTimeout(300);
-    // Absolute checkpoints here previously assumed a fixed Context scene
-    // pin length; that scene's pin now grows/shrinks with its own tuning
-    // (see ContextScene.tsx), so — like the cinematic-travel test below —
-    // this measures Bookings' actual pin start at runtime instead of
-    // hardcoding it.
-    for (const y of [3000, 6000, 8000, 10500, 13000, 15000, 17576, 19176, 21176, 23176]) {
-      await page.evaluate((yy) => window.scrollTo(0, yy), y);
-      await page.waitForTimeout(150);
-    }
-
-    const start = await page.evaluate(() => {
-      const el = document.querySelector('[data-scene="bookings"]')!;
-      const spacer = el.closest(".pin-spacer") ?? el.parentElement!;
-      return spacer.getBoundingClientRect().top + window.scrollY;
-    });
-
-    await page.evaluate((y) => window.scrollTo(0, y), start + 4000 * 0.5);
-    await page.waitForTimeout(2000);
-
     const bookings = page.locator('[data-scene="bookings"]');
+    await bookings.evaluate((element) => element.scrollIntoView({ block: "center" }));
     await expect(bookings.locator("[data-booking-packet]")).toHaveCSS("pointer-events", "none");
     await expect(bookings.locator('[data-booking-doc="hotel"]')).toHaveCSS("pointer-events", "auto");
+    await expect(bookings.getByRole("heading", { name: "Everything you need." })).toBeVisible();
     await expect(bookings.getByText("Fairmont Le Château")).toBeVisible();
     await expect(bookings.getByText("VIA Rail")).toBeVisible();
     await expect(bookings.getByText("Saturday", { exact: true })).toBeVisible();
-
-    await page.evaluate((y) => window.scrollTo(0, y), start + 4000);
-    await page.waitForTimeout(2500);
-
-    // opacity isn't inherited as a computed value, so check the card GSAP
-    // actually animates, not the text node inside it.
-    const fairmontCard = bookings.locator('[data-booking-doc="hotel"]');
-    await expect(fairmontCard).toHaveCSS("opacity", "0");
   });
 
   // These two scenes' pin start shifts with viewport width (confirmed
