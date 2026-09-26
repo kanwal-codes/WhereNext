@@ -172,6 +172,8 @@ test.describe("landing page overhaul", () => {
     await page.goto("/landing-next");
     const bookings = page.locator('[data-scene="bookings"]');
     await bookings.evaluate((element) => element.scrollIntoView({ block: "center" }));
+    await page.waitForTimeout(450);
+    await expect(bookings.locator("[data-bookings-stage]")).toHaveCSS("opacity", "1");
     await expect(bookings.locator("[data-booking-packet]")).toHaveCSS("pointer-events", "none");
     await expect(bookings.locator('[data-booking-doc="hotel"]')).toHaveCSS("pointer-events", "auto");
     await expect(bookings.getByRole("heading", { name: "Everything you need." })).toBeVisible();

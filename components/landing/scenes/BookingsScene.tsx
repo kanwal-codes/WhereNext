@@ -1,4 +1,11 @@
+"use client";
+
+import { useLayoutEffect, useRef } from "react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { BedDouble, Compass, Route, TicketCheck, Utensils, type LucideIcon } from "lucide-react";
+
+gsap.registerPlugin(ScrollTrigger);
 
 type Document = {
   kind: "rail" | "hotel" | "event" | "restaurant" | "activity";
@@ -25,9 +32,35 @@ const SATURDAY = [
 ] as const;
 
 export function BookingsScene() {
+  const sectionRef = useRef<HTMLElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      gsap.set(stageRef.current, { autoAlpha: 1, y: 0 });
+      return;
+    }
+
+    const ctx = gsap.context(() => {
+      gsap.to(stageRef.current, {
+        autoAlpha: 1,
+        y: 0,
+        ease: "none",
+        scrollTrigger: {
+          trigger: sectionRef.current,
+          start: "top 90%",
+          end: "top 50%",
+          scrub: 0.35,
+        },
+      });
+    }, sectionRef);
+
+    return () => ctx.revert();
+  }, []);
+
   return (
-    <section data-scene="bookings" className="relative min-h-[100dvh] overflow-hidden bg-background">
-      <div className="mx-auto grid max-w-7xl items-center gap-14 px-6 py-24 md:min-h-[100dvh] md:grid-cols-[minmax(16rem,0.8fr)_minmax(32rem,1.2fr)] md:px-12">
+    <section ref={sectionRef} data-scene="bookings" className="relative min-h-[100dvh] overflow-hidden bg-background">
+      <div ref={stageRef} data-bookings-stage className="mx-auto grid max-w-7xl translate-y-10 items-center gap-14 px-6 py-24 opacity-0 md:min-h-[100dvh] md:grid-cols-[minmax(16rem,0.8fr)_minmax(32rem,1.2fr)] md:px-12">
         <h2 className="font-display text-[clamp(3.25rem,6vw,6.25rem)] leading-[0.94] tracking-[-0.035em] text-foreground">
           Everything you need.
         </h2>
