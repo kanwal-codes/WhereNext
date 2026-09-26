@@ -71,6 +71,7 @@ test.describe("landing page overhaul", () => {
     await page.waitForTimeout(2000);
 
     await expect(context.getByText("Saturday is wide open.")).toBeVisible();
+    await expect(context.getByText("One shared picture")).toHaveCSS("opacity", "0");
   });
 
   test("Discover has accessibility affordances and reveals the focal card", async ({ page }) => {

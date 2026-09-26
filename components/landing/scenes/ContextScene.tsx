@@ -29,6 +29,7 @@ export function ContextScene() {
   const anchorRef = useRef<HTMLDivElement>(null);
   const constraintRefs = useRef<(HTMLDivElement | null)[]>([]);
   const routeRef = useRef<SVGPathElement>(null);
+  const eyebrowRef = useRef<HTMLParagraphElement>(null);
   const headlineRef = useRef<HTMLHeadingElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const photoRef = useRef<HTMLDivElement>(null);
@@ -41,7 +42,7 @@ export function ContextScene() {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     if (reduce) {
-      gsap.set([briefRef.current, headlineRef.current], { opacity: 0 });
+      gsap.set([briefRef.current, eyebrowRef.current, headlineRef.current], { opacity: 0 });
       gsap.set(backdropRef.current, { opacity: 1 });
       gsap.set(photoRef.current, { opacity: 1 });
       gsap.set(overlayRef.current, { opacity: 1 });
@@ -75,6 +76,10 @@ export function ContextScene() {
       });
       gsap.set(routeRef.current, { strokeDashoffset: 1 - routeDraw, opacity: routeDraw * (1 - briefOut) });
       gsap.set(headlineRef.current, {
+        opacity: progressBetween(p, 0.44, 0.56) * (1 - briefOut),
+        x: 20 * (1 - progressBetween(p, 0.44, 0.56)),
+      });
+      gsap.set(eyebrowRef.current, {
         opacity: progressBetween(p, 0.44, 0.56) * (1 - briefOut),
         x: 20 * (1 - progressBetween(p, 0.44, 0.56)),
       });
@@ -158,7 +163,7 @@ export function ContextScene() {
         </div>
 
         <div className="relative z-10 text-center md:text-left">
-          <p className="mb-3 text-xs font-semibold tracking-[0.16em] text-coral uppercase">One shared picture</p>
+          <p ref={eyebrowRef} className="mb-3 text-xs font-semibold tracking-[0.16em] text-coral uppercase opacity-0">One shared picture</p>
           <h2 ref={headlineRef} className="font-display text-[clamp(3rem,6vw,6.5rem)] leading-[0.92] tracking-[-0.04em] opacity-0">
             Roam gets the whole trip.
           </h2>
