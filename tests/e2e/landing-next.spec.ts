@@ -236,7 +236,7 @@ test.describe("landing page overhaul", () => {
     await expect(cinematic.getByText("Dinner · 8 minute walk.")).toBeVisible();
   });
 
-  test("finale hides the nav for its total-stillness beat, then returns it for the payoff", async ({ page }) => {
+  test("finale follows travel directly with the final invitation", async ({ page }) => {
     await page.goto("/landing-next");
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(300);
@@ -253,18 +253,8 @@ test.describe("landing page overhaul", () => {
     const nav = page.locator("header");
     const finale = page.locator('[data-scene="finale"]');
 
-    // Finale's own pin length (see FinaleScene.tsx) — was 1500, grown to
-    // 3400 after real-scroll testing showed the old length let two ordinary
-    // wheel scrolls skip straight through multiple beats.
-    const PIN_LENGTH = 3400;
-    await page.evaluate((y) => window.scrollTo(0, y), start + PIN_LENGTH * 0.35);
-    await page.waitForTimeout(1200);
-    // opacity isn't display:none, so check it directly rather than toBeHidden().
-    await expect(nav).toHaveCSS("opacity", "0");
-    await expect(finale.getByText("Three weeks earlier")).toBeVisible();
-
-    await page.evaluate((y) => window.scrollTo(0, y), start + PIN_LENGTH - 2);
-    await page.waitForTimeout(1500);
+    await page.evaluate((y) => window.scrollTo(0, y), start + 8);
+    await page.waitForTimeout(500);
     await expect(nav).toHaveCSS("opacity", "1");
     await expect(finale.getByText("You should go.")).toBeVisible();
   });
