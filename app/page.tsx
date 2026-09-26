@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { Landing } from "@/components/Landing";
+import { LandingNext } from "@/components/landing/LandingNext";
 import { TripsHome } from "@/components/TripsHome";
 import { loadTripsIndex } from "@/lib/server/trips-index";
 
 export const metadata: Metadata = {
-  title: "Where next? — plan a trip by talking about it",
+  title: "Where next? Plan a trip by talking about it",
   description:
-    "A travel workspace where Roam asks, remembers and proposes options you confirm — every place, stay, flight and forecast backed by live data with source links.",
+    "A travel workspace where Roam asks, remembers and proposes options you confirm. Every place, stay, flight and forecast is backed by live data with source links.",
   openGraph: {
     title: "Where next?",
     description: "Talk your way to a trip: discover places, map the days, pick where you stay and build the itinerary together.",
@@ -30,7 +30,7 @@ export default async function HomePage() {
   } catch {
     /* Supabase unavailable — show the public landing. */
   }
-  if (!data) return <Landing />;
+  if (!data) return <LandingNext />;
   if (data.trips.length === 0) redirect("/trips/new");
   return <TripsHome trips={data.trips} displayName={data.displayName} />;
 }

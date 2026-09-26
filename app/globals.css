@@ -313,6 +313,78 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* Landing page overhaul (docs/LandingPage_Overhaul): a warm editorial palette scoped to
+ * the new landing experience only — the rest of the product's cool-neutral tokens are
+ * untouched. Same technique as .theme-light-scope above: both the bare tokens and their
+ * `--color-X` @theme-inline snapshots must be reasserted here, or Tailwind utilities
+ * (bg-background, text-coral, ...) won't pick up the override.
+ *
+ * --surface-dark, --success, --warning are new, landing-only concepts (Design_Language
+ * spec §1) with no equivalent in the product's single-accent system — they aren't
+ * registered in @theme inline above, so reach for bg-[var(--surface-dark)] /
+ * text-[var(--success)] / text-[var(--warning)] rather than bg-surface-dark etc. */
+.landing-cinematic-scope {
+  color-scheme: light;
+  --background: #f4f1ea;
+  --foreground: #151515;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-dark: #171717;
+  --card: #ffffff;
+  --card-foreground: #151515;
+  --popover: #ffffff;
+  --popover-foreground: #151515;
+  --primary: #151515;
+  --primary-foreground: #f4f1ea;
+  --muted: #ece7db;
+  --muted-foreground: #6c6a64;
+  --ink: #151515;
+  --ink-soft: #6c6a64;
+  --border: #d8d4cb;
+  --coral: #ff5a36;
+  --coral-soft: #ffe1d8;
+  --water: var(--coral);
+  --water-soft: var(--coral-soft);
+  --leaf: var(--coral);
+  --leaf-soft: var(--coral-soft);
+  --amber: var(--coral);
+  --amber-soft: var(--coral-soft);
+  --violet: var(--coral);
+  --violet-soft: var(--coral-soft);
+  --accent-trip: var(--coral);
+  --accent-trip-soft: var(--coral-soft);
+  --success: #397a59;
+  --warning: #b77524;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-water: var(--water);
+  --color-water-soft: var(--water-soft);
+  --color-leaf: var(--leaf);
+  --color-leaf-soft: var(--leaf-soft);
+  --color-coral: var(--coral);
+  --color-coral-soft: var(--coral-soft);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-violet: var(--violet);
+  --color-violet-soft: var(--violet-soft);
+  --color-accent-trip: var(--accent-trip);
+  --color-accent-trip-soft: var(--accent-trip-soft);
+}
+
 /*
  * Radius scale (all off --radius: 1.25rem):
  *   rounded-2xl  → containers, cards, panels, sheets
@@ -535,6 +607,10 @@
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+.landing-cinematic-scope :where(h1, h2) {
+  text-wrap: balance;
 }
 
 

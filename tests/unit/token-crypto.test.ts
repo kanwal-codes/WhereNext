@@ -21,7 +21,9 @@ describe("token-crypto", () => {
   it("rejects a tampered ciphertext", () => {
     const encrypted = encryptToken("sensitive");
     const [iv, tag, ct] = encrypted.split(":");
-    const tampered = [iv, tag, Buffer.from(Buffer.from(ct, "base64").toString("hex").replace(/^./, "f"), "hex").toString("base64")].join(":");
+    const hex = Buffer.from(ct, "base64").toString("hex");
+    const tamperedHex = `${hex[0] === "f" ? "e" : "f"}${hex.slice(1)}`;
+    const tampered = [iv, tag, Buffer.from(tamperedHex, "hex").toString("base64")].join(":");
     expect(() => decryptToken(tampered)).toThrow();
   });
 });
