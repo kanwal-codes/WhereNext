@@ -34,7 +34,6 @@ test.describe("landing page overhaul", () => {
 
     await expect(page.locator("#discover")).toHaveCount(1);
     await expect(page.locator("#how-it-works")).toHaveCount(1);
-    await expect(page.locator("#groups")).toHaveCount(1);
     await expect(page.locator("header").getByRole("link", { name: "Discover", exact: true })).toHaveAttribute("href", "#discover");
     await expect(page.locator("header").getByRole("link", { name: "How it works" })).toHaveAttribute("href", "#how-it-works");
   });
@@ -199,37 +198,6 @@ test.describe("landing page overhaul", () => {
     await expect(plansChange.getByText("Roam keeps up.")).toBeVisible();
     await expect(plansChange.getByText("Pottery Workshop (alt.)")).toBeVisible();
     await expect(plansChange.getByRole("button", { name: "Fix Saturday" })).toBeAttached();
-  });
-
-  test("group planning: a reaction is a signal, a poll decides, then Roam replaces a rejected pick", async ({ page }) => {
-    await page.goto("/landing-next");
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.waitForTimeout(300);
-    for (const y of [3000, 6000, 8000, 10500, 13000, 16176, 19176]) {
-      await page.evaluate((yy) => window.scrollTo(0, yy), y);
-      await page.waitForTimeout(150);
-    }
-
-    // Dynamic measurement (see bookings/cinematic-travel above) rather than
-    // a hardcoded start — this scene's own pin length changed (see
-    // GroupPlanningScene.tsx) after real-scroll testing showed 1500 was too
-    // short, and everything upstream of it has been shifting too.
-    const start = await page.evaluate(() => {
-      const el = document.querySelector('[data-scene="group-planning"]')!;
-      const spacer = el.closest(".pin-spacer") ?? el.parentElement!;
-      return spacer.getBoundingClientRect().top + window.scrollY;
-    });
-    const PIN_LENGTH = 3200;
-    const groupPlanning = page.locator('[data-scene="group-planning"]');
-
-    await page.evaluate((y) => window.scrollTo(0, y), start + PIN_LENGTH * 0.6);
-    await page.waitForTimeout(800);
-    await expect(groupPlanning.getByText("old port bike ride?")).toBeVisible();
-    await expect(groupPlanning.getByText("Poll", { exact: true })).toBeVisible();
-
-    await page.evaluate((y) => window.scrollTo(0, y), start + PIN_LENGTH);
-    await page.waitForTimeout(800);
-    await expect(groupPlanning.getByText("Added to Sunday")).toBeVisible();
   });
 
   test("bookings scene scatters documents around the shrinking itinerary, then consolidates them", async ({ page }) => {
