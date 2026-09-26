@@ -168,7 +168,7 @@ test.describe("landing page overhaul", () => {
     await expect(plansChange.getByRole("button", { name: "Fix Saturday" })).toBeAttached();
   });
 
-  test("bookings scene scatters documents around the shrinking itinerary, then consolidates them", async ({ page }) => {
+  test("bookings scene organizes confirmations inside one travel file", async ({ page }) => {
     await page.goto("/landing-next");
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(300);
@@ -192,6 +192,8 @@ test.describe("landing page overhaul", () => {
     await page.waitForTimeout(2000);
 
     const bookings = page.locator('[data-scene="bookings"]');
+    await expect(bookings.getByText("Travel file")).toBeVisible();
+    await expect(bookings.getByText("Montreal, confirmed.")).toBeVisible();
     await expect(bookings.getByText("Fairmont Le Château")).toBeVisible();
     await expect(bookings.getByText("VIA Rail")).toBeVisible();
     await expect(bookings.getByText("Saturday", { exact: true })).toBeVisible();

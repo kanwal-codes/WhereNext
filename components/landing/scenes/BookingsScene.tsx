@@ -35,6 +35,7 @@ const SATURDAY = [
  */
 export function BookingsScene() {
   const sectionRef = useRef<HTMLDivElement>(null);
+  const packetRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const outroRef = useRef<HTMLDivElement>(null);
   const headlineFirstRef = useRef<HTMLHeadingElement>(null);
@@ -52,6 +53,7 @@ export function BookingsScene() {
       // first tick) — this branch has to explicitly set it back to 1, since
       // nothing else in the reduced-motion path ever did.
       gsap.set(cardRef.current, { scale: 1, opacity: 1 });
+      gsap.set(packetRef.current, { opacity: 1 });
       gsap.set(outroRef.current, { opacity: 0 });
       gsap.set(headlineFirstRef.current, { opacity: 0 });
       gsap.set(headlineSecondRef.current, { opacity: 1 });
@@ -68,6 +70,10 @@ export function BookingsScene() {
         const textExit = progressBetween(p, 0.97, 0.985);
         const outro = progressBetween(p, 0.985, 1);
         const deckExit = outro;
+        gsap.set(packetRef.current, {
+          opacity: progressBetween(p, 0.03, 0.13) * (1 - deckExit),
+          scale: 0.97 + progressBetween(p, 0.03, 0.13) * 0.03,
+        });
         gsap.set(cardRef.current, {
           scale: (0.78 + deckIn * 0.22) * (1 - deckExit * 0.08),
           opacity: deckIn * (1 - deckExit),
@@ -93,8 +99,9 @@ export function BookingsScene() {
           const releaseStart = 0.18 + i * 0.09;
           const release = progressBetween(p, releaseStart, releaseStart + 0.16);
           const exit = outro;
-          const x = doc.origin.x * release;
-          const y = doc.origin.y * release - 112 * 4 * release * (1 - release);
+          const compact = window.innerWidth < 768;
+          const x = doc.origin.x * release * (compact ? 0.48 : 1);
+          const y = doc.origin.y * release * (compact ? 0.58 : 1) - 112 * 4 * release * (1 - release);
           gsap.set(el, {
             x,
             y,
@@ -129,7 +136,17 @@ export function BookingsScene() {
   return (
     <div ref={sectionRef} data-scene="bookings" className="relative min-h-[100dvh] overflow-hidden bg-background">
       <div ref={outroRef} className="pointer-events-none absolute inset-0 z-0 bg-[#171717] opacity-0" />
-      {DOCUMENTS.map((doc, i) => {
+      <div ref={packetRef} className="pointer-events-none absolute inset-0 grid place-items-center px-5 opacity-0">
+        <div className="relative h-[min(42rem,72dvh)] w-full max-w-5xl overflow-hidden rounded-[2rem] border border-border bg-surface shadow-lift">
+          <div className="absolute inset-x-6 top-5 flex items-center justify-between border-b border-border pb-4 md:inset-x-8">
+            <div>
+              <p className="text-[10px] font-semibold tracking-[0.18em] text-coral uppercase">Travel file</p>
+              <p className="mt-1 font-display text-xl tracking-[-0.03em]">Montreal, confirmed.</p>
+            </div>
+            <p className="text-right text-xs text-muted-foreground">Oct 16-19<br />Four friends</p>
+          </div>
+
+          {DOCUMENTS.map((doc, i) => {
         const Icon = doc.icon;
         return (
           <div key={doc.label} className="absolute top-1/2 left-1/2" style={{ translate: "-50% -50%" }}>
@@ -167,10 +184,10 @@ export function BookingsScene() {
             </div>
           </div>
         );
-      })}
+          })}
 
-      <div className="pointer-events-none absolute inset-0 grid place-items-center">
-        <div ref={cardRef} className="w-56 rounded-2xl border border-border bg-surface p-4 opacity-0 shadow-lift">
+          <div className="pointer-events-none absolute inset-0 grid place-items-center pt-8">
+            <div ref={cardRef} className="w-56 rounded-2xl border border-border bg-surface p-4 opacity-0 shadow-lift">
           <div className="mb-3 flex items-end justify-between border-b border-border pb-3">
             <div>
               <p className="text-[10px] font-semibold tracking-[0.12em] text-coral uppercase">Saturday</p>
@@ -190,6 +207,10 @@ export function BookingsScene() {
               </div>
             ))}
           </div>
+            </div>
+          </div>
+
+          <p className="absolute inset-x-0 bottom-6 text-center text-[10px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">All in one place</p>
         </div>
       </div>
 
