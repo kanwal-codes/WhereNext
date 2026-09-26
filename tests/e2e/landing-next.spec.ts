@@ -49,24 +49,25 @@ test.describe("landing page overhaul", () => {
     await expect(chaos.getByText("Montreal weekend?")).toBeVisible();
   });
 
-  test("context scene settles the trip card and orbiting chips, then dives into Montreal photography", async ({ page }) => {
+  test("context scene composes a trip brief, then opens into Montreal photography", async ({ page }) => {
     await page.goto("/landing-next");
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(300);
-    await page.evaluate(() => window.scrollTo(0, 5620));
+    const start = await page.evaluate(() => {
+      const el = document.querySelector('[data-scene="context"]')!;
+      const spacer = el.closest(".pin-spacer") ?? el.parentElement!;
+      return spacer.getBoundingClientRect().top + window.scrollY;
+    });
+    await page.evaluate((y) => window.scrollTo(0, y), start + 4400 * 0.45);
     await page.waitForTimeout(1500);
 
-    // Context and the Montreal dive are one continuous pinned scene (merged
-    // after the original two-component version produced a hard cut and
-    // duplicate chips/card at the boundary) — both checked in one test,
-    // against the same [data-scene="context"] element.
     const context = page.locator('[data-scene="context"]');
-    await expect(context.getByRole("paragraph").filter({ hasText: /^MONTREAL$/ })).toBeVisible();
+    await expect(context.getByRole("heading", { name: "Montreal" })).toBeVisible();
     await expect(context.getByText("Roam gets the whole trip.")).toBeVisible();
     await expect(context.getByText("Vegetarian")).toBeVisible();
-    await expect(context.getByText("Nightlife", { exact: true })).toBeVisible();
+    await expect(context.getByText("No museums", { exact: true })).toBeVisible();
 
-    await page.evaluate(() => window.scrollTo(0, 6520));
+    await page.evaluate((y) => window.scrollTo(0, y), start + 4400 * 0.92);
     await page.waitForTimeout(2000);
 
     await expect(context.getByText("Saturday is wide open.")).toBeVisible();
