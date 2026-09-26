@@ -48,8 +48,11 @@ export function BookingsScene() {
         ease: "none",
         scrollTrigger: {
           trigger: sectionRef.current,
-          start: "top 90%",
-          end: "top 50%",
+          // Plans Change owns the exit. Wait until its closing line has
+          // released and the following section has crossed the viewport
+          // before allowing this otherwise-static proof point to appear.
+          start: "top 65%",
+          end: "top 35%",
           scrub: 0.35,
         },
       });
