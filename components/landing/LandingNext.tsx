@@ -6,7 +6,6 @@ import { HeroScene } from "@/components/landing/scenes/HeroScene";
 import { ChaosScene } from "@/components/landing/scenes/ChaosScene";
 import { ContextScene } from "@/components/landing/scenes/ContextScene";
 import { DiscoverScene } from "@/components/landing/scenes/DiscoverScene";
-import { CardJourneyScene } from "@/components/landing/scenes/CardJourneyScene";
 import { PlansChangeScene } from "@/components/landing/scenes/PlansChangeScene";
 import { BookingsScene } from "@/components/landing/scenes/BookingsScene";
 import { CinematicTravelScene } from "@/components/landing/scenes/CinematicTravelScene";
@@ -33,7 +32,6 @@ export function LandingNext() {
           <ChaosScene />
           <ContextScene />
           <DiscoverScene />
-          <CardJourneyScene />
           <PlansChangeScene />
           <BookingsScene />
           <CinematicTravelScene />

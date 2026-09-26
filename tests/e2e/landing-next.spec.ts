@@ -122,40 +122,6 @@ test.describe("landing page overhaul", () => {
     await expect(discover.getByText("Pottery Workshop")).toBeAttached();
   });
 
-  test("card journey shows every real stop directly on the curvy road as it draws, then holds on the finished road", async ({ page }) => {
-    await page.goto("/landing-next");
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.waitForTimeout(300);
-    for (const y of [1500, 3920, 5620, 6520, 7420, 8500, 9476]) {
-      await page.evaluate((yy) => window.scrollTo(0, yy), y);
-      await page.waitForTimeout(150);
-    }
-
-    // Card journey and Itinerary are merged into one scene where the curvy
-    // road IS the itinerary — every real stop pops in with its time/title
-    // directly on the road as the line reaches it. Nothing ever leaves the
-    // curve or reflows into a separate vertical list (that produced a hard
-    // cut mid-scene and was reworked per user feedback).
-    const cardJourney = page.locator('[data-scene="card-journey"]');
-
-    await page.evaluate(() => window.scrollTo(0, 10006));
-    await page.waitForTimeout(1200);
-    await expect(cardJourney.getByText("Brunch")).toBeVisible(); // first real stop already revealed on the curve
-
-    await page.evaluate(() => window.scrollTo(0, 11154));
-    await page.waitForTimeout(1200);
-    await expect(cardJourney.getByText("Old Montreal")).toBeVisible();
-    await expect(cardJourney.getByText("Pottery Workshop")).toBeVisible();
-
-    await page.evaluate(() => window.scrollTo(0, 12362));
-    await page.waitForTimeout(2000);
-    await expect(cardJourney.getByText("Saturday.")).toBeVisible();
-    await expect(cardJourney.getByText("Dinner")).toBeVisible();
-    // still on the road, not a separate vertical list — Brunch (the first
-    // stop) and Dinner (the last) are both visible at once, in place.
-    await expect(cardJourney.getByText("Brunch")).toBeVisible();
-  });
-
   test("plans change: a group message leads to a user-initiated Ask Roam fix, not an automatic one", async ({ page }) => {
     await page.goto("/landing-next");
     await page.evaluate(() => window.scrollTo(0, 0));
