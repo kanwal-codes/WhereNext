@@ -136,9 +136,9 @@ export function BookingsScene() {
   return (
     <div ref={sectionRef} data-scene="bookings" className="relative min-h-[100dvh] overflow-hidden bg-background">
       <div ref={outroRef} className="pointer-events-none absolute inset-0 z-0 bg-[#171717] opacity-0" />
-      <div ref={packetRef} className="absolute inset-0 grid place-items-center px-5 opacity-0 md:justify-items-end md:pr-[6vw]">
-        <div data-booking-packet className="relative h-[min(42rem,72dvh)] w-full max-w-[42rem]">
-          <div className="absolute inset-x-6 top-5 flex items-center justify-between border-b border-border pb-4 md:inset-x-8">
+      <div ref={packetRef} className="pointer-events-none absolute inset-0 grid place-items-center px-5 opacity-0 md:justify-items-end md:pr-[6vw]">
+        <div data-booking-packet className="pointer-events-none relative h-[min(42rem,72dvh)] w-full max-w-[42rem]">
+          <div className="pointer-events-auto absolute inset-x-6 top-5 flex items-center justify-between border-b border-border pb-4 md:inset-x-8">
             <div>
               <p className="text-[10px] font-semibold tracking-[0.18em] text-coral uppercase">Travel file</p>
               <p className="mt-1 font-display text-xl tracking-[-0.03em]">Montreal, confirmed.</p>
@@ -149,7 +149,7 @@ export function BookingsScene() {
           {DOCUMENTS.map((doc, i) => {
         const Icon = doc.icon;
         return (
-          <div key={doc.label} className="absolute top-1/2 left-1/2" style={{ translate: "-50% -50%" }}>
+          <div key={doc.label} className="pointer-events-auto absolute top-1/2 left-1/2" style={{ translate: "-50% -50%" }}>
             <div
               ref={(el) => {
                 docRefs.current[i] = el;
@@ -186,8 +186,8 @@ export function BookingsScene() {
         );
           })}
 
-          <div className="absolute inset-0 grid place-items-center pt-8">
-            <div ref={cardRef} className="w-56 rounded-2xl border border-border bg-surface p-4 opacity-0 shadow-lift">
+          <div className="pointer-events-none absolute inset-0 grid place-items-center pt-8">
+            <div ref={cardRef} className="pointer-events-auto w-56 rounded-2xl border border-border bg-surface p-4 opacity-0 shadow-lift">
           <div className="mb-3 flex items-end justify-between border-b border-border pb-3">
             <div>
               <p className="text-[10px] font-semibold tracking-[0.12em] text-coral uppercase">Saturday</p>
@@ -210,7 +210,7 @@ export function BookingsScene() {
             </div>
           </div>
 
-          <p className="absolute inset-x-0 bottom-6 text-center text-[10px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">All in one place</p>
+          <p className="pointer-events-auto absolute inset-x-0 bottom-6 text-center text-[10px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">All in one place</p>
         </div>
       </div>
 
