@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { ArrowUp, ChevronRight, Copy, Mic } from "lucide-react";
 import { Sheet } from "@/components/motion-primitives";
 import type { AssistantBlock, AssistantTurnMeta, PlaceCard, ProposedCommand, StayCardItem } from "@/packages/contracts/assistant";
@@ -178,6 +178,22 @@ function Typing({ stage, label }: { stage?: "resolve" | "retrieve" | "compose"; 
   );
 }
 
+/** Roam's mark once a turn ends: the route settling on its destination, or breaking on a
+ *  failure. Shown briefly under the log, then cleared by `ConversationSurface`. */
+function TurnOutcome({ kind }: { kind: "arrived" | "error" }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, transition: { duration: 0.4 } }}
+      className="flex items-center gap-1.5 px-1 py-2"
+    >
+      <RoamMark state={kind} size={32} className="text-foreground" />
+      {kind === "error" && <span className="ml-1 text-xs text-muted-foreground">Roam couldn’t reply</span>}
+    </motion.div>
+  );
+}
+
 export function ConversationSurface({
   tripId,
   initialMessages,
@@ -216,6 +232,13 @@ export function ConversationSurface({
   const [proposal, setProposal] = useState<ProposedCommand | null>(null);
   // Phase 2.6.2 (docs/overhaul/roadmap/phase-2-speed.md): the real backend milestone for the
   // in-flight turn, driving Typing's label — replaces a purely time-based guess.
+  // How the last turn ended, shown with Roam's mark for a moment after the reply settles.
+  const [outcome, setOutcome] = useState<{ kind: "arrived" | "error"; at: number } | null>(null);
+  useEffect(() => {
+    if (!outcome) return;
+    const timer = setTimeout(() => setOutcome(null), outcome.kind === "error" ? 4000 : 2200);
+    return () => clearTimeout(timer);
+  }, [outcome]);
   const [progressStage, setProgressStage] = useState<"resolve" | "retrieve" | "compose" | undefined>(undefined);
   // What RESOLVE actually planned to look up ("checking places", "getting directions"), shown
   // during "retrieve" instead of Typing's generic label — undefined falls back to that generic
@@ -403,6 +426,7 @@ export function ConversationSurface({
     if (!content || sending || !loaded) return;
     if (speech.listening) speech.stop();
     setSending(true);
+    setOutcome(null);
     setInput("");
     const previous = messages;
     // Stable across every retry of THIS send (never a fresh crypto.randomUUID() per attempt) —
@@ -462,8 +486,10 @@ export function ConversationSurface({
       // The resolver may have persisted core trip facts or pending suggestions during this turn.
       // Refresh server-rendered workspace surfaces so “What we know” reflects the same response.
       announceWorkspaceChange("preferences");
+      setOutcome({ kind: "arrived", at: Date.now() });
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
+      if (userSaved) setOutcome({ kind: "error", at: Date.now() });
       setMessages(userSaved ? next : previous);
       const aiError = err instanceof AssistantRequestError;
       const message = userSaved
@@ -511,6 +537,8 @@ export function ConversationSurface({
 
   const showHero = loaded && messages.length === 0 && !rail;
   const waiting = sending && messages[messages.length - 1]?.content.trim() === "";
+  const lastMessage = messages[messages.length - 1];
+  const streamingReply = sending && lastMessage?.role === "assistant" && lastMessage.content.trim() !== "";
 
   const micButton = speech.supported && (
     <button
@@ -617,15 +645,9 @@ export function ConversationSurface({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ type: "spring", stiffness: 240, damping: 26 }}
                 dir={dir}
-                // `chat-streaming` (app/globals.css) blinks a "▍" cursor after the last child of
-                // `.chat-prose` — meant to sit after the growing text while it streams in. Gated
-                // on content being non-empty: `streaming` alone is also true during the earlier
-                // RESOLVE/RETRIEVE "thinking" phase, before any tokens have arrived, when the
-                // message is still `""` — with no real text before it, the cursor rendered as a
-                // lone blinking bar floating with nothing to sit after, redundant with (and
-                // confusing alongside) the separate "Pulling the details together…" indicator
-                // already shown for that same phase.
-                className={cn("space-y-2", streaming && message.content && "chat-streaming")}
+                // While text streams in, Roam's "answering" mark below the log stands in for the
+                // old blinking "▍" cursor (`chat-streaming` in app/globals.css).
+                className="space-y-2"
               >
                 <AssistantMessage content={message.content} blocks={meta?.blocks} handlers={handlers} streaming={streaming} />
                 {!streaming && meta?.degraded && (
@@ -670,7 +692,21 @@ export function ConversationSurface({
             );
           })}
 
-          <div role="status" aria-live="polite">{waiting && <Typing stage={progressStage} label={progressLabel} />}</div>
+          <div role="status" aria-live="polite">
+            {/* One slot for Roam's mark through a whole turn: thinking/searching/planning while it
+                works (Typing), answering while text streams in, then briefly how it ended. */}
+            <AnimatePresence mode="wait" initial={false}>
+              {waiting ? (
+                <Typing key="typing" stage={progressStage} label={progressLabel} />
+              ) : streamingReply ? (
+                <motion.div key="answering" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center px-1 py-2">
+                  <RoamMark state="answering" size={32} label="Roam is replying" className="text-foreground" />
+                </motion.div>
+              ) : outcome ? (
+                <TurnOutcome key={`${outcome.kind}-${outcome.at}`} kind={outcome.kind} />
+              ) : null}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
 
