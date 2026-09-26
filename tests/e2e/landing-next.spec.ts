@@ -192,6 +192,7 @@ test.describe("landing page overhaul", () => {
     await page.waitForTimeout(2000);
 
     const bookings = page.locator('[data-scene="bookings"]');
+    await expect(bookings.locator("[data-booking-packet]")).toHaveCSS("pointer-events", "auto");
     await expect(bookings.getByText("Travel file")).toBeVisible();
     await expect(bookings.getByText("Montreal, confirmed.")).toBeVisible();
     await expect(bookings.getByText("Fairmont Le Château")).toBeVisible();
