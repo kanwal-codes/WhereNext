@@ -136,8 +136,8 @@ export function BookingsScene() {
   return (
     <div ref={sectionRef} data-scene="bookings" className="relative min-h-[100dvh] overflow-hidden bg-background">
       <div ref={outroRef} className="pointer-events-none absolute inset-0 z-0 bg-[#171717] opacity-0" />
-      <div ref={packetRef} className="pointer-events-none absolute inset-0 grid place-items-center px-5 opacity-0">
-        <div className="relative h-[min(42rem,72dvh)] w-full max-w-5xl overflow-hidden rounded-[2rem] border border-border bg-surface shadow-lift">
+      <div ref={packetRef} className="pointer-events-none absolute inset-0 grid place-items-center px-5 opacity-0 md:justify-items-end md:pr-[6vw]">
+        <div className="relative h-[min(42rem,72dvh)] w-full max-w-[42rem] overflow-hidden rounded-[2rem] border border-border bg-surface shadow-lift">
           <div className="absolute inset-x-6 top-5 flex items-center justify-between border-b border-border pb-4 md:inset-x-8">
             <div>
               <p className="text-[10px] font-semibold tracking-[0.18em] text-coral uppercase">Travel file</p>
@@ -214,7 +214,7 @@ export function BookingsScene() {
         </div>
       </div>
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-[18%] z-10 h-[clamp(3.5rem,6vw,6rem)] px-6 text-center">
+      <div className="pointer-events-none absolute inset-x-0 bottom-[18%] z-10 h-[clamp(3.5rem,6vw,6rem)] px-6 text-center md:top-1/2 md:right-auto md:bottom-auto md:left-[clamp(2rem,8vw,9rem)] md:w-[min(32rem,38vw)] md:-translate-y-1/2 md:px-0 md:text-left">
         <h2 ref={headlineFirstRef} className="absolute top-0 inset-x-0 font-display text-[clamp(2.5rem,5.5vw,5rem)] tracking-[-0.02em] opacity-0">Everything you&rsquo;ll need.</h2>
         <h2 ref={headlineSecondRef} className="absolute top-0 inset-x-0 font-display text-[clamp(2.5rem,5.5vw,5rem)] tracking-[-0.02em] opacity-0">Right when you&rsquo;ll need it.</h2>
       </div>
