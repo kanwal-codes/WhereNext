@@ -137,7 +137,7 @@ export function BookingsScene() {
     <div ref={sectionRef} data-scene="bookings" className="relative min-h-[100dvh] overflow-hidden bg-background">
       <div ref={outroRef} className="pointer-events-none absolute inset-0 z-0 bg-[#171717] opacity-0" />
       <div ref={packetRef} className="absolute inset-0 grid place-items-center px-5 opacity-0 md:justify-items-end md:pr-[6vw]">
-        <div data-booking-packet className="relative h-[min(42rem,72dvh)] w-full max-w-[42rem] overflow-hidden rounded-[2rem] border border-border bg-surface shadow-lift">
+        <div data-booking-packet className="relative h-[min(42rem,72dvh)] w-full max-w-[42rem]">
           <div className="absolute inset-x-6 top-5 flex items-center justify-between border-b border-border pb-4 md:inset-x-8">
             <div>
               <p className="text-[10px] font-semibold tracking-[0.18em] text-coral uppercase">Travel file</p>
