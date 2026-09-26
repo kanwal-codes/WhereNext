@@ -138,14 +138,6 @@ export function BookingsScene() {
       <div ref={outroRef} className="pointer-events-none absolute inset-0 z-0 bg-[#171717] opacity-0" />
       <div ref={packetRef} className="pointer-events-none absolute inset-0 grid place-items-center px-5 opacity-0 md:justify-items-end md:pr-[6vw]">
         <div data-booking-packet className="pointer-events-none relative h-[min(42rem,72dvh)] w-full max-w-[42rem]">
-          <div className="pointer-events-auto absolute inset-x-6 top-5 flex items-center justify-between border-b border-border pb-4 md:inset-x-8">
-            <div>
-              <p className="text-[10px] font-semibold tracking-[0.18em] text-coral uppercase">Travel file</p>
-              <p className="mt-1 font-display text-xl tracking-[-0.03em]">Montreal, confirmed.</p>
-            </div>
-            <p className="text-right text-xs text-muted-foreground">Oct 16-19<br />Four friends</p>
-          </div>
-
           {DOCUMENTS.map((doc, i) => {
         const Icon = doc.icon;
         return (
@@ -210,7 +202,6 @@ export function BookingsScene() {
             </div>
           </div>
 
-          <p className="pointer-events-auto absolute inset-x-0 bottom-6 text-center text-[10px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">All in one place</p>
         </div>
       </div>
 
