@@ -2,7 +2,7 @@
 
 import { ScrollExperienceProvider } from "@/components/landing/ScrollExperienceProvider";
 import { Nav } from "@/components/landing/Nav";
-import { HeroScene } from "@/components/landing/scenes/HeroScene";
+import { PromptScene } from "@/components/landing/scenes/PromptScene";
 import { ChaosScene } from "@/components/landing/scenes/ChaosScene";
 import { ContextScene } from "@/components/landing/scenes/ContextScene";
 import { DiscoverScene } from "@/components/landing/scenes/DiscoverScene";
@@ -28,7 +28,7 @@ export function LandingNext() {
         </a>
         <Nav />
         <main id="main-content">
-          <HeroScene />
+          <PromptScene />
           <ChaosScene />
           <ContextScene />
           <DiscoverScene />
