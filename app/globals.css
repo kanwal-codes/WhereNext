@@ -558,6 +558,7 @@
   .chat-prose .chat-photo { display: block; max-width: 100%; height: auto; border-radius: 10px; margin: 0.5rem 0; }
 }
 
+/* Blinking cursor — only the landing page's scripted demo still uses it. */
 .chat-streaming > .chat-prose > :last-child::after {
   content: "▍";
   margin-left: 2px;
@@ -565,6 +566,26 @@
 }
 @keyframes chat-blink { 50% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .chat-streaming > .chat-prose > :last-child::after { animation: none; } }
+
+/* Roam's reply, as it is written (StreamedText.tsx): each new word settles in — a short rise out
+   of a soft blur — so a burst of text reads as one smooth pour rather than a stutter. */
+@keyframes chat-word-in {
+  from { opacity: 0; transform: translateY(0.4em); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+.chat-prose .chat-word {
+  display: inline-block;
+  animation: chat-word-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+/* Cards and photos that come with a reply ease in once its text has finished. */
+@keyframes chat-blocks-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.chat-blocks-in { animation: chat-blocks-in 600ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .chat-prose .chat-word, .chat-blocks-in { animation: none; }
+}
 
 /* react-day-picker (DateRangeField) — themed through its own CSS custom properties
    (see node_modules/react-day-picker/src/style.css for the full variable list) plus a

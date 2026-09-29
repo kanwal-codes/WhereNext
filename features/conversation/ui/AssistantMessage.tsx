@@ -1,8 +1,11 @@
-import React from "react";
+"use client";
+
+import React, { useRef, useState } from "react";
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 import { MessageBlocks, type BlockHandlers } from "./blocks/MessageBlocks";
+import { StreamedText } from "./StreamedText";
 import { isProxyPhotoUrl, portableProxyPhotoUrl } from "./portable-photo-url";
 
 export type { BlockHandlers };
@@ -37,18 +40,22 @@ const components: Components = {
 };
 
 export function AssistantMessage({ content, blocks, handlers, streaming }: { content: string; blocks?: AssistantBlock[]; handlers?: BlockHandlers; streaming?: boolean }) {
+  // A reply that is being written is revealed by <StreamedText>, which keeps going after the
+  // stream itself ends until the last word has landed, and only then hands over to the final
+  // render below. History that loads already complete never enters this path.
+  const [revealing, setRevealing] = useState(Boolean(streaming));
+  const wasRevealed = useRef(false);
+  if (streaming && !revealing) setRevealing(true);
+  if (revealing) wasRevealed.current = true;
+
   // sanitizeAssistantContent (the allowedUrls link/image allow-list) only runs once, on the
   // fully-assembled text, right before it's persisted — the raw provider bytes are what's
-  // rendered live during streaming. Markdown-parsing that raw text would make an
+  // rendered live during streaming. Markdown-parsing that raw text into links would make an
   // unvetted link or image clickable/visible for the whole streaming window, before the
-  // allow-list ever gets a chance to strip it. Plain text during streaming is inert (no <a>,
-  // no <img> can come out of it); the real Markdown render only ever sees already-sanitized text.
-  if (streaming) {
-    return (
-      <div className="chat-prose">
-        <p style={{ whiteSpace: "pre-wrap" }}>{content}</p>
-      </div>
-    );
+  // allow-list ever gets a chance to strip it. StreamedText renders inert Markdown (no <a>, no
+  // <img> can come out of it); the real render only ever sees already-sanitized text.
+  if (revealing) {
+    return <StreamedText content={content} live={Boolean(streaming)} onDone={() => setRevealing(false)} />;
   }
   return (
     <div className="chat-prose">
@@ -61,7 +68,11 @@ export function AssistantMessage({ content, blocks, handlers, streaming }: { con
       >
         {content}
       </Markdown>
-      {blocks && blocks.length > 0 && handlers ? <MessageBlocks blocks={blocks} {...handlers} /> : null}
+      {blocks && blocks.length > 0 && handlers ? (
+        <div className={wasRevealed.current ? "chat-blocks-in" : undefined}>
+          <MessageBlocks blocks={blocks} {...handlers} />
+        </div>
+      ) : null}
     </div>
   );
 }
