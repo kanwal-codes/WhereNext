@@ -8,9 +8,12 @@ import { useReducedMotion } from "motion/react";
 /**
  * How Roam's reply appears while it is being written.
  *
- * Network chunks arrive in bursts; showing them as they land reads as stutter. Instead the text
- * is released at a steady, adaptive pace (a burst is smoothed out, a slow stream never stalls),
- * always in whole words, and each new word settles in with a short fade-rise (`.chat-word`).
+ * Network chunks arrive in bursts; showing them as they land reads as stutter. Instead the pace
+ * follows the stream itself: each chunk is spread over about as long as the next one is expected
+ * to take, so the text keeps moving and lands just as more arrives (a burst is smoothed out, a
+ * pause reads as a natural beat). It is released in whole words, and each new word settles in
+ * from a soft blur (`.chat-word`), with each new block — paragraph, bullet, heading — lifting
+ * into place (`.chat-live`).
  * Formatting — bullets, bold, headings — appears live as it is written, so the finished message
  * doesn't jump when it is swapped for its final render.
  *
@@ -33,21 +36,33 @@ const components: Components = {
   img: () => null,
 };
 
-/** How long a word keeps its entrance class — a little longer than the CSS animation. */
-const FADE_MS = 700;
-const MIN_CPS = 45;
-const MAX_CPS = 520;
+const MIN_CPS = 30;
+const MAX_CPS = 900;
+/** Fallback for the gap between chunks until a few have been measured. */
+const DEFAULT_GAP_MS = 140;
+/** Each chunk is spread over its expected gap × this, so the reveal never quite runs dry. */
+const GAP_STRETCH = 1.3;
+/** Once the stream has ended, whatever is left is finished in about this long. */
+const FINISH_S = 0.7;
 /** Words released in the same burst enter this far apart, so a burst pours in instead of popping. */
-const STAGGER_MS = 38;
-const MAX_STAGGER_MS = 300;
-/** Catch-up gain: at this many chars behind, the reveal runs at (chars × gain) per second. */
-const CATCH_UP = 4;
+const STAGGER_MS = 32;
+const MAX_STAGGER_MS = 320;
 
 /**
  * The prefix of `text` that may be shown. Whole words only: a word appears once it is complete,
  * so it fades in as a unit instead of growing letter by letter.
  */
 function wordBoundary(text: string, pos: number, live: boolean): number {
+  const end = wordEnd(text, pos, live);
+  if (!live || end >= text.length) return end;
+  // A line that is only "-" or "=" so far could still become a bullet — but for a moment it reads
+  // as a setext underline that turns the line above into a heading. Hold it back until more of
+  // the line has arrived, so a paragraph never flashes into a heading and back.
+  const lineStart = text.lastIndexOf("\n", end - 1) + 1;
+  return lineStart > 0 && /^\s{0,3}[-=]+\s*$/.test(text.slice(lineStart, end)) ? lineStart : end;
+}
+
+function wordEnd(text: string, pos: number, live: boolean): number {
   let end = Math.min(Math.floor(pos), text.length);
   if (end >= text.length) {
     if (!live) return text.length;
@@ -64,7 +79,9 @@ function wordBoundary(text: string, pos: number, live: boolean): number {
   return end;
 }
 
-type Births = { map: Map<number, number>; delays: Map<number, number>; first: boolean };
+/** `born` is 0 for words that were already there at mount (they never animate). `nextSlot` is a running schedule: when the next new word may start, so words always enter in
+ *  reading order, each a beat after the last, even across bursts. */
+type Births = { map: Map<number, number>; delays: Map<number, number>; nextSlot: number; first: boolean };
 
 /** rehype plugin: wraps each word that is still fading in in a `.chat-word` span. */
 function rehypeWordFade(options: { births: Births; now: number; animate: boolean }) {
@@ -72,7 +89,6 @@ function rehypeWordFade(options: { births: Births; now: number; animate: boolean
   return (tree: Node) => {
     if (!options.animate) return;
     let ordinal = 0;
-    let newThisPass = 0;
     const walk = (node: Node, skip: boolean) => {
       if (!node.children) return;
       const next: Node[] = [];
@@ -90,11 +106,21 @@ function rehypeWordFade(options: { births: Births; now: number; animate: boolean
               // Words already present when the message first rendered are simply there.
               born = options.births.first ? 0 : options.now;
               options.births.map.set(n, born);
-              options.births.delays.set(n, options.births.first ? 0 : Math.min(newThisPass++ * STAGGER_MS, MAX_STAGGER_MS));
+              let delay = 0;
+              if (!options.births.first) {
+                const start = Math.max(options.now, options.births.nextSlot);
+                options.births.nextSlot = Math.min(start + STAGGER_MS, options.now + MAX_STAGGER_MS);
+                delay = start - options.now;
+              }
+              options.births.delays.set(n, delay);
             }
             const delay = options.births.delays.get(n) ?? 0;
+            // Every word that arrives after mount stays a span until the stream ends. React keys
+            // siblings as "span-<n>" (the n-th span in the paragraph), so a word turning back into
+            // plain text once its fade finished would shift every later span's key and make React
+            // recycle the wrong elements — restarting or dropping fades mid-stream.
             next.push(
-              options.now - born < FADE_MS + delay
+              born > 0
                 ? {
                     type: "element",
                     tagName: "span",
@@ -131,6 +157,8 @@ export function StreamedText({
   const liveRef = useRef(live);
   const doneRef = useRef(onDone);
   const posRef = useRef(content.length);
+  // Arrival timing: how long chunks are taking, so the reveal can be paced to match.
+  const arrivalRef = useRef({ length: content.length, at: 0, gap: DEFAULT_GAP_MS });
   targetRef.current = content;
   liveRef.current = live;
   doneRef.current = onDone;
@@ -143,9 +171,16 @@ export function StreamedText({
       const target = targetRef.current;
       const dt = Math.min(now - last, 64) / 1000;
       last = now;
+      const arrival = arrivalRef.current;
+      if (target.length > arrival.length) {
+        if (arrival.at) arrival.gap = arrival.gap * 0.7 + Math.min(Math.max(now - arrival.at, 50), 700) * 0.3;
+        arrival.at = now;
+        arrival.length = target.length;
+      }
       const remaining = target.length - posRef.current;
       if (remaining > 0) {
-        const cps = reduceMotion ? Infinity : Math.min(MAX_CPS, Math.max(MIN_CPS, remaining * CATCH_UP));
+        const seconds = liveRef.current ? (arrival.gap * GAP_STRETCH) / 1000 : FINISH_S;
+        const cps = reduceMotion ? Infinity : Math.min(MAX_CPS, Math.max(MIN_CPS, remaining / seconds));
         posRef.current = Math.min(target.length, posRef.current + cps * dt);
       } else {
         posRef.current = target.length;
@@ -163,7 +198,7 @@ export function StreamedText({
     return () => cancelAnimationFrame(frame);
   }, [reduceMotion]);
 
-  const births = useRef<Births>({ map: new Map(), delays: new Map(), first: true });
+  const births = useRef<Births>({ map: new Map(), delays: new Map(), nextSlot: 0, first: true });
   const now = Date.now();
   const text = content.slice(0, Math.min(shown, content.length));
   const rehypePlugins = useMemo(
@@ -177,7 +212,7 @@ export function StreamedText({
   }, []);
 
   return (
-    <div className="chat-prose">
+    <div className="chat-prose chat-live">
       <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={rehypePlugins} skipHtml allowedElements={LIVE_ELEMENTS} unwrapDisallowed components={components}>
         {text}
       </Markdown>
