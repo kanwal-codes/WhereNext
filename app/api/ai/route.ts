@@ -20,6 +20,7 @@ import { withTripAiStream } from "@/lib/server/trip-ai-queue";
 import { recordAiTurn } from "@/lib/server/ai-turn-trace";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { withinRateLimit } from "@/lib/server/rate-limit";
+import { DAY_MS, GUEST_IP_TURN_LIMIT, GUEST_TURN_LIMIT, GUEST_WINDOW_MS, clientKey } from "@/lib/server/guest";
 
 /** Service-role writer used only to create a brand-new trip's thread row; undefined if unavailable
  *  (same fallback the /conversation route itself uses). */
@@ -76,8 +77,9 @@ export const POST = withRoute(async function POST(request: Request) {
 
   let supabase: SupabaseClient;
   let userId: string;
+  let guest: boolean;
   try {
-    ({ supabase, user: { id: userId } } = await requireTripMember(tripId));
+    ({ supabase, user: { id: userId }, guest } = await requireTripMember(tripId));
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Assistant unavailable");
   }
@@ -89,6 +91,18 @@ export const POST = withRoute(async function POST(request: Request) {
   // own budget above, so nothing bounded the trip's total cost until now.
   if (!(await withinRateLimit(`ai-turn-trip:${tripId}`, DAILY_TRIP_TURN_LIMIT, 24 * 60 * 60_000))) {
     return NextResponse.json({ error: "This trip has hit today's shared assistant limit. Try again tomorrow." }, { status: 429 });
+  }
+
+  // Guests (anonymous sessions) get a handful of free messages, enforced here — never only in
+  // the browser — before anything is persisted, so the message that hits the wall isn't saved.
+  // Both counters fail closed: this is the one unauthenticated door to paid model/tool calls.
+  if (guest) {
+    if (!(await withinRateLimit(`guest-ip-turns:${clientKey(request)}`, GUEST_IP_TURN_LIMIT, DAY_MS, { failClosed: true }))) {
+      return NextResponse.json({ error: "Roam is busy right now. Save your trip and pick it up from your account.", code: "guest_busy" }, { status: 429 });
+    }
+    if (!(await withinRateLimit(`guest-turns:${userId}`, GUEST_TURN_LIMIT, GUEST_WINDOW_MS, { failClosed: true }))) {
+      return NextResponse.json({ error: "Save your trip to keep planning with Roam.", code: "guest_limit" }, { status: 403 });
+    }
   }
 
   const prompt = parsed.data.messages.at(-1)?.content ?? "";

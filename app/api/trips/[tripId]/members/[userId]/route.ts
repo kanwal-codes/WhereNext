@@ -22,7 +22,7 @@ function ownerGuardResponse(error: { message: string }): NextResponse | null {
 export async function PATCH(request: Request, { params }: { params: Promise<{ tripId: string; userId: string }> }) {
   try {
     const { tripId, userId } = await params;
-    const { supabase } = await requireTripMember(tripId, { role: "owner" });
+    const { supabase } = await requireTripMember(tripId, { role: "owner", registered: true });
     const { role } = patchSchema.parse(await request.json());
 
     const result = await supabase.rpc("change_trip_member_role", { p_trip_id: tripId, p_user_id: userId, p_new_role: role });

@@ -75,7 +75,7 @@ async function memberNames(tripId: string): Promise<Map<string, string>> {
 export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
-    const { supabase, user } = await requireTripMember(tripId);
+    const { supabase, user } = await requireTripMember(tripId, { registered: true });
     const repo = createGroupChatRepository(supabase);
     // Roam's own rows are written through the service-role client — regular members' sessions
     // are RLS-restricted to role='user' inserts (see migration 0027), so a request-scoped client

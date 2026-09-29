@@ -14,6 +14,9 @@ import { useAutoGrowTextarea } from "@/lib/use-autogrow-textarea";
 import { AssistantMessage } from "./AssistantMessage";
 import { AssistantRequestError } from "../application/streamAssistantResponse";
 import { sendConversationMessage } from "../application/sendConversationMessage";
+import { GuestSavePrompt } from "@/features/identity/ui/GuestSavePrompt";
+import { useIsGuest } from "@/features/identity/application/useIsGuest";
+import { GUEST_TURN_LIMIT } from "@/lib/guest-limits";
 import { cn } from "@/lib/utils";
 
 const RTL = new Set(["ar", "he", "fa", "ur", "ps", "sd"]);
@@ -216,6 +219,11 @@ export function ConversationSurface({
   const [sending, setSending] = useState(false);
   const [loaded, setLoaded] = useState(Boolean(initialMessages));
   const [confirming, setConfirming] = useState(false);
+  // A guest who has used their free messages (the server said so) — the composer closes and the
+  // save card opens. `saveOpen` is the softer version: they asked to save before running out.
+  const [guestGate, setGuestGate] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const guest = useIsGuest();
   const [proposal, setProposal] = useState<ProposedCommand | null>(null);
   // Phase 2.6.2 (docs/overhaul/roadmap/phase-2-speed.md): the real backend milestone for the
   // in-flight turn, driving Typing's label — replaces a purely time-based guess.
@@ -403,7 +411,7 @@ export function ConversationSurface({
 
   async function submit(rawContent: string, retryKey?: string) {
     const content = rawContent.trim();
-    if (!content || sending || !loaded) return;
+    if (!content || sending || !loaded || guestGate) return;
     if (speech.listening) speech.stop();
     setSending(true);
     setInput("");
@@ -467,6 +475,13 @@ export function ConversationSurface({
       announceWorkspaceChange("preferences");
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
+      if (err instanceof AssistantRequestError && (err.code === "guest_limit" || err.code === "guest_busy")) {
+        // Not saved, so nothing to retry: hand the text back and ask them to save the trip.
+        setMessages(previous);
+        setInput(content);
+        setGuestGate(true);
+        return;
+      }
       setMessages(userSaved ? next : previous);
       const aiError = err instanceof AssistantRequestError;
       const message = userSaved
@@ -486,6 +501,21 @@ export function ConversationSurface({
     setSending(false);
     setMessages((current) => current.filter((m) => !(m.role === "assistant" && !m.content.trim())));
   }
+
+  // The landing page's prompt box creates the trip and drops its sentence here: it becomes the
+  // first message, sent once the (empty) thread has loaded — the visitor lands mid-conversation.
+  useEffect(() => {
+    if (!loaded || sending || messages.length > 0) return;
+    const key = `wn:first-message:${tripId}`;
+    const first = window.sessionStorage.getItem(key);
+    if (!first) return;
+    window.sessionStorage.removeItem(key);
+    void submit(first);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the thread loads empty
+  }, [loaded]);
+
+  const userTurns = messages.filter((m) => m.role === "user").length;
+  const turnsLeft = Math.max(0, GUEST_TURN_LIMIT - userTurns);
 
   const handlers = {
     tripId,
@@ -673,6 +703,16 @@ export function ConversationSurface({
           })}
 
           <div role="status" aria-live="polite">{waiting && <Typing stage={progressStage} label={progressLabel} />}</div>
+
+          {guest && !guestGate && !saveOpen && userTurns >= 2 && (
+            <p className="text-center text-xs text-muted-foreground">
+              {turnsLeft} free {turnsLeft === 1 ? "message" : "messages"} left ·{" "}
+              <button type="button" onClick={() => setSaveOpen(true)} className="link-underline font-medium text-foreground">
+                Save your trip
+              </button>
+            </p>
+          )}
+          {(guestGate || saveOpen) && <GuestSavePrompt tripId={tripId} exhausted={guestGate} />}
         </div>
       </div>
 
@@ -747,8 +787,8 @@ export function ConversationSurface({
                     void submit(input);
                   }
                 }}
-                placeholder={!loaded ? "Loading…" : speech.listening ? "Listening…" : sending ? "Type your next message…" : "Ask about your trip…"}
-                disabled={!loaded}
+                placeholder={!loaded ? "Loading…" : guestGate ? "Save your trip to keep chatting" : speech.listening ? "Listening…" : sending ? "Type your next message…" : "Ask about your trip…"}
+                disabled={!loaded || guestGate}
                 className="max-h-[88px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent py-1 pr-28 text-sm leading-relaxed outline-none transition-[height] duration-150 ease-out placeholder:text-muted-foreground disabled:opacity-60"
               />
               {!isMultiline && (

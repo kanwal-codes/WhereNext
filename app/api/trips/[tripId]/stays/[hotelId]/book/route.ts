@@ -11,7 +11,7 @@ import { withinRateLimit } from "@/lib/server/rate-limit";
 export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
-    const { supabase, user } = await requireTripMember(tripId, { role: "editor" });
+    const { supabase, user } = await requireTripMember(tripId, { role: "editor", registered: true });
     if (!liteApiConfigured()) return NextResponse.json({ error: "Stay booking is not configured" }, { status: 503 });
     // A leaked/forwarded invite link (editor role, no email binding, unlimited redemption) is
     // otherwise a blank check against the trip owner's connected provider account.

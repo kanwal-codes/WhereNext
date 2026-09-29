@@ -53,15 +53,16 @@ function evictMemory() {
 
 /** True if `key` is still within `limit` hits per `windowMs`; false once exceeded. Fails OPEN on
  *  a Redis error — availability over strict enforcement, since this exists to blunt abuse, not
- *  to gate correctness. */
-export async function withinRateLimit(key: string, limit: number, windowMs: number): Promise<boolean> {
+ *  to gate correctness. `failClosed` flips that for unauthenticated guest traffic, where an
+ *  outage in the limiter must not become an open door to paid model and provider calls. */
+export async function withinRateLimit(key: string, limit: number, windowMs: number, opts: { failClosed?: boolean } = {}): Promise<boolean> {
   const limiter = limiterFor(limit, windowMs);
   if (limiter) {
     try {
       const { success } = await limiter.limit(key);
       return success;
     } catch {
-      return true;
+      return !opts.failClosed;
     }
   }
   const now = Date.now();
