@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, us
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowUp, CalendarRange, ListChecks, Mic, Plus, Reply, SmilePlus, X } from "lucide-react";
+import { ArrowUp, CalendarRange, ListChecks, Mic, Plus, SmilePlus, X } from "lucide-react";
 import { Sheet, Pressable } from "@/components/motion-primitives";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { useAutoGrowTextarea } from "@/lib/use-autogrow-textarea";
@@ -20,7 +20,7 @@ import { mentionsRoam, type GroupMessage } from "../domain/message";
 import { memberInitials } from "@/lib/member-initials";
 import { useTripMembers, type TripMember } from "@/lib/client/use-trip-members";
 import { cn } from "@/lib/utils";
-import { RoamMark } from "@/features/roam/ui/RoamMark";
+import { MessageBlocks } from "@/features/conversation/ui/blocks/MessageBlocks";
 
 const COMMON_EMOJI = ["👍", "❤️", "😂", "🎉", "😍", "🤔"];
 // Same sender, close enough in time to read as one turn — collapses the repeated avatar/name.
@@ -47,16 +47,11 @@ function renderWithMentions(content: string) {
   );
 }
 
-function Avatar({ name, isRoam }: { name: string; isRoam: boolean }) {
+/** Every member gets the same avatar — Roam included. In this chat Roam is just the fifth friend. */
+function Avatar({ name }: { name: string }) {
   return (
-    <span
-      aria-hidden
-      className={cn(
-        "grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-semibold shadow-sm",
-        isRoam ? "border border-border bg-card text-foreground" : "bg-primary/10 text-primary",
-      )}
-    >
-      {isRoam ? <RoamMark size={20} animated={false} /> : memberInitials(name)}
+    <span aria-hidden className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary shadow-sm">
+      {memberInitials(name)}
     </span>
   );
 }
@@ -124,7 +119,6 @@ export function GroupChatSurface({
   const [expandedReactionFor, setExpandedReactionFor] = useState<string | null>(null);
   const [pressingId, setPressingId] = useState<string | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
-  const [replyingTo, setReplyingTo] = useState<{ id: string; preview: string } | null>(null);
   // md breakpoint (tablet and up) — a full-screen-width bottom sheet reads fine on a phone but
   // looks disconnected from the small "+" trigger on a wider screen, where a compact, centered
   // dialog box (Sheet's own "center" mode — already used for TripsHome's delete-trip confirm)
@@ -312,16 +306,6 @@ export function GroupChatSurface({
       }));
   }
 
-  // The explicit "Reply" action on a Roam message — pre-fills the mention so continuing the
-  // thread doesn't need it re-typed, and shows what you're replying to above the composer.
-  // No extra plumbing needed on send: a message that still mentions @Roam already triggers the
-  // normal reply flow, which threads the new answer back to *that* message automatically.
-  function startReplyToRoam(id: string, content: string) {
-    setReplyingTo({ id, preview: content });
-    setInput("@Roam ");
-    requestAnimationFrame(() => textareaRef.current?.focus());
-  }
-
   async function submit(raw: string) {
     const content = raw.trim();
     if (!content || sending) return;
@@ -332,7 +316,6 @@ export function GroupChatSurface({
     try {
       const { message } = await postJson<{ message: GroupMessage }>(`/api/trips/${tripId}/group-chat`, { content, kind: "text", idempotencyKey });
       setMessages((current) => [...current, message]);
-      setReplyingTo(null);
       if (mentionsRoam(content)) askRoam(message.id);
     } catch {
       setInput(content);
@@ -769,39 +752,32 @@ export function GroupChatSurface({
             const replyToId = (message.metadata as { replyToMessageId?: string } | undefined)?.replyToMessageId;
             const replySource = replyToId ? messagesById.get(replyToId) : undefined;
 
+            const roamBlocks = isRoam ? (message.metadata as Partial<AssistantTurnMeta> | undefined)?.blocks : undefined;
+            // Roam is the fifth friend here: its message is an ordinary bubble, same as any other
+            // member's, and arrives whole like a person's message would. (Its text can still be
+            // formatted — lists, bold — and any cards it shares sit under the bubble like an
+            // attachment.)
+            const quote = replySource && (
+              <button
+                type="button"
+                onClick={() => scrollToMessage(replySource.id)}
+                className="mb-1.5 flex max-w-full min-w-0 items-start gap-2 rounded-lg border-l-2 border-foreground/25 bg-foreground/5 px-2.5 py-1.5 text-left text-[11px] transition-colors hover:bg-foreground/10"
+              >
+                <span className="shrink-0 font-medium text-foreground/80">{displayName(replySource.userId, members, me?.userId)}</span>
+                <span className="min-w-0 truncate text-muted-foreground">{replySource.content}</span>
+              </button>
+            );
+            const bubbleClass = cn(
+              "min-w-0 max-w-full rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words shadow-sm",
+              mine ? "rounded-br-lg bg-gradient-to-br from-primary to-primary/90 text-primary-foreground" : "rounded-tl-lg bg-muted text-foreground",
+            );
             const bubble = isRoam ? (
-              // No bubble/border here — matches how Roam's replies render in the personal
-              // Conversation tab (plain flowing content, not boxed); only human messages get
-              // a bubble, since a bubble's job is telling apart who said what among members.
-              <div className="min-w-0 max-w-full space-y-2">
-                {replySource && (
-                  <button
-                    type="button"
-                    onClick={() => scrollToMessage(replySource.id)}
-                    className="inline-flex max-w-full min-w-0 items-start gap-2 rounded-lg border-l-2 border-coral/50 bg-coral/5 px-2.5 py-2 text-left text-[11px] transition-colors hover:bg-coral/10"
-                  >
-                    <span className="shrink-0 font-medium text-coral">{displayName(replySource.userId, members, me?.userId)}</span>
-                    <span className="min-w-0 truncate text-muted-foreground">{replySource.content}</span>
-                  </button>
-                )}
-                <AssistantMessage
-                  content={message.content}
-                  blocks={(message.metadata as Partial<AssistantTurnMeta> | undefined)?.blocks}
-                  handlers={{ tripId, onFollowup, onOpenPlace, onOpenStay, onOpenEvent, onOpenCollection }}
-                />
-                {(message.metadata as Partial<AssistantTurnMeta> | undefined)?.unverified && (
-                  <p className="text-[11px] text-muted-foreground">A figure or detail above is an estimate and hasn’t been independently verified.</p>
-                )}
+              <div className={cn(bubbleClass, "[&_.chat-prose]:text-sm [&_.chat-prose]:leading-relaxed")}>
+                {quote}
+                <AssistantMessage content={message.content} />
               </div>
             ) : (
-              <p
-                className={cn(
-                  "min-w-0 max-w-full rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words shadow-sm",
-                  mine ? "rounded-br-lg bg-gradient-to-br from-primary to-primary/90 text-primary-foreground" : "rounded-tl-lg bg-muted text-foreground",
-                )}
-              >
-                {renderWithMentions(message.content)}
-              </p>
+              <p className={bubbleClass}>{renderWithMentions(message.content)}</p>
             );
 
             return (
@@ -822,7 +798,7 @@ export function GroupChatSurface({
                     highlightedId === message.id && "bg-coral-soft/60",
                   )}
                 >
-                  {!mine && <div className="w-7 shrink-0">{isFirstInGroup && <Avatar name={name} isRoam={isRoam} />}</div>}
+                  {!mine && <div className="w-7 shrink-0">{isFirstInGroup && <Avatar name={name} />}</div>}
                   <div className={cn("flex min-w-0 max-w-[85%] flex-col gap-1.5", mine ? "items-end" : "items-start")}>
                     {!mine && isFirstInGroup && <p className="px-1 text-[11px] font-medium text-muted-foreground">{name}</p>}
                     <motion.div
@@ -835,8 +811,7 @@ export function GroupChatSurface({
                       className="group relative min-w-0 max-w-full select-none [touch-action:pan-y]"
                     >
                       {bubble}
-                      {/* Trigger (and, on Roam's own messages, a small Reply icon right next to
-                          it) sit stacked in the gutter at the vertical middle of the bubble —
+                      {/* The reaction trigger sits in the gutter at the vertical middle of the bubble —
                           left for your own messages, right for everyone else's. The expanded
                           picker starts from the trigger's exact point (same `layoutId`, so
                           Framer Motion morphs one into the other in place) but grows the other
@@ -863,17 +838,6 @@ export function GroupChatSurface({
                           >
                             <SmilePlus className="h-4 w-4" />
                           </motion.button>
-                          {isRoam && (
-                            <button
-                              type="button"
-                              onClick={() => startReplyToRoam(message.id, message.content)}
-                              aria-label="Reply to Roam"
-                              title="Reply"
-                              className="pointer-events-auto grid h-8 w-8 shrink-0 place-items-center rounded-full border border-border bg-card/95 text-muted-foreground shadow-lift backdrop-blur transition-colors hover:bg-accent hover:text-foreground"
-                            >
-                              <Reply className="h-4 w-4" />
-                            </button>
-                          )}
                         </div>
                       )}
                       <AnimatePresence>
@@ -902,6 +866,14 @@ export function GroupChatSurface({
                         )}
                       </AnimatePresence>
                     </motion.div>
+                    {roamBlocks && roamBlocks.length > 0 && (
+                      <div className="min-w-0 max-w-full">
+                        <MessageBlocks blocks={roamBlocks} tripId={tripId} onFollowup={onFollowup} onOpenPlace={onOpenPlace} onOpenStay={onOpenStay} onOpenEvent={onOpenEvent} onOpenCollection={onOpenCollection} />
+                      </div>
+                    )}
+                    {isRoam && (message.metadata as Partial<AssistantTurnMeta> | undefined)?.unverified && (
+                      <p className="px-1 text-[11px] text-muted-foreground">A figure or detail above is an estimate and hasn’t been independently verified.</p>
+                    )}
                     <div className="flex flex-wrap items-center gap-1.5 px-1">
                       {message.reactions.map((r) => (
                         <Pressable key={r.emoji}>
@@ -926,16 +898,20 @@ export function GroupChatSurface({
             );
           })}
           {pendingRoamIds.size > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-3 flex items-start gap-2"
-            >
+            // The same "typing…" bubble any friend would show while they write back.
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mt-3 flex items-start gap-2">
               <div className="w-7 shrink-0">
-                <Avatar name="Roam" isRoam />
+                <Avatar name="Roam" />
               </div>
-              <div className="flex items-center rounded-2xl rounded-tl-lg px-4 py-2">
-                <RoamMark state="thinking" size={32} className="text-foreground" />
+              <div className="flex items-center gap-1 rounded-2xl rounded-tl-lg bg-muted px-4 py-3.5 shadow-sm">
+                {[0, 1, 2].map((i) => (
+                  <motion.span
+                    key={i}
+                    className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60"
+                    animate={{ opacity: [0.35, 1, 0.35], y: [0, -2, 0] }}
+                    transition={{ duration: 1.1, repeat: Infinity, delay: i * 0.15 }}
+                  />
+                ))}
               </div>
             </motion.div>
           )}
@@ -1025,24 +1001,6 @@ export function GroupChatSurface({
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-3 pb-3">
         <div className="pointer-events-auto mx-auto w-full max-w-2xl">
-          {replyingTo && (
-            <div className="mb-2.5 flex items-center gap-3 rounded-2xl border border-border/70 bg-card px-3.5 py-3 shadow-soft">
-              <Reply className="h-4 w-4 shrink-0 text-coral" />
-              <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-                <span className="font-medium text-coral">Replying to Roam</span>
-                <span className="mx-1.5 text-border">·</span>
-                {replyingTo.preview}
-              </span>
-              <button
-                type="button"
-                onClick={() => setReplyingTo(null)}
-                aria-label="Cancel reply"
-                className="shrink-0 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          )}
           <form
             onSubmit={(event: FormEvent) => {
               event.preventDefault();

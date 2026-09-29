@@ -545,6 +545,9 @@
   .chat-prose > :last-child { margin-bottom: 0; }
   .chat-prose p { margin: 0 0 0.6rem; }
   .chat-prose ul, .chat-prose ol { margin: 0 0 0.6rem; padding-left: 1.2rem; }
+  /* Tailwind's reset strips list markers; without them a numbered answer loses its numbers. */
+  .chat-prose ul { list-style: disc; }
+  .chat-prose ol { list-style: decimal; }
   .chat-prose li { margin: 0.15rem 0; }
   .chat-prose li::marker { color: var(--color-muted-foreground); }
   .chat-prose h1, .chat-prose h2, .chat-prose h3, .chat-prose h4 { margin: 0.9rem 0 0.4rem; font-family: var(--font-display); font-size: 1em; font-weight: 600; }
