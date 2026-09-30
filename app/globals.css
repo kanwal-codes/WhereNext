@@ -987,3 +987,8 @@
 @keyframes route-flow { to { stroke-dashoffset: -640; } }
 @media (prefers-reduced-motion: reduce) { .landing-horizon-sun, .landing-route-path, .landing-horizon-sea::after { animation: none; }
   .landing-route-traveller { display: none; } }
+.landing-route-drawn { transition: stroke-dashoffset 0.9s cubic-bezier(.22, 1, .36, 1); }
+.landing-route-stop { opacity: 0.55; transition: opacity 0.5s; }
+.landing-route-stop[data-lit="true"] { opacity: 1; }
+.landing-route-halo { transform-box: fill-box; transform-origin: center; transition: transform 0.6s cubic-bezier(.22, 1, .36, 1); }
+.landing-route-stop[data-lit="true"] .landing-route-halo { transform: scale(1.5); }

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { GUEST_LIVE_KEY } from "@/features/identity/application/guestSession";
@@ -43,7 +43,7 @@ const STARTERS = [
  * creates a real draft trip (under a guest session — see /api/guest/start) and opens the normal
  * trip chat with this sentence already sent; saving the trip later just upgrades the same user.
  */
-export function TripPromptBox() {
+export function TripPromptBox({ onTyping }: { onTyping?: (length: number) => void }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [prompt, setPrompt] = useState("");
   const [focused, setFocused] = useState(false);
@@ -52,6 +52,8 @@ export function TripPromptBox() {
   const attemptRef = useRef(crypto.randomUUID());
   const { container: turnstile, getToken } = useTurnstile();
   const typed = useTypingPlaceholder(EXAMPLES, !prompt && !focused);
+  // Lets the scene behind the box react to how much has been written.
+  useEffect(() => onTyping?.(prompt.trim().length), [prompt, onTyping]);
 
   async function start(event?: FormEvent) {
     event?.preventDefault();

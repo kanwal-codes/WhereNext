@@ -18,11 +18,12 @@ export function PromptScene() {
   const contentRef = useRef<HTMLDivElement>(null);
   const bloomRef = useRef<HTMLDivElement>(null);
   const partRefs = useRef<(HTMLElement | null)[]>([]);
-  // Preview switch while choosing a look: /?bloom=sunrise|horizon|route (default dusk).
-  const [variant, setVariant] = useState<BloomVariant>("dusk");
+  // Preview switch while choosing a look: /?bloom=sunrise|horizon|route (default route).
+  const [variant, setVariant] = useState<BloomVariant>("route");
+  const [typedLength, setTypedLength] = useState(0);
   useEffect(() => {
     const v = new URLSearchParams(window.location.search).get("bloom");
-    if (v === "sunrise" || v === "horizon" || v === "route") setVariant(v);
+    if (v === "dusk" || v === "sunrise" || v === "horizon") setVariant(v);
   }, []);
 
   useEffect(() => {
@@ -63,7 +64,7 @@ export function PromptScene() {
       className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden bg-background px-6 pt-28 pb-20 [@media(max-height:760px)]:pt-20 [@media(max-height:760px)]:pb-8"
     >
       <div ref={bloomRef} className="absolute inset-0">
-        <LandingBloom variant={variant} />
+        <LandingBloom variant={variant} progress={Math.min(typedLength / 70, 1)} />
       </div>
       <div ref={contentRef} className="relative mx-auto flex w-full max-w-3xl flex-col items-center text-center">
         <h1
@@ -76,7 +77,7 @@ export function PromptScene() {
           Dates, budget, who&rsquo;s coming. Share the rough idea and watch the trip take shape.
         </p>
         <div ref={part(2)} className="mt-9 [@media(max-height:760px)]:mt-5 w-full translate-y-4 opacity-0">
-          <TripPromptBox />
+          <TripPromptBox onTyping={setTypedLength} />
         </div>
       </div>
 
