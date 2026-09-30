@@ -979,14 +979,11 @@
 .landing-route-wash {
   position: absolute; inset: 0;
   background:
-    radial-gradient(55% 50% at 50% 78%, oklch(0.84 0.09 195 / 0.7), transparent 72%),
-    radial-gradient(42% 46% at 10% 88%, oklch(0.88 0.11 80 / 0.7), transparent 70%),
-    radial-gradient(40% 44% at 92% 70%, oklch(0.84 0.09 30 / 0.55), transparent 70%),
-    radial-gradient(50% 40% at 70% 100%, oklch(0.8 0.08 265 / 0.5), transparent 70%);
-  filter: blur(26px);
+    radial-gradient(55% 50% at 50% 78%, oklch(0.86 0.07 195 / 0.6), transparent 72%),
+    radial-gradient(42% 46% at 10% 88%, oklch(0.9 0.08 85 / 0.55), transparent 70%);
+  filter: blur(28px);
 }
 .landing-route-path { stroke-dasharray: 6 10; animation: route-flow 40s linear infinite; }
 @keyframes route-flow { to { stroke-dashoffset: -640; } }
 @media (prefers-reduced-motion: reduce) { .landing-horizon-sun, .landing-route-path, .landing-horizon-sea::after { animation: none; }
   .landing-route-traveller { display: none; } }
-@media (max-width: 767px) { .landing-route-label { display: none; } }
