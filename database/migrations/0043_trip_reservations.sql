@@ -21,7 +21,7 @@ create table if not exists public.trip_reservations (
 );
 create index if not exists trip_reservations_trip_start_idx on public.trip_reservations (trip_id, starts_on);
 alter table public.trip_reservations enable row level security;
-create policy "members can access trip reservations" on public.trip_reservations for all using (public.is_trip_member(trip_id)) with check (public.is_trip_member(trip_id));
+create policy "members can access trip reservations" on public.trip_reservations for all using (private.is_trip_member(trip_id)) with check (private.is_trip_member(trip_id));
 create trigger trip_reservations_set_updated_at before update on public.trip_reservations for each row execute function public.set_updated_at();
 
 do $$

@@ -9,12 +9,12 @@ on conflict (id) do nothing;
 
 create policy "trip members can read reservation files"
   on storage.objects for select
-  using (bucket_id = 'reservation-files' and case when (storage.foldername(name))[1] ~ '^[0-9a-f-]{36}$' then public.is_trip_member(((storage.foldername(name))[1])::uuid) else false end);
+  using (bucket_id = 'reservation-files' and case when (storage.foldername(name))[1] ~ '^[0-9a-f-]{36}$' then private.is_trip_member(((storage.foldername(name))[1])::uuid) else false end);
 
 create policy "trip members can add reservation files"
   on storage.objects for insert
-  with check (bucket_id = 'reservation-files' and case when (storage.foldername(name))[1] ~ '^[0-9a-f-]{36}$' then public.is_trip_member(((storage.foldername(name))[1])::uuid) else false end);
+  with check (bucket_id = 'reservation-files' and case when (storage.foldername(name))[1] ~ '^[0-9a-f-]{36}$' then private.is_trip_member(((storage.foldername(name))[1])::uuid) else false end);
 
 create policy "trip members can remove reservation files"
   on storage.objects for delete
-  using (bucket_id = 'reservation-files' and case when (storage.foldername(name))[1] ~ '^[0-9a-f-]{36}$' then public.is_trip_member(((storage.foldername(name))[1])::uuid) else false end);
+  using (bucket_id = 'reservation-files' and case when (storage.foldername(name))[1] ~ '^[0-9a-f-]{36}$' then private.is_trip_member(((storage.foldername(name))[1])::uuid) else false end);
