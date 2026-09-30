@@ -17,6 +17,7 @@ import { SectionHeading } from "@/components/overview/SectionHeading";
 import { StayFeature } from "@/components/overview/StayFeature";
 import { FlightFeature, readFlightChoice } from "@/components/overview/FlightFeature";
 import { fmtDay } from "@/lib/trip-dates";
+import { BookingStrip } from "@/components/overview/BookingStrip";
 import { RoamMark } from "@/features/roam/ui/RoamMark";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { resolveCurrency } from "@/lib/currency";
@@ -64,6 +65,11 @@ export default function BookingsPage() {
     });
   }, [tripId]);
   const openBooking = bookings?.find((b) => b.id === openBookingId) ?? null;
+  // A stay or flight that already has a card above is not listed a second time as a ticket: its
+  // booking (status, reference, price) hangs under that card instead.
+  const stayBooking = stay ? bookings?.find((b) => b.kind === "stay") ?? null : null;
+  const flightBooking = flight ? bookings?.find((b) => b.kind === "flight") ?? null : null;
+  const tickets = (bookings ?? []).filter((b) => b !== stayBooking && b !== flightBooking);
 
   const nights = stay?.nights ?? 0;
   const done = essentialsDone(data?.essentials);
@@ -88,17 +94,27 @@ export default function BookingsPage() {
           <div className="mt-6 space-y-4">
             <Reveal>
               <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-                <StayFeature tripId={tripId} stay={stay} compact />
-                <FlightFeature tripId={tripId} flight={flight} destination={destination} />
+                <div className="flex min-w-0 flex-col gap-3">
+                  <div className="min-h-0 flex-1">
+                    <StayFeature tripId={tripId} stay={stay} compact />
+                  </div>
+                  {stayBooking && <BookingStrip booking={stayBooking} onOpen={() => setOpenBookingId(stayBooking.id)} />}
+                </div>
+                <div className="flex min-w-0 flex-col gap-3">
+                  <div className="min-h-0 flex-1">
+                    <FlightFeature tripId={tripId} flight={flight} destination={destination} />
+                  </div>
+                  {flightBooking && <BookingStrip booking={flightBooking} onOpen={() => setOpenBookingId(flightBooking.id)} />}
+                </div>
               </div>
             </Reveal>
             {bookings === null ? (
               <div className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft">
                 <SkeletonLines lines={2} />
               </div>
-            ) : bookings.length > 0 ? (
+            ) : tickets.length > 0 ? (
               <Stagger className="grid gap-4 md:grid-cols-2">
-                {bookings.map((b) => (
+                {tickets.map((b) => (
                   <StaggerItem key={b.id} className="h-full">
                     <BookingTicket booking={b} detail={ticketDetail(b.kind)} onOpen={() => setOpenBookingId(b.id)} />
                   </StaggerItem>
