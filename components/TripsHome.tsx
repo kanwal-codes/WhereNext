@@ -8,11 +8,13 @@ import { Hero } from "@/components/Hero";
 import { Reveal, Sheet, Stagger, StaggerItem, WordReveal } from "@/components/motion-primitives";
 import { FeaturedTrip } from "@/components/trips/FeaturedTrip";
 import { TripCard } from "@/components/trips/TripCard";
+import { useTripPhotoCandidates } from "@/components/trips/TripCover";
 import type { TripSummary } from "@/components/trips/types";
 import { RoamMark } from "@/features/roam/ui/RoamMark";
 import { notifyToast } from "@/lib/application/toast";
 import { matchesFilter, pickFeatured, sortForHome, tripCounts, tripStatus, type TripFilter } from "@/lib/trip-status";
 import { useIsDarkMode } from "@/lib/use-dark-mode";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { useSpeechInput } from "@/lib/use-speech-input";
 import { memberInitials } from "@/lib/member-initials";
 import { cn } from "@/lib/utils";
@@ -51,6 +53,11 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
   );
   const featured = useMemo(() => pickFeatured(visible, now), [visible, now]);
   const rest = useMemo(() => visible.filter((trip) => trip.id !== featured?.id), [visible, featured]);
+  // The hero is a photo of the trip you are most likely to open next, at a width sharp enough for
+  // a full-bleed image. With no photo for it, the brand rooftops stay (below).
+  const heroPhotos = useTripPhotoCandidates(featured, 1600);
+  const [onPhoto, setOnPhoto] = useState(false);
+  const wide = useMediaQuery("(min-width: 640px)");
   const tabs = FILTER_TABS.filter((tab) => tab.key === "all" || counts[tab.key] > 0);
   const showTabs = list.length > 3 && tabs.length > 2;
 
@@ -62,6 +69,7 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
   // Stable for the life of this mount, so a retry after a dropped response re-uses the same
   // attempt instead of the server creating a second blank trip.
   const startIdempotencyKey = useRef(crypto.randomUUID());
+  const canSend = !starting && prompt.trim().length > 0;
   const speech = useSpeechInput({
     onStart: () => { promptBase.current = prompt.trim() ? `${prompt.trim()} ` : ""; },
     onResult: (text) => setPrompt(promptBase.current + text),
@@ -106,13 +114,29 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
 
   return (
     <div className="min-h-screen">
-      <Hero image={isDark ? "/design/trip-hero-night.jpg" : "/design/trip-hero.jpg"} alt="Warm rooftops at dusk" className="h-[440px] sm:h-[420px]">
+      <Hero
+        image={isDark ? "/design/trip-hero-night.jpg" : "/design/trip-hero.jpg"}
+        alt="Warm rooftops at dusk"
+        plain
+        coverImages={heroPhotos}
+        coverAlt={featured?.destination ? `Photo of ${featured.destination}` : ""}
+        onCoverChange={setOnPhoto}
+        dissolve={!onPhoto}
+        className={cn(
+          "h-[440px] transition-[border-radius] duration-700 sm:h-[420px]",
+          onPhoto ? "rounded-b-[2rem]" : "[&_img]:object-[50%_82%] [&_img]:contrast-[1.12] [&_img]:saturate-[1.3]",
+        )}
+      >
+        {/* Keeps white text readable on any trip photo. Fades in with the photo. */}
+        <div aria-hidden className={cn("pointer-events-none absolute inset-0 bg-gradient-to-b from-black/55 via-black/30 to-black/60 transition-opacity duration-700", onPhoto ? "opacity-100" : "opacity-0")} />
+        {/* On the brand rooftops, a soft light pool behind the words so the rooftop detail never fights the text. */}
+        <div aria-hidden className={cn("pointer-events-none absolute inset-0 bg-[radial-gradient(60%_42%_at_50%_58%,color-mix(in_oklab,var(--background)_62%,transparent),transparent)] transition-opacity duration-700", onPhoto ? "opacity-0" : "opacity-100")} />
         <div className="absolute inset-x-0 top-0">
           <Reveal>
             <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 pt-6 sm:px-8">
               <Link href="/" className="inline-flex items-center gap-2">
-                <BrandMark variant="compact" />
-                <BrandMark variant="text" className="hidden sm:inline" />
+                <BrandMark variant="compact" className={cn("transition-shadow duration-700", onPhoto && "ring-1 ring-white/60")} />
+                <BrandMark variant="text" className={cn("hidden transition-colors duration-700 sm:inline", onPhoto && "text-white")} />
               </Link>
               <Link
                 href="/account"
@@ -132,9 +156,9 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
               <WordReveal
                 text="Trips you're thinking about."
                 delay={0.3}
-                className="mx-auto max-w-2xl text-center font-display text-4xl leading-[1.15] sm:text-5xl"
+                className={cn("mx-auto max-w-2xl text-center font-display text-4xl leading-[1.15] transition-colors duration-700 sm:text-5xl", onPhoto && "text-white")}
               />
-              <p className="mx-auto mt-3 max-w-xl text-center text-sm leading-relaxed text-ink-soft">
+              <p className={cn("mx-auto mt-3 max-w-xl text-center text-sm leading-relaxed transition-colors duration-700", onPhoto ? "text-white/85" : "text-ink-soft")}>
                 Talk it through, and the plan builds itself alongside the conversation.
               </p>
             </Reveal>
@@ -144,48 +168,55 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
                   event.preventDefault();
                   void startTrip();
                 }}
-                className="mx-auto mt-4 flex max-w-xl items-center gap-1.5 rounded-full border border-border/60 bg-background/90 px-2.5 py-2 shadow-lift backdrop-blur transition-shadow focus-within:ring-2 focus-within:ring-ring/25 sm:mt-5"
+                className="mx-auto mt-5 max-w-xl"
               >
-                <input
-                  ref={promptInputRef}
-                  value={prompt}
-                  onChange={(event) => setPrompt(event.target.value)}
-                  placeholder={speech.listening ? "Listening…" : "A long weekend in Lisbon, or just a feeling you’re chasing…"}
-                  aria-label="Tell Roam about your next trip"
-                  disabled={starting}
-                  className="min-w-0 flex-1 bg-transparent px-1.5 py-1.5 text-sm text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-60"
-                />
-                {speech.supported && (
-                  <button
-                    type="button"
-                    onClick={speech.toggle}
-                    aria-label={speech.listening ? "Stop dictation" : "Dictate"}
-                    aria-pressed={speech.listening}
+                {/* One daisyUI input wraps the field and its buttons, so the whole pill takes the focus ring. */}
+                <label className={cn("daisy-input daisy-input-lg h-14 w-full rounded-full border-border/60 pr-2 pl-5 shadow-lift backdrop-blur transition-[background-color,box-shadow] focus-within:outline-coral", onPhoto ? "bg-background" : "bg-background/90")}>
+                  <input
+                    ref={promptInputRef}
+                    value={prompt}
+                    onChange={(event) => setPrompt(event.target.value)}
+                    placeholder={speech.listening ? "Listening…" : wide ? "A long weekend in Lisbon, or just a feeling you’re chasing…" : "Where to next?"}
+                    aria-label="Tell Roam about your next trip"
                     disabled={starting}
+                    className="grow text-base text-ellipsis text-foreground placeholder:text-muted-foreground disabled:opacity-60"
+                  />
+                  {speech.supported && (
+                    <button
+                      type="button"
+                      onClick={speech.toggle}
+                      aria-label={speech.listening ? "Stop dictation" : "Dictate"}
+                      aria-pressed={speech.listening}
+                      disabled={starting}
+                      className={cn(
+                        "daisy-btn daisy-btn-circle daisy-btn-ghost h-10 w-10 shrink-0 border-0 transition-colors disabled:opacity-40",
+                        speech.listening ? "bg-destructive/10 text-destructive" : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      <Mic className={cn("h-4 w-4", speech.listening && "animate-pulse")} />
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    aria-label="Start planning"
+                    title="Start planning"
+                    disabled={!canSend}
                     className={cn(
-                      "grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-40",
-                      speech.listening ? "border-destructive/50 bg-destructive/10 text-destructive" : "border-border/60 text-muted-foreground hover:text-foreground",
+                      "daisy-btn daisy-btn-circle h-10 w-10 shrink-0 border-0 shadow-none transition-[background-color,color,transform] active:scale-[0.94]",
+                      canSend ? "bg-coral text-background" : "bg-foreground/8 text-muted-foreground",
                     )}
                   >
-                    <Mic className={cn("h-4 w-4", speech.listening && "animate-pulse")} />
+                    {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
                   </button>
-                )}
-                <button
-                  type="submit"
-                  aria-label="Start planning"
-                  title="Start planning"
-                  disabled={starting || !prompt.trim()}
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-[transform,opacity] active:scale-[0.94] disabled:opacity-35"
-                >
-                  {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-                </button>
+                </label>
               </form>
               {promptError ? (
                 <p role="alert" className="mx-auto mt-2 max-w-xl rounded-lg border border-destructive/30 bg-background/90 px-3 py-1.5 text-xs text-destructive backdrop-blur">
                   {promptError}
                 </p>
               ) : (
-                <div className="mt-2.5 flex flex-wrap justify-center gap-1.5">
+                // One scrolling row on a phone (no ragged wrap), centred when it all fits.
+                <div className="mx-auto mt-3 flex w-fit max-w-full snap-x gap-2 overflow-x-auto px-0.5 py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {PROMPT_CHIPS.map((chip) => (
                     <button
                       key={chip}
@@ -194,7 +225,12 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
                         setPrompt(chip);
                         promptInputRef.current?.focus();
                       }}
-                      className="rounded-full border border-border/60 bg-background/70 px-3 py-1 text-xs text-ink-soft backdrop-blur transition-colors hover:bg-background/90 hover:text-foreground"
+                      className={cn(
+                        "daisy-btn daisy-btn-sm h-9 shrink-0 snap-start rounded-full px-4 text-sm font-normal shadow-none backdrop-blur transition-colors",
+                        onPhoto
+                          ? "border-white/30 bg-black/35 text-white hover:bg-black/50"
+                          : "border-border/60 bg-background/75 text-ink-soft hover:bg-background/95 hover:text-foreground",
+                      )}
                     >
                       {chip}
                     </button>

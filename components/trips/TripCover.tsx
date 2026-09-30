@@ -35,6 +35,20 @@ function BoardingPass({ trip, size }: { trip: TripSummary; size: "card" | "featu
 }
 
 /**
+ * The photo URLs that can cover a trip, best first: the destination photo, then a saved place's.
+ * Empty while the destination lookup is still running (so a saved-place photo is never shown and
+ * then swapped for the destination one a moment later) and for a null trip.
+ */
+export function useTripPhotoCandidates(trip: TripSummary | null, width?: number): string[] {
+  const destination = useDestinationPhoto(trip?.id ?? "", trip?.destination ?? undefined, trip?.hero_photo_name);
+  const saved = trip?.saved_photo_name ? (photoProxyUrl(trip.id, trip.saved_photo_name, width) ?? null) : null;
+  if (!trip || destination === undefined) return [];
+  // The destination URL comes back from the hook at the default width; ask the proxy for a wider one if needed.
+  const wide = destination && width ? `${destination}&w=${width}` : destination;
+  return [wide, saved].filter((url): url is string => Boolean(url));
+}
+
+/**
  * A trip's cover, best first:
  *   1. a real photo of the destination (saved on the trip, or looked up once, exactly as the
  *      Overview page does),
@@ -56,14 +70,9 @@ export function TripCover({
   children?: (state: { photo: boolean }) => ReactNode;
 }) {
   const reduce = useReducedMotion();
-  const destination = useDestinationPhoto(trip.id, trip.destination ?? undefined, trip.hero_photo_name);
-  const saved = trip.saved_photo_name ? (photoProxyUrl(trip.id, trip.saved_photo_name) ?? null) : null;
+  const candidates = useTripPhotoCandidates(trip);
   const [loaded, setLoaded] = useState<string | null>(null);
   const [failed, setFailed] = useState<string[]>([]);
-
-  // While the destination lookup is still running there is nothing to show yet: going straight to a
-  // saved-place photo would then be swapped for the destination one a moment later.
-  const candidates = destination === undefined ? [] : [destination, saved].filter((url): url is string => Boolean(url));
   const src = candidates.find((url) => !failed.includes(url)) ?? null;
   const showPhoto = src !== null && loaded === src;
 
@@ -85,6 +94,11 @@ export function TripCover({
             alt={trip.destination ? `Photo of ${trip.destination}` : ""}
             loading="lazy"
             decoding="async"
+            // A photo that finished loading before the page hydrated (cached, or already in view) never
+            // fires onLoad, so check for it here too.
+            ref={(el) => {
+              if (el?.complete && el.naturalWidth > 0) setLoaded(src);
+            }}
             onLoad={() => setLoaded(src)}
             onError={() => setFailed((current) => [...current, src])}
             className="h-full w-full object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.04]"

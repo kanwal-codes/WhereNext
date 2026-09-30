@@ -2,10 +2,13 @@ import type { Place } from "@/packages/contracts/place";
 import { getPublicEnv } from "@/lib/env";
 
 /** Same-origin authenticated proxy for a Google photo resource name. */
-export function photoProxyUrl(tripId: string, photoName: string | undefined): string | undefined {
+export function photoProxyUrl(tripId: string, photoName: string | undefined, width?: number): string | undefined {
   if (!photoName || !/^places\/[^/]+\/photos\/[^/]+$/.test(photoName)) return undefined;
-  return `/api/trips/${tripId}/places/google/photo?name=${encodeURIComponent(photoName)}`;
+  return `/api/trips/${tripId}/places/google/photo?name=${encodeURIComponent(photoName)}${width ? `&w=${width}` : ""}`;
 }
+
+/** The widths the photo proxy will serve. 800 is the default (cards); the wider ones are for full-width heroes. */
+export const PHOTO_WIDTHS = [800, 1200, 1600] as const;
 
 /**
  * Rough "City, Country" from a Google formatted address (no structured `addressComponents` are

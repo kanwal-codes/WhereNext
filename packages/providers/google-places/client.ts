@@ -194,5 +194,5 @@ export class GooglePlacesProvider {
     if (!response.ok) throw new Error(`Google Place details failed: ${response.status}`);
     return response.json();
   }
-  photoUrl(photoName: string) { return `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=800&key=${encodeURIComponent(this.key())}`; }
+  photoUrl(photoName: string, maxWidthPx = 800) { return `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=${maxWidthPx}&key=${encodeURIComponent(this.key())}`; }
 }
