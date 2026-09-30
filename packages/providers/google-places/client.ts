@@ -194,5 +194,15 @@ export class GooglePlacesProvider {
     if (!response.ok) throw new Error(`Google Place details failed: ${response.status}`);
     return response.json();
   }
+  /** Just what the "Reserve a table" sheet needs about one restaurant: how to reach it and whether Google lists it as taking reservations. Its own small mask (not `details`), so it never changes what that call, or its recorded test fixtures, ask for. */
+  async tableDetails(placeId: string, signal?: AbortSignal) {
+    const load = async (abort?: AbortSignal) => {
+      const response = await guardedFetch("google-places", `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, { headers: { "x-goog-api-key": this.key(), "x-goog-fieldmask": "id,displayName,formattedAddress,googleMapsUri,websiteUri,nationalPhoneNumber,internationalPhoneNumber,reservable" }, signal: withProviderTimeout(abort) });
+      if (!response.ok) throw new Error(`Google Place table details failed: ${response.status}`);
+      return response.json();
+    };
+    if (process.env.NODE_ENV === "test") return load(signal);
+    return cached(`google-place-table:${placeId}`, 15 * 60_000, () => load());
+  }
   photoUrl(photoName: string, maxWidthPx = 800) { return `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=${maxWidthPx}&key=${encodeURIComponent(this.key())}`; }
 }

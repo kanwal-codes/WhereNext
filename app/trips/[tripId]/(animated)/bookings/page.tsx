@@ -25,6 +25,9 @@ import { resolveCurrency } from "@/lib/currency";
 import type { Booking } from "@/packages/contracts/booking";
 import { ExpensesPanel } from "@/features/expenses/ui/ExpensesPanel";
 
+/** Saved places that are somewhere to eat, by Google's place type ("restaurant", "cafe", "brunch_restaurant"...). */
+const FOOD_PLACE = /restaurant|cafe|coffee|bakery|bar$|^bar|food|pizza|bistro|diner|meal|steak|sushi|ramen|brunch/i;
+
 export default function BookingsPage() {
   const { tripId, data } = useTripData();
   const decisions = (data?.decisions ?? []) as Array<{ kind: string; value: Record<string, unknown> }>;
@@ -76,6 +79,8 @@ export default function BookingsPage() {
     });
   }, [tripId]);
   const openBooking = bookings?.find((b) => b.id === openBookingId) ?? null;
+  const savedRestaurants = ((data?.savedPlaces ?? []) as Array<{ places?: { provider_id?: string; name: string; category?: string | null; address?: string | null } }>)
+    .flatMap((row) => (row.places?.provider_id && FOOD_PLACE.test(row.places.category ?? "") ? [{ providerId: row.places.provider_id, name: row.places.name, address: row.places.address ?? null, mapsUrl: null }] : []));
   const timeline = buildTimeline({ reservations: reservations ?? [], bookings: bookings ?? [], stay, flight, tripId });
   const nextUp = pickNextUp(timeline);
   const rest = nextUp ? timeline.filter((i) => i !== nextUp) : timeline;
@@ -188,9 +193,10 @@ export default function BookingsPage() {
       <TableSheet
         tripId={tripId}
         open={tableOpen}
-        city={data?.trip?.destination ?? ""}
+        destination={data?.trip?.destination ?? ""}
         defaultDate={data?.trip?.start_date ?? ""}
         defaultParty={data?.trip?.travelers ?? 2}
+        saved={savedRestaurants}
         onClose={() => setTableOpen(false)}
         onSaved={(saved) => setReservations((list) => [...(list ?? []).filter((r) => r.id !== saved.id), saved])}
       />
