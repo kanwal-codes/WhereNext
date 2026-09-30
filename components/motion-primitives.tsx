@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import {
   AnimatePresence,
   motion,
@@ -139,6 +140,24 @@ export function StaggerItem({
         shown: { opacity: 1, y: 0, transition: { duration: 0.45, ease } },
       }}
       {...rest}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/**
+ * A thing that rises and fades in when it first appears. `live` is false for restored content, which
+ * should settle in place rather than replay; `index` staggers siblings (capped, so a long list never lags).
+ */
+export function Enter({ live = true, index = 0, y = 10, className, children }: { live?: boolean; index?: number; y?: number; className?: string; children: ReactNode }) {
+  const reduce = useReducedMotion();
+  return (
+    <motion.div
+      className={className}
+      initial={live && !reduce ? { opacity: 0, y } : false}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ ...motionTokens.swap, delay: Math.min(index, 6) * 0.06 }}
     >
       {children}
     </motion.div>
@@ -399,7 +418,7 @@ export function Sheet({
       {open && (
         <motion.div
           className={cn(
-            "fixed inset-0 z-50 flex bg-ink/25 backdrop-blur-[2px]",
+            "fixed inset-0 z-50 flex bg-black/40 backdrop-blur-[2px]",
             side === "center" ? "items-center justify-center p-4" : side === "bottom" ? "items-end" : side === "right" ? "justify-end" : "justify-start",
           )}
           initial={{ opacity: 0, pointerEvents: "none" }}

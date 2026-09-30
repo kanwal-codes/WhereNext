@@ -36,3 +36,9 @@ export function formatClockTime(hhmm: string): string {
   const hour12 = h % 12 === 0 ? 12 : h % 12;
   return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
 }
+
+/** Any clock time a provider or planner hands us ("18:30", "03:00 PM", "9am") -> "6:30 PM"; anything else is returned as is. */
+export function displayClockTime(raw: string): string {
+  const parsed = parseClockTime(raw);
+  return parsed ? formatClockTime(parsed) : raw;
+}

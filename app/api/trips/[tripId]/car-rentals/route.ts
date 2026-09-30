@@ -9,7 +9,7 @@ import { withinRateLimit } from "@/lib/server/rate-limit";
 /** Rental car locations near a point — name, address, phone, website. Directory only, no pricing/booking. */
 export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
-    const { user } = await requireTripMember((await params).tripId);
+    const { user } = await requireTripMember((await params).tripId, { registered: true });
     if (!process.env.GOOGLE_MAPS_API_KEY) return NextResponse.json({ error: "Car rental search is not configured" }, { status: 503 });
     // Beyond the 24h result cache below, nothing else caps this — a scripted account could still
     // drive real per-request Google Places billing on cache-miss coordinates.

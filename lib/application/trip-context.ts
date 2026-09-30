@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { usesMiles } from "@/lib/application/geo";
 import { readStayDecision, type StayDecision } from "@/packages/contracts/stay";
 import { cached } from "@/lib/server/ttl-cache";
 
@@ -138,6 +139,9 @@ export function formatTripMemory(
     context.trip?.travelers != null ? `travellers: ${context.trip.travelers}` : null,
     context.trip ? `dates: ${context.trip.start_date || "undecided"}${context.trip.end_date ? ` to ${context.trip.end_date}` : ""}` : null,
     typeof preferences.currency === "string" ? `currency: ${preferences.currency}` : null,
+    typeof preferences.language === "string" && preferences.language ? `preferred language: ${preferences.language}` : null,
+    typeof preferences.country === "string" && preferences.country ? `home country: ${preferences.country}` : null,
+    usesMiles(preferences.country) ? "distances in miles" : null,
     typeof preferences.groupType === "string" && preferences.groupType ? `group: ${preferences.groupType}` : null,
     preferences.budget !== undefined && preferences.budget !== "" ? `budget: ${preferences.budget}` : null,
     typeof preferences.pace === "string" && preferences.pace ? `pace: ${preferences.pace}` : null,

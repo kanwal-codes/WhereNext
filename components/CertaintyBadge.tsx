@@ -12,7 +12,7 @@ export function CertaintyBadge({ certainty, className }: { certainty: Certainty;
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-[0.08em] uppercase",
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium",
         s.className,
         className,
       )}

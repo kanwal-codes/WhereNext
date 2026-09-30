@@ -11,15 +11,18 @@ import { fail, withRoute } from "@/lib/server/with-route";
 import { logger } from "@/lib/server/logger";
 import { estimateTokens, sumCostUsd, type UsageEntry } from "@/lib/ai/pricing";
 import { loadTripContext, formatTripMemory } from "@/lib/application/trip-context";
+import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 import { runAssistantTurn, finalizeAssistantBlocks, type AssistantTurnResult } from "@/lib/application/orchestrate/run-turn";
 import { refreshThreadSummary } from "@/lib/application/thread-summary";
 import { persistedAssistantStream } from "@/features/conversation/application/persistedAssistantStream";
 import { createConversationRepository } from "@/features/conversation/infrastructure/conversationRepository";
+import { withPrunedFollowups } from "@/lib/application/followups";
 import { finalizeAssistantText } from "@/lib/application/evaluator";
 import { withTripAiStream } from "@/lib/server/trip-ai-queue";
 import { recordAiTurn } from "@/lib/server/ai-turn-trace";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { withinRateLimit } from "@/lib/server/rate-limit";
+import { DAY_MS, GUEST_IP_TURN_LIMIT, GUEST_TURN_LIMIT, GUEST_WINDOW_MS, clientKey, guestKey } from "@/lib/server/guest";
 
 /** Service-role writer used only to create a brand-new trip's thread row; undefined if unavailable
  *  (same fallback the /conversation route itself uses). */
@@ -76,8 +79,9 @@ export const POST = withRoute(async function POST(request: Request) {
 
   let supabase: SupabaseClient;
   let userId: string;
+  let guest: boolean;
   try {
-    ({ supabase, user: { id: userId } } = await requireTripMember(tripId));
+    ({ supabase, user: { id: userId }, guest } = await requireTripMember(tripId));
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Assistant unavailable");
   }
@@ -89,6 +93,18 @@ export const POST = withRoute(async function POST(request: Request) {
   // own budget above, so nothing bounded the trip's total cost until now.
   if (!(await withinRateLimit(`ai-turn-trip:${tripId}`, DAILY_TRIP_TURN_LIMIT, 24 * 60 * 60_000))) {
     return NextResponse.json({ error: "This trip has hit today's shared assistant limit. Try again tomorrow." }, { status: 429 });
+  }
+
+  // Guests (anonymous sessions) get a handful of free messages, enforced here — never only in
+  // the browser — before anything is persisted, so the message that hits the wall isn't saved.
+  // Both counters fail closed: this is the one unauthenticated door to paid model/tool calls.
+  if (guest) {
+    if (!(await withinRateLimit(`guest-ip-turns:${clientKey(request)}`, GUEST_IP_TURN_LIMIT, DAY_MS, { failClosed: true }))) {
+      return NextResponse.json({ error: "Roam is busy right now. Save your trip and pick it up from your account.", code: "guest_busy" }, { status: 429 });
+    }
+    if (!(await withinRateLimit(guestKey.turns(userId), GUEST_TURN_LIMIT, GUEST_WINDOW_MS, { failClosed: true }))) {
+      return NextResponse.json({ error: "Save your trip to keep planning with Roam.", code: "guest_limit" }, { status: 403 });
+    }
   }
 
   const prompt = parsed.data.messages.at(-1)?.content ?? "";
@@ -111,8 +127,9 @@ export const POST = withRoute(async function POST(request: Request) {
 
   try {
     // Context, thread summary and the stored transcript are independent — one round-trip.
-    const [tripCtx, threadRow, storedMessages] = await Promise.all([
+    const [loadedCtx, defaults, threadRow, storedMessages] = await Promise.all([
       loadTripContext(supabase, tripId),
+      loadTravellerDefaults(supabase, userId, request.headers),
       supabase.from("conversation_threads").select("summary").eq("trip_id", tripId).eq("user_id", userId).maybeSingle(),
       // The UI can page the full durable thread; model context stays bounded and is supplemented
       // by the thread summary so a long-running trip does not balloon every AI request.
@@ -124,6 +141,8 @@ export const POST = withRoute(async function POST(request: Request) {
       // `surfacedEarlier` incrementally instead of raising this number.
       createConversationRepository(supabase).list(tripId, userId, { limit: 60 }),
     ]);
+    // The trip's own language / country / currency win; this traveller's defaults fill the gaps.
+    const tripCtx = { ...loadedCtx, preferences: withTravellerDefaults(loadedCtx.preferences, defaults) };
     const threadSummary = (threadRow.data?.summary as string | null) ?? "";
     const tripSummary = [formatTripMemory(tripCtx), threadSummary && `Earlier in this conversation: ${threadSummary}`].filter(Boolean).join(" ");
     const viewContext = parsed.data.viewContext;
@@ -191,7 +210,7 @@ export const POST = withRoute(async function POST(request: Request) {
     // `evaluatorUsage` just above, for the same reason (the two run concurrently, not one
     // returning into the other).
     let unverified = false;
-    let evaluatorSettled: Promise<unknown> | undefined;
+    let evaluatorSettled: Promise<string> | undefined;
     // Set once `runAssistantTurn` resolves, inside the stream below — the Response (and this
     // stream) is now returned BEFORE that await, so a client sees real progress during RESOLVE/
     // RETRIEVE (Phase 2.6.2) instead of a silent wait. Every reader of `result` here runs only
@@ -450,6 +469,7 @@ export const POST = withRoute(async function POST(request: Request) {
           const p = finalizeAssistantText(
             content, result.allowedUrls, result.system, AbortSignal.any([request.signal, disconnectController.signal]),
             (entry) => { evaluatorUsage = entry; }, result.resolved.intent, () => { unverified = true; },
+            parsed.data.messages.filter((m) => m.role === "user").map((m) => m.content).join("\n"),
           );
           // Read by the `meta` thunk below so it can wait for this exact call to settle before
           // reading `unverified` — `sanitize` and `meta` run concurrently (Promise.all in
@@ -475,8 +495,10 @@ export const POST = withRoute(async function POST(request: Request) {
           // usually take longer than the evaluator's own bounded (≤2.5s) deadline, so this
           // rarely adds real latency; it only ever blocks the rare turn where side-builders
           // finish first, and even then by at most the evaluator's own deadline.
-          await evaluatorSettled;
-          return finalMeta && unverified ? { ...finalMeta, unverified: true } : finalMeta;
+          const replyText = await evaluatorSettled;
+          const previous = (lastAssistantMessage?.metadata as { suggestedFollowups?: Array<{ label: string; prompt: string }> } | null)?.suggestedFollowups;
+          const pruned = finalMeta && typeof replyText === "string" ? withPrunedFollowups(finalMeta, replyText, previous) : finalMeta;
+          return pruned && unverified ? { ...pruned, unverified: true } : pruned;
         },
         async (finalText) => {
           if (!result) return;

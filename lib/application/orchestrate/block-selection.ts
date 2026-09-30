@@ -1,6 +1,6 @@
 import type { AssistantBlock, PlaceCard } from "@/packages/contracts/assistant";
 import type { Place } from "@/packages/contracts/place";
-import { formatDistanceKm, haversineKm, nearest } from "@/lib/application/geo";
+import { formatDistanceKm, haversineKm, nearest, usesMiles } from "@/lib/application/geo";
 import type { TripContext } from "@/lib/application/trip-context";
 import type { ResolvedTurn, ToolCall } from "@/lib/application/turn-resolver";
 import type { RetrievedEvidence, EventResult } from "@/lib/application/retrieve";
@@ -22,6 +22,15 @@ import type { buildStructuredAnswer } from "@/lib/application/structured-answer"
 
 const PLACE_INTENTS = new Set(["discovery", "nightlife", "food", "activities", "history_culture", "stays", "compare"]);
 
+const DORM_ASK = /\b(?:dorms?|dormitor(?:y|ies)|hostels?|shared rooms?|bunk(?:s| beds?)?)\b/i;
+const DORM_LIKE = /hostel|dorm|backpack|auberge de jeunesse|bunk|capsule|pod\b/i;
+
+/** The traveller asked for dorm beds or hostels and none of the results is one: say so on the card instead of letting hotels pass as the answer. */
+export function dormMismatchNote(prompt: string | undefined, names: string[]): string | null {
+  if (!prompt || !DORM_ASK.test(prompt) || names.length === 0) return null;
+  return names.some((name) => DORM_LIKE.test(name)) ? null : "You asked for dorms or hostels — these are hotels; no dorm beds came back.";
+}
+
 export function selectBlocks(params: {
   resolved: ResolvedTurn;
   evidence: RetrievedEvidence;
@@ -32,13 +41,17 @@ export function selectBlocks(params: {
   structuredAnswerBlock: Awaited<ReturnType<typeof buildStructuredAnswer>>;
   weatherCard: WeatherCard | null;
   tripUpdateReceipt: AssistantBlock | null;
+  /** The saved-trip card, when the traveller asked for the whole picture. */
+  tripSummaryBlock?: AssistantBlock | null;
+  /** The traveller's message, for checks that depend on their wording (dorms, not hotels). */
+  prompt?: string;
   cardPlaces: Place[];
   cardPlaceGroups: Array<{ label: string; places: Place[] }>;
   eventCall: Extract<ToolCall, { tool: "events" }> | undefined;
   eventsInWindow: EventResult[];
   photoUrl: (name: string) => string;
 }): AssistantBlock[] {
-  const { resolved, evidence, tripCtx, itineraryBlock, budgetBlock, optionsBlock, structuredAnswerBlock, weatherCard, tripUpdateReceipt, cardPlaces, cardPlaceGroups, eventCall, eventsInWindow, photoUrl } = params;
+  const { resolved, evidence, tripCtx, itineraryBlock, budgetBlock, optionsBlock, structuredAnswerBlock, weatherCard, tripUpdateReceipt, tripSummaryBlock, prompt, cardPlaces, cardPlaceGroups, eventCall, eventsInWindow, photoUrl } = params;
 
   const blocks: AssistantBlock[] = [];
   // Gated on the traveller's OWN wording (RESOLVE's `proximityMatters`), not just on a locked
@@ -56,14 +69,15 @@ export function selectBlocks(params: {
   // locked yet, so an early-planning trip with a locked opening dinner still gets SOME anchor —
   // and that fallback naturally becomes "the concert venue" once a concert is a locked itinerary
   // item and it's the nearest one, with no separate event-anchor lookup needed.
+  const miles = usesMiles(tripCtx.preferences.country);
   const distanceToLocked = (place: { latitude: number; longitude: number }): string | undefined => {
     if (!resolved.proximityMatters) return undefined;
     if (tripCtx.accommodationAnchor) {
-      return `${formatDistanceKm(haversineKm(place, tripCtx.accommodationAnchor))} from ${tripCtx.accommodationAnchor.title}`;
+      return `${formatDistanceKm(haversineKm(place, tripCtx.accommodationAnchor), miles)} from ${tripCtx.accommodationAnchor.title}`;
     }
     if (tripCtx.lockedPlaces.length === 0) return undefined;
     const hit = nearest({ latitude: place.latitude, longitude: place.longitude }, tripCtx.lockedPlaces);
-    return hit ? `${formatDistanceKm(hit.km)} from ${hit.target.title}` : undefined;
+    return hit ? `${formatDistanceKm(hit.km, miles)} from ${hit.target.title}` : undefined;
   };
   // A concert / named-act / specific-kind event query is about the EVENT, not the venue.
   // Suppress the place cards (the arena, the club) so the events block below carries the turn.
@@ -90,12 +104,12 @@ export function selectBlocks(params: {
       })),
     });
   }
-  for (const route of evidence.routes.slice(0, 3)) {
+  for (const route of evidence.routes.slice(0, 5)) {
     blocks.push({
       type: "route_summary",
       from: route.from, to: route.to, mode: route.mode,
       durationSeconds: route.durationSeconds, distanceMeters: route.distanceMeters, fare: route.fare,
-      steps: route.steps.slice(0, 12), departureTime: route.departureTime, arrivalTime: route.arrivalTime,
+      steps: route.steps.slice(0, 12), departureTime: route.departureTime, arrivalTime: route.arrivalTime, ...(route.path ? { path: route.path } : {}),
       retrievedAt: evidence.retrievedAt,
     });
   }
@@ -165,7 +179,10 @@ export function selectBlocks(params: {
       checkin: search.checkin,
       checkout: search.checkout,
       nights: search.nights,
-      dateNote: search.assumedDates ? `Example dates ${search.checkin} → ${search.checkout} — set your real dates` : `${search.checkin} → ${search.checkout}`,
+      dateNote: [
+        search.assumedDates ? `Example dates ${search.checkin} → ${search.checkout} — set your real dates` : `${search.checkin} → ${search.checkout}`,
+        dormMismatchNote(prompt, search.options.slice(0, 6).map((option) => option.name)),
+      ].filter(Boolean).join(" · ").slice(0, 140),
       detailHotel: search.detail?.hotelName,
       items: search.options.slice(0, 6).map((option) => ({
         hotelId: option.hotelId.slice(0, 120),
@@ -195,6 +212,13 @@ export function selectBlocks(params: {
         currency: room.currency.slice(0, 8),
       })),
     });
+  }
+  if (tripSummaryBlock && blocks.length === 0) blocks.push(tripSummaryBlock);
+  // A place search that ran and found nothing, with nothing else to show: a designed "nothing found" card, not a bare sentence.
+  // Not when a provider failed (that is "couldn't check", a different message) or when something else is already answering.
+  const searched = resolved.toolPlan.find((call) => call.tool === "search_places");
+  if (searched && PLACE_INTENTS.has(resolved.intent) && blocks.length === 0 && evidence.places.length === 0 && evidence.unavailableProviders.length === 0) {
+    blocks.push({ type: "empty_result", what: `${searched.query} in ${searched.location}`.slice(0, 160), hint: "Try a wider area, a different kind of place, or ask me to broaden it." });
   }
   if (weatherCard) blocks.unshift({ type: "weather", retrievedAt: evidence.retrievedAt, ...weatherCard });
   // A change receipt leads the reply, above whatever the turn is actually answering — the user

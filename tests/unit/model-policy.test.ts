@@ -11,10 +11,10 @@ afterEach(() => {
   delete process.env.SUMMARY_MODEL;
 });
 
-const RESOLVE_DEFAULT = [{ id: "openai/gpt-oss-120b", only: ["cerebras"] }, "google/gemini-3.8-flash", "openai/gpt-5-mini", "openai/gpt-4o-mini"];
+const RESOLVE_DEFAULT = [{ id: "openai/gpt-oss-120b", only: ["cerebras"] }, "openai/gpt-oss-120b", "google/gemini-3.8-flash", "openai/gpt-5-mini", "openai/gpt-4o-mini"];
 
 describe("modelChainFor", () => {
-  it("resolve: the default chain when no override is set — Cerebras-pinned lead, unpinned fallbacks", () => {
+  it("resolve: the default chain when no override is set — Cerebras-pinned lead, then the same model unpinned, then the other fallbacks", () => {
     expect(modelChainFor("resolve")).toEqual(RESOLVE_DEFAULT);
   });
 
@@ -30,6 +30,10 @@ describe("modelChainFor", () => {
 
   it("compose: leads with a writing-quality model, not just the fastest one", () => {
     expect(modelChainFor("compose")[0]).toBe("anthropic/claude-sonnet-5");
+  });
+
+  it("compose: a stalled lead falls to Cerebras gpt-oss (pinned, then unpinned) before Gemini", () => {
+    expect(modelChainFor("compose").slice(1, 4)).toEqual([{ id: "openai/gpt-oss-120b", only: ["cerebras"] }, "openai/gpt-oss-120b", "google/gemini-3.8-flash"]);
   });
 
   it("compose: AI_MODEL overrides the lead model", () => {

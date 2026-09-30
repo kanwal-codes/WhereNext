@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { progressBetween } from "@/components/landing/choreography";
+import { fadeIn, progressBetween, smoothStep, trackEntrance, trackRevisit } from "@/components/landing/choreography";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -27,16 +27,23 @@ const MOMENTS: Moment[] = [
   { time: "6:42 PM", location: "Bell Centre", message: "Leave in 18 minutes.", card: { label: "Bad Bunny · Bell Centre", sub: "Concert ticket" }, photo: "/design/place-concert-arena.jpg" },
   // Reservation was "7:30", three hours before this moment's own 10:18 PM —
   // fixed to agree with the beat it's actually attached to.
-  { time: "10:18 PM", location: "Old Montreal", message: "Dinner · 8 minute walk.", card: { label: "Olive et Gourmando · 10:30", sub: "Reservation" }, photo: "/design/trip-hero-night.jpg" },
+  { time: "10:18 PM", location: "Old Montreal", message: "Dinner · 8 minute walk.", card: { label: "Bistro Saint-Paul · 10:30", sub: "Reservation" }, photo: "/design/place-rooftop-lounge.jpg" },
 ];
 
-// Frame 11 spans 15,600-18,500px (Storyboard) — a short intro (backdrop goes
-// dark, "FRIDAY" holds) then four roughly-equal beats, each getting a
-// symmetric crossfade window straddling its boundary with the next so two
-// photos are briefly visible together, never a hard cut to black between them.
-const INTRO_END = 0.12;
-const BEAT_SPAN = (1 - INTRO_END) / MOMENTS.length;
-const CROSSFADE = BEAT_SPAN * 0.15;
+// Beat sheet, in px of pin scroll. "FRIDAY" is already on screen while the dark
+// section rises, holds through the start of the pin, then hands off to the
+// four beats; each beat crossfades into the next (two photos briefly visible
+// together, never a hard cut to black) and holds ~450px fully in. The last
+// beat holds ~535px, then the whole scene dissolves into the Finale's canvas
+// so the section is empty (last 200px) before its pin releases.
+const INTRO = 850;
+const BEAT = 720;
+const CROSS = 135;
+const D = 4230;
+const RESOLVED = 3350; // revisiting shows the dinner beat, held
+const FRIDAY_OUT = [520, 760] as const;
+const EXIT = [3680, 4030] as const;
+const NAV_BACK = 3880; // nav returns once the scene is mostly dissolved
 
 /**
  * Storyboard Frame 11 — Cinematic travel. Third and last of the page's three
@@ -58,6 +65,7 @@ export function CinematicTravelScene() {
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const revealRef = useRef(0);
   const smoothedRevealRef = useRef(0);
+  const enterRef = useRef(0);
 
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -77,46 +85,59 @@ export function CinematicTravelScene() {
 
     const ctx = gsap.context(() => {
       const update = () => {
-        smoothedRevealRef.current += (revealRef.current - smoothedRevealRef.current) * 0.08;
+        smoothedRevealRef.current = smoothStep(smoothedRevealRef.current, revealRef.current, 0.08);
         const p = smoothedRevealRef.current;
+        const px = p * D;
+        const w = (a: number, b: number) => progressBetween(px, a, b);
+        const exit = w(EXIT[0], EXIT[1]);
+        const stay = 1 - exit;
 
-        gsap.set(backdropRef.current, { opacity: 1 });
-        gsap.set(dayHeadlineRef.current, {
-          opacity: progressBetween(p, 0.04, 0.08) * (1 - progressBetween(p, INTRO_END, INTRO_END + CROSSFADE)),
-        });
-        gsap.set(photoWrapRef.current, { scale: 1 + p * 0.04 });
+        gsap.set(backdropRef.current, { opacity: stay });
+        gsap.set(dayHeadlineRef.current, { opacity: enterRef.current * (1 - w(FRIDAY_OUT[0], FRIDAY_OUT[1])) });
+        gsap.set(photoWrapRef.current, { scale: 1 + p * 0.04, opacity: stay });
 
         MOMENTS.forEach((_, i) => {
-          const start = INTRO_END + i * BEAT_SPAN;
-          const end = start + BEAT_SPAN;
-          const fadeIn = progressBetween(p, start - CROSSFADE, start + CROSSFADE);
-          const fadeOut = i === last ? 1 : 1 - progressBetween(p, end - CROSSFADE, end + CROSSFADE);
-          const opacity = fadeIn * fadeOut;
+          const start = INTRO + i * BEAT;
+          const end = start + BEAT;
+          const fadeIn = w(start - CROSS, start + CROSS);
+          const fadeOut = i === last ? 1 : 1 - w(end - CROSS, end + CROSS);
+          const opacity = fadeIn * fadeOut * stay;
 
-          gsap.set(photoRefs.current[i], { opacity });
+          gsap.set(photoRefs.current[i], { opacity: fadeIn * fadeOut });
           gsap.set(textRefs.current[i], { opacity, y: (1 - fadeIn) * 14 });
-          gsap.set(cardRefs.current[i], { opacity, y: 24 * (1 - progressBetween(p, start, start + BEAT_SPAN * 0.25)) });
+          gsap.set(cardRefs.current[i], { opacity, y: 24 * (1 - w(start, start + BEAT * 0.25)) });
         });
       };
 
       gsap.ticker.add(update);
+      let navShown = true;
+      const revisit = trackRevisit(RESOLVED / D, D, (target) => {
+        smoothedRevealRef.current = target;
+        fadeIn(sectionRef.current);
+      });
       const st = ScrollTrigger.create({
         trigger: sectionRef.current,
         start: "top top",
-        end: "+=4200",
+        end: `+=${D}`,
         pin: true,
         scrub: true,
-        onEnter: () => nav && gsap.to(nav, { opacity: 0, duration: 0.25, overwrite: true }),
-        onEnterBack: () => nav && gsap.to(nav, { opacity: 0, duration: 0.25, overwrite: true }),
-        onLeaveBack: () => nav && gsap.to(nav, { opacity: 1, duration: 0.25, overwrite: true }),
         onUpdate: (self) => {
-          revealRef.current = self.progress;
+          revealRef.current = revisit(self);
+          if (!nav) return;
+          const show = self.progress === 0 || self.progress * D > NAV_BACK;
+          if (show === navShown) return;
+          navShown = show;
+          gsap.to(nav, { opacity: show ? 1 : 0, duration: 0.3, overwrite: true });
         },
+      });
+      const entrance = trackEntrance(sectionRef.current!, (value) => {
+        enterRef.current = value;
       });
 
       return () => {
         gsap.ticker.remove(update);
         st.kill();
+        entrance.kill();
       };
     }, sectionRef);
 
@@ -127,7 +148,7 @@ export function CinematicTravelScene() {
   }, []);
 
   return (
-    <div ref={sectionRef} data-scene="cinematic-travel" className="relative min-h-[100dvh] overflow-hidden bg-[#171717]">
+    <div ref={sectionRef} data-scene="cinematic-travel" className="relative min-h-[100dvh] overflow-hidden bg-background">
       <div ref={backdropRef} className="pointer-events-none absolute inset-0 bg-[#171717]" />
 
       <div ref={photoWrapRef} className="pointer-events-none absolute inset-0">

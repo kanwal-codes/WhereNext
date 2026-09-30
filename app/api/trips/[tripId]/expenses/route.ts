@@ -74,7 +74,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ tripId: st
 export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
-    const { supabase, user } = await requireTripMember(tripId, { role: "editor" });
+    const { supabase, user } = await requireTripMember(tripId, { role: "editor", registered: true });
     if (!(await withinRateLimit(`expense:${user.id}`, 30, 60 * 60_000))) {
       return NextResponse.json({ error: "Too many expenses logged. Try again in a while." }, { status: 429 });
     }

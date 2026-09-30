@@ -9,6 +9,6 @@ import { cn } from "@/lib/utils";
  * despite it being the same "About"/"Photos"/"Tickets" kind of section everywhere. Centralized
  * here so a fourth detail view can't quietly invent a fourth style.
  */
-export function DetailSectionHeading({ children, className }: { children: ReactNode; className?: string }) {
-  return <h2 className={cn("font-display text-xl", className)}>{children}</h2>;
+export function DetailSectionHeading({ children, className, id }: { children: ReactNode; className?: string; id?: string }) {
+  return <h2 id={id} className={cn("font-display text-xl", className)}>{children}</h2>;
 }

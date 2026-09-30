@@ -37,6 +37,7 @@ export function useStayDetails(
   const [state, setState] = useState<State>("loading");
   const [busy, setBusy] = useState(false);
   const [locked, setLocked] = useState<StayDecision | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   const lockedStay = locked ?? readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
 
@@ -74,7 +75,7 @@ export function useStayDetails(
         setState("error");
       });
     return () => controller.abort();
-  }, [tripId, hotelId, dates.checkin, dates.checkout, dates.adults, dates.rooms]);
+  }, [tripId, hotelId, dates.checkin, dates.checkout, dates.adults, dates.rooms, attempt]);
 
   async function lockRoom(room: StayRoom) {
     if (!body || busy) return;
@@ -131,6 +132,7 @@ export function useStayDetails(
     assumedDates: body?.assumedDates ?? false,
     freshness,
     state,
+    retry: () => setAttempt((n) => n + 1),
     lockedStay,
     busy,
     lockRoom,

@@ -3,284 +3,276 @@
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { advanceNarrative, clamp01, progressBetween } from "@/components/landing/choreography";
-import { Heart } from "lucide-react";
+import { Check, Heart } from "lucide-react";
+import {
+  fadeIn,
+  progressBetween,
+  smoothStep,
+  trackEntrance,
+  trackRevisit,
+} from "@/components/landing/choreography";
 
 gsap.registerPlugin(ScrollTrigger);
 
-type Card = {
-  title: string;
+type Place = {
   category: string;
+  title: string;
   meta: string;
-  size: string;
-  photo?: string;
-  typeOnly?: boolean;
-  focal?: boolean;
-  rotation: number;
+  photo: string;
+  focus: string; // object-position, keeps each crop on its subject
+  fit: readonly [string, string];
+  hearts: readonly string[];
 };
 
-const CATEGORIES = ["Food", "Live music", "Outdoors", "Classes", "Nightlife"] as const;
-
-// Deliberately uneven sizes — a magazine spread, not a grid of identical
-// SaaS cards (Design_Language §11). Photos reassigned after the originals
-// were checked against their labels and several didn't match what they
-// claimed to show (a Mediterranean street for "Le Bain Public", jagged
-// alpine peaks for the modest hill that is Mount Royal, a bakery for a
-// pottery class) — real, purpose-sourced photography per card now.
-const CARDS: Card[] = [
-  { title: "Poutine crawl", category: "FOOD", meta: "3 stops · Old Montreal", size: "h-[30rem] w-[18rem]", photo: "/design/place-neighbourhood.jpg", rotation: -1.5 },
-  // Was "Live at Bell Centre, Sat · 8 PM" — but Bad Bunny at Bell Centre is
-  // already locked as a Friday Oct 16 plan (Hero, Chaos, Context, and
-  // CinematicTravel all agree on that). Presenting the same show as an open
-  // Saturday option contradicted a decision the story already made.
-  { title: "Live at MTELUS", category: "LIVE MUSIC", meta: "Sat · 9 PM", size: "h-[22rem] w-[34rem]", photo: "/design/place-concert-arena.jpg", rotation: 1 },
-  { title: "Mount Royal lookout", category: "OUTDOORS", meta: "20 min walk", size: "h-[20rem] w-[16rem]", photo: "/design/land-mount-royal.jpg", rotation: -1 },
-  // Was "Most museums close Mondays" — a "no museums" chip is already
-  // locked in back in Context, so surfacing museum content here at all
-  // read as Roam not having listened.
-  { title: "Grab a Bixi for the day", category: "GOOD TO KNOW", meta: "$5 unlimited rides", size: "h-[20rem] w-[14rem]", typeOnly: true, rotation: 1.5 },
-  { title: "Pottery Workshop", category: "CLASSES", meta: "Saturday · 2 PM · $42", size: "h-[26rem] w-[20rem]", photo: "/design/place-pottery-wheel.jpg", focal: true, rotation: -1 },
-  { title: "Le Bain Public", category: "NIGHTLIFE", meta: "Rooftop · Old Port", size: "h-[24rem] w-[19rem]", photo: "/design/place-rooftop-lounge.jpg", rotation: 1.5 },
+// Discover shows the whole shortlist at once — four places, no scrolling through them — and the
+// point of each card isn't the place, it's that Roam picked it against the brief (4 friends, $900
+// each, vegetarian, no museums). The first three are good options only some of the group wanted;
+// pottery is the one everybody ♥'d, so it's the one that gets added and carries into Plans Change.
+const PLACES: Place[] = [
+  {
+    category: "Outdoors",
+    title: "Mount Royal at golden hour",
+    meta: "Free · 20 min walk",
+    photo: "/design/discover-mount-royal.jpg",
+    focus: "center 62%",
+    fit: ["Free, $0 each", "Dry and 18°C on Saturday"],
+    hearts: ["M"],
+  },
+  {
+    category: "Live music",
+    title: "A late set at MTELUS",
+    meta: "Sat 9 PM · Standing room",
+    photo: "/design/discover-live-music.jpg",
+    focus: "center 55%",
+    fit: ["4 tickets still available", "Inside your $900 each"],
+    hearts: ["K", "A"],
+  },
+  {
+    category: "Nightlife",
+    title: "Rooftop drinks at Le Bain Public",
+    meta: "Old Port · 10 min walk",
+    photo: "/design/discover-rooftop.jpg",
+    focus: "center 45%",
+    fit: ["Vegetarian menu", "Open past midnight"],
+    hearts: ["A", "M"],
+  },
+  {
+    category: "Activity",
+    title: "Pottery Workshop",
+    meta: "Sat 2 PM · $42 each",
+    photo: "/design/discover-pottery.jpg",
+    focus: "center 45%",
+    fit: ["Well under budget", "Fits the 2 PM gap"],
+    hearts: ["K", "A", "M", "J"],
+  },
 ];
+const LAST = PLACES.length - 1;
 
-const EXIT_DISTANCE = 500; // px of scroll spent on the pottery card leaving, after the pan finishes
+// Beat sheet, in px of pin scroll. The four cards rise in as the scene arrives (staggered), then
+// Roam's checks tick in, then the group's ♥s land. Pottery adds itself to the trip while the other
+// three step back, holds ~700px with the confirmation showing, and the scene dissolves so it is
+// empty (last 150px) before its pin releases and Plans Change rises in.
+const HEARTS_AT = 500;
+const ADD = [1350, 1500] as const;
+const FOCUS = [1350, 1650] as const;
+const EXIT = [2300, 2600] as const;
+const D = 2750;
+// Revisiting shows pottery added, with the others stepped back.
+const RESOLVED = 2000;
 
 /**
- * Storyboard Frame 5 — Discover, plus the card-selection beat that bridges
- * into scene 6. The one deliberate break from vertical scrolling on the
- * page: vertical scroll drives horizontal content movement.
- *
- * Second pass: the original version panned a row of always-fully-visible
- * cards past the viewport with nothing else happening — no per-card life,
- * category pills that never reacted to what was on screen, and several
- * photos that didn't match their own labels. Now each card scales up and
- * brightens as it nears the horizontal center of the viewport and recedes
- * as it leaves (measured live via getBoundingClientRect, not estimated from
- * index math, since card widths are deliberately uneven) — the same "focus
- * pulls toward center" feel as a real coverflow, giving the pan itself
- * continuous motion instead of a static row gliding by at one flat rate.
- * The category pills above now light up to match whichever card currently
- * holds that focus, so the taxonomy reads as live feedback, not decoration.
- *
- * Reuses HorizontalDiscoverSpike's findings directly (Build_Plan step 2):
- * the entry cue fades as part of the SAME timeline as the horizontal pan
- * (a separate ScrollTrigger didn't fade on schedule in the spike); cards
- * stay in real DOM/tab order matching the visual left-to-right order; a
- * skip-link and sr-only instruction cover keyboard/screen-reader users.
- * Highest accessibility risk in the whole build — budget real QA time here.
+ * Storyboard Frame 5 — Discover. The shortlist Roam builds for the group, laid out like the
+ * app's own place cards: photo, name, why it fits, who ♥'d it. On a phone the four cards become
+ * compact rows so the whole list still fits one screen.
  */
 export function DiscoverScene() {
   const sectionRef = useRef<HTMLDivElement>(null);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const cueRef = useRef<HTMLParagraphElement>(null);
-  const wordmarkRef = useRef<HTMLDivElement>(null);
-  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const categoryRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef<(HTMLLIElement | null)[]>([]);
+  const rowRefs = useRef<(HTMLLIElement | null)[][]>(PLACES.map(() => []));
+  const tallyRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const ringRef = useRef<HTMLSpanElement>(null);
+  const addedRef = useRef<HTMLDivElement>(null);
   const revealRef = useRef(0);
   const smoothedRevealRef = useRef(0);
+  const enterRef = useRef(0);
 
   useEffect(() => {
-    const reduce =
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
-      window.matchMedia("(max-width: 767px)").matches;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     if (reduce) {
-      gsap.set(cueRef.current, { opacity: 0 });
+      gsap.set([stageRef.current, headerRef.current], { opacity: 1 });
+      PLACES.forEach((_, i) => {
+        gsap.set(cardRefs.current[i], { opacity: 1 });
+        gsap.set(rowRefs.current[i], { opacity: 1 });
+        gsap.set(tallyRefs.current[i], { opacity: i === LAST ? 0 : 1 });
+      });
+      gsap.set([ringRef.current, addedRef.current], { opacity: 1 });
       return;
     }
 
-    const ctx = gsap.context(() => {
-      const track = trackRef.current!;
-      const panDistance = track.scrollWidth - window.innerWidth;
-      const totalDistance = panDistance + 900;
-      const splitFraction = panDistance / totalDistance;
+    const update = () => {
+      smoothedRevealRef.current = smoothStep(smoothedRevealRef.current, revealRef.current, 0.12);
+      const px = smoothedRevealRef.current * D;
+      const w = (a: number, b: number) => progressBetween(px, a, b);
+      const enter = enterRef.current;
+      const focus = w(FOCUS[0], FOCUS[1]);
+      const added = w(ADD[0], ADD[1]);
 
-      const update = () => {
-        // This scene is a direct-manipulation browse gallery, not a one-time
-        // story beat — unlike Context/Finale/PlansChange (where heavy
-        // smoothing stops a fast scroll from skipping past something that
-        // only happens once), every card here is always present in the row.
-        // The old 0.09 damping measured out to 500ms+ of the track still
-        // visibly catching up after a single scroll input, which read as
-        // the pan not actually tracking the scroll. Snappier now.
-        smoothedRevealRef.current += (revealRef.current - smoothedRevealRef.current) * 0.35;
-        const p = smoothedRevealRef.current;
-        const panProgress = clamp01(p / splitFraction);
-        const exitProgress = progressBetween(p, splitFraction, 1);
+      gsap.set(stageRef.current, { opacity: 1 - w(EXIT[0], EXIT[1]) });
+      const headerIn = progressBetween(enter, 0, 0.5);
+      gsap.set(headerRef.current, { opacity: headerIn, y: 16 * (1 - headerIn) });
 
-        gsap.set(track, { x: -panDistance * panProgress });
-        gsap.set(wordmarkRef.current, { x: -panDistance * panProgress * 0.4 });
-        gsap.set(cueRef.current, { opacity: 1 - progressBetween(panProgress, 0, 0.08) });
-
-        // Coverflow-style focus: each card is measured live against the
-        // viewport center (not estimated from index/width math, since
-        // sizes are deliberately uneven) and scales/brightens as it
-        // approaches, dims and shrinks slightly as it recedes. The focal
-        // card shares this exact same baseline — it used to carry its own
-        // competing `x` on top of the track's, and since it's a child of
-        // the track those transforms compose rather than override, so it
-        // was panning at double speed the whole time, not just on exit.
-        // Now it rides the coverflow like every sibling during the pan,
-        // and the exit motion (below) only ever ADDS to that baseline once
-        // exitProgress actually starts, instead of replacing it.
-        const viewportCenter = window.innerWidth / 2;
-        let nearestIndex = 0;
-        let nearestDistance = Infinity;
-        cardRefs.current.forEach((el, i) => {
-          if (!el) return;
-          const rect = el.getBoundingClientRect();
-          const cardCenter = rect.left + rect.width / 2;
-          const distance = Math.abs(cardCenter - viewportCenter);
-          if (distance < nearestDistance) {
-            nearestDistance = distance;
-            nearestIndex = i;
-          }
-          const normalized = clamp01(distance / (window.innerWidth * 0.62));
-          const baseScale = 1 - normalized * 0.1;
-          const baseOpacity = 1 - normalized * 0.45;
-          const baseY = normalized * 14;
-
-          if (CARDS[i].focal) {
-            gsap.set(el, {
-              scale: baseScale * (1 - exitProgress * 0.15),
-              x: exitProgress * 260,
-              y: baseY - exitProgress * 220,
-              opacity: baseOpacity * (1 - progressBetween(exitProgress, 0.7, 1)),
-            });
-          } else {
-            // Once the pottery card starts its exit (flying up and right,
-            // toward wherever the next card in the row happens to sit), every
-            // other card needs to clear out of its way — previously they just
-            // stayed put at full opacity, so the focal card visibly flew
-            // straight into and overlapped its neighbor instead of getting a
-            // clean, uncontested exit.
-            gsap.set(el, { scale: baseScale, opacity: baseOpacity * (1 - progressBetween(exitProgress, 0, 0.4)), y: baseY });
-          }
+      PLACES.forEach((_, i) => {
+        const cardIn = progressBetween(enter, 0.1 + i * 0.12, 0.6 + i * 0.12);
+        const stepBack = i === LAST ? 0 : focus;
+        gsap.set(cardRefs.current[i], {
+          opacity: cardIn * (1 - 0.55 * stepBack),
+          y: 36 * (1 - cardIn),
+          scale: (0.97 + 0.03 * cardIn) * (i === LAST ? 1 + 0.03 * focus : 1 - 0.02 * stepBack),
         });
-
-        CATEGORIES.forEach((cat, i) => {
-          const el = categoryRefs.current[i];
-          if (!el) return;
-          const isActive = CARDS[nearestIndex]?.category.toLowerCase() === cat.toLowerCase();
-          gsap.set(el, { opacity: isActive ? 1 : 0.55 });
+        rowRefs.current[i].forEach((row, r) => {
+          const start = 80 + i * 90 + r * 70;
+          const rowIn = w(start, start + 220);
+          gsap.set(row, { opacity: rowIn, x: 8 * (1 - rowIn) });
         });
-      };
-
-      gsap.ticker.add(update);
-
-      const st = ScrollTrigger.create({
-        trigger: sectionRef.current,
-        start: "top top",
-        end: () => `+=${totalDistance}`,
-        pin: true,
-        scrub: true,
-        onUpdate: (self) => {
-          revealRef.current = self.progress;
-        },
+        const heartsIn = w(HEARTS_AT + i * 90, HEARTS_AT + i * 90 + 260);
+        gsap.set(tallyRefs.current[i], { opacity: i === LAST ? heartsIn * (1 - added) : heartsIn, y: 6 * (1 - heartsIn) });
       });
 
-      return () => {
-        gsap.ticker.remove(update);
-        st.kill();
-      };
-    }, sectionRef);
+      gsap.set(ringRef.current, { opacity: focus });
+      gsap.set(addedRef.current, { opacity: added });
+    };
 
-    return () => ctx.revert();
+    gsap.ticker.add(update);
+    const revisit = trackRevisit(RESOLVED / D, D, (target) => {
+      smoothedRevealRef.current = target;
+      fadeIn(sectionRef.current);
+    });
+    const st = ScrollTrigger.create({
+      trigger: sectionRef.current,
+      start: "top top",
+      end: `+=${D}`,
+      pin: true,
+      scrub: true,
+      onUpdate: (self) => {
+        revealRef.current = revisit(self);
+      },
+    });
+    const entrance = trackEntrance(sectionRef.current!, (value) => {
+      enterRef.current = value;
+    });
+
+    return () => {
+      gsap.ticker.remove(update);
+      st.kill();
+      entrance.kill();
+    };
   }, []);
 
   return (
-    <>
-      <a
-        href="#discover-end"
-        className="fixed top-2 left-2 z-[60] -translate-y-16 rounded bg-primary px-3 py-2 text-xs text-primary-foreground focus:translate-y-0"
-      >
-        Skip Discover section
-      </a>
-      <p className="sr-only">
-        This section scrolls horizontally as you continue scrolling down. Cards are also reachable in order via Tab.
-      </p>
-
+    <div
+      id="discover"
+      ref={sectionRef}
+      data-scene="discover"
+      className="relative min-h-[100dvh] scroll-mt-16 overflow-hidden bg-background"
+    >
       <div
-        id="discover"
-        ref={sectionRef}
-        data-scene="discover"
-        className="relative min-h-[100dvh] scroll-mt-16 overflow-hidden bg-background max-md:overflow-x-auto max-md:snap-x max-md:snap-mandatory"
+        ref={stageRef}
+        className="mx-auto flex h-[100dvh] max-w-7xl flex-col justify-start gap-4 px-5 pt-[4.75rem] pb-3 md:justify-center md:gap-10 md:px-12 md:pt-24 md:pb-10"
       >
-        <div ref={wordmarkRef} className="pointer-events-none absolute top-1/2 left-[10%] -translate-y-1/2 font-display text-[22vw] leading-none font-medium text-foreground/[0.04]">
-          MONTREAL
-        </div>
-
-        {/* Nav is 80px tall uncompressed, 64px compressed (see Nav.tsx) — the
-            old top-20 (80px) mobile / md:top-12 (48px) desktop offsets left
-            this header's "Saturday · Oct 17" label sitting directly under
-            the nav at every breakpoint, rendering blurred through its
-            frosted-glass compressed state instead of being hidden by it.
-            top-28 clears both nav heights with real margin at every width. */}
-        <div className="pointer-events-none absolute inset-x-0 top-28 z-10 px-6 md:px-10">
+        <div ref={headerRef} className="text-center opacity-0">
           <p className="text-xs font-semibold tracking-[0.13em] text-coral uppercase">Saturday · Oct 17</p>
-          <h2 className="mt-2 font-display text-3xl">What are we doing Saturday?</h2>
-          <div className="mt-4 hidden gap-5 text-xs font-medium tracking-[0.08em] uppercase sm:flex">
-            {CATEGORIES.map((cat, i) => (
-              <span
-                key={cat}
+          <h2 className="mt-1.5 font-display text-[clamp(1.75rem,5vw,3.75rem)] leading-[1.02] tracking-[-0.03em]">What are we doing Saturday?</h2>
+        </div>
+
+        <ul className="grid grid-cols-1 gap-2.5 md:grid-cols-4 md:gap-5">
+          {PLACES.map((place, i) => {
+            const last = i === LAST;
+            return (
+              <li
+                key={place.title}
                 ref={(el) => {
-                  categoryRefs.current[i] = el;
+                  cardRefs.current[i] = el;
                 }}
-                className="text-muted-foreground transition-colors"
+                className="group relative flex flex-row overflow-hidden rounded-3xl border border-border bg-surface opacity-0 shadow-lift md:flex-col"
               >
-                {cat}
-              </span>
-            ))}
-          </div>
-        </div>
+                <div className="relative aspect-square w-24 shrink-0 overflow-hidden sm:w-28 md:aspect-[4/3] md:w-full">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- fixed-size card thumbnail */}
+                  <img
+                    src={place.photo}
+                    alt=""
+                    width={640}
+                    height={480}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-700 ease-out md:group-hover:scale-105"
+                    style={{ objectPosition: place.focus }}
+                  />
+                  <span className="absolute top-3 left-3 hidden rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold tracking-[0.12em] text-foreground uppercase backdrop-blur md:inline-flex">
+                    {place.category}
+                  </span>
+                </div>
 
-        <p ref={cueRef} className="pointer-events-none absolute right-10 bottom-10 z-10 text-xs tracking-wide text-muted-foreground">
-          Explore Montreal
-        </p>
+                <div className="flex min-w-0 flex-1 flex-col gap-1 p-3 md:gap-2 md:p-4">
+                  <p className="text-[10px] font-semibold tracking-[0.12em] text-coral uppercase md:hidden">{place.category}</p>
+                  <h3 className="font-display text-[15px] leading-tight md:text-lg">{place.title}</h3>
+                  <p className="hidden text-xs text-muted-foreground md:block">{place.meta}</p>
 
-        <div ref={trackRef} className="flex h-full w-max items-center gap-6 px-6 pt-32 md:px-10 md:pt-24">
-          {CARDS.map((card, i) => (
-            <div
-              key={card.title}
-              ref={(el) => {
-                cardRefs.current[i] = el;
-              }}
-              style={{ rotate: `${card.rotation}deg` }}
-              className={`relative shrink-0 snap-center overflow-hidden rounded-2xl border shadow-lift max-md:w-[82vw] ${card.size} ${
-                card.focal ? "border-2 border-coral" : "border-border"
-              } ${card.typeOnly ? "flex flex-col justify-center bg-surface p-6" : "bg-surface"}`}
-            >
-              {card.photo && (
-                // eslint-disable-next-line @next/next/no-img-element -- decorative placeholder photography
-                <img src={card.photo} alt="" width={680} height={960} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
-              )}
-              {card.photo && <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />}
-              {card.focal && (
-                // A coral border alone was too easy to miss while panning past
-                // five other cards — this needs to read as "already chosen"
-                // at a glance, not just on close inspection.
-                <span className="absolute top-3 right-3 grid size-10 place-items-center rounded-full bg-coral shadow-lift">
-                  <Heart className="size-5 fill-white text-white" />
-                </span>
-              )}
-              <div className={card.photo ? "absolute inset-x-0 bottom-0 p-4 text-white" : ""}>
-                <p className="text-[10px] font-semibold tracking-[0.1em] uppercase opacity-80">{card.category}</p>
-                <p className="mt-1 font-display text-lg">{card.title}</p>
-                <p className="mt-1 text-xs opacity-80">{card.meta}</p>
-                {card.focal && (
-                  <div className="mt-3 flex items-center justify-between gap-2">
-                    <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11px] backdrop-blur">Maya ♥</span>
-                    <button type="button" className="btn-primary-sm" onClick={() => advanceNarrative(EXIT_DISTANCE)}>
-                      + Add to trip
-                    </button>
+                  <div className="mt-1 md:mt-2">
+                    <ul className="space-y-1 md:space-y-1.5">
+                      {place.fit.map((line, r) => (
+                        <li
+                          key={line}
+                          ref={(el) => {
+                            rowRefs.current[i][r] = el;
+                          }}
+                          className={`items-center gap-2 text-xs opacity-0 ${r === 0 ? "flex max-md:[@media(max-height:720px)]:hidden" : "hidden md:flex"}`}
+                        >
+                          <span className="grid size-4 shrink-0 place-items-center rounded-full bg-coral-soft text-coral">
+                            <Check className="size-2.5" strokeWidth={3} />
+                          </span>
+                          {line}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+
+                  <div className="mt-auto grid border-t border-border pt-2 text-xs md:pt-3">
+                    <div
+                      ref={(el) => {
+                        tallyRefs.current[i] = el;
+                      }}
+                      className="flex items-center gap-2 opacity-0 [grid-area:1/1]"
+                    >
+                      <span className="flex">
+                        {place.hearts.map((initial) => (
+                          <span
+                            key={initial}
+                            className="-ml-1.5 grid size-5 place-items-center rounded-full border-2 border-surface bg-primary text-[9px] font-semibold text-primary-foreground first:ml-0 md:size-6 md:text-[10px]"
+                          >
+                            {initial}
+                          </span>
+                        ))}
+                      </span>
+                      <Heart className="size-3.5 shrink-0 fill-coral text-coral" />
+                      <span className={last ? "font-medium text-foreground" : "text-muted-foreground"}>{place.hearts.length} of 4</span>
+                    </div>
+                    {last && (
+                      <div ref={addedRef} className="flex items-center gap-1.5 font-medium text-coral opacity-0 [grid-area:1/1]">
+                        <Check className="size-3.5 shrink-0" strokeWidth={3} />
+                        Added · Sat 2:00 PM
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {last && <span ref={ringRef} aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-3xl ring-2 ring-coral opacity-0" />}
+              </li>
+            );
+          })}
+        </ul>
       </div>
-      <div id="discover-end" className="sr-only" />
-    </>
+    </div>
   );
 }

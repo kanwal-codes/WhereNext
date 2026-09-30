@@ -36,6 +36,17 @@ const baseParams = {
   photoUrl: (name: string) => `/photo/${name}`,
 };
 
+describe("buildComposeSystemPrompt: map", () => {
+  it("points at the card's button, and never claims a map is showing", () => {
+    const prompt = buildComposeSystemPrompt({ ...baseParams, mapCards: ["the route card"] });
+    expect(prompt).toContain("MAP: this reply has a Map button on: the route card");
+    expect(prompt).toContain('Never say a map is "up"');
+  });
+  it("says so when nothing in the reply can open a map", () => {
+    expect(buildComposeSystemPrompt({ ...baseParams })).toContain("MAP: nothing in this reply has a Map button");
+  });
+});
+
 describe("buildComposeSystemPrompt", () => {
   it("mentions dislikes and forbids recommending them, when set", () => {
     const prompt = buildComposeSystemPrompt({ ...baseParams, dislikes: ["museums", "seafood"] });

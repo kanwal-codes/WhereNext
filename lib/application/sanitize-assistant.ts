@@ -58,16 +58,18 @@ function isApproximatelyGrounded(value: number, groundedNumbers: number[]): bool
  * below. An exact substring match is tried first (cheap, and the common case when the model
  * echoes a card's own figure); a number that doesn't match verbatim still passes if it's close
  * to a real money figure found in the evidence, rather than being blanked purely for not being a
- * character-for-character quote.
+ * character-for-character quote. `userText` — what the traveller wrote — counts as grounding too.
  */
-export function sanitizeAssistantContent(content: string, allowedUrls: ReadonlySet<string>, groundingText?: string) {
+export function sanitizeAssistantContent(content: string, allowedUrls: ReadonlySet<string>, groundingText?: string, userText?: string) {
   let out = content
     .replace(/!\[[^\]]*\]\([^)]*$/g, "")
     .replace(new RegExp(`!\\[([^\\]]*)\\]\\(${LINK_URL}\\)`, "gi"), (match, _alt: string, url: string) => allowedUrls.has(url) ? match : "")
     .replace(new RegExp(`\\[([^\\]]+)\\]\\(${LINK_URL}\\)`, "gi"), (match, label: string, url: string) => allowedUrls.has(url) ? match : label)
     .replace(/https?:\/\/[^\s)]+/gi, (url: string) => allowedUrls.has(url) ? url : "");
   if (groundingText) {
-    const groundedNumbers = groundedMoneyNumbers(groundingText);
+    // Figures the traveller typed themselves are grounded, in any shape: "80" in their message
+    // makes "CA$80" in the reply theirs to hear back, not an invention.
+    const groundedNumbers = [...groundedMoneyNumbers(groundingText), ...(userText ? numbersIn(userText) : [])];
     out = out.replace(MONEY_PATTERN, (amount) => {
       if (groundingText.includes(amount)) return amount;
       const values = numbersIn(amount);

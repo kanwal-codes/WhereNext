@@ -65,7 +65,7 @@ describe("MessageBlocks", () => {
   it("renders a route_summary with steps", () => {
     const html = render([{ type: "route_summary", from: "Airport", to: "Belém", mode: "transit", durationSeconds: 4200, distanceMeters: 22000, steps: ["TRANSIT 208 → Cais Sodré (35 min)"], retrievedAt: "t" }]);
     expect(html).toContain("Airport");
-    expect(html).toContain("70 min");
+    expect(html.replace(/<[^>]+>/g, "")).toContain("1 h 10 min");
     expect(html).toContain("22.0 km");
     expect(html).toContain("Cais Sodré");
   });
@@ -119,7 +119,7 @@ describe("MessageBlocks", () => {
     ] }]);
     expect(html).toContain("Toronto");
     expect(html).toContain("Air Canada");
-    expect(html).toContain("812.40 CAD");
+    expect(html).toContain("CA$812.40");
     expect(html).toContain("8h 11m");
     expect(html).toContain("nonstop");
     expect(html).toMatch(/fares change/i);
@@ -133,9 +133,9 @@ describe("MessageBlocks", () => {
     ] };
     const html = render([block]);
     expect(html).toContain("Torel Palace");
-    expect(html).toContain("230 EUR");
-    expect(html).toContain("690 EUR total");
-    expect(html).toContain("9.4/10 (1,200)");
+    expect(html).toContain("€230");
+    expect(html).toContain("€690 total");
+    expect(html).toContain("9.4/10 guests (1,200)");
     expect(html).toContain("400 m from Jerónimos Monastery");
     expect(html).toContain("Rooms at Torel Palace");
     expect(html).toContain("Deluxe Room");
@@ -168,7 +168,7 @@ describe("MessageBlocks", () => {
       { title: "Just After", url: "https://x/2", date: "2026-11-04", source: "ticketmaster", relToTrip: "after", offsetDays: 3 },
       { title: "Just Before", url: "https://x/3", date: "2026-10-24", source: "eventbrite", relToTrip: "before", offsetDays: 2 },
     ] }]);
-    expect(html).toContain("Checked against your trip · 2026-10-26 → 2026-11-01");
+    expect(html).toContain("Checked against your trip · Oct 26 – Nov 1");
     expect(html).toContain("during your trip");
     expect(html).toContain("3 days after your trip");
     expect(html).toContain("2 days before your trip");
@@ -207,7 +207,8 @@ describe("MessageBlocks", () => {
       { title: "YEBBA", url: "https://tm/yebba-27", date: "2026-10-27", venue: "L'Olympia", source: "ticketmaster" },
       { title: "Some Other Act", url: "https://tm/other", date: "2026-10-28", venue: "Corona", source: "ticketmaster" },
     ] }]);
-    expect((html.match(/Yebba|YEBBA/g) ?? [])).toHaveLength(1); // one card, not three
+    const visible = html.replace(/aria-label="[^"]*"/g, ""); // the buttons now carry the act's name in their accessible label
+    expect((visible.match(/Yebba|YEBBA/g) ?? [])).toHaveLength(1); // one card, not three
     expect(html).toContain("Mon, Oct 26 – Tue, Oct 27"); // the date section shows the span
     expect(html).not.toContain("· 3 dates"); // the duplicate night did not become a third date
     expect(html).toContain("Some Other Act"); // a single-date act is untouched
@@ -291,7 +292,7 @@ describe("MessageBlocks", () => {
     expect(html).toContain("casual spots");
     expect(html).toContain("Per day, typical");
     expect(html).toContain("67");
-    expect(html).toMatch(/Fits your 150 CAD\/day/);
+    expect(html).toMatch(/Fits your CA\$150\/day/);
     expect(html).toContain("excludes flights &amp; hotel");
   });
 
@@ -299,7 +300,7 @@ describe("MessageBlocks", () => {
     const html = render([{ type: "budget", currency: "USD", perPerson: true, summary: "over budget",
       lines: [{ category: "Food", low: 40, typical: 90, high: 160 }, { category: "Fun", low: 20, typical: 60, high: 120 }],
       dailyTotal: { low: 60, typical: 150, high: 280 }, setBudget: 100 }]);
-    expect(html).toMatch(/Over your 100 USD\/day/);
+    expect(html).toMatch(/Over your \$100\/day/);
   });
 
   it("itinerary block: renders day sections, stops, notes, and a link for a real place", () => {
@@ -325,7 +326,7 @@ describe("MessageBlocks", () => {
     const html = render([{ type: "comparison", title: "Alfama vs Bairro Alto", columns: ["Option", "Vibe", "Cost"],
       rows: [{ label: "Alfama", cells: ["Alfama", "quiet", "€€"] }, { label: "Bairro Alto", cells: ["Bairro Alto", "lively", "€€"] }],
       bestForYou: { label: "Alfama", reason: "quieter for a couple who dislike crowds" } }]);
-    expect(html).not.toContain("<table"); // narrow chat column → sectioned, not a wide table
+    expect(html).toContain("<table"); // attribute rows × option columns, options named once in the header
     expect(html).toContain("Alfama vs Bairro Alto");
     expect(html).toContain("Vibe"); // attribute heading (the redundant "Option" column is dropped)
     expect(html).not.toMatch(/>Option</);
@@ -341,5 +342,27 @@ describe("MessageBlocks", () => {
     expect(html).not.toContain("<table");
     expect(html).toContain('data-testid="compare-view"');
     expect(html).toContain("M1NT vs Bar Rouge");
+  });
+
+  it("offers a Details button on flights, a budget, and a day only when onOpenPanel is supplied", () => {
+    const blocks: AssistantBlock[] = [
+      { type: "flights", retrievedAt: "2026-09-02T00:00:00Z", origin: "Toronto", destination: "Montreal", items: [{ airline: "Air Canada", price: "212", currency: "CAD", durationMinutes: 78, stops: 0, departAt: "2026-11-26T18:05:00", arriveAt: "2026-11-26T19:23:00" }] },
+      { type: "budget", currency: "CAD", perPerson: true, summary: "About CA$116 a day", lines: [{ category: "Food", low: 30, typical: 45, high: 65 }, { category: "Transit", low: 8, typical: 12, high: 20 }], dailyTotal: { low: 38, typical: 57, high: 85 } },
+      { type: "itinerary", days: [{ label: "Day 1", stops: [{ title: "Mount Royal" }] }] },
+    ];
+    const without = render(blocks);
+    expect(without).not.toContain("Details");
+    expect(without).not.toContain("Open Day 1");
+    const withOpen = renderToStaticMarkup(<MessageBlocks blocks={blocks} {...handlers} onOpenPanel={vi.fn()} />);
+    expect(withOpen.replace(/aria-label="[^"]*"/g, "").match(/Details/g)).toHaveLength(2); // visible labels; each button also has a named accessible label
+    expect(withOpen).toContain('aria-label="Details: Air Canada');
+    expect(withOpen).toContain('aria-label="Budget details"');
+    expect(withOpen).toContain("Open Day 1");
+  });
+
+  it("renders an empty_result card with what was looked for and how to widen it", () => {
+    const html = render([{ type: "empty_result", what: "vegan poutine in Montreal", hint: "Try a wider area." }]);
+    expect(html).toContain("Nothing found for vegan poutine in Montreal");
+    expect(html).toContain("Try a wider area.");
   });
 });

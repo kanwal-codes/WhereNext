@@ -3,8 +3,8 @@ import { cn } from "@/lib/utils";
 
 /**
  * Stand-in artwork for an event with no provider image. Deterministic from the title so the
- * same event always looks the same — a soft coral-family duotone, a big faded genre glyph,
- * and the title's monogram. Reads as designed, not as a missing image.
+ * same event always looks the same — a soft coral-family duotone with the genre's own glyph.
+ * Reads as designed, not as a missing image.
  *
  * ponytail: no image search here. If a real poster matters, wire an image API + proxy route
  * and pass its result as `imageUrl`; this is the fallback when that comes back empty.
@@ -37,20 +37,12 @@ function hash(input: string): number {
   return Math.abs(h);
 }
 
-function monogram(title: string): string {
-  const words = title.replace(/[^\p{L}\p{N}\s]/gu, " ").trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return "?";
-  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
-  return (words[0][0] + words[1][0]).toUpperCase();
-}
-
 export function EventPoster({ title, className }: { title: string; className?: string }) {
   const Icon = iconFor(title);
   const tone = DUOTONES[hash(title) % DUOTONES.length];
   return (
     <div className={cn("relative isolate grid place-items-center overflow-hidden bg-gradient-to-br", tone, className)}>
-      <Icon className="absolute -right-3 -bottom-3 h-24 w-24 text-coral/15" strokeWidth={1.25} aria-hidden />
-      <span className="font-display text-2xl font-semibold tracking-tight text-coral/70">{monogram(title)}</span>
+      <Icon className="size-14 text-coral-ink/60" strokeWidth={1.25} aria-hidden />
     </div>
   );
 }

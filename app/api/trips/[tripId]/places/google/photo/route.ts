@@ -10,15 +10,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
   try {
     const { tripId } = await params;
     await requireTripMember(tripId);
-    const name = new URL(request.url).searchParams.get("name") ?? "";
+    const search = new URL(request.url).searchParams;
+    const name = search.get("name") ?? "";
+    // A card shows ~250 px and a panel strip ~290 px; serving 800 px to both was 3× the bytes. Snapped to a few widths so the cache stays small.
+    const width = Math.min(1200, Math.max(240, Math.round((Number(search.get("w")) || 800) / 80) * 80));
     if (!/^places\/[^/]+\/photos\/[^/]+$/.test(name)) return NextResponse.json({ error: "Invalid Google photo name" }, { status: 400 });
     // A photo resource name maps to immutable bytes, so the bytes themselves are cached
     // server-side (same pattern as the brand-icon proxy) — every viewer re-fetching the same
     // place photo was otherwise re-billing Google's Photo API for an image that never changes.
-    const photo = await cached(`place-photo:${name}`, 30 * DAY, async () => {
+    const photo = await cached(`place-photo:${name}:${width}`, 30 * DAY, async () => {
       // Not `request.signal`: this load is shared across every caller waiting on the same
       // cache key, so one caller navigating away must not abort it for the others.
-      const response = await fetch(new GooglePlacesProvider().photoUrl(name), { signal: AbortSignal.timeout(8000) });
+      const response = await fetch(new GooglePlacesProvider().photoUrl(name, width), { signal: AbortSignal.timeout(8000) });
       const contentType = response.headers.get("content-type") ?? "";
       if (!response.ok || !response.body || !contentType.toLowerCase().startsWith("image/")) throw new Error("Place photo is unavailable");
       const buf = Buffer.from(await response.arrayBuffer());

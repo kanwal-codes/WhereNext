@@ -10,6 +10,7 @@ import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { mutate } from "@/lib/client/mutation-queue";
 import { notifyToast } from "@/lib/application/toast";
 import { cn } from "@/lib/utils";
+import { useGuest } from "@/features/identity/ui/GuestProvider";
 
 /** How many day rows the menu will ever show (a trip longer than this still works — the extra days just aren't offered here). */
 const MAX_DAY_ROWS = 30;
@@ -59,6 +60,8 @@ export function AddToTripControl({
   className?: string;
 }) {
   const data = useTripDataMaybe()?.data ?? null;
+  // A guest can look but not keep: both buttons ask for an account instead of writing to the trip.
+  const { guest, openGate } = useGuest();
   const reduce = useReducedMotion();
   const menuId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -199,7 +202,7 @@ export function AddToTripControl({
     "items-stretch overflow-hidden rounded-full border text-left transition-colors",
     block ? "flex w-full" : "inline-flex",
     sm ? "text-xs" : "text-sm",
-    "border-border bg-background text-ink-soft",
+    sm ? "border-border bg-background text-ink-soft" : "border-primary bg-primary text-primary-foreground",
     busy && "opacity-70",
   );
 
@@ -209,13 +212,13 @@ export function AddToTripControl({
         <button
           type="button"
           disabled={busy}
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => (guest ? openGate("add places to a trip") : setOpen((o) => !o))}
           aria-label={`Choose an itinerary day for ${place.name}`}
           className={cn(
             "inline-flex items-center justify-center gap-1.5 font-medium transition-colors",
             block && "flex-1",
             sm ? "h-8 pl-3 pr-2.5" : "h-10 pl-4 pr-3",
-            day ? "bg-leaf text-primary-foreground hover:bg-leaf hover:text-primary-foreground" : "hover:text-primary",
+            day ? "bg-coral-fill text-coral-fill-foreground hover:bg-coral-fill hover:text-coral-fill-foreground" : sm ? "hover:text-primary" : "hover:bg-primary/90",
           )}
         >
           {busy ? (
@@ -238,12 +241,11 @@ export function AddToTripControl({
         <button
           type="button"
           disabled={busy}
-          onClick={() => void toggleBookmark()}
+          onClick={() => (guest ? openGate("save places") : void toggleBookmark())}
           aria-label={saved ? `Remove ${place.name} from saved places` : `Save ${place.name}`}
           className={cn(
-            "inline-flex items-center border-l border-inherit px-2 transition-colors",
-            sm ? "px-1.5" : "px-2",
-            "bg-background text-primary hover:bg-accent",
+            "inline-flex min-w-9 items-center justify-center border-l transition-colors",
+            sm ? "border-border bg-background px-1.5 text-primary hover:bg-accent" : "border-primary-foreground/25 bg-primary px-2 text-primary-foreground hover:bg-primary/90",
           )}
         >
           <Bookmark className={cn(sm ? "h-3.5 w-3.5" : "h-4 w-4", bookmarked && "fill-current")} />
@@ -336,7 +338,7 @@ function MenuRow({
       </span>
       <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate">{title}</span>
-      {hint && <span className="shrink-0 text-[11px] text-muted-foreground">{hint}</span>}
+      {hint && <span className="shrink-0 text-xs text-muted-foreground">{hint}</span>}
     </button>
   );
 }

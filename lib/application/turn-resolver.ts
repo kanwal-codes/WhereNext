@@ -37,6 +37,40 @@ export const MAX_TOOL_CALLS = 6;
 // instead of the real per-category breakdown card `buildBudgetBreakdown` exists to build.
 const BUDGET_PHRASING = /\bbudget\b[^.!?]{0,40}\bper[\s-]?day\b|\bper[\s-]?day\b[^.!?]{0,40}\bbudget\b|\bdaily\s+budget\b|[$€£¥]?\d+(?:\s*[-–]\s*[$€£¥]?\d+)?\s*(?:a|per)\s*day\b[^.!?]{0,20}\benough\b|\bhow\s+much\b[^.!?]{0,40}\b(?:per[\s-]?day|daily)\b/i;
 
+// A message that names specific practical facts ("plugs, currency and tipping") wants that fact
+// list, not the packing checklist + weather card the "essentials" intent builds. Live-caught: it
+// was answered with "Chilly and damp — pack layers", which answers none of it. Packing words
+// keep the message on the checklist.
+const PRACTICAL_FACTS = /\b(?:plugs?|sockets?|adapters?|voltage|currency|tipping|emergency number|tap water|e?sim(?: card)?)\b/i;
+const PACKING_WORDS = /\b(?:pack|packing|bring|wear|luggage|suitcase|carry-on)\b/i;
+
+const PRACTICAL_TOPICS: Array<[RegExp, string]> = [
+  [/\b(?:plugs?|sockets?|adapters?|voltage)\b/i, "electrical plug type and voltage"],
+  [/\bcurrency\b/i, "currency, cards versus cash"],
+  [/\btipping\b/i, "tipping customs"],
+  [/\bemergency number\b/i, "emergency number"],
+  [/\btap water\b/i, "is tap water safe to drink"],
+  [/\be?sim(?: card)?\b/i, "SIM card and mobile data"],
+];
+
+/** Route a practical-facts question to the fact-list answer; leave every other turn as RESOLVE planned it. */
+export function routePracticalFacts(message: string, resolved: ResolvedTurn): ResolvedTurn {
+  if (resolved.outOfScope || resolved.intent !== "essentials" || !PRACTICAL_FACTS.test(message) || PACKING_WORDS.test(message)) return resolved;
+  // One lookup per named topic: a single search for "plugs, currency and tipping" comes back about only one of them.
+  const topics = PRACTICAL_TOPICS.filter(([re]) => re.test(message)).map(([, label]) => label);
+  const place = resolved.locationFocus || "the destination";
+  const toolPlan = [
+    ...resolved.toolPlan.filter((call) => call.tool !== "weather" && call.tool !== "research_web"),
+    ...topics.slice(0, 3).map((label) => ({ tool: "research_web" as const, query: `${place} ${label} for travellers`.slice(0, 300) })),
+  ];
+  return {
+    ...resolved,
+    intent: "other",
+    capabilities: resolved.capabilities.includes("structured_answer") ? resolved.capabilities : [...resolved.capabilities, "structured_answer" as const].slice(0, 4),
+    toolPlan,
+  };
+}
+
 // The model often sends "" or a stale/garbage value instead of truly omitting an
 // optional date. Coerce anything that isn't a clean YYYY-MM-DD to null (not undefined: this
 // field must stay in every OpenAI structured-output "required" array, which excludes any
@@ -156,7 +190,7 @@ export type ResolvedTurn = z.infer<typeof resolvedTurnSchema>;
 export const SYSTEM = `You plan how the assistant "Roam" should answer ONE traveller message. Return exactly one JSON object, no prose.
 
 Fields:
-- language: BCP-47 code of the user's latest message ("en", "fr", "hi", "es", "ar", ...).
+- language: BCP-47 code of the user's latest message ("en", "fr", "hi", "es", "ar", ...) Judge the latest message ALONE: earlier turns in another language are irrelevant, and a short message with no words of another language ("thanks!", "somewhere nice") takes the traveller's "preferred language" from the trip profile below, or "en" if there is none. The follow-up chips (suggestedFollowups labels and prompts) must be written in this same language.
 - locationFocus: the place the conversation is about RIGHT NOW. If this message does not name a place, keep the place from earlier in the conversation. Use null only when no place is in play yet. Make it UNAMBIGUOUS: if the user names only a district or neighbourhood, append the trip's city and country (a Lisbon trip that mentions "Belém" means "Belém, Lisbon, Portugal", not Belém in Brazil).
 - A short, referential message ("book it", "do that", "yes please", "the second one") almost always refers to whatever the assistant itself just suggested — check the most recent assistant turn in the history for a trailing "[Suggested next steps shown to the user just now: ...]" annotation and resolve intent/locationFocus/toolPlan against the matching suggestion's own full prompt, not a generic guess at what the short reply might mean on its own.
 - intent: one of discovery, nightlife, food, activities, history_culture, weather, transport, stays, events, trip_memory, compare, essentials, chitchat, other.
@@ -165,10 +199,10 @@ Fields:
 - capabilities: 0 to 3 structured answers to build for this turn, from this menu (add one only when it clearly fits; most turns are []):
     * "comparison" — the user asks to weigh 2+ options THEY name against each other ("compare A and B", "A or B?"). Not "which is best" / "what are the options".
     * "itinerary" — plan / schedule / map out / build / redo / update / change / swap / rework ANY day-by-day plan, whether building it fresh or editing what already exists ("plan our 4 days", "what should we do each day", "map out day 2", "redo day 5", "change day 3", "swap out the last two days", "update the itinerary", "rework this day"). Still add a search_places call for real venues. intent = activities.
-    * "budget" — ANY question that wants a spending AMOUNT for the day-to-day trip: food, activities, local transit/transport passes, going out, or "how much per day" in general ("how much per day", "is $X a day enough", "what's a daily transport budget", "how much should we budget for food and activities"). NOT flights or hotels (those have their own dedicated tools/cards below) and NOT what to pack or bring (that's "essentials", a checklist, not a number). Add a research_web call "<destination> daily travel costs food activities transit".
+    * "budget" — ANY question that wants a spending AMOUNT for the day-to-day trip: food, activities, local transit/transport passes, going out, or "how much per day" in general ("how much per day", "is $X a day enough", "what's a daily transport budget", "how much should we budget for food and activities"). A question about ONE specific fare, ticket or pass price ("how much is the metro", "is there a pass", "how much for a day ticket") is NOT a daily spending amount: leave "budget" out and answer it with research_web. NOT flights or hotels (those have their own dedicated tools/cards below) and NOT what to pack or bring (that's "essentials", a checklist, not a number). Add a research_web call "<destination> daily travel costs food activities transit".
     * "area_guide" — which neighbourhood / district / part of the city to base in or spend time ("which neighbourhood", "what area should we explore"). Add a research_web call "best neighbourhoods in <city> for <their vibe>".
     * "day_trips" — trips OUT of the city for a day ("day trips from <city>", "anywhere nearby worth a day"). Add a research_web call "best day trips from <city>".
-    * "structured_answer" — the answer is best as 2-4 short sections of bullets and no other menu item fits: local customs / etiquette, how something works (the metro, tipping, a pass), a "things to know" rundown, language/etiquette questions. NOT a packing/what-to-bring/what-to-wear question, even when it's phrased as "things to know" or comes up alongside other essentials talk — that's intent essentials, which already has its own dedicated, weather-aware checklist; adding structured_answer on top doesn't just duplicate it, it actively REPLACES that weather-grounded checklist with a worse generic one (live-caught: "what should I pack" produced a destination-blind list — toothbrush, deodorant, a travel pillow — with no mention of Montreal's actual October weather, because structured_answer's own reply took priority over the checklist it was never supposed to compete with). Add a research_web call for the topic.
+    * "structured_answer" — the answer is best as 2-4 short sections of bullets and no other menu item fits: local customs / etiquette, how something works (the metro, tipping, a pass), a "things to know" rundown, language/etiquette questions, and questions that NAME specific practical facts ("plugs, currency and tipping", "what voltage", "emergency number", "is tap water safe") — those are a fact list, never the packing checklist (intent essentials would answer with weather and a packing list and not the question). NOT a packing/what-to-bring/what-to-wear question, even when it's phrased as "things to know" or comes up alongside other essentials talk — that's intent essentials, which already has its own dedicated, weather-aware checklist; adding structured_answer on top doesn't just duplicate it, it actively REPLACES that weather-grounded checklist with a worse generic one (live-caught: "what should I pack" produced a destination-blind list — toothbrush, deodorant, a travel pillow — with no mention of Montreal's actual October weather, because structured_answer's own reply took priority over the checklist it was never supposed to compete with). Add a research_web call for the topic.
 - toolPlan: 0 to 3 read-only lookups to run now. Tools:
     {"tool":"search_places","query":"...","location":"<locationFocus>"}  - find places, venues, activities, restaurants, clubs, temples, museums.
     {"tool":"research_web","query":"..."}                                - current info, events, prices, "what is it known for", articles.
@@ -195,7 +229,7 @@ Fields:
   * If the message contains a URL, add a research_web call with that URL as the query.
   * For multi-topic requests, preserve each distinct requested topic as its own tool call where useful. Cap the total plan at ${MAX_TOOL_CALLS} calls.
   * ONLY skip tools for greetings, thanks, or a question purely about the traveller's own saved trip data (intent trip_memory).
-- clarify: {"question":"...","chips":["...","..."]} ONLY when one missing fact (budget, group size, dates, or pace) would clearly change the answer. Never to ask for flight travel dates. Otherwise null. At most one question.
+- clarify: {"question":"...","chips":["...","..."]} ONLY when one missing fact (budget, group size, dates, or pace) would clearly change the answer, OR when the request is open-ended about what KIND of thing is wanted ("somewhere nice", "something fun", "a good place") and nothing in the conversation or trip narrows it: then ask what kind (for example food, views, nightlife, something quiet) with 3-4 chips instead of guessing one. Never to ask for flight travel dates. Otherwise null. At most one question.
 - suggestedFollowups: 2 to 4 short next things the user might ask, each {"label":"...","prompt":"..."}. "prompt" is put verbatim into the chat input and sent AS the traveller's own next message — it must read exactly like something a traveller would type TO Roam, first-person ask, never a question addressed back AT the traveller ("What are the best nightclubs in Pune?", never "What kind of nightlife are you interested in?" or any phrasing containing "you"/"your" aimed at the reader). Mostly narrow the current topic (label "Clubs in Pune", prompt "What are the best nightclubs in Pune?"). When the current topic looks resolved, include the natural NEXT planning step (after places -> "Where should we stay?"; after stay -> "Plan day 1"; after a full plan -> "What should we pack?"). If something being discussed usually sells out or needs timed entry, add one like {"label":"Book <X> ahead","prompt":"Do we need to book <X> in advance?"}.
     * This breaks hardest when your OWN reply just asked the traveller a clarifying question (missing region, dates, budget, activities, pace) — the pull is to generate a followup that just echoes that same question back with a generic label, sending it as if the TRAVELLER were asking ROAM their own question. Live-caught failure: reply asked "where would you be traveling from, and is there a region you're drawn to?", then suggestedFollowups included {"label":"Pick a region","prompt":"What region or country are you thinking about for the weekend?"} — backwards. The safe shape for this case is the traveller asking ROAM to suggest options for that same gap — e.g., for that exact turn, {"label":"Suggest a region","prompt":"Can you suggest a few regions for a relaxing hiking weekend?"} and {"label":"Suggest activities","prompt":"What relaxing activities would you recommend for this trip?"} — grounded in whatever the conversation has actually established (destination, trip vibe, dates already known) rather than a generic template repeated turn after turn. Every label and prompt must read as fluent, natural English — no broken non-native constructions like "suggest me X" (say "suggest X", "suggest X for me", or "any X ideas?" instead).
 - proposedProfileUpdate: if the user states a DURABLE preference, put it as a partial preferences object; else null.
@@ -204,7 +238,7 @@ Fields:
     * budget: a bare number ALWAYS means a PER-DAY amount — the rest of the app displays it as "$X/day" verbatim, with no unit conversion. If the user states a total (for the whole trip, or "total per person") rather than a daily figure, do NOT put that total in as the number — either divide it by the trip's length to get a real per-day figure, or, if the length isn't known yet, use the string form instead and keep their own wording (e.g. "$2000 total per person for the trip") so it isn't silently misread as 5x-10x higher than they meant.
     * pace, groupType: the CORRECTED value when the user changes their mind - this replaces the old value.
     * Only what the user actually said - never infer.
-- proposedTripUpdate: if the user explicitly states or corrects a core trip fact, put only the changed fields here. This includes a destination, origin, exact start/end dates, durationDays, traveller count, or trip name. Resolve relative dates against today's date. If they give only trip length ("5 days", "a week") use durationDays without inventing dates. If they explicitly say dates are unknown/undecided, set startDate:null and endDate:null. Never infer a destination, dates, duration, or group size. If the user is vague or says to skip a missing fact, use null.
+- proposedTripUpdate: if the user explicitly states or corrects a core trip fact, put only the changed fields here. This includes a destination, origin, exact start/end dates, durationDays, traveller count, or trip name. Resolve relative dates against today's date. If they give only trip length ("5 days", "a week") use durationDays without inventing dates. If they explicitly say dates are unknown/undecided, set startDate:null and endDate:null. Never infer a destination, dates, duration, or group size. Leave out every field the user did not mention: a message that only gives dates must not contain travelerCount, origin or anything else. Use null ONLY when the user explicitly asks to clear a field or says it is unknown or undecided (for example "no dates yet", "forget the origin"); a vague message or a skipped question is NOT a reason for null.
     * travelerCount is a DIRECT total-count statement ONLY — "there are 3 of us", "we are 4 people", "party of 5", "just me" (1). A phrase naming companions instead of a total — "3 friends", "traveling with 2 friends", "me and my brother" — is NOT this: whether the speaker is included in that number is genuinely ambiguous, so never add +1 (or assume +0) to turn it into a total here. Live-caught failure: "3 friends, trip to montreal" was read as "3 friends + me" and saved travelerCount:4 immediately with no confirmation, when the user meant 3 total. Companion phrasing like this belongs in suggestedFacts's "travelers" entry instead (see below), never proposedTripUpdate.
 - suggestedFacts: the general rule for EVERY trip fact (not just the examples below) is: the user DIRECTLY stating or correcting a fact saves it immediately via proposedTripUpdate/proposedProfileUpdate, no confirmation; the conversation merely IMPLYING a fact — through a side request, a booking detail, an activity they mention — goes here instead, as something for the user to confirm or dismiss. Never let an implied fact silently disappear by leaving it out of both. Array of {"key": one of [dates, occasion, base_area, getting_around, arrival, budget, group, pace, interests, travelers, destination, trip_length], "display": a short human-readable value, "rationale": one sentence on what the user said that implies it}. Rules:
     * ONLY from what the user actually said or clearly implied in this conversation. Never guess wildly — the rationale must trace to something they actually said.
@@ -249,7 +283,7 @@ export async function resolveTurn(input: {
       const capabilities = !resolved.outOfScope && !resolved.capabilities.includes("budget") && BUDGET_PHRASING.test(input.message)
         ? [...resolved.capabilities, "budget" as const].slice(0, 4)
         : resolved.capabilities;
-      return { ...resolved, capabilities, modelUsed };
+      return { ...routePracticalFacts(input.message, { ...resolved, capabilities }), modelUsed };
     } catch (error) {
       if (input.signal?.aborted) throw error;
       if (attempt === 1) break;

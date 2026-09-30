@@ -17,6 +17,7 @@ import { weatherCardFromForecast, weatherCardFromSeasonal, type WeatherCard } fr
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 import { applyTripUpdate, buildProposedProfileCommand } from "@/lib/application/orchestrate/trip-update-handling";
 import { selectBlocks } from "@/lib/application/orchestrate/block-selection";
+import { asksForOverview, buildTripSummary } from "@/lib/application/trip-summary";
 import { buildComposeSystemPrompt } from "@/lib/application/orchestrate/system-prompt-builder";
 import { daysUntilTrip } from "@/lib/trip-dates";
 import type { UsageEntry } from "@/lib/ai/pricing";
@@ -544,9 +545,16 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
 
   const system = buildComposeSystemPrompt({
     hasGrounding, locationFocus, viewContext, dislikes, accessibilityNeeds, surfacedEarlier, requestedImages,
-    tripCtx, intent: resolved.intent, evidence, compactSources,
+    tripCtx, intent: resolved.intent, evidence, compactSources, language,
+    savedThisTurn: tripUpdateReceipt?.type === "trip_update" ? tripUpdateReceipt.changes.map((c) => `${c.label} ${c.from ?? "not set"} → ${c.to ?? "not set"}`).join("; ") : undefined,
     // Actual block presence, not just "was it requested" — see the param doc comment for why.
     showsItineraryBlock: itineraryBlock?.type === "itinerary",
+    mapCards: [
+      evidence.routes.length > 0 ? "the route card (tap an option on it, or its Steps and map button, to see every way there step by step with the route on a map)" : "",
+      cardPlaces.some((place) => place.latitude || place.longitude) ? "the place cards" : "",
+      evidence.stays.some((search) => search.options?.some((option) => option.latitude != null)) ? "the hotel cards" : "",
+      itineraryBlock?.type === "itinerary" && itineraryBlock.days.some((day) => day.stops.some((stop) => stop.placeId)) ? "the itinerary" : "",
+    ].filter(Boolean),
     showsBudgetBlock: budgetBlock?.type === "budget",
     exploreKind: optionsBlock?.type === "options" ? exploreKind : null,
     eventsGuidance,
@@ -574,9 +582,14 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   });
 
   // --- STRUCTURE (assembled from evidence + resolver, not model JSON) ------
+  const tripSummaryBlock = resolved.intent === "trip_memory" && asksForOverview(prompt) ? buildTripSummary(tripCtx) : null;
   const blocks = selectBlocks({
+    tripSummaryBlock,
+    prompt,
     resolved, evidence, tripCtx, itineraryBlock, budgetBlock, optionsBlock, structuredAnswerBlock,
-    weatherCard, tripUpdateReceipt, cardPlaces, cardPlaceGroups, eventCall, eventsInWindow, photoUrl,
+    weatherCard, tripUpdateReceipt, cardPlaces, cardPlaceGroups, eventCall, eventsInWindow,
+    // Cards are ~250 px wide: ask for a card-sized rendition, not the full 800 px.
+    photoUrl: (name: string) => `${photoUrl(name)}&w=480`,
   });
   // checklist / comparison / actions are appended later by `finalizeAssistantBlocks`, once the
   // caller has awaited `sideBuilders` — see the module doc comment for why they're deferred.

@@ -1,6 +1,8 @@
 "use client";
 
+import { SafeImage } from "@/components/SafeImage";
 import { useEffect, useMemo, useState } from "react";
+import { useGuest } from "@/features/identity/ui/GuestProvider";
 import Link from "next/link";
 import { Check, Loader2, Star } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
@@ -8,6 +10,7 @@ import type { NearbyEvent } from "@/components/EventCard";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 import { EventCard } from "@/components/EventCard";
 import { Reveal } from "@/components/motion-primitives";
+import { ShowMore } from "@/components/DetailKit";
 import { cn } from "@/lib/utils";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
@@ -24,7 +27,7 @@ const asList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((s): s is 
 const norm = (s: string) => s.trim().toLowerCase();
 
 function MiniCard({ tripId, place, why, onSelect }: { tripId: string; place: Place; why?: string | null; onSelect?: () => void }) {
-  const photo = photoProxyUrl(tripId, place.photoNames?.[0]);
+  const photo = photoProxyUrl(tripId, place.photoNames?.[0], 400);
   const panelCtx = useTripPanelMaybe();
   const href = `/trips/${tripId}/place/${encodeURIComponent(place.providerId)}`;
   const itinerary = (useTripDataMaybe()?.data?.itinerary ?? []) as Array<{ title?: string; day_index?: number }>;
@@ -42,12 +45,7 @@ function MiniCard({ tripId, place, why, onSelect }: { tripId: string; place: Pla
       }}
       className="relative block w-[196px] shrink-0 snap-start overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-shadow hover:shadow-lift"
     >
-      {photo ? (
-        // eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin proxy
-        <img src={photo} alt={place.name} width={196} height={110} loading="lazy" className="h-28 w-full object-cover" />
-      ) : (
-        <div className="h-28 w-full bg-muted" />
-      )}
+      <SafeImage src={photo} alt={place.name} width={196} height={110} className="h-28 w-full object-cover" />
       {panelCtx?.compareMode && (
         <span
           aria-hidden
@@ -67,8 +65,8 @@ function MiniCard({ tripId, place, why, onSelect }: { tripId: string; place: Pla
             {place.rating.toFixed(1)}
           </p>
         )}
-        {why && <p className="mt-1 truncate text-[11px]" style={{ color: "var(--color-accent-trip)" }}>{why}</p>}
-        {panelCtx?.compareMode && <p className="mt-1 text-[10px] font-medium text-muted-foreground">{panelCtx.compareHas(place.providerId) ? "Selected" : "Click to compare"}</p>}
+        {why && why !== "Top-rated" && <p className="mt-1 truncate text-xs text-muted-foreground">{why}</p>}
+        {panelCtx?.compareMode && <p className="mt-1 text-xs text-muted-foreground">{panelCtx.compareHas(place.providerId) ? "Selected" : "Click to compare"}</p>}
       </div>
     </Link>
   );
@@ -172,6 +170,20 @@ async function classify(
   }
 }
 
+/** Lanes shown before "More nearby": the first two carry the point; the rest are there for whoever wants them. */
+const INITIAL_LANES = 2;
+
+/** Only the cards actually rendered (the same `slice(0, 4)` the JSX applies) count as an "impression". */
+const impressionRows = (lanes: ShapedLane[]): LogRow[] =>
+  lanes.flatMap(({ lane, places, events }) => {
+    const shownPlaces = places.slice(0, 4);
+    const shownEvents = events.slice(0, Math.max(0, 4 - shownPlaces.length));
+    return [
+      ...shownPlaces.map((r, idx): LogRow => ({ laneId: lane.id, action: "impression", itemKind: "place", itemId: r.place.providerId, position: idx })),
+      ...shownEvents.map((e, idx): LogRow => ({ laneId: lane.id, action: "impression", itemKind: "event", itemId: e.url, position: idx })),
+    ];
+  });
+
 /**
  * Situational "around here" recommendations. The anchor (place or event) is classified into
  * a vibe (`packages/reco/vibes.ts`) which picks the sections and their order; each section
@@ -205,7 +217,10 @@ export function NearbyRecommendations({
   const [results, setResults] = useState<ShapedLane[]>([]);
   const [pageVibe, setPageVibe] = useState<Vibe>("default");
   const [loading, setLoading] = useState(true);
+  const [showAll, setShowAll] = useState(false);
   const panelCtx = useTripPanelMaybe();
+  // These are trip-search lookups, closed to guests (Roam only): the section simply isn't shown.
+  const { guest } = useGuest();
 
   const trip = useTripDataMaybe();
   const prefs = trip?.data?.preferences as Record<string, unknown> | undefined;
@@ -237,6 +252,10 @@ export function NearbyRecommendations({
   const accessibilityNeeds = useMemo(() => asList(prefs?.accessibilityNeeds), [prefs]);
 
   useEffect(() => {
+    if (guest) {
+      setLoading(false);
+      return;
+    }
     const anchor: LaneAnchor = { name: anchorName, city: cityHint, lat, lng, genre };
     const controller = new AbortController();
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(9_000)]);
@@ -294,32 +313,17 @@ export function NearbyRecommendations({
       setLoading(false);
       try { sessionStorage.setItem(cacheKey, JSON.stringify({ results: shaped, vibe })); } catch { /* ignore */ }
 
-      logReco(
-        tripId,
-        kind,
-        excludeId,
-        vibe,
-        // Only the cards actually rendered (the same `slice(0, 4)` the JSX below applies) count
-        // as an "impression" — logging every ranked-but-offscreen place was always semantically
-        // wrong, and became a real bug once Phase 4.2.2 stopped hard-capping a radius lane's
-        // result count: a lane's full ranked list could then exceed the `log` op's 60-row cap
-        // and the whole beacon would silently 400.
-        shaped.flatMap(({ lane, places, events }) => {
-          const shownPlaces = places.slice(0, 4);
-          const shownEvents = events.slice(0, Math.max(0, 4 - shownPlaces.length));
-          return [
-            ...shownPlaces.map((r, idx): LogRow => ({ laneId: lane.id, action: "impression", itemKind: "place", itemId: r.place.providerId, position: idx })),
-            ...shownEvents.map((e, idx): LogRow => ({ laneId: lane.id, action: "impression", itemKind: "event", itemId: e.url, position: idx })),
-          ];
-        }),
-      );
+      // Logging every ranked-but-offscreen place was always wrong, and once a lane's result count
+      // stopped being hard-capped a lane's full list could exceed the `log` op's 60-row cap and the
+      // whole beacon would silently 400 — so only what is on screen counts.
+      logReco(tripId, kind, excludeId, vibe, impressionRows(shaped.slice(0, INITIAL_LANES)));
     })();
 
     return () => {
       cancelled = true;
       controller.abort();
     };
-  }, [tripId, excludeId, anchorName, cityHint, kind, primaryType, types, genre, lat, lng, rankCtx, rejectedPlaceIds, accessibilityNeeds]);
+  }, [tripId, excludeId, anchorName, cityHint, kind, primaryType, types, genre, lat, lng, rankCtx, rejectedPlaceIds, accessibilityNeeds, guest]);
 
   if (loading) {
     return (
@@ -336,10 +340,10 @@ export function NearbyRecommendations({
   return (
     <div className="mt-12 space-y-8 border-t border-border pt-8">
       <div>
-        <p className="eyebrow" style={{ color: "var(--color-accent-trip)" }}>Around here</p>
+        <h2 className="font-display text-xl">Around here</h2>
         <p className="mt-1 text-sm text-muted-foreground">Picked to match {anchorName} — tap any to open it.</p>
       </div>
-      {results.map(({ lane, places, events }, i) => {
+      {(showAll ? results : results.slice(0, INITIAL_LANES)).map(({ lane, places, events }, i) => {
         const shownPlaces = places.slice(0, 4);
         const shownEvents = events.slice(0, Math.max(0, 4 - shownPlaces.length));
         const hasMore = places.length > shownPlaces.length || events.length > shownEvents.length;
@@ -355,13 +359,13 @@ export function NearbyRecommendations({
               // The collection panel's PlaceCardView reads `photoUrl` (a resolved proxy URL), not
               // the raw `photoNames` this Place carries — without this every card falls back to
               // the pin-icon placeholder.
-              places: places.map((result) => ({ ...result.place, photoUrl: photoProxyUrl(tripId, result.place.photoNames?.[0]) })),
+              places: places.map((result) => ({ ...result.place, photoUrl: photoProxyUrl(tripId, result.place.photoNames?.[0], 480) })),
             } as AssistantBlock);
         return (
           <Reveal key={lane.id} delay={0.05 * i}>
             <section>
               <div className="flex items-baseline justify-between gap-3">
-                <h3 className="font-display text-lg">{lane.title}</h3>
+                <h3 className="font-display text-base font-semibold">{lane.title}</h3>
                 {hasMore && panelCtx && (
                   <button
                     type="button"
@@ -387,7 +391,8 @@ export function NearbyRecommendations({
                     key={`${event.url}|${event.date ?? ""}|${idx}`}
                     tripId={tripId}
                     event={event}
-                    className="w-[240px] shrink-0 snap-start"
+                    compact
+                    className="w-[196px] shrink-0 snap-start"
                     onSelect={() => onSelect(lane.id, "event", event.url, idx)}
                   />
                 ))}
@@ -396,6 +401,17 @@ export function NearbyRecommendations({
           </Reveal>
         );
       })}
+      {results.length > INITIAL_LANES && (
+        <ShowMore
+          open={showAll}
+          onToggle={() => {
+            if (!showAll) logReco(tripId, kind, excludeId, pageVibe, impressionRows(results.slice(INITIAL_LANES)));
+            setShowAll((v) => !v);
+          }}
+          more={`More nearby · ${results.length - INITIAL_LANES} more group${results.length - INITIAL_LANES === 1 ? "" : "s"}`}
+          less="Show less"
+        />
+      )}
     </div>
   );
 }

@@ -5,39 +5,9 @@ import { GooglePlacesProvider } from "@/packages/providers/google-places/client"
 import { cached } from "@/lib/server/ttl-cache";
 import { research } from "@/packages/providers/tavily/client";
 import { cityFrom } from "@/lib/places-ui";
+import { cleanExcerpt, isScrapeJunk } from "@/lib/server/place-excerpt";
 
 const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
-
-/** Tavily's `content` is a raw scraped extract, not a single coherent blurb — the page it pulled
- *  from can splice together a clean description, a "[...]" truncation marker, and then a second
- *  reviewer's byline ("The Happy Traveler ·Jul 2026") and their own blurb, all as one string with
- *  no boundary of its own. Live-caught: a Montmorency Falls result showed exactly that — a
- *  legitimate paragraph followed by an orphaned byline and a typo'd second review — rendered
- *  verbatim as the page's "About" copy. Cut at the first such splice marker and end on a full
- *  sentence, so what's shown reads as one coherent excerpt instead of a raw scrape dump. */
-function cleanExcerpt(content: string): string {
-  const spliceMarkers = [
-    /\[\s*\.\.\.\s*\]/, // an inline "[...]" truncation marker
-    /[A-Z][\w' .-]{1,40}\s*[·•]\s*[A-Z][a-z]{2,8}\.?\s+\d{4}\b/, // an embedded "Name ·Mon YYYY" byline
-  ];
-  let cut = content;
-  for (const marker of spliceMarkers) {
-    const match = cut.match(marker);
-    if (match?.index !== undefined) cut = cut.slice(0, match.index);
-  }
-  cut = cut.trim();
-  const MAX_CHARS = 500;
-  if (cut.length > MAX_CHARS) cut = cut.slice(0, MAX_CHARS);
-  // A splice-marker cut (or the length cap above) can leave a dangling clause with no terminal
-  // punctuation ("...2-3 hours. Visitors commend the") — trim back to the last full sentence,
-  // but only when that keeps a meaningful chunk of the text, not for a short excerpt that simply
-  // never had terminal punctuation to begin with.
-  if (!/[.!?]$/.test(cut)) {
-    const lastSentenceEnd = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "), cut.lastIndexOf("? "));
-    if (lastSentenceEnd > cut.length * 0.4) cut = cut.slice(0, lastSentenceEnd + 1);
-  }
-  return cut.trim();
-}
 
 /**
  * A short excerpt from the web, to supplement Google's own `editorialSummary` — which is often
@@ -60,7 +30,7 @@ async function fetchWebSummary(placeId: string, name: string, city: string, sign
   try {
     const results = await cached(`places:web-summary:${placeId}`, 24 * 60 * 60_000, () => research(`"${name}"${city ? ` ${city}` : ""} review what it's like`, signal));
     const normalizedName = normalize(name);
-    const hit = results.find((r) => r.content.length > 40 && normalize(`${r.title} ${r.content}`).includes(normalizedName));
+    const hit = results.find((r) => r.content.length > 40 && !isScrapeJunk(r.content) && normalize(`${r.title} ${r.content}`).includes(normalizedName));
     if (!hit) return null;
     const cleaned = cleanExcerpt(hit.content);
     return cleaned.length > 40 ? { content: cleaned, source: { title: hit.title, url: hit.url } } : null;

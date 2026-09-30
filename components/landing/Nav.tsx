@@ -7,11 +7,7 @@ import { ArrowUpRight } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
 import { motionTokens } from "@/components/motion-primitives";
 
-const LINKS = [
-  { href: "#discover", label: "Discover" },
-  { href: "#how-it-works", label: "How it works" },
-  { href: "/sign-in", label: "Sign in" },
-] as const;
+const LINKS = [{ href: "/sign-in", label: "Sign in" }] as const;
 
 /**
  * Landing page overhaul (Storyboard: Nav). Transparent + 80px over the hero,
@@ -44,7 +40,7 @@ export function Nav() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: "easeOut" }}
         >
-          <BrandMark variant="text" className="transition-[font-size] duration-[350ms]" textClassName={compressed ? "text-sm" : "text-base"} />
+          <BrandMark variant="text" className="transition-[font-size] duration-[350ms]" textClassName={compressed ? "text-lg" : "text-xl"} />
         </motion.span>
       </Link>
 
@@ -53,7 +49,7 @@ export function Nav() {
           <Link
             key={link.href}
             href={link.href}
-            className={`${link.href.startsWith("#") ? "hidden sm:block" : ""} text-sm text-foreground`}
+            className="text-sm text-foreground"
           >
             <motion.span className="inline-block" whileHover={reduce ? undefined : { y: -2 }} transition={motionTokens.fast}>
               {link.label}

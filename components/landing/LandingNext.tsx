@@ -2,13 +2,11 @@
 
 import { ScrollExperienceProvider } from "@/components/landing/ScrollExperienceProvider";
 import { Nav } from "@/components/landing/Nav";
-import { HeroScene } from "@/components/landing/scenes/HeroScene";
+import { PromptScene } from "@/components/landing/scenes/PromptScene";
 import { ChaosScene } from "@/components/landing/scenes/ChaosScene";
 import { ContextScene } from "@/components/landing/scenes/ContextScene";
 import { DiscoverScene } from "@/components/landing/scenes/DiscoverScene";
-import { CardJourneyScene } from "@/components/landing/scenes/CardJourneyScene";
 import { PlansChangeScene } from "@/components/landing/scenes/PlansChangeScene";
-import { GroupPlanningScene } from "@/components/landing/scenes/GroupPlanningScene";
 import { BookingsScene } from "@/components/landing/scenes/BookingsScene";
 import { CinematicTravelScene } from "@/components/landing/scenes/CinematicTravelScene";
 import { FinaleScene } from "@/components/landing/scenes/FinaleScene";
@@ -30,13 +28,11 @@ export function LandingNext() {
         </a>
         <Nav />
         <main id="main-content">
-          <HeroScene />
+          <PromptScene />
           <ChaosScene />
           <ContextScene />
           <DiscoverScene />
-          <CardJourneyScene />
           <PlansChangeScene />
-          <GroupPlanningScene />
           <BookingsScene />
           <CinematicTravelScene />
           <FinaleScene />

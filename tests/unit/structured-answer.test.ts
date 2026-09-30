@@ -47,4 +47,13 @@ describe("buildStructuredAnswer", () => {
     stubModel("not json");
     expect(await buildStructuredAnswer({ prompt: "x", tripSummary: "", evidence: withNotes })).toBeNull();
   });
+
+  it("drops bare labels the notes had no answer for, and sections left empty", async () => {
+    stubModel({ intro: "x", sections: [
+      { heading: "Power", bullets: [{ text: "Plug type", detail: "Type A and B" }, { text: "Voltage" }] },
+      { heading: "Money", bullets: [{ text: "Currency" }, { text: "Tipping" }] },
+    ] });
+    const block = await buildStructuredAnswer({ prompt: "plugs and currency?", tripSummary: "solo", evidence: withNotes });
+    expect(block).toMatchObject({ type: "structured_answer", sections: [{ heading: "Power", bullets: [{ text: "Plug type", detail: "Type A and B" }] }] });
+  });
 });

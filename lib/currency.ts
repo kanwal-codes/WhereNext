@@ -3,16 +3,24 @@ export const DEFAULT_CURRENCY = "CAD";
 
 const REGION_CURRENCY: Record<string, string> = {
   CA: "CAD", US: "USD", GB: "GBP", IN: "INR", AU: "AUD", NZ: "NZD", JP: "JPY", CH: "CHF",
-  AE: "AED", SG: "SGD", MX: "MXN", BR: "BRL", ZA: "ZAR",
+  AE: "AED", SG: "SGD", MX: "MXN", BR: "BRL", ZA: "ZAR", CN: "CNY", HK: "HKD", KR: "KRW", TW: "TWD",
+  TH: "THB", ID: "IDR", MY: "MYR", PH: "PHP", VN: "VND", TR: "TRY", SA: "SAR", QA: "QAR", KW: "KWD",
+  IL: "ILS", EG: "EGP", NG: "NGN", KE: "KES", PK: "PKR", BD: "BDT", LK: "LKR", NP: "NPR",
+  SE: "SEK", NO: "NOK", DK: "DKK", PL: "PLN", CZ: "CZK", HU: "HUF", RO: "RON", RU: "RUB", UA: "UAH",
+  AR: "ARS", CL: "CLP", CO: "COP", PE: "PEN",
 };
-const EURO = new Set(["FR", "DE", "ES", "IT", "PT", "NL", "BE", "AT", "IE", "GR", "FI"]);
+const EURO = new Set(["FR", "DE", "ES", "IT", "PT", "NL", "BE", "AT", "IE", "GR", "FI", "LU", "SK", "SI", "EE", "LV", "LT", "MT", "CY", "HR"]);
+
+/** The currency a traveller from this ISO country pays in, or undefined when we don't know it. */
+export function currencyForCountry(country: string | undefined): string | undefined {
+  const region = country?.toUpperCase();
+  if (!region) return undefined;
+  return EURO.has(region) ? "EUR" : REGION_CURRENCY[region];
+}
 
 /** Best-effort currency for a BCP-47 locale like "en-CA" — for a sensible default on trip creation. */
 export function currencyForLocale(locale: string | undefined): string {
-  const region = locale?.split("-")[1]?.toUpperCase();
-  if (!region) return DEFAULT_CURRENCY;
-  if (EURO.has(region)) return "EUR";
-  return REGION_CURRENCY[region] ?? DEFAULT_CURRENCY;
+  return currencyForCountry(locale?.split("-")[1]) ?? DEFAULT_CURRENCY;
 }
 
 /** The currency to price a trip in: the trip's own, else the app default. */

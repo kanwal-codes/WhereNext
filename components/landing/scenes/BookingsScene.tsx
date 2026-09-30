@@ -4,21 +4,25 @@ import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { BedDouble, Compass, Route, TicketCheck, Utensils, type LucideIcon } from "lucide-react";
-import { progressBetween } from "@/components/landing/choreography";
+import { fadeIn, progressBetween, trackEntrance, trackRevisit } from "@/components/landing/choreography";
 
 gsap.registerPlugin(ScrollTrigger);
 
-type Document = { kind: "rail" | "hotel" | "event" | "restaurant" | "activity"; label: string; sub: string; icon: LucideIcon; origin: { x: number; y: number }; rotation: number };
+type Document = {
+  kind: "rail" | "hotel" | "event" | "restaurant" | "activity";
+  label: string;
+  sub: string;
+  icon: LucideIcon;
+  position: { x: number; y: number };
+  rotation: number;
+};
 
 const DOCUMENTS: Document[] = [
-  // Was "Fri · 3:45 PM" — CinematicTravelScene shows this same booking's
-  // actual departure at 8:32 AM Friday ("8:17 AM · leaves in 15 minutes"),
-  // same fix as ChaosScene's identical error.
-  { kind: "rail", label: "VIA Rail · YTO→YUL", sub: "Fri · 8:32 AM", icon: Route, origin: { x: -280, y: -140 }, rotation: -4 },
-  { kind: "hotel", label: "Fairmont Le Château", sub: "Check-in · Fri", icon: BedDouble, origin: { x: 260, y: -180 }, rotation: 3 },
-  { kind: "event", label: "Bad Bunny · Bell Centre", sub: "Oct 16 · 8 PM", icon: TicketCheck, origin: { x: -300, y: 160 }, rotation: -2 },
-  { kind: "restaurant", label: "Olive et Gourmando", sub: "Table for 4 · 7:30", icon: Utensils, origin: { x: 280, y: 180 }, rotation: 2 },
-  { kind: "activity", label: "Pottery Workshop", sub: "Sat · 2:30 PM", icon: Compass, origin: { x: 0, y: -240 }, rotation: -3 },
+  { kind: "rail", label: "VIA Rail · YTO→YUL", sub: "Fri · 8:32 AM", icon: Route, position: { x: -215, y: -118 }, rotation: -4 },
+  { kind: "hotel", label: "Fairmont Le Château", sub: "Check-in · Fri", icon: BedDouble, position: { x: 220, y: -120 }, rotation: 3 },
+  { kind: "event", label: "Bad Bunny · Bell Centre", sub: "Oct 16 · 8 PM", icon: TicketCheck, position: { x: -215, y: 125 }, rotation: -2 },
+  { kind: "restaurant", label: "Bistro Saint-Paul", sub: "Table for 4 · Fri 10:30 PM", icon: Utensils, position: { x: 220, y: 130 }, rotation: 2 },
+  { kind: "activity", label: "Pottery Workshop", sub: "Sat · 2:30 PM", icon: Compass, position: { x: 0, y: -185 }, rotation: -3 },
 ];
 
 const SATURDAY = [
@@ -28,175 +32,136 @@ const SATURDAY = [
   ["7:30", "Dinner", "Reservation"],
 ] as const;
 
-/**
- * Storyboard Frame 10 — Bookings / the deck. Saturday is the front card;
- * every confirmation rises out from behind it as the viewer scrolls, making
- * the itinerary feel like the source of the trip's practical details.
- */
+// The scene assembles as it rises into view (heading, then the itinerary,
+// then each booking), holds for a real read, then fades so it is empty before
+// its pin releases and the dark travel sequence rises in. px of pin scroll.
+const D = 1500;
+const EXIT = [1100, 1350] as const;
+const RESOLVED = 700; // revisiting shows the assembled cluster, held
+
 export function BookingsScene() {
-  const sectionRef = useRef<HTMLDivElement>(null);
-  const cardRef = useRef<HTMLDivElement>(null);
-  const outroRef = useRef<HTMLDivElement>(null);
-  const headlineFirstRef = useRef<HTMLHeadingElement>(null);
-  const headlineSecondRef = useRef<HTMLHeadingElement>(null);
-  const docRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const revealRef = useRef(0);
-  const smoothedRevealRef = useRef(0);
+  const sectionRef = useRef<HTMLElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const section = sectionRef.current!;
+    const stage = stageRef.current!;
+    const items = Array.from(stage.querySelectorAll<HTMLElement>("[data-reveal]"));
 
-    if (reduce) {
-      // cardRef now defaults to opacity-0 in its className (fixing a flash
-      // of the full "Saturday" deck at full opacity before the ticker's
-      // first tick) — this branch has to explicitly set it back to 1, since
-      // nothing else in the reduced-motion path ever did.
-      gsap.set(cardRef.current, { scale: 1, opacity: 1 });
-      gsap.set(outroRef.current, { opacity: 0 });
-      gsap.set(headlineFirstRef.current, { opacity: 0 });
-      gsap.set(headlineSecondRef.current, { opacity: 1 });
-      docRefs.current.forEach((el) => gsap.set(el, { opacity: 1, scale: 1 }));
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      gsap.set(items, { autoAlpha: 1, y: 0 });
       return;
     }
 
-    const ctx = gsap.context(() => {
-      const update = () => {
-        smoothedRevealRef.current += (revealRef.current - smoothedRevealRef.current) * 0.1;
-        const p = smoothedRevealRef.current;
-
-        const deckIn = progressBetween(p, 0.06, 0.16);
-        const textExit = progressBetween(p, 0.97, 0.985);
-        const outro = progressBetween(p, 0.985, 1);
-        const deckExit = outro;
-        gsap.set(cardRef.current, {
-          scale: (0.78 + deckIn * 0.22) * (1 - deckExit * 0.08),
-          opacity: deckIn * (1 - deckExit),
-        });
-        gsap.set(outroRef.current, { opacity: outro });
-        const firstIn = progressBetween(p, 0.72, 0.79);
-        const firstOut = progressBetween(p, 0.81, 0.85);
-        gsap.set(headlineFirstRef.current, {
-          opacity: firstIn * (1 - firstOut),
-          y: (1 - firstIn) * 18 - firstOut * 10,
-        });
-        const secondIn = progressBetween(p, 0.85, 0.91);
-        const secondEmphasis = progressBetween(p, 0.87, 0.94);
-        gsap.set(headlineSecondRef.current, {
-          opacity: secondIn * (1 - textExit),
-          y: (1 - secondIn) * 18,
-          color: `color-mix(in oklch, var(--muted-foreground) ${(1 - secondEmphasis) * 100}%, var(--foreground))`,
-        });
-
-        DOCUMENTS.forEach((doc, i) => {
-          const el = docRefs.current[i];
-          if (!el) return;
-          const releaseStart = 0.18 + i * 0.09;
-          const release = progressBetween(p, releaseStart, releaseStart + 0.16);
-          const exit = outro;
-          const x = doc.origin.x * release;
-          const y = doc.origin.y * release - 112 * 4 * release * (1 - release);
-          gsap.set(el, {
-            x,
-            y,
-            rotate: doc.rotation * release,
-            scale: 0.72 + release * 0.28,
-            opacity: release * (1 - exit),
-          });
-        });
-      };
-
-      gsap.ticker.add(update);
-      const st = ScrollTrigger.create({
-        trigger: sectionRef.current,
-        start: "top top",
-        end: "+=4000",
-        pin: true,
-        scrub: true,
-        onUpdate: (self) => {
-          revealRef.current = self.progress;
-        },
+    // Heading first, the itinerary next, then the five bookings fan in.
+    let doc = 0;
+    const windows = items.map((item) => {
+      if (item.dataset.reveal === "heading") return [0, 0.5];
+      if (item.dataset.reveal === "itinerary") return [0.2, 0.65];
+      const start = 0.3 + doc++ * 0.08;
+      return [start, start + 0.38];
+    });
+    const entrance = trackEntrance(section, (enter) => {
+      items.forEach((item, i) => {
+        const r = progressBetween(enter, windows[i][0], windows[i][1]);
+        gsap.set(item, { autoAlpha: r, y: 18 * (1 - r) });
       });
+    });
 
-      return () => {
-        gsap.ticker.remove(update);
-        st.kill();
-      };
-    }, sectionRef);
+    const revisit = trackRevisit(RESOLVED / D, D, () => fadeIn(section));
+    const pin = ScrollTrigger.create({
+      trigger: section,
+      start: "top top",
+      end: `+=${D}`,
+      pin: true,
+      onUpdate: (self) => {
+        gsap.set(stage, { opacity: 1 - progressBetween(revisit(self) * D, EXIT[0], EXIT[1]) });
+      },
+    });
 
-    return () => ctx.revert();
+    return () => {
+      entrance.kill();
+      pin.kill();
+    };
   }, []);
 
   return (
-    <div ref={sectionRef} data-scene="bookings" className="relative min-h-[100dvh] overflow-hidden bg-background">
-      <div ref={outroRef} className="pointer-events-none absolute inset-0 z-0 bg-[#171717] opacity-0" />
-      {DOCUMENTS.map((doc, i) => {
-        const Icon = doc.icon;
-        return (
-          <div key={doc.label} className="absolute top-1/2 left-1/2" style={{ translate: "-50% -50%" }}>
-            <div
-              ref={(el) => {
-                docRefs.current[i] = el;
-              }}
-              data-booking-doc={doc.kind}
-              className={`opacity-0 shadow-lift ${
-                doc.kind === "rail"
-                  ? "w-56 rounded-lg bg-primary p-4 text-primary-foreground"
-                  : doc.kind === "event"
-                    ? "w-52 rounded-xl border border-coral bg-coral p-4 text-white"
-                    : doc.kind === "activity"
-                      ? "w-44 rounded-xl border-2 border-dashed border-coral bg-coral-soft p-3"
-                      : doc.kind === "hotel"
-                        ? "w-48 overflow-hidden rounded-2xl border border-border bg-surface"
-                        : "w-52 overflow-hidden rounded-2xl border border-border bg-surface"
-              }`}
-            >
-              {doc.kind === "hotel" && <div className="h-14 bg-cover bg-center" style={{ backgroundImage: "url(/design/place-hotel.jpg)" }} />}
-              {doc.kind === "restaurant" && <div className="h-16 bg-cover bg-center" style={{ backgroundImage: "url(/design/place-cafe.jpg)" }} />}
-              <div className={doc.kind === "hotel" || doc.kind === "restaurant" ? "p-3" : ""}>
-                <div className="mb-2 flex items-center justify-between">
-                  <span className={`grid size-7 place-items-center rounded-lg ${doc.kind === "rail" || doc.kind === "event" ? "bg-white/15" : "bg-coral-soft text-coral"}`}>
-                    <Icon className="size-3.5" strokeWidth={1.8} />
-                  </span>
-                  {doc.kind === "rail" && <span className="text-[9px] font-semibold tracking-[0.18em]">BOARDING PASS</span>}
-                  {doc.kind === "event" && <span className="text-[9px] font-semibold tracking-[0.18em]">ADMIT ONE</span>}
-                </div>
-                <p className="truncate text-xs font-medium">{doc.label}</p>
-                <p className={`truncate text-[11px] ${doc.kind === "rail" ? "text-primary-foreground/65" : doc.kind === "event" ? "text-white/70" : "text-muted-foreground"}`}>{doc.sub}</p>
-                {doc.kind === "event" && <div className="mt-3 border-t border-dashed border-white/30 pt-2 font-mono text-[9px] tracking-[0.22em] text-white/70">BELL CENTRE · MTL</div>}
-              </div>
-            </div>
-          </div>
-        );
-      })}
+    <section ref={sectionRef} data-scene="bookings" className="relative min-h-[100dvh] overflow-hidden bg-background">
+      <div ref={stageRef} data-bookings-stage className="mx-auto grid max-w-7xl items-center gap-14 px-6 py-24 md:min-h-[100dvh] md:grid-cols-[minmax(16rem,0.8fr)_minmax(32rem,1.2fr)] md:px-12">
+        <h2 data-reveal="heading" className="font-display text-[clamp(3.25rem,6vw,6.25rem)] opacity-0 leading-[0.94] tracking-[-0.035em] text-foreground">
+          Everything you need.
+        </h2>
 
-      <div className="pointer-events-none absolute inset-0 grid place-items-center">
-        <div ref={cardRef} className="w-56 rounded-2xl border border-border bg-surface p-4 opacity-0 shadow-lift">
-          <div className="mb-3 flex items-end justify-between border-b border-border pb-3">
-            <div>
-              <p className="text-[10px] font-semibold tracking-[0.12em] text-coral uppercase">Saturday</p>
-              <p className="mt-0.5 font-display text-lg">Oct 17</p>
-            </div>
-            <span className="rounded-full bg-coral-soft px-2 py-1 text-[9px] font-semibold text-coral">4 plans</span>
-          </div>
-          <div className="space-y-2">
-            {SATURDAY.map(([time, item, detail]) => (
-              <div key={item} className="grid grid-cols-[2.25rem_0.5rem_1fr] items-start gap-1">
-                <span className="pt-0.5 text-[10px] text-muted-foreground">{time}</span>
-                <span className="mt-1.5 size-1.5 rounded-full bg-coral" />
-                <div>
-                  <p className="font-display text-xs">{item}</p>
-                  <p className="text-[10px] text-muted-foreground">{detail}</p>
-                </div>
+        <div data-booking-packet className="pointer-events-none relative mx-auto h-[30rem] w-full max-w-[42rem] origin-center scale-[0.68] [--bx:0.64] sm:h-[34rem] sm:scale-[0.84] sm:[--bx:1] md:scale-[1.12]">
+          {DOCUMENTS.map((doc) => {
+            const Icon = doc.icon;
+            const isImageCard = doc.kind === "hotel" || doc.kind === "restaurant";
+
+            return (
+              <div
+                key={doc.label}
+                className="pointer-events-auto absolute top-1/2 left-1/2"
+                style={{ transform: `translate(calc(-50% + ${doc.position.x}px * var(--bx)), calc(-50% + ${doc.position.y}px)) rotate(${doc.rotation}deg)` }}
+              >
+                <article
+                  data-booking-doc={doc.kind}
+                  data-reveal="doc"
+                  className={`opacity-0 shadow-lift ${
+                    doc.kind === "rail"
+                      ? "w-56 rounded-lg bg-primary p-4 text-primary-foreground"
+                      : doc.kind === "event"
+                        ? "w-52 rounded-xl border border-coral bg-coral p-4 text-white"
+                        : doc.kind === "activity"
+                          ? "w-44 rounded-xl border-2 border-dashed border-coral bg-coral-soft p-3"
+                          : doc.kind === "hotel"
+                            ? "w-48 overflow-hidden rounded-2xl border border-border bg-surface"
+                            : "w-52 overflow-hidden rounded-2xl border border-border bg-surface"
+                  }`}
+                >
+                  {doc.kind === "hotel" && <div className="h-14 bg-cover bg-center" style={{ backgroundImage: "url(/design/place-hotel.jpg)" }} />}
+                  {doc.kind === "restaurant" && <div className="h-16 bg-cover bg-center" style={{ backgroundImage: "url(/design/place-rooftop-lounge.jpg)" }} />}
+                  <div className={isImageCard ? "p-3" : ""}>
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className={`grid size-7 place-items-center rounded-lg ${doc.kind === "rail" || doc.kind === "event" ? "bg-white/15" : "bg-coral-soft text-coral"}`}>
+                        <Icon className="size-3.5" strokeWidth={1.8} />
+                      </span>
+                      {doc.kind === "rail" && <span className="text-[9px] font-semibold tracking-[0.18em]">BOARDING PASS</span>}
+                      {doc.kind === "event" && <span className="text-[9px] font-semibold tracking-[0.18em]">ADMIT ONE</span>}
+                    </div>
+                    <p className="truncate text-sm font-medium">{doc.label}</p>
+                    <p className={`truncate text-xs ${doc.kind === "rail" ? "text-primary-foreground/65" : doc.kind === "event" ? "text-white/70" : "text-muted-foreground"}`}>{doc.sub}</p>
+                    {doc.kind === "event" && <div className="mt-3 border-t border-dashed border-white/30 pt-2 font-mono text-[9px] tracking-[0.22em] text-white/70">BELL CENTRE · MTL</div>}
+                  </div>
+                </article>
               </div>
-            ))}
+            );
+          })}
+
+          <div className="pointer-events-none absolute inset-0 grid place-items-center">
+            <article data-reveal="itinerary" className="pointer-events-auto w-56 rounded-2xl border border-border bg-surface p-4 opacity-0 shadow-lift">
+              <div className="mb-3 flex items-end justify-between border-b border-border pb-3">
+                <div>
+                  <p className="text-[11px] font-semibold tracking-[0.12em] text-coral uppercase">Saturday</p>
+                  <p className="mt-0.5 font-display text-lg">Oct 17</p>
+                </div>
+                <span className="rounded-full bg-coral-soft px-2 py-1 text-[9px] font-semibold text-coral">4 plans</span>
+              </div>
+              <div className="space-y-2">
+                {SATURDAY.map(([time, item, detail]) => (
+                  <div key={item} className="grid grid-cols-[2.25rem_0.5rem_1fr] items-start gap-1">
+                    <span className="pt-0.5 text-[11px] text-muted-foreground">{time}</span>
+                    <span className="mt-1.5 size-1.5 rounded-full bg-coral" />
+                    <div>
+                      <p className="font-display text-sm">{item}</p>
+                      <p className="text-[11px] text-muted-foreground">{detail}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </article>
           </div>
         </div>
       </div>
-
-      <div className="pointer-events-none absolute inset-x-0 bottom-[18%] z-10 h-[clamp(3.5rem,6vw,6rem)] px-6 text-center">
-        <h2 ref={headlineFirstRef} className="absolute top-0 inset-x-0 font-display text-[clamp(2.5rem,5.5vw,5rem)] tracking-[-0.02em] opacity-0">Everything you&rsquo;ll need.</h2>
-        <h2 ref={headlineSecondRef} className="absolute top-0 inset-x-0 font-display text-[clamp(2.5rem,5.5vw,5rem)] tracking-[-0.02em] opacity-0">Right when you&rsquo;ll need it.</h2>
-      </div>
-    </div>
+    </section>
   );
 }

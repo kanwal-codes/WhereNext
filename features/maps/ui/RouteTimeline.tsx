@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useDistance } from "@/lib/use-distance";
 import { ChevronDown, TriangleAlert } from "lucide-react";
 import type { RouteDay, RouteLegStep } from "@/packages/contracts/route-plan";
 import { MODE_COLOR, MODE_ICON } from "@/lib/application/mode-visuals";
@@ -76,6 +77,7 @@ function AltChip({ tripId, dayIndex, leg, alt, onChosen }: { tripId: string; day
 }
 
 export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen }: { day: RouteDay; tripId: string; onHoverLeg?: (index: number | null) => void; onLegChosen?: () => void }) {
+  const distance = useDistance();
   const [open, setOpen] = useState<number | null>(null);
 
   if (day.stops.length < 2) {
@@ -120,7 +122,7 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen }: { day: R
                       <LegIcon className="h-3.5 w-3.5 shrink-0" style={{ color: MODE_COLOR[leg.mode] }} />
                       <span className="font-medium">
                         {leg.minutes != null ? formatDuration(leg.minutes) : "route"}
-                        {leg.km != null ? ` · ${leg.km} km` : ""}
+                        {leg.km != null ? ` · ${distance(leg.km)}` : ""}
                         {time(leg.departure) && time(leg.arrival) ? ` · ${time(leg.departure)}–${time(leg.arrival)}` : ""}
                       </span>
                       {leg.steps.length > 1 && <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform", open === i && "rotate-180")} />}
