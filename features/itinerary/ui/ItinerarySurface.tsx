@@ -6,10 +6,13 @@ import { ArrowDown, ArrowUp, ArrowUpRight, BedDouble, ChevronDown, ChevronUp, Cl
 import type { ItineraryItem } from "@/features/itinerary/domain/item";
 import type { StayDecision } from "@/packages/contracts/stay";
 import { useTripPanel } from "@/components/TripPanelProvider";
-import { announceWorkspaceChange } from "@/lib/application/workspace-events";
+import { announceWorkspaceChange, subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
 import { cn } from "@/lib/utils";
 import { fmtDay } from "@/lib/trip-dates";
+import { KIND_META } from "@/components/overview/ReservationSheet";
+import { clockLabel, reservationsByDay } from "@/lib/trip-reservations";
+import type { Reservation } from "@/packages/contracts/reservation";
 
 /** The calendar date for day N (1-based) given the trip's start date, or null when there's no start date. */
 function dayDate(startDate: string | null | undefined, dayN: number): string | null {
@@ -44,6 +47,21 @@ export function ItinerarySurface({
   const [dragTitle, setDragTitle] = useState<string | null>(null);
   const [dropHint, setDropHint] = useState<string | null>(null); // `${day}:${beforeTitle ?? "end"}`
   const [resolvingTitle, setResolvingTitle] = useState<string | null>(null);
+  // What is already booked (hotels, tours, dinners), shown on its day beside what is planned. Best-effort:
+  // if the request fails the itinerary simply shows no booked rows.
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  useEffect(() => {
+    const load = () =>
+      fetch(`/api/trips/${tripId}/reservations`)
+        .then((r) => (r.ok ? r.json() : { reservations: [] }))
+        .then((body) => setReservations(body.reservations ?? []))
+        .catch(() => undefined);
+    void load();
+    return subscribeWorkspaceChanges((changes) => {
+      if (changes.includes("decision")) void load();
+    });
+  }, [tripId]);
+  const bookedByDay = useMemo(() => reservationsByDay(reservations, startDate), [reservations, startDate]);
 
   /** Most itinerary items already carry a provider_id (added from a real place search) and open
    * the panel directly; a few are typed straight into chat with no known place behind them yet
@@ -216,7 +234,7 @@ export function ItinerarySurface({
 
   // Both derived from `items` alone — memoized so typing in the "add" title input (or any other
   // state change that doesn't touch `items`) doesn't re-scan and re-sort the whole list.
-  const days = useMemo(() => Array.from(new Set([...items.map((i) => i.day_index), 1])).sort((a, b) => a - b), [items]);
+  const days = useMemo(() => Array.from(new Set([...items.map((i) => i.day_index), ...bookedByDay.keys(), 1])).sort((a, b) => a - b), [items, bookedByDay]);
   const itemsByDay = useMemo(() => {
     const map = new Map<number, ItineraryItem[]>();
     for (const item of items) {
@@ -347,7 +365,26 @@ export function ItinerarySurface({
               </button>
             </div>
 
-            <div className="relative min-w-0 pl-7">
+            <div className="min-w-0">
+            {(bookedByDay.get(d) ?? []).length > 0 && (
+              <ul aria-label={`Booked on day ${d}`} className="mb-4 space-y-2">
+                {(bookedByDay.get(d) ?? []).map(({ reservation, note }) => {
+                  const Icon = KIND_META[reservation.kind].icon;
+                  return (
+                    <li key={`${reservation.id}-${note ?? "on"}`}>
+                      <a href={`/trips/${tripId}/bookings`} className="flex items-center gap-3 rounded-2xl border border-leaf/30 bg-leaf/5 px-4 py-2.5 text-sm transition-colors hover:bg-leaf/10">
+                        <Icon className="h-4 w-4 shrink-0 text-leaf" />
+                        <span className="min-w-0 flex-1 truncate font-medium">{reservation.title}</span>
+                        <span suppressHydrationWarning className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                          {note ?? (reservation.startTime ? clockLabel(reservation.startTime) : "Booked")}
+                        </span>
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <div className="relative pl-7">
               <span className="absolute top-3 bottom-3 left-[9px] w-px bg-border" />
               <AnimatePresence initial={false}>
                 {dayItems.length === 0 && (
@@ -489,6 +526,7 @@ export function ItinerarySurface({
                   );
                 })}
               </AnimatePresence>
+            </div>
             </div>
             </div>
           </section>

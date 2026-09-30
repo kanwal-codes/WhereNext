@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { BedDouble, FileText, ImageIcon, Loader2, Paperclip, Plane, Ticket, TrainFront, UtensilsCrossed, X, Sparkles } from "lucide-react";
+import { BedDouble, ClipboardPaste, FileText, ImageIcon, Loader2, Paperclip, Plane, Ticket, TrainFront, UtensilsCrossed, X, Sparkles } from "lucide-react";
 import { Sheet } from "@/components/motion-primitives";
 import { notifyToast } from "@/lib/application/toast";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { MAX_CONFIRMATION_CHARS, type ReservationDraft } from "@/lib/reservation-draft";
 import { RESERVATION_FILES_BUCKET, fileProblem, sizeLabel, type ReservationFile } from "@/lib/reservation-files";
 import { cn } from "@/lib/utils";
 import type { Reservation, ReservationKind } from "@/packages/contracts/reservation";
@@ -78,12 +79,20 @@ export function ReservationSheet({
   const [uploading, setUploading] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const picker = useRef<HTMLInputElement>(null);
+  // Paste a confirmation and let Roam read it into the form. It only fills the fields: the traveller reviews and saves.
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasted, setPasted] = useState("");
+  const [reading, setReading] = useState(false);
+  const [readNote, setReadNote] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setFiles(editing?.attachments ?? []);
     setStaged([]);
     setFileError(null);
+    setPasteOpen(false);
+    setPasted("");
+    setReadNote(null);
     setDraft(editing ? fromReservation(editing, defaultCurrency) : blank(defaultCurrency, defaultDate));
     setError(null);
   }, [open, editing, defaultCurrency, defaultDate]);
@@ -102,6 +111,27 @@ export function ReservationSheet({
     const doneBody = await done.json().catch(() => ({}));
     if (!done.ok) throw new Error(doneBody.error ?? "That file couldn't be saved.");
     return doneBody.reservation as Reservation;
+  }
+
+  async function readConfirmation() {
+    const text = pasted.trim();
+    if (text.length < 10 || reading) return;
+    setReading(true);
+    setReadNote(null);
+    try {
+      const res = await fetch(`/api/trips/${tripId}/reservations/parse`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }) });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error ?? "Couldn't read that. You can still fill it in by hand.");
+      const found = body.draft as ReservationDraft;
+      // Only fill what the confirmation actually said; keep whatever is already typed for the rest.
+      setDraft((current) => ({ ...current, ...Object.fromEntries(Object.entries(found).filter(([, value]) => value !== "")) }) as Draft);
+      setPasteOpen(false);
+      setReadNote("Filled in from your confirmation. Check each field before you add it.");
+    } catch (e) {
+      setReadNote(e instanceof Error ? e.message : "Couldn't read that. You can still fill it in by hand.");
+    } finally {
+      setReading(false);
+    }
   }
 
   async function pick(list: FileList | File[]) {
@@ -208,6 +238,36 @@ export function ReservationSheet({
         </header>
 
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain scrollbar-slim px-5 py-5">
+          {!editing && (
+            <div className="rounded-2xl border border-dashed border-border bg-background">
+              <button type="button" onClick={() => setPasteOpen((v) => !v)} aria-expanded={pasteOpen} className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium">
+                <ClipboardPaste className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="flex-1">Paste a confirmation and let Roam fill this in</span>
+                <span className="text-xs font-normal text-muted-foreground">{pasteOpen ? "Close" : "Try it"}</span>
+              </button>
+              {pasteOpen && (
+                <div className="space-y-3 border-t border-border px-4 py-4">
+                  <textarea
+                    value={pasted}
+                    onChange={(e) => setPasted(e.target.value)}
+                    maxLength={MAX_CONFIRMATION_CHARS}
+                    rows={6}
+                    placeholder="Paste the confirmation email or voucher text here"
+                    className={cn(input, "resize-y text-sm")}
+                  />
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs text-muted-foreground">Nothing is saved until you review it.</span>
+                    <button type="button" onClick={() => void readConfirmation()} disabled={pasted.trim().length < 10 || reading} className="daisy-btn daisy-btn-neutral h-10 rounded-full border-0 px-5 shadow-none">
+                      {reading && <Loader2 className="h-4 w-4 animate-spin" />}
+                      Fill it in
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {readNote && <p role="status" className="-mt-2 text-sm text-muted-foreground">{readNote}</p>}
+
           <div role="radiogroup" aria-label="What kind of reservation" className="grid grid-cols-3 gap-2">
             {KINDS.map((kind) => {
               const Icon = KIND_META[kind].icon;
