@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Plus } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
 import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache";
@@ -11,13 +11,12 @@ import { Reveal, Stagger, StaggerItem, Tactile } from "@/components/motion-primi
 import { SkeletonLines } from "@/components/Skeleton";
 import { BookingDetailSheet } from "@/features/bookings/ui/BookingDetailSheet";
 import { GetYourGuideCard } from "@/components/GetYourGuideCard";
-import { BookingTicket } from "@/components/overview/BookingTicket";
 import { ChapterHero } from "@/components/overview/ChapterHero";
 import { SectionHeading } from "@/components/overview/SectionHeading";
-import { StayFeature } from "@/components/overview/StayFeature";
-import { FlightFeature, readFlightChoice } from "@/components/overview/FlightFeature";
-import { fmtDay } from "@/lib/trip-dates";
-import { BookingStrip } from "@/components/overview/BookingStrip";
+import { ReservationSheet } from "@/components/overview/ReservationSheet";
+import { ReservationsTimeline } from "@/components/overview/ReservationsTimeline";
+import { buildTimeline, readFlightChoice } from "@/lib/trip-reservations";
+import type { Reservation } from "@/packages/contracts/reservation";
 import { RoamMark } from "@/features/roam/ui/RoamMark";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { resolveCurrency } from "@/lib/currency";
@@ -30,15 +29,24 @@ export default function BookingsPage() {
   const stay = readStayDecision(decisions);
   const destination = data?.trip?.destination ?? "your destination";
   const flight = readFlightChoice(decisions);
-  const ticketDetail = (kind: Booking["kind"]): string | undefined =>
-    kind === "stay" && stay
-      ? `${stay.hotelName} · ${fmtDay(stay.checkin)} to ${fmtDay(stay.checkout)}`
-      : kind === "flight" && flight && (flight.from || flight.to)
-        ? `${flight.from || "Home"} to ${flight.to || destination}${flight.airline ? ` · ${flight.airline}` : ""}`
-        : undefined;
-
   const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [openBookingId, setOpenBookingId] = useState<string | null>(null);
+  const [reservations, setReservations] = useState<Reservation[] | null>(null);
+  const [editing, setEditing] = useState<Reservation | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  useEffect(() => {
+    // Until the reservations table exists (or if the request fails) the page still shows
+    // bookings, the stay and the flight: an empty list, not an error.
+    const load = () =>
+      fetch(`/api/trips/${tripId}/reservations`)
+        .then((r) => (r.ok ? r.json() : { reservations: [] }))
+        .then((body) => setReservations(body.reservations ?? []))
+        .catch(() => setReservations((current) => current ?? []));
+    void load();
+    return subscribeWorkspaceChanges((changes) => {
+      if (changes.includes("decision")) void load();
+    });
+  }, [tripId]);
   useEffect(() => {
     // Instant paint from the last fetch on a quick tab hop (this route remounts on every
     // navigation) — read inside the effect, not the state initializer: sessionStorage isn't
@@ -65,62 +73,66 @@ export default function BookingsPage() {
     });
   }, [tripId]);
   const openBooking = bookings?.find((b) => b.id === openBookingId) ?? null;
-  // A stay or flight that already has a card above is not listed a second time as a ticket: its
-  // booking (status, reference, price) hangs under that card instead.
-  const stayBooking = stay ? bookings?.find((b) => b.kind === "stay") ?? null : null;
-  const flightBooking = flight ? bookings?.find((b) => b.kind === "flight") ?? null : null;
-  const tickets = (bookings ?? []).filter((b) => b !== stayBooking && b !== flightBooking);
-
-  const nights = stay?.nights ?? 0;
+  const timeline = buildTimeline({ reservations: reservations ?? [], bookings: bookings ?? [], stay, flight, tripId });
+  const confirmed = timeline.filter((i) => i.status === "confirmed").length;
   const done = essentialsDone(data?.essentials);
-  const bookedCount = (bookings?.filter((b) => b.status === "confirmed").length ?? 0) + (stay ? 1 : 0) + (flight ? 1 : 0);
+  const loading = bookings === null || reservations === null;
+
+  const openAdd = () => {
+    setEditing(null);
+    setSheetOpen(true);
+  };
 
   return (
     <div className="min-h-full pb-16">
       <ChapterHero
         eyebrow="Bookings & essentials"
         title="Before you go"
-        description="What's locked in, and the practical checklist."
+        description="Every stay, ticket and reservation in one place, and the practical checklist."
         stats={[
-          { label: "Booked", value: String(bookedCount), desc: bookedCount === 1 ? "thing locked in" : "things locked in" },
-          { label: "Nights", value: String(nights), desc: stay ? `at ${stay.hotelName}` : "no stay yet" },
+          { label: "Reserved", value: String(timeline.length), desc: timeline.length === 1 ? "thing on the trip" : "things on the trip" },
+          { label: "Confirmed", value: String(confirmed), desc: "with a provider" },
           { label: "Checklist", value: `${done}/${ESSENTIALS_TOTAL}`, desc: "sorted" },
         ]}
       />
 
       <div className="mx-auto max-w-6xl space-y-16 px-5 pt-10 sm:px-8">
         <section>
-          <SectionHeading title="Your bookings" count={bookedCount} />
-          <div className="mt-6 space-y-4">
-            <Reveal>
-              <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-                <div className="flex min-w-0 flex-col gap-3">
-                  <div className="min-h-0 flex-1">
-                    <StayFeature tripId={tripId} stay={stay} compact />
-                  </div>
-                  {stayBooking && <BookingStrip booking={stayBooking} onOpen={() => setOpenBookingId(stayBooking.id)} />}
-                </div>
-                <div className="flex min-w-0 flex-col gap-3">
-                  <div className="min-h-0 flex-1">
-                    <FlightFeature tripId={tripId} flight={flight} destination={destination} />
-                  </div>
-                  {flightBooking && <BookingStrip booking={flightBooking} onOpen={() => setOpenBookingId(flightBooking.id)} />}
-                </div>
-              </div>
-            </Reveal>
-            {bookings === null ? (
+          <SectionHeading title="Your bookings" count={timeline.length} />
+          <div className="mt-6">
+            {loading ? (
               <div className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft">
-                <SkeletonLines lines={2} />
+                <SkeletonLines lines={3} />
               </div>
-            ) : tickets.length > 0 ? (
-              <Stagger className="grid gap-4 md:grid-cols-2">
-                {tickets.map((b) => (
-                  <StaggerItem key={b.id} className="h-full">
-                    <BookingTicket booking={b} detail={ticketDetail(b.kind)} onOpen={() => setOpenBookingId(b.id)} />
-                  </StaggerItem>
-                ))}
-              </Stagger>
-            ) : null}
+            ) : timeline.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-border bg-card/50 p-8">
+                <p className="font-display text-2xl tracking-tight">Nothing reserved yet</p>
+                <p className="mt-1 max-w-lg text-sm leading-relaxed text-muted-foreground">
+                  Add a hotel, a train, a tour or a dinner as you book it, or find a stay and a flight here and they will appear on their own.
+                </p>
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <button type="button" onClick={openAdd} className="btn-primary h-11 rounded-full px-6">
+                    <Plus className="h-4 w-4" /> Add reservation
+                  </button>
+                  <Link href={`/trips/${tripId}/stay`} className="daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-card px-5 font-medium shadow-none">
+                    Find a stay
+                  </Link>
+                  <Link href={`/trips/${tripId}/map`} className="daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-card px-5 font-medium shadow-none">
+                    Find a flight
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <ReservationsTimeline
+                items={timeline}
+                onAdd={openAdd}
+                onOpenBooking={setOpenBookingId}
+                onEdit={(item) => {
+                  setEditing(item.reservation);
+                  setSheetOpen(true);
+                }}
+              />
+            )}
           </div>
         </section>
 
@@ -165,6 +177,17 @@ export default function BookingsPage() {
           </div>
         </section>
       </div>
+
+      <ReservationSheet
+        tripId={tripId}
+        open={sheetOpen}
+        editing={editing}
+        defaultCurrency={resolveCurrency(data?.preferences)}
+        defaultDate={data?.trip?.start_date ?? ""}
+        onClose={() => setSheetOpen(false)}
+        onSaved={(saved) => setReservations((list) => [...(list ?? []).filter((r) => r.id !== saved.id), saved])}
+        onDeleted={(id) => setReservations((list) => (list ?? []).filter((r) => r.id !== id))}
+      />
 
       <BookingDetailSheet
         tripId={tripId}
