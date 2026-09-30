@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
-import { RESERVATION_COLUMNS, reservationInput, toReservation, toReservationRow } from "@/packages/contracts/reservation";
+import { RESERVATION_FILES_BUCKET } from "@/lib/reservation-files";
+import { RESERVATION_COLUMNS, readAttachments, reservationInput, toReservation, toReservationRow } from "@/packages/contracts/reservation";
 
 type Ctx = { params: Promise<{ tripId: string; reservationId: string }> };
 
@@ -30,6 +31,10 @@ export async function DELETE(_: Request, { params }: Ctx) {
   try {
     const { tripId, reservationId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
+    // Take the attached files out of storage too, so a removed reservation leaves nothing behind.
+    const existing = await supabase.from("trip_reservations").select("attachments").eq("trip_id", tripId).eq("id", reservationId).maybeSingle();
+    const paths = readAttachments(existing.data?.attachments).map((f) => f.path);
+    if (paths.length > 0) await supabase.storage.from(RESERVATION_FILES_BUCKET).remove(paths);
     const result = await supabase.from("trip_reservations").delete().eq("trip_id", tripId).eq("id", reservationId);
     if (result.error) throw result.error;
     return NextResponse.json({ ok: true });

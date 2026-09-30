@@ -6,7 +6,7 @@ import type { StayDecision } from "../../packages/contracts/stay";
 
 const stay: StayDecision = { provider: "liteapi", hotelId: "h1", hotelName: "Memmo Alfama", roomName: "Deluxe", board: "Breakfast", refundable: true, checkin: "2026-10-12", checkout: "2026-10-16", nights: 4, nightlyAmount: 214, totalAmount: 856, currency: "CAD", latitude: null, longitude: null, address: "Lisbon", thumbnail: null };
 const booking = (id: string, kind: Booking["kind"], extra: Partial<Booking> = {}): Booking => ({ id, kind, provider: kind === "stay" ? "liteapi" : "duffel", status: "confirmed", providerReference: `ref-${id}`, confirmationCode: null, currency: "CAD", totalAmount: 100, createdAt: "2026-09-01T10:00:00Z", ...extra });
-const reservation = (id: string, extra: Partial<Reservation> = {}): Reservation => ({ id, kind: "activity", title: `R${id}`, startsOn: null, endsOn: null, startTime: null, place: null, confirmationCode: null, amount: null, currency: null, notes: null, createdAt: "2026-09-01T10:00:00Z", ...extra });
+const reservation = (id: string, extra: Partial<Reservation> = {}): Reservation => ({ id, kind: "activity", title: `R${id}`, startsOn: null, endsOn: null, startTime: null, place: null, confirmationCode: null, amount: null, currency: null, notes: null, attachments: [], createdAt: "2026-09-01T10:00:00Z", ...extra });
 const flight = { from: "Toronto (YYZ)", to: "Lisbon (LIS)", airline: "TAP", fare: "642 CAD", stops: 0, minutes: 415, departAt: "2026-10-11T21:40:00", arriveAt: "2026-10-12T09:35:00" };
 
 describe("buildTimeline", () => {

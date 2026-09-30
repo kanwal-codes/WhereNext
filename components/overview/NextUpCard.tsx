@@ -51,6 +51,7 @@ export function NextUpCard({ item, onOpenBooking, onEdit }: { item: TimelineItem
         </span>
         <span className={badge}>{KIND_META[item.kind].label}</span>
         {item.status && <span className={cn(badge, "capitalize")}>{item.status}</span>}
+        {item.fileCount > 0 && <span className={badge}>{item.fileCount} {item.fileCount === 1 ? "file" : "files"}</span>}
       </div>
 
       <div className={cn("relative flex flex-col gap-6 pt-24", photo ? "text-white" : "text-foreground")}>

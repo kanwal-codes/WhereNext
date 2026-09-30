@@ -34,6 +34,8 @@ export type TimelineItem = {
   reservation: Reservation | null;
   /** Where the row leads, when it leads somewhere. */
   href: string | null;
+  /** Files attached to the reservation (tickets, vouchers); 0 for rows that are not hand-entered. */
+  fileCount: number;
 };
 
 export type FlightChoice = { from: string; to: string; airline: string; fare: string; stops: number | null; minutes: number | null; departAt: string | null; arriveAt: string | null };
@@ -116,6 +118,7 @@ export function buildTimeline(input: {
       thumbnail: stay.thumbnail,
       bookingId: booking?.id ?? null,
       reservation: null,
+      fileCount: 0,
       href: `/trips/${tripId}/stay/${encodeURIComponent(stay.hotelId)}?checkin=${stay.checkin}&checkout=${stay.checkout}`,
     });
   }
@@ -138,6 +141,7 @@ export function buildTimeline(input: {
       thumbnail: null,
       bookingId: booking?.id ?? null,
       reservation: null,
+      fileCount: 0,
       href: null,
     });
   }
@@ -161,6 +165,7 @@ export function buildTimeline(input: {
       thumbnail: null,
       bookingId: booking.id,
       reservation: null,
+      fileCount: 0,
       href: null,
     });
   }
@@ -182,6 +187,7 @@ export function buildTimeline(input: {
       thumbnail: null,
       bookingId: null,
       reservation: r,
+      fileCount: r.attachments.length,
       href: null,
     });
   }

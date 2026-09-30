@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ReservationFile } from "@/lib/reservation-files";
 
 export const RESERVATION_KINDS = ["stay", "flight", "train", "activity", "dining", "other"] as const;
 export type ReservationKind = (typeof RESERVATION_KINDS)[number];
@@ -37,6 +38,7 @@ export type Reservation = {
   amount: number | null;
   currency: string | null;
   notes: string | null;
+  attachments: ReservationFile[];
   createdAt: string;
 };
 
@@ -52,10 +54,19 @@ type ReservationRow = {
   amount: number | string | null;
   currency: string | null;
   notes: string | null;
+  attachments?: unknown;
   created_at: string;
 };
 
-export const RESERVATION_COLUMNS = "id,kind,title,starts_on,ends_on,start_time,place,confirmation_code,amount,currency,notes,created_at";
+export const RESERVATION_COLUMNS = "id,kind,title,starts_on,ends_on,start_time,place,confirmation_code,amount,currency,notes,attachments,created_at";
+
+export function readAttachments(value: unknown): ReservationFile[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const f = entry as Partial<ReservationFile> | null;
+    return f && typeof f.path === "string" && typeof f.name === "string" ? [{ path: f.path, name: f.name, size: typeof f.size === "number" ? f.size : 0, type: typeof f.type === "string" ? f.type : "" }] : [];
+  });
+}
 
 /** DB row (snake_case) to API shape (camelCase). */
 export function toReservation(row: ReservationRow): Reservation {
@@ -71,6 +82,7 @@ export function toReservation(row: ReservationRow): Reservation {
     amount: row.amount == null ? null : Number(row.amount),
     currency: row.currency,
     notes: row.notes,
+    attachments: readAttachments(row.attachments),
     createdAt: row.created_at,
   };
 }

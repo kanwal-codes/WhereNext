@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ChevronRight, MapPin, Plus } from "lucide-react";
+import { ChevronRight, MapPin, Paperclip, Plus } from "lucide-react";
 import { Stagger, StaggerItem } from "@/components/motion-primitives";
 import { KIND_META } from "@/components/overview/ReservationSheet";
 import { TripArt, hashString } from "@/components/trips/TripArt";
@@ -63,6 +63,12 @@ function Row({ item, onOpenBooking, onEdit }: { item: TimelineItem; onOpenBookin
             </span>
           )}
           {item.code && <span className="font-mono tracking-wide">Ref {item.code}</span>}
+          {item.fileCount > 0 && (
+            <span className="flex items-center gap-1">
+              <Paperclip className="h-3 w-3" />
+              {item.fileCount} {item.fileCount === 1 ? "file" : "files"}
+            </span>
+          )}
         </span>
       </span>
       <span className="flex shrink-0 flex-col items-end justify-between self-stretch">
