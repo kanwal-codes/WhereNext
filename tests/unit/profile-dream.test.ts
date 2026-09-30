@@ -3,16 +3,15 @@ import { accountPhotoUrl } from "../../lib/places-ui";
 import { travelerProfileSchema } from "../../packages/contracts/profile";
 
 describe("profile dream destination", () => {
-  it("accepts a destination with its photo and which picture to show", () => {
-    const parsed = travelerProfileSchema.parse({ dreamDestination: " Kyoto, Japan ", dreamPhotoName: "places/ChIJabc/photos/AUc123", avatarSource: "dream" });
-    expect(parsed).toMatchObject({ dreamDestination: "Kyoto, Japan", dreamPhotoName: "places/ChIJabc/photos/AUc123", avatarSource: "dream" });
+  it("accepts a destination with its photo", () => {
+    const parsed = travelerProfileSchema.parse({ dreamDestination: " Kyoto, Japan ", dreamPhotoName: "places/ChIJabc/photos/AUc123" });
+    expect(parsed).toMatchObject({ dreamDestination: "Kyoto, Japan", dreamPhotoName: "places/ChIJabc/photos/AUc123" });
   });
   it("lets both be cleared with null", () => {
     expect(travelerProfileSchema.parse({ dreamDestination: null, dreamPhotoName: null })).toMatchObject({ dreamDestination: null, dreamPhotoName: null });
   });
   it("rejects anything that is not a Google photo resource name", () => {
     expect(travelerProfileSchema.safeParse({ dreamPhotoName: "https://evil.example/x.jpg" }).success).toBe(false);
-    expect(travelerProfileSchema.safeParse({ avatarSource: "gravatar" }).success).toBe(false);
   });
 });
 

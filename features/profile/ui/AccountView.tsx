@@ -225,8 +225,6 @@ export function AccountView({
     if (error || !url) { notifyToast("That photo couldn’t be uploaded.", "error"); return; }
     setAvatarUrl(url);
     setAvatarError(false);
-    setAvatarSource("upload");
-    void saveProfile({ avatarSource: "upload" });
     notifyToast("Photo updated", "success");
   }
   const touch = () => { setDirty(true); setSaved(false); };
@@ -235,10 +233,8 @@ export function AccountView({
   const [dreamText, setDreamText] = useState(profile.dreamDestination ?? "");
   const [dreamDraft, setDreamDraft] = useState(profile.dreamDestination ?? "");
   const [dreamPhoto, setDreamPhoto] = useState<string | null>(profile.dreamPhotoName ?? null);
-  const [avatarSource, setAvatarSource] = useState<"dream" | "upload">(profile.avatarSource ?? "dream");
   const [savingDream, setSavingDream] = useState(false);
   const [heroFailed, setHeroFailed] = useState(false);
-  const dreamAvatar = dreamPhoto && avatarSource !== "upload" ? accountPhotoUrl(dreamPhoto, 800) : undefined;
   const dreamHero = dreamPhoto && !heroFailed ? accountPhotoUrl(dreamPhoto, 1600) : undefined;
 
   const [name, setName] = useState(initialName);
@@ -305,14 +301,13 @@ export function AccountView({
       const res = await fetch(`/api/account/places/destination-photo?query=${encodeURIComponent(place)}`);
       const body = res.ok ? ((await res.json()) as { photoName?: string | null }) : { photoName: null };
       const photoName = body.photoName ?? null;
-      const ok = await saveProfile({ dreamDestination: place, dreamPhotoName: photoName, avatarSource: "dream" });
+      const ok = await saveProfile({ dreamDestination: place, dreamPhotoName: photoName });
       if (!ok) return;
       setDreamText(place);
       setDreamDraft(place);
       setDreamPhoto(photoName);
-      setAvatarSource("dream");
       setHeroFailed(false);
-      notifyToast(photoName ? "Your dream destination is your profile picture now." : "Saved. We couldn’t find a photo for it, though.", photoName ? "success" : "info");
+      notifyToast(photoName ? "Your dream destination is your backdrop now." : "Saved. We couldn’t find a photo for it, though.", photoName ? "success" : "info");
     } finally {
       setSavingDream(false);
     }
@@ -436,9 +431,9 @@ export function AccountView({
                     aria-label="Change photo"
                     className="group relative block h-24 w-24 overflow-hidden rounded-[24px] bg-primary sm:h-32 sm:w-32"
                   >
-                    {dreamAvatar || (avatarUrl && !avatarError) ? (
+                    {avatarUrl && !avatarError ? (
                       // eslint-disable-next-line @next/next/no-img-element -- external/user-uploaded, not a static asset
-                      <img src={dreamAvatar ?? avatarUrl!} alt="" className="h-full w-full object-cover" onError={() => (dreamAvatar ? setDreamPhoto(null) : setAvatarError(true))} />
+                      <img src={avatarUrl} alt="" className="h-full w-full object-cover" onError={() => setAvatarError(true)} />
                     ) : (
                       <span aria-hidden className="grid h-full w-full place-items-center font-display text-3xl font-semibold text-primary-foreground">
                         {memberInitials(name || "Traveller")}
@@ -533,7 +528,7 @@ export function AccountView({
               <div id="dream" className="scroll-mt-28 rounded-3xl bg-gradient-to-br from-muted/60 to-coral-soft/50 p-5 sm:p-6">
                 <p className="eyebrow mb-2 flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Dream destination</p>
                 <p className="font-display text-xl tracking-tight text-balance sm:text-2xl">Where would you go tomorrow?</p>
-                <p className="mt-1 max-w-xl text-sm leading-relaxed text-ink-soft">Pick the place you keep coming back to. Its photo becomes your profile picture and the backdrop of this page.</p>
+                <p className="mt-1 max-w-xl text-sm leading-relaxed text-ink-soft">Pick the place you keep coming back to. Its photo becomes the backdrop of your profile.</p>
                 <div className="mt-4 flex max-w-xl items-center gap-3">
                   <div className="min-w-0 flex-1">
                     <DestinationCombobox
@@ -551,9 +546,6 @@ export function AccountView({
                 {dreamText && (
                   <p className="mt-3 flex flex-wrap items-center gap-x-3 text-sm text-ink-soft">
                     <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> {dreamText}</span>
-                    {avatarSource === "upload" && dreamPhoto && (
-                      <button type="button" onClick={() => { setAvatarSource("dream"); void saveProfile({ avatarSource: "dream" }); }} className="underline-offset-2 hover:text-foreground hover:underline">Use it as my profile picture</button>
-                    )}
                     <button type="button" onClick={() => void clearDream()} className="underline-offset-2 hover:text-destructive hover:underline">Remove</button>
                   </p>
                 )}
