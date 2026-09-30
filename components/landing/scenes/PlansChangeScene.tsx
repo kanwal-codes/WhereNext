@@ -24,22 +24,22 @@ const MESSAGES = [
 // a pause before the reply, the itinerary, its wobble, the swap, and finally
 // the two closing lines, each with a hold. The scene is kept short: beats sit close
 // together, and everything then fades so the section is empty (last 200px) before its pin releases and Bookings rises in.
-const D = 3650;
+const D = 3300;
 // Revisiting shows the completed thread with "Roam keeps up." held.
-const RESOLVED = 3000;
-const ASK_IN = [200, 420] as const;
-const REPLY_IN = [620, 860] as const;
-const ITINERARY_IN = [980, 1180] as const;
-const WOBBLE = [1250, 1420] as const;
-const SWAP = [1500, 1720] as const;
-const H1_IN = [1800, 2000] as const;
-const H1_OUT = [2400, 2600] as const;
-const H2_IN = [2600, 2800] as const;
-const EXIT = [3200, 3450] as const;
+const RESOLVED = 2650;
+const ASK_IN = [150, 330] as const;
+const REPLY_IN = [420, 620] as const;
+const ITINERARY_IN = [720, 900] as const;
+const WOBBLE = [980, 1130] as const;
+const SWAP = [1200, 1400] as const;
+const H1_IN = [1480, 1680] as const;
+const H1_OUT = [2080, 2280] as const;
+const H2_IN = [2280, 2480] as const;
+const EXIT = [2880, 3100] as const;
 
 // "Fix Saturday" should show the fix: from the reply it carries the story
 // through the swap.
-const FIX_DISTANCE = 900;
+const FIX_DISTANCE = 800;
 
 /**
  * Storyboard Frame 8 — Plans change, grounded per Build_Plan step 1: the
@@ -146,7 +146,7 @@ export function PlansChangeScene() {
 
   return (
     <div ref={sectionRef} data-scene="plans-change" className="relative min-h-[100dvh] overflow-hidden bg-background">
-      <div className="mx-auto flex h-full max-w-md flex-col items-center justify-center gap-4 px-6">
+      <div className="mx-auto flex h-full max-w-md flex-col items-center justify-center gap-4 px-6 [@media(max-height:760px)]:gap-3 [@media(max-height:760px)]:pb-16 md:[@media(min-height:800px)]:max-w-xl md:[@media(min-height:800px)]:gap-5">
         {MESSAGES.map((msg, i) => (
           <div
             key={i}
@@ -156,12 +156,12 @@ export function PlansChangeScene() {
             className={`flex max-w-[78%] items-end gap-2 opacity-0 ${msg.side === "right" ? "flex-row-reverse self-end" : "self-start"}`}
           >
             {msg.side === "left" && (
-              <span className="grid size-7 shrink-0 place-items-center rounded-full border-2 border-background bg-primary text-[10px] font-semibold text-primary-foreground">
+              <span className="grid size-7 shrink-0 place-items-center rounded-full border-2 border-background bg-primary text-[11px] font-semibold text-primary-foreground">
                 {msg.initial}
               </span>
             )}
             <div
-              className={`rounded-2xl px-4 py-3 text-sm shadow-soft ${
+              className={`rounded-2xl px-4 py-3 text-sm shadow-soft md:[@media(min-height:800px)]:px-5 md:[@media(min-height:800px)]:py-3.5 md:[@media(min-height:800px)]:text-base ${
                 msg.side === "right" ? "rounded-br-md bg-primary text-primary-foreground" : "rounded-bl-md border border-border bg-surface"
               }`}
             >
@@ -182,10 +182,10 @@ export function PlansChangeScene() {
             floating card. The itinerary actually changing is its own beat
             underneath the conversation, not folded into the reply itself. */}
         <div ref={roamCardRef} className="flex max-w-[85%] items-end gap-2 self-start opacity-0">
-          <span className="grid size-7 shrink-0 place-items-center rounded-full border-2 border-background bg-coral text-[11px] font-semibold text-white">
+          <span className="grid size-7 shrink-0 place-items-center rounded-full border-2 border-background bg-coral text-xs font-semibold text-white">
             ✦
           </span>
-          <div className="rounded-2xl rounded-bl-md border border-border bg-surface px-4 py-3 text-sm shadow-soft">
+          <div className="rounded-2xl rounded-bl-md border border-border bg-surface px-4 py-3 text-sm shadow-soft md:[@media(min-height:800px)]:px-5 md:[@media(min-height:800px)]:py-3.5 md:[@media(min-height:800px)]:text-base">
             <p className="leading-relaxed">
               I found another workshop 8 minutes away.
               <br />
@@ -199,14 +199,14 @@ export function PlansChangeScene() {
 
         <div ref={itineraryRef} data-plan-block="itinerary" className="flex w-full flex-col items-center gap-4 opacity-0">
           <div className="relative w-full">
-            <div ref={oldCardRef} className="grid grid-cols-[3.5rem_1fr_auto] items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3">
+            <div ref={oldCardRef} className="grid grid-cols-[3.5rem_1fr_auto] items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 md:[@media(min-height:800px)]:px-5 md:[@media(min-height:800px)]:py-4">
               <span className="text-xs tabular-nums text-muted-foreground">2:00</span>
-              <span className="font-display text-sm">Pottery Workshop</span>
+              <span className="font-display text-sm md:[@media(min-height:800px)]:text-base">Pottery Workshop</span>
             </div>
-            <div ref={newCardRef} className="absolute inset-0 grid grid-cols-[3.5rem_1fr_auto] items-center gap-3 rounded-xl border border-coral/30 bg-coral-soft px-4 py-3 opacity-0">
+            <div ref={newCardRef} className="absolute inset-0 grid grid-cols-[3.5rem_1fr_auto] items-center gap-3 rounded-xl border border-coral/30 bg-coral-soft px-4 py-3 opacity-0 md:[@media(min-height:800px)]:px-5 md:[@media(min-height:800px)]:py-4">
               <span className="text-xs tabular-nums text-coral">2:30</span>
-              <span className="font-display text-sm">Pottery Workshop (alt.)</span>
-              <span className="text-[11px] text-coral">8 min away</span>
+              <span className="font-display text-sm md:[@media(min-height:800px)]:text-base">Pottery Workshop (alt.)</span>
+              <span className="text-xs text-coral">8 min away</span>
             </div>
           </div>
 
@@ -214,14 +214,14 @@ export function PlansChangeScene() {
             <line ref={connectorRef} x1="0.5" y1="0" x2="0.5" y2="24" stroke="var(--border)" strokeWidth={2} strokeDasharray={60} strokeDashoffset={60} />
           </svg>
 
-          <div className="grid w-full grid-cols-[3.5rem_1fr] items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3">
+          <div className="grid w-full grid-cols-[3.5rem_1fr] items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 md:[@media(min-height:800px)]:px-5 md:[@media(min-height:800px)]:py-4">
             <span className="relative text-xs tabular-nums text-muted-foreground">
               <span ref={dinnerOldRef}>7:00</span>
               <span ref={dinnerNewRef} className="absolute inset-0 opacity-0">
                 7:30
               </span>
             </span>
-            <span className="font-display text-sm">Dinner</span>
+            <span className="font-display text-sm md:[@media(min-height:800px)]:text-base">Dinner</span>
           </div>
         </div>
       </div>

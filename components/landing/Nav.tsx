@@ -40,7 +40,7 @@ export function Nav() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: "easeOut" }}
         >
-          <BrandMark variant="text" className="transition-[font-size] duration-[350ms]" textClassName={compressed ? "text-sm" : "text-base"} />
+          <BrandMark variant="text" className="transition-[font-size] duration-[350ms]" textClassName={compressed ? "text-lg" : "text-xl"} />
         </motion.span>
       </Link>
 

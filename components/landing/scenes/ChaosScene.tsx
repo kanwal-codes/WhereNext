@@ -49,15 +49,15 @@ const OBJECTS: ChaosObject[] = [
   { label: "18°C Saturday", sub: "Partly cloudy", icon: CloudSun, origin: { x: 260, y: 60 }, rest: { top: "34%", right: "5%" }, rotation: -3, depth: 0.8 },
   { label: "Old Montreal", sub: "12 min walk", icon: MapPin, origin: { x: -240, y: 220 }, rest: { top: "62%", left: "7%" }, rotation: 1, depth: 1 },
   { label: "10 things to do in MTL", sub: "2.3M views", icon: Music, origin: { x: -280, y: -20 }, rest: { top: "48%", left: "1%" }, rotation: -2, depth: 1.15 },
-  { label: "Your reservation is confirmed", sub: "Olive et Gourmando", icon: Mail, origin: { x: 40, y: -240 }, rest: { top: "4%", left: "58%" }, rotation: 2, depth: 0.8 },
+  { label: "Your reservation is confirmed", sub: "Bistro Saint-Paul", icon: Mail, origin: { x: 40, y: -240 }, rest: { top: "4%", left: "58%" }, rotation: 2, depth: 0.8 },
   { label: "what hotel?", sub: "", icon: MessageCircle, origin: { x: 0, y: 240 }, rest: { top: "74%", left: "42%" }, rotation: -1, depth: 1 },
-  { label: "Old Port walking tour", sub: "$0 · 2 hrs", icon: Compass, origin: { x: 260, y: 140 }, rest: { top: "54%", right: "4%" }, rotation: 3, depth: 1 },
-  { label: "$900 budget", sub: "per person", icon: DollarSign, origin: { x: 240, y: 240 }, rest: { top: "70%", right: "9%" }, rotation: -2, depth: 0.8 },
+  { label: "Old Port walking tour", sub: "$0 · 2 hrs", icon: Compass, origin: { x: 260, y: 140 }, rest: { top: "62%", right: "4%" }, rotation: 3, depth: 1 },
+  { label: "$900 budget", sub: "per person", icon: DollarSign, origin: { x: 240, y: 240 }, rest: { top: "75%", right: "9%" }, rotation: -2, depth: 0.8 },
   { label: "Cobblestone streets", sub: "", photo: "/design/place-neighbourhood.jpg", origin: { x: -220, y: -260 }, rest: { top: "16%", left: "20%" }, rotation: -3, depth: 1.15 },
   { label: "Where we're staying", sub: "", photo: "/design/place-hotel.jpg", origin: { x: 0, y: 260 }, rest: { top: "78%", left: "62%" }, rotation: 2, depth: 1 },
-  { label: "Porter · YTZ→YUL", sub: "$146", icon: Plane, origin: { x: 280, y: -40 }, rest: { top: "40%", right: "1%" }, rotation: 1, depth: 0.8 },
-  { label: "pack a jacket", sub: "", icon: NotebookPen, origin: { x: -240, y: 140 }, rest: { top: "58%", left: "18%" }, rotation: -1, depth: 1 },
-  { label: "airbnb.com/rooms/…", sub: "", icon: Link2, origin: { x: -60, y: 260 }, rest: { top: "80%", left: "30%" }, rotation: 3, depth: 1.15 },
+  { label: "Porter · YTZ→YUL", sub: "$146", icon: Plane, origin: { x: 280, y: -40 }, rest: { top: "49%", right: "1%" }, rotation: 1, depth: 0.8 },
+  { label: "pack a jacket", sub: "", icon: NotebookPen, origin: { x: -240, y: 140 }, rest: { top: "57%", left: "23%" }, rotation: -1, depth: 1 },
+  { label: "airbnb.com/rooms/…", sub: "", icon: Link2, origin: { x: -60, y: 260 }, rest: { top: "80%", left: "25%" }, rotation: 3, depth: 1.15 },
 ];
 
 // Beat sheet, in px of pin scroll. The scene opens as a quiet group chat (its bubbles arrive on
@@ -85,10 +85,10 @@ const H2_OUT = [3200, 3450] as const;
 // percentage of the section), in the gaps the cards leave.
 const CHAT = [
   { who: "K", text: "ROAD TRIP???", side: "left", to: { x: 12, y: 24 }, rotation: -3 },
-  { who: "A", text: "bad bunny montreal oct 16 👀", side: "right", to: { x: 85, y: 27 }, rotation: 2 },
+  { who: "A", text: "bad bunny montreal oct 16 👀", side: "right", to: { x: 85, y: 30 }, rotation: 2 },
   { who: "M", text: "i\u2019m free 16-19", side: "left", to: { x: 12, y: 45 }, rotation: 2 },
   { who: "K", text: "wait who\u2019s driving", side: "right", to: { x: 14, y: 87 }, rotation: -2 },
-  { who: "A", text: "not it", side: "left", to: { x: 86, y: 88 }, rotation: 3 },
+  { who: "A", text: "not it", side: "left", to: { x: 86, y: 91 }, rotation: 3 },
 ] as const;
 
 const MICROCOPY = [
@@ -133,10 +133,13 @@ export function ChaosScene() {
       CHAT.forEach((msg, i) => {
         const el = chatRefs.current[i];
         if (!el) return;
-        deltas[i] = {
-          x: (msg.to.x / 100) * w - (el.offsetLeft + el.offsetWidth / 2),
-          y: (msg.to.y / 100) * h - (el.offsetTop + el.offsetHeight / 2),
-        };
+        // Keep the landing spot on screen: on a phone a bubble near 85% would run off the edge, and
+        // the nav covers the top 4rem.
+        const halfW = el.offsetWidth / 2;
+        const halfH = el.offsetHeight / 2;
+        const tx = Math.min(w - halfW - 12, Math.max(halfW + 12, (msg.to.x / 100) * w));
+        const ty = Math.min(h - halfH - 16, Math.max(64 + halfH + 8, (msg.to.y / 100) * h));
+        deltas[i] = { x: tx - (el.offsetLeft + halfW), y: ty - (el.offsetTop + halfH) };
       });
     };
 
@@ -183,6 +186,11 @@ export function ChaosScene() {
         const exit = w(EXIT[0], EXIT[1]);
         if (px > CHAT_DONE && intro.progress() < 1) intro.progress(1);
 
+        // The headline sits over the pile; on a phone or a short window the cards cover most of the
+        // screen, so they step back while a headline is up.
+        const headlineUp = Math.max(w(H1_IN[0], H1_IN[1]) * (1 - w(H1_OUT[0], H1_OUT[1])), w(H2_IN[0], H2_IN[1]) * (1 - w(H2_OUT[0], H2_OUT[1])));
+        const dim = 1 - (section.clientWidth < 768 || section.clientHeight < 760 ? 0.6 : 0) * headlineUp;
+
         CHAT.forEach((msg, i) => {
           const el = chatRefs.current[i];
           if (!el) return;
@@ -194,7 +202,7 @@ export function ChaosScene() {
             x: deltas[i].x * eased + (section.clientWidth / 2 - (msg.to.x / 100) * section.clientWidth) * 0.2 * exit,
             y: deltas[i].y * eased - drift + (section.clientHeight / 2 - (msg.to.y / 100) * section.clientHeight) * 0.2 * exit,
             rotate: msg.rotation * eased,
-            opacity: 1 - exit,
+            opacity: (1 - exit) * dim,
           });
         });
 
@@ -216,9 +224,9 @@ export function ChaosScene() {
           gsap.set(el, {
             x: obj.origin.x * (1 - reveal) + pullX,
             y: obj.origin.y * (1 - reveal) - drift + pullY,
-            opacity: reveal * (1 - exit),
+            opacity: reveal * (1 - exit) * dim,
             rotate: obj.rotation,
-            scale: 0.92 + reveal * 0.08 - exit * 0.05,
+            scale: (0.92 + reveal * 0.08 - exit * 0.05) * (obj.depth > 1 ? 1.06 : obj.depth < 1 ? 0.95 : 1),
           });
         });
 
@@ -279,7 +287,7 @@ export function ChaosScene() {
             ref={(el) => {
               objectRefs.current[i] = el;
             }}
-            className="absolute w-44 rounded-xl border border-border bg-surface p-3 opacity-0 shadow-lift"
+            className={`absolute w-44 rounded-xl border border-border bg-surface p-3 opacity-0 md:[@media(min-height:800px)]:w-52 md:[@media(min-height:800px)]:p-4 ${obj.depth < 1 ? "shadow-soft" : "shadow-lift"}`}
             style={{ top: obj.rest.top, left: obj.rest.left, right: obj.rest.right }}
           >
             {obj.photo ? (
@@ -287,13 +295,13 @@ export function ChaosScene() {
               <img src={obj.photo} alt="" width={320} height={128} loading="lazy" className="mb-2 h-16 w-full rounded-lg object-cover" />
             ) : (
               Icon && (
-                <span className="mb-2 grid size-7 place-items-center rounded-lg bg-coral-soft text-coral">
+                <span className="mb-2 grid size-7 place-items-center rounded-lg bg-coral-soft text-coral md:mb-2.5 md:size-8">
                   <Icon className="size-3.5" strokeWidth={1.8} />
                 </span>
               )
             )}
-            <p className="truncate text-xs font-medium">{obj.label}</p>
-            {obj.sub && <p className="truncate text-[11px] text-muted-foreground">{obj.sub}</p>}
+            <p className="truncate text-sm font-medium">{obj.label}</p>
+            {obj.sub && <p className="truncate text-xs text-muted-foreground">{obj.sub}</p>}
           </div>
         );
       })}
@@ -304,7 +312,7 @@ export function ChaosScene() {
           ref={(el) => {
             microcopyRefs.current[i] = el;
           }}
-          className="absolute max-w-[12rem] rounded-full border border-border bg-surface px-3 py-1.5 text-xs opacity-0 shadow-soft"
+          className="absolute max-w-[12rem] rounded-full border border-border bg-surface px-3 py-1.5 text-sm opacity-0 shadow-soft"
           style={{ top: copy.top, left: copy.left }}
         >
           {copy.text}
@@ -326,7 +334,7 @@ export function ChaosScene() {
                 {msg.who}
               </span>
               <div
-                className={`max-w-[16rem] translate-y-6 scale-[0.96] rounded-2xl border px-4 py-3 text-sm opacity-0 shadow-lift ${msg.side === "right" ? "rounded-br-md border-primary bg-primary text-primary-foreground" : "rounded-bl-md border-border bg-surface"}`}
+                className={`max-w-[16rem] translate-y-6 scale-[0.96] rounded-2xl border px-4 py-3 text-sm opacity-0 md:text-base shadow-lift ${msg.side === "right" ? "rounded-br-md border-primary bg-primary text-primary-foreground" : "rounded-bl-md border-border bg-surface"}`}
               >
                 {msg.text}
               </div>

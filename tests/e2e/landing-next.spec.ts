@@ -156,7 +156,8 @@ test.describe("landing page overhaul", () => {
     const chaos = page.locator('[data-scene="chaos"]');
     await expect.poll(() => opacityOf(chaos.getByText("Roam brings it together."))).toBeGreaterThan(0.95);
     await expect(chaos.getByText("Fairmont Le Château")).toBeVisible();
-    expect(await opacityOf(chaos.getByText("Fairmont Le Château"))).toBeGreaterThan(0.9);
+    // On short windows the pile steps back to ~40% behind the headline so it stays readable.
+    expect(await opacityOf(chaos.getByText("Fairmont Le Château"))).toBeGreaterThan(0.3);
   });
 
   test("discover shows four places at once, then adds pottery by itself", async ({ page }) => {
@@ -210,7 +211,7 @@ test.describe("landing page overhaul", () => {
     // "Ask Roam" is no longer its own button — asking is now a chat message
     // in the thread (see PlansChangeScene.tsx), and Discover adds pottery by
     // itself, so the one narrative control left is Fix Saturday.
-    expect(advances).toEqual([900]);
+    expect(advances).toEqual([800]);
   });
 
   test("mobile keeps navigation usable and Discover fits all four places on one screen", async ({ page }) => {
@@ -244,7 +245,7 @@ test.describe("landing page overhaul", () => {
 
     // Reply has landed, but the itinerary (opacity isn't reflected by
     // toBeVisible, hence the direct measure) must wait until after it.
-    await scrollThrough(page, top + distance * 0.25);
+    await scrollThrough(page, top + distance * 0.2);
     await page.waitForTimeout(2500);
     await expect(plansChange.getByText("pottery place says they")).toBeVisible();
     await expect(plansChange.getByText("@Roam find another timing")).toBeVisible();

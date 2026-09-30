@@ -27,7 +27,7 @@ const MOMENTS: Moment[] = [
   { time: "6:42 PM", location: "Bell Centre", message: "Leave in 18 minutes.", card: { label: "Bad Bunny · Bell Centre", sub: "Concert ticket" }, photo: "/design/place-concert-arena.jpg" },
   // Reservation was "7:30", three hours before this moment's own 10:18 PM —
   // fixed to agree with the beat it's actually attached to.
-  { time: "10:18 PM", location: "Old Montreal", message: "Dinner · 8 minute walk.", card: { label: "Olive et Gourmando · 10:30", sub: "Reservation" }, photo: "/design/place-rooftop-lounge.jpg" },
+  { time: "10:18 PM", location: "Old Montreal", message: "Dinner · 8 minute walk.", card: { label: "Bistro Saint-Paul · 10:30", sub: "Reservation" }, photo: "/design/place-rooftop-lounge.jpg" },
 ];
 
 // Beat sheet, in px of pin scroll. "FRIDAY" is already on screen while the dark

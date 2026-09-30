@@ -45,19 +45,19 @@ export function PromptScene() {
     <section
       ref={sectionRef}
       data-scene="prompt"
-      className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden bg-background px-6 pt-28 pb-20"
+      className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden bg-background px-6 pt-28 pb-20 [@media(max-height:760px)]:pt-20 [@media(max-height:760px)]:pb-8"
     >
       <div ref={contentRef} className="relative mx-auto flex w-full max-w-3xl flex-col items-center text-center">
         <h1
           ref={part(0)}
-          className="translate-y-4 font-display text-[clamp(2.75rem,8vw,6rem)] leading-[0.98] tracking-[-0.04em] text-balance opacity-0"
+          className="translate-y-4 font-display text-[clamp(2.75rem,8vw,6rem)] [@media(max-height:760px)]:text-[clamp(2.25rem,6vw,4.25rem)] leading-[0.98] tracking-[-0.04em] text-balance opacity-0"
         >
           Let&rsquo;s plan something.
         </h1>
-        <p ref={part(1)} className="mt-5 max-w-xl translate-y-4 text-base leading-relaxed text-balance text-muted-foreground opacity-0 sm:text-lg">
-          Tell Roam what you have in mind. It starts planning as you talk, no account needed.
+        <p ref={part(1)} className="mt-5 [@media(max-height:760px)]:mt-3 max-w-xl translate-y-4 text-base leading-relaxed text-balance text-muted-foreground opacity-0 sm:text-lg">
+          Dates, budget, who&rsquo;s coming. Share the rough idea and watch the trip take shape.
         </p>
-        <div ref={part(2)} className="mt-9 w-full translate-y-4 opacity-0">
+        <div ref={part(2)} className="mt-9 [@media(max-height:760px)]:mt-5 w-full translate-y-4 opacity-0">
           <TripPromptBox />
         </div>
       </div>

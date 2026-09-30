@@ -69,7 +69,7 @@ export function TripPromptBox() {
     <div className="w-full">
       <form
         onSubmit={start}
-        className="w-full rounded-[1.75rem] border border-border bg-surface p-3 shadow-lift focus-within:ring-2 focus-within:ring-ring/25"
+        className="w-full rounded-[2rem] border border-border bg-surface p-4 shadow-lift transition-shadow focus-within:ring-2 focus-within:ring-coral/30"
       >
         <textarea
           ref={textareaRef}
@@ -87,7 +87,7 @@ export function TripPromptBox() {
             }
           }}
           placeholder={!prompt && !focused ? typed : "Tell Roam about your trip…"}
-          className="block min-h-[6.25rem] w-full resize-none bg-transparent px-3 pt-2 text-left text-base leading-relaxed outline-none placeholder:text-muted-foreground/70"
+          className="block min-h-[7rem] [@media(max-height:760px)]:min-h-[5rem] w-full resize-none bg-transparent px-3 pt-2 text-left text-base leading-relaxed md:text-lg outline-none placeholder:text-muted-foreground/70"
         />
         <div className="mt-1 flex items-center justify-end gap-3 px-2 pb-1">
           <button type="submit" disabled={!prompt.trim() || busy} className="btn-primary shrink-0 disabled:opacity-50">
@@ -99,7 +99,7 @@ export function TripPromptBox() {
       </form>
       <div ref={turnstile} />
 
-      <div className="mt-5 flex flex-wrap justify-center gap-2">
+      <div className="mt-5 [@media(max-height:760px)]:mt-3 flex flex-wrap justify-center gap-2">
         {STARTERS.map((starter) => (
           <button
             key={starter.label}
@@ -108,7 +108,7 @@ export function TripPromptBox() {
               setPrompt(starter.prompt);
               textareaRef.current?.focus();
             }}
-            className="rounded-full border border-border bg-surface/80 px-4 py-2 text-sm font-medium transition-colors hover:bg-surface"
+            className="rounded-full border border-border bg-surface/80 px-4 py-2 text-sm font-medium shadow-soft transition-[background-color,transform] hover:-translate-y-px hover:bg-surface active:translate-y-0"
           >
             {starter.label}
           </button>
