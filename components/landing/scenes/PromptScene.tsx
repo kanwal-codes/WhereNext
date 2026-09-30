@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { LandingBloom } from "@/components/landing/LandingBloom";
+import { LandingBloom, type BloomVariant } from "@/components/landing/LandingBloom";
 import { TripPromptBox } from "@/components/landing/TripPromptBox";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -18,6 +18,12 @@ export function PromptScene() {
   const contentRef = useRef<HTMLDivElement>(null);
   const bloomRef = useRef<HTMLDivElement>(null);
   const partRefs = useRef<(HTMLElement | null)[]>([]);
+  // Preview switch while choosing a look: /?bloom=sunrise|horizon|route (default dusk).
+  const [variant, setVariant] = useState<BloomVariant>("dusk");
+  useEffect(() => {
+    const v = new URLSearchParams(window.location.search).get("bloom");
+    if (v === "sunrise" || v === "horizon" || v === "route") setVariant(v);
+  }, []);
 
   useEffect(() => {
     const parts = partRefs.current.filter((el): el is HTMLElement => Boolean(el));
@@ -57,7 +63,7 @@ export function PromptScene() {
       className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden bg-background px-6 pt-28 pb-20 [@media(max-height:760px)]:pt-20 [@media(max-height:760px)]:pb-8"
     >
       <div ref={bloomRef} className="absolute inset-0">
-        <LandingBloom />
+        <LandingBloom variant={variant} />
       </div>
       <div ref={contentRef} className="relative mx-auto flex w-full max-w-3xl flex-col items-center text-center">
         <h1
