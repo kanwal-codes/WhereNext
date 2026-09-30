@@ -1,6 +1,58 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/*
+ * daisyUI 5, used for component structure (card, badge, tabs, dropdown, stats ...).
+ * It is deliberately fenced in so it cannot restyle anything that already exists:
+ *  - `prefix`: every daisyUI class is `daisy-*`, so it can never collide with the app's own
+ *    `.btn-primary` / `.btn-destructive` / etc.
+ *  - `themes: false` + the "wherenext" theme below: daisyUI's colours are just aliases of the
+ *    app's existing tokens, so light/dark keep following the `.dark` class and nothing is repainted.
+ *  - `exclude`: the modules that would set the page background, lock scrolling or add a scrollbar
+ *    gutter globally (the app already handles all three itself).
+ */
+@plugin "daisyui" {
+  themes: false;
+  prefix: "daisy-";
+  exclude: rootcolor, rootscrollgutter, rootscrolllock, scrollbar;
+  logs: false;
+}
+@plugin "daisyui/theme" {
+  name: "wherenext";
+  default: true;
+  color-scheme: light;
+
+  --color-base-100: var(--card);
+  --color-base-200: var(--muted);
+  --color-base-300: var(--border);
+  --color-base-content: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-content: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-content: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-content: var(--accent-foreground);
+  --color-neutral: var(--primary);
+  --color-neutral-content: var(--primary-foreground);
+  --color-info: var(--ink-soft);
+  --color-info-content: var(--background);
+  --color-success: oklch(0.6 0.09 158);
+  --color-success-content: oklch(0.99 0.01 158);
+  --color-warning: var(--coral);
+  --color-warning-content: var(--primary-foreground);
+  --color-error: var(--destructive);
+  --color-error-content: var(--destructive-foreground);
+
+  --radius-selector: 999px;
+  --radius-field: 999px;
+  --radius-box: 1.25rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 /*

@@ -1,13 +1,17 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, CalendarDays, Loader2, MapPin, Mic, Plus, Trash2, Users } from "lucide-react";
+import { ArrowRight, Loader2, Mic, Plus, Trash2 } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
 import { Hero } from "@/components/Hero";
-import { Reveal, Sheet, Stagger, StaggerItem, Tactile, WordReveal } from "@/components/motion-primitives";
+import { Reveal, Sheet, Stagger, StaggerItem, WordReveal } from "@/components/motion-primitives";
+import { FeaturedTrip } from "@/components/trips/FeaturedTrip";
+import { TripCard } from "@/components/trips/TripCard";
+import type { TripSummary } from "@/components/trips/types";
+import { RoamMark } from "@/features/roam/ui/RoamMark";
 import { notifyToast } from "@/lib/application/toast";
-import { tripWhen } from "@/lib/trip-dates";
+import { matchesFilter, pickFeatured, sortForHome, tripCounts, tripStatus, type TripFilter } from "@/lib/trip-status";
 import { useIsDarkMode } from "@/lib/use-dark-mode";
 import { useSpeechInput } from "@/lib/use-speech-input";
 import { memberInitials } from "@/lib/member-initials";
@@ -15,22 +19,34 @@ import { cn } from "@/lib/utils";
 
 const PROMPT_CHIPS = ["A relaxing weekend", "Somewhere new", "Reunite with friends"];
 
-export type TripSummary = {
-  id: string;
-  name: string;
-  destination: string | null;
-  origin: string | null;
-  duration_days: number | null;
-  start_date: string | null;
-  end_date: string | null;
-  travelers: number | null;
-};
+export type { TripSummary };
+
+const FILTER_TABS: Array<{ key: TripFilter; label: string }> = [
+  { key: "all", label: "All" },
+  { key: "upcoming", label: "Upcoming" },
+  { key: "undated", label: "Planning" },
+  { key: "past", label: "Past" },
+];
 
 export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displayName: string }) {
   const [list, setList] = useState(trips);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<TripSummary | null>(null);
   const isDark = useIsDarkMode();
+  // "Today" for the whole screen, fixed for the life of the mount so nothing shifts under the reader.
+  const [now] = useState(() => Date.now());
+  const [filter, setFilter] = useState<TripFilter>("all");
+  const counts = useMemo(() => tripCounts(list, now), [list, now]);
+  // If the last trip of a kind is deleted while its tab is open, fall back to All rather than an empty tab.
+  const activeFilter: TripFilter = counts[filter] > 0 ? filter : "all";
+  const visible = useMemo(
+    () => sortForHome(list, now).filter((trip) => matchesFilter(tripStatus(trip, now), activeFilter)),
+    [list, now, activeFilter],
+  );
+  const featured = useMemo(() => pickFeatured(visible, now), [visible, now]);
+  const rest = useMemo(() => visible.filter((trip) => trip.id !== featured?.id), [visible, featured]);
+  const tabs = FILTER_TABS.filter((tab) => tab.key === "all" || counts[tab.key] > 0);
+  const showTabs = list.length > 3 && tabs.length > 2;
 
   const [prompt, setPrompt] = useState("");
   const [starting, setStarting] = useState(false);
@@ -184,84 +200,78 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
         </div>
       </Hero>
 
-      <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
+      <div className="mx-auto max-w-6xl px-5 pt-12 pb-20 sm:px-8">
         <Reveal delay={0.55}>
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-            <h2 className="min-w-0 font-display text-xl">
-              {list.length > 0 ? `${list.length} trip${list.length === 1 ? "" : "s"}` : "No trips yet"}
-            </h2>
-            <Link href="/trips/new" className="btn-primary w-fit shrink-0 sm:justify-self-end">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <h2 className="font-display text-3xl tracking-tight">{list.length > 0 ? "Your trips" : "No trips yet"}</h2>
+              {list.length > 0 && <span className="daisy-badge daisy-badge-ghost tabular-nums">{list.length}</span>}
+            </div>
+            <Link href="/trips/new" className="btn-primary w-fit shrink-0">
               <Plus className="h-4 w-4" /> Create new trip
             </Link>
           </div>
+          {showTabs && (
+            <div role="tablist" aria-label="Filter trips" className="daisy-tabs daisy-tabs-box daisy-tabs-sm mt-5 w-fit max-w-full overflow-x-auto bg-muted">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeFilter === tab.key}
+                  onClick={() => setFilter(tab.key)}
+                  className={cn("daisy-tab gap-2 transition-[color,box-shadow]", activeFilter === tab.key ? "daisy-tab-active shadow-soft" : "text-muted-foreground hover:text-foreground")}
+                >
+                  {tab.label}
+                  <span className="text-xs text-muted-foreground tabular-nums">{counts[tab.key]}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </Reveal>
 
         {list.length === 0 ? (
           <Reveal>
-            <div className="mt-8 rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center">
-              <h3 className="mx-auto max-w-md font-display text-2xl leading-snug">
+            <div className="mt-10 flex flex-col items-center px-6 py-16 text-center">
+              <RoamMark state="idle" size={120} label="Roam" className="text-foreground" />
+              <h3 className="mx-auto mt-6 max-w-md font-display text-3xl leading-snug tracking-tight text-balance">
                 Start with a place, or just a feeling about one.
               </h3>
               <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-                You only need a name and a destination. Dates, budget, who&rsquo;s coming — all of
-                that can come out of the conversation later.
+                You only need a name and a destination. Dates, budget and who&rsquo;s coming can all come out of the conversation later.
               </p>
-              <Link href="/trips/new" className="btn-primary mt-6">
+              <Link href="/trips/new" className="btn-primary mt-7">
                 Create your first trip <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           </Reveal>
         ) : (
-          <Stagger className="mt-7 grid gap-5 lg:grid-cols-2 xl:grid-cols-3" delay={0.1}>
-            {list.map((trip) => (
-              <StaggerItem key={trip.id}>
-                <Tactile lift={4} className="group relative">
-                  <Link
-                    href={`/trips/${trip.id}`}
-                    className="block h-full rounded-2xl border border-border bg-card p-6 shadow-soft"
-                  >
-                    <div className="min-w-0 pr-9">
-                      <h3 className="truncate font-display text-2xl">{trip.name}</h3>
-                      <p className="mt-1 flex items-center gap-1.5 truncate text-sm text-muted-foreground">
-                        <MapPin className="h-3.5 w-3.5 shrink-0" />
-                        {trip.destination || "Destination not set"}
-                      </p>
-                    </div>
-
-                    <dl className="mt-6 grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm">
-                      <div className="col-span-2 min-w-0">
-                        <dt className="flex items-center gap-1.5 text-[11px] tracking-[0.1em] text-muted-foreground uppercase">
-                          <CalendarDays className="h-3 w-3" /> Dates
-                        </dt>
-                        <dd className="mt-1 truncate">{tripWhen(trip.start_date, trip.end_date, trip.duration_days)}</dd>
-                      </div>
-                      <div className="min-w-0">
-                        <dt className="flex items-center gap-1.5 text-[11px] tracking-[0.1em] text-muted-foreground uppercase">
-                          <Users className="h-3 w-3" /> Travellers
-                        </dt>
-                        <dd className="mt-1 truncate">{trip.travelers ?? "Not set"}</dd>
-                      </div>
-                      <div className="min-w-0">
-                        <dt className="flex items-center gap-1.5 text-[11px] tracking-[0.1em] text-muted-foreground uppercase">
-                          <MapPin className="h-3 w-3" /> From
-                        </dt>
-                        <dd className="mt-1 truncate">{trip.origin || "Not set"}</dd>
-                      </div>
-                    </dl>
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => setPendingDelete(trip)}
-                    disabled={deleting === trip.id}
-                    aria-label={`Delete ${trip.name}`}
-                    className="absolute top-4 right-4 rounded-full border border-border bg-background/90 p-1.5 text-muted-foreground opacity-0 backdrop-blur transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100 disabled:opacity-60"
-                  >
-                    {deleting === trip.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                  </button>
-                </Tactile>
-              </StaggerItem>
-            ))}
-          </Stagger>
+          <div key={activeFilter}>
+            {featured && (
+              <Reveal delay={0.1}>
+                <div className="mt-8">
+                  <FeaturedTrip
+                    trip={featured}
+                    status={tripStatus(featured, now)}
+                    deleting={deleting === featured.id}
+                    onDelete={() => setPendingDelete(featured)}
+                  />
+                </div>
+              </Reveal>
+            )}
+            {rest.length > 0 && (
+              <Stagger
+                className={cn("mt-6 grid gap-5 sm:grid-cols-2", rest.length === 1 || rest.length === 2 || rest.length === 4 ? "lg:grid-cols-2" : "lg:grid-cols-3")}
+                delay={0.2}
+              >
+                {rest.map((trip) => (
+                  <StaggerItem key={trip.id}>
+                    <TripCard trip={trip} status={tripStatus(trip, now)} deleting={deleting === trip.id} onDelete={() => setPendingDelete(trip)} />
+                  </StaggerItem>
+                ))}
+              </Stagger>
+            )}
+          </div>
         )}
       </div>
 
