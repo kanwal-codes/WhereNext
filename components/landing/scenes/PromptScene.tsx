@@ -18,12 +18,12 @@ export function PromptScene() {
   const contentRef = useRef<HTMLDivElement>(null);
   const bloomRef = useRef<HTMLDivElement>(null);
   const partRefs = useRef<(HTMLElement | null)[]>([]);
-  // Preview switch while choosing a look: /?bloom=dusk|sunrise|horizon|route|trip|rock (default shore).
-  const [variant, setVariant] = useState<BloomVariant>("shore");
+  // Preview switch while choosing a look: /?bloom=dusk|sunrise|horizon|route|trip|rock|shore (default photo).
+  const [variant, setVariant] = useState<BloomVariant>("photo");
   const [typedLength, setTypedLength] = useState(0);
   useEffect(() => {
     const v = new URLSearchParams(window.location.search).get("bloom");
-    if (v === "dusk" || v === "sunrise" || v === "horizon" || v === "route" || v === "trip" || v === "rock") setVariant(v);
+    if (v === "dusk" || v === "sunrise" || v === "horizon" || v === "route" || v === "trip" || v === "rock" || v === "shore") setVariant(v);
   }, []);
 
   useEffect(() => {
@@ -73,11 +73,11 @@ export function PromptScene() {
         >
           Let&rsquo;s plan something.
         </h1>
-        <p ref={part(1)} className="mt-5 [@media(max-height:760px)]:mt-3 max-w-xl translate-y-4 text-base leading-relaxed text-balance text-muted-foreground opacity-0 sm:text-lg">
+        <p ref={part(1)} className={`mt-5 [@media(max-height:760px)]:mt-3 max-w-xl translate-y-4 text-base leading-relaxed text-balance opacity-0 sm:text-lg ${variant === "photo" ? "font-medium text-foreground/80 [text-shadow:0_1px_14px_rgba(255,255,255,0.65)]" : "text-muted-foreground"}`}>
           Dates, budget, who&rsquo;s coming. Share the rough idea and watch the trip take shape.
         </p>
         <div ref={part(2)} className="mt-9 [@media(max-height:760px)]:mt-5 w-full translate-y-4 opacity-0">
-          <TripPromptBox onTyping={setTypedLength} foam={variant === "shore" || variant === "rock"} />
+          <TripPromptBox onTyping={setTypedLength} foam={variant === "shore" || variant === "rock" || variant === "photo"} foamSides={variant !== "photo"} />
         </div>
       </div>
 

@@ -1057,3 +1057,13 @@
 .landing-rock-surf { animation: shore-tide 10s ease-in-out infinite; }
 @media (max-width: 767px) { .landing-rocks { display: none; } }
 @media (prefers-reduced-motion: reduce) { .landing-rock-surf, .landing-cove-streaks, .landing-cove-churn { animation: none; } }
+
+/* Photo cove: a pale wash at the top for the headline, a soft dark edge at the bottom, and a very slow push-in. */
+.landing-photo-img { object-position: 50% 62%; transform: translateY(-3%) scale(1.15); transform-origin: 55% 70%; animation: photo-push 40s ease-in-out infinite alternate; }
+.landing-photo-wash {
+  background:
+    linear-gradient(to bottom, oklch(0.97 0.02 200 / 0.55) 0%, oklch(0.97 0.02 200 / 0.28) 34%, transparent 58%),
+    linear-gradient(to top, oklch(0.2 0.03 230 / 0.18), transparent 22%);
+}
+@keyframes photo-push { from { transform: translateY(-3%) scale(1.15); } to { transform: translateY(-3%) scale(1.2); } }
+@media (prefers-reduced-motion: reduce) { .landing-photo-img { animation: none; } }

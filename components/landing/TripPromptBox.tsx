@@ -44,7 +44,7 @@ const STARTERS = [
  * creates a real draft trip (under a guest session — see /api/guest/start) and opens the normal
  * trip chat with this sentence already sent; saving the trip later just upgrades the same user.
  */
-export function TripPromptBox({ onTyping, foam = false }: { onTyping?: (length: number) => void; foam?: boolean }) {
+export function TripPromptBox({ onTyping, foam = false, foamSides = true }: { onTyping?: (length: number) => void; foam?: boolean; foamSides?: boolean }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [prompt, setPrompt] = useState("");
   const [focused, setFocused] = useState(false);
@@ -101,7 +101,7 @@ export function TripPromptBox({ onTyping, foam = false }: { onTyping?: (length: 
   return (
     <div className="w-full">
       <div className="relative">
-      {foam && <FoamEdge />}
+      {foam && <FoamEdge sides={foamSides} />}
       <form
         onSubmit={start}
         className={`relative z-10 w-full rounded-[2rem] p-4 transition-shadow ${
@@ -209,7 +209,7 @@ const SIDE = Array.from({ length: 14 }, (_, i) => {
  * filter (blur, then a hard alpha cut) so they melt into one lacy shape, like foam where a wave
  * has just reached the sand. The bubbles slowly swell and settle in step with the tide behind.
  */
-function FoamEdge() {
+function FoamEdge({ sides }: { sides: boolean }) {
   return (
     <div aria-hidden className="landing-foam pointer-events-none absolute inset-0 z-0">
       <svg width="0" height="0" className="absolute">
@@ -228,7 +228,7 @@ function FoamEdge() {
               style={{ left: `${b.left}%`, bottom: `${-b.size * b.drop}px`, width: b.size, height: b.size, marginLeft: -b.size / 2, animationDelay: `${b.delay}s`, animationDuration: `${b.dur}s` }}
             />
           ))}
-          {SIDE.map((b, i) => (
+          {sides && SIDE.map((b, i) => (
             <span key={i} className="landing-foam-bubble absolute rounded-full bg-white" style={{ left: `${b.left}%`, top: `${b.top}%`, width: b.size, height: b.size, marginLeft: -b.size / 2 }} />
           ))}
         </div>

@@ -1,6 +1,6 @@
 import { BedDouble, CalendarDays, Plane, Utensils, type LucideIcon } from "lucide-react";
 
-export type BloomVariant = "dusk" | "sunrise" | "horizon" | "route" | "trip" | "shore" | "rock";
+export type BloomVariant = "dusk" | "sunrise" | "horizon" | "route" | "trip" | "shore" | "rock" | "photo";
 
 /**
  * The light behind the first screen. Purely decorative: hidden from assistive tech and never
@@ -10,10 +10,11 @@ export type BloomVariant = "dusk" | "sunrise" | "horizon" | "route" | "trip" | "
  *   horizon  a low sun over a thin horizon line and a dusk sea
  *   shore    dry sand, wet sand and a tide; the prompt box is the foam where the water reaches it
  *   rock     a rocky cove: turquoise sea, white surf churning between dark rocks; the box is the surf
+ *   photo    a photograph of a rocky cove with surf; the box is drawn as the surf
  *   route    a soft wash with a trip route that draws itself as the visitor writes
  *   trip     the route plus example trip cards (flight, stay, day, dinner) that come into focus as they write
  */
-export function LandingBloom({ variant = "shore", progress = 0, className }: { variant?: BloomVariant; progress?: number; className?: string }) {
+export function LandingBloom({ variant = "photo", progress = 0, className }: { variant?: BloomVariant; progress?: number; className?: string }) {
   if (variant === "horizon") {
     return (
       <div aria-hidden className={`landing-bloom landing-bloom-horizon pointer-events-none absolute inset-x-0 bottom-0 ${className ?? ""}`}>
@@ -27,6 +28,7 @@ export function LandingBloom({ variant = "shore", progress = 0, className }: { v
   }
   if (variant === "shore") return <ShoreBloom />;
   if (variant === "rock") return <CoveBloom />;
+  if (variant === "photo") return <PhotoBloom />;
   if (variant === "route") return <RouteBloom progress={progress} className={className} />;
   if (variant === "trip") {
     return (
@@ -274,6 +276,23 @@ function CoveBloom() {
         <rect width="1440" height="900" filter="url(#cove-grit)" clipPath="url(#cove-clip)" opacity="0.22" style={{ mixBlendMode: "soft-light" }} />
       </svg>
       <div className="landing-bloom-grain" style={{ opacity: 0.16 }} />
+    </div>
+  );
+}
+
+/**
+ * A photograph of a rocky cove under the page. The sea stays calm and open in the middle for the
+ * headline; the surf sits low and centre, where the prompt box's foam edge melts into it. A pale
+ * wash over the top keeps the headline readable, and a very slow push-in keeps the image alive.
+ */
+function PhotoBloom() {
+  return (
+    <div aria-hidden className="landing-photo pointer-events-none absolute inset-0 overflow-hidden">
+      <picture>
+        <source media="(max-width: 767px)" srcSet="/landing/cove-m.webp" />
+        <img src="/landing/cove.webp" alt="" fetchPriority="high" decoding="async" className="landing-photo-img absolute inset-0 h-full w-full object-cover" />
+      </picture>
+      <div className="landing-photo-wash absolute inset-0" />
     </div>
   );
 }
