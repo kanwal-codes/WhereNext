@@ -19,7 +19,7 @@ function BoardingPass({ trip, size }: { trip: TripSummary; size: "card" | "featu
   const { city, country } = coverText(trip);
   const stamp = stampParts(trip.start_date);
   return (
-    <div aria-hidden className="absolute inset-0 flex items-end justify-between gap-4 p-5 pt-16 sm:p-6 sm:pt-16">
+    <div aria-hidden className={cn("absolute inset-0 flex justify-between gap-4 p-5 sm:p-6", size === "feature" ? "items-start pt-20 sm:pt-20" : "items-end pt-16 sm:pt-16")}>
       <div className="min-w-0">
         {country && <p className="text-[11px] tracking-[0.2em] text-ink-soft uppercase">{country}</p>}
         <p className={cn("mt-1 line-clamp-2 font-display leading-[0.95] tracking-tight text-balance text-foreground/90", CITY_SIZE[size][cityScale(city)])}>{city}</p>
