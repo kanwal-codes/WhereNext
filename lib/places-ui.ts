@@ -7,6 +7,12 @@ export function photoProxyUrl(tripId: string, photoName: string | undefined, wid
   return `/api/trips/${tripId}/places/google/photo?name=${encodeURIComponent(photoName)}${width ? `&w=${width}` : ""}`;
 }
 
+/** Same idea for the account page, where there is no trip: any signed-in user. */
+export function accountPhotoUrl(photoName: string | null | undefined, width?: number): string | undefined {
+  if (!photoName || !/^places\/[^/]+\/photos\/[^/]+$/.test(photoName)) return undefined;
+  return `/api/account/places/photo?name=${encodeURIComponent(photoName)}${width ? `&w=${width}` : ""}`;
+}
+
 /** The widths the photo proxy will serve. 800 is the default (cards); the wider ones are for full-width heroes. */
 export const PHOTO_WIDTHS = [800, 1200, 1600] as const;
 

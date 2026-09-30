@@ -4,11 +4,13 @@ import { useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "rea
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, BadgeCheck, Camera, Check, Copy, Download, Eye, Link2, Loader2, Plane, Trash2 } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Camera, Check, Copy, Download, Eye, Link2, Loader2, MapPin, Plane, Sparkles, Trash2 } from "lucide-react";
 import { Reveal, Sheet, Tactile, WordReveal } from "@/components/motion-primitives";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { BrandMark } from "@/components/BrandMark";
 import { useIsDarkMode } from "@/lib/use-dark-mode";
+import { DestinationCombobox } from "@/components/DestinationCombobox";
+import { accountPhotoUrl } from "@/lib/places-ui";
 import { notifyToast } from "@/lib/application/toast";
 import { cn } from "@/lib/utils";
 import { updateName, updateEmail, updatePassword, disconnectGoogle, signInWithGoogle, signOut as signOutUser, uploadAvatar } from "@/features/identity/application/authClient";
@@ -223,9 +225,21 @@ export function AccountView({
     if (error || !url) { notifyToast("That photo couldn’t be uploaded.", "error"); return; }
     setAvatarUrl(url);
     setAvatarError(false);
+    setAvatarSource("upload");
+    void saveProfile({ avatarSource: "upload" });
     notifyToast("Photo updated", "success");
   }
   const touch = () => { setDirty(true); setSaved(false); };
+
+  // The dream destination: its photo is the profile picture and the backdrop of this page.
+  const [dreamText, setDreamText] = useState(profile.dreamDestination ?? "");
+  const [dreamDraft, setDreamDraft] = useState(profile.dreamDestination ?? "");
+  const [dreamPhoto, setDreamPhoto] = useState<string | null>(profile.dreamPhotoName ?? null);
+  const [avatarSource, setAvatarSource] = useState<"dream" | "upload">(profile.avatarSource ?? "dream");
+  const [savingDream, setSavingDream] = useState(false);
+  const [heroFailed, setHeroFailed] = useState(false);
+  const dreamAvatar = dreamPhoto && avatarSource !== "upload" ? accountPhotoUrl(dreamPhoto, 800) : undefined;
+  const dreamHero = dreamPhoto && !heroFailed ? accountPhotoUrl(dreamPhoto, 1600) : undefined;
 
   const [name, setName] = useState(initialName);
   const [emailDraft, setEmailDraft] = useState(email);
@@ -280,6 +294,39 @@ export function AccountView({
       notifyToast("That couldn’t be saved. Try again.", "error");
       return false;
     }
+  }
+
+  /** Pick the dream destination: look up its photo once, then save both so the page and profile picture update together. */
+  async function chooseDream(text: string) {
+    const place = text.trim();
+    if (!place || savingDream) return;
+    setSavingDream(true);
+    try {
+      const res = await fetch(`/api/account/places/destination-photo?query=${encodeURIComponent(place)}`);
+      const body = res.ok ? ((await res.json()) as { photoName?: string | null }) : { photoName: null };
+      const photoName = body.photoName ?? null;
+      const ok = await saveProfile({ dreamDestination: place, dreamPhotoName: photoName, avatarSource: "dream" });
+      if (!ok) return;
+      setDreamText(place);
+      setDreamDraft(place);
+      setDreamPhoto(photoName);
+      setAvatarSource("dream");
+      setHeroFailed(false);
+      notifyToast(photoName ? "Your dream destination is your profile picture now." : "Saved. We couldn’t find a photo for it, though.", photoName ? "success" : "info");
+    } finally {
+      setSavingDream(false);
+    }
+  }
+
+  async function clearDream() {
+    if (savingDream) return;
+    setSavingDream(true);
+    const ok = await saveProfile({ dreamDestination: null, dreamPhotoName: null });
+    setSavingDream(false);
+    if (!ok) return;
+    setDreamText("");
+    setDreamDraft("");
+    setDreamPhoto(null);
   }
 
   async function saveAll() {
@@ -367,7 +414,7 @@ export function AccountView({
        * slowly pushing in, graded dark so the white name and the frosted numbers always read. */}
       <header className="relative isolate overflow-hidden bg-black text-white">
         {/* eslint-disable-next-line @next/next/no-img-element -- static design asset, sized by the container */}
-        <img src={isDark ? "/design/trip-hero-night.jpg" : "/design/trip-hero.jpg"} alt="" className="hero-drift absolute inset-0 h-full w-full object-cover" />
+        <img key={dreamHero ?? "stock"} src={dreamHero ?? (isDark ? "/design/trip-hero-night.jpg" : "/design/trip-hero.jpg")} alt="" onError={() => setHeroFailed(true)} className="hero-drift absolute inset-0 h-full w-full object-cover" />
         <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/25 to-black/85" />
         <div aria-hidden className="absolute inset-0 bg-[radial-gradient(85%_70%_at_12%_95%,rgba(0,0,0,0.6),transparent)]" />
 
@@ -389,9 +436,9 @@ export function AccountView({
                     aria-label="Change photo"
                     className="group relative block h-24 w-24 overflow-hidden rounded-[24px] bg-primary sm:h-32 sm:w-32"
                   >
-                    {avatarUrl && !avatarError ? (
+                    {dreamAvatar || (avatarUrl && !avatarError) ? (
                       // eslint-disable-next-line @next/next/no-img-element -- external/user-uploaded, not a static asset
-                      <img src={avatarUrl} alt="" className="h-full w-full object-cover" onError={() => setAvatarError(true)} />
+                      <img src={dreamAvatar ?? avatarUrl!} alt="" className="h-full w-full object-cover" onError={() => (dreamAvatar ? setDreamPhoto(null) : setAvatarError(true))} />
                     ) : (
                       <span aria-hidden className="grid h-full w-full place-items-center font-display text-3xl font-semibold text-primary-foreground">
                         {memberInitials(name || "Traveller")}
@@ -426,6 +473,15 @@ export function AccountView({
                     <span className="inline-flex items-center gap-1.5">
                       <BadgeCheck className="h-4 w-4 opacity-70" /> Verified
                     </span>
+                  )}
+                  {dreamText ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Sparkles className="h-4 w-4 opacity-70" /> Dreaming of {dreamText}
+                    </span>
+                  ) : (
+                    <a href="#dream" onClick={() => setActive("profile")} className="daisy-badge h-7 gap-1.5 border-white/30 bg-white/15 px-3 text-[13px] font-medium text-white backdrop-blur transition-colors hover:bg-white/25">
+                      <Sparkles className="h-3.5 w-3.5" /> Add your dream destination
+                    </a>
                   )}
                 </div>
                 {bio && <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-white/80 [text-shadow:0_1px_14px_rgba(0,0,0,0.55)]">{bio}</p>}
@@ -474,6 +530,35 @@ export function AccountView({
           <div className="space-y-8">
             {/* Profile & account */}
             <SettingSection id="profile" title="Profile & account" blurb="How you appear to the people you plan with.">
+              <div id="dream" className="scroll-mt-28 rounded-3xl bg-gradient-to-br from-muted/60 to-coral-soft/50 p-5 sm:p-6">
+                <p className="eyebrow mb-2 flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Dream destination</p>
+                <p className="font-display text-xl tracking-tight text-balance sm:text-2xl">Where would you go tomorrow?</p>
+                <p className="mt-1 max-w-xl text-sm leading-relaxed text-ink-soft">Pick the place you keep coming back to. Its photo becomes your profile picture and the backdrop of this page.</p>
+                <div className="mt-4 flex max-w-xl items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <DestinationCombobox
+                      endpoint="/api/account/places/autocomplete"
+                      value={dreamDraft}
+                      onChange={setDreamDraft}
+                      onSelect={(text) => void chooseDream(text)}
+                      placeholder="Kyoto, Japan"
+                      disabled={savingDream}
+                      inputClassName="input-field"
+                    />
+                  </div>
+                  {savingDream && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-ink-soft" />}
+                </div>
+                {dreamText && (
+                  <p className="mt-3 flex flex-wrap items-center gap-x-3 text-sm text-ink-soft">
+                    <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> {dreamText}</span>
+                    {avatarSource === "upload" && dreamPhoto && (
+                      <button type="button" onClick={() => { setAvatarSource("dream"); void saveProfile({ avatarSource: "dream" }); }} className="underline-offset-2 hover:text-foreground hover:underline">Use it as my profile picture</button>
+                    )}
+                    <button type="button" onClick={() => void clearDream()} className="underline-offset-2 hover:text-destructive hover:underline">Remove</button>
+                  </p>
+                )}
+              </div>
+
               <div className="grid gap-6 sm:grid-cols-2">
                 <Field label="Full name">
                   <input value={name} onChange={(e) => { setName(e.target.value); touch(); }} maxLength={80} className="input-field" />
