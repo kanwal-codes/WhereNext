@@ -93,7 +93,7 @@ export function TripPromptBox() {
     <div className="w-full">
       <form
         onSubmit={start}
-        className="w-full rounded-[2rem] border border-border bg-surface p-4 shadow-lift transition-shadow focus-within:ring-2 focus-within:ring-coral/30"
+        className="w-full rounded-[2rem] border border-white/70 bg-white/70 p-4 shadow-[0_40px_90px_-30px_rgba(70,50,190,0.45),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-xl transition-shadow focus-within:ring-2 focus-within:ring-white/70 dark:border-white/15 dark:bg-white/[0.07] dark:shadow-[0_40px_90px_-30px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.12)] dark:focus-within:ring-white/25"
       >
         <textarea
           ref={textareaRef}
@@ -117,7 +117,7 @@ export function TripPromptBox() {
           className="block min-h-[7rem] [@media(max-height:760px)]:min-h-[5rem] w-full resize-none bg-transparent px-3 pt-2 text-left text-base leading-relaxed md:text-lg outline-none placeholder:text-muted-foreground/70"
         />
         <div className="mt-1 flex items-center justify-end gap-3 px-2 pb-1">
-          <button type="submit" disabled={!prompt.trim() || busy} className="btn-primary shrink-0 disabled:opacity-50">
+          <button type="submit" disabled={!prompt.trim() || busy} className="btn-primary shrink-0 disabled:opacity-80">
             {busy ? <Loader2 className="size-4 animate-spin" /> : null}
             Start planning
             {!busy && <ArrowRight className="size-4" />}
@@ -136,7 +136,7 @@ export function TripPromptBox() {
                 setPrompt(starter.prompt);
                 textareaRef.current?.focus();
               }}
-              className="rounded-full border border-border bg-surface/80 px-4 py-2 text-sm font-medium shadow-soft transition-[background-color,transform] hover:-translate-y-px hover:bg-surface active:translate-y-0"
+              className="rounded-full border border-white/60 bg-white/55 px-4 py-2 text-sm font-medium shadow-soft backdrop-blur-md transition-[background-color,transform] hover:-translate-y-px hover:bg-white/80 active:translate-y-0 dark:border-white/10 dark:bg-white/[0.06] dark:hover:bg-white/[0.12]"
             >
               {starter.label}
             </button>

@@ -888,3 +888,47 @@
 .wn-calendar .rdp-selected { font-size: inherit; font-weight: 600; }
 .wn-calendar .rdp-day_button:hover:not(:disabled) { background-color: var(--color-accent); }
 .wn-calendar .rdp-chevron { fill: var(--color-muted-foreground); }
+
+/* The glow behind the landing page's first screen (components/landing/LandingBloom.tsx). */
+.landing-bloom {
+  --bloom-coral: oklch(0.74 0.17 22);
+  --bloom-pink: oklch(0.72 0.19 350);
+  --bloom-violet: oklch(0.6 0.21 295);
+  --bloom-blue: oklch(0.58 0.19 258);
+  --bloom-deep: oklch(0.45 0.17 268);
+  isolation: isolate;
+  /* Fades out above and below so it never meets the page's background or the next scene in a hard line. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 34%, #000 78%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 34%, #000 78%, transparent 100%);
+}
+.dark .landing-bloom {
+  --bloom-coral: oklch(0.66 0.19 25);
+  --bloom-pink: oklch(0.56 0.21 350);
+  --bloom-violet: oklch(0.45 0.21 295);
+  --bloom-blue: oklch(0.42 0.19 262);
+  --bloom-deep: oklch(0.3 0.14 268);
+}
+.landing-bloom-layer { position: absolute; inset: -12% -8% -4%; filter: blur(36px) saturate(1.15); will-change: transform; }
+.landing-bloom-a {
+  background:
+    radial-gradient(58% 52% at 50% 100%, var(--bloom-pink) 0%, transparent 72%),
+    radial-gradient(40% 46% at 62% 88%, var(--bloom-coral) 0%, transparent 70%),
+    radial-gradient(70% 60% at 50% 68%, color-mix(in oklab, var(--bloom-deep) 62%, transparent) 0%, transparent 75%);
+  animation: bloom-drift-a 24s ease-in-out infinite;
+}
+.landing-bloom-b {
+  background:
+    radial-gradient(42% 56% at 16% 96%, var(--bloom-violet) 0%, transparent 70%),
+    radial-gradient(44% 58% at 86% 92%, var(--bloom-blue) 0%, transparent 70%);
+  animation: bloom-drift-b 31s ease-in-out infinite;
+}
+.landing-bloom-grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.1;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@keyframes bloom-drift-a { 0%, 100% { transform: translate3d(-1.5%, 1%, 0) scale(1); } 50% { transform: translate3d(2%, -2.5%, 0) scale(1.07); } }
+@keyframes bloom-drift-b { 0%, 100% { transform: translate3d(1.5%, -1%, 0) scale(1.04); } 50% { transform: translate3d(-2.5%, 2%, 0) scale(0.98); } }
+@media (prefers-reduced-motion: reduce) { .landing-bloom-layer { animation: none; } }

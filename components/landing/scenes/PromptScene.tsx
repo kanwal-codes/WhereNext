@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { LandingBloom } from "@/components/landing/LandingBloom";
 import { TripPromptBox } from "@/components/landing/TripPromptBox";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -15,6 +16,7 @@ gsap.registerPlugin(ScrollTrigger);
 export function PromptScene() {
   const sectionRef = useRef<HTMLElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const bloomRef = useRef<HTMLDivElement>(null);
   const partRefs = useRef<(HTMLElement | null)[]>([]);
 
   useEffect(() => {
@@ -27,6 +29,13 @@ export function PromptScene() {
       gsap.to(parts, { opacity: 1, y: 0, duration: 0.7, ease: "cubic-bezier(.22, 1, .36, 1)", stagger: 0.09, delay: 0.15 });
       // The first screen hands over to the story: it lifts and fades within the first fifth of a
       // screen of scroll, so it is gone before the chat bubbles rise into view.
+      // The glow lets go a little later and slower than the text, so the story below arrives on a clean page.
+      gsap.to(bloomRef.current, {
+        opacity: 0,
+        y: -24,
+        ease: "none",
+        scrollTrigger: { trigger: sectionRef.current, start: "top top", end: () => `+=${window.innerHeight * 0.65}`, scrub: true, invalidateOnRefresh: true },
+      });
       gsap.to(contentRef.current, {
         opacity: 0,
         y: -48,
@@ -47,10 +56,13 @@ export function PromptScene() {
       data-scene="prompt"
       className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden bg-background px-6 pt-28 pb-20 [@media(max-height:760px)]:pt-20 [@media(max-height:760px)]:pb-8"
     >
+      <div ref={bloomRef} className="absolute inset-0">
+        <LandingBloom />
+      </div>
       <div ref={contentRef} className="relative mx-auto flex w-full max-w-3xl flex-col items-center text-center">
         <h1
           ref={part(0)}
-          className="translate-y-4 font-display text-[clamp(2.75rem,8vw,6rem)] [@media(max-height:760px)]:text-[clamp(2.25rem,6vw,4.25rem)] leading-[0.98] tracking-[-0.04em] text-balance opacity-0"
+          className="translate-y-4 font-display text-[clamp(2.5rem,6.6vw,5.25rem)] [@media(max-height:760px)]:text-[clamp(2.1rem,5.4vw,3.9rem)] leading-[0.98] tracking-[-0.04em] text-balance opacity-0"
         >
           Let&rsquo;s plan something.
         </h1>
