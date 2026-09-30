@@ -948,24 +948,33 @@
 }
 .landing-horizon-sky {
   position: absolute; inset: 0;
-  background: linear-gradient(to bottom, transparent 0%, oklch(0.93 0.03 250 / 0.55) 38%, oklch(0.9 0.06 60 / 0.75) 62%, oklch(0.84 0.1 45 / 0.85) 74%, transparent 74.2%);
+  background: linear-gradient(to bottom, transparent 0%, oklch(0.92 0.04 255 / 0.6) 40%, oklch(0.9 0.07 70 / 0.8) 66%, oklch(0.83 0.12 45 / 0.9) 79.8%, transparent 80%);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 45%);
   mask-image: linear-gradient(to bottom, transparent 0%, #000 45%);
 }
 .landing-horizon-sun {
-  position: absolute; left: 50%; top: 74%; width: min(70vw, 820px); aspect-ratio: 1; transform: translate(-50%, -50%);
+  position: absolute; left: 50%; top: 80%; width: min(56vw, 640px); aspect-ratio: 1; transform: translate(-50%, -50%);
   border-radius: 9999px;
-  background: radial-gradient(circle, oklch(0.88 0.12 60) 0%, oklch(0.8 0.15 40 / 0.7) 38%, transparent 68%);
-  filter: blur(18px);
+  background: radial-gradient(circle, oklch(0.97 0.06 85) 0%, oklch(0.88 0.13 62) 22%, oklch(0.78 0.16 40 / 0.55) 46%, transparent 70%);
+  filter: blur(6px);
   animation: horizon-rise 18s ease-in-out infinite;
 }
 .landing-horizon-sea {
-  position: absolute; left: 0; right: 0; top: 74%; bottom: 0;
-  background: linear-gradient(to bottom, oklch(0.5 0.1 255 / 0.55), oklch(0.38 0.1 265 / 0.75));
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%);
+  position: absolute; left: 0; right: 0; top: 80%; bottom: 0;
+  background:
+    radial-gradient(30% 70% at 50% 0%, oklch(0.85 0.12 60 / 0.75), transparent 75%),
+    linear-gradient(to bottom, oklch(0.62 0.1 255), oklch(0.4 0.11 268) 70%, oklch(0.3 0.1 272));
 }
-.landing-horizon-line { position: absolute; left: 0; right: 0; top: 74%; height: 1px; background: linear-gradient(to right, transparent, oklch(1 0 0 / 0.8), transparent); }
+.landing-horizon-sea::after {
+  content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: min(34vw, 420px); transform: translateX(-50%);
+  background: repeating-linear-gradient(to bottom, oklch(0.92 0.09 70 / 0.55) 0 2px, transparent 2px 9px);
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent 85%), radial-gradient(closest-side, #000, transparent);
+  -webkit-mask-composite: source-in; mask-composite: intersect;
+  mask-image: linear-gradient(to bottom, #000, transparent 85%), radial-gradient(closest-side, #000, transparent);
+  animation: sea-shimmer 7s ease-in-out infinite;
+}
+.landing-horizon-line { position: absolute; left: 0; right: 0; top: 80%; height: 1px; background: linear-gradient(to right, transparent, oklch(1 0 0 / 0.85), transparent); }
+@keyframes sea-shimmer { 0%, 100% { opacity: 0.7; transform: translateX(-50%) scaleX(1); } 50% { opacity: 1; transform: translateX(-50%) scaleX(1.08); } }
 @keyframes horizon-rise { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -54%) scale(1.06); } }
 .landing-route-wash {
   position: absolute; inset: 0;
@@ -974,4 +983,4 @@
 }
 .landing-route-path { stroke-dasharray: 6 10; animation: route-flow 40s linear infinite; }
 @keyframes route-flow { to { stroke-dashoffset: -640; } }
-@media (prefers-reduced-motion: reduce) { .landing-horizon-sun, .landing-route-path { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .landing-horizon-sun, .landing-route-path, .landing-horizon-sea::after { animation: none; } }
