@@ -11,9 +11,8 @@ export type ChapterStat = { label: string; value: string; desc?: string };
 /**
  * The top of a working page (itinerary, bookings, knowledge). It is one of the page's own cards: the
  * same column, corner radius, border and surface as every card below it, with a daisyUI hero layout,
- * breadcrumbs for where you are, and a bordered stats block for the page's few numbers. The only
- * decoration is a faint warm glow in the corner, inside the card, so it reads as part of the app
- * in light and dark alike instead of a separate full-width band.
+ * breadcrumbs for where you are, and a bordered stats block for the page's few numbers. No tint or
+ * gradient: it is the card surface, so it reads as part of the app in light and dark alike.
  */
 export function ChapterHero({
   eyebrow,
@@ -36,7 +35,6 @@ export function ChapterHero({
     <header className="mx-auto w-full max-w-6xl px-5 pt-8 sm:px-8 sm:pt-10">
       {titleTag}
       <div className="daisy-hero relative isolate overflow-hidden rounded-[2rem] border border-border/70 bg-card shadow-soft">
-        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60%_140%_at_0%_0%,color-mix(in_oklab,var(--coral)_13%,transparent),transparent_65%)]" />
         <div className="daisy-hero-content w-full max-w-none flex-col items-stretch justify-between gap-8 p-6 sm:p-9 lg:flex-row lg:items-end">
           <div className="min-w-0 max-w-2xl">
             <Reveal delay={0.05}>
