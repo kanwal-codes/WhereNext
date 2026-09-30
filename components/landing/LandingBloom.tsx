@@ -30,7 +30,7 @@ export function LandingBloom({ variant = "route", progress = 0, className }: { v
   );
 }
 
-const ROUTE = "M-60 700 C 140 610, 260 720, 430 706 S 700 790, 900 742 S 1180 700, 1330 500 S 1470 350, 1520 320";
+const ROUTE = "M-60 700 C 140 610, 260 720, 430 706 S 700 790, 900 742 S 1200 690, 1343 483";
 // Where the pins sit on the route (measured along it), kept clear of the prompt box and chips.
 const STOPS: Array<[number, number]> = [[283, 693], [664, 739], [1110, 688], [1343, 483]];
 
@@ -44,14 +44,22 @@ function RouteBloom({ progress, className }: { progress: number; className?: str
     <div aria-hidden className={`landing-bloom pointer-events-none absolute inset-x-0 bottom-0 h-[92%] ${className ?? ""}`}>
       <div className="landing-route-wash" />
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1440 800" preserveAspectRatio="xMidYMid slice" fill="none">
-        <path className="landing-route-path" d={ROUTE} stroke="oklch(0.45 0.1 250 / 0.5)" strokeWidth="2.25" strokeLinecap="round" />
-        <path className="landing-route-drawn" d={ROUTE} pathLength={1} strokeDasharray={1} strokeDashoffset={1 - progress} stroke="oklch(0.42 0.13 262)" strokeWidth="3" strokeLinecap="round" />
+        {/* Like a route on a map: a pale casing, the road itself, then the stretch planned so far drawn over it. */}
+        <path d={ROUTE} stroke="oklch(1 0 0 / 0.85)" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={ROUTE} stroke="oklch(0.62 0.05 255 / 0.4)" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+        <path className="landing-route-drawn" d={ROUTE} pathLength={1} strokeDasharray={1} strokeDashoffset={1 - progress} stroke="oklch(0.42 0.14 262)" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
         {STOPS.map(([x, y], i) => {
+          const last = i === STOPS.length - 1;
           const lit = progress >= (i + 0.6) / STOPS.length;
-          return (
+          return last ? (
+            // The destination: a pin.
+            <g key={x} className="landing-route-stop" data-lit={lit} transform={`translate(${x} ${y})`}>
+              <path d="M0 -4 C -16 -24, -16 -50, 0 -50 C 16 -50, 16 -24, 0 -4 Z" fill="oklch(0.62 0.17 28)" stroke="white" strokeWidth="3" strokeLinejoin="round" />
+              <circle cy="-33" r="5.5" fill="white" />
+            </g>
+          ) : (
             <g key={x} className="landing-route-stop" data-lit={lit}>
-              <circle className="landing-route-halo" cx={x} cy={y} r="17" fill="oklch(0.78 0.12 195 / 0.3)" />
-              <circle cx={x} cy={y} r="5.5" fill="oklch(0.4 0.13 262)" stroke="white" strokeWidth="2" />
+              <circle cx={x} cy={y} r="10" fill="white" stroke="oklch(0.42 0.14 262)" strokeWidth="4" />
             </g>
           );
         })}
