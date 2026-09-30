@@ -1012,3 +1012,29 @@
 .landing-foam-bubble { animation: foam-swell 8s ease-in-out infinite; }
 @keyframes foam-swell { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(4px) scale(1.12); } }
 @media (prefers-reduced-motion: reduce) { .landing-shore-tide, .landing-shore-swell, .landing-foam-bubble { animation: none; } }
+
+/* Light on shallow water: slow drifting patches, strongest near the shore and fading out with depth. */
+.landing-shore-light {
+  position: absolute; left: 0; right: 0; top: 68%; bottom: 0; mix-blend-mode: soft-light; opacity: 0.85;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 75%);
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 75%);
+}
+.landing-shore-light-a {
+  background-image: radial-gradient(ellipse 60px 18px at 30% 50%, white 0%, transparent 70%), radial-gradient(ellipse 90px 22px at 75% 30%, white 0%, transparent 70%);
+  background-size: 260px 90px; animation: shore-light-a 38s linear infinite;
+}
+.landing-shore-light-b {
+  background-image: radial-gradient(ellipse 80px 16px at 60% 60%, white 0%, transparent 70%), radial-gradient(ellipse 50px 14px at 15% 25%, white 0%, transparent 70%);
+  background-size: 340px 120px; animation: shore-light-b 53s linear infinite; opacity: 0.6;
+}
+@keyframes shore-light-a { to { background-position: 260px 30px; } }
+@keyframes shore-light-b { to { background-position: -340px -40px; } }
+/* The glossy strip of sand the water has just left. */
+.landing-shore-gloss {
+  position: absolute; left: 0; right: 0; top: 60%; height: 7%;
+  background: linear-gradient(to bottom, transparent, oklch(1 0 0 / 0.28) 60%, oklch(1 0 0 / 0.1));
+  mix-blend-mode: soft-light;
+}
+.landing-wash { animation: wash-up 0.85s cubic-bezier(.5, 0, .2, 1) forwards; }
+@keyframes wash-up { from { transform: translateY(calc(100% + 70px)); } to { transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .landing-shore-light { animation: none; } }

@@ -134,6 +134,7 @@ function ShoreBloom() {
       <div className="landing-shore-sand" />
       <div className="landing-shore-tide">
         <div className="landing-shore-wet" />
+        <div className="landing-shore-gloss" />
         <svg className="landing-shore-water" viewBox="0 0 1440 600" preserveAspectRatio="none" fill="none">
           <defs>
             <linearGradient id="shore-water" x1="0" y1="0" x2="0" y2="1">
@@ -150,6 +151,8 @@ function ShoreBloom() {
           <path d={WAVE_LINE} transform="translate(0 22)" stroke="white" strokeWidth="7" strokeLinecap="round" strokeDasharray="1 14" opacity="0.6" />
         </svg>
       </div>
+      <div className="landing-shore-light landing-shore-light-a" />
+      <div className="landing-shore-light landing-shore-light-b" />
       <div className="landing-shore-swell">
         <svg className="landing-shore-water" viewBox="0 0 1440 600" preserveAspectRatio="none" fill="none">
           <path d={WAVE_LINE} transform="translate(0 40)" stroke="white" strokeWidth="5" strokeLinecap="round" opacity="0.5" filter="url(#shore-soft)" />

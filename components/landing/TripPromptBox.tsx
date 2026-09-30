@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { GUEST_LIVE_KEY } from "@/features/identity/application/guestSession";
@@ -49,6 +50,7 @@ export function TripPromptBox({ onTyping, foam = false }: { onTyping?: (length: 
   const [focused, setFocused] = useState(false);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<Problem | null>(null);
+  const [washing, setWashing] = useState(false);
   const attemptRef = useRef(crypto.randomUUID());
   const { container: turnstile, getToken } = useTurnstile();
   const typed = useTypingPlaceholder(EXAMPLES, !prompt && !focused);
@@ -84,7 +86,12 @@ export function TripPromptBox({ onTyping, foam = false }: { onTyping?: (length: 
       window.sessionStorage.setItem(`wn:first-message:${body.tripId}`, text);
       // Lets the chat page tell this hand-off from a reload or a return visit (a guest chat is disposable).
       window.sessionStorage.setItem(GUEST_LIVE_KEY, body.tripId);
-      window.location.assign(`/trips/${body.tripId}/chat`);
+      // On the shore look, a wave washes over the page on the way in to the chat.
+      const go = () => window.location.assign(`/trips/${body.tripId}/chat`);
+      if (foam && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        setWashing(true);
+        window.setTimeout(go, 850);
+      } else go();
     } catch {
       setProblem(PROBLEMS.offline);
       setBusy(false);
@@ -133,6 +140,7 @@ export function TripPromptBox({ onTyping, foam = false }: { onTyping?: (length: 
         </div>
       </form>
       </div>
+      {washing && <WaveWash />}
       <div ref={turnstile} />
 
       {!problem && (
@@ -186,9 +194,9 @@ const rand = (i: number, n: number) => {
   return x - Math.floor(x);
 };
 const round = (v: number) => Math.round(v);
-const BUBBLES = Array.from({ length: 44 }, (_, i) => {
-  const size = round(9 + rand(i, 2) * 26);
-  return { left: round((1 + (i / 43) * 98 + (rand(i, 1) - 0.5) * 2) * 10) / 10, size, drop: round((0.1 + rand(i, 3) * 0.4) * 100) / 100, delay: round(-rand(i, 4) * 90) / 10, dur: round(70 + rand(i, 5) * 50) / 10 };
+const BUBBLES = Array.from({ length: 64 }, (_, i) => {
+  const size = round(6 + rand(i, 2) * 20);
+  return { left: round((1 + (i / 63) * 98 + (rand(i, 1) - 0.5) * 2) * 10) / 10, size, drop: round((0.1 + rand(i, 3) * 0.75) * 100) / 100, delay: round(-rand(i, 4) * 90) / 10, dur: round(70 + rand(i, 5) * 50) / 10 };
 });
 // Foam spreading out sideways along the waterline, so the box melts into the shore instead of sitting on it.
 const SIDE = Array.from({ length: 14 }, (_, i) => {
@@ -206,25 +214,39 @@ function FoamEdge() {
     <div aria-hidden className="landing-foam pointer-events-none absolute inset-0 z-0">
       <svg width="0" height="0" className="absolute">
         <filter id="wn-foam-goo">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="blur" />
+          <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
           <feColorMatrix in="blur" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -10" />
         </filter>
       </svg>
       <div className="absolute inset-0" style={{ filter: "drop-shadow(0 26px 34px rgba(24, 70, 100, 0.28))" }}>
         <div className="absolute inset-0" style={{ filter: "url(#wn-foam-goo)" }}>
           <div className="absolute inset-0 rounded-[2rem] bg-white" />
-          {BUBBLES.map((b) => (
+          {BUBBLES.map((b, i) => (
             <span
-              key={b.left}
+              key={i}
               className="landing-foam-bubble absolute rounded-full bg-white"
               style={{ left: `${b.left}%`, bottom: `${-b.size * b.drop}px`, width: b.size, height: b.size, marginLeft: -b.size / 2, animationDelay: `${b.delay}s`, animationDuration: `${b.dur}s` }}
             />
           ))}
-          {SIDE.map((b) => (
-            <span key={`${b.left}${b.top}`} className="landing-foam-bubble absolute rounded-full bg-white" style={{ left: `${b.left}%`, top: `${b.top}%`, width: b.size, height: b.size, marginLeft: -b.size / 2 }} />
+          {SIDE.map((b, i) => (
+            <span key={i} className="landing-foam-bubble absolute rounded-full bg-white" style={{ left: `${b.left}%`, top: `${b.top}%`, width: b.size, height: b.size, marginLeft: -b.size / 2 }} />
           ))}
         </div>
       </div>
     </div>
+  );
+}
+
+/** A wave that rises from the bottom and covers the page, foam first, just before the chat opens. */
+function WaveWash() {
+  // In the body, not in the box: an ancestor of the box is animated, which would pin a fixed layer to it.
+  return createPortal(
+    <div aria-hidden className="landing-wash pointer-events-none fixed inset-0 z-[100]">
+      <svg className="absolute inset-x-0 -top-[70px] h-[72px] w-full" viewBox="0 0 1440 72" preserveAspectRatio="none">
+        <path d="M0 72 L0 34 C 120 10, 240 50, 380 30 S 640 6, 800 34 S 1100 56, 1250 26 S 1400 14, 1440 30 L1440 72 Z" fill="white" />
+      </svg>
+      <div className="absolute inset-0 bg-white" />
+    </div>,
+    document.body,
   );
 }
