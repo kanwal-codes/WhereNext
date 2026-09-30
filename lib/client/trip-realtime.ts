@@ -22,6 +22,8 @@ export const TABLE_TO_CHANGE: Record<string, WorkspaceChange> = {
   // variant) since that's already what a successful booking announces same-tab, in useBookingFlow.
   bookings: "decision",
   trip_essentials: "essentials",
+  // A reservation added by another member reaches the Bookings page the same way a booking does.
+  trip_reservations: "decision",
   conversation_messages: "conversation",
   group_messages: "groupChat",
   group_message_reactions: "groupChat",

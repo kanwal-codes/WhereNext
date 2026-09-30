@@ -1,16 +1,16 @@
 "use client";
 
+import { RoamMark } from "@/features/roam/ui/RoamMark";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
-import { useState, type ReactNode } from "react";
+import { useState, type ComponentType, type ReactNode } from "react";
 import {
   BedDouble,
   CalendarDays,
   Compass,
   LayoutGrid,
   Map,
-  MessageCircle,
   Users,
   Lock,
   Menu,
@@ -33,9 +33,14 @@ export type ShellTrip = {
   travellers: string;
 };
 
+/** Roam's route as a nav icon: same 16px slot as the other icons, the 2:1 mark centred in it. */
+function RoamIcon({ className }: { className?: string }) {
+  return <RoamMark state="settled" size={22} className={className} />;
+}
+
 const nav = [
   { seg: "", label: "Overview", icon: LayoutGrid, exact: true },
-  { seg: "chat", label: "Conversation", icon: MessageCircle },
+  { seg: "chat", label: "Conversation", icon: RoamIcon },
   { seg: "group", label: "Group chat", icon: Users },
   { seg: "discover", label: "Discover", icon: Compass },
   { seg: "map", label: "Getting around", icon: Map },
@@ -58,7 +63,7 @@ function NavRow({
 }: {
   href: string;
   label: string;
-  icon: typeof LayoutGrid;
+  icon: ComponentType<{ className?: string }>;
   active: boolean;
   collapsed?: boolean;
   onNavigate?: () => void;
@@ -207,7 +212,7 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
           collapsed && !onNavigate ? "px-0" : "px-4",
         )}
       >
-        <MessageCircle className="h-4 w-4 shrink-0" />
+        <RoamMark state="settled" size={28} className="shrink-0" />
         <span className={cn("overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200", collapsed && !onNavigate ? "max-w-0 opacity-0" : "max-w-[12rem] opacity-100")}>
           Continue planning
         </span>

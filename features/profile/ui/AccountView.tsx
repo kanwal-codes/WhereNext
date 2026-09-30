@@ -4,12 +4,13 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, BadgeCheck, Camera, Check, Copy, Download, Eye, Link2, Loader2, Plane, Trash2 } from "lucide-react";
-import { Reveal, Sheet, Stagger, StaggerItem, Tactile } from "@/components/motion-primitives";
-import { Hero } from "@/components/Hero";
+import { ArrowLeft, BadgeCheck, Camera, Check, Copy, Download, Eye, Link2, Loader2, MapPin, Plane, Sparkles, Trash2 } from "lucide-react";
+import { Reveal, Sheet, Tactile, WordReveal } from "@/components/motion-primitives";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { BrandMark } from "@/components/BrandMark";
 import { useIsDarkMode } from "@/lib/use-dark-mode";
+import { DestinationCombobox } from "@/components/DestinationCombobox";
+import { accountPhotoUrl } from "@/lib/places-ui";
 import { notifyToast } from "@/lib/application/toast";
 import { cn } from "@/lib/utils";
 import { COUNTRIES, LANGUAGES, displayName, fromBrowserLocale } from "@/lib/locales";
@@ -44,8 +45,9 @@ const COMPANIONS = ["Solo", "Partner", "Friends", "Family"];
 
 function SettingSection({ id, title, blurb, action, children }: { id: string; title: string; blurb: string; action?: ReactNode; children: ReactNode }) {
   return (
-    <section id={id} className="scroll-mt-28 border-t border-border pt-12 first:border-t-0 first:pt-0">
+    <section id={id} className="scroll-mt-28">
       <Reveal y={18}>
+       <div className="rounded-[2rem] border border-border/70 bg-card p-6 shadow-soft sm:p-9">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="font-display text-2xl tracking-tight sm:text-3xl">{title}</h2>
@@ -54,6 +56,7 @@ function SettingSection({ id, title, blurb, action, children }: { id: string; ti
           {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
         </div>
         <div className="mt-8 space-y-8">{children}</div>
+       </div>
       </Reveal>
     </section>
   );
@@ -63,11 +66,23 @@ function Pill({ children }: { children: ReactNode }) {
   return <span className="rounded-full border border-border bg-surface px-3.5 py-1.5 text-sm text-foreground">{children}</span>;
 }
 
-function ReadRow({ label, value, note }: { label: string; value: string; note?: string }) {
+/** A level shown as filled steps ("Generous" = 4 of 4), so pace and budget read at a glance. */
+function Meter({ value, max }: { value: number; max: number }) {
   return (
-    <div>
+    <span aria-hidden className="flex gap-1">
+      {Array.from({ length: max }, (_, i) => <span key={i} className={cn("h-1.5 w-6 rounded-full transition-colors", i <= value ? "bg-coral" : "bg-border")} />)}
+    </span>
+  );
+}
+
+function ReadRow({ label, value, note, level }: { label: string; value: string; note?: string; level?: { value: number; max: number } }) {
+  return (
+    <div className="rounded-2xl bg-muted/50 p-4">
       <p className="eyebrow mb-2">{label}</p>
-      <p className="text-sm font-medium text-foreground">{value}</p>
+      <p className="flex items-center justify-between gap-3 font-display text-xl tracking-tight text-foreground">
+        {value}
+        {level && <Meter value={level.value} max={level.max} />}
+      </p>
       {note ? <p className="mt-1 text-sm text-ink-soft">{note}</p> : null}
     </div>
   );
@@ -215,6 +230,14 @@ export function AccountView({
   }
   const touch = () => { setDirty(true); setSaved(false); };
 
+  // The dream destination: its photo is the profile picture and the backdrop of this page.
+  const [dreamText, setDreamText] = useState(profile.dreamDestination ?? "");
+  const [dreamDraft, setDreamDraft] = useState(profile.dreamDestination ?? "");
+  const [dreamPhoto, setDreamPhoto] = useState<string | null>(profile.dreamPhotoName ?? null);
+  const [savingDream, setSavingDream] = useState(false);
+  const [heroFailed, setHeroFailed] = useState(false);
+  const dreamHero = dreamPhoto && !heroFailed ? accountPhotoUrl(dreamPhoto, 1600) : undefined;
+
   const [name, setName] = useState(initialName);
   const [emailDraft, setEmailDraft] = useState(email);
   const [airport, setAirport] = useState(profile.homeAirport ?? "");
@@ -272,6 +295,38 @@ export function AccountView({
       notifyToast("That couldn’t be saved. Try again.", "error");
       return false;
     }
+  }
+
+  /** Pick the dream destination: look up its photo once, then save both so the page and profile picture update together. */
+  async function chooseDream(text: string) {
+    const place = text.trim();
+    if (!place || savingDream) return;
+    setSavingDream(true);
+    try {
+      const res = await fetch(`/api/account/places/destination-photo?query=${encodeURIComponent(place)}`);
+      const body = res.ok ? ((await res.json()) as { photoName?: string | null }) : { photoName: null };
+      const photoName = body.photoName ?? null;
+      const ok = await saveProfile({ dreamDestination: place, dreamPhotoName: photoName });
+      if (!ok) return;
+      setDreamText(place);
+      setDreamDraft(place);
+      setDreamPhoto(photoName);
+      setHeroFailed(false);
+      notifyToast(photoName ? "Your dream destination is your backdrop now." : "Saved. We couldn’t find a photo for it, though.", photoName ? "success" : "info");
+    } finally {
+      setSavingDream(false);
+    }
+  }
+
+  async function clearDream() {
+    if (savingDream) return;
+    setSavingDream(true);
+    const ok = await saveProfile({ dreamDestination: null, dreamPhotoName: null });
+    setSavingDream(false);
+    if (!ok) return;
+    setDreamText("");
+    setDreamDraft("");
+    setDreamPhoto(null);
   }
 
   async function saveAll() {
@@ -355,91 +410,108 @@ export function AccountView({
 
   return (
     <div className="min-h-screen pb-32">
-      {/* Same filmic hero used on /trips — real photo, grain, vignette and the same
-       * foggy dissolve into the page background. Swaps to the night version of the
-       * same scene in dark mode instead of just darkening the daylight photo. */}
-      <Hero image={isDark ? "/design/trip-hero-night.jpg" : "/design/trip-hero.jpg"} alt="" className="h-[240px] sm:h-[300px]">
-        <div className="relative z-10 mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-7 sm:px-8">
-          <Link href="/trips" className="inline-flex items-center gap-2 text-sm font-medium text-foreground transition-opacity hover:opacity-70">
-            <ArrowLeft className="h-4 w-4" /> Trips
-          </Link>
-          <BrandMark variant="compact" />
-        </div>
-      </Hero>
+      {/* The opening frame: the same destination photo as the trips home (night version in dark mode),
+       * slowly pushing in, graded dark so the white name and the frosted numbers always read. */}
+      <header className="relative isolate overflow-hidden bg-black text-white">
+        {/* eslint-disable-next-line @next/next/no-img-element -- static design asset, sized by the container */}
+        <img key={dreamHero ?? "stock"} src={dreamHero ?? (isDark ? "/design/trip-hero-night.jpg" : "/design/trip-hero.jpg")} alt="" onError={() => setHeroFailed(true)} className="hero-drift absolute inset-0 h-full w-full object-cover" />
+        <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/25 to-black/85" />
+        <div aria-hidden className="absolute inset-0 bg-[radial-gradient(85%_70%_at_12%_95%,rgba(0,0,0,0.6),transparent)]" />
 
-      <div className="mx-auto max-w-6xl px-5 sm:px-8">
-        {/* Identity block breaking out of the dark band */}
-        <div className="relative z-10 -mt-14 flex flex-col gap-6 sm:-mt-16 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
-            <Tactile lift={4} className="relative w-fit">
-              <div className="relative rounded-[28px] bg-background p-1.5 shadow-soft">
-                <button
-                  type="button"
-                  onClick={() => avatarInputRef.current?.click()}
-                  aria-label="Change photo"
-                  className="group relative block h-24 w-24 overflow-hidden rounded-[22px] bg-primary sm:h-32 sm:w-32"
-                >
-                  {avatarUrl && !avatarError ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- external/user-uploaded, not a static asset
-                    <img src={avatarUrl} alt="" className="h-full w-full object-cover" onError={() => setAvatarError(true)} />
-                  ) : (
-                    <span aria-hidden className="grid h-full w-full place-items-center font-display text-2xl font-semibold text-primary-foreground">
-                      {memberInitials(name || "Traveller")}
-                    </span>
-                  )}
-                  <span className="absolute inset-0 grid place-items-center bg-black/55 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
-                    {uploadingAvatar ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
+        <div className="relative mx-auto flex min-h-[28rem] max-w-6xl flex-col justify-between gap-16 px-5 pt-7 pb-8 sm:min-h-[32rem] sm:px-8 sm:pb-10">
+          <div className="flex items-center justify-between gap-3">
+            <Link href="/trips" className="daisy-btn daisy-btn-sm h-9 gap-2 rounded-full border-white/25 bg-black/30 px-4 font-medium text-white shadow-none backdrop-blur hover:bg-black/50">
+              <ArrowLeft className="h-4 w-4" /> Trips
+            </Link>
+            <BrandMark variant="compact" className="bg-white text-black" />
+          </div>
+
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-end">
+              <Tactile lift={4} className="relative w-fit">
+                <div className="relative rounded-[30px] border border-white/25 bg-white/10 p-1.5 shadow-lift backdrop-blur-md">
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    aria-label="Change photo"
+                    className="group relative block h-24 w-24 overflow-hidden rounded-[24px] bg-primary sm:h-32 sm:w-32"
+                  >
+                    {avatarUrl && !avatarError ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- external/user-uploaded, not a static asset
+                      <img src={avatarUrl} alt="" className="h-full w-full object-cover" onError={() => setAvatarError(true)} />
                     ) : (
-                      <span className="flex flex-col items-center gap-1">
-                        <Camera className="h-4 w-4" />
-                        Change
+                      <span aria-hidden className="grid h-full w-full place-items-center font-display text-3xl font-semibold text-primary-foreground">
+                        {memberInitials(name || "Traveller")}
                       </span>
                     )}
-                  </span>
-                </button>
-                <input ref={avatarInputRef} type="file" accept="image/*" onChange={(e) => void onAvatarChosen(e)} className="hidden" />
-              </div>
-            </Tactile>
+                    <span className="absolute inset-0 grid place-items-center bg-black/55 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+                      {uploadingAvatar ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <span className="flex flex-col items-center gap-1">
+                          <Camera className="h-4 w-4" />
+                          Change
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                  <input ref={avatarInputRef} type="file" accept="image/*" onChange={(e) => void onAvatarChosen(e)} className="hidden" />
+                </div>
+              </Tactile>
 
-            <Stagger className="pb-2">
-              <StaggerItem>
-                <h1 className="font-display text-3xl leading-tight tracking-tight sm:text-4xl">{name}</h1>
-              </StaggerItem>
-              <StaggerItem>
-                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+              <div className="min-w-0 pb-1">
+                <p className="text-[13px] font-medium tracking-[0.16em] text-white/80 uppercase [text-shadow:0_1px_12px_rgba(0,0,0,0.6)]">Traveller profile</p>
+                <WordReveal text={name || "Traveller"} delay={0.1} className="mt-2 font-display text-5xl leading-[0.98] tracking-tight text-balance [text-shadow:0_2px_30px_rgba(0,0,0,0.5)] sm:text-7xl" />
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/85">
                   {city && (
-                    <span className="inline-flex items-center gap-1.5 text-sm text-ink-soft">
-                      <Plane className="h-4 w-4 opacity-60" />
+                    <span className="inline-flex items-center gap-1.5">
+                      <Plane className="h-4 w-4 opacity-70" />
                       {city}
                     </span>
                   )}
+                  {emailVerified && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <BadgeCheck className="h-4 w-4 opacity-70" /> Verified
+                    </span>
+                  )}
+                  {dreamText ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Sparkles className="h-4 w-4 opacity-70" /> Dreaming of {dreamText}
+                    </span>
+                  ) : (
+                    <a href="#dream" onClick={() => setActive("profile")} className="daisy-badge h-7 gap-1.5 border-white/30 bg-white/15 px-3 text-[13px] font-medium text-white backdrop-blur transition-colors hover:bg-white/25">
+                      <Sparkles className="h-3.5 w-3.5" /> Add your dream destination
+                    </a>
+                  )}
                 </div>
-              </StaggerItem>
-            </Stagger>
+                {bio && <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-white/80 [text-shadow:0_1px_14px_rgba(0,0,0,0.55)]">{bio}</p>}
+              </div>
+            </div>
+
+            <Reveal delay={0.3}>
+              <div className="daisy-stats w-full rounded-2xl border border-white/20 bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md lg:w-auto [&_.daisy-stat-desc]:text-white/70 [&_.daisy-stat-title]:text-white/70 [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:border-white/20 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3">
+                {[
+                  { label: "Trips planned", value: String(tripCount) },
+                  { label: "Places", value: String(destinationCount) },
+                  { label: "Home airport", value: airport || "Not set" },
+                ].map((m) => (
+                  <div key={m.label} className="daisy-stat">
+                    <div className="daisy-stat-title text-[11px] tracking-[0.1em] uppercase">{m.label}</div>
+                    <div className={cn("daisy-stat-value font-display text-2xl tracking-tight tabular-nums sm:text-3xl", !airport && m.label === "Home airport" && "opacity-60")}>{m.value}</div>
+                  </div>
+                ))}
+              </div>
+            </Reveal>
           </div>
         </div>
+      </header>
 
-        {/* At-a-glance meta */}
-        <Reveal>
-          <div className="mt-12 flex flex-wrap items-baseline gap-x-10 gap-y-4 border-t border-border/70 pt-6">
-            {[
-              { label: "Trips planned", value: String(tripCount) },
-              { label: "Places", value: String(destinationCount) },
-              { label: "Home airport", value: airport || "Not set" },
-            ].map((m) => (
-              <p key={m.label} className="flex items-baseline gap-2">
-                <span className="font-display text-lg tracking-tight">{m.value}</span>
-                <span className="text-sm text-ink-soft">{m.label.toLowerCase()}</span>
-              </p>
-            ))}
-          </div>
-        </Reveal>
+      <div className="mx-auto max-w-6xl px-5 sm:px-8">
 
         {/* Rail + body */}
-        <div className="mt-14 gap-14 lg:grid lg:grid-cols-[200px_minmax(0,1fr)]">
+        <div className="mt-10 gap-10 lg:grid lg:grid-cols-[200px_minmax(0,1fr)]">
           <nav className="sticky top-0 z-20 -mx-5 mb-8 overflow-x-auto overscroll-x-contain border-b border-border bg-background/85 px-5 py-3 backdrop-blur-md scrollbar-slim sm:-mx-8 sm:px-8 lg:top-10 lg:mx-0 lg:mb-0 lg:self-start lg:overflow-visible lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
-            <ul className="flex gap-1 lg:flex-col">
+            <ul className="flex gap-2 lg:flex-col lg:gap-1">
               {SECTIONS.map((s) => (
                 <li key={s.id}>
                   <a
@@ -455,9 +527,35 @@ export function AccountView({
             </ul>
           </nav>
 
-          <div className="space-y-14">
+          <div className="space-y-8">
             {/* Profile & account */}
             <SettingSection id="profile" title="Profile & account" blurb="How you appear to the people you plan with.">
+              <div id="dream" className="scroll-mt-28 rounded-3xl bg-gradient-to-br from-muted/60 to-coral-soft/50 p-5 sm:p-6">
+                <p className="eyebrow mb-2 flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Dream destination</p>
+                <p className="font-display text-xl tracking-tight text-balance sm:text-2xl">Where would you go tomorrow?</p>
+                <p className="mt-1 max-w-xl text-sm leading-relaxed text-ink-soft">Pick the place you keep coming back to. Its photo becomes the backdrop of your profile.</p>
+                <div className="mt-4 flex max-w-xl items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <DestinationCombobox
+                      endpoint="/api/account/places/autocomplete"
+                      value={dreamDraft}
+                      onChange={setDreamDraft}
+                      onSelect={(text) => void chooseDream(text)}
+                      placeholder="Kyoto, Japan"
+                      disabled={savingDream}
+                      inputClassName="input-field"
+                    />
+                  </div>
+                  {savingDream && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-ink-soft" />}
+                </div>
+                {dreamText && (
+                  <p className="mt-3 flex flex-wrap items-center gap-x-3 text-sm text-ink-soft">
+                    <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> {dreamText}</span>
+                    <button type="button" onClick={() => void clearDream()} className="underline-offset-2 hover:text-destructive hover:underline">Remove</button>
+                  </p>
+                )}
+              </div>
+
               <div className="grid gap-6 sm:grid-cols-2">
                 <Field label="Full name">
                   <input value={name} onChange={(e) => { setName(e.target.value); touch(); }} maxLength={80} className="input-field" />
@@ -618,6 +716,10 @@ export function AccountView({
                   </motion.div>
                 ) : (
                   <motion.div key="view" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.24, ease: [0.22, 0.61, 0.36, 1] }} className="space-y-8">
+                    <div className="rounded-3xl bg-gradient-to-br from-muted/60 to-coral-soft/50 p-6">
+                      <p className="eyebrow mb-2">In a sentence</p>
+                      <p className="font-display text-xl leading-snug tracking-tight text-balance sm:text-2xl">{summary}</p>
+                    </div>
                     <div>
                       <p className="eyebrow mb-3">Interests</p>
                       {interests.length ? (
@@ -628,8 +730,8 @@ export function AccountView({
                     </div>
 
                     <div className="grid gap-8 sm:grid-cols-2">
-                      <ReadRow label="Pace" value={PACE[pace]!.label} note={PACE[pace]!.note} />
-                      <ReadRow label="Budget" value={BUDGET[budget]!.label} note={BUDGET[budget]!.note} />
+                      <ReadRow label="Pace" value={PACE[pace]!.label} note={PACE[pace]!.note} level={{ value: pace, max: PACE.length }} />
+                      <ReadRow label="Budget" value={BUDGET[budget]!.label} note={BUDGET[budget]!.note} level={{ value: budget, max: BUDGET.length }} />
                     </div>
 
                     <div>

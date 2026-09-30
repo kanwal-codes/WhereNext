@@ -81,7 +81,7 @@ export function BudgetSurface({
   ];
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-soft">
+    <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-soft">
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="font-display text-lg">Budget</h2>
         {saved && (

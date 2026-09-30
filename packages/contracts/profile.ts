@@ -16,6 +16,10 @@ export const travelerProfileSchema = preferencesSchema
     bio: z.string().trim().max(280).optional(),
     dietaryNote: z.string().trim().max(200).optional(),
     stayType: z.string().trim().max(40).optional(),
+    /** Where they would go tomorrow if they could. Its photo is the backdrop of their profile. */
+    dreamDestination: z.string().trim().max(160).nullable().optional(),
+    /** The Google photo resource name for that destination, looked up once when it is chosen. */
+    dreamPhotoName: z.string().regex(/^places\/[^/]+\/photos\/[^/]+$/).nullable().optional(),
     /** Preferences only — nothing sends these yet. Stored so a future notification
      * sender has somewhere to read from, and so the toggles aren't fake state. */
     notifications: z

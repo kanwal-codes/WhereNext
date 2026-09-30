@@ -157,6 +157,8 @@ const THINKING_STATES = [
   "Still working — this one's taking a bit…",
 ];
 const TYPING_MARK = ["thinking", "searching", "planning", "answering"] as const;
+/** How much of the remaining distance the follow-scroll covers each frame (lower = softer). */
+const FOLLOW_EASE = 0.09;
 const STAGE_PHASE: Record<"resolve" | "retrieve" | "compose", number> = { resolve: 0, retrieve: 1, compose: 2 };
 
 /** "www.example.com/path" → "example.com": which site a source is, at a glance. */
@@ -192,9 +194,9 @@ function Typing({ stage, label }: { stage?: "resolve" | "retrieve" | "compose"; 
   );
 }
 
-/** Roam's mark once a turn ends: the route settling on its destination, or breaking on a
- *  failure. Shown briefly under the log, then cleared by `ConversationSurface`. */
-function TurnOutcome({ kind }: { kind: "arrived" | "error" }) {
+/** Roam's mark when a turn fails: the route breaks. Shown briefly under the log, then cleared
+ *  by `ConversationSurface`. */
+function TurnOutcome({ kind }: { kind: "error" }) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -203,7 +205,7 @@ function TurnOutcome({ kind }: { kind: "arrived" | "error" }) {
       className="flex items-center gap-1.5 px-1 py-2"
     >
       <RoamMark state={kind} size={32} className="text-foreground" />
-      {kind === "error" && <span className="ml-1 text-xs text-muted-foreground">Roam couldn’t reply</span>}
+      <span className="ml-1 text-xs text-muted-foreground">Roam couldn’t reply</span>
     </motion.div>
   );
 }
@@ -255,11 +257,11 @@ export function ConversationSurface({
   const [proposal, setProposal] = useState<ProposedCommand | null>(null);
   // Phase 2.6.2 (docs/overhaul/roadmap/phase-2-speed.md): the real backend milestone for the
   // in-flight turn, driving Typing's label — replaces a purely time-based guess.
-  // How the last turn ended, shown with Roam's mark for a moment after the reply settles.
-  const [outcome, setOutcome] = useState<{ kind: "arrived" | "error"; at: number } | null>(null);
+  // A failed turn, shown with Roam's mark for a moment. (A successful one just ends with its text.)
+  const [outcome, setOutcome] = useState<{ kind: "error"; at: number } | null>(null);
   useEffect(() => {
     if (!outcome) return;
-    const timer = setTimeout(() => setOutcome(null), outcome.kind === "error" ? 4000 : 2200);
+    const timer = setTimeout(() => setOutcome(null), 4000);
     return () => clearTimeout(timer);
   }, [outcome]);
   const [progressStage, setProgressStage] = useState<"resolve" | "retrieve" | "compose" | undefined>(undefined);
@@ -420,6 +422,51 @@ export function ConversationSurface({
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [messages.length, scrollToLatestMessage]);
 
+  // Follow the reply as it is written. The log eases down with the growing text — a damped
+  // glide, never a jump — so the edge being written stays in view instead of running off under
+  // the composer. It only starts once words are actually appearing, and the moment the viewer
+  // scrolls or touches the log themselves it lets go for the rest of that turn, so it can never
+  // fight someone who is reading back up.
+  // `tail` keeps the glide going for a moment after the stream ends: the last words are still
+  // being revealed then.
+  const [tail, setTail] = useState(false);
+  const wasSending = useRef(false);
+  useEffect(() => {
+    if (sending) {
+      wasSending.current = true;
+      setTail(false);
+      return;
+    }
+    if (!wasSending.current) return;
+    wasSending.current = false;
+    setTail(true);
+    const timer = setTimeout(() => setTail(false), 1600);
+    return () => clearTimeout(timer);
+  }, [sending]);
+  const follow = sending || tail;
+  useEffect(() => {
+    const log = logRef.current;
+    if (!follow || !log) return;
+    let released = false;
+    const release = () => { released = true; };
+    const events = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
+    events.forEach((name) => log.addEventListener(name, release, { passive: true }));
+    let frame = 0;
+    const tick = () => {
+      const reply = log.querySelector<HTMLElement>("[data-latest-reply]");
+      if (!released && reply?.textContent?.trim()) {
+        const gap = log.scrollHeight - log.clientHeight - log.scrollTop;
+        if (gap > 0.5) log.scrollTop += Math.max(gap * FOLLOW_EASE, 0.6);
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(frame);
+      events.forEach((name) => log.removeEventListener(name, release));
+    };
+  }, [follow]);
+
   const isMultiline = useAutoGrowTextarea(textareaRef, input);
 
   async function confirmProposal() {
@@ -529,7 +576,6 @@ export function ConversationSurface({
       // The resolver may have persisted core trip facts or pending suggestions during this turn.
       // Refresh server-rendered workspace surfaces so “What we know” reflects the same response.
       announceWorkspaceChange("preferences");
-      setOutcome({ kind: "arrived", at: Date.now() });
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       if (err instanceof AssistantRequestError && (err.code === "guest_limit" || err.code === "guest_busy")) {
@@ -613,8 +659,6 @@ export function ConversationSurface({
 
   const showHero = loaded && messages.length === 0 && !rail;
   const waiting = sending && messages[messages.length - 1]?.content.trim() === "";
-  const lastMessage = messages[messages.length - 1];
-  const streamingReply = sending && lastMessage?.role === "assistant" && lastMessage.content.trim() !== "";
 
   const micButton = speech.supported && (
     <button
@@ -750,9 +794,10 @@ export function ConversationSurface({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ type: "spring", stiffness: 240, damping: 26 }}
                 dir={dir}
+                data-latest-reply={index === messages.length - 1 ? "" : undefined}
                 aria-busy={streaming || undefined}
-                // While text streams in, Roam's "answering" mark below the log stands in for the
-                // old blinking "▍" cursor (`chat-streaming` in app/globals.css).
+                // The reply reveals itself word by word (AssistantMessage → StreamedText); the
+                // "answering" mark below the log only shows while Roam is still working out what to say.
                 className="space-y-3"
               >
                 <span className="sr-only">Roam: </span>
@@ -796,15 +841,11 @@ export function ConversationSurface({
           })}
 
           <div role="status" aria-live="polite">
-            {/* One slot for Roam's mark through a whole turn: thinking/searching/planning while it
-                works (Typing), answering while text streams in, then briefly how it ended. */}
-            <AnimatePresence mode="wait" initial={false}>
+            {/* Roam's mark while it works (thinking → searching → planning). It hands over to the
+                text itself as soon as the first words arrive — nothing trails the reply. */}
+            <AnimatePresence initial={false}>
               {waiting ? (
                 <Typing key="typing" stage={progressStage} label={progressLabel} />
-              ) : streamingReply ? (
-                <motion.div key="answering" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center px-1 py-2">
-                  <RoamMark state="answering" size={32} label="Roam is replying" className="text-foreground" />
-                </motion.div>
               ) : outcome ? (
                 <TurnOutcome key={`${outcome.kind}-${outcome.at}`} kind={outcome.kind} />
               ) : null}

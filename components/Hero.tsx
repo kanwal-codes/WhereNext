@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { motion, useReducedMotion, useScroll, useTransform } from "motion/react";
 import { useAnimateIn } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,10 @@ export function Hero({
   plain = false,
   surface = false,
   ratingBadge,
+  coverImages = [],
+  coverAlt = "",
+  onCoverChange,
+  dissolve = true,
   children,
 }: {
   image: string;
@@ -36,9 +40,23 @@ export function Hero({
    *  text row on one view, an image-overlay badge with its own bespoke scrim on another). Pass the
    *  icon + value as children (e.g. `<Star .../> 4.6`); omit for a view with no rating to show. */
   ratingBadge?: ReactNode;
+  /** Photos to lay over `image`, best first. The first one that loads fades in; one that fails is skipped. */
+  coverImages?: string[];
+  coverAlt?: string;
+  /** Tells the page whether a cover photo is showing, so its text can switch to suit it. */
+  onCoverChange?: (shown: boolean) => void;
+  /** false drops the fade into the page background, leaving a hard bottom edge. Default true. */
+  dissolve?: boolean;
   children?: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [coverLoaded, setCoverLoaded] = useState<string | null>(null);
+  const [coverFailed, setCoverFailed] = useState<string[]>([]);
+  const coverSrc = coverImages.find((url) => !coverFailed.includes(url)) ?? null;
+  const coverShown = coverSrc !== null && coverLoaded === coverSrc;
+  useEffect(() => {
+    onCoverChange?.(coverShown);
+  }, [coverShown, onCoverChange]);
   const reduce = useReducedMotion();
   const animateIn = useAnimateIn();
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
@@ -73,6 +91,25 @@ export function Hero({
           // eslint-disable-next-line @next/next/no-img-element -- filmic hero, arbitrary sources
           <img src={image} alt={alt} width={1600} height={900} fetchPriority="high" className="h-full w-full object-cover object-center" />
         )}
+        {coverSrc && (
+          <motion.img
+            key={coverSrc}
+            src={coverSrc}
+            alt={coverShown ? coverAlt : ""}
+            aria-hidden={!coverShown}
+            decoding="async"
+            // A photo that finished loading before the page hydrated never fires onLoad, so check for it too.
+            ref={(el) => {
+              if (el?.complete && el.naturalWidth > 0) setCoverLoaded(coverSrc);
+            }}
+            onLoad={() => setCoverLoaded(coverSrc)}
+            onError={() => setCoverFailed((current) => [...current, coverSrc])}
+            className="absolute inset-0 h-full w-full object-cover object-center"
+            initial={false}
+            animate={{ opacity: coverShown ? 1 : 0 }}
+            transition={{ duration: reduce ? 0 : 1.1, ease: [0.22, 0.61, 0.36, 1] }}
+          />
+        )}
       </motion.div>
 
       {!plain && (
@@ -94,6 +131,8 @@ export function Hero({
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/65 via-ink/10 to-transparent" />
       )}
 
+      {dissolve && (
+        <>
       <motion.div
         style={{ opacity: fog }}
         className={cn(
@@ -107,6 +146,8 @@ export function Hero({
           surface ? "bg-surface/70" : "bg-background/70",
         )}
       />
+        </>
+      )}
 
       {/* The pill itself renders last (on top of the fog) so it stays crisp regardless of the
           wash behind it — it carries its own ink/35 + blur background for contrast. */}

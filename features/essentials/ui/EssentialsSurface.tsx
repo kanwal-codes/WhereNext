@@ -15,6 +15,10 @@ const ITEMS = [
   "Note key numbers — hotel, embassy, insurance",
 ];
 
+export const ESSENTIALS_TOTAL = ITEMS.length;
+/** How many of the checklist items are ticked, ignoring any stored values that are no longer on the list. */
+export const essentialsDone = (completed: string[] | undefined): number => ITEMS.filter((item) => completed?.includes(item)).length;
+
 export function EssentialsSurface({ tripId, initialCompleted }: { tripId: string; initialCompleted?: string[] }) {
   const [done, setDone] = useState<string[]>(initialCompleted ?? []);
 
@@ -56,14 +60,14 @@ export function EssentialsSurface({ tripId, initialCompleted }: { tripId: string
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3">
-        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+        <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
           <div className="h-full rounded-full bg-leaf transition-[width] duration-500 ease-out" style={{ width: `${pct}%` }} />
         </div>
-        <span className="shrink-0 text-[11px] font-medium tabular-nums text-muted-foreground">
+        <span className="shrink-0 text-sm font-medium tabular-nums text-muted-foreground">
           {complete}/{ITEMS.length}
         </span>
       </div>
-      <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
+      <ul className="divide-y divide-border/70 overflow-hidden rounded-3xl border border-border/70 bg-card shadow-soft">
         {ITEMS.map((item) => {
           const checked = done.includes(item);
           return (
@@ -71,11 +75,11 @@ export function EssentialsSurface({ tripId, initialCompleted }: { tripId: string
               <button
                 type="button"
                 onClick={() => void toggle(item)}
-                className="flex w-full items-center gap-3 px-4 py-3.5 text-left text-sm transition-colors hover:bg-accent active:bg-accent"
+                className="flex w-full items-center gap-3 px-5 py-4 text-left text-[15px] transition-colors hover:bg-accent active:bg-accent"
               >
                 <span
                   className={cn(
-                    "grid h-5 w-5 shrink-0 place-items-center rounded-md border transition-colors",
+                    "grid h-6 w-6 shrink-0 place-items-center rounded-full border transition-colors",
                     checked ? "border-leaf bg-leaf text-background" : "border-border",
                   )}
                 >

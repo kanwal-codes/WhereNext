@@ -2,39 +2,57 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BedDouble, CalendarCheck, Plane, Sparkles } from "lucide-react";
+import { ArrowRight, Plus, UtensilsCrossed } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
 import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache";
-import { RouteScaffold } from "@/components/RouteScaffold";
-import { EssentialsSurface } from "@/features/essentials/ui/EssentialsSurface";
+import { ESSENTIALS_TOTAL, EssentialsSurface, essentialsDone } from "@/features/essentials/ui/EssentialsSurface";
 import { Reveal, Stagger, StaggerItem, Tactile } from "@/components/motion-primitives";
 import { SkeletonLines } from "@/components/Skeleton";
 import { BookingDetailSheet } from "@/features/bookings/ui/BookingDetailSheet";
 import { GetYourGuideCard } from "@/components/GetYourGuideCard";
+import { ChapterHero } from "@/components/overview/ChapterHero";
+import { SectionHeading } from "@/components/overview/SectionHeading";
+import { TableSheet } from "@/components/overview/TableSheet";
+import { ReservationSheet } from "@/components/overview/ReservationSheet";
+import { ReservationsTimeline } from "@/components/overview/ReservationsTimeline";
+import { NextUpCard } from "@/components/overview/NextUpCard";
+import { buildTimeline, pickNextUp, readFlightChoice } from "@/lib/trip-reservations";
+import type { Reservation } from "@/packages/contracts/reservation";
+import { RoamMark } from "@/features/roam/ui/RoamMark";
 import { readStayDecision } from "@/packages/contracts/stay";
-import { fmtDay } from "@/lib/trip-dates";
-import { formatMoney, resolveCurrency } from "@/lib/currency";
-import { cn } from "@/lib/utils";
+import { resolveCurrency } from "@/lib/currency";
 import type { Booking } from "@/packages/contracts/booking";
 import { ExpensesPanel } from "@/features/expenses/ui/ExpensesPanel";
-import { Wallet } from "lucide-react";
 
-const STATUS_BADGE: Record<Booking["status"], string> = {
-  confirmed: "bg-leaf-soft text-leaf",
-  pending: "bg-muted text-muted-foreground",
-  failed: "bg-destructive/10 text-destructive",
-  cancelled: "bg-destructive/10 text-destructive",
-};
+/** Saved places that are somewhere to eat, by Google's place type ("restaurant", "cafe", "brunch_restaurant"...). */
+const FOOD_PLACE = /restaurant|cafe|coffee|bakery|bar$|^bar|food|pizza|bistro|diner|meal|steak|sushi|ramen|brunch/i;
 
 export default function BookingsPage() {
   const { tripId, data } = useTripData();
   const decisions = (data?.decisions ?? []) as Array<{ kind: string; value: Record<string, unknown> }>;
   const stay = readStayDecision(decisions);
   const destination = data?.trip?.destination ?? "your destination";
-
+  const flight = readFlightChoice(decisions);
   const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [openBookingId, setOpenBookingId] = useState<string | null>(null);
+  const [reservations, setReservations] = useState<Reservation[] | null>(null);
+  const [editing, setEditing] = useState<Reservation | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [tableOpen, setTableOpen] = useState(false);
+  useEffect(() => {
+    // Until the reservations table exists (or if the request fails) the page still shows
+    // bookings, the stay and the flight: an empty list, not an error.
+    const load = () =>
+      fetch(`/api/trips/${tripId}/reservations`)
+        .then((r) => (r.ok ? r.json() : { reservations: [] }))
+        .then((body) => setReservations(body.reservations ?? []))
+        .catch(() => setReservations((current) => current ?? []));
+    void load();
+    return subscribeWorkspaceChanges((changes) => {
+      if (changes.includes("decision")) void load();
+    });
+  }, [tripId]);
   useEffect(() => {
     // Instant paint from the last fetch on a quick tab hop (this route remounts on every
     // navigation) — read inside the effect, not the state initializer: sessionStorage isn't
@@ -61,126 +79,138 @@ export default function BookingsPage() {
     });
   }, [tripId]);
   const openBooking = bookings?.find((b) => b.id === openBookingId) ?? null;
+  const savedRestaurants = ((data?.savedPlaces ?? []) as Array<{ places?: { provider_id?: string; name: string; category?: string | null; address?: string | null } }>)
+    .flatMap((row) => (row.places?.provider_id && FOOD_PLACE.test(row.places.category ?? "") ? [{ providerId: row.places.provider_id, name: row.places.name, address: row.places.address ?? null, mapsUrl: null }] : []));
+  const timeline = buildTimeline({ reservations: reservations ?? [], bookings: bookings ?? [], stay, flight, tripId });
+  const nextUp = pickNextUp(timeline);
+  const rest = nextUp ? timeline.filter((i) => i !== nextUp) : timeline;
+  const editItem = (item: { reservation: Reservation | null }) => {
+    setEditing(item.reservation);
+    setSheetOpen(true);
+  };
+  const confirmed = timeline.filter((i) => i.status === "confirmed").length;
+  const done = essentialsDone(data?.essentials);
+  const loading = bookings === null || reservations === null;
+
+  const openAdd = () => {
+    setEditing(null);
+    setSheetOpen(true);
+  };
 
   return (
-    <RouteScaffold
-      eyebrow="Bookings & essentials"
-      title="Before you go"
-      description="What's locked in, and the practical checklist. For destination-specific essentials — visas, SIMs, customs — ask Roam to build one."
-    >
-      <div className="space-y-8">
+    <div className="min-h-full pb-16">
+      <ChapterHero
+        eyebrow="Bookings & essentials"
+        title="Before you go"
+        description="Every stay, ticket and reservation in one place, and the practical checklist."
+        stats={[
+          { label: "Reserved", value: String(timeline.length), desc: timeline.length === 1 ? "thing on the trip" : "things on the trip" },
+          { label: "Confirmed", value: String(confirmed), desc: "with a provider" },
+          { label: "Checklist", value: `${done}/${ESSENTIALS_TOTAL}`, desc: "sorted" },
+        ]}
+      />
+
+      <div className="mx-auto max-w-6xl space-y-16 px-5 pt-10 sm:px-8">
         <section>
-          <h2 className="font-display text-lg">Your bookings</h2>
-          {bookings === null ? (
-            <div className="mt-3 rounded-2xl border border-border bg-card p-4 shadow-soft">
-              <SkeletonLines lines={2} />
+          <SectionHeading title="Your bookings" count={timeline.length} />
+          <div className="mt-6">
+            {loading ? (
+              <div className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft">
+                <SkeletonLines lines={3} />
+              </div>
+            ) : timeline.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-border bg-card/50 p-8">
+                <p className="font-display text-2xl tracking-tight">Nothing reserved yet</p>
+                <p className="mt-1 max-w-lg text-sm leading-relaxed text-muted-foreground">
+                  Add a hotel, a train, a tour or a dinner as you book it, or find a stay and a flight here and they will appear on their own.
+                </p>
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <button type="button" onClick={openAdd} className="btn-primary h-11 rounded-full px-6">
+                    <Plus className="h-4 w-4" /> Add reservation
+                  </button>
+                  <button type="button" onClick={() => setTableOpen(true)} className="daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-card px-5 font-medium shadow-none">
+                    <UtensilsCrossed className="h-4 w-4" /> Reserve a table
+                  </button>
+                  <Link href={`/trips/${tripId}/stay`} className="daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-card px-5 font-medium shadow-none">
+                    Find a stay
+                  </Link>
+                  <Link href={`/trips/${tripId}/map`} className="daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-card px-5 font-medium shadow-none">
+                    Find a flight
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-10">
+                {nextUp && <NextUpCard item={nextUp} onOpenBooking={setOpenBookingId} onEdit={editItem} />}
+                <ReservationsTimeline items={rest} hasNextUp={Boolean(nextUp)} onAdd={openAdd} onReserveTable={() => setTableOpen(true)} onOpenBooking={setOpenBookingId} onEdit={editItem} />
+              </div>
+            )}
+          </div>
+        </section>
+
+        <div className="grid gap-x-10 gap-y-16 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+          <section className="min-w-0">
+            <SectionHeading title="Checklist" />
+            <div className="mt-6">
+              <EssentialsSurface tripId={tripId} initialCompleted={data?.essentials} />
             </div>
-          ) : bookings.length > 0 ? (
-            <Stagger className="mt-3 space-y-2">
-              {bookings.map((b) => (
-                <StaggerItem key={b.id}>
-                  <Tactile lift={2}>
-                    <button
-                      type="button"
-                      onClick={() => setOpenBookingId(b.id)}
-                      className={cn(
-                        "flex w-full items-center gap-3 rounded-2xl border bg-card p-4 text-left shadow-soft transition-shadow hover:shadow-lift",
-                        b.status === "cancelled" || b.status === "failed" ? "border-border" : "border-leaf/30",
-                      )}
-                    >
-                      {b.kind === "flight" ? <Plane className="h-4 w-4 shrink-0 text-leaf" /> : <BedDouble className="h-4 w-4 shrink-0 text-leaf" />}
-                      <div className="min-w-0 flex-1">
-                        <p className="flex items-center gap-2 text-sm font-medium capitalize">
-                          {b.kind}
-                          <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium capitalize", STATUS_BADGE[b.status])}>{b.status}</span>
-                        </p>
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                          {b.confirmationCode ? `Confirmation ${b.confirmationCode}` : b.providerReference}
-                          {b.totalAmount != null && b.currency ? ` · ${formatMoney(b.totalAmount, b.currency)}` : ""}
-                        </p>
-                      </div>
-                    </button>
-                  </Tactile>
-                </StaggerItem>
-              ))}
-            </Stagger>
-          ) : null}
-          {stay ? (
-            <Reveal delay={0.04}>
-              <Tactile lift={2} className="mt-3 block">
+          </section>
+
+          <div className="min-w-0 space-y-4 lg:pt-[3.75rem]">
+            <Reveal delay={0.05}>
+              <Tactile lift={2} className="block">
                 <Link
-                  href={`/trips/${tripId}/stay/${encodeURIComponent(stay.hotelId)}?checkin=${stay.checkin}&checkout=${stay.checkout}`}
-                  className="flex items-center gap-4 overflow-hidden rounded-2xl border border-leaf/30 bg-card p-4 shadow-soft"
+                  href={`/trips/${tripId}/chat?ask=${encodeURIComponent(`Build me a pre-trip essentials checklist for ${destination} — visas, SIM/eSIM, power plugs, currency, tipping, transit passes, safety, and anything else I should sort before I go.`)}`}
+                  className="flex flex-col gap-4 rounded-3xl border border-border/70 bg-gradient-to-br from-card to-coral-soft/50 p-6 shadow-soft"
                 >
-                  {stay.thumbnail && (
-                    // eslint-disable-next-line @next/next/no-img-element -- external hotel image
-                    <img src={stay.thumbnail} alt={stay.hotelName} width={96} height={96} className="h-20 w-20 shrink-0 rounded-xl object-cover" />
-                  )}
-                  <div className="min-w-0">
-                    <p className="eyebrow inline-flex items-center gap-1.5 text-leaf"><BedDouble className="h-3.5 w-3.5" /> Stay</p>
-                    <p className="mt-0.5 truncate font-medium">{stay.hotelName}</p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {fmtDay(stay.checkin)} → {fmtDay(stay.checkout)} · {stay.nights} night{stay.nights === 1 ? "" : "s"} ·{" "}
-                      <span className="tabular-nums text-foreground">{stay.totalAmount} {stay.currency}</span>
-                    </p>
-                  </div>
+                  <RoamMark state="settled" size={84} />
+                  <span>
+                    <span className="block font-display text-2xl tracking-tight">A checklist for {destination}</span>
+                    <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">
+                      Visas, eSIM, plugs, currency, transit passes. Roam builds one for exactly where you&rsquo;re going.
+                    </span>
+                  </span>
+                  <span className="daisy-btn daisy-btn-neutral w-fit border-0 shadow-none">
+                    Build it <ArrowRight className="h-4 w-4" />
+                  </span>
                 </Link>
               </Tactile>
             </Reveal>
-          ) : (
-            <div className="mt-3 rounded-2xl border border-dashed border-border bg-card/50 px-4 py-5">
-              <p className="text-sm font-medium">{bookings && bookings.length > 0 ? "No stay locked in yet" : "Nothing booked yet"}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Lock a place to stay from the Stay tab, or ask Roam to compare options.
-              </p>
-              <Link href={`/trips/${tripId}/stay`} className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary">
-                Find a stay <ArrowRight className="h-3 w-3" />
-              </Link>
-            </div>
-          )}
-        </section>
+            <Reveal delay={0.09}>
+              <GetYourGuideCard query={destination} label={`Browse tours and activities in ${destination}`} />
+            </Reveal>
+          </div>
+        </div>
 
         <section>
-          <h2 className="flex items-center gap-2 font-display text-lg">
-            <Wallet className="h-4 w-4 text-leaf" /> Shared expenses
-          </h2>
-          <div className="mt-3">
+          <SectionHeading title="Shared expenses" />
+          <div className="mt-6">
             <ExpensesPanel tripId={tripId} defaultCurrency={resolveCurrency(data?.preferences)} />
           </div>
         </section>
-
-        <section>
-          <div className="flex items-baseline justify-between gap-3">
-            <h2 className="flex items-center gap-2 font-display text-lg">
-              <CalendarCheck className="h-4 w-4 text-coral" /> Checklist
-            </h2>
-          </div>
-          <div className="mt-3">
-            <EssentialsSurface tripId={tripId} initialCompleted={data?.essentials} />
-          </div>
-        </section>
-
-        <Reveal delay={0.08}>
-          <Tactile lift={2} className="block">
-            <Link
-              href={`/trips/${tripId}/chat?ask=${encodeURIComponent(`Build me a pre-trip essentials checklist for ${destination} — visas, SIM/eSIM, power plugs, currency, tipping, transit passes, safety, and anything else I should sort before I go.`)}`}
-              className="flex items-start gap-3 rounded-2xl border border-coral/25 bg-gradient-to-br from-card to-coral-soft/40 p-5 shadow-soft"
-            >
-              <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-coral" />
-              <span>
-                <span className="font-medium">Get a checklist for {destination}</span>
-                <span className="mt-1 block text-sm text-muted-foreground">
-                  Visas, eSIM, plugs, currency, transit passes — Roam builds one for exactly where you&rsquo;re going.
-                </span>
-              </span>
-            </Link>
-          </Tactile>
-        </Reveal>
-
-        <Reveal delay={0.09}>
-          <GetYourGuideCard query={destination} label={`Browse tours and activities in ${destination}`} />
-        </Reveal>
       </div>
+
+      <TableSheet
+        tripId={tripId}
+        open={tableOpen}
+        destination={data?.trip?.destination ?? ""}
+        defaultDate={data?.trip?.start_date ?? ""}
+        defaultParty={data?.trip?.travelers ?? 2}
+        saved={savedRestaurants}
+        onClose={() => setTableOpen(false)}
+        onSaved={(saved) => setReservations((list) => [...(list ?? []).filter((r) => r.id !== saved.id), saved])}
+      />
+
+      <ReservationSheet
+        tripId={tripId}
+        open={sheetOpen}
+        editing={editing}
+        defaultCurrency={resolveCurrency(data?.preferences)}
+        defaultDate={data?.trip?.start_date ?? ""}
+        onClose={() => setSheetOpen(false)}
+        onSaved={(saved) => setReservations((list) => [...(list ?? []).filter((r) => r.id !== saved.id), saved])}
+        onDeleted={(id) => setReservations((list) => (list ?? []).filter((r) => r.id !== id))}
+      />
 
       <BookingDetailSheet
         tripId={tripId}
@@ -188,6 +218,6 @@ export default function BookingsPage() {
         onClose={() => setOpenBookingId(null)}
         onCancelled={(updated) => setBookings((list) => (list ?? []).map((b) => (b.id === updated.id ? updated : b)))}
       />
-    </RouteScaffold>
+    </div>
   );
 }

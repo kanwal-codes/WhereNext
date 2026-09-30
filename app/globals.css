@@ -1,6 +1,58 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/*
+ * daisyUI 5, used for component structure (card, badge, tabs, dropdown, stats ...).
+ * It is deliberately fenced in so it cannot restyle anything that already exists:
+ *  - `prefix`: every daisyUI class is `daisy-*`, so it can never collide with the app's own
+ *    `.btn-primary` / `.btn-destructive` / etc.
+ *  - `themes: false` + the "wherenext" theme below: daisyUI's colours are just aliases of the
+ *    app's existing tokens, so light/dark keep following the `.dark` class and nothing is repainted.
+ *  - `exclude`: the modules that would set the page background, lock scrolling or add a scrollbar
+ *    gutter globally (the app already handles all three itself).
+ */
+@plugin "daisyui" {
+  themes: false;
+  prefix: "daisy-";
+  exclude: rootcolor, rootscrollgutter, rootscrolllock, scrollbar;
+  logs: false;
+}
+@plugin "daisyui/theme" {
+  name: "wherenext";
+  default: true;
+  color-scheme: light;
+
+  --color-base-100: var(--card);
+  --color-base-200: var(--muted);
+  --color-base-300: var(--border);
+  --color-base-content: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-content: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-content: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-content: var(--accent-foreground);
+  --color-neutral: var(--primary);
+  --color-neutral-content: var(--primary-foreground);
+  --color-info: var(--ink-soft);
+  --color-info-content: var(--background);
+  --color-success: oklch(0.6 0.09 158);
+  --color-success-content: oklch(0.99 0.01 158);
+  --color-warning: var(--coral);
+  --color-warning-content: var(--primary-foreground);
+  --color-error: var(--destructive);
+  --color-error-content: var(--destructive-foreground);
+
+  --radius-selector: 999px;
+  --radius-field: 999px;
+  --radius-box: 1.25rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 /*
@@ -757,6 +809,7 @@
 ::selection { background: color-mix(in oklab, var(--coral) 32%, transparent); color: inherit; }
 :where(input, textarea) { caret-color: var(--coral); }
 
+/* Blinking cursor — only the landing page's scripted demo still uses it. */
 .chat-streaming > .chat-prose > :last-child::after {
   content: "▍";
   margin-left: 2px;
@@ -764,6 +817,44 @@
 }
 @keyframes chat-blink { 50% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .chat-streaming > .chat-prose > :last-child::after { animation: none; } }
+
+/* Roam's reply, as it is written (StreamedText.tsx). Each new word resolves out of a soft blur —
+   fading up while it rises into its line — and each new block (paragraph, bullet, heading) lifts
+   into place a beat ahead of its words. The long expo-out ease is what makes it feel poured
+   rather than typed: fast to appear, slow to settle. */
+@keyframes chat-word-in {
+  0% { opacity: 0; transform: translateY(0.5em); filter: blur(7px); }
+  35% { opacity: 0.55; }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+.chat-prose .chat-word {
+  display: inline-block;
+  animation: chat-word-in 780ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes chat-block-in {
+  from { transform: translateY(10px); }
+  to { transform: none; }
+}
+.chat-live :is(p, li, h1, h2, h3, h4, blockquote, pre, table) {
+  animation: chat-block-in 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+/* A slow push-in on a full-bleed hero photo, like a held camera shot. */
+@keyframes hero-drift {
+  from { transform: scale(1.03) translate3d(0, 0, 0); }
+  to { transform: scale(1.13) translate3d(-1.2%, -0.8%, 0); }
+}
+.hero-drift { animation: hero-drift 32s ease-out forwards; will-change: transform; }
+@media (prefers-reduced-motion: reduce) { .hero-drift { animation: none; } }
+
+/* Cards and photos that come with a reply ease in once its text has finished. */
+@keyframes chat-blocks-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.chat-blocks-in { animation: chat-blocks-in 600ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .chat-prose .chat-word, .chat-live :is(p, li, h1, h2, h3, h4, blockquote, pre, table), .chat-blocks-in { animation: none; }
+}
 
 /* react-day-picker (DateRangeField) — themed through its own CSS custom properties
    (see node_modules/react-day-picker/src/style.css for the full variable list) plus a

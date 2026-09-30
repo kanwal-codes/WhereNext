@@ -12,6 +12,20 @@ export function photoProxyUrl(tripId: string, photoName: string | undefined, wid
   return `/api/trips/${tripId}/places/google/photo?name=${encodeURIComponent(photoName)}${width ? `&w=${width}` : ""}`;
 }
 
+/** Same idea for the account page, where there is no trip: any signed-in user. */
+export function accountPhotoUrl(photoName: string | null | undefined, width?: number): string | undefined {
+  if (!photoName || !/^places\/[^/]+\/photos\/[^/]+$/.test(photoName)) return undefined;
+  return `/api/account/places/photo?name=${encodeURIComponent(photoName)}${width ? `&w=${width}` : ""}`;
+}
+
+/**
+ * The width to fetch a photo at: snapped to 80px steps between 240 and 1600, so a thumbnail is not
+ * served at card size but a full-bleed hero can still ask for 1600. Bounded, so the cache and the Photo API bill stay small.
+ */
+export function snapPhotoWidth(requested: unknown): number {
+  return Math.min(1600, Math.max(240, Math.round((Number(requested) || 800) / 80) * 80));
+}
+
 /**
  * Rough "City, Country" from a Google formatted address (no structured `addressComponents` are
  * fetched from the Places API, only the single `formattedAddress` string). Used to bias a

@@ -1,16 +1,38 @@
 "use client";
 
 import { useTripData } from "@/components/TripDataProvider";
-import { RouteScaffold } from "@/components/RouteScaffold";
+import { ChapterHero } from "@/components/overview/ChapterHero";
+import { Reveal } from "@/components/motion-primitives";
 import { ItinerarySurface } from "@/features/itinerary/ui/ItinerarySurface";
+import { tripDurationDays } from "@/features/trip/domain/trip";
 import { readStayDecision } from "@/packages/contracts/stay";
 
 export default function ItineraryPage() {
   const { tripId, data } = useTripData();
   const lockedStay = readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
+  const items = (data?.itinerary ?? []) as Array<{ day_index: number; metadata?: { locked?: boolean } | null }>;
+  const trip = data?.trip;
+  const length = trip ? (tripDurationDays(trip.start_date, trip.end_date) ?? trip.duration_days) : null;
+  const planned = new Set(items.map((i) => i.day_index)).size;
+  const locked = items.filter((i) => i.metadata?.locked === true).length;
+
   return (
-    <RouteScaffold eyebrow="Itinerary" title="The plan, day by day" description="Lock what's fixed; move the rest between days.">
-      <ItinerarySurface tripId={tripId} initialItems={data?.itinerary} startDate={data?.trip?.start_date ?? null} lockedStay={lockedStay} destination={data?.trip?.destination ?? null} />
-    </RouteScaffold>
+    <div className="min-h-full pb-16">
+      <ChapterHero
+        eyebrow="Itinerary"
+        title="The plan, day by day"
+        description="Lock what's fixed; move the rest between days."
+        stats={[
+          { label: "Days planned", value: String(planned), desc: length ? `of ${length}` : undefined },
+          { label: "Stops", value: String(items.length), desc: "on the plan" },
+          { label: "Locked", value: String(locked), desc: "fixed in place" },
+        ]}
+      />
+      <Reveal>
+        <div className="mx-auto w-full min-w-0 max-w-6xl px-5 pt-10 sm:px-8">
+          <ItinerarySurface tripId={tripId} initialItems={data?.itinerary} startDate={trip?.start_date ?? null} lockedStay={lockedStay} destination={trip?.destination ?? null} />
+        </div>
+      </Reveal>
+    </div>
   );
 }

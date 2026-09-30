@@ -236,49 +236,74 @@ export function ItinerarySurface({
   }
 
   return (
-    <div className="min-w-0 space-y-8">
-      <div className="flex justify-end">
-        <a href={`/trips/${tripId}/today`} className="text-xs font-medium text-primary hover:underline">
-          Today view →
+    <div className="min-w-0 space-y-12">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <nav aria-label="Jump to a day" className="flex min-w-0 flex-wrap gap-2">
+          {days.map((d) => (
+            <a
+              key={d}
+              href={`#day-${d}`}
+              suppressHydrationWarning
+              className="daisy-btn daisy-btn-sm h-9 rounded-full border-border bg-card px-4 font-medium shadow-none hover:border-foreground/30 hover:bg-accent"
+            >
+              <span className="font-display tabular-nums">{String(d).padStart(2, "0")}</span>
+              <span className="text-muted-foreground">{dayDate(startDate, d)?.split(",")[1]?.trim() ?? `Day ${d}`}</span>
+            </a>
+          ))}
+        </nav>
+        <a href={`/trips/${tripId}/today`} className="group inline-flex items-center gap-1 text-sm font-medium text-foreground/80 transition-colors hover:text-foreground">
+          Today view <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
         </a>
       </div>
+
       {lockedStay && (
-        <p className="flex items-center gap-2 rounded-2xl border border-leaf/30 bg-leaf-soft/40 px-4 py-2.5 text-sm text-ink-soft">
-          <BedDouble className="h-4 w-4 shrink-0 text-leaf" />
-          <span className="min-w-0 truncate">
-            Based at <span className="font-medium text-foreground">{lockedStay.hotelName}</span> · {fmtDay(lockedStay.checkin)} → {fmtDay(lockedStay.checkout)}
-          </span>
-        </p>
+        <div className="flex items-center gap-4 overflow-hidden rounded-3xl border border-border/70 bg-card p-3 pr-5 shadow-soft">
+          {lockedStay.thumbnail ? (
+            // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
+            <img src={lockedStay.thumbnail} alt="" width={96} height={96} className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
+          ) : (
+            <span className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-muted">
+              <BedDouble className="h-5 w-5 text-muted-foreground" />
+            </span>
+          )}
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">Based at</p>
+            <p className="truncate font-display text-xl tracking-tight">{lockedStay.hotelName}</p>
+            <p suppressHydrationWarning className="truncate text-sm text-muted-foreground">
+              {fmtDay(lockedStay.checkin)} to {fmtDay(lockedStay.checkout)}
+            </p>
+          </div>
+        </div>
       )}
+
       <form
         onSubmit={(e) => {
           e.preventDefault();
           void add();
         }}
-        className="flex flex-wrap items-center gap-2 rounded-2xl border border-input bg-card px-3 py-2 shadow-soft focus-within:ring-2 focus-within:ring-ring/25"
+        className="flex flex-wrap items-center gap-2 rounded-[1.75rem] border border-border/70 bg-card p-2 pl-5 shadow-soft transition-colors focus-within:border-foreground/30"
       >
+        <Plus aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
         <input
           aria-label="Add itinerary item"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Add something to the plan…"
-          className="min-w-0 flex-1 basis-48 bg-transparent px-1.5 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
+          className="min-w-0 flex-1 basis-48 bg-transparent px-1 py-2 text-[15px] outline-none placeholder:text-muted-foreground"
         />
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            Day
-            <input
-              type="number"
-              min={1}
-              value={day}
-              onChange={(e) => setDay(Math.max(1, Number(e.target.value)))}
-              className="w-14 rounded-lg border border-border bg-background px-2 py-1 text-sm"
-            />
-          </label>
-          <button type="submit" className="btn-primary-sm">
-            Add
-          </button>
-        </div>
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          Day
+          <input
+            type="number"
+            min={1}
+            value={day}
+            onChange={(e) => setDay(Math.max(1, Number(e.target.value)))}
+            className="w-16 rounded-full border border-border bg-background px-3 py-1.5 text-center text-sm tabular-nums text-foreground outline-none focus:border-foreground/40"
+          />
+        </label>
+        <button type="submit" className="daisy-btn daisy-btn-neutral h-10 rounded-full border-0 px-6 shadow-none">
+          Add
+        </button>
       </form>
 
       {days.map((d) => {
@@ -287,6 +312,8 @@ export function ItinerarySurface({
         return (
           <section
             key={d}
+            id={`day-${d}`}
+            className="scroll-mt-6"
             onDragOver={(e) => {
               if (dragTitle) {
                 e.preventDefault();
@@ -299,12 +326,14 @@ export function ItinerarySurface({
               if (dayItems.length === 0) onDropAt(d, null);
             }}
           >
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
+            <div className="grid gap-x-10 gap-y-5 md:grid-cols-[11rem_minmax(0,1fr)]">
+            <div className="flex items-end justify-between gap-4 md:sticky md:top-6 md:flex-col md:items-start md:justify-start md:self-start">
               <div className="min-w-0">
-                <p className="eyebrow">Day {d}{date ? ` · ${date}` : ""}</p>
-                <h3 className="mt-1 font-display text-xl">
-                  {dayItems.length} item{dayItems.length === 1 ? "" : "s"}
-                </h3>
+                <p aria-hidden className="font-display text-6xl leading-none tabular-nums text-foreground/15 sm:text-7xl">{String(d).padStart(2, "0")}</p>
+                <h3 suppressHydrationWarning className="mt-2 font-display text-2xl tracking-tight">{date ?? `Day ${d}`}</h3>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {dayItems.length === 0 ? "Open day" : `${dayItems.length} ${dayItems.length === 1 ? "stop" : "stops"}`}
+                </p>
               </div>
               <button
                 type="button"
@@ -312,25 +341,25 @@ export function ItinerarySurface({
                   setDay(d);
                   document.querySelector<HTMLInputElement>('input[aria-label="Add itinerary item"]')?.focus();
                 }}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
+                className="daisy-btn daisy-btn-sm h-9 shrink-0 rounded-full border-border bg-card px-4 font-medium shadow-none hover:border-foreground/30 hover:bg-accent"
               >
                 <Plus className="h-3.5 w-3.5" /> Add here
               </button>
             </div>
 
-            <div className="relative mt-4 pl-6">
-              <span className="absolute top-2 bottom-2 left-[7px] w-px bg-border" />
+            <div className="relative min-w-0 pl-7">
+              <span className="absolute top-3 bottom-3 left-[9px] w-px bg-border" />
               <AnimatePresence initial={false}>
                 {dayItems.length === 0 && (
                   <motion.p
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     className={cn(
-                      "rounded-2xl border border-dashed px-5 py-6 text-sm text-muted-foreground",
+                      "rounded-3xl border border-dashed px-5 py-8 text-sm text-muted-foreground",
                       dropHint === `${d}:end` ? "border-coral bg-coral-soft/40" : "border-border",
                     )}
                   >
-                    Nothing scheduled for this day.
+                    Nothing planned. Add something above, or drag an item here.
                   </motion.p>
                 )}
                 {dayItems.map((item, itemIndex) => {
@@ -359,13 +388,13 @@ export function ItinerarySurface({
                         onDropAt(d, item.title);
                       }}
                     >
-                      <span className="absolute top-1/2 -left-6 grid h-4 w-4 -translate-y-1/2 place-items-center rounded-full border border-border bg-background">
+                      <span className="absolute top-1/2 -left-7 grid h-[18px] w-[18px] -translate-y-1/2 place-items-center rounded-full border border-border bg-background">
                         <span className={cn("h-1.5 w-1.5 rounded-full", locked ? "bg-leaf" : "bg-coral")} />
                       </span>
                       <div
                         className={cn(
-                          "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border bg-card px-3 py-3 shadow-soft transition-colors",
-                          hint ? "border-coral" : "border-border",
+                          "grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-3xl sm:grid-cols-[auto_minmax(0,1fr)_auto] border bg-card px-3 py-4 shadow-soft transition-[border-color,box-shadow] duration-300 hover:shadow-lift",
+                          hint ? "border-coral" : locked ? "border-leaf/30" : "border-border/70",
                         )}
                       >
                         <button
@@ -382,7 +411,7 @@ export function ItinerarySurface({
                           <GripVertical className="h-3.5 w-3.5" />
                         </button>
                         <div className="min-w-0">
-                          <p className="flex items-center gap-2 text-sm font-medium">
+                          <p className="flex items-center gap-2 font-display text-lg leading-snug tracking-tight">
                             <button
                               type="button"
                               onClick={() => void openPlace(item, providerId)}
@@ -409,7 +438,7 @@ export function ItinerarySurface({
                                   disabled={locked}
                                   onChange={(e) => setTime(item, e.target.value || null)}
                                   className={cn(
-                                    "rounded border-none bg-transparent p-0 text-xs outline-none [color-scheme:auto] disabled:opacity-50",
+                                    "rounded border-none bg-transparent p-0 text-xs outline-none [color-scheme:auto] disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:hidden",
                                     time ? "text-muted-foreground hover:text-foreground" : "text-transparent",
                                   )}
                                 />
@@ -425,7 +454,7 @@ export function ItinerarySurface({
                             );
                           })()}
                         </div>
-                        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                        <div className="col-span-2 flex shrink-0 flex-wrap items-center justify-end gap-1 border-t border-border/60 pt-2 sm:col-span-1 sm:border-0 sm:pt-0 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:focus-within:opacity-100">
                           <button
                             aria-label={`Move ${item.title} earlier in the day`}
                             onClick={() => moveWithinDay(item, -1)}
@@ -460,6 +489,7 @@ export function ItinerarySurface({
                   );
                 })}
               </AnimatePresence>
+            </div>
             </div>
           </section>
         );

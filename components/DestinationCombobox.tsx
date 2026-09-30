@@ -15,6 +15,8 @@ type Suggestion = { placeId: string; text: string; secondaryText: string | null 
  */
 export function DestinationCombobox({
   tripId,
+  endpoint,
+  inputClassName,
   value,
   onChange,
   onSelect,
@@ -22,7 +24,12 @@ export function DestinationCombobox({
   autoFocus,
   disabled,
 }: {
-  tripId: string;
+  /** The trip whose autocomplete route to use; omit it (and pass `endpoint`) outside a trip, e.g. on the profile. */
+  tripId?: string;
+  /** An autocomplete route taking `?query=`, overriding the trip's. */
+  endpoint?: string;
+  /** Replaces the input's default compact styling. */
+  inputClassName?: string;
   value: string;
   onChange: (value: string) => void;
   onSelect: (text: string) => void;
@@ -51,14 +58,14 @@ export function DestinationCombobox({
     const timer = setTimeout(() => {
       const controller = new AbortController();
       requestRef.current = controller;
-      fetch(`/api/trips/${tripId}/places/google/autocomplete?query=${encodeURIComponent(query)}`, { signal: controller.signal })
+      fetch(`${endpoint ?? `/api/trips/${tripId}/places/google/autocomplete`}?query=${encodeURIComponent(query)}`, { signal: controller.signal })
         .then((r) => (r.ok ? r.json() : { suggestions: [] }))
         .then((body) => setSuggestions(body.suggestions ?? []))
         .catch((e) => { if (!(e instanceof DOMException && e.name === "AbortError")) setSuggestions([]); })
         .finally(() => setLoading(false));
     }, 220);
     return () => clearTimeout(timer);
-  }, [value, tripId]);
+  }, [value, tripId, endpoint]);
 
   useEffect(() => {
     const onPointerDown = (e: PointerEvent) => {
@@ -81,7 +88,7 @@ export function DestinationCombobox({
           autoFocus={autoFocus}
           disabled={disabled}
           aria-label="Destination"
-          className="w-full rounded-lg border border-input bg-background px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-ring/25 disabled:opacity-60"
+          className={inputClassName ?? "w-full rounded-lg border border-input bg-background px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-ring/25 disabled:opacity-60"}
         />
         {showPanel && (
           <Cmdk.List className="absolute inset-x-0 top-full z-20 mt-1 max-h-56 overflow-y-auto overscroll-contain rounded-lg border border-border bg-popover py-1 shadow-lift">

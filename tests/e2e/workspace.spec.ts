@@ -5,7 +5,7 @@ test("preview trip renders the routed workspace shell and every surface route", 
   // route's module graph makes the first compile heavier than the 30s default allows.
   test.setTimeout(90_000);
   await page.goto("/trips/rebuild-preview");
-  await expect(page.getByRole("heading", { name: "What we know so far" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "What we know", exact: true })).toBeVisible();
 
   const snapshot = await page.evaluate(async () => {
     const response = await fetch("/api/trips/rebuild-preview/workspace");

@@ -1,36 +1,65 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, CalendarDays, Loader2, MapPin, Mic, Plus, Trash2, Users } from "lucide-react";
+import { ArrowRight, Loader2, Mic, Plus, Trash2 } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
 import { Hero } from "@/components/Hero";
-import { Reveal, Sheet, Stagger, StaggerItem, Tactile, WordReveal } from "@/components/motion-primitives";
+import { Reveal, Sheet, Stagger, StaggerItem, WordReveal } from "@/components/motion-primitives";
+import { FeaturedTrip } from "@/components/trips/FeaturedTrip";
+import { TripCard } from "@/components/trips/TripCard";
+import { useTripPhotoCandidates } from "@/components/trips/TripCover";
+import type { TripSummary } from "@/components/trips/types";
+import { RoamMark } from "@/features/roam/ui/RoamMark";
 import { notifyToast } from "@/lib/application/toast";
-import { tripWhen } from "@/lib/trip-dates";
+import { matchesFilter, pickFeatured, sortForHome, tripCounts, tripStatus, type TripFilter } from "@/lib/trip-status";
 import { useIsDarkMode } from "@/lib/use-dark-mode";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { useSpeechInput } from "@/lib/use-speech-input";
 import { memberInitials } from "@/lib/member-initials";
 import { cn } from "@/lib/utils";
 
 const PROMPT_CHIPS = ["A relaxing weekend", "Somewhere new", "Reunite with friends"];
 
-export type TripSummary = {
-  id: string;
-  name: string;
-  destination: string | null;
-  origin: string | null;
-  duration_days: number | null;
-  start_date: string | null;
-  end_date: string | null;
-  travelers: number | null;
-};
+export type { TripSummary };
+
+const EMPTY_PHOTOS = [
+  { src: "/design/land-city.jpg", tilt: "-rotate-2" },
+  { src: "/design/land-coast.jpg", tilt: "rotate-[7deg]" },
+  { src: "/design/land-mountains.jpg", tilt: "-rotate-[12deg]" },
+];
+
+const FILTER_TABS: Array<{ key: TripFilter; label: string }> = [
+  { key: "all", label: "All" },
+  { key: "upcoming", label: "Upcoming" },
+  { key: "undated", label: "Planning" },
+  { key: "past", label: "Past" },
+];
 
 export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displayName: string }) {
   const [list, setList] = useState(trips);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<TripSummary | null>(null);
   const isDark = useIsDarkMode();
+  // "Today" for the whole screen, fixed for the life of the mount so nothing shifts under the reader.
+  const [now] = useState(() => Date.now());
+  const [filter, setFilter] = useState<TripFilter>("all");
+  const counts = useMemo(() => tripCounts(list, now), [list, now]);
+  // If the last trip of a kind is deleted while its tab is open, fall back to All rather than an empty tab.
+  const activeFilter: TripFilter = counts[filter] > 0 ? filter : "all";
+  const visible = useMemo(
+    () => sortForHome(list, now).filter((trip) => matchesFilter(tripStatus(trip, now), activeFilter)),
+    [list, now, activeFilter],
+  );
+  const featured = useMemo(() => pickFeatured(visible, now), [visible, now]);
+  const rest = useMemo(() => visible.filter((trip) => trip.id !== featured?.id), [visible, featured]);
+  // The hero is a photo of the trip you are most likely to open next, at a width sharp enough for
+  // a full-bleed image. With no photo for it, the brand rooftops stay (below).
+  const heroPhotos = useTripPhotoCandidates(featured, 1600);
+  const [onPhoto, setOnPhoto] = useState(false);
+  const wide = useMediaQuery("(min-width: 640px)");
+  const tabs = FILTER_TABS.filter((tab) => tab.key === "all" || counts[tab.key] > 0);
+  const showTabs = list.length > 3 && tabs.length > 2;
 
   const [prompt, setPrompt] = useState("");
   const [starting, setStarting] = useState(false);
@@ -40,6 +69,7 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
   // Stable for the life of this mount, so a retry after a dropped response re-uses the same
   // attempt instead of the server creating a second blank trip.
   const startIdempotencyKey = useRef(crypto.randomUUID());
+  const canSend = !starting && prompt.trim().length > 0;
   const speech = useSpeechInput({
     onStart: () => { promptBase.current = prompt.trim() ? `${prompt.trim()} ` : ""; },
     onResult: (text) => setPrompt(promptBase.current + text),
@@ -84,13 +114,32 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
 
   return (
     <div className="min-h-screen">
-      <Hero image={isDark ? "/design/trip-hero-night.jpg" : "/design/trip-hero.jpg"} alt="Warm rooftops at dusk" className="h-[440px] sm:h-[420px]">
+      <Hero
+        image={isDark ? "/design/trip-hero-night.jpg" : "/design/trip-hero.jpg"}
+        alt="Warm rooftops at dusk"
+        plain
+        coverImages={heroPhotos}
+        coverAlt={featured?.destination ? `Photo of ${featured.destination}` : ""}
+        onCoverChange={setOnPhoto}
+        dissolve={!onPhoto}
+        className={cn(
+          "h-[440px] transition-[border-radius] duration-700 sm:h-[420px]",
+          onPhoto ? "rounded-b-[2rem]" : "[&_img]:object-[50%_82%] [&_img]:contrast-[1.12] [&_img]:saturate-[1.3]",
+        )}
+      >
+        {/* Keeps white text readable on any trip photo. Fades in with the photo. */}
+        <div aria-hidden className={cn("pointer-events-none absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/60 transition-opacity duration-700", onPhoto ? "opacity-100" : "opacity-0")} />
+        {/* Behind the words only, so the photo itself stays bright: a dark pool, and a frosted one that softens busy detail (lamps, signs, faces) right where small text sits. */}
+        <div aria-hidden className={cn("pointer-events-none absolute inset-0 bg-[radial-gradient(75%_58%_at_50%_60%,rgba(0,0,0,0.6),transparent)] transition-opacity duration-700", onPhoto ? "opacity-100" : "opacity-0")} />
+        <div aria-hidden className={cn("pointer-events-none absolute inset-x-0 bottom-0 h-[78%] backdrop-blur-[7px] [mask-image:radial-gradient(70%_62%_at_50%_58%,black_35%,transparent)] transition-opacity duration-700", onPhoto ? "opacity-100" : "opacity-0")} />
+        {/* On the brand rooftops, a soft light pool behind the words so the rooftop detail never fights the text. */}
+        <div aria-hidden className={cn("pointer-events-none absolute inset-0 bg-[radial-gradient(60%_42%_at_50%_58%,color-mix(in_oklab,var(--background)_62%,transparent),transparent)] transition-opacity duration-700", onPhoto ? "opacity-0" : "opacity-100")} />
         <div className="absolute inset-x-0 top-0">
           <Reveal>
             <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 pt-6 sm:px-8">
               <Link href="/" className="inline-flex items-center gap-2">
-                <BrandMark variant="compact" />
-                <BrandMark variant="text" className="hidden sm:inline" />
+                <BrandMark variant="compact" className={cn("transition-shadow duration-700", onPhoto && "ring-1 ring-white/60")} />
+                <BrandMark variant="text" className={cn("hidden transition-colors duration-700 sm:inline", onPhoto && "text-white")} />
               </Link>
               <Link
                 href="/account"
@@ -110,9 +159,9 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
               <WordReveal
                 text="Trips you're thinking about."
                 delay={0.3}
-                className="mx-auto max-w-2xl text-center font-display text-4xl leading-[1.15] sm:text-5xl"
+                className={cn("mx-auto max-w-2xl text-center font-display text-4xl leading-[1.15] transition-colors duration-700 sm:text-5xl", onPhoto && "text-white [text-shadow:0_2px_24px_rgba(0,0,0,0.45)]")}
               />
-              <p className="mx-auto mt-3 max-w-xl text-center text-sm leading-relaxed text-ink-soft">
+              <p className={cn("mx-auto mt-3 max-w-xl text-center text-[15px] leading-relaxed transition-colors duration-700 sm:text-base", onPhoto ? "font-medium text-white [text-shadow:0_1px_14px_rgba(0,0,0,0.65)]" : "text-ink-soft")}>
                 Talk it through, and the plan builds itself alongside the conversation.
               </p>
             </Reveal>
@@ -122,48 +171,55 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
                   event.preventDefault();
                   void startTrip();
                 }}
-                className="mx-auto mt-4 flex max-w-xl items-center gap-1.5 rounded-full border border-border/60 bg-background/90 px-2.5 py-2 shadow-lift backdrop-blur transition-shadow focus-within:ring-2 focus-within:ring-ring/25 sm:mt-5"
+                className="mx-auto mt-5 max-w-xl"
               >
-                <input
-                  ref={promptInputRef}
-                  value={prompt}
-                  onChange={(event) => setPrompt(event.target.value)}
-                  placeholder={speech.listening ? "Listening…" : "A long weekend in Lisbon, or just a feeling you’re chasing…"}
-                  aria-label="Tell Roam about your next trip"
-                  disabled={starting}
-                  className="min-w-0 flex-1 bg-transparent px-1.5 py-1.5 text-sm text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-60"
-                />
-                {speech.supported && (
-                  <button
-                    type="button"
-                    onClick={speech.toggle}
-                    aria-label={speech.listening ? "Stop dictation" : "Dictate"}
-                    aria-pressed={speech.listening}
+                {/* One daisyUI input wraps the field and its buttons, so the whole pill takes the focus ring. */}
+                <label className={cn("daisy-input daisy-input-lg h-14 w-full rounded-full border-border/60 pr-2 pl-5 shadow-lift backdrop-blur transition-[background-color,border-color,box-shadow] focus-within:border-foreground/30 focus-within:shadow-[0_10px_34px_-10px_rgba(0,0,0,0.4)] focus-within:outline-transparent", onPhoto ? "bg-background" : "bg-background/90")}>
+                  <input
+                    ref={promptInputRef}
+                    value={prompt}
+                    onChange={(event) => setPrompt(event.target.value)}
+                    placeholder={speech.listening ? "Listening…" : wide ? "A long weekend in Lisbon, or just a feeling you’re chasing…" : "Where to next?"}
+                    aria-label="Tell Roam about your next trip"
                     disabled={starting}
+                    className="grow text-base text-ellipsis text-foreground placeholder:text-muted-foreground disabled:opacity-60"
+                  />
+                  {speech.supported && (
+                    <button
+                      type="button"
+                      onClick={speech.toggle}
+                      aria-label={speech.listening ? "Stop dictation" : "Dictate"}
+                      aria-pressed={speech.listening}
+                      disabled={starting}
+                      className={cn(
+                        "daisy-btn daisy-btn-circle daisy-btn-ghost h-10 w-10 shrink-0 border-0 transition-colors disabled:opacity-40",
+                        speech.listening ? "bg-destructive/10 text-destructive" : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      <Mic className={cn("h-4 w-4", speech.listening && "animate-pulse")} />
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    aria-label="Start planning"
+                    title="Start planning"
+                    disabled={!canSend}
                     className={cn(
-                      "grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-40",
-                      speech.listening ? "border-destructive/50 bg-destructive/10 text-destructive" : "border-border/60 text-muted-foreground hover:text-foreground",
+                      "daisy-btn daisy-btn-circle h-10 w-10 shrink-0 border-0 shadow-none transition-[background-color,color,transform] active:scale-[0.94]",
+                      canSend ? "bg-coral text-background" : "bg-foreground/8 text-muted-foreground",
                     )}
                   >
-                    <Mic className={cn("h-4 w-4", speech.listening && "animate-pulse")} />
+                    {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
                   </button>
-                )}
-                <button
-                  type="submit"
-                  aria-label="Start planning"
-                  title="Start planning"
-                  disabled={starting || !prompt.trim()}
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-[transform,opacity] active:scale-[0.94] disabled:opacity-35"
-                >
-                  {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-                </button>
+                </label>
               </form>
               {promptError ? (
                 <p role="alert" className="mx-auto mt-2 max-w-xl rounded-lg border border-destructive/30 bg-background/90 px-3 py-1.5 text-xs text-destructive backdrop-blur">
                   {promptError}
                 </p>
               ) : (
-                <div className="mt-2.5 flex flex-wrap justify-center gap-1.5">
+                // One scrolling row on a phone (no ragged wrap), centred when it all fits.
+                <div className="mx-auto mt-3 flex w-fit max-w-full snap-x gap-2 overflow-x-auto px-0.5 py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {PROMPT_CHIPS.map((chip) => (
                     <button
                       key={chip}
@@ -172,7 +228,12 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
                         setPrompt(chip);
                         promptInputRef.current?.focus();
                       }}
-                      className="rounded-full border border-border/60 bg-background/70 px-3 py-1 text-xs text-ink-soft backdrop-blur transition-colors hover:bg-background/90 hover:text-foreground"
+                      className={cn(
+                        "daisy-btn daisy-btn-sm h-9 shrink-0 snap-start rounded-full px-4 text-sm font-normal shadow-none backdrop-blur transition-colors",
+                        onPhoto
+                          ? "border-white/30 bg-black/35 text-white hover:bg-black/50"
+                          : "border-border/60 bg-background/75 text-ink-soft hover:bg-background/95 hover:text-foreground",
+                      )}
                     >
                       {chip}
                     </button>
@@ -184,84 +245,89 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
         </div>
       </Hero>
 
-      <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
+      <div className="mx-auto max-w-6xl px-5 pt-12 pb-20 sm:px-8">
         <Reveal delay={0.55}>
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-            <h2 className="min-w-0 font-display text-xl">
-              {list.length > 0 ? `${list.length} trip${list.length === 1 ? "" : "s"}` : "No trips yet"}
-            </h2>
-            <Link href="/trips/new" className="btn-primary w-fit shrink-0 sm:justify-self-end">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <h2 className="font-display text-3xl tracking-tight">{list.length > 0 ? "Your trips" : "No trips yet"}</h2>
+              {list.length > 0 && <span className="daisy-badge daisy-badge-ghost tabular-nums">{list.length}</span>}
+            </div>
+            <Link href="/trips/new" className="btn-primary w-fit shrink-0">
               <Plus className="h-4 w-4" /> Create new trip
             </Link>
           </div>
+          {showTabs && (
+            <div role="tablist" aria-label="Filter trips" className="daisy-tabs daisy-tabs-box daisy-tabs-sm mt-5 w-fit max-w-full overflow-x-auto bg-muted">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeFilter === tab.key}
+                  onClick={() => setFilter(tab.key)}
+                  className={cn("daisy-tab gap-2 transition-[color,box-shadow]", activeFilter === tab.key ? "daisy-tab-active shadow-soft" : "text-muted-foreground hover:text-foreground")}
+                >
+                  {tab.label}
+                  <span className="text-xs text-muted-foreground tabular-nums">{counts[tab.key]}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </Reveal>
 
         {list.length === 0 ? (
           <Reveal>
-            <div className="mt-8 rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center">
-              <h3 className="mx-auto max-w-md font-display text-2xl leading-snug">
-                Start with a place, or just a feeling about one.
-              </h3>
-              <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-                You only need a name and a destination. Dates, budget, who&rsquo;s coming — all of
-                that can come out of the conversation later.
-              </p>
-              <Link href="/trips/new" className="btn-primary mt-6">
-                Create your first trip <ArrowRight className="h-4 w-4" />
-              </Link>
+            <div className="mt-8 grid items-center gap-10 overflow-hidden rounded-[1.75rem] border border-border/70 bg-card p-6 shadow-soft sm:p-10 lg:grid-cols-[1fr_1.05fr] lg:gap-16">
+              {/* A daisyUI stack: three inspiration photos fanned like postcards on a table. */}
+              <div className="daisy-stack mx-auto h-64 w-full max-w-sm sm:h-72" aria-hidden>
+                {EMPTY_PHOTOS.map((photo) => (
+                  <div key={photo.src} className={cn("overflow-hidden rounded-2xl border border-border/60 shadow-lift", photo.tilt)}>
+                    {/* eslint-disable-next-line @next/next/no-img-element -- static brand photo */}
+                    <img src={photo.src} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                  </div>
+                ))}
+              </div>
+              <div className="text-center lg:text-left">
+                <RoamMark state="idle" size={72} label="Roam" className="mx-auto text-foreground lg:mx-0" />
+                <h3 className="mt-5 font-display text-3xl leading-[1.1] tracking-tight text-balance sm:text-4xl">
+                  Start with a place, or just a feeling about one.
+                </h3>
+                <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground max-lg:mx-auto">
+                  You only need a name and a destination. Dates, budget and who&rsquo;s coming can all come out of the conversation later. Or tell Roam what you&rsquo;re after in the box above.
+                </p>
+                <Link href="/trips/new" className="btn-primary mt-7">
+                  Create your first trip <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
             </div>
           </Reveal>
         ) : (
-          <Stagger className="mt-7 grid gap-5 lg:grid-cols-2 xl:grid-cols-3" delay={0.1}>
-            {list.map((trip) => (
-              <StaggerItem key={trip.id}>
-                <Tactile lift={4} className="group relative">
-                  <Link
-                    href={`/trips/${trip.id}`}
-                    className="block h-full rounded-2xl border border-border bg-card p-6 shadow-soft"
-                  >
-                    <div className="min-w-0 pr-9">
-                      <h3 className="truncate font-display text-2xl">{trip.name}</h3>
-                      <p className="mt-1 flex items-center gap-1.5 truncate text-sm text-muted-foreground">
-                        <MapPin className="h-3.5 w-3.5 shrink-0" />
-                        {trip.destination || "Destination not set"}
-                      </p>
-                    </div>
-
-                    <dl className="mt-6 grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm">
-                      <div className="col-span-2 min-w-0">
-                        <dt className="flex items-center gap-1.5 text-[11px] tracking-[0.1em] text-muted-foreground uppercase">
-                          <CalendarDays className="h-3 w-3" /> Dates
-                        </dt>
-                        <dd className="mt-1 truncate">{tripWhen(trip.start_date, trip.end_date, trip.duration_days)}</dd>
-                      </div>
-                      <div className="min-w-0">
-                        <dt className="flex items-center gap-1.5 text-[11px] tracking-[0.1em] text-muted-foreground uppercase">
-                          <Users className="h-3 w-3" /> Travellers
-                        </dt>
-                        <dd className="mt-1 truncate">{trip.travelers ?? "Not set"}</dd>
-                      </div>
-                      <div className="min-w-0">
-                        <dt className="flex items-center gap-1.5 text-[11px] tracking-[0.1em] text-muted-foreground uppercase">
-                          <MapPin className="h-3 w-3" /> From
-                        </dt>
-                        <dd className="mt-1 truncate">{trip.origin || "Not set"}</dd>
-                      </div>
-                    </dl>
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => setPendingDelete(trip)}
-                    disabled={deleting === trip.id}
-                    aria-label={`Delete ${trip.name}`}
-                    className="absolute top-4 right-4 rounded-full border border-border bg-background/90 p-1.5 text-muted-foreground opacity-0 backdrop-blur transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100 disabled:opacity-60"
-                  >
-                    {deleting === trip.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                  </button>
-                </Tactile>
-              </StaggerItem>
-            ))}
-          </Stagger>
+          <div key={activeFilter}>
+            {featured && (
+              <Reveal delay={0.1}>
+                <div className="mt-8">
+                  <FeaturedTrip
+                    trip={featured}
+                    status={tripStatus(featured, now)}
+                    deleting={deleting === featured.id}
+                    onDelete={() => setPendingDelete(featured)}
+                  />
+                </div>
+              </Reveal>
+            )}
+            {rest.length > 0 && (
+              <Stagger
+                className={cn("mt-6 grid gap-5 sm:grid-cols-2", rest.length === 1 || rest.length === 2 || rest.length === 4 ? "lg:grid-cols-2" : "lg:grid-cols-3")}
+                delay={0.2}
+              >
+                {rest.map((trip) => (
+                  <StaggerItem key={trip.id}>
+                    <TripCard trip={trip} status={tripStatus(trip, now)} deleting={deleting === trip.id} onDelete={() => setPendingDelete(trip)} />
+                  </StaggerItem>
+                ))}
+              </Stagger>
+            )}
+          </div>
         )}
       </div>
 
