@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTimeline, categoryOf, countByCategory, filterByCategory, groupByDate } from "../../lib/trip-reservations";
+import { buildTimeline, categoryOf, countByCategory, filterByCategory, groupByDate, pickNextUp, whenLabel } from "../../lib/trip-reservations";
 import type { Booking } from "../../packages/contracts/booking";
 import type { Reservation } from "../../packages/contracts/reservation";
 import type { StayDecision } from "../../packages/contracts/stay";
@@ -60,5 +60,36 @@ describe("groupByDate, filterByCategory, countByCategory", () => {
   });
   it("puts each kind in a category", () => {
     expect(["stay", "flight", "train", "activity", "dining", "other"].map((k) => categoryOf(k as never))).toEqual(["stay", "travel", "travel", "do", "do", "do"]);
+  });
+});
+
+describe("pickNextUp and whenLabel", () => {
+  const at = (day: string) => new Date(`${day}T12:00:00`).getTime();
+  const items = buildTimeline({
+    reservations: [reservation("tour", { startsOn: "2026-10-13" }), reservation("loose")],
+    bookings: [],
+    stay,
+    flight,
+    tripId: "t",
+  });
+  it("features the earliest row that has not finished", () => {
+    expect(pickNextUp(items, at("2026-09-30"))?.id).toBe("flight:choice");
+    expect(pickNextUp(items, at("2026-10-12"))?.id).toBe("stay:h1");
+  });
+  it("keeps a stay you are in as next up until check-out, then moves on", () => {
+    expect(pickNextUp(items, at("2026-10-15"))?.id).toBe("stay:h1");
+    expect(pickNextUp(items, at("2026-10-17"))).toBeNull();
+  });
+  it("never features a row with no date", () => {
+    expect(pickNextUp(items.filter((i) => i.date === null), at("2026-09-30"))).toBeNull();
+  });
+  it("says how soon it is", () => {
+    const f = items.find((i) => i.id === "flight:choice")!;
+    const s = items.find((i) => i.id === "stay:h1")!;
+    expect(whenLabel(f, at("2026-09-30"))).toBe("In 11 days");
+    expect(whenLabel(f, at("2026-10-10"))).toBe("Tomorrow");
+    expect(whenLabel(f, at("2026-10-11"))).toBe("Today");
+    expect(whenLabel(s, at("2026-10-14"))).toBe("Now");
+    expect(whenLabel(s, at("2026-10-20"))).toBeNull();
   });
 });

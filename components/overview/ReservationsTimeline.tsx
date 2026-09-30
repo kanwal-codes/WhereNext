@@ -95,11 +95,14 @@ function Row({ item, onOpenBooking, onEdit }: { item: TimelineItem; onOpenBookin
 /** Every stay, flight, train, tour and dinner in one list: filter chips, then the days in order. */
 export function ReservationsTimeline({
   items,
+  hasNextUp = false,
   onAdd,
   onOpenBooking,
   onEdit,
 }: {
   items: TimelineItem[];
+  /** A featured "next up" card sits above, so this list is the rest. */
+  hasNextUp?: boolean;
   onAdd: () => void;
   onOpenBooking: (id: string) => void;
   onEdit: (item: TimelineItem) => void;
@@ -112,6 +115,7 @@ export function ReservationsTimeline({
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
+        {hasNextUp && items.length > 0 && <h3 className="w-full font-display text-2xl tracking-tight">Then</h3>}
         <div role="tablist" aria-label="Filter reservations" className="flex flex-wrap gap-2">
           {FILTERS.map((key) => {
             const on = filter === key;
@@ -138,7 +142,7 @@ export function ReservationsTimeline({
         </button>
       </div>
 
-      {groups.length === 0 ? (
+      {groups.length === 0 && hasNextUp && filter === "all" ? null : groups.length === 0 ? (
         <p className="mt-6 rounded-3xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted-foreground">Nothing in this group yet.</p>
       ) : (
         <div className="mt-8 space-y-10">

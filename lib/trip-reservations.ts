@@ -1,4 +1,5 @@
 import { formatMoney } from "@/lib/currency";
+import { daysUntilTrip } from "@/lib/trip-dates";
 import type { Booking } from "@/packages/contracts/booking";
 import type { Reservation, ReservationKind } from "@/packages/contracts/reservation";
 import type { StayDecision } from "@/packages/contracts/stay";
@@ -220,4 +221,20 @@ export function countByCategory(items: TimelineItem[]): Record<Category | "all",
     travel: items.filter((i) => i.category === "travel").length,
     do: items.filter((i) => i.category === "do").length,
   };
+}
+
+/**
+ * The row to feature: the first dated one that has not finished yet. A stay you are in right now
+ * counts (it runs until check-out); rows with no date never do. `items` must already be in date order.
+ */
+export function pickNextUp(items: TimelineItem[], now: number = Date.now()): TimelineItem | null {
+  return items.find((item) => item.date !== null && (daysUntilTrip(item.endDate ?? item.date, now) ?? -1) >= 0) ?? null;
+}
+
+/** "Today", "Tomorrow", "In 12 days", or "Now" for a multi-day row already under way. */
+export function whenLabel(item: TimelineItem, now: number = Date.now()): string | null {
+  const start = daysUntilTrip(item.date, now);
+  if (start === null) return null;
+  if (start < 0) return item.endDate && (daysUntilTrip(item.endDate, now) ?? -1) >= 0 ? "Now" : null;
+  return start === 0 ? "Today" : start === 1 ? "Tomorrow" : `In ${start} days`;
 }

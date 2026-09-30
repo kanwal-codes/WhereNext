@@ -15,7 +15,8 @@ import { ChapterHero } from "@/components/overview/ChapterHero";
 import { SectionHeading } from "@/components/overview/SectionHeading";
 import { ReservationSheet } from "@/components/overview/ReservationSheet";
 import { ReservationsTimeline } from "@/components/overview/ReservationsTimeline";
-import { buildTimeline, readFlightChoice } from "@/lib/trip-reservations";
+import { NextUpCard } from "@/components/overview/NextUpCard";
+import { buildTimeline, pickNextUp, readFlightChoice } from "@/lib/trip-reservations";
 import type { Reservation } from "@/packages/contracts/reservation";
 import { RoamMark } from "@/features/roam/ui/RoamMark";
 import { readStayDecision } from "@/packages/contracts/stay";
@@ -74,6 +75,12 @@ export default function BookingsPage() {
   }, [tripId]);
   const openBooking = bookings?.find((b) => b.id === openBookingId) ?? null;
   const timeline = buildTimeline({ reservations: reservations ?? [], bookings: bookings ?? [], stay, flight, tripId });
+  const nextUp = pickNextUp(timeline);
+  const rest = nextUp ? timeline.filter((i) => i !== nextUp) : timeline;
+  const editItem = (item: { reservation: Reservation | null }) => {
+    setEditing(item.reservation);
+    setSheetOpen(true);
+  };
   const confirmed = timeline.filter((i) => i.status === "confirmed").length;
   const done = essentialsDone(data?.essentials);
   const loading = bookings === null || reservations === null;
@@ -123,15 +130,10 @@ export default function BookingsPage() {
                 </div>
               </div>
             ) : (
-              <ReservationsTimeline
-                items={timeline}
-                onAdd={openAdd}
-                onOpenBooking={setOpenBookingId}
-                onEdit={(item) => {
-                  setEditing(item.reservation);
-                  setSheetOpen(true);
-                }}
-              />
+              <div className="space-y-10">
+                {nextUp && <NextUpCard item={nextUp} onOpenBooking={setOpenBookingId} onEdit={editItem} />}
+                <ReservationsTimeline items={rest} hasNextUp={Boolean(nextUp)} onAdd={openAdd} onOpenBooking={setOpenBookingId} onEdit={editItem} />
+              </div>
             )}
           </div>
         </section>
