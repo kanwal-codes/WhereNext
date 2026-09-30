@@ -1,4 +1,6 @@
-export type BloomVariant = "dusk" | "sunrise" | "horizon" | "route";
+import { BedDouble, CalendarDays, Plane, Utensils, type LucideIcon } from "lucide-react";
+
+export type BloomVariant = "dusk" | "sunrise" | "horizon" | "route" | "trip";
 
 /**
  * The light behind the first screen. Purely decorative: hidden from assistive tech and never
@@ -6,9 +8,10 @@ export type BloomVariant = "dusk" | "sunrise" | "horizon" | "route";
  *   dusk     pink/violet/blue glow rising from the bottom
  *   sunrise  the same glow in warm sand, teal and deep indigo
  *   horizon  a low sun over a thin horizon line and a dusk sea
- *   route    a soft wash with a dashed trip route and pins drifting behind the box
+ *   route    a soft wash with a trip route that draws itself as the visitor writes
+ *   trip     the route plus example trip cards (flight, stay, day, dinner) that come into focus as they write
  */
-export function LandingBloom({ variant = "route", progress = 0, className }: { variant?: BloomVariant; progress?: number; className?: string }) {
+export function LandingBloom({ variant = "trip", progress = 0, className }: { variant?: BloomVariant; progress?: number; className?: string }) {
   if (variant === "horizon") {
     return (
       <div aria-hidden className={`landing-bloom landing-bloom-horizon pointer-events-none absolute inset-x-0 bottom-0 ${className ?? ""}`}>
@@ -21,6 +24,14 @@ export function LandingBloom({ variant = "route", progress = 0, className }: { v
     );
   }
   if (variant === "route") return <RouteBloom progress={progress} className={className} />;
+  if (variant === "trip") {
+    return (
+      <>
+        <RouteBloom progress={progress} className={className} />
+        <TripCards progress={progress} />
+      </>
+    );
+  }
   return (
     <div aria-hidden className={`landing-bloom ${variant === "sunrise" ? "landing-bloom-sunrise" : ""} pointer-events-none absolute inset-x-0 bottom-0 h-[82%] ${className ?? ""}`}>
       <div className="landing-bloom-layer landing-bloom-a" />
@@ -65,6 +76,44 @@ function RouteBloom({ progress, className }: { progress: number; className?: str
         })}
       </svg>
       <div className="landing-bloom-grain" />
+    </div>
+  );
+}
+
+type Card = { Icon: LucideIcon; title: string; meta: string; side: "left" | "right"; top: string; at: number };
+
+// Example content only: what Roam tends to put together, not anyone's real trip.
+const CARDS: Card[] = [
+  { Icon: CalendarDays, title: "Day 1 · Alfama walk", meta: "Viewpoints, tram 28, fado", side: "right", top: "27%", at: 0.12 },
+  { Icon: Plane, title: "YUL → LIS", meta: "Sat 12 Apr · 7h 05 · direct", side: "left", top: "34%", at: 0.3 },
+  { Icon: Utensils, title: "Dinner · Tasca do Chico", meta: "Fri 8:30 pm · table for 4", side: "right", top: "44%", at: 0.5 },
+  { Icon: BedDouble, title: "Alfama · 3 nights", meta: "Boutique · €142 a night", side: "left", top: "50%", at: 0.7 },
+];
+
+/**
+ * Example trip cards in the side margins. They start soft and blurred and come into focus one by
+ * one as the visitor writes, so the page shows the product doing what the headline promises.
+ * Hidden where there is no room beside the box.
+ */
+function TripCards({ progress }: { progress: number }) {
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 hidden min-[1360px]:block">
+      {CARDS.map(({ Icon, title, meta, side, top, at }) => (
+        <div
+          key={title}
+          data-lit={progress >= at}
+          className={`landing-trip-card absolute flex w-[15rem] items-center gap-3 rounded-2xl border border-white/70 bg-white/65 px-3.5 py-3 text-left shadow-[0_14px_40px_-18px_oklch(0.4_0.1_265/0.45)] backdrop-blur-xl ${side === "left" ? "left-[3.5%]" : "right-[3.5%]"}`}
+          style={{ top }}
+        >
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[oklch(0.42_0.14_262/0.1)] text-[oklch(0.42_0.14_262)]">
+            <Icon className="size-[1.1rem]" />
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-[0.8rem] font-semibold text-foreground">{title}</span>
+            <span className="block truncate text-[0.7rem] text-muted-foreground">{meta}</span>
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

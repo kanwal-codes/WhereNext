@@ -18,12 +18,12 @@ export function PromptScene() {
   const contentRef = useRef<HTMLDivElement>(null);
   const bloomRef = useRef<HTMLDivElement>(null);
   const partRefs = useRef<(HTMLElement | null)[]>([]);
-  // Preview switch while choosing a look: /?bloom=sunrise|horizon|route (default route).
-  const [variant, setVariant] = useState<BloomVariant>("route");
+  // Preview switch while choosing a look: /?bloom=dusk|sunrise|horizon|route (default trip).
+  const [variant, setVariant] = useState<BloomVariant>("trip");
   const [typedLength, setTypedLength] = useState(0);
   useEffect(() => {
     const v = new URLSearchParams(window.location.search).get("bloom");
-    if (v === "dusk" || v === "sunrise" || v === "horizon") setVariant(v);
+    if (v === "dusk" || v === "sunrise" || v === "horizon" || v === "route") setVariant(v);
   }, []);
 
   useEffect(() => {

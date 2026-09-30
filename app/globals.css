@@ -992,3 +992,6 @@
 .landing-route-stop[data-lit="true"] { opacity: 1; }
 .landing-route-halo { transform-box: fill-box; transform-origin: center; transition: transform 0.6s cubic-bezier(.22, 1, .36, 1); }
 .landing-route-stop[data-lit="true"] .landing-route-halo { transform: scale(1.5); }
+.landing-trip-card { opacity: 0.4; filter: blur(2.5px); transform: translateY(10px) scale(0.98); transition: opacity 0.7s cubic-bezier(.22, 1, .36, 1), filter 0.7s cubic-bezier(.22, 1, .36, 1), transform 0.7s cubic-bezier(.22, 1, .36, 1); }
+.landing-trip-card[data-lit="true"] { opacity: 1; filter: none; transform: none; }
+@media (prefers-reduced-motion: reduce) { .landing-trip-card { transition: none; } }
