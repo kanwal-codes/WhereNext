@@ -10,7 +10,7 @@ import { GUEST_TURN_LIMIT } from "@/lib/guest-limits";
  * trip and the whole conversation are already theirs the moment this succeeds — nothing to move.
  * (Google needs "Enable manual linking" on in the Supabase auth settings.)
  */
-export function GuestSavePrompt({ tripId, exhausted }: { tripId: string; exhausted: boolean }) {
+export function GuestSavePrompt({ tripId, exhausted, heading, body }: { tripId: string; exhausted: boolean; heading?: string; body?: string }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState<"google" | "email" | null>(null);
@@ -50,12 +50,13 @@ export function GuestSavePrompt({ tripId, exhausted }: { tripId: string; exhaust
     <div role="region" aria-label="Save your trip" className="rounded-2xl border border-border bg-card p-5 shadow-lift">
       <p className="text-[10px] font-semibold tracking-[0.16em] text-coral uppercase">Save your trip</p>
       <h3 className="mt-1.5 font-display text-xl leading-tight">
-        {exhausted ? "Keep planning with Roam." : "Keep this trip."}
+        {heading ?? (exhausted ? "Keep planning with Roam." : "Keep this trip.")}
       </h3>
       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-        {exhausted
-          ? `That's your ${GUEST_TURN_LIMIT} free messages. Make a free account and this trip, plus everything we've talked about, comes with you.`
-          : "Make a free account and this trip, plus everything we've talked about, is yours to come back to."}
+        {body ??
+          (exhausted
+            ? `That's your ${GUEST_TURN_LIMIT} free messages. Make a free account and this trip, plus everything we've talked about, comes with you.`
+            : "Make a free account and this trip, plus everything we've talked about, is yours to come back to.")}
       </p>
 
       {sent ? (

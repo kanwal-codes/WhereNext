@@ -109,9 +109,25 @@ test.describe("landing page overhaul", () => {
     const prompt = page.locator('[data-scene="prompt"]');
     await prompt.getByRole("textbox", { name: "Describe the trip you want" }).fill("Rome for 5 days");
     await prompt.getByRole("button", { name: /Start planning/ }).click();
-    await expect(prompt.getByRole("alert")).toContainText("couldn't open a guest session");
-    await expect(prompt.getByRole("link", { name: "Sign up to start planning" })).toHaveAttribute("href", /\/sign-up/);
+    await expect(prompt.getByRole("alert")).toContainText("We couldn't start that just now");
+    await expect(prompt.getByRole("link", { name: "Create a free account" })).toHaveAttribute("href", /\/sign-up/);
+    await expect(prompt.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/sign-in");
     await expect(prompt.getByRole("button", { name: /Start planning/ })).toBeEnabled();
+  });
+
+  test("scene zero asks politely for an account when the daily guest limit is reached", async ({ page }) => {
+    await page.route("**/api/guest/start", (route) =>
+      route.fulfill({ status: 429, contentType: "application/json", body: JSON.stringify({ error: "x", code: "guest_busy" }) }),
+    );
+    await page.goto("/landing-next");
+    const prompt = page.locator('[data-scene="prompt"]');
+    await prompt.getByRole("textbox", { name: "Describe the trip you want" }).fill("Rome for 5 days");
+    await prompt.getByRole("button", { name: /Start planning/ }).click();
+    const notice = prompt.getByRole("alert");
+    await expect(notice).toContainText("You've been planning a lot today");
+    await expect(notice).toContainText("Create a free account to keep going");
+    await expect(notice).not.toContainText("That's a lot of new trips");
+    await expect(notice.getByRole("link", { name: "Create a free account" })).toBeVisible();
   });
 
   test("the opening chat plays when its scene scrolls into view, not on page load", async ({ page }) => {

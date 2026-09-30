@@ -15,7 +15,7 @@ import { AssistantMessage } from "./AssistantMessage";
 import { AssistantRequestError } from "../application/streamAssistantResponse";
 import { sendConversationMessage } from "../application/sendConversationMessage";
 import { GuestSavePrompt } from "@/features/identity/ui/GuestSavePrompt";
-import { useIsGuest } from "@/features/identity/application/useIsGuest";
+import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { GUEST_TURN_LIMIT } from "@/lib/guest-limits";
 import { cn } from "@/lib/utils";
 
@@ -223,7 +223,7 @@ export function ConversationSurface({
   // save card opens. `saveOpen` is the softer version: they asked to save before running out.
   const [guestGate, setGuestGate] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
-  const guest = useIsGuest();
+  const { guest, openGate } = useGuest();
   const [proposal, setProposal] = useState<ProposedCommand | null>(null);
   // Phase 2.6.2 (docs/overhaul/roadmap/phase-2-speed.md): the real backend milestone for the
   // in-flight turn, driving Typing's label — replaces a purely time-based guess.
@@ -378,6 +378,7 @@ export function ConversationSurface({
 
   async function confirmProposal() {
     if (!proposal || confirming) return;
+    if (guest) return openGate("save changes to your trip");
     setConfirming(true);
     try {
       const command =
@@ -438,7 +439,8 @@ export function ConversationSurface({
         viewContext,
         idempotencyKey: messageIdempotencyKey,
         onSurfaceSelect,
-        onProposal: setProposal,
+        // A guest can't save changes, so Roam's "save this preference?" proposals are not offered.
+        onProposal: (next) => { if (!guest) setProposal(next); },
         onUserSaved: () => {
           userSaved = true;
         },
@@ -504,13 +506,19 @@ export function ConversationSurface({
 
   // The landing page's prompt box creates the trip and drops its sentence here: it becomes the
   // first message, sent once the (empty) thread has loaded — the visitor lands mid-conversation.
+  // Deferred a tick so React's dev-only mount/unmount/mount pass can't consume the sentence and
+  // then abort the send (the unmount cleanup above aborts any in-flight request).
   useEffect(() => {
-    if (!loaded || sending || messages.length > 0) return;
-    const key = `wn:first-message:${tripId}`;
-    const first = window.sessionStorage.getItem(key);
-    if (!first) return;
-    window.sessionStorage.removeItem(key);
-    void submit(first);
+    // A fresh thread already holds Roam's greeting, so "empty" means no message from the visitor yet.
+    if (!loaded || sending || messages.some((m) => m.role === "user")) return;
+    const timer = setTimeout(() => {
+      const key = `wn:first-message:${tripId}`;
+      const first = window.sessionStorage.getItem(key);
+      if (!first) return;
+      window.sessionStorage.removeItem(key);
+      void submit(first);
+    }, 0);
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the thread loads empty
   }, [loaded]);
 

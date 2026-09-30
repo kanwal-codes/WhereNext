@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useGuest } from "@/features/identity/ui/GuestProvider";
 import Link from "next/link";
 import { Check, Loader2, Star } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
@@ -206,6 +207,8 @@ export function NearbyRecommendations({
   const [pageVibe, setPageVibe] = useState<Vibe>("default");
   const [loading, setLoading] = useState(true);
   const panelCtx = useTripPanelMaybe();
+  // These are trip-search lookups, closed to guests (Roam only): the section simply isn't shown.
+  const { guest } = useGuest();
 
   const trip = useTripDataMaybe();
   const prefs = trip?.data?.preferences as Record<string, unknown> | undefined;
@@ -237,6 +240,10 @@ export function NearbyRecommendations({
   const accessibilityNeeds = useMemo(() => asList(prefs?.accessibilityNeeds), [prefs]);
 
   useEffect(() => {
+    if (guest) {
+      setLoading(false);
+      return;
+    }
     const anchor: LaneAnchor = { name: anchorName, city: cityHint, lat, lng, genre };
     const controller = new AbortController();
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(9_000)]);
@@ -319,7 +326,7 @@ export function NearbyRecommendations({
       cancelled = true;
       controller.abort();
     };
-  }, [tripId, excludeId, anchorName, cityHint, kind, primaryType, types, genre, lat, lng, rankCtx, rejectedPlaceIds, accessibilityNeeds]);
+  }, [tripId, excludeId, anchorName, cityHint, kind, primaryType, types, genre, lat, lng, rankCtx, rejectedPlaceIds, accessibilityNeeds, guest]);
 
   if (loading) {
     return (

@@ -17,6 +17,7 @@ import { ContentSwap, Sheet } from "@/components/motion-primitives";
 import { MessageBlocks } from "@/features/conversation/ui/blocks/MessageBlocks";
 import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
 import { haversineKm } from "@/lib/application/geo";
+import { useGuest } from "@/features/identity/ui/GuestProvider";
 
 const KIND_LABEL: Record<CompareEntry["kind"], string> = { place: "Place", stay: "Stay", event: "Event", route: "Route" };
 /** The question auto-asked the moment a fresh comparison opens — never shown as a "user" bubble
@@ -154,6 +155,7 @@ function CompareGrid({ list, anchor, onRemove }: { list: CompareEntry[]; anchor:
 export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" }) {
   const ctx = useTripPanelMaybe();
   const { tripId, data } = useTripData();
+  const { guest, openGate } = useGuest();
   const pathname = usePathname();
   const desktop = useMediaQuery("(min-width: 1024px)");
   const [chat, setChat] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
@@ -247,6 +249,8 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
 
   async function ask(raw: string, historyOverride?: Array<{ role: "user" | "assistant"; content: string }>, externalSignal?: AbortSignal) {
     if (!panel) return;
+    // The side-chat is a second, uncounted door to the model; a guest's free messages are in the main chat.
+    if (guest) return openGate("ask Roam to compare options");
     const q = raw.trim();
     if (!q || sending) return;
     setInput("");

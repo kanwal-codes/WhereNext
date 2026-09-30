@@ -32,7 +32,7 @@ function seedOpener(input: CreateTripInput) {
 }
 
 export function createTripRepository(supabase: SupabaseClient) { return {
-  async create(userId: string, input: CreateTripInput): Promise<Trip> {
+  async create(userId: string, input: CreateTripInput, options: { opener?: boolean } = {}): Promise<Trip> {
     // A retry of the same attempt (the first request actually succeeded but the client never
     // saw the response) must return the trip already created, not insert a second blank one.
     // Checked here rather than left to a plain upsert because creation cascades into
@@ -57,11 +57,14 @@ export function createTripRepository(supabase: SupabaseClient) { return {
     const preferences = await supabase.from("trip_preferences").insert({ trip_id: tripId, data: seeded });
     if (preferences.error) throw preferences.error;
 
-    // A seed-message failure must never fail trip creation.
-    const opener = seedOpener(input);
-    await createConversationRepository(supabase)
-      .append(tripId, userId, { role: "assistant", content: opener.content, idempotencyKey: "opener", metadata: { blocks: opener.blocks } })
-      .catch(() => undefined);
+    // A seed-message failure must never fail trip creation. A guest's chat opens with their own
+    // sentence already sent, so it gets no greeting above it.
+    if (options.opener !== false) {
+      const opener = seedOpener(input);
+      await createConversationRepository(supabase)
+        .append(tripId, userId, { role: "assistant", content: opener.content, idempotencyKey: "opener", metadata: { blocks: opener.blocks } })
+        .catch(() => undefined);
+    }
 
     const created = await supabase.from("trips").select(COLUMNS).eq("id", tripId).single();
     if (created.error) throw created.error;

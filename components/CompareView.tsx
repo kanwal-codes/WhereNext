@@ -13,6 +13,7 @@ import { categoryLabel, detailsToPlace, priceLabel, priceRank, type GooglePlaceD
 import { nearest } from "@/lib/application/geo";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { cn } from "@/lib/utils";
+import { useGuest } from "@/features/identity/ui/GuestProvider";
 
 const BASE_ROWS = [
   { key: "category", label: "Type" },
@@ -32,6 +33,7 @@ const numberAt = (metadata: unknown, key: "latitude" | "longitude"): number | un
 /** The side-by-side place table. Used by the `/compare` route and the chat compare panel. */
 export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids: string[]; onIdsChange?: (ids: string[]) => void }) {
   const { data } = useTripData();
+  const { guest, openGate } = useGuest();
   const [items, setItems] = useState<Record<string, GooglePlaceDetails | null>>({});
   const [loading, setLoading] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
@@ -91,6 +93,7 @@ export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids:
   }, [ids, items, tripId]);
 
   async function choose(id: string, d: GooglePlaceDetails) {
+    if (guest) return openGate("save places");
     const place = detailsToPlace(d);
     if (!place) return;
     setSavedIds((cur) => new Set(cur).add(id));

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, Pencil, X } from "lucide-react";
+import { useGuest } from "@/features/identity/ui/GuestProvider";
 import type { Trip } from "@/features/trip/domain/trip";
 import { cn } from "@/lib/utils";
 import { certaintyFor, decisionSummary, isDisplayableDecision } from "@/lib/decisions-ui";
@@ -109,6 +110,14 @@ export function TripContextSurface({
     setTripFacts({ destination: trip?.destination ?? "", travelers: trip?.travelers ?? null });
   }, [trip?.destination, trip?.travelers]);
 
+  // A guest reads this panel (Roam fills it in as they talk) but can't edit the trip itself.
+  const { guest, openGate } = useGuest();
+  const guard = () => {
+    if (!guest) return false;
+    openGate("edit your trip details");
+    return true;
+  };
+
   async function saveTripField(field: TripField, raw: string) {
     const value = raw.trim();
     if (field === "travelers" && value && !/^\d+$/.test(value)) {
@@ -215,6 +224,7 @@ export function TripContextSurface({
   }
 
   async function act(key: SuggestionKey, action: "confirm" | "dismiss") {
+    if (guard()) return;
     setBusyKey(key);
     try {
       const response = await fetch(`/api/trips/${tripId}/suggestions`, {
@@ -464,6 +474,7 @@ export function TripContextSurface({
                       type="button"
                       aria-label={`Edit ${row.label}`}
                       onClick={() => {
+                        if (guard()) return;
                         if (row.id === "dates") {
                           setDStart(tripDates.start);
                           setDEnd(tripDates.end);
@@ -512,6 +523,7 @@ export function TripContextSurface({
   };
 
   const startEdit = (row: Row) => {
+    if (guard()) return;
     if (row.id === "dates") {
       setDStart(tripDates.start);
       setDEnd(tripDates.end);

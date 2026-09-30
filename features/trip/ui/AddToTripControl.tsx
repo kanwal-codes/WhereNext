@@ -10,6 +10,7 @@ import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { mutate } from "@/lib/client/mutation-queue";
 import { notifyToast } from "@/lib/application/toast";
 import { cn } from "@/lib/utils";
+import { useGuest } from "@/features/identity/ui/GuestProvider";
 
 /** How many day rows the menu will ever show (a trip longer than this still works — the extra days just aren't offered here). */
 const MAX_DAY_ROWS = 30;
@@ -59,6 +60,8 @@ export function AddToTripControl({
   className?: string;
 }) {
   const data = useTripDataMaybe()?.data ?? null;
+  // A guest can look but not keep: both buttons ask for an account instead of writing to the trip.
+  const { guest, openGate } = useGuest();
   const reduce = useReducedMotion();
   const menuId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -209,7 +212,7 @@ export function AddToTripControl({
         <button
           type="button"
           disabled={busy}
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => (guest ? openGate("add places to a trip") : setOpen((o) => !o))}
           aria-label={`Choose an itinerary day for ${place.name}`}
           className={cn(
             "inline-flex items-center justify-center gap-1.5 font-medium transition-colors",
@@ -238,7 +241,7 @@ export function AddToTripControl({
         <button
           type="button"
           disabled={busy}
-          onClick={() => void toggleBookmark()}
+          onClick={() => (guest ? openGate("save places") : void toggleBookmark())}
           aria-label={saved ? `Remove ${place.name} from saved places` : `Save ${place.name}`}
           className={cn(
             "inline-flex items-center border-l border-inherit px-2 transition-colors",

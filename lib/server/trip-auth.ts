@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { GUEST_API_LIMIT, isGuest } from "@/lib/server/guest";
+import { GUEST_API_LIMIT, guestKey, isGuest } from "@/lib/server/guest";
 import { withinRateLimit } from "@/lib/server/rate-limit";
 
 export class TripAuthError extends Error {
@@ -28,7 +28,7 @@ export async function requireTripMember(
   if (!user) throw new TripAuthError(401, "Authentication required");
   const guest = isGuest(user);
   if (guest && opts.registered) throw new TripAuthError(403, "Save your trip with an account to use this.");
-  if (guest && !(await withinRateLimit(`guest-api:${user.id}`, GUEST_API_LIMIT, 60 * 60_000, { failClosed: true }))) {
+  if (guest && !(await withinRateLimit(guestKey.api(user.id), GUEST_API_LIMIT, 60 * 60_000, { failClosed: true }))) {
     throw new TripAuthError(429, "You're moving fast — save this trip to keep going.");
   }
   const membership = await supabase.from("trip_members").select("role").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle();

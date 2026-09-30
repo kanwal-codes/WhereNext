@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { PanelRight, PanelRightClose, PanelRightOpen, X } from "lucide-react";
+import { Lock, PanelRight, PanelRightClose, PanelRightOpen, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanel, panelSubjectKey, type EventSeed } from "@/components/TripPanelProvider";
 import { TripPanel } from "@/components/TripPanel";
@@ -16,6 +16,7 @@ import { useMediaQuery } from "@/lib/use-media-query";
 import type { AssistantBlock, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { Trip } from "@/features/trip/domain/trip";
 import { cn } from "@/lib/utils";
+import { useGuest } from "@/features/identity/ui/GuestProvider";
 
 const spring = motionTokens.fast;
 
@@ -23,14 +24,26 @@ const spring = motionTokens.fast;
  *  instead of local state, since Roam and Group chat need to stay independently deep-linkable.
  *  `onSelect` flips the visible pane immediately, in the same tick as the click — see the
  *  `optimisticTab` comment in `RoamShell` for why waiting on the URL itself feels slow. */
-function RoamTabs({ tripId, activeTab, onSelect }: { tripId: string; activeTab: "roam" | "group"; onSelect: (tab: "roam" | "group") => void }) {
+function RoamTabs({ tripId, activeTab, onSelect, onGuestLocked }: { tripId: string; activeTab: "roam" | "group"; onSelect: (tab: "roam" | "group") => void; onGuestLocked?: () => void }) {
   const tabs = [
     { key: "roam" as const, label: "Roam", href: `/trips/${tripId}/chat` },
     { key: "group" as const, label: "Chat", href: `/trips/${tripId}/group` },
   ];
   return (
     <div className="inline-flex rounded-full bg-muted p-1 text-sm">
-      {tabs.map((tab) => (
+      {tabs.map((tab) =>
+        onGuestLocked && tab.key === "group" ? (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={onGuestLocked}
+            aria-label="Chat, needs an account"
+            className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {tab.label}
+            <Lock className="h-3 w-3 opacity-60" aria-hidden="true" />
+          </button>
+        ) : (
         <Link
           key={tab.key}
           href={tab.href}
@@ -43,13 +56,15 @@ function RoamTabs({ tripId, activeTab, onSelect }: { tripId: string; activeTab: 
         >
           {tab.label}
         </Link>
-      ))}
+        ),
+      )}
     </div>
   );
 }
 
 export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "roam" | "group" }) {
   const { data } = useTripData();
+  const { guest, openGate } = useGuest();
   const desktop = useMediaQuery("(min-width: 1024px)");
   const reduceMotion = useReducedMotion();
   const [contextCollapsed, setContextCollapsed] = useState(false);
@@ -182,7 +197,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
                   <div className="justify-self-start">
                     {optimisticTab === "group" && <GroupMembersBadge tripId={tripId} />}
                   </div>
-                  <RoamTabs tripId={tripId} activeTab={optimisticTab} onSelect={setOptimisticTab} />
+                  <RoamTabs tripId={tripId} activeTab={optimisticTab} onSelect={setOptimisticTab} onGuestLocked={guest ? () => openGate("chat with your group") : undefined} />
                   <div className="justify-self-end">
                     {/* Desktop's show/hide toggle now lives inside the right panel itself (like the
                         trip sidebar's own collapse button) — mobile has no persistent rail to hold
@@ -242,7 +257,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
               animate={{ opacity: optimisticTab === "group" ? 1 : 0 }}
               transition={reduceMotion ? { duration: 0 } : motionTokens.swap}
             >
-              <GroupChatSurface tripId={tripId} initialMessages={data?.groupChat} onLogScroll={optimisticTab === "group" ? handleLogScroll : undefined} />
+              {!guest && <GroupChatSurface tripId={tripId} initialMessages={data?.groupChat} onLogScroll={optimisticTab === "group" ? handleLogScroll : undefined} />}
             </motion.div>
           </div>
         </motion.div>

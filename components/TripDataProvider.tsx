@@ -6,6 +6,7 @@ import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
 import { useTripRealtime, type PresencePeer } from "@/lib/client/trip-realtime";
 import { primeTrip } from "@/lib/client/offline-store";
 import type { TripWorkspaceData } from "@/features/workspace/application/loadTripWorkspace";
+import { useGuest } from "@/features/identity/ui/GuestProvider";
 
 type TripDataValue = {
   tripId: string;
@@ -34,6 +35,8 @@ export function TripDataProvider({
   children: ReactNode;
 }) {
   const router = useRouter();
+  // A guest has no offline copy to keep warm (those routes are closed to guests).
+  const { guest } = useGuest();
 
   // Mutations across the app announce a change on the window event bus; route it through
   // Next's data refresh so server components re-render with fresh data, and keep the offline
@@ -45,8 +48,8 @@ export function TripDataProvider({
   // just to detect that costs real main-thread time for no reason.
   useEffect(() => subscribeWorkspaceChanges(() => {
     void router.refresh();
-    if (typeof navigator !== "undefined" && navigator.onLine) void primeTrip(tripId);
-  }), [router, tripId]);
+    if (!guest && typeof navigator !== "undefined" && navigator.onLine) void primeTrip(tripId);
+  }), [router, tripId, guest]);
 
   // Supabase Realtime re-broadcasts a collaborator's row changes onto that same
   // bus, and reports who else is here.
@@ -55,8 +58,8 @@ export function TripDataProvider({
   // Prime once for the initial load too, not just subsequent changes.
   const hasData = Boolean(data);
   useEffect(() => {
-    if (hasData && typeof navigator !== "undefined" && navigator.onLine) void primeTrip(tripId);
-  }, [tripId, hasData]);
+    if (!guest && hasData && typeof navigator !== "undefined" && navigator.onLine) void primeTrip(tripId);
+  }, [tripId, hasData, guest]);
 
   // Stable across a presence-only re-render (peers updating doesn't change tripId/data/me), so
   // consumers of just this context bail out instead of re-rendering on every peer sync.

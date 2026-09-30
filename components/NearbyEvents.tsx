@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { ArrowRight, CalendarClock, ChevronUp } from "lucide-react";
 import { EventCard, type NearbyEvent } from "@/components/EventCard";
 import { Reveal } from "@/components/motion-primitives";
@@ -11,9 +12,11 @@ export function NearbyEvents({ tripId, location, query = "" }: { tripId: string;
   const [events, setEvents] = useState<NearbyEvent[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
+  // A trip-search lookup, closed to guests (Roam only): the strip simply isn't shown.
+  const { guest } = useGuest();
 
   useEffect(() => {
-    if (!location) {
+    if (!location || guest) {
       setLoading(false);
       return;
     }
@@ -50,7 +53,7 @@ export function NearbyEvents({ tripId, location, query = "" }: { tripId: string;
     return () => {
       cancelled = true;
     };
-  }, [tripId, location, query]);
+  }, [tripId, location, query, guest]);
 
   if (loading) {
     return (
