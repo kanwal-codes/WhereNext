@@ -61,16 +61,25 @@ export function TripCover({
   trip,
   size = "card",
   className,
+  width,
+  imageClassName,
+  typeLed = true,
   children,
 }: {
   trip: TripSummary;
   size?: "card" | "feature";
   className?: string;
+  /** Ask the photo proxy for a wider image (a full-bleed hero needs more than the 800px default). */
+  width?: number;
+  /** Replaces the default hover zoom on the photo, e.g. for a slow drift on a hero. */
+  imageClassName?: string;
+  /** false drops the big city name when there is no photo, for a cover whose own content already carries the type. */
+  typeLed?: boolean;
   /** Overlay content (badges etc). `photo` is true once a photo is showing, for text that must stay legible on it. */
   children?: (state: { photo: boolean }) => ReactNode;
 }) {
   const reduce = useReducedMotion();
-  const candidates = useTripPhotoCandidates(trip);
+  const candidates = useTripPhotoCandidates(trip, width);
   const [loaded, setLoaded] = useState<string | null>(null);
   const [failed, setFailed] = useState<string[]>([]);
   const src = candidates.find((url) => !failed.includes(url)) ?? null;
@@ -78,7 +87,7 @@ export function TripCover({
 
   return (
     <TripArt seed={hashString(`${trip.id}${trip.name}`)} grain={size === "feature"} className={className}>
-      <BoardingPass trip={trip} size={size} />
+      {typeLed && <BoardingPass trip={trip} size={size} />}
       {src && (
         <motion.div
           aria-hidden={!showPhoto}
@@ -101,7 +110,7 @@ export function TripCover({
             }}
             onLoad={() => setLoaded(src)}
             onError={() => setFailed((current) => [...current, src])}
-            className="h-full w-full object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.04]"
+            className={cn("h-full w-full object-cover", imageClassName ?? "transition-transform duration-[900ms] ease-out group-hover:scale-[1.04]")}
           />
           {/* Keeps the badge and menu legible on any photo, bright or dark. */}
           <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/20" />

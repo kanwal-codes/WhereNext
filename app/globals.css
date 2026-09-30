@@ -642,6 +642,14 @@
 .chat-live :is(p, li, h1, h2, h3, h4, blockquote, pre, table) {
   animation: chat-block-in 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+/* A slow push-in on a full-bleed hero photo, like a held camera shot. */
+@keyframes hero-drift {
+  from { transform: scale(1.03) translate3d(0, 0, 0); }
+  to { transform: scale(1.13) translate3d(-1.2%, -0.8%, 0); }
+}
+.hero-drift { animation: hero-drift 32s ease-out forwards; will-change: transform; }
+@media (prefers-reduced-motion: reduce) { .hero-drift { animation: none; } }
+
 /* Cards and photos that come with a reply ease in once its text has finished. */
 @keyframes chat-blocks-in {
   from { opacity: 0; transform: translateY(10px); }
