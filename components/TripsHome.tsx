@@ -128,7 +128,10 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
         )}
       >
         {/* Keeps white text readable on any trip photo. Fades in with the photo. */}
-        <div aria-hidden className={cn("pointer-events-none absolute inset-0 bg-gradient-to-b from-black/55 via-black/30 to-black/60 transition-opacity duration-700", onPhoto ? "opacity-100" : "opacity-0")} />
+        <div aria-hidden className={cn("pointer-events-none absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/60 transition-opacity duration-700", onPhoto ? "opacity-100" : "opacity-0")} />
+        {/* Behind the words only, so the photo itself stays bright: a dark pool, and a frosted one that softens busy detail (lamps, signs, faces) right where small text sits. */}
+        <div aria-hidden className={cn("pointer-events-none absolute inset-0 bg-[radial-gradient(75%_58%_at_50%_60%,rgba(0,0,0,0.6),transparent)] transition-opacity duration-700", onPhoto ? "opacity-100" : "opacity-0")} />
+        <div aria-hidden className={cn("pointer-events-none absolute inset-x-0 bottom-0 h-[78%] backdrop-blur-[7px] [mask-image:radial-gradient(70%_62%_at_50%_58%,black_35%,transparent)] transition-opacity duration-700", onPhoto ? "opacity-100" : "opacity-0")} />
         {/* On the brand rooftops, a soft light pool behind the words so the rooftop detail never fights the text. */}
         <div aria-hidden className={cn("pointer-events-none absolute inset-0 bg-[radial-gradient(60%_42%_at_50%_58%,color-mix(in_oklab,var(--background)_62%,transparent),transparent)] transition-opacity duration-700", onPhoto ? "opacity-0" : "opacity-100")} />
         <div className="absolute inset-x-0 top-0">
@@ -156,9 +159,9 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
               <WordReveal
                 text="Trips you're thinking about."
                 delay={0.3}
-                className={cn("mx-auto max-w-2xl text-center font-display text-4xl leading-[1.15] transition-colors duration-700 sm:text-5xl", onPhoto && "text-white")}
+                className={cn("mx-auto max-w-2xl text-center font-display text-4xl leading-[1.15] transition-colors duration-700 sm:text-5xl", onPhoto && "text-white [text-shadow:0_2px_24px_rgba(0,0,0,0.45)]")}
               />
-              <p className={cn("mx-auto mt-3 max-w-xl text-center text-sm leading-relaxed transition-colors duration-700", onPhoto ? "text-white/85" : "text-ink-soft")}>
+              <p className={cn("mx-auto mt-3 max-w-xl text-center text-[15px] leading-relaxed transition-colors duration-700 sm:text-base", onPhoto ? "font-medium text-white [text-shadow:0_1px_14px_rgba(0,0,0,0.65)]" : "text-ink-soft")}>
                 Talk it through, and the plan builds itself alongside the conversation.
               </p>
             </Reveal>
@@ -171,7 +174,7 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
                 className="mx-auto mt-5 max-w-xl"
               >
                 {/* One daisyUI input wraps the field and its buttons, so the whole pill takes the focus ring. */}
-                <label className={cn("daisy-input daisy-input-lg h-14 w-full rounded-full border-border/60 pr-2 pl-5 shadow-lift backdrop-blur transition-[background-color,box-shadow] focus-within:outline-coral", onPhoto ? "bg-background" : "bg-background/90")}>
+                <label className={cn("daisy-input daisy-input-lg h-14 w-full rounded-full border-border/60 pr-2 pl-5 shadow-lift backdrop-blur transition-[background-color,border-color,box-shadow] focus-within:border-foreground/30 focus-within:shadow-[0_10px_34px_-10px_rgba(0,0,0,0.4)] focus-within:outline-transparent", onPhoto ? "bg-background" : "bg-background/90")}>
                   <input
                     ref={promptInputRef}
                     value={prompt}
