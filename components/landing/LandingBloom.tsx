@@ -9,7 +9,7 @@ export type BloomVariant = "dusk" | "sunrise" | "horizon" | "route" | "trip" | "
  *   sunrise  the same glow in warm sand, teal and deep indigo
  *   horizon  a low sun over a thin horizon line and a dusk sea
  *   shore    dry sand, wet sand and a tide; the prompt box is the foam where the water reaches it
- *   rock     a rocky coast: misty air, deep water and dark rock with foam breaking on it; same foam box
+ *   rock     a rocky cove: turquoise sea, white surf churning between dark rocks; the box is the surf
  *   route    a soft wash with a trip route that draws itself as the visitor writes
  *   trip     the route plus example trip cards (flight, stay, day, dinner) that come into focus as they write
  */
@@ -26,7 +26,7 @@ export function LandingBloom({ variant = "shore", progress = 0, className }: { v
     );
   }
   if (variant === "shore") return <ShoreBloom />;
-  if (variant === "rock") return <ShoreBloom rock />;
+  if (variant === "rock") return <CoveBloom />;
   if (variant === "route") return <RouteBloom progress={progress} className={className} />;
   if (variant === "trip") {
     return (
@@ -130,19 +130,19 @@ const WAVE_LINE = "M0 16 C 120 4, 240 28, 380 14 S 640 0, 800 18 S 1100 30, 1250
  * The waterline sits at the bottom of the prompt box, which is drawn as the foam the water leaves
  * (see FoamEdge in TripPromptBox), so the box and the shore read as one thing.
  */
-function ShoreBloom({ rock = false }: { rock?: boolean }) {
+function ShoreBloom() {
   return (
     <div aria-hidden className="landing-shore pointer-events-none absolute inset-0 overflow-hidden">
-      <div className={rock ? "landing-rock-mist" : "landing-shore-sand"} />
+      <div className="landing-shore-sand" />
       <div className="landing-shore-tide">
-        {!rock && <div className="landing-shore-wet" />}
-        {!rock && <div className="landing-shore-gloss" />}
+        <div className="landing-shore-wet" />
+        <div className="landing-shore-gloss" />
         <svg className="landing-shore-water" viewBox="0 0 1440 600" preserveAspectRatio="none" fill="none">
           <defs>
             <linearGradient id="shore-water" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor={rock ? "oklch(0.88 0.06 195)" : "oklch(0.92 0.05 190)"} />
-              <stop offset="0.35" stopColor={rock ? "oklch(0.68 0.09 208)" : "oklch(0.82 0.085 200)"} />
-              <stop offset="1" stopColor={rock ? "oklch(0.4 0.09 240)" : "oklch(0.64 0.1 228)"} />
+              <stop offset="0" stopColor="oklch(0.92 0.05 190)" />
+              <stop offset="0.35" stopColor="oklch(0.82 0.085 200)" />
+              <stop offset="1" stopColor="oklch(0.64 0.1 228)" />
             </linearGradient>
             <filter id="shore-soft" x="-5%" y="-50%" width="110%" height="200%">
               <feGaussianBlur stdDeviation="4" />
@@ -160,67 +160,120 @@ function ShoreBloom({ rock = false }: { rock?: boolean }) {
           <path d={WAVE_LINE} transform="translate(0 40)" stroke="white" strokeWidth="5" strokeLinecap="round" opacity="0.5" filter="url(#shore-soft)" />
         </svg>
       </div>
-      {rock && <Rocks />}
       <div className="landing-bloom-grain" style={{ opacity: 0.2 }} />
     </div>
   );
 }
 
-// Two headlands in the lower corners, kept clear of the prompt box. Angular, like basalt, with a few lit and shaded faces.
-const EDGE_L: Array<[number, number]> = [[-10, 540], [40, 520], [72, 548], [112, 528], [150, 574], [192, 586], [216, 632], [250, 662], [262, 722], [290, 792], [302, 910]];
-const EDGE_R: Array<[number, number]> = [[1450, 590], [1410, 574], [1372, 600], [1336, 586], [1300, 636], [1270, 664], [1250, 732], [1226, 802], [1214, 910]];
-const pts = (list: Array<[number, number]>) => list.map(([x, y]) => `${x},${y}`).join(" ");
-const ROCK_L = `-10,910 ${pts(EDGE_L)}`;
-const ROCK_R = `1450,910 ${pts(EDGE_R)}`;
-const FACES: Array<{ points: string; fill: string }> = [
-  { points: "-10,540 40,520 72,548 44,606 -10,626", fill: "oklch(0.56 0.02 235)" },
-  { points: "72,548 112,528 150,574 122,646 60,622", fill: "oklch(0.44 0.02 240)" },
-  { points: "150,574 192,586 216,632 190,700 130,660", fill: "oklch(0.36 0.02 245)" },
-  { points: "216,632 250,662 262,722 232,770 196,706", fill: "oklch(0.28 0.02 250)" },
-  { points: "1450,590 1410,574 1372,600 1394,660 1450,676", fill: "oklch(0.54 0.02 235)" },
-  { points: "1372,600 1336,586 1300,636 1330,700 1384,664", fill: "oklch(0.42 0.02 240)" },
-  { points: "1300,636 1270,664 1250,732 1290,760 1322,704", fill: "oklch(0.3 0.02 248)" },
+// A rocky cove, after a photograph of surf in a rock channel: clear turquoise sea, white water churning
+// between dark rock, sunlit tops on the rock. All geometry below is in a 1440 x 900 frame.
+const COVE_L = "-10,140 120,212 232,298 304,392 326,474 302,562 262,640 204,704 -10,770";
+const COVE_R = "1450,330 1392,350 1332,400 1292,470 1242,540 1182,600 1152,680 1172,760 1232,830 1262,910 1450,910";
+const COVE_FRONT_L = "-10,910 -10,776 92,744 192,764 262,806 334,834 424,884 486,910";
+const COVE_FRONT_R = "892,910 958,862 1040,842 1104,872 1172,910";
+const COVE_FACES: Array<{ points: string; fill: string }> = [
+  // lit tops
+  { points: "-10,140 120,212 232,298 200,300 100,250 -10,196", fill: "oklch(0.52 0.045 70)" },
+  { points: "1450,330 1392,350 1332,400 1352,430 1420,390 1450,380", fill: "oklch(0.55 0.05 68)" },
+  { points: "-10,776 92,744 192,764 150,790 60,778 -10,800", fill: "oklch(0.5 0.045 68)" },
+  { points: "958,862 1040,842 1104,872 1060,874 1000,866", fill: "oklch(0.5 0.045 68)" },
+  // strata and shaded planes
+  { points: "-10,300 140,330 250,420 304,392 232,298 120,212 -10,196", fill: "oklch(0.3 0.02 240)" },
+  { points: "1242,540 1292,470 1332,400 1392,350 1330,460 1290,560 1196,640", fill: "oklch(0.3 0.02 240)" },
+  { points: "1182,600 1242,540 1290,560 1250,650 1160,700", fill: "oklch(0.24 0.02 245)" },
+  { points: "-10,520 120,560 204,704 -10,770", fill: "oklch(0.2 0.02 248)" },
 ];
-// Spray where the water breaks on the rock: soft white blobs along its lower edges (fixed values, so server and browser match).
-const spray = (edge: Array<[number, number]>, from: number, dx: number) => {
+const COVE_SPRAY = (() => {
+  const edges: Array<Array<[number, number]>> = [
+    [[232, 298], [304, 392], [326, 474], [302, 562], [262, 640], [204, 704]],
+    [[1332, 400], [1292, 470], [1242, 540], [1182, 600], [1152, 680], [1172, 760]],
+  ];
   const out: Array<{ x: number; y: number; r: number }> = [];
-  for (let i = from; i < edge.length - 1; i++) {
-    const [x1, y1] = edge[i]!;
-    const [x2, y2] = edge[i + 1]!;
-    for (let k = 0; k < 4; k++) {
-      const t = k / 4;
-      const n = Math.sin((i * 4 + k + 1) * 12.9898) * 43758.5453;
-      const f = n - Math.floor(n);
-      out.push({ x: Math.round(x1 + (x2 - x1) * t + dx * (0.4 + f)), y: Math.round(y1 + (y2 - y1) * t), r: Math.round(5 + f * 11) });
+  edges.forEach((edge, e) => {
+    for (let i = 0; i < edge.length - 1; i++) {
+      const [x1, y1] = edge[i]!;
+      const [x2, y2] = edge[i + 1]!;
+      for (let k = 0; k < 4; k++) {
+        const n = Math.sin((e * 40 + i * 4 + k + 1) * 12.9898) * 43758.5453;
+        const f = n - Math.floor(n);
+        out.push({ x: Math.round(x1 + (x2 - x1) * (k / 4) + (e === 0 ? 12 : -12) * (0.3 + f)), y: Math.round(y1 + (y2 - y1) * (k / 4)), r: Math.round(7 + f * 16) });
+      }
     }
-  }
+  });
   return out;
-};
-const SPRAY = [...spray(EDGE_L, 4, 10), ...spray(EDGE_R, 3, -10)];
+})();
+const COVE_STREAKS = [
+  "M 420 118 C 560 98, 720 130, 880 110",
+  "M 760 168 C 900 150, 1040 180, 1180 162",
+  "M 520 222 C 640 204, 780 232, 930 214",
+  "M 980 96 C 1090 86, 1200 104, 1330 92",
+  "M 330 288 C 440 270, 560 296, 680 280",
+];
 
-/** Dark faceted rock with a lit top edge, and surf breaking against it. Gone on narrow screens, where the box fills the width anyway. */
-function Rocks() {
+function CoveBloom() {
   return (
-    <svg className="landing-rocks absolute inset-0 h-full w-full" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMax slice" fill="none">
-      <defs>
-        <linearGradient id="rock-face" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="oklch(0.36 0.02 242)" />
-          <stop offset="1" stopColor="oklch(0.17 0.02 250)" />
-        </linearGradient>
-        <filter id="rock-soft" x="-30%" y="-30%" width="160%" height="160%">
-          <feGaussianBlur stdDeviation="3.5" />
-        </filter>
-      </defs>
-      <polygon points={ROCK_L} fill="url(#rock-face)" strokeLinejoin="round" />
-      <polygon points={ROCK_R} fill="url(#rock-face)" strokeLinejoin="round" />
-      {FACES.map((f) => (
-        <polygon key={f.points} points={f.points} fill={f.fill} opacity="0.9" />
-      ))}
-      <g className="landing-rock-surf" filter="url(#rock-soft)">
-        {SPRAY.map((b, i) => (
-          <circle key={i} cx={b.x} cy={b.y} r={b.r} fill="white" opacity="0.9" />
+    <div aria-hidden className="landing-cove pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="landing-cove-sea" />
+      <svg className="landing-cove-streaks absolute inset-0 h-full w-full" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMax slice" fill="none">
+        <defs>
+          <filter id="cove-soft" x="-10%" y="-200%" width="120%" height="500%">
+            <feGaussianBlur stdDeviation="2" />
+          </filter>
+          <linearGradient id="cove-crest" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="white" stopOpacity="0" />
+            <stop offset="0.25" stopColor="white" stopOpacity="0.85" />
+            <stop offset="0.75" stopColor="white" stopOpacity="0.85" />
+            <stop offset="1" stopColor="white" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {COVE_STREAKS.map((d, i) => (
+          <path key={d} d={d} stroke="url(#cove-crest)" strokeWidth={4 + (i % 3) * 2.5} strokeLinecap="round" opacity={0.6 + (i % 2) * 0.25} filter="url(#cove-soft)" />
         ))}
-      </g>
-    </svg>
+      </svg>
+      <div className="landing-cove-churn">
+        <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
+          <filter id="cove-foam" x="0" y="0" width="100%" height="100%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.014 0.034" numOctaves="4" seed="7" />
+            <feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 5 -1.5" />
+          </filter>
+          <rect width="100%" height="100%" filter="url(#cove-foam)" />
+        </svg>
+      </div>
+      <svg className="landing-rocks absolute inset-0 h-full w-full" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMax slice" fill="none">
+        <defs>
+          <linearGradient id="cove-rock" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="oklch(0.4 0.022 240)" />
+            <stop offset="1" stopColor="oklch(0.19 0.02 248)" />
+          </linearGradient>
+          <clipPath id="cove-clip">
+            <polygon points={COVE_L} />
+            <polygon points={COVE_R} />
+            <polygon points={COVE_FRONT_L} />
+            <polygon points={COVE_FRONT_R} />
+          </clipPath>
+          <filter id="cove-grit" x="0" y="0" width="100%" height="100%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.045 0.09" numOctaves="3" seed="11" />
+            <feColorMatrix values="0 0 0 0 0.9  0 0 0 0 0.85  0 0 0 0 0.8  0 0 0 1.6 -0.55" />
+          </filter>
+          <filter id="cove-spray" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="4" />
+          </filter>
+        </defs>
+        <polygon points={COVE_L} fill="url(#cove-rock)" />
+        <polygon points={COVE_R} fill="url(#cove-rock)" />
+        <g className="landing-rock-surf" filter="url(#cove-spray)">
+          {COVE_SPRAY.map((b, i) => (
+            <circle key={i} cx={b.x} cy={b.y} r={b.r} fill="white" opacity="0.92" />
+          ))}
+        </g>
+        {COVE_FACES.map((f) => (
+          <polygon key={f.points} points={f.points} fill={f.fill} opacity="0.92" />
+        ))}
+        <polygon points={COVE_FRONT_L} fill="url(#cove-rock)" />
+        <polygon points={COVE_FRONT_R} fill="url(#cove-rock)" />
+        <rect width="1440" height="900" filter="url(#cove-grit)" clipPath="url(#cove-clip)" opacity="0.22" style={{ mixBlendMode: "soft-light" }} />
+      </svg>
+      <div className="landing-bloom-grain" style={{ opacity: 0.16 }} />
+    </div>
   );
 }

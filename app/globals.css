@@ -1039,11 +1039,21 @@
 @keyframes wash-up { from { transform: translateY(calc(100% + 70px)); } to { transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .landing-shore-light { animation: none; } }
 
-/* Rocky coast: misty air above, dark headlands with surf against them. */
-.landing-rock-mist {
+/* Rocky cove: turquoise sea, white water churning in the channel between dark rock. */
+.landing-cove-sea {
   position: absolute; inset: 0;
-  background: linear-gradient(to bottom, oklch(0.955 0.012 232) 0%, oklch(0.925 0.022 226) 45%, oklch(0.87 0.04 215) 66%, oklch(0.8 0.05 210) 70%);
+  background: linear-gradient(to bottom, oklch(0.9 0.05 196) 0%, oklch(0.8 0.085 198) 34%, oklch(0.7 0.1 202) 62%, oklch(0.62 0.1 208) 100%);
 }
+.landing-cove-streaks { animation: cove-drift 16s ease-in-out infinite; }
+.landing-cove-churn {
+  position: absolute; left: 10%; right: 10%; top: 50%; bottom: 4%;
+  -webkit-mask-image: radial-gradient(ellipse 52% 50% at 50% 38%, #000 40%, transparent 88%);
+  mask-image: radial-gradient(ellipse 52% 50% at 50% 38%, #000 40%, transparent 88%);
+  background: radial-gradient(ellipse 50% 46% at 50% 36%, oklch(1 0 0 / 0.95), oklch(1 0 0 / 0.55) 55%, transparent 82%);
+  animation: cove-churn 9s ease-in-out infinite;
+}
+@keyframes cove-drift { 0%, 100% { transform: translateX(-14px); } 50% { transform: translateX(18px); } }
+@keyframes cove-churn { 0%, 100% { transform: scale(1) translateY(4px); } 50% { transform: scale(1.04) translateY(-8px); } }
 .landing-rock-surf { animation: shore-tide 10s ease-in-out infinite; }
 @media (max-width: 767px) { .landing-rocks { display: none; } }
-@media (prefers-reduced-motion: reduce) { .landing-rock-surf { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .landing-rock-surf, .landing-cove-streaks, .landing-cove-churn { animation: none; } }
