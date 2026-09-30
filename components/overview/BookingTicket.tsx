@@ -14,7 +14,7 @@ const STATUS: Record<Booking["status"], string> = {
 };
 
 /** One booking as a ticket: a tinted stub with the kind on the left, a perforated edge, then the details. */
-export function BookingTicket({ booking, onOpen }: { booking: Booking; onOpen: () => void }) {
+export function BookingTicket({ booking, detail, onOpen }: { booking: Booking; /** What it is for: the hotel and dates, or the route. */ detail?: string; onOpen: () => void }) {
   const live = booking.status === "confirmed" || booking.status === "pending";
   const Icon = booking.kind === "flight" ? Plane : BedDouble;
   return (
@@ -40,6 +40,7 @@ export function BookingTicket({ booking, onOpen }: { booking: Booking; onOpen: (
               <span className="font-display text-xl tracking-tight capitalize">{booking.kind}</span>
               <span className={cn("daisy-badge h-6 px-2.5 text-xs capitalize", STATUS[booking.status])}>{booking.status}</span>
             </span>
+            {detail && <span suppressHydrationWarning className="mt-1 block truncate text-sm">{detail}</span>}
             <span className="mt-1 block truncate font-mono text-xs tracking-wide text-muted-foreground">
               {booking.confirmationCode ? `Ref ${booking.confirmationCode}` : booking.providerReference}
             </span>

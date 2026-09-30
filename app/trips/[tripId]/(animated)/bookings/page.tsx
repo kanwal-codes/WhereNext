@@ -15,6 +15,8 @@ import { BookingTicket } from "@/components/overview/BookingTicket";
 import { ChapterHero } from "@/components/overview/ChapterHero";
 import { SectionHeading } from "@/components/overview/SectionHeading";
 import { StayFeature } from "@/components/overview/StayFeature";
+import { FlightFeature, readFlightChoice } from "@/components/overview/FlightFeature";
+import { fmtDay } from "@/lib/trip-dates";
 import { RoamMark } from "@/features/roam/ui/RoamMark";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { resolveCurrency } from "@/lib/currency";
@@ -26,6 +28,13 @@ export default function BookingsPage() {
   const decisions = (data?.decisions ?? []) as Array<{ kind: string; value: Record<string, unknown> }>;
   const stay = readStayDecision(decisions);
   const destination = data?.trip?.destination ?? "your destination";
+  const flight = readFlightChoice(decisions);
+  const ticketDetail = (kind: Booking["kind"]): string | undefined =>
+    kind === "stay" && stay
+      ? `${stay.hotelName} · ${fmtDay(stay.checkin)} to ${fmtDay(stay.checkout)}`
+      : kind === "flight" && flight && (flight.from || flight.to)
+        ? `${flight.from || "Home"} to ${flight.to || destination}${flight.airline ? ` · ${flight.airline}` : ""}`
+        : undefined;
 
   const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [openBookingId, setOpenBookingId] = useState<string | null>(null);
@@ -58,7 +67,7 @@ export default function BookingsPage() {
 
   const nights = stay?.nights ?? 0;
   const done = essentialsDone(data?.essentials);
-  const bookedCount = (bookings?.filter((b) => b.status === "confirmed").length ?? 0) + (stay ? 1 : 0);
+  const bookedCount = (bookings?.filter((b) => b.status === "confirmed").length ?? 0) + (stay ? 1 : 0) + (flight ? 1 : 0);
 
   return (
     <div className="min-h-full pb-16">
@@ -78,7 +87,10 @@ export default function BookingsPage() {
           <SectionHeading title="Your bookings" count={bookedCount} />
           <div className="mt-6 space-y-4">
             <Reveal>
-              <StayFeature tripId={tripId} stay={stay} />
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+                <StayFeature tripId={tripId} stay={stay} compact />
+                <FlightFeature tripId={tripId} flight={flight} destination={destination} />
+              </div>
             </Reveal>
             {bookings === null ? (
               <div className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft">
@@ -88,7 +100,7 @@ export default function BookingsPage() {
               <Stagger className="grid gap-4 md:grid-cols-2">
                 {bookings.map((b) => (
                   <StaggerItem key={b.id} className="h-full">
-                    <BookingTicket booking={b} onOpen={() => setOpenBookingId(b.id)} />
+                    <BookingTicket booking={b} detail={ticketDetail(b.kind)} onOpen={() => setOpenBookingId(b.id)} />
                   </StaggerItem>
                 ))}
               </Stagger>

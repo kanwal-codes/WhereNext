@@ -10,7 +10,7 @@ import type { StayDecision } from "@/packages/contracts/stay";
 import { cn } from "@/lib/utils";
 
 /** Where the group is sleeping: a wide photographic card when a stay is locked, an invitation when it is not. */
-export function StayFeature({ tripId, stay }: { tripId: string; stay: StayDecision | null }) {
+export function StayFeature({ tripId, stay, compact = false }: { tripId: string; stay: StayDecision | null; compact?: boolean }) {
   const [imageFailed, setImageFailed] = useState(false);
 
   if (!stay) {
@@ -41,7 +41,7 @@ export function StayFeature({ tripId, stay }: { tripId: string; stay: StayDecisi
     <Tactile lift={3} className="group">
       <Link
         href={`/trips/${tripId}/stay/${encodeURIComponent(stay.hotelId)}?checkin=${stay.checkin}&checkout=${stay.checkout}`}
-        className="relative block min-h-[24rem] overflow-hidden rounded-[1.75rem] border border-border/70 shadow-soft focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+        className="relative block h-full min-h-[24rem] overflow-hidden rounded-[1.75rem] border border-border/70 shadow-soft focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         <TripArt seed={hashString(stay.hotelName)} className="absolute inset-0" grain />
         {showImage && (
@@ -57,14 +57,14 @@ export function StayFeature({ tripId, stay }: { tripId: string; stay: StayDecisi
         )}
         <div aria-hidden className={cn("absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/15", !showImage && "opacity-0")} />
 
-        <div className={cn("relative flex min-h-[24rem] flex-col justify-between p-6 sm:p-9", showImage ? "text-white" : "text-foreground")}>
+        <div className={cn("relative flex h-full min-h-[24rem] flex-col justify-between p-6 sm:p-9", showImage ? "text-white" : "text-foreground")}>
           <div className="flex flex-wrap items-center gap-2">
             <span className="daisy-badge h-7 border-border/60 bg-background/80 px-3 text-[13px] font-medium text-foreground backdrop-blur">Your stay</span>
             {stay.refundable && <span className="daisy-badge h-7 border-border/60 bg-background/80 px-3 text-[13px] font-medium text-foreground backdrop-blur">Free cancellation</span>}
             {stay.board && <span className="daisy-badge h-7 border-border/60 bg-background/80 px-3 text-[13px] font-medium text-foreground backdrop-blur">{stay.board}</span>}
           </div>
 
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className={cn("flex flex-col gap-6", !compact && "lg:flex-row lg:items-end lg:justify-between")}>
             <div className="min-w-0 max-w-xl">
               <h3 className={cn("font-display text-4xl leading-[1.05] tracking-tight text-balance sm:text-5xl", showImage && "[text-shadow:0_2px_24px_rgba(0,0,0,0.5)]")}>{stay.hotelName}</h3>
               <p className={cn("mt-2 text-base", showImage ? "text-white/85" : "text-muted-foreground")}>{stay.roomName}</p>
@@ -76,7 +76,7 @@ export function StayFeature({ tripId, stay }: { tripId: string; stay: StayDecisi
             <div
               suppressHydrationWarning
               className={cn(
-                "daisy-stats w-full rounded-2xl border shadow-none backdrop-blur-md lg:w-auto [&_.daisy-stat-value]:leading-tight [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3",
+                "daisy-stats w-full rounded-2xl border shadow-none backdrop-blur-md", !compact && "lg:w-auto", " [&_.daisy-stat-value]:leading-tight [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3",
                 showImage
                   ? "border-white/20 bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] [&_.daisy-stat-desc]:text-white/70 [&_.daisy-stat-title]:text-white/70 [&>.daisy-stat]:border-white/20"
                   : "border-border/60 bg-background/60 [&>.daisy-stat]:border-border/70",
