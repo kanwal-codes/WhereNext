@@ -31,6 +31,15 @@ test.describe("guest lockdown (live)", () => {
     await nav.getByRole("button", { name: "Itinerary, needs an account" }).click();
     const dialog = page.getByRole("dialog", { name: "Create a free account" });
     await expect(dialog).toContainText("open itinerary");
+    // The sign-up form asks one thing at a time: email first, then a password.
+    await expect(dialog.getByLabel("Password")).toHaveCount(0);
+    await dialog.getByLabel("Email").fill("someone@example.com");
+    await dialog.getByRole("button", { name: "Continue", exact: true }).click();
+    await expect(dialog.getByLabel("Email")).toHaveCount(0);
+    await expect(dialog.getByLabel("Password")).toBeVisible();
+    await expect(dialog).toContainText("someone@example.com");
+    await dialog.getByRole("button", { name: "Change" }).click();
+    await expect(dialog.getByLabel("Email")).toHaveValue("someone@example.com");
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
 

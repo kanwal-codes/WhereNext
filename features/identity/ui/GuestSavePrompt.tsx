@@ -16,6 +16,7 @@ export function GuestSavePrompt({ tripId, exhausted, heading, body }: { tripId: 
   const [busy, setBusy] = useState<"google" | "email" | null>(null);
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
+  const [step, setStep] = useState<"email" | "password">("email");
   const callback = () => `${location.origin}/auth-callback?next=${encodeURIComponent(`/trips/${tripId}/chat`)}`;
 
   async function withGoogle() {
@@ -76,32 +77,64 @@ export function GuestSavePrompt({ tripId, exhausted, heading, body }: { tripId: 
           <div className="my-3 flex items-center gap-3 text-[11px] text-muted-foreground">
             <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
           </div>
-          <form onSubmit={withEmail} className="space-y-2.5">
-            <input
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              aria-label="Email"
-              className="w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/25"
-            />
-            <input
-              type="password"
-              required
-              minLength={8}
-              autoComplete="new-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password, at least 8 characters"
-              aria-label="Password"
-              className="w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/25"
-            />
-            <button type="submit" disabled={Boolean(busy)} className="btn-primary w-full justify-center">
-              {busy === "email" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save my trip"}
-            </button>
-          </form>
+          {/* One question at a time: the email first, then the password. */}
+          {step === "email" ? (
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                setError("");
+                setStep("password");
+              }}
+              className="space-y-2.5"
+            >
+              <input
+                type="email"
+                required
+                autoFocus
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                aria-label="Email"
+                className="w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/25"
+              />
+              <button type="submit" className="btn-primary w-full justify-center">
+                Continue
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={withEmail} className="space-y-2.5">
+              <p className="flex items-center justify-between gap-3 rounded-xl bg-muted px-3.5 py-2.5 text-sm">
+                <span className="min-w-0 truncate">{email}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPassword("");
+                    setError("");
+                    setStep("email");
+                  }}
+                  className="link-underline shrink-0 text-xs font-medium"
+                >
+                  Change
+                </button>
+              </p>
+              <input
+                type="password"
+                required
+                autoFocus
+                minLength={8}
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Choose a password, at least 8 characters"
+                aria-label="Password"
+                className="w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/25"
+              />
+              <button type="submit" disabled={Boolean(busy)} className="btn-primary w-full justify-center">
+                {busy === "email" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save my trip"}
+              </button>
+            </form>
+          )}
         </>
       )}
       {error && (
