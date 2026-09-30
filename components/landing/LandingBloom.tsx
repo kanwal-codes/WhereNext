@@ -1,6 +1,6 @@
 import { BedDouble, CalendarDays, Plane, Utensils, type LucideIcon } from "lucide-react";
 
-export type BloomVariant = "dusk" | "sunrise" | "horizon" | "route" | "trip";
+export type BloomVariant = "dusk" | "sunrise" | "horizon" | "route" | "trip" | "shore";
 
 /**
  * The light behind the first screen. Purely decorative: hidden from assistive tech and never
@@ -8,10 +8,11 @@ export type BloomVariant = "dusk" | "sunrise" | "horizon" | "route" | "trip";
  *   dusk     pink/violet/blue glow rising from the bottom
  *   sunrise  the same glow in warm sand, teal and deep indigo
  *   horizon  a low sun over a thin horizon line and a dusk sea
+ *   shore    dry sand, wet sand and a tide; the prompt box is the foam where the water reaches it
  *   route    a soft wash with a trip route that draws itself as the visitor writes
  *   trip     the route plus example trip cards (flight, stay, day, dinner) that come into focus as they write
  */
-export function LandingBloom({ variant = "trip", progress = 0, className }: { variant?: BloomVariant; progress?: number; className?: string }) {
+export function LandingBloom({ variant = "shore", progress = 0, className }: { variant?: BloomVariant; progress?: number; className?: string }) {
   if (variant === "horizon") {
     return (
       <div aria-hidden className={`landing-bloom landing-bloom-horizon pointer-events-none absolute inset-x-0 bottom-0 ${className ?? ""}`}>
@@ -23,6 +24,7 @@ export function LandingBloom({ variant = "trip", progress = 0, className }: { va
       </div>
     );
   }
+  if (variant === "shore") return <ShoreBloom />;
   if (variant === "route") return <RouteBloom progress={progress} className={className} />;
   if (variant === "trip") {
     return (
@@ -114,6 +116,46 @@ function TripCards({ progress }: { progress: number }) {
           </span>
         </div>
       ))}
+    </div>
+  );
+}
+
+const WAVE = "M0 16 C 120 4, 240 28, 380 14 S 640 0, 800 18 S 1100 30, 1250 12 S 1400 6, 1440 14 L1440 600 L0 600 Z";
+const WAVE_LINE = "M0 16 C 120 4, 240 28, 380 14 S 640 0, 800 18 S 1100 30, 1250 12 S 1400 6, 1440 14";
+
+/**
+ * A quiet beach: dry sand fading to wet sand, then shallow water whose edge slowly comes and goes.
+ * The waterline sits at the bottom of the prompt box, which is drawn as the foam the water leaves
+ * (see FoamEdge in TripPromptBox), so the box and the shore read as one thing.
+ */
+function ShoreBloom() {
+  return (
+    <div aria-hidden className="landing-shore pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="landing-shore-sand" />
+      <div className="landing-shore-tide">
+        <div className="landing-shore-wet" />
+        <svg className="landing-shore-water" viewBox="0 0 1440 600" preserveAspectRatio="none" fill="none">
+          <defs>
+            <linearGradient id="shore-water" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="oklch(0.92 0.05 190)" />
+              <stop offset="0.35" stopColor="oklch(0.82 0.085 200)" />
+              <stop offset="1" stopColor="oklch(0.64 0.1 228)" />
+            </linearGradient>
+            <filter id="shore-soft" x="-5%" y="-50%" width="110%" height="200%">
+              <feGaussianBlur stdDeviation="4" />
+            </filter>
+          </defs>
+          <path d={WAVE} fill="url(#shore-water)" />
+          <path d={WAVE_LINE} stroke="white" strokeWidth="14" strokeLinecap="round" opacity="0.85" filter="url(#shore-soft)" />
+          <path d={WAVE_LINE} transform="translate(0 22)" stroke="white" strokeWidth="7" strokeLinecap="round" strokeDasharray="1 14" opacity="0.6" />
+        </svg>
+      </div>
+      <div className="landing-shore-swell">
+        <svg className="landing-shore-water" viewBox="0 0 1440 600" preserveAspectRatio="none" fill="none">
+          <path d={WAVE_LINE} transform="translate(0 40)" stroke="white" strokeWidth="5" strokeLinecap="round" opacity="0.5" filter="url(#shore-soft)" />
+        </svg>
+      </div>
+      <div className="landing-bloom-grain" style={{ opacity: 0.2 }} />
     </div>
   );
 }

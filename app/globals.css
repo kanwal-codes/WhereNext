@@ -995,3 +995,20 @@
 .landing-trip-card { opacity: 0.4; filter: blur(2.5px); transform: translateY(10px) scale(0.98); transition: opacity 0.7s cubic-bezier(.22, 1, .36, 1), filter 0.7s cubic-bezier(.22, 1, .36, 1), transform 0.7s cubic-bezier(.22, 1, .36, 1); }
 .landing-trip-card[data-lit="true"] { opacity: 1; filter: none; transform: none; }
 @media (prefers-reduced-motion: reduce) { .landing-trip-card { transition: none; } }
+
+/* Shore: sand, wet sand, water and a tide. The waterline sits near the bottom of the prompt box. */
+.landing-shore-sand {
+  position: absolute; inset: 0;
+  background: linear-gradient(to bottom, oklch(0.945 0.03 88) 0%, oklch(0.9 0.042 84) 36%, oklch(0.84 0.05 76) 58%, oklch(0.74 0.05 66) 67%);
+}
+.landing-shore-tide { position: absolute; inset: 0; animation: shore-tide 10s ease-in-out infinite; }
+.landing-shore-swell { position: absolute; inset: 0; animation: shore-tide 13s ease-in-out infinite reverse; }
+.landing-shore-wet {
+  position: absolute; left: 0; right: 0; top: 52%; height: 15%;
+  background: linear-gradient(to bottom, transparent, oklch(0.62 0.05 58 / 0.5));
+}
+.landing-shore-water { position: absolute; left: 0; right: 0; top: 67%; height: 40%; width: 100%; }
+@keyframes shore-tide { 0%, 100% { transform: translateY(6px); } 50% { transform: translateY(-20px); } }
+.landing-foam-bubble { animation: foam-swell 8s ease-in-out infinite; }
+@keyframes foam-swell { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(4px) scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { .landing-shore-tide, .landing-shore-swell, .landing-foam-bubble { animation: none; } }
