@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
@@ -213,6 +213,9 @@ export function AccountView({
 
   // Swaps the hero photo live when the Appearance toggle further down this page flips.
   const isDark = useIsDarkMode();
+  // Language and country names come from the browser's Intl data, which the server's copy words and orders
+  // differently ("Hong Kong" vs "Hong Kong SAR China"), so those lists are built after hydration, not during it.
+  const clientReady = useSyncExternalStore(() => () => undefined, () => true, () => false);
 
   async function onAvatarChosen(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -410,11 +413,11 @@ export function AccountView({
 
   return (
     <div className="min-h-screen pb-32">
-      {/* The opening frame: the same destination photo as the trips home (night version in dark mode),
+      {/* The opening frame: their dream destination when they have set one, otherwise a coastal road by day and Lisbon at blue hour by night,
        * slowly pushing in, graded dark so the white name and the frosted numbers always read. */}
       <header className="relative isolate overflow-hidden bg-black text-white">
         {/* eslint-disable-next-line @next/next/no-img-element -- static design asset, sized by the container */}
-        <img key={dreamHero ?? "stock"} src={dreamHero ?? (isDark ? "/design/trip-hero-night.jpg" : "/design/trip-hero.jpg")} alt="" onError={() => setHeroFailed(true)} className="hero-drift absolute inset-0 h-full w-full object-cover" />
+        <img key={dreamHero ?? "stock"} src={dreamHero ?? (isDark ? "/design/land-lisbon-blue-hour.webp" : "/design/land-coast.jpg")} alt="" onError={() => setHeroFailed(true)} className="hero-drift absolute inset-0 h-full w-full object-cover" />
         <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/25 to-black/85" />
         <div aria-hidden className="absolute inset-0 bg-[radial-gradient(85%_70%_at_12%_95%,rgba(0,0,0,0.6),transparent)]" />
 
@@ -575,13 +578,13 @@ export function AccountView({
                 <Field label="Preferred language">
                   <select value={language} onChange={(e) => { setLanguage(e.target.value); touch(); }} className="input-field">
                     <option value="">Not set</option>
-                    {LANGUAGES.map((code) => <option key={code} value={code}>{displayName("language", code, code)} ({displayName("language", code)})</option>)}
+                    {clientReady && LANGUAGES.map((code) => <option key={code} value={code}>{displayName("language", code, code)} ({displayName("language", code)})</option>)}
                   </select>
                 </Field>
                 <Field label="Home country">
                   <select value={country} onChange={(e) => { setCountry(e.target.value); touch(); }} className="input-field">
                     <option value="">Not set</option>
-                    {[...COUNTRIES].sort((a, b) => displayName("region", a).localeCompare(displayName("region", b))).map((code) => <option key={code} value={code}>{displayName("region", code)}</option>)}
+                    {clientReady && [...COUNTRIES].sort((a, b) => displayName("region", a).localeCompare(displayName("region", b))).map((code) => <option key={code} value={code}>{displayName("region", code)}</option>)}
                   </select>
                 </Field>
                 <p className="-mt-2 text-xs text-ink-soft sm:col-span-2">Roam replies in your language when a message doesn’t show one, and uses your country for passport, plug and currency tips.</p>

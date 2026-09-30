@@ -244,3 +244,39 @@ export function whenLabel(item: TimelineItem, now: number = Date.now()): string 
   if (start < 0) return item.endDate && (daysUntilTrip(item.endDate, now) ?? -1) >= 0 ? "Now" : null;
   return start === 0 ? "Today" : start === 1 ? "Tomorrow" : `In ${start} days`;
 }
+
+export type DayBooking = { reservation: Reservation; /** "Check-in" / "Check-out" for a multi-day stay, otherwise null. */ note: string | null };
+
+/** 1-based trip day for a calendar date, counting from `startDate`; null when either is missing or the date is before the trip. */
+export function tripDayFor(date: string | null, startDate: string | null | undefined): number | null {
+  if (!date || !startDate) return null;
+  const a = new Date(`${startDate}T00:00:00`).getTime();
+  const b = new Date(`${date}T00:00:00`).getTime();
+  if (Number.isNaN(a) || Number.isNaN(b)) return null;
+  const day = Math.round((b - a) / 86_400_000) + 1;
+  return day >= 1 ? day : null;
+}
+
+/**
+ * Reservations placed on the trip's days, so the Itinerary shows what is already booked next to what is
+ * planned. A reservation with an end date ("check-out") also appears on that day. Undated ones, and
+ * ones before the trip starts, are not on any day.
+ */
+export function reservationsByDay(reservations: Reservation[], startDate: string | null | undefined): Map<number, DayBooking[]> {
+  const byDay = new Map<number, DayBooking[]>();
+  const add = (day: number | null, entry: DayBooking) => {
+    if (day === null) return;
+    byDay.set(day, [...(byDay.get(day) ?? []), entry]);
+  };
+  for (const reservation of reservations) {
+    const first = tripDayFor(reservation.startsOn, startDate);
+    const last = tripDayFor(reservation.endsOn, startDate);
+    const multiDay = first !== null && last !== null && last > first;
+    add(first, { reservation, note: multiDay ? "Check-in" : null });
+    if (multiDay) add(last, { reservation, note: "Check-out" });
+  }
+  for (const [day, list] of byDay) {
+    byDay.set(day, list.sort((a, b) => (a.reservation.startTime ?? "99:99").localeCompare(b.reservation.startTime ?? "99:99")));
+  }
+  return byDay;
+}

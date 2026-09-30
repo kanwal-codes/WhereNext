@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test("preview trip renders the routed workspace shell and every surface route", async ({ page }) => {
   // Visits ~9 routes + redirects in one cold `next dev` session; the AI SDK in the chat
   // route's module graph makes the first compile heavier than the 30s default allows.
-  test.setTimeout(90_000);
+  test.setTimeout(180_000);
   await page.goto("/trips/rebuild-preview");
   await expect(page.getByRole("heading", { name: "What we know", exact: true })).toBeVisible();
 
@@ -33,7 +33,7 @@ test("preview trip renders the routed workspace shell and every surface route", 
   }
 
   await sidebar.getByRole("link", { name: "Overview" }).click();
-  await expect(page).toHaveURL(/\/trips\/rebuild-preview$/);
+  await expect(page).toHaveURL(/\/trips\/rebuild-preview$/, { timeout: 30_000 });
 
   // Transport merged into "Getting around", Budget into "Trip knowledge" — old routes still land.
   // Wait for the destination page's own heading before checking the client-set <title>: the map

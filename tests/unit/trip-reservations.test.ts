@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTimeline, categoryOf, countByCategory, filterByCategory, groupByDate, pickNextUp, whenLabel } from "../../lib/trip-reservations";
+import { buildTimeline, categoryOf, countByCategory, filterByCategory, groupByDate, pickNextUp, reservationsByDay, tripDayFor, whenLabel } from "../../lib/trip-reservations";
 import type { Booking } from "../../packages/contracts/booking";
 import type { Reservation } from "../../packages/contracts/reservation";
 import type { StayDecision } from "../../packages/contracts/stay";
@@ -91,5 +91,31 @@ describe("pickNextUp and whenLabel", () => {
     expect(whenLabel(f, at("2026-10-11"))).toBe("Today");
     expect(whenLabel(s, at("2026-10-14"))).toBe("Now");
     expect(whenLabel(s, at("2026-10-20"))).toBeNull();
+  });
+});
+
+describe("tripDayFor and reservationsByDay", () => {
+  it("counts trip days from the start date", () => {
+    expect(tripDayFor("2026-10-12", "2026-10-12")).toBe(1);
+    expect(tripDayFor("2026-10-14", "2026-10-12")).toBe(3);
+    expect(tripDayFor("2026-10-11", "2026-10-12")).toBeNull();
+    expect(tripDayFor(null, "2026-10-12")).toBeNull();
+    expect(tripDayFor("2026-10-12", null)).toBeNull();
+  });
+  it("puts reservations on their day, a stay on check-in and check-out, in time order", () => {
+    const byDay = reservationsByDay(
+      [
+        reservation("dinner", { kind: "dining", startsOn: "2026-10-13", startTime: "20:30" }),
+        reservation("tour", { startsOn: "2026-10-13", startTime: "10:00" }),
+        reservation("hotel", { kind: "stay", startsOn: "2026-10-12", endsOn: "2026-10-14" }),
+        reservation("undated"),
+        reservation("early", { startsOn: "2026-10-01" }),
+      ],
+      "2026-10-12",
+    );
+    expect([...byDay.keys()].sort()).toEqual([1, 2, 3]);
+    expect(byDay.get(1)!.map((e) => [e.reservation.title, e.note])).toEqual([["Rhotel", "Check-in"]]);
+    expect(byDay.get(2)!.map((e) => e.reservation.title)).toEqual(["Rtour", "Rdinner"]);
+    expect(byDay.get(3)!.map((e) => [e.reservation.title, e.note])).toEqual([["Rhotel", "Check-out"]]);
   });
 });

@@ -3,5 +3,11 @@
 import { useDocumentTitle } from "@/lib/use-document-title";
 
 export default function GroupChatPage() {
-  return useDocumentTitle("Chat");
+  const title = useDocumentTitle("Chat");
+  return (
+    <>
+      {title}
+      <h1 className="sr-only">Group chat</h1>
+    </>
+  );
 }
