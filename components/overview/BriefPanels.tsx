@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { RoamMark } from "@/features/roam/ui/RoamMark";
 import { CertaintyBadge } from "@/components/CertaintyBadge";
 import { certaintyFor, decisionSummary } from "@/lib/decisions-ui";
 import type { ReactNode } from "react";
@@ -71,7 +72,7 @@ export function TasteAndQuestions({ tripId, taste, questions }: { tripId: string
           <p className="mt-3 text-sm text-muted-foreground">Nothing pressing. Keep planning.</p>
         )}
         <Link href={`/trips/${tripId}/chat`} className="btn-primary mt-5 w-full">
-          Continue planning <ArrowRight className="h-4 w-4" />
+          <RoamMark state="settled" size={30} /> Continue planning <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
     </section>
@@ -103,7 +104,7 @@ export function RoamNotes({ notes }: { notes: string[] }) {
   return (
     <section className="rounded-3xl border border-dashed border-border p-6">
       <h2 className="flex items-center gap-2 font-display text-2xl tracking-tight">
-        <Sparkles className="h-5 w-5 text-coral" /> Roam&rsquo;s latest
+        <RoamMark state="settled" size={40} /> Roam&rsquo;s latest
       </h2>
       <ul className="mt-3 space-y-3">
         {notes.map((note, index) => (

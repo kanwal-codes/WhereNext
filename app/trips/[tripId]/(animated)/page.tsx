@@ -3,9 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, CalendarDays, Compass, MapPin, MessageCircle, Users, Wallet } from "lucide-react";
+import { ArrowRight, CalendarDays, Compass, MapPin, Users, Wallet } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { Reveal } from "@/components/motion-primitives";
+import { RoamMark } from "@/features/roam/ui/RoamMark";
 import { TripWeather } from "@/components/TripWeather";
 import { BriefPanels } from "@/components/overview/BriefPanels";
 import { OverviewHero, type HeroFact } from "@/components/overview/OverviewHero";
@@ -134,7 +135,7 @@ export default function TripOverviewPage() {
         <Reveal>
           <div className="flex flex-wrap gap-3">
             <Link href={`/trips/${tripId}/chat`} className="btn-primary h-11 rounded-full px-6">
-              <MessageCircle className="h-4 w-4" /> Continue planning
+              <RoamMark state="settled" size={30} /> Continue planning
             </Link>
             <Link href={`/trips/${tripId}/itinerary`} className={action}>
               <CalendarDays className="h-4 w-4" /> Itinerary
