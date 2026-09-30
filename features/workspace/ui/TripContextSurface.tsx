@@ -530,7 +530,7 @@ export function TripContextSurface({
   return (
     <div className="min-w-0 space-y-4">
       {/* Hero — clean card, the ring carries the colour */}
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-card px-4 py-4 shadow-[0_1px_3px_color-mix(in_oklab,var(--color-ink)_7%,transparent)]">
+      <div className="flex items-center justify-between gap-3 rounded-3xl border border-border/60 bg-card px-4 py-4 shadow-[0_1px_3px_color-mix(in_oklab,var(--color-ink)_7%,transparent)]">
         <div>
           <h3 className="font-display text-lg leading-tight">What we know</h3>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -550,7 +550,7 @@ export function TripContextSurface({
       {confirmedRows.length > 0 && (
         <section>
           <p className="mb-1.5 px-1 text-[10px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">Locked in</p>
-          <div className="divide-y divide-border/50 overflow-hidden rounded-2xl border border-border/60 bg-card">
+          <div className="divide-y divide-border/50 overflow-hidden rounded-3xl border border-border/60 bg-card">
             {confirmedRows.map(renderRow)}
           </div>
         </section>
@@ -560,7 +560,7 @@ export function TripContextSurface({
       {suggestedRows.length > 0 && (
         <section>
           <p className="mb-1.5 px-1 text-[10px] font-semibold tracking-[0.16em] text-coral uppercase">Suggested — confirm or dismiss</p>
-          <div className="divide-y divide-border/50 overflow-hidden rounded-2xl border border-coral/25 bg-card">
+          <div className="divide-y divide-border/50 overflow-hidden rounded-3xl border border-coral/25 bg-card">
             {suggestedRows.map(renderRow)}
           </div>
         </section>
@@ -570,7 +570,7 @@ export function TripContextSurface({
       {undecidedRows.length > 0 && (
         <section>
           <p className="mb-1.5 px-1 text-[10px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">To decide</p>
-          <div className="rounded-2xl border border-dashed border-border/70 bg-card/40 p-3">
+          <div className="rounded-3xl border border-dashed border-border/70 bg-card/40 p-3">
             <div className="flex flex-wrap gap-1.5">
               {undecidedRows.map((row) => {
                 const canEdit = Boolean(row.editKey || row.editable);
