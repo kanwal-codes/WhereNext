@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTripRowUpdate, proposedTripUpdateSchema, withExplicitDestination } from "../../lib/application/trip-update";
+import { buildTripRowUpdate, dropUnrequestedClears, proposedTripUpdateSchema, withExplicitDestination } from "../../lib/application/trip-update";
 
 describe("trip update planning", () => {
   it("supports duration-only updates without inventing dates", () => {
@@ -34,5 +34,19 @@ describe("trip update planning", () => {
       .toEqual({ destination: "New York City, New York, USA" });
     expect(withExplicitDestination(null, "what can I do in Boston?", "Boston, Massachusetts, USA"))
       .toBeNull();
+  });
+
+  describe("dropUnrequestedClears", () => {
+    const trip = { id: "t", name: "Trip", destination: "Montreal", travelers: 3, start_date: null, end_date: null };
+    it("keeps the traveller count when a dates-only message carries travelerCount: null", () => {
+      const out = dropUnrequestedClears(trip, { startDate: "2026-11-26", endDate: "2026-12-10", travelerCount: null }, "i am goin on nov 26- dec 10 2026");
+      expect(out).toEqual({ startDate: "2026-11-26", endDate: "2026-12-10" });
+    });
+    it("honours a clear the user actually asked for", () => {
+      expect(dropUnrequestedClears(trip, { travelerCount: null }, "forget the traveller count")).toEqual({ travelerCount: null });
+    });
+    it("leaves set values and already-empty clears alone", () => {
+      expect(dropUnrequestedClears(trip, { travelerCount: 4, origin: null }, "we are 4 now")).toEqual({ travelerCount: 4, origin: null });
+    });
   });
 });

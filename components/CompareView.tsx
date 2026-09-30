@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useDistance } from "@/lib/use-distance";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { Check, MapPin, Star, X } from "lucide-react";
@@ -32,6 +33,7 @@ const numberAt = (metadata: unknown, key: "latitude" | "longitude"): number | un
 
 /** The side-by-side place table. Used by the `/compare` route and the chat compare panel. */
 export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids: string[]; onIdsChange?: (ids: string[]) => void }) {
+  const distance = useDistance();
   const { data } = useTripData();
   const { guest, openGate } = useGuest();
   const [items, setItems] = useState<Record<string, GooglePlaceDetails | null>>({});
@@ -177,7 +179,7 @@ export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids:
           <span className="inline-flex items-center gap-1.5">
             <Star className="h-3.5 w-3.5 fill-current text-coral" />
             {d.rating.toFixed(1)}
-            {d.rating === bestRating && <span className="rounded-full bg-coral-soft px-2 py-0.5 text-[10px] font-medium text-coral">Best rated</span>}
+            {d.rating === bestRating && <span className="rounded-full bg-coral-soft px-2 py-0.5 text-xs font-medium text-coral-ink">Best rated</span>}
           </span>
         ) : (
           "—"
@@ -187,7 +189,7 @@ export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids:
           <span className="inline-flex items-center gap-2">
             {d.userRatingCount.toLocaleString()}
             {d.userRatingCount === mostReviews && mostReviews > 0 && (
-              <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-medium text-accent-foreground">Most reviewed</span>
+              <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">Most reviewed</span>
             )}
           </span>
         ) : (
@@ -198,7 +200,7 @@ export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids:
           <span className="inline-flex items-center gap-2">
             {priceLabel(d.priceLevel) ?? "—"}
             {priceLabel(d.priceLevel) && priceRank(d.priceLevel) === bestPrice && (
-              <span className="rounded-full bg-leaf-soft px-2 py-0.5 text-[10px] font-medium text-leaf">Lowest</span>
+              <span className="rounded-full bg-leaf-soft px-2 py-0.5 text-xs font-medium text-leaf">Lowest</span>
             )}
           </span>
         );
@@ -209,8 +211,8 @@ export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids:
         ) : (
           <span className="inline-flex items-center gap-2">
             <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-            {km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`}
-            {km === closestKm && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">Closest</span>}
+            {distance(km)}
+            {km === closestKm && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">Closest</span>}
           </span>
         );
       }
@@ -271,7 +273,7 @@ export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids:
 
         {ROWS.map((row, i) => (
           <div key={row.key} className="col-span-full grid grid-cols-subgrid">
-            <div className={cn("sticky left-0 z-10 bg-background py-3 pr-2 text-[11px] tracking-[0.1em] text-muted-foreground uppercase", i === 0 && "mt-4")}>{row.label}</div>
+            <div className={cn("sticky left-0 z-10 bg-background py-3 pr-2 text-xs text-muted-foreground", i === 0 && "mt-4")}>{row.label}</div>
             {present.map(([id, d]) => (
               <div key={id + row.key} className={cn("border-t border-border py-3 text-sm leading-relaxed", i === 0 && "mt-4")}>
                 {cell(id, d!, row.key)}

@@ -76,3 +76,14 @@ describe("AssistantMessage", () => {
     expect(html).toContain("this link");
   });
 });
+
+describe("AssistantMessage while streaming", () => {
+  it("renders Markdown structure but nothing clickable or visible from unvetted text", () => {
+    const html = renderToStaticMarkup(<AssistantMessage streaming content={"**Bold** and a [link](https://evil.example)\n\n- one\n- two\n\n![x](https://evil.example/a.png)"} />);
+    expect(html).toContain("<strong>Bold</strong>");
+    expect(html).toContain("<li>one</li>");
+    expect(html).toContain("link");
+    expect(html).not.toContain("<a ");
+    expect(html).not.toContain("<img");
+  });
+});

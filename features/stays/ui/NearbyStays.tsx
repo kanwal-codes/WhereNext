@@ -119,28 +119,27 @@ export function NearbyStays({
 
   return (
     <section className="border-t border-border/70 pt-8">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="eyebrow text-coral">Nearby alternatives</p>
-          <h2 className="mt-1 font-display text-xl">Other places to stay</h2>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">A short list around this hotel, priced for your dates.</p>
+      <div>
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="font-display text-xl">Other places to stay</h2>
+          {mode === "preview" && (
+            <Link href={seeMoreHref} className="relative shrink-0 text-xs font-medium text-primary hover:underline after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']">See more <span aria-hidden="true">→</span></Link>
+          )}
         </div>
-        {mode === "preview" ? (
-          <Link href={seeMoreHref} className="shrink-0 text-xs font-medium text-primary hover:underline">See more <span aria-hidden="true">→</span></Link>
-        ) : <BedDouble className="mt-1 h-5 w-5 text-coral" aria-hidden="true" />}
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">A short list around this hotel, priced for your dates.</p>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2" aria-label="Alternative stay sorting">
-        <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">Sort</span>
+        <span className="text-xs text-muted-foreground">Sort</span>
         {(["nearby", "price", "rating"] as Order[]).map((value) => (
           <button key={value} type="button" onClick={() => setOrder(value)} className={cn("rounded-full border px-3 py-1.5 text-xs transition-colors", order === value ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:text-foreground")}>
             {value === "nearby" ? "Closest" : value === "price" ? "Best price" : "Guest score"}
           </button>
         ))}
         <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden="true" />
-        <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">Type</span>
+        <span className="text-xs text-muted-foreground">Type</span>
         {(["All", ...availableKinds] as Array<Kind | "All">).map((value) => (
-          <button key={value} type="button" onClick={() => setKind(value)} className={cn("rounded-full border px-3 py-1.5 text-xs transition-colors", kind === value ? "border-coral bg-coral-soft text-coral" : "border-border bg-background text-muted-foreground hover:text-foreground")}>
+          <button key={value} type="button" onClick={() => setKind(value)} className={cn("rounded-full border px-3 py-1.5 text-xs transition-colors", kind === value ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:text-foreground")}>
             {value}
           </button>
         ))}
@@ -155,7 +154,7 @@ export function NearbyStays({
             const content = (
               <>
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0"><p className="eyebrow">{optionKind}</p><p className="mt-1 truncate font-display text-base">{option.name}</p></div>
+                  <div className="min-w-0"><p className="text-xs text-muted-foreground">{optionKind}</p><p className="mt-0.5 truncate font-display text-base font-semibold">{option.name}</p></div>
                   {option.thumbnail ? (
                     // eslint-disable-next-line @next/next/no-img-element -- provider image URL is arbitrary
                     <img src={option.thumbnail} alt="" loading="lazy" width={64} height={48} className="h-12 w-16 shrink-0 rounded-lg object-cover" />
@@ -163,7 +162,7 @@ export function NearbyStays({
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span className="font-medium text-foreground">{formatMoney(option.nightlyAmount, option.currency || currency)}<span className="font-normal text-muted-foreground"> / night</span></span>
-                  {typeof option.rating === "number" && <span className="inline-flex items-center gap-1"><Star className="h-3 w-3 fill-current text-coral" /> {option.rating.toFixed(1)}</span>}
+                  {typeof option.rating === "number" && <span className="tabular-nums">{option.rating.toFixed(1)}/10</span>}
                   {distance != null && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" /> {distance < 1 ? `${Math.round(distance * 1000)} m` : `${distance.toFixed(1)} km`}</span>}
                 </div>
               </>
@@ -173,11 +172,11 @@ export function NearbyStays({
         </div>
       )}
       {mode === "preview" && !loading && matched.length > alternatives.length && (
-        <Link href={seeMoreHref} className="mt-4 inline-block text-xs font-medium text-primary hover:underline">
+        <Link href={seeMoreHref} className="relative mt-4 inline-block text-xs font-medium text-primary hover:underline after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']">
           See all {matched.length} {kind === "All" ? "stays" : kind.toLowerCase()} <span aria-hidden="true">→</span>
         </Link>
       )}
-      <p className="mt-4 text-[11px] text-muted-foreground">Prices are an estimate for the selected dates and can change.</p>
+      <p className="mt-4 text-xs text-muted-foreground">Prices are an estimate for the selected dates and can change.</p>
     </section>
   );
 }

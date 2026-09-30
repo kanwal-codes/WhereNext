@@ -30,6 +30,29 @@ export function withExplicitDestination(
   return { ...(update ?? {}), destination: locationFocus };
 }
 
+/** The user actually asked to clear or reset something ("no dates yet", "forget the origin", "not sure"). */
+const CLEAR_INTENT = /\b(?:clear|remove|reset|unset|forget|scrap|undecided|not sure|no idea|don'?t know|unknown|tbd|no (?:fixed |set )?dates?|flexible|start over|cancel)\b/i;
+
+/**
+ * A `null` in a proposed update means "clear this field". The resolver has emitted it for fields the
+ * user never mentioned (a dates-only message wiped the saved traveller count), so a clear is only
+ * honoured when the message itself asks for one. Setting a value, or clearing a field that is already
+ * empty, is untouched.
+ */
+export function dropUnrequestedClears(current: CurrentTrip | null | undefined, update: ProposedTripUpdate, message: string): ProposedTripUpdate {
+  if (CLEAR_INTENT.test(message)) return update;
+  const held: Record<keyof ProposedTripUpdate, unknown> = {
+    name: current?.name, destination: current?.destination, origin: current?.origin,
+    startDate: current?.start_date, endDate: current?.end_date,
+    durationDays: current?.duration_days, travelerCount: current?.travelers,
+  };
+  const kept = { ...update };
+  for (const key of Object.keys(kept) as Array<keyof ProposedTripUpdate>) {
+    if (kept[key] === null && held[key] != null) delete kept[key];
+  }
+  return kept;
+}
+
 function isRealIsoDate(value: string): boolean {
   const time = Date.parse(`${value}T00:00:00.000Z`);
   if (Number.isNaN(time)) return false;

@@ -211,7 +211,7 @@ export function PlansChangeScene() {
           </div>
 
           <svg className="h-6 w-1" aria-hidden="true">
-            <line ref={connectorRef} x1="0.5" y1="0" x2="0.5" y2="24" stroke="var(--border)" strokeWidth={2} strokeDasharray={60} strokeDashoffset={60} />
+            <line ref={connectorRef} x1="0.5" y1="0" x2="0.5" y2="24" stroke="var(--hairline)" strokeWidth={2} strokeDasharray={60} strokeDashoffset={60} />
           </svg>
 
           <div className="grid w-full grid-cols-[3.5rem_1fr] items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 md:[@media(min-height:800px)]:px-5 md:[@media(min-height:800px)]:py-4">

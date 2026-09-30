@@ -9,9 +9,9 @@ export function ExternalLink({ href, children, className }: { href: string; chil
       href={safeHref(href)}
       target="_blank"
       rel="noreferrer noopener"
-      className={cn("inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-2 hover:underline", className)}
+      className={cn("relative inline-flex items-start gap-1 text-xs font-medium text-primary underline-offset-2 hover:underline after:absolute after:-inset-x-1 after:-inset-y-3 after:content-['']", className)}
     >
-      {children} <ArrowUpRight className="h-3 w-3 shrink-0" />
+      {children} <ArrowUpRight className="mt-[0.22em] size-3 shrink-0" aria-hidden />
     </a>
   );
 }

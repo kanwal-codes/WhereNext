@@ -126,7 +126,7 @@ export default function SignUpPage() {
               <motion.span
                 key={i}
                 className="h-1 rounded-full bg-border"
-                animate={{ backgroundColor: i < score ? "var(--coral)" : "color-mix(in oklab, var(--border) 100%, transparent)" }}
+                animate={{ backgroundColor: i < score ? "var(--coral)" : "color-mix(in oklab, var(--hairline) 100%, transparent)" }}
                 transition={reduceMotion ? { duration: 0 } : { duration: 0.3 }}
               />
             ))}

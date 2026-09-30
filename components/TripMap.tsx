@@ -45,6 +45,7 @@ export function TripMap({
   activeDay,
   center,
   browse,
+  connect = true,
   className,
 }: {
   pins: MapPin[];
@@ -54,6 +55,8 @@ export function TripMap({
   center?: [number, number];
   /** Ad-hoc A→B route (Browse mode) — drawn instead of the itinerary, with A/B markers. */
   browse?: { legs: MapLeg[]; from?: string; to?: string } | null;
+  /** Draw a line through the pins when there are no legs. Off for an unordered set (a list of places). */
+  connect?: boolean;
   className?: string;
 }) {
   const holder = useRef<HTMLDivElement>(null);
@@ -305,19 +308,20 @@ export function TripMap({
 
     // Route: the real leg polylines when we have them, else a straight line through the stops.
     const straight = shown.map((p) => [p.lng, p.lat] as [number, number]);
-    const legList: MapLeg[] = legs && legs.length ? legs : straight.length >= 2 ? [{ polyline: straight, mode: "transit" }] : [];
+    const legList: MapLeg[] = legs && legs.length ? legs : connect && straight.length >= 2 ? [{ polyline: straight, mode: "transit" }] : [];
     const fullPath = legList.flatMap((l) => l.polyline);
+    const framed = fullPath.length >= 2 ? fullPath : straight;
 
     if (straight.length === 1) {
       m.easeTo({ center: straight[0], zoom: 13, duration: 700 });
-    } else if (fullPath.length >= 2) {
-      const b = new mapboxgl.LngLatBounds(fullPath[0], fullPath[0]);
-      fullPath.forEach((c) => b.extend(c));
+    } else if (framed.length >= 2) {
+      const b = new mapboxgl.LngLatBounds(framed[0], framed[0]);
+      framed.forEach((c) => b.extend(c));
       m.fitBounds(b, { padding: 64, maxZoom: 15, duration: 800 });
     }
 
     animateRoute(legList);
-  }, [pins, legs, activeDay, ready, center, browse, styleVersion]);
+  }, [pins, legs, activeDay, ready, center, browse, connect, styleVersion]);
 
   if (failed) return null;
 

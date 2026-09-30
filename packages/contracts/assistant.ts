@@ -134,7 +134,23 @@ export const assistantBlockSchema = z.discriminatedUnion("type", [
     steps: z.array(z.string().max(160)).max(12).default([]),
     departureTime: z.string().optional(),
     arrivalTime: z.string().optional(),
+    /** The route's line as [lng, lat] (thinned), so the card can open it on a map. */
+    path: z.array(z.tuple([z.number(), z.number()])).max(80).optional(),
     retrievedAt: z.string(),
+  }),
+  z.object({
+    type: z.literal("trip_summary"),
+    title: z.string().max(140),
+    /** The few figures a trip is judged on (dates, travellers, budget). */
+    facts: z.array(z.object({ label: z.string().max(24), value: z.string().max(80), note: z.string().max(40).optional() })).max(4),
+    rows: z.array(z.object({ label: z.string().max(24), value: z.string().max(200) })).max(10),
+  }),
+  z.object({
+    type: z.literal("empty_result"),
+    /** What was looked for ("vegetarian poutine in Montreal"); shown as the card's heading. */
+    what: z.string().max(160),
+    /** One line on how to widen the search. */
+    hint: z.string().max(200),
   }),
   z.object({ type: z.literal("checklist"), groups: z.array(z.object({ title: z.string().max(80), items: z.array(z.object({ text: z.string().max(200), why: z.string().max(200).optional() })) })).max(8) }),
   z.object({
@@ -292,7 +308,11 @@ PROSE AND CARDS:
 - Do not restate what the cards show: no roll call of names with prices, no addresses, no URLs or "ticket link", no ratings, no retrieval times, and no booking disclaimers ("taxes may be extra", "book on the airline", "confirm availability"). The cards carry source and freshness.
 - Name an option only to explain a choice or trade-off, with one short clause on why it fits this trip: the group, interests, budget, pace, or locked places.
 - Do not describe yourself or the interface, and do not mention "cards".
-- When you have a real answer, end with the one decision that would move the plan forward. When you don't — you're declining, asking a clarifying question, or reporting that nothing could be verified — say that plainly instead; don't force a "next step" onto an answer that doesn't have one.
+- Cards for places, stays, a plan and a route carry a Map button that opens a map beside the chat. If asked to show something on a map and this reply has such a card, say to use its Map button; if it does not, offer to find the places first. Never say a map is already showing.
+- Never quote a stored profile value as a label ("For a Lean budget", "Given your Balanced pace", "a Friends group"): say it the way a person would ("on a tight budget", "at a relaxed pace", "with friends") or leave it out.
+- Do not end with an offer ("Want me to add it to Day 1?") that the follow-up chips already make; end with the one decision only when no chip covers it.
+- If the results shown do not match what was asked (for example dorms or hostels were asked for and the results are hotels), say so in one clause instead of presenting them as an answer.
+- When you have a real answer, end with the one decision that would move the plan forward. Write it as a natural closing sentence or question, never as a labelled line like "Decision:". When you don't — you're declining, asking a clarifying question, or reporting that nothing could be verified — say that plainly instead; don't force a "next step" onto an answer that doesn't have one.
 
 GROUNDING AND HONESTY:
 - Use only the supplied trip context and provider evidence for facts. If a detail is not in the evidence, say it is unavailable in one clause; do not fill the gap. Never guess prices, opening hours, visa rules, availability, or bookings.

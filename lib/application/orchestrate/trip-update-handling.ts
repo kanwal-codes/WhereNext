@@ -3,7 +3,7 @@ import type { AssistantBlock } from "@/packages/contracts/assistant";
 import { loadTripContext, serializeTripContext, type TripContext } from "@/lib/application/trip-context";
 import type { ResolvedTurn } from "@/lib/application/turn-resolver";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
-import { buildTripRowUpdate, withExplicitDestination, type ProposedTripUpdate } from "@/lib/application/trip-update";
+import { buildTripRowUpdate, dropUnrequestedClears, withExplicitDestination, type ProposedTripUpdate } from "@/lib/application/trip-update";
 
 /**
  * Applying `proposedTripUpdate` / `proposedProfileUpdate`, and the change receipt shown for the
@@ -91,7 +91,8 @@ export async function applyTripUpdate(params: {
   let context = serializeTripContext(tripCtx);
   let tripUpdateReceipt: AssistantBlock | null = null;
 
-  const tripUpdate = withExplicitDestination(resolved.proposedTripUpdate, prompt, resolved.locationFocus);
+  const proposed = withExplicitDestination(resolved.proposedTripUpdate, prompt, resolved.locationFocus);
+  const tripUpdate = proposed && dropUnrequestedClears(tripCtx.trip, proposed, prompt);
   if (tripUpdate && Object.keys(tripUpdate).length > 0) {
     const update = buildTripRowUpdate(tripCtx.trip, tripUpdate);
     if (Object.keys(update).length > 0) {

@@ -30,6 +30,9 @@ export type CompareEntry = {
   };
 };
 
+/** A thing to put on the map. Coordinates may be missing when it is a saved place known only by id; the map panel looks them up. */
+export type MapPoint = { id: string; name: string; kind: "stay" | "eat" | "see" | "do" | "event" | "saved"; lat?: number; lng?: number; placeId?: string; day?: number };
+
 export type EventSeed = { name: string; url: string; source: string; imageUrl?: string; date?: string; venue?: string };
 
 /**
@@ -41,7 +44,50 @@ export type PanelState =
   | { kind: "stay"; hotelId: string; name: string; checkin?: string; checkout?: string }
   | { kind: "event"; seed: EventSeed }
   | { kind: "collection"; title: string; block: AssistantBlock }
+  | { kind: "flight"; flight: FlightOffer; route: FlightRoute }
+  | { kind: "day"; block: ItineraryBlock; dayIndex: number }
+  | { kind: "budget"; block: BudgetBlock }
+  | { kind: "route"; routes: RouteBlock[]; active: number }
+  | { kind: "map"; title: string; points: MapPoint[]; path?: Array<[number, number]>; mode?: string; connect?: boolean }
   | { kind: "compare" }; // the multi-kind selection bucket → CompareGrid + scratch chat
+
+type FlightsBlock = Extract<AssistantBlock, { type: "flights" }>;
+export type FlightOffer = FlightsBlock["items"][number];
+export type FlightRoute = Pick<FlightsBlock, "origin" | "destination" | "dateNote" | "retrievedAt"> & {
+  /** Every offer in the search this flight came from, so the panel can put it in context. */
+  offers?: FlightOffer[];
+};
+export type ItineraryBlock = Extract<AssistantBlock, { type: "itinerary" }>;
+export type BudgetBlock = Extract<AssistantBlock, { type: "budget" }>;
+export type RouteBlock = Extract<AssistantBlock, { type: "route_summary" }>;
+
+/** The panels a chat card opens with its own data (no fetch), as opposed to the ones that load by id. */
+export type CardPanel = Extract<PanelState, { kind: "flight" | "day" | "budget" | "map" | "route" }>;
+
+/** What the panel is called: its header, its accessible name, and what Roam is told is open beside the chat. */
+export function panelTitle(panel: PanelState): string {
+  switch (panel.kind) {
+    case "place":
+    case "stay":
+      return panel.name;
+    case "event":
+      return panel.seed.name;
+    case "collection":
+      return panel.title.replace(/^./, (c) => c.toUpperCase());
+    case "flight":
+      return `${panel.flight.airline} · ${panel.flight.originAirport ?? panel.route.origin}–${panel.flight.destinationAirport ?? panel.route.destination}`;
+    case "day":
+      return `${panel.block.days[panel.dayIndex]?.label ?? "Day plan"}${panel.block.title ? ` · ${panel.block.title}` : ""}`;
+    case "budget":
+      return "Daily budget";
+    case "map":
+      return panel.title;
+    case "route":
+      return `${panel.routes[0]?.from.split(",")[0]} to ${panel.routes[0]?.to.split(",")[0]}`;
+    default:
+      return "Compare";
+  }
+}
 
 type Ctx = {
   panel: PanelState | null;
@@ -72,7 +118,17 @@ export function panelSubjectKey(panel: PanelState | null, compareIds: string[] =
         ? `event:${panel.seed.url}`
         : panel.kind === "collection"
           ? `collection:${panel.title}:${panel.block.type}`
-          : `compare:${compareIds.join(",")}`;
+          : panel.kind === "flight"
+            ? `flight:${panel.flight.id ?? `${panel.flight.airline}:${panel.flight.departAt}`}`
+            : panel.kind === "day"
+              ? `day:${panel.block.title ?? ""}:${panel.block.days[0]?.stops[0]?.title ?? ""}:${panel.dayIndex}`
+              : panel.kind === "budget"
+                ? `budget:${panel.block.currency}:${panel.block.dailyTotal.typical}`
+                : panel.kind === "route"
+                  ? `route:${panel.routes[0]?.from}:${panel.routes[0]?.to}:${panel.routes.map((r) => r.durationSeconds).join(",")}`
+                  : panel.kind === "map"
+                  ? `map:${panel.title}:${panel.points.map((point) => point.id).join(",")}`
+                  : `compare:${compareIds.join(",")}`;
 }
 const panelKey = (panel: PanelState) => panelSubjectKey(panel);
 
@@ -211,8 +267,8 @@ export function CompareButton({ entry, className }: { entry: CompareEntry; class
         ctx.compareToggle(entry);
       }}
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium transition-colors",
-        on ? "border-coral bg-coral-soft text-coral" : "border-border bg-background/90 text-muted-foreground hover:text-foreground",
+        "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-medium transition-colors",
+        on ? "border-coral-ink bg-coral-soft text-coral-ink" : "border-border bg-background/90 text-muted-foreground hover:text-foreground",
         full && "cursor-not-allowed opacity-40",
         className,
       )}

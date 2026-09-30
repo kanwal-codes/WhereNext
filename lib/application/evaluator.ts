@@ -130,13 +130,15 @@ export async function finalizeAssistantText(
   onUsage?: (entry: UsageEntry) => void,
   intent?: string,
   onUnverified?: () => void,
+  userText?: string,
 ): Promise<string> {
-  const sanitized = sanitizeAssistantContent(content, allowedUrls, groundingText);
+  const sanitized = sanitizeAssistantContent(content, allowedUrls, groundingText, userText);
   if (intent && SKIP_EVALUATOR_INTENTS.has(intent)) return sanitized;
   const deadline = withDeadline(signal, AI_DEADLINE_MS.groundingEvaluator);
   const timedOut: GroundingEvaluation = { unsupportedClaims: [] };
   const evaluation = await Promise.race([
-    evaluateGrounding(sanitized, groundingText, deadline, onUsage),
+    // What the traveller wrote is evidence too: a figure they gave and Roam repeated is not an unverified estimate.
+    evaluateGrounding(sanitized, userText ? `${groundingText}\n\nThe traveller's own messages (figures they stated are supported):\n${userText}` : groundingText, deadline, onUsage),
     new Promise<GroundingEvaluation>((resolve) => setTimeout(() => resolve(timedOut), AI_DEADLINE_MS.groundingEvaluator)),
   ]);
   if (hasUnsupportedClaim(sanitized, evaluation.unsupportedClaims)) {

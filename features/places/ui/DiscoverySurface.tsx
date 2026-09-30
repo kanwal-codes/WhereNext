@@ -12,6 +12,7 @@ import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProv
 import { useInfiniteReveal } from "@/lib/use-infinite-reveal";
 import { PlaceCard } from "@/components/PlaceCard";
 import { rankPlaces, type RankAnchor } from "@/lib/application/rank-places";
+import { usesMiles } from "@/lib/application/geo";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { EventCard, type NearbyEvent } from "@/components/EventCard";
 import { SkeletonCards } from "@/components/Skeleton";
@@ -201,6 +202,7 @@ export function DiscoverySurface({
   // ranker's "why" label can honestly say "from your stay" (see rank-places.ts's stayAnchor doc).
   const lockedStay = readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
   const stayKey = lockedStay?.latitude != null && lockedStay?.longitude != null ? `${lockedStay.latitude},${lockedStay.longitude}` : "";
+  const miles = usesMiles(prefs.country);
   const rankCtx = useMemo(() => {
     const pts = itinKey.split("|").map((s) => s.split(",")).filter((xy) => xy[0] && xy[1]).map(([a, b]) => ({ latitude: Number(a), longitude: Number(b) }));
     const anchor: RankAnchor | null = pts.length
@@ -216,9 +218,10 @@ export function DiscoverySurface({
       rejectedIds: rejectedKey.split(",").filter(Boolean),
       anchor,
       stayAnchor,
+      miles,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- primitive keys stand in for the object deps
-  }, [interestsKey, dislikesKey, savedKey, rejectedKey, itinKey, stayKey]);
+  }, [interestsKey, dislikesKey, savedKey, rejectedKey, itinKey, stayKey, miles]);
   const rankToItems = useCallback(
     (places: Place[]): Item[] => rankPlaces(places, rankCtx).map((r) => ({ kind: "place", place: r.place, why: r.why })),
     [rankCtx],

@@ -4,11 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Accessibility,
+  ArrowUpRight,
   ChevronDown,
   Clock,
   Globe,
   MapPin,
   MessageCircle,
+  Navigation,
   Phone,
   Star,
 } from "lucide-react";
@@ -16,39 +18,53 @@ import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
 import { GetYourGuideCard } from "@/components/GetYourGuideCard";
 import { Hero } from "@/components/Hero";
 import { DetailSectionHeading } from "@/components/DetailSectionHeading";
+import { FactStrip, InfoList, InfoRow, QuickActions, ShowMore } from "@/components/DetailKit";
 import { NearbyRecommendations } from "@/components/NearbyRecommendations";
 import { BackLink } from "@/components/BackLink";
 import { ExternalLink } from "@/components/ExternalLink";
 import { SourceCard } from "@/components/SourceCard";
-import { Skeleton, SkeletonLines } from "@/components/Skeleton";
+import { PanelError, PanelLoading } from "@/components/PanelStates";
 import { TripWeather } from "@/components/TripWeather";
 import { Reveal, WordReveal } from "@/components/motion-primitives";
 import { PhotoLightbox, usePhotoLightbox } from "@/components/PhotoLightbox";
 import { isWeatherRelevantPlace } from "@/packages/reco/vibes";
 import { usePlaceDetails } from "@/features/places/application/usePlaceDetails";
 import { useDocumentTitle } from "@/lib/use-document-title";
-import { amenityChips, askAssistantHref, businessStatusLabel, categoryLabel, cityFrom, detailsToPlace, photoProxyUrl, priceLabel, secondaryTypes, type GoogleReview } from "@/lib/places-ui";
+import { amenityChips, askAssistantHref, businessStatusLabel, categoryLabel, cityFrom, detailsToPlace, photoProxyUrl, prettyWebsite, withPhotoWidth, priceLabel, secondaryTypes, type GoogleReview } from "@/lib/places-ui";
+import { Badge } from "@/features/conversation/ui/blocks/ui";
 import { cn } from "@/lib/utils";
 
 function ReviewFigure({ r }: { r: GoogleReview }) {
+  const [open, setOpen] = useState(false);
+  const text = r.text?.text || r.originalText?.text || "";
+  const long = text.length > 260;
+  const author = r.authorAttribution?.displayName ?? "Google user";
   return (
-    <figure className="rounded-2xl bg-surface p-4">
-      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span className="flex items-center gap-2">
-          {typeof r.rating === "number" && (
-            <span className="inline-flex items-center gap-0.5">
-              {Array.from({ length: 5 }).map((_, s) => (
-                <Star key={s} className={`h-3 w-3 ${s < Math.round(r.rating!) ? "fill-current text-coral" : "text-border"}`} />
-              ))}
-            </span>
-          )}
-          <span className="font-medium text-foreground">{r.authorAttribution?.displayName ?? "Google user"}</span>
+    <figure className="rounded-2xl border border-border bg-card p-4">
+      <figcaption className="flex items-center gap-3">
+        <span className="daisy-avatar daisy-avatar-placeholder" aria-hidden>
+          <span className="grid size-9 place-items-center rounded-full bg-muted text-sm font-medium text-muted-foreground">{author.charAt(0).toUpperCase()}</span>
         </span>
-        {r.relativePublishTimeDescription && <span>{r.relativePublishTimeDescription}</span>}
-      </div>
-      <blockquote className="mt-2 line-clamp-5 text-sm leading-relaxed text-ink-soft">
-        {r.text?.text || r.originalText?.text}
-      </blockquote>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium">{author}</span>
+          <span className="flex items-center gap-2 text-xs text-muted-foreground">
+            {typeof r.rating === "number" && (
+              <span className="inline-flex items-center gap-0.5" role="img" aria-label={`${Math.round(r.rating)} out of 5 stars`}>
+                {Array.from({ length: 5 }).map((_, s) => (
+                  <Star key={s} aria-hidden className={`size-3 ${s < Math.round(r.rating!) ? "fill-current text-coral" : "text-border"}`} />
+                ))}
+              </span>
+            )}
+            {r.relativePublishTimeDescription && <span>{r.relativePublishTimeDescription}</span>}
+          </span>
+        </span>
+      </figcaption>
+      <blockquote className={cn("mt-3 text-sm leading-relaxed text-ink-soft", !open && "line-clamp-5")}>{text}</blockquote>
+      {long && (
+        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="relative mt-2 text-xs font-medium text-primary after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']">
+          {open ? "Show less" : "Read more"}
+        </button>
+      )}
     </figure>
   );
 }
@@ -68,33 +84,21 @@ export function PlaceDetailView({
   variant?: "page" | "panel";
 }) {
   const panel = variant === "panel";
-  const { details, webSummary, state } = usePlaceDetails(tripId, placeId);
+  const { details, webSummary, state, retry } = usePlaceDetails(tripId, placeId);
   const titleTag = useDocumentTitle(panel ? null : details?.displayName?.text ?? "Place");
   const [reviewsOpen, setReviewsOpen] = useState(false);
   const lightbox = usePhotoLightbox();
 
   const pad = panel ? "px-4 pb-8" : "mx-auto max-w-5xl px-5 pb-14 sm:px-8";
 
-  if (state === "loading") {
-    return (
-      <div>
-        <Skeleton className={cn("rounded-none", panel ? "h-44" : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")} />
-        <div className={cn(pad, "pt-6")}>
-          <Skeleton className="h-3 w-24 rounded-md" />
-          <Skeleton className="mt-3 h-8 w-2/3 rounded-lg" />
-          <SkeletonLines lines={3} className="mt-6" />
-        </div>
-      </div>
-    );
-  }
+  if (state === "loading") return <PanelLoading what="this place" panel={panel} />;
 
   if (state === "error" || !details) {
     return (
-      <div className={cn(pad, "pt-10")}>
-        {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" />}
-        <h1 className="mt-6 font-display text-2xl">We couldn’t load this place</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Something went wrong just now. Head back to Discover and try again in a moment.</p>
-      </div>
+      <>
+        {!panel && <div className="mx-auto max-w-5xl px-5 pt-6 sm:px-8"><BackLink fallback={`/trips/${tripId}/discover`} label="Back" /></div>}
+        <PanelError what="this place" panel={panel} onRetry={retry} />
+      </>
     );
   }
 
@@ -110,6 +114,10 @@ export function PlaceDetailView({
   const reviews = (details.reviews ?? []).filter((r) => r.text?.text || r.originalText?.text).slice(0, 4);
   const city = cityFrom(details.formattedAddress);
   const amenities = amenityChips(details);
+  // Google lists Monday first.
+  const todayHours = hours.length ? (hours[(new Date().getDay() + 6) % 7] ?? hours[0]).replace(/^[^:]+:\s*/, "") : null;
+  const openNow = details.regularOpeningHours?.openNow;
+  const directionsHref = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent([name, details.formattedAddress].filter(Boolean).join(", "))}&destination_place_id=${encodeURIComponent(placeId)}`;
 
   const place = detailsToPlace(details);
   // The one action, up top. No card wrapper — it's a button, not a module.
@@ -120,40 +128,60 @@ export function PlaceDetailView({
   // into a very long, thin bar spanning nearly the whole page. Capping it keeps it looking like
   // a button at every width instead of a banner at in-between ones.
   const asideAction = place ? (
-    <div className="max-w-sm">
+    <div className={panel ? undefined : "max-w-sm"}>
       <AddToTripControl tripId={tripId} place={place} size="md" block />
     </div>
   ) : (
     <p className="text-sm text-muted-foreground">This place can&rsquo;t be added &mdash; we don&rsquo;t have a location for it.</p>
   );
 
+  const hasContact = Boolean(details.nationalPhoneNumber || details.websiteUri || wheelchair);
   const asideSecondary = (
     <>
-      {(details.nationalPhoneNumber || details.websiteUri || wheelchair) && (
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <p className="eyebrow">Details</p>
-          <dl className="mt-2 space-y-2.5 text-sm">
+      {(hours.length > 0 || hasContact) && (
+        <section aria-label="Hours and contact" className="space-y-3">
+          <DetailSectionHeading>Hours &amp; contact</DetailSectionHeading>
+          <InfoList>
+            {hours.length > 0 && (
+              <li>
+                <details className="group">
+                  <summary className="flex min-h-12 cursor-pointer list-none items-center gap-3 [&::-webkit-details-marker]:hidden">
+                    <Clock className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                    <span className="min-w-0 flex-1 truncate">Today · {todayHours}</span>
+                    {hours.length > 1 && (
+                      <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary">
+                        All days <ChevronDown className="size-3.5 transition-transform group-open:rotate-180" aria-hidden />
+                      </span>
+                    )}
+                  </summary>
+                  <dl className="grid grid-cols-[6.5rem_1fr] gap-x-3 gap-y-1.5 pb-3 pl-7 text-sm text-muted-foreground">
+                    {hours.map((h, i) => {
+                      const [day, ...rest] = h.split(": ");
+                      const today = i === (new Date().getDay() + 6) % 7;
+                      return (
+                        <div key={h} className={cn("col-span-2 grid grid-cols-subgrid tabular-nums", today && "font-medium text-foreground")}>
+                          <dt>{day}</dt>
+                          <dd>{rest.join(": ")}</dd>
+                        </div>
+                      );
+                    })}
+                  </dl>
+                </details>
+              </li>
+            )}
             {details.nationalPhoneNumber && (
-              <div className="flex items-center gap-2">
-                <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <a href={`tel:${details.nationalPhoneNumber.replace(/\s/g, "")}`} className="hover:text-primary">{details.nationalPhoneNumber}</a>
-              </div>
+              <InfoRow icon={Phone} href={`tel:${details.nationalPhoneNumber.replace(/\s/g, "")}`}>
+                {details.nationalPhoneNumber}
+              </InfoRow>
             )}
             {details.websiteUri && (
-              <div className="flex items-center gap-2">
-                <Globe className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <ExternalLink href={details.websiteUri} className="min-w-0 max-w-full truncate text-sm">
-                  {details.websiteUri.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
-                </ExternalLink>
-              </div>
+              <InfoRow icon={Globe} href={details.websiteUri} external trailing={<ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />}>
+                {prettyWebsite(details.websiteUri)}
+              </InfoRow>
             )}
-            {wheelchair && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Accessibility className="h-3.5 w-3.5 shrink-0" /> Wheelchair accessible
-              </div>
-            )}
-          </dl>
-        </div>
+            {wheelchair && <InfoRow icon={Accessibility}>Wheelchair accessible</InfoRow>}
+          </InfoList>
+        </section>
       )}
 
       <SourceCard provider="Google Maps" href={details.googleMapsUri} />
@@ -173,18 +201,38 @@ export function PlaceDetailView({
 
   const body = (
     <div className="min-w-0 space-y-8">
+      <Reveal delay={0.04}>
+        <div className="space-y-3">
+          <FactStrip
+            facts={[
+              typeof details.rating === "number" && {
+                label: "Rating",
+                value: (
+                  <>
+                    <Star className="size-4 fill-current text-coral" aria-hidden /> {details.rating.toFixed(1)}
+                  </>
+                ),
+                note: details.userRatingCount ? `${details.userRatingCount.toLocaleString()} reviews` : undefined,
+              },
+              price && { label: "Price", value: price, note: price === "Free" ? undefined : "per person" },
+              typeof openNow === "boolean" && { label: "Right now", value: openNow ? "Open" : "Closed", tone: openNow ? "positive" : undefined, note: todayHours ?? undefined },
+            ]}
+          />
+          <QuickActions
+            actions={[
+              { icon: Navigation, label: "Directions", href: directionsHref, external: true },
+              details.nationalPhoneNumber && { icon: Phone, label: "Call", href: `tel:${details.nationalPhoneNumber.replace(/\s/g, "")}` },
+              details.websiteUri && { icon: Globe, label: "Website", href: details.websiteUri, external: true },
+            ]}
+          />
+        </div>
+      </Reveal>
+
+      {(details.editorialSummary?.text || webSummary || typeChips.length > 0 || amenities.length > 0) && (
       <Reveal delay={0.06}>
         <section>
           <DetailSectionHeading>About</DetailSectionHeading>
-          {details.editorialSummary?.text ? (
-            <p className="mt-2 text-[15px] leading-[1.8] text-ink-soft">{details.editorialSummary.text}</p>
-          ) : (
-            <p className="mt-2 text-sm text-muted-foreground">
-              {details.userRatingCount
-                ? `A ${categoryLabel(details.primaryType).toLowerCase()} rated ${details.rating?.toFixed(1)} across ${details.userRatingCount.toLocaleString()} reviews.${reviews.length > 0 ? " What people say is below." : ""}`
-                : `No description for this ${categoryLabel(details.primaryType).toLowerCase()} yet.`}
-            </p>
-          )}
+          {details.editorialSummary?.text && <p className="mt-2 text-[15px] leading-[1.8] text-ink-soft">{details.editorialSummary.text}</p>}
           {/* Google's own editorialSummary above is only written for a subset of well-known
               places, and even then is often one generic sentence — this supplements it with a
               real excerpt from the web, clearly sourced rather than presented as Google's own
@@ -193,26 +241,19 @@ export function PlaceDetailView({
             <p className="mt-2 text-sm leading-[1.75] text-muted-foreground">
               {webSummary.content}{" "}
               <ExternalLink href={webSummary.source.url} className="text-xs whitespace-nowrap">
-                {webSummary.source.title}
+                {prettyWebsite(webSummary.source.url).split("/")[0]}
               </ExternalLink>
             </p>
           )}
-          {typeChips.length > 0 && (
+          {(typeChips.length > 0 || amenities.length > 0) && (
             <div className="mt-3 flex flex-wrap gap-1.5">
-              {typeChips.map((t) => (
-                <span key={t} className="rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground capitalize">{t}</span>
-              ))}
-            </div>
-          )}
-          {amenities.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {amenities.map((a) => (
-                <span key={a} className="rounded-full border border-border px-2.5 py-1 text-[11px] text-ink-soft">{a}</span>
-              ))}
+              {typeChips.map((t) => <Badge key={t} className="capitalize">{t}</Badge>)}
+              {amenities.map((a) => <Badge key={a} className="bg-transparent text-ink-soft ring-1 ring-inset ring-border">{a}</Badge>)}
             </div>
           )}
         </section>
       </Reveal>
+      )}
 
       {morePhotos.length > 0 && (
         <Reveal delay={0.08}>
@@ -228,7 +269,7 @@ export function PlaceDetailView({
                   className="shrink-0 snap-start rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin proxy */}
-                  <img src={src} alt={name} loading="lazy" width={288} height={192} className="h-44 w-72 rounded-2xl border border-border object-cover transition-opacity hover:opacity-90" />
+                  <img src={withPhotoWidth(src, 640)} alt="" loading="lazy" width={288} height={192} className="h-44 w-72 rounded-2xl border border-border object-cover transition-opacity hover:opacity-90" />
                 </button>
               ))}
             </div>
@@ -236,20 +277,20 @@ export function PlaceDetailView({
         </Reveal>
       )}
 
-      <Reveal delay={0.1}>
+      {!panel && <Reveal delay={0.1}>
         <Link
           href={askAssistantHref(tripId, { name, address: details.formattedAddress, mapsUrl: details.googleMapsUri })}
           className="flex items-start gap-3 rounded-2xl border border-border bg-surface p-5 transition-colors hover:bg-accent"
         >
           <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
           <span>
-            <span className="eyebrow">Why this may fit your trip</span>
-            <span className="mt-1 block text-sm leading-[1.75]">
-              Ask Roam — it weighs {name} against your budget, pace and the places you&rsquo;ve saved. The question is written for you; just hit send.
+            <span className="block text-sm font-medium">Does {name} fit your trip?</span>
+            <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">
+              Roam weighs it against your budget, pace and saved places. The question is written for you — just send it.
             </span>
           </span>
         </Link>
-      </Reveal>
+      </Reveal>}
 
       <Reveal delay={0.11}>
         <GetYourGuideCard query={name} label={`Find tours and tickets for ${name}`} />
@@ -259,49 +300,16 @@ export function PlaceDetailView({
         <Reveal delay={0.12}>
           <section>
             <DetailSectionHeading>What people say</DetailSectionHeading>
-            {reviewsOpen || reviews.length === 1 ? (
-              <div className="mt-4 space-y-3">
-                {reviews.map((r, i) => (
-                  <ReviewFigure key={i} r={r} />
-                ))}
-              </div>
-            ) : (
-              // First review, with the rest as "stacked paper" edges peeking below it.
-              <div className="relative mt-4" style={{ paddingBottom: reviews.length > 2 ? 22 : 12 }}>
-                <div aria-hidden className="pointer-events-none absolute inset-x-3 bottom-0 top-2.5 rounded-2xl border border-border bg-surface/80" />
-                {reviews.length > 2 && (
-                  <div aria-hidden className="pointer-events-none absolute inset-x-6 bottom-[-10px] top-5 rounded-2xl border border-border bg-surface/50" />
-                )}
-                <div className="relative">
-                  <ReviewFigure r={reviews[0]} />
-                </div>
-              </div>
-            )}
-            {reviews.length > 1 && (
-              <button
-                type="button"
-                onClick={() => setReviewsOpen((v) => !v)}
-                className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-primary"
-              >
-                {reviewsOpen ? "Show less" : `Show ${reviews.length - 1} more review${reviews.length - 1 === 1 ? "" : "s"}`}
-                <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", reviewsOpen && "rotate-180")} />
-              </button>
-            )}
-          </section>
-        </Reveal>
-      )}
-
-      {hours.length > 0 && (
-        <Reveal delay={0.14}>
-          <section>
-            <DetailSectionHeading>Hours</DetailSectionHeading>
-            <ul className="mt-3 space-y-1 text-sm text-ink-soft">
-              {hours.map((h) => (
-                <li key={h} className="flex items-center gap-2">
-                  <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> {h}
-                </li>
+            <div className="mt-3 space-y-3">
+              {(reviewsOpen ? reviews : reviews.slice(0, 1)).map((r, i) => (
+                <ReviewFigure key={i} r={r} />
               ))}
-            </ul>
+            </div>
+            {reviews.length > 1 && (
+              <div className="mt-3">
+                <ShowMore open={reviewsOpen} onToggle={() => setReviewsOpen((v) => !v)} more={`Show ${reviews.length - 1} more review${reviews.length - 1 === 1 ? "" : "s"}`} less="Show fewer reviews" />
+              </div>
+            )}
           </section>
         </Reveal>
       )}
@@ -317,14 +325,6 @@ export function PlaceDetailView({
         plain
         surface={panel}
         className={cn(panel ? "h-44" : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")}
-        ratingBadge={
-          typeof details.rating === "number" && (
-            <>
-              <Star className="h-3.5 w-3.5 fill-current text-coral" /> {details.rating.toFixed(1)}
-              {details.userRatingCount ? ` (${details.userRatingCount.toLocaleString()})` : ""}
-            </>
-          )
-        }
       >
         {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className="absolute top-4 left-4" />}
       </Hero>
@@ -340,8 +340,12 @@ export function PlaceDetailView({
                 separate, already-visible placement (a narrow drawer has no "beside" to offer). */}
             <div className={cn(!panel && "sm:flex sm:items-start sm:justify-between sm:gap-6")}>
               <div className="min-w-0">
-                <span className="eyebrow">{categoryLabel(details.primaryType)}</span>
-                <WordReveal text={name} delay={0.18} className={cn("mt-2 font-display leading-tight", panel ? "text-2xl" : "text-4xl")} />
+                <p className="text-sm text-muted-foreground">{categoryLabel(details.primaryType)}</p>
+                {panel ? (
+                  <h1 className="mt-1 font-display text-2xl font-semibold leading-tight">{name}</h1>
+                ) : (
+                  <WordReveal text={name} delay={0.18} className="mt-1 font-display text-4xl leading-tight" />
+                )}
               </div>
               {!panel && <div className="mt-4 max-w-sm shrink-0 sm:mt-2 sm:w-64">{asideAction}</div>}
             </div>
@@ -351,8 +355,7 @@ export function PlaceDetailView({
                   <MapPin className="h-3.5 w-3.5" /> {details.formattedAddress}
                 </span>
               )}
-              {price && <span>{price}</span>}
-              {status && <span>{status}</span>}
+              {status && <Badge tone="caution">{status}</Badge>}
             </p>
             {city && isWeatherRelevantPlace({ primaryType: details.primaryType, types: details.types }) && (
               <TripWeather tripId={tripId} location={city} className="mt-1.5" />

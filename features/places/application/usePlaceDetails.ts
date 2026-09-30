@@ -16,6 +16,7 @@ export function usePlaceDetails(tripId: string, placeId: string) {
   const [webSummary, setWebSummary] = useState<WebSummary | null>(null);
   const [freshness, setFreshness] = useState("");
   const [state, setState] = useState<State>("loading");
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -53,7 +54,7 @@ export function usePlaceDetails(tripId: string, placeId: string) {
         setState("error");
       });
     return () => controller.abort();
-  }, [tripId, placeId]);
+  }, [tripId, placeId, attempt]);
 
-  return { details, webSummary, freshness, state };
+  return { details, webSummary, freshness, state, retry: () => setAttempt((n) => n + 1) };
 }

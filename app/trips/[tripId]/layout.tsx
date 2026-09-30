@@ -1,4 +1,5 @@
 import { cache, type ReactNode } from "react";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -10,6 +11,7 @@ import { TripDataProvider } from "@/components/TripDataProvider";
 import { TripPanelProvider } from "@/components/TripPanelProvider";
 import { TripPanel } from "@/components/TripPanel";
 import { loadWorkspaceCached } from "@/lib/server/workspace-cache";
+import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 import { GuestProvider } from "@/features/identity/ui/GuestProvider";
 
 const PREVIEW_ID = "rebuild-preview";
@@ -33,14 +35,20 @@ const getWorkspace = cache(async (tripId: string): Promise<{ data: TripWorkspace
     throw error; // a genuine outage must not read as "trip doesn't exist"
   }
   let data: TripWorkspaceData | null;
+  // The viewer's own defaults (profile, else browser language / IP country) fill the trip's
+  // language, country and currency where it has none, so distances and prices follow them.
+  // Read alongside the workspace, not after it. The cached workspace object is shared — copy it.
+  const defaultsPromise = Promise.all([createSupabaseServerClient(), headers()]).then(([client, h]) => loadTravellerDefaults(client, user.id, h)).catch(() => ({}));
   try {
     data = await loadWorkspaceCached(tripId, user.id);
+    if (data) data = { ...data, preferences: withTravellerDefaults(data.preferences, await defaultsPromise) };
   } catch {
     // Service role not configured — fall back to a per-request cookie-scoped read. Membership is
     // already confirmed above, so any error past this point is a load failure, not a missing
     // trip — let it propagate to app/trips/[tripId]/error.tsx rather than a false notFound().
     const supabase = await createSupabaseServerClient();
     data = await loadTripWorkspace(supabase, tripId, user.id);
+    if (data) data = { ...data, preferences: withTravellerDefaults(data.preferences, await defaultsPromise) };
   }
   return data ? { data, user } : null;
 });

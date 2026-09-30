@@ -5,7 +5,7 @@ import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Lock, PanelRight, PanelRightClose, PanelRightOpen, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
-import { useTripPanel, panelSubjectKey, type EventSeed } from "@/components/TripPanelProvider";
+import { useTripPanel, panelSubjectKey, panelTitle, type EventSeed } from "@/components/TripPanelProvider";
 import { TripPanel } from "@/components/TripPanel";
 import { GroupMembersBadge } from "@/components/GroupMembersBadge";
 import { Reveal, Sheet, motionTokens } from "@/components/motion-primitives";
@@ -68,6 +68,17 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   const { data } = useTripData();
   const { guest, openGate } = useGuest();
   const desktop = useMediaQuery("(min-width: 1024px)");
+  // A callback-ref state, not a ref: the element may not exist on the first commit (this shell can render something else first).
+  const [root, setRoot] = useState<HTMLDivElement | null>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    if (!root) return;
+    const measure = () => setWidth(Math.round(root.getBoundingClientRect().width));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, [root]);
   const reduceMotion = useReducedMotion();
   const [contextCollapsed, setContextCollapsed] = useState(false);
   const [mobileContextOpen, setMobileContextOpen] = useState(false);
@@ -127,6 +138,9 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
       lastScrollTop.current = top;
       if (top < 24) { setHeaderHidden(false); return; }
       if (Math.abs(delta) < 4) return; // ignore inertial/sub-pixel jitter
+      // Near the bottom, hiding or showing the header resizes this log, which shifts scrollTop, which flips
+      // the direction and toggles the header again (a flicker loop, worst when overscrolling). Hold the state.
+      if (node.scrollHeight - top - node.clientHeight < 120) return;
       setHeaderHidden(delta > 0);
     });
   }
@@ -140,13 +154,28 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   // Collapsed context doesn't drop to 0 — it stays a slim rail (mirrors TripShell's sidebar
   // collapse) so the re-expand toggle always has somewhere to live, inside the panel it controls.
   const RAIL_WIDTH = 48;
+  // Pixel tracks, not `minmax(…, 1fr)` strings: a track list that mixes `fr` and `px` cannot be interpolated, so
+  // the old resize snapped at the end of its animation. Until the width is measured the CSS form is used as is.
+  const CHAT_WHEN_PANEL = 512; // 32rem
+  // The panel takes what the chat leaves, up to 720 px: a detail view stretched across 940 px reads worse, and the chat gets the rest on a wide screen.
+  const PANEL_MAX = 720;
+  const sidePx = panel ? Math.min(PANEL_MAX, Math.max(0, width - Math.min(width, CHAT_WHEN_PANEL))) : showContext ? 340 : RAIL_WIDTH;
   const columns = !desktop
     ? "minmax(0, 1fr) 0px"
-    : panel
-      ? "minmax(340px, 400px) minmax(0, 1fr)"
-      : showContext
-        ? "minmax(0, 1fr) 340px"
-        : `minmax(0, 1fr) ${RAIL_WIDTH}px`;
+    : width > 0
+      ? `${Math.max(0, width - sidePx)}px ${sidePx}px`
+      : panel
+        ? "minmax(420px, 32rem) minmax(0, 1fr)"
+        : showContext
+          ? "minmax(0, 1fr) 340px"
+          : `minmax(0, 1fr) ${RAIL_WIDTH}px`;
+  // Animate only when the layout mode changes (panel opens or closes, rail expands); a window resize follows instantly.
+  const layoutMode = panel ? "panel" : showContext ? "context" : "rail";
+  const lastLayoutMode = useRef(layoutMode);
+  const modeChanged = lastLayoutMode.current !== layoutMode;
+  useEffect(() => {
+    lastLayoutMode.current = layoutMode;
+  });
 
   function openPlace(place: PlaceCard) {
     openPanel({ kind: "place", placeId: place.providerId, name: place.name });
@@ -174,12 +203,14 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
     />
   );
 
-  const panelKey = panelSubjectKey(panel);
-
   return (
-    <div className="flex h-[calc(100dvh-var(--topbar))] min-h-0 w-full max-w-full flex-col overflow-x-hidden lg:h-[100dvh]">
-      <motion.div initial={false} animate={{ gridTemplateColumns: columns }} transition={reduceMotion ? { duration: 0 } : spring} className="grid h-full min-h-0 w-full min-w-0 max-w-full">
-        <motion.div layout transition={reduceMotion ? { duration: 0 } : spring} className="relative flex min-w-0 max-w-full flex-col overflow-hidden px-4 py-4 sm:px-6 lg:border-r lg:border-border lg:py-5">
+    <div ref={setRoot} className="flex h-[calc(100dvh-var(--topbar))] min-h-0 w-full max-w-full flex-col overflow-x-hidden lg:h-[100dvh]">
+      <div
+        // A CSS transition on pixel tracks (they interpolate natively), only for the moment the layout mode changes.
+        style={{ gridTemplateColumns: columns, transition: `grid-template-columns ${reduceMotion || !modeChanged ? 0 : 420}ms cubic-bezier(0.22, 0.61, 0.36, 1)` }}
+        className="grid h-full min-h-0 w-full min-w-0 max-w-full"
+      >
+        <div className="relative flex min-w-0 max-w-full flex-col overflow-hidden px-4 py-4 sm:px-6 lg:border-r lg:border-border lg:py-5">
           <motion.div
             initial={false}
             animate={{ height: headerHidden ? 0 : "auto", opacity: headerHidden ? 0 : 1 }}
@@ -209,7 +240,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
                         type="button"
                         onClick={() => setMobileContextOpen(true)}
                         aria-label="Show trip context"
-                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-background/90 px-3 py-1.5 backdrop-blur transition-colors hover:bg-accent"
+                        className="grid size-10 shrink-0 place-items-center rounded-full border border-border bg-background/90 backdrop-blur transition-colors hover:bg-accent"
                       >
                         <PanelRight className="h-3.5 w-3.5" />
                       </button>
@@ -230,6 +261,10 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
             <motion.div
               className={cn("absolute inset-0 min-h-0", optimisticTab !== "roam" && "pointer-events-none")}
               aria-hidden={optimisticTab !== "roam"}
+              // `inert`, not just aria-hidden: a hidden pane's message box and buttons must also leave the tab order.
+              inert={optimisticTab !== "roam"}
+              // `initial={false}`: without it the inactive pane starts at full opacity and fades out, so its text ghosts over the other pane on first paint.
+              initial={false}
               animate={{ opacity: optimisticTab === "roam" ? 1 : 0 }}
               transition={reduceMotion ? { duration: 0 } : motionTokens.swap}
             >
@@ -240,15 +275,8 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
                 onOpenStay={openStay}
                 onOpenEvent={openEvent}
                 onOpenCollection={openCollection}
-                viewContext={
-                  panel?.kind === "place" || panel?.kind === "stay"
-                    ? panel.name
-                    : panel?.kind === "event"
-                      ? panel.seed.name
-                      : panel?.kind === "collection"
-                        ? panel.title
-                        : undefined
-                }
+                onOpenPanel={openPanel}
+                viewContext={panel && panel.kind !== "compare" ? panelTitle(panel) : undefined}
                 rail={desktop && Boolean(panel)}
                 onLogScroll={optimisticTab === "roam" ? handleLogScroll : undefined}
               />
@@ -256,25 +284,31 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
             <motion.div
               className={cn("absolute inset-0 min-h-0", optimisticTab !== "group" && "pointer-events-none")}
               aria-hidden={optimisticTab !== "group"}
+              inert={optimisticTab !== "group"}
+              initial={false}
               animate={{ opacity: optimisticTab === "group" ? 1 : 0 }}
               transition={reduceMotion ? { duration: 0 } : motionTokens.swap}
             >
               {!guest && <GroupChatSurface tripId={tripId} initialMessages={data?.groupChat} onLogScroll={optimisticTab === "group" ? handleLogScroll : undefined} />}
             </motion.div>
           </div>
-        </motion.div>
+        </div>
 
         {desktop && (
-          <div className="h-full min-h-0 overflow-hidden border-l border-border bg-surface">
-            <AnimatePresence initial={false} mode="wait">
+          <div className="relative h-full min-h-0 overflow-hidden border-l border-border bg-surface">
+            {/* Crossfade in place: the panel, the context rail and its collapsed strip stack in one box, so one
+                leaving while another arrives never leaves a blank beat. The panel keeps ONE key across subjects:
+                TripPanel's own surface stays put and only its content swaps (a per-subject key used to slide the
+                whole panel out and back for every change, on top of that swap). */}
+            <AnimatePresence initial={false}>
               {panel ? (
                 <motion.div
-                  key={panelKey}
-                  initial={reduceMotion ? false : { opacity: 0, x: 24 }}
+                  key="panel"
+                  initial={reduceMotion ? false : { opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  exit={reduceMotion ? undefined : { opacity: 0, x: -16 }}
-                  transition={reduceMotion ? { duration: 0 } : spring}
-                  className="h-full min-h-0"
+                  exit={reduceMotion ? undefined : { opacity: 0, x: 12, pointerEvents: "none" }}
+                  transition={reduceMotion ? { duration: 0 } : { duration: 0.34, ease: motionTokens.swap.ease }}
+                  className="absolute inset-0"
                 >
                   <TripPanel layout="inline" />
                 </motion.div>
@@ -282,15 +316,13 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
                 <motion.div
                   key="trip-context"
                   // Opacity-only: an `x` slide here leaves a lingering `transform` on the
-                  // scrollable div's ancestor (components/motion-primitives.tsx doesn't own
-                  // this one), which forces GPU compositing on this whole panel and makes a
-                  // slow scroll inside it visibly juddery — live-caught on the trip-context
-                  // rail specifically, the one animated container here that wraps a scroll area.
+                  // scrollable div's ancestor, which forces GPU compositing on this whole panel and makes a
+                  // slow scroll inside it visibly juddery — live-caught on the trip-context rail.
                   initial={reduceMotion ? false : { opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  exit={reduceMotion ? undefined : { opacity: 0 }}
-                  transition={reduceMotion ? { duration: 0 } : spring}
-                  className="flex h-full flex-col overflow-hidden"
+                  exit={reduceMotion ? undefined : { opacity: 0, pointerEvents: "none" }}
+                  transition={reduceMotion ? { duration: 0 } : motionTokens.swap}
+                  className="absolute inset-0 flex flex-col overflow-hidden"
                 >
                   <div className="flex shrink-0 justify-start px-3 pt-3">
                     <button
@@ -298,7 +330,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
                       onClick={() => setContextCollapsed(true)}
                       aria-label="Hide trip context"
                       title="Hide trip context"
-                      className="shrink-0 rounded-full border border-border bg-background/60 p-1.5 text-muted-foreground transition-colors hover:text-foreground active:scale-95"
+                      className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-background/60 text-muted-foreground transition-colors hover:text-foreground active:scale-95"
                     >
                       <PanelRightClose className="h-4 w-4" />
                     </button>
@@ -310,16 +342,16 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
                   key="trip-context-rail"
                   initial={reduceMotion ? false : { opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  exit={reduceMotion ? undefined : { opacity: 0 }}
-                  transition={reduceMotion ? { duration: 0 } : spring}
-                  className="flex h-full flex-col items-center pt-3"
+                  exit={reduceMotion ? undefined : { opacity: 0, pointerEvents: "none" }}
+                  transition={reduceMotion ? { duration: 0 } : motionTokens.swap}
+                  className="absolute inset-0 flex flex-col items-center pt-3"
                 >
                   <button
                     type="button"
                     onClick={() => setContextCollapsed(false)}
                     aria-label="Show trip context"
                     title="Show trip context"
-                    className="shrink-0 rounded-full border border-border bg-background/60 p-1.5 text-muted-foreground transition-colors hover:text-foreground active:scale-95"
+                    className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-background/60 text-muted-foreground transition-colors hover:text-foreground active:scale-95"
                   >
                     <PanelRightOpen className="h-4 w-4" />
                   </button>
@@ -328,18 +360,18 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
             </AnimatePresence>
           </div>
         )}
-      </motion.div>
+      </div>
 
       {!desktop && (
         <>
           <AnimatePresence initial={false}>
             {panel && (
               <motion.div
-                key={panelKey}
+                key="panel"
                 initial={reduceMotion ? false : { y: "100%" }}
                 animate={{ y: 0 }}
                 exit={reduceMotion ? undefined : { y: "100%" }}
-                transition={reduceMotion ? { duration: 0 } : spring}
+                transition={reduceMotion ? { duration: 0 } : motionTokens.panelSpring}
                 className="fixed inset-0 top-[var(--topbar)] z-40 bg-surface"
               >
                 <TripPanel layout="inline" />

@@ -7,6 +7,7 @@ import { research } from "@/packages/providers/tavily/client";
 import { generateText } from "@/packages/ai/model-policy";
 import { resolveStayDates } from "@/lib/application/stay-dates";
 import { resolveCurrency } from "@/lib/currency";
+import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 import { cached } from "@/lib/server/ttl-cache";
 
 /** Tighten LiteAPI's marketing description into 2–3 honest sentences. Falls back to a trimmed original. */
@@ -69,14 +70,15 @@ async function guestSentiment(name: string, city: string | null, signal?: AbortS
 export async function GET(request: Request, { params }: { params: Promise<{ tripId: string; hotelId: string }> }) {
   try {
     const { tripId, hotelId } = await params;
-    const { supabase } = await requireTripMember(tripId);
+    const { supabase, user } = await requireTripMember(tripId);
     if (!liteApiConfigured()) return NextResponse.json({ error: "Stay search is not configured" }, { status: 503 });
 
-    const [trip, prefs] = await Promise.all([
+    const [trip, prefs, defaults] = await Promise.all([
       createTripRepository(supabase).get(tripId),
       supabase.from("trip_preferences").select("data").eq("trip_id", tripId).maybeSingle(),
+      loadTravellerDefaults(supabase, user.id, request.headers),
     ]);
-    const currency = resolveCurrency(prefs.data?.data as Record<string, unknown> | undefined);
+    const currency = resolveCurrency(withTravellerDefaults((prefs.data?.data ?? {}) as Record<string, unknown>, defaults));
 
     const q = new URL(request.url).searchParams;
     const adults = Math.max(1, Math.min(Number(q.get("adults")) || (trip as { travelers?: number } | null)?.travelers || 2, 24));

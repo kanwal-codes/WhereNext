@@ -310,7 +310,15 @@ export function TripContextSurface({
   }
 
   softField("occasion", "Occasion", csv(memory.occasion), "occasion", "occasion");
-  softField("budget", "Budget", csv(memory.budget), "budget", "budget");
+  // A bare "80" said nothing about what it was per, or in what money (one answer read it as a nightly room rate, another as a
+  // daily dorm bed): a plain number is a per-day budget, so say so, and in which currency when the trip has one.
+  const budgetText = csv(memory.budget);
+  if (/^\d+(?:[.,]\d+)?$/.test(budgetText.trim())) {
+    const currency = typeof memory.currency === "string" ? memory.currency : "";
+    push({ id: "budget", label: "Budget", value: budgetText, certainty: "confirmed", editKey: "budget", note: `a day${currency ? `, in ${currency}` : ""}` });
+  } else {
+    softField("budget", "Budget", budgetText, "budget", "budget");
+  }
   softField("group", "Who's travelling", csv(memory.groupType), "group", "groupType");
   softField("pace", "Pace", csv(memory.pace), "pace", "pace");
   softField(

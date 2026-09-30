@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowUp, ChevronRight, Copy, Mic } from "lucide-react";
+import { ArrowUp, ChevronRight, Copy, Mic, Info } from "lucide-react";
 import { Sheet } from "@/components/motion-primitives";
 import type { AssistantBlock, AssistantTurnMeta, PlaceCard, ProposedCommand, StayCardItem } from "@/packages/contracts/assistant";
 import type { EventSeed } from "@/components/TripPanelProvider";
@@ -12,6 +12,8 @@ import { notifyToast } from "@/lib/application/toast";
 import { useSpeechInput } from "@/lib/use-speech-input";
 import { useAutoGrowTextarea } from "@/lib/use-autogrow-textarea";
 import { AssistantMessage } from "./AssistantMessage";
+import type { CardPanel } from "@/components/TripPanelProvider";
+import { CopyButton, controlSecondary, textAction } from "./blocks/ui";
 import { AssistantRequestError } from "../application/streamAssistantResponse";
 import { sendConversationMessage } from "../application/sendConversationMessage";
 import { GuestSavePrompt } from "@/features/identity/ui/GuestSavePrompt";
@@ -157,6 +159,15 @@ const THINKING_STATES = [
 const TYPING_MARK = ["thinking", "searching", "planning", "answering"] as const;
 const STAGE_PHASE: Record<"resolve" | "retrieve" | "compose", number> = { resolve: 0, retrieve: 1, compose: 2 };
 
+/** "www.example.com/path" → "example.com": which site a source is, at a glance. */
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+};
+
 function Typing({ stage, label }: { stage?: "resolve" | "retrieve" | "compose"; label?: string }) {
   const [timerPhase, setTimerPhase] = useState(0);
   useEffect(() => {
@@ -205,6 +216,7 @@ export function ConversationSurface({
   onOpenStay,
   onOpenEvent,
   onOpenCollection,
+  onOpenPanel,
   viewContext,
   rail = false,
   onLogScroll,
@@ -216,6 +228,7 @@ export function ConversationSurface({
   onOpenStay?: (stay: StayCardItem, dates: { checkin: string; checkout: string }) => void;
   onOpenEvent?: (seed: EventSeed) => void;
   onOpenCollection?: (title: string, block: AssistantBlock) => void;
+  onOpenPanel?: (panel: CardPanel) => void;
   /** Name of the place/stay the user has open beside the chat, for deictic references. */
   viewContext?: string;
   rail?: boolean;
@@ -230,6 +243,8 @@ export function ConversationSurface({
   const [messages, setMessages] = useState<Message[]>((initialMessages ?? []) as Message[]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  // Set synchronously: two quick taps on a chip (or Enter twice) can both arrive before `sending` has re-rendered, and each used to send its own copy of the message.
+  const sendingRef = useRef(false);
   const [loaded, setLoaded] = useState(Boolean(initialMessages));
   const [confirming, setConfirming] = useState(false);
   // A guest who has used their free messages (the server said so) — the composer closes and the
@@ -263,6 +278,8 @@ export function ConversationSurface({
   // Message ids treated as already-settled — restored history (SSR props, cache, a background
   // merge) must appear in place, not replay its whole entrance animation every time the log
   // mounts. Seeded with whatever came from the server so the very first paint doesn't animate.
+  const [queued, setQueued] = useState<string | null>(null);
+  const liveMessageIdsRef = useRef<Set<string>>(new Set());
   const seenMessageIdsRef = useRef<Set<string>>(new Set((initialMessages ?? []).map((m) => String(m.id))));
   // `data.conversation` (this component's `initialMessages` prop) is a fresh array reference on
   // every server render — TripDataProvider's router.refresh() fires for ANY workspace change,
@@ -282,6 +299,15 @@ export function ConversationSurface({
   });
 
   useEffect(() => () => requestRef.current?.abort(), []);
+
+  // A message typed while a reply was finishing goes out as soon as the reply is done.
+  useEffect(() => {
+    if (sending || queued === null) return;
+    const next = queued;
+    setQueued(null);
+    void submit(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sending, queued]);
 
   // A `?ask=` param (from a detail page's "ask the assistant" link) pre-fills the composer once.
   useEffect(() => {
@@ -432,8 +458,15 @@ export function ConversationSurface({
 
   async function submit(rawContent: string, retryKey?: string) {
     const content = rawContent.trim();
-    if (!content || sending || !loaded || guestGate) return;
+    if (!content || !loaded || guestGate) return;
+    // Enter while a reply is still finishing used to do nothing and leave the text in the box. Keep it, say so, and send it after.
+    if (sending || sendingRef.current) {
+      setQueued(content);
+      setInput("");
+      return;
+    }
     if (speech.listening) speech.stop();
+    sendingRef.current = true;
     setSending(true);
     setOutcome(null);
     setInput("");
@@ -508,6 +541,8 @@ export function ConversationSurface({
       }
       if (userSaved) setOutcome({ kind: "error", at: Date.now() });
       setMessages(userSaved ? next : previous);
+      // Not saved: the text would otherwise exist only inside the toast's Retry. Put it back in the box (unless they have already started something new).
+      if (!userSaved) setInput((current) => current || content);
       const aiError = err instanceof AssistantRequestError;
       const message = userSaved
         ? aiError && err.status === 429
@@ -517,12 +552,14 @@ export function ConversationSurface({
       notifyToast(message, "error", { label: "Retry", onClick: () => void submit(content, messageIdempotencyKey) });
     } finally {
       requestRef.current = null;
+      sendingRef.current = false;
       setSending(false);
     }
   }
 
   function stop() {
     requestRef.current?.abort();
+    sendingRef.current = false;
     setSending(false);
     setMessages((current) => current.filter((m) => !(m.role === "assistant" && !m.content.trim())));
   }
@@ -557,6 +594,7 @@ export function ConversationSurface({
     onOpenStay,
     onOpenEvent,
     onOpenCollection,
+    onOpenPanel,
   };
 
   const proposalRows = proposal ? describeProposal(proposal) : [];
@@ -586,7 +624,7 @@ export function ConversationSurface({
       aria-pressed={speech.listening}
       disabled={!loaded || sending}
       className={cn(
-        "pointer-events-auto grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-40",
+        "pointer-events-auto relative grid size-10 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-40",
         speech.listening ? "border-destructive/50 bg-destructive/10 text-destructive" : "border-border/60 text-muted-foreground hover:text-foreground",
       )}
     >
@@ -598,7 +636,7 @@ export function ConversationSurface({
     <button
       type="button"
       onClick={stop}
-      className="pointer-events-auto shrink-0 rounded-full border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive"
+      className="pointer-events-auto h-10 shrink-0 rounded-full border border-destructive/40 px-4 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
     >
       Stop
     </button>
@@ -607,7 +645,7 @@ export function ConversationSurface({
       type="submit"
       aria-label="Send"
       disabled={!loaded || !input.trim()}
-      className="pointer-events-auto grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-35"
+      className="pointer-events-auto grid size-10 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-[opacity,transform] active:scale-95 disabled:opacity-35"
     >
       <ArrowUp className="h-4 w-4" />
     </button>
@@ -615,11 +653,22 @@ export function ConversationSurface({
 
   return (
     <div className="relative flex h-full min-h-0 w-full max-w-full flex-col overflow-x-hidden">
+      {/* A long thread has a tab stop on every card and button; this is the way past them all. */}
+      <a
+        href={`#${tripId}-roam-composer`}
+        onClick={(event) => {
+          event.preventDefault();
+          textareaRef.current?.focus();
+        }}
+        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-2 focus:z-20 focus:rounded-full focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
+      >
+        Skip to message box
+      </a>
       {/* `overscroll-contain`: without it, running out of content to scroll at the top/bottom
           lets the gesture "chain" into bouncing the whole page instead of staying inside this
           log — the rubber-band should feel self-contained here, the same way a native app's
           message list never drags the rest of the screen along with it. */}
-      <div ref={logRef} onScroll={onLogScroll} className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim">
+      <div ref={logRef} onScroll={onLogScroll} role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions" className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim">
         <div className={cn("mx-auto w-full max-w-full space-y-6 pt-2 pb-28", rail ? "px-1" : "max-w-2xl")}>
           {!loaded && messages.length === 0 && (
             <div aria-hidden className="space-y-6">
@@ -655,7 +704,12 @@ export function ConversationSurface({
             // Only a message appearing for the first time in this mount gets the entrance
             // animation; restored history settles in place immediately.
             const isNew = !seenMessageIdsRef.current.has(message.id);
-            if (isNew) seenMessageIdsRef.current.add(message.id);
+            if (isNew) {
+              seenMessageIdsRef.current.add(message.id);
+              liveMessageIdsRef.current.add(message.id);
+            }
+            // `isNew` is only true on a message's first render; its cards arrive later, so the live flag is remembered.
+            const live = liveMessageIdsRef.current.has(message.id);
 
             if (message.role === "user") {
               return (
@@ -664,17 +718,30 @@ export function ConversationSurface({
                   initial={isNew ? { opacity: 0, y: 10 } : false}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ type: "spring", stiffness: 260, damping: 26 }}
-                  className="flex justify-end"
+                  className="flex flex-col items-end gap-1"
                 >
-                  <p className="max-w-[85%] rounded-2xl rounded-br-lg bg-primary px-4 py-2.5 text-sm leading-relaxed text-primary-foreground">
+                  <p className="max-w-[85%] rounded-2xl rounded-br-lg bg-primary px-4 py-2.5 text-[0.9375rem] leading-normal text-primary-foreground dark:border dark:border-border dark:bg-surface-raised dark:text-foreground">
+                    <span className="sr-only">You: </span>
                     {message.content}
                   </p>
+                  {/* Until the server has the message it carries a local id: say so, rather than leaving "did that go?" */}
+                  {sending && message.id.startsWith("local-") && <span role="status" className="pr-1 text-xs text-muted-foreground">Sending…</span>}
                 </motion.div>
               );
             }
 
             const unavailable = streaming ? [] : unavailableLabels(meta?.unavailableProviders);
             const sources = streaming ? [] : (meta?.sources ?? []);
+            // Chips answer the reply they came with; once the conversation moves on they are stale.
+            const isLatest = index === messages.length - 1;
+            const blocks = isLatest ? meta?.blocks : meta?.blocks?.filter((b) => b.type !== "actions" && b.type !== "clarifying_question");
+            // One quiet note instead of a stack of separate grey lines.
+            const notes: Array<{ text: string; tone: "neutral" | "caution" | "destructive" }> = [];
+            if (!streaming && meta?.degraded) notes.push({ text: "Answered from your trip details — the planner had trouble reading that one. Rephrasing may help.", tone: "neutral" });
+            if (!streaming && meta?.persistFailed) notes.push({ text: "This reply wasn’t saved — it may be gone if you reload.", tone: "destructive" });
+            if (!streaming && meta?.truncated) notes.push({ text: "This answer may have been cut off — ask again if it looks incomplete.", tone: "neutral" });
+            if (!streaming && meta?.unverified) notes.push({ text: "A figure or detail above is an estimate and hasn’t been independently verified.", tone: "neutral" });
+            if (unavailable.length > 0) notes.push({ text: `Couldn’t check ${unavailable.join(", ")} just now — this is from your trip so far.`, tone: "neutral" });
 
             return (
               <motion.div
@@ -683,48 +750,46 @@ export function ConversationSurface({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ type: "spring", stiffness: 240, damping: 26 }}
                 dir={dir}
+                aria-busy={streaming || undefined}
                 // While text streams in, Roam's "answering" mark below the log stands in for the
                 // old blinking "▍" cursor (`chat-streaming` in app/globals.css).
-                className="space-y-2"
+                className="space-y-3"
               >
-                <AssistantMessage content={message.content} blocks={meta?.blocks} handlers={handlers} streaming={streaming} />
-                {!streaming && meta?.degraded && (
-                  <p className="text-[11px] text-muted-foreground">Answered from your trip details — the planner had trouble reading that one. Rephrasing may help.</p>
-                )}
-                {!streaming && meta?.persistFailed && (
-                  <p className="text-[11px] text-destructive">This reply wasn’t saved — it may be gone if you reload.</p>
-                )}
-                {!streaming && meta?.truncated && (
-                  <p className="text-[11px] text-muted-foreground">This answer may have been cut off — ask again if it looks incomplete.</p>
-                )}
-                {!streaming && meta?.unverified && (
-                  <p className="text-[11px] text-muted-foreground">A figure or detail above is an estimate and hasn’t been independently verified.</p>
-                )}
-                {unavailable.length > 0 && (
-                  <p className="text-[11px] text-muted-foreground">Couldn’t check {unavailable.join(", ")} just now — this is from your trip so far.</p>
-                )}
-                {sources.length > 0 && (
-                  <details className="text-[11px] text-muted-foreground">
-                    <summary className="cursor-pointer select-none">Sources ({sources.length})</summary>
-                    <ul className="mt-1 space-y-0.5">
-                      {sources.map((source) => (
-                        <li key={source.url}>
-                          <a href={source.url} target="_blank" rel="noreferrer noopener" className="underline-offset-2 hover:text-foreground hover:underline">
-                            {source.title}
-                          </a>
-                        </li>
+                <span className="sr-only">Roam: </span>
+                <AssistantMessage content={message.content} blocks={blocks} handlers={handlers} streaming={streaming} live={live} />
+                {notes.length > 0 && (
+                  <div role="note" className="flex items-start gap-2 text-xs leading-snug text-muted-foreground">
+                    <Info className="mt-px size-3.5 shrink-0" aria-hidden />
+                    <div className="space-y-1">
+                      {notes.map((note) => (
+                        <p key={note.text} className={note.tone === "destructive" ? "text-destructive" : undefined}>{note.text}</p>
                       ))}
-                    </ul>
-                  </details>
+                    </div>
+                  </div>
                 )}
-                {message.content.trim() && !streaming && (
-                  <button
-                    type="button"
-                    onClick={() => void navigator.clipboard?.writeText(message.content)}
-                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    <Copy className="h-3 w-3" /> Copy
-                  </button>
+                {(sources.length > 0 || (message.content.trim() && !streaming)) && (
+                  <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+                    {sources.length > 0 ? (
+                      <details className="group min-w-0 flex-1 text-xs text-muted-foreground">
+                        <summary className="flex w-fit cursor-pointer list-none select-none items-center gap-1 py-1.5 hover:text-foreground">
+                          <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" aria-hidden /> Sources ({sources.length})
+                        </summary>
+                        <ul className="mt-1 space-y-1.5 pl-5">
+                          {sources.map((source) => (
+                            <li key={source.url}>
+                              <a href={source.url} target="_blank" rel="noreferrer noopener" className="underline-offset-2 hover:text-foreground hover:underline">
+                                {source.title}
+                              </a>
+                              <span className="ml-1.5 opacity-70">{hostOf(source.url)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    ) : (
+                      <span />
+                    )}
+                    {message.content.trim() && !streaming && <CopyButton text={message.content} tabbable={isLatest} />}
+                  </div>
                 )}
               </motion.div>
             );
@@ -763,11 +828,11 @@ export function ConversationSurface({
           <p className="text-sm leading-relaxed">{proposalText}</p>
           {proposalRows.length > 0 && (
             <details className="group mt-3">
-              <summary className="flex cursor-pointer list-none items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground">
+              <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
                 <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
                 See exactly what will be saved
               </summary>
-              <dl className="mt-1.5 space-y-1 rounded-lg border border-border/60 bg-background/70 px-2.5 py-2 text-[11px] leading-relaxed">
+              <dl className="mt-1.5 space-y-1 rounded-xl border border-border/60 bg-background/70 px-3 py-2 text-xs leading-relaxed">
                 {proposalRows.map(([key, value]) => (
                   <div key={key} className="flex gap-2">
                     <dt className="w-24 shrink-0 font-medium text-muted-foreground">{key}</dt>
@@ -785,7 +850,7 @@ export function ConversationSurface({
               type="button"
               onClick={() => setProposal(null)}
               disabled={confirming}
-              className="rounded-full border border-border px-3 py-1.5 text-xs"
+              className={controlSecondary}
             >
               Cancel
             </button>
@@ -793,8 +858,15 @@ export function ConversationSurface({
         </div>
       </Sheet>
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-3 pb-3">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-background from-55% to-transparent px-3 pt-8 pb-3">
         <div className={cn("pointer-events-auto mx-auto w-full min-w-0", rail ? "max-w-full" : "max-w-2xl")}>
+          {queued !== null && (
+            <div role="status" className="mb-2 flex items-center gap-3 rounded-2xl border border-border bg-card px-3 py-2 text-xs text-muted-foreground shadow-soft">
+              <span className="min-w-0 flex-1 truncate">Next: “{queued}” · sends when Roam finishes</span>
+              <button type="button" onClick={() => { setInput(queued); setQueued(null); }} className={textAction}>Edit</button>
+              <button type="button" onClick={() => setQueued(null)} className={textAction}>Cancel</button>
+            </div>
+          )}
           <form
             onSubmit={(event: FormEvent) => {
               event.preventDefault();
@@ -817,6 +889,7 @@ export function ConversationSurface({
             <div className="relative w-full">
               <textarea
                 ref={textareaRef}
+                id={`${tripId}-roam-composer`}
                 aria-label="Message"
                 rows={1}
                 value={input}
@@ -831,7 +904,7 @@ export function ConversationSurface({
                 }}
                 placeholder={!loaded ? "Loading…" : guestGate ? "Save your trip to keep chatting" : speech.listening ? "Listening…" : sending ? "Type your next message…" : "Ask about your trip…"}
                 disabled={!loaded || guestGate}
-                className="max-h-[88px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent py-1 pr-28 text-sm leading-relaxed outline-none transition-[height] duration-150 ease-out placeholder:text-muted-foreground disabled:opacity-60"
+                className="max-h-[96px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent py-1.5 pr-28 text-base leading-normal outline-none transition-[height] duration-150 ease-out placeholder:text-muted-foreground disabled:opacity-60"
               />
               {!isMultiline && (
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center gap-1">

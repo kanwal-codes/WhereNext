@@ -26,6 +26,8 @@ export type RankContext = {
    *  set when a stay is genuinely locked in, so a "why" built from it can honestly say "from
    *  your stay" and mean it — unlike `anchor`, which may be a same-ish fallback guess. */
   stayAnchor?: RankAnchor | null;
+  /** Show distances in miles. */
+  miles?: boolean;
 };
 
 export type RankedPlace = { place: Place; score: number; why: string | null };
@@ -79,7 +81,7 @@ export function rankPlaces(places: Place[], ctx: RankContext = {}): RankedPlace[
     let why: string | null = null;
     if (ctx.stayAnchor && Number.isFinite(place.latitude) && Number.isFinite(place.longitude)) {
       const stayKm = haversineKm(ctx.stayAnchor, place);
-      if (stayKm <= NEARBY_STAY_KM) why = `${formatDistanceKm(stayKm)} from your stay`;
+      if (stayKm <= NEARBY_STAY_KM) why = `${formatDistanceKm(stayKm, ctx.miles)} from your stay`;
     }
     if (!why && overlap > 0) {
       const matched = [...wanted].filter((w) => haystack.has(w)).slice(0, 2);

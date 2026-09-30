@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
@@ -12,6 +12,7 @@ import { BrandMark } from "@/components/BrandMark";
 import { useIsDarkMode } from "@/lib/use-dark-mode";
 import { notifyToast } from "@/lib/application/toast";
 import { cn } from "@/lib/utils";
+import { COUNTRIES, LANGUAGES, displayName, fromBrowserLocale } from "@/lib/locales";
 import { updateName, updateEmail, updatePassword, disconnectGoogle, signInWithGoogle, signOut as signOutUser, uploadAvatar } from "@/features/identity/application/authClient";
 import type { TravelerProfile } from "@/packages/contracts/profile";
 import { memberInitials } from "@/lib/member-initials";
@@ -219,6 +220,10 @@ export function AccountView({
   const [airport, setAirport] = useState(profile.homeAirport ?? "");
   const [city, setCity] = useState(profile.homeCity ?? "");
   const [bio, setBio] = useState(profile.bio ?? "");
+  const [language, setLanguage] = useState(profile.language ?? "");
+  const [country, setCountry] = useState(profile.country ?? "");
+  const [detected, setDetected] = useState<{ language?: string; country?: string }>({});
+  useEffect(() => setDetected(fromBrowserLocale(navigator.language)), []);
   const [pwOpen, setPwOpen] = useState(false);
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
@@ -282,7 +287,7 @@ export function AccountView({
         if (error) throw new Error("email");
         notifyToast("Check your inbox to confirm the new email.", "success");
       }
-      const ok = await saveProfile({ homeAirport: airport || undefined, homeCity: city || undefined, bio: bio || undefined, notifications: notif });
+      const ok = await saveProfile({ homeAirport: airport || undefined, homeCity: city || undefined, language: language || undefined, country: country || undefined, bio: bio || undefined, notifications: notif });
       if (!ok) throw new Error("profile");
       setDirty(false);
       setSaved(true);
@@ -469,6 +474,24 @@ export function AccountView({
                 <Field label="Home city">
                   <input value={city} onChange={(e) => { setCity(e.target.value); touch(); }} maxLength={120} placeholder="Toronto, Canada" className="input-field" />
                 </Field>
+                <Field label="Preferred language">
+                  <select value={language} onChange={(e) => { setLanguage(e.target.value); touch(); }} className="input-field">
+                    <option value="">Not set</option>
+                    {LANGUAGES.map((code) => <option key={code} value={code}>{displayName("language", code, code)} ({displayName("language", code)})</option>)}
+                  </select>
+                </Field>
+                <Field label="Home country">
+                  <select value={country} onChange={(e) => { setCountry(e.target.value); touch(); }} className="input-field">
+                    <option value="">Not set</option>
+                    {[...COUNTRIES].sort((a, b) => displayName("region", a).localeCompare(displayName("region", b))).map((code) => <option key={code} value={code}>{displayName("region", code)}</option>)}
+                  </select>
+                </Field>
+                <p className="-mt-2 text-xs text-ink-soft sm:col-span-2">Roam replies in your language when a message doesn’t show one, and uses your country for passport, plug and currency tips.</p>
+                {!language && !country && (detected.language || detected.country) && (
+                  <button type="button" onClick={() => { setLanguage(detected.language ?? ""); setCountry(detected.country ?? ""); touch(); }} className="justify-self-start text-left text-sm text-ink-soft underline-offset-4 hover:text-foreground hover:underline sm:col-span-2">
+                    Use what your browser says: {[detected.language && displayName("language", detected.language), detected.country && displayName("region", detected.country)].filter(Boolean).join(" · ")}
+                  </button>
+                )}
                 <div className="sm:col-span-2">
                   <Field label="Short bio">
                     <textarea rows={3} value={bio} onChange={(e) => { setBio(e.target.value); touch(); }} maxLength={280} className="input-field resize-none" />

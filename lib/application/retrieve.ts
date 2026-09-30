@@ -72,6 +72,8 @@ export type RouteResult = {
   steps: string[];
   departureTime?: string;
   arrivalTime?: string;
+  /** The route's line as [lng, lat], thinned, so a chat reply can show it on a map. */
+  path?: Array<[number, number]>;
   fare?: { amount: number; currency: string };
 };
 

@@ -42,6 +42,9 @@ export function chainEntryId(entry: ModelChainEntry): string {
  * Default model chain per role, as Vercel AI Gateway model ids ("vendor/model"). The env
  * override for a role (see `ROLE_ENV`) is tried FIRST when set; these remain the fallback.
  *
+ *   The same model, unpinned, is the second entry: when the Cerebras pin is refused (out of credit,
+ *   at capacity — it fails in ~0.3s) the Gateway's other hosts answer in ~1s, where Gemini took 12-15s.
+ *
  *   resolve/bulk — both lead with `openai/gpt-oss-120b` pinned to Cerebras (Phase 2.2,
  *   docs/overhaul/roadmap/phase-2-speed.md) — live-smoke-tested (resolve: 8 real prompts, 7/8
  *   answered directly at 718ms-5.4s vs. the unpinned Gateway default's 6.7-21.7s, correct output
@@ -53,6 +56,11 @@ export function chainEntryId(entry: ModelChainEntry): string {
  *   GPT-5-mini(/GPT-4o-mini for resolve) stay as genuine unpinned fallbacks either way — if
  *   Cerebras has an issue, the chain falls back exactly as before this pin existed, just slower
  *   for that one call.
+ *   compose fallback — when Sonnet stalls, `gpt-oss-120b` on Cerebras answers next (then the same model
+ *   unpinned, if the pin is refused). Replayed on the same 32 questions it averaged 5.2s vs 14.0s
+ *   (worst 9.9s vs 58s) at a third of the cost, but wrote flatter, less personal answers and made
+ *   two off-topic ones — good enough as the first fallback, not as the lead. Before this, a stalled
+ *   Sonnet fell to Gemini or GPT-5-mini for 28-41s turns.
  *   compose — the one thing the user actually reads: a writing-quality model leads the chain,
  *   with fast/cheap models only as an outage fallback. Directly measured through this Gateway
  *   (6 timed `streamText` runs, same prompt): Claude Sonnet 5 had a consistently FASTER
@@ -61,9 +69,9 @@ export function chainEntryId(entry: ModelChainEntry): string {
  *   faster" assumption it was based on. Don't reorder this chain on assumption again; measure.
  */
 const DEFAULT_CHAINS: Record<ModelRole, ModelChainEntry[]> = {
-  resolve: [{ id: "openai/gpt-oss-120b", only: ["cerebras"] }, "google/gemini-3.8-flash", "openai/gpt-5-mini", "openai/gpt-4o-mini"],
-  compose: ["anthropic/claude-sonnet-5", "google/gemini-3.8-flash", "openai/gpt-5-mini"],
-  bulk: [{ id: "openai/gpt-oss-120b", only: ["cerebras"] }, "google/gemini-3.8-flash", "openai/gpt-5-mini"],
+  resolve: [{ id: "openai/gpt-oss-120b", only: ["cerebras"] }, "openai/gpt-oss-120b", "google/gemini-3.8-flash", "openai/gpt-5-mini", "openai/gpt-4o-mini"],
+  compose: ["anthropic/claude-sonnet-5", { id: "openai/gpt-oss-120b", only: ["cerebras"] }, "openai/gpt-oss-120b", "google/gemini-3.8-flash", "openai/gpt-5-mini"],
+  bulk: [{ id: "openai/gpt-oss-120b", only: ["cerebras"] }, "openai/gpt-oss-120b", "google/gemini-3.8-flash", "openai/gpt-5-mini"],
 };
 
 const ROLE_ENV: Record<ModelRole, string> = { resolve: "RESOLVE_MODEL", compose: "AI_MODEL", bulk: "SUMMARY_MODEL" };

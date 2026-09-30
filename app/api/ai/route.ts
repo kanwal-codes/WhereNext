@@ -11,10 +11,12 @@ import { fail, withRoute } from "@/lib/server/with-route";
 import { logger } from "@/lib/server/logger";
 import { estimateTokens, sumCostUsd, type UsageEntry } from "@/lib/ai/pricing";
 import { loadTripContext, formatTripMemory } from "@/lib/application/trip-context";
+import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 import { runAssistantTurn, finalizeAssistantBlocks, type AssistantTurnResult } from "@/lib/application/orchestrate/run-turn";
 import { refreshThreadSummary } from "@/lib/application/thread-summary";
 import { persistedAssistantStream } from "@/features/conversation/application/persistedAssistantStream";
 import { createConversationRepository } from "@/features/conversation/infrastructure/conversationRepository";
+import { withPrunedFollowups } from "@/lib/application/followups";
 import { finalizeAssistantText } from "@/lib/application/evaluator";
 import { withTripAiStream } from "@/lib/server/trip-ai-queue";
 import { recordAiTurn } from "@/lib/server/ai-turn-trace";
@@ -125,8 +127,9 @@ export const POST = withRoute(async function POST(request: Request) {
 
   try {
     // Context, thread summary and the stored transcript are independent — one round-trip.
-    const [tripCtx, threadRow, storedMessages] = await Promise.all([
+    const [loadedCtx, defaults, threadRow, storedMessages] = await Promise.all([
       loadTripContext(supabase, tripId),
+      loadTravellerDefaults(supabase, userId, request.headers),
       supabase.from("conversation_threads").select("summary").eq("trip_id", tripId).eq("user_id", userId).maybeSingle(),
       // The UI can page the full durable thread; model context stays bounded and is supplemented
       // by the thread summary so a long-running trip does not balloon every AI request.
@@ -138,6 +141,8 @@ export const POST = withRoute(async function POST(request: Request) {
       // `surfacedEarlier` incrementally instead of raising this number.
       createConversationRepository(supabase).list(tripId, userId, { limit: 60 }),
     ]);
+    // The trip's own language / country / currency win; this traveller's defaults fill the gaps.
+    const tripCtx = { ...loadedCtx, preferences: withTravellerDefaults(loadedCtx.preferences, defaults) };
     const threadSummary = (threadRow.data?.summary as string | null) ?? "";
     const tripSummary = [formatTripMemory(tripCtx), threadSummary && `Earlier in this conversation: ${threadSummary}`].filter(Boolean).join(" ");
     const viewContext = parsed.data.viewContext;
@@ -205,7 +210,7 @@ export const POST = withRoute(async function POST(request: Request) {
     // `evaluatorUsage` just above, for the same reason (the two run concurrently, not one
     // returning into the other).
     let unverified = false;
-    let evaluatorSettled: Promise<unknown> | undefined;
+    let evaluatorSettled: Promise<string> | undefined;
     // Set once `runAssistantTurn` resolves, inside the stream below — the Response (and this
     // stream) is now returned BEFORE that await, so a client sees real progress during RESOLVE/
     // RETRIEVE (Phase 2.6.2) instead of a silent wait. Every reader of `result` here runs only
@@ -464,6 +469,7 @@ export const POST = withRoute(async function POST(request: Request) {
           const p = finalizeAssistantText(
             content, result.allowedUrls, result.system, AbortSignal.any([request.signal, disconnectController.signal]),
             (entry) => { evaluatorUsage = entry; }, result.resolved.intent, () => { unverified = true; },
+            parsed.data.messages.filter((m) => m.role === "user").map((m) => m.content).join("\n"),
           );
           // Read by the `meta` thunk below so it can wait for this exact call to settle before
           // reading `unverified` — `sanitize` and `meta` run concurrently (Promise.all in
@@ -489,8 +495,10 @@ export const POST = withRoute(async function POST(request: Request) {
           // usually take longer than the evaluator's own bounded (≤2.5s) deadline, so this
           // rarely adds real latency; it only ever blocks the rare turn where side-builders
           // finish first, and even then by at most the evaluator's own deadline.
-          await evaluatorSettled;
-          return finalMeta && unverified ? { ...finalMeta, unverified: true } : finalMeta;
+          const replyText = await evaluatorSettled;
+          const previous = (lastAssistantMessage?.metadata as { suggestedFollowups?: Array<{ label: string; prompt: string }> } | null)?.suggestedFollowups;
+          const pruned = finalMeta && typeof replyText === "string" ? withPrunedFollowups(finalMeta, replyText, previous) : finalMeta;
+          return pruned && unverified ? { ...pruned, unverified: true } : pruned;
         },
         async (finalText) => {
           if (!result) return;
