@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, MapPin } from "lucide-react";
 import { Tactile } from "@/components/motion-primitives";
-import { TripArt, hashString } from "@/components/trips/TripArt";
+import { TripCover } from "@/components/trips/TripCover";
 import { TripMenu } from "@/components/trips/TripMenu";
 import type { TripSummary } from "@/components/trips/types";
 import { tripDurationDays } from "@/features/trip/domain/trip";
@@ -42,7 +42,6 @@ export function FeaturedTrip({
   deleting: boolean;
   onDelete: () => void;
 }) {
-  const seed = hashString(`${trip.id}${trip.name}`);
   const when = tripWhen(trip.start_date, trip.end_date, trip.duration_days, "Dates not set");
   const stats = statsFor(trip, status);
   return (
@@ -51,15 +50,13 @@ export function FeaturedTrip({
         href={`/trips/${trip.id}`}
         className="grid overflow-hidden rounded-[1.75rem] border border-border/70 bg-card shadow-soft transition-colors duration-300 group-hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none lg:grid-cols-[1.15fr_1fr]"
       >
-        <TripArt seed={seed} grain className="min-h-56 lg:min-h-80">
-          <span className="daisy-badge absolute top-5 left-5 z-10 h-7 border-border/60 bg-background/80 px-3 text-[13px] font-medium text-foreground backdrop-blur">
-            {featuredLabel(status.phase)}
-          </span>
-          <div className="absolute inset-x-6 bottom-5 z-10 flex items-end justify-between gap-4 text-xs text-ink-soft">
-            <span className="min-w-0 truncate">{trip.origin ? `From ${trip.origin}` : ""}</span>
-            <span className="min-w-0 truncate text-right font-medium text-foreground">{trip.destination ?? ""}</span>
-          </div>
-        </TripArt>
+        <TripCover trip={trip} size="feature" className="min-h-60 lg:min-h-80">
+          {() => (
+            <span className="daisy-badge absolute top-5 left-5 z-10 h-7 border-border/60 bg-background/80 px-3 text-[13px] font-medium text-foreground backdrop-blur">
+              {featuredLabel(status.phase)}
+            </span>
+          )}
+        </TripCover>
 
         <div className="flex min-w-0 flex-col justify-between gap-8 p-6 sm:p-9">
           <div className="min-w-0 pr-10">
@@ -69,6 +66,7 @@ export function FeaturedTrip({
               <span className="truncate">{trip.destination || "Destination not set"}</span>
             </p>
             <p className="mt-1 text-sm tabular-nums text-muted-foreground">{when}</p>
+            {trip.origin && <p className="mt-1 text-sm text-muted-foreground">From {trip.origin}</p>}
           </div>
 
           <div>

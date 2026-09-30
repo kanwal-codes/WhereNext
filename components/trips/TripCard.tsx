@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { MapPin, Users } from "lucide-react";
 import { Tactile } from "@/components/motion-primitives";
-import { TripArt, hashString } from "@/components/trips/TripArt";
+import { TripCover } from "@/components/trips/TripCover";
 import { TripMenu } from "@/components/trips/TripMenu";
 import type { TripSummary } from "@/components/trips/types";
 import { tripWhen } from "@/lib/trip-dates";
@@ -32,7 +32,6 @@ export function TripCard({
   deleting: boolean;
   onDelete: () => void;
 }) {
-  const seed = hashString(`${trip.id}${trip.name}`);
   const when = tripWhen(trip.start_date, trip.end_date, trip.duration_days, "Dates not set");
   return (
     <Tactile lift={5} className="group relative h-full has-[details[open]]:z-30">
@@ -40,9 +39,9 @@ export function TripCard({
         href={`/trips/${trip.id}`}
         className="daisy-card h-full overflow-hidden border border-border/70 bg-card shadow-soft transition-colors duration-300 group-hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
-        <TripArt seed={seed} className="h-36 sm:h-40">
-          <StatusBadge status={status} className="absolute top-4 left-4 z-10" />
-        </TripArt>
+        <TripCover trip={trip} className="h-40 sm:h-44">
+          {() => <StatusBadge status={status} className="absolute top-4 left-4 z-10" />}
+        </TripCover>
         <div className="daisy-card-body gap-0 p-5 pt-4">
           <h3 className="daisy-card-title min-w-0 font-display text-[1.6rem] leading-tight tracking-tight">
             <span className="truncate">{trip.name}</span>
