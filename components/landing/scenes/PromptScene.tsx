@@ -18,12 +18,12 @@ export function PromptScene() {
   const contentRef = useRef<HTMLDivElement>(null);
   const bloomRef = useRef<HTMLDivElement>(null);
   const partRefs = useRef<(HTMLElement | null)[]>([]);
-  // Preview switch while choosing a look: /?bloom=dusk|sunrise|horizon|route|trip (default shore).
+  // Preview switch while choosing a look: /?bloom=dusk|sunrise|horizon|route|trip|rock (default shore).
   const [variant, setVariant] = useState<BloomVariant>("shore");
   const [typedLength, setTypedLength] = useState(0);
   useEffect(() => {
     const v = new URLSearchParams(window.location.search).get("bloom");
-    if (v === "dusk" || v === "sunrise" || v === "horizon" || v === "route" || v === "trip") setVariant(v);
+    if (v === "dusk" || v === "sunrise" || v === "horizon" || v === "route" || v === "trip" || v === "rock") setVariant(v);
   }, []);
 
   useEffect(() => {
@@ -77,7 +77,7 @@ export function PromptScene() {
           Dates, budget, who&rsquo;s coming. Share the rough idea and watch the trip take shape.
         </p>
         <div ref={part(2)} className="mt-9 [@media(max-height:760px)]:mt-5 w-full translate-y-4 opacity-0">
-          <TripPromptBox onTyping={setTypedLength} foam={variant === "shore"} />
+          <TripPromptBox onTyping={setTypedLength} foam={variant === "shore" || variant === "rock"} />
         </div>
       </div>
 

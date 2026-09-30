@@ -1038,3 +1038,12 @@
 .landing-wash { animation: wash-up 0.85s cubic-bezier(.5, 0, .2, 1) forwards; }
 @keyframes wash-up { from { transform: translateY(calc(100% + 70px)); } to { transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .landing-shore-light { animation: none; } }
+
+/* Rocky coast: misty air above, dark headlands with surf against them. */
+.landing-rock-mist {
+  position: absolute; inset: 0;
+  background: linear-gradient(to bottom, oklch(0.955 0.012 232) 0%, oklch(0.925 0.022 226) 45%, oklch(0.87 0.04 215) 66%, oklch(0.8 0.05 210) 70%);
+}
+.landing-rock-surf { animation: shore-tide 10s ease-in-out infinite; }
+@media (max-width: 767px) { .landing-rocks { display: none; } }
+@media (prefers-reduced-motion: reduce) { .landing-rock-surf { animation: none; } }

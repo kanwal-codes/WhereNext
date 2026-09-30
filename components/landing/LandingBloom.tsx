@@ -1,6 +1,6 @@
 import { BedDouble, CalendarDays, Plane, Utensils, type LucideIcon } from "lucide-react";
 
-export type BloomVariant = "dusk" | "sunrise" | "horizon" | "route" | "trip" | "shore";
+export type BloomVariant = "dusk" | "sunrise" | "horizon" | "route" | "trip" | "shore" | "rock";
 
 /**
  * The light behind the first screen. Purely decorative: hidden from assistive tech and never
@@ -9,6 +9,7 @@ export type BloomVariant = "dusk" | "sunrise" | "horizon" | "route" | "trip" | "
  *   sunrise  the same glow in warm sand, teal and deep indigo
  *   horizon  a low sun over a thin horizon line and a dusk sea
  *   shore    dry sand, wet sand and a tide; the prompt box is the foam where the water reaches it
+ *   rock     a rocky coast: misty air, deep water and dark rock with foam breaking on it; same foam box
  *   route    a soft wash with a trip route that draws itself as the visitor writes
  *   trip     the route plus example trip cards (flight, stay, day, dinner) that come into focus as they write
  */
@@ -25,6 +26,7 @@ export function LandingBloom({ variant = "shore", progress = 0, className }: { v
     );
   }
   if (variant === "shore") return <ShoreBloom />;
+  if (variant === "rock") return <ShoreBloom rock />;
   if (variant === "route") return <RouteBloom progress={progress} className={className} />;
   if (variant === "trip") {
     return (
@@ -128,19 +130,19 @@ const WAVE_LINE = "M0 16 C 120 4, 240 28, 380 14 S 640 0, 800 18 S 1100 30, 1250
  * The waterline sits at the bottom of the prompt box, which is drawn as the foam the water leaves
  * (see FoamEdge in TripPromptBox), so the box and the shore read as one thing.
  */
-function ShoreBloom() {
+function ShoreBloom({ rock = false }: { rock?: boolean }) {
   return (
     <div aria-hidden className="landing-shore pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="landing-shore-sand" />
+      <div className={rock ? "landing-rock-mist" : "landing-shore-sand"} />
       <div className="landing-shore-tide">
-        <div className="landing-shore-wet" />
-        <div className="landing-shore-gloss" />
+        {!rock && <div className="landing-shore-wet" />}
+        {!rock && <div className="landing-shore-gloss" />}
         <svg className="landing-shore-water" viewBox="0 0 1440 600" preserveAspectRatio="none" fill="none">
           <defs>
             <linearGradient id="shore-water" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="oklch(0.92 0.05 190)" />
-              <stop offset="0.35" stopColor="oklch(0.82 0.085 200)" />
-              <stop offset="1" stopColor="oklch(0.64 0.1 228)" />
+              <stop offset="0" stopColor={rock ? "oklch(0.88 0.06 195)" : "oklch(0.92 0.05 190)"} />
+              <stop offset="0.35" stopColor={rock ? "oklch(0.68 0.09 208)" : "oklch(0.82 0.085 200)"} />
+              <stop offset="1" stopColor={rock ? "oklch(0.4 0.09 240)" : "oklch(0.64 0.1 228)"} />
             </linearGradient>
             <filter id="shore-soft" x="-5%" y="-50%" width="110%" height="200%">
               <feGaussianBlur stdDeviation="4" />
@@ -158,7 +160,67 @@ function ShoreBloom() {
           <path d={WAVE_LINE} transform="translate(0 40)" stroke="white" strokeWidth="5" strokeLinecap="round" opacity="0.5" filter="url(#shore-soft)" />
         </svg>
       </div>
+      {rock && <Rocks />}
       <div className="landing-bloom-grain" style={{ opacity: 0.2 }} />
     </div>
+  );
+}
+
+// Two headlands in the lower corners, kept clear of the prompt box. Angular, like basalt, with a few lit and shaded faces.
+const EDGE_L: Array<[number, number]> = [[-10, 540], [40, 520], [72, 548], [112, 528], [150, 574], [192, 586], [216, 632], [250, 662], [262, 722], [290, 792], [302, 910]];
+const EDGE_R: Array<[number, number]> = [[1450, 590], [1410, 574], [1372, 600], [1336, 586], [1300, 636], [1270, 664], [1250, 732], [1226, 802], [1214, 910]];
+const pts = (list: Array<[number, number]>) => list.map(([x, y]) => `${x},${y}`).join(" ");
+const ROCK_L = `-10,910 ${pts(EDGE_L)}`;
+const ROCK_R = `1450,910 ${pts(EDGE_R)}`;
+const FACES: Array<{ points: string; fill: string }> = [
+  { points: "-10,540 40,520 72,548 44,606 -10,626", fill: "oklch(0.56 0.02 235)" },
+  { points: "72,548 112,528 150,574 122,646 60,622", fill: "oklch(0.44 0.02 240)" },
+  { points: "150,574 192,586 216,632 190,700 130,660", fill: "oklch(0.36 0.02 245)" },
+  { points: "216,632 250,662 262,722 232,770 196,706", fill: "oklch(0.28 0.02 250)" },
+  { points: "1450,590 1410,574 1372,600 1394,660 1450,676", fill: "oklch(0.54 0.02 235)" },
+  { points: "1372,600 1336,586 1300,636 1330,700 1384,664", fill: "oklch(0.42 0.02 240)" },
+  { points: "1300,636 1270,664 1250,732 1290,760 1322,704", fill: "oklch(0.3 0.02 248)" },
+];
+// Spray where the water breaks on the rock: soft white blobs along its lower edges (fixed values, so server and browser match).
+const spray = (edge: Array<[number, number]>, from: number, dx: number) => {
+  const out: Array<{ x: number; y: number; r: number }> = [];
+  for (let i = from; i < edge.length - 1; i++) {
+    const [x1, y1] = edge[i]!;
+    const [x2, y2] = edge[i + 1]!;
+    for (let k = 0; k < 4; k++) {
+      const t = k / 4;
+      const n = Math.sin((i * 4 + k + 1) * 12.9898) * 43758.5453;
+      const f = n - Math.floor(n);
+      out.push({ x: Math.round(x1 + (x2 - x1) * t + dx * (0.4 + f)), y: Math.round(y1 + (y2 - y1) * t), r: Math.round(5 + f * 11) });
+    }
+  }
+  return out;
+};
+const SPRAY = [...spray(EDGE_L, 4, 10), ...spray(EDGE_R, 3, -10)];
+
+/** Dark faceted rock with a lit top edge, and surf breaking against it. Gone on narrow screens, where the box fills the width anyway. */
+function Rocks() {
+  return (
+    <svg className="landing-rocks absolute inset-0 h-full w-full" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMax slice" fill="none">
+      <defs>
+        <linearGradient id="rock-face" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="oklch(0.36 0.02 242)" />
+          <stop offset="1" stopColor="oklch(0.17 0.02 250)" />
+        </linearGradient>
+        <filter id="rock-soft" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="3.5" />
+        </filter>
+      </defs>
+      <polygon points={ROCK_L} fill="url(#rock-face)" strokeLinejoin="round" />
+      <polygon points={ROCK_R} fill="url(#rock-face)" strokeLinejoin="round" />
+      {FACES.map((f) => (
+        <polygon key={f.points} points={f.points} fill={f.fill} opacity="0.9" />
+      ))}
+      <g className="landing-rock-surf" filter="url(#rock-soft)">
+        {SPRAY.map((b, i) => (
+          <circle key={i} cx={b.x} cy={b.y} r={b.r} fill="white" opacity="0.9" />
+        ))}
+      </g>
+    </svg>
   );
 }
