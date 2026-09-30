@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Plus } from "lucide-react";
+import { ArrowRight, Plus, UtensilsCrossed } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
 import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache";
@@ -13,6 +13,7 @@ import { BookingDetailSheet } from "@/features/bookings/ui/BookingDetailSheet";
 import { GetYourGuideCard } from "@/components/GetYourGuideCard";
 import { ChapterHero } from "@/components/overview/ChapterHero";
 import { SectionHeading } from "@/components/overview/SectionHeading";
+import { TableSheet } from "@/components/overview/TableSheet";
 import { ReservationSheet } from "@/components/overview/ReservationSheet";
 import { ReservationsTimeline } from "@/components/overview/ReservationsTimeline";
 import { NextUpCard } from "@/components/overview/NextUpCard";
@@ -35,6 +36,7 @@ export default function BookingsPage() {
   const [reservations, setReservations] = useState<Reservation[] | null>(null);
   const [editing, setEditing] = useState<Reservation | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [tableOpen, setTableOpen] = useState(false);
   useEffect(() => {
     // Until the reservations table exists (or if the request fails) the page still shows
     // bookings, the stay and the flight: an empty list, not an error.
@@ -121,6 +123,9 @@ export default function BookingsPage() {
                   <button type="button" onClick={openAdd} className="btn-primary h-11 rounded-full px-6">
                     <Plus className="h-4 w-4" /> Add reservation
                   </button>
+                  <button type="button" onClick={() => setTableOpen(true)} className="daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-card px-5 font-medium shadow-none">
+                    <UtensilsCrossed className="h-4 w-4" /> Reserve a table
+                  </button>
                   <Link href={`/trips/${tripId}/stay`} className="daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-card px-5 font-medium shadow-none">
                     Find a stay
                   </Link>
@@ -132,7 +137,7 @@ export default function BookingsPage() {
             ) : (
               <div className="space-y-10">
                 {nextUp && <NextUpCard item={nextUp} onOpenBooking={setOpenBookingId} onEdit={editItem} />}
-                <ReservationsTimeline items={rest} hasNextUp={Boolean(nextUp)} onAdd={openAdd} onOpenBooking={setOpenBookingId} onEdit={editItem} />
+                <ReservationsTimeline items={rest} hasNextUp={Boolean(nextUp)} onAdd={openAdd} onReserveTable={() => setTableOpen(true)} onOpenBooking={setOpenBookingId} onEdit={editItem} />
               </div>
             )}
           </div>
@@ -179,6 +184,16 @@ export default function BookingsPage() {
           </div>
         </section>
       </div>
+
+      <TableSheet
+        tripId={tripId}
+        open={tableOpen}
+        city={data?.trip?.destination ?? ""}
+        defaultDate={data?.trip?.start_date ?? ""}
+        defaultParty={data?.trip?.travelers ?? 2}
+        onClose={() => setTableOpen(false)}
+        onSaved={(saved) => setReservations((list) => [...(list ?? []).filter((r) => r.id !== saved.id), saved])}
+      />
 
       <ReservationSheet
         tripId={tripId}

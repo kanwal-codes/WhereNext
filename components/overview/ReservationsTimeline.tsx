@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ChevronRight, MapPin, Paperclip, Plus } from "lucide-react";
+import { ChevronRight, MapPin, Paperclip, Plus, UtensilsCrossed } from "lucide-react";
 import { Stagger, StaggerItem } from "@/components/motion-primitives";
 import { KIND_META } from "@/components/overview/ReservationSheet";
 import { TripArt, hashString } from "@/components/trips/TripArt";
@@ -103,6 +103,7 @@ export function ReservationsTimeline({
   items,
   hasNextUp = false,
   onAdd,
+  onReserveTable,
   onOpenBooking,
   onEdit,
 }: {
@@ -110,6 +111,7 @@ export function ReservationsTimeline({
   /** A featured "next up" card sits above, so this list is the rest. */
   hasNextUp?: boolean;
   onAdd: () => void;
+  onReserveTable: () => void;
   onOpenBooking: (id: string) => void;
   onEdit: (item: TimelineItem) => void;
 }) {
@@ -143,9 +145,14 @@ export function ReservationsTimeline({
             );
           })}
         </div>
-        <button type="button" onClick={onAdd} className="btn-primary h-10 rounded-full px-5">
-          <Plus className="h-4 w-4" /> Add reservation
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={onReserveTable} className="daisy-btn daisy-btn-outline h-10 rounded-full border-border bg-card px-5 font-medium shadow-none hover:border-foreground/30 hover:bg-accent">
+            <UtensilsCrossed className="h-4 w-4" /> Reserve a table
+          </button>
+          <button type="button" onClick={onAdd} className="btn-primary h-10 rounded-full px-5">
+            <Plus className="h-4 w-4" /> Add reservation
+          </button>
+        </div>
       </div>
 
       {groups.length === 0 && hasNextUp && filter === "all" ? null : groups.length === 0 ? (
