@@ -10,6 +10,7 @@ import { TripDataProvider } from "@/components/TripDataProvider";
 import { TripPanelProvider } from "@/components/TripPanelProvider";
 import { TripPanel } from "@/components/TripPanel";
 import { loadWorkspaceCached } from "@/lib/server/workspace-cache";
+import { GuestProvider } from "@/features/identity/ui/GuestProvider";
 
 const PREVIEW_ID = "rebuild-preview";
 /** The credential-free preview trip exists for Playwright only; never in a real deployment. */
@@ -89,12 +90,14 @@ export default async function TripLayout({
   const tripMonth = startDate ? new Date(`${startDate}T00:00:00`).getMonth() : null;
 
   return (
-    <TripDataProvider tripId={tripId} data={data} me={me}>
-      <TripPanelProvider tripId={tripId}>
-        <TripAtmosphere destination={data.trip.destination} month={tripMonth} />
-        <TripShell tripId={tripId} trip={shellFromData(data)}>{children}</TripShell>
-        <TripPanel layout="drawer" />
-      </TripPanelProvider>
-    </TripDataProvider>
+    <GuestProvider guest={user.is_anonymous === true} tripId={tripId}>
+      <TripDataProvider tripId={tripId} data={data} me={me}>
+        <TripPanelProvider tripId={tripId}>
+          <TripAtmosphere destination={data.trip.destination} month={tripMonth} />
+          <TripShell tripId={tripId} trip={shellFromData(data)}>{children}</TripShell>
+          <TripPanel layout="drawer" />
+        </TripPanelProvider>
+      </TripDataProvider>
+    </GuestProvider>
   );
 }
