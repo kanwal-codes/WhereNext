@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { ArrowRight, CalendarClock, ChevronUp } from "lucide-react";
 import { EventCard, type NearbyEvent } from "@/components/EventCard";
 import { Reveal } from "@/components/motion-primitives";
@@ -11,9 +12,11 @@ export function NearbyEvents({ tripId, location, query = "" }: { tripId: string;
   const [events, setEvents] = useState<NearbyEvent[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
+  // A trip-search lookup, closed to guests (Roam only): the strip simply isn't shown.
+  const { guest } = useGuest();
 
   useEffect(() => {
-    if (!location) {
+    if (!location || guest) {
       setLoading(false);
       return;
     }
@@ -50,7 +53,7 @@ export function NearbyEvents({ tripId, location, query = "" }: { tripId: string;
     return () => {
       cancelled = true;
     };
-  }, [tripId, location, query]);
+  }, [tripId, location, query, guest]);
 
   if (loading) {
     return (
@@ -85,7 +88,7 @@ export function NearbyEvents({ tripId, location, query = "" }: { tripId: string;
               }}
               aria-expanded={expanded}
               aria-controls="nearby-events-list"
-              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
             >
               {expanded ? "Show less" : "See more"}
               {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ArrowRight className="h-3.5 w-3.5" />}
@@ -98,7 +101,7 @@ export function NearbyEvents({ tripId, location, query = "" }: { tripId: string;
             ))}
         </div>
         {expanded && (
-          <p className="mt-2 text-[11px] text-muted-foreground">Confirm dates and availability on the ticket page.</p>
+          <p className="mt-2 text-xs text-muted-foreground">Confirm dates and availability on the ticket page.</p>
         )}
       </section>
     </Reveal>

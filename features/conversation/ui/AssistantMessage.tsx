@@ -39,7 +39,7 @@ const components: Components = {
   },
 };
 
-export function AssistantMessage({ content, blocks, handlers, streaming }: { content: string; blocks?: AssistantBlock[]; handlers?: BlockHandlers; streaming?: boolean }) {
+export function AssistantMessage({ content, blocks, handlers, streaming, live }: { content: string; blocks?: AssistantBlock[]; handlers?: BlockHandlers; streaming?: boolean; live?: boolean }) {
   // A reply that is being written is revealed by <StreamedText>, which keeps going after the
   // stream itself ends until the last word has landed, and only then hands over to the final
   // render below. History that loads already complete never enters this path.
@@ -57,20 +57,24 @@ export function AssistantMessage({ content, blocks, handlers, streaming }: { con
   if (revealing) {
     return <StreamedText content={content} live={Boolean(streaming)} onDone={() => setRevealing(false)} />;
   }
+  // The reply text is prose; the cards after it are not — they sit beside it, outside the prose
+  // wrapper, so its list, table and link styles never reach into a card.
   return (
-    <div className="chat-prose">
-      <Markdown
-        remarkPlugins={[remarkGfm]}
-        skipHtml
-        allowedElements={ALLOWED_ELEMENTS}
-        unwrapDisallowed
-        components={components}
-      >
-        {content}
-      </Markdown>
+    <div>
+      <div className="chat-prose">
+        <Markdown
+          remarkPlugins={[remarkGfm]}
+          skipHtml
+          allowedElements={ALLOWED_ELEMENTS}
+          unwrapDisallowed
+          components={components}
+        >
+          {content}
+        </Markdown>
+      </div>
       {blocks && blocks.length > 0 && handlers ? (
         <div className={wasRevealed.current ? "chat-blocks-in" : undefined}>
-          <MessageBlocks blocks={blocks} {...handlers} />
+          <MessageBlocks blocks={blocks} {...handlers} replyText={content} live={live} />
         </div>
       ) : null}
     </div>

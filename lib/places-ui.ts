@@ -2,6 +2,11 @@ import type { Place } from "@/packages/contracts/place";
 import { getPublicEnv } from "@/lib/env";
 
 /** Same-origin authenticated proxy for a Google photo resource name. */
+/** Ask the photo proxy for a smaller rendition (thumbnails); any other URL is returned untouched. */
+export function withPhotoWidth(url: string, width: number): string {
+  return url.includes("/places/google/photo?") && !url.includes("&w=") ? `${url}&w=${width}` : url;
+}
+
 export function photoProxyUrl(tripId: string, photoName: string | undefined, width?: number): string | undefined {
   if (!photoName || !/^places\/[^/]+\/photos\/[^/]+$/.test(photoName)) return undefined;
   return `/api/trips/${tripId}/places/google/photo?name=${encodeURIComponent(photoName)}${width ? `&w=${width}` : ""}`;
@@ -13,8 +18,13 @@ export function accountPhotoUrl(photoName: string | null | undefined, width?: nu
   return `/api/account/places/photo?name=${encodeURIComponent(photoName)}${width ? `&w=${width}` : ""}`;
 }
 
-/** The widths the photo proxy will serve. 800 is the default (cards); the wider ones are for full-width heroes. */
-export const PHOTO_WIDTHS = [800, 1200, 1600] as const;
+/**
+ * The width to fetch a photo at: snapped to 80px steps between 240 and 1600, so a thumbnail is not
+ * served at card size but a full-bleed hero can still ask for 1600. Bounded, so the cache and the Photo API bill stay small.
+ */
+export function snapPhotoWidth(requested: unknown): number {
+  return Math.min(1600, Math.max(240, Math.round((Number(requested) || 800) / 80) * 80));
+}
 
 /**
  * Rough "City, Country" from a Google formatted address (no structured `addressComponents` are
@@ -125,6 +135,8 @@ const GENERIC_TYPES = new Set([
   "geocode",
   "political",
   "association_or_organization",
+  "service",
+  "food",
 ]);
 
 /** Readable secondary-type chips: drops the generic containers and the
@@ -204,14 +216,24 @@ export function amenityChips(d: GooglePlaceDetails): string[] {
   return AMENITY_LABEL.filter(([key]) => d[key] === true).map(([, label]) => label);
 }
 
+/** Only a status that changes the plan is worth a label: "open for business" is what every place is by default. */
 const STATUS_LABEL: Record<string, string> = {
-  OPERATIONAL: "Open for business",
   CLOSED_TEMPORARILY: "Temporarily closed",
   CLOSED_PERMANENTLY: "Permanently closed",
 };
 
 export function businessStatusLabel(status: string | undefined): string | undefined {
   return status ? STATUS_LABEL[status] : undefined;
+}
+
+/** A link's readable form: host and path, no scheme, no `www.`, no tracking query. */
+export function prettyWebsite(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.hostname.replace(/^www\./, "")}${u.pathname.replace(/\/$/, "")}`;
+  } catch {
+    return url.replace(/^https?:\/\/(www\.)?/, "").replace(/[?#].*$/, "").replace(/\/$/, "");
+  }
 }
 
 /** Map Google details into the `Place` shape the save endpoint expects. */
@@ -231,4 +253,15 @@ export function detailsToPlace(d: GooglePlaceDetails): Place | null {
     sourceUrl: d.googleMapsUri ?? null,
     photoNames: (d.photos ?? []).map((p) => p.name).filter((n): n is string => typeof n === "string"),
   };
+}
+
+/** "2026-10-10" → "Sat, Oct 10"; "2026-09-30 18:30" → "Wed, Sep 30 · 6:30 PM". Anything else is returned untouched. */
+export function formatEventWhen(raw?: string | null): string | undefined {
+  if (!raw) return undefined;
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
+  if (!m) return raw;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), m[4] ? Number(m[4]) : 0, m[5] ? Number(m[5]) : 0);
+  if (Number.isNaN(d.getTime())) return raw;
+  const day = d.toLocaleDateString("en", { weekday: "short", month: "short", day: "numeric" });
+  return m[4] && !(m[4] === "00" && m[5] === "00") ? `${day} · ${d.toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" })}` : day;
 }

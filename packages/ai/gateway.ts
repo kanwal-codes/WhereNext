@@ -10,7 +10,7 @@ export type { ModelMessage };
 const chainEntryId = (entry: ModelChainEntry): string => (typeof entry === "string" ? entry : entry.id);
 /** Exported so `compose-model.ts`'s `ComposeModel.providerOptions` can reference this exact shape
  *  instead of hand-duplicating it — keeps the two in sync if this ever gains another option. */
-export type GatewayProviderOptions = { gateway: { only?: string[]; caching?: "auto" } };
+export type GatewayProviderOptions = { gateway: { only?: string[]; caching?: "auto" }; openai?: { reasoningEffort: "low" } };
 /** `providerOptions` for a Gateway call: `only` pins one specific underlying inference provider
  *  (bare string entry = no pin), `caching` asks the Gateway to cache this prompt (Phase 2.4,
  *  docs/overhaul/roadmap/phase-2-speed.md) — a no-op for a provider that already caches
@@ -18,7 +18,10 @@ export type GatewayProviderOptions = { gateway: { only?: string[]; caching?: "au
  *  `undefined` when neither applies, so a plain call stays byte-identical to before either existed. */
 const providerOptionsFor = (entry: ModelChainEntry, caching?: "auto"): GatewayProviderOptions | undefined => {
   const only = typeof entry === "string" ? undefined : entry.only;
-  return only || caching ? { gateway: { ...(only ? { only } : {}), ...(caching ? { caching } : {}) } } : undefined;
+  // A GPT-5 fallback reasons by default and has taken 50s and 6k output tokens to answer a long
+  // multi-part question; a fallback is there to answer promptly, not to think hardest.
+  const openai = chainEntryId(entry).startsWith("openai/gpt-5") ? { reasoningEffort: "low" as const } : undefined;
+  return only || caching || openai ? { gateway: { ...(only ? { only } : {}), ...(caching ? { caching } : {}) }, ...(openai ? { openai } : {}) } : undefined;
 };
 
 const isAbort = (error: unknown) =>

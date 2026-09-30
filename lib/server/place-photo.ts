@@ -1,18 +1,17 @@
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { cached } from "@/lib/server/ttl-cache";
-import { PHOTO_WIDTHS } from "@/lib/places-ui";
+import { snapPhotoWidth } from "@/lib/places-ui";
 
 const DAY = 86_400_000;
 
 /**
  * The bytes of one Google place photo for a signed-in viewer, as a Response. Shared by the
  * trip-scoped proxy and the account-level one: the caller has already checked who is asking.
- * Only a fixed set of widths is served, so the cache and Google's Photo API bill stay bounded.
+ * Widths are snapped (see `snapPhotoWidth`), so the cache and Google's Photo API bill stay bounded.
  */
 export async function placePhotoResponse(query: URLSearchParams): Promise<Response> {
   const name = query.get("name") ?? "";
-  const requested = Number(query.get("w"));
-  const width = (PHOTO_WIDTHS as readonly number[]).includes(requested) ? requested : PHOTO_WIDTHS[0];
+  const width = snapPhotoWidth(query.get("w"));
   if (!/^places\/[^/]+\/photos\/[^/]+$/.test(name)) return Response.json({ error: "Invalid Google photo name" }, { status: 400 });
   // A photo resource name maps to immutable bytes, so the bytes are cached server-side for every viewer.
   // Not tied to the caller's abort signal: the load is shared across everyone waiting on the same key.

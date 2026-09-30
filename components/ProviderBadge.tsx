@@ -39,7 +39,7 @@ export function ProviderBadge({
     <span
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full bg-foreground font-medium text-background",
-        size === "md" ? "px-3 py-1.5 text-xs" : "px-2.5 py-1 text-[11px]",
+        size === "md" ? "px-3 py-1.5 text-xs" : "px-2.5 py-1 text-xs",
         className,
       )}
     >

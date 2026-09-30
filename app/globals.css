@@ -56,6 +56,19 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
+ * daisyUI 5 — scoped adoption. No built-in themes (its colours are mapped onto the app's own
+ * tokens below), every class carries the `daisy-` prefix so nothing collides with the app's
+ * `btn-*` / `card` names, and only the modules the Roam chat uses are loaded. Base modules that
+ * would restyle the whole page (reset, root colour, scroll lock/gutter, scrollbar, svg) are off.
+ */
+@plugin "daisyui" {
+  themes: false;
+  prefix: daisy-;
+  logs: false;
+  include: properties, alert, badge, button, card, carousel, checkbox, collapse, divider, kbd, list, loading, progress, skeleton, stat, steps, tab, table, timeline, tooltip;
+}
+
+/*
  * Crisp travel workspace: white ground, near-black text, hairline greys.
  * Colour accents are reserved for state and category signals.
  * Ported from frontend/Lovable design/src/styles.css.
@@ -89,7 +102,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
+  --color-border: var(--hairline);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
@@ -110,6 +123,18 @@
   --color-amber-soft: var(--amber-soft);
   --color-violet: var(--violet);
   --color-violet-soft: var(--violet-soft);
+
+  /* Status signals for the Roam cards (fits / caution). Coral stays the one brand accent; these
+     two exist only so "fits your budget" and "over your budget" can look different, the same
+     way --destructive is a real red so errors don't read as a highlight. */
+  --color-positive: var(--positive);
+  --color-positive-soft: var(--positive-soft);
+  --color-caution: var(--caution);
+  --color-caution-soft: var(--caution-soft);
+  /* Coral tuned for text on a coral tint, and for filled buttons: passes 4.5:1 where plain coral is ~3.7:1. */
+  --color-coral-ink: var(--coral-ink);
+  --color-coral-fill: var(--coral-fill);
+  --color-coral-fill-foreground: var(--coral-fill-foreground);
 
   /* Trip Atmosphere: one contextual accent (destination + season), set at runtime by
      <TripAtmosphere>. Defaults to coral so nothing changes until a trip resolves one. */
@@ -173,7 +198,7 @@
   --destructive: oklch(0.55 0.2 27);
   --destructive-foreground: oklch(1 0 0);
 
-  --border: oklch(0.915 0.003 260);
+  --hairline: oklch(0.915 0.003 260);
   --input: oklch(0.9 0.004 260);
   --ring: oklch(0.19 0.006 260);
 
@@ -206,6 +231,43 @@
 
   --accent-trip: var(--coral);
   --accent-trip-soft: var(--coral-soft);
+
+  /* Status pair: text/icon colour + its tinted ground. Contrast measured >= 4.5:1 each way. */
+  --positive: oklch(0.42 0.1 155);
+  --positive-soft: oklch(0.955 0.04 155);
+  --caution: oklch(0.45 0.1 65);
+  --caution-soft: oklch(0.96 0.05 85);
+  --coral-ink: oklch(0.45 0.13 32);
+  --coral-fill: oklch(0.53 0.15 32);
+  --coral-fill-foreground: oklch(1 0 0);
+
+  /* daisyUI reads these; they point at the app's own tokens, so a theme change stays one edit. */
+  --color-base-100: var(--card);
+  --color-base-200: var(--surface);
+  --color-base-300: var(--muted);
+  --color-base-content: var(--foreground);
+  --color-primary-content: var(--primary-foreground);
+  --color-secondary-content: var(--secondary-foreground);
+  --color-accent-content: var(--accent-foreground);
+  --color-neutral: var(--primary);
+  --color-neutral-content: var(--primary-foreground);
+  --color-info: var(--muted-foreground);
+  --color-info-content: var(--background);
+  --color-success: var(--positive);
+  --color-success-content: var(--background);
+  --color-warning: var(--caution);
+  --color-warning-content: var(--background);
+  --color-error: var(--destructive);
+  --color-error-content: var(--destructive-foreground);
+  --radius-selector: calc(var(--radius) + 4px);
+  --radius-field: calc(var(--radius) + 4px);
+  --radius-box: calc(var(--radius) + 8px);
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  /* daisyUI reads `--border` as a border WIDTH, so the app's line colour lives in `--hairline`. */
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
 }
 
 .dark {
@@ -237,7 +299,7 @@
   --destructive: oklch(0.7 0.19 27);
   --destructive-foreground: oklch(0.16 0.005 260);
 
-  --border: oklch(1 0 0 / 12%);
+  --hairline: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 16%);
   --ring: oklch(0.97 0.002 260);
 
@@ -264,6 +326,14 @@
 
   --accent-trip: var(--coral);
   --accent-trip-soft: var(--coral-soft);
+
+  --positive: oklch(0.8 0.13 155);
+  --positive-soft: oklch(0.29 0.055 155);
+  --caution: oklch(0.83 0.12 82);
+  --caution-soft: oklch(0.31 0.055 80);
+  --coral-ink: oklch(0.82 0.09 32);
+  --coral-fill: oklch(0.74 0.13 32);
+  --coral-fill-foreground: oklch(0.16 0.005 260);
 }
 
 /* The landing page keeps its original light-only look regardless of the app's dark-mode
@@ -293,7 +363,7 @@
   --accent-foreground: oklch(0.2 0.006 260);
   --destructive: oklch(0.55 0.2 27);
   --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.915 0.003 260);
+  --hairline: oklch(0.915 0.003 260);
   --input: oklch(0.9 0.004 260);
   --ring: oklch(0.19 0.006 260);
   --sidebar: oklch(0.988 0.002 260);
@@ -335,7 +405,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
+  --color-border: var(--hairline);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
@@ -363,6 +433,78 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* Landing page overhaul (docs/LandingPage_Overhaul): a warm editorial palette scoped to
+ * the new landing experience only — the rest of the product's cool-neutral tokens are
+ * untouched. Same technique as .theme-light-scope above: both the bare tokens and their
+ * `--color-X` @theme-inline snapshots must be reasserted here, or Tailwind utilities
+ * (bg-background, text-coral, ...) won't pick up the override.
+ *
+ * --surface-dark, --success, --warning are new, landing-only concepts (Design_Language
+ * spec §1) with no equivalent in the product's single-accent system — they aren't
+ * registered in @theme inline above, so reach for bg-[var(--surface-dark)] /
+ * text-[var(--success)] / text-[var(--warning)] rather than bg-surface-dark etc. */
+.landing-cinematic-scope {
+  color-scheme: light;
+  --background: #f4f1ea;
+  --foreground: #151515;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-dark: #171717;
+  --card: #ffffff;
+  --card-foreground: #151515;
+  --popover: #ffffff;
+  --popover-foreground: #151515;
+  --primary: #151515;
+  --primary-foreground: #f4f1ea;
+  --muted: #ece7db;
+  --muted-foreground: #6c6a64;
+  --ink: #151515;
+  --ink-soft: #6c6a64;
+  --hairline: #dfdcd4;
+  --coral: #ff5a36;
+  --coral-soft: #ffe1d8;
+  --water: var(--coral);
+  --water-soft: var(--coral-soft);
+  --leaf: var(--coral);
+  --leaf-soft: var(--coral-soft);
+  --amber: var(--coral);
+  --amber-soft: var(--coral-soft);
+  --violet: var(--coral);
+  --violet-soft: var(--coral-soft);
+  --accent-trip: var(--coral);
+  --accent-trip-soft: var(--coral-soft);
+  --success: #397a59;
+  --warning: #b77524;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--hairline);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-water: var(--water);
+  --color-water-soft: var(--water-soft);
+  --color-leaf: var(--leaf);
+  --color-leaf-soft: var(--leaf-soft);
+  --color-coral: var(--coral);
+  --color-coral-soft: var(--coral-soft);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-violet: var(--violet);
+  --color-violet-soft: var(--violet-soft);
+  --color-accent-trip: var(--accent-trip);
+  --color-accent-trip-soft: var(--accent-trip-soft);
 }
 
 /*
@@ -589,29 +731,83 @@
   }
 }
 
+.landing-cinematic-scope :where(h1, h2) {
+  text-wrap: balance;
+}
+
+/* Premium surface pass (landing only). Shadows are tinted to the canvas and stacked in layers so
+   cards sit on the page instead of floating on a grey smudge; every raised surface gets a 1px top
+   highlight. The grain is a fixed, non-interactive film over the whole story (kept off scrolling
+   containers, per the repaint cost), which takes the flat digital edge off the canvas. */
+.landing-cinematic-scope {
+  --shadow-soft: 0 1px 1px rgb(58 44 22 / 5%), 0 3px 6px -2px rgb(58 44 22 / 5%), 0 14px 28px -16px rgb(58 44 22 / 16%);
+  --shadow-lift: 0 1px 1px rgb(58 44 22 / 6%), 0 5px 10px -3px rgb(58 44 22 / 7%), 0 20px 40px -18px rgb(58 44 22 / 24%), 0 44px 72px -40px rgb(58 44 22 / 22%);
+}
+.landing-cinematic-scope .shadow-lift {
+  box-shadow: var(--shadow-lift), inset 0 1px 0 rgb(255 255 255 / 0.85);
+}
+.landing-cinematic-scope .shadow-soft {
+  box-shadow: var(--shadow-soft), inset 0 1px 0 rgb(255 255 255 / 0.7);
+}
+/* The white top edge only belongs on light surfaces; on the black and coral ones it reads as a stray line. */
+.landing-cinematic-scope :is(.bg-primary, .bg-coral).shadow-lift {
+  box-shadow: var(--shadow-lift);
+}
+.landing-cinematic-scope :is(.bg-primary, .bg-coral).shadow-soft {
+  box-shadow: var(--shadow-soft);
+}
+.landing-cinematic-scope .btn-primary,
+.landing-cinematic-scope .btn-primary-sm {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 10px 20px -10px rgb(21 21 21 / 0.55);
+}
+.landing-cinematic-scope::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
 
 /* Rendered markdown inside an assistant message. */
 @layer components {
-  .chat-prose { font-size: 0.9375rem; line-height: 1.7; color: var(--color-foreground); }
+  .chat-prose { font-size: 0.9375rem; line-height: 1.7; color: var(--color-foreground); text-wrap: pretty; overflow-wrap: anywhere; }
   .chat-prose > :first-child { margin-top: 0; }
   .chat-prose > :last-child { margin-bottom: 0; }
-  .chat-prose p { margin: 0 0 0.6rem; }
-  .chat-prose ul, .chat-prose ol { margin: 0 0 0.6rem; padding-left: 1.2rem; }
-  /* Tailwind's reset strips list markers; without them a numbered answer loses its numbers. */
+  .chat-prose p { margin: 0 0 0.65rem; }
+  /* Tailwind's reset removes list markers; without these a bullet list reads as loose lines. */
+  .chat-prose ul, .chat-prose ol { margin: 0 0 0.65rem; padding-left: 1.3rem; }
   .chat-prose ul { list-style: disc; }
   .chat-prose ol { list-style: decimal; }
-  .chat-prose li { margin: 0.15rem 0; }
+  .chat-prose li { margin: 0.25rem 0; padding-left: 0.2rem; }
   .chat-prose li::marker { color: var(--color-muted-foreground); }
-  .chat-prose h1, .chat-prose h2, .chat-prose h3, .chat-prose h4 { margin: 0.9rem 0 0.4rem; font-family: var(--font-display); font-size: 1em; font-weight: 600; }
-  .chat-prose a { color: var(--coral); text-decoration: underline; text-underline-offset: 2px; }
+  .chat-prose li > ul, .chat-prose li > ol { margin: 0.25rem 0 0; }
+  .chat-prose h1, .chat-prose h2, .chat-prose h3, .chat-prose h4 { margin: 1.1rem 0 0.4rem; font-family: var(--font-display); font-size: 1em; font-weight: 600; line-height: 1.35; text-wrap: balance; }
+  /* Only plain Markdown links (no class); the cards' own links style themselves. */
+  .chat-prose a:not([class]) { color: var(--coral); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  .chat-prose a:not([class]):hover { text-decoration-thickness: 2px; }
   .chat-prose strong { font-weight: 600; }
-  .chat-prose code { background: var(--color-muted); padding: 0.05rem 0.3rem; border-radius: 4px; font-size: 0.85em; }
-  .chat-prose pre { background: var(--color-muted); padding: 0.7rem; border-radius: 8px; overflow-x: auto; }
-  .chat-prose blockquote { margin: 0 0 0.6rem; padding-left: 0.7rem; border-left: 2px solid var(--color-border); color: var(--color-muted-foreground); }
-  .chat-prose table { display: block; overflow-x: auto; border-collapse: collapse; margin: 0 0 0.6rem; font-variant-numeric: tabular-nums; }
-  .chat-prose th, .chat-prose td { border: 1px solid var(--color-border); padding: 0.25rem 0.5rem; text-align: left; }
-  .chat-prose .chat-photo { display: block; max-width: 100%; height: auto; border-radius: 10px; margin: 0.5rem 0; }
+  .chat-prose code { background: var(--color-muted); padding: 0.1rem 0.35rem; border-radius: 6px; font-size: 0.85em; }
+  .chat-prose pre { background: var(--color-muted); padding: 0.75rem 0.9rem; border-radius: 12px; overflow-x: auto; }
+  .chat-prose blockquote { margin: 0 0 0.65rem; padding-left: 0.8rem; border-left: 1px solid var(--color-border); color: var(--color-muted-foreground); }
+  /* Markdown tables: a quiet framed grid with a header band and tabular figures. */
+  .chat-prose table { display: block; overflow-x: auto; border-collapse: separate; border-spacing: 0; margin: 0.25rem 0 0.8rem; border: 1px solid var(--color-border); border-radius: var(--radius-xl); font-size: 0.875rem; line-height: 1.45; font-variant-numeric: tabular-nums; }
+  .chat-prose th, .chat-prose td { padding: 0.55rem 0.8rem; text-align: left; vertical-align: top; border-top: 1px solid var(--color-border); }
+  .chat-prose thead th { border-top: 0; background: var(--color-surface); font-weight: 600; font-size: 0.8125rem; color: var(--color-foreground); white-space: nowrap; }
+  .chat-prose tbody tr:nth-child(even) td { background: color-mix(in oklab, var(--color-surface) 55%, transparent); }
+  .chat-prose .chat-photo { display: block; max-width: 100%; height: auto; border-radius: 12px; margin: 0.5rem 0; }
+
+  /* Cards and rows inside a reply set their own rhythm: small text must not inherit the prose's 1.7 leading. */
+  .roam-blocks { line-height: 1.45; font-size: 0.875rem; }
+  .roam-blocks :where(button, a) { line-height: inherit; }
 }
+
+/* Browser surfaces that ship with defaults belonging to no design system. */
+::selection { background: color-mix(in oklab, var(--coral) 32%, transparent); color: inherit; }
+:where(input, textarea) { caret-color: var(--coral); }
 
 /* Blinking cursor — only the landing page's scripted demo still uses it. */
 .chat-streaming > .chat-prose > :last-child::after {

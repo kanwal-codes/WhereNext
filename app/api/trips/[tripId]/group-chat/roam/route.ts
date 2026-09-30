@@ -4,6 +4,7 @@ import { generateText, stepCountIs } from "ai";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
 import { loadTripContext, formatTripMemory } from "@/lib/application/trip-context";
+import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 import { runAssistantTurn, finalizeAssistantBlocks } from "@/lib/application/orchestrate/run-turn";
 import { composeModelChain } from "@/packages/ai/compose-model";
 import { AI_DEADLINE_MS, COMPOSE_MAX_STEPS, DAILY_TRIP_TURN_LIMIT, DAILY_TURN_LIMIT, withDeadline } from "@/packages/ai/model-policy";
@@ -75,7 +76,7 @@ async function memberNames(tripId: string): Promise<Map<string, string>> {
 export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
-    const { supabase, user } = await requireTripMember(tripId);
+    const { supabase, user } = await requireTripMember(tripId, { registered: true });
     const repo = createGroupChatRepository(supabase);
     // Roam's own rows are written through the service-role client — regular members' sessions
     // are RLS-restricted to role='user' inserts (see migration 0027), so a request-scoped client
@@ -97,11 +98,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     const parsedBody = bodySchema.safeParse(await request.json().catch(() => null));
     if (!parsedBody.success) return NextResponse.json({ error: "Missing message id" }, { status: 400 });
 
-    const [tripCtx, history, names] = await Promise.all([
+    const [loadedCtx, defaults, history, names] = await Promise.all([
       loadTripContext(supabase, tripId),
+      loadTravellerDefaults(supabase, user.id, request.headers),
       repo.list(tripId, user.id, { limit: HISTORY_LIMIT }),
       memberNames(tripId),
     ]);
+
+    const tripCtx = { ...loadedCtx, preferences: withTravellerDefaults(loadedCtx.preferences, defaults) };
 
     // Fall back to a direct lookup when the target has aged out of the last HISTORY_LIMIT
     // messages `repo.list()` fetched above — a busy trip can easily push an older message past
@@ -263,7 +267,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     let unverified = false;
     const [[checklist, comparison], sanitized] = await Promise.all([
       Promise.all([sideBuilders.checklistPromise, sideBuilders.comparisonPromise]),
-      finalizeAssistantText(text, allowedUrls, system, request.signal, (entry) => { evaluatorUsage = entry; }, resolved.intent, () => { unverified = true; }),
+      finalizeAssistantText(text, allowedUrls, system, request.signal, (entry) => { evaluatorUsage = entry; }, resolved.intent, () => { unverified = true; }, turns.filter((t) => t.role === "user").map((t) => t.content).join("\n")),
     ]);
     const meta = { ...finalizeAssistantBlocks(result.meta, { checklist, comparison }, cardPlaceProviderIds), ...(unverified ? { unverified: true } : {}) };
 

@@ -10,7 +10,7 @@ import { logger } from "@/lib/server/logger";
 export async function POST(request: Request, { params }: { params: Promise<{ tripId: string; bookingId: string }> }) {
   try {
     const { tripId, bookingId } = await params;
-    const { supabase } = await requireTripMember(tripId, { role: "editor" });
+    const { supabase } = await requireTripMember(tripId, { role: "editor", registered: true });
 
     const existing = await supabase
       .from("bookings")

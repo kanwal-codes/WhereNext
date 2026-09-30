@@ -4,9 +4,14 @@ type Point = { latitude: number; longitude: number };
 
 /** "550 m" under 1 km, else "1.8 km" — the display form for a straight-line or route distance
  *  shown on a card, used everywhere one is (previously duplicated ad hoc at each call site). */
-export function formatDistanceKm(km: number): string {
+export function formatDistanceKm(km: number, miles = false): string {
+  if (miles) return km < 0.16 ? `${Math.round(km * 3280.84 / 10) * 10} ft` : `${(km * 0.621371).toFixed(1)} mi`;
   return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
 }
+
+/** Countries that show road distances in miles. */
+const MILES = new Set(["US", "GB", "LR", "MM"]);
+export const usesMiles = (country: unknown): boolean => typeof country === "string" && MILES.has(country.toUpperCase());
 
 /**
  * Straight-line cutoff for surfacing "near your stay" as a browsing nudge on a place a

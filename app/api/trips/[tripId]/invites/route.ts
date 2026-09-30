@@ -40,7 +40,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ tripId: st
 export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
-    const { supabase, user } = await requireTripMember(tripId);
+    const { supabase, user } = await requireTripMember(tripId, { registered: true });
     if (!(await withinRateLimit(`invite:${user.id}`, 20, 60 * 60_000))) {
       return NextResponse.json({ error: "Too many invites created. Try again in a while." }, { status: 429 });
     }

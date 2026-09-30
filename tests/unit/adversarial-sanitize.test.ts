@@ -199,4 +199,12 @@ describe("createReasoningGate — streaming leak attempts", () => {
   it("classifies as reasoning even if the opening tag is split across many tiny deltas", () => {
     expect(run(["<", "th", "in", "k", ">", "secret", "</think>", "Answer."])).toBe("Answer.");
   });
+
+  it("does not blank a figure the traveller typed themselves", () => {
+    const out = sanitizeAssistantContent("Got it: CA$80 per person per day for a dorm bed.", new Set(), "{}", "any dorms under 80?");
+    expect(out).toBe("Got it: CA$80 per person per day for a dorm bed.");
+  });
+  it("still blanks a figure nobody supplied", () => {
+    expect(sanitizeAssistantContent("Dorms cost CA$400.", new Set(), "{}", "any dorms under 80?")).toContain("an amount I can't verify here");
+  });
 });

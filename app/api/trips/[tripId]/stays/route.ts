@@ -6,6 +6,7 @@ import { GooglePlacesProvider } from "@/packages/providers/google-places/client"
 import { liteApiConfigured, searchStays, type StaySearchInput } from "@/packages/providers/liteapi/client";
 import { resolveStayDates, staysCacheKey } from "@/lib/application/stay-dates";
 import { resolveCurrency } from "@/lib/currency";
+import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 import { cached } from "@/lib/server/ttl-cache";
 
 const nums = (v: string | null): number[] =>
@@ -15,15 +16,16 @@ const strs = (v: string | null): string[] => (v ?? "").split(",").map((s) => s.t
 export const GET = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
-    const { supabase } = await requireTripMember(tripId);
+    const { supabase, user } = await requireTripMember(tripId);
     if (!liteApiConfigured()) return NextResponse.json({ error: "Stay search is not configured" }, { status: 503 });
 
-    const [trip, prefs] = await Promise.all([
+    const [trip, prefs, defaults] = await Promise.all([
       createTripRepository(supabase).get(tripId),
       supabase.from("trip_preferences").select("data").eq("trip_id", tripId).maybeSingle(),
+      loadTravellerDefaults(supabase, user.id, request.headers),
     ]);
     if (!trip) return NextResponse.json({ error: "Trip not found" }, { status: 404 });
-    const currency = resolveCurrency(prefs.data?.data as Record<string, unknown> | undefined);
+    const currency = resolveCurrency(withTravellerDefaults((prefs.data?.data ?? {}) as Record<string, unknown>, defaults));
 
     const q = new URL(request.url).searchParams;
     const location = (q.get("location") || trip.destination || "").trim();

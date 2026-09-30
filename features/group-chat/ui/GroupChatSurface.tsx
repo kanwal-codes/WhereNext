@@ -115,6 +115,8 @@ export function GroupChatSurface({
   const [loaded, setLoaded] = useState(Boolean(initialMessages));
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  // Synchronous twin of `sending`: a double Enter can arrive before the state has re-rendered and would post the message twice.
+  const sendingRef = useRef(false);
   const [reactingTo, setReactingTo] = useState<string | null>(null);
   const [expandedReactionFor, setExpandedReactionFor] = useState<string | null>(null);
   const [pressingId, setPressingId] = useState<string | null>(null);
@@ -308,8 +310,9 @@ export function GroupChatSurface({
 
   async function submit(raw: string) {
     const content = raw.trim();
-    if (!content || sending) return;
+    if (!content || sending || sendingRef.current) return;
     if (speech.listening) speech.stop();
+    sendingRef.current = true;
     setSending(true);
     setInput("");
     const idempotencyKey = crypto.randomUUID();
@@ -321,6 +324,7 @@ export function GroupChatSurface({
       setInput(content);
       notifyToast("Your message didn’t send.", "error", { label: "Retry", onClick: () => void submit(content) });
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   }
@@ -868,7 +872,7 @@ export function GroupChatSurface({
                     </motion.div>
                     {roamBlocks && roamBlocks.length > 0 && (
                       <div className="min-w-0 max-w-full">
-                        <MessageBlocks blocks={roamBlocks} tripId={tripId} onFollowup={onFollowup} onOpenPlace={onOpenPlace} onOpenStay={onOpenStay} onOpenEvent={onOpenEvent} onOpenCollection={onOpenCollection} />
+                        <MessageBlocks blocks={roamBlocks} tripId={tripId} onFollowup={onFollowup} onOpenPlace={onOpenPlace} onOpenStay={onOpenStay} onOpenEvent={onOpenEvent} onOpenCollection={onOpenCollection} onOpenPanel={openPanel} replyText={message.content} />
                       </div>
                     )}
                     {isRoam && (message.metadata as Partial<AssistantTurnMeta> | undefined)?.unverified && (

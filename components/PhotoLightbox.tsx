@@ -49,7 +49,7 @@ export function PhotoLightbox({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="absolute top-3 right-3 z-10 rounded-full bg-ink/60 p-1.5 text-white backdrop-blur transition-colors hover:bg-ink/80"
+            className="absolute top-3 right-3 z-10 rounded-full bg-black/60 p-1.5 text-white backdrop-blur transition-colors hover:bg-black/80"
           >
             <X className="h-4 w-4" />
           </button>
@@ -59,7 +59,7 @@ export function PhotoLightbox({
                 type="button"
                 onClick={() => step(-1)}
                 aria-label="Previous photo"
-                className="absolute top-1/2 left-3 z-10 -translate-y-1/2 rounded-full bg-ink/60 p-1.5 text-white backdrop-blur transition-colors hover:bg-ink/80"
+                className="absolute top-1/2 left-3 z-10 -translate-y-1/2 rounded-full bg-black/60 p-1.5 text-white backdrop-blur transition-colors hover:bg-black/80"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
@@ -67,7 +67,7 @@ export function PhotoLightbox({
                 type="button"
                 onClick={() => step(1)}
                 aria-label="Next photo"
-                className="absolute top-1/2 right-3 z-10 -translate-y-1/2 rounded-full bg-ink/60 p-1.5 text-white backdrop-blur transition-colors hover:bg-ink/80"
+                className="absolute top-1/2 right-3 z-10 -translate-y-1/2 rounded-full bg-black/60 p-1.5 text-white backdrop-blur transition-colors hover:bg-black/80"
               >
                 <ChevronRight className="h-5 w-5" />
               </button>

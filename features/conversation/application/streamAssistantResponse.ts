@@ -17,7 +17,7 @@ type AssistantDelta = {
 };
 
 export class AssistantRequestError extends Error {
-  constructor(readonly status: number, message: string) {
+  constructor(readonly status: number, message: string, readonly code?: string) {
     super(message);
   }
 }
@@ -44,9 +44,9 @@ export async function streamAssistantResponse(
     signal,
   });
   if (!response.ok || !response.body) {
-    const body = await response.json().catch(() => null) as { error?: string; userSaved?: boolean } | null;
+    const body = await response.json().catch(() => null) as { error?: string; userSaved?: boolean; code?: string } | null;
     if (body?.userSaved) onUserSaved();
-    throw new AssistantRequestError(response.status, body?.error ?? "Assistant unavailable");
+    throw new AssistantRequestError(response.status, body?.error ?? "Assistant unavailable", body?.code);
   }
   // A 2xx response is only possible after the route's own persist step succeeded.
   onUserSaved();

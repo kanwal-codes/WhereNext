@@ -12,6 +12,7 @@ import {
   LayoutGrid,
   Map,
   Users,
+  Lock,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
@@ -23,6 +24,7 @@ import {
 import { BrandMark } from "@/components/BrandMark";
 import { Sheet, motionTokens } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
+import { useGuest } from "@/features/identity/ui/GuestProvider";
 
 export type ShellTrip = {
   name: string;
@@ -57,6 +59,7 @@ function NavRow({
   collapsed,
   onNavigate,
   onPrefetch,
+  onLocked,
 }: {
   href: string;
   label: string;
@@ -65,7 +68,27 @@ function NavRow({
   collapsed?: boolean;
   onNavigate?: () => void;
   onPrefetch?: () => void;
+  /** Set for a guest: the row is shown but closed, and asks for an account instead of navigating. */
+  onLocked?: () => void;
 }) {
+  if (onLocked) {
+    return (
+      <button
+        type="button"
+        onClick={onLocked}
+        title={collapsed ? `${label} (needs an account)` : undefined}
+        aria-label={`${label}, needs an account`}
+        className={cn(
+          "group relative flex w-full items-center rounded-xl py-2 text-left text-sm text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+          collapsed ? "justify-center px-2" : "px-3",
+        )}
+      >
+        <Icon className="h-4 w-4 shrink-0 opacity-60" />
+        <span className={cn("truncate transition-[max-width,margin,opacity] duration-200 ease-out", collapsed ? "ml-0 max-w-0 opacity-0" : "ml-2.5 max-w-[12rem] flex-1 opacity-100")}>{label}</span>
+        {!collapsed && <Lock className="ml-2 h-3 w-3 shrink-0 opacity-50" aria-hidden="true" />}
+      </button>
+    );
+  }
   return (
     <Link
       href={href}
@@ -118,15 +141,19 @@ function NavList({
 }) {
   const base = `/trips/${tripId}`;
   const router = useRouter();
+  const { guest, openGate } = useGuest();
   return (
     <nav className="space-y-0.5">
       {nav.map((item) => {
         const href = item.seg ? `${base}/${item.seg}` : base;
         const exact = "exact" in item ? item.exact : false;
         const isActive = exact ? pathname === base : pathname === href || pathname.startsWith(`${href}/`);
+        // A guest gets Roam (the conversation) only; the rest is visible but closed.
+        const locked = guest && item.seg !== "chat";
         return (
           <NavRow
             key={item.label}
+            onLocked={locked ? () => { onNavigate?.(); openGate(`open ${item.label.toLowerCase()}`); } : undefined}
             href={href}
             label={item.label}
             icon={item.icon}
@@ -158,11 +185,15 @@ function TripIdentity({ trip, compact, titleAction }: { trip: ShellTrip; compact
 
 export function TripShell({ tripId, trip, children }: { tripId: string; trip: ShellTrip; children: ReactNode }) {
   const pathname = usePathname() ?? `/trips/${tripId}`;
+  const { guest } = useGuest();
+  // A guest's whole trip is the chat, so its "home" is the chat and the brand goes to the landing page.
+  const homeHref = guest ? `/trips/${tripId}/chat` : `/trips/${tripId}`;
+  const allTripsHref = guest ? "/" : "/trips";
   const reduceMotion = useReducedMotion();
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
-  const utility = (onNavigate?: () => void) => (
+  const utility = (onNavigate?: () => void) => guest ? null : (
     <div role="group" aria-label="Trip tools" className="space-y-1">
       <NavRow
         href="/trips"
@@ -210,7 +241,7 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
           {collapsed ? (
             <div className="relative grid h-8 w-8 place-items-center">
               <Link
-                href="/trips"
+                href={allTripsHref}
                 aria-label="Where next? — all trips"
                 className="absolute inset-0 grid place-items-center opacity-100 transition-opacity group-hover:opacity-0 group-focus-within:opacity-0"
               >
@@ -253,7 +284,7 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
 
       {/* Mobile top bar */}
       <div className="sticky top-0 z-30 grid h-[var(--topbar)] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/90 px-4 backdrop-blur lg:hidden">
-        <Link href={`/trips/${tripId}`} className="flex min-w-0 items-center gap-3" aria-label={trip.name}>
+        <Link href={homeHref} className="flex min-w-0 items-center gap-3" aria-label={trip.name}>
           <BrandMark variant="compact" className="h-6 w-6 shrink-0 text-[10px]" />
           <h2 className="truncate font-display text-sm leading-tight">{trip.name}</h2>
         </Link>

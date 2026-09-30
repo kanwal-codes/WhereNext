@@ -3,6 +3,7 @@ import { transit } from "@/packages/providers/google-places/transit";
 import { route as mapboxRoute } from "@/packages/providers/mapbox/client";
 import { transitAppPlan } from "@/packages/providers/transit-app/client";
 import { cached } from "@/lib/server/ttl-cache";
+import { simplifyPath } from "../../route-path";
 import type { ToolCall } from "../../turn-resolver";
 import type { RetrieveContext } from "../context";
 
@@ -18,15 +19,22 @@ export async function handleDirections(call: DirectionsCall, ctx: RetrieveContex
   const dirTo = call.to.trim().toLowerCase();
   if (call.mode === "transit") {
     const legs = await cached(`directions:transit:${dirFrom}:${dirTo}`, 5 * 60_000, () => transit({ origin: call.from, destination: call.to })).catch(ctx.fail("google-routes"));
-    const leg = legs?.[0];
-    if (leg && leg.durationSeconds > 0) {
+    // Google returns a few alternatives; show up to three that really differ (different line changes), fastest first.
+    const seen = new Set<string>();
+    for (const leg of legs ?? []) {
+      if (leg.durationSeconds <= 0 || ctx.routes.filter((r) => r.mode === "transit" && r.from === call.from && r.to === call.to).length >= 3) continue;
+      const steps = ctx.formatTransitSteps(leg.steps);
+      const signature = steps.join("|");
+      if (seen.has(signature)) continue;
+      seen.add(signature);
       got = true;
       ctx.routes.push({
         from: call.from, to: call.to, mode: "transit",
         distanceMeters: leg.distanceMeters, durationSeconds: leg.durationSeconds,
         departureTime: leg.departureTime, arrivalTime: leg.arrivalTime,
-        steps: ctx.formatTransitSteps(leg.steps),
+        steps,
         fare: leg.fare,
+        path: simplifyPath(leg.polyline),
       });
     }
     if (!got) {
@@ -51,7 +59,7 @@ export async function handleDirections(call: DirectionsCall, ctx: RetrieveContex
       const drawn = await cached(`directions:mapbox:${call.mode}:${from.join(",")}:${to.join(",")}`, 5 * 60_000, () =>
         mapboxRoute({ origin: from, destination: to, profile: call.mode === "walking" ? "walking" : "driving" }),
       ).catch(ctx.fail("mapbox"));
-      if (drawn) { got = true; ctx.routes.push({ from: call.from, to: call.to, mode: call.mode, distanceMeters: drawn.distanceMeters, durationSeconds: drawn.durationSeconds, steps: [] }); }
+      if (drawn) { got = true; ctx.routes.push({ from: call.from, to: call.to, mode: call.mode, distanceMeters: drawn.distanceMeters, durationSeconds: drawn.durationSeconds, steps: [], path: simplifyPath(drawn.geometry.coordinates) }); }
     }
   }
   // Routes API doesn't do intercity rail/coach well (e.g. Tokyo→Kyoto Shinkansen).

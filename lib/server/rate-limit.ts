@@ -51,17 +51,29 @@ function evictMemory() {
   while (memoryWindows.size >= MAX_MEMORY_KEYS) memoryWindows.delete(memoryWindows.keys().next().value as string);
 }
 
+/** Forgets everything counted for these keys, e.g. a guest's own counters once their session is
+ *  deleted, so they don't sit in Redis for the rest of a 30-day window. Best effort: if it fails
+ *  the counters simply expire on their own. Never pass a per-IP key here: those must outlive the
+ *  guest, they are what stops someone from starting over. */
+export async function clearRateLimits(keys: string[]): Promise<void> {
+  for (const key of keys) memoryWindows.delete(key);
+  // Any limiter with the shared prefix can delete by identifier; the window/limit are irrelevant.
+  const limiter = limiterFor(1, 1000);
+  if (limiter) await Promise.allSettled(keys.map((key) => limiter.resetUsedTokens(key)));
+}
+
 /** True if `key` is still within `limit` hits per `windowMs`; false once exceeded. Fails OPEN on
  *  a Redis error — availability over strict enforcement, since this exists to blunt abuse, not
- *  to gate correctness. */
-export async function withinRateLimit(key: string, limit: number, windowMs: number): Promise<boolean> {
+ *  to gate correctness. `failClosed` flips that for unauthenticated guest traffic, where an
+ *  outage in the limiter must not become an open door to paid model and provider calls. */
+export async function withinRateLimit(key: string, limit: number, windowMs: number, opts: { failClosed?: boolean } = {}): Promise<boolean> {
   const limiter = limiterFor(limit, windowMs);
   if (limiter) {
     try {
       const { success } = await limiter.limit(key);
       return success;
     } catch {
-      return true;
+      return !opts.failClosed;
     }
   }
   const now = Date.now();

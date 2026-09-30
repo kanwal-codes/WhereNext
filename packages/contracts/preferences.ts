@@ -15,6 +15,10 @@ export const preferencesSchema = z.object({
   transportPreference: z.string().trim().max(80).optional(),
   /** ISO 4217, e.g. "CAD". Prices across the app are requested and shown in this. */
   currency: z.string().trim().length(3).toUpperCase().optional(),
+  /** The traveller's preferred language (BCP-47, "fr") — Roam's reply language when a message doesn't show one. */
+  language: z.string().trim().min(2).max(12).optional(),
+  /** Home country, ISO 3166-1 alpha-2 ("CA") — for passport, plug, currency and "from home" context. */
+  country: z.string().trim().length(2).toUpperCase().optional(),
   dietaryNeeds: z.union([z.array(z.string().trim().max(80)).max(20), z.string().trim().max(240)]).optional(),
   /** Stated accessibility requirements ("wheelchair accessible", "no stairs", "step-free access")
    *  — a hard constraint for place/venue filtering, not just a preference to mention in prose. */

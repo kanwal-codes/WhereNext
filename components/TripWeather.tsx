@@ -80,8 +80,8 @@ export function TripWeather({ tripId, location, className, card = false }: { tri
   }
 
   return (
-    <span className={cn("inline-flex items-start gap-1.5 text-sm text-muted-foreground", className)}>
-      <CloudSun className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {data.summary}
+    <span className={cn("inline-flex items-start gap-2 text-sm leading-snug text-muted-foreground", className)}>
+      <CloudSun className="mt-px size-4 shrink-0" aria-hidden /> <span className="line-clamp-2">{data.summary.split(/(?<=[.!?])\s+/)[0]}</span>
     </span>
   );
 }

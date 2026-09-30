@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const { generateObjectMock } = vi.hoisted(() => ({ generateObjectMock: vi.fn() }));
 vi.mock("ai", async (importOriginal) => ({ ...(await importOriginal<object>()), generateObject: generateObjectMock }));
 
-import { resolveTurn, resolvedTurnSchema } from "../../lib/application/turn-resolver";
+import { resolveTurn, resolvedTurnSchema, routePracticalFacts } from "../../lib/application/turn-resolver";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -190,5 +190,23 @@ describe("resolveTurn", () => {
     const userMsg = call.messages.find((m) => m.role === "user")!.content;
     expect(userMsg).toContain("Hotel Memmo Alfama");
     expect(userMsg).toMatch(/there.*this place.*it/i);
+  });
+});
+
+describe("routePracticalFacts", () => {
+  const essentials = resolvedTurnSchema.parse({ intent: "essentials", toolPlan: [{ tool: "weather", location: "Montreal" }] });
+  it("turns a practical-facts question into the fact-list answer, without the weather call", () => {
+    const out = routePracticalFacts("what should I know about plugs, currency and tipping in Canada?", essentials);
+    expect(out.intent).toBe("other");
+    expect(out.capabilities).toContain("structured_answer");
+    expect(out.toolPlan.map((c) => c.tool)).toEqual(["research_web", "research_web", "research_web"]);
+    expect(out.toolPlan.map((c) => (c as { query: string }).query.toLowerCase()).join(" | ")).toMatch(/plug.*\|.*currency.*\|.*tipping/);
+  });
+  it("leaves a packing question on the checklist", () => {
+    expect(routePracticalFacts("what should I pack, and do I need a plug adapter?", essentials)).toBe(essentials);
+  });
+  it("leaves other intents alone", () => {
+    const food = resolvedTurnSchema.parse({ intent: "food" });
+    expect(routePracticalFacts("tipping at restaurants?", food)).toBe(food);
   });
 });

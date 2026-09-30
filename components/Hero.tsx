@@ -153,7 +153,7 @@ export function Hero({
           wash behind it — it carries its own ink/35 + blur background for contrast. */}
       {ratingBadge && (
         <div className="absolute inset-x-4 bottom-4 flex items-end justify-end gap-3 text-white sm:inset-x-6 sm:bottom-6">
-          <div className="flex items-center gap-1.5 rounded-full bg-ink/35 px-3 py-1.5 text-xs backdrop-blur-md">
+          <div className="flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-md">
             {ratingBadge}
           </div>
         </div>

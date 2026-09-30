@@ -2,19 +2,21 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarCheck, CalendarClock, ChevronDown, DoorOpen, Info, Loader2, MapPin, Music, Ticket } from "lucide-react";
+import { CalendarCheck, ChevronDown, Info, Loader2, Ticket } from "lucide-react";
 import type { EventDetail } from "@/packages/contracts/event";
 import { Hero } from "@/components/Hero";
 import { DetailSectionHeading } from "@/components/DetailSectionHeading";
+import { FactStrip } from "@/components/DetailKit";
 import { BackLink } from "@/components/BackLink";
-import { ProviderBadge } from "@/components/ProviderBadge";
 import { ExternalLink } from "@/components/ExternalLink";
 import { SourceCard } from "@/components/SourceCard";
 import { NearbyRecommendations } from "@/components/NearbyRecommendations";
-import { Skeleton, SkeletonLines } from "@/components/Skeleton";
+import { PanelError, PanelLoading } from "@/components/PanelStates";
 import { BlurImage, Reveal, Stagger, StaggerItem, Tactile, WordReveal } from "@/components/motion-primitives";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { askAssistantHref, cityFrom } from "@/lib/places-ui";
+import { displayClockTime } from "@/lib/application/clock-time";
+import { Badge, prettyDate } from "@/features/conversation/ui/blocks/ui";
 import { cn, safeHref } from "@/lib/utils";
 import { ticketSellerLabel } from "@/lib/ticket-provider";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
@@ -36,17 +38,6 @@ function readableDate(raw: string | null): { day: string; time: string | null } 
     ? new Date(0, 0, 0, Number(hh), Number(mm)).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
     : null;
   return { day, time };
-}
-
-function Chip({ icon: Icon, children }: { icon: typeof CalendarClock; children: React.ReactNode }) {
-  return (
-    <Tactile lift={1} className="inline-flex">
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium shadow-soft">
-        <Icon className="h-3.5 w-3.5 text-coral" />
-        {children}
-      </span>
-    </Tactile>
-  );
 }
 
 /** Section wrapper — title and consistent rhythm, the same plain heading every detail view
@@ -114,7 +105,7 @@ function AddEventButton({ tripId, title, rawDate, showTime, latitude, longitude 
         type="button"
         disabled={busy || alreadyAdded}
         onClick={() => void add()}
-        className={cn("btn-primary inline-flex items-center gap-2", alreadyAdded && "opacity-70")}
+        className={cn("btn-secondary inline-flex items-center gap-2", alreadyAdded && "opacity-70")}
       >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4" />}
         {alreadyAdded ? "Added to trip" : "Add to trip"}
@@ -128,6 +119,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
   const panel = variant === "panel";
   const [detail, setDetail] = useState<EventDetail | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [attempt, setAttempt] = useState(0);
   const titleTag = useDocumentTitle(panel ? null : detail?.title ?? seed.name);
 
   useEffect(() => {
@@ -157,23 +149,13 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
         setState("error");
       });
     return () => controller.abort();
-  }, [tripId, seed.name, seed.url, seed.source, seed.imageUrl, seed.date, seed.venue]);
+  }, [tripId, seed.name, seed.url, seed.source, seed.imageUrl, seed.date, seed.venue, attempt]);
 
   const pad = panel ? "px-4 pb-8" : "mx-auto max-w-3xl px-5 pb-14 sm:px-8";
   const d = detail;
 
   if (state === "loading") {
-    return (
-      <div aria-busy="true" aria-label="Loading event details">
-        <Skeleton className={cn("rounded-none", panel ? "h-44" : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]")} />
-        <div className={cn(pad, "pt-6 space-y-5")}>
-          <Skeleton className="h-3 w-24 rounded-md" />
-          <Skeleton className="h-9 w-2/3 rounded-lg" />
-          <Skeleton className="h-28 w-full rounded-2xl" />
-          <SkeletonLines lines={4} />
-        </div>
-      </div>
-    );
+    return <PanelLoading what="this event" panel={panel} heroClassName={panel ? "h-44" : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]"} />;
   }
 
   const title = d?.title ?? seed.name;
@@ -207,8 +189,8 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
   const cityHint = cityFrom(d?.venueAddress) || d?.city || venueName || "";
 
   const goodToKnow: Array<[string, string]> = [];
-  if (d?.doorsTime) goodToKnow.push(["Doors", d.doorsTime]);
-  if (d?.showTime) goodToKnow.push(["Show", d.showTime]);
+  if (d?.doorsTime) goodToKnow.push(["Doors", displayClockTime(d.doorsTime)]);
+  if (d?.showTime) goodToKnow.push(["Show", displayClockTime(d.showTime)]);
   if (d?.admission) goodToKnow.push(["Admission", d.admission]);
   if (d?.ageInfo) goodToKnow.push(["Age", d.ageInfo]);
   if (d?.promoter) goodToKnow.push(["Promoter", d.promoter]);
@@ -220,67 +202,56 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
       <Hero image={image || "/design/trip-hero.jpg"} alt={title} plain surface={panel} className={cn(panel ? "h-44" : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]")}>
         <div className={cn("absolute inset-x-0 bottom-0", pad, "pb-6")}>
           {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className="shadow-soft" />}
+          {panel ? (
+            <h1 className="mt-3 font-display text-[1.7rem] leading-[1.1] [text-wrap:balance] drop-shadow-sm">{title}</h1>
+          ) : (
           <WordReveal
-            text={title}
-            as="h1"
-            delay={0.1}
-            className="mt-3 font-display text-[1.7rem] leading-[1.1] [text-wrap:balance] drop-shadow-sm sm:text-4xl"
-          />
-          <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-soft">
-            {dt && (
-              <span className="inline-flex items-center gap-1.5">
-                <CalendarClock className="h-3.5 w-3.5" /> {dt.day}
-                {dt.time ? ` · ${dt.time}` : ""}
-              </span>
-            )}
-            {venueName && (
-              <span className="inline-flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5" /> {venueName}
-              </span>
-            )}
-          </p>
+              text={title}
+              as="h1"
+              delay={0.1}
+              className="mt-3 font-display text-[1.7rem] leading-[1.1] [text-wrap:balance] drop-shadow-sm sm:text-4xl"
+            />
+          )}
         </div>
       </Hero>
 
       <div className={cn(pad, "pt-6 space-y-8")}>
         {state === "error" && !d ? (
-          <p className="text-sm text-muted-foreground">
-            We couldn&rsquo;t load more about this event.{" "}
+          <PanelError what="the details for this event" panel={panel} onRetry={() => setAttempt((n) => n + 1)}>
             {(ticketUrl || seed.url) && (
               <ExternalLink href={ticketUrl || seed.url} className="text-sm">
                 Open the event page
               </ExternalLink>
             )}
-          </p>
+          </PanelError>
         ) : (
           <>
             {/* At a glance */}
-            {(dt || d?.doorsTime || d?.genre || d?.priceRange) && (
-              <Stagger className="flex flex-wrap gap-2" gap={0.05}>
-                {dt && (
-                  <StaggerItem>
-                    <Chip icon={CalendarClock}>
-                      {dt.day}
-                      {dt.time ? ` · ${dt.time}` : ""}
-                    </Chip>
-                  </StaggerItem>
-                )}
-                {d?.doorsTime && <StaggerItem><Chip icon={DoorOpen}>Doors {d.doorsTime}</Chip></StaggerItem>}
-                {d?.genre && <StaggerItem><Chip icon={Music}>{d.genre}</Chip></StaggerItem>}
-                {d?.priceRange && <StaggerItem><Chip icon={Ticket}>from {d.priceRange}</Chip></StaggerItem>}
-              </Stagger>
+            {(dt || venueName || d?.priceRange) && (
+              <Reveal>
+                <div className="space-y-3">
+                  <FactStrip
+                    facts={[
+                      dt && { label: "When", value: dt.day, note: [dt.time, d?.doorsTime && displayClockTime(d.doorsTime) !== dt.time && `doors ${displayClockTime(d.doorsTime)}`].filter(Boolean).join(" · ") || undefined },
+                      venueName && { label: "Where", value: venueName, note: cityFrom(d?.venueAddress) || d?.city || undefined },
+                      d?.priceRange && { label: "From", value: d.priceRange },
+                    ]}
+                  />
+                  {d?.genre && <div className="flex"><Badge>{d.genre}</Badge></div>}
+                </div>
+              </Reveal>
             )}
 
             {/* Tickets — the primary action, up top */}
             {(ticketUrl || (d?.ticketOptions?.length ?? 0) > 0) && (
               <Reveal delay={0.04}>
                 <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
-                  <div className="border-l-2 border-coral p-5">
+                  <div className="p-5">
                     <div className="flex items-center justify-between gap-3">
                       <h2 className="flex items-center gap-2 font-display text-lg">
                         <Ticket className="h-4 w-4 text-coral" /> Tickets
                       </h2>
-                      {ticketSeller && <ProviderBadge source={ticketSeller} />}
+                      {ticketSeller && <span className="text-xs text-muted-foreground">via {ticketSeller}</span>}
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-3">
                       {ticketUrl && (
@@ -312,12 +283,12 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                         {onSale && (
                           <div className="flex gap-2">
                             <dt className="w-16 shrink-0 text-muted-foreground">On sale</dt>
-                            <dd className="font-medium">{onSale}</dd>
+                            <dd className="font-medium">{onSale.replace(/\d{4}-\d{2}-\d{2}/g, (m) => prettyDate(m) ?? m)}</dd>
                           </div>
                         )}
                       </dl>
                     )}
-                    <p className="mt-3 text-[11px] text-muted-foreground">Prices and availability change — confirm on the seller&rsquo;s page.</p>
+                    <p className="mt-3 text-xs text-muted-foreground">Prices and availability change — confirm on the seller&rsquo;s page.</p>
                   </div>
                 </section>
               </Reveal>
@@ -332,30 +303,32 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
             <Reveal delay={0.05}>
               <div className="flex flex-wrap items-center gap-3">
                 <AddEventButton tripId={tripId} title={title} rawDate={rawDate} showTime={d?.showTime} latitude={d?.latitude} longitude={d?.longitude} />
-                <Tactile lift={2} className="inline-flex">
-                  <Link href={askAssistantHref(tripId, { name: title, address: venueName ?? undefined })} className="btn-secondary inline-flex">
-                    Ask Roam if it fits
-                  </Link>
-                </Tactile>
+                {!panel && (
+                  <Tactile lift={2} className="inline-flex">
+                    <Link href={askAssistantHref(tripId, { name: title, address: venueName ?? undefined })} className="btn-secondary inline-flex">
+                      Ask Roam if it fits
+                    </Link>
+                  </Tactile>
+                )}
               </div>
             </Reveal>
 
             {/* About */}
             {aboutText && (
               <Section title="About" delay={0.06}>
-                <p className="whitespace-pre-line text-[15px] leading-[1.85] text-ink-soft">{aboutText}</p>
+                <p className="whitespace-pre-line text-[15px] leading-relaxed text-ink-soft">{aboutText}</p>
               </Section>
             )}
 
             {/* What to expect */}
             {d?.whatToExpect && (
               <Section title="What to expect" delay={0.07}>
-                <p className="text-[15px] leading-[1.85] text-ink-soft">{d.whatToExpect}</p>
+                <p className="text-[15px] leading-relaxed text-ink-soft">{d.whatToExpect}</p>
               </Section>
             )}
 
             {/* Line-up */}
-            {(headliner || lineupNote) && (
+            {((headliner && (support.length > 0 || headliner.trim().toLowerCase() !== title.trim().toLowerCase())) || lineupNote) && (
               <Section title="Line-up" delay={0.08}>
                 {headliner && (
                   <p className="text-lg font-medium leading-tight">
@@ -377,33 +350,19 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
             )}
 
             {/* When & where */}
-            <Section title="When & where" delay={0.1}>
-              <dl className="space-y-3 text-sm">
-                <div className="flex gap-3">
-                  <dt className="w-24 shrink-0 pt-0.5 text-muted-foreground">Date</dt>
-                  <dd>
-                    {dt ? (
-                      <>
-                        <span className="font-medium">{dt.day}</span>
-                        {dt.time && <span className="text-muted-foreground"> · {dt.time}</span>}
-                      </>
-                    ) : (
-                      <span className="text-muted-foreground">
-                        Check the ticket page{" "}
-                        {ticketUrl && <ExternalLink href={ticketUrl} className="text-sm">here</ExternalLink>}
-                      </span>
-                    )}
-                    {d?.doorsTime && <span className="block text-muted-foreground">Doors {d.doorsTime}</span>}
-                  </dd>
-                </div>
-                <div className="flex gap-3">
-                  <dt className="w-24 shrink-0 pt-0.5 text-muted-foreground">Venue</dt>
-                  <dd>
-                    <span className="block font-medium">{venueName ?? "See the ticket page"}</span>
-                    {d?.venueAddress ? <span className="block text-muted-foreground">{d.venueAddress}</span> : null}
-                  </dd>
-                </div>
-              </dl>
+            <Section title={dt ? "Venue" : "When & where"} delay={0.1}>
+              <div className="space-y-3 text-sm">
+                {!dt && (
+                  <p className="text-muted-foreground">
+                    Date: check the ticket page{" "}
+                    {ticketUrl && <ExternalLink href={ticketUrl} className="text-sm">here</ExternalLink>}
+                  </p>
+                )}
+                <p>
+                  <span className="block font-medium">{venueName ?? "See the ticket page"}</span>
+                  {d?.venueAddress ? <span className="block text-muted-foreground">{d.venueAddress}</span> : null}
+                </p>
+              </div>
               {mapsUrl && (
                 <div className="mt-4">
                   <SourceCard provider="Google Maps" href={mapsUrl} />
@@ -449,7 +408,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                   <ul className="mt-2 space-y-1 pl-5">
                     {d.sources.map((s) => (
                       <li key={s.url}>
-                        <ExternalLink href={s.url} className="text-[11px]">{s.title}</ExternalLink>
+                        <ExternalLink href={s.url} className="text-xs">{s.title}</ExternalLink>
                       </li>
                     ))}
                   </ul>

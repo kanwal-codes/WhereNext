@@ -41,5 +41,18 @@ export async function buildComparison(input: {
     input.onUsage,
   );
   if (!parsed) return null;
-  return { type: "comparison", title: parsed.title, columns: parsed.columns, rows: parsed.rows, bestForYou: parsed.bestForYou };
+  const rows = withoutEmptyComparison(parsed.rows);
+  if (!rows) return null;
+  return { type: "comparison", title: parsed.title, columns: parsed.columns, rows, bestForYou: parsed.bestForYou };
+}
+
+const UNKNOWN = /^(?:unclear|unknown|n\/a|—|-|not (?:available|stated|known))\.?$/i;
+
+/** A comparison where the attributes are mostly "unclear" tells the traveller nothing (live-caught: a card whose six cells all read "unclear"). Returns null when fewer than two options have anything to say. */
+export function withoutEmptyComparison<T extends { label: string; cells: string[] }>(rows: T[]): T[] | null {
+  const informative = rows.filter((row) => row.cells.slice(1).some((cell) => cell.trim() && !UNKNOWN.test(cell.trim())));
+  if (informative.length < 2) return null;
+  const known = informative.reduce((sum, row) => sum + row.cells.slice(1).filter((cell) => cell.trim() && !UNKNOWN.test(cell.trim())).length, 0);
+  const total = informative.reduce((sum, row) => sum + row.cells.slice(1).length, 0);
+  return known / total >= 0.5 ? informative : null;
 }

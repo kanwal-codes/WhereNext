@@ -14,7 +14,7 @@ import { photoProxyUrl, priceLabel, priceRank } from "@/lib/places-ui";
 const norm = (s: string) => s.trim().toLowerCase();
 
 export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place; why?: string }) {
-  const photo = photoProxyUrl(tripId, place.photoNames?.[0]);
+  const photo = photoProxyUrl(tripId, place.photoNames?.[0], 480);
   const price = priceLabel(place.priceLevel);
   const href = `/trips/${tripId}/place/${encodeURIComponent(place.providerId)}`;
   const panelCtx = useTripPanelMaybe();
@@ -76,7 +76,7 @@ export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place
           {price && <p className="font-display text-base">{price}</p>}
         </div>
 
-        {(typeof place.rating === "number" || why) && (
+        {(typeof place.rating === "number" || (why && why !== "Top-rated")) && (
           <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
             {typeof place.rating === "number" && (
               <p className="flex shrink-0 items-center gap-1">
@@ -85,7 +85,7 @@ export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place
                 {place.userRatingCount ? <span>({place.userRatingCount.toLocaleString()})</span> : null}
               </p>
             )}
-            {why && <span className="min-w-0 truncate rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">{why}</span>}
+            {why && why !== "Top-rated" && <span className="min-w-0 truncate rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">{why}</span>}
           </div>
         )}
 
@@ -96,7 +96,7 @@ export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place
           </Link>
         </div>
         {panelCtx?.compareMode && (
-          <p className="text-[11px] text-muted-foreground">{panelCtx.compareHas(place.providerId) ? "Selected" : "Click card to select"}</p>
+          <p className="text-xs text-muted-foreground">{panelCtx.compareHas(place.providerId) ? "Selected" : "Click card to select"}</p>
         )}
       </div>
     </Tactile>

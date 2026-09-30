@@ -204,5 +204,5 @@ export class GooglePlacesProvider {
     if (process.env.NODE_ENV === "test") return load(signal);
     return cached(`google-place-table:${placeId}`, 15 * 60_000, () => load());
   }
-  photoUrl(photoName: string, maxWidthPx = 800) { return `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=${maxWidthPx}&key=${encodeURIComponent(this.key())}`; }
+  photoUrl(photoName: string, widthPx = 800) { return `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=${widthPx}&key=${encodeURIComponent(this.key())}`; }
 }

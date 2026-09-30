@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useDistance } from "@/lib/use-distance";
 import Link from "next/link";
 import { Car, ChevronDown, ExternalLink, Footprints, Loader2, Plane, Search } from "lucide-react";
 import type { MapLeg } from "@/components/TripMap";
@@ -115,6 +116,7 @@ export function TransportSurface({
   /** An alternative way to fill in From/To (e.g. a natural-language ask bar), shown above the form in the same card. */
   searchSlot?: ReactNode;
 }) {
+  const distance = useDistance();
   // Left blank on purpose: a rider typing "Brampton to New York" in the AI search bar should
   // see exactly that in these fields once it resolves, not find one pre-filled with the trip's
   // own origin/destination before they've said anything.
@@ -320,7 +322,7 @@ export function TransportSurface({
                 <Car className="h-4 w-4 text-coral" /> Drive
               </span>
               <span className="text-sm font-semibold tabular-nums">{durationFromSeconds(driveRoute.durationSeconds)}</span>
-              <span className="text-xs text-muted-foreground tabular-nums">{(driveRoute.distanceMeters / 1000).toFixed(1)} km</span>
+              <span className="text-xs text-muted-foreground tabular-nums">{distance(driveRoute.distanceMeters / 1000)}</span>
             </div>
             <button
               type="button"
@@ -423,7 +425,7 @@ export function TransportSurface({
               <span className="min-w-0">
                 <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                   <span className="font-display text-lg tabular-nums">{durationFromSeconds(route.durationSeconds)}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums">{(route.distanceMeters / 1000).toFixed(1)} km</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">{distance(route.distanceMeters / 1000)}</span>
                   {dep && arr && (
                     <span className="text-xs text-muted-foreground">
                       {dep} → {arr}

@@ -7,7 +7,7 @@ import { preferencesSchema } from "./preferences";
  * (dates, arrival, occasion, this trip's transport) are not part of it.
  */
 export const travelerProfileSchema = preferencesSchema
-  .pick({ interests: true, likes: true, dislikes: true, pace: true, budget: true, groupType: true, dietaryNeeds: true, transportPreference: true, currency: true })
+  .pick({ interests: true, likes: true, dislikes: true, pace: true, budget: true, groupType: true, dietaryNeeds: true, transportPreference: true, currency: true, language: true, country: true })
   .extend({
     // ponytail: all of the below live in profiles.data jsonb, not their own columns —
     // promote any of them to a real column if a query ever needs to filter/index by it.

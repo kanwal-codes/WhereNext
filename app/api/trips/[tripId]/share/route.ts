@@ -22,7 +22,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ tripId: st
 export async function POST(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
-    const { supabase } = await requireTripMember(tripId, { role: "owner" });
+    const { supabase } = await requireTripMember(tripId, { role: "owner", registered: true });
     // 12 bytes → 96 bits of entropy. A public link is the only thing guarding the trip, so it
     // must not be brute-forceable (4 bytes / 32 bits was).
     const slug = randomBytes(12).toString("hex");
@@ -48,7 +48,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ tripId: s
 export async function DELETE(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
-    const { supabase } = await requireTripMember(tripId, { role: "owner" });
+    const { supabase } = await requireTripMember(tripId, { role: "owner", registered: true });
     // Read the outgoing slug first — without it the public /s/[slug] page keeps serving the
     // now-revoked trip out of loadPublicTrip's cache for up to its TTL after this returns.
     const existing = await supabase.from("trips").select("share_slug").eq("id", tripId).single();

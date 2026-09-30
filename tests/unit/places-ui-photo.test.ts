@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PHOTO_WIDTHS, photoProxyUrl } from "../../lib/places-ui";
+import { photoProxyUrl, snapPhotoWidth } from "../../lib/places-ui";
 
 describe("photoProxyUrl", () => {
   const name = "places/ChIJ123/photos/AbC_d-1";
@@ -18,7 +18,13 @@ describe("photoProxyUrl", () => {
     expect(photoProxyUrl("trip-1", "places/a/photos/b/../c")).toBeUndefined();
   });
 
-  it("offers the default width first, then the wider ones", () => {
-    expect(PHOTO_WIDTHS).toEqual([800, 1200, 1600]);
+  it("snaps a requested width to 80px steps, between 240 and 1600", () => {
+    expect(snapPhotoWidth(undefined)).toBe(800);
+    expect(snapPhotoWidth("250")).toBe(240);
+    expect(snapPhotoWidth(100)).toBe(240);
+    expect(snapPhotoWidth(1200)).toBe(1200);
+    expect(snapPhotoWidth(1600)).toBe(1600);
+    expect(snapPhotoWidth(99999)).toBe(1600);
+    expect(snapPhotoWidth("junk")).toBe(800);
   });
 });
