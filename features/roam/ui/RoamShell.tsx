@@ -17,6 +17,7 @@ import type { AssistantBlock, PlaceCard, StayCardItem } from "@/packages/contrac
 import type { Trip } from "@/features/trip/domain/trip";
 import { cn } from "@/lib/utils";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
+import { RoamMark } from "./RoamMark";
 
 const spring = motionTokens.fast;
 
@@ -50,10 +51,11 @@ function RoamTabs({ tripId, activeTab, onSelect, onGuestLocked }: { tripId: stri
           prefetch
           onClick={() => onSelect(tab.key)}
           className={cn(
-            "rounded-full px-4 py-1.5 font-medium transition-colors",
+            "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 font-medium transition-colors",
             activeTab === tab.key ? "bg-card text-foreground shadow-soft" : "text-muted-foreground hover:text-foreground",
           )}
         >
+          {tab.key === "roam" && <RoamMark size={22} animated={false} />}
           {tab.label}
         </Link>
         ),

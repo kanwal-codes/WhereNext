@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { ArrowUp, ChevronRight, Copy, Mic } from "lucide-react";
 import { Sheet } from "@/components/motion-primitives";
 import type { AssistantBlock, AssistantTurnMeta, PlaceCard, ProposedCommand, StayCardItem } from "@/packages/contracts/assistant";
@@ -18,6 +18,7 @@ import { GuestSavePrompt } from "@/features/identity/ui/GuestSavePrompt";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { GUEST_TURN_LIMIT } from "@/lib/guest-limits";
 import { cn } from "@/lib/utils";
+import { RoamMark } from "@/features/roam/ui/RoamMark";
 
 const RTL = new Set(["ar", "he", "fa", "ur", "ps", "sd"]);
 
@@ -153,6 +154,7 @@ const THINKING_STATES = [
   "Almost there…",
   "Still working — this one's taking a bit…",
 ];
+const TYPING_MARK = ["thinking", "searching", "planning", "answering"] as const;
 const STAGE_PHASE: Record<"resolve" | "retrieve" | "compose", number> = { resolve: 0, retrieve: 1, compose: 2 };
 
 function Typing({ stage, label }: { stage?: "resolve" | "retrieve" | "compose"; label?: string }) {
@@ -171,16 +173,27 @@ function Typing({ stage, label }: { stage?: "resolve" | "retrieve" | "compose"; 
   const text = label && phase === STAGE_PHASE.retrieve ? `${label[0]!.toUpperCase()}${label.slice(1)}…` : THINKING_STATES[phase];
   return (
     <div className="flex items-center gap-1.5 px-1 py-2">
-      {[0, 1, 2].map((i) => (
-        <motion.span
-          key={i}
-          className="h-1.5 w-1.5 rounded-full bg-muted-foreground"
-          animate={{ opacity: [0.25, 1, 0.25], y: [0, -2, 0] }}
-          transition={{ duration: 1.1, repeat: Infinity, delay: i * 0.15 }}
-        />
-      ))}
-      <span className="ml-2 text-xs text-muted-foreground">{text}</span>
+      {/* Roam's path mark mirrors the real stage: branching while it works out what you asked,
+          searching while it checks sources, folding routes into one while it composes. */}
+      <RoamMark state={TYPING_MARK[Math.min(phase, TYPING_MARK.length - 1)]} size={32} className="text-foreground" />
+      <span className="ml-1 text-xs text-muted-foreground">{text}</span>
     </div>
+  );
+}
+
+/** Roam's mark once a turn ends: the route settling on its destination, or breaking on a
+ *  failure. Shown briefly under the log, then cleared by `ConversationSurface`. */
+function TurnOutcome({ kind }: { kind: "arrived" | "error" }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, transition: { duration: 0.4 } }}
+      className="flex items-center gap-1.5 px-1 py-2"
+    >
+      <RoamMark state={kind} size={32} className="text-foreground" />
+      {kind === "error" && <span className="ml-1 text-xs text-muted-foreground">Roam couldn’t reply</span>}
+    </motion.div>
   );
 }
 
@@ -227,6 +240,13 @@ export function ConversationSurface({
   const [proposal, setProposal] = useState<ProposedCommand | null>(null);
   // Phase 2.6.2 (docs/overhaul/roadmap/phase-2-speed.md): the real backend milestone for the
   // in-flight turn, driving Typing's label — replaces a purely time-based guess.
+  // How the last turn ended, shown with Roam's mark for a moment after the reply settles.
+  const [outcome, setOutcome] = useState<{ kind: "arrived" | "error"; at: number } | null>(null);
+  useEffect(() => {
+    if (!outcome) return;
+    const timer = setTimeout(() => setOutcome(null), outcome.kind === "error" ? 4000 : 2200);
+    return () => clearTimeout(timer);
+  }, [outcome]);
   const [progressStage, setProgressStage] = useState<"resolve" | "retrieve" | "compose" | undefined>(undefined);
   // What RESOLVE actually planned to look up ("checking places", "getting directions"), shown
   // during "retrieve" instead of Typing's generic label — undefined falls back to that generic
@@ -415,6 +435,7 @@ export function ConversationSurface({
     if (!content || sending || !loaded || guestGate) return;
     if (speech.listening) speech.stop();
     setSending(true);
+    setOutcome(null);
     setInput("");
     const previous = messages;
     // Stable across every retry of THIS send (never a fresh crypto.randomUUID() per attempt) —
@@ -475,6 +496,7 @@ export function ConversationSurface({
       // The resolver may have persisted core trip facts or pending suggestions during this turn.
       // Refresh server-rendered workspace surfaces so “What we know” reflects the same response.
       announceWorkspaceChange("preferences");
+      setOutcome({ kind: "arrived", at: Date.now() });
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       if (err instanceof AssistantRequestError && (err.code === "guest_limit" || err.code === "guest_busy")) {
@@ -484,6 +506,7 @@ export function ConversationSurface({
         setGuestGate(true);
         return;
       }
+      if (userSaved) setOutcome({ kind: "error", at: Date.now() });
       setMessages(userSaved ? next : previous);
       const aiError = err instanceof AssistantRequestError;
       const message = userSaved
@@ -552,6 +575,8 @@ export function ConversationSurface({
 
   const showHero = loaded && messages.length === 0 && !rail;
   const waiting = sending && messages[messages.length - 1]?.content.trim() === "";
+  const lastMessage = messages[messages.length - 1];
+  const streamingReply = sending && lastMessage?.role === "assistant" && lastMessage.content.trim() !== "";
 
   const micButton = speech.supported && (
     <button
@@ -614,7 +639,8 @@ export function ConversationSurface({
 
           {showHero && (
             <div className="pb-2">
-              <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
+              <RoamMark state="idle" size={112} label="Roam" className="mx-auto block text-foreground" />
+              <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">
                 No forms. Tell me as much or as little as you like — I&rsquo;ll keep the trip details organised and open a
                 proper view when something is easier to see than to describe.
               </p>
@@ -657,15 +683,9 @@ export function ConversationSurface({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ type: "spring", stiffness: 240, damping: 26 }}
                 dir={dir}
-                // `chat-streaming` (app/globals.css) blinks a "▍" cursor after the last child of
-                // `.chat-prose` — meant to sit after the growing text while it streams in. Gated
-                // on content being non-empty: `streaming` alone is also true during the earlier
-                // RESOLVE/RETRIEVE "thinking" phase, before any tokens have arrived, when the
-                // message is still `""` — with no real text before it, the cursor rendered as a
-                // lone blinking bar floating with nothing to sit after, redundant with (and
-                // confusing alongside) the separate "Pulling the details together…" indicator
-                // already shown for that same phase.
-                className={cn("space-y-2", streaming && message.content && "chat-streaming")}
+                // While text streams in, Roam's "answering" mark below the log stands in for the
+                // old blinking "▍" cursor (`chat-streaming` in app/globals.css).
+                className="space-y-2"
               >
                 <AssistantMessage content={message.content} blocks={meta?.blocks} handlers={handlers} streaming={streaming} />
                 {!streaming && meta?.degraded && (
@@ -710,7 +730,21 @@ export function ConversationSurface({
             );
           })}
 
-          <div role="status" aria-live="polite">{waiting && <Typing stage={progressStage} label={progressLabel} />}</div>
+          <div role="status" aria-live="polite">
+            {/* One slot for Roam's mark through a whole turn: thinking/searching/planning while it
+                works (Typing), answering while text streams in, then briefly how it ended. */}
+            <AnimatePresence mode="wait" initial={false}>
+              {waiting ? (
+                <Typing key="typing" stage={progressStage} label={progressLabel} />
+              ) : streamingReply ? (
+                <motion.div key="answering" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center px-1 py-2">
+                  <RoamMark state="answering" size={32} label="Roam is replying" className="text-foreground" />
+                </motion.div>
+              ) : outcome ? (
+                <TurnOutcome key={`${outcome.kind}-${outcome.at}`} kind={outcome.kind} />
+              ) : null}
+            </AnimatePresence>
+          </div>
 
           {guest && !guestGate && !saveOpen && userTurns >= 2 && (
             <p className="text-center text-xs text-muted-foreground">
