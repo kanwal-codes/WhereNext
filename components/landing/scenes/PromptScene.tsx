@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { LandingBloom } from "@/components/landing/LandingBloom";
 import { TripPromptBox } from "@/components/landing/TripPromptBox";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -15,8 +16,8 @@ gsap.registerPlugin(ScrollTrigger);
 export function PromptScene() {
   const sectionRef = useRef<HTMLElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const bloomRef = useRef<HTMLDivElement>(null);
   const partRefs = useRef<(HTMLElement | null)[]>([]);
-
   useEffect(() => {
     const parts = partRefs.current.filter((el): el is HTMLElement => Boolean(el));
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -25,14 +26,56 @@ export function PromptScene() {
     }
     const ctx = gsap.context(() => {
       gsap.to(parts, { opacity: 1, y: 0, duration: 0.7, ease: "cubic-bezier(.22, 1, .36, 1)", stagger: 0.09, delay: 0.15 });
+
       // The first screen hands over to the story: it lifts and fades within the first fifth of a
       // screen of scroll, so it is gone before the chat bubbles rise into view.
-      gsap.to(contentRef.current, {
-        opacity: 0,
-        y: -48,
-        ease: "none",
-        scrollTrigger: { trigger: sectionRef.current, start: "top top", end: () => `+=${window.innerHeight * 0.2}`, scrub: true, invalidateOnRefresh: true },
-      });
+      // The glow lets go a little later and slower than the text, so the story below arrives on a clean page.
+      const lift = () => {
+        gsap.to(bloomRef.current, {
+          opacity: 0,
+          y: -24,
+          ease: "none",
+          scrollTrigger: { trigger: sectionRef.current, start: "top top", end: () => `+=${window.innerHeight * 0.65}`, scrub: true, invalidateOnRefresh: true },
+        });
+        gsap.to(contentRef.current, {
+          opacity: 0,
+          y: -48,
+          ease: "none",
+          scrollTrigger: { trigger: sectionRef.current, start: "top top", end: () => `+=${window.innerHeight * 0.2}`, scrub: true, invalidateOnRefresh: true },
+        });
+      };
+
+      // Beach on a wide screen: the page stays put while the tide comes in. The water (a second copy
+      // of the photograph, cut along the foam) rises over the sand and washes out what is drawn in it;
+      // the headline lifts away first, then the prompt rides up with its foam and fades. Last, the water
+      // washes out to the page colour so the next scene arrives from a clean page.
+      const tide = (kind: "wide" | "tall") => {
+        const tideEl = sectionRef.current?.querySelector<HTMLElement>(`[data-beach-tide="${kind}"]`);
+        const [headline, sub, box] = [partRefs.current[0], partRefs.current[1], partRefs.current[2]];
+        const veil = sectionRef.current?.querySelector<HTMLElement>(`[data-beach-veil="${kind}"]`);
+        if (!tideEl || !veil || !headline || !sub || !box) return lift();
+        // How far the water must climb to leave the pill and its foam above the top of the screen
+        // (the pill sits lower in the portrait picture than in the landscape one).
+        const rise = () =>
+          kind === "wide"
+            ? Math.max(window.innerWidth, window.innerHeight * 1.7778) * 0.5628 * 0.8
+            : Math.max(window.innerWidth, window.innerHeight * 0.5628) * 1.7766 * 0.64;
+        const tl = gsap.timeline({
+          scrollTrigger: { trigger: sectionRef.current, start: "top top", end: () => `+=${window.innerHeight * 1.7}`, scrub: 0.8, pin: true, anticipatePin: 1, invalidateOnRefresh: true },
+        });
+        tl.to(tideEl, { y: () => -rise(), ease: "none", duration: 1 }, 0)
+          .to(box, { y: () => -rise(), ease: "none", duration: 1 }, 0)
+          .to(box, { opacity: 0, ease: "power1.in", duration: 0.3 }, 0.45)
+          .to([headline, sub], { opacity: 0, y: -40, ease: "power1.in", duration: 0.14 }, 0.02)
+          // The water, now filling the screen, washes out to the page's own colour, and the story begins from there.
+          .to(veil, { opacity: 1, ease: "power1.inOut", duration: 0.4 }, 0.62);
+      };
+
+      // Wide landscape and portrait screens get the tide; squarish windows (and landscape phones) the plain fade.
+      const mm = gsap.matchMedia();
+      mm.add("(min-width: 768px) and (min-aspect-ratio: 7/5)", () => tide("wide"));
+      mm.add("(max-aspect-ratio: 4/5)", () => tide("tall"));
+      mm.add("(min-aspect-ratio: 81/100) and (max-aspect-ratio: 139/100), (max-width: 767px) and (min-aspect-ratio: 81/100)", () => lift());
     }, sectionRef);
     return () => ctx.revert();
   }, []);
@@ -47,17 +90,20 @@ export function PromptScene() {
       data-scene="prompt"
       className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden bg-background px-6 pt-28 pb-20 [@media(max-height:760px)]:pt-20 [@media(max-height:760px)]:pb-8"
     >
-      <div ref={contentRef} className="relative mx-auto flex w-full max-w-3xl flex-col items-center text-center">
+      <div ref={bloomRef} className="absolute inset-0">
+        <LandingBloom />
+      </div>
+      <div ref={contentRef} className="beach-content relative mx-auto flex w-full max-w-3xl flex-col items-center text-center">
         <h1
           ref={part(0)}
-          className="translate-y-4 font-display text-[clamp(2.75rem,8vw,6rem)] [@media(max-height:760px)]:text-[clamp(2.25rem,6vw,4.25rem)] leading-[0.98] tracking-[-0.04em] text-balance opacity-0"
+          className="beach-h1 font-display text-[clamp(2.5rem,6.6vw,5.25rem)] [@media(max-height:760px)]:text-[clamp(2.1rem,5.4vw,3.9rem)] leading-[0.98] tracking-[-0.04em] text-balance opacity-0"
         >
           Let&rsquo;s plan something.
         </h1>
-        <p ref={part(1)} className="mt-5 [@media(max-height:760px)]:mt-3 max-w-xl translate-y-4 text-base leading-relaxed text-balance text-muted-foreground opacity-0 sm:text-lg">
+        <p ref={part(1)} className="beach-sub mt-5 [@media(max-height:760px)]:mt-3 max-w-xl text-base leading-relaxed text-balance opacity-0 sm:text-lg text-muted-foreground">
           Dates, budget, who&rsquo;s coming. Share the rough idea and watch the trip take shape.
         </p>
-        <div ref={part(2)} className="mt-9 [@media(max-height:760px)]:mt-5 w-full translate-y-4 opacity-0">
+        <div ref={part(2)} className="beach-box mt-9 [@media(max-height:760px)]:mt-5 w-full opacity-0">
           <TripPromptBox />
         </div>
       </div>
