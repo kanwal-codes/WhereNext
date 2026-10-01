@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { RoamMark } from "@/features/roam/ui/RoamMark";
 import { advanceNarrative, fadeIn, progressBetween, smoothStep, trackEntrance, trackRevisit } from "@/components/landing/choreography";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -146,7 +147,7 @@ export function PlansChangeScene() {
 
   return (
     <div ref={sectionRef} data-scene="plans-change" className="relative min-h-[100dvh] overflow-hidden bg-background">
-      <div className="mx-auto flex h-full max-w-md flex-col items-center justify-center gap-4 px-6 [@media(max-height:760px)]:gap-3 [@media(max-height:760px)]:pb-16 md:[@media(min-height:800px)]:max-w-xl md:[@media(min-height:800px)]:gap-5">
+      <div aria-hidden="true" className="mx-auto flex h-full min-h-[100dvh] max-w-md flex-col items-center justify-center gap-4 px-6 [@media(max-height:760px)]:gap-3 [@media(max-height:760px)]:pb-16 md:[@media(min-height:800px)]:max-w-xl md:[@media(min-height:800px)]:gap-5">
         {MESSAGES.map((msg, i) => (
           <div
             key={i}
@@ -156,7 +157,7 @@ export function PlansChangeScene() {
             className={`flex max-w-[78%] items-end gap-2 opacity-0 ${msg.side === "right" ? "flex-row-reverse self-end" : "self-start"}`}
           >
             {msg.side === "left" && (
-              <span className="grid size-7 shrink-0 place-items-center rounded-full border-2 border-background bg-primary text-[11px] font-semibold text-primary-foreground">
+              <span className="grid size-7 shrink-0 place-items-center rounded-full border-2 border-background bg-primary text-xs font-semibold text-primary-foreground">
                 {msg.initial}
               </span>
             )}
@@ -182,16 +183,14 @@ export function PlansChangeScene() {
             floating card. The itinerary actually changing is its own beat
             underneath the conversation, not folded into the reply itself. */}
         <div ref={roamCardRef} className="flex max-w-[85%] items-end gap-2 self-start opacity-0">
-          <span className="grid size-7 shrink-0 place-items-center rounded-full border-2 border-background bg-coral text-xs font-semibold text-white">
-            ✦
-          </span>
+          <RoamMark state="settled" size={32} animated={false} className="mb-2 text-foreground" />
           <div className="rounded-2xl rounded-bl-md border border-border bg-surface px-4 py-3 text-sm shadow-soft md:[@media(min-height:800px)]:px-5 md:[@media(min-height:800px)]:py-3.5 md:[@media(min-height:800px)]:text-base">
             <p className="leading-relaxed">
               I found another workshop 8 minutes away.
               <br />
               Same price. Starts at 2:30.
             </p>
-            <button type="button" className="btn-primary-sm mt-3" onClick={() => advanceNarrative(FIX_DISTANCE)}>
+            <button type="button" tabIndex={-1} className="btn-primary-sm hit-44 mt-3" onClick={() => advanceNarrative(FIX_DISTANCE)}>
               Fix Saturday
             </button>
           </div>
@@ -204,9 +203,9 @@ export function PlansChangeScene() {
               <span className="font-display text-sm md:[@media(min-height:800px)]:text-base">Pottery Workshop</span>
             </div>
             <div ref={newCardRef} className="absolute inset-0 grid grid-cols-[3.5rem_1fr_auto] items-center gap-3 rounded-xl border border-coral/30 bg-coral-soft px-4 py-3 opacity-0 md:[@media(min-height:800px)]:px-5 md:[@media(min-height:800px)]:py-4">
-              <span className="text-xs tabular-nums text-coral">2:30</span>
+              <span className="text-xs tabular-nums text-coral-ink">2:30</span>
               <span className="font-display text-sm md:[@media(min-height:800px)]:text-base">Pottery Workshop (alt.)</span>
-              <span className="text-xs text-coral">8 min away</span>
+              <span className="text-xs text-coral-ink">8 min away</span>
             </div>
           </div>
 

@@ -183,7 +183,7 @@ export function DiscoverScene() {
         className="mx-auto flex h-[100dvh] max-w-7xl flex-col justify-start gap-4 px-5 pt-[4.75rem] pb-3 md:justify-center md:gap-10 md:px-12 md:pt-24 md:pb-10"
       >
         <div ref={headerRef} className="text-center opacity-0">
-          <p className="text-xs font-semibold tracking-[0.13em] text-coral uppercase">Saturday · Oct 17</p>
+          <p className="text-xs font-semibold tracking-[0.13em] text-coral-ink uppercase">Saturday · Oct 17</p>
           <h2 className="mt-1.5 font-display text-[clamp(1.75rem,5vw,3.75rem)] leading-[1.02] tracking-[-0.03em]">What are we doing Saturday?</h2>
         </div>
 
@@ -206,16 +206,17 @@ export function DiscoverScene() {
                     width={640}
                     height={480}
                     loading="lazy"
+                    decoding="async"
                     className="h-full w-full object-cover transition-transform duration-700 ease-out md:group-hover:scale-105"
                     style={{ objectPosition: place.focus }}
                   />
-                  <span className="absolute top-3 left-3 hidden rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold tracking-[0.12em] text-foreground uppercase backdrop-blur md:inline-flex">
+                  <span className="absolute top-3 left-3 hidden rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold tracking-[0.12em] text-foreground uppercase backdrop-blur md:inline-flex">
                     {place.category}
                   </span>
                 </div>
 
                 <div className="flex min-w-0 flex-1 flex-col gap-1 p-3 md:gap-2 md:p-4">
-                  <p className="text-[10px] font-semibold tracking-[0.12em] text-coral uppercase md:hidden">{place.category}</p>
+                  <p className="text-xs font-semibold tracking-[0.12em] text-coral-ink uppercase md:hidden">{place.category}</p>
                   <h3 className="font-display text-[15px] leading-tight md:text-lg">{place.title}</h3>
                   <p className="hidden text-xs text-muted-foreground md:block">{place.meta}</p>
 
@@ -249,7 +250,7 @@ export function DiscoverScene() {
                         {place.hearts.map((initial) => (
                           <span
                             key={initial}
-                            className="-ml-1.5 grid size-5 place-items-center rounded-full border-2 border-surface bg-primary text-[9px] font-semibold text-primary-foreground first:ml-0 md:size-6 md:text-[10px]"
+                            className="-ml-1.5 grid size-6 place-items-center rounded-full border-2 border-surface bg-primary text-xs font-semibold text-primary-foreground first:ml-0"
                           >
                             {initial}
                           </span>
@@ -259,7 +260,7 @@ export function DiscoverScene() {
                       <span className={last ? "font-medium text-foreground" : "text-muted-foreground"}>{place.hearts.length} of 4</span>
                     </div>
                     {last && (
-                      <div ref={addedRef} className="flex items-center gap-1.5 font-medium text-coral opacity-0 [grid-area:1/1]">
+                      <div ref={addedRef} className="flex items-center gap-1.5 font-medium text-coral-ink opacity-0 [grid-area:1/1]">
                         <Check className="size-3.5 shrink-0" strokeWidth={3} />
                         Added · Sat 2:00 PM
                       </div>

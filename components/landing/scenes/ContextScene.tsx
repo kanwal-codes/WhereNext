@@ -103,27 +103,28 @@ export function ContextScene() {
       >
         <div
           ref={briefRef}
+          aria-hidden="true"
           className="relative mx-auto w-full max-w-md overflow-hidden rounded-[1.75rem] border border-border bg-surface p-5 opacity-0 shadow-lift md:mx-0 md:max-w-lg md:p-7"
         >
           <div className="flex items-start justify-between border-b border-border pb-4">
             <div>
-              <p className="text-[11px] font-semibold tracking-[0.18em] text-coral uppercase">Trip brief</p>
-              <h2 className="mt-1 font-display text-3xl tracking-[-0.03em]">Montreal</h2>
+              <p className="text-xs font-semibold tracking-[0.18em] text-coral-ink uppercase">Trip brief</p>
+              <p className="mt-1 font-display text-3xl tracking-[-0.03em]">Montreal</p>
               <p className="mt-1 text-sm text-muted-foreground">Oct 16-19 · Four friends</p>
             </div>
-            <span className="rounded-full bg-coral-soft px-3 py-1 text-xs font-medium text-coral">Ready to shape</span>
+            <span className="rounded-full bg-coral-soft px-3 py-1 text-xs font-medium text-coral-ink">Ready to shape</span>
           </div>
 
           <div className="relative mt-5 overflow-hidden rounded-2xl border border-coral/25 bg-coral-soft/50">
             <div className="h-24 bg-cover bg-center md:h-36" style={{ backgroundImage: `url(${CONCERT_PHOTO})` }} />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
             <div className="absolute inset-x-4 bottom-3 flex items-center gap-2 text-white">
               <span className="grid size-7 place-items-center rounded-full bg-white/20 backdrop-blur">
                 <TicketCheck className="size-4" strokeWidth={1.8} />
               </span>
               <div>
                 <p className="text-xs font-medium">Bad Bunny · Oct 16</p>
-                <p className="text-xs text-white/75">The trip anchor</p>
+                <p className="text-xs text-white/85">The trip anchor</p>
               </div>
             </div>
           </div>
@@ -144,7 +145,7 @@ export function ContextScene() {
         </div>
 
         <div className="relative z-10 text-center md:text-left">
-          <p ref={eyebrowRef} className="mb-3 text-xs font-semibold tracking-[0.16em] text-coral uppercase opacity-0">One shared picture</p>
+          <p ref={eyebrowRef} className="mb-3 text-xs font-semibold tracking-[0.16em] text-coral-ink uppercase opacity-0">One shared picture</p>
           <h2 ref={headlineRef} className="font-display text-[clamp(2.25rem,6vw,6.5rem)] leading-[0.92] tracking-[-0.04em] opacity-0">
             Roam gets the whole trip.
           </h2>

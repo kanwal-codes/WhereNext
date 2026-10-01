@@ -149,7 +149,7 @@ export function CinematicTravelScene() {
 
   return (
     <div ref={sectionRef} data-scene="cinematic-travel" className="relative min-h-[100dvh] overflow-hidden bg-background">
-      <div ref={backdropRef} className="pointer-events-none absolute inset-0 bg-[#171717]" />
+      <div ref={backdropRef} className="pointer-events-none absolute inset-0 bg-[var(--surface-dark)]" />
 
       <div ref={photoWrapRef} className="pointer-events-none absolute inset-0">
         {MOMENTS.map((moment, i) => (
@@ -162,13 +162,13 @@ export function CinematicTravelScene() {
             style={{ backgroundImage: `url(${moment.photo})` }}
           />
         ))}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent" />
       </div>
 
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <div ref={dayHeadlineRef} className="text-center text-white opacity-0">
           <p className="font-display text-[clamp(2.75rem,6.5vw,6.5rem)] leading-none tracking-[-0.02em]">FRIDAY</p>
-          <p className="mt-2 text-sm tracking-[0.2em] text-white/70 uppercase">Oct 16</p>
+          <p className="mt-2 text-sm tracking-[0.2em] text-white/85 uppercase">Oct 16</p>
         </div>
       </div>
 
@@ -180,10 +180,10 @@ export function CinematicTravelScene() {
             }}
             className="opacity-0"
           >
-            <p className="text-xs tracking-[0.2em] text-white/70 uppercase">
+            <p className="text-xs tracking-[0.2em] text-white/90 uppercase [text-shadow:0_1px_10px_rgb(0_0_0/0.5)]">
               {moment.time} · {moment.location}
             </p>
-            <p className="mt-2 font-display text-[clamp(1.5rem,3.5vw,2.25rem)] tracking-[-0.01em]">{moment.message}</p>
+            <p className="mt-2 font-display text-[clamp(1.5rem,3.5vw,2.25rem)] tracking-[-0.01em] [text-shadow:0_1px_18px_rgb(0_0_0/0.45)]">{moment.message}</p>
           </div>
           <div
             ref={(el) => {
@@ -192,7 +192,7 @@ export function CinematicTravelScene() {
             className="mx-auto mt-5 w-fit rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 opacity-0 backdrop-blur-sm"
           >
             <p className="text-sm font-medium">{moment.card.label}</p>
-            <p className="text-xs text-white/70">{moment.card.sub}</p>
+            <p className="text-xs text-white/85">{moment.card.sub}</p>
           </div>
         </div>
       ))}

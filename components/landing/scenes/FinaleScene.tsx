@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
+import { ArrowUp } from "lucide-react";
+import { startTrip } from "@/components/landing/choreography";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
@@ -29,8 +31,20 @@ export function FinaleScene() {
 
   return (
     <>
-      <div ref={sectionRef} data-scene="finale" className="relative grid min-h-[calc(100dvh-7rem)] place-items-center bg-background px-6 text-center">
+      <div ref={sectionRef} data-scene="finale" className="relative flex min-h-[calc(100dvh-7rem)] flex-col items-center justify-center gap-10 bg-background px-6 text-center">
         <h2 className="font-display text-[clamp(3.5rem,10vw,7rem)] leading-[0.95] tracking-[-0.03em]">so... Where Next?</h2>
+        <Link
+          href="/sign-up"
+          onClick={(event) => {
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+            event.preventDefault();
+            startTrip();
+          }}
+          className="btn-primary h-14 gap-2 px-8 text-lg"
+        >
+          Start a trip
+          <ArrowUp className="size-4" aria-hidden="true" />
+        </Link>
       </div>
 
       {/* Fixed at 7rem so the finale above can be exactly one screen minus this. */}
@@ -38,8 +52,8 @@ export function FinaleScene() {
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 border-t border-border pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <p>© 2026 Where Next</p>
           <div className="flex gap-4">
-            <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
-            <Link href="/terms" className="hover:text-foreground">Terms</Link>
+            <Link href="/privacy" className="hit-44 hover:text-foreground">Privacy</Link>
+            <Link href="/terms" className="hit-44 hover:text-foreground">Terms</Link>
           </div>
         </div>
       </footer>

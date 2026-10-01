@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Lock, PanelRight, PanelRightClose, PanelRightOpen, X } from "lucide-react";
@@ -70,12 +70,20 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   const desktop = useMediaQuery("(min-width: 1024px)");
   // A callback-ref state, not a ref: the element may not exist on the first commit (this shell can render something else first).
   const [root, setRoot] = useState<HTMLDivElement | null>(null);
+  // The shell's width only matters while a panel is open (its pixel tracks depend on it). Re-measuring
+  // on every resize otherwise re-renders this whole tree once per frame while the trip sidebar slides,
+  // one frame behind the real width: that was the jitter. Closed, the columns are pure CSS (below).
   const [width, setWidth] = useState(0);
+  const panelOpenRef = useRef(false);
+  const measureRef = useRef<() => void>(() => {});
   useEffect(() => {
     if (!root) return;
     const measure = () => setWidth(Math.round(root.getBoundingClientRect().width));
+    measureRef.current = measure;
     measure();
-    const observer = new ResizeObserver(measure);
+    const observer = new ResizeObserver(() => {
+      if (panelOpenRef.current) measure();
+    });
     observer.observe(root);
     return () => observer.disconnect();
   }, [root]);
@@ -149,26 +157,32 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   // previous one, with no extra code needed. If that internal behavior is ever removed, this
   // shell's tab switch will start leaking a stale panel across tabs.
   const { panel, openPanel } = useTripPanel();
+  const panelOpen = Boolean(panel);
+  panelOpenRef.current = panelOpen;
+  // The width is current the moment a panel opens, before it paints.
+  useLayoutEffect(() => {
+    if (panelOpen) measureRef.current();
+  }, [panelOpen]);
 
   const showContext = desktop && !panel && !contextCollapsed;
   // Collapsed context doesn't drop to 0 — it stays a slim rail (mirrors TripShell's sidebar
   // collapse) so the re-expand toggle always has somewhere to live, inside the panel it controls.
   const RAIL_WIDTH = 48;
-  // Pixel tracks, not `minmax(…, 1fr)` strings: a track list that mixes `fr` and `px` cannot be interpolated, so
-  // the old resize snapped at the end of its animation. Until the width is measured the CSS form is used as is.
+  // Length tracks, not `minmax(…, 1fr)` strings: a track list that mixes `fr` and `px` cannot be interpolated, so
+  // the old resize snapped at the end of its animation. With a panel closed the tracks are `calc(100% - Npx) Npx`,
+  // which the browser resolves and interpolates itself (no JS on every resize); with a panel open they are pixels
+  // measured from the shell. Until the width is measured the CSS form is used as is.
   const CHAT_WHEN_PANEL = 512; // 32rem
   // The panel takes what the chat leaves, up to 720 px: a detail view stretched across 940 px reads worse, and the chat gets the rest on a wide screen.
   const PANEL_MAX = 720;
   const sidePx = panel ? Math.min(PANEL_MAX, Math.max(0, width - Math.min(width, CHAT_WHEN_PANEL))) : showContext ? 340 : RAIL_WIDTH;
   const columns = !desktop
     ? "minmax(0, 1fr) 0px"
-    : width > 0
-      ? `${Math.max(0, width - sidePx)}px ${sidePx}px`
-      : panel
-        ? "minmax(420px, 32rem) minmax(0, 1fr)"
-        : showContext
-          ? "minmax(0, 1fr) 340px"
-          : `minmax(0, 1fr) ${RAIL_WIDTH}px`;
+    : !panel
+      ? `calc(100% - ${sidePx}px) ${sidePx}px`
+      : width > 0
+        ? `${Math.max(0, width - sidePx)}px ${sidePx}px`
+        : "minmax(420px, 32rem) minmax(0, 1fr)";
   // Animate only when the layout mode changes (panel opens or closes, rail expands); a window resize follows instantly.
   const layoutMode = panel ? "panel" : showContext ? "context" : "rail";
   const lastLayoutMode = useRef(layoutMode);

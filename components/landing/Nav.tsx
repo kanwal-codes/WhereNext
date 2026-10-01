@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
 import { motionTokens } from "@/components/motion-primitives";
+import { startTrip } from "@/components/landing/choreography";
 
 const LINKS = [{ href: "/sign-in", label: "Sign in" }] as const;
 
@@ -33,15 +34,11 @@ export function Nav() {
         compressed ? "h-16 border-b border-border bg-background/82 backdrop-blur-md" : "h-20 border-b border-transparent bg-transparent"
       }`}
     >
-      <Link href="/" aria-label="Where Next home">
-        <motion.span
-          className="inline-block"
-          initial={reduce ? undefined : { opacity: 0, y: -6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
-        >
+      <Link href="/" aria-label="Where Next home" className="hit-44 inline-flex">
+        {/* Painted by the server, not faded in by JS: this is the page's first large paint (LCP). */}
+        <span className="inline-block">
           <BrandMark variant="text" className="transition-[font-size] duration-[350ms]" textClassName={compressed ? "text-lg" : "text-xl"} />
-        </motion.span>
+        </span>
       </Link>
 
       <nav aria-label="Primary" className="flex items-center gap-3 md:gap-8">
@@ -49,14 +46,22 @@ export function Nav() {
           <Link
             key={link.href}
             href={link.href}
-            className="text-sm text-foreground"
+            className="hit-44 text-sm text-foreground"
           >
             <motion.span className="inline-block" whileHover={reduce ? undefined : { y: -2 }} transition={motionTokens.fast}>
               {link.label}
             </motion.span>
           </Link>
         ))}
-        <Link href="/sign-up" className="btn-primary px-3 text-sm sm:px-4">
+        <Link
+          href="/sign-up"
+          onClick={(event) => {
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+            event.preventDefault();
+            startTrip();
+          }}
+          className="btn-primary hit-44 px-3 text-sm sm:px-4"
+        >
           <motion.span className="inline-flex items-center gap-1.5" whileHover="hover" initial="rest">
             Start a trip
             <motion.span

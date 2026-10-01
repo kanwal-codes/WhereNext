@@ -93,10 +93,11 @@ export function TripPromptBox() {
     <div className="w-full">
       <form
         onSubmit={start}
-        className="w-full rounded-[2rem] border border-border bg-surface p-4 shadow-lift transition-shadow focus-within:ring-2 focus-within:ring-coral/30"
+        className="w-full rounded-[2rem] border border-border bg-surface p-4 shadow-lift transition-shadow focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-coral"
       >
         <textarea
           ref={textareaRef}
+          id="trip-prompt"
           aria-label="Describe the trip you want"
           rows={3}
           maxLength={600}
@@ -114,10 +115,10 @@ export function TripPromptBox() {
             }
           }}
           placeholder={!prompt && !focused ? typed : "Tell Roam about your trip…"}
-          className="block min-h-[7rem] [@media(max-height:760px)]:min-h-[5rem] w-full resize-none bg-transparent px-3 pt-2 text-left text-base leading-relaxed md:text-lg outline-none placeholder:text-muted-foreground/70"
+          className="block min-h-[7rem] [@media(max-height:760px)]:min-h-[5rem] w-full resize-none bg-transparent px-3 pt-2 text-left text-base leading-relaxed md:text-lg outline-none placeholder:text-muted-foreground"
         />
         <div className="mt-1 flex items-center justify-end gap-3 px-2 pb-1">
-          <button type="submit" disabled={!prompt.trim() || busy} className="btn-primary shrink-0 disabled:opacity-50">
+          <button type="submit" disabled={!prompt.trim() || busy} className="btn-primary hit-44 shrink-0 disabled:opacity-50">
             {busy ? <Loader2 className="size-4 animate-spin" /> : null}
             Start planning
             {!busy && <ArrowRight className="size-4" />}
@@ -136,7 +137,7 @@ export function TripPromptBox() {
                 setPrompt(starter.prompt);
                 textareaRef.current?.focus();
               }}
-              className="rounded-full border border-border bg-surface/80 px-4 py-2 text-sm font-medium shadow-soft transition-[background-color,transform] hover:-translate-y-px hover:bg-surface active:translate-y-0"
+              className="hit-44 rounded-full border border-border bg-surface/80 px-4 py-2 text-sm font-medium shadow-soft transition-[background-color,transform] hover:-translate-y-px hover:bg-surface active:translate-y-0"
             >
               {starter.label}
             </button>

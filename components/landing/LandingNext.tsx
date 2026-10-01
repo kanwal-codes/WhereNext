@@ -22,7 +22,7 @@ export function LandingNext() {
       <div className="landing-cinematic-scope min-h-screen touch-manipulation overflow-x-hidden bg-background text-foreground">
         <a
           href="#main-content"
-          className="fixed top-2 left-2 z-[70] -translate-y-16 rounded bg-primary px-3 py-2 text-sm text-primary-foreground focus-visible:translate-y-0"
+          className="hit-44 fixed top-2 left-2 z-[70] -translate-y-16 rounded bg-primary px-3 py-2.5 text-sm text-primary-foreground focus-visible:translate-y-0"
         >
           Skip to content
         </a>

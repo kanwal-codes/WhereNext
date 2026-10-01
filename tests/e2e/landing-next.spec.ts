@@ -50,6 +50,16 @@ test.describe("landing page overhaul", () => {
     expect(errors).toEqual([]);
   });
 
+  test("every Start a trip leads back to the prompt box, from anywhere on the page", async ({ page }) => {
+    await page.goto("/landing-next");
+    await pinOf(page, "chaos");
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.waitForTimeout(600);
+    await page.getByRole("link", { name: "Start a trip" }).last().click();
+    await expect(page.getByRole("textbox", { name: "Describe the trip you want" })).toBeFocused();
+    expect(await page.evaluate(() => window.scrollY)).toBeLessThan(20);
+  });
+
   test("a refresh mid-page restarts the story from the top", async ({ page }) => {
     await page.goto("/landing-next");
     const { top, distance } = await pinOf(page, "plans-change");
@@ -219,7 +229,8 @@ test.describe("landing page overhaul", () => {
     });
     await page.goto("/landing-next");
 
-    await page.getByRole("button", { name: "Fix Saturday" }).dispatchEvent("click");
+    // The demo thread is aria-hidden (screen readers get the headings, not the chat fragments), so find the button by text.
+    await page.locator("button", { hasText: "Fix Saturday" }).dispatchEvent("click");
 
     const advances = await page.evaluate(
       () => (window as typeof window & { __narrativeAdvances?: number[] }).__narrativeAdvances,
@@ -273,7 +284,7 @@ test.describe("landing page overhaul", () => {
 
     await expect.poll(() => opacityOf(plansChange.getByText("Roam keeps up."))).toBeGreaterThan(0.95);
     await expect.poll(() => opacityOf(plansChange.getByText("Pottery Workshop (alt.)"))).toBeGreaterThan(0.95);
-    await expect(plansChange.getByRole("button", { name: "Fix Saturday" })).toBeAttached();
+    await expect(plansChange.locator("button", { hasText: "Fix Saturday" })).toBeAttached();
   });
 
   test("bookings scene presents a static confirmation cluster around the itinerary", async ({ page }) => {
