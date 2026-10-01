@@ -35,24 +35,48 @@ export function PromptScene() {
     }
     const ctx = gsap.context(() => {
       gsap.to(parts, { opacity: 1, y: 0, duration: 0.7, ease: "cubic-bezier(.22, 1, .36, 1)", stagger: 0.09, delay: 0.15 });
+
       // The first screen hands over to the story: it lifts and fades within the first fifth of a
       // screen of scroll, so it is gone before the chat bubbles rise into view.
       // The glow lets go a little later and slower than the text, so the story below arrives on a clean page.
-      gsap.to(bloomRef.current, {
-        opacity: 0,
-        y: -24,
-        ease: "none",
-        scrollTrigger: { trigger: sectionRef.current, start: "top top", end: () => `+=${window.innerHeight * 0.65}`, scrub: true, invalidateOnRefresh: true },
-      });
-      gsap.to(contentRef.current, {
-        opacity: 0,
-        y: -48,
-        ease: "none",
-        scrollTrigger: { trigger: sectionRef.current, start: "top top", end: () => `+=${window.innerHeight * 0.2}`, scrub: true, invalidateOnRefresh: true },
-      });
+      const lift = () => {
+        gsap.to(bloomRef.current, {
+          opacity: 0,
+          y: -24,
+          ease: "none",
+          scrollTrigger: { trigger: sectionRef.current, start: "top top", end: () => `+=${window.innerHeight * 0.65}`, scrub: true, invalidateOnRefresh: true },
+        });
+        gsap.to(contentRef.current, {
+          opacity: 0,
+          y: -48,
+          ease: "none",
+          scrollTrigger: { trigger: sectionRef.current, start: "top top", end: () => `+=${window.innerHeight * 0.2}`, scrub: true, invalidateOnRefresh: true },
+        });
+      };
+
+      // Beach on a wide screen: the page stays put while the tide comes in. The water (a second copy
+      // of the photograph, cut along the foam) rises over the sand and washes out what is drawn in it;
+      // the prompt rides up with its foam, then fades once the water reaches the headline.
+      const tide = () => {
+        const tideEl = sectionRef.current?.querySelector<HTMLElement>("[data-beach-tide]");
+        const [headline, sub, box] = [partRefs.current[0], partRefs.current[1], partRefs.current[2]];
+        if (!tideEl || !headline || !sub || !box) return lift();
+        const rise = () => Math.max(window.innerWidth, window.innerHeight * 1.7778) * 0.5628 * 0.8;
+        const tl = gsap.timeline({
+          scrollTrigger: { trigger: sectionRef.current, start: "top top", end: () => `+=${window.innerHeight * 1.7}`, scrub: 0.8, pin: true, anticipatePin: 1, invalidateOnRefresh: true },
+        });
+        tl.to(tideEl, { y: () => -rise(), ease: "none", duration: 1 }, 0)
+          .to(box, { y: () => -rise(), ease: "none", duration: 1 }, 0)
+          .to(box, { opacity: 0, ease: "power1.in", duration: 0.3 }, 0.45)
+          .to([headline, sub], { opacity: 0, y: -30, ease: "power1.in", duration: 0.3 }, 0.35);
+      };
+
+      const mm = gsap.matchMedia();
+      mm.add("(min-width: 768px) and (min-aspect-ratio: 7/5)", () => (beach ? tide() : lift()));
+      mm.add("(max-width: 767px), (max-aspect-ratio: 7/5)", () => lift());
     }, sectionRef);
     return () => ctx.revert();
-  }, []);
+  }, [beach]);
 
   const part = (index: number) => (el: HTMLElement | null) => {
     partRefs.current[index] = el;
@@ -70,14 +94,14 @@ export function PromptScene() {
       <div ref={contentRef} className={`relative mx-auto flex w-full max-w-3xl flex-col items-center text-center ${beach ? "beach-content" : ""}`}>
         <h1
           ref={part(0)}
-          className={`${beach ? "beach-h1 " : ""}translate-y-4 font-display text-[clamp(2.5rem,6.6vw,5.25rem)] [@media(max-height:760px)]:text-[clamp(2.1rem,5.4vw,3.9rem)] leading-[0.98] tracking-[-0.04em] text-balance opacity-0`}
+          className={`${beach ? "beach-h1 " : "translate-y-4 "}font-display text-[clamp(2.5rem,6.6vw,5.25rem)] [@media(max-height:760px)]:text-[clamp(2.1rem,5.4vw,3.9rem)] leading-[0.98] tracking-[-0.04em] text-balance opacity-0`}
         >
           Let&rsquo;s plan something.
         </h1>
-        <p ref={part(1)} className={`${beach ? "beach-sub " : ""}mt-5 [@media(max-height:760px)]:mt-3 max-w-xl translate-y-4 text-base leading-relaxed text-balance opacity-0 sm:text-lg ${variant === "photo" ? "font-medium text-foreground/80 [text-shadow:0_1px_14px_rgba(255,255,255,0.65)]" : "text-muted-foreground"}`}>
+        <p ref={part(1)} className={`${beach ? "beach-sub " : "translate-y-4 "}mt-5 [@media(max-height:760px)]:mt-3 max-w-xl text-base leading-relaxed text-balance opacity-0 sm:text-lg ${variant === "photo" ? "font-medium text-foreground/80 [text-shadow:0_1px_14px_rgba(255,255,255,0.65)]" : "text-muted-foreground"}`}>
           Dates, budget, who&rsquo;s coming. Share the rough idea and watch the trip take shape.
         </p>
-        <div ref={part(2)} className={`${beach ? "beach-box " : ""}mt-9 [@media(max-height:760px)]:mt-5 w-full translate-y-4 opacity-0`}>
+        <div ref={part(2)} className={`${beach ? "beach-box " : "translate-y-4 "}mt-9 [@media(max-height:760px)]:mt-5 w-full opacity-0`}>
           <TripPromptBox onTyping={setTypedLength} foam={variant === "shore" || variant === "rock" || variant === "photo" || beach} foamSides={variant !== "photo" && !beach} beach={beach} />
         </div>
       </div>

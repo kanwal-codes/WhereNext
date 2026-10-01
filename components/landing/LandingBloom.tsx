@@ -1,3 +1,4 @@
+import { BEACH_WATER_CLIP } from "@/components/landing/beachClip";
 import { BedDouble, CalendarDays, Plane, Utensils, type LucideIcon } from "lucide-react";
 
 export type BloomVariant = "dusk" | "sunrise" | "horizon" | "route" | "trip" | "shore" | "rock" | "photo" | "beach";
@@ -39,8 +40,22 @@ export function LandingBloom({ variant = "beach", progress = 0, className }: { v
           <ShoreBloom />
         </div>
         <div aria-hidden className="beach-bg beach-wide absolute inset-0 overflow-hidden">
+          {/* The whole photograph, still: the sand and everything drawn on it. */}
           {/* eslint-disable-next-line @next/next/no-img-element -- decorative backdrop laid out by CSS */}
-          <img src="/landing/beach.webp" alt="" fetchPriority="high" decoding="async" className="beach-img" />
+          <img src="/landing/beach.webp" alt="" fetchPriority="high" decoding="async" className="beach-stage beach-base" />
+          {/* The water: a second copy of the photograph cut along the foam crest. On scroll it rises over the sand (and whatever is drawn in it). */}
+          <div className="beach-stage beach-tide-wrap" data-beach-tide>
+            <div className="beach-tide">
+              {/* eslint-disable-next-line @next/next/no-img-element -- decorative backdrop laid out by CSS */}
+              <img src="/landing/beach.webp" alt="" decoding="async" className="beach-water" style={{ clipPath: BEACH_WATER_CLIP }} />
+              {/* Open water continues below the photograph's edge: its bottom strip, mirrored and repeated (the foam never reaches it, so the mirroring does not show). */}
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} className="beach-water-ext" data-flip={i % 2 === 0 ? "y" : undefined} style={{ top: `calc(${100 + i * 20}% - ${i + 1}px)` }} />
+              ))}
+              {/* ...and the farther it gets from the shore the calmer and deeper it looks. */}
+              <div className="beach-water-deep" />
+            </div>
+          </div>
         </div>
       </>
     );

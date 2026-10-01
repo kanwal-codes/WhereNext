@@ -1075,12 +1075,25 @@
  * the photo's own, out of 1672 x 941.
  */
 @media (min-width: 768px) and (min-aspect-ratio: 7/5) {
-  .beach-img {
+  .beach-stage {
     position: absolute; max-width: none; height: auto;
     width: max(100vw, 177.78vh);
     left: calc(50% - max(100vw, 177.78vh) / 2);
     top: calc(50% - max(100vw, 177.78vh) * 0.2814);
   }
+  .beach-tide-wrap { height: calc(max(100vw, 177.78vh) * 0.5628); pointer-events: none; will-change: transform; }
+  .beach-tide { position: relative; width: 100%; height: 100%; animation: beach-breathe 7s ease-in-out infinite; filter: drop-shadow(0 -3px 5px rgb(255 255 255 / 0.5)); }
+  .beach-water { position: absolute; left: 0; top: 0; width: 100%; height: auto; max-width: none; }
+  .beach-water-ext {
+    position: absolute; left: 0; width: 100%; height: 20%;
+    background: url(/landing/beach.webp) 0 100% / 100% auto no-repeat;
+  }
+  .beach-water-ext[data-flip="y"] { transform: scaleY(-1); }
+  .beach-water-deep {
+    position: absolute; left: 0; width: 100%; top: 96%; height: 120%;
+    background: linear-gradient(to bottom, transparent, rgb(47 175 184 / 0.55) 22%, rgb(30 150 178 / 0.92) 60%);
+  }
+  .beach-box { animation: beach-breathe 7s ease-in-out infinite; }
   .beach-content {
     position: absolute; display: block; max-width: none; padding: 0;
     width: max(100vw, 177.78vh);
@@ -1119,3 +1132,5 @@
   .beach-narrow { display: none; }
   .beach-wide { display: block; }
 }
+@keyframes beach-breathe { 0%, 100% { translate: 0 0; } 50% { translate: 0 -5px; } }
+@media (prefers-reduced-motion: reduce) { .beach-tide, .beach-box { animation: none; } }
