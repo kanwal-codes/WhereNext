@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { ArrowRight, Loader2, MapPin } from "lucide-react";
@@ -44,7 +44,7 @@ const STARTERS = [
  * creates a real draft trip (under a guest session — see /api/guest/start) and opens the normal
  * trip chat with this sentence already sent; saving the trip later just upgrades the same user.
  */
-export function TripPromptBox({ onTyping, foam = false, foamSides = true, beach = false }: { onTyping?: (length: number) => void; foam?: boolean; foamSides?: boolean; beach?: boolean }) {
+export function TripPromptBox() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [prompt, setPrompt] = useState("");
   const [focused, setFocused] = useState(false);
@@ -54,8 +54,6 @@ export function TripPromptBox({ onTyping, foam = false, foamSides = true, beach 
   const attemptRef = useRef(crypto.randomUUID());
   const { container: turnstile, getToken } = useTurnstile();
   const typed = useTypingPlaceholder(EXAMPLES, !prompt && !focused);
-  // Lets the scene behind the box react to how much has been written.
-  useEffect(() => onTyping?.(prompt.trim().length), [prompt, onTyping]);
 
   async function start(event?: FormEvent) {
     event?.preventDefault();
@@ -86,9 +84,9 @@ export function TripPromptBox({ onTyping, foam = false, foamSides = true, beach 
       window.sessionStorage.setItem(`wn:first-message:${body.tripId}`, text);
       // Lets the chat page tell this hand-off from a reload or a return visit (a guest chat is disposable).
       window.sessionStorage.setItem(GUEST_LIVE_KEY, body.tripId);
-      // On the shore look, a wave washes over the page on the way in to the chat.
+      // A wave washes over the page on the way in to the chat.
       const go = () => window.location.assign(`/trips/${body.tripId}/chat`);
-      if (foam && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
         setWashing(true);
         window.setTimeout(go, 850);
       } else go();
@@ -101,51 +99,47 @@ export function TripPromptBox({ onTyping, foam = false, foamSides = true, beach 
   return (
     <div className="w-full">
       <div className="relative">
-      {foam && <FoamEdge sides={foamSides} />}
-      <form
-        onSubmit={start}
-        className={`relative z-10 w-full rounded-[2rem] p-4 transition-shadow ${beach ? "beach-form" : ""} ${
-          foam
-            ? "bg-transparent"
-            : "border border-white/70 bg-white/70 shadow-[0_40px_90px_-30px_rgba(70,50,190,0.45),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-xl focus-within:ring-2 focus-within:ring-white/70 dark:border-white/15 dark:bg-white/[0.07] dark:shadow-[0_40px_90px_-30px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.12)] dark:focus-within:ring-white/25"
-        }`}
-      >
-        <MapPin aria-hidden className="beach-pin hidden" />
-        <textarea
-          ref={textareaRef}
-          aria-label="Describe the trip you want"
-          rows={3}
-          maxLength={600}
-          value={prompt}
-          onChange={(event) => {
-            setPrompt(event.target.value);
-            if (problem) setProblem(null);
-          }}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) {
-              event.preventDefault();
-              void start();
-            }
-          }}
-          placeholder={!prompt && !focused ? typed : "Tell Roam about your trip…"}
-          className="block min-h-[7rem] [@media(max-height:760px)]:min-h-[5rem] w-full resize-none bg-transparent px-3 pt-2 text-left text-base leading-relaxed md:text-lg outline-none placeholder:text-muted-foreground/70"
-        />
-        <div className="mt-1 flex items-center justify-end gap-3 px-2 pb-1">
-          <button type="submit" disabled={!prompt.trim() || busy} className="btn-primary shrink-0 disabled:opacity-80">
-            {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-            Start planning
-            {!busy && <ArrowRight className="size-4" />}
-          </button>
-        </div>
-      </form>
+        <FoamEdge />
+        <form
+          onSubmit={start}
+          className="beach-form relative z-10 w-full rounded-[2rem] bg-transparent p-4 transition-shadow"
+        >
+          <MapPin aria-hidden className="beach-pin hidden" />
+          <textarea
+            ref={textareaRef}
+            aria-label="Describe the trip you want"
+            rows={3}
+            maxLength={600}
+            value={prompt}
+            onChange={(event) => {
+              setPrompt(event.target.value);
+              if (problem) setProblem(null);
+            }}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) {
+                event.preventDefault();
+                void start();
+              }
+            }}
+            placeholder={!prompt && !focused ? typed : "Tell Roam about your trip…"}
+            className="block min-h-[7rem] [@media(max-height:760px)]:min-h-[5rem] w-full resize-none bg-transparent px-3 pt-2 text-left text-base leading-relaxed md:text-lg outline-none placeholder:text-muted-foreground/70"
+          />
+          <div className="mt-1 flex items-center justify-end gap-3 px-2 pb-1">
+            <button type="submit" disabled={!prompt.trim() || busy} className="btn-primary shrink-0 disabled:opacity-80">
+              {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+              Start planning
+              {!busy && <ArrowRight className="size-4" />}
+            </button>
+          </div>
+        </form>
       </div>
       {washing && <WaveWash />}
       <div ref={turnstile} />
 
       {!problem && (
-        <div className={`mt-5 [@media(max-height:760px)]:mt-3 flex flex-wrap justify-center gap-2 ${beach ? "beach-chips" : ""}`}>
+        <div className={`mt-5 [@media(max-height:760px)]:mt-3 flex flex-wrap justify-center gap-2 beach-chips`}>
           {STARTERS.map((starter) => (
             <button
               key={starter.label}
@@ -210,7 +204,7 @@ const SIDE = Array.from({ length: 14 }, (_, i) => {
  * filter (blur, then a hard alpha cut) so they melt into one lacy shape, like foam where a wave
  * has just reached the sand. The bubbles slowly swell and settle in step with the tide behind.
  */
-function FoamEdge({ sides }: { sides: boolean }) {
+function FoamEdge() {
   return (
     <div aria-hidden className="landing-foam pointer-events-none absolute inset-0 z-0">
       <svg width="0" height="0" className="absolute">
@@ -229,7 +223,7 @@ function FoamEdge({ sides }: { sides: boolean }) {
               style={{ left: `${b.left}%`, bottom: `${-b.size * b.drop}px`, width: b.size, height: b.size, marginLeft: -b.size / 2, animationDelay: `${b.delay}s`, animationDuration: `${b.dur}s` }}
             />
           ))}
-          {sides && SIDE.map((b, i) => (
+          {SIDE.map((b, i) => (
             <span key={i} className="landing-foam-bubble absolute rounded-full bg-white" style={{ left: `${b.left}%`, top: `${b.top}%`, width: b.size, height: b.size, marginLeft: -b.size / 2 }} />
           ))}
         </div>

@@ -889,39 +889,7 @@
 .wn-calendar .rdp-day_button:hover:not(:disabled) { background-color: var(--color-accent); }
 .wn-calendar .rdp-chevron { fill: var(--color-muted-foreground); }
 
-/* The glow behind the landing page's first screen (components/landing/LandingBloom.tsx). */
-.landing-bloom {
-  --bloom-coral: oklch(0.74 0.17 22);
-  --bloom-pink: oklch(0.72 0.19 350);
-  --bloom-violet: oklch(0.6 0.21 295);
-  --bloom-blue: oklch(0.58 0.19 258);
-  --bloom-deep: oklch(0.45 0.17 268);
-  isolation: isolate;
-  /* Fades out above and below so it never meets the page's background or the next scene in a hard line. */
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 34%, #000 78%, transparent 100%);
-  mask-image: linear-gradient(to bottom, transparent 0%, #000 34%, #000 78%, transparent 100%);
-}
-.dark .landing-bloom {
-  --bloom-coral: oklch(0.66 0.19 25);
-  --bloom-pink: oklch(0.56 0.21 350);
-  --bloom-violet: oklch(0.45 0.21 295);
-  --bloom-blue: oklch(0.42 0.19 262);
-  --bloom-deep: oklch(0.3 0.14 268);
-}
-.landing-bloom-layer { position: absolute; inset: -12% -8% -4%; filter: blur(36px) saturate(1.15); will-change: transform; }
-.landing-bloom-a {
-  background:
-    radial-gradient(58% 52% at 50% 100%, var(--bloom-pink) 0%, transparent 72%),
-    radial-gradient(40% 46% at 62% 88%, var(--bloom-coral) 0%, transparent 70%),
-    radial-gradient(70% 60% at 50% 68%, color-mix(in oklab, var(--bloom-deep) 62%, transparent) 0%, transparent 75%);
-  animation: bloom-drift-a 24s ease-in-out infinite;
-}
-.landing-bloom-b {
-  background:
-    radial-gradient(42% 56% at 16% 96%, var(--bloom-violet) 0%, transparent 70%),
-    radial-gradient(44% 58% at 86% 92%, var(--bloom-blue) 0%, transparent 70%);
-  animation: bloom-drift-b 31s ease-in-out infinite;
-}
+/* Fine film grain over the drawn shore (components/landing/LandingBloom.tsx). */
 .landing-bloom-grain {
   position: absolute;
   inset: 0;
@@ -929,74 +897,8 @@
   mix-blend-mode: soft-light;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
-@keyframes bloom-drift-a { 0%, 100% { transform: translate3d(-1.5%, 1%, 0) scale(1); } 50% { transform: translate3d(2%, -2.5%, 0) scale(1.07); } }
-@keyframes bloom-drift-b { 0%, 100% { transform: translate3d(1.5%, -1%, 0) scale(1.04); } 50% { transform: translate3d(-2.5%, 2%, 0) scale(0.98); } }
-@media (prefers-reduced-motion: reduce) { .landing-bloom-layer { animation: none; } }
 
-/* Bloom variants, previewed with ?bloom=sunrise|horizon|route. */
-.landing-bloom-sunrise {
-  --bloom-coral: oklch(0.86 0.09 80);
-  --bloom-pink: oklch(0.8 0.1 70);
-  --bloom-violet: oklch(0.72 0.11 195);
-  --bloom-blue: oklch(0.5 0.13 265);
-  --bloom-deep: oklch(0.4 0.12 272);
-}
-.landing-bloom-horizon {
-  -webkit-mask-image: none;
-  mask-image: none;
-  height: 100%;
-}
-.landing-horizon-sky {
-  position: absolute; inset: 0;
-  background: linear-gradient(to bottom, transparent 0%, oklch(0.92 0.04 255 / 0.6) 40%, oklch(0.9 0.07 70 / 0.8) 66%, oklch(0.83 0.12 45 / 0.9) 79.8%, transparent 80%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 45%);
-  mask-image: linear-gradient(to bottom, transparent 0%, #000 45%);
-}
-.landing-horizon-sun {
-  position: absolute; left: 50%; top: 80%; width: min(56vw, 640px); aspect-ratio: 1; transform: translate(-50%, -50%);
-  border-radius: 9999px;
-  background: radial-gradient(circle, oklch(0.97 0.06 85) 0%, oklch(0.88 0.13 62) 22%, oklch(0.78 0.16 40 / 0.55) 46%, transparent 70%);
-  filter: blur(6px);
-  animation: horizon-rise 18s ease-in-out infinite;
-}
-.landing-horizon-sea {
-  position: absolute; left: 0; right: 0; top: 80%; bottom: 0;
-  background:
-    radial-gradient(30% 70% at 50% 0%, oklch(0.85 0.12 60 / 0.75), transparent 75%),
-    linear-gradient(to bottom, oklch(0.62 0.1 255), oklch(0.4 0.11 268) 70%, oklch(0.3 0.1 272));
-}
-.landing-horizon-sea::after {
-  content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: min(34vw, 420px); transform: translateX(-50%);
-  background: repeating-linear-gradient(to bottom, oklch(0.92 0.09 70 / 0.55) 0 2px, transparent 2px 9px);
-  -webkit-mask-image: linear-gradient(to bottom, #000, transparent 85%), radial-gradient(closest-side, #000, transparent);
-  -webkit-mask-composite: source-in; mask-composite: intersect;
-  mask-image: linear-gradient(to bottom, #000, transparent 85%), radial-gradient(closest-side, #000, transparent);
-  animation: sea-shimmer 7s ease-in-out infinite;
-}
-.landing-horizon-line { position: absolute; left: 0; right: 0; top: 80%; height: 1px; background: linear-gradient(to right, transparent, oklch(1 0 0 / 0.85), transparent); }
-@keyframes sea-shimmer { 0%, 100% { opacity: 0.7; transform: translateX(-50%) scaleX(1); } 50% { opacity: 1; transform: translateX(-50%) scaleX(1.08); } }
-@keyframes horizon-rise { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -54%) scale(1.06); } }
-.landing-route-wash {
-  position: absolute; inset: 0;
-  background:
-    radial-gradient(55% 50% at 50% 78%, oklch(0.86 0.07 195 / 0.6), transparent 72%),
-    radial-gradient(42% 46% at 10% 88%, oklch(0.9 0.08 85 / 0.55), transparent 70%);
-  filter: blur(28px);
-}
-.landing-route-path { stroke-dasharray: 6 10; animation: route-flow 40s linear infinite; }
-@keyframes route-flow { to { stroke-dashoffset: -640; } }
-@media (prefers-reduced-motion: reduce) { .landing-horizon-sun, .landing-route-path, .landing-horizon-sea::after { animation: none; }
-  .landing-route-traveller { display: none; } }
-.landing-route-drawn { transition: stroke-dashoffset 0.9s cubic-bezier(.22, 1, .36, 1); }
-.landing-route-stop { opacity: 0.7; transition: opacity 0.5s; }
-.landing-route-stop[data-lit="true"] { opacity: 1; }
-.landing-route-halo { transform-box: fill-box; transform-origin: center; transition: transform 0.6s cubic-bezier(.22, 1, .36, 1); }
-.landing-route-stop[data-lit="true"] .landing-route-halo { transform: scale(1.5); }
-.landing-trip-card { opacity: 0.4; filter: blur(2.5px); transform: translateY(10px) scale(0.98); transition: opacity 0.7s cubic-bezier(.22, 1, .36, 1), filter 0.7s cubic-bezier(.22, 1, .36, 1), transform 0.7s cubic-bezier(.22, 1, .36, 1); }
-.landing-trip-card[data-lit="true"] { opacity: 1; filter: none; transform: none; }
-@media (prefers-reduced-motion: reduce) { .landing-trip-card { transition: none; } }
-
-/* Shore: sand, wet sand, water and a tide. The waterline sits near the bottom of the prompt box. */
+/* The drawn shore (narrow and tall screens): sand, wet sand, water and a tide. The waterline sits near the bottom of the prompt box. */
 .landing-shore-sand {
   position: absolute; inset: 0;
   background: linear-gradient(to bottom, oklch(0.945 0.03 88) 0%, oklch(0.9 0.042 84) 36%, oklch(0.84 0.05 76) 58%, oklch(0.74 0.05 66) 67%);
@@ -1039,35 +941,6 @@
 @keyframes wash-up { from { transform: translateY(calc(100% + 70px)); } to { transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .landing-shore-light { animation: none; } }
 
-/* Rocky cove: turquoise sea, white water churning in the channel between dark rock. */
-.landing-cove-sea {
-  position: absolute; inset: 0;
-  background: linear-gradient(to bottom, oklch(0.9 0.05 196) 0%, oklch(0.8 0.085 198) 34%, oklch(0.7 0.1 202) 62%, oklch(0.62 0.1 208) 100%);
-}
-.landing-cove-streaks { animation: cove-drift 16s ease-in-out infinite; }
-.landing-cove-churn {
-  position: absolute; left: 10%; right: 10%; top: 50%; bottom: 4%;
-  -webkit-mask-image: radial-gradient(ellipse 52% 50% at 50% 38%, #000 40%, transparent 88%);
-  mask-image: radial-gradient(ellipse 52% 50% at 50% 38%, #000 40%, transparent 88%);
-  background: radial-gradient(ellipse 50% 46% at 50% 36%, oklch(1 0 0 / 0.95), oklch(1 0 0 / 0.55) 55%, transparent 82%);
-  animation: cove-churn 9s ease-in-out infinite;
-}
-@keyframes cove-drift { 0%, 100% { transform: translateX(-14px); } 50% { transform: translateX(18px); } }
-@keyframes cove-churn { 0%, 100% { transform: scale(1) translateY(4px); } 50% { transform: scale(1.04) translateY(-8px); } }
-.landing-rock-surf { animation: shore-tide 10s ease-in-out infinite; }
-@media (max-width: 767px) { .landing-rocks { display: none; } }
-@media (prefers-reduced-motion: reduce) { .landing-rock-surf, .landing-cove-streaks, .landing-cove-churn { animation: none; } }
-
-/* Photo cove: a pale wash at the top for the headline, a soft dark edge at the bottom, and a very slow push-in. */
-.landing-photo-img { object-position: 50% 62%; transform: translateY(-3%) scale(1.15); transform-origin: 55% 70%; animation: photo-push 40s ease-in-out infinite alternate; }
-.landing-photo-wash {
-  background:
-    linear-gradient(to bottom, oklch(0.97 0.02 200 / 0.55) 0%, oklch(0.97 0.02 200 / 0.28) 34%, transparent 58%),
-    linear-gradient(to top, oklch(0.2 0.03 230 / 0.18), transparent 22%);
-}
-@keyframes photo-push { from { transform: translateY(-3%) scale(1.15); } to { transform: translateY(-3%) scale(1.2); } }
-@media (prefers-reduced-motion: reduce) { .landing-photo-img { animation: none; } }
-
 /*
  * Beach (wide screens): the photograph holds a foam ring with a gap in it, so the page is laid out on
  * the photograph itself. One "stage" the size of the photo (cover-fit to the section) carries the
@@ -1093,7 +966,6 @@
     position: absolute; left: 0; width: 100%; top: 96%; height: 120%;
     background: linear-gradient(to bottom, transparent, rgb(47 175 184 / 0.55) 22%, rgb(30 150 178 / 0.92) 60%);
   }
-  .beach-box { animation: beach-breathe 7s ease-in-out infinite; }
   .beach-content {
     position: absolute; display: block; max-width: none; padding: 0;
     width: max(100vw, 177.78vh);
@@ -1132,5 +1004,5 @@
   .beach-narrow { display: none; }
   .beach-wide { display: block; }
 }
-@keyframes beach-breathe { 0%, 100% { translate: 0 0; } 50% { translate: 0 -5px; } }
-@media (prefers-reduced-motion: reduce) { .beach-tide, .beach-box { animation: none; } }
+@keyframes beach-breathe { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
+@media (prefers-reduced-motion: reduce) { .beach-tide { animation: none; } }
