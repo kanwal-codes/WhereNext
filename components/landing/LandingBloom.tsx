@@ -1,6 +1,6 @@
 import { BedDouble, CalendarDays, Plane, Utensils, type LucideIcon } from "lucide-react";
 
-export type BloomVariant = "dusk" | "sunrise" | "horizon" | "route" | "trip" | "shore" | "rock" | "photo";
+export type BloomVariant = "dusk" | "sunrise" | "horizon" | "route" | "trip" | "shore" | "rock" | "photo" | "beach";
 
 /**
  * The light behind the first screen. Purely decorative: hidden from assistive tech and never
@@ -10,11 +10,12 @@ export type BloomVariant = "dusk" | "sunrise" | "horizon" | "route" | "trip" | "
  *   horizon  a low sun over a thin horizon line and a dusk sea
  *   shore    dry sand, wet sand and a tide; the prompt box is the foam where the water reaches it
  *   rock     a rocky cove: turquoise sea, white surf churning between dark rocks; the box is the surf
+ *   beach    an aerial photograph of surf reaching sand; on wide screens the page is laid out on it so the prompt pill sits in the foam
  *   photo    a photograph of a rocky cove with surf; the box is drawn as the surf
  *   route    a soft wash with a trip route that draws itself as the visitor writes
  *   trip     the route plus example trip cards (flight, stay, day, dinner) that come into focus as they write
  */
-export function LandingBloom({ variant = "photo", progress = 0, className }: { variant?: BloomVariant; progress?: number; className?: string }) {
+export function LandingBloom({ variant = "beach", progress = 0, className }: { variant?: BloomVariant; progress?: number; className?: string }) {
   if (variant === "horizon") {
     return (
       <div aria-hidden className={`landing-bloom landing-bloom-horizon pointer-events-none absolute inset-x-0 bottom-0 ${className ?? ""}`}>
@@ -29,6 +30,21 @@ export function LandingBloom({ variant = "photo", progress = 0, className }: { v
   if (variant === "shore") return <ShoreBloom />;
   if (variant === "rock") return <CoveBloom />;
   if (variant === "photo") return <PhotoBloom />;
+  if (variant === "beach") {
+    // Wide landscape screens: the photograph, with the page laid out over it (see .beach-* in globals.css).
+    // Anything narrower or taller: the drawn shore, since the photograph's foam ring only fits a wide box.
+    return (
+      <>
+        <div className="beach-narrow absolute inset-0">
+          <ShoreBloom />
+        </div>
+        <div aria-hidden className="beach-bg beach-wide absolute inset-0 overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element -- decorative backdrop laid out by CSS */}
+          <img src="/landing/beach.webp" alt="" fetchPriority="high" decoding="async" className="beach-img" />
+        </div>
+      </>
+    );
+  }
   if (variant === "route") return <RouteBloom progress={progress} className={className} />;
   if (variant === "trip") {
     return (

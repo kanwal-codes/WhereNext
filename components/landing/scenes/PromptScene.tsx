@@ -18,12 +18,13 @@ export function PromptScene() {
   const contentRef = useRef<HTMLDivElement>(null);
   const bloomRef = useRef<HTMLDivElement>(null);
   const partRefs = useRef<(HTMLElement | null)[]>([]);
-  // Preview switch while choosing a look: /?bloom=dusk|sunrise|horizon|route|trip|rock|shore (default photo).
-  const [variant, setVariant] = useState<BloomVariant>("photo");
+  // Preview switch while choosing a look: /?bloom=dusk|sunrise|horizon|route|trip|rock|shore|photo (default beach).
+  const [variant, setVariant] = useState<BloomVariant>("beach");
   const [typedLength, setTypedLength] = useState(0);
+  const beach = variant === "beach";
   useEffect(() => {
     const v = new URLSearchParams(window.location.search).get("bloom");
-    if (v === "dusk" || v === "sunrise" || v === "horizon" || v === "route" || v === "trip" || v === "rock" || v === "shore") setVariant(v);
+    if (v === "dusk" || v === "sunrise" || v === "horizon" || v === "route" || v === "trip" || v === "rock" || v === "shore" || v === "photo") setVariant(v);
   }, []);
 
   useEffect(() => {
@@ -66,18 +67,18 @@ export function PromptScene() {
       <div ref={bloomRef} className="absolute inset-0">
         <LandingBloom variant={variant} progress={Math.min(typedLength / 70, 1)} />
       </div>
-      <div ref={contentRef} className="relative mx-auto flex w-full max-w-3xl flex-col items-center text-center">
+      <div ref={contentRef} className={`relative mx-auto flex w-full max-w-3xl flex-col items-center text-center ${beach ? "beach-content" : ""}`}>
         <h1
           ref={part(0)}
-          className="translate-y-4 font-display text-[clamp(2.5rem,6.6vw,5.25rem)] [@media(max-height:760px)]:text-[clamp(2.1rem,5.4vw,3.9rem)] leading-[0.98] tracking-[-0.04em] text-balance opacity-0"
+          className={`${beach ? "beach-h1 " : ""}translate-y-4 font-display text-[clamp(2.5rem,6.6vw,5.25rem)] [@media(max-height:760px)]:text-[clamp(2.1rem,5.4vw,3.9rem)] leading-[0.98] tracking-[-0.04em] text-balance opacity-0`}
         >
           Let&rsquo;s plan something.
         </h1>
-        <p ref={part(1)} className={`mt-5 [@media(max-height:760px)]:mt-3 max-w-xl translate-y-4 text-base leading-relaxed text-balance opacity-0 sm:text-lg ${variant === "photo" ? "font-medium text-foreground/80 [text-shadow:0_1px_14px_rgba(255,255,255,0.65)]" : "text-muted-foreground"}`}>
+        <p ref={part(1)} className={`${beach ? "beach-sub " : ""}mt-5 [@media(max-height:760px)]:mt-3 max-w-xl translate-y-4 text-base leading-relaxed text-balance opacity-0 sm:text-lg ${variant === "photo" ? "font-medium text-foreground/80 [text-shadow:0_1px_14px_rgba(255,255,255,0.65)]" : "text-muted-foreground"}`}>
           Dates, budget, who&rsquo;s coming. Share the rough idea and watch the trip take shape.
         </p>
-        <div ref={part(2)} className="mt-9 [@media(max-height:760px)]:mt-5 w-full translate-y-4 opacity-0">
-          <TripPromptBox onTyping={setTypedLength} foam={variant === "shore" || variant === "rock" || variant === "photo"} foamSides={variant !== "photo"} />
+        <div ref={part(2)} className={`${beach ? "beach-box " : ""}mt-9 [@media(max-height:760px)]:mt-5 w-full translate-y-4 opacity-0`}>
+          <TripPromptBox onTyping={setTypedLength} foam={variant === "shore" || variant === "rock" || variant === "photo" || beach} foamSides={variant !== "photo" && !beach} beach={beach} />
         </div>
       </div>
 

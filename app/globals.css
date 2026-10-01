@@ -1067,3 +1067,55 @@
 }
 @keyframes photo-push { from { transform: translateY(-3%) scale(1.15); } to { transform: translateY(-3%) scale(1.2); } }
 @media (prefers-reduced-motion: reduce) { .landing-photo-img { animation: none; } }
+
+/*
+ * Beach (wide screens): the photograph holds a foam ring with a gap in it, so the page is laid out on
+ * the photograph itself. One "stage" the size of the photo (cover-fit to the section) carries the
+ * headline, the pill and the chips, all sized in cqw so they scale with the picture. Coordinates are
+ * the photo's own, out of 1672 x 941.
+ */
+@media (min-width: 768px) and (min-aspect-ratio: 7/5) {
+  .beach-img {
+    position: absolute; max-width: none; height: auto;
+    width: max(100vw, 177.78vh);
+    left: calc(50% - max(100vw, 177.78vh) / 2);
+    top: calc(50% - max(100vw, 177.78vh) * 0.2814);
+  }
+  .beach-content {
+    position: absolute; display: block; max-width: none; padding: 0;
+    width: max(100vw, 177.78vh);
+    height: calc(max(100vw, 177.78vh) * 0.5628);
+    left: calc(50% - max(100vw, 177.78vh) / 2);
+    top: calc(50% - max(100vw, 177.78vh) * 0.2814);
+    container-type: inline-size;
+  }
+  .beach-h1 { position: absolute; left: 0; right: 0; top: 9.7cqw; font-size: 5.3cqw; }
+  .beach-sub {
+    position: absolute; left: 0; right: 0; margin: 0 auto; top: 15.6cqw; width: 42cqw; max-width: none;
+    font-size: 1.45cqw; line-height: 1.4; text-shadow: none;
+  }
+  .beach-box { position: absolute; margin: 0; left: 21.9cqw; width: 55.4cqw; top: 26.75cqw; }
+  .beach-box .landing-foam { display: none; }
+  .beach-form {
+    display: flex; align-items: center; height: 6.4cqw; padding: 0 1.1cqw 0 2.6cqw; border: 0; border-radius: 9999px;
+    background: rgb(250 249 246); backdrop-filter: none;
+    box-shadow: 0 1.2cqw 3cqw -1.4cqw rgb(30 80 110 / 0.35), inset 0 0 0 0.1cqw rgb(255 255 255 / 0.9);
+  }
+  .beach-pin { display: block; flex: none; width: 1.6cqw; height: 1.6cqw; margin-right: 1.1cqw; color: oklch(0.3 0.02 250); }
+  .beach-form textarea {
+    flex: 1; min-height: 0; height: 3.5cqw; padding: 0; font-size: 1.3cqw; line-height: 1.35;
+    overflow-y: auto; scrollbar-width: none;
+  }
+  .beach-form textarea::-webkit-scrollbar { display: none; }
+  .beach-form > div:last-of-type { margin: 0; padding: 0; }
+  .beach-form .btn-primary { height: 4cqw; padding: 0 2cqw; font-size: 1.3cqw; border-radius: 9999px; }
+  .beach-chips { margin-top: 4.6cqw; gap: 1cqw; flex-wrap: nowrap; }
+  .beach-chips button { padding: 0.85cqw 1.7cqw; font-size: 1.05cqw; background: rgb(212 238 240 / 0.78); white-space: nowrap; }
+}
+/* Which backdrop shows: the photograph only where the stage fits (wide and landscape), the drawn shore otherwise. */
+.beach-narrow { display: block; }
+.beach-wide { display: none; }
+@media (min-width: 768px) and (min-aspect-ratio: 7/5) {
+  .beach-narrow { display: none; }
+  .beach-wide { display: block; }
+}

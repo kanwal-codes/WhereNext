@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2, MapPin } from "lucide-react";
 import { GUEST_LIVE_KEY } from "@/features/identity/application/guestSession";
 import { useTurnstile } from "@/components/landing/useTurnstile";
 import { useTypingPlaceholder } from "@/components/landing/useTypingPlaceholder";
@@ -44,7 +44,7 @@ const STARTERS = [
  * creates a real draft trip (under a guest session — see /api/guest/start) and opens the normal
  * trip chat with this sentence already sent; saving the trip later just upgrades the same user.
  */
-export function TripPromptBox({ onTyping, foam = false, foamSides = true }: { onTyping?: (length: number) => void; foam?: boolean; foamSides?: boolean }) {
+export function TripPromptBox({ onTyping, foam = false, foamSides = true, beach = false }: { onTyping?: (length: number) => void; foam?: boolean; foamSides?: boolean; beach?: boolean }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [prompt, setPrompt] = useState("");
   const [focused, setFocused] = useState(false);
@@ -104,12 +104,13 @@ export function TripPromptBox({ onTyping, foam = false, foamSides = true }: { on
       {foam && <FoamEdge sides={foamSides} />}
       <form
         onSubmit={start}
-        className={`relative z-10 w-full rounded-[2rem] p-4 transition-shadow ${
+        className={`relative z-10 w-full rounded-[2rem] p-4 transition-shadow ${beach ? "beach-form" : ""} ${
           foam
             ? "bg-transparent"
             : "border border-white/70 bg-white/70 shadow-[0_40px_90px_-30px_rgba(70,50,190,0.45),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-xl focus-within:ring-2 focus-within:ring-white/70 dark:border-white/15 dark:bg-white/[0.07] dark:shadow-[0_40px_90px_-30px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.12)] dark:focus-within:ring-white/25"
         }`}
       >
+        <MapPin aria-hidden className="beach-pin hidden" />
         <textarea
           ref={textareaRef}
           aria-label="Describe the trip you want"
@@ -144,7 +145,7 @@ export function TripPromptBox({ onTyping, foam = false, foamSides = true }: { on
       <div ref={turnstile} />
 
       {!problem && (
-        <div className="mt-5 [@media(max-height:760px)]:mt-3 flex flex-wrap justify-center gap-2">
+        <div className={`mt-5 [@media(max-height:760px)]:mt-3 flex flex-wrap justify-center gap-2 ${beach ? "beach-chips" : ""}`}>
           {STARTERS.map((starter) => (
             <button
               key={starter.label}
