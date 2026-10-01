@@ -49,12 +49,17 @@ export function PromptScene() {
       // of the photograph, cut along the foam) rises over the sand and washes out what is drawn in it;
       // the headline lifts away first, then the prompt rides up with its foam and fades. Last, the water
       // washes out to the page colour so the next scene arrives from a clean page.
-      const tide = () => {
-        const tideEl = sectionRef.current?.querySelector<HTMLElement>("[data-beach-tide]");
+      const tide = (kind: "wide" | "tall") => {
+        const tideEl = sectionRef.current?.querySelector<HTMLElement>(`[data-beach-tide="${kind}"]`);
         const [headline, sub, box] = [partRefs.current[0], partRefs.current[1], partRefs.current[2]];
-        const veil = sectionRef.current?.querySelector<HTMLElement>("[data-beach-veil]");
+        const veil = sectionRef.current?.querySelector<HTMLElement>(`[data-beach-veil="${kind}"]`);
         if (!tideEl || !veil || !headline || !sub || !box) return lift();
-        const rise = () => Math.max(window.innerWidth, window.innerHeight * 1.7778) * 0.5628 * 0.8;
+        // How far the water must climb to leave the pill and its foam above the top of the screen
+        // (the pill sits lower in the portrait picture than in the landscape one).
+        const rise = () =>
+          kind === "wide"
+            ? Math.max(window.innerWidth, window.innerHeight * 1.7778) * 0.5628 * 0.8
+            : Math.max(window.innerWidth, window.innerHeight * 0.5628) * 1.7766 * 0.64;
         const tl = gsap.timeline({
           scrollTrigger: { trigger: sectionRef.current, start: "top top", end: () => `+=${window.innerHeight * 1.7}`, scrub: 0.8, pin: true, anticipatePin: 1, invalidateOnRefresh: true },
         });
@@ -66,9 +71,11 @@ export function PromptScene() {
           .to(veil, { opacity: 1, ease: "power1.inOut", duration: 0.4 }, 0.62);
       };
 
+      // Wide landscape and portrait screens get the tide; squarish windows (and landscape phones) the plain fade.
       const mm = gsap.matchMedia();
-      mm.add("(min-width: 768px) and (min-aspect-ratio: 7/5)", () => tide());
-      mm.add("(max-width: 767px), (max-aspect-ratio: 7/5)", () => lift());
+      mm.add("(min-width: 768px) and (min-aspect-ratio: 7/5)", () => tide("wide"));
+      mm.add("(max-aspect-ratio: 4/5)", () => tide("tall"));
+      mm.add("(min-aspect-ratio: 81/100) and (max-aspect-ratio: 139/100), (max-width: 767px) and (min-aspect-ratio: 81/100)", () => lift());
     }, sectionRef);
     return () => ctx.revert();
   }, []);

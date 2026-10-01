@@ -1,14 +1,41 @@
-import { BEACH_WATER_CLIP } from "@/components/landing/beachClip";
+import { BEACH_TALL_WATER_CLIP, BEACH_WATER_CLIP } from "@/components/landing/beachClip";
+
+function BeachStage({ kind, src, clip }: { kind: "wide" | "tall"; src: string; clip: string }) {
+  // Images are lazy so the one that is not displayed is never fetched.
+  return (
+    <div aria-hidden className={`beach-bg beach-${kind} absolute inset-0 overflow-hidden`}>
+      {/* The whole photograph, still: the sand and everything drawn on it. */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- decorative backdrop laid out by CSS */}
+      <img src={src} alt="" loading="lazy" decoding="async" className="beach-stage beach-base" />
+      {/* The water: a second copy of the photograph cut along the foam crest. On scroll it rises over the sand (and whatever is drawn in it). */}
+      <div className="beach-stage beach-tide-wrap" data-beach-tide={kind}>
+        <div className="beach-tide">
+          {/* eslint-disable-next-line @next/next/no-img-element -- decorative backdrop laid out by CSS */}
+          <img src={src} alt="" loading="lazy" decoding="async" className="beach-water" style={{ clipPath: clip }} />
+          {/* Open water continues below the photograph's edge: its bottom strip, mirrored and repeated (the foam never reaches it, so the mirroring does not show). */}
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="beach-water-ext" data-flip={i % 2 === 0 ? "y" : undefined} style={{ top: `calc(${100 + i * 20}% - ${i + 1}px)` }} />
+          ))}
+          {/* ...and the farther it gets from the shore the calmer and deeper it looks. */}
+          <div className="beach-water-deep" />
+        </div>
+      </div>
+      {/* The page's own background, brought up over everything at the end of the tide so the next scene arrives from a clean page. */}
+      <div className="absolute inset-0 bg-background opacity-0" data-beach-veil={kind} />
+    </div>
+  );
+}
 
 /**
  * The first screen's backdrop: surf reaching sand, seen from above.
  *
- * Wide landscape screens get a photograph with the page laid out on it (see `.beach-*` in
- * globals.css): the headline sits on the sand, the prompt pill sits in the foam ring, and on scroll
+ * Wide landscape screens and portrait screens (phones, portrait tablets) each get their own
+ * photograph with the page laid out on it (see `.beach-*` in globals.css): the headline sits on
+ * the sand, the prompt pill sits in the foam ring, and on scroll
  * the water - a second copy of the photograph, cut along the foam - rises over the sand and
  * everything drawn in it, then washes out to the page colour so the next scene starts clean
- * (PromptScene drives that). Anything narrower or taller gets a drawn version of the same shore,
- * with the prompt drawn as foam, because the photograph's foam ring only fits a wide box.
+ * (PromptScene drives that). Screens in between (squarish windows) get a drawn version of the same
+ * shore, with the prompt drawn as foam, because the photographs' foam rings need their own shapes.
  * Decorative: hidden from assistive tech and never catches a click.
  */
 export function LandingBloom() {
@@ -17,26 +44,8 @@ export function LandingBloom() {
       <div className="beach-narrow absolute inset-0">
         <ShoreBloom />
       </div>
-      <div aria-hidden className="beach-bg beach-wide absolute inset-0 overflow-hidden">
-        {/* The whole photograph, still: the sand and everything drawn on it. */}
-        {/* eslint-disable-next-line @next/next/no-img-element -- decorative backdrop laid out by CSS */}
-        <img src="/landing/beach.webp" alt="" fetchPriority="high" decoding="async" className="beach-stage beach-base" />
-        {/* The water: a second copy of the photograph cut along the foam crest. On scroll it rises over the sand (and whatever is drawn in it). */}
-        <div className="beach-stage beach-tide-wrap" data-beach-tide>
-          <div className="beach-tide">
-            {/* eslint-disable-next-line @next/next/no-img-element -- decorative backdrop laid out by CSS */}
-            <img src="/landing/beach.webp" alt="" decoding="async" className="beach-water" style={{ clipPath: BEACH_WATER_CLIP }} />
-            {/* Open water continues below the photograph's edge: its bottom strip, mirrored and repeated (the foam never reaches it, so the mirroring does not show). */}
-            {[0, 1, 2, 3, 4].map((i) => (
-              <div key={i} className="beach-water-ext" data-flip={i % 2 === 0 ? "y" : undefined} style={{ top: `calc(${100 + i * 20}% - ${i + 1}px)` }} />
-            ))}
-            {/* ...and the farther it gets from the shore the calmer and deeper it looks. */}
-            <div className="beach-water-deep" />
-          </div>
-        </div>
-        {/* The page's own background, brought up over everything at the end of the tide so the next scene arrives from a clean page. */}
-        <div className="absolute inset-0 bg-background opacity-0" data-beach-veil />
-      </div>
+      <BeachStage kind="wide" src="/landing/beach.webp" clip={BEACH_WATER_CLIP} />
+      <BeachStage kind="tall" src="/landing/beach-tall.webp" clip={BEACH_TALL_WATER_CLIP} />
     </>
   );
 }
