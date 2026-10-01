@@ -900,3 +900,135 @@
 .landing-cinematic-scope :is(input, textarea) { caret-color: var(--coral); }
 .landing-cinematic-scope { accent-color: var(--coral); }
 :root:has(.landing-cinematic-scope) { scrollbar-color: #c4c4ca transparent; scrollbar-width: thin; }
+
+/* Fine film grain over the drawn shore (components/landing/LandingBloom.tsx). */
+.landing-bloom-grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.1;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* The drawn shore (narrow and tall screens): sand, wet sand, water and a tide. The waterline sits near the bottom of the prompt box. */
+.landing-shore-sand {
+  position: absolute; inset: 0;
+  background: linear-gradient(to bottom, oklch(0.945 0.03 88) 0%, oklch(0.9 0.042 84) 36%, oklch(0.84 0.05 76) 58%, oklch(0.74 0.05 66) 67%);
+}
+.landing-shore-tide { position: absolute; inset: 0; animation: shore-tide 10s ease-in-out infinite; }
+.landing-shore-swell { position: absolute; inset: 0; animation: shore-tide 13s ease-in-out infinite reverse; }
+.landing-shore-wet {
+  position: absolute; left: 0; right: 0; top: 52%; height: 15%;
+  background: linear-gradient(to bottom, transparent, oklch(0.62 0.05 58 / 0.5));
+}
+.landing-shore-water { position: absolute; left: 0; right: 0; top: 67%; height: 40%; width: 100%; }
+@keyframes shore-tide { 0%, 100% { transform: translateY(6px); } 50% { transform: translateY(-20px); } }
+.landing-foam-bubble { animation: foam-swell 8s ease-in-out infinite; }
+@keyframes foam-swell { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(4px) scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { .landing-shore-tide, .landing-shore-swell, .landing-foam-bubble { animation: none; } }
+
+/* Light on shallow water: slow drifting patches, strongest near the shore and fading out with depth. */
+.landing-shore-light {
+  position: absolute; left: 0; right: 0; top: 68%; bottom: 0; mix-blend-mode: soft-light; opacity: 0.85;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 75%);
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 75%);
+}
+.landing-shore-light-a {
+  background-image: radial-gradient(ellipse 60px 18px at 30% 50%, white 0%, transparent 70%), radial-gradient(ellipse 90px 22px at 75% 30%, white 0%, transparent 70%);
+  background-size: 260px 90px; animation: shore-light-a 38s linear infinite;
+}
+.landing-shore-light-b {
+  background-image: radial-gradient(ellipse 80px 16px at 60% 60%, white 0%, transparent 70%), radial-gradient(ellipse 50px 14px at 15% 25%, white 0%, transparent 70%);
+  background-size: 340px 120px; animation: shore-light-b 53s linear infinite; opacity: 0.6;
+}
+@keyframes shore-light-a { to { background-position: 260px 30px; } }
+@keyframes shore-light-b { to { background-position: -340px -40px; } }
+/* The glossy strip of sand the water has just left. */
+.landing-shore-gloss {
+  position: absolute; left: 0; right: 0; top: 60%; height: 7%;
+  background: linear-gradient(to bottom, transparent, oklch(1 0 0 / 0.28) 60%, oklch(1 0 0 / 0.1));
+  mix-blend-mode: soft-light;
+}
+.landing-wash { animation: wash-up 0.85s cubic-bezier(.5, 0, .2, 1) forwards; }
+@keyframes wash-up { from { transform: translateY(calc(100% + 70px)); } to { transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .landing-shore-light { animation: none; } }
+
+/*
+ * Beach: the photographs hold a foam ring with a gap in it, so the page is laid out on the picture
+ * itself. One "stage" the size of the picture (cover-fit to the section) carries the headline, the
+ * prompt pill and the chips, all sized in cqw so they scale with it. Two pictures: landscape (wide
+ * screens; 1672 x 941) and portrait (phones and portrait tablets; 941 x 1672). Coordinates in the
+ * rules below are each picture's own. Screens in between get the drawn shore instead.
+ */
+.beach-wide, .beach-tall { display: none; }
+.beach-narrow { display: block; }
+@media (min-width: 768px) and (min-aspect-ratio: 7/5) {
+  .beach-narrow { display: none; }
+  .beach-wide { display: block; }
+}
+@media (max-aspect-ratio: 4/5) {
+  .beach-narrow { display: none; }
+  .beach-tall { display: block; }
+}
+
+@media ((min-width: 768px) and (min-aspect-ratio: 7/5)), (max-aspect-ratio: 4/5) {
+  .beach-stage {
+    position: absolute; max-width: none; height: auto;
+    width: var(--bw);
+    left: calc(50% - var(--bw) / 2);
+    top: calc(50% - var(--bw) * var(--bh) / 2);
+  }
+  .beach-tide-wrap { height: calc(var(--bw) * var(--bh)); pointer-events: none; will-change: transform; }
+  .beach-tide { position: relative; width: 100%; height: 100%; animation: beach-breathe 7s ease-in-out infinite; filter: drop-shadow(0 -3px 5px rgb(255 255 255 / 0.5)); }
+  .beach-water { position: absolute; left: 0; top: 0; width: 100%; height: auto; max-width: none; }
+  .beach-water-ext { position: absolute; left: 0; width: 100%; height: 20%; background: no-repeat 0 100% / 100% auto; }
+  .beach-wide .beach-water-ext { background-image: url(/landing/beach.webp); }
+  .beach-tall .beach-water-ext { background-image: url(/landing/beach-tall.webp); }
+  .beach-water-ext[data-flip="y"] { transform: scaleY(-1); }
+  .beach-water-deep { position: absolute; left: 0; width: 100%; top: 96%; height: 120%; background: linear-gradient(to bottom, transparent, rgb(var(--bd) / 0.55) 22%, rgb(var(--bd2) / 0.92) 60%); }
+  .beach-wide { --bd: 47 175 184; --bd2: 30 150 178; }
+  .beach-tall { --bd: 51 191 198; --bd2: 30 160 185; }
+  .beach-content {
+    position: absolute; display: block; max-width: none; padding: 0;
+    width: var(--bw); height: calc(var(--bw) * var(--bh));
+    left: calc(50% - var(--bw) / 2);
+    top: calc(50% - var(--bw) * var(--bh) / 2);
+    container-type: inline-size;
+  }
+  .beach-h1, .beach-sub, .beach-box { position: absolute; }
+  .beach-box .landing-foam { display: none; }
+  .beach-form { display: flex; align-items: center; border: 0; border-radius: 9999px; background: rgb(250 249 246); backdrop-filter: none; }
+  .beach-pin { display: block; flex: none; color: oklch(0.3 0.02 250); }
+  .beach-form textarea { flex: 1; min-height: 0; padding: 0; overflow-y: auto; scrollbar-width: none; }
+  .beach-form textarea::-webkit-scrollbar { display: none; }
+  .beach-form > div:last-of-type { margin: 0; padding: 0; }
+  .beach-form .btn-primary { border-radius: 9999px; }
+  .beach-chips { flex-wrap: nowrap; }
+  .beach-chips button { white-space: nowrap; background: rgb(212 238 240 / 0.78); }
+}
+@media (min-width: 768px) and (min-aspect-ratio: 7/5) {
+  :root { --bw: max(100vw, 177.78vh); --bh: 0.5628; }
+  .beach-h1 { left: 0; right: 0; top: 9.7cqw; font-size: 5.3cqw; }
+  .beach-sub { left: 0; right: 0; margin: 0 auto; top: 15.6cqw; width: 42cqw; max-width: none; font-size: 1.45cqw; line-height: 1.4; text-shadow: none; }
+  .beach-box { margin: 0; left: 21.9cqw; width: 55.4cqw; top: 26.75cqw; }
+  .beach-form { height: 6.4cqw; padding: 0 1.1cqw 0 2.6cqw; box-shadow: 0 1.2cqw 3cqw -1.4cqw rgb(30 80 110 / 0.35), inset 0 0 0 0.1cqw rgb(255 255 255 / 0.9); }
+  .beach-pin { width: 1.6cqw; height: 1.6cqw; margin-right: 1.1cqw; }
+  .beach-form textarea { height: 3.5cqw; font-size: 1.3cqw; line-height: 1.35; }
+  .beach-form .btn-primary { height: 4cqw; padding: 0 2cqw; font-size: 1.3cqw; }
+  .beach-chips { margin-top: 4.6cqw; gap: 1cqw; }
+  .beach-chips button { padding: 0.85cqw 1.7cqw; font-size: 1.05cqw; }
+}
+@media (max-aspect-ratio: 4/5) {
+  :root { --bw: max(100vw, 56.28vh); --bh: 1.7766; }
+  .beach-h1 { left: 0; right: 0; margin: 0 auto; width: 58cqw; top: 34.2cqw; font-size: 9.5cqw; }
+  .beach-sub { left: 0; right: 0; margin: 0 auto; top: 54.6cqw; width: 52cqw; max-width: none; font-size: 3.4cqw; line-height: 1.26; text-shadow: none; }
+  .beach-box { margin: 0; left: 12.2cqw; width: 78cqw; top: 83.8cqw; }
+  .beach-form { height: 15.9cqw; padding: 0 1.9cqw 0 5cqw; box-shadow: 0 3cqw 6cqw -3cqw rgb(30 80 110 / 0.35), inset 0 0 0 0.2cqw rgb(255 255 255 / 0.9); }
+  .beach-pin { width: 3.6cqw; height: 3.6cqw; margin-right: 2.4cqw; }
+  .beach-form textarea { height: 8.4cqw; font-size: 3.1cqw; line-height: 1.34; }
+  .beach-form .btn-primary { height: 9.6cqw; padding: 0 4cqw; font-size: 3.1cqw; }
+  .beach-chips { flex-direction: column; align-items: center; margin-top: 10.4cqw; gap: 1.9cqw; }
+  .beach-chips button { padding: 2cqw 4.6cqw; font-size: 3.2cqw; }
+}
+@keyframes beach-breathe { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
+@media (prefers-reduced-motion: reduce) { .beach-tide { animation: none; } }
