@@ -56,6 +56,8 @@ export function LandingBloom({ variant = "beach", progress = 0, className }: { v
               <div className="beach-water-deep" />
             </div>
           </div>
+          {/* The page's own background, brought up over everything at the end of the tide so the next scene arrives from a clean page. */}
+          <div className="absolute inset-0 bg-background opacity-0" data-beach-veil />
         </div>
       </>
     );

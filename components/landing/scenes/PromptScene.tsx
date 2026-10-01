@@ -56,11 +56,13 @@ export function PromptScene() {
 
       // Beach on a wide screen: the page stays put while the tide comes in. The water (a second copy
       // of the photograph, cut along the foam) rises over the sand and washes out what is drawn in it;
-      // the prompt rides up with its foam, then fades once the water reaches the headline.
+      // the prompt rides up with its foam, then fades once the water reaches the headline. Last, the water
+      // washes out to the page colour so the next scene arrives from a clean page.
       const tide = () => {
         const tideEl = sectionRef.current?.querySelector<HTMLElement>("[data-beach-tide]");
         const [headline, sub, box] = [partRefs.current[0], partRefs.current[1], partRefs.current[2]];
-        if (!tideEl || !headline || !sub || !box) return lift();
+        const veil = sectionRef.current?.querySelector<HTMLElement>("[data-beach-veil]");
+        if (!tideEl || !veil || !headline || !sub || !box) return lift();
         const rise = () => Math.max(window.innerWidth, window.innerHeight * 1.7778) * 0.5628 * 0.8;
         const tl = gsap.timeline({
           scrollTrigger: { trigger: sectionRef.current, start: "top top", end: () => `+=${window.innerHeight * 1.7}`, scrub: 0.8, pin: true, anticipatePin: 1, invalidateOnRefresh: true },
@@ -68,7 +70,9 @@ export function PromptScene() {
         tl.to(tideEl, { y: () => -rise(), ease: "none", duration: 1 }, 0)
           .to(box, { y: () => -rise(), ease: "none", duration: 1 }, 0)
           .to(box, { opacity: 0, ease: "power1.in", duration: 0.3 }, 0.45)
-          .to([headline, sub], { opacity: 0, y: -30, ease: "power1.in", duration: 0.3 }, 0.35);
+          .to([headline, sub], { opacity: 0, y: -30, ease: "power1.in", duration: 0.3 }, 0.35)
+          // The water, now filling the screen, washes out to the page's own colour, and the story begins from there.
+          .to(veil, { opacity: 1, ease: "power1.inOut", duration: 0.4 }, 0.62);
       };
 
       const mm = gsap.matchMedia();
