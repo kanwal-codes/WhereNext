@@ -18,6 +18,10 @@ export function PromptScene() {
   const contentRef = useRef<HTMLDivElement>(null);
   const bloomRef = useRef<HTMLDivElement>(null);
   const partRefs = useRef<(HTMLElement | null)[]>([]);
+  const part = (index: number) => (el: HTMLElement | null) => {
+    partRefs.current[index] = el;
+  };
+
   useEffect(() => {
     const parts = partRefs.current.filter((el): el is HTMLElement => Boolean(el));
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -37,11 +41,15 @@ export function PromptScene() {
           ease: "none",
           scrollTrigger: { trigger: sectionRef.current, start: "top top", end: () => `+=${window.innerHeight * 0.65}`, scrub: true, invalidateOnRefresh: true },
         });
+        // When the content is taller than the window (big text, browser zoom, a short screen) the
+        // fade waits until the rest of the first screen has been scrolled into view, so the box and
+        // its button are never faded out before they can be reached. Normally that wait is 0.
+        const hiddenBelowFold = () => Math.max(0, (sectionRef.current?.offsetHeight ?? 0) - window.innerHeight);
         gsap.to(contentRef.current, {
           opacity: 0,
           y: -48,
           ease: "none",
-          scrollTrigger: { trigger: sectionRef.current, start: "top top", end: () => `+=${window.innerHeight * 0.2}`, scrub: true, invalidateOnRefresh: true },
+          scrollTrigger: { trigger: sectionRef.current, start: () => `top+=${hiddenBelowFold()} top`, end: () => `+=${window.innerHeight * 0.2}`, scrub: true, invalidateOnRefresh: true },
         });
       };
 
@@ -80,15 +88,11 @@ export function PromptScene() {
     return () => ctx.revert();
   }, []);
 
-  const part = (index: number) => (el: HTMLElement | null) => {
-    partRefs.current[index] = el;
-  };
-
   return (
     <section
       ref={sectionRef}
       data-scene="prompt"
-      className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden bg-background px-6 pt-28 pb-20 [@media(max-height:760px)]:pt-20 [@media(max-height:760px)]:pb-8"
+      className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden bg-background px-6 pt-28 pb-20 [@media(max-height:760px)]:pt-20 [@media(max-height:760px)]:pb-8 [@media(max-height:640px)]:pt-16! [@media(max-height:640px)]:pb-3!"
     >
       <div ref={bloomRef} className="absolute inset-0">
         <LandingBloom />

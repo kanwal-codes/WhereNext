@@ -92,7 +92,7 @@ export function BookingsScene() {
           Everything you need.
         </h2>
 
-        <div data-booking-packet className="pointer-events-none relative mx-auto h-[30rem] w-full max-w-[42rem] origin-center scale-[0.68] [--bx:0.64] sm:h-[34rem] sm:scale-[0.84] sm:[--bx:1] md:scale-[1.12]">
+        <div data-booking-packet aria-hidden="true" className="pointer-events-none relative mx-auto h-[30rem] w-full max-w-[42rem] origin-center scale-[0.68] [--bx:0.64] sm:h-[34rem] sm:scale-[0.84] sm:[--bx:1] md:scale-[1.12]">
           {DOCUMENTS.map((doc) => {
             const Icon = doc.icon;
             const isImageCard = doc.kind === "hotel" || doc.kind === "restaurant";
@@ -110,7 +110,7 @@ export function BookingsScene() {
                     doc.kind === "rail"
                       ? "w-56 rounded-lg bg-primary p-4 text-primary-foreground"
                       : doc.kind === "event"
-                        ? "w-52 rounded-xl border border-coral bg-coral p-4 text-white"
+                        ? "w-52 rounded-xl border border-coral-fill bg-coral-fill p-4 text-coral-fill-foreground"
                         : doc.kind === "activity"
                           ? "w-44 rounded-xl border-2 border-dashed border-coral bg-coral-soft p-3"
                           : doc.kind === "hotel"
@@ -125,12 +125,12 @@ export function BookingsScene() {
                       <span className={`grid size-7 place-items-center rounded-lg ${doc.kind === "rail" || doc.kind === "event" ? "bg-white/15" : "bg-coral-soft text-coral"}`}>
                         <Icon className="size-3.5" strokeWidth={1.8} />
                       </span>
-                      {doc.kind === "rail" && <span className="text-[9px] font-semibold tracking-[0.18em]">BOARDING PASS</span>}
-                      {doc.kind === "event" && <span className="text-[9px] font-semibold tracking-[0.18em]">ADMIT ONE</span>}
+                      {doc.kind === "rail" && <span className="text-xs font-semibold tracking-[0.14em]">BOARDING PASS</span>}
+                      {doc.kind === "event" && <span className="text-xs font-semibold tracking-[0.14em]">ADMIT ONE</span>}
                     </div>
                     <p className="truncate text-sm font-medium">{doc.label}</p>
-                    <p className={`truncate text-xs ${doc.kind === "rail" ? "text-primary-foreground/65" : doc.kind === "event" ? "text-white/70" : "text-muted-foreground"}`}>{doc.sub}</p>
-                    {doc.kind === "event" && <div className="mt-3 border-t border-dashed border-white/30 pt-2 font-mono text-[9px] tracking-[0.22em] text-white/70">BELL CENTRE · MTL</div>}
+                    <p className={`truncate text-xs ${doc.kind === "rail" ? "text-primary-foreground/65" : doc.kind === "event" ? "text-coral-fill-foreground/85" : "text-muted-foreground"}`}>{doc.sub}</p>
+                    {doc.kind === "event" && <div className="mt-3 border-t border-dashed border-white/30 pt-2 font-mono text-xs tracking-[0.12em] text-coral-fill-foreground/85">BELL CENTRE · MTL</div>}
                   </div>
                 </article>
               </div>
@@ -141,19 +141,19 @@ export function BookingsScene() {
             <article data-reveal="itinerary" className="pointer-events-auto w-56 rounded-2xl border border-border bg-surface p-4 opacity-0 shadow-lift">
               <div className="mb-3 flex items-end justify-between border-b border-border pb-3">
                 <div>
-                  <p className="text-[11px] font-semibold tracking-[0.12em] text-coral uppercase">Saturday</p>
+                  <p className="text-xs font-semibold tracking-[0.12em] text-coral-ink uppercase">Saturday</p>
                   <p className="mt-0.5 font-display text-lg">Oct 17</p>
                 </div>
-                <span className="rounded-full bg-coral-soft px-2 py-1 text-[9px] font-semibold text-coral">4 plans</span>
+                <span className="rounded-full bg-coral-soft px-2 py-1 text-xs font-semibold text-coral-ink">4 plans</span>
               </div>
               <div className="space-y-2">
                 {SATURDAY.map(([time, item, detail]) => (
                   <div key={item} className="grid grid-cols-[2.25rem_0.5rem_1fr] items-start gap-1">
-                    <span className="pt-0.5 text-[11px] text-muted-foreground">{time}</span>
+                    <span className="pt-0.5 text-xs text-muted-foreground">{time}</span>
                     <span className="mt-1.5 size-1.5 rounded-full bg-coral" />
                     <div>
                       <p className="font-display text-sm">{item}</p>
-                      <p className="text-[11px] text-muted-foreground">{detail}</p>
+                      <p className="text-xs text-muted-foreground">{detail}</p>
                     </div>
                   </div>
                 ))}

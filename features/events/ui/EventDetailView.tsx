@@ -19,6 +19,7 @@ import { displayClockTime } from "@/lib/application/clock-time";
 import { Badge, prettyDate } from "@/features/conversation/ui/blocks/ui";
 import { cn, safeHref } from "@/lib/utils";
 import { ticketSellerLabel } from "@/lib/ticket-provider";
+import { eventFallbackImage } from "@/lib/event-imagery";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { mutate } from "@/lib/client/mutation-queue";
 import { notifyToast } from "@/lib/application/toast";
@@ -199,7 +200,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
   return (
     <div>
       {titleTag}
-      <Hero image={image || "/design/trip-hero.jpg"} alt={title} plain surface={panel} className={cn(panel ? "h-44" : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]")}>
+      <Hero image={image || eventFallbackImage({ genre: d?.genre, title })} alt={title} plain surface={panel} className={cn(panel ? "h-44" : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]")}>
         <div className={cn("absolute inset-x-0 bottom-0", pad, "pb-6")}>
           {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className="shadow-soft" />}
           {panel ? (

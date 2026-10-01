@@ -107,6 +107,7 @@ export function TripPromptBox() {
           <MapPin aria-hidden className="beach-pin hidden" />
           <textarea
             ref={textareaRef}
+            id="trip-prompt"
             aria-label="Describe the trip you want"
             rows={3}
             maxLength={600}
@@ -124,10 +125,10 @@ export function TripPromptBox() {
               }
             }}
             placeholder={!prompt && !focused ? typed : "Tell Roam about your trip…"}
-            className="block min-h-[7rem] [@media(max-height:760px)]:min-h-[5rem] w-full resize-none bg-transparent px-3 pt-2 text-left text-base leading-relaxed md:text-lg outline-none placeholder:text-muted-foreground/70"
+            className="block min-h-[7rem] [@media(max-height:760px)]:min-h-[5rem] w-full resize-none bg-transparent px-3 pt-2 text-left text-base leading-relaxed md:text-lg outline-none placeholder:text-muted-foreground"
           />
           <div className="mt-1 flex items-center justify-end gap-3 px-2 pb-1">
-            <button type="submit" disabled={!prompt.trim() || busy} className="btn-primary shrink-0 disabled:opacity-80">
+            <button type="submit" disabled={!prompt.trim() || busy} className="btn-primary hit-44 shrink-0 disabled:opacity-80">
               {busy ? <Loader2 className="size-4 animate-spin" /> : null}
               Start planning
               {!busy && <ArrowRight className="size-4" />}
@@ -148,7 +149,7 @@ export function TripPromptBox() {
                 setPrompt(starter.prompt);
                 textareaRef.current?.focus();
               }}
-              className="rounded-full border border-white/60 bg-white/55 px-4 py-2 text-sm font-medium shadow-soft backdrop-blur-md transition-[background-color,transform] hover:-translate-y-px hover:bg-white/80 active:translate-y-0 dark:border-white/10 dark:bg-white/[0.06] dark:hover:bg-white/[0.12]"
+className="hit-44 rounded-full border border-white/60 bg-white/55 px-4 py-2 text-sm font-medium shadow-soft backdrop-blur-md transition-[background-color,transform] hover:-translate-y-px hover:bg-white/80 active:translate-y-0 dark:border-white/10 dark:bg-white/[0.06] dark:hover:bg-white/[0.12]"
             >
               {starter.label}
             </button>

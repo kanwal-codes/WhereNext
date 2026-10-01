@@ -91,6 +91,10 @@ const CHAT = [
   { who: "A", text: "not it", side: "left", to: { x: 86, y: 91 }, rotation: 3 },
 ] as const;
 
+// Without motion the scene is one still frame: the pile stays as a faint backdrop so the headline
+// that resolves it is readable instead of printed over the cards.
+const REDUCED_PILE = 0.16;
+
 const MICROCOPY = [
   { text: "is the hotel booked?", top: "20%", left: "44%", start: 1000, end: 1380 },
   { text: "send the link again", top: "66%", left: "56%", start: 1150, end: 1530 },
@@ -147,12 +151,12 @@ export function ChaosScene() {
       measure();
       chatRefs.current.forEach((el, i) => {
         if (!el) return;
-        gsap.set(el, { x: 0, y: 0, rotate: CHAT[i].rotation });
+        gsap.set(el, { x: 0, y: 0, rotate: CHAT[i].rotation, opacity: REDUCED_PILE });
         gsap.set(el.children, { opacity: 1, y: 0, scale: 1 });
       });
       objectRefs.current.forEach((el, i) => {
         if (!el) return;
-        gsap.set(el, { x: 0, y: 0, opacity: 1, rotate: OBJECTS[i].rotation });
+        gsap.set(el, { x: 0, y: 0, opacity: REDUCED_PILE, rotate: OBJECTS[i].rotation });
       });
       gsap.set(headline1Ref.current, { opacity: 0 });
       gsap.set(headline2Ref.current, { opacity: 1, pointerEvents: "auto" });
@@ -284,6 +288,7 @@ export function ChaosScene() {
         return (
           <div
             key={obj.label}
+            aria-hidden="true"
             ref={(el) => {
               objectRefs.current[i] = el;
             }}
@@ -292,7 +297,7 @@ export function ChaosScene() {
           >
             {obj.photo ? (
               // eslint-disable-next-line @next/next/no-img-element -- decorative placeholder thumbnail
-              <img src={obj.photo} alt="" width={320} height={128} loading="lazy" className="mb-2 h-16 w-full rounded-lg object-cover" />
+              <img src={obj.photo} alt="" width={320} height={128} loading="lazy" decoding="async" className="mb-2 h-16 w-full rounded-lg object-cover" />
             ) : (
               Icon && (
                 <span className="mb-2 grid size-7 place-items-center rounded-lg bg-coral-soft text-coral md:mb-2.5 md:size-8">
@@ -309,6 +314,7 @@ export function ChaosScene() {
       {MICROCOPY.map((copy, i) => (
         <div
           key={copy.text}
+          aria-hidden="true"
           ref={(el) => {
             microcopyRefs.current[i] = el;
           }}
@@ -320,7 +326,7 @@ export function ChaosScene() {
       ))}
 
       {/* The opening group chat. Rows are wrapped so the breakup can move them freely. */}
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex items-center justify-center px-6">
         <div className="flex w-[min(22rem,100%)] flex-col gap-3">
           {CHAT.map((msg, i) => (
             <div
@@ -330,7 +336,7 @@ export function ChaosScene() {
               }}
               className={`pointer-events-auto flex items-end gap-2 ${msg.side === "right" ? "flex-row-reverse self-end" : "self-start"}`}
             >
-              <span className="grid size-8 shrink-0 place-items-center rounded-full border-2 border-background bg-primary text-[11px] font-semibold text-primary-foreground opacity-0">
+              <span className="grid size-8 shrink-0 place-items-center rounded-full border-2 border-background bg-primary text-xs font-semibold text-primary-foreground opacity-0">
                 {msg.who}
               </span>
               <div

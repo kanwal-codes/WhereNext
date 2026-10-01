@@ -14,6 +14,7 @@ export const metadata: Metadata = {
     description: "Talk your way to a trip: discover places, map the days, pick where you stay and build the itinerary together.",
     type: "website",
   },
+  alternates: { canonical: "/" },
   twitter: { card: "summary_large_image" },
 };
 

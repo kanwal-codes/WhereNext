@@ -7,6 +7,9 @@ import { useEffect } from "react";
  * a choice on the browser that made it — this is what makes it follow the account instead. */
 export function ThemeSync() {
   useEffect(() => {
+    // Only a signed-in (or guest) visitor has a Supabase session cookie; for everyone else the
+    // request is a guaranteed 401, so skip it.
+    if (!/(?:^|;\s*)sb-[^=]*-auth-token/.test(document.cookie)) return;
     let cancelled = false;
     fetch("/api/profile")
       .then((r) => (r.ok ? r.json() : null))
