@@ -69,7 +69,7 @@ function Desk({ pieces, className, base, height, deskRef }: { pieces: Piece[]; c
   );
 }
 
-const DWELL = 1100; // ms the whole pile is held on screen before it settles
+const DWELL = 350; // ms the whole pile is held on screen before it settles
 
 /**
  * Scene one of the story: the problem, as a desk. Everything a trip is scattered across lies in a
@@ -81,6 +81,7 @@ const DWELL = 1100; // ms the whole pile is held on screen before it settles
  */
 export function ProblemScene() {
   const sectionRef = useRef<HTMLElement>(null);
+  const headingRef = useRef<HTMLDivElement>(null);
   const wideRef = useRef<HTMLDivElement>(null);
   const narrowRef = useRef<HTMLDivElement>(null);
 
@@ -111,6 +112,13 @@ export function ProblemScene() {
       if ("settled" in section.dataset) return;
       const desk = desks.find((d) => d.offsetParent);
       if (!desk) return;
+      const heading = headingRef.current;
+      if (heading && heading.getBoundingClientRect().bottom <= 0) {
+        window.clearTimeout(timer);
+        timer = 0;
+        settle();
+        return;
+      }
       const rect = desk.getBoundingClientRect();
       const vh = window.innerHeight;
       const centre = rect.top + rect.height / 2;
@@ -136,9 +144,11 @@ export function ProblemScene() {
   return (
     <section ref={sectionRef} data-scene="problem" className={`story-scene ${hand.variable}`}>
       <div className="mx-auto max-w-4xl px-6 text-center">
-        <Reveal as="h2" className="story-h2">
-          Every trip starts as a mess.
-        </Reveal>
+        <div ref={headingRef}>
+          <Reveal as="h2" className="story-h2">
+            Every trip starts as a mess.
+          </Reveal>
+        </div>
         <Reveal as="p" offset={30} className="story-lede mx-auto mt-5 max-w-xl">
           A group chat, six open tabs, a screenshot someone swears they sent. The plan is in everyone’s head and nobody’s hands.
         </Reveal>

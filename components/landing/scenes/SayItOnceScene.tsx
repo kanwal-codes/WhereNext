@@ -34,7 +34,7 @@ export function SayItOnceScene() {
   const frameRef = useRef<HTMLDivElement>(null);
   const [seen, setSeen] = useState(false);
   const [typed, setTyped] = useState(0);
-  const [stage, setStage] = useState(0); // 1 thinking · 2 answered · 3 brief
+  const [stage, setStage] = useState(0); // 2 answered · 3 brief
 
   // It starts when the window is mostly on screen and the visitor has slowed down to read; a flick
   // past it does not set it off. It plays once, so scrolling back finds the finished thread.
@@ -57,20 +57,10 @@ export function SayItOnceScene() {
       return;
     }
     const timers: ReturnType<typeof setTimeout>[] = [];
-    let i = 0;
-    const type = setInterval(() => {
-      i += 1;
-      setTyped(i);
-      if (i < MESSAGE.length) return;
-      clearInterval(type);
-      timers.push(
-        setTimeout(() => setStage(1), 350),
-        setTimeout(() => setStage(2), 1450),
-        setTimeout(() => setStage(3), 2050),
-      );
-    }, 13);
+    setTyped(MESSAGE.length);
+    setStage(2);
+    timers.push(setTimeout(() => setStage(3), 600));
     return () => {
-      clearInterval(type);
       timers.forEach(clearTimeout);
     };
   }, [seen]);
@@ -109,7 +99,7 @@ export function SayItOnceScene() {
 
         <Reveal className="mx-auto w-full max-w-xl lg:max-w-none" offset={40}>
           <div ref={frameRef}>
-            <AppFrame title="New trip">
+            <AppFrame title="Friend group">
               <div
                 aria-hidden="true"
                 className="min-h-[27rem] space-y-4 p-4 sm:min-h-[35rem] sm:p-6"

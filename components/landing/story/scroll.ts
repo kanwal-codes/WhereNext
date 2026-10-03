@@ -39,14 +39,18 @@ function finish(item: Item) {
 function run() {
   frame = 0;
   const vh = window.innerHeight;
+  const updates: Array<{ item: Item; r: number; prev: number }> = [];
   for (const item of items) {
     const top = item.el.getBoundingClientRect().top + item.offset;
     const r = Math.min(1, Math.max(0, (vh * REVEAL_FROM - top) / (vh * REVEAL_SPAN)));
     const prev = Number(item.el.style.getPropertyValue("--r") || 0);
+    updates.push({ item, r, prev });
+  }
+  watchers.forEach((fn) => fn());
+  for (const { item, r, prev } of updates) {
     if (r >= 1) finish(item);
     else if (r > prev) item.el.style.setProperty("--r", r.toFixed(3));
   }
-  watchers.forEach((fn) => fn());
 }
 
 function onScroll() {

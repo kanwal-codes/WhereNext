@@ -253,6 +253,7 @@ export function BoardingPass({ finale = false }: { finale?: boolean }) {
                   rows={1}
                   maxLength={600}
                   value={prompt}
+                  className={!prompt ? "bp-placeholder-single-line" : undefined}
                   onChange={(event) => {
                     setPrompt(event.target.value);
                     if (problem) setProblem(null);
@@ -278,15 +279,6 @@ export function BoardingPass({ finale = false }: { finale?: boolean }) {
                         : "Tell Roam about your trip…"
                   }
                 />
-                {reading.place && (
-                  <span
-                    key={reading.place.code}
-                    className="bp-chip"
-                    aria-hidden="true"
-                  >
-                    {reading.place.code}
-                  </span>
-                )}
                 <button
                   type="submit"
                   aria-label="Start planning"

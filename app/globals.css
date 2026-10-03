@@ -1192,6 +1192,7 @@
 .bp-to:focus-within { box-shadow: 0 0 0 2px #fff, 0 0 0 6px color-mix(in oklab, var(--coral) 38%, transparent); }
 .bp-to b { flex: none; font-family: var(--font-display); font-weight: 500; }
 .bp-to textarea { flex: 1; min-width: 0; padding: 0; resize: none; overflow-y: auto; scrollbar-width: none; background: transparent; border: 0; outline: 0; font: inherit; line-height: 1.35; color: var(--ink); caret-color: var(--ink); }
+.bp-to textarea.bp-placeholder-single-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bp-to textarea::-webkit-scrollbar { display: none; }
 .bp-to textarea::placeholder { color: var(--muted-foreground); opacity: 1; }
 .bp-to > span:not(.bp-chip) { flex: 1; min-width: 0; color: var(--muted-foreground); }
@@ -1365,7 +1366,7 @@
   box-shadow: 0 -14px 24px -10px rgb(0 0 0 / 22%), inset 0 1px 0 rgb(255 255 255 / 50%); }
 .wl-lip { position: absolute; left: 0; right: 0; top: 0; height: 46px; background: linear-gradient(180deg, rgb(0 0 0 / 0.2), transparent); pointer-events: none; }
 .wl-stitch { position: absolute; inset: 18px 18px -40px; border: 2px dashed var(--thread); border-bottom: 0; border-radius: 18px 18px 0 0; opacity: 0.6; }
-.wl-legal { position: absolute; left: 60px; right: 60px; top: 36px; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; font-family: var(--font-display); font-size: 1.0625rem; font-weight: 400; letter-spacing: -0.005em; text-transform: none; color: var(--ink-leather); text-shadow: 0 1px 0 var(--hl), 0 -1px 0 rgb(0 0 0 / 8%); }
+.wl-legal { position: absolute; left: 60px; right: 60px; top: 46px; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; font-family: var(--font-display); font-size: 1.0625rem; font-weight: 400; letter-spacing: -0.005em; text-transform: none; color: var(--ink-leather); text-shadow: 0 1px 0 var(--hl), 0 -1px 0 rgb(0 0 0 / 8%); }
 .wl-legal p { margin: 0; }
 .wl-legal nav { display: flex; align-items: baseline; gap: 0.9rem; }
 .wl-legal nav a + a::before { content: "·"; margin-right: 0.9rem; color: var(--thread); text-shadow: none; }
@@ -1466,7 +1467,7 @@
 
 /* One entrance per element, driven by its position in the window (components/landing/story/scroll.ts): --r runs 0 to 1 as it rises into view, then the element is marked done and stays. With scripting off, everything is simply there. */
 @media (scripting: enabled) {
-  .rv:not([data-done]) { opacity: var(--r, 0); transform: translateY(calc((1 - var(--r, 0)) * 26px)); filter: blur(calc((1 - var(--r, 0)) * 6px)); }
+  .rv:not([data-done]) { opacity: var(--r, 0); transform: translateY(calc((1 - var(--r, 0)) * 26px)); }
 }
 @media (prefers-reduced-motion: reduce) { .rv { opacity: 1 !important; transform: none !important; filter: none !important; } }
 
