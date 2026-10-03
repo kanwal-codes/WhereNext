@@ -35,13 +35,13 @@ export function Nav() {
       }`}
     >
       <Link href="/" aria-label="Where Next home" className="hit-44 inline-flex">
-        {/* Painted by the server, not faded in by JS: this is the page's first large paint (LCP). */}
-        <span className="inline-block">
+        {/* The first screen's boarding pass carries the name, so the wordmark waits until the nav compresses. It stays in the page (and the link stays labelled) throughout. */}
+        <span className={`inline-block transition-opacity duration-300 ${compressed ? "opacity-100" : "pointer-events-none opacity-0"}`}>
           <BrandMark variant="text" className="transition-[font-size] duration-[350ms]" textClassName={compressed ? "text-lg" : "text-xl"} />
         </span>
       </Link>
 
-      <nav aria-label="Primary" className="flex items-center gap-3 md:gap-8">
+      <nav aria-label="Primary" className="ml-auto flex items-center gap-3 md:gap-8">
         {LINKS.map((link) => (
           <Link
             key={link.href}

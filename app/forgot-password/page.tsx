@@ -42,7 +42,7 @@ export default function ForgotPasswordPage() {
             initial={reduceMotion ? false : { opacity: 0, y: 12, filter: "blur(6px)" }}
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             exit={reduceMotion ? undefined : { opacity: 0, y: -8 }}
-            transition={reduceMotion ? { duration: 0 } : { duration: 0.45, ease: [0.22, 0.61, 0.36, 1] }}
+            transition={reduceMotion ? { duration: 0 } : { duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
             className="rounded-2xl border border-border bg-card p-6 shadow-soft"
           >
             <span className="grid h-10 w-10 place-items-center rounded-full bg-coral-soft text-coral">

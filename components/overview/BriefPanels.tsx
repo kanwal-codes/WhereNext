@@ -17,7 +17,7 @@ function Chip({ children, tone }: { children: string; tone: "like" | "avoid" | "
     diet: "border-coral/30 bg-coral/10 text-foreground",
     fact: "border-border bg-background text-foreground",
   }[tone];
-  return <span className={`daisy-badge h-7 px-3 text-[13px] ${toneClass}`}>{children}</span>;
+  return <span className={`daisy-badge h-7 px-3 text-sm ${toneClass}`}>{children}</span>;
 }
 
 /** What the trip knows about the group, as chips, and what is still undecided, with the next step. */
@@ -36,19 +36,19 @@ export function TasteAndQuestions({ tripId, taste, questions }: { tripId: string
           )}
           {taste.likes.length > 0 && (
             <div>
-              <p className="mb-2 text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">Into</p>
+              <p className="mb-2 text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">Into</p>
               <div className="flex flex-wrap gap-2">{taste.likes.map((item) => <Chip key={item} tone="like">{item}</Chip>)}</div>
             </div>
           )}
           {taste.avoids.length > 0 && (
             <div>
-              <p className="mb-2 text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">Not for us</p>
+              <p className="mb-2 text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">Not for us</p>
               <div className="flex flex-wrap gap-2">{taste.avoids.map((item) => <Chip key={item} tone="avoid">{item}</Chip>)}</div>
             </div>
           )}
           {taste.dietary.length > 0 && (
             <div>
-              <p className="mb-2 text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">Eating</p>
+              <p className="mb-2 text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">Eating</p>
               <div className="flex flex-wrap gap-2">{taste.dietary.map((item) => <Chip key={item} tone="diet">{item}</Chip>)}</div>
             </div>
           )}
@@ -58,7 +58,7 @@ export function TasteAndQuestions({ tripId, taste, questions }: { tripId: string
       )}
 
       <div className="mt-6 border-t border-border pt-5">
-        <h3 className="text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">Still to decide</h3>
+        <h3 className="text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">Still to decide</h3>
         {questions.length > 0 ? (
           <ul className="mt-3 space-y-2.5">
             {questions.map((question) => (
@@ -88,7 +88,7 @@ export function DecisionsPanel({ decisions }: { decisions: Array<{ id: string; k
         {decisions.slice(0, 6).map((decision) => (
           <li key={decision.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border py-3 last:border-0 last:pb-0">
             <div className="min-w-0">
-              <p className="text-[11px] tracking-[0.1em] text-muted-foreground uppercase">{decision.kind.replaceAll("_", " ")}</p>
+              <p className="text-2xs tracking-[0.1em] text-muted-foreground uppercase">{decision.kind.replaceAll("_", " ")}</p>
               <p className="truncate text-sm">{decisionSummary(decision.kind, decision.value)}</p>
             </div>
             <CertaintyBadge certainty={certaintyFor(decision.source)} />

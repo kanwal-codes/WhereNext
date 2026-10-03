@@ -58,7 +58,7 @@ export function NearbyEvents({ tripId, location, query = "" }: { tripId: string;
   if (loading) {
     return (
       <div aria-busy="true" aria-label={`Loading events near ${location}`} className="space-y-3">
-        <div className="h-6 w-40 animate-pulse rounded-md bg-muted" />
+        <div className="h-6 w-40 skeleton rounded-md" />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Skeleton className="h-32" />
           <Skeleton className="h-32" />

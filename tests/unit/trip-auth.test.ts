@@ -4,6 +4,7 @@ let user: { id: string } | null = { id: "u1" };
 let member: { role: string } | null = { role: "owner" };
 
 vi.mock("@/lib/supabase/server", () => ({
+  getSessionUser: async (client: { auth: { getUser: () => Promise<{ data: { user: unknown } }> } }) => (await client.auth.getUser()).data.user,
   createSupabaseServerClient: async () => ({
     auth: { getUser: async () => ({ data: { user } }) },
     from: () => {

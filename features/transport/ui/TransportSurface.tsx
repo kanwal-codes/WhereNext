@@ -87,7 +87,7 @@ function StepLine({ step }: { step: Step }) {
     <li className="flex items-start gap-2 text-ink-soft">
       <span
         className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full border border-black/10"
-        style={{ background: step.color ? `#${step.color.replace(/^#/, "")}` : "var(--color-coral, #e2603f)" }}
+        style={{ background: step.color ? `#${step.color.replace(/^#/, "")}` : "var(--color-lagoon)" }}
       />
       <span className="min-w-0">
         <span className="font-medium text-foreground">{step.line ?? step.vehicleName ?? "Transit"}</span>
@@ -437,10 +437,10 @@ export function TransportSurface({
                   {(route.steps ?? [])
                     .filter((s) => (s.mode ?? "") !== "walk")
                     .map((s, si) => (
-                      <span key={si} className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-[11px]">
+                      <span key={si} className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-2xs">
                         <span
                           className="h-2 w-2 rounded-full"
-                          style={{ background: s.color ? `#${s.color.replace(/^#/, "")}` : "var(--color-coral, #e2603f)" }}
+                          style={{ background: s.color ? `#${s.color.replace(/^#/, "")}` : "var(--color-lagoon)" }}
                         />
                         {s.line ?? s.vehicleName ?? s.mode}
                       </span>

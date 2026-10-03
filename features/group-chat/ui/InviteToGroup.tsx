@@ -125,7 +125,7 @@ export function InviteToGroup({ tripId }: { tripId: string }) {
           </button>
         </div>
       ) : preparingLink || !genericInvite ? (
-        <div className="h-11 animate-pulse rounded-xl bg-muted" aria-hidden="true" />
+        <div className="h-11 skeleton rounded-xl" aria-hidden="true" />
       ) : (
         <>
           <div className="flex items-center gap-2 rounded-xl border border-input bg-background px-3 py-2 focus-within:ring-2 focus-within:ring-ring/25">
@@ -140,7 +140,7 @@ export function InviteToGroup({ tripId }: { tripId: string }) {
               {copied ? <Check className="h-3.5 w-3.5" /> : "Copy"}
             </button>
           </div>
-          <p className="mt-1.5 text-[11px] text-muted-foreground">
+          <p className="mt-1.5 text-2xs text-muted-foreground">
             Anyone with this link can join the trip, until {new Date(genericInvite.expiresAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}.
           </p>
         </>
@@ -177,7 +177,7 @@ export function InviteToGroup({ tripId }: { tripId: string }) {
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-medium">{inv.email}</p>
-                <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <p className="flex items-center gap-1 text-2xs text-muted-foreground">
                   <Clock className="h-2.5 w-2.5" /> {daysLeft(inv.expiresAt)}
                 </p>
               </div>

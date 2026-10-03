@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import mapboxgl from "mapbox-gl";
+import { CATEGORY_HEX, ROUTE_LINE_HEX } from "@/lib/map-colors";
 import along from "@turf/along";
 import lineSliceAlong from "@turf/line-slice-along";
 import { lineString } from "@turf/helpers";
@@ -22,9 +23,7 @@ export type MapPin = {
 };
 export type MapLeg = { polyline: Array<[number, number]>; mode: string; dim?: boolean; color?: string };
 
-const KIND_COLOR: Record<MapPin["kind"], string> = {
-  stay: "#e2603f", eat: "#d9932b", see: "#3b82c4", do: "#3f9d6b", event: "#8b5cf6", saved: "#8a8a8a",
-};
+const KIND_COLOR: Record<MapPin["kind"], string> = CATEGORY_HEX;
 const DRAW_MS = 1200;
 
 /** A classic map-pin teardrop (not a plain badge) so stops read as places on a map, not a numbered
@@ -88,7 +87,7 @@ export function TripMap({
         source: "legs",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": ["coalesce", ["get", "color"], "#2563eb"],
+          "line-color": ["coalesce", ["get", "color"], ROUTE_LINE_HEX],
           "line-width": ["case", ["get", "dim"], 4, 10],
           "line-opacity": ["case", ["get", "dim"], 0.12, 0.25],
           "line-blur": 6,
@@ -100,7 +99,7 @@ export function TripMap({
         source: "legs",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": ["coalesce", ["get", "color"], "#2563eb"],
+          "line-color": ["coalesce", ["get", "color"], ROUTE_LINE_HEX],
           "line-width": ["case", ["get", "dim"], 2, 4],
           "line-opacity": ["case", ["get", "dim"], 0.35, 0.95],
           "line-dasharray": ["case", ["any", ["==", ["get", "mode"], "walk"], ["==", ["get", "mode"], "flight"]], ["literal", [1, 2]], ["literal", [1, 0]]],
@@ -261,7 +260,7 @@ export function TripMap({
       if (path.length) {
         for (const [label, coord] of [["A", path[0]], ["B", path[path.length - 1]]] as const) {
           const el = document.createElement("div");
-          el.className = "grid h-6 w-6 place-items-center rounded-full border-2 border-white bg-primary text-[11px] font-bold text-white shadow";
+          el.className = "grid h-6 w-6 place-items-center rounded-full border-2 border-white bg-primary text-2xs font-bold text-white shadow";
           el.textContent = label;
           markers.current.push(new mapboxgl.Marker({ element: el }).setLngLat(coord).addTo(m));
         }

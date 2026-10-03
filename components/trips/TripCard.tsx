@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 export function StatusBadge({ status, className }: { status: TripStatus; className?: string }) {
   return (
     // The wording depends on today's date in the viewer's timezone, so it can differ from the server render.
-    <span suppressHydrationWarning className={cn("daisy-badge h-7 gap-1.5 border-border/60 bg-background/80 px-3 text-[13px] font-medium text-foreground backdrop-blur", className)}>
+    <span suppressHydrationWarning className={cn("photo-chip", className)}>
       {status.phase === "underway" && <span aria-hidden className="daisy-status daisy-status-success daisy-status-sm" />}
       {status.badge}
     </span>
@@ -52,10 +52,12 @@ export function TripCard({
           </p>
           <div className="mt-5 flex items-center justify-between gap-3 border-t border-border/70 pt-4 text-sm">
             <span className="min-w-0 truncate tabular-nums text-ink-soft">{when}</span>
-            <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground" title="Travellers">
-              <Users className="h-3.5 w-3.5" />
-              <span className="tabular-nums">{trip.travelers ?? "-"}</span>
-            </span>
+            {trip.travelers ? (
+              <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground" title="Travellers">
+                <Users className="h-3.5 w-3.5" />
+                <span className="tabular-nums">{trip.travelers}</span>
+              </span>
+            ) : null}
           </div>
         </div>
       </Link>

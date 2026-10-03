@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AlertTriangle, Check, Info, X } from "lucide-react";
 import { subscribeWorkspaceChanges, announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
+import { cachedGet } from "@/lib/client/cached-get";
 
 type Finding = {
   id: string;
@@ -22,7 +23,7 @@ export function TripReviewPanel({ tripId }: { tripId: string }) {
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(() => {
-    fetch(`/api/trips/${tripId}/review`)
+    cachedGet(`/api/trips/${tripId}/review`, { ttlMs: 0 })
       .then((r) => (r.ok ? r.json() : { findings: [] }))
       .then((body: { findings?: Finding[] }) => setFindings(body.findings ?? []))
       .catch(() => undefined)
@@ -85,7 +86,7 @@ export function TripReviewPanel({ tripId }: { tripId: string }) {
           );
         })}
       </ul>
-      <p className="mt-3 flex items-center gap-1 text-[11px] text-muted-foreground">
+      <p className="mt-3 flex items-center gap-1 text-2xs text-muted-foreground">
         <Check className="h-3 w-3" /> Updated as your plan changes
       </p>
     </section>

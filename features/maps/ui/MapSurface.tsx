@@ -1,5 +1,6 @@
 "use client";
 
+import { CATEGORY_HEX } from "@/lib/map-colors";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { animate as animateValue, motion, useDragControls, useMotionValue, useReducedMotion } from "motion/react";
@@ -17,6 +18,7 @@ import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 import type { MapPin as Pin, MapLeg } from "@/components/TripMap";
+import { cachedGet } from "@/lib/client/cached-get";
 
 const TripMap = dynamic(() => import("@/components/TripMap").then((m) => m.TripMap), {
   ssr: false,
@@ -239,7 +241,7 @@ export function MapSurface({ tripId, tab }: { tripId: string; tab: "trip" | "bro
       const hit = sessionStorage.getItem(cacheKey);
       if (hit) setPlan(JSON.parse(hit) as RoutePlan);
     } catch { /* unavailable or malformed cache */ }
-    fetch(`/api/trips/${tripId}/route-plan`)
+    cachedGet(`/api/trips/${tripId}/route-plan`, { ttlMs: 0 })
       .then((r) => (r.ok ? r.json() : null))
       .then((body) => {
         if (cancelled || !body) return;
@@ -332,7 +334,7 @@ export function MapSurface({ tripId, tab }: { tripId: string; tab: "trip" | "bro
   useEffect(() => {
     if (!destination || pins.length > 0) return;
     let cancelled = false;
-    fetch(`/api/trips/${tripId}/geocode?q=${encodeURIComponent(destination)}`)
+    cachedGet(`/api/trips/${tripId}/geocode?q=${encodeURIComponent(destination)}`, { ttlMs: 0 })
       .then((r) => (r.ok ? r.json() : null))
       .then((p) => !cancelled && p && setCenter([p.lng, p.lat]))
       .catch(() => {});
@@ -381,14 +383,14 @@ export function MapSurface({ tripId, tab }: { tripId: string; tab: "trip" | "bro
                     <ol className="space-y-1.5">
                       {shown.map((p, i) => (
                         <li key={p.id} className="flex items-center gap-2.5 text-sm">
-                          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-semibold text-white" style={{ background: { stay: "#e2603f", eat: "#d9932b", see: "#3b82c4", do: "#3f9d6b", event: "#8b5cf6", saved: "#8a8a8a" }[p.kind] }}>
+                          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-2xs font-semibold text-white" style={{ background: CATEGORY_HEX[p.kind] }}>
                             {i + 1}
                           </span>
                           <span className="truncate">{p.name}</span>
                         </li>
                       ))}
                     </ol>
-                    <p className="mt-2 text-[11px] text-muted-foreground">
+                    <p className="mt-2 text-2xs text-muted-foreground">
                       {plan ? "Working out how to get between these stops…" : "Numbered in visit order."}
                     </p>
                   </>

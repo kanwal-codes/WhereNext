@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight, PartyPopper, UserPlus } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
+import { StatusScreen } from "@/components/StatusScreen";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { invalidate } from "@/lib/server/ttl-cache";
@@ -25,13 +26,14 @@ function JoinCard({ children }: { children: ReactNode }) {
 
 function DeadInvite({ reason }: { reason: string }) {
   return (
-    <JoinCard>
-      <h1 className="font-display text-xl">This invite can’t be used</h1>
-      <p className="mt-2 text-sm text-muted-foreground">{reason}</p>
-      <Link href="/trips" className="btn-secondary mt-6 inline-flex">
-        Go to your trips
-      </Link>
-    </JoinCard>
+    <StatusScreen
+      mark="error"
+      eyebrow="Invite"
+      title="This invite can’t be used."
+      actions={<Link href="/trips" className="btn-secondary">Go to your trips</Link>}
+    >
+      {reason}
+    </StatusScreen>
   );
 }
 

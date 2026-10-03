@@ -110,12 +110,12 @@ export default function GroupDetailsPage() {
       {!loaded ? (
         <div aria-hidden className="space-y-2">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="h-16 animate-pulse rounded-2xl bg-muted" />
+            <div key={i} className="h-16 skeleton rounded-2xl" />
           ))}
         </div>
       ) : (
         <Reveal delay={0.08}>
-          <p className="mb-2 flex items-center gap-1.5 px-1 text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
+          <p className="mb-2 flex items-center gap-1.5 px-1 text-2xs font-medium tracking-[0.08em] text-muted-foreground uppercase">
             <Users className="h-3 w-3" aria-hidden="true" /> {members.length} member{members.length === 1 ? "" : "s"}
           </p>
           <ul className="space-y-2">
@@ -127,7 +127,7 @@ export default function GroupDetailsPage() {
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-semibold text-primary">{memberInitials(name)}</span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{name}</p>
-                    <p className="truncate text-[11px] text-muted-foreground">{m.email ?? "—"}</p>
+                    <p className="truncate text-2xs text-muted-foreground">{m.email ?? "—"}</p>
                   </div>
                   {m.isYou && (
                     <button

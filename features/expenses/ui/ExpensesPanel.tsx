@@ -98,7 +98,7 @@ export function ExpensesPanel({ tripId, defaultCurrency }: { tripId: string; def
   }
 
   if (!state) {
-    return <div className="h-24 animate-pulse rounded-2xl border border-border bg-card" />;
+    return <div className="h-24 skeleton rounded-2xl border border-border" />;
   }
 
   if (!state.connected) {

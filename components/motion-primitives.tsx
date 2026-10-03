@@ -17,7 +17,8 @@ import {
 } from "react";
 import { cn } from "@/lib/utils";
 
-export const ease = [0.22, 0.61, 0.36, 1] as const;
+/** Same curve as `--ease-out` in globals.css: fast arrival, long soft settle. */
+export const ease = [0.22, 1, 0.36, 1] as const;
 
 /**
  * One motion vocabulary for the whole app. Reach for these instead of hand-typing a
@@ -29,13 +30,13 @@ export const ease = [0.22, 0.61, 0.36, 1] as const;
  *  - `standard`    — the general-purpose layout spring (label = the old `spring`)
  */
 export const motionTokens = {
-  fast: { duration: 0.18, ease },
-  swap: { duration: 0.26, ease },
-  drawer: { duration: 0.32, ease },
+  fast: { duration: 0.16, ease },
+  swap: { duration: 0.24, ease },
+  drawer: { duration: 0.36, ease },
   panelSpring: { type: "spring" as const, stiffness: 260, damping: 30, mass: 0.85 },
   standard: { type: "spring" as const, stiffness: 260, damping: 28, mass: 0.9 },
   /** Hover-lift / press-in on a card or button — what `Tactile` uses internally. */
-  lift: { type: "spring" as const, stiffness: 380, damping: 26 },
+  lift: { type: "spring" as const, stiffness: 420, damping: 34 },
 };
 
 /** @deprecated prefer `motionTokens.standard` — kept so existing imports keep working. */
@@ -229,7 +230,7 @@ export function Tactile({
     <motion.div
       className={className}
       whileHover={{ y: -lift }}
-      whileTap={{ scale: 0.975 }}
+      whileTap={{ scale: 0.985 }}
       transition={motionTokens.lift}
       {...rest}
     >
@@ -510,8 +511,10 @@ export function BlurImage({
       decoding="async"
       onLoad={() => setLoaded(true)}
       className={cn(
-        "transition-[filter,opacity,transform] duration-700 ease-out",
-        loaded ? "scale-100 opacity-100 blur-0" : "scale-[1.03] opacity-0 blur-xl",
+        // Opacity + a hair of scale only. This used to blur-xl -> blur-0: animating a blur is repaint-heavy, and a
+        // resting `filter: blur(0)` keeps every photo on its own filtered layer — dozens of them in a long chat.
+        "transition-[opacity,transform] duration-500 ease-out",
+        loaded ? "scale-100 opacity-100" : "scale-[1.02] opacity-0",
         className,
       )}
       {...rest}

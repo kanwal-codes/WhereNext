@@ -10,7 +10,7 @@
  * Status colour is `positive` / `caution` only where meaning matters; coral stays the one accent.
  */
 import React, { useState, type ReactNode } from "react";
-import { ArrowRight, ArrowUpRight, Check, Copy, Info, Map as MapIcon, type LucideIcon } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, Copy, Info, Map as MapIcon, Star, type LucideIcon } from "lucide-react";
 import { BlurImage } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +28,10 @@ export const surface = "rounded-2xl border border-border bg-card shadow-soft";
 /** Carousel card width — every card kind shares it so rows line up. */
 export const CARD_W = "w-[16.25rem]";
 /** Horizontal card rail: the peeking next card is the affordance. */
-export const rail = "flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto overscroll-x-contain no-scrollbar pb-2";
+/** A card row. An overflow-x scroller also clips vertically, which sliced off the cards' long shadows and
+ *  their 3px hover lift as a hard line. The padding below gives that shadow room to fall; the matching negative
+ *  margin hands the room back, so the layout is unchanged. */
+export const rail = "flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto overscroll-x-contain no-scrollbar -mx-3 px-3 -mt-2 pt-2 -mb-10 pb-10 scroll-px-3";
 /** Full-collection grid in the side panel: reflows to the panel's own width. */
 export const grid = "grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-3";
 /** A secondary control: soft rectangle, 32px tall, 44px effective hit area. */
@@ -59,7 +62,7 @@ export function CopyButton({ text, tabbable = true }: { text: string; tabbable?:
       }}
       className={controlGhost}
     >
-      {done ? <Check className="size-4 text-positive" aria-hidden /> : <Copy className="size-4" aria-hidden />}
+      {done ? <Check key="done" className="settle-in size-4 text-positive" aria-hidden /> : <Copy className="size-4" aria-hidden />}
     </button>
   );
 }
@@ -126,18 +129,21 @@ export function Notice({ children, tone = "neutral" }: { children: ReactNode; to
   );
 }
 
-/** Joins short facts with a middle dot, skipping the empty ones. */
+/** Joins short facts with a middle dot, skipping the empty ones. The dot belongs to the item after it and sits in a
+ *  gutter that the clipped wrapper hides at the start of every line, so a fact that wraps never begins with a
+ *  stranded "·". */
 export function Meta({ items, className }: { items: Array<ReactNode | null | undefined | false>; className?: string }) {
   const shown = items.filter((item): item is ReactNode => item !== null && item !== undefined && item !== false && item !== "");
   if (shown.length === 0) return null;
   return (
-    <p className={cn(type.meta, "flex flex-wrap items-center gap-x-1.5 gap-y-0.5", className)}>
-      {shown.map((item, i) => (
-        <span key={i} className="inline-flex items-center gap-1.5">
-          {i > 0 && <span aria-hidden className="opacity-50">·</span>}
-          {item}
-        </span>
-      ))}
+    <p className={cn(type.meta, "overflow-hidden", className)}>
+      <span className="-ml-3 flex flex-wrap items-center gap-y-0.5">
+        {shown.map((item, i) => (
+          <span key={i} className="relative inline-flex items-center pl-3 before:absolute before:left-0 before:w-3 before:text-center before:opacity-50 before:content-['·']">
+            {item}
+          </span>
+        ))}
+      </span>
     </p>
   );
 }
@@ -192,17 +198,51 @@ export function prettyDates(raw?: string | null): string {
 }
 
 /** A whole-card click target under the card's own controls (which sit on `relative z-10`). Keeps markup un-nested. */
-export const CardOpenOverlay = ({ label, onOpen }: { label: string; onOpen: () => void }) => (
+export const CardOpenOverlay = ({ label, onOpen, href }: { label: string; onOpen: () => void; /** With a real destination the overlay is a link, so a modified click still opens a new tab. */ href?: string }) => {
   // A mouse-only target over the whole card: the card's own Details button is the keyboard and screen-reader path,
   // so this one stays out of the tab order and the accessibility tree (it used to be a second, duplicate tab stop).
-  <button
-    type="button"
-    aria-label={label}
-    tabIndex={-1}
-    aria-hidden="true"
-    onClick={onOpen}
-    className="absolute inset-0 z-0 rounded-2xl transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none"
-  />
+  const className = "absolute inset-0 z-0 rounded-2xl transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none";
+  if (href) {
+    return (
+      <a
+        href={href}
+        aria-label={label}
+        tabIndex={-1}
+        aria-hidden="true"
+        onClick={(event) => {
+          if (event.metaKey || event.ctrlKey || event.shiftKey || event.button === 1) return;
+          event.preventDefault();
+          onOpen();
+        }}
+        className={className}
+      />
+    );
+  }
+  return <button type="button" aria-label={label} tabIndex={-1} aria-hidden="true" onClick={onOpen} className={className} />;
+};
+
+/** The rating every place card shows: a coral star, the score, and a compact count. One shape on every screen. */
+export function RatingMeta({ rating, count }: { rating: number; count?: number | null }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <Star className="size-3.5 fill-current text-coral" aria-hidden />
+      <span className="font-medium text-foreground tabular-nums">{rating.toFixed(1)}</span>
+      {count ? <span className="tabular-nums">({compactCount(count)})</span> : null}
+    </span>
+  );
+}
+
+/** The check in a card's corner while the compare picker is on. */
+export const CompareMark = ({ selected }: { selected: boolean }) => (
+  <span
+    aria-hidden
+    className={cn(
+      "absolute top-2 right-2 z-10 grid size-6 place-items-center rounded-full border-2 shadow-sm transition-colors",
+      selected ? "border-coral bg-coral text-white" : "border-white bg-black/25 text-transparent",
+    )}
+  >
+    <Check className="size-3.5" strokeWidth={3} />
+  </span>
 );
 
 /** The "open this in the side panel" control every card kind uses. */
@@ -216,7 +256,13 @@ export const DetailsButton = ({ onClick, children = "Details", label }: { onClic
 export function CardMedia({ src, alt, fallback }: { src?: string | null; alt: string; fallback: ReactNode }) {
   const [failed, setFailed] = useState(false);
   if (!src || failed) return <>{fallback}</>;
-  return <BlurImage src={src} alt={alt} width={416} height={260} onError={() => setFailed(true)} className="aspect-[16/10] w-full rounded-t-2xl object-cover" />;
+  // The tinted well shows while the photo is on its way (photos come through our proxy and can take a second);
+  // without it the top of every card was blank white until the picture faded in.
+  return (
+    <div className="aspect-[16/10] w-full overflow-hidden rounded-t-2xl bg-muted">
+      <BlurImage src={src} alt={alt} width={416} height={260} onError={() => setFailed(true)} className="size-full object-cover" />
+    </div>
+  );
 }
 
 /**
@@ -224,9 +270,12 @@ export function CardMedia({ src, alt, fallback }: { src?: string | null; alt: st
  * photo · title · one meta line · optional key fact · badges · extra · actions pinned to the foot.
  * A card fills the slots its data has; the order and spacing never change between kinds.
  */
-export function EntityCard({ label, onOpen, media, glyph: Glyph, title, meta, fact, badges, extra, actions, alone = false }: {
+export function EntityCard({ label, onOpen, href, className, media, glyph: Glyph, title, meta, fact, badges, extra, actions, alone = false, compact = false }: {
   label: string;
   onOpen?: () => void;
+  /** A real destination for the whole-card click, so it behaves as a link (new tab, copy address). */
+  href?: string;
+  className?: string;
   /** The card's photo. Leave it out, and pass `glyph`, when no card in the list has one: a banner of nothing is wasted height. */
   media?: ReactNode;
   glyph?: LucideIcon;
@@ -239,12 +288,14 @@ export function EntityCard({ label, onOpen, media, glyph: Glyph, title, meta, fa
   actions?: ReactNode;
   /** Not part of a row of cards, so there is no sibling to line up with: no reserved title or meta height. */
   alone?: boolean;
+  /** The narrow lane version (a ~200px card in a side-panel rail): photo, title and one meta line, nothing else. Same surface, same hover. */
+  compact?: boolean;
 }) {
   return (
-    <article className={cn(surface, "group relative flex h-full flex-col transition-[transform,box-shadow] duration-200 motion-safe:hover:-translate-y-0.5 hover:shadow-lift")}>
-      {onOpen && <CardOpenOverlay label={label} onOpen={onOpen} />}
+    <article className={cn(surface, "card-lift group relative flex h-full flex-col", className)}>
+      {onOpen && <CardOpenOverlay label={label} onOpen={onOpen} href={href} />}
       {media}
-      <div className="flex flex-1 flex-col gap-2 p-4">
+      <div className={cn("flex flex-1 flex-col", compact ? "gap-1 p-3" : "gap-2 p-4")}>
         {(() => {
           const tile = !media && Glyph && (
             <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-coral-soft text-coral-ink" aria-hidden>
@@ -254,8 +305,8 @@ export function EntityCard({ label, onOpen, media, glyph: Glyph, title, meta, fa
           // Two title lines and one meta line are always reserved in a row of cards, so the figure below starts at the same height on every card.
           const heading = (
             <>
-              <h4 className={cn(type.title, "line-clamp-2", !alone && "min-h-[2lh]")}>{title}</h4>
-              {meta && <div className={cn("text-xs leading-snug", !alone && "min-h-[1lh]")}><Meta items={meta} /></div>}
+              <h4 className={cn(compact ? "font-display text-sm font-semibold leading-snug tracking-[-0.01em]" : type.title, "line-clamp-2", !alone && !compact && "min-h-[2lh]")}>{title}</h4>
+              {meta && <div className={cn("text-xs leading-snug", !alone && !compact && "min-h-[1lh]")}><Meta items={meta} /></div>}
             </>
           );
           return alone && tile ? (
@@ -270,10 +321,10 @@ export function EntityCard({ label, onOpen, media, glyph: Glyph, title, meta, fa
             </>
           );
         })()}
-        {fact}
-        {badges && <div className="flex flex-wrap gap-1.5">{badges}</div>}
-        {extra}
-        {actions && <div className="relative z-10 mt-auto flex items-center gap-2 pt-2">{actions}</div>}
+        {!compact && fact}
+        {!compact && badges && <div className="flex flex-wrap gap-1.5">{badges}</div>}
+        {!compact && extra}
+        {!compact && actions && <div className="relative z-10 mt-auto flex items-center gap-2 pt-2">{actions}</div>}
       </div>
     </article>
   );

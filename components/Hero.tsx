@@ -83,7 +83,7 @@ export function Hero({
             initial={{ scale: 1.1, opacity: 0 }}
             animate={{ scale: reduce ? 1.02 : 1.06, opacity: 1 }}
             transition={{
-              opacity: { duration: 1, ease: [0.22, 0.61, 0.36, 1] },
+              opacity: { duration: 1, ease: [0.22, 1, 0.36, 1] },
               scale: { duration: reduce ? 0 : 18, ease: "linear" },
             }}
           />
@@ -107,7 +107,7 @@ export function Hero({
             className="absolute inset-0 h-full w-full object-cover object-center"
             initial={false}
             animate={{ opacity: coverShown ? 1 : 0 }}
-            transition={{ duration: reduce ? 0 : 1.1, ease: [0.22, 0.61, 0.36, 1] }}
+            transition={{ duration: reduce ? 0 : 1.1, ease: [0.22, 1, 0.36, 1] }}
           />
         )}
       </motion.div>
@@ -142,7 +142,7 @@ export function Hero({
       />
       <div
         className={cn(
-          "pointer-events-none absolute inset-x-0 -bottom-px h-10 [mask-image:linear-gradient(to_top,black,transparent)] backdrop-blur-sm",
+          "pointer-events-none absolute inset-x-0 -bottom-px h-10 [mask-image:linear-gradient(to_top,black,transparent)]",
           surface ? "bg-surface/70" : "bg-background/70",
         )}
       />
@@ -153,7 +153,7 @@ export function Hero({
           wash behind it — it carries its own ink/35 + blur background for contrast. */}
       {ratingBadge && (
         <div className="absolute inset-x-4 bottom-4 flex items-end justify-end gap-3 text-white sm:inset-x-6 sm:bottom-6">
-          <div className="flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-md">
+          <div className="flex items-center gap-1.5 rounded-full bg-black/62 px-3 py-1.5 text-xs font-medium text-white">
             {ratingBadge}
           </div>
         </div>

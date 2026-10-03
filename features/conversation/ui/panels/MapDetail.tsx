@@ -61,7 +61,7 @@ function useLocated(tripId: string, points: MapPoint[]) {
   return { located, pending };
 }
 
-const DOT: Record<MapPoint["kind"], string> = { stay: "bg-[#e2603f]", eat: "bg-[#d9932b]", see: "bg-[#3b82c4]", do: "bg-[#3f9d6b]", event: "bg-[#8b5cf6]", saved: "bg-[#8a8a8a]" };
+const DOT: Record<MapPoint["kind"], string> = { stay: "bg-cat-stay", eat: "bg-cat-eat", see: "bg-cat-see", do: "bg-cat-do", event: "bg-cat-event", saved: "bg-cat-saved" };
 
 /** Places, a day or a route on the map, with the stops listed underneath in the same order as the pins. */
 export function MapDetail({ tripId, panel }: { tripId: string; panel: Extract<PanelState, { kind: "map" }> }) {

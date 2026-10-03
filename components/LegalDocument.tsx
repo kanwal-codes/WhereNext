@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { BrandMark } from "@/components/BrandMark";
-import { ThemeToggle } from "@/components/ThemeToggle";
 
 export function LegalDocument({
   title,
@@ -26,7 +25,6 @@ export function LegalDocument({
           <Link href="/terms" className="link-underline">
             Terms
           </Link>
-          <ThemeToggle className="h-8 w-8" />
         </nav>
       </header>
 

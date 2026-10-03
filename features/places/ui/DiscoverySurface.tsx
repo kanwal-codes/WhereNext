@@ -1,8 +1,9 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BedDouble, Check, Compass } from "lucide-react";
+import { BedDouble, Compass } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
 import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { useTripData } from "@/components/TripDataProvider";
@@ -11,6 +12,7 @@ import { AiSearchBar } from "@/components/AiSearchBar";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import { useInfiniteReveal } from "@/lib/use-infinite-reveal";
 import { PlaceCard } from "@/components/PlaceCard";
+import { CardMedia, CompareMark, DetailsButton, EntityCard, MediaFallback, money } from "@/features/conversation/ui/blocks/ui";
 import { rankPlaces, type RankAnchor } from "@/lib/application/rank-places";
 import { usesMiles } from "@/lib/application/geo";
 import { readStayDecision } from "@/packages/contracts/stay";
@@ -20,6 +22,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { Stagger, StaggerItem } from "@/components/motion-primitives";
 import { CATEGORIES, CATEGORY_BY_KEY, type DiscoverCategory } from "./discoverTaxonomy";
 import { cn } from "@/lib/utils";
+import { cachedGet } from "@/lib/client/cached-get";
 
 const PAGE = 6;
 
@@ -164,7 +167,7 @@ export function DiscoverySurface({
 
   const fetchPlaces = useCallback(
     async (q: string, signal?: AbortSignal): Promise<Place[]> => {
-      const r = await fetch(`/api/trips/${tripId}/places?query=${encodeURIComponent(scope(q))}`, { signal });
+      const r = await cachedGet(`/api/trips/${tripId}/places?query=${encodeURIComponent(scope(q))}`, { signal });
       const body = await r.json().catch(() => ({}));
       return r.ok ? (body.places ?? []) : [];
     },
@@ -176,7 +179,7 @@ export function DiscoverySurface({
       const qs = new URLSearchParams({ location: destination });
       if (q) qs.set("query", q);
       if (page > 0) qs.set("page", String(page));
-      const r = await fetch(`/api/trips/${tripId}/events?${qs}`, { signal });
+      const r = await cachedGet(`/api/trips/${tripId}/events?${qs}`, { signal });
       const body = await r.json().catch(() => ({}));
       return r.ok ? (body.events ?? []) : [];
     },
@@ -184,7 +187,7 @@ export function DiscoverySurface({
   );
   const fetchStays = useCallback(async (signal?: AbortSignal): Promise<StayItem[]> => {
     if (!destination) return [];
-    const r = await fetch(`/api/trips/${tripId}/stays`, { signal });
+    const r = await cachedGet(`/api/trips/${tripId}/stays`, { signal });
     const body = await r.json().catch(() => ({}));
     return r.ok ? ((body.options ?? []) as Array<Record<string, unknown>>).map(toStayItem).filter((s) => s.hotelId) : [];
   }, [tripId, destination]);
@@ -506,7 +509,7 @@ export function DiscoverySurface({
       <AiSearchBar
         tripId={tripId}
         scope="discover"
-        placeholder={destination ? `Ask — “rooftop bars near old Montreal”, “kid-friendly museums”, “ramen”` : "Ask for places for this trip"}
+        placeholder={destination ? `Ask — “rooftop bars near ${destination.split(",")[0].trim()}”, “kid-friendly museums”, “ramen”` : "Ask for places for this trip"}
         onDirective={applyDirective}
         className="w-full max-w-3xl"
       />
@@ -573,7 +576,7 @@ export function DiscoverySurface({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.28, ease: [0.22, 0.61, 0.36, 1] }}
+            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
             className="overflow-hidden"
           >
             <div className="mt-3 flex gap-1.5 overflow-x-auto overscroll-x-contain scrollbar-slim pb-1">
@@ -583,7 +586,7 @@ export function DiscoverySurface({
                   type="button"
                   onClick={() => toggleSub(s.label)}
                   className={cn(
-                    "shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                    "shrink-0 rounded-full border px-2.5 py-1 text-2xs font-medium transition-colors",
                     subs.includes(s.label) ? "border-coral/50 bg-coral-soft text-coral" : "border-border bg-background text-muted-foreground hover:text-foreground",
                   )}
                 >
@@ -591,7 +594,7 @@ export function DiscoverySurface({
                 </button>
               ))}
               {subs.length > 0 && (
-                <button type="button" onClick={() => setSubs([])} className="shrink-0 rounded-full px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground">
+                <button type="button" onClick={() => setSubs([])} className="shrink-0 rounded-full px-2 py-1 text-2xs text-muted-foreground hover:text-foreground">
                   Clear
                 </button>
               )}
@@ -678,55 +681,44 @@ export function DiscoverySurface({
   );
 }
 
-function StayMiniCard({ tripId, stay }: { tripId: string; stay: StayItem }) {
+/** A stay, as Discover shows it: the same `EntityCard` Roam uses (4-star, guest score, "£230 / night"). */
+export function StayMiniCard({ tripId, stay }: { tripId: string; stay: StayItem }) {
+  const router = useRouter();
   const panelCtx = useTripPanelMaybe();
   const href = `/trips/${tripId}/stay/${encodeURIComponent(stay.hotelId)}`;
   const entry: CompareEntry = { id: stay.hotelId, kind: "stay", name: stay.name, href, image: stay.thumbnail ?? undefined, attrs: { price: `${Math.round(stay.nightlyAmount)} ${stay.currency}/night`, priceValue: stay.nightlyAmount, rating: stay.rating != null ? `${stay.rating}/10` : undefined, ratingValue: stay.rating ?? undefined, detail: "Stay" } };
+  const open = () => {
+    if (!panelCtx) return router.push(href);
+    if (panelCtx.compareMode) return panelCtx.compareToggle(entry);
+    panelCtx.openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name });
+  };
+  const comparing = Boolean(panelCtx?.compareMode);
+  const selected = comparing && Boolean(panelCtx?.compareHas(stay.hotelId));
   return (
-    <a
+    <EntityCard
+      label={`Open ${stay.name}`}
+      onOpen={open}
       href={href}
-      onClick={(e) => {
-        if (!panelCtx || e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
-        e.preventDefault();
-        if (panelCtx.compareMode) panelCtx.compareToggle(entry);
-        else panelCtx.openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name });
-      }}
-      className="group relative flex h-[19rem] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-shadow hover:shadow-lift"
-    >
-      {stay.thumbnail ? (
-        // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
-        <img src={stay.thumbnail} alt={stay.name} loading="lazy" width={320} height={160} className="h-40 w-full shrink-0 object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]" />
-      ) : (
-        <div className="grid h-40 w-full shrink-0 place-items-center bg-muted text-muted-foreground">
-          <BedDouble className="h-6 w-6 opacity-40" />
+      className={selected ? "ring-2 ring-coral" : undefined}
+      media={
+        <div className="relative">
+          <CardMedia src={stay.thumbnail} alt={stay.name} fallback={<MediaFallback icon={BedDouble} className="aspect-[16/10] w-full rounded-t-2xl" />} />
+          {comparing && <CompareMark selected={selected} />}
         </div>
-      )}
-      {panelCtx?.compareMode && (
-        <span
-          aria-hidden
-          className={cn(
-            "absolute top-2 right-2 grid h-6 w-6 place-items-center rounded-full border-2 shadow-sm transition-colors",
-            panelCtx.compareHas(stay.hotelId) ? "border-coral bg-coral text-white" : "border-white bg-black/25 text-transparent",
-          )}
-        >
-          <Check className="h-3.5 w-3.5" strokeWidth={3} />
-        </span>
-      )}
-      <div className="flex min-h-0 flex-1 flex-col gap-1.5 p-4">
-        <h3 className="truncate font-display text-base leading-tight">{stay.name}</h3>
-        {(stay.stars || stay.rating) && (
-          <p className="text-xs text-muted-foreground">
-            {stay.stars ? `${stay.stars}★` : ""}
-            {stay.stars && stay.rating ? " · " : ""}
-            {stay.rating ? `${stay.rating}/10` : ""}
-          </p>
-        )}
-        <p className="mt-auto pt-1">
-          <span className="font-display text-base tabular-nums">{Math.round(stay.nightlyAmount)} {stay.currency}</span>
-          <span className="text-xs text-muted-foreground"> / night</span>
+      }
+      title={stay.name}
+      meta={[
+        stay.stars ? `${stay.stars}-star` : null,
+        stay.rating ? <span key="g" className="tabular-nums">{`${stay.rating}/10 guests`}</span> : null,
+      ]}
+      fact={
+        <p className="flex flex-wrap items-baseline gap-x-1.5">
+          <span className="font-display text-lg leading-tight font-semibold tabular-nums">{money(stay.nightlyAmount, stay.currency)}</span>
+          <span className="text-xs leading-snug text-muted-foreground">/ night</span>
         </p>
-        {panelCtx?.compareMode && <p className="text-[11px] text-muted-foreground">{panelCtx.compareHas(stay.hotelId) ? "Selected" : "Click to compare"}</p>}
-      </div>
-    </a>
+      }
+      extra={comparing ? <p className="text-xs text-muted-foreground">{selected ? "Selected" : "Click card to select"}</p> : undefined}
+      actions={<DetailsButton label={`Rooms & details: ${stay.name}`} onClick={open}>Rooms &amp; details</DetailsButton>}
+    />
   );
 }

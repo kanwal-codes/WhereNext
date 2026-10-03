@@ -38,12 +38,12 @@ const fromReservation = (r: Reservation, currency: string): Draft => ({
   notes: r.notes ?? "",
 });
 
-const input = "w-full rounded-2xl border border-border bg-background px-4 py-2.5 text-[15px] outline-none transition-colors placeholder:text-muted-foreground focus:border-foreground/40";
+const input = "w-full rounded-2xl border border-border bg-background px-4 py-2.5 text-body outline-none transition-colors placeholder:text-muted-foreground focus:border-foreground/40";
 
 function Field({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
   return (
     <label className={cn("block", className)}>
-      <span className="mb-1.5 block text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">{label}</span>
+      <span className="mb-1.5 block text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">{label}</span>
       {children}
     </label>
   );
@@ -240,7 +240,7 @@ export function ReservationSheet({
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain scrollbar-slim px-5 py-5">
           {!editing && (
             <div className="rounded-2xl border border-dashed border-border bg-background">
-              <button type="button" onClick={() => setPasteOpen((v) => !v)} aria-expanded={pasteOpen} className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium">
+              <button type="button" onClick={() => setPasteOpen((v) => !v)} aria-expanded={pasteOpen} className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium transition-colors hover:bg-accent/60 active:bg-accent">
                 <ClipboardPaste className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <span className="flex-1">Paste a confirmation and let Roam fill this in</span>
                 <span className="text-xs font-normal text-muted-foreground">{pasteOpen ? "Close" : "Try it"}</span>
@@ -328,7 +328,7 @@ export function ReservationSheet({
           </Field>
 
           <div>
-            <span className="mb-1.5 block text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">Tickets and confirmations</span>
+            <span className="mb-1.5 block text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">Tickets and confirmations</span>
             <input ref={picker} type="file" multiple accept="application/pdf,image/*" className="sr-only" tabIndex={-1} onChange={(e) => { void pick(e.target.files ?? []); e.target.value = ""; }} />
             <button
               type="button"

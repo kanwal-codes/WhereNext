@@ -47,7 +47,7 @@ function SettingSection({ id, title, blurb, action, children }: { id: string; ti
   return (
     <section id={id} className="scroll-mt-28">
       <Reveal y={18}>
-       <div className="rounded-[2rem] border border-border/70 bg-card p-6 shadow-soft sm:p-9">
+       <div className="rounded-3xl border border-border/70 bg-card p-6 shadow-soft sm:p-9">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="font-display text-2xl tracking-tight sm:text-3xl">{title}</h2>
@@ -418,7 +418,7 @@ export function AccountView({
       <header className="relative isolate overflow-hidden bg-black text-white">
         {/* eslint-disable-next-line @next/next/no-img-element -- static design asset, sized by the container */}
         <img key={dreamHero ?? "stock"} src={dreamHero ?? (isDark ? "/design/land-lisbon-blue-hour.webp" : "/design/land-coast.jpg")} alt="" onError={() => setHeroFailed(true)} className="hero-drift absolute inset-0 h-full w-full object-cover" />
-        <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/25 to-black/85" />
+        <div aria-hidden className="absolute inset-0 scrim-v" />
         <div aria-hidden className="absolute inset-0 bg-[radial-gradient(85%_70%_at_12%_95%,rgba(0,0,0,0.6),transparent)]" />
 
         <div className="relative mx-auto flex min-h-[28rem] max-w-6xl flex-col justify-between gap-16 px-5 pt-7 pb-8 sm:min-h-[32rem] sm:px-8 sm:pb-10">
@@ -432,12 +432,12 @@ export function AccountView({
           <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
             <div className="flex flex-col gap-6 sm:flex-row sm:items-end">
               <Tactile lift={4} className="relative w-fit">
-                <div className="relative rounded-[30px] border border-white/25 bg-white/10 p-1.5 shadow-lift backdrop-blur-md">
+                <div className="relative rounded-3xl border border-white/25 bg-white/10 p-1.5 shadow-lift backdrop-blur-md">
                   <button
                     type="button"
                     onClick={() => avatarInputRef.current?.click()}
                     aria-label="Change photo"
-                    className="group relative block h-24 w-24 overflow-hidden rounded-[24px] bg-primary sm:h-32 sm:w-32"
+                    className="group relative block h-24 w-24 overflow-hidden rounded-3xl bg-primary transition-[box-shadow,transform] duration-200 hover:shadow-lift active:scale-[0.98] sm:h-32 sm:w-32"
                   >
                     {avatarUrl && !avatarError ? (
                       // eslint-disable-next-line @next/next/no-img-element -- external/user-uploaded, not a static asset
@@ -463,7 +463,7 @@ export function AccountView({
               </Tactile>
 
               <div className="min-w-0 pb-1">
-                <p className="text-[13px] font-medium tracking-[0.16em] text-white/80 uppercase [text-shadow:0_1px_12px_rgba(0,0,0,0.6)]">Traveller profile</p>
+                <p className="text-sm font-medium tracking-[0.16em] text-white/80 uppercase [text-shadow:0_1px_12px_rgba(0,0,0,0.6)]">Traveller profile</p>
                 <WordReveal text={name || "Traveller"} delay={0.1} className="mt-2 font-display text-5xl leading-[0.98] tracking-tight text-balance [text-shadow:0_2px_30px_rgba(0,0,0,0.5)] sm:text-7xl" />
                 <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/85">
                   {city && (
@@ -482,12 +482,12 @@ export function AccountView({
                       <Sparkles className="h-4 w-4 opacity-70" /> Dreaming of {dreamText}
                     </span>
                   ) : (
-                    <a href="#dream" onClick={() => setActive("profile")} className="daisy-badge h-7 gap-1.5 border-white/30 bg-white/15 px-3 text-[13px] font-medium text-white backdrop-blur transition-colors hover:bg-white/25">
+                    <a href="#dream" onClick={() => setActive("profile")} className="daisy-badge h-7 gap-1.5 border-white/30 bg-white/15 px-3 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/25">
                       <Sparkles className="h-3.5 w-3.5" /> Add your dream destination
                     </a>
                   )}
                 </div>
-                {bio && <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-white/80 [text-shadow:0_1px_14px_rgba(0,0,0,0.55)]">{bio}</p>}
+                {bio && <p className="mt-3 max-w-xl text-body leading-relaxed text-white/80 [text-shadow:0_1px_14px_rgba(0,0,0,0.55)]">{bio}</p>}
               </div>
             </div>
 
@@ -499,7 +499,7 @@ export function AccountView({
                   { label: "Home airport", value: airport || "Not set" },
                 ].map((m) => (
                   <div key={m.label} className="daisy-stat">
-                    <div className="daisy-stat-title text-[11px] tracking-[0.1em] uppercase">{m.label}</div>
+                    <div className="daisy-stat-title text-2xs tracking-[0.1em] uppercase">{m.label}</div>
                     <div className={cn("daisy-stat-value font-display text-2xl tracking-tight tabular-nums sm:text-3xl", !airport && m.label === "Home airport" && "opacity-60")}>{m.value}</div>
                   </div>
                 ))}
@@ -513,7 +513,7 @@ export function AccountView({
 
         {/* Rail + body */}
         <div className="mt-10 gap-10 lg:grid lg:grid-cols-[200px_minmax(0,1fr)]">
-          <nav className="sticky top-0 z-20 -mx-5 mb-8 overflow-x-auto overscroll-x-contain border-b border-border bg-background/85 px-5 py-3 backdrop-blur-md scrollbar-slim sm:-mx-8 sm:px-8 lg:top-10 lg:mx-0 lg:mb-0 lg:self-start lg:overflow-visible lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+          <nav className="sticky top-0 z-20 -mx-5 mb-8 overflow-x-auto overscroll-x-contain border-b border-border bg-background/95 px-5 py-3 scrollbar-slim sm:-mx-8 sm:px-8 lg:top-10 lg:mx-0 lg:mb-0 lg:self-start lg:overflow-visible lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
             <ul className="flex gap-2 lg:flex-col lg:gap-1">
               {SECTIONS.map((s) => (
                 <li key={s.id}>
@@ -602,7 +602,7 @@ export function AccountView({
 
               {/* Password */}
               <div className="rounded-3xl border border-border">
-                <button type="button" onClick={() => setPwOpen((v) => !v)} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left">
+                <button type="button" onClick={() => setPwOpen((v) => !v)} className="flex w-full items-center justify-between gap-4 rounded-3xl px-5 py-4 text-left transition-colors hover:bg-accent/60 active:bg-accent">
                   <span className="flex items-center gap-3">
                     <span className="text-sm font-medium">Change password</span>
                   </span>
@@ -610,7 +610,7 @@ export function AccountView({
                 </button>
                 <AnimatePresence initial={false}>
                   {pwOpen && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.35, ease: [0.22, 0.61, 0.36, 1] }} className="overflow-hidden">
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }} className="overflow-hidden">
                       <div className="space-y-4 border-t border-border px-5 py-5">
                         <Field label="New password">
                           <input type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} placeholder="At least 8 characters" className="input-field" />
@@ -677,7 +677,7 @@ export function AccountView({
             >
               <AnimatePresence mode="wait" initial={false}>
                 {editingStyle ? (
-                  <motion.div key="edit" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.24, ease: [0.22, 0.61, 0.36, 1] }} className="space-y-8">
+                  <motion.div key="edit" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} className="space-y-8">
                     <div>
                       <p className="eyebrow mb-3">Interests</p>
                       <div className="flex flex-wrap gap-2">
@@ -718,7 +718,7 @@ export function AccountView({
                     </div>
                   </motion.div>
                 ) : (
-                  <motion.div key="view" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.24, ease: [0.22, 0.61, 0.36, 1] }} className="space-y-8">
+                  <motion.div key="view" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} className="space-y-8">
                     <div className="rounded-3xl bg-gradient-to-br from-muted/60 to-coral-soft/50 p-6">
                       <p className="eyebrow mb-2">In a sentence</p>
                       <p className="font-display text-xl leading-snug tracking-tight text-balance sm:text-2xl">{summary}</p>
@@ -753,7 +753,7 @@ export function AccountView({
 
               <AnimatePresence initial={false}>
                 {styleSaved && (
-                  <motion.div initial={{ opacity: 0, y: 12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8, scale: 0.98 }} transition={{ duration: 0.35, ease: [0.22, 0.61, 0.36, 1] }} className="rounded-2xl border border-coral/25 bg-coral-soft/50 px-5 py-4">
+                  <motion.div initial={{ opacity: 0, y: 12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8, scale: 0.98 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }} className="rounded-2xl border border-coral/25 bg-coral-soft/50 px-5 py-4">
                     <p className="eyebrow mb-1">Travel style saved</p>
                     <p className="text-sm leading-relaxed text-foreground">From now on, {summary}</p>
                   </motion.div>

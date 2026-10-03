@@ -21,12 +21,12 @@ function BoardingPass({ trip, size }: { trip: TripSummary; size: "card" | "featu
   return (
     <div aria-hidden className={cn("absolute inset-0 flex justify-between gap-4 p-5 sm:p-6", size === "feature" ? "items-start pt-20 sm:pt-20" : "items-end pt-16 sm:pt-16")}>
       <div className="min-w-0">
-        {country && <p className="text-[11px] tracking-[0.2em] text-ink-soft uppercase">{country}</p>}
-        <p className={cn("mt-1 line-clamp-2 font-display leading-[0.95] tracking-tight text-balance text-foreground/90", CITY_SIZE[size][cityScale(city)])}>{city}</p>
+        {country && <p className="eyebrow text-ink-soft">{country}</p>}
+        <p className={cn("mt-1 line-clamp-2 font-display leading-[0.95] tracking-[-0.03em] font-medium text-balance text-foreground", CITY_SIZE[size][cityScale(city)])}>{city}</p>
       </div>
       {stamp && (
         <div className="shrink-0 -rotate-6 rounded-lg border-[1.5px] border-dashed border-coral/70 px-2.5 py-1.5 text-center text-coral">
-          <div className="text-[10px] tracking-[0.2em]">{stamp.month}</div>
+          <div className="text-2xs tracking-[0.2em]">{stamp.month}</div>
           <div className="font-display text-2xl leading-none tabular-nums">{stamp.day}</div>
         </div>
       )}
@@ -64,6 +64,7 @@ export function TripCover({
   width,
   imageClassName,
   typeLed = true,
+  parallax = false,
   children,
 }: {
   trip: TripSummary;
@@ -75,6 +76,8 @@ export function TripCover({
   imageClassName?: string;
   /** false drops the big city name when there is no photo, for a cover whose own content already carries the type. */
   typeLed?: boolean;
+  /** The photograph travels slower than the page. Only for a full-bleed hero at the top of a page: on a card mid-page it slides the photo off its own frame. */
+  parallax?: boolean;
   /** Overlay content (badges etc). `photo` is true once a photo is showing, for text that must stay legible on it. */
   children?: (state: { photo: boolean }) => ReactNode;
 }) {
@@ -91,10 +94,10 @@ export function TripCover({
       {src && (
         <motion.div
           aria-hidden={!showPhoto}
-          className="absolute inset-0 z-[1]"
+          className={cn("absolute inset-0 z-[1]", parallax && "hero-parallax")}
           initial={false}
           animate={{ opacity: showPhoto ? 1 : 0 }}
-          transition={{ duration: reduce ? 0 : 0.9, ease: [0.22, 0.61, 0.36, 1] }}
+          transition={{ duration: reduce ? 0 : 0.9, ease: [0.22, 1, 0.36, 1] }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin proxy; next/image can't size a remote proxy */}
           <img
@@ -113,7 +116,7 @@ export function TripCover({
             className={cn("h-full w-full object-cover", imageClassName ?? "transition-transform duration-[900ms] ease-out group-hover:scale-[1.04]")}
           />
           {/* Keeps the badge and menu legible on any photo, bright or dark. */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/20" />
+          <div className="absolute inset-0 scrim-v [--scrim:0.5]" />
         </motion.div>
       )}
       {children?.({ photo: showPhoto })}

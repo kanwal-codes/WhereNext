@@ -15,7 +15,7 @@ test("preview trip renders the routed workspace shell and every surface route", 
 
   const sidebar = page.locator("aside");
   const routes: Array<[string, RegExp]> = [
-    ["Conversation", /\/trips\/rebuild-preview\/chat$/],
+    ["Roam", /\/trips\/rebuild-preview\/chat$/],
     ["Discover", /\/trips\/rebuild-preview\/discover$/],
     ["Getting around", /\/trips\/rebuild-preview\/map$/],
     ["Stay", /\/trips\/rebuild-preview\/stay$/],

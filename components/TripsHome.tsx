@@ -4,16 +4,14 @@ import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Loader2, Mic, Plus, Trash2 } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
-import { Hero } from "@/components/Hero";
+import { HeroCarousel } from "@/components/HeroCarousel";
 import { Reveal, Sheet, Stagger, StaggerItem, WordReveal } from "@/components/motion-primitives";
 import { FeaturedTrip } from "@/components/trips/FeaturedTrip";
 import { TripCard } from "@/components/trips/TripCard";
-import { useTripPhotoCandidates } from "@/components/trips/TripCover";
 import type { TripSummary } from "@/components/trips/types";
 import { RoamMark } from "@/features/roam/ui/RoamMark";
 import { notifyToast } from "@/lib/application/toast";
 import { matchesFilter, pickFeatured, sortForHome, tripCounts, tripStatus, type TripFilter } from "@/lib/trip-status";
-import { useIsDarkMode } from "@/lib/use-dark-mode";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { useSpeechInput } from "@/lib/use-speech-input";
 import { memberInitials } from "@/lib/member-initials";
@@ -40,7 +38,6 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
   const [list, setList] = useState(trips);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<TripSummary | null>(null);
-  const isDark = useIsDarkMode();
   // "Today" for the whole screen, fixed for the life of the mount so nothing shifts under the reader.
   const [now] = useState(() => Date.now());
   const [filter, setFilter] = useState<TripFilter>("all");
@@ -53,10 +50,8 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
   );
   const featured = useMemo(() => pickFeatured(visible, now), [visible, now]);
   const rest = useMemo(() => visible.filter((trip) => trip.id !== featured?.id), [visible, featured]);
-  // The hero is a photo of the trip you are most likely to open next, at a width sharp enough for
-  // a full-bleed image. With no photo for it, the brand rooftops stay (below).
-  const heroPhotos = useTripPhotoCandidates(featured, 1600);
-  const [onPhoto, setOnPhoto] = useState(false);
+  // The hero is always a photograph (the shared carousel), so its words are always the on-photo set.
+  const onPhoto = true;
   const wide = useMediaQuery("(min-width: 640px)");
   const tabs = FILTER_TABS.filter((tab) => tab.key === "all" || counts[tab.key] > 0);
   const showTabs = list.length > 3 && tabs.length > 2;
@@ -114,30 +109,11 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
 
   return (
     <div className="min-h-screen">
-      <Hero
-        image={isDark ? "/design/trip-hero-night.jpg" : "/design/trip-hero.jpg"}
-        alt="Warm rooftops at dusk"
-        plain
-        coverImages={heroPhotos}
-        coverAlt={featured?.destination ? `Photo of ${featured.destination}` : ""}
-        onCoverChange={setOnPhoto}
-        dissolve={!onPhoto}
-        className={cn(
-          "h-[440px] transition-[border-radius] duration-700 sm:h-[420px]",
-          onPhoto ? "rounded-b-[2rem]" : "[&_img]:object-[50%_82%] [&_img]:contrast-[1.12] [&_img]:saturate-[1.3]",
-        )}
-      >
-        {/* Keeps white text readable on any trip photo. Fades in with the photo. */}
-        <div aria-hidden className={cn("pointer-events-none absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/60 transition-opacity duration-700", onPhoto ? "opacity-100" : "opacity-0")} />
-        {/* Behind the words only, so the photo itself stays bright: a dark pool, and a frosted one that softens busy detail (lamps, signs, faces) right where small text sits. */}
-        <div aria-hidden className={cn("pointer-events-none absolute inset-0 bg-[radial-gradient(75%_58%_at_50%_60%,rgba(0,0,0,0.6),transparent)] transition-opacity duration-700", onPhoto ? "opacity-100" : "opacity-0")} />
-        <div aria-hidden className={cn("pointer-events-none absolute inset-x-0 bottom-0 h-[78%] backdrop-blur-[7px] [mask-image:radial-gradient(70%_62%_at_50%_58%,black_35%,transparent)] transition-opacity duration-700", onPhoto ? "opacity-100" : "opacity-0")} />
-        {/* On the brand rooftops, a soft light pool behind the words so the rooftop detail never fights the text. */}
-        <div aria-hidden className={cn("pointer-events-none absolute inset-0 bg-[radial-gradient(60%_42%_at_50%_58%,color-mix(in_oklab,var(--background)_62%,transparent),transparent)] transition-opacity duration-700", onPhoto ? "opacity-0" : "opacity-100")} />
+      <HeroCarousel className="h-[440px] rounded-b-3xl sm:h-[420px]">
         <div className="absolute inset-x-0 top-0">
           <Reveal>
             <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 pt-6 sm:px-8">
-              <Link href="/" className="inline-flex items-center gap-2">
+              <Link href="/" className="inline-flex items-center gap-2 transition-[opacity,transform] duration-200 hover:opacity-85 active:scale-[0.97]">
                 <BrandMark variant="compact" className={cn("transition-shadow duration-700", onPhoto && "ring-1 ring-white/60")} />
                 <BrandMark variant="text" className={cn("hidden transition-colors duration-700 sm:inline", onPhoto && "text-white")} />
               </Link>
@@ -145,7 +121,7 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
                 href="/account"
                 title={displayName}
                 aria-label="Account"
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-border/60 bg-background/85 text-xs font-semibold text-foreground backdrop-blur transition-opacity hover:opacity-70"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-border/60 bg-background/92 text-xs font-semibold text-foreground transition-opacity hover:opacity-70"
               >
                 {memberInitials(displayName)}
               </Link>
@@ -161,7 +137,7 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
                 delay={0.3}
                 className={cn("mx-auto max-w-2xl text-center font-display text-4xl leading-[1.15] transition-colors duration-700 sm:text-5xl", onPhoto && "text-white [text-shadow:0_2px_24px_rgba(0,0,0,0.45)]")}
               />
-              <p className={cn("mx-auto mt-3 max-w-xl text-center text-[15px] leading-relaxed transition-colors duration-700 sm:text-base", onPhoto ? "font-medium text-white [text-shadow:0_1px_14px_rgba(0,0,0,0.65)]" : "text-ink-soft")}>
+              <p className={cn("mx-auto mt-3 max-w-xl text-center text-body leading-relaxed transition-colors duration-700 sm:text-base", onPhoto ? "font-medium text-white [text-shadow:0_1px_14px_rgba(0,0,0,0.65)]" : "text-ink-soft")}>
                 Talk it through, and the plan builds itself alongside the conversation.
               </p>
             </Reveal>
@@ -174,7 +150,7 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
                 className="mx-auto mt-5 max-w-xl"
               >
                 {/* One daisyUI input wraps the field and its buttons, so the whole pill takes the focus ring. */}
-                <label className={cn("daisy-input daisy-input-lg h-14 w-full rounded-full border-border/60 pr-2 pl-5 shadow-lift backdrop-blur transition-[background-color,border-color,box-shadow] focus-within:border-foreground/30 focus-within:shadow-[0_10px_34px_-10px_rgba(0,0,0,0.4)] focus-within:outline-transparent", onPhoto ? "bg-background" : "bg-background/90")}>
+                <label className={cn("daisy-input daisy-input-lg h-14 w-full rounded-full border-border/60 pr-2 pl-5 shadow-lift transition-[background-color,border-color,box-shadow] focus-within:border-foreground/30 focus-within:shadow-[0_10px_34px_-10px_rgba(0,0,0,0.4)] focus-within:outline-transparent", onPhoto ? "bg-background" : "bg-background/90")}>
                   <input
                     ref={promptInputRef}
                     value={prompt}
@@ -229,7 +205,7 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
                         promptInputRef.current?.focus();
                       }}
                       className={cn(
-                        "daisy-btn daisy-btn-sm h-9 shrink-0 snap-start rounded-full px-4 text-sm font-normal shadow-none backdrop-blur transition-colors",
+                        "daisy-btn daisy-btn-sm h-9 shrink-0 snap-start rounded-full px-4 text-sm font-normal shadow-none transition-colors",
                         onPhoto
                           ? "border-white/30 bg-black/35 text-white hover:bg-black/50"
                           : "border-border/60 bg-background/75 text-ink-soft hover:bg-background/95 hover:text-foreground",
@@ -243,7 +219,7 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
             </Reveal>
           </div>
         </div>
-      </Hero>
+      </HeroCarousel>
 
       <div className="mx-auto max-w-6xl px-5 pt-12 pb-20 sm:px-8">
         <Reveal delay={0.55}>
@@ -277,7 +253,7 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
 
         {list.length === 0 ? (
           <Reveal>
-            <div className="mt-8 grid items-center gap-10 overflow-hidden rounded-[1.75rem] border border-border/70 bg-card p-6 shadow-soft sm:p-10 lg:grid-cols-[1fr_1.05fr] lg:gap-16">
+            <div className="mt-8 grid items-center gap-10 overflow-hidden rounded-3xl border border-border/70 bg-card p-6 shadow-soft sm:p-10 lg:grid-cols-[1fr_1.05fr] lg:gap-16">
               {/* A daisyUI stack: three inspiration photos fanned like postcards on a table. */}
               <div className="daisy-stack mx-auto h-64 w-full max-w-sm sm:h-72" aria-hidden>
                 {EMPTY_PHOTOS.map((photo) => (

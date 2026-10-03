@@ -9,6 +9,7 @@ import { ToastHost } from "@/components/ToastHost";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { ThemeSync } from "@/components/ThemeSync";
 import { MotionProvider } from "@/components/MotionProvider";
+import { NavProgress } from "@/components/NavProgress";
 
 // Runs before hydration so dark mode never flashes light-then-dark. An explicit choice
 // (from ThemeToggle, in localStorage) wins; otherwise this falls back to the OS preference
@@ -27,7 +28,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#1b1c20",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#1b1c20" },
+  ],
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -47,6 +51,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             so the `dark` class lands before first paint — no light-then-dark flash. */}
         <Script id="theme-init" strategy="beforeInteractive">{THEME_INIT}</Script>
         <MotionProvider>
+          <NavProgress />
           {children}
           <ToastHost />
           <ServiceWorkerRegister />

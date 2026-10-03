@@ -49,7 +49,7 @@ export function TripMenu({
     <details ref={ref} className={cn("daisy-dropdown daisy-dropdown-end", className)}>
       <summary
         aria-label={`Options for ${name}`}
-        className="daisy-btn daisy-btn-circle daisy-btn-sm list-none border border-border/60 bg-background/80 text-foreground shadow-none backdrop-blur transition-[background-color,transform] hover:bg-background active:scale-95 [&::-webkit-details-marker]:hidden"
+        className="daisy-btn daisy-btn-circle daisy-btn-sm list-none border border-border/60 bg-background/88 text-foreground shadow-none transition-[background-color,border-color,transform] hover:!bg-background hover:border-foreground/30 active:scale-95 [&::-webkit-details-marker]:hidden"
       >
         {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ellipsis className="h-4 w-4" />}
       </summary>

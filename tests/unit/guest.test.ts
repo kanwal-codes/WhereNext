@@ -107,6 +107,7 @@ describe("withinRateLimit failClosed", () => {
 describe("requireTripMember for guests", () => {
   function mockAuth(user: { id: string; is_anonymous: boolean } | null, allow = true) {
     vi.doMock("@/lib/supabase/server", () => ({
+      getSessionUser: async (client: { auth: { getUser: () => Promise<{ data: { user: unknown } }> } }) => (await client.auth.getUser()).data.user,
       createSupabaseServerClient: async () => ({
         auth: { getUser: async () => ({ data: { user } }) },
         from: () => ({ select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { role: "owner" }, error: null }) }) }) }) }),

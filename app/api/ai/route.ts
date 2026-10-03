@@ -44,16 +44,18 @@ const textFrame = (content: string) => encoder.encode(`data: ${JSON.stringify({ 
  *  RESOLVE's field-level partial JSON (that's `onPartial` in `turn-resolver.ts`/`gateway.ts`,
  *  built but not wired to the wire format here) — three coarse, always-true stages are enough to
  *  turn "blank for up to ~15s" into "labeled, updates as the turn actually progresses." */
-/** Human-readable gerund for each tool RESOLVE can plan, so the "retrieve" progress frame can
- *  say what's actually being looked up instead of a generic "checking live sources…". */
+/** What Roam says it is doing for each tool RESOLVE can plan, so the "retrieve" progress frame says
+ *  what is actually being looked up. Voice: a travel companion thinking out loud. Lower-case present
+ *  participles, concrete, no jargon ("sources", "live data"), and no repeated verb when two are joined
+ *  ("finding places and looking at stays"). The client capitalises it and adds the ellipsis. */
 const TOOL_PROGRESS_LABEL: Record<string, string> = {
-  search_places: "checking places",
-  research_web: "looking into it",
-  weather: "checking the weather",
-  events: "checking what's on",
-  flights: "checking flights",
-  directions: "getting directions",
-  stays: "checking hotels",
+  search_places: "finding places",
+  research_web: "reading up on it",
+  weather: "checking the forecast",
+  events: "seeing what's on",
+  flights: "comparing flights",
+  directions: "plotting the route",
+  stays: "looking at stays",
 };
 /** At most 2 named activities — RESOLVE can plan up to `MAX_TOOL_CALLS`, but "checking places,
  *  checking hotels, getting directions and checking the weather…" reads as noise, not progress.

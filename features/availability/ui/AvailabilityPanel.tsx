@@ -128,7 +128,7 @@ export function AvailabilityPanel({ tripId }: { tripId: string }) {
     <div className="space-y-6 px-5 pt-1 pb-6">
       <div>
         <p className="text-sm font-medium">Your availability</p>
-        <p className="mt-0.5 text-[11px] text-muted-foreground">Add every stretch of dates you could do — this doesn’t lock anything, it just shows the group where things overlap.</p>
+        <p className="mt-0.5 text-2xs text-muted-foreground">Add every stretch of dates you could do — this doesn’t lock anything, it just shows the group where things overlap.</p>
         <div className="mt-3 space-y-2">
           {myRanges.map((range, index) => (
             <div key={range.id} className="flex items-center gap-2">
@@ -154,7 +154,7 @@ export function AvailabilityPanel({ tripId }: { tripId: string }) {
       <div>
         <p className="text-sm font-medium">Where everyone overlaps</p>
         {overlaps.length === 0 ? (
-          <p className="mt-1 text-[11px] text-muted-foreground">No overlap yet — once a couple of people add their dates, this fills in.</p>
+          <p className="mt-1 text-2xs text-muted-foreground">No overlap yet — once a couple of people add their dates, this fills in.</p>
         ) : (
           <ul className="mt-2 space-y-2">
             {overlaps.map((overlap) => {
@@ -165,7 +165,7 @@ export function AvailabilityPanel({ tripId }: { tripId: string }) {
                     <p className="text-sm">{overlap.startDate} – {overlap.endDate}</p>
                     <span
                       className={cn(
-                        "mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em]",
+                        "mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-2xs font-medium uppercase tracking-[0.08em]",
                         full ? "bg-leaf-soft text-leaf border-leaf/30" : "bg-water-soft text-water border-water/30",
                       )}
                     >

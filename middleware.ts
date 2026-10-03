@@ -7,7 +7,9 @@ export async function middleware(request: NextRequest) {
   const env = getPublicEnv(); const response = NextResponse.next({ request });
   if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) return response;
   const supabase = createServerClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, { cookies: { getAll: () => request.cookies.getAll(), setAll: (items) => items.forEach(({ name, value, options }) => { request.cookies.set(name, value); response.cookies.set(name, value, options); }) } });
-  const { data: { user } } = await supabase.auth.getUser();
+  // Verified locally from the session token (no call to Supabase Auth); also refreshes it when due.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims ? { is_anonymous: data.claims.is_anonymous === true } : null;
 
   // Guests (anonymous sessions) may only use Roam: everything else is closed here, for pages and
   // APIs alike, whatever the UI does (see lib/guest-policy.ts).

@@ -65,7 +65,7 @@ export function ShareTrip({ tripId }: { tripId: string }) {
         <Link2 className="h-4 w-4 text-coral" /> Share this trip
       </h2>
       {!loaded ? (
-        <div className="mt-4 h-10 animate-pulse rounded-full bg-muted" />
+        <div className="mt-4 h-10 skeleton rounded-full" />
       ) : !slug ? (
         <>
           <p className="mt-2 text-sm text-muted-foreground">Create an unlisted link to a read-only view of the itinerary.</p>

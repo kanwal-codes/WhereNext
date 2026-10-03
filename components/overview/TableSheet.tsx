@@ -13,19 +13,19 @@ import type { Reservation } from "@/packages/contracts/reservation";
 
 export type RestaurantChoice = { providerId: string; name: string; address: string | null; mapsUrl: string | null };
 
-const input = "w-full rounded-2xl border border-border bg-background px-4 py-2.5 text-[15px] outline-none transition-colors placeholder:text-muted-foreground focus:border-foreground/40";
+const input = "w-full rounded-2xl border border-border bg-background px-4 py-2.5 text-body outline-none transition-colors placeholder:text-muted-foreground focus:border-foreground/40";
 const linkBtn = "daisy-btn daisy-btn-outline h-auto min-h-11 flex-1 gap-2 rounded-full border-border bg-card px-4 py-2 font-medium shadow-none hover:border-foreground/30 hover:bg-accent";
 
 function Field({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
   return (
     <label className={cn("block", className)}>
-      <span className="mb-1.5 block text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">{label}</span>
+      <span className="mb-1.5 block text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">{label}</span>
       {children}
     </label>
   );
 }
 
-const Heading = ({ children }: { children: ReactNode }) => <p className="text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">{children}</p>;
+const Heading = ({ children }: { children: ReactNode }) => <p className="text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">{children}</p>;
 
 /**
  * Reserve a table without leaving the trip. Find the restaurant (your saved places first, then a
@@ -188,7 +188,7 @@ export function TableSheet({
 
           {/* A div, not a <label>: a label forwards clicks to its first control, which would press "Change" right after a pick. */}
           <div>
-            <span className="mb-1.5 block text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">Restaurant</span>
+            <span className="mb-1.5 block text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">Restaurant</span>
             {picked ? (
               <div className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3">
                 <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -214,7 +214,7 @@ export function TableSheet({
                             <span className="block truncate text-sm font-medium">{r.name}</span>
                             {r.address && <span className="block truncate text-xs text-muted-foreground">{r.address}</span>}
                           </span>
-                          <span className="daisy-badge h-5 shrink-0 border-leaf/30 bg-leaf/10 px-2 text-[11px]">Saved</span>
+                          <span className="daisy-badge h-5 shrink-0 border-leaf/30 bg-leaf/10 px-2 text-2xs">Saved</span>
                         </button>
                       </li>
                     ))}
@@ -294,7 +294,7 @@ export function TableSheet({
                   <p className="mt-1 text-xs text-muted-foreground">These open the site&rsquo;s front page. Search for the restaurant there; nothing is filled in.</p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {options.popular.map((site) => (
-                      <a key={site.id} href={site.url} {...external} className="daisy-badge h-8 gap-1.5 border-border bg-card px-3 text-[13px] font-medium transition-colors hover:bg-accent">
+                      <a key={site.id} href={site.url} {...external} className="daisy-badge h-8 gap-1.5 border-border bg-card px-3 text-sm font-medium transition-colors hover:bg-accent">
                         {site.name} <ExternalLink className="h-3 w-3 text-muted-foreground" />
                       </a>
                     ))}

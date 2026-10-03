@@ -23,7 +23,7 @@ test.describe("guest lockdown (live)", () => {
 
     // The UI: Conversation is the only open door.
     const nav = page.locator("aside nav");
-    await expect(nav.getByRole("link", { name: "Conversation" })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Roam" })).toBeVisible();
     for (const label of ["Overview", "Group chat", "Discover", "Getting around", "Stay", "Itinerary", "Trip knowledge", "Bookings & essentials"]) {
       await expect(nav.getByRole("button", { name: `${label}, needs an account` })).toBeVisible();
       await expect(nav.getByRole("link", { name: label })).toHaveCount(0);

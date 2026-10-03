@@ -9,7 +9,7 @@ import { TripArt, hashString } from "@/components/trips/TripArt";
 import { clockLabel, dayHeading, whenLabel, type TimelineItem } from "@/lib/trip-reservations";
 import { cn } from "@/lib/utils";
 
-const badge = "daisy-badge h-7 border-border/60 bg-background/80 px-3 text-[13px] font-medium text-foreground backdrop-blur";
+const badge = "photo-chip";
 
 type Fact = { title: string; value: string; desc?: string };
 
@@ -35,14 +35,14 @@ export function NextUpCard({ item, onOpenBooking, onEdit }: { item: TimelineItem
   const facts = factsFor(item);
 
   const inner: ReactNode = (
-    <TripArt seed={hashString(item.id)} grain className="flex min-h-[22rem] flex-col justify-between rounded-[1.75rem] border border-border/70 p-6 shadow-soft sm:min-h-[26rem] sm:p-9">
+    <TripArt seed={hashString(item.id)} grain className="flex min-h-[22rem] flex-col justify-between rounded-3xl border border-border/70 p-6 shadow-soft sm:min-h-[26rem] sm:p-9">
       {photo ? (
         // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
         <img src={item.thumbnail!} alt="" loading="lazy" decoding="async" onError={() => setImageFailed(true)} className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1400ms] ease-out group-hover:scale-[1.05]" />
       ) : (
         <Icon aria-hidden className="pointer-events-none absolute -right-6 -bottom-8 h-72 w-72 text-foreground/[0.06]" strokeWidth={1} />
       )}
-      {photo && <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/15" />}
+      {photo && <div aria-hidden className="absolute inset-0 scrim-b" />}
 
       <div className="relative flex flex-wrap items-center gap-2">
         <span className={cn(badge, "gap-1.5")}>
@@ -69,15 +69,15 @@ export function NextUpCard({ item, onOpenBooking, onEdit }: { item: TimelineItem
           <div
             suppressHydrationWarning
             className={cn(
-              "daisy-stats w-full rounded-2xl border shadow-none backdrop-blur-md sm:w-fit [&_.daisy-stat-value]:leading-tight [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3",
+              "daisy-stats w-full rounded-2xl border sm:w-fit [&_.daisy-stat-value]:leading-tight [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3",
               photo
-                ? "border-white/20 bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] [&_.daisy-stat-desc]:text-white/70 [&_.daisy-stat-title]:text-white/70 [&>.daisy-stat]:border-white/20"
-                : "border-border/60 bg-background/60 [&>.daisy-stat]:border-border/70",
+                ? "glass-photo [&_.daisy-stat-desc]:text-white/70 [&_.daisy-stat-title]:text-white/70 [&>.daisy-stat]:border-white/20"
+                : "border-border/60 bg-background/82 [&>.daisy-stat]:border-border/70",
             )}
           >
             {facts.map((fact) => (
               <div key={fact.title} className="daisy-stat">
-                <div className="daisy-stat-title text-[11px] tracking-[0.1em] uppercase">{fact.title}</div>
+                <div className="daisy-stat-title text-2xs tracking-[0.1em] uppercase">{fact.title}</div>
                 <div className={cn("daisy-stat-value font-display text-xl tracking-tight tabular-nums sm:text-2xl", fact.title === "Ref" && "font-mono text-base tracking-wide sm:text-lg")}>{fact.value}</div>
                 {fact.desc && <div className="daisy-stat-desc">{fact.desc}</div>}
               </div>

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, getSessionUser } from "@/lib/supabase/server";
 import { GUEST_API_LIMIT, guestKey, isGuest } from "@/lib/server/guest";
 import { withinRateLimit } from "@/lib/server/rate-limit";
 
@@ -24,7 +24,7 @@ export async function requireTripMember(
   opts: { role?: "owner" | "editor"; registered?: boolean } = {},
 ): Promise<TripMember> {
   const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getSessionUser(supabase);
   if (!user) throw new TripAuthError(401, "Authentication required");
   const guest = isGuest(user);
   if (guest && opts.registered) throw new TripAuthError(403, "Save your trip with an account to use this.");

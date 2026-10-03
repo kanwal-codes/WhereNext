@@ -11,7 +11,7 @@ import { BackLink } from "@/components/BackLink";
 import { ExternalLink } from "@/components/ExternalLink";
 import { SourceCard } from "@/components/SourceCard";
 import { NearbyRecommendations } from "@/components/NearbyRecommendations";
-import { PanelError, PanelLoading } from "@/components/PanelStates";
+import { PanelError, PanelLoading, PANEL_PAD, PANEL_HERO } from "@/components/PanelStates";
 import { BlurImage, Reveal, Stagger, StaggerItem, Tactile, WordReveal } from "@/components/motion-primitives";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { askAssistantHref, cityFrom } from "@/lib/places-ui";
@@ -73,7 +73,8 @@ function AddEventButton({ tripId, title, rawDate, showTime, latitude, longitude 
   const data = useTripDataMaybe()?.data ?? null;
   const itinerary = (data?.itinerary ?? []) as Array<{ title?: string }>;
   const tripStartDate = (data?.trip as { start_date?: string | null } | null)?.start_date;
-  const alreadyAdded = itinerary.some((i) => i.title?.trim().toLowerCase() === title.trim().toLowerCase());
+  const existing = (data?.itinerary ?? []).find((i: { title?: string }) => i.title?.trim().toLowerCase() === title.trim().toLowerCase()) as { day_index?: number } | undefined;
+  const alreadyAdded = Boolean(existing);
   const [busy, setBusy] = useState(false);
 
   async function add() {
@@ -106,10 +107,10 @@ function AddEventButton({ tripId, title, rawDate, showTime, latitude, longitude 
         type="button"
         disabled={busy || alreadyAdded}
         onClick={() => void add()}
-        className={cn("btn-secondary inline-flex items-center gap-2", alreadyAdded && "opacity-70")}
+        className={cn("btn-secondary inline-flex items-center gap-2", alreadyAdded && "!border-coral/35 !bg-coral-soft !text-coral-ink disabled:opacity-100")}
       >
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4" />}
-        {alreadyAdded ? "Added to trip" : "Add to trip"}
+        {busy ? <Loader2 className="size-4 animate-spin" /> : <CalendarCheck className="size-4" />}
+        {alreadyAdded ? (existing?.day_index ? `On Day ${existing.day_index}` : "On your trip") : "Add to trip"}
       </button>
     </Tactile>
   );
@@ -152,11 +153,11 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
     return () => controller.abort();
   }, [tripId, seed.name, seed.url, seed.source, seed.imageUrl, seed.date, seed.venue, attempt]);
 
-  const pad = panel ? "px-4 pb-8" : "mx-auto max-w-3xl px-5 pb-14 sm:px-8";
+  const pad = panel ? PANEL_PAD : "mx-auto max-w-3xl px-5 pb-14 sm:px-8";
   const d = detail;
 
   if (state === "loading") {
-    return <PanelLoading what="this event" panel={panel} heroClassName={panel ? "h-44" : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]"} />;
+    return <PanelLoading what="this event" panel={panel} heroClassName={panel ? PANEL_HERO : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]"} />;
   }
 
   const title = d?.title ?? seed.name;
@@ -200,7 +201,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
   return (
     <div>
       {titleTag}
-      <Hero image={image || eventFallbackImage({ genre: d?.genre, title })} alt={title} plain surface={panel} className={cn(panel ? "h-44" : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]")}>
+      <Hero image={image || eventFallbackImage({ genre: d?.genre, title })} alt={title} plain surface={panel} className={cn(panel ? PANEL_HERO : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]")}>
         <div className={cn("absolute inset-x-0 bottom-0", pad, "pb-6")}>
           {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className="shadow-soft" />}
           {panel ? (
@@ -234,7 +235,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                   <FactStrip
                     facts={[
                       dt && { label: "When", value: dt.day, note: [dt.time, d?.doorsTime && displayClockTime(d.doorsTime) !== dt.time && `doors ${displayClockTime(d.doorsTime)}`].filter(Boolean).join(" · ") || undefined },
-                      venueName && { label: "Where", value: venueName, note: cityFrom(d?.venueAddress) || d?.city || undefined },
+                      venueName && { label: "Where", value: venueName, note: [cityFrom(d?.venueAddress), d?.city].find((n) => n && n.trim().toLowerCase() !== venueName.trim().toLowerCase()) || undefined },
                       d?.priceRange && { label: "From", value: d.priceRange },
                     ]}
                   />
@@ -317,14 +318,14 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
             {/* About */}
             {aboutText && (
               <Section title="About" delay={0.06}>
-                <p className="whitespace-pre-line text-[15px] leading-relaxed text-ink-soft">{aboutText}</p>
+                <p className="whitespace-pre-line text-body leading-relaxed text-ink-soft">{aboutText}</p>
               </Section>
             )}
 
             {/* What to expect */}
             {d?.whatToExpect && (
               <Section title="What to expect" delay={0.07}>
-                <p className="text-[15px] leading-relaxed text-ink-soft">{d.whatToExpect}</p>
+                <p className="text-body leading-relaxed text-ink-soft">{d.whatToExpect}</p>
               </Section>
             )}
 
