@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
  * a single static example) under prefers-reduced-motion; `active` pauses it while the visitor
  * is typing or has the box focused.
  */
-export function useTypingPlaceholder(examples: readonly string[], active: boolean) {
+export function useTypingPlaceholder(examples: readonly string[], active: boolean, startDelay = 900) {
   const [text, setText] = useState("");
 
   useEffect(() => {
@@ -42,12 +42,12 @@ export function useTypingPlaceholder(examples: readonly string[], active: boolea
         } else timer = window.setTimeout(tick, 16);
       }
     };
-    timer = window.setTimeout(tick, 900);
+    timer = window.setTimeout(tick, startDelay);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [active, examples]);
+  }, [active, examples, startDelay]);
 
   return text;
 }

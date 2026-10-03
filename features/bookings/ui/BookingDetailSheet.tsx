@@ -75,7 +75,7 @@ export function BookingDetailSheet({
                 </div>
               </Reveal>
               <Reveal delay={0.06}>
-                <span className={cn("mt-4 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium capitalize", STATUS_STYLE[booking.status])}>{booking.status}</span>
+                <span className={cn("mt-4 inline-flex items-center rounded-full px-2.5 py-1 text-2xs font-medium capitalize", STATUS_STYLE[booking.status])}>{booking.status}</span>
               </Reveal>
               <Reveal delay={0.1}>
                 <div className="mt-5 w-full rounded-2xl border border-dashed border-border bg-card/60 p-5">

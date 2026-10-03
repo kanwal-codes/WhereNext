@@ -6,6 +6,7 @@ import { Reveal, WordReveal } from "@/components/motion-primitives";
 import { TripCover } from "@/components/trips/TripCover";
 import type { TripSummary } from "@/components/trips/types";
 import { cn } from "@/lib/utils";
+import { coverText } from "@/lib/trip-cover";
 
 export type HeroFact = { icon: LucideIcon; label: string; value: string | null; desc?: string };
 
@@ -44,6 +45,7 @@ export function OverviewHero({
         trip={trip}
         size="feature"
         typeLed={false}
+        parallax
         width={1600}
         imageClassName="hero-drift"
         className="flex min-h-[34rem] flex-col justify-end sm:min-h-[40rem] lg:min-h-[44rem]"
@@ -51,13 +53,13 @@ export function OverviewHero({
         {({ photo }) => (
           <>
             {/* The grade: a dark top for the chips, a deep bottom for the title, and a pool behind the words. */}
-            <div aria-hidden className={cn("pointer-events-none absolute inset-0 z-[2] bg-gradient-to-b from-black/55 via-black/5 to-black/85 transition-opacity duration-1000", photo ? "opacity-100" : "opacity-0")} />
+            <div aria-hidden className={cn("pointer-events-none absolute inset-0 z-[2] scrim-v transition-opacity duration-1000", photo ? "opacity-100" : "opacity-0")} />
             <div aria-hidden className={cn("pointer-events-none absolute inset-0 z-[2] bg-[radial-gradient(85%_65%_at_22%_88%,rgba(0,0,0,0.6),transparent)] transition-opacity duration-1000", photo ? "opacity-100" : "opacity-0")} />
 
             <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-3 px-5 pt-5 sm:px-8 sm:pt-7">
               {statusText ? (
                 <Reveal delay={0.1}>
-                  <span suppressHydrationWarning className="daisy-badge h-8 gap-1.5 border-border/60 bg-background/80 px-3.5 text-[13px] font-medium text-foreground backdrop-blur">
+                  <span suppressHydrationWarning className="photo-chip">
                     <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-coral" />
                     {statusText}
                   </span>
@@ -71,7 +73,7 @@ export function OverviewHero({
                   onClick={rename.start}
                   aria-label="Rename trip"
                   title="Rename trip"
-                  className="daisy-btn daisy-btn-circle daisy-btn-sm border-border/60 bg-background/80 text-foreground shadow-none backdrop-blur hover:bg-background"
+                  className="daisy-btn daisy-btn-circle daisy-btn-sm border-border/60 bg-background/88 text-foreground shadow-none hover:bg-background"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
@@ -80,9 +82,12 @@ export function OverviewHero({
 
             <div className={cn("relative z-10 mx-auto w-full max-w-6xl px-5 pt-40 pb-6 transition-colors duration-1000 sm:px-8 sm:pb-9", photo ? "text-white" : "text-foreground")}>
               <Reveal delay={0.1}>
-                <p className={cn("flex items-center gap-1.5 text-[13px] font-medium tracking-[0.16em] uppercase transition-colors duration-1000", photo ? "text-white/85 [text-shadow:0_1px_12px_rgba(0,0,0,0.6)]" : "text-muted-foreground")}>
+                <p className={cn("flex items-center gap-1.5 text-sm font-medium tracking-[0.16em] uppercase transition-colors duration-1000", photo ? "text-white/85 [text-shadow:0_1px_12px_rgba(0,0,0,0.6)]" : "text-muted-foreground")}>
                   <MapPin className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{destination}</span>
+                  <span className="truncate">
+                    {/* "London, England, United Kingdom" is a provider string; the place a traveller names is "London, United Kingdom". */}
+                    {(() => { const { city, country } = coverText({ name: destination, destination }); return country && country !== city ? `${city}, ${country}` : city; })()}
+                  </span>
                 </p>
               </Reveal>
 
@@ -122,15 +127,15 @@ export function OverviewHero({
                 <div
                   suppressHydrationWarning
                   className={cn(
-                    "daisy-stats mt-8 w-full rounded-2xl border shadow-none backdrop-blur-md transition-colors duration-1000 max-sm:grid max-sm:grid-flow-row max-sm:grid-cols-2 sm:w-auto [&_.daisy-stat-value]:overflow-visible [&_.daisy-stat-value]:leading-tight [&_.daisy-stat-value]:whitespace-normal [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3.5",
+                    "daisy-stats mt-8 w-full rounded-2xl border transition-colors duration-1000 max-sm:grid max-sm:grid-flow-row max-sm:grid-cols-2 sm:w-auto [&_.daisy-stat-value]:overflow-visible [&_.daisy-stat-value]:leading-tight [&_.daisy-stat-value]:whitespace-normal [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3.5",
                     photo
-                      ? "border-white/20 bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] [&_.daisy-stat-desc]:text-white/70 [&_.daisy-stat-title]:text-white/70 [&>.daisy-stat]:border-white/20"
-                      : "border-border/60 bg-background/60 [&>.daisy-stat]:border-border/70",
+                      ? "glass-photo [&_.daisy-stat-desc]:text-white/70 [&_.daisy-stat-title]:text-white/70 [&>.daisy-stat]:border-white/20"
+                      : "border-border/60 bg-background/82 [&>.daisy-stat]:border-border/70",
                   )}
                 >
                   {facts.map((fact) => (
                     <div key={fact.label} className="daisy-stat">
-                      <div className="daisy-stat-title flex items-center gap-1.5 text-[11px] tracking-[0.1em] uppercase">
+                      <div className="daisy-stat-title flex items-center gap-1.5 text-2xs tracking-[0.1em] uppercase">
                         <fact.icon className="h-3 w-3" /> {fact.label}
                       </div>
                       <div className={cn("daisy-stat-value font-display text-xl tracking-tight tabular-nums sm:text-2xl", !fact.value && "opacity-60")}>{fact.value ?? "Not set"}</div>

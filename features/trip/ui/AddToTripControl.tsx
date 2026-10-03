@@ -3,7 +3,7 @@
 import React, { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Bookmark, CalendarCheck, Check, Loader2, Trash2 } from "lucide-react";
+import { Bookmark, CalendarCheck, Check, Loader2, Plus, Trash2 } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
 import { type Placement, placementDay } from "@/packages/contracts/placement";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
@@ -195,60 +195,73 @@ export function AddToTripControl({
   const day = placementDay(placement);
   const bookmarked = saved;
   const state: "none" | "day" = day ? "day" : "none";
-  const label = state === "day" ? `Day ${day}` : "Add to trip";
+  // On a card ("sm") the room is tight and a place card already says what it is: "Add". The full phrase on the detail view.
+  const label = state === "day" ? `Day ${day}` : size === "sm" ? "Add" : "Add to trip";
 
   const sm = size === "sm";
-  const shell = cn(
-    "items-stretch overflow-hidden rounded-full border text-left transition-colors",
-    block ? "flex w-full" : "inline-flex",
-    sm ? "text-xs" : "text-sm",
-    sm ? "border-border bg-background text-ink-soft" : "border-primary bg-primary text-primary-foreground",
-    busy && "opacity-70",
-  );
+  const ring = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
+  // Two controls, not one pill: the main action (put it on a day) and a separate round save button.
+  // They sit a hair apart so each reads, presses and shows its state on its own.
   return (
     <div ref={rootRef} className={cn("relative", block ? "block" : "inline-block", className)}>
-      <div ref={shellRef} className={shell}>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => (guest ? openGate("add places to a trip") : setOpen((o) => !o))}
-          aria-label={`Choose an itinerary day for ${place.name}`}
-          className={cn(
-            "inline-flex items-center justify-center gap-1.5 font-medium transition-colors",
-            block && "flex-1",
-            sm ? "h-8 pl-3 pr-2.5" : "h-10 pl-4 pr-3",
-            day ? "bg-coral-fill text-coral-fill-foreground hover:bg-coral-fill hover:text-coral-fill-foreground" : sm ? "hover:text-primary" : "hover:bg-primary/90",
-          )}
-        >
-          {busy ? (
-            <Loader2 className={cn(sm ? "h-3.5 w-3.5" : "h-4 w-4", "animate-spin")} />
-          ) : day ? (
-            <CalendarCheck className={cn(sm ? "h-3.5 w-3.5" : "h-4 w-4")} />
-          ) : null}
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.span
-              key={label}
-              initial={reduce ? false : { opacity: 0, y: 3 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reduce ? { opacity: 0 } : { opacity: 0, y: -3 }}
-              transition={{ duration: reduce ? 0 : 0.12 }}
-            >
-              {label}
-            </motion.span>
-          </AnimatePresence>
-        </button>
+      <div className={cn("items-center", sm ? "gap-1.5" : "gap-2", block ? "flex w-full" : "inline-flex")}>
+        <div ref={shellRef} className={cn("min-w-0", block && "flex-1")}>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => (guest ? openGate("add places to a trip") : setOpen((o) => !o))}
+            aria-label={`Choose an itinerary day for ${place.name}`}
+            aria-haspopup="menu"
+            aria-expanded={open}
+            className={cn(
+              "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full border font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out active:scale-[0.98] disabled:opacity-70",
+              ring,
+              block && "w-full",
+              sm ? "h-8 px-3 text-xs" : "h-10 px-5 text-sm",
+              day
+                ? "border-transparent bg-coral-fill text-coral-fill-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.18)] hover:brightness-105"
+                : sm
+                  ? "border-border bg-background text-ink-soft hover:border-ink/30 hover:text-ink"
+                  : "border-primary bg-primary text-primary-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.14),0_1px_2px_oklch(0.2_0.012_65/0.25)] hover:bg-primary/88",
+            )}
+          >
+            {busy ? (
+              <Loader2 className={cn(sm ? "size-3.5" : "size-4", "animate-spin")} />
+            ) : day ? (
+              <CalendarCheck className={cn(sm ? "size-3.5" : "size-4")} />
+            ) : sm ? (
+              <Plus className="size-3.5" strokeWidth={2.25} />
+            ) : null}
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span
+                key={label}
+                initial={reduce ? false : { opacity: 0, y: 3 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduce ? { opacity: 0 } : { opacity: 0, y: -3 }}
+                transition={{ duration: reduce ? 0 : 0.12 }}
+              >
+                {label}
+              </motion.span>
+            </AnimatePresence>
+          </button>
+        </div>
         <button
           type="button"
           disabled={busy}
           onClick={() => (guest ? openGate("save places") : void toggleBookmark())}
           aria-label={saved ? `Remove ${place.name} from saved places` : `Save ${place.name}`}
+          aria-pressed={saved}
           className={cn(
-            "inline-flex min-w-9 items-center justify-center border-l transition-colors",
-            sm ? "border-border bg-background px-1.5 text-primary hover:bg-accent" : "border-primary-foreground/25 bg-primary px-2 text-primary-foreground hover:bg-primary/90",
+            "grid shrink-0 place-items-center rounded-full border transition-[background-color,border-color,color,transform] duration-200 ease-out active:scale-90 disabled:opacity-70",
+            ring,
+            sm ? "size-8" : "size-10",
+            saved
+              ? "border-coral/35 bg-coral-soft text-coral-ink hover:bg-coral-soft"
+              : "border-border bg-background text-muted-foreground hover:border-ink/30 hover:text-ink",
           )}
         >
-          <Bookmark className={cn(sm ? "h-3.5 w-3.5" : "h-4 w-4", bookmarked && "fill-current")} />
+          <Bookmark className={cn(sm ? "size-3.5" : "size-4", "transition-transform duration-200", saved && "scale-110 fill-current")} />
         </button>
       </div>
 
@@ -263,7 +276,7 @@ export function AddToTripControl({
                 initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: menuPos.up ? 4 : -4 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: menuPos.up ? 4 : -4 }}
-                transition={{ duration: reduce ? 0 : 0.14, ease: [0.22, 0.61, 0.36, 1] }}
+                transition={{ duration: reduce ? 0 : 0.14, ease: [0.22, 1, 0.36, 1] }}
                 style={{
                   position: "fixed",
                   left: menuPos.left,

@@ -15,11 +15,11 @@ export function StayFeature({ tripId, stay, compact = false }: { tripId: string;
 
   if (!stay) {
     return (
-      <Link href={`/trips/${tripId}/stay`} className="group block focus-visible:outline-none">
-        <TripArt seed={hashString(tripId)} className="rounded-[1.75rem] border border-border/70 p-7 shadow-soft transition-colors duration-300 group-hover:border-foreground/20 sm:p-10">
+      <Link href={`/trips/${tripId}/stay`} className="group block rounded-3xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">
+        <TripArt seed={hashString(tripId)} className="rounded-3xl border border-border/70 p-7 shadow-soft transition-[border-color,box-shadow,transform] duration-300 group-hover:border-foreground/20 group-hover:shadow-lift group-active:scale-[0.995] sm:p-10">
           <div className="relative z-10 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-4">
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-border/60 bg-background/70 backdrop-blur">
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-border/60 bg-background/85">
                 <BedDouble className="h-5 w-5" />
               </span>
               <div>
@@ -41,7 +41,7 @@ export function StayFeature({ tripId, stay, compact = false }: { tripId: string;
     <Tactile lift={3} className="group">
       <Link
         href={`/trips/${tripId}/stay/${encodeURIComponent(stay.hotelId)}?checkin=${stay.checkin}&checkout=${stay.checkout}`}
-        className="relative block h-full min-h-[24rem] overflow-hidden rounded-[1.75rem] border border-border/70 shadow-soft focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+        className="relative block h-full min-h-[24rem] overflow-hidden rounded-3xl border border-border/70 shadow-soft focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         <TripArt seed={hashString(stay.hotelName)} className="absolute inset-0" grain />
         {showImage && (
@@ -55,13 +55,13 @@ export function StayFeature({ tripId, stay, compact = false }: { tripId: string;
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1400ms] ease-out group-hover:scale-[1.05]"
           />
         )}
-        <div aria-hidden className={cn("absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/15", !showImage && "opacity-0")} />
+        <div aria-hidden className={cn("absolute inset-0 scrim-b", !showImage && "opacity-0")} />
 
         <div className={cn("relative flex h-full min-h-[24rem] flex-col justify-between p-6 sm:p-9", showImage ? "text-white" : "text-foreground")}>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="daisy-badge h-7 border-border/60 bg-background/80 px-3 text-[13px] font-medium text-foreground backdrop-blur">Your stay</span>
-            {stay.refundable && <span className="daisy-badge h-7 border-border/60 bg-background/80 px-3 text-[13px] font-medium text-foreground backdrop-blur">Free cancellation</span>}
-            {stay.board && <span className="daisy-badge h-7 border-border/60 bg-background/80 px-3 text-[13px] font-medium text-foreground backdrop-blur">{stay.board}</span>}
+            <span className="photo-chip">Your stay</span>
+            {stay.refundable && <span className="photo-chip">Free cancellation</span>}
+            {stay.board && <span className="photo-chip">{stay.board}</span>}
           </div>
 
           <div className={cn("flex flex-col gap-6", !compact && "lg:flex-row lg:items-end lg:justify-between")}>
@@ -76,24 +76,24 @@ export function StayFeature({ tripId, stay, compact = false }: { tripId: string;
             <div
               suppressHydrationWarning
               className={cn(
-                "daisy-stats w-full rounded-2xl border shadow-none backdrop-blur-md", !compact && "lg:w-auto", " [&_.daisy-stat-value]:leading-tight [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3",
+                "daisy-stats w-full rounded-2xl border", !compact && "lg:w-auto", " [&_.daisy-stat-value]:leading-tight [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3",
                 showImage
-                  ? "border-white/20 bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] [&_.daisy-stat-desc]:text-white/70 [&_.daisy-stat-title]:text-white/70 [&>.daisy-stat]:border-white/20"
-                  : "border-border/60 bg-background/60 [&>.daisy-stat]:border-border/70",
+                  ? "glass-photo [&_.daisy-stat-desc]:text-white/70 [&_.daisy-stat-title]:text-white/70 [&>.daisy-stat]:border-white/20"
+                  : "border-border/60 bg-background/82 [&>.daisy-stat]:border-border/70",
               )}
             >
               <div className="daisy-stat">
-                <div className="daisy-stat-title text-[11px] tracking-[0.1em] uppercase">Stay</div>
+                <div className="daisy-stat-title text-2xs tracking-[0.1em] uppercase">Stay</div>
                 <div className="daisy-stat-value font-display text-2xl tracking-tight tabular-nums">{stay.nights}</div>
                 <div className="daisy-stat-desc">{stay.nights === 1 ? "night" : "nights"}</div>
               </div>
               <div className="daisy-stat">
-                <div className="daisy-stat-title text-[11px] tracking-[0.1em] uppercase">Per night</div>
+                <div className="daisy-stat-title text-2xs tracking-[0.1em] uppercase">Per night</div>
                 <div className="daisy-stat-value font-display text-2xl tracking-tight tabular-nums">{Math.round(stay.nightlyAmount)}</div>
                 <div className="daisy-stat-desc">{stay.currency}</div>
               </div>
               <div className="daisy-stat">
-                <div className="daisy-stat-title text-[11px] tracking-[0.1em] uppercase">Total</div>
+                <div className="daisy-stat-title text-2xs tracking-[0.1em] uppercase">Total</div>
                 <div className="daisy-stat-value font-display text-2xl tracking-tight tabular-nums">{Math.round(stay.totalAmount)}</div>
                 <div className="daisy-stat-desc">{stay.currency}</div>
               </div>

@@ -102,56 +102,9 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   // up (a moment later, or immediately via back/forward navigation).
   const [optimisticTab, setOptimisticTab] = useState(activeTab);
   useEffect(() => setOptimisticTab(activeTab), [activeTab]);
-  // The avatars/tabs header hides on scroll-down (to give the chat log more room) and comes back
-  // on scroll-up — the classic mobile chat pattern.
-  //
-  // This used to be wired via `onScrollCapture` on an ancestor, on the theory that a capture
-  // listener still fires for a "scroll" event targeted at a descendant, so neither surface would
-  // need to forward a ref. In practice that caught scroll events from ANY scrollable descendant,
-  // not just the one log actually meant to drive this — two confirmed, separate ways that went
-  // wrong live: (1) a horizontal place/stay/event card carousel (`overflow-x-auto` rows in
-  // MessageBlocks.tsx) — swiping through cards fires scroll events whose `scrollTop` is always
-  // 0, read as "scrolled way up" against whatever the real log's `lastScrollTop` last was; (2)
-  // once both chat surfaces started staying permanently mounted (for the tab-crossfade), the
-  // INACTIVE surface's own background auto-scroll-to-bottom (a plain new message arriving while
-  // its tab isn't even the one showing) fired real scroll events on ITS log, which the shared
-  // ancestor listener couldn't tell apart from the visible one's. Both produced bogus deltas
-  // that flipped the header at the wrong moment — the "sometimes it hides, sometimes it doesn't"
-  // and the jank right as a scroll gesture settled. Fixed by wiring `handleLogScroll` directly
-  // to each surface's own log element via a plain `onLogScroll` prop, passed only to whichever
-  // surface is actually the active tab (see the `optimisticTab === ...` checks below) — no
-  // ambiguity about which element or which tab fired it, by construction.
-  const [headerHidden, setHeaderHidden] = useState(false);
-  const lastScrollTop = useRef(0);
-  const scrollRaf = useRef(0);
-  useEffect(() => {
-    lastScrollTop.current = 0;
-    setHeaderHidden(false);
-    // A rAF scheduled for the tab being left behind would otherwise still fire against its
-    // (now-inactive) log node right after switching — harmless, but pointless.
-    return () => { if (scrollRaf.current) cancelAnimationFrame(scrollRaf.current); scrollRaf.current = 0; };
-  }, [optimisticTab]);
-  function handleLogScroll(e: React.UIEvent<HTMLDivElement>) {
-    const node = e.currentTarget;
-    // A native "scroll" event can fire many times per frame (per-pixel on some trackpads/touch
-    // devices) — batching to at most once per animation frame avoids redundant, sometimes
-    // conflicting `setHeaderHidden` calls piling up within the same frame, part of what made the
-    // header's settle feel janky right as a scroll gesture stopped.
-    if (scrollRaf.current) return;
-    scrollRaf.current = requestAnimationFrame(() => {
-      scrollRaf.current = 0;
-      if (node.scrollHeight <= node.clientHeight) return; // nothing to scroll yet
-      const top = node.scrollTop;
-      const delta = top - lastScrollTop.current;
-      lastScrollTop.current = top;
-      if (top < 24) { setHeaderHidden(false); return; }
-      if (Math.abs(delta) < 4) return; // ignore inertial/sub-pixel jitter
-      // Near the bottom, hiding or showing the header resizes this log, which shifts scrollTop, which flips
-      // the direction and toggles the header again (a flicker loop, worst when overscrolling). Hold the state.
-      if (node.scrollHeight - top - node.clientHeight < 120) return;
-      setHeaderHidden(delta > 0);
-    });
-  }
+  // The tabs row used to collapse on scroll-down and return on scroll-up. Every toggle resized the message log
+  // (a 53px shove of the whole conversation, plus a re-render of the shell), and trackpad momentum flips direction
+  // often enough that it shook the page. The row now stays put: nothing moves while you read.
   // TripPanelProvider closes `panel` on every pathname change (internal effect, not exposed on
   // its Ctx) — that's what makes switching tabs here also close whatever panel was open on the
   // previous one, with no extra code needed. If that internal behavior is ever removed, this
@@ -221,25 +174,12 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
     <div ref={setRoot} className="flex h-[calc(100dvh-var(--topbar))] min-h-0 w-full max-w-full flex-col overflow-x-hidden lg:h-[100dvh]">
       <div
         // A CSS transition on pixel tracks (they interpolate natively), only for the moment the layout mode changes.
-        style={{ gridTemplateColumns: columns, transition: `grid-template-columns ${reduceMotion || !modeChanged ? 0 : 420}ms cubic-bezier(0.22, 0.61, 0.36, 1)` }}
+        style={{ gridTemplateColumns: columns, transition: `grid-template-columns ${reduceMotion || !modeChanged ? 0 : 420}ms cubic-bezier(0.22, 1, 0.36, 1)` }}
         className="grid h-full min-h-0 w-full min-w-0 max-w-full"
       >
         <div className="relative flex min-w-0 max-w-full flex-col overflow-hidden px-4 py-4 sm:px-6 lg:border-r lg:border-border lg:py-5">
-          <motion.div
-            initial={false}
-            animate={{ height: headerHidden ? 0 : "auto", opacity: headerHidden ? 0 : 1 }}
-            transition={reduceMotion ? { duration: 0 } : motionTokens.standard}
-            className="overflow-hidden"
-          >
-            {/* The container's height-collapse (above) reclaims the vertical space; this inner
-                translate is layered on top purely for feel — the row itself glides up and out
-                rather than just shrinking in place, then springs back down on the way in. Same
-                spring drives both, so they read as one continuous motion, not two competing ones. */}
-            <motion.div
-              animate={{ y: headerHidden ? -12 : 0 }}
-              transition={reduceMotion ? { duration: 0 } : motionTokens.standard}
-            >
-              <Reveal>
+          <div className="overflow-hidden">
+            <Reveal>
                 <div className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                   <div className="justify-self-start">
                     {optimisticTab === "group" && <GroupMembersBadge tripId={tripId} />}
@@ -254,7 +194,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
                         type="button"
                         onClick={() => setMobileContextOpen(true)}
                         aria-label="Show trip context"
-                        className="grid size-10 shrink-0 place-items-center rounded-full border border-border bg-background/90 backdrop-blur transition-colors hover:bg-accent"
+                        className="grid size-10 shrink-0 place-items-center rounded-full border border-border bg-background/95 transition-colors hover:bg-accent"
                       >
                         <PanelRight className="h-3.5 w-3.5" />
                       </button>
@@ -262,8 +202,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
                   </div>
                 </div>
               </Reveal>
-            </motion.div>
-          </motion.div>
+          </div>
           {/* Both surfaces stay mounted permanently — switching tabs then costs nothing (no
               refetch, no lost scroll position). Each pane is absolutely stacked inside this one
               relative slot and crossfades on `optimisticTab` (a plain opacity toggle would have
@@ -292,8 +231,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
                 onOpenPanel={openPanel}
                 viewContext={panel && panel.kind !== "compare" ? panelTitle(panel) : undefined}
                 rail={desktop && Boolean(panel)}
-                onLogScroll={optimisticTab === "roam" ? handleLogScroll : undefined}
-              />
+                              />
             </motion.div>
             <motion.div
               className={cn("absolute inset-0 min-h-0", optimisticTab !== "group" && "pointer-events-none")}
@@ -303,7 +241,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
               animate={{ opacity: optimisticTab === "group" ? 1 : 0 }}
               transition={reduceMotion ? { duration: 0 } : motionTokens.swap}
             >
-              {!guest && <GroupChatSurface tripId={tripId} initialMessages={data?.groupChat} onLogScroll={optimisticTab === "group" ? handleLogScroll : undefined} />}
+              {!guest && <GroupChatSurface tripId={tripId} initialMessages={data?.groupChat} />}
             </motion.div>
           </div>
         </div>
@@ -332,21 +270,23 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
                   // Opacity-only: an `x` slide here leaves a lingering `transform` on the
                   // scrollable div's ancestor, which forces GPU compositing on this whole panel and makes a
                   // slow scroll inside it visibly juddery — live-caught on the trip-context rail.
+                  // min-w = the settled column width, so while the column animates open the text stays put
+                  // behind the clip instead of wrapping a letter per line.
                   initial={reduceMotion ? false : { opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={reduceMotion ? undefined : { opacity: 0, pointerEvents: "none" }}
                   transition={reduceMotion ? { duration: 0 } : motionTokens.swap}
-                  className="absolute inset-0 flex flex-col overflow-hidden"
+                  className="absolute inset-0 flex min-w-[340px] flex-col overflow-hidden"
                 >
-                  <div className="flex shrink-0 justify-start px-3 pt-3">
+                  <div className="flex shrink-0 justify-start px-2 pt-3">
                     <button
                       type="button"
                       onClick={() => setContextCollapsed(true)}
                       aria-label="Hide trip context"
                       title="Hide trip context"
-                      className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-background/60 text-muted-foreground transition-colors hover:text-foreground active:scale-95"
+                      className="grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-[background-color,color,transform] hover:bg-muted hover:text-foreground active:scale-95"
                     >
-                      <PanelRightClose className="h-4 w-4" />
+                      <PanelRightClose className="size-4" />
                     </button>
                   </div>
                   <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-slim px-4 pb-5">{contextRail}</div>
@@ -365,7 +305,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
                     onClick={() => setContextCollapsed(false)}
                     aria-label="Show trip context"
                     title="Show trip context"
-                    className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-background/60 text-muted-foreground transition-colors hover:text-foreground active:scale-95"
+                    className="grid size-8 shrink-0 place-items-center rounded-full border border-border bg-background/60 text-muted-foreground transition-colors hover:text-foreground active:scale-95"
                   >
                     <PanelRightOpen className="h-4 w-4" />
                   </button>

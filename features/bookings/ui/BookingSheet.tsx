@@ -171,7 +171,7 @@ function ReviewStage({ subject, flow }: { subject: BookingSubject; flow: Flow })
             {subject.offer.fareConditions?.length ? (
               <p className="mt-2.5 flex flex-wrap gap-1.5">
                 {subject.offer.fareConditions.map((c) => (
-                  <span key={c} className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-ink-soft">
+                  <span key={c} className="rounded-full bg-muted px-2 py-0.5 text-2xs text-ink-soft">
                     {c}
                   </span>
                 ))}
@@ -212,7 +212,7 @@ function ReviewStage({ subject, flow }: { subject: BookingSubject; flow: Flow })
           "Confirm & book"
         )}
       </button>
-      <p className="text-center text-[11px] text-muted-foreground">Sandbox booking — no real payment is taken.</p>
+      <p className="text-center text-2xs text-muted-foreground">Sandbox booking — no real payment is taken.</p>
     </div>
   );
 }

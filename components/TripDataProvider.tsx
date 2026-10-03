@@ -23,6 +23,22 @@ const TripDataContext = createContext<TripDataValue | null>(null);
 // actually shows who's here.
 const TripPresenceContext = createContext<PresencePeer[]>([]);
 
+/** Run background work once the page has had its moment: after `delay`, and only when the browser is idle.
+ *  The offline mirror downloads the whole workspace, the static map and place photos; started on mount it
+ *  competed with the page's own requests, which is a large part of why every click felt slow. */
+function afterQuiet(fn: () => void, delay: number): () => void {
+  let idle = 0;
+  const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+  const timer = window.setTimeout(() => {
+    if (w.requestIdleCallback) idle = w.requestIdleCallback(fn, { timeout: 10_000 });
+    else fn();
+  }, delay);
+  return () => {
+    clearTimeout(timer);
+    if (idle && w.cancelIdleCallback) w.cancelIdleCallback(idle);
+  };
+}
+
 export function TripDataProvider({
   tripId,
   data,
@@ -46,10 +62,32 @@ export function TripDataProvider({
   // plain navigation between sibling trip pages where the underlying content hasn't changed
   // at all — so serializing the whole workspace (conversation history, itinerary, everything)
   // just to detect that costs real main-thread time for no reason.
-  useEffect(() => subscribeWorkspaceChanges(() => {
-    void router.refresh();
-    if (!guest && typeof navigator !== "undefined" && navigator.onLine) void primeTrip(tripId);
-  }), [router, tripId, guest]);
+  useEffect(() => {
+    // Leading + trailing throttle: the first change refreshes at once, a flurry after it collapses into ONE more
+    // refresh 1.5 s later. Each refresh is a server render of the whole trip; unthrottled, a burst of realtime
+    // events (or a few quick edits) stacked a dozen of them.
+    let last = 0;
+    let trailing: ReturnType<typeof setTimeout> | null = null;
+    let cancelPrime: (() => void) | null = null;
+    const run = () => {
+      last = Date.now();
+      void router.refresh();
+      if (!guest && typeof navigator !== "undefined" && navigator.onLine) {
+        cancelPrime?.();
+        cancelPrime = afterQuiet(() => void primeTrip(tripId), 2500);
+      }
+    };
+    const unsubscribe = subscribeWorkspaceChanges(() => {
+      const since = Date.now() - last;
+      if (since >= 1500) run();
+      else if (!trailing) trailing = setTimeout(() => { trailing = null; run(); }, 1500 - since);
+    });
+    return () => {
+      unsubscribe();
+      if (trailing) clearTimeout(trailing);
+      cancelPrime?.();
+    };
+  }, [router, tripId, guest]);
 
   // Supabase Realtime re-broadcasts a collaborator's row changes onto that same
   // bus, and reports who else is here.
@@ -58,7 +96,7 @@ export function TripDataProvider({
   // Prime once for the initial load too, not just subsequent changes.
   const hasData = Boolean(data);
   useEffect(() => {
-    if (!guest && hasData && typeof navigator !== "undefined" && navigator.onLine) void primeTrip(tripId);
+    if (!guest && hasData && typeof navigator !== "undefined" && navigator.onLine) return afterQuiet(() => void primeTrip(tripId), 4000);
   }, [tripId, hasData, guest]);
 
   // Stable across a presence-only re-render (peers updating doesn't change tripId/data/me), so

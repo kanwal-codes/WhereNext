@@ -32,13 +32,13 @@ function Tile({ tripId, place, large, more }: { tripId: string; place: MosaicPla
         // eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin proxy
         <img src={src} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1100ms] ease-out group-hover:scale-[1.06]" />
       )}
-      {src && <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />}
+      {src && <div aria-hidden className="absolute inset-0 scrim-b" />}
       <div className={cn("absolute inset-x-0 bottom-0 p-4", src ? "text-white" : "text-foreground")}>
         <p className={cn("font-display leading-tight tracking-tight", large ? "text-2xl sm:text-3xl" : "text-lg", src && "[text-shadow:0_1px_14px_rgba(0,0,0,0.55)]")}>{place.name}</p>
         {place.category && <p className={cn("mt-0.5 text-xs", src ? "text-white/80" : "text-muted-foreground")}>{categoryLabel(place.category)}</p>}
       </div>
       {more > 0 && (
-        <span className="daisy-badge absolute top-3 right-3 h-7 border-border/60 bg-background/85 px-3 text-[13px] font-medium text-foreground backdrop-blur">+{more} more</span>
+        <span className="photo-chip absolute top-3 right-3">+{more} more</span>
       )}
     </Link>
   );

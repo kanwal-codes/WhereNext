@@ -27,13 +27,13 @@ function StepLine({ s }: { s: RouteLegStep }) {
         ) : (
           <>
             {s.line && (
-              <span className="mr-1 rounded px-1 py-0.5 text-[10px] font-semibold text-white" style={{ background: s.color ? `#${s.color.replace("#", "")}` : MODE_COLOR[s.mode] }}>
+              <span className="mr-1 rounded px-1 py-0.5 text-2xs font-semibold text-white" style={{ background: s.color ? `#${s.color.replace("#", "")}` : MODE_COLOR[s.mode] }}>
                 {s.line}
               </span>
             )}
             {s.headsign ? `toward ${s.headsign}` : s.mode}
             {s.stopCount ? ` · ${s.stopCount} stop${s.stopCount === 1 ? "" : "s"}` : ""} · {formatDuration(s.minutes)}
-            {s.from && s.to ? <span className="block text-[11px]">{s.from} → {s.to}</span> : null}
+            {s.from && s.to ? <span className="block text-2xs">{s.from} → {s.to}</span> : null}
           </>
         )}
       </span>
@@ -68,7 +68,7 @@ function AltChip({ tripId, dayIndex, leg, alt, onChosen }: { tripId: string; day
           setBusy(false);
         }
       }}
-      className="flex shrink-0 items-center gap-1 rounded-full border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary hover:text-foreground disabled:opacity-50"
+      className="flex shrink-0 items-center gap-1 rounded-full border border-border bg-background px-2 py-1 text-2xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-foreground disabled:opacity-50"
     >
       <Icon className="h-3 w-3" style={{ color: MODE_COLOR[alt.mode] }} />
       {formatDuration(alt.minutes)}
@@ -100,7 +100,7 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen }: { day: R
           return (
             <li key={stop.id}>
               <div className="flex items-center gap-2.5">
-                <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">{i + 1}</span>
+                <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary text-2xs font-semibold text-primary-foreground">{i + 1}</span>
                 <span className="truncate text-sm font-medium">{stop.name}</span>
                 {stop.time && <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{formatClockTime(stop.time)}</span>}
               </div>
@@ -128,9 +128,9 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen }: { day: R
                       {leg.steps.length > 1 && <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform", open === i && "rotate-180")} />}
                     </button>
                   )}
-                  {leg.note && leg.kind === "local" && <p className="pb-1 text-[11px] text-muted-foreground">{leg.note}</p>}
+                  {leg.note && leg.kind === "local" && <p className="pb-1 text-2xs text-muted-foreground">{leg.note}</p>}
                   {isTimeFitAtRisk(leg.timeFit) && leg.timeFit && (
-                    <p className="flex items-center gap-1.5 pb-1 text-[11px] font-medium text-coral">
+                    <p className="flex items-center gap-1.5 pb-1 text-2xs font-medium text-coral">
                       <TriangleAlert className="h-3 w-3 shrink-0" />
                       {leg.timeFit.availableMinutes <= 0
                         ? `No time between these stops for a ${formatDuration(leg.timeFit.neededMinutes)} trip.`
@@ -139,7 +139,7 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen }: { day: R
                   )}
                   {leg.kind === "local" && leg.alternatives.length > 0 && (
                     <div className="flex items-center gap-1.5 pb-1.5">
-                      <span className="shrink-0 text-[10px] text-muted-foreground">Or:</span>
+                      <span className="shrink-0 text-2xs text-muted-foreground">Or:</span>
                       {leg.alternatives.map((alt) => (
                         <AltChip key={alt.mode} tripId={tripId} dayIndex={day.day} leg={leg} alt={alt} onChosen={() => onLegChosen?.()} />
                       ))}

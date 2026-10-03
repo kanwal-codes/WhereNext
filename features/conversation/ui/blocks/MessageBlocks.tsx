@@ -67,7 +67,7 @@ import { DEFAULT_FLIGHT_VIEW, FlightControls, applyFlightView, arrivalDayOffset,
 import { HoldHeight, ScrollWindow, ScrollX, ViewControls } from "./ListControls";
 import { DEFAULT_EVENT_VIEW, DEFAULT_STAY_VIEW, applyEventView, applyStayView, eventControls, stayControls, type EventView, type StayView } from "./listViews";
 import { factGlyph, placeGlyph } from "./glyphs";
-import { Badge, BlockHeader, segmentTab, CARD_W, CardMedia, CardOpenOverlay, DetailsButton, EntityCard, MediaFallback, Meta, Notice, SectionHeader, compactCount, controlSecondary, grid, money, prettyDate, prettyDates, rail, surface, textAction, type, MapButton } from "./ui";
+import { Badge, BlockHeader, RatingMeta, segmentTab, CARD_W, CardMedia, CardOpenOverlay, DetailsButton, EntityCard, MediaFallback, Meta, Notice, SectionHeader, compactCount, controlSecondary, grid, money, prettyDate, prettyDates, rail, surface, textAction, type, MapButton } from "./ui";
 
 export type BlockHandlers = {
   /** The trip these blocks belong to — card actions write against it. */
@@ -203,13 +203,7 @@ function PlaceCardView({
       glyph={placeGlyph(place.category, place.name).icon}
       title={place.name}
       meta={[
-        typeof place.rating === "number" ? (
-          <span className="inline-flex items-center gap-1">
-            <Star className="size-3.5 fill-current text-coral" aria-hidden />
-            <span className="font-medium text-foreground tabular-nums">{place.rating.toFixed(1)}</span>
-            {place.userRatingCount ? <span className="tabular-nums">({compactCount(place.userRatingCount)})</span> : null}
-          </span>
-        ) : null,
+        typeof place.rating === "number" ? <RatingMeta rating={place.rating} count={place.userRatingCount} /> : null,
         category,
         price,
       ]}

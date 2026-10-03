@@ -48,8 +48,8 @@ function Row({ item, onOpenBooking, onEdit }: { item: TimelineItem; onOpenBookin
       <Thumb item={item} />
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">{KIND_META[item.kind].label}</span>
-          {item.status && <span className={cn("daisy-badge h-5 px-2 text-[11px] capitalize", STATUS[item.status])}>{item.status}</span>}
+          <span className="text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">{KIND_META[item.kind].label}</span>
+          {item.status && <span className={cn("daisy-badge h-5 px-2 text-2xs capitalize", STATUS[item.status])}>{item.status}</span>}
         </span>
         <span className={cn("mt-0.5 block truncate font-display text-xl tracking-tight", dim && "line-through decoration-muted-foreground/50")}>{item.title}</span>
         {item.subtitle && <span className="block truncate text-sm text-muted-foreground">{item.subtitle}</span>}

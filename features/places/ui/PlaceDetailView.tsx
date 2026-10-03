@@ -23,7 +23,7 @@ import { NearbyRecommendations } from "@/components/NearbyRecommendations";
 import { BackLink } from "@/components/BackLink";
 import { ExternalLink } from "@/components/ExternalLink";
 import { SourceCard } from "@/components/SourceCard";
-import { PanelError, PanelLoading } from "@/components/PanelStates";
+import { PanelError, PanelLoading, PANEL_PAD, PANEL_HERO } from "@/components/PanelStates";
 import { TripWeather } from "@/components/TripWeather";
 import { Reveal, WordReveal } from "@/components/motion-primitives";
 import { PhotoLightbox, usePhotoLightbox } from "@/components/PhotoLightbox";
@@ -89,7 +89,7 @@ export function PlaceDetailView({
   const [reviewsOpen, setReviewsOpen] = useState(false);
   const lightbox = usePhotoLightbox();
 
-  const pad = panel ? "px-4 pb-8" : "mx-auto max-w-5xl px-5 pb-14 sm:px-8";
+  const pad = panel ? PANEL_PAD : "mx-auto max-w-5xl px-5 pb-14 sm:px-8";
 
   if (state === "loading") return <PanelLoading what="this place" panel={panel} />;
 
@@ -128,7 +128,7 @@ export function PlaceDetailView({
   // into a very long, thin bar spanning nearly the whole page. Capping it keeps it looking like
   // a button at every width instead of a banner at in-between ones.
   const asideAction = place ? (
-    <div className={panel ? undefined : "max-w-sm"}>
+    <div className={panel ? "max-w-md" : "max-w-sm"}>
       <AddToTripControl tripId={tripId} place={place} size="md" block />
     </div>
   ) : (
@@ -232,7 +232,7 @@ export function PlaceDetailView({
       <Reveal delay={0.06}>
         <section>
           <DetailSectionHeading>About</DetailSectionHeading>
-          {details.editorialSummary?.text && <p className="mt-2 text-[15px] leading-[1.8] text-ink-soft">{details.editorialSummary.text}</p>}
+          {details.editorialSummary?.text && <p className="mt-2 text-body leading-[1.8] text-ink-soft">{details.editorialSummary.text}</p>}
           {/* Google's own editorialSummary above is only written for a subset of well-known
               places, and even then is often one generic sentence — this supplements it with a
               real excerpt from the web, clearly sourced rather than presented as Google's own
@@ -259,7 +259,7 @@ export function PlaceDetailView({
         <Reveal delay={0.08}>
           <section>
             <DetailSectionHeading>Photos</DetailSectionHeading>
-            <div className={cn("mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain no-scrollbar px-1 pb-1", panel ? "" : "-mx-5 px-5 sm:mx-0 sm:px-0")}>
+            <div className={cn("mt-1 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain no-scrollbar px-1 pb-9 -mb-8 pt-2", panel ? "" : "-mx-5 px-5 sm:mx-0 sm:px-0")}>
               {morePhotos.map((src, i) => (
                 <button
                   key={src}
@@ -324,7 +324,7 @@ export function PlaceDetailView({
         alt={name}
         plain
         surface={panel}
-        className={cn(panel ? "h-44" : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")}
+        className={cn(panel ? PANEL_HERO : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")}
       >
         {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className="absolute top-4 left-4" />}
       </Hero>

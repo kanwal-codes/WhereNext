@@ -160,14 +160,20 @@ export function useTripRealtime(tripId: string, me?: { userId: string; name: str
     // did — re-announces every change type once, so any mounted component (group chat, the
     // itinerary, etc.) refetches instead of trusting a channel that may have missed events while
     // backgrounded.
+    // Only a tab that really sat in the background needs the catch-up: every announcement refreshes the whole
+    // trip (a server render plus a full workspace download), and a window that flickers between visible and
+    // hidden (resizing, split views, a tab peek) used to fire that storm several times a second.
+    let hiddenAt = 0;
     const onVisible = () => {
-      if (document.visibilityState !== "visible") return;
+      if (document.visibilityState !== "visible") { hiddenAt ||= Date.now(); return; }
+      const away = hiddenAt ? Date.now() - hiddenAt : 0;
+      hiddenAt = 0;
       if (!subscribedRef.current) {
         if (reconnectTimer) clearTimeout(reconnectTimer);
         attempt = 0;
         connect();
       }
-      announceWorkspaceChanges([...new Set(Object.values(TABLE_TO_CHANGE))]);
+      if (away >= 20_000) announceWorkspaceChanges([...new Set(Object.values(TABLE_TO_CHANGE))]);
     };
     document.addEventListener("visibilitychange", onVisible);
 

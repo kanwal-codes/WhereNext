@@ -15,11 +15,17 @@ export function coverText(trip: { name: string; destination: string | null }): {
   return { city: parts[0]!, country: parts.length > 1 ? parts[parts.length - 1]! : "" };
 }
 
-/** The size the city is set in, so a long name still fits its panel. */
+/**
+ * The size the city is set in, so a long name still fits its panel. Two limits apply and the smaller
+ * size wins: the whole name (it wraps across lines, up to two) and its longest single word (a word
+ * cannot wrap, so "Montreal" at the largest size runs under the date stamp).
+ */
 export function cityScale(city: string): "lg" | "md" | "sm" {
-  if (city.length <= 8) return "lg";
-  if (city.length <= 13) return "md";
-  return "sm";
+  const rank = { lg: 0, md: 1, sm: 2 } as const;
+  const total = city.length <= 8 ? "lg" : city.length <= 13 ? "md" : "sm";
+  const longest = Math.max(0, ...city.split(/\s+/).map((word) => word.length));
+  const word = longest <= 6 ? "lg" : longest <= 9 ? "md" : "sm";
+  return rank[word] > rank[total] ? word : total;
 }
 
 /** "2026-10-12" -> { month: "OCT", day: "12" } for the date stamp. Read straight off the string, so no timezone can shift the day. */

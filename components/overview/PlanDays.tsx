@@ -33,13 +33,13 @@ export function PlanDays({ tripId, days }: { tripId: string; days: PlanDay[] }) 
             <span aria-hidden className="pointer-events-none absolute -top-2 right-4 font-display text-[7.5rem] leading-none tabular-nums text-foreground/[0.055] select-none">
               {String(day.day).padStart(2, "0")}
             </span>
-            <p className="text-[11px] font-medium tracking-[0.16em] text-muted-foreground uppercase">Day {day.day}</p>
+            <p className="text-2xs font-medium tracking-[0.16em] text-muted-foreground uppercase">Day {day.day}</p>
             <h3 suppressHydrationWarning className="mt-1 font-display text-2xl tracking-tight">
               {day.label ?? `Day ${day.day}`}
             </h3>
             <ol className="relative mt-6 space-y-4 border-l border-border pl-5">
               {day.items.map((item, index) => (
-                <li key={`${item}-${index}`} className="relative text-[15px] leading-snug text-ink-soft">
+                <li key={`${item}-${index}`} className="relative text-body leading-snug text-ink-soft">
                   <span aria-hidden className="absolute top-[0.42rem] -left-[1.56rem] h-2 w-2 rounded-full bg-coral ring-4 ring-card" />
                   {item}
                 </li>

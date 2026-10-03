@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { StatusScreen } from "@/components/StatusScreen";
 
 /** A DB error now throws instead of being swallowed into `notFound()` (see public-trip.ts) —
  *  this keeps a transient outage from reading as "this trip doesn't exist" to a public visitor
@@ -11,10 +12,13 @@ export default function SharedTripError({ error, reset }: { error: Error & { dig
   }, [error]);
 
   return (
-    <main className="mx-auto max-w-sm px-5 py-20 text-center">
-      <h1 className="font-display text-2xl">This trip is temporarily unavailable</h1>
-      <p className="mt-2 text-sm text-muted-foreground">Something went wrong loading it. Try again in a moment.</p>
-      <button onClick={reset} className="btn-primary mt-6">Try again</button>
-    </main>
+    <StatusScreen
+      mark="error"
+      eyebrow="Shared trip"
+      title="This trip is temporarily unavailable."
+      actions={<button onClick={reset} className="btn-primary">Try again</button>}
+    >
+      Something went wrong loading it. Try again in a moment.
+    </StatusScreen>
   );
 }

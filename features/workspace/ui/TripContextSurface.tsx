@@ -384,7 +384,7 @@ export function TripContextSurface({
         )}
       >
         <div className="flex items-baseline justify-between gap-2">
-          <p className="min-w-0 text-[10px] font-medium tracking-[0.14em] text-muted-foreground uppercase">{row.label}</p>
+          <p className="min-w-0 text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">{row.label}</p>
           {row.certainty === "suggested" && <CertaintyBadge certainty={row.certainty} />}
         </div>
 
@@ -395,11 +395,11 @@ export function TripContextSurface({
                     <button type="button" onClick={() => void saveDates()} disabled={savingDates} className="btn-primary-sm">
                       {savingDates ? "…" : "Save"}
                     </button>
-                    <button type="button" onClick={() => setEditingDates(false)} className="text-[11px] text-muted-foreground hover:text-foreground">
+                    <button type="button" onClick={() => setEditingDates(false)} className="text-2xs text-muted-foreground hover:text-foreground">
                       Cancel
                     </button>
                     {(dStart || dEnd) && (
-                      <button type="button" onClick={() => { setDStart(""); setDEnd(""); }} className="ml-auto text-[11px] text-muted-foreground hover:text-destructive">
+                      <button type="button" onClick={() => { setDStart(""); setDEnd(""); }} className="ml-auto text-2xs text-muted-foreground hover:text-destructive">
                         Clear
                       </button>
                     )}
@@ -420,7 +420,7 @@ export function TripContextSurface({
                     <button type="button" onClick={() => void saveTripField("destination", fieldDraft)} disabled={savingField} className="btn-primary-sm">
                       {savingField ? "…" : "Save"}
                     </button>
-                    <button type="button" onClick={() => setEditingField(null)} className="text-[11px] text-muted-foreground hover:text-foreground">
+                    <button type="button" onClick={() => setEditingField(null)} className="text-2xs text-muted-foreground hover:text-foreground">
                       Cancel
                     </button>
                   </div>
@@ -445,7 +445,7 @@ export function TripContextSurface({
                     <button type="button" onClick={() => void saveTripField(row.tripField!, fieldDraft)} disabled={savingField} className="btn-primary-sm">
                       {savingField ? "…" : "Save"}
                     </button>
-                    <button type="button" onClick={() => setEditingField(null)} className="text-[11px] text-muted-foreground hover:text-foreground">
+                    <button type="button" onClick={() => setEditingField(null)} className="text-2xs text-muted-foreground hover:text-foreground">
                       Cancel
                     </button>
                   </div>
@@ -467,7 +467,7 @@ export function TripContextSurface({
                     <button type="button" onClick={() => void savePref(row.editKey!, draft)} disabled={savingKey === row.editKey} className="btn-primary-sm">
                       {savingKey === row.editKey ? "…" : "Save"}
                     </button>
-                    <button type="button" onClick={() => setEditing(null)} className="text-[11px] text-muted-foreground hover:text-foreground">
+                    <button type="button" onClick={() => setEditing(null)} className="text-2xs text-muted-foreground hover:text-foreground">
                       Cancel
                     </button>
                   </div>
@@ -505,13 +505,13 @@ export function TripContextSurface({
 
         {row.suggestionKey && !isEditing && (
           <div className="mt-2">
-            {row.note && <p className="text-[11px] leading-relaxed text-muted-foreground">{row.note}</p>}
+            {row.note && <p className="text-2xs leading-relaxed text-muted-foreground">{row.note}</p>}
             <div className="mt-1.5 flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => void act(row.suggestionKey!, "confirm")}
                 disabled={busyKey === row.suggestionKey}
-                className="inline-flex items-center gap-1 rounded-full bg-leaf px-2.5 py-1 text-[11px] font-semibold text-background disabled:opacity-60"
+                className="inline-flex items-center gap-1 rounded-full bg-leaf px-2.5 py-1 text-2xs font-semibold text-background disabled:opacity-60"
               >
                 <Check className="h-3 w-3" /> Confirm
               </button>
@@ -519,7 +519,7 @@ export function TripContextSurface({
                 type="button"
                 onClick={() => void act(row.suggestionKey!, "dismiss")}
                 disabled={busyKey === row.suggestionKey}
-                className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-60"
+                className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-2xs text-muted-foreground hover:text-foreground disabled:opacity-60"
               >
                 <X className="h-3 w-3" /> Dismiss
               </button>
@@ -562,14 +562,14 @@ export function TripContextSurface({
             caption rather than sitting unlabeled next to a count it doesn't correspond to. */}
         <div className="flex flex-col items-center gap-1">
           <ProgressRing value={progress} size={56} />
-          <span className="text-[10px] tracking-wide text-muted-foreground uppercase">Trip progress</span>
+          <span className="text-2xs tracking-wide text-muted-foreground uppercase">Trip progress</span>
         </div>
       </div>
 
       {/* Locked in */}
       {confirmedRows.length > 0 && (
         <section>
-          <p className="mb-1.5 px-1 text-[10px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">Locked in</p>
+          <p className="mb-1.5 px-1 text-2xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Locked in</p>
           <div className="divide-y divide-border/50 overflow-hidden rounded-3xl border border-border/60 bg-card">
             {confirmedRows.map(renderRow)}
           </div>
@@ -579,7 +579,7 @@ export function TripContextSurface({
       {/* Suggested by the assistant */}
       {suggestedRows.length > 0 && (
         <section>
-          <p className="mb-1.5 px-1 text-[10px] font-semibold tracking-[0.16em] text-coral uppercase">Suggested — confirm or dismiss</p>
+          <p className="mb-1.5 px-1 text-2xs font-semibold tracking-[0.16em] text-coral uppercase">Suggested — confirm or dismiss</p>
           <div className="divide-y divide-border/50 overflow-hidden rounded-3xl border border-coral/25 bg-card">
             {suggestedRows.map(renderRow)}
           </div>
@@ -589,7 +589,7 @@ export function TripContextSurface({
       {/* To decide */}
       {undecidedRows.length > 0 && (
         <section>
-          <p className="mb-1.5 px-1 text-[10px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">To decide</p>
+          <p className="mb-1.5 px-1 text-2xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">To decide</p>
           <div className="rounded-3xl border border-dashed border-border/70 bg-card/40 p-3">
             <div className="flex flex-wrap gap-1.5">
               {undecidedRows.map((row) => {
@@ -601,7 +601,7 @@ export function TripContextSurface({
                       type="button"
                       onClick={() => startEdit(row)}
                       className={cn(
-                        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-2xs font-medium transition-colors",
                         isRowEditing(row)
                           ? "border-coral bg-coral-soft text-coral"
                           : "border-border bg-background text-foreground hover:border-coral/50 hover:text-coral",
@@ -612,7 +612,7 @@ export function TripContextSurface({
                   );
                 }
                 return (
-                  <span key={row.id} className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground">
+                  <span key={row.id} className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-2xs text-muted-foreground">
                     {row.label}
                   </span>
                 );
@@ -624,7 +624,7 @@ export function TripContextSurface({
                 {renderRow(row)}
               </div>
             ))}
-            <p className="mt-2 px-1 text-[11px] leading-relaxed text-muted-foreground">
+            <p className="mt-2 px-1 text-2xs leading-relaxed text-muted-foreground">
               Tap one to set it now, or just keep talking — Roam fills these in as you plan.
             </p>
           </div>

@@ -11,7 +11,7 @@ type AssistantDelta = {
    *  replacing the fixed-timer guess the UI used before this. */
   progress?: "resolve" | "retrieve" | "compose";
   /** Set on a "retrieve" progress frame when RESOLVE planned at least one recognized tool —
-   *  what's actually being looked up ("checking places", "getting directions"), for a caller
+   *  what's actually being looked up ("finding places", "plotting the route"), for a caller
    *  to show in place of a generic "checking live sources…". */
   label?: string;
 };

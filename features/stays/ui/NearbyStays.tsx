@@ -10,6 +10,7 @@ import { formatMoney } from "@/lib/currency";
 import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache";
 import { haversineKm } from "@/lib/application/geo";
 import { cn } from "@/lib/utils";
+import { cachedGet } from "@/lib/client/cached-get";
 
 type Order = "nearby" | "price" | "rating";
 type Kind = "Hotel" | "Motel" | "Hostel / dorm" | "Apartment-style";
@@ -81,7 +82,7 @@ export function NearbyStays({
         return;
       }
       try {
-        const response = await fetch(`/api/trips/${tripId}/stays?${qs}`, { signal: controller.signal });
+        const response = await cachedGet(`/api/trips/${tripId}/stays?${qs}`, { signal: controller.signal });
         const body = await response.json() as { options?: StayOption[] };
         if (!response.ok || controller.signal.aborted) return;
         const next = Array.isArray(body.options) ? body.options : [];

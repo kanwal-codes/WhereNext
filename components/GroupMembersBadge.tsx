@@ -17,7 +17,7 @@ export function GroupMembersBadge({ tripId }: { tripId: string }) {
     <Link
       href={`/trips/${tripId}/group/details`}
       aria-label={loaded && members.length > 0 ? `Group details — ${members.length} member${members.length === 1 ? "" : "s"}` : "Group details"}
-      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-background/90 py-1 pr-3 pl-1 backdrop-blur transition-colors hover:bg-accent"
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-background/95 py-1 pr-3 pl-1 transition-colors hover:bg-accent"
     >
       {shown.length > 0 ? (
         <span className="flex -space-x-1.5">

@@ -37,7 +37,7 @@ export function ProgressRing({
           strokeDasharray={c}
           initial={{ strokeDashoffset: c }}
           animate={{ strokeDashoffset: c - (c * value) / 100 }}
-          transition={{ duration: 1.1, ease: [0.22, 0.61, 0.36, 1] }}
+          transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
         />
       </svg>
       <div className="absolute inset-0 grid place-items-center">

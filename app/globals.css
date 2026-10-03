@@ -21,12 +21,25 @@
 }
 
 @custom-variant dark (&:is(.dark *));
+/* A desktop-sized window tall enough to hold a sticky showcase; anything smaller stacks. */
+@custom-variant tall-lg (@media (min-width: 64rem) and (min-height: 43.75rem));
 
 /*
  * Crisp travel workspace: white ground, near-black text, hairline greys.
  * Colour accents are reserved for state and category signals.
  * Ported from frontend/Lovable design/src/styles.css.
  */
+
+/* Motion. One family of curves, three durations. Decelerate on the way in (things arrive and
+   settle), a symmetric curve for things that travel both ways, nothing bounces. */
+@theme {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --duration-fast: 140ms;
+  --duration-base: 220ms;
+  --duration-slow: 360ms;
+}
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
@@ -39,6 +52,37 @@
 
   --font-display: var(--font-outfit), "Outfit", ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-figtree), "Figtree", ui-sans-serif, system-ui, sans-serif;
+
+  /* Type scale. Every step carries its own leading and optical tracking: the larger the size, the
+     tighter the letters. Sizes below 11px do not exist. `2xs` is the caption floor, `body` is the
+     reading size for chat prose and long copy (15px, between sm and base). */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-2xs--letter-spacing: 0.015em;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.125rem;
+  --text-xs--letter-spacing: 0.005em;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.3125rem;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.5rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.625rem;
+  --text-lg--letter-spacing: -0.006em;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+  --text-xl--letter-spacing: -0.012em;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 1.875rem;
+  --text-2xl--letter-spacing: -0.018em;
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: 2.25rem;
+  --text-3xl--letter-spacing: -0.024em;
+  --text-4xl: 2.25rem;
+  --text-4xl--line-height: 2.5rem;
+  --text-4xl--letter-spacing: -0.028em;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -90,10 +134,21 @@
   --color-coral-fill: var(--coral-fill);
   --color-coral-fill-foreground: var(--coral-fill-foreground);
 
-  /* Trip Atmosphere: one contextual accent (destination + season), set at runtime by
-     <TripAtmosphere>. Defaults to coral so nothing changes until a trip resolves one. */
-  --color-accent-trip: var(--accent-trip);
-  --color-accent-trip-soft: var(--accent-trip-soft);
+
+  /* Lagoon: the cool counterweight to coral. Suggested / informational / water and transit. */
+  --color-lagoon: var(--lagoon);
+  --color-lagoon-soft: var(--lagoon-soft);
+  --color-plum: var(--plum);
+  --color-plum-soft: var(--plum-soft);
+
+  /* Place categories: one lightness and chroma family so no category shouts over another.
+     Same values drive the map pins (lib/map-colors.ts keeps the hex twins in step). */
+  --color-cat-stay: var(--cat-stay);
+  --color-cat-eat: var(--cat-eat);
+  --color-cat-see: var(--cat-see);
+  --color-cat-do: var(--cat-do);
+  --color-cat-event: var(--cat-event);
+  --color-cat-saved: var(--cat-saved);
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -109,91 +164,127 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --shadow-soft: 0 1px 2px oklch(0.2 0.01 260 / 6%), 0 10px 26px -14px oklch(0.2 0.01 260 / 13%);
-  --shadow-lift: 0 2px 4px oklch(0.2 0.01 260 / 7%), 0 20px 44px -22px oklch(0.2 0.01 260 / 19%);
+  /* Elevation. Shadows are tinted with the ink (warm, never grey-blue) and stacked: a contact
+     shadow, a body shadow and a long soft ambient one. Four steps, and only these four:
+     hairline (a 1px ring), soft (resting cards), lift (hover, open menus), float (sheets, dialogs). */
+  --shadow-hairline: 0 0 0 1px oklch(0.2 0.012 65 / 6%);
+  /* Warm, layered, long: a tight contact line, then three ever wider, fainter falloffs, so a card sits on the
+     page like paper on a table instead of wearing a grey halo. */
+  --shadow-soft: 0 1px 2px oklch(0.2 0.012 65 / 4.5%), 0 3px 8px -2px oklch(0.2 0.012 65 / 5%), 0 10px 24px -10px oklch(0.2 0.012 65 / 8%), 0 22px 44px -24px oklch(0.2 0.012 65 / 9%);
+  --shadow-lift: 0 1px 2px oklch(0.2 0.012 65 / 5%), 0 6px 14px -4px oklch(0.2 0.012 65 / 7%), 0 18px 34px -10px oklch(0.2 0.012 65 / 11%), 0 36px 68px -22px oklch(0.2 0.012 65 / 17%);
+  --shadow-float: 0 2px 4px oklch(0.2 0.012 65 / 6%), 0 12px 24px -8px oklch(0.2 0.012 65 / 12%), 0 32px 64px -20px oklch(0.2 0.012 65 / 24%);
 }
 
 /*
- * Crisp foundation, app-wide: white ground, near-black ink, hairline greys.
- * Nature accents are signals only (state / category), never decoration.
+ * Light system. White canvas, a warm ink, one confident accent.
+ *
+ *  Neutrals   hue 65-80, chroma <= 0.012. A whisper of warmth so the coral accent sits on a ground
+ *             it belongs to (cool blue-greys next to coral look dirty). Text steps: ink 17.9:1,
+ *             ink-soft 8.5:1, muted-foreground 6.0:1 on white (5.5:1 on --muted).
+ *  Coral      the brand. Hue 36, drifting warmer (45) as it lightens into tints. Four jobs, four
+ *             tokens: --coral (shapes, icons, large display), --coral-fill (white-text buttons,
+ *             5.2:1), --coral-ink (coral text, 7:1), --coral-soft (tint ground).
+ *  Lagoon     coral's complement (hue 220). Cool, calm. "Suggested", information, water, transit.
+ *  Status     sage green (hue 158) = confirmed / saved / fits; saffron (70) = caution; crimson
+ *             (24, darker and cooler than coral) = error, so a failure never reads as a highlight.
+ *  Rule       ink does the acting (primary buttons), coral does the signalling, lagoon does the
+ *             informing, green/saffron/crimson report state. Nothing else gets a colour.
+ *
+ * `.theme-light-scope` (auth, light islands) and `.landing-cinematic-scope` read the same tokens, so
+ * a light surface inside dark mode is this exact palette, not a copy of it.
  */
-:root {
+:root,
+.theme-light-scope,
+.landing-cinematic-scope {
   color-scheme: light;
-  --radius: 1.25rem;
+  --radius: 0.75rem;
   /* Mobile top bar height — the chat page and its sheets measure from it. */
   --topbar: 3.5rem;
 
-  /* 3-step ground: page → surface → card/raised, so panels and cards read as lifted. */
+  /* 3-step ground: page (white) -> surface (sidebar, sunken wells) -> card (white, lifted by
+     hairline + shadow). */
   --background: oklch(1 0 0);
-  --foreground: oklch(0.17 0.005 260);
-  --surface: oklch(0.974 0.002 260);
+  --foreground: oklch(0.205 0.012 65);
+  --surface: oklch(0.982 0.003 80);
   --surface-raised: oklch(1 0 0);
 
-  --card: oklch(0.996 0.001 260);
-  --card-foreground: oklch(0.17 0.005 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.205 0.012 65);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.17 0.005 260);
+  --popover-foreground: oklch(0.205 0.012 65);
 
-  --primary: oklch(0.19 0.006 260);
+  --primary: oklch(0.205 0.012 65);
   --primary-foreground: oklch(1 0 0);
 
-  --secondary: oklch(0.97 0.002 260);
-  --secondary-foreground: oklch(0.2 0.006 260);
+  --secondary: oklch(0.967 0.004 80);
+  --secondary-foreground: oklch(0.24 0.012 65);
 
-  --muted: oklch(0.972 0.002 260);
-  --muted-foreground: oklch(0.53 0.008 260);
-  --ink: oklch(0.17 0.005 260);
-  --ink-soft: oklch(0.4 0.007 260);
+  --muted: oklch(0.967 0.004 80);
+  --muted-foreground: oklch(0.5 0.012 72);
+  --ink: oklch(0.205 0.012 65);
+  --ink-soft: oklch(0.42 0.012 70);
 
-  --accent: oklch(0.968 0.002 260);
-  --accent-foreground: oklch(0.2 0.006 260);
+  --accent: oklch(0.958 0.005 80);
+  --accent-foreground: oklch(0.24 0.012 65);
 
-  /* A real red — distinct from the coral accent (hue 32) so errors don't read as "highlight". */
-  --destructive: oklch(0.55 0.2 27);
+  /* A real crimson: darker and cooler than coral (hue 36) so errors never read as "highlight". */
+  --destructive: oklch(0.52 0.2 24);
   --destructive-foreground: oklch(1 0 0);
 
-  --hairline: oklch(0.915 0.003 260);
-  --input: oklch(0.9 0.004 260);
-  --ring: oklch(0.19 0.006 260);
+  --hairline: oklch(0.925 0.005 80);
+  --input: oklch(0.88 0.006 80);
+  --ring: oklch(0.205 0.012 65);
 
-  --chart-1: oklch(0.55 0.13 235);
-  --chart-2: oklch(0.52 0.115 150);
-  --chart-3: oklch(0.62 0.12 70);
-  --chart-4: oklch(0.52 0.13 295);
-  --chart-5: oklch(0.6 0.16 32);
+  --chart-1: var(--cat-stay);
+  --chart-2: var(--cat-see);
+  --chart-3: var(--cat-eat);
+  --chart-4: var(--cat-do);
+  --chart-5: var(--cat-event);
 
-  --sidebar: oklch(0.988 0.002 260);
-  --sidebar-foreground: oklch(0.28 0.006 260);
-  --sidebar-primary: oklch(0.19 0.006 260);
+  --sidebar: oklch(0.982 0.003 80);
+  --sidebar-foreground: oklch(0.3 0.012 65);
+  --sidebar-primary: oklch(0.205 0.012 65);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.962 0.002 260);
-  --sidebar-accent-foreground: oklch(0.17 0.005 260);
-  --sidebar-border: oklch(0.915 0.003 260);
-  --sidebar-ring: oklch(0.19 0.006 260);
+  --sidebar-accent: oklch(0.955 0.005 80);
+  --sidebar-accent-foreground: oklch(0.205 0.012 65);
+  --sidebar-border: oklch(0.925 0.005 80);
+  --sidebar-ring: oklch(0.205 0.012 65);
 
-  /* One accent family across the product: coral signals action, relevance and state. */
-  --coral: oklch(0.6 0.16 32);
-  --coral-soft: oklch(0.955 0.03 32);
-  --water: var(--coral);
-  --water-soft: var(--coral-soft);
-  --leaf: var(--coral);
-  --leaf-soft: var(--coral-soft);
-  --amber: var(--coral);
-  --amber-soft: var(--coral-soft);
-  --violet: var(--coral);
-  --violet-soft: var(--coral-soft);
-
-  --accent-trip: var(--coral);
-  --accent-trip-soft: var(--coral-soft);
-
-  /* Status pair: text/icon colour + its tinted ground. Contrast measured >= 4.5:1 each way. */
-  --positive: oklch(0.42 0.1 155);
-  --positive-soft: oklch(0.955 0.04 155);
-  --caution: oklch(0.45 0.1 65);
-  --caution-soft: oklch(0.96 0.05 85);
-  --coral-ink: oklch(0.45 0.13 32);
-  --coral-fill: oklch(0.53 0.15 32);
+  /* Coral. */
+  --coral: oklch(0.64 0.175 36);
+  --coral-soft: oklch(0.962 0.025 45);
+  --coral-ink: oklch(0.48 0.14 34);
+  --coral-fill: oklch(0.55 0.16 35);
   --coral-fill-foreground: oklch(1 0 0);
+
+  /* Semantic families. Each has a text-grade colour (>= 4.5:1 on white and on its own soft ground)
+     and a soft ground. The old category names stay as aliases so existing call sites inherit the
+     meaning: leaf = confirmed/saved, water = suggested/info. */
+  --positive: oklch(0.44 0.1 158);
+  --positive-soft: oklch(0.962 0.022 160);
+  --caution: oklch(0.46 0.1 70);
+  --caution-soft: oklch(0.968 0.04 90);
+  --lagoon: oklch(0.44 0.085 225);
+  --lagoon-soft: oklch(0.965 0.014 215);
+  --plum: oklch(0.46 0.13 305);
+  --plum-soft: oklch(0.965 0.018 305);
+  --leaf: var(--positive);
+  --leaf-soft: var(--positive-soft);
+  --water: var(--lagoon);
+  --water-soft: var(--lagoon-soft);
+  --amber: var(--caution);
+  --amber-soft: var(--caution-soft);
+  --violet: var(--plum);
+  --violet-soft: var(--plum-soft);
+
+  /* Place categories (map pins, dots, legends). One lightness/chroma family, white text on any of
+     them is >= 3.7:1. */
+  --cat-stay: oklch(0.585 0.17 36);
+  --cat-eat: oklch(0.6 0.125 70);
+  --cat-see: oklch(0.58 0.105 232);
+  --cat-do: oklch(0.58 0.115 158);
+  --cat-event: oklch(0.55 0.15 305);
+  --cat-saved: oklch(0.6 0.012 75);
 
   /* daisyUI reads these. The colour aliases live in their own rule below so scopes that re-declare
      the app tokens (light islands, the landing) get aliases resolved against their own values. */
@@ -227,7 +318,7 @@
   --color-accent-content: var(--accent-foreground);
   --color-neutral: var(--primary);
   --color-neutral-content: var(--primary-foreground);
-  --color-info: var(--muted-foreground);
+  --color-info: var(--lagoon);
   --color-info-content: var(--background);
   --color-success: var(--positive);
   --color-success-content: var(--background);
@@ -291,9 +382,6 @@
   --violet: var(--coral);
   --violet-soft: var(--coral-soft);
 
-  --accent-trip: var(--coral);
-  --accent-trip-soft: var(--coral-soft);
-
   --positive: oklch(0.8 0.13 155);
   --positive-soft: oklch(0.29 0.055 155);
   --caution: oklch(0.83 0.12 82);
@@ -301,61 +389,25 @@
   --coral-ink: oklch(0.82 0.09 32);
   --coral-fill: oklch(0.74 0.13 32);
   --coral-fill-foreground: oklch(0.16 0.005 260);
+
+  /* Tokens added by the light-mode system: dark equivalents so nothing reads a light value here. */
+  --lagoon: oklch(0.74 0.09 220);
+  --lagoon-soft: oklch(0.3 0.04 220);
+  --plum: oklch(0.76 0.1 305);
+  --plum-soft: oklch(0.3 0.045 305);
+  --cat-stay: oklch(0.74 0.13 32);
+  --cat-eat: oklch(0.78 0.11 78);
+  --cat-see: oklch(0.74 0.09 232);
+  --cat-do: oklch(0.76 0.1 158);
+  --cat-event: oklch(0.74 0.11 305);
+  --cat-saved: oklch(0.7 0.01 75);
 }
 
-/* The landing page keeps its original light-only look regardless of the app's dark-mode
- * setting. `@theme inline` above bakes `--color-X: var(--X)` into a snapshot at build time,
- * not a live reference — so overriding the bare `--X` tokens alone (as below, kept for
- * anything that reads them directly) never reaches the `--color-X` custom properties Tailwind
- * utilities actually use. Both layers are re-asserted here, scoped to this subtree. */
-.dark .theme-light-scope {
-  color-scheme: light;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.17 0.005 260);
-  --surface: oklch(0.974 0.002 260);
-  --surface-raised: oklch(1 0 0);
-  --card: oklch(0.996 0.001 260);
-  --card-foreground: oklch(0.17 0.005 260);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.17 0.005 260);
-  --primary: oklch(0.19 0.006 260);
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.97 0.002 260);
-  --secondary-foreground: oklch(0.2 0.006 260);
-  --muted: oklch(0.972 0.002 260);
-  --muted-foreground: oklch(0.53 0.008 260);
-  --ink: oklch(0.17 0.005 260);
-  --ink-soft: oklch(0.4 0.007 260);
-  --accent: oklch(0.968 0.002 260);
-  --accent-foreground: oklch(0.2 0.006 260);
-  --destructive: oklch(0.55 0.2 27);
-  --destructive-foreground: oklch(1 0 0);
-  --hairline: oklch(0.915 0.003 260);
-  --input: oklch(0.9 0.004 260);
-  --ring: oklch(0.19 0.006 260);
-  --sidebar: oklch(0.988 0.002 260);
-  --sidebar-foreground: oklch(0.28 0.006 260);
-  --sidebar-primary: oklch(0.19 0.006 260);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.962 0.002 260);
-  --sidebar-accent-foreground: oklch(0.17 0.005 260);
-  --sidebar-border: oklch(0.915 0.003 260);
-  --sidebar-ring: oklch(0.19 0.006 260);
-  --coral: oklch(0.6 0.16 32);
-  --coral-soft: oklch(0.955 0.03 32);
-  --water: var(--coral);
-  --water-soft: var(--coral-soft);
-  --leaf: var(--coral);
-  --leaf-soft: var(--coral-soft);
-  --amber: var(--coral);
-  --amber-soft: var(--coral-soft);
-  --violet: var(--coral);
-  --violet-soft: var(--coral-soft);
-  --accent-trip: var(--coral);
-  --accent-trip-soft: var(--coral-soft);
-
-  /* The layer Tailwind utilities (bg-background, text-muted-foreground, ...) actually read —
-   * @theme inline snapshots these from the tokens above, so they don't cascade on their own. */
+/* Light islands inside dark mode (auth, landing) take the light tokens from the shared rule above;
+ * what a custom property does NOT do on its own is re-resolve the `--color-X` layer, which
+ * `@theme inline` emitted on :root. So that layer is re-asserted here, per scope. */
+.theme-light-scope,
+.landing-cinematic-scope {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -386,12 +438,27 @@
   --color-leaf-soft: var(--leaf-soft);
   --color-coral: var(--coral);
   --color-coral-soft: var(--coral-soft);
+  --color-coral-ink: var(--coral-ink);
+  --color-coral-fill: var(--coral-fill);
+  --color-coral-fill-foreground: var(--coral-fill-foreground);
   --color-amber: var(--amber);
   --color-amber-soft: var(--amber-soft);
   --color-violet: var(--violet);
   --color-violet-soft: var(--violet-soft);
-  --color-accent-trip: var(--accent-trip);
-  --color-accent-trip-soft: var(--accent-trip-soft);
+  --color-positive: var(--positive);
+  --color-positive-soft: var(--positive-soft);
+  --color-caution: var(--caution);
+  --color-caution-soft: var(--caution-soft);
+  --color-lagoon: var(--lagoon);
+  --color-lagoon-soft: var(--lagoon-soft);
+  --color-plum: var(--plum);
+  --color-plum-soft: var(--plum-soft);
+  --color-cat-stay: var(--cat-stay);
+  --color-cat-eat: var(--cat-eat);
+  --color-cat-see: var(--cat-see);
+  --color-cat-do: var(--cat-do);
+  --color-cat-event: var(--cat-event);
+  --color-cat-saved: var(--cat-saved);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -402,111 +469,49 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/* Landing page overhaul (docs/LandingPage_Overhaul): a warm editorial palette scoped to
- * the new landing experience only — the rest of the product's cool-neutral tokens are
- * untouched. Same technique as .theme-light-scope above: both the bare tokens and their
- * `--color-X` @theme-inline snapshots must be reasserted here, or Tailwind utilities
- * (bg-background, text-coral, ...) won't pick up the override.
- *
- * --surface-dark, --success, --warning are new, landing-only concepts (Design_Language
- * spec §1) with no equivalent in the product's single-accent system — they aren't
- * registered in @theme inline above, so reach for bg-[var(--surface-dark)] /
- * text-[var(--success)] / text-[var(--warning)] rather than bg-surface-dark etc. */
+/* The landing is a pure-white page (no off-white wells), with a few concepts of its own
+ * (Design_Language spec §1): --surface-dark, --success, --warning are not registered in
+ * @theme inline, so reach for bg-[var(--surface-dark)] / text-[var(--success)]. */
 .landing-cinematic-scope {
-  color-scheme: light;
-  --background: #ffffff;
-  --foreground: #151515;
   --surface: #ffffff;
-  --surface-raised: #ffffff;
-  --surface-dark: #171717;
-  --card: #ffffff;
-  --card-foreground: #151515;
-  --popover: #ffffff;
-  --popover-foreground: #151515;
-  --primary: #151515;
-  --primary-foreground: #ffffff;
-  --muted: #f4f4f5;
-  --muted-foreground: #66666b;
-  --ink: #151515;
-  --ink-soft: #66666b;
-  --hairline: #e4e4e7;
-  --coral: #ff5a36;
-  --coral-soft: #ffe1d8;
-  --water: var(--coral);
-  --water-soft: var(--coral-soft);
-  --leaf: var(--coral);
-  --leaf-soft: var(--coral-soft);
-  --amber: var(--coral);
-  --amber-soft: var(--coral-soft);
-  --violet: var(--coral);
-  --violet-soft: var(--coral-soft);
-  --accent-trip: var(--coral);
-  --accent-trip-soft: var(--coral-soft);
-  --success: #397a59;
-  --warning: #b77524;
-  /* The loud coral is a fill (3.1:1 on white): text and white-on-coral use these deeper steps. */
-  --coral-ink: oklch(0.45 0.13 32);
-  --coral-fill: oklch(0.53 0.15 32);
-  --coral-fill-foreground: oklch(1 0 0);
-  /* The rest of the app's light tokens, so nothing inside the landing turns dark when the app's
-     `.dark` class is on <html> (the daisyUI aliases above read several of these). */
-  --secondary: oklch(0.97 0.002 260);
-  --secondary-foreground: oklch(0.2 0.006 260);
-  --accent: oklch(0.968 0.002 260);
-  --accent-foreground: oklch(0.2 0.006 260);
-  --destructive: oklch(0.55 0.2 27);
-  --destructive-foreground: oklch(1 0 0);
-  --input: oklch(0.9 0.004 260);
-  --ring: oklch(0.19 0.006 260);
-  --positive: oklch(0.42 0.1 155);
-  --positive-soft: oklch(0.955 0.04 155);
-  --caution: oklch(0.45 0.1 65);
-  --caution-soft: oklch(0.96 0.05 85);
-
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-border: var(--hairline);
-  --color-ink: var(--ink);
-  --color-ink-soft: var(--ink-soft);
+  --surface-dark: #1b1611;
+  --success: oklch(0.5 0.1 158);
+  --warning: oklch(0.58 0.11 70);
+  --ink-soft: oklch(0.5 0.012 72);
   --color-surface: var(--surface);
-  --color-surface-raised: var(--surface-raised);
-  --color-water: var(--water);
-  --color-water-soft: var(--water-soft);
-  --color-leaf: var(--leaf);
-  --color-leaf-soft: var(--leaf-soft);
-  --color-coral: var(--coral);
-  --color-coral-soft: var(--coral-soft);
-  --color-amber: var(--amber);
-  --color-amber-soft: var(--amber-soft);
-  --color-violet: var(--violet);
-  --color-violet-soft: var(--violet-soft);
-  --color-accent-trip: var(--accent-trip);
-  --color-accent-trip-soft: var(--accent-trip-soft);
-  --color-coral-ink: var(--coral-ink);
-  --color-coral-fill: var(--coral-fill);
-  --color-coral-fill-foreground: var(--coral-fill-foreground);
+  --color-ink-soft: var(--ink-soft);
 }
 
 /*
- * Radius scale (all off --radius: 1.25rem):
- *   rounded-2xl  → containers, cards, panels, sheets
- *   rounded-xl   → inputs, secondary / chip controls, small badges
- *   rounded-full → the primary CTA, and genuinely pill things (avatars, toggles, status dots)
+ * Shape. One base radius (--radius: 12px) and a scale off it:
+ *   rounded-md   10px  small chips inside a card, code, tags
+ *   rounded-lg   12px  menu items, small controls
+ *   rounded-xl   16px  inputs, secondary buttons, the inner tile of a card
+ *   rounded-2xl  20px  cards, panels, popovers, sheets
+ *   rounded-3xl  24px  hero surfaces, the composer, full-bleed photo frames
+ *   rounded-full       the primary CTA, avatars, toggles, status dots, filter pills
+ * Concentric rule: a child inside a padded parent takes parent radius minus the padding (a 12px
+ * pad inside a 20px card gives 8px). That is what keeps nested corners looking drawn, not stacked.
  * Don't reach for arbitrary rounded-[Nrem]; use a token step.
+ *
+ * Space is a 4px grid: 4 8 12 16 20 24 32 40 48 64 80 96. Touch targets are 44px (hit-44) even when
+ * the visible control is 32 or 36. Control heights: 32 (chip) 40 (button, input) 48 (composer, hero).
  */
 @layer base {
   :where(a, button, summary, [role="button"]) {
     transition-property: color, background-color, border-color, opacity, transform, box-shadow;
-    transition-duration: 180ms;
-    transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-out);
+  }
+
+  /* Anything you can press looks and feels pressable. Tailwind's reset gives buttons the default arrow; this puts the
+     hand back, and gives every control that has no pressed state of its own a small, quick sink (components that set
+     their own :active transform win — these rules carry no specificity). */
+  :where(button, [role="button"], [role="tab"], [role="menuitem"], summary, select, label[for], input[type="checkbox"], input[type="radio"]):not(:disabled) {
+    cursor: pointer;
+  }
+  :where(button, [role="button"], [role="tab"], summary, a[class*="rounded"]):not(:disabled):active {
+    transform: scale(0.985);
   }
 
   /* One consistent keyboard-focus treatment everywhere. Follows the element's own radius. */
@@ -530,6 +535,12 @@
     max-width: 100%;
   }
 
+  /* Icons: a quarter-step lighter than lucide's default 2px reads as drawn rather than stamped.
+     Only icons left at the default are touched; an explicit strokeWidth prop keeps its value. */
+  svg.lucide[stroke-width="2"] {
+    stroke-width: 1.75;
+  }
+
   input,
   select,
   textarea {
@@ -541,6 +552,9 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-kerning: normal;
   }
 
   /* Data from providers and the assistant is not always word-spaced. Keep a long
@@ -554,16 +568,20 @@
   h3,
   h4 {
     font-family: var(--font-display);
-    font-weight: 600;
-    letter-spacing: -0.015em;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    /* Tight display tracking closes the gap between words first; give it a little back. */
+    word-spacing: 0.05em;
+    text-wrap: balance;
   }
 }
 
 @utility eyebrow {
   font-size: 0.6875rem;
-  letter-spacing: 0.14em;
+  line-height: 1rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--color-muted-foreground);
 }
 
@@ -572,27 +590,56 @@
   text-shadow: none;
 }
 
-/* One text/date/select field for every form in the app. */
+/* One text/date/select field for every form in the app. 44px tall, 16px corners, a quiet edge that
+   firms up on hover and turns to ink on focus, with a soft 4px halo instead of a hard outline. */
 @utility input-field {
-  @apply mt-1.5 w-full rounded-xl border border-input bg-card px-3.5 py-2.5 text-sm outline-none transition-shadow focus:ring-2 focus:ring-ring/25;
+  @apply mt-1.5 w-full rounded-xl border border-input bg-card px-4 py-[0.6875rem] text-sm text-foreground outline-none placeholder:text-muted-foreground/70;
+  transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-base) var(--ease-out);
+  &:hover:not(:focus):not(:disabled) { border-color: color-mix(in oklab, var(--color-ink) 28%, var(--color-input)); }
+  &:focus { border-color: var(--color-ink); box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-ink) 8%, transparent); }
+  &:disabled { background: var(--color-muted); color: var(--color-muted-foreground); }
 }
 
-/* Buttons: the one loud pill (primary), a quieter soft-rect (secondary), a soft-rect chip.
-   Every one has a real pressed state; the primary is the only pill. */
+/* Buttons. Ink does the acting: the primary is a near-black pill with a lit top edge. Hover brightens
+   the fill and deepens the shadow (no growth), press sinks it 1.5% and flattens the shadow.
+   Secondary is a quiet outlined 16px rect, chip is the small filter control. Every one has a real
+   pressed state; the primary and destructive are the only pills. */
 @utility btn-primary {
-  @apply inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-[transform,opacity] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:hover:scale-100;
+  @apply inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground;
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.14), 0 1px 2px oklch(0.2 0.012 65 / 0.28);
+  transition: background-color var(--duration-base) var(--ease-out), box-shadow var(--duration-base) var(--ease-out), transform var(--duration-fast) var(--ease-out), opacity var(--duration-base) var(--ease-out);
+  &:hover:not(:disabled) { background-color: color-mix(in oklab, var(--color-primary) 86%, white); box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.16), 0 6px 14px -6px oklch(0.2 0.012 65 / 0.4); }
+  &:active:not(:disabled) { transform: scale(0.985); box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.1), 0 1px 1px oklch(0.2 0.012 65 / 0.3); }
+  &:disabled { opacity: 0.45; }
 }
 @utility btn-primary-sm {
-  @apply inline-flex items-center justify-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-medium text-primary-foreground transition-[transform,opacity] active:scale-[0.97] disabled:opacity-60;
+  @apply inline-flex items-center justify-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground;
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.14), 0 1px 2px oklch(0.2 0.012 65 / 0.25);
+  transition: background-color var(--duration-base) var(--ease-out), box-shadow var(--duration-base) var(--ease-out), transform var(--duration-fast) var(--ease-out), opacity var(--duration-base) var(--ease-out);
+  &:hover:not(:disabled) { background-color: color-mix(in oklab, var(--color-primary) 86%, white); }
+  &:active:not(:disabled) { transform: scale(0.98); }
+  &:disabled { opacity: 0.45; }
 }
 @utility btn-secondary {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium transition-[transform,background-color,border-color] hover:bg-accent active:scale-[0.98] disabled:opacity-60;
+  @apply inline-flex items-center justify-center gap-2 rounded-xl border border-input bg-card px-4 py-2.5 text-sm font-medium text-foreground;
+  transition: background-color var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out), transform var(--duration-fast) var(--ease-out), opacity var(--duration-base) var(--ease-out);
+  &:hover:not(:disabled) { background-color: var(--color-accent); border-color: color-mix(in oklab, var(--color-ink) 26%, var(--color-input)); }
+  &:active:not(:disabled) { transform: scale(0.985); background-color: color-mix(in oklab, var(--color-accent) 70%, var(--color-muted)); }
+  &:disabled { opacity: 0.5; }
 }
 @utility btn-destructive {
-  @apply inline-flex items-center justify-center gap-2 rounded-full bg-destructive px-4 py-2.5 text-sm font-medium text-destructive-foreground transition-[transform,opacity] hover:opacity-90 active:scale-[0.98] disabled:opacity-60 disabled:hover:opacity-100;
+  @apply inline-flex items-center justify-center gap-2 rounded-full bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground;
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.16), 0 1px 2px oklch(0.3 0.12 24 / 0.3);
+  transition: background-color var(--duration-base) var(--ease-out), transform var(--duration-fast) var(--ease-out), opacity var(--duration-base) var(--ease-out);
+  &:hover:not(:disabled) { background-color: color-mix(in oklab, var(--color-destructive) 90%, black); }
+  &:active:not(:disabled) { transform: scale(0.985); }
+  &:disabled { opacity: 0.45; }
 }
 @utility btn-chip {
-  @apply inline-flex h-8 items-center gap-1.5 rounded-xl border border-border bg-background px-3 text-xs text-ink-soft transition-[transform,color,border-color] hover:border-primary/40 hover:text-primary active:scale-[0.97];
+  @apply inline-flex h-8 items-center gap-1.5 rounded-xl border border-border bg-background px-3 text-xs font-medium text-ink-soft;
+  transition: background-color var(--duration-base) var(--ease-out), color var(--duration-fast) var(--ease-out), border-color var(--duration-base) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+  &:hover { border-color: color-mix(in oklab, var(--color-ink) 28%, var(--color-border)); color: var(--color-ink); background-color: var(--color-surface); }
+  &:active { transform: scale(0.97); }
 }
 
 @utility hairline {
@@ -617,6 +664,16 @@
   &::-webkit-scrollbar {
     display: none;
   }
+}
+
+/* The top edge of a scrolling log dissolves instead of cutting content with a hard line. Only once
+   scrolled — at rest the first line sits at full strength. Pair with data-scrolled. */
+@property --fade-t { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@utility scroll-fade-t {
+  --fade-t: 0px;
+  mask-image: linear-gradient(to bottom, transparent, #000 var(--fade-t));
+  transition: --fade-t var(--duration-base) var(--ease-out);
+  &[data-scrolled="true"] { --fade-t: 20px; }
 }
 
 @utility scrollbar-slim {
@@ -676,7 +733,7 @@
     background: var(--coral);
     transform: scaleX(0);
     transform-origin: right;
-    transition: transform 0.35s cubic-bezier(0.22, 0.61, 0.36, 1);
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   &:hover::after {
@@ -699,7 +756,7 @@
 }
 
 @utility route-enter {
-  animation: route-in 0.34s cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation: route-in 0.34s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Weather-card glyphs: a gentle idle motion so the card feels alive, not busy. */
@@ -719,6 +776,9 @@
   }
 }
 
+.landing-cinematic-scope :where(h1, h2, h3, h4) {
+  word-spacing: normal;
+}
 .landing-cinematic-scope :where(h1, h2) {
   text-wrap: balance;
 }
@@ -727,8 +787,8 @@
    cards sit on the page instead of floating on a grey smudge; every raised surface gets a 1px top
    highlight. The canvas is pure white, so there is deliberately no grain film (multiply over white reads grey). */
 .landing-cinematic-scope {
-  --shadow-soft: 0 1px 1px rgb(21 21 26 / 5%), 0 3px 6px -2px rgb(21 21 26 / 5%), 0 14px 28px -16px rgb(21 21 26 / 16%);
-  --shadow-lift: 0 1px 1px rgb(21 21 26 / 6%), 0 5px 10px -3px rgb(21 21 26 / 7%), 0 20px 40px -18px rgb(21 21 26 / 24%), 0 44px 72px -40px rgb(21 21 26 / 22%);
+  --shadow-soft: 0 1px 1px rgb(31 24 16 / 5%), 0 3px 6px -2px rgb(31 24 16 / 5%), 0 14px 28px -16px rgb(31 24 16 / 16%);
+  --shadow-lift: 0 1px 1px rgb(31 24 16 / 6%), 0 5px 10px -3px rgb(31 24 16 / 7%), 0 20px 40px -18px rgb(31 24 16 / 24%), 0 44px 72px -40px rgb(31 24 16 / 22%);
 }
 .landing-cinematic-scope .shadow-lift {
   box-shadow: var(--shadow-lift), inset 0 1px 0 rgb(255 255 255 / 0.85);
@@ -745,13 +805,13 @@
 }
 .landing-cinematic-scope .btn-primary,
 .landing-cinematic-scope .btn-primary-sm {
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 10px 20px -10px rgb(21 21 21 / 0.55);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 10px 20px -10px rgb(27 22 17 / 0.55);
 }
 
 
 /* Rendered markdown inside an assistant message. */
 @layer components {
-  .chat-prose { font-size: 0.9375rem; line-height: 1.7; color: var(--color-foreground); text-wrap: pretty; overflow-wrap: anywhere; }
+  .chat-prose { font-size: 0.9375rem; line-height: 1.65; color: var(--color-foreground); text-wrap: pretty; overflow-wrap: anywhere; }
   .chat-prose > :first-child { margin-top: 0; }
   .chat-prose > :last-child { margin-bottom: 0; }
   .chat-prose p { margin: 0 0 0.65rem; }
@@ -767,15 +827,15 @@
   .chat-prose a:not([class]) { color: var(--coral); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
   .chat-prose a:not([class]):hover { text-decoration-thickness: 2px; }
   .chat-prose strong { font-weight: 600; }
-  .chat-prose code { background: var(--color-muted); padding: 0.1rem 0.35rem; border-radius: 6px; font-size: 0.85em; }
-  .chat-prose pre { background: var(--color-muted); padding: 0.75rem 0.9rem; border-radius: 12px; overflow-x: auto; }
+  .chat-prose code { background: var(--color-muted); padding: 0.1rem 0.35rem; border-radius: 6px; font-size: 0.88em; }
+  .chat-prose pre { background: var(--color-muted); padding: 0.75rem 0.9rem; border-radius: var(--radius-lg); overflow-x: auto; }
   .chat-prose blockquote { margin: 0 0 0.65rem; padding-left: 0.8rem; border-left: 1px solid var(--color-border); color: var(--color-muted-foreground); }
   /* Markdown tables: a quiet framed grid with a header band and tabular figures. */
   .chat-prose table { display: block; overflow-x: auto; border-collapse: separate; border-spacing: 0; margin: 0.25rem 0 0.8rem; border: 1px solid var(--color-border); border-radius: var(--radius-xl); font-size: 0.875rem; line-height: 1.45; font-variant-numeric: tabular-nums; }
   .chat-prose th, .chat-prose td { padding: 0.55rem 0.8rem; text-align: left; vertical-align: top; border-top: 1px solid var(--color-border); }
   .chat-prose thead th { border-top: 0; background: var(--color-surface); font-weight: 600; font-size: 0.8125rem; color: var(--color-foreground); white-space: nowrap; }
   .chat-prose tbody tr:nth-child(even) td { background: color-mix(in oklab, var(--color-surface) 55%, transparent); }
-  .chat-prose .chat-photo { display: block; max-width: 100%; height: auto; border-radius: 12px; margin: 0.5rem 0; }
+  .chat-prose .chat-photo { display: block; max-width: 100%; height: auto; border-radius: var(--radius-xl); margin: 0.5rem 0; }
 
   /* Cards and rows inside a reply set their own rhythm: small text must not inherit the prose's 1.7 leading. */
   .roam-blocks { line-height: 1.45; font-size: 0.875rem; }
@@ -832,6 +892,187 @@
 @media (prefers-reduced-motion: reduce) {
   .chat-prose .chat-word, .chat-live :is(p, li, h1, h2, h3, h4, blockquote, pre, table), .chat-blocks-in { animation: none; }
 }
+
+/* ---- Life ----------------------------------------------------------------------------------
+ * The small motions that make the app feel alive. Everything here is transform / opacity / colour,
+ * and everything with an infinite loop switches off under prefers-reduced-motion (the global
+ * reduced-motion rule shortens durations to ~0, which would strobe an infinite loop). */
+
+/* Skeletons: a soft ink wash with a slow band of light crossing it, never a grey pulse. */
+@utility skeleton {
+  background-color: color-mix(in oklab, var(--color-foreground) 6%, transparent);
+  background-image: linear-gradient(100deg, transparent 25%, var(--skeleton-hi, color-mix(in oklab, var(--color-background) 80%, transparent)) 50%, transparent 75%);
+  background-size: 250% 100%;
+  background-repeat: no-repeat;
+  animation: skeleton-sweep 1.8s var(--ease-in-out) infinite;
+}
+.dark .skeleton {
+  background-image: linear-gradient(100deg, transparent 25%, color-mix(in oklab, var(--color-foreground) 8%, transparent) 50%, transparent 75%);
+}
+@keyframes skeleton-sweep { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+
+/* A status line that is still in progress ("Checking places…"): a highlight travels across the text. */
+@utility shimmer-text {
+  background-image: linear-gradient(100deg, var(--color-muted-foreground) 38%, var(--color-foreground) 50%, var(--color-muted-foreground) 62%);
+  background-size: 260% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: shimmer-text 2.4s linear infinite;
+}
+@keyframes shimmer-text { from { background-position: 130% 0; } to { background-position: -130% 0; } }
+
+/* The composer while Roam works: a thread of coral and lagoon light travels around its edge, the
+   way the mark does. It is a 1.5px ring painted inside the border, so it works under overflow-hidden. */
+@property --ring-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@keyframes ring-spin { to { --ring-angle: 360deg; } }
+@keyframes ring-in { from { opacity: 0; } to { opacity: 1; } }
+.composer-live { position: relative; }
+.composer-live::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  pointer-events: none;
+  background: conic-gradient(from var(--ring-angle), transparent 0 52%, color-mix(in oklab, var(--cat-see) 70%, transparent) 66%, var(--coral) 84%, transparent 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  animation: ring-in 0.5s var(--ease-out) both, ring-spin 3.4s linear infinite;
+}
+
+/* Controls that appear (the send arrow once there is text, the stop pill) settle in, never pop. */
+@keyframes settle-in { from { opacity: 0; transform: scale(0.72); } to { opacity: 1; transform: none; } }
+@utility settle-in { animation: settle-in 0.28s var(--ease-out) both; }
+
+/* A card you can open (EntityCard: places, events, stays, options, wherever they appear) rises 3px with
+   the deeper shadow on hover and sinks on press. It lives here, once, so a place card in chat and the
+   same card on Discover can never move differently. */
+.card-lift {
+  transition: box-shadow var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out);
+}
+@media (hover: hover) {
+  .card-lift:hover {
+    box-shadow: var(--shadow-lift);
+    transform: translateY(-3px);
+    border-color: color-mix(in oklab, var(--color-ink) 16%, var(--color-border));
+  }
+}
+.card-lift:active { transform: translateY(-1px) scale(0.994); box-shadow: var(--shadow-soft); }
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton, .shimmer-text { animation: none; }
+  .shimmer-text { background: none; -webkit-text-fill-color: currentColor; color: var(--color-muted-foreground); }
+  .composer-live::before { animation: none; background: color-mix(in oklab, var(--coral) 45%, transparent); }
+  .settle-in { animation: none; }
+  .card-lift { transition: none; }
+  .card-lift:hover, .card-lift:active { transform: none; }
+}
+
+/* ---- Cinematic -----------------------------------------------------------------------------
+ * The grammar that makes a screen read as a frame from a film.
+ *
+ *  Scrims     A photograph is darkened where words sit with an EASED curve (an S, not a ramp) in a
+ *             warm black, so the picture stays luminous at the edges and the words get a quiet
+ *             pool of shade. Linear black/50 -> black/85 ramps turn a photo grey and flat.
+ *  Chips      The small frosted label over a photo (status, "Your stay"): one recipe.
+ *  Glass      A panel over a photograph: frosted, a lit 1px edge, a long soft shadow.
+ *  Rise       Content rises into view as it enters, driven by scroll (progressive: browsers
+ *             without scroll timelines simply show it).
+ *  Parallax   A hero photograph travels slower than the page, a few percent, never a gimmick.
+ */
+@utility scrim-b {
+  background-image: linear-gradient(to top,
+    oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.86)) 0%,
+    oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.85)) 10%,
+    oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.82)) 20%,
+    oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.75)) 30%,
+    oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.63)) 40%,
+    oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.43)) 50%,
+    oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.22)) 60%,
+    oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.09)) 70%,
+    oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.03)) 80%,
+    transparent 100%);
+}
+@utility scrim-t {
+  background-image: linear-gradient(to bottom,
+    oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.5)) 0%,
+    oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.42)) 15%,
+    oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.27)) 35%,
+    oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.1)) 60%,
+    transparent 100%);
+}
+/* Both edges at once: a lit middle, shade for the chips above and the title below. */
+@utility scrim-v {
+  background-image:
+    linear-gradient(to bottom, oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.5)) 0%, oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.3)) 14%, oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.1)) 32%, transparent 52%),
+    linear-gradient(to top, oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.86)) 0%, oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.82)) 14%, oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.66)) 28%, oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.4)) 42%, oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.15)) 58%, oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.04)) 74%, transparent 100%);
+}
+
+@utility photo-chip {
+  display: inline-flex;
+  height: 1.75rem;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  line-height: 1;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--color-foreground);
+  background: color-mix(in oklab, var(--color-background) 80%, transparent);
+  border: 1px solid oklch(1 0 0 / 0.55);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.5), 0 1px 2px oklch(0.2 0.012 65 / 0.14), 0 6px 16px -8px oklch(0.2 0.012 65 / 0.35);
+}
+
+@utility glass-photo {
+  /* Smoked glass: a tint, not a live blur. A backdrop blur over a photograph that is moving (parallax, the
+     carousel) is re-computed every frame; the tint reads the same and costs nothing. */
+  background: linear-gradient(oklch(1 0 0 / 0.1), oklch(1 0 0 / 0.03)), oklch(0.14 0.012 60 / 0.44);
+  border-color: oklch(1 0 0 / 0.22);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.28), inset 0 -1px 0 oklch(0 0 0 / 0.08), 0 18px 40px -20px oklch(0.1 0.01 60 / 0.6);
+}
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translate3d(0, 1.75rem, 0); }
+  to { opacity: 1; transform: none; }
+}
+/* Scaled up front by more than it travels (10% scale = 5% bleed each side, 4.5% travel), so the
+   photograph can never pull away from the top of its frame and show what is behind it. */
+@keyframes hero-parallax {
+  from { transform: scale(1.1); }
+  to { transform: translate3d(0, 4.5%, 0) scale(1.1); }
+}
+@supports (animation-timeline: view()) {
+  .rise {
+    animation: rise-in linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 48%;
+  }
+  .hero-parallax {
+    animation: hero-parallax linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 100vh;
+    will-change: transform;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rise, .hero-parallax { animation: none; }
+}
+
+/* The trips hero carousel: a long, slow push-in that outlasts the hold (the photograph is mounted a
+   slide early), a caption that settles in, and a progress line that fills over the hold. */
+@keyframes hero-kenburns { from { transform: scale(1.03) translate3d(0, 0, 0); } to { transform: scale(1.12) translate3d(-1.2%, -0.8%, 0); } }
+.hero-kenburns { animation: hero-kenburns 18s linear both; will-change: transform; }
+@keyframes hero-caption { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.hero-caption { display: inline-block; animation: hero-caption 0.7s var(--ease-out) 0.5s both; }
+@keyframes hero-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.hero-progress { animation: hero-progress 7s linear both; }
+@media (prefers-reduced-motion: reduce) { .hero-kenburns, .hero-caption, .hero-progress { animation: none; } }
 
 /* react-day-picker (DateRangeField) — themed through its own CSS custom properties
    (see node_modules/react-day-picker/src/style.css for the full variable list) plus a
@@ -901,134 +1142,352 @@
 .landing-cinematic-scope { accent-color: var(--coral); }
 :root:has(.landing-cinematic-scope) { scrollbar-color: #c4c4ca transparent; scrollbar-width: thin; }
 
-/* Fine film grain over the drawn shore (components/landing/LandingBloom.tsx). */
-.landing-bloom-grain {
-  position: absolute;
-  inset: 0;
-  opacity: 0.1;
-  mix-blend-mode: soft-light;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+/* ---- The first screen: a boarding pass made out to the visitor. Spec: "Boarding Pass Hero". ---- */
+.bp-hero { --gutter: clamp(16px, 5vw, 72px); position: relative; min-height: 100dvh; padding: clamp(96px, 13dvh, 160px) var(--gutter) 72px; }
+.bp-h1 { font-family: var(--font-display); font-weight: 500; font-size: clamp(2.75rem, 5.8vw, 5.25rem); line-height: 0.95; letter-spacing: -0.04em; text-wrap: balance; }
+.bp-h1 .ln { display: block; overflow: hidden; padding-bottom: 0.14em; margin-bottom: -0.14em; }
+.bp-h1 .ln > span { display: block; animation: bp-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) var(--d, 0ms) both; }
+.bp-sub { margin-top: clamp(14px, 2.4dvh, 22px); max-width: 33rem; font-size: clamp(1.0625rem, 0.95rem + 0.4vw, 1.25rem); line-height: 1.5; color: var(--ink-soft); text-wrap: pretty; animation: bp-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) 380ms both; }
+.bp-area { margin-top: clamp(28px, 5.4dvh, 48px); width: 100%; max-width: 81rem; }
+
+/* The scroll cue: a small circle at the foot of the first screen, for people who came to read. */
+.bp-cue { position: absolute; left: 50%; bottom: clamp(14px, 3dvh, 28px); width: 44px; height: 44px; margin-left: -22px; display: grid; place-items: center; border-radius: 9999px; border: 1px solid var(--hairline); background: #fff; color: var(--ink-soft); box-shadow: 0 6px 12px -8px rgb(31 24 16 / 30%); animation: bp-settle 0.6s ease-out 2000ms both; transition: transform 0.2s, box-shadow 0.2s; }
+.bp-cue:hover { transform: translateY(2px); box-shadow: 0 8px 14px -8px rgb(31 24 16 / 36%); }
+.bp-cue svg { animation: bp-bob 2.4s ease-in-out 3s infinite; }
+@keyframes bp-bob { 0%, 100% { transform: translateY(-1px); } 50% { transform: translateY(3px); } }
+@media (max-height: 979px), (max-width: 819px) { .bp-cue { display: none; } }
+@media (prefers-reduced-motion: reduce) { .bp-cue, .bp-cue svg { animation: none; } }
+
+/* The pass. Its notches are cut out of the shape (masks), which would clip a box-shadow, so the shadow is a filter on the whole pass. */
+.bp-wrap { width: 100%; }
+.bp { --notch: 16px; --r: 24px; position: relative; display: flex; width: 100%; min-height: clamp(22.5rem, 45dvh, 25.5rem);
+  filter: drop-shadow(0 1px 1px rgb(31 24 16 / 10%)) drop-shadow(0 10px 10px rgb(31 24 16 / 12%)) drop-shadow(0 30px 30px rgb(31 24 16 / 16%));
+  animation: bp-print 1s cubic-bezier(0.65, 0, 0.35, 1) 560ms both; }
+.bp-main { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 30px 40px 28px; border-radius: var(--r) 0 0 var(--r); background: var(--ink); color: #fff;
+  -webkit-mask: radial-gradient(circle var(--notch) at 100% 0, #0000 97%, #000) top / 100% 51% no-repeat, radial-gradient(circle var(--notch) at 100% 100%, #0000 97%, #000) bottom / 100% 51% no-repeat;
+  mask: radial-gradient(circle var(--notch) at 100% 0, #0000 97%, #000) top / 100% 51% no-repeat, radial-gradient(circle var(--notch) at 100% 100%, #0000 97%, #000) bottom / 100% 51% no-repeat; }
+.bp-stub { position: relative; flex: none; width: clamp(12.5rem, 19.5%, 15.75rem); display: flex; flex-direction: column; padding: 30px 28px 28px; border-radius: 0 var(--r) var(--r) 0; background: var(--coral-fill); color: #fff;
+  -webkit-mask: radial-gradient(circle var(--notch) at 0 0, #0000 97%, #000) top / 100% 51% no-repeat, radial-gradient(circle var(--notch) at 0 100%, #0000 97%, #000) bottom / 100% 51% no-repeat;
+  mask: radial-gradient(circle var(--notch) at 0 0, #0000 97%, #000) top / 100% 51% no-repeat, radial-gradient(circle var(--notch) at 0 100%, #0000 97%, #000) bottom / 100% 51% no-repeat; }
+.bp-perf { position: absolute; left: 0; top: 22px; bottom: 22px; width: 2px; background: repeating-linear-gradient(to bottom, rgb(255 255 255 / 0.45) 0 6px, transparent 6px 12px); }
+.bp-shine { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(520px 260px at var(--mx, 62%) var(--my, 18%), rgb(255 255 255 / 0.07), transparent 70%); transition: background-position 0.12s linear; }
+.bp-in { animation: bp-settle 0.5s ease-out var(--d, 0ms) both; }
+
+/* Labels, the airline line and the values */
+.bp-lab { display: block; margin-bottom: 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: rgb(255 255 255 / 0.64); }
+.bp-stub .bp-lab { color: rgb(255 255 255 / 0.92); margin-bottom: 4px; }
+.bp-top { display: flex; align-items: center; justify-content: space-between; height: 16px; font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: rgb(255 255 255 / 0.64); }
+.bp-air { font-family: var(--font-display); font-size: 13px; font-weight: 600; letter-spacing: 0.2em; color: #fff; }
+.bp-route { display: grid; grid-template-columns: clamp(9rem, 13.9vw, 12.5rem) 64px minmax(0, 1fr); align-items: end; margin-top: 38px; }
+.bp-from .bp-lab { margin-bottom: 10px; }
+.bp-code { display: flex; height: 84px; font-family: var(--font-display); font-weight: 300; font-size: clamp(4.5rem, 6.7vw, 6rem); line-height: 0.82; letter-spacing: -0.045em; white-space: nowrap; }
+.bp-code span { display: inline-block; transform-origin: 50% 100%; animation: bp-flip 0.42s cubic-bezier(0.22, 1, 0.36, 1) calc(1000ms + var(--i, 0) * 90ms) both; }
+.bp-arrow { align-self: end; padding-bottom: 26px; color: rgb(255 255 255 / 0.64); display: flex; justify-content: center; }
+.bp-dest { min-width: 0; }
+.bp-dest .bp-lab { margin-bottom: 10px; }
+.bp-lab-m { display: none; }
+
+/* The TO field: the one bright shape on the pass, and the real prompt box. */
+.bp-to { display: flex; align-items: center; gap: 12px; min-height: 84px; min-width: 0; padding: 14px 12px 14px 32px; border-radius: 42px; background: #fff; color: var(--ink); font-size: clamp(1.0625rem, 1.5vw, 1.375rem); letter-spacing: -0.005em; transition: box-shadow 0.18s; }
+.bp-to:focus-within { box-shadow: 0 0 0 2px #fff, 0 0 0 6px color-mix(in oklab, var(--coral) 38%, transparent); }
+.bp-to b { flex: none; font-family: var(--font-display); font-weight: 500; }
+.bp-to textarea { flex: 1; min-width: 0; padding: 0; resize: none; overflow-y: auto; scrollbar-width: none; background: transparent; border: 0; outline: 0; font: inherit; line-height: 1.35; color: var(--ink); caret-color: var(--ink); }
+.bp-to textarea::-webkit-scrollbar { display: none; }
+.bp-to textarea::placeholder { color: var(--muted-foreground); opacity: 1; }
+.bp-to > span:not(.bp-chip) { flex: 1; min-width: 0; color: var(--muted-foreground); }
+.bp-chip { flex: none; display: inline-flex; align-items: center; height: 36px; padding: 0 14px; border-radius: 9999px; background: var(--coral-soft); color: var(--coral-ink); font-family: var(--font-display); font-size: 13px; font-weight: 600; letter-spacing: 0.14em; animation: bp-fresh 0.25s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.bp-go-inline { display: none; flex: none; width: 56px; height: 56px; border-radius: 9999px; align-items: center; justify-content: center; background: var(--coral-fill); color: #fff; }
+.bp-pulse { animation: bp-pulse 0.7s ease-out; }
+
+/* Four fields */
+.bp-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; margin: 34px 0 0; }
+.bp-field { border-top: 1px solid rgb(255 255 255 / 0.2); padding-top: 13px; min-width: 0; }
+.bp-field .bp-lab { margin-bottom: 6px; }
+.bp-val { margin: 0; min-height: 1.3em; font-family: var(--font-display); font-size: clamp(1.0625rem, 1.5vw, 1.375rem); font-weight: 500; letter-spacing: -0.012em; line-height: 1.2; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.bp-val-empty { font-weight: 400; color: rgb(255 255 255 / 0.64); }
+.bp-fresh { position: relative; display: inline-block; animation: bp-fresh 0.18s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.bp-fresh::after { content: ""; position: absolute; left: 0; bottom: -6px; width: 34px; height: 2px; border-radius: 2px; background: var(--coral); animation: bp-tick 1.2s ease-out both; }
+
+/* Barcode and stub */
+.bp-foot { display: flex; align-items: flex-end; gap: 18px; margin-top: auto; padding-top: 28px; }
+.bp-bar { flex: none; width: min(26.9rem, 55%); height: 28px; background: repeating-linear-gradient(90deg, rgb(255 255 255 / 0.88) 0 2px, transparent 2px 4px, rgb(255 255 255 / 0.88) 4px 5px, transparent 5px 8px, rgb(255 255 255 / 0.88) 8px 11px, transparent 11px 12px, rgb(255 255 255 / 0.88) 12px 13px, transparent 13px 16px); animation: bp-wipe 0.7s cubic-bezier(0.65, 0, 0.35, 1) 1300ms both; }
+.bp-cap { font-size: 11px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: rgb(255 255 255 / 0.64); white-space: nowrap; }
+.bp-gate { margin-top: 2px; font-family: var(--font-display); font-weight: 300; font-size: 3rem; line-height: 1; letter-spacing: -0.035em; }
+.bp-stubfields { display: grid; gap: 16px; margin: 30px 0 0; }
+.bp-stubfields > div { border-top: 1px solid rgb(255 255 255 / 0.28); padding-top: 10px; }
+.bp-sv { margin: 0; font-family: var(--font-display); font-size: 1.1875rem; font-weight: 500; letter-spacing: -0.01em; }
+.bp-go { margin-top: auto; display: flex; align-items: center; justify-content: center; gap: 8px; height: 60px; padding: 0 20px; border-radius: 9999px; background: #fff; color: var(--ink); font-size: 17px; font-weight: 600; box-shadow: 0 10px 18px -8px rgb(0 0 0 / 0.35); transition: transform 0.18s; }
+.bp-go:hover { transform: scale(1.03); }
+.bp-go:active { transform: scale(0.97); }
+.bp-stub .bp-go { margin-top: 28px; }
+
+/* Starting points, as luggage tags */
+.bp-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 36px; }
+.bp-tags-lab { font-size: 13px; color: var(--muted-foreground); }
+.bp-tag { flex: none; display: inline-flex; align-items: center; gap: 10px; height: 40px; padding: 0 18px 0 14px; border: 1px solid var(--hairline); border-radius: 12px; background: #fff; font-size: 14px; font-weight: 500; white-space: nowrap; box-shadow: 0 6px 10px -8px rgb(31 24 16 / 30%); transition: transform 0.18s, box-shadow 0.18s; }
+.bp-tag:hover { transform: translateY(-1px); box-shadow: 0 10px 14px -8px rgb(31 24 16 / 34%); }
+.bp-tag i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #cfcac3; }
+.bp-tag b { font-family: var(--font-display); font-size: 12px; font-weight: 600; letter-spacing: 0.14em; color: var(--coral-ink); }
+.bp-alert { display: flex; flex-direction: column; gap: 12px; margin-top: 36px; padding: 14px 20px; border: 1px solid var(--hairline); border-radius: 16px; background: var(--surface); box-shadow: var(--shadow-soft); }
+@media (min-width: 640px) { .bp-alert { flex-direction: row; align-items: center; justify-content: space-between; } }
+
+/* Sending: the stub tears off along the perforation, then both pieces leave. */
+.bp-main, .bp-stub { transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.34s ease-in 0.28s; }
+.bp-tear .bp-main { transform: translate(-8px, -12px) rotate(-0.5deg); opacity: 0; }
+.bp-tear .bp-stub { transform: translate(14px, 10px) rotate(2.4deg); transform-origin: 0 100%; opacity: 0; }
+.bp-tear .bp-perf { opacity: 0; }
+.bp-shake { animation: bp-shake 0.36s ease-in-out; }
+
+/* The last screen: the same pass, stamped. */
+.bp-finale { display: flex; flex-direction: column; justify-content: center; padding-top: clamp(24px, 4dvh, 48px); }
+.bp-stamp { pointer-events: none; position: absolute; right: 44px; bottom: 34px; z-index: 2; padding: 6px 16px; border: 3px solid var(--coral); border-radius: 10px; font-family: var(--font-display); font-size: 1.375rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--coral); transform: rotate(-7deg); mix-blend-mode: normal; opacity: 0.95; }
+.bp-stamp-late { opacity: 0; }
+.bp-tear .bp-stamp-late { animation: bp-stamp 0.26s cubic-bezier(0.22, 1, 0.36, 1) 0.04s both; }
+/* On the last screen the pass is revealed with the page, so it does not print itself in. */
+.bp-calm, .bp-calm .bp-in, .bp-calm .bp-code span, .bp-calm .bp-bar { animation: none; }
+.bp-finale .bp-sub { animation: none; }
+.bp-area-wrap { margin-top: clamp(28px, 5dvh, 44px); width: 100%; max-width: 81rem; }
+.bp-area-wrap .bp-area { margin-top: 0; }
+
+@keyframes bp-rise { from { transform: translateY(105%); } to { transform: none; } }
+@keyframes bp-fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes bp-print { from { clip-path: inset(0 -140px 100% -140px); transform: translateY(-14px); } to { clip-path: inset(-140px); transform: none; } }
+@keyframes bp-settle { from { opacity: 0; } to { opacity: 1; } }
+@keyframes bp-flip { from { opacity: 0; transform: perspective(500px) rotateX(-88deg); } to { opacity: 1; transform: perspective(500px) rotateX(0); } }
+@keyframes bp-wipe { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
+@keyframes bp-fresh { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes bp-tick { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes bp-shake { 0%, 100% { transform: none; } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+@keyframes bp-pulse { 0% { box-shadow: 0 0 0 0 transparent; } 40% { box-shadow: 0 0 0 6px color-mix(in oklab, var(--coral) 45%, transparent); } 100% { box-shadow: 0 0 0 0 transparent; } }
+@keyframes bp-stamp { from { opacity: 0; transform: scale(1.6) rotate(-7deg); } to { opacity: 0.95; transform: rotate(-7deg); } }
+
+/* Tablet: still landscape, a little tighter; the four fields become two by two. */
+@media (max-width: 1199px) {
+  .bp-main { padding: 28px 32px 26px; }
+  .bp-route { grid-template-columns: clamp(7rem, 15vw, 9rem) 48px minmax(0, 1fr); }
+  .bp-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 28px; margin-top: 28px; }
+  .bp-stub { width: 12.5rem; padding: 28px 22px 26px; }
+  .bp-gate { font-size: 2.5rem; }
 }
 
-/* The drawn shore (narrow and tall screens): sand, wet sand, water and a tide. The waterline sits near the bottom of the prompt box. */
-.landing-shore-sand {
-  position: absolute; inset: 0;
-  background: linear-gradient(to bottom, oklch(0.945 0.03 88) 0%, oklch(0.9 0.042 84) 36%, oklch(0.84 0.05 76) 58%, oklch(0.74 0.05 66) 67%);
+/* Phone: a portrait pass, like one in a wallet. The perforation turns horizontal and the stub sits underneath. */
+@media (max-width: 819px) {
+  .bp { flex-direction: column; min-height: 0; --notch: 14px; --r: 22px; }
+  .bp-main { padding: 24px 22px 28px; border-radius: var(--r) var(--r) 0 0;
+    -webkit-mask: radial-gradient(circle var(--notch) at 0 100%, #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle var(--notch) at 100% 100%, #0000 97%, #000) right / 51% 100% no-repeat;
+    mask: radial-gradient(circle var(--notch) at 0 100%, #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle var(--notch) at 100% 100%, #0000 97%, #000) right / 51% 100% no-repeat; }
+  .bp-stub { width: 100%; padding: 24px 22px 22px; border-radius: 0 0 var(--r) var(--r);
+    -webkit-mask: radial-gradient(circle var(--notch) at 0 0, #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle var(--notch) at 100% 0, #0000 97%, #000) right / 51% 100% no-repeat;
+    mask: radial-gradient(circle var(--notch) at 0 0, #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle var(--notch) at 100% 0, #0000 97%, #000) right / 51% 100% no-repeat; }
+  .bp-perf { left: 22px; right: 22px; top: 0; bottom: auto; width: auto; height: 2px; background: repeating-linear-gradient(to right, rgb(255 255 255 / 0.45) 0 6px, transparent 6px 12px); }
+  .bp-top > span:nth-child(3) { display: none; }
+  .bp-route { grid-template-columns: minmax(0, 1fr); margin-top: 30px; row-gap: 20px; }
+  .bp-from { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; }
+  .bp-from .bp-lab { flex-basis: 100%; }
+  .bp-code { height: 4rem; font-size: 4.75rem; }
+  .bp-arrow { position: absolute; right: 22px; top: 106px; padding: 0; transform: rotate(90deg); }
+  .bp-to { min-height: 64px; padding: 8px 8px 8px 22px; font-size: 1.125rem; }
+  .bp-to b { display: none; }
+  .bp-lab-d { display: none; }
+  .bp-lab-m { display: inline; }
+  .bp-chip { display: none; }
+  .bp-go-inline { display: inline-flex; }
+  .bp-fields { margin-top: 26px; gap: 16px 20px; }
+  .bp-foot { padding-top: 24px; }
+  .bp-bar { width: 100%; }
+  .bp-cap { display: none; }
+  .bp-gate { display: none; }
+  .bp-stub > div:first-of-type { display: none; }
+  .bp-stubfields { grid-template-columns: 1fr 1fr; margin-top: 0; gap: 0 20px; }
+  .bp-stub .bp-go { margin-top: 20px; }
+  .bp-tags { flex-wrap: nowrap; overflow-x: auto; margin-inline: calc(var(--gutter) * -1); padding-inline: var(--gutter); padding-bottom: 14px; margin-top: 28px; scrollbar-width: none; }
+  .bp-tags::-webkit-scrollbar { display: none; }
+  .bp-tags { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent); }
+  .bp-tags-lab { display: none; }
+  .bp-stamp { right: 18px; bottom: 76px; font-size: 1.125rem; }
+  .bp-tear .bp-main { transform: translate(-6px, -10px); }
+  .bp-tear .bp-stub { transform: translate(8px, 14px) rotate(1.6deg); }
 }
-.landing-shore-tide { position: absolute; inset: 0; animation: shore-tide 10s ease-in-out infinite; }
-.landing-shore-swell { position: absolute; inset: 0; animation: shore-tide 13s ease-in-out infinite reverse; }
-.landing-shore-wet {
-  position: absolute; left: 0; right: 0; top: 52%; height: 15%;
-  background: linear-gradient(to bottom, transparent, oklch(0.62 0.05 58 / 0.5));
+@media (max-height: 760px) and (min-width: 820px) {
+  .bp-hero { padding-top: 88px; }
+  .bp-h1 { font-size: clamp(2.5rem, 7.4dvh, 4.5rem); }
+  .bp { min-height: 0; }
+  .bp-main { padding-top: 24px; padding-bottom: 24px; }
+  .bp-route { margin-top: 22px; }
+  .bp-fields { margin-top: 20px; }
+  .bp-foot { padding-top: 16px; }
+  .bp-stub { padding-top: 24px; padding-bottom: 24px; }
+  .bp-stubfields > div:nth-child(2) { display: none; }
+  .bp-stubfields { margin-top: 18px; }
+  .bp-stub .bp-go { margin-top: 18px; }
 }
-.landing-shore-water { position: absolute; left: 0; right: 0; top: 67%; height: 40%; width: 100%; }
-@keyframes shore-tide { 0%, 100% { transform: translateY(6px); } 50% { transform: translateY(-20px); } }
-.landing-foam-bubble { animation: foam-swell 8s ease-in-out infinite; }
-@keyframes foam-swell { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(4px) scale(1.12); } }
-@media (prefers-reduced-motion: reduce) { .landing-shore-tide, .landing-shore-swell, .landing-foam-bubble { animation: none; } }
+@media (max-height: 640px) and (min-width: 820px) { .bp-sub { display: none; } }
+/* A landscape phone: the pass keeps its route, question and button; the rest waits below the fold. */
+@media (max-height: 520px) {
+  .bp-hero { padding-top: 66px; padding-bottom: 40px; }
+  .bp-h1 { font-size: 2rem; }
+  .bp-h1 .ln { display: inline; overflow: visible; margin: 0; padding: 0; }
+  .bp-sub, .bp-fields, .bp-foot, .bp-stubfields, .bp-tags { display: none; }
+  .bp-area { margin-top: 12px; }
+  .bp-main { padding: 16px 24px; }
+  .bp-route { margin-top: 8px; row-gap: 8px; }
+  .bp-code { height: 2.5rem; font-size: 2.75rem; }
+  .bp-arrow { top: 62px; }
+  .bp-to { min-height: 52px; }
+  .bp-stub { padding: 14px 24px; }
+  .bp-stub .bp-go { margin-top: 0; height: 48px; }
+}
+@media (max-width: 819px) and (max-height: 620px) { .bp-hero { padding-top: 84px; } .bp-h1 { font-size: 2.5rem; } }
 
-/* Light on shallow water: slow drifting patches, strongest near the shore and fading out with depth. */
-.landing-shore-light {
-  position: absolute; left: 0; right: 0; top: 68%; bottom: 0; mix-blend-mode: soft-light; opacity: 0.85;
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 75%);
-  mask-image: linear-gradient(to bottom, #000 0%, transparent 75%);
-}
-.landing-shore-light-a {
-  background-image: radial-gradient(ellipse 60px 18px at 30% 50%, white 0%, transparent 70%), radial-gradient(ellipse 90px 22px at 75% 30%, white 0%, transparent 70%);
-  background-size: 260px 90px; animation: shore-light-a 38s linear infinite;
-}
-.landing-shore-light-b {
-  background-image: radial-gradient(ellipse 80px 16px at 60% 60%, white 0%, transparent 70%), radial-gradient(ellipse 50px 14px at 15% 25%, white 0%, transparent 70%);
-  background-size: 340px 120px; animation: shore-light-b 53s linear infinite; opacity: 0.6;
-}
-@keyframes shore-light-a { to { background-position: 260px 30px; } }
-@keyframes shore-light-b { to { background-position: -340px -40px; } }
-/* The glossy strip of sand the water has just left. */
-.landing-shore-gloss {
-  position: absolute; left: 0; right: 0; top: 60%; height: 7%;
-  background: linear-gradient(to bottom, transparent, oklch(1 0 0 / 0.28) 60%, oklch(1 0 0 / 0.1));
-  mix-blend-mode: soft-light;
-}
-.landing-wash { animation: wash-up 0.85s cubic-bezier(.5, 0, .2, 1) forwards; }
-@keyframes wash-up { from { transform: translateY(calc(100% + 70px)); } to { transform: translateY(0); } }
-@media (prefers-reduced-motion: reduce) { .landing-shore-light { animation: none; } }
-
-/*
- * Beach: the photographs hold a foam ring with a gap in it, so the page is laid out on the picture
- * itself. One "stage" the size of the picture (cover-fit to the section) carries the headline, the
- * prompt pill and the chips, all sized in cqw so they scale with it. Two pictures: landscape (wide
- * screens; 1672 x 941) and portrait (phones and portrait tablets; 941 x 1672). Coordinates in the
- * rules below are each picture's own. Screens in between get the drawn shore instead.
- */
-.beach-wide, .beach-tall { display: none; }
-.beach-narrow { display: block; }
-@media (min-width: 768px) and (min-aspect-ratio: 7/5) {
-  .beach-narrow { display: none; }
-  .beach-wide { display: block; }
-}
-@media (max-aspect-ratio: 4/5) {
-  .beach-narrow { display: none; }
-  .beach-tall { display: block; }
+@media (prefers-reduced-motion: reduce) {
+  .bp-h1 .ln > span, .bp-sub, .bp, .bp-in, .bp-code span, .bp-bar, .bp-fresh, .bp-fresh::after, .bp-chip, .bp-shake, .bp-pulse, .bp-stamp { animation: none !important; }
+  .bp-main, .bp-stub { transition: none; }
+  .bp-shine { display: none; }
 }
 
-@media ((min-width: 768px) and (min-aspect-ratio: 7/5)), (max-aspect-ratio: 4/5) {
-  .beach-stage {
-    position: absolute; max-width: none; height: auto;
-    width: var(--bw);
-    left: calc(50% - var(--bw) / 2);
-    top: calc(50% - var(--bw) * var(--bh) / 2);
-  }
-  .beach-tide-wrap { height: calc(var(--bw) * var(--bh)); pointer-events: none; will-change: transform; }
-  .beach-tide { position: relative; width: 100%; height: 100%; animation: beach-breathe 7s ease-in-out infinite; filter: drop-shadow(0 -3px 5px rgb(255 255 255 / 0.5)); }
-  .beach-water { position: absolute; left: 0; top: 0; width: 100%; height: auto; max-width: none; }
-  .beach-water-ext { position: absolute; left: 0; width: 100%; height: 20%; background: no-repeat 0 100% / 100% auto; }
-  .beach-wide .beach-water-ext { background-image: url(/landing/beach.webp); }
-  .beach-tall .beach-water-ext { background-image: url(/landing/beach-tall.webp); }
-  .beach-water-ext[data-flip="y"] { transform: scaleY(-1); }
-  .beach-water-deep { position: absolute; left: 0; width: 100%; top: 96%; height: 120%; background: linear-gradient(to bottom, transparent, rgb(var(--bd) / 0.55) 22%, rgb(var(--bd2) / 0.92) 60%); }
-  .beach-wide { --bd: 47 175 184; --bd2: 30 150 178; }
-  .beach-tall { --bd: 51 191 198; --bd2: 30 160 185; }
-  .beach-content {
-    position: absolute; display: block; max-width: none; padding: 0;
-    width: var(--bw); height: calc(var(--bw) * var(--bh));
-    left: calc(50% - var(--bw) / 2);
-    top: calc(50% - var(--bw) * var(--bh) / 2);
-    container-type: inline-size;
-  }
-  .beach-h1, .beach-sub, .beach-box { position: absolute; }
-  .beach-box .landing-foam { display: none; }
-  .beach-form { display: flex; align-items: center; border: 0; border-radius: 9999px; background: rgb(250 249 246); backdrop-filter: none; }
-  .beach-pin { display: block; flex: none; color: oklch(0.3 0.02 250); }
-  .beach-form textarea { flex: 1; min-height: 0; padding: 0; overflow-y: auto; scrollbar-width: none; }
-  .beach-form textarea::-webkit-scrollbar { display: none; }
-  .beach-form > div:last-of-type { margin: 0; padding: 0; }
-  .beach-form .btn-primary { border-radius: 9999px; }
-  .beach-chips { flex-wrap: nowrap; }
-  .beach-chips button { white-space: nowrap; background: rgb(212 238 240 / 0.78); }
+
+/* ---- The travel wallet on the last screen, and the end of the page: warm stone leather, tone-on-tone stitching, the legal line lettered on it. ---- */
+.wl { --l1: oklch(0.925 0.013 76); --l2: oklch(0.885 0.015 74); --back1: oklch(0.86 0.016 72); --back2: oklch(0.82 0.017 70); --thread: oklch(0.5 0.012 72); --ink-leather: oklch(0.4 0.015 72); --hl: rgb(255 255 255 / 0.55);
+  --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  position: relative; display: flow-root; width: 100%; --hide: 0.27; margin-top: calc(var(--hide) * -24rem); }
+.wl-back { position: absolute; z-index: 0; left: calc(var(--gutter) * -0.55); right: calc(var(--gutter) * -0.55); top: 46%; bottom: 0; border-radius: 40px 40px 0 0; overflow: hidden;
+  background: linear-gradient(180deg, var(--back1), var(--back2)); box-shadow: 0 2px 2px rgb(31 24 16 / 10%), 0 -10px 30px -14px rgb(31 24 16 / 22%); }
+.wl-back::before, .wl-front::before { content: ""; position: absolute; inset: 0; background: var(--grain); opacity: 0.11; mix-blend-mode: multiply; pointer-events: none; }
+/* The slot clips the pass at the front's top edge: lowered by a share of its own height, the pass is inside the pocket by that much. */
+.wl-slot { position: relative; z-index: 1; overflow: clip; padding: 90px 90px 0; margin: -90px -90px 0; pointer-events: none; }
+.wl-slot > * { pointer-events: auto; transform: translateY(calc(var(--hide) * 100%)); transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.15s; }
+@media (scripting: enabled) { .wl:not([data-out]) .wl-slot > * { transform: translateY(104%); } }
+.wl-slot > .bp-area { margin-top: 0; }
+.wl-slot > *:hover { transform: translateY(calc(var(--hide) * 100% - 44px)); transition-delay: 0s; transition-duration: 0.45s; }
+.wl-slot > *:focus-within { transform: translateY(calc(var(--hide) * 100% - 72px)); transition-delay: 0s; transition-duration: 0.45s; }
+.wl-front { position: relative; z-index: 3; margin: 0 calc(var(--gutter) * -0.4); height: clamp(9rem, 17dvh, 14.5rem); border-radius: 30px 30px 0 0; overflow: hidden;
+  background: radial-gradient(130% 120% at 18% 0%, var(--hl), transparent 60%), linear-gradient(180deg, var(--l1), var(--l2));
+  box-shadow: 0 -14px 24px -10px rgb(0 0 0 / 22%), inset 0 1px 0 rgb(255 255 255 / 50%); }
+.wl-lip { position: absolute; left: 0; right: 0; top: 0; height: 46px; background: linear-gradient(180deg, rgb(0 0 0 / 0.2), transparent); pointer-events: none; }
+.wl-stitch { position: absolute; inset: 18px 18px -40px; border: 2px dashed var(--thread); border-bottom: 0; border-radius: 18px 18px 0 0; opacity: 0.6; }
+.wl-legal { position: absolute; left: 60px; right: 60px; top: 36px; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; font-family: var(--font-display); font-size: 1.0625rem; font-weight: 400; letter-spacing: -0.005em; text-transform: none; color: var(--ink-leather); text-shadow: 0 1px 0 var(--hl), 0 -1px 0 rgb(0 0 0 / 8%); }
+.wl-legal p { margin: 0; }
+.wl-legal nav { display: flex; align-items: baseline; gap: 0.9rem; }
+.wl-legal nav a + a::before { content: "·"; margin-right: 0.9rem; color: var(--thread); text-shadow: none; }
+.wl-legal a { color: inherit; text-decoration: none; background: linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat; transition: background-size 0.3s cubic-bezier(0.22, 1, 0.36, 1), color 0.18s; }
+.wl-legal a:hover { color: var(--ink); background-size: 100% 1px; }
+.wl-legal a:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; border-radius: 4px; }
+
+/* The stub stays attached; only Fare shows above the pocket so "Plan it" does too. */
+.wl .bp-stubfields > div:nth-child(2) { display: none; }
+.wl .bp-stub .bp-go { margin-top: 20px; }
+.wl .bp-stubfields { margin-top: 22px; }
+.wl .bp-main, .wl .bp-stub { padding-bottom: 28px; }
+
+/* The question is printed on the pass: there is no box. */
+.bp-q { display: flex; align-items: flex-end; gap: 14px; min-width: 0; position: relative; }
+.bp-q textarea { flex: 1; min-width: 0; min-height: 1.06em; padding: 0; resize: none; overflow-y: auto; scrollbar-width: none; background: transparent; border: 0; outline: 0; font-family: var(--font-display); font-weight: 300; font-size: clamp(3.75rem, 6.1vw, 5.5rem); line-height: 0.98; letter-spacing: -0.045em; color: #fff; caret-color: var(--coral); }
+.bp-q textarea::-webkit-scrollbar { display: none; }
+.bp-q textarea::placeholder { color: #fff; opacity: 1; }
+.bp-q[data-long] textarea { font-size: clamp(1.75rem, 3.3vw, 3rem); line-height: 1.1; }
+.bp-q::after { content: ""; position: absolute; left: 0; right: 0; bottom: -8px; height: 1.5px; background: rgb(255 255 255 / 0.35); transform: scaleX(0); transform-origin: 0 50%; transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
+.bp-q:focus-within::after { transform: scaleX(1); }
+.bp-calm .bp-lab-d { display: inline; }
+.bp-calm .bp-lab-m { display: none; }
+.bp-q .bp-chip { margin-bottom: 10px; }
+.bp-calm .bp-code { height: 60px; font-size: 3.875rem; line-height: 0.9; }
+.bp-calm .bp-route { margin-top: 30px; grid-template-columns: clamp(7rem, 11vw, 9.5rem) 64px minmax(0, 1fr); }
+.bp-calm .bp-fields { margin-top: 24px; }
+.bp-finale { justify-content: flex-end; gap: 28px; padding-bottom: 0; min-height: 0; }
+.bp-finale .bp-area-wrap { margin-top: 0; }
+
+@media (max-width: 1199px) { .wl-legal { left: 44px; right: 44px; } }
+@media (max-height: 760px) and (min-width: 820px) {
+  .wl { --hide: 0.22; }
+  @media (scripting: enabled) { .wl:not([data-out]) .wl-slot > * { transform: translateY(104%); } }
+  .wl .bp-stubfields > div { display: none; }
+  .wl .bp-stubfields { margin-top: 12px; }
 }
-@media (min-width: 768px) and (min-aspect-ratio: 7/5) {
-  :root { --bw: max(100vw, 177.78vh); --bh: 0.5628; }
-  .beach-h1 { left: 0; right: 0; top: 9.7cqw; font-size: 5.3cqw; }
-  .beach-sub { left: 0; right: 0; margin: 0 auto; top: 15.6cqw; width: 42cqw; max-width: none; font-size: 1.45cqw; line-height: 1.4; text-shadow: none; }
-  .beach-box { margin: 0; left: 21.9cqw; width: 55.4cqw; top: 26.75cqw; }
-  .beach-form { height: 6.4cqw; padding: 0 1.1cqw 0 2.6cqw; box-shadow: 0 1.2cqw 3cqw -1.4cqw rgb(30 80 110 / 0.35), inset 0 0 0 0.1cqw rgb(255 255 255 / 0.9); }
-  .beach-pin { width: 1.6cqw; height: 1.6cqw; margin-right: 1.1cqw; }
-  .beach-form textarea { height: 3.5cqw; font-size: 1.3cqw; line-height: 1.35; }
-  .beach-form .btn-primary { height: 4cqw; padding: 0 2cqw; font-size: 1.3cqw; }
-  .beach-chips { margin-top: 4.6cqw; gap: 1cqw; }
-  .beach-chips button { padding: 0.85cqw 1.7cqw; font-size: 1.05cqw; }
+@media (max-width: 819px) {
+  .wl-back { top: 38%; left: -12px; right: -12px; border-radius: 28px 28px 0 0; }
+  .wl-front { margin: 0 -4px; height: 8rem; border-radius: 24px 24px 0 0; }
+  .wl-stitch { inset: 12px 12px -30px; border-radius: 14px 14px 0 0; }
+  .wl-legal { left: 28px; right: 28px; top: 28px; flex-direction: column; align-items: flex-start; gap: 6px; font-size: 1rem; }
+  .wl .bp-main { padding-bottom: 28px; }
+  .bp-q textarea { font-weight: 400; font-size: clamp(1.875rem, 9.4vw, 2.5rem); }
+  .bp-q[data-long] textarea { font-size: 1.5rem; }
+  .bp-calm .bp-route { grid-template-columns: minmax(0, 1fr); margin-top: 26px; }
+  .bp-calm .bp-code { height: 3.25rem; font-size: 3.5rem; }
+  .bp-q { padding-bottom: 6px; }
+  .bp-finale { padding-top: 40px; }
+  .story-scene { padding-block: clamp(64px, 10dvh, 120px); }
+  /* On a phone the wallet is a compact pocket: the pass shows its route, the question and one row of fields, with a coral edge peeking out above the leather. */
+  .wl { --hide: 0.08; }
+  .wl-front { height: 7rem; }
+  .wl .bp-fields .bp-field:nth-child(n+3) { display: none; }
+  .wl .bp-foot { display: none; }
+  .wl .bp-main { padding-bottom: 22px; }
+  .wl .bp-stub { padding: 0; height: 44px; }
+  .wl .bp-stub > :not(.bp-perf) { display: none; }
+  .wl .bp-stamp { bottom: 22px; }
 }
-@media (max-aspect-ratio: 4/5) {
-  :root { --bw: max(100vw, 56.28vh); --bh: 1.7766; }
-  .beach-h1 { left: 0; right: 0; margin: 0 auto; width: 58cqw; top: 34.2cqw; font-size: 9.5cqw; }
-  .beach-sub { left: 0; right: 0; margin: 0 auto; top: 54.6cqw; width: 52cqw; max-width: none; font-size: 3.4cqw; line-height: 1.26; text-shadow: none; }
-  .beach-box { margin: 0; left: 12.2cqw; width: 78cqw; top: 83.8cqw; }
-  .beach-form { height: 15.9cqw; padding: 0 1.9cqw 0 5cqw; box-shadow: 0 3cqw 6cqw -3cqw rgb(30 80 110 / 0.35), inset 0 0 0 0.2cqw rgb(255 255 255 / 0.9); }
-  .beach-pin { width: 3.6cqw; height: 3.6cqw; margin-right: 2.4cqw; }
-  .beach-form textarea { height: 8.4cqw; font-size: 3.1cqw; line-height: 1.34; }
-  .beach-form .btn-primary { height: 9.6cqw; padding: 0 4cqw; font-size: 3.1cqw; }
-  .beach-chips { flex-direction: column; align-items: center; margin-top: 10.4cqw; gap: 1.9cqw; }
-  .beach-chips button { padding: 2cqw 4.6cqw; font-size: 3.2cqw; }
+@media (max-height: 520px) {
+  .wl { --hide: 0; }
+  .wl-front { height: 5.5rem; margin-inline: 0; }
+  .wl-legal { top: 24px; flex-direction: row; align-items: baseline; }
+  .wl .bp-main { padding-bottom: 20px; }
+  .wl .bp-fields, .wl .bp-foot { display: none; }
+  .bp-finale { padding-top: 66px; }
 }
-@keyframes beach-breathe { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
-@media (prefers-reduced-motion: reduce) { .beach-tide { animation: none; } }
+@media (min-width: 820px) and (max-height: 520px) {
+  .wl .bp-stub { height: auto; padding: 14px 24px; }
+  .wl .bp-stub > :not(.bp-perf) { display: block; }
+  .wl .bp-stub .bp-stubfields { display: none; }
+  .wl .bp-stub .bp-go { display: flex; }
+}
+/* A short, narrow window (a phone on its side): the pass is one block; the arrow in the field sends it, so the stub is left out. */
+@media (max-width: 819px) and (max-height: 520px) {
+  .bp-hero { padding-top: 56px; }
+  .bp-h1 { font-size: 1.75rem; }
+  .bp-stub { display: none; }
+  .bp-main { border-radius: var(--r); -webkit-mask: none; mask: none; padding: 14px 20px; }
+  .bp-route { margin-top: 4px; row-gap: 4px; }
+  .bp-code { height: 2.25rem; font-size: 2.5rem; }
+  .bp-arrow { display: none; }
+  .bp-to { min-height: 48px; }
+  .bp-from .bp-lab { display: none; }
+  .wl .bp-main { padding-bottom: 14px; }
+}
+@media (prefers-reduced-motion: reduce) { .wl-slot > * { transition: none; } }
+
+/* ---- Landing story: the calm scenes under the hero. White ground, one entrance per element, no pinning. ---- */
+.story-scene { position: relative; padding-block: clamp(88px, 15dvh, 176px); }
+.story-h2 { font-family: var(--font-display); font-weight: 500; font-size: clamp(2.5rem, 6.4vw, 5.25rem); line-height: 1; letter-spacing: -0.035em; text-wrap: balance; }
+.story-lede { font-size: clamp(1.0625rem, 0.9rem + 0.45vw, 1.3125rem); line-height: 1.5; color: var(--ink-soft); text-wrap: pretty; }
+.story-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; color: var(--coral-ink); text-underline-offset: 5px; text-decoration: underline; text-decoration-color: transparent; transition: text-decoration-color 0.2s, gap 0.2s; }
+.story-link:hover { text-decoration-color: currentColor; gap: 0.7rem; }
+/* The stage a product panel sits on: a quiet wash of the page's two colours, never a picture. */
+.showcase-stage { background: radial-gradient(120% 90% at 0% 0%, oklch(0.968 0.026 55), transparent 62%), radial-gradient(110% 90% at 100% 100%, oklch(0.962 0.02 215), transparent 60%), oklch(0.982 0.003 80); box-shadow: inset 0 0 0 1px var(--hairline); }
+
+/* One entrance per element, driven by its position in the window (components/landing/story/scroll.ts): --r runs 0 to 1 as it rises into view, then the element is marked done and stays. With scripting off, everything is simply there. */
+@media (scripting: enabled) {
+  .rv:not([data-done]) { opacity: var(--r, 0); transform: translateY(calc((1 - var(--r, 0)) * 26px)); filter: blur(calc((1 - var(--r, 0)) * 6px)); }
+}
+@media (prefers-reduced-motion: reduce) { .rv { opacity: 1 !important; transform: none !important; filter: none !important; } }
+
+/* ---- The desk: the problem scene's pile of trip fragments, drawn as physical things. ---- */
+.pc-paper { background: oklch(0.995 0.003 85); box-shadow: 0 1px 1px rgb(31 24 16 / 7%), 0 6px 12px -5px rgb(31 24 16 / 14%), 0 24px 34px -18px rgb(31 24 16 / 30%); }
+/* Masked shapes (notches, torn edges) would clip a box-shadow, so their shadow is a filter on the wrapper. */
+.pc-shadow { filter: drop-shadow(0 1px 1px rgb(31 24 16 / 10%)) drop-shadow(0 8px 8px rgb(31 24 16 / 11%)) drop-shadow(0 20px 18px rgb(31 24 16 / 14%)); }
+.pc-notch { border-radius: 0.7rem; -webkit-mask: radial-gradient(circle 0.55rem at 0 50%, #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle 0.55rem at 100% 50%, #0000 97%, #000) right / 51% 100% no-repeat; mask: radial-gradient(circle 0.55rem at 0 50%, #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle 0.55rem at 100% 50%, #0000 97%, #000) right / 51% 100% no-repeat; }
+.pc-zigzag { -webkit-mask: linear-gradient(#000, #000) top / 100% calc(100% - 0.45rem) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 0.9rem 0.45rem repeat-x; mask: linear-gradient(#000, #000) top / 100% calc(100% - 0.45rem) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 0.9rem 0.45rem repeat-x; }
+.pc-barcode { background: repeating-linear-gradient(90deg, #fff 0 2px, transparent 2px 4px, #fff 4px 5px, transparent 5px 8px, #fff 8px 11px, transparent 11px 12px); opacity: 0.9; }
+.pc-sticky { background: linear-gradient(180deg, oklch(0.962 0.075 95), oklch(0.945 0.085 92)); box-shadow: 0 1px 1px rgb(31 24 16 / 8%), 0 10px 14px -6px rgb(31 24 16 / 22%), 0 24px 28px -20px rgb(31 24 16 / 30%); }
+.pc-lined { background-image: repeating-linear-gradient(transparent 0 1.6rem, oklch(0.9 0.03 235 / 0.6) 1.6rem calc(1.6rem + 1px)); background-position: 0 0.55rem; }
+.pc-tape { position: absolute; z-index: 2; width: 4.6rem; height: 1.45rem; background: linear-gradient(90deg, oklch(0.9 0.05 75 / 0.62), oklch(0.94 0.04 80 / 0.8)); box-shadow: 0 1px 2px rgb(31 24 16 / 14%); clip-path: polygon(0 8%, 4% 0, 7% 12%, 100% 0, 96% 100%, 92% 88%, 0 100%, 3% 50%); opacity: calc(1 - var(--p, 0) * 1.6); }
+.font-hand { font-family: var(--font-hand), "Caveat", cursive; font-weight: 600; }
+
+/* A piece is placed from the centre of the desk: where it lies in the pile (x0, y0, r0) and where it settles (x1, y1), in rem. --p is 0 in the pile and runs to 1 when the desk settles; it is a registered number so the browser can animate it. */
+@property --p { syntax: "<number>"; inherits: true; initial-value: 0; }
+.pc-wrap { --p: 0; position: absolute; left: 50%; top: 50%; width: calc(var(--w) * 1rem); height: calc(var(--h) * 1rem); margin: calc(var(--h) * -0.5rem) 0 0 calc(var(--w) * -0.5rem); transform-origin: 50% 50%;
+  transform: translate(calc((var(--x0) + (var(--x1) - var(--x0)) * var(--p)) * 1rem * var(--s, 1)), calc((var(--y0) + (var(--y1) - var(--y0)) * var(--p)) * 1rem * var(--s, 1))) rotate(calc(var(--r0) * (1 - var(--p)) * 1deg)) scale(var(--s, 1));
+  transition: --p 1.5s cubic-bezier(0.22, 1, 0.36, 1); transition-delay: calc(var(--dl, 0) * 1.6s); }
+[data-settled] .pc-wrap { --p: 1; }
+.problem-b { opacity: 0; transform: translateY(18px); filter: blur(6px); transition: opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.9s, transform 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.9s, filter 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.9s; }
+[data-settled] .problem-b { opacity: 1; transform: none; filter: none; }
+@media (prefers-reduced-motion: reduce) { .pc-wrap, .problem-b { transition: none; } }

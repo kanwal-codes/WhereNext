@@ -3,7 +3,8 @@
 import { RoamMark } from "@/features/roam/ui/RoamMark";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, type ComponentType, type ReactNode } from "react";
+import { useId, useState, type ComponentType, type ReactNode } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import {
   BedDouble,
   CalendarDays,
@@ -21,7 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
-import { Sheet } from "@/components/motion-primitives";
+import { Sheet, motionTokens } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 
@@ -39,7 +40,7 @@ function RoamIcon({ className }: { className?: string }) {
 
 const nav = [
   { seg: "", label: "Overview", icon: LayoutGrid, exact: true },
-  { seg: "chat", label: "Conversation", icon: RoamIcon },
+  { seg: "chat", label: "Roam", icon: RoamIcon },
   { seg: "group", label: "Group chat", icon: Users },
   { seg: "discover", label: "Discover", icon: Compass },
   { seg: "map", label: "Getting around", icon: Map },
@@ -63,11 +64,14 @@ function NavRow({
   onNavigate,
   onPrefetch,
   onLocked,
+  pillId,
 }: {
   href: string;
   label: string;
   icon: ComponentType<{ className?: string }>;
   active: boolean;
+  /** Shared by every row of one list: the active highlight glides between rows instead of snapping. */
+  pillId?: string;
   collapsed?: boolean;
   onNavigate?: () => void;
   onPrefetch?: () => void;
@@ -77,6 +81,7 @@ function NavRow({
   // Desktop rows keep one left inset in both states, so each icon stays put (and sits centred in the
   // 76px rail) while the label clips away; the drawer keeps its own tighter padding.
   const padX = onNavigate ? "px-3" : "px-[1.125rem]";
+  const reduce = useReducedMotion();
   if (onLocked) {
     return (
       <button
@@ -98,7 +103,6 @@ function NavRow({
   return (
     <Link
       href={href}
-      prefetch
       onMouseEnter={onPrefetch}
       onClick={onNavigate}
       title={collapsed ? label : undefined}
@@ -112,14 +116,20 @@ function NavRow({
     >
       {active && (
         <>
-          <span className="absolute inset-0 -z-10 rounded-xl bg-sidebar-accent" />
-          <span
-            className={cn("absolute top-1/2 left-0 h-4 w-[3px] -translate-y-1/2 rounded-full transition-opacity", SIDEBAR_MOTION, collapsed && "opacity-0")}
-            style={{ background: "var(--color-accent-trip)" }}
+          {/* The highlight and its coral tick are one shared element: on navigation they travel to the new row. */}
+          <motion.span
+            layoutId={pillId ? `${pillId}-pill` : undefined}
+            transition={reduce ? { duration: 0 } : motionTokens.panelSpring}
+            className="absolute inset-0 -z-10 rounded-xl bg-sidebar-accent shadow-hairline"
+          />
+          <motion.span
+            layoutId={pillId ? `${pillId}-tick` : undefined}
+            transition={reduce ? { duration: 0 } : motionTokens.panelSpring}
+            className={cn("absolute top-1/2 left-0 h-4 w-[3px] -translate-y-1/2 rounded-full bg-coral transition-opacity", SIDEBAR_MOTION, collapsed && "opacity-0")}
           />
         </>
       )}
-      <Icon className={cn("h-4 w-4 shrink-0", active ? "opacity-100" : "opacity-70")} />
+      <Icon className={cn("h-4 w-4 shrink-0 transition-[opacity,transform] duration-200 ease-out group-hover:scale-110", active ? "opacity-100" : "opacity-70 group-hover:opacity-100")} />
       <span
         className={cn(
           "truncate transition-[max-width,margin,opacity]",
@@ -147,6 +157,7 @@ function NavList({
   const base = `/trips/${tripId}`;
   const router = useRouter();
   const { guest, openGate } = useGuest();
+  const pillId = useId();
   return (
     <nav className="space-y-0.5">
       {nav.map((item) => {
@@ -164,6 +175,7 @@ function NavList({
             icon={item.icon}
             active={isActive}
             collapsed={collapsed}
+            pillId={pillId}
             onNavigate={onNavigate}
             onPrefetch={() => router.prefetch(href)}
           />
@@ -207,19 +219,20 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
         collapsed={collapsed && !onNavigate}
         onNavigate={onNavigate}
       />
-      <Link
-        href={`/trips/${tripId}/chat`}
-        onClick={onNavigate}
-        title="Continue planning"
-        className={cn(
-          "mt-3 flex items-center justify-center rounded-full bg-primary px-2 py-2.5 text-sm font-medium text-primary-foreground transition-transform hover:scale-[1.02] active:scale-[0.98]",
-        )}
-      >
-        <RoamMark state="settled" size={28} className="shrink-0" />
-        <span className={cn("overflow-hidden whitespace-nowrap transition-[max-width,margin,opacity]", SIDEBAR_MOTION, collapsed && !onNavigate ? "ml-0 max-w-0 opacity-0" : "ml-2.5 max-w-[12rem] opacity-100")}>
-          Continue planning
-        </span>
-      </Link>
+      {/* Already in the conversation: the way back to it would point at itself. */}
+      {!pathname.endsWith("/chat") && (
+        <Link
+          href={`/trips/${tripId}/chat`}
+          onClick={onNavigate}
+          title="Continue planning"
+          className="btn-primary mt-3 flex w-full px-2"
+        >
+          <RoamMark state="settled" size={28} className="shrink-0" />
+          <span className={cn("overflow-hidden whitespace-nowrap transition-[max-width,margin,opacity]", SIDEBAR_MOTION, collapsed && !onNavigate ? "ml-0 max-w-0 opacity-0" : "ml-2.5 max-w-[12rem] opacity-100")}>
+            Continue planning
+          </span>
+        </Link>
+      )}
     </div>
   );
 
@@ -250,9 +263,9 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
                   onClick={() => setCollapsed(true)}
                   aria-label="Collapse sidebar"
                   title="Collapse sidebar"
-                  className="shrink-0 rounded-full p-1 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-sidebar-accent hover:text-foreground"
+                  className="-mr-1.5 grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground opacity-0 transition-[opacity,background-color,color] group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-sidebar-accent hover:text-foreground active:scale-95"
                 >
-                  <PanelLeftClose className="h-3.5 w-3.5" />
+                  <PanelLeftClose className="size-4" />
                 </button>
               }
             />
@@ -291,15 +304,15 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
       </aside>
 
       {/* Mobile top bar */}
-      <div className="sticky top-0 z-30 grid h-[var(--topbar)] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/90 px-4 backdrop-blur lg:hidden">
-        <Link href={homeHref} className="flex min-w-0 items-center gap-3" aria-label={trip.name}>
-          <BrandMark variant="compact" className="h-6 w-6 shrink-0 text-[10px]" />
+      <div className="sticky top-0 z-30 grid h-[var(--topbar)] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/95 px-4 lg:hidden">
+        <Link href={homeHref} className="flex min-w-0 items-center gap-3 transition-[opacity,transform] duration-200 hover:opacity-80 active:scale-[0.98]" aria-label={trip.name}>
+          <BrandMark variant="compact" className="h-6 w-6 shrink-0 text-2xs" />
           <h2 className="truncate font-display text-sm leading-tight">{trip.name}</h2>
         </Link>
         <button
           onClick={() => setOpen(true)}
           aria-label="Open trip navigation"
-          className="shrink-0 rounded-full border border-border p-2 active:scale-95"
+          className="shrink-0 rounded-full border border-border p-2 transition-[background-color,transform] hover:bg-accent active:scale-95"
         >
           <Menu className="h-4 w-4" />
         </button>
@@ -308,7 +321,7 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
       {/* Mobile navigation sheet */}
       <Sheet open={open} onClose={() => setOpen(false)} side="left" ariaLabel="Trip navigation" className="max-w-[300px] bg-sidebar px-4 py-6">
         <div className="mb-5 flex items-start gap-3">
-          <BrandMark variant="compact" className="mt-0.5 h-7 w-7 shrink-0 text-[11px]" />
+          <BrandMark variant="compact" className="mt-0.5 h-7 w-7 shrink-0 text-2xs" />
           <TripIdentity trip={trip} />
           <button onClick={() => setOpen(false)} aria-label="Close navigation" className="-mr-1 -mt-1 shrink-0 rounded-full p-1.5 text-muted-foreground hover:text-foreground active:scale-95">
             <X className="h-4 w-4" />

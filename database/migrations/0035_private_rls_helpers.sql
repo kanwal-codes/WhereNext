@@ -1,3 +1,32 @@
+-- Bootstrap: two objects this migration (and 0036) act on were created by hand in production and
+-- never had a migration, so a fresh database failed here ("function ... does not exist"). They are
+-- defined first, identically to production, and guarded so replaying this on production is a no-op.
+--   * handle_new_user + on_auth_user_created: every new auth user gets a profiles row.
+--   * is_trip_conversation_member: RLS helper for a conversation thread's trip members.
+create or replace function public.handle_new_user() returns trigger language plpgsql security definer set search_path to 'public'
+as $fn$ begin insert into public.profiles (id) values (new.id) on conflict (id) do nothing; return new; end; $fn$;
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created after insert on auth.users for each row execute function public.handle_new_user();
+
+do $bootstrap$
+begin
+  if to_regprocedure('public.is_trip_conversation_member(uuid, uuid)') is null
+     and to_regprocedure('private.is_trip_conversation_member(uuid, uuid)') is null then
+    create function public.is_trip_conversation_member(target_thread_id uuid, target_user_id uuid default auth.uid())
+    returns boolean language sql stable security definer set search_path to 'public'
+    as $fn$
+      select exists (
+        select 1
+        from public.conversation_threads thread
+        join public.trip_members membership on membership.trip_id = thread.trip_id
+        where thread.id = target_thread_id
+          and membership.user_id = target_user_id
+      );
+    $fn$;
+  end if;
+end
+$bootstrap$;
+
 -- is_trip_member/is_trip_owner/is_trip_conversation_member exist only to be called FROM RLS
 -- policies (`using (is_trip_member(trip_id))`), always implicitly checking auth.uid() via their
 -- own default parameter. But every function in `public` is auto-exposed by PostgREST as a REST

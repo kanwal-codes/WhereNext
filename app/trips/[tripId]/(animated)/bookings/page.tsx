@@ -128,13 +128,13 @@ export default function BookingsPage() {
                   <button type="button" onClick={openAdd} className="btn-primary h-11 rounded-full px-6">
                     <Plus className="h-4 w-4" /> Add reservation
                   </button>
-                  <button type="button" onClick={() => setTableOpen(true)} className="daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-card px-5 font-medium shadow-none">
+                  <button type="button" onClick={() => setTableOpen(true)} className="daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-card px-5 font-medium shadow-none hover:border-foreground/30 hover:bg-accent">
                     <UtensilsCrossed className="h-4 w-4" /> Reserve a table
                   </button>
-                  <Link href={`/trips/${tripId}/stay`} className="daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-card px-5 font-medium shadow-none">
+                  <Link href={`/trips/${tripId}/stay`} className="daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-card px-5 font-medium shadow-none hover:border-foreground/30 hover:bg-accent">
                     Find a stay
                   </Link>
-                  <Link href={`/trips/${tripId}/map`} className="daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-card px-5 font-medium shadow-none">
+                  <Link href={`/trips/${tripId}/map`} className="daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-card px-5 font-medium shadow-none hover:border-foreground/30 hover:bg-accent">
                     Find a flight
                   </Link>
                 </div>
@@ -161,7 +161,7 @@ export default function BookingsPage() {
               <Tactile lift={2} className="block">
                 <Link
                   href={`/trips/${tripId}/chat?ask=${encodeURIComponent(`Build me a pre-trip essentials checklist for ${destination} — visas, SIM/eSIM, power plugs, currency, tipping, transit passes, safety, and anything else I should sort before I go.`)}`}
-                  className="flex flex-col gap-4 rounded-3xl border border-border/70 bg-gradient-to-br from-card to-coral-soft/50 p-6 shadow-soft"
+                  className="card-lift flex flex-col gap-4 rounded-3xl border border-border/70 bg-gradient-to-br from-card to-coral-soft/50 p-6 shadow-soft"
                 >
                   <RoamMark state="settled" size={84} />
                   <span>

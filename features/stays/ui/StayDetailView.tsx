@@ -10,7 +10,7 @@ import { BackLink } from "@/components/BackLink";
 import { NearbyEvents } from "@/components/NearbyEvents";
 import { NearbyStays } from "@/features/stays/ui/NearbyStays";
 import { NearbyRecommendations } from "@/components/NearbyRecommendations";
-import { PanelError, PanelLoading } from "@/components/PanelStates";
+import { PanelError, PanelLoading, PANEL_PAD, PANEL_HERO } from "@/components/PanelStates";
 import { Badge, Notice, money, prettyDate, type as T } from "@/features/conversation/ui/blocks/ui";
 import { Reveal, WordReveal } from "@/components/motion-primitives";
 import { PhotoLightbox, usePhotoLightbox } from "@/components/PhotoLightbox";
@@ -117,12 +117,15 @@ export function StayDetailView({
   hotelId,
   checkin,
   checkout,
+  seedName,
   variant = "page",
 }: {
   tripId: string;
   hotelId: string;
   checkin?: string;
   checkout?: string;
+  /** The name the card already showed: used until (or in place of) the hotel's own details, so the page never says just "Hotel". */
+  seedName?: string;
   variant?: "page" | "panel";
 }) {
   const panel = variant === "panel";
@@ -154,7 +157,7 @@ export function StayDetailView({
     [ratedReviews],
   );
 
-  const pad = panel ? "px-4 pb-8" : "mx-auto max-w-5xl px-5 pb-14 sm:px-8";
+  const pad = panel ? PANEL_PAD : "mx-auto max-w-5xl px-5 pb-14 sm:px-8";
 
   if (s.state === "loading") return <PanelLoading what="this hotel" panel={panel} />;
 
@@ -168,7 +171,7 @@ export function StayDetailView({
   }
 
   const hotel = s.hotel;
-  const name = hotel?.name ?? "Hotel";
+  const name = hotel?.name ?? seedName ?? "Hotel";
   const images = hotel?.images ?? [];
 
   const directionsHref = hotel?.latitude != null && hotel?.longitude != null
@@ -198,7 +201,7 @@ export function StayDetailView({
         <section>
           <DetailSectionHeading>The stay</DetailSectionHeading>
           {hotel?.description ? (
-            <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{hotel.description}</p>
+            <p className="mt-2 text-body leading-relaxed text-ink-soft">{hotel.description}</p>
           ) : (
             <p className="mt-2 text-sm text-muted-foreground">No description available for this hotel yet.</p>
           )}
@@ -209,7 +212,7 @@ export function StayDetailView({
         <Reveal delay={0.08}>
           <section>
             <DetailSectionHeading>Photos</DetailSectionHeading>
-            <div className={cn("mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain no-scrollbar pb-1", panel ? "-mr-4 pr-4" : "-mx-5 px-5 sm:mx-0 sm:px-0")}>
+            <div className={cn("mt-1 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain no-scrollbar pb-9 -mb-8 pt-2", panel ? "-mr-4 pr-4" : "-mx-5 px-5 sm:mx-0 sm:px-0")}>
               {images.slice(1).map((src, i) => (
                 <button
                   key={src}
@@ -329,7 +332,7 @@ export function StayDetailView({
         alt={name}
         plain
         surface={panel}
-        className={cn(panel ? "h-44" : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")}
+        className={cn(panel ? PANEL_HERO : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")}
       >
         {!panel && <BackLink fallback={`/trips/${tripId}/stay`} label="Back" className="absolute left-4 top-4 border-white/30 bg-black/30 text-white hover:bg-black/50" />}
       </Hero>

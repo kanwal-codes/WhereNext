@@ -16,7 +16,7 @@ export function PresenceStrip({ className = "" }: { className?: string }) {
           <span
             key={p.userId}
             title={p.name}
-            className="grid h-6 w-6 place-items-center rounded-full border border-background text-[10px] font-semibold text-white"
+            className="grid h-6 w-6 place-items-center rounded-full border border-background text-2xs font-semibold text-white"
             style={{ backgroundColor: `hsl(${hue(p.userId)} 55% 45%)` }}
           >
             {initials(p.name)}

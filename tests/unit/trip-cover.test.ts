@@ -23,6 +23,12 @@ describe("cityScale", () => {
     expect(cityScale("Amalfi Coast")).toBe("md");
     expect(cityScale("Rio de Janeiro State")).toBe("sm");
   });
+
+  it("steps down for a long single word, which cannot wrap", () => {
+    expect(cityScale("Montreal")).toBe("md");
+    expect(cityScale("Reykjavik")).toBe("md");
+    expect(cityScale("Thessaloniki")).toBe("sm");
+  });
 });
 
 describe("stampParts", () => {

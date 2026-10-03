@@ -49,7 +49,7 @@ export function GuestSavePrompt({ tripId, exhausted, heading, body }: { tripId: 
 
   return (
     <div role="region" aria-label="Save your trip" className="rounded-2xl border border-border bg-card p-5 shadow-lift">
-      <p className="text-[10px] font-semibold tracking-[0.16em] text-coral uppercase">Save your trip</p>
+      <p className="text-2xs font-semibold tracking-[0.16em] text-coral uppercase">Save your trip</p>
       <h3 className="mt-1.5 font-display text-xl leading-tight">
         {heading ?? (exhausted ? "Keep planning with Roam." : "Keep this trip.")}
       </h3>
@@ -74,7 +74,7 @@ export function GuestSavePrompt({ tripId, exhausted, heading, body }: { tripId: 
           >
             {busy === "google" && <Loader2 className="h-4 w-4 animate-spin" />} Continue with Google
           </button>
-          <div className="my-3 flex items-center gap-3 text-[11px] text-muted-foreground">
+          <div className="my-3 flex items-center gap-3 text-2xs text-muted-foreground">
             <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
           </div>
           {/* One question at a time: the email first, then the password. */}

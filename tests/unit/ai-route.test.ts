@@ -56,6 +56,7 @@ let member: { trip_id: string } | null = { trip_id: TRIP };
 let tripsUpdateSucceeds = true;
 
 vi.mock("@/lib/supabase/server", () => ({
+  getSessionUser: async (client: { auth: { getUser: () => Promise<{ data: { user: unknown } }> } }) => (await client.auth.getUser()).data.user,
   createSupabaseServerClient: async () => ({
     auth: { getUser: async () => ({ data: { user } }) },
     from: (table: string) => {
@@ -236,7 +237,7 @@ describe("POST /api/ai", () => {
     it("names what's actually being looked up on the retrieve frame instead of a generic label", async () => {
       // Default mock plan is one search_places call (see beforeEach above).
       const { body } = await readMeta(await post());
-      expect(body).toContain('"progress":"retrieve","label":"checking places"');
+      expect(body).toContain('"progress":"retrieve","label":"finding places"');
     });
 
     it("combines two tools' labels and caps a multi-topic plan at two, dropping the rest", async () => {
@@ -250,7 +251,9 @@ describe("POST /api/ai", () => {
         clarify: null, suggestedFollowups: [], proposedProfileUpdate: null,
       });
       const { body } = await readMeta(await post());
-      expect(body).toContain('"progress":"retrieve","label":"getting directions and checking the weather"');
+      expect(body).toContain('"progress":"retrieve","label":"plotting the route and checking the forecast"');
+      // The third planned tool (finding places) is dropped: two named activities at most.
+      expect(body).not.toContain("finding places");
     });
 
     it("falls back to no label when RESOLVE planned no tools the map recognizes", async () => {

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion, useReducedMotion } from "motion/react";
 import { Quote } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
-import { Reveal, WordReveal, motionTokens } from "@/components/motion-primitives";
+import { Reveal, WordReveal } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
 
 /**
@@ -110,19 +110,16 @@ export function Field({ label, hint, children }: { label: string; hint?: ReactNo
   );
 }
 
-export const inputClass =
-  "w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground/70 focus:border-coral focus:ring-4 focus:ring-coral/12";
+export const inputClass = "input-field mt-0!";
 
 export function SubmitButton({
   children,
   loading,
   ...rest
 }: { children: ReactNode; loading?: boolean } & Omit<React.ComponentProps<typeof motion.button>, "children">) {
-  const reduce = useReducedMotion();
   return (
     <motion.button
-      {...(reduce ? {} : { whileHover: { y: -2 }, whileTap: { scale: 0.98 }, transition: motionTokens.lift })}
-      className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
+      className="btn-primary w-full py-3!"
       disabled={loading}
       {...rest}
     >
@@ -142,7 +139,7 @@ export function Divider({ label }: { label: string }) {
   return (
     <div className="my-6 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
       <span className="hairline" />
-      <span className="text-[11px] tracking-[0.14em] text-muted-foreground uppercase">{label}</span>
+      <span className="text-2xs tracking-[0.14em] text-muted-foreground uppercase">{label}</span>
       <span className="hairline" />
     </div>
   );

@@ -82,9 +82,9 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
             <div className="flex h-9 w-full items-center" aria-hidden>
               <span className="size-2 shrink-0 rounded-full border-2 border-muted-foreground" />
               {/* The plane leaves the departure end and settles in the middle of the route. */}
-              <motion.span className="h-px bg-gradient-to-r from-border via-muted-foreground/60 to-border" style={{ flexShrink: 1, flexBasis: 0 }} initial={reduce ? false : { flexGrow: 0.02 }} animate={{ flexGrow: 1 }} transition={{ duration: 0.9, ease: [0.22, 0.61, 0.36, 1], delay: 0.25 }} />
+              <motion.span className="h-px bg-gradient-to-r from-border via-muted-foreground/60 to-border" style={{ flexShrink: 1, flexBasis: 0 }} initial={reduce ? false : { flexGrow: 0.02 }} animate={{ flexGrow: 1 }} transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.25 }} />
               <Plane className="mx-1.5 size-5 shrink-0 rotate-45 text-coral" strokeWidth={1.75} />
-              <motion.span className="h-px bg-gradient-to-r from-border via-muted-foreground/60 to-border" style={{ flexShrink: 1, flexBasis: 0 }} initial={reduce ? false : { flexGrow: 2 }} animate={{ flexGrow: 1 }} transition={{ duration: 0.9, ease: [0.22, 0.61, 0.36, 1], delay: 0.25 }} />
+              <motion.span className="h-px bg-gradient-to-r from-border via-muted-foreground/60 to-border" style={{ flexShrink: 1, flexBasis: 0 }} initial={reduce ? false : { flexGrow: 2 }} animate={{ flexGrow: 1 }} transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.25 }} />
               <span className="size-2 shrink-0 rounded-full bg-muted-foreground" />
             </div>
             <p className={cn(type.meta, "mt-1.5 tabular-nums")}>

@@ -4,8 +4,10 @@ import { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, us
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowUp, CalendarRange, ListChecks, Mic, Plus, SmilePlus, X } from "lucide-react";
-import { Sheet, Pressable } from "@/components/motion-primitives";
+import { memberTint } from "@/lib/member-tint";
+import { CalendarRange, ListChecks, Plus, SmilePlus, X } from "lucide-react";
+import { MicButton, SendButton } from "@/components/ComposerButtons";
+import { Sheet, Pressable, Reveal, Stagger, StaggerItem } from "@/components/motion-primitives";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { useAutoGrowTextarea } from "@/lib/use-autogrow-textarea";
 import { useSpeechInput } from "@/lib/use-speech-input";
@@ -50,7 +52,7 @@ function renderWithMentions(content: string) {
 /** Every member gets the same avatar — Roam included. In this chat Roam is just the fifth friend. */
 function Avatar({ name }: { name: string }) {
   return (
-    <span aria-hidden className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary shadow-sm">
+    <span aria-hidden style={memberTint(name)} className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-2xs font-semibold shadow-hairline">
       {memberInitials(name)}
     </span>
   );
@@ -550,47 +552,23 @@ export function GroupChatSurface({
         onClick={() => setPlusMenuOpen((current) => !current)}
         disabled={!loaded}
         className={cn(
-          "grid h-9 w-9 shrink-0 place-items-center rounded-full transition-colors disabled:opacity-40",
+          "grid size-10 shrink-0 place-items-center rounded-full transition-colors disabled:opacity-40",
           plusMenuOpen ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground",
         )}
       >
-        <Plus className={cn("h-4 w-4 transition-transform", plusMenuOpen && "rotate-45")} />
+        <Plus className={cn("size-[18px] transition-transform", plusMenuOpen && "rotate-45")} />
       </button>
     </div>
   );
 
-  const micButton = speech.supported && (
-    <button
-      type="button"
-      onClick={speech.toggle}
-      aria-label={speech.listening ? "Stop dictation" : "Dictate your message"}
-      aria-pressed={speech.listening}
-      disabled={!loaded || sending}
-      className={cn(
-        "grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-40",
-        speech.listening ? "border-destructive/50 bg-destructive/10 text-destructive" : "border-border/60 text-muted-foreground hover:text-foreground",
-      )}
-    >
-      <Mic className={cn("h-4 w-4", speech.listening && "animate-pulse")} />
-    </button>
-  );
-
-  const sendButton = (
-    <button
-      type="submit"
-      aria-label="Send"
-      disabled={!loaded || !input.trim()}
-      className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-primary to-primary/85 text-primary-foreground shadow-sm transition-opacity disabled:opacity-35"
-    >
-      <ArrowUp className="h-4 w-4" />
-    </button>
-  );
+  const micButton = speech.supported && <MicButton listening={speech.listening} disabled={!loaded || sending} onToggle={speech.toggle} />;
+  const sendButton = <SendButton canSend={loaded && Boolean(input.trim())} />;
 
   // The single-line layout's reserved space for the overlaid plus/mic/send — used two ways
   // below: as the visible textarea's own padding while that overlay is showing, and permanently
   // on the hidden mirror (next), which is what actually decides `isMultiline` so that padding
   // can safely come OFF once the buttons move to their own row (see the mirror's own comment).
-  const SINGLE_LINE_INSET = "pl-11 pr-[86px]";
+  const SINGLE_LINE_INSET = "pl-12 pr-24";
 
   const messageTextarea = (
     <div className="relative w-full">
@@ -602,7 +580,7 @@ export function GroupChatSurface({
           the very same text re-fit on one line, flipping back, narrowing it again, wrapping
           again — the infinite oscillation live-caught as "the box gets stuck and won't shrink
           back down." A width that never changes can't feed back into the decision that changes it. */}
-      <div aria-hidden="true" className={cn("pointer-events-none invisible absolute inset-x-0 top-0 overflow-hidden break-words whitespace-pre-wrap py-1 text-sm leading-relaxed", SINGLE_LINE_INSET)} ref={mirrorRef}>
+      <div aria-hidden="true" className={cn("pointer-events-none invisible absolute inset-x-0 top-0 overflow-hidden break-words whitespace-pre-wrap py-2 text-base leading-normal", SINGLE_LINE_INSET)} ref={mirrorRef}>
         {input}
         {"​"}
       </div>
@@ -610,7 +588,7 @@ export function GroupChatSurface({
           typed text visually covers its invisible spacer span and only the suggested
           remainder ("oam", "am", "m", ...) shows through in muted gray. */}
       {mentionGhost && (
-        <div aria-hidden="true" className={cn("pointer-events-none absolute inset-0 overflow-hidden py-1 text-sm leading-relaxed break-words whitespace-pre-wrap", !isMultiline && SINGLE_LINE_INSET)}>
+        <div aria-hidden="true" className={cn("pointer-events-none absolute inset-0 overflow-hidden py-2 text-base leading-normal break-words whitespace-pre-wrap", isMultiline ? "px-2.5" : SINGLE_LINE_INSET)}>
           <span className="invisible">{input}</span>
           <span className="text-muted-foreground">{mentionGhost}</span>
         </div>
@@ -635,8 +613,8 @@ export function GroupChatSurface({
         placeholder={!loaded ? "Loading…" : speech.listening ? "Listening…" : "Message the group — try @Roam…"}
         disabled={!loaded}
         className={cn(
-          "max-h-[88px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent py-1 text-sm leading-relaxed outline-none transition-[height] duration-150 ease-out placeholder:text-muted-foreground disabled:opacity-60",
-          !isMultiline && SINGLE_LINE_INSET,
+          "block max-h-[96px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent py-2 text-base leading-normal outline-none transition-[height] duration-150 ease-out placeholder:text-muted-foreground disabled:opacity-60",
+          isMultiline ? "px-2.5" : SINGLE_LINE_INSET,
         )}
       />
       {/* Overlaid on the textarea's own reserved padding rather than laid out beside it as a
@@ -664,19 +642,37 @@ export function GroupChatSurface({
         <div className="mx-auto w-full max-w-2xl space-y-1 pt-3 pb-28">
           {!loaded && (
             <div aria-hidden className="space-y-5">
-              <div className="h-9 w-40 animate-pulse rounded-2xl rounded-br-lg bg-muted" />
-              <div className="h-9 w-52 animate-pulse rounded-2xl bg-muted" />
+              <div className="h-9 w-40 skeleton rounded-2xl rounded-br-lg" />
+              <div className="h-9 w-52 skeleton rounded-2xl" />
             </div>
           )}
 
           {loaded && messages.length === 0 && (
-            <div className="flex flex-col items-center gap-2 pt-6 text-center">
-              <span className="grid h-11 w-11 place-items-center rounded-full bg-primary/10 text-primary">
-                <CalendarRange className="h-5 w-5" />
-              </span>
-              <p className="mx-auto max-w-md text-sm leading-relaxed text-muted-foreground">
-                This is the whole group&rsquo;s chat — everyone on the trip, plus Roam. Tag <span className="font-medium text-foreground">@Roam</span> to ask it something here.
-              </p>
+            <div className="flex flex-col items-center pt-8 text-center">
+              {/* The opening shot: a lit icon, the line, the explanation, then a few ways to break the ice. */}
+              <Reveal y={8}>
+                <span className="relative grid size-14 place-items-center rounded-3xl bg-coral-soft text-coral-ink shadow-hairline">
+                  <CalendarRange className="size-6" />
+                </span>
+              </Reveal>
+              <Reveal delay={0.1} y={12}>
+                <h2 className="mt-5 font-display text-3xl font-medium tracking-[-0.03em] text-balance">Plan it together</h2>
+              </Reveal>
+              <Reveal delay={0.18} y={10}>
+                <p className="mx-auto mt-3 max-w-sm text-body leading-relaxed text-ink-soft text-pretty">
+                  This is the whole group&rsquo;s chat — everyone on the trip, plus Roam. Tag <span className="font-medium text-foreground">@Roam</span> to ask it something here.
+                </p>
+              </Reveal>
+              <Stagger delay={0.3} gap={0.07} className="mt-6 flex flex-wrap justify-center gap-2">
+                {["@Roam what should we do first?", "@Roam where should we eat tonight?"].map((starter) => (
+                  <StaggerItem key={starter}>
+                    <button type="button" onClick={() => setInput(starter)} className="btn-chip h-9 px-4 text-sm">{starter}</button>
+                  </StaggerItem>
+                ))}
+                <StaggerItem>
+                  <button type="button" onClick={() => setPollSheetOpen(true)} className="btn-chip h-9 px-4 text-sm">Start a poll</button>
+                </StaggerItem>
+              </Stagger>
             </div>
           )}
 
@@ -690,7 +686,7 @@ export function GroupChatSurface({
 
             const divider = showDateDivider && (
               <div className="flex items-center justify-center py-3">
-                <span className="rounded-full bg-muted px-3 py-1 text-[10px] font-medium tracking-[0.06em] text-muted-foreground uppercase">{dayLabel(message.created_at)}</span>
+                <span className="rounded-full bg-muted px-3 py-1 text-2xs font-medium tracking-[0.06em] text-muted-foreground uppercase">{dayLabel(message.created_at)}</span>
               </div>
             );
 
@@ -698,7 +694,7 @@ export function GroupChatSurface({
               return (
                 <div key={message.id}>
                   {divider}
-                  <p className="mx-auto max-w-fit rounded-full bg-muted px-3 py-1 text-center text-[11px] text-muted-foreground">{message.content}</p>
+                  <p className="mx-auto max-w-fit rounded-full bg-muted px-3 py-1 text-center text-2xs text-muted-foreground">{message.content}</p>
                 </div>
               );
             }
@@ -716,7 +712,7 @@ export function GroupChatSurface({
                     <p className="flex flex-wrap items-center gap-1.5 border-b border-border/60 px-4 pt-3.5 pb-2.5 font-display text-sm">
                       <ListChecks className="h-3.5 w-3.5 shrink-0 text-coral" />
                       <span className="min-w-0">{message.content}</span>
-                      <span className="ml-auto shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">{name}</span>
+                      <span className="ml-auto shrink-0 rounded-full bg-muted px-2 py-0.5 text-2xs font-medium text-muted-foreground">{name}</span>
                     </p>
                     {poll && (
                       <>
@@ -742,7 +738,7 @@ export function GroupChatSurface({
                             );
                           })}
                         </div>
-                        <p className="border-t border-border/60 px-4 py-2 text-[11px] text-muted-foreground">{poll.totalVotes} vote{poll.totalVotes === 1 ? "" : "s"}</p>
+                        <p className="border-t border-border/60 px-4 py-2 text-2xs text-muted-foreground">{poll.totalVotes} vote{poll.totalVotes === 1 ? "" : "s"}</p>
                       </>
                     )}
                   </div>
@@ -765,7 +761,7 @@ export function GroupChatSurface({
               <button
                 type="button"
                 onClick={() => scrollToMessage(replySource.id)}
-                className="mb-1.5 flex max-w-full min-w-0 items-start gap-2 rounded-lg border-l-2 border-foreground/25 bg-foreground/5 px-2.5 py-1.5 text-left text-[11px] transition-colors hover:bg-foreground/10"
+                className="mb-1.5 flex max-w-full min-w-0 items-start gap-2 rounded-lg border-l-2 border-foreground/25 bg-foreground/5 px-2.5 py-1.5 text-left text-2xs transition-colors hover:bg-foreground/10"
               >
                 <span className="shrink-0 font-medium text-foreground/80">{displayName(replySource.userId, members, me?.userId)}</span>
                 <span className="min-w-0 truncate text-muted-foreground">{replySource.content}</span>
@@ -792,9 +788,11 @@ export function GroupChatSurface({
                     if (el) bubbleRefs.current.set(message.id, el);
                     else bubbleRefs.current.delete(message.id);
                   }}
-                  initial={isNew ? { opacity: 0, y: 8 } : false}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ type: "spring", stiffness: 260, damping: 26 }}
+                  // Your own message rises from the composer corner; a friend's arrives from their avatar side.
+                  initial={isNew ? { opacity: 0, y: 14, scale: mine ? 0.92 : 0.96 } : false}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ type: "spring", stiffness: 380, damping: 30, opacity: { duration: 0.16 } }}
+                  style={{ transformOrigin: mine ? "100% 100%" : "0% 100%" }}
                   className={cn(
                     "flex min-w-0 items-start gap-2 rounded-2xl transition-colors duration-700",
                     isFirstInGroup ? "mt-3" : "mt-0.5",
@@ -804,7 +802,7 @@ export function GroupChatSurface({
                 >
                   {!mine && <div className="w-7 shrink-0">{isFirstInGroup && <Avatar name={name} />}</div>}
                   <div className={cn("flex min-w-0 max-w-[85%] flex-col gap-1.5", mine ? "items-end" : "items-start")}>
-                    {!mine && isFirstInGroup && <p className="px-1 text-[11px] font-medium text-muted-foreground">{name}</p>}
+                    {!mine && isFirstInGroup && <p style={{ color: memberTint(name).color }} className="px-1 text-2xs font-semibold">{name}</p>}
                     <motion.div
                       animate={{ scale: pressingId === message.id ? 0.96 : 1 }}
                       transition={{ type: "spring", stiffness: 500, damping: 30 }}
@@ -876,7 +874,7 @@ export function GroupChatSurface({
                       </div>
                     )}
                     {isRoam && (message.metadata as Partial<AssistantTurnMeta> | undefined)?.unverified && (
-                      <p className="px-1 text-[11px] text-muted-foreground">A figure or detail above is an estimate and hasn’t been independently verified.</p>
+                      <p className="px-1 text-2xs text-muted-foreground">A figure or detail above is an estimate and hasn’t been independently verified.</p>
                     )}
                     <div className="flex flex-wrap items-center gap-1.5 px-1">
                       {message.reactions.map((r) => (
@@ -886,7 +884,7 @@ export function GroupChatSurface({
                             type="button"
                             onClick={() => void toggleReaction(message.id, r.emoji)}
                             className={cn(
-                              "flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] transition-colors",
+                              "flex h-6 items-center gap-1 rounded-full border px-2 text-2xs transition-colors",
                               r.mine ? "border-primary/30 bg-primary/10 text-primary" : "border-border bg-card text-muted-foreground hover:bg-accent",
                             )}
                           >
@@ -903,7 +901,7 @@ export function GroupChatSurface({
           })}
           {pendingRoamIds.size > 0 && (
             // The same "typing…" bubble any friend would show while they write back.
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mt-3 flex items-start gap-2">
+            <motion.div initial={{ opacity: 0, y: 10, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ type: "spring", stiffness: 380, damping: 30 }} style={{ transformOrigin: "0% 100%" }} className="mt-3 flex items-start gap-2">
               <div className="w-7 shrink-0">
                 <Avatar name="Roam" />
               </div>
@@ -911,9 +909,9 @@ export function GroupChatSurface({
                 {[0, 1, 2].map((i) => (
                   <motion.span
                     key={i}
-                    className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60"
-                    animate={{ opacity: [0.35, 1, 0.35], y: [0, -2, 0] }}
-                    transition={{ duration: 1.1, repeat: Infinity, delay: i * 0.15 }}
+                    className="h-1.5 w-1.5 rounded-full bg-coral/70"
+                    animate={{ opacity: [0.35, 1, 0.35], y: [0, -3, 0], scale: [1, 1.15, 1] }}
+                    transition={{ duration: 1.1, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }}
                   />
                 ))}
               </div>
@@ -926,7 +924,7 @@ export function GroupChatSurface({
 
       <Sheet open={reactingTo !== null} onClose={() => setReactingTo(null)} ariaLabel="Add reaction" side="bottom">
         <div className="px-5 pt-1 pb-6">
-          <p className="mb-3 text-center text-[11px] font-medium tracking-[0.06em] text-muted-foreground uppercase">Quick react</p>
+          <p className="mb-3 text-center text-2xs font-medium tracking-[0.06em] text-muted-foreground uppercase">Quick react</p>
           <div className="flex flex-wrap justify-center gap-2">
             {COMMON_EMOJI.map((emoji) => (
               <Pressable key={emoji}>
@@ -1010,7 +1008,11 @@ export function GroupChatSurface({
               event.preventDefault();
               void submit(input);
             }}
-            className="flex w-full flex-col gap-1 overflow-hidden rounded-3xl border border-input bg-card px-3 py-2 shadow-lift transition-shadow focus-within:shadow-xl focus-within:ring-2 focus-within:ring-ring/25"
+            className={cn(
+              "flex w-full flex-col gap-1 overflow-hidden rounded-3xl border border-input bg-card p-1.5 shadow-lift transition-[border-color,box-shadow] duration-200 ease-out",
+              "focus-within:border-ink/30 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_6%,transparent),var(--shadow-lift)]",
+              pendingRoamIds.size > 0 && "composer-live",
+            )}
           >
             {/* `messageTextarea` (defined above, alongside the buttons it conditionally overlays)
                 is the ONLY thing that must never remount — the buttons moving between an overlay
@@ -1022,7 +1024,7 @@ export function GroupChatSurface({
                 grows but I can't type on the new line until I press Enter again." */}
             {messageTextarea}
             {isMultiline && (
-              <div className="flex items-center justify-between gap-1.5">
+              <div className="flex items-center justify-between gap-1">
                 {plusButton}
                 <div className="flex items-center gap-1">
                   {micButton}

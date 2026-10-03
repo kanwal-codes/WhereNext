@@ -19,7 +19,7 @@ export function BackLink({ fallback, label, className }: { fallback: string; lab
         else router.push(fallback);
       }}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border border-border bg-background/85 px-3 py-1.5 text-xs font-medium backdrop-blur transition-colors hover:bg-background",
+        "inline-flex items-center gap-1.5 rounded-full border border-border bg-background/92 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-background",
         className,
       )}
     >

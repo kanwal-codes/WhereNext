@@ -6,7 +6,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireTripMember, TripAuthError } from "@/lib/server/trip-auth";
 import { loadTripWorkspace, type TripWorkspaceData } from "@/features/workspace/application/loadTripWorkspace";
 import { TripShell, type ShellTrip } from "@/components/TripShell";
-import { TripAtmosphere } from "@/components/TripAtmosphere";
 import { TripDataProvider } from "@/components/TripDataProvider";
 import { TripPanelProvider } from "@/components/TripPanelProvider";
 import { TripPanel } from "@/components/TripPanel";
@@ -94,14 +93,10 @@ export default async function TripLayout({
   const { data, user } = result;
   const me = viewerFromUser(user);
 
-  const startDate = (data.trip as { start_date?: string | null }).start_date;
-  const tripMonth = startDate ? new Date(`${startDate}T00:00:00`).getMonth() : null;
-
   return (
     <GuestProvider guest={user.is_anonymous === true} tripId={tripId}>
       <TripDataProvider tripId={tripId} data={data} me={me}>
         <TripPanelProvider tripId={tripId}>
-          <TripAtmosphere destination={data.trip.destination} month={tripMonth} />
           <TripShell tripId={tripId} trip={shellFromData(data)}>{children}</TripShell>
           <TripPanel layout="drawer" />
         </TripPanelProvider>

@@ -75,7 +75,7 @@ export function EssentialsSurface({ tripId, initialCompleted }: { tripId: string
               <button
                 type="button"
                 onClick={() => void toggle(item)}
-                className="flex w-full items-center gap-3 px-5 py-4 text-left text-[15px] transition-colors hover:bg-accent active:bg-accent"
+                className="flex w-full items-center gap-3 px-5 py-4 text-left text-body transition-colors hover:bg-accent active:bg-accent"
               >
                 <span
                   className={cn(

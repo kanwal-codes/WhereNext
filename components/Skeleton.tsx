@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 // `bg-muted` is nearly indistinguishable from `bg-surface` (the panel/sheet background these
 // often load inside) — a foreground-mix stays visible against any near-white/near-black
 // container instead of only the plain page background.
-const pulse = "animate-pulse bg-foreground/8";
+const pulse = "skeleton";
 
 /** Loading placeholder that keeps the layout's shape. Purely decorative. */
 export function Skeleton({ className }: { className?: string }) {

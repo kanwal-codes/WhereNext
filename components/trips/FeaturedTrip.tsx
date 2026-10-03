@@ -26,8 +26,8 @@ function statsFor(trip: TripSummary, status: TripStatus): Stat[] {
           : { title: "Dates", value: "TBD", desc: "not set yet" };
   return [
     first,
-    { title: "Length", value: days ? String(days) : "-", desc: days === 1 ? "day" : "days" },
-    { title: "Travellers", value: trip.travelers ? String(trip.travelers) : "-", desc: "going" },
+    days ? { title: "Length", value: String(days), desc: days === 1 ? "day" : "days" } : { title: "Length", value: "—", desc: "not set" },
+    trip.travelers ? { title: "Travellers", value: String(trip.travelers), desc: "going" } : { title: "Travellers", value: "—", desc: "not set" },
   ];
 }
 
@@ -53,17 +53,19 @@ export function FeaturedTrip({
     <Tactile lift={3} className="group relative has-[details[open]]:z-30">
       <Link
         href={`/trips/${trip.id}`}
-        className="block overflow-hidden rounded-[1.75rem] border border-border/70 bg-card shadow-soft transition-colors duration-300 group-hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+        className="block overflow-hidden rounded-3xl border border-border/70 bg-card shadow-soft transition-colors duration-300 group-hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         <TripCover trip={trip} size="feature" className="flex min-h-[28rem] flex-col justify-end sm:min-h-[32rem]">
           {({ photo }) => (
             <>
-              <span className="daisy-badge absolute top-5 left-5 z-10 h-7 border-border/60 bg-background/80 px-3 text-[13px] font-medium text-foreground backdrop-blur">
+              <span className="photo-chip absolute top-5 left-5 z-10">
                 {featuredLabel(status.phase)}
               </span>
 
               {/* Darkens the lower part of a photo so the white text on it always reads. */}
-              <div aria-hidden className={cn("pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-4/5 bg-gradient-to-t from-black/85 via-black/45 to-transparent transition-opacity duration-700", photo ? "opacity-100" : "opacity-0")} />
+              {/* A pale or overcast sky would read as a blank band above the title; the top is shaded to match the bottom. */}
+              <div aria-hidden className={cn("pointer-events-none absolute inset-x-0 top-0 z-[5] h-1/2 scrim-t [--scrim:0.8] transition-opacity duration-700", photo ? "opacity-100" : "opacity-0")} />
+              <div aria-hidden className={cn("pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-4/5 scrim-b transition-opacity duration-700", photo ? "opacity-100" : "opacity-0")} />
 
               <div className={cn("relative z-10 flex flex-col gap-6 px-6 pt-52 pb-6 transition-colors duration-700 sm:px-9 sm:pb-9 lg:flex-row lg:items-end lg:justify-between", photo ? "text-white" : "text-foreground")}>
                 <div className="min-w-0 max-w-xl pr-12 lg:pr-0">
@@ -80,15 +82,15 @@ export function FeaturedTrip({
                   <div
                     suppressHydrationWarning
                     className={cn(
-                      "daisy-stats w-full rounded-2xl border shadow-none backdrop-blur-md transition-colors duration-700 lg:w-auto [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3",
+                      "daisy-stats w-full rounded-2xl border transition-colors duration-700 lg:w-auto [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3",
                       photo
-                        ? "border-white/20 bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] [&_.daisy-stat-desc]:text-white/70 [&_.daisy-stat-title]:text-white/70 [&>.daisy-stat]:border-white/20"
-                        : "border-border/60 bg-background/60 [&>.daisy-stat]:border-border/70",
+                        ? "glass-photo [&_.daisy-stat-desc]:text-white/70 [&_.daisy-stat-title]:text-white/70 [&>.daisy-stat]:border-white/20"
+                        : "border-border/60 bg-background/82 [&>.daisy-stat]:border-border/70",
                     )}
                   >
                     {stats.map((stat) => (
                       <div key={stat.title} className="daisy-stat">
-                        <div className="daisy-stat-title text-[11px] tracking-[0.08em] uppercase">{stat.title}</div>
+                        <div className="daisy-stat-title text-2xs tracking-[0.08em] uppercase">{stat.title}</div>
                         <div className="daisy-stat-value font-display text-3xl tracking-tight tabular-nums sm:text-4xl">{stat.value}</div>
                         <div className="daisy-stat-desc">{stat.desc}</div>
                       </div>

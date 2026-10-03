@@ -41,7 +41,7 @@ export function SavedPlacesList({ tripId, places }: { tripId: string; places: Mo
               <Link href={`/trips/${tripId}/place/${place.id}`} className="group -mx-2 flex items-center gap-3 rounded-2xl px-2 py-2 transition-colors hover:bg-accent">
                 <Thumb tripId={tripId} place={place} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-medium">{place.name}</span>
+                  <span className="block truncate text-body font-medium">{place.name}</span>
                   {place.category && <span className="block truncate text-xs text-muted-foreground">{categoryLabel(place.category)}</span>}
                 </span>
                 <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-all duration-300 group-hover:translate-x-0.5 group-hover:opacity-100" />
@@ -67,20 +67,20 @@ export function ConstraintsPanel({ taste }: { taste: TastePicture }) {
         <div className="mt-4 space-y-4">
           {taste.avoids.length > 0 && (
             <div>
-              <p className="mb-2 text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">Avoid</p>
+              <p className="mb-2 text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">Avoid</p>
               <div className="flex flex-wrap gap-2">
                 {taste.avoids.map((item) => (
-                  <span key={item} className="daisy-badge h-7 border-border bg-muted px-3 text-[13px] text-muted-foreground line-through decoration-muted-foreground/50">{item}</span>
+                  <span key={item} className="daisy-badge h-7 border-border bg-muted px-3 text-sm text-muted-foreground line-through decoration-muted-foreground/50">{item}</span>
                 ))}
               </div>
             </div>
           )}
           {taste.dietary.length > 0 && (
             <div>
-              <p className="mb-2 text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">Dietary</p>
+              <p className="mb-2 text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">Dietary</p>
               <div className="flex flex-wrap gap-2">
                 {taste.dietary.map((item) => (
-                  <span key={item} className="daisy-badge h-7 border-coral/30 bg-coral/10 px-3 text-[13px]">{item}</span>
+                  <span key={item} className="daisy-badge h-7 border-coral/30 bg-coral/10 px-3 text-sm">{item}</span>
                 ))}
               </div>
             </div>
@@ -103,7 +103,7 @@ export function UndecidedPanel({ items, tripId }: { items: string[]; tripId: str
         <>
           <div className="mt-4 flex flex-wrap gap-2">
             {items.map((item) => (
-              <span key={item} className="daisy-badge h-7 border-border bg-background px-3 text-[13px]">
+              <span key={item} className="daisy-badge h-7 border-border bg-background px-3 text-sm">
                 <span aria-hidden className="mr-1 h-1.5 w-1.5 rounded-full bg-coral" />
                 {item}
               </span>

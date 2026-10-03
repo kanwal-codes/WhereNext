@@ -2,8 +2,9 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowUp, ChevronRight, Copy, Mic, Info } from "lucide-react";
-import { Sheet } from "@/components/motion-primitives";
+import { ArrowDown, ChevronRight, Copy, Info } from "lucide-react";
+import { MicButton, SendButton } from "@/components/ComposerButtons";
+import { Reveal, Sheet, Stagger, StaggerItem, ease, motionTokens } from "@/components/motion-primitives";
 import type { AssistantBlock, AssistantTurnMeta, PlaceCard, ProposedCommand, StayCardItem } from "@/packages/contracts/assistant";
 import type { EventSeed } from "@/components/TripPanelProvider";
 import type { Message } from "../domain/message";
@@ -146,17 +147,22 @@ export function describeProposal(proposal: ProposedCommand): Array<[string, stri
 // arrives, so these are a fallback ceiling for a turn that's still genuinely slow at that point —
 // `Math.max` in `Typing` below means they only ever ADVANCE the label past wherever the real
 // stage already put it, never regress it back to a stale-sounding one.
-// index 1 ("Checking live sources…") is itself a fallback now — `Typing` swaps it for
-// `progressLabel` ("Checking places…", "Getting directions…") whenever RESOLVE planned a tool
+// index 1 ("Looking into it…") is itself a fallback now — `Typing` swaps it for
+// `progressLabel` ("Finding places…", "Plotting the route…") whenever RESOLVE planned a tool
 // this session recognizes, so the wait names what's actually happening instead of staying generic.
+// Roam's voice while it works: a travel companion thinking out loud. Short, concrete, no jargon
+// ("live sources"), and never a promise it might not keep ("Almost there" on a slow turn is a small
+// lie). The long-wait line is honest instead of apologetic.
 const THINKING_STATES = [
-  "Thinking through your trip…",
-  "Checking live sources…",
-  "Pulling the details together…",
-  "Almost there…",
-  "Still working — this one's taking a bit…",
+  "Thinking it through…",
+  "Looking into it…",
+  "Putting it together…",
+  "Still on it…",
+  "This one’s taking a little longer…",
 ];
 const TYPING_MARK = ["thinking", "searching", "planning", "answering"] as const;
+/** Ways into an empty conversation: three things nearly every trip starts with. */
+const STARTERS = ["Plan my first day", "Where should we stay?", "What will this cost?"] as const;
 /** How much of the remaining distance the follow-scroll covers each frame (lower = softer). */
 const FOLLOW_EASE = 0.09;
 const STAGE_PHASE: Record<"resolve" | "retrieve" | "compose", number> = { resolve: 0, retrieve: 1, compose: 2 };
@@ -185,12 +191,30 @@ function Typing({ stage, label }: { stage?: "resolve" | "retrieve" | "compose"; 
   // the phase-indexed generic text below takes back over rather than a now-stale activity name.
   const text = label && phase === STAGE_PHASE.retrieve ? `${label[0]!.toUpperCase()}${label.slice(1)}…` : THINKING_STATES[phase];
   return (
-    <div className="flex items-center gap-1.5 px-1 py-2">
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, transition: { duration: 0.2 } }}
+      transition={motionTokens.swap}
+      className="flex items-center gap-1.5 px-1 py-2"
+    >
       {/* Roam's path mark mirrors the real stage: branching while it works out what you asked,
           searching while it checks sources, folding routes into one while it composes. */}
       <RoamMark state={TYPING_MARK[Math.min(phase, TYPING_MARK.length - 1)]} size={32} className="text-foreground" />
-      <span className="ml-1 text-xs text-muted-foreground">{text}</span>
-    </div>
+      {/* The label follows the stage: the old one lifts away as the new one settles in. */}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={text}
+          initial={{ opacity: 0, y: 5, filter: "blur(3px)" }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          exit={{ opacity: 0, y: -5, filter: "blur(3px)" }}
+          transition={{ duration: 0.22, ease }}
+          className="shimmer-text ml-1 text-xs"
+        >
+          {text}
+        </motion.span>
+      </AnimatePresence>
+    </motion.div>
   );
 }
 
@@ -467,6 +491,16 @@ export function ConversationSurface({
     };
   }, [follow]);
 
+  // Scrolled off the top (fade the edge) / far above the latest message (offer a way back).
+  const [scroll, setScroll] = useState({ scrolled: false, away: false });
+  const handleLogScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const n = e.currentTarget;
+    const scrolled = n.scrollTop > 4;
+    const away = n.scrollHeight - n.clientHeight - n.scrollTop > n.clientHeight * 1.2;
+    setScroll((s) => (s.scrolled === scrolled && s.away === away ? s : { scrolled, away }));
+    onLogScroll?.(e);
+  };
+
   const isMultiline = useAutoGrowTextarea(textareaRef, input);
 
   async function confirmProposal() {
@@ -660,40 +694,9 @@ export function ConversationSurface({
   const showHero = loaded && messages.length === 0 && !rail;
   const waiting = sending && messages[messages.length - 1]?.content.trim() === "";
 
-  const micButton = speech.supported && (
-    <button
-      type="button"
-      onClick={speech.toggle}
-      aria-label={speech.listening ? "Stop dictation" : "Dictate your message"}
-      aria-pressed={speech.listening}
-      disabled={!loaded || sending}
-      className={cn(
-        "pointer-events-auto relative grid size-10 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-40",
-        speech.listening ? "border-destructive/50 bg-destructive/10 text-destructive" : "border-border/60 text-muted-foreground hover:text-foreground",
-      )}
-    >
-      <Mic className={cn("h-4 w-4", speech.listening && "animate-pulse")} />
-    </button>
-  );
-
-  const sendOrStopButton = sending ? (
-    <button
-      type="button"
-      onClick={stop}
-      className="pointer-events-auto h-10 shrink-0 rounded-full border border-destructive/40 px-4 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
-    >
-      Stop
-    </button>
-  ) : (
-    <button
-      type="submit"
-      aria-label="Send"
-      disabled={!loaded || !input.trim()}
-      className="pointer-events-auto grid size-10 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-[opacity,transform] active:scale-95 disabled:opacity-35"
-    >
-      <ArrowUp className="h-4 w-4" />
-    </button>
-  );
+  const micButton = speech.supported && <MicButton listening={speech.listening} disabled={!loaded || sending} onToggle={speech.toggle} />;
+  const canSend = loaded && Boolean(input.trim());
+  const sendOrStopButton = <SendButton canSend={canSend} stopping={sending} onStop={stop} />;
 
   return (
     <div className="relative flex h-full min-h-0 w-full max-w-full flex-col overflow-x-hidden">
@@ -708,35 +711,54 @@ export function ConversationSurface({
       >
         Skip to message box
       </a>
+      {/* `relative`: the sr-only labels inside are absolutely positioned; without a positioned log they anchored to the
+          wrapper outside it and stretched ITS scroll area by thousands of px — a second scrollbar stacked on this one. */}
       {/* `overscroll-contain`: without it, running out of content to scroll at the top/bottom
           lets the gesture "chain" into bouncing the whole page instead of staying inside this
           log — the rubber-band should feel self-contained here, the same way a native app's
           message list never drags the rest of the screen along with it. */}
-      <div ref={logRef} onScroll={onLogScroll} role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions" className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim">
+      <div ref={logRef} onScroll={handleLogScroll} data-scrolled={scroll.scrolled} role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions" className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim scroll-fade-t">
         <div className={cn("mx-auto w-full max-w-full space-y-6 pt-2 pb-28", rail ? "px-1" : "max-w-2xl")}>
           {!loaded && messages.length === 0 && (
             <div aria-hidden className="space-y-6">
               <div className="flex justify-end">
-                <div className="h-9 w-40 animate-pulse bg-foreground/8 rounded-2xl rounded-br-lg" />
+                <div className="h-9 w-40 skeleton rounded-2xl rounded-br-lg" />
               </div>
               <div className="space-y-2">
-                <div className="h-3.5 w-11/12 animate-pulse bg-foreground/8 rounded" />
-                <div className="h-3.5 w-4/5 animate-pulse bg-foreground/8 rounded" />
-                <div className="mt-3 h-28 w-full animate-pulse bg-foreground/8 rounded-2xl" />
+                <div className="h-3.5 w-11/12 skeleton rounded" />
+                <div className="h-3.5 w-4/5 skeleton rounded" />
+                <div className="mt-3 h-28 w-full skeleton rounded-2xl" />
               </div>
               <div className="flex justify-end">
-                <div className="h-9 w-52 animate-pulse bg-foreground/8 rounded-2xl rounded-br-lg" />
+                <div className="h-9 w-52 skeleton rounded-2xl rounded-br-lg" />
               </div>
             </div>
           )}
 
           {showHero && (
-            <div className="pb-2">
-              <RoamMark state="idle" size={112} label="Roam" className="mx-auto block text-foreground" />
-              <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">
-                No forms. Tell me as much or as little as you like — I&rsquo;ll keep the trip details organised and open a
-                proper view when something is easier to see than to describe.
-              </p>
+            <div className="pt-2 pb-2 text-center">
+              {/* The opening shot: the mark, the line, the explanation, then a few ways in, each a beat apart. */}
+              <Reveal y={8}>
+                <RoamMark state="idle" size={112} label="Roam" className="mx-auto block text-foreground" />
+              </Reveal>
+              <Reveal delay={0.12} y={12}>
+                <h2 className="mt-5 font-display text-3xl font-medium tracking-[-0.03em] text-balance">Where shall we begin?</h2>
+              </Reveal>
+              <Reveal delay={0.2} y={10}>
+                <p className="mx-auto mt-3 max-w-md text-body leading-relaxed text-ink-soft text-pretty">
+                  No forms. Tell me as much or as little as you like — I&rsquo;ll keep the trip details organised and open a
+                  proper view when something is easier to see than to describe.
+                </p>
+              </Reveal>
+              <Stagger delay={0.34} gap={0.07} className="mt-6 flex flex-wrap justify-center gap-2">
+                {STARTERS.map((starter) => (
+                  <StaggerItem key={starter}>
+                    <button type="button" disabled={sending || guestGate} onClick={() => void submit(starter)} className="btn-chip h-9 px-4 text-sm disabled:opacity-50">
+                      {starter}
+                    </button>
+                  </StaggerItem>
+                ))}
+              </Stagger>
             </div>
           )}
 
@@ -759,12 +781,14 @@ export function ConversationSurface({
               return (
                 <motion.div
                   key={message.id}
-                  initial={isNew ? { opacity: 0, y: 10 } : false}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ type: "spring", stiffness: 260, damping: 26 }}
+                  // The message leaves the composer: it rises from the bottom-right corner and settles.
+                  initial={isNew ? { opacity: 0, y: 18, scale: 0.9 } : false}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ type: "spring", stiffness: 380, damping: 30, opacity: { duration: 0.16 } }}
+                  style={{ transformOrigin: "100% 100%" }}
                   className="flex flex-col items-end gap-1"
                 >
-                  <p className="max-w-[85%] rounded-2xl rounded-br-lg bg-primary px-4 py-2.5 text-[0.9375rem] leading-normal text-primary-foreground dark:border dark:border-border dark:bg-surface-raised dark:text-foreground">
+                  <p className={cn("max-w-[85%] rounded-2xl rounded-br-lg bg-primary px-4 py-2.5 text-body leading-normal text-primary-foreground transition-opacity duration-300 dark:border dark:border-border dark:bg-surface-raised dark:text-foreground", sending && message.id.startsWith("local-") && "opacity-70")}>
                     <span className="sr-only">You: </span>
                     {message.content}
                   </p>
@@ -900,20 +924,54 @@ export function ConversationSurface({
       </Sheet>
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-background from-55% to-transparent px-3 pt-8 pb-3">
-        <div className={cn("pointer-events-auto mx-auto w-full min-w-0", rail ? "max-w-full" : "max-w-2xl")}>
+        <div className={cn("pointer-events-auto relative mx-auto w-full min-w-0", rail ? "max-w-full" : "max-w-2xl")}>
+          <AnimatePresence>
+            {scroll.away && (
+              <motion.button
+                key="latest"
+                type="button"
+                onClick={scrollToLatestMessage}
+                aria-label="Jump to latest message"
+                initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 6, scale: 0.97 }}
+                transition={motionTokens.swap}
+                whileTap={{ scale: 0.97 }}
+                className="absolute inset-x-0 bottom-full mx-auto mb-2 flex w-fit items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-ink-soft shadow-lift transition-colors hover:text-ink"
+              >
+                <ArrowDown className="size-3.5" aria-hidden />
+                Latest
+              </motion.button>
+            )}
+          </AnimatePresence>
+          <AnimatePresence initial={false}>
           {queued !== null && (
+            <motion.div
+              key="queued"
+              initial={{ opacity: 0, y: 8, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: "auto" }}
+              exit={{ opacity: 0, y: 4, height: 0 }}
+              transition={motionTokens.swap}
+              className="overflow-hidden"
+            >
             <div role="status" className="mb-2 flex items-center gap-3 rounded-2xl border border-border bg-card px-3 py-2 text-xs text-muted-foreground shadow-soft">
               <span className="min-w-0 flex-1 truncate">Next: “{queued}” · sends when Roam finishes</span>
               <button type="button" onClick={() => { setInput(queued); setQueued(null); }} className={textAction}>Edit</button>
               <button type="button" onClick={() => setQueued(null)} className={textAction}>Cancel</button>
             </div>
+            </motion.div>
           )}
+          </AnimatePresence>
           <form
             onSubmit={(event: FormEvent) => {
               event.preventDefault();
               void submit(input);
             }}
-            className="flex w-full min-w-0 max-w-full flex-col gap-1 rounded-3xl border border-input bg-card px-3 py-2 shadow-lift focus-within:ring-2 focus-within:ring-ring/25"
+            className={cn(
+              "flex w-full min-w-0 max-w-full flex-col gap-1 rounded-3xl border border-input bg-card py-1.5 pl-4 pr-1.5 shadow-lift transition-[border-color,box-shadow] duration-200 ease-out",
+              "focus-within:border-ink/30 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_6%,transparent),var(--shadow-lift)]",
+              sending && "composer-live",
+            )}
           >
             {/* The buttons overlay this box (single line) or sit in their own row below it
                 (multiple lines) — see the matching comment on GroupChatSurface's identical
@@ -945,7 +1003,7 @@ export function ConversationSurface({
                 }}
                 placeholder={!loaded ? "Loading…" : guestGate ? "Save your trip to keep chatting" : speech.listening ? "Listening…" : sending ? "Type your next message…" : "Ask about your trip…"}
                 disabled={!loaded || guestGate}
-                className="max-h-[96px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent py-1.5 pr-28 text-base leading-normal outline-none transition-[height] duration-150 ease-out placeholder:text-muted-foreground disabled:opacity-60"
+                className="block max-h-[96px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent py-2 pr-24 text-base leading-normal outline-none transition-[height] duration-150 ease-out placeholder:text-muted-foreground disabled:opacity-60"
               />
               {!isMultiline && (
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center gap-1">

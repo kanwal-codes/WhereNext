@@ -15,7 +15,7 @@ export async function sendConversationMessage(input: {
   onAssistantStart: (responseId: string) => void;
   onAssistantDelta: (content: string) => void;
   /** Phase 2.6.2 (docs/overhaul/roadmap/phase-2-speed.md): real backend progress milestones.
-   *  `label` is set on "retrieve" when RESOLVE planned a recognized tool ("checking places"). */
+   *  `label` is set on "retrieve" when RESOLVE planned a recognized tool ("finding places"). */
   onProgress?: (stage: "resolve" | "retrieve" | "compose", label?: string) => void;
   signal?: AbortSignal;
 }): Promise<{ meta?: AssistantTurnMeta; content: string }> {

@@ -33,7 +33,7 @@ export function FactStrip({ facts, className }: { facts: Array<Maybe<Fact>>; cla
           >
             {fact.value}
           </dd>
-          {fact.note && <dd className="daisy-stat-desc text-xs text-muted-foreground opacity-100">{fact.note}</dd>}
+          {fact.note && <dd className="daisy-stat-desc text-xs leading-snug break-words whitespace-normal text-muted-foreground opacity-100">{fact.note}</dd>}
         </div>
       ))}
     </dl>

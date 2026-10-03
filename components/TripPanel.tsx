@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
+import { SendButton } from "@/components/ComposerButtons";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, ArrowUpRight, BedDouble, CalendarDays, CalendarRange, Eraser, LayoutGrid, Loader2, Map as MapIcon, MapPin, Route as RouteIcon, Maximize2, Plane, Scale, Send, Wallet, X } from "lucide-react";
@@ -83,6 +84,12 @@ function fullPageHref(panel: PanelState, tripId: string, compareIds: string[]): 
     default:
       return `${base}/compare${compareIds.length ? `?ids=${compareIds.map(encodeURIComponent).join(",")}` : ""}`;
   }
+}
+
+/** Icon inside the expand Link: becomes a spinner the moment it is pressed, until the full page arrives. */
+function ExpandIcon() {
+  const { pending } = useLinkStatus();
+  return pending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Maximize2 className="size-4" aria-hidden />;
 }
 
 function CompareGrid({ list, anchor, onRemove }: { list: CompareEntry[]; anchor: Anchor; onRemove: (id: string) => void }) {
@@ -328,7 +335,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   const body: ReactNode = !shown ? null : shown.kind === "place" ? (
     <PlaceDetailView tripId={tripId} placeId={shown.placeId} variant="panel" />
   ) : shown.kind === "stay" ? (
-    <StayDetailView tripId={tripId} hotelId={shown.hotelId} checkin={shown.checkin} checkout={shown.checkout} variant="panel" />
+    <StayDetailView tripId={tripId} hotelId={shown.hotelId} checkin={shown.checkin} checkout={shown.checkout} seedName={shown.name} variant="panel" />
   ) : shown.kind === "event" ? (
     <EventDetailView tripId={tripId} seed={shown.seed} variant="panel" />
   ) : shown.kind === "flight" ? (
@@ -373,7 +380,9 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
     </div>
   );
   // The surface (header + scroll frame) stays put; only this crossfades between subjects.
-  const animatedBody = <ContentSwap swapKey={sk} className="min-h-full">{body}</ContentSwap>;
+  // Flight, day, budget and route are cards and rows with no width of their own: on a wide panel or a tablet sheet they keep a 40rem reading column, like the detail views do.
+  const narrow = shown ? ["flight", "day", "budget", "route"].includes(shown.kind) : false;
+  const animatedBody = <ContentSwap swapKey={sk} className="min-h-full">{narrow ? <div className="mx-auto w-full max-w-[40rem]">{body}</div> : body}</ContentSwap>;
   const KindIcon = shown ? KIND_ICON[shown.kind] : null;
   const header = shown && (
     <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2.5">
@@ -394,12 +403,18 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
         )}
         <Link
           href={fullPageHref(shown, tripId, compareList.map((e) => e.id))}
-          onClick={() => closePanel?.()}
+          // Do NOT close the panel here: closing pops the panel's browser-history entry with history.back(),
+          // which raced the link's own navigation and cancelled it ("expand does nothing"). The provider closes
+          // the panel by itself when the route changes; only a link to the page we are already on needs this.
+          onClick={(event) => {
+            const here = window.location.pathname;
+            if (new URL(event.currentTarget.href).pathname === here) closePanel?.();
+          }}
           aria-label="Open as full page"
           title="Open as full page"
           className={controlGhost}
         >
-          <Maximize2 className="size-4" aria-hidden />
+          <ExpandIcon />
         </Link>
         <button ref={closeButtonRef} type="button" onClick={closePanel} aria-label="Close panel" title="Close (Esc)" className={controlGhost}>
           <X className="size-4" aria-hidden />
@@ -445,19 +460,20 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
           e.preventDefault();
           void ask(input);
         }}
-        className="flex shrink-0 items-center gap-2 border-t border-border p-3"
+        className="shrink-0 border-t border-border p-3"
       >
-        <input
-          aria-label="Ask about this item"
-          name="panel-question"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={panel.kind === "compare" ? "Ask about these — value, location, what to pick…" : "Ask about this — does it fit my trip?"}
-          className="h-10 min-w-0 flex-1 rounded-xl border border-input bg-card px-3 text-base outline-none focus:ring-2 focus:ring-ring/25"
-        />
-        <button type="submit" disabled={sending || !input.trim()} className="grid size-10 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-[opacity,transform] active:scale-95 disabled:opacity-40" aria-label="Send">
-          {sending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Send className="size-4" aria-hidden />}
-        </button>
+        {/* The same pill as the main chat's message box, so asking about a card feels like asking Roam. */}
+        <div className="flex items-center gap-1 rounded-full border border-input bg-card py-1.5 pl-4 pr-1.5 shadow-soft transition-[border-color,box-shadow] duration-200 focus-within:border-ink/30 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_6%,transparent),var(--shadow-soft)]">
+          <input
+            aria-label="Ask about this item"
+            name="panel-question"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={panel.kind === "compare" ? "Ask about these — value, location, what to pick…" : "Ask about this — does it fit my trip?"}
+            className="h-10 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
+          />
+          <SendButton canSend={!sending && Boolean(input.trim())} />
+        </div>
       </form>
     </>
   );

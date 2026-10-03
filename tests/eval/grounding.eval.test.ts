@@ -39,7 +39,7 @@ const { compose, streamTextMock } = vi.hoisted(() => {
 });
 let listRows: Array<Record<string, unknown>> = [];
 
-vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: async () => createMockSupabase({ member: { trip_id: TRIP, role: "owner" } }) }));
+vi.mock("@/lib/supabase/server", () => ({ getSessionUser: async (client: { auth: { getUser: () => Promise<{ data: { user: unknown } }> } }) => (await client.auth.getUser()).data.user, createSupabaseServerClient: async () => createMockSupabase({ member: { trip_id: TRIP, role: "owner" } }) }));
 vi.mock("@/lib/application/trip-context", () => ({
   loadTripContext: loadTripContextMock,
   serializeTripContext: (c: unknown) => JSON.stringify(c),

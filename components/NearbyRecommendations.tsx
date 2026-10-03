@@ -1,17 +1,17 @@
 "use client";
 
-import { SafeImage } from "@/components/SafeImage";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
-import Link from "next/link";
-import { Check, Loader2, Star } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
 import type { NearbyEvent } from "@/components/EventCard";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 import { EventCard } from "@/components/EventCard";
+import { CardMedia, CompareMark, EntityCard, MediaFallback, RatingMeta } from "@/features/conversation/ui/blocks/ui";
+import { placeGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { Reveal } from "@/components/motion-primitives";
 import { ShowMore } from "@/components/DetailKit";
-import { cn } from "@/lib/utils";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import { photoProxyUrl } from "@/lib/places-ui";
@@ -27,48 +27,39 @@ const asList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((s): s is 
 const norm = (s: string) => s.trim().toLowerCase();
 
 function MiniCard({ tripId, place, why, onSelect }: { tripId: string; place: Place; why?: string | null; onSelect?: () => void }) {
+  const router = useRouter();
   const photo = photoProxyUrl(tripId, place.photoNames?.[0], 400);
   const panelCtx = useTripPanelMaybe();
   const href = `/trips/${tripId}/place/${encodeURIComponent(place.providerId)}`;
   const itinerary = (useTripDataMaybe()?.data?.itinerary ?? []) as Array<{ title?: string; day_index?: number }>;
   const itinDay = itinerary.find((i) => i.title && norm(i.title) === norm(place.name))?.day_index;
   const entry: CompareEntry = { id: place.providerId, kind: "place", name: place.name, href, subtitle: place.address ?? undefined, attrs: { rating: typeof place.rating === "number" ? place.rating.toFixed(1) : undefined, ratingValue: place.rating, address: place.address ?? undefined, lat: place.latitude, lng: place.longitude, when: itinDay ? `Day ${itinDay}` : undefined } };
+  const open = () => {
+    onSelect?.();
+    if (!panelCtx) return router.push(href);
+    if (panelCtx.compareMode) return panelCtx.compareToggle(entry);
+    panelCtx.openPanel({ kind: "place", placeId: place.providerId, name: place.name });
+  };
+  const comparing = Boolean(panelCtx?.compareMode);
+  const selected = comparing && Boolean(panelCtx?.compareHas(place.providerId));
   return (
-    <Link
-      href={href}
-      onClick={(event) => {
-        onSelect?.();
-        if (!panelCtx || event.metaKey || event.ctrlKey || event.shiftKey || event.button === 1) return;
-        event.preventDefault();
-        if (panelCtx.compareMode) panelCtx.compareToggle(entry);
-        else panelCtx.openPanel({ kind: "place", placeId: place.providerId, name: place.name });
-      }}
-      className="relative block w-[196px] shrink-0 snap-start overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition-shadow hover:shadow-lift"
-    >
-      <SafeImage src={photo} alt={place.name} width={196} height={110} className="h-28 w-full object-cover" />
-      {panelCtx?.compareMode && (
-        <span
-          aria-hidden
-          className={cn(
-            "absolute top-1.5 right-1.5 grid h-5 w-5 place-items-center rounded-full border-2 shadow-sm transition-colors",
-            panelCtx.compareHas(place.providerId) ? "border-coral bg-coral text-white" : "border-white bg-black/25 text-transparent",
-          )}
-        >
-          <Check className="h-3 w-3" strokeWidth={3} />
-        </span>
-      )}
-      <div className="p-3">
-        <p className="truncate text-sm font-medium">{place.name}</p>
-        {typeof place.rating === "number" && (
-          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-            <Star className="h-3 w-3 fill-current text-coral" />
-            {place.rating.toFixed(1)}
-          </p>
-        )}
-        {why && why !== "Top-rated" && <p className="mt-1 truncate text-xs text-muted-foreground">{why}</p>}
-        {panelCtx?.compareMode && <p className="mt-1 text-xs text-muted-foreground">{panelCtx.compareHas(place.providerId) ? "Selected" : "Click to compare"}</p>}
-      </div>
-    </Link>
+    <div className="w-[196px] shrink-0 snap-start">
+      <EntityCard
+        compact
+        label={`Open ${place.name}`}
+        onOpen={open}
+        href={href}
+        className={selected ? "ring-2 ring-coral" : undefined}
+        media={
+          <div className="relative">
+            <CardMedia src={photo} alt={place.name} fallback={<MediaFallback icon={placeGlyph(place.category, place.name).icon} className="aspect-[16/10] w-full rounded-t-2xl" />} />
+            {comparing && <CompareMark selected={selected} />}
+          </div>
+        }
+        title={place.name}
+        meta={[typeof place.rating === "number" ? <RatingMeta key="r" rating={place.rating} count={place.userRatingCount} /> : null, why && why !== "Top-rated" ? why : null]}
+      />
+    </div>
   );
 }
 
@@ -376,7 +367,7 @@ export function NearbyRecommendations({
                   </button>
                 )}
               </div>
-              <div className="mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain no-scrollbar pb-1">
+              <div className="mt-2 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain no-scrollbar pb-9 -mb-8 pt-2">
                 {shownPlaces.map((r, idx) => (
                   <MiniCard
                     key={r.place.providerId}

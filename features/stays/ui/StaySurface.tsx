@@ -15,6 +15,7 @@ import { useInfiniteReveal } from "@/lib/use-infinite-reveal";
 import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache";
 import { cn } from "@/lib/utils";
 import { fmtDay } from "@/lib/trip-dates";
+import { cachedGet } from "@/lib/client/cached-get";
 
 type Result = {
   location: string;
@@ -99,7 +100,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
         return;
       }
 
-      const response = await fetch(`/api/trips/${tripId}/stays?${qs}`, { signal: controller.signal });
+      const response = await cachedGet(`/api/trips/${tripId}/stays?${qs}`, { signal: controller.signal });
       const body = await response.json();
       if (mine !== reqId.current) return;
       if (!response.ok) {
@@ -354,16 +355,16 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                           Suites - Montreal Centre-ville Ouest by IHG") was cutting off almost
                           immediately on a narrow card; this list item's height is already
                           content-driven (no fixed height to fight), so 2 lines costs nothing. */}
-                      <Link href={detailHref(o.hotelId)} onClick={openStay(o)} className="min-w-0 flex-1 line-clamp-2 font-display text-base leading-tight hover:text-primary">{o.name}</Link>
+                      <Link href={detailHref(o.hotelId)} onClick={openStay(o)} className="min-w-0 flex-1 line-clamp-2 font-display text-base leading-tight underline-offset-4 decoration-1 hover:underline">{o.name}</Link>
                       {locked && (
-                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-leaf-soft px-2 py-0.5 text-[10px] font-medium text-leaf">
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-leaf-soft px-2 py-0.5 text-2xs font-medium text-leaf">
                           <Check className="h-3 w-3" /> Locked
                         </span>
                       )}
                     </div>
                     <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
                       {o.propertyType && o.propertyType !== "Hotel" && (
-                        <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-ink-soft">{o.propertyType}</span>
+                        <span className="rounded-md bg-muted px-1.5 py-0.5 text-2xs font-medium text-ink-soft">{o.propertyType}</span>
                       )}
                       {typeof o.stars === "number" && o.stars > 0 && <span>{o.stars}★</span>}
                       {typeof o.rating === "number" && o.rating > 0 && (
@@ -378,11 +379,11 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                     <div className="mt-auto flex items-end justify-between pt-3">
                       <span className="text-sm font-semibold tabular-nums">
                         {money(o.nightlyAmount)}
-                        <span className="block text-[11px] font-normal text-muted-foreground">/night · {money(o.totalAmount)} total</span>
+                        <span className="block text-2xs font-normal text-muted-foreground">/night · {money(o.totalAmount)} total</span>
                       </span>
                       <div className="flex items-center gap-2">
-                        {panelCtx?.compareMode && <span className="text-[11px] text-muted-foreground">{panelCtx.compareHas(o.hotelId) ? "Selected" : "Select in compare mode"}</span>}
-                        <Link href={detailHref(o.hotelId)} onClick={openStay(o)} className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+                        {panelCtx?.compareMode && <span className="text-2xs text-muted-foreground">{panelCtx.compareHas(o.hotelId) ? "Selected" : "Select in compare mode"}</span>}
+                        <Link href={detailHref(o.hotelId)} onClick={openStay(o)} className="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline">
                           View <ArrowUpRight className="h-3 w-3" />
                         </Link>
                       </div>

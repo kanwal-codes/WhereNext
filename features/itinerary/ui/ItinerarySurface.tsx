@@ -285,7 +285,7 @@ export function ItinerarySurface({
             </span>
           )}
           <div className="min-w-0">
-            <p className="text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">Based at</p>
+            <p className="text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">Based at</p>
             <p className="truncate font-display text-xl tracking-tight">{lockedStay.hotelName}</p>
             <p suppressHydrationWarning className="truncate text-sm text-muted-foreground">
               {fmtDay(lockedStay.checkin)} to {fmtDay(lockedStay.checkout)}
@@ -299,7 +299,7 @@ export function ItinerarySurface({
           e.preventDefault();
           void add();
         }}
-        className="flex flex-wrap items-center gap-2 rounded-[1.75rem] border border-border/70 bg-card p-2 pl-5 shadow-soft transition-colors focus-within:border-foreground/30"
+        className="flex flex-wrap items-center gap-2 rounded-3xl border border-border/70 bg-card p-2 pl-5 shadow-soft transition-colors focus-within:border-foreground/30"
       >
         <Plus aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
         <input
@@ -307,7 +307,7 @@ export function ItinerarySurface({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Add something to the plan…"
-          className="min-w-0 flex-1 basis-48 bg-transparent px-1 py-2 text-[15px] outline-none placeholder:text-muted-foreground"
+          className="min-w-0 flex-1 basis-48 bg-transparent px-1 py-2 text-body outline-none placeholder:text-muted-foreground"
         />
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           Day

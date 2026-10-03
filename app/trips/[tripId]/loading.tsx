@@ -14,8 +14,8 @@ import { Skeleton, SkeletonLines } from "@/components/Skeleton";
 export default function TripLoading() {
   return (
     <div className="flex min-h-svh flex-col">
-      <div className="sticky top-0 z-30 flex h-[var(--topbar)] shrink-0 items-center gap-3 border-b border-border bg-background/90 px-4 backdrop-blur">
-        <BrandMark variant="compact" className="h-6 w-6 shrink-0 text-[10px]" />
+      <div className="sticky top-0 z-30 flex h-[var(--topbar)] shrink-0 items-center gap-3 border-b border-border bg-background/95 px-4">
+        <BrandMark variant="compact" className="h-6 w-6 shrink-0 text-2xs" />
         <Skeleton className="h-4 w-40 rounded-md" />
       </div>
       <div className="mx-auto w-full min-w-0 max-w-5xl flex-1 px-5 py-10 sm:px-8">
