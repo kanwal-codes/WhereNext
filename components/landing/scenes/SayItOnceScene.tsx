@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   DollarSign,
@@ -12,6 +13,7 @@ import { RoamMark } from "@/features/roam/ui/RoamMark";
 import { startTrip } from "@/components/landing/choreography";
 import { AppFrame } from "@/components/landing/story/AppFrame";
 import { Reveal } from "@/components/landing/story/Reveal";
+import { calm, watch } from "@/components/landing/story/scroll";
 
 const MESSAGE =
   "Four of us want Montreal, Oct 16–19. Bad Bunny’s on the 16th. $900 each, one vegetarian, no museums.";
@@ -29,8 +31,29 @@ const CONSTRAINTS = [
  * start (hidden, not absent) so nothing shifts while it runs.
  */
 export function SayItOnceScene() {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [seen, setSeen] = useState(false);
   const typed = MESSAGE.length;
-  const stage = 3;
+  const [stage, setStage] = useState(0);
+
+  useEffect(() => {
+    const el = frameRef.current;
+    if (!el) return;
+    return watch(() => {
+      const rect = el.getBoundingClientRect();
+      const vh = window.innerHeight;
+      if (rect.top < vh * 0.55 && rect.bottom > vh * 0.45 && calm(250)) {
+        setSeen(true);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!seen) return;
+    setStage(2);
+    const timer = window.setTimeout(() => setStage(3), 600);
+    return () => window.clearTimeout(timer);
+  }, [seen]);
 
   const done = typed >= MESSAGE.length;
 
@@ -64,8 +87,8 @@ export function SayItOnceScene() {
           </Reveal>
         </div>
 
-        <div className="mx-auto w-full max-w-xl lg:max-w-none">
-          <div>
+        <Reveal className="mx-auto w-full max-w-xl lg:max-w-none" offset={40}>
+          <div ref={frameRef}>
             <AppFrame title="Friend group">
               <div
                 aria-hidden="true"
@@ -90,12 +113,12 @@ export function SayItOnceScene() {
                   className={`flex items-center gap-2.5 transition-opacity duration-500 ${stage >= 1 ? "opacity-100" : "opacity-0"}`}
                 >
                   <RoamMark
-                    state="settled"
+                    state={stage === 2 ? "settled" : "thinking"}
                     size={32}
                     className="shrink-0 text-[#0b6571]"
                   />
                   <p className="text-[15px] text-ink-soft">
-                    Got it. Here’s the trip so far.
+                    {stage >= 2 ? "Got it. Here’s the trip so far." : "Reading your message…"}
                   </p>
                 </div>
 
@@ -168,7 +191,7 @@ export function SayItOnceScene() {
               </div>
             </AppFrame>
           </div>
-        </div>
+        </Reveal>
       </div>
     </section>
   );
