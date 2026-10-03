@@ -58,10 +58,10 @@ export function PlansChangePanel() {
       <div className="space-y-3 p-4 sm:p-5">
         <div className="flex max-w-[85%] items-end gap-2">
           <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">M</span>
-          <p className="rounded-2xl rounded-bl-md border border-border bg-surface px-4 py-2.5 text-sm">Pottery place says they’re sold out for 2pm 😭</p>
+          <p className="rounded-2xl rounded-bl-md border border-border bg-surface px-4 py-2.5 text-sm">Pottery place says they’re sold out for 2 PM 😭</p>
         </div>
         <p className="ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-sm text-primary-foreground">
-          <span className="text-[#ff9f80]">@Roam</span> find another timing
+          <span className="text-[#ff9f80]">@Roam</span> find us another option
         </p>
         <div className="flex max-w-[92%] items-end gap-2">
           <RoamMark state="settled" size={30} animated={false} className="mb-1.5 shrink-0 text-[#0b6571]" />

@@ -23,7 +23,7 @@ export function PromptScene() {
         </span>
       </h1>
       <p className="bp-sub">
-        Tell Roam where you’re headed, or only how you want it to feel. It plans
+        Tell Roam where you’re headed, or just how you want it to feel. Roam plans
         the rest.
       </p>
       <BoardingPass />

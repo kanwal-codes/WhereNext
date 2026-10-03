@@ -72,7 +72,7 @@ export function SayItOnceScene() {
             className="story-lede mx-auto mt-5 max-w-md lg:mx-0"
           >
             Describe the trip the way you’d text a friend. Roam turns it into a
-            brief: who’s going, when, what it can cost, and what’s off the
+            brief: who’s going, when, what you can spend, and what’s off the
             table.
           </Reveal>
           <Reveal className="mt-8" offset={60}>
@@ -136,11 +136,11 @@ export function SayItOnceScene() {
                           Montreal
                         </p>
                         <p className="mt-0.5 text-sm text-muted-foreground">
-                          Oct 16–19 · Four friends
+                          Oct 16–19 · 4 friends
                         </p>
                       </div>
                       <span className="rounded-full bg-coral-soft px-3 py-1 text-xs font-medium text-coral-ink">
-                        Ready to shape
+                        Ready to plan
                       </span>
                     </div>
 
@@ -162,7 +162,7 @@ export function SayItOnceScene() {
                             Bad Bunny · Oct 16
                           </span>
                           <span className="block text-xs text-white/85">
-                            The trip anchor
+                            Fixed date
                           </span>
                         </span>
                       </div>

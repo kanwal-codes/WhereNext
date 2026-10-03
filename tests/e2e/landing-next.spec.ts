@@ -112,7 +112,7 @@ test.describe("landing page", () => {
     const prompt = page.locator('[data-scene="prompt"]');
     await prompt.getByRole("textbox", { name: "Describe the trip you want" }).fill("Rome for 5 days");
     await prompt.getByRole("button", { name: /Start planning/ }).click();
-    await expect(prompt.getByRole("alert")).toContainText("We couldn't start that just now");
+    await expect(prompt.getByRole("alert")).toContainText("We couldn’t start that just now");
     await expect(prompt.getByRole("link", { name: "Create a free account" })).toHaveAttribute("href", /\/sign-up/);
     await expect(prompt.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/sign-in");
     await expect(prompt.getByRole("button", { name: /Start planning/ })).toBeEnabled();
@@ -127,7 +127,7 @@ test.describe("landing page", () => {
     await prompt.getByRole("textbox", { name: "Describe the trip you want" }).fill("Rome for 5 days");
     await prompt.getByRole("button", { name: /Start planning/ }).click();
     const notice = prompt.getByRole("alert");
-    await expect(notice).toContainText("You've been planning a lot today");
+    await expect(notice).toContainText("You’ve been planning a lot today");
     await expect(notice).toContainText("Create a free account to keep going");
     await expect(notice).not.toContainText("That's a lot of new trips");
     await expect(notice.getByRole("link", { name: "Create a free account" })).toBeVisible();
@@ -252,7 +252,7 @@ test.describe("landing page", () => {
     for (const [fraction, title] of [
       [0.08, "Find what fits"],
       [0.5, "Plans change. Roam keeps up."],
-      [0.92, "Everything in one place"],
+      [0.92, "Every booking on its day"],
     ] as const) {
       await page.evaluate(([t, h, f]) => window.scrollTo(0, t + (h - window.innerHeight) * f), [box.top, box.h, fraction] as const);
       await expect.poll(current, { timeout: 4000 }).toContain(title);
@@ -263,7 +263,7 @@ test.describe("landing page", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/landing-next");
     const scene = page.locator('[data-scene="showcase"]');
-    for (const title of ["Find what fits", "Plans change. Roam keeps up.", "Everything in one place"]) {
+    for (const title of ["Find what fits", "Plans change. Roam keeps up.", "Every booking on its day"]) {
       await expect(scene.getByRole("heading", { name: title })).toBeAttached();
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

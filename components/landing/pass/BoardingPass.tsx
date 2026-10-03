@@ -36,22 +36,22 @@ const EXAMPLES_COMPACT = [
 type Problem = { title: string; body: string; account: boolean };
 const PROBLEMS = {
   busy: {
-    title: "You've been planning a lot today",
+    title: "You’ve been planning a lot today",
     body: "Create a free account to keep going. Everything you plan is saved.",
     account: true,
   },
   unavailable: {
-    title: "We couldn't start that just now",
+    title: "We couldn’t start that just now",
     body: "Please try again in a moment, or create a free account to start planning right away.",
     account: true,
   },
   offline: {
-    title: "We couldn't connect",
+    title: "We couldn’t connect",
     body: "Check your connection and try again.",
     account: false,
   },
   other: {
-    title: "We couldn't start that just now",
+    title: "We couldn’t start that just now",
     body: "Please try again in a moment.",
     account: false,
   },
