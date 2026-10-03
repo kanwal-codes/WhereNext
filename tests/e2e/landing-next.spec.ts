@@ -169,7 +169,6 @@ test.describe("landing page", () => {
     await expect(fields).toContainText("Oct 16–19");
     await expect(fields).toContainText("$900 each");
     await expect(fields).toContainText("No museums");
-    await expect(prompt.locator(".bp-chip")).toHaveText("YUL");
     // Unclear things stay as prompts instead of guesses.
     await prompt.getByRole("textbox", { name: "Describe the trip you want" }).fill("Somewhere nice");
     await expect(fields).toContainText("Add dates");

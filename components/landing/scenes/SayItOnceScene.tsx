@@ -92,7 +92,7 @@ export function SayItOnceScene() {
             <AppFrame title="Friend group">
               <div
                 aria-hidden="true"
-                className="min-h-[27rem] space-y-4 p-4 sm:min-h-[35rem] sm:p-6"
+                className="min-h-[33.25rem] space-y-4 p-4 sm:min-h-[33rem] sm:p-6"
               >
                 <div className="ml-auto max-w-[88%] rounded-2xl rounded-br-md bg-primary px-4 py-3 text-[15px] leading-relaxed text-primary-foreground">
                   <span className="grid">
@@ -172,14 +172,14 @@ export function SayItOnceScene() {
                       {CONSTRAINTS.map(({ label, icon: Icon }, i) => (
                         <span
                           key={label}
-                          className={`flex items-center gap-2.5 rounded-xl border border-border bg-white px-3 py-2.5 text-sm font-medium transition-[opacity,transform] duration-500 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] ${stage >= 3 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}
+                          className={`flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-[opacity,transform] duration-500 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] ${stage >= 3 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}
                           style={{
                             transitionDelay:
                               stage >= 3 ? `${350 + i * 110}ms` : "0ms",
                           }}
                         >
                           <Icon
-                            className="size-4 text-coral"
+                            className="size-4 shrink-0 text-coral"
                             strokeWidth={1.8}
                           />
                           {label}

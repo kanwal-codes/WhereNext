@@ -45,8 +45,8 @@ export function TradeoffScene() {
                     <Icon className="size-4" strokeWidth={1.8} />
                   </span>
                   <div>
-                    <dt className="text-sm font-semibold">{label}</dt>
-                    <dd className="mt-0.5 text-[15px] leading-relaxed text-ink-soft">{text}</dd>
+                    <dt className="text-[15px] font-semibold">{label}</dt>
+                    <dd className="mt-0.5 text-base leading-relaxed text-ink-soft">{text}</dd>
                   </div>
                 </div>
               ))}

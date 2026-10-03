@@ -19,7 +19,7 @@ type Piece = {
 };
 
 // Wide desk: twelve pieces lie in an overlapping pile, then settle into four neat columns.
-const COLS = [-24, -8, 8, 24];
+const COLS = [-25.5, -8.5, 8.5, 25.5];
 const ROWS = [-12.5, 0, 12.5];
 const at = (i: number) => [COLS[i % 4], ROWS[Math.floor(i / 4)]] as const;
 const WIDE: Piece[] = [

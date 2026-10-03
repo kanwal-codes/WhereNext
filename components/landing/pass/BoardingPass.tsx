@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { createPortal } from "react-dom";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { GUEST_LIVE_KEY } from "@/features/identity/application/guestSession";
 import { useTurnstile } from "@/components/landing/useTurnstile";
@@ -14,12 +15,20 @@ import {
 } from "@/components/landing/pass/PassShell";
 import { guessHomeCode, HOME_CODE } from "@/lib/landing/airports";
 import { readTrip } from "@/lib/landing/readTrip";
+import { useMediaQuery } from "@/lib/use-media-query";
 
+// One line each: the box never wraps its example, so these are written to fit it (a phone's is the narrow one).
 const EXAMPLES = [
-  "Four of us, Montreal, Oct 16–19, $900 each, no museums",
-  "Solo week in Kyoto in April, quiet temples, great ramen",
-  "Somewhere warm in November, under $1,500, direct from Toronto",
-  "Four days in Lisbon, mostly on foot and at the table",
+  "Four of us, Montreal, Oct 16–19, $900 each",
+  "Solo week in Kyoto, quiet temples, ramen",
+  "Somewhere warm in November, under $1,500",
+  "Four days in Lisbon, mostly on foot",
+] as const;
+const EXAMPLES_COMPACT = [
+  "Montreal, Oct 16–19, $900",
+  "Solo week in Kyoto, April",
+  "Warm in Nov, $1,500 max",
+  "Four days in Lisbon",
 ] as const;
 
 /** What the visitor is told when starting a trip fails. Copy is chosen here from the error code, so
@@ -50,19 +59,16 @@ const PROBLEMS = {
 
 const TAGS = [
   {
-    code: "YUL",
     label: "Long weekend in Montreal",
     prompt:
       "A long weekend in Montreal with friends: live music, good food, nothing touristy.",
   },
   {
-    code: "KYO",
     label: "Solo week in Kyoto",
     prompt:
       "A solo week in Kyoto in April. Quiet temples, great food, easy to get around.",
   },
   {
-    code: "···",
     label: "Inspire me",
     prompt:
       "Inspire me: where should I go in October for great food and a bit of adventure?",
@@ -96,8 +102,9 @@ export function BoardingPass({ finale = false }: { finale?: boolean }) {
   const [announce, setAnnounce] = useState("");
   const attemptRef = useRef(crypto.randomUUID());
   const { container: turnstile, getToken } = useTurnstile();
+  const compact = useMediaQuery("(max-width: 819px)");
   const typed = useTypingPlaceholder(
-    EXAMPLES,
+    compact ? EXAMPLES_COMPACT : EXAMPLES,
     !finale && !prompt && !focused,
     1500,
   );
@@ -329,56 +336,56 @@ export function BoardingPass({ finale = false }: { finale?: boolean }) {
       </p>
       <div ref={turnstile} />
 
-      {!problem ? (
-        finale ? null : (
-          <div
-            className="bp-tags bp-in"
-            style={{ "--d": "1500ms" } as React.CSSProperties}
-          >
-            <span className="bp-tags-lab">Or start from</span>
-            {TAGS.map((tag) => (
-              <button
-                key={tag.label}
-                type="button"
-                onClick={() => {
-                  setPrompt(tag.prompt);
-                  textareaRef.current?.focus();
-                }}
-                className="bp-tag hit-44"
-              >
-                <i aria-hidden="true" />
-                <b aria-hidden="true">{tag.code}</b>
-                {tag.label}
-              </button>
-            ))}
-          </div>
-        )
-      ) : (
-        <div role="alert" className="bp-alert">
-          <div>
-            <p className="font-display text-base">{problem.title}</p>
-            <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">
-              {problem.body}
-            </p>
-          </div>
-          {problem.account && (
-            <div className="flex shrink-0 items-center gap-4">
-              <Link
-                href="/sign-up?redirect=%2Ftrips%2Fnew"
-                className="btn-primary"
-              >
-                Create a free account
-              </Link>
-              <Link
-                href="/sign-in"
-                className="link-underline text-sm font-medium text-foreground"
-              >
-                Sign in
-              </Link>
-            </div>
-          )}
+      {!finale && (
+        <div
+          className="bp-tags bp-in"
+          style={{ "--d": "1500ms" } as React.CSSProperties}
+        >
+          <span className="bp-tags-lab">Or start from</span>
+          {TAGS.map((tag) => (
+            <button
+              key={tag.label}
+              type="button"
+              onClick={() => {
+                setPrompt(tag.prompt);
+                textareaRef.current?.focus();
+              }}
+              className="bp-tag hit-44"
+            >
+              {tag.label}
+            </button>
+          ))}
         </div>
       )}
+      {/* In the page's own layer, not under the pass: on the last screen the pass sits in the wallet's pocket and on a phone the stub pushes this off screen, so an error there is never seen. */}
+      {problem &&
+        createPortal(
+          <div role="alert" className="bp-alert bp-toast">
+            <div>
+              <p className="font-display text-base">{problem.title}</p>
+              <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">
+                {problem.body}
+              </p>
+            </div>
+            {problem.account && (
+              <div className="flex shrink-0 items-center gap-4">
+                <Link
+                  href="/sign-up?redirect=%2Ftrips%2Fnew"
+                  className="btn-primary"
+                >
+                  Create a free account
+                </Link>
+                <Link
+                  href="/sign-in"
+                  className="link-underline text-sm font-medium text-foreground"
+                >
+                  Sign in
+                </Link>
+              </div>
+            )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
