@@ -124,6 +124,22 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   };
   useEffect(() => setScrolledAway(false), [optimisticTab]);
   const chromeHidden = !desktop && (keyboardOpen || scrolledAway);
+  // Both panes stay mounted so switching tabs is instant, but the one you are not on does not need to be built
+  // while the page is still arriving (the Roam thread alone is hundreds of controls): it is mounted once the
+  // browser is idle, or at once if you switch to it first.
+  const [warm, setWarm] = useState(false);
+  useEffect(() => {
+    let idleId = 0;
+    const timer = window.setTimeout(() => {
+      const w = window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+      if (w.requestIdleCallback) idleId = w.requestIdleCallback(() => setWarm(true), { timeout: 1500 });
+      else setWarm(true);
+    }, 1500);
+    return () => {
+      window.clearTimeout(timer);
+      if (idleId) (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(idleId);
+    };
+  }, []);
   // TripPanelProvider closes `panel` on every pathname change (internal effect, not exposed on
   // its Ctx) — that's what makes switching tabs here also close whatever panel was open on the
   // previous one, with no extra code needed. If that internal behavior is ever removed, this
@@ -249,7 +265,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
               animate={{ opacity: optimisticTab === "roam" ? 1 : 0 }}
               transition={reduceMotion ? { duration: 0 } : motionTokens.swap}
             >
-              <ConversationSurface
+              {(warm || optimisticTab === "roam") && <ConversationSurface
                 tripId={tripId}
                 initialMessages={data?.conversation}
                 onOpenPlace={openPlace}
@@ -260,7 +276,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
                 onLogScroll={onLogScroll}
                 viewContext={panel && panel.kind !== "compare" ? panelTitle(panel) : undefined}
                 rail={desktop && Boolean(panel)}
-                              />
+                              />}
             </motion.div>
             <motion.div
               className={cn("absolute inset-0 min-h-0", optimisticTab !== "group" && "pointer-events-none")}
@@ -270,7 +286,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
               animate={{ opacity: optimisticTab === "group" ? 1 : 0 }}
               transition={reduceMotion ? { duration: 0 } : motionTokens.swap}
             >
-              {!guest && <GroupChatSurface tripId={tripId} initialMessages={data?.groupChat} onLogScroll={onLogScroll} />}
+              {!guest && (warm || optimisticTab === "group") && <GroupChatSurface tripId={tripId} initialMessages={data?.groupChat} onLogScroll={onLogScroll} />}
             </motion.div>
           </div>
         </div>
