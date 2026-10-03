@@ -59,7 +59,7 @@ export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place
       extra={comparing ? <p className="text-xs text-muted-foreground">{selected ? "Selected" : "Click card to select"}</p> : undefined}
       actions={
         <>
-          <AddToTripControl tripId={tripId} place={place} size="sm" block className="min-w-0 flex-1" />
+          <AddToTripControl tripId={tripId} place={place} size="sm" block className="min-w-[6.75rem] flex-1" />
           <DetailsButton label={`Details: ${place.name}`} onClick={open} />
         </>
       }

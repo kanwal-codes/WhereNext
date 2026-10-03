@@ -4,7 +4,6 @@ import { useTripData } from "@/components/TripDataProvider";
 import { Reveal } from "@/components/motion-primitives";
 import { ChapterHero } from "@/components/overview/ChapterHero";
 import { ConstraintsPanel, SavedPlacesList, UndecidedPanel } from "@/components/overview/KnowledgePanels";
-import { TripContextSurface } from "@/features/workspace/ui/TripContextSurface";
 import { BudgetSurface } from "@/features/budget/ui/BudgetSurface";
 import type { Trip } from "@/features/trip/domain/trip";
 import { placePhotoName, tastePicture } from "@/lib/trip-overview";
@@ -44,13 +43,10 @@ export default function KnowledgePage() {
         ]}
       />
 
-      <div className="mx-auto grid max-w-6xl gap-8 px-5 pt-10 sm:px-8 lg:grid-cols-2">
-        <Reveal>
-          <TripContextSurface tripId={tripId} trip={trip} initialMemory={data?.preferences} initialDecisions={data?.decisions} />
-        </Reveal>
-
+      {/* "What we know" (locked in, still to decide) lives beside the conversation, where it is edited as you talk; repeating it here only meant two copies to keep in step. */}
+      <div className="mx-auto grid max-w-6xl items-start gap-6 px-5 pt-8 sm:px-8 lg:grid-cols-2">
         <div className="min-w-0 space-y-6">
-          <Reveal delay={0.04}>
+          <Reveal>
             <BudgetSurface
               tripId={tripId}
               durationDays={trip?.duration_days}
@@ -61,6 +57,8 @@ export default function KnowledgePage() {
           <Reveal delay={0.06}>
             <SavedPlacesList tripId={tripId} places={saved} />
           </Reveal>
+        </div>
+        <div className="min-w-0 space-y-6">
           <Reveal delay={0.1}>
             <ConstraintsPanel taste={taste} />
           </Reveal>

@@ -246,8 +246,8 @@ export const CompareMark = ({ selected }: { selected: boolean }) => (
 );
 
 /** The "open this in the side panel" control every card kind uses. */
-export const DetailsButton = ({ onClick, children = "Details", label }: { onClick: () => void; children?: ReactNode; /** What the details are of, so ten "Details" buttons in a thread are told apart. */ label?: string }) => (
-  <button type="button" className={controlSecondary} onClick={onClick} aria-label={label}>
+export const DetailsButton = ({ onClick, children = "Details", label, className }: { onClick: () => void; children?: ReactNode; /** What the details are of, so ten "Details" buttons in a thread are told apart. */ label?: string; className?: string }) => (
+  <button type="button" data-details="" className={cn(controlSecondary, className)} onClick={onClick} aria-label={label}>
     {children} <ArrowUpRight className="size-3.5" aria-hidden />
   </button>
 );
@@ -292,9 +292,10 @@ export function EntityCard({ label, onOpen, href, className, media, glyph: Glyph
   compact?: boolean;
 }) {
   return (
-    <article className={cn(surface, "card-lift group relative flex h-full flex-col", className)}>
+    <article data-tappable={onOpen ? "" : undefined} className={cn(surface, "card-lift group relative flex h-full flex-col", className)}>
       {onOpen && <CardOpenOverlay label={label} onOpen={onOpen} href={href} />}
-      {media}
+      {/* The photo is part of the tap target: it sits above the overlay in paint order, so it hands every touch down to it. */}
+      {media && <div className="pointer-events-none">{media}</div>}
       <div className={cn("flex flex-1 flex-col", compact ? "gap-1 p-3" : "gap-2 p-4")}>
         {(() => {
           const tile = !media && Glyph && (
@@ -324,7 +325,7 @@ export function EntityCard({ label, onOpen, href, className, media, glyph: Glyph
         {!compact && fact}
         {!compact && badges && <div className="flex flex-wrap gap-1.5">{badges}</div>}
         {!compact && extra}
-        {!compact && actions && <div className="relative z-10 mt-auto flex items-center gap-2 pt-2">{actions}</div>}
+        {!compact && actions && <div className="entity-actions relative z-10 mt-auto flex flex-wrap items-center gap-x-2 gap-y-1.5 pt-2">{actions}</div>}
       </div>
     </article>
   );
@@ -334,10 +335,11 @@ export function EntityCard({ label, onOpen, href, className, media, glyph: Glyph
 export function BlockHeader({ icon: Icon, title, meta, actions }: { icon: LucideIcon; title: ReactNode; meta?: ReactNode; actions?: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-3">
-      <div className="flex min-w-0 flex-1 basis-40 items-start gap-2">
+      <div className="flex min-w-0 flex-1 basis-40 flex-wrap items-start gap-x-2 gap-y-0.5">
         <Icon className="mt-[3px] size-4 shrink-0 text-coral" aria-hidden />
         <h3 className={cn(type.title, "flex min-w-0 flex-wrap items-center gap-x-1.5")}>{title}</h3>
-        {meta && <span className={cn(type.meta, "mt-[3px]")}>{meta}</span>}
+        {/* On a phone the note goes under the title instead of squeezing it onto two lines. */}
+        {meta && <span className={cn(type.meta, "mt-[3px] max-sm:order-last max-sm:mt-0 max-sm:basis-full max-sm:pl-6")}>{meta}</span>}
       </div>
       {actions && <div className="ml-auto flex shrink-0 items-center gap-2">{actions}</div>}
     </div>

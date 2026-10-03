@@ -11,6 +11,23 @@ type RouteHandler<P extends RouteParams = RouteParams> = (
 
 const QUIET_ROUTES = new Set(["/api/health"]);
 
+/** Typographic apostrophes in the message a person will read ("couldn't" → "couldn’t"), applied once here so no route has to remember. */
+const curl = (text: string) => text.replace(/(\p{L})'(\p{L})/gu, "$1’$2");
+
+/** An error response's `error` text, with curly apostrophes. Successful and non-JSON responses pass through untouched and unread. */
+async function polishError(response: Response): Promise<Response> {
+  if (response.status < 400 || !response.headers.get("content-type")?.includes("application/json")) return response;
+  try {
+    const body = (await response.clone().json()) as { error?: unknown };
+    if (typeof body?.error !== "string" || !body.error.includes("'")) return response;
+    const headers = new Headers(response.headers);
+    headers.delete("content-length"); // the text changed length
+    return new NextResponse(JSON.stringify({ ...body, error: curl(body.error) }), { status: response.status, headers });
+  } catch {
+    return response;
+  }
+}
+
 /**
  * Wraps a route handler with a per-request context (requestId + route + tripId),
  * one structured access-log line, and a catch-all that logs the stack for any
@@ -32,7 +49,7 @@ export function withRoute<P extends RouteParams = RouteParams>(handler: RouteHan
     return runWithContext({ requestId, route: pathname, method: request.method, tripId }, async () => {
       const started = performance.now();
       try {
-        const response = await handler(request, forwardedCtx);
+        const response = await polishError(await handler(request, forwardedCtx));
         const durationMs = Math.round(performance.now() - started);
         if (!QUIET_ROUTES.has(pathname)) {
           const line = { status: response.status, durationMs };

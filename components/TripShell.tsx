@@ -219,8 +219,8 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
         collapsed={collapsed && !onNavigate}
         onNavigate={onNavigate}
       />
-      {/* Already in the conversation: the way back to it would point at itself. */}
-      {!pathname.endsWith("/chat") && (
+      {/* Already in the conversation (or on the overview, whose hero carries the same button): this would repeat or point at itself. */}
+      {!pathname.endsWith("/chat") && pathname.replace(/\/$/, "") !== `/trips/${tripId}` && (
         <Link
           href={`/trips/${tripId}/chat`}
           onClick={onNavigate}

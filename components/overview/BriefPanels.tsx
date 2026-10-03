@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 import { RoamMark } from "@/features/roam/ui/RoamMark";
 import { CertaintyBadge } from "@/components/CertaintyBadge";
 import { certaintyFor, decisionSummary } from "@/lib/decisions-ui";
@@ -21,7 +19,7 @@ function Chip({ children, tone }: { children: string; tone: "like" | "avoid" | "
 }
 
 /** What the trip knows about the group, as chips, and what is still undecided, with the next step. */
-export function TasteAndQuestions({ tripId, taste, questions }: { tripId: string; taste: TastePicture; questions: string[] }) {
+export function TasteAndQuestions({ taste, questions }: { tripId?: string; taste: TastePicture; questions: string[] }) {
   return (
     <section className={panel}>
       <h2 className="font-display text-2xl tracking-tight">What we know</h2>
@@ -71,9 +69,6 @@ export function TasteAndQuestions({ tripId, taste, questions }: { tripId: string
         ) : (
           <p className="mt-3 text-sm text-muted-foreground">Nothing pressing. Keep planning.</p>
         )}
-        <Link href={`/trips/${tripId}/chat`} className="btn-primary mt-5 w-full">
-          <RoamMark state="settled" size={30} /> Continue planning <ArrowRight className="h-4 w-4" />
-        </Link>
       </div>
     </section>
   );

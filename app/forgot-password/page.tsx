@@ -27,8 +27,8 @@ export default function ForgotPasswordPage() {
   return (
     <AuthShell
       eyebrow="Reset password"
-      title="We'll send you a way back in."
-      subtitle="Enter the email on your account and we'll send a single-use reset link."
+      title="We’ll send you a way back in."
+      subtitle="Enter the email on your account and we’ll send a single-use reset link."
       footer={
         <Link href="/sign-in" className="link-underline inline-flex items-center gap-1.5 text-foreground">
           <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in

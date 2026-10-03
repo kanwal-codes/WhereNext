@@ -625,9 +625,9 @@ export function DiscoverySurface({
         // "All" digest
         <div className="mt-5">
           <div className="flex items-center justify-between gap-3">
-            <p className="eyebrow">A mix for {destination || "this trip"}</p>
+            <p className="eyebrow min-w-0 truncate">A mix for {destination || "this trip"}</p>
             {bands && bands.length > 0 && (
-              <button type="button" onClick={() => setFlat((f) => !f)} className="text-xs font-medium text-primary hover:underline">
+              <button type="button" onClick={() => setFlat((f) => !f)} className="shrink-0 text-xs font-medium whitespace-nowrap text-primary hover:underline">
                 {flat ? "Show bands" : "Just show everything"}
               </button>
             )}

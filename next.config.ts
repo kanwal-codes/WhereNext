@@ -82,8 +82,8 @@ const nextConfig: NextConfig = {
     // still short of how long someone actually spends reading a page before
     // clicking the next thing, so most real navigations kept landing on a cold
     // cache anyway. 300s (5 min) covers a normal browsing session without
-    // re-paying that cost on every click; `app/trips/[tripId]/loading.tsx` (and
-    // `app/trips/loading.tsx`) now also give a cold navigation an instant
+    // re-paying that cost on every click; `app/trips/(workspace)/[tripId]/loading.tsx` (and
+    // `app/trips/(home)/loading.tsx`) now also give a cold navigation an instant
     // skeleton instead of a frozen screen, so a cache miss here is no longer the
     // dead-freeze it used to be — this is about frequency, not just severity. A
     // removed member can still see cached trip content for up to this window,
