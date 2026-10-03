@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type Change
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { BadgeCheck, Camera, Check, Copy, Download, Eye, Link2, Loader2, MapPin, Plane, Sparkles, Trash2 } from "lucide-react";
+import { BadgeCheck, Camera, Check, Copy, Download, Eye, Link2, Loader2, MapPin, Plane, Compass, Trash2 } from "lucide-react";
 import { Reveal, Sheet, Tactile, WordReveal } from "@/components/motion-primitives";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { StandaloneTopBar } from "@/components/StandaloneTopBar";
@@ -205,6 +205,34 @@ export function AccountView({
 }) {
   const router = useRouter();
   const [active, setActive] = useState<string>("profile");
+  // The rail follows the page: the section whose top has passed about a third of the way down the window is the one you are in.
+  // A click on the rail sets the section itself and holds it for a moment, so the pill does not flicker through the ones scrolled past.
+  const railLock = useRef(0);
+  useEffect(() => {
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      if (Date.now() < railLock.current) return;
+      const sections = SECTIONS.map((s) => document.getElementById(s.id)).filter((el): el is HTMLElement => !!el);
+      if (!sections.length) return;
+      const line = window.innerHeight * 0.35;
+      let current = sections[0].id;
+      for (const el of sections) if (el.getBoundingClientRect().top <= line) current = el.id;
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) current = sections[sections.length - 1].id;
+      setActive(current);
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, []);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -477,11 +505,11 @@ export function AccountView({
                   )}
                   {dreamText ? (
                     <span className="inline-flex items-center gap-1.5">
-                      <Sparkles className="h-4 w-4 opacity-70" /> Dreaming of {dreamText}
+                      <Compass className="h-4 w-4 opacity-70" /> Dreaming of {dreamText}
                     </span>
                   ) : (
                     <a href="#dream" onClick={() => setActive("profile")} className="daisy-badge h-7 gap-1.5 border-white/30 bg-white/15 px-3 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/25">
-                      <Sparkles className="h-3.5 w-3.5" /> Add your dream destination
+                      <Compass className="h-3.5 w-3.5" /> Add your dream destination
                     </a>
                   )}
                 </div>
@@ -517,7 +545,10 @@ export function AccountView({
                 <li key={s.id}>
                   <a
                     href={`#${s.id}`}
-                    onClick={() => setActive(s.id)}
+                    onClick={() => {
+                      railLock.current = Date.now() + 900;
+                      setActive(s.id);
+                    }}
                     className={cn("relative block whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm transition-colors", active === s.id ? "text-foreground" : "text-ink-soft hover:text-foreground")}
                   >
                     {active === s.id && <motion.span layoutId="profile-nav-pill" className="absolute inset-0 rounded-full bg-secondary" transition={{ type: "spring", stiffness: 380, damping: 32 }} />}
@@ -532,7 +563,7 @@ export function AccountView({
             {/* Profile & account */}
             <SettingSection id="profile" title="Profile & account" blurb="How you appear to the people you plan with.">
               <div id="dream" className="scroll-mt-28 rounded-3xl bg-gradient-to-br from-muted/60 to-coral-soft/50 p-5 sm:p-6">
-                <p className="eyebrow mb-2 flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Dream destination</p>
+                <p className="eyebrow mb-2 flex items-center gap-1.5"><Compass className="h-3.5 w-3.5" /> Dream destination</p>
                 <p className="font-display text-xl tracking-tight text-balance sm:text-2xl">Where would you go tomorrow?</p>
                 <p className="mt-1 max-w-xl text-sm leading-relaxed text-ink-soft">Pick the place you keep coming back to. Its photo becomes the backdrop of your profile.</p>
                 <div className="mt-4 flex max-w-xl items-center gap-3">
