@@ -9,7 +9,7 @@ export default function StayPage() {
   return (
     <RouteScaffold
       eyebrow="Stay"
-      title="Where you'll come back to each night"
+      title="Where you’ll come back to each night"
       description="Hotels near your destination. Lock a room and the rest of the plan measures from it."
     >
       <StaySurface tripId={tripId} destination={data?.trip.destination ?? ""} />

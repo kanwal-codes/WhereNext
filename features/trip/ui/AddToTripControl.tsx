@@ -204,7 +204,7 @@ export function AddToTripControl({
   // Two controls, not one pill: the main action (put it on a day) and a separate round save button.
   // They sit a hair apart so each reads, presses and shows its state on its own.
   return (
-    <div ref={rootRef} className={cn("relative", block ? "block" : "inline-block", className)}>
+    <div ref={rootRef} className={cn("relative shrink-0", block ? "block" : "inline-block", className)}>
       <div className={cn("items-center", sm ? "gap-1.5" : "gap-2", block ? "flex w-full" : "inline-flex")}>
         <div ref={shellRef} className={cn("min-w-0", block && "flex-1")}>
           <button

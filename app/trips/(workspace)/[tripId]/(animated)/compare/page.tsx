@@ -33,7 +33,6 @@ export default function ComparePage() {
   const { tripId } = useTripData();
   return (
     <RouteScaffold
-      wide
       eyebrow="Compare"
       title="Side by side, so you can decide"
       description="Two to four places, aligned on rating, price, hours and where the data came from. You usually get here from Discover or by asking Roam to compare."

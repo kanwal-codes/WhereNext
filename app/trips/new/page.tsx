@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { StandaloneTopBar } from "@/components/StandaloneTopBar";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { NewTripForm } from "@/features/trip-setup/ui/NewTripForm";
 import { Reveal } from "@/components/motion-primitives";
@@ -21,12 +21,10 @@ export default async function NewTripPage() {
   return (
     <div className="min-h-screen">
       <div className="mx-auto max-w-2xl px-5 py-10 sm:px-8 lg:py-16">
-        <Link href="/trips" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
-          <ArrowLeft className="h-3.5 w-3.5" /> All trips
-        </Link>
+        <StandaloneTopBar />
 
         <Reveal>
-          <p className="eyebrow mt-8">New trip</p>
+          <p className="eyebrow mt-12">New trip</p>
           <h1 className="mt-3 max-w-lg font-display text-4xl leading-[1.15]">
             Start with a feeling. We&rsquo;ll find the trip.
           </h1>

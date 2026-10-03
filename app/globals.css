@@ -900,13 +900,15 @@
 
 /* Skeletons: a soft ink wash with a slow band of light crossing it, never a grey pulse. */
 @utility skeleton {
-  background-color: color-mix(in oklab, var(--color-foreground) 6%, transparent);
-  background-image: linear-gradient(100deg, transparent 25%, var(--skeleton-hi, color-mix(in oklab, var(--color-background) 80%, transparent)) 50%, transparent 75%);
+  /* A warm stone block on white, with a brighter band crossing it: the old 6% ink wash was nearly the page colour in light mode. */
+  background-color: var(--skeleton-base, oklch(0.93 0.007 75));
+  background-image: linear-gradient(100deg, transparent 20%, var(--skeleton-hi, oklch(0.99 0.003 80 / 0.95)) 50%, transparent 80%);
   background-size: 250% 100%;
   background-repeat: no-repeat;
   animation: skeleton-sweep 1.8s var(--ease-in-out) infinite;
 }
 .dark .skeleton {
+  background-color: color-mix(in oklab, var(--color-foreground) 8%, transparent);
   background-image: linear-gradient(100deg, transparent 25%, color-mix(in oklab, var(--color-foreground) 8%, transparent) 50%, transparent 75%);
 }
 @keyframes skeleton-sweep { from { background-position: 150% 0; } to { background-position: -50% 0; } }

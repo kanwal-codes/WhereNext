@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import Link from "next/link";
-import { ArrowUpRight, BedDouble, Check, Loader2, MapPin, Minus, Plus, SlidersHorizontal, Star, X } from "lucide-react";
+import { ArrowUpRight, BedDouble, Check, ChevronDown, Loader2, MapPin, Minus, Plus, SlidersHorizontal, Star, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { AiSearchBar } from "@/components/AiSearchBar";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
@@ -16,6 +16,8 @@ import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache"
 import { cn } from "@/lib/utils";
 import { fmtDay } from "@/lib/trip-dates";
 import { cachedGet } from "@/lib/client/cached-get";
+import { BlurImage } from "@/components/motion-primitives";
+import { MediaFallback } from "@/features/conversation/ui/blocks/ui";
 
 type Result = {
   location: string;
@@ -34,7 +36,7 @@ function Stepper({ label, value, set, min, max }: { label: string; value: number
   return (
     <div>
       <span className="block text-sm font-medium">{label}</span>
-      <div className="mt-1.5 inline-flex items-center gap-3 rounded-full border border-input px-2 py-1">
+      <div className="mt-1.5 flex h-11 w-fit items-center gap-3 rounded-full border border-input px-2">
         <button type="button" onClick={() => set(Math.max(min, value - 1))} disabled={value <= min} aria-label={`Fewer ${label}`} className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground disabled:opacity-30 hover:text-foreground">
           <Minus className="h-3.5 w-3.5" />
         </button>
@@ -45,6 +47,13 @@ function Stepper({ label, value, set, min, max }: { label: string; value: number
       </div>
     </div>
   );
+}
+
+/** A hotel photo that falls back to the same soft stand-in as every other card when it is missing or fails to load (alt text in display type is not a fallback). */
+function StayPhoto({ src, alt, className }: { src?: string | null; alt: string; className?: string }) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) return <MediaFallback icon={BedDouble} className={cn(className, "[&_svg]:size-10")} />;
+  return <BlurImage src={src} alt={alt} onError={() => setFailed(true)} className={className} />;
 }
 
 export function StaySurface({ tripId, destination }: { tripId: string; destination: string }) {
@@ -168,14 +177,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
           href={detailHref(lockedStay.hotelId)}
           className="flex gap-4 rounded-2xl border border-leaf/30 bg-leaf-soft/40 p-4 transition-colors hover:bg-leaf-soft/60"
         >
-          {lockedStay.thumbnail ? (
-            // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
-            <img src={lockedStay.thumbnail} alt={lockedStay.hotelName} width={96} height={96} className="h-24 w-24 shrink-0 rounded-xl object-cover" />
-          ) : (
-            <div className="grid h-24 w-24 shrink-0 place-items-center rounded-xl bg-muted">
-              <BedDouble className="h-5 w-5 text-muted-foreground/50" />
-            </div>
-          )}
+          <StayPhoto src={lockedStay.thumbnail} alt={lockedStay.hotelName} className="h-24 w-24 shrink-0 rounded-xl object-cover" />
           <div className="min-w-0 flex-1">
             <p className="eyebrow inline-flex items-center gap-1 text-leaf">
               <Check className="h-3 w-3" /> Your stay
@@ -225,21 +227,26 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
             Check-out
             <input type="date" value={checkout} min={checkin || undefined} onChange={(e) => setCheckout(e.target.value)} className="input-field" />
           </label>
-          <Stepper label="Guests" value={adults} set={setAdults} min={1} max={16} />
-          <Stepper label="Rooms" value={rooms} set={setRooms} min={1} max={8} />
+          <div className="grid grid-cols-2 gap-4 sm:contents">
+            <Stepper label="Guests" value={adults} set={setAdults} min={1} max={16} />
+            <Stepper label="Rooms" value={rooms} set={setRooms} min={1} max={8} />
+          </div>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <button type="button" onClick={() => setShowFilters((v) => !v)} className="btn-secondary">
             <SlidersHorizontal className="h-3.5 w-3.5" /> Filters{activeFilters ? ` (${activeFilters})` : ""}
           </button>
-          <label className="text-sm text-muted-foreground">
-            Sort{" "}
-            <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="rounded-lg border border-input bg-background px-2 py-1 text-sm text-foreground">
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            Sort
+            <span className="relative">
+              <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="h-10 cursor-pointer appearance-none rounded-full border border-border bg-background pr-9 pl-4 text-sm text-foreground transition-colors hover:border-ink/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
               <option value="price">Price</option>
               <option value="rating">Guest rating</option>
               <option value="stars">Stars</option>
-            </select>
+              </select>
+              <ChevronDown aria-hidden className="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            </span>
           </label>
         </div>
 
@@ -338,16 +345,9 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
             {result.options.slice(0, visible).map((o) => {
               const locked = lockedStay?.hotelId === o.hotelId;
               return (
-                <li key={o.hotelId} className={cn("flex flex-col overflow-hidden rounded-2xl border bg-card shadow-soft transition-shadow hover:shadow-lift", locked ? "border-leaf/40" : "border-border")}>
-                  <Link href={detailHref(o.hotelId)} onClick={openStay(o)} className="block h-40 shrink-0 overflow-hidden">
-                    {o.thumbnail ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
-                      <img src={o.thumbnail} alt={o.name} loading="lazy" width={480} height={200} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="grid h-full w-full place-items-center bg-muted/50">
-                        <BedDouble className="h-6 w-6 text-muted-foreground/40" />
-                      </div>
-                    )}
+                <li key={o.hotelId} className={cn("card-lift flex flex-col overflow-hidden rounded-2xl border bg-card shadow-soft", locked ? "border-leaf/40" : "border-border")}>
+                  <Link href={detailHref(o.hotelId)} onClick={openStay(o)} className="block aspect-[16/10] shrink-0 overflow-hidden bg-muted">
+                    <StayPhoto src={o.thumbnail} alt={o.name} className="h-full w-full object-cover" />
                   </Link>
                   <div className="flex min-h-0 flex-1 flex-col p-4">
                     <div className="flex items-start justify-between gap-2">

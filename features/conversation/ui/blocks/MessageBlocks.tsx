@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useDistance } from "@/lib/use-distance";
 import {
   Accessibility,
@@ -230,7 +230,7 @@ function PlaceCardView({
       actions={
         <>
           {/* One control: shortlist (still deciding) → a day (going in the plan) → remove. */}
-          <AddToTripControl tripId={tripId} place={toPlace(place)} size="sm" block className="min-w-0 flex-1" />
+          <AddToTripControl tripId={tripId} place={toPlace(place)} size="sm" block className="min-w-[6.75rem] flex-1" />
           {onOpenPlace ? (
             <DetailsButton label={`Details: ${place.name}`} onClick={() => onOpenPlace(place)} />
           ) : (
@@ -607,7 +607,51 @@ type ItineraryBlockData = Extract<AssistantBlock, { type: "itinerary" }>;
 
 const normalize = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 
-function ItineraryBlockView({ block, tripId, onOpenPlace, onOpenPanel, replyText }: { block: ItineraryBlockData; tripId: string; replyText?: string } & Pick<BlockHandlers, "onOpenPlace" | "onOpenPanel">) {
+/** Give each stop an id that survives a reorder (title + which occurrence of that title) and apply the visitor's order.
+ *  A stop keeps its own time ("Evening" stays on Dinner when it is moved first): nothing the plan said is rewritten for them. */
+function orderedStops(stops: ItineraryBlockData["days"][number]["stops"], order: string[] | undefined) {
+  const seen = new Map<string, number>();
+  const withIds = stops.map((stop) => {
+    const n = seen.get(stop.title) ?? 0;
+    seen.set(stop.title, n + 1);
+    return { ...stop, id: `${stop.title}#${n}` };
+  });
+  if (!order) return withIds;
+  const rank = new Map(order.map((id, i) => [id, i] as const));
+  return [...withIds].sort((a, b) => (rank.get(a.id) ?? 1e6) - (rank.get(b.id) ?? 1e6));
+}
+
+/** Which order belongs to which plan: the trip plus a short fingerprint of its stops, so a regenerated plan starts fresh. */
+function itineraryOrderKey(tripId: string, block: ItineraryBlockData): string {
+  let hash = 5381;
+  for (const ch of JSON.stringify(block.days.map((d) => [d.label, d.stops.map((s) => s.title)]))) hash = ((hash << 5) + hash + ch.charCodeAt(0)) | 0;
+  return `roam-itinerary-order:${tripId}:${(hash >>> 0).toString(36)}`;
+}
+
+function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPanel, replyText }: { block: ItineraryBlockData; tripId: string; replyText?: string } & Pick<BlockHandlers, "onOpenPlace" | "onOpenPanel">) {
+  const orderKey = itineraryOrderKey(tripId, sourceBlock);
+  // The visitor's own order, kept on this device like the checklist's ticks; a failing store only means it resets.
+  const [orders, setOrders] = useState<Record<number, string[]>>({});
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(orderKey);
+      setOrders(raw ? (JSON.parse(raw) as Record<number, string[]>) : {});
+    } catch {
+      setOrders({});
+    }
+  }, [orderKey]);
+  const reorderDay = (dayIndex: number, ids: string[]) =>
+    setOrders((current) => {
+      const next = { ...current, [dayIndex]: ids };
+      try {
+        localStorage.setItem(orderKey, JSON.stringify(next));
+      } catch {
+        /* unavailable */
+      }
+      return next;
+    });
+  // Everything below (the map, "Open day", "Add whole plan") reads the plan in the order it is now in.
+  const block = useMemo(() => ({ ...sourceBlock, days: sourceBlock.days.map((d, di) => ({ ...d, stops: orderedStops(d.stops, orders[di]) })) }), [sourceBlock, orders]);
   const [active, setActive] = useState(0);
   const [status, setStatus] = useState<"idle" | "adding" | "added">("idle");
   const multi = block.days.length > 1;
@@ -673,7 +717,12 @@ function ItineraryBlockView({ block, tripId, onOpenPlace, onOpenPanel, replyText
             )}
           </div>
         )}
-        <PlanStops stops={day.stops} variant="card" onOpenPlace={onOpenPlace ? (stop) => onOpenPlace({ providerId: stop.placeId!, name: stop.title } as PlaceCard) : undefined} />
+        <PlanStops
+          stops={day.stops}
+          variant="card"
+          onReorder={day.stops.length > 1 ? (ids) => reorderDay(Math.min(active, block.days.length - 1), ids) : undefined}
+          onOpenPlace={onOpenPlace ? (stop) => onOpenPlace({ providerId: stop.placeId!, name: stop.title } as PlaceCard) : undefined}
+        />
       </div>
       </ContentSwap>
     </div>

@@ -109,7 +109,7 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
 
   return (
     <div className="min-h-screen">
-      <HeroCarousel className="h-[440px] rounded-b-3xl sm:h-[420px]">
+      <HeroCarousel className="h-[480px] rounded-b-3xl sm:h-[420px]">
         <div className="absolute inset-x-0 top-0">
           <Reveal>
             <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 pt-6 sm:px-8">
@@ -130,10 +130,10 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
         </div>
 
         <div className="absolute inset-x-0 bottom-0">
-          <div className="mx-auto max-w-6xl px-5 pb-8 sm:px-8">
+          <div className="mx-auto max-w-6xl px-5 pb-14 sm:px-8 sm:pb-8">
             <Reveal delay={0.2}>
               <WordReveal
-                text="Trips you're thinking about."
+                text="Trips you’re thinking about."
                 delay={0.3}
                 className={cn("mx-auto max-w-2xl text-center font-display text-4xl leading-[1.15] transition-colors duration-700 sm:text-5xl", onPhoto && "text-white [text-shadow:0_2px_24px_rgba(0,0,0,0.45)]")}
               />

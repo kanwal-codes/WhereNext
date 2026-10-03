@@ -138,7 +138,7 @@ export function OverviewHero({
                       <div className="daisy-stat-title flex items-center gap-1.5 text-2xs tracking-[0.1em] uppercase">
                         <fact.icon className="h-3 w-3" /> {fact.label}
                       </div>
-                      <div className={cn("daisy-stat-value font-display text-xl tracking-tight tabular-nums sm:text-2xl", !fact.value && "opacity-60")}>{fact.value ?? "Not set"}</div>
+                      <div className={cn("daisy-stat-value font-display text-xl tracking-tight tabular-nums sm:text-2xl", !fact.value && "opacity-75")}>{fact.value ?? "Not set"}</div>
                       {fact.desc && <div className="daisy-stat-desc">{fact.desc}</div>}
                     </div>
                   ))}

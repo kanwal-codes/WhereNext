@@ -37,7 +37,6 @@ export default function DiscoverPage() {
   const [savedCount, setSavedCount] = useState(0);
   return (
     <RouteScaffold
-      wide
       eyebrow="Discover"
       title="Everything to do in one place"
       tabs={<DiscoverTabs view={view} onChange={setView} savedCount={savedCount} />}

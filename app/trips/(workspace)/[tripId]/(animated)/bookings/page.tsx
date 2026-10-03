@@ -110,7 +110,7 @@ export default function BookingsPage() {
         ]}
       />
 
-      <div className="mx-auto max-w-6xl space-y-16 px-5 pt-10 sm:px-8">
+      <div className="mx-auto max-w-6xl space-y-16 px-5 pt-8 sm:px-8">
         <section>
           <SectionHeading title="Your bookings" count={timeline.length} />
           <div className="mt-6">

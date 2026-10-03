@@ -4,10 +4,10 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type Change
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, BadgeCheck, Camera, Check, Copy, Download, Eye, Link2, Loader2, MapPin, Plane, Sparkles, Trash2 } from "lucide-react";
+import { BadgeCheck, Camera, Check, Copy, Download, Eye, Link2, Loader2, MapPin, Plane, Sparkles, Trash2 } from "lucide-react";
 import { Reveal, Sheet, Tactile, WordReveal } from "@/components/motion-primitives";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { BrandMark } from "@/components/BrandMark";
+import { StandaloneTopBar } from "@/components/StandaloneTopBar";
 import { useIsDarkMode } from "@/lib/use-dark-mode";
 import { DestinationCombobox } from "@/components/DestinationCombobox";
 import { accountPhotoUrl } from "@/lib/places-ui";
@@ -422,12 +422,7 @@ export function AccountView({
         <div aria-hidden className="absolute inset-0 bg-[radial-gradient(85%_70%_at_12%_95%,rgba(0,0,0,0.6),transparent)]" />
 
         <div className="relative mx-auto flex min-h-[28rem] max-w-6xl flex-col justify-between gap-16 px-5 pt-7 pb-8 sm:min-h-[32rem] sm:px-8 sm:pb-10">
-          <div className="flex items-center justify-between gap-3">
-            <Link href="/trips" className="daisy-btn daisy-btn-sm h-9 gap-2 rounded-full border-white/25 bg-black/30 px-4 font-medium text-white shadow-none backdrop-blur hover:bg-black/50">
-              <ArrowLeft className="h-4 w-4" /> Trips
-            </Link>
-            <BrandMark variant="compact" className="bg-white text-black" />
-          </div>
+          <StandaloneTopBar photo />
 
           <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
             <div className="flex flex-col gap-6 sm:flex-row sm:items-end">

@@ -246,8 +246,8 @@ export const CompareMark = ({ selected }: { selected: boolean }) => (
 );
 
 /** The "open this in the side panel" control every card kind uses. */
-export const DetailsButton = ({ onClick, children = "Details", label }: { onClick: () => void; children?: ReactNode; /** What the details are of, so ten "Details" buttons in a thread are told apart. */ label?: string }) => (
-  <button type="button" className={controlSecondary} onClick={onClick} aria-label={label}>
+export const DetailsButton = ({ onClick, children = "Details", label, className }: { onClick: () => void; children?: ReactNode; /** What the details are of, so ten "Details" buttons in a thread are told apart. */ label?: string; className?: string }) => (
+  <button type="button" className={cn(controlSecondary, className)} onClick={onClick} aria-label={label}>
     {children} <ArrowUpRight className="size-3.5" aria-hidden />
   </button>
 );
@@ -324,7 +324,7 @@ export function EntityCard({ label, onOpen, href, className, media, glyph: Glyph
         {!compact && fact}
         {!compact && badges && <div className="flex flex-wrap gap-1.5">{badges}</div>}
         {!compact && extra}
-        {!compact && actions && <div className="relative z-10 mt-auto flex items-center gap-2 pt-2">{actions}</div>}
+        {!compact && actions && <div className="relative z-10 mt-auto flex flex-wrap items-center gap-x-2 gap-y-1.5 pt-2">{actions}</div>}
       </div>
     </article>
   );

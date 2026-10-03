@@ -21,7 +21,7 @@ export default function ItineraryPage() {
       <ChapterHero
         eyebrow="Itinerary"
         title="The plan, day by day"
-        description="Lock what's fixed; move the rest between days."
+        description="Lock what’s fixed; move the rest between days."
         stats={[
           { label: "Days planned", value: String(planned), desc: length ? `of ${length}` : undefined },
           { label: "Stops", value: String(items.length), desc: "on the plan" },
@@ -29,7 +29,7 @@ export default function ItineraryPage() {
         ]}
       />
       <Reveal>
-        <div className="mx-auto w-full min-w-0 max-w-6xl px-5 pt-10 sm:px-8">
+        <div className="mx-auto w-full min-w-0 max-w-6xl px-5 pt-8 sm:px-8">
           <ItinerarySurface tripId={tripId} initialItems={data?.itinerary} startDate={trip?.start_date ?? null} lockedStay={lockedStay} destination={trip?.destination ?? null} />
         </div>
       </Reveal>

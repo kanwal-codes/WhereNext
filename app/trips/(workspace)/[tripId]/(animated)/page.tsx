@@ -24,6 +24,7 @@ import { isDisplayableDecision } from "@/lib/decisions-ui";
 import { daysUntilTrip, tripDayIndex, tripWhen } from "@/lib/trip-dates";
 import { budgetLabel, openQuestions, placePhotoName, planDays, tastePicture } from "@/lib/trip-overview";
 import { readStayDecision } from "@/packages/contracts/stay";
+import { cn } from "@/lib/utils";
 
 type SavedPlace = { status?: string; places?: { id: string; name: string; category?: string | null; address?: string | null; metadata?: unknown } };
 type ItineraryRow = { id: string; title: string; day_index: number; position?: number | null };
@@ -133,14 +134,15 @@ export default function TripOverviewPage() {
 
       <div className="mx-auto max-w-6xl space-y-16 px-5 pt-8 sm:px-8 sm:pt-10">
         <Reveal>
-          <div className="flex flex-wrap gap-3">
-            <Link href={`/trips/${tripId}/chat`} className="btn-primary h-11 rounded-full px-6">
+          {/* On a phone: the main action full width, the two shortcuts side by side. From lg up the sidebar already lists Itinerary and Discover, so only the main action stays. */}
+          <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
+            <Link href={`/trips/${tripId}/chat`} className="btn-primary col-span-2 h-11 rounded-full px-6 sm:col-span-1">
               <RoamMark state="settled" size={30} /> Continue planning
             </Link>
-            <Link href={`/trips/${tripId}/itinerary`} className={action}>
+            <Link href={`/trips/${tripId}/itinerary`} className={cn(action, "lg:hidden")}>
               <CalendarDays className="h-4 w-4" /> Itinerary
             </Link>
-            <Link href={`/trips/${tripId}/discover`} className={action}>
+            <Link href={`/trips/${tripId}/discover`} className={cn(action, "lg:hidden")}>
               <Compass className="h-4 w-4" /> Discover
             </Link>
           </div>
