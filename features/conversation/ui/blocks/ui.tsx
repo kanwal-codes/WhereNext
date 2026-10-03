@@ -334,10 +334,11 @@ export function EntityCard({ label, onOpen, href, className, media, glyph: Glyph
 export function BlockHeader({ icon: Icon, title, meta, actions }: { icon: LucideIcon; title: ReactNode; meta?: ReactNode; actions?: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-3">
-      <div className="flex min-w-0 flex-1 basis-40 items-start gap-2">
+      <div className="flex min-w-0 flex-1 basis-40 flex-wrap items-start gap-x-2 gap-y-0.5">
         <Icon className="mt-[3px] size-4 shrink-0 text-coral" aria-hidden />
         <h3 className={cn(type.title, "flex min-w-0 flex-wrap items-center gap-x-1.5")}>{title}</h3>
-        {meta && <span className={cn(type.meta, "mt-[3px]")}>{meta}</span>}
+        {/* On a phone the note goes under the title instead of squeezing it onto two lines. */}
+        {meta && <span className={cn(type.meta, "mt-[3px] max-sm:order-last max-sm:mt-0 max-sm:basis-full max-sm:pl-6")}>{meta}</span>}
       </div>
       {actions && <div className="ml-auto flex shrink-0 items-center gap-2">{actions}</div>}
     </div>
