@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { LIMITS } from "@/lib/server/limits";
 import { loadTripContext, serializeTripContext, asList } from "@/lib/application/trip-context";
 import { generateText } from "@/packages/ai/model-policy";
 import { haversineKm } from "@/lib/application/geo";
@@ -30,7 +31,7 @@ const bodySchema = z.object({
 export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
-    const { supabase } = await requireTripMember(tripId);
+    const { supabase } = await requireTripMember(tripId, { limit: LIMITS.llm });
     const { items, messages } = bodySchema.parse(await request.json());
 
     const context = await loadTripContext(supabase, tripId);

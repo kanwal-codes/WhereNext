@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { LIMITS } from "@/lib/server/limits";
 import { fail } from "@/lib/server/with-route";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { cached } from "@/lib/server/ttl-cache";
@@ -42,7 +43,7 @@ async function fetchWebSummary(placeId: string, name: string, city: string, sign
 export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
-    await requireTripMember(tripId);
+    await requireTripMember(tripId, { limit: LIMITS.provider });
     const placeId = new URL(request.url).searchParams.get("placeId");
     if (!placeId) return NextResponse.json({ error: "Place ID required" }, { status: 400 });
     const result = await cached(`places:details:${placeId}`, 900_000, async () => ({ place: await new GooglePlacesProvider().details(placeId, request.signal), retrievedAt: new Date().toISOString() }));

@@ -18,6 +18,9 @@ import { updateName, updateEmail, updatePassword, disconnectGoogle, signInWithGo
 import type { TravelerProfile } from "@/packages/contracts/profile";
 import { memberInitials } from "@/lib/member-initials";
 
+/** What the avatars bucket accepts (it enforces the same list on the server). */
+const AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif", "image/heic", "image/heif"];
+
 const SECTIONS = [
   { id: "profile", label: "Profile & account" },
   { id: "style", label: "Travel style" },
@@ -221,7 +224,7 @@ export function AccountView({
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    if (!file.type.startsWith("image/")) { notifyToast("Choose an image file.", "error"); return; }
+    if (!AVATAR_TYPES.includes(file.type)) { notifyToast("Choose a JPEG, PNG, WebP, GIF or HEIC photo.", "error"); return; }
     if (file.size > 5 * 1024 * 1024) { notifyToast("Keep it under 5MB.", "error"); return; }
     setUploadingAvatar(true);
     const { error, url } = await uploadAvatar(userId, file);

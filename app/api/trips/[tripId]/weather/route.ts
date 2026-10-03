@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { LIMITS } from "@/lib/server/limits";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
 import { weather as openWeather } from "@/packages/providers/openweather/client";
 import { weather as googleWeather } from "@/packages/providers/google-weather/client";
@@ -75,7 +76,7 @@ async function seasonalSummary(place: string, month: string, signal?: AbortSigna
 export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
-    const { supabase } = await requireTripMember(tripId);
+    const { supabase } = await requireTripMember(tripId, { limit: LIMITS.provider });
     const location = (new URL(request.url).searchParams.get("location") ?? "").trim();
     if (!location) return NextResponse.json({ error: "A location is required" }, { status: 400 });
 

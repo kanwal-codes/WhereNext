@@ -17,11 +17,13 @@ export type TripMember = { supabase: SupabaseClient; user: User; role: string; g
  * The one membership check every trip route uses.
  * 401 no session · 404 not a member (existence is not leaked) · 403 member without the required role.
  */
+const HOUR = 60 * 60_000;
+
 export async function requireTripMember(
   tripId: string,
   /** `registered` refuses guests (anonymous sessions) — for anything social or paid: invites,
    *  sharing, bookings, expenses. Guests can chat and look at their own draft trip, nothing more. */
-  opts: { role?: "owner" | "editor"; registered?: boolean } = {},
+  opts: { role?: "owner" | "editor"; registered?: boolean; limit?: { bucket: string; max: number } } = {},
 ): Promise<TripMember> {
   const supabase = await createSupabaseServerClient();
   const user = await getSessionUser(supabase);
@@ -31,6 +33,9 @@ export async function requireTripMember(
   if (guest && !(await withinRateLimit(guestKey.api(user.id), GUEST_API_LIMIT, 60 * 60_000, { failClosed: true }))) {
     throw new TripAuthError(429, "You're moving fast — save this trip to keep going.");
   }
+  // A registered person is held to a high overall ceiling too (guests have their own, above), and to the route's own bucket if it has one.
+  if (!guest && !(await withinRateLimit(`user-api:${user.id}`, 3000, HOUR))) throw new TripAuthError(429, "You’re moving fast. Try again in a little while.");
+  if (opts.limit && !(await withinRateLimit(`user-${opts.limit.bucket}:${user.id}`, opts.limit.max, HOUR))) throw new TripAuthError(429, "You’ve used a lot of searches this hour. Try again in a little while.");
   const membership = await supabase.from("trip_members").select("role").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle();
   // A query failure (outage, timeout) must not read as "not a member" — that's a real 404 the
   // route callers treat as final (e.g. notFound() in trip layout), while this is retryable.

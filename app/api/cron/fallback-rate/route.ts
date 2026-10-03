@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { hasBearer } from "@/lib/server/bearer";
 import { fail } from "@/lib/server/with-route";
 import { logger } from "@/lib/server/logger";
 import { sendEmail } from "@/lib/server/email";
@@ -21,7 +22,7 @@ const MIN_SAMPLE = 5;
  */
 async function run(request: Request): Promise<Response> {
   const secret = process.env.CRON_SECRET;
-  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!hasBearer(request, secret)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   try {

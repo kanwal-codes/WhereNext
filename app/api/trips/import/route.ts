@@ -4,6 +4,8 @@ import { fail } from "@/lib/server/with-route";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { LIMITS } from "@/lib/server/limits";
+import { withinRateLimit } from "@/lib/server/rate-limit";
 import { safeFetch, readCapped, UnsafeUrlError } from "@/lib/server/safe-fetch";
 import { htmlToText } from "@/lib/server/html-text";
 import { tripImportResultSchema } from "@/packages/contracts/trip-import";
@@ -35,6 +37,8 @@ export async function POST(request: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     if (parsed.data.tripId) await requireTripMember(parsed.data.tripId, { role: "editor" });
+    // Each import fetches a page and runs it through the model.
+    if (!(await withinRateLimit(`user-llm:${user.id}`, LIMITS.llm.max, 60 * 60_000))) return NextResponse.json({ error: "You’ve used a lot of imports this hour. Try again in a little while." }, { status: 429 });
 
     let pageText: string;
     try {

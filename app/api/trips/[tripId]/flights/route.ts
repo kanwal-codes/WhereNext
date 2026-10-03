@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { LIMITS } from "@/lib/server/limits";
 import { fail } from "@/lib/server/with-route";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
 import { searchFlights } from "@/packages/providers/duffel/client";
@@ -17,7 +18,7 @@ const bodySchema = z.object({
 export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
-    const { supabase } = await requireTripMember(tripId);
+    const { supabase } = await requireTripMember(tripId, { limit: LIMITS.provider });
     if (!process.env.DUFFEL_API_KEY) return NextResponse.json({ error: "Flight search is not configured" }, { status: 503 });
     const input = bodySchema.parse(await request.json());
 

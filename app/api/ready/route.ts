@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Redis from "ioredis";
 import { withRoute } from "@/lib/server/with-route";
+import { hasBearer } from "@/lib/server/bearer";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { checkServerEnv } from "@/lib/server/env-check";
 import { cacheStats } from "@/lib/server/ttl-cache";
@@ -34,19 +35,15 @@ async function pingRedis(): Promise<"up" | "down" | "not-configured"> {
   }
 }
 
-/** Readiness: only 200 when the DB is reachable and required config is present. Never leaks values. */
-export const GET = withRoute(async () => {
+/** Readiness: only 200 when the DB is reachable and required config is present. Never leaks values; the detail needs the cron secret. */
+export const GET = withRoute(async (request: Request) => {
   const [db, redis] = await Promise.all([pingDb(), pingRedis()]);
   const env = checkServerEnv();
   const ready = db === "up" && env.ok;
+  // Anyone may ask whether the app is up. Which settings are missing, and how the cache is doing, is for the people running it.
+  const detailed = hasBearer(request, process.env.CRON_SECRET);
   return NextResponse.json(
-    {
-      ready,
-      db,
-      redis,
-      env: { ok: env.ok, missingRequired: env.missingRequired, missingOptional: env.missingOptional },
-      cache: cacheStats(),
-    },
+    detailed ? { ready, db, redis, env: { ok: env.ok, missingRequired: env.missingRequired, missingOptional: env.missingOptional }, cache: cacheStats() } : { ready },
     { status: ready ? 200 : 503 },
   );
 });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { RouteDay, RouteLeg, RoutePlan } from "@/packages/contracts/route-plan";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { LIMITS } from "@/lib/server/limits";
 import { fail } from "@/lib/server/with-route";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { destinationBias } from "@/lib/server/geocode-stop";
@@ -120,7 +121,7 @@ async function planLeg(from: Stop, to: Stop, chosenMode: RouteLeg["mode"] | unde
 export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
-    const { supabase } = await requireTripMember(tripId);
+    const { supabase } = await requireTripMember(tripId, { limit: LIMITS.provider });
 
     const [tripRow, itinRes, choiceRes] = await Promise.all([
       supabase.from("trips").select("destination").eq("id", tripId).maybeSingle(),
