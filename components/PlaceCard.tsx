@@ -60,8 +60,7 @@ export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place
       actions={
         <>
           <AddToTripControl tripId={tripId} place={place} size="sm" block className="min-w-[6.75rem] flex-1" />
-          {/* On a phone the card is two across and the whole card already opens the details, so this button only costs a second row. */}
-          <DetailsButton label={`Details: ${place.name}`} onClick={open} className="max-sm:hidden" />
+          <DetailsButton label={`Details: ${place.name}`} onClick={open} />
         </>
       }
     />

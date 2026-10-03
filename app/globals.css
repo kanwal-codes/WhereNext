@@ -1498,3 +1498,10 @@
 .problem-b { opacity: 0; transform: translateY(18px); filter: blur(6px); transition: opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.9s, transform 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.9s, filter 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.9s; }
 [data-settled] .problem-b { opacity: 1; transform: none; filter: none; }
 @media (prefers-reduced-motion: reduce) { .pc-wrap, .problem-b { transition: none; } }
+
+
+/* On a phone a card that opens as a whole (photo, title, any bare part of it) does not also need a "Details" button: it only costs a second row of controls. If that was the card's only control, the empty row goes too. Mouse and keyboard keep the button. */
+@media (max-width: 639.98px) {
+  [data-tappable] [data-details] { display: none; }
+  [data-tappable] .entity-actions:not(:has(> :not([data-details]))) { display: none; }
+}
