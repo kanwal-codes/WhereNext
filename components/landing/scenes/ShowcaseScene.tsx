@@ -6,8 +6,8 @@ import { Reveal } from "@/components/landing/story/Reveal";
 
 const STEPS = [
   { id: "fit", title: "Find what fits", body: "Roam shortlists places against your brief, says why each one fits, and shows who in the group hearted it.", Panel: DiscoverPanel },
-  { id: "change", title: "Plans change. Roam keeps up.", body: "A place sells out and someone says so in the chat. Ask Roam for another time and the day reshuffles around it.", Panel: PlansChangePanel },
-  { id: "booked", title: "Everything in one place", body: "Tickets, trains, stays and tables sit beside the day they belong to, ready to share with everyone going.", Panel: BookingsPanel },
+  { id: "change", title: "Plans change. Roam keeps up.", body: "A workshop sells out and someone says so in the chat. Roam finds another option and reshuffles the day around it.", Panel: PlansChangePanel },
+  { id: "booked", title: "Every booking on its day", body: "Tickets, trains, stays and tables sit beside the day they belong to, ready to share with everyone going.", Panel: BookingsPanel },
 ] as const;
 
 /**

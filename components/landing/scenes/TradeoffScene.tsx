@@ -3,7 +3,7 @@ import { Reveal } from "@/components/landing/story/Reveal";
 
 const ROWS = [
   { icon: Check, label: "Why it fits", text: "It fills the open 2 PM gap, and it’s the one place all four of you hearted." },
-  { icon: CircleDollarSign, label: "What it costs", text: "$42 each, $168 for the group. Well inside your $900 each." },
+  { icon: CircleDollarSign, label: "What it costs", text: "$42 each, $168 for the group. Well within your $900-each budget." },
   { icon: Scale, label: "The tradeoff", text: "It takes the afternoon you’d have spent on Mount Royal." },
 ] as const;
 
