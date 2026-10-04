@@ -65,6 +65,19 @@ describe("withinRateLimit — Upstash-backed", () => {
     limitMock.mockRejectedValue(new Error("network"));
     expect(await fresh("k", 10, 1_000)).toBe(true);
   });
+
+  // Live-caught: the Upstash database filled up, every write errored, and guests (fail closed)
+  // were all refused with "you've started a few trips today". An outage must not lock everyone out.
+  it("failClosed (guests) falls back to a per-instance count on a Redis error: allowed up to the limit, then refused", async () => {
+    vi.resetModules();
+    process.env.UPSTASH_REDIS_REST_URL = "https://example.upstash.io";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "token";
+    const { withinRateLimit: fresh } = await import("../../lib/server/rate-limit");
+    limitMock.mockRejectedValue(new Error("ERR DB capacity quota exceeded"));
+    const key = `guest-outage-${Math.random()}`;
+    for (let i = 0; i < 3; i += 1) expect(await fresh(key, 3, 60_000, { failClosed: true })).toBe(true);
+    expect(await fresh(key, 3, 60_000, { failClosed: true })).toBe(false);
+  });
 });
 
 // Live-caught: this project's actual Vercel Redis integration exposes REDIS_KV_REST_API_URL/
