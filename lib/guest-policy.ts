@@ -17,11 +17,13 @@ const API_ALLOW: readonly ApiRule[] = [
   { methods: ["POST"], path: /^\/api\/guest\/(start|reset|claim-ticket)$/ },
   { methods: ["POST"], path: /^\/api\/ai$/ },
   { methods: ["GET"], path: /^\/api\/(health|profile)$/ },
+  // Hotel photographs from Google's image hosts, served from our origin (lib/hotel-photo.ts). Host-allow-listed in the route itself.
+  { methods: ["GET"], path: /^\/api\/hotel-photo$/ },
   {
-    // Reads only. `places/google` + `stays/:id` + `events/detail` are the card "Details" lookups.
+    // Reads only. `places/google` + `stays/:id` + `events/detail` are the card "Details" lookups; `stays` is the stays card's own search (its dates and guests bar), already rate-limited per user.
     methods: ["GET"],
     path: new RegExp(
-      `^/api/trips/${UUID}/(conversation|workspace|members|memory|decisions|map/static|places/google|places/google/photo|events/detail|stays/[^/]+)$`,
+      `^/api/trips/${UUID}/(conversation|workspace|members|memory|decisions|map/static|places/google|places/google/photo|events/detail|stays|stays/[^/]+)$`,
       "i",
     ),
   },

@@ -28,8 +28,10 @@ describe("guest policy: Roam only", () => {
     ["GET", `/api/trips/${TRIP}/memory`],
     ["GET", `/api/trips/${TRIP}/places/google`],
     ["GET", `/api/trips/${TRIP}/places/google/photo`],
+    ["GET", `/api/trips/${TRIP}/stays`],
     ["GET", `/api/trips/${TRIP}/stays/abc123`],
     ["GET", `/api/trips/${TRIP}/events/detail`],
+    ["GET", "/api/hotel-photo"],
   ];
   it.each(allowed)("lets a guest %s %s", (method, path) => {
     expect(guestDecision(path, method)).toEqual({ allow: true });
@@ -58,6 +60,8 @@ describe("guest policy: Roam only", () => {
     ["POST", `/api/trips/${TRIP}/bookings`],
     ["POST", `/api/trips/${TRIP}/flights/book`],
     ["POST", `/api/trips/${TRIP}/stays/abc123/book`],
+    ["POST", `/api/trips/${TRIP}/stays`],
+    ["POST", "/api/hotel-photo"],
     ["POST", `/api/trips/${TRIP}/compare-chat`],
     ["PATCH", `/api/trips/${TRIP}/suggestions`],
     ["PUT", `/api/trips/${TRIP}/memory`],

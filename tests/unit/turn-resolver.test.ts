@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const { generateObjectMock } = vi.hoisted(() => ({ generateObjectMock: vi.fn() }));
 vi.mock("ai", async (importOriginal) => ({ ...(await importOriginal<object>()), generateObject: generateObjectMock }));
 
-import { resolveTurn, resolvedTurnSchema, routePracticalFacts } from "../../lib/application/turn-resolver";
+import { guardRepeatedClarify, resolveTurn, resolvedTurnSchema, routePracticalFacts } from "../../lib/application/turn-resolver";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -208,5 +208,46 @@ describe("routePracticalFacts", () => {
   it("leaves other intents alone", () => {
     const food = resolvedTurnSchema.parse({ intent: "food" });
     expect(routePracticalFacts("tipping at restaurants?", food)).toBe(food);
+  });
+});
+
+describe("guardRepeatedClarify", () => {
+  const asked = [
+    { role: "user" as const, content: "can u find resrots in tulum mexico no price issue but good quality" },
+    { role: "assistant" as const, content: "What check-in and check-out dates would you like for the resort stay?" },
+  ];
+  const clarifying = (question: string) => resolvedTurnSchema.parse({ intent: "discovery", locationFocus: "Tulum, Mexico", clarify: { question, chips: ["This month", "Next month"] } });
+
+  it("turns a dodged answer into a stays search instead of the same question again", () => {
+    const out = guardRepeatedClarify("I'm not sure yet", asked, clarifying("What are your check-in and check-out dates for the Tulum resort stay?"));
+    expect(out.clarify).toBeNull();
+    expect(out.intent).toBe("stays");
+    expect(out.toolPlan).toEqual([{ tool: "stays", location: "Tulum, Mexico", checkin: null, checkout: null, hotelName: null }]);
+  });
+
+  it("treats \"just show me\" and \"flexible dates\" the same way", () => {
+    for (const reply of ["Flexible dates", "jsut show mw resorts".replace("jsut", "just")]) {
+      expect(guardRepeatedClarify(reply, asked, clarifying("What dates are you thinking about?")).clarify).toBeNull();
+    }
+  });
+
+  it("drops a repeated question even when the reply is not a dodge", () => {
+    const out = guardRepeatedClarify("in tulum", asked, clarifying("Which check-in date works for you?"));
+    expect(out.clarify).toBeNull();
+    expect(out.toolPlan.map((c) => c.tool)).toEqual(["stays"]);
+  });
+
+  it("leaves a first question, and a different question after a real answer, alone", () => {
+    const first = clarifying("What dates are you thinking about?");
+    expect(guardRepeatedClarify("find resorts in tulum", [], first)).toBe(first);
+    const different = clarifying("Do you want a quiet beach or a lively one?");
+    expect(guardRepeatedClarify("Nov 15 to 20", asked, different)).toBe(different);
+  });
+
+  it("does not invent a stays call when the conversation was not about lodging", () => {
+    const history = [{ role: "assistant" as const, content: "What pace would you like: relaxed or packed?" }];
+    const out = guardRepeatedClarify("not sure", history, clarifying("Is a relaxed or a packed pace better for you?"));
+    expect(out.clarify).toBeNull();
+    expect(out.toolPlan).toEqual([]);
   });
 });
