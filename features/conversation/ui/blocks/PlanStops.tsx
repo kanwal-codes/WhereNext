@@ -13,7 +13,7 @@ import { textAction, type } from "./ui";
 export type PlanStop = { /** Stable identity for a reorderable list. */ id?: string; time?: string; title: string; note?: string; placeId?: string; kind?: StopKind; glyph?: Glyph; trailing?: string };
 
 /** The tint of a stop's icon comes from the plan's kind of stop; the icon itself from what the stop is. */
-const TINT: Record<StopKind, string> = {
+export const TINT: Record<StopKind, string> = {
   food: "bg-chart-5/15 text-chart-5",
   sight: "bg-chart-1/15 text-chart-1",
   activity: "bg-chart-2/15 text-chart-2",

@@ -53,7 +53,7 @@ export function AddToTripControl({
   tripId: string;
   place: Place;
   initialPlacement?: Placement;
-  size?: "sm" | "md";
+  size?: "sm" | "md" | "lg";
   /** Stretch to fill the container (detail aside) instead of hugging its content. */
   block?: boolean;
   onPlacementChange?: (placement: Placement) => void;
@@ -218,7 +218,7 @@ export function AddToTripControl({
               "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full border font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out active:scale-[0.98] disabled:opacity-70",
               ring,
               block && "w-full",
-              sm ? "h-8 px-3 text-xs" : "h-10 px-5 text-sm",
+              sm ? "h-8 px-3 text-xs" : size === "lg" ? "h-12 px-6 text-[0.9375rem]" : "h-10 px-5 text-sm",
               day
                 ? "border-transparent bg-coral-fill text-coral-fill-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.18)] hover:brightness-105"
                 : sm
@@ -255,13 +255,13 @@ export function AddToTripControl({
           className={cn(
             "grid shrink-0 place-items-center rounded-full border transition-[background-color,border-color,color,transform] duration-200 ease-out active:scale-90 disabled:opacity-70",
             ring,
-            sm ? "size-8" : "size-10",
+            sm ? "size-8" : size === "lg" ? "size-12" : "size-10",
             saved
               ? "border-coral/35 bg-coral-soft text-coral-ink hover:bg-coral-soft"
               : "border-border bg-background text-muted-foreground hover:border-ink/30 hover:text-ink",
           )}
         >
-          <Bookmark className={cn(sm ? "size-3.5" : "size-4", "transition-transform duration-200", saved && "scale-110 fill-current")} />
+          <Bookmark className={cn(sm ? "size-3.5" : size === "lg" ? "size-[18px]" : "size-4", "transition-transform duration-200", saved && "scale-110 fill-current")} />
         </button>
       </div>
 

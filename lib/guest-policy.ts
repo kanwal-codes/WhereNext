@@ -12,9 +12,9 @@ const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
 type ApiRule = { methods: readonly string[]; path: RegExp };
 
-/** The API surface the Roam chat needs: start/reset a guest, take a turn, and read what the page shows. */
+/** The API surface the Roam chat needs: start/reset a guest, get a ticket to move to an existing account, take a turn, and read what the page shows. */
 const API_ALLOW: readonly ApiRule[] = [
-  { methods: ["POST"], path: /^\/api\/guest\/(start|reset)$/ },
+  { methods: ["POST"], path: /^\/api\/guest\/(start|reset|claim-ticket)$/ },
   { methods: ["POST"], path: /^\/api\/ai$/ },
   { methods: ["GET"], path: /^\/api\/(health|profile)$/ },
   {
