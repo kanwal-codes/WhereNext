@@ -11,11 +11,12 @@ import { ThemeSync } from "@/components/ThemeSync";
 import { MotionProvider } from "@/components/MotionProvider";
 import { NavProgress } from "@/components/NavProgress";
 import { ViewTransitionGate } from "@/components/ViewTransitionGate";
+import { DARK_MODE_ENABLED } from "@/lib/theme-config";
 
 // Runs before hydration so dark mode never flashes light-then-dark. An explicit choice
 // (from ThemeToggle, in localStorage) wins; otherwise this falls back to the OS preference
 // at load time.
-const THEME_INIT = `(function(){try{var t=localStorage.getItem("theme");var d=t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);}catch(e){}})();`;
+const THEME_INIT = `(function(){try{var enabled=${DARK_MODE_ENABLED ? "true" : "false"};var t=localStorage.getItem("theme");var d=enabled&&(t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches));document.documentElement.classList.toggle("dark",d);if(!enabled)localStorage.setItem("theme","light");}catch(e){}})();`;
 
 const outfit = Outfit({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-outfit", display: "swap" });
 const figtree = Figtree({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-figtree", display: "swap" });

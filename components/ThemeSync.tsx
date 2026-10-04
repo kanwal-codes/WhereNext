@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
+import { DARK_MODE_ENABLED } from "@/lib/theme-config";
 
 /** Runs once per load: if the signed-in account has a saved theme that differs from what's
  * applied on this device (new browser, cleared storage), adopt it. localStorage only remembers
  * a choice on the browser that made it — this is what makes it follow the account instead. */
 export function ThemeSync() {
   useEffect(() => {
+    if (!DARK_MODE_ENABLED) return;
     // Only a signed-in (or guest) visitor has a Supabase session cookie; for everyone else the
     // request is a guaranteed 401, so skip it.
     if (!/(?:^|;\s*)sb-[^=]*-auth-token/.test(document.cookie)) return;

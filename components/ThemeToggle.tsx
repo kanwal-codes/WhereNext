@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DARK_MODE_ENABLED } from "@/lib/theme-config";
 
 type Theme = "light" | "dark";
 
@@ -25,6 +26,7 @@ export function ThemeToggle({ className }: { className?: string }) {
   // before hydration) — start at "light" so server and first client render always agree.
   const [theme, setTheme] = useState<Theme>("light");
   useEffect(() => setTheme(currentTheme()), []);
+  if (!DARK_MODE_ENABLED) return null;
 
   function toggle() {
     const next: Theme = theme === "dark" ? "light" : "dark";

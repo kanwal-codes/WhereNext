@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { BadgeCheck, Camera, Check, Copy, Download, Eye, Link2, Loader2, MapPin, Plane, Compass, Trash2 } from "lucide-react";
 import { Reveal, Sheet, Tactile, WordReveal } from "@/components/motion-primitives";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { StandaloneTopBar } from "@/components/StandaloneTopBar";
 import { useIsDarkMode } from "@/lib/use-dark-mode";
 import { DestinationCombobox } from "@/components/DestinationCombobox";
@@ -887,14 +886,6 @@ export function AccountView({
 
             {/* Danger */}
             <SettingSection id="danger" title="Account data" blurb="Take your planning with you, sign out, or close the account.">
-              <div className="flex flex-wrap items-center gap-3 border-b border-border pb-6">
-                <div className="mr-auto">
-                  <p className="text-sm font-medium">Appearance</p>
-                  <p className="text-sm text-ink-soft">Light or dark — follows you to any device you sign into.</p>
-                </div>
-                <ThemeToggle className="h-10 w-10" />
-              </div>
-
               <div className="flex flex-wrap items-center gap-3 border-b border-border pb-6">
                 <div className="mr-auto">
                   <p className="text-sm font-medium">Sign out</p>

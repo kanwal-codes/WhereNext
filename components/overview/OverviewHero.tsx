@@ -45,7 +45,6 @@ export function OverviewHero({
         trip={trip}
         size="feature"
         typeLed={false}
-        parallax
         vtName="trip-cover"
         width={1600}
         imageClassName="hero-drift"
