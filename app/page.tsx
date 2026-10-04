@@ -6,12 +6,13 @@ import { TripsHome } from "@/components/TripsHome";
 import { loadTripsIndex } from "@/lib/server/trips-index";
 
 export const metadata: Metadata = {
-  title: "Where next? Plan a trip by talking about it",
+  title: "Where Next — AI Trip Planner for Group Travel",
   description:
-    "A travel workspace where Roam asks, remembers and proposes options you confirm. Every place, stay, flight and forecast is backed by live data with source links.",
+    "Plan trips together with Roam. Discover places, compare stays and flights, and build an itinerary everyone can agree on — all in one calm workspace.",
   openGraph: {
-    title: "Where next?",
-    description: "Talk your way to a trip: discover places, map the days, pick where you stay and build the itinerary together.",
+    title: "Where Next — AI Trip Planner for Group Travel",
+    description:
+      "Plan trips together with Roam. Discover places, compare stays and flights, and build an itinerary everyone can agree on.",
     type: "website",
   },
   alternates: { canonical: "/" },
