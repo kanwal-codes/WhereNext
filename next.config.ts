@@ -21,7 +21,7 @@ const connectSrc = [
   "https://*.supabase.co",
   "wss://*.supabase.co",
   supabaseOrigin,
-  supabaseOrigin.replace(/^https:/, "wss:"),
+  supabaseOrigin.replace(/^http/, "ws"),
   "https://api.mapbox.com",
   "https://events.mapbox.com",
   "https://*.tiles.mapbox.com",
@@ -56,8 +56,12 @@ const csp = [
   "base-uri 'self'",
   "form-action 'self'",
   "manifest-src 'self'",
-  "upgrade-insecure-requests",
-].join("; ");
+  // Production only: WebKit (Safari, the iOS simulator, a phone on the LAN) upgrades every
+  // subresource of an http://localhost page to https, so dev loads unstyled and never hydrates.
+  isDev ? "" : "upgrade-insecure-requests",
+]
+  .filter(Boolean)
+  .join("; ");
 
 const securityHeaders = [
   { key: "Content-Security-Policy", value: csp },
@@ -66,7 +70,7 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   // Speech input needs the mic; the map may ask for location. Everything else is off.
   { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=(self), payment=(), usb=(), interest-cohort=()" },
-  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+  ...(isDev ? [] : [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" }]),
   { key: "X-DNS-Prefetch-Control", value: "on" },
 ];
 
