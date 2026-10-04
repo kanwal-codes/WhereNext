@@ -25,6 +25,21 @@ export async function middleware(request: NextRequest) {
       return denied;
     }
   }
+
+  // A trip that does not exist (or is not yours) should answer 404, not 200. The trip pages stream behind a loading screen, and
+  // once that has started the status can no longer change, so the check is made here, before anything streams. Only for a
+  // full page load (reload, typed address, shared link): moving around inside the app never reaches this.
+  const claimsUser = data?.claims?.sub;
+  const trip = /^\/trips\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(\/|$)/i.exec(request.nextUrl.pathname);
+  if (claimsUser && trip && request.method === "GET" && request.headers.get("sec-fetch-dest") === "document") {
+    const { data: member, error } = await supabase.from("trip_members").select("user_id").eq("trip_id", trip[1]).eq("user_id", claimsUser).maybeSingle();
+    // A failed lookup (outage) is not a missing trip: let the page decide, as it always did.
+    if (!error && !member) {
+      const missing = NextResponse.rewrite(new URL("/trip-not-found", request.url), { status: 404 });
+      response.cookies.getAll().forEach((cookie) => missing.cookies.set(cookie));
+      return missing;
+    }
+  }
   return response;
 }
 

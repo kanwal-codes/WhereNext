@@ -346,7 +346,8 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
               const locked = lockedStay?.hotelId === o.hotelId;
               return (
                 <li key={o.hotelId} className={cn("card-lift flex flex-col overflow-hidden rounded-2xl border bg-card shadow-soft", locked ? "border-leaf/40" : "border-border")}>
-                  <Link href={detailHref(o.hotelId)} onClick={openStay(o)} className="block aspect-[16/10] shrink-0 overflow-hidden bg-muted">
+                  {/* The title below is the named link to the same place; the photo is a second way to press it, so assistive tech and the tab key skip it (as on every other card). */}
+                  <Link href={detailHref(o.hotelId)} onClick={openStay(o)} aria-hidden tabIndex={-1} className="block aspect-[16/10] shrink-0 overflow-hidden bg-muted">
                     <StayPhoto src={o.thumbnail} alt={o.name} className="h-full w-full object-cover" />
                   </Link>
                   <div className="flex min-h-0 flex-1 flex-col p-4">

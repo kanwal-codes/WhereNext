@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AccountView } from "@/features/profile/ui/AccountView";
+
+export const metadata = { title: "Account — Where next?" };
 import type { TravelerProfile } from "@/packages/contracts/profile";
 
 export default async function AccountPage() {

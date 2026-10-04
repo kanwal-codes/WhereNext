@@ -10,6 +10,8 @@ import { invalidate } from "@/lib/server/ttl-cache";
 
 export const dynamic = "force-dynamic";
 
+export const metadata = { title: "Join a trip — Where next?" };
+
 function JoinCard({ children }: { children: ReactNode }) {
   return (
     <main className="flex min-h-svh items-center justify-center bg-background px-5 py-12">

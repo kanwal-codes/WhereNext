@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, CalendarDays, Compass, MapPin, Users, Wallet } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
+import { useDocumentTitle } from "@/lib/use-document-title";
 import { Reveal } from "@/components/motion-primitives";
 import { RoamMark } from "@/features/roam/ui/RoamMark";
 import { TripWeather } from "@/components/TripWeather";
@@ -34,6 +35,7 @@ const action = "daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-c
 
 export default function TripOverviewPage() {
   const { tripId, data } = useTripData();
+  const titleTag = useDocumentTitle((data?.trip as { name?: string } | undefined)?.name ?? "Overview");
   const router = useRouter();
   const trip = data?.trip;
   const [editingName, setEditingName] = useState(false);
@@ -120,6 +122,7 @@ export default function TripOverviewPage() {
 
   return (
     <div className="min-h-full pb-16">
+      {titleTag}
       {cover ? (
         <OverviewHero
           trip={cover}
