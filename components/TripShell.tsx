@@ -4,6 +4,7 @@ import { RoamMark } from "@/features/roam/ui/RoamMark";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useId, useState, type ComponentType, type ReactNode } from "react";
+import { useTripPanelMaybe } from "@/components/TripPanelProvider";
 import { motion, useReducedMotion } from "motion/react";
 import {
   BedDouble,
@@ -208,6 +209,10 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
   const allTripsHref = guest ? "/" : "/trips";
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  // With a side panel open, the page beside the sidebar is a long conversation and a detail view. Sliding the sidebar's
+  // column re-wraps every line of both on every frame, which reads as shaking however fast it runs. So then the
+  // content takes its new width once, and the sidebar itself does the sliding, over the room it already has.
+  const panelOpen = Boolean(useTripPanelMaybe()?.panel);
 
   const utility = (onNavigate?: () => void) => guest ? null : (
     <div role="group" aria-label="Trip tools" className="space-y-1">
@@ -243,13 +248,17 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
       // forced-overflow-y-auto quirk this whole component depends on not having.
       // The column is a CSS transition, not a JS spring: the browser interpolates it itself, in step with
       // the label/marker transitions inside (see SIDEBAR_MOTION), exactly like the Roam panel's column.
-      className={cn("min-h-screen w-full min-w-0 max-w-full lg:grid lg:transition-[grid-template-columns]", SIDEBAR_MOTION)}
+      className={cn("min-h-screen w-full min-w-0 max-w-full lg:grid", !panelOpen && "lg:transition-[grid-template-columns]", SIDEBAR_MOTION)}
       style={{ gridTemplateColumns: collapsed ? "76px minmax(0,1fr)" : "264px minmax(0,1fr)" }}
     >
       {/* Desktop sidebar */}
       <aside
+        // Beside an open panel the column has already taken its final width, so this slides on its own width.
+        style={panelOpen ? { width: collapsed ? 76 : 264 } : undefined}
         className={cn(
           "group sticky top-0 hidden h-[100dvh] flex-col border-r border-sidebar-border bg-sidebar px-3 py-6 lg:flex",
+          panelOpen && "z-30 overflow-hidden lg:transition-[width]",
+          panelOpen && SIDEBAR_MOTION,
         )}
       >
         {/* Both headers stay mounted and cross-fade, so the nav below never jumps when the sidebar toggles. */}

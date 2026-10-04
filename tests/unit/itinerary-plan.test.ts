@@ -191,3 +191,46 @@ describe("dayIndexForDate", () => {
     expect(dayIndexForDate("2026-11-10", "2027-06-01")).toBeNull(); // absurdly far out
   });
 });
+
+describe("buildItineraryPlan: the number of days asked for", () => {
+  const pool = ["a", "b", "c", "d", "e", "f"].map((id) => place(id, `Place ${id.toUpperCase()}`));
+  const day = (n: number, id: string) => ({ label: `Day ${n}`, stops: [{ title: `Place ${id.toUpperCase()}`, placeId: id }] });
+  const labels = (block: unknown) => (block as { days: Array<{ label: string }> }).days.map((d) => d.label);
+
+  it("tells the model exactly how many days, ahead of the trip's saved length", async () => {
+    stubModel({ days: [day(1, "a")] });
+    await buildItineraryPlan({ prompt: "Rome", tripSummary: "", evidence: evidence(pool), tripCtx: { places: [], itinerary: [], preferences: {}, trip: { duration_days: 8 } } as never, requestedDays: 5 });
+    const user = JSON.stringify(generateObjectMock.mock.calls.at(-1)?.[0].messages);
+    expect(user).toContain("Days to plan: 5 (exactly 5 days");
+  });
+
+  it("keeps a missing day as an open day instead of returning a shorter plan", async () => {
+    stubModel({ days: [day(1, "a"), day(2, "b"), day(3, "c"), day(4, "d")] });
+    const block = await buildItineraryPlan({ prompt: "plan 5 days", tripSummary: "", evidence: evidence(pool), tripCtx, requestedDays: 5 });
+    expect(labels(block)).toEqual(["Day 1", "Day 2", "Day 3", "Day 4", "Day 5"]);
+    expect((block as { days: unknown[] }).days[4]).toEqual({ label: "Day 5", subtitle: "Open day", stops: [], open: true });
+  });
+
+  it("flags a day that ran out of places as open, with no filler stop to be saved", async () => {
+    stubModel({ days: [day(1, "a"), { label: "Day 2", subtitle: "Trastevere stroll", stops: [{ title: "Invented Cafe", placeId: "ghost" }] }] });
+    const block = await buildItineraryPlan({ prompt: "plan 2 days", tripSummary: "", evidence: evidence(pool), tripCtx, requestedDays: 2 });
+    expect((block as { days: unknown[] }).days[1]).toEqual({ label: "Day 2", subtitle: "Open day", stops: [], open: true });
+    expect((block as { days: Array<{ open?: boolean }> }).days[0].open).toBeUndefined();
+  });
+
+  it("falls back to no plan when every day is open", async () => {
+    stubModel({ days: [{ label: "Day 1", stops: [] }, { label: "Day 2", stops: [] }] });
+    expect(await buildItineraryPlan({ prompt: "plan 2 days", tripSummary: "", evidence: evidence(pool), tripCtx, requestedDays: 2 })).toBeNull();
+  });
+
+  it("trims a plan that came back longer than asked", async () => {
+    stubModel({ days: [1, 2, 3, 4, 5, 6].map((n) => day(n, "abcdef"[n - 1])) });
+    expect(labels(await buildItineraryPlan({ prompt: "plan 5 days", tripSummary: "", evidence: evidence(pool), tripCtx, requestedDays: 5 }))).toHaveLength(5);
+  });
+
+  it("does not pad an edit of existing days", async () => {
+    stubModel({ days: [day(3, "c")] });
+    const withExisting = { places: [], itinerary: [{ day_index: 1, title: "x" }, { day_index: 3, title: "y" }], preferences: {} } as never;
+    expect(labels(await buildItineraryPlan({ prompt: "redo day 3", tripSummary: "", evidence: evidence(pool), tripCtx: withExisting, requestedDays: null }))).toEqual(["Day 3"]);
+  });
+});

@@ -303,6 +303,98 @@ describe("MessageBlocks", () => {
     expect(html).toMatch(/Over your \$100\/day/);
   });
 
+  it("stays block: in the chat it carries a search bar for the place, the days and the guests", () => {
+    const hotel = { hotelId: "g:tok1", name: "Hotel Blue", nightlyPrice: "93", totalPrice: "279", currency: "CAD", rating: 9, reviews: 120 };
+    const html = render([{ type: "stays", retrievedAt: "t", location: "Zagreb, Croatia", checkin: "2026-11-15", checkout: "2026-11-18", nights: 3, adults: 3, dateNote: "2026-11-15 → 2026-11-18", items: [hotel] }]);
+    expect(html).toContain("Looking for stays in Zagreb, Croatia. Change");
+    expect(html).toContain('aria-label="Check-in date"');
+    expect(html).toContain('aria-label="Check-out date"');
+    expect(html).toContain("3 guests");
+    expect(html).toContain("3 nights");
+    expect(html).not.toContain("Example dates");
+  });
+
+  it("stays block: guesses at the days are called out, and the see-all list has no bar", () => {
+    const hotel = { hotelId: "g:tok1", name: "Hotel Blue", nightlyPrice: "93", totalPrice: "279", currency: "CAD" };
+    const block: AssistantBlock = { type: "stays", retrievedAt: "t", location: "Zagreb", checkin: "2026-11-15", checkout: "2026-11-18", nights: 3, dateNote: "Example dates 2026-11-15 → 2026-11-18 — set your real dates", items: [hotel] };
+    expect(render([block])).toContain("Example dates, pick yours above");
+    const all = renderToStaticMarkup(<MessageBlocks blocks={[block]} {...handlers} preview={false} />);
+    expect(all).not.toContain('aria-label="Check-in date"');
+  });
+
+  it("flights block: shows the day the fares are for with a way to change it", () => {
+    const item = { id: "o1", airline: "British Airways", price: "280.22", currency: "USD", durationMinutes: 605, stops: 0, departAt: "2026-11-15T10:50:00", arriveAt: "2026-11-16T02:55:00" };
+    const html = render([{ type: "flights", retrievedAt: "t", origin: "Toronto, Canada", destination: "Zagreb, Croatia", dateNote: "Example date 2026-11-15 — no travel date set yet", departureDate: "2026-11-15", assumedDate: true, items: [item] }]);
+    expect(html).toContain("Sun, Nov 15");
+    expect(html).toContain('aria-label="Departure date"');
+    expect(html).toContain('aria-label="Depart: next day"');
+    expect(html).not.toContain("Example date, pick yours below"); // the day sits in the pill; no extra line saying so
+  });
+
+  it("flights block: a converted fare is marked approximate, in the trip's currency, with the footnote saying so", () => {
+    const item = { airline: "British Airways", price: "398.99", currency: "CAD", listedPrice: "280.22", listedCurrency: "USD", durationMinutes: 605, stops: 0, departAt: "2026-11-15T10:50:00", arriveAt: "2026-11-16T02:55:00" };
+    const html = render([{ type: "flights", retrievedAt: "t", origin: "Toronto", destination: "Zagreb", dateNote: "Departing 2026-11-15", departureDate: "2026-11-15", items: [item] }]);
+    expect(html).toContain("≈");
+    expect(html).toContain("CA$398.99");
+    expect(html).toContain("per person, in CAD, converted from USD at today");
+  });
+
+  it("flights block: an unconverted US dollar fare says US$, never a bare $", () => {
+    const item = { airline: "Iberia", price: "286.50", currency: "USD", durationMinutes: 605, stops: 0, departAt: "2026-11-15T10:50:00", arriveAt: "2026-11-16T02:55:00" };
+    const html = render([{ type: "flights", retrievedAt: "t", origin: "A", destination: "B", dateNote: "Departing 2026-11-15", items: [item] }]);
+    expect(html).toContain("US$286.50");
+    expect(html).not.toContain("≈");
+  });
+
+  it("flights block: a round trip shows both days, a way to edit the route, and Google's read on the price", () => {
+    const item = { airline: "Air France", price: "1171", currency: "CAD", durationMinutes: 765, stops: 1, departAt: "2026-11-15T18:30:00", arriveAt: "2026-11-16T13:15:00", flightNumbers: ["AF 357", "OU 471"], logo: "https://logo/af.png" };
+    const html = render([{ type: "flights", retrievedAt: "t", origin: "Toronto, Ontario, Canada", destination: "Zagreb, Croatia", dateNote: "Departing 2026-11-15, returning 2026-11-22", departureDate: "2026-11-15", returnDate: "2026-11-22", originId: "/m/0h7h6", destinationId: "/m/0h7h6x", insights: { level: "low", lowest: 1171, typicalLow: 1250, typicalHigh: 1500 }, items: [item] }]);
+    expect(html).toContain("Sun, Nov 15");
+    expect(html).toContain("Sun, Nov 22");
+    expect(html).toContain('aria-label="Return date"');
+    // The header names the route once; the places to change it stay closed until "Edit route" is pressed.
+    expect(html).toContain("Edit route");
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).not.toContain("Flying from");
+    expect(html).not.toContain("Swap from and to");
+    expect(html).toContain("Prices are low for these dates");
+    expect(html).toContain("AF 357 · OU 471");
+    expect(html).toContain("round trip");
+    expect(html).toContain("for the round trip, in CAD");
+  });
+
+  it("flights block: a one-way card has no return day", () => {
+    const item = { airline: "Iberia", price: "286.50", currency: "CAD", durationMinutes: 605, stops: 0, departAt: "2026-11-15T10:50:00", arriveAt: "2026-11-16T02:55:00" };
+    const html = render([{ type: "flights", retrievedAt: "t", origin: "A", destination: "B", dateNote: "Departing 2026-11-15", departureDate: "2026-11-15", items: [item] }]);
+    expect(html).not.toContain('aria-label="Return date"');
+    expect(html).not.toContain("round trip");
+  });
+
+  it("flights block: a card saved before the date field existed still reads its day from the note", () => {
+    const item = { airline: "Iberia", price: "286.50", currency: "USD", durationMinutes: 605, stops: 0, departAt: "2026-11-15T10:50:00", arriveAt: "2026-11-16T02:55:00" };
+    const html = render([{ type: "flights", retrievedAt: "t", origin: "A", destination: "B", dateNote: "Departing 2026-12-02", items: [item] }]);
+    expect(html).toContain("Wed, Dec 2");
+    expect(html).not.toContain("Example date");
+  });
+
+  it("itinerary block: says plainly that days with nothing in them are open, and offers to find more", () => {
+    const html = render([{ type: "itinerary", title: "5 days in Rome", days: [
+      { label: "Day 1", stops: [{ title: "Colosseum" }] },
+      { label: "Day 2", stops: [{ title: "Pantheon" }] },
+      { label: "Day 3", stops: [{ title: "Trevi Fountain" }] },
+      { label: "Day 4", subtitle: "Open day", open: true, stops: [] },
+      { label: "Day 5", subtitle: "Open day", open: true, stops: [] },
+    ] }]);
+    expect(html).toContain("Day 4 and Day 5 are open");
+    expect(html).toContain("rather than pad them out");
+    expect(html).toContain("Find more for Day 4 and Day 5");
+    expect(html).toContain("5 days in Rome");
+  });
+
+  it("itinerary block: a full plan shows no open-days notice", () => {
+    expect(render([{ type: "itinerary", days: [{ label: "Day 1", stops: [{ title: "Mount Royal" }] }] }])).not.toContain("are open");
+  });
+
   it("itinerary block: renders day sections, stops, notes, and a link for a real place", () => {
     const block: AssistantBlock = { type: "itinerary", title: "2 days in Montréal", days: [
       { label: "Day 1", subtitle: "Old town", stops: [

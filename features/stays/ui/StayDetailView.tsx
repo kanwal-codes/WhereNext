@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronDown, MapPin, MessageCircle, Navigation, Star, Users } from "lucide-react";
+import { Check, ChevronDown, Globe, MapPin, MessageCircle, Navigation, Phone, Star, Users } from "lucide-react";
 import { Hero } from "@/components/Hero";
 import { DetailSectionHeading } from "@/components/DetailSectionHeading";
 import { FactStrip, QuickActions, ShowMore } from "@/components/DetailKit";
@@ -15,10 +15,11 @@ import { Badge, Notice, money, prettyDate, type as T } from "@/features/conversa
 import { Reveal, WordReveal } from "@/components/motion-primitives";
 import { PhotoLightbox, usePhotoLightbox } from "@/components/PhotoLightbox";
 import { useStayDetails } from "@/features/stays/application/useStayDetails";
+import { StayNearby, StayThemes, WhereToBook } from "./GoogleStayParts";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { askAssistantHref } from "@/lib/places-ui";
 import { relativeDate } from "@/lib/relative-time";
-import { cn } from "@/lib/utils";
+import { cn, safeHref } from "@/lib/utils";
 import { displayClockTime } from "@/lib/application/clock-time";
 
 // Stable reference so the memos below don't see a "new" empty array (and recompute for
@@ -117,6 +118,7 @@ export function StayDetailView({
   hotelId,
   checkin,
   checkout,
+  adults,
   seedName,
   variant = "page",
 }: {
@@ -124,6 +126,8 @@ export function StayDetailView({
   hotelId: string;
   checkin?: string;
   checkout?: string;
+  /** Guests the prices are for, when the search that opened this had a number. */
+  adults?: number;
   /** The name the card already showed: used until (or in place of) the hotel's own details, so the page never says just "Hotel". */
   seedName?: string;
   variant?: "page" | "panel";
@@ -132,7 +136,7 @@ export function StayDetailView({
   const [reviewsOpen, setReviewsOpen] = useState(false);
   const [amenityGroupOpen, setAmenityGroupOpen] = useState<string | null>(null);
   const lightbox = usePhotoLightbox();
-  const s = useStayDetails(tripId, hotelId, { checkin, checkout });
+  const s = useStayDetails(tripId, hotelId, { checkin, checkout, adults });
   const titleTag = useDocumentTitle(panel ? null : s.hotel?.name ?? "Stay");
 
   // Derived from `s.hotel`/`s.reviews` alone — memoized (and computed before the loading/error
@@ -189,12 +193,16 @@ export function StayDetailView({
               hotel?.checkinFrom && { label: "Check-in", value: displayClockTime(hotel.checkinFrom), note: hotel.checkout ? `Out by ${displayClockTime(hotel.checkout)}` : undefined },
             ]}
           />
-          <QuickActions actions={[{ icon: Navigation, label: "Directions", href: directionsHref, external: true }]} />
+          <QuickActions actions={[
+            { icon: Navigation, label: "Directions", href: directionsHref, external: true },
+            s.phone && { icon: Phone, label: "Call", href: `tel:${s.phone.replace(/\s/g, "")}`, hint: s.phone },
+            s.website && safeHref(s.website) && { icon: Globe, label: "Website", href: safeHref(s.website)!, external: true },
+          ]} />
         </div>
       </Reveal>
 
       <Reveal delay={0.04}>
-        <RoomsSection s={s} hotelId={hotelId} />
+        {s.google ? <WhereToBook s={s} hotelId={hotelId} /> : <RoomsSection s={s} hotelId={hotelId} />}
       </Reveal>
 
       <Reveal delay={0.06}>
@@ -212,7 +220,7 @@ export function StayDetailView({
         <Reveal delay={0.08}>
           <section>
             <DetailSectionHeading>Photos</DetailSectionHeading>
-            <div className={cn("mt-1 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain no-scrollbar pb-9 -mb-8 pt-2", panel ? "-mr-4 pr-4" : "-mx-5 px-5 sm:mx-0 sm:px-0")}>
+            <div className={cn("mt-1 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain no-scrollbar pb-14 -mb-12 pt-2", panel ? "-mr-4 pr-4" : "-mx-5 px-5 sm:mx-0 sm:px-0")}>
               {images.slice(1).map((src, i) => (
                 <button
                   key={src}
@@ -258,7 +266,13 @@ export function StayDetailView({
         </Reveal>
       )}
 
-      {(s.sentiment || s.reviews.length > 0) && (
+      {s.nearby.length > 0 && (
+        <Reveal delay={0.12}>
+          <StayNearby nearby={s.nearby} />
+        </Reveal>
+      )}
+
+      {(s.sentiment || s.themes.length > 0 || s.reviews.length > 0) && (
         <Reveal delay={0.14}>
           <section>
             <DetailSectionHeading>What guests say</DetailSectionHeading>
@@ -273,6 +287,7 @@ export function StayDetailView({
                   <p className="mt-2 text-xs text-muted-foreground">Average of the last {ratedReviews.length} review{ratedReviews.length === 1 ? "" : "s"}</p>
                 </div>
               )}
+              {s.themes.length > 0 && <div className={cn(reviewScore === null && "sm:col-span-2")}><StayThemes themes={s.themes} /></div>}
               {s.sentiment && (
                 <div className={cn("rounded-2xl border border-border bg-card p-4", reviewScore === null && "sm:col-span-2")}>
                   <p className="text-sm font-medium">What guests keep mentioning</p>
@@ -293,7 +308,7 @@ export function StayDetailView({
                     {r.positives && <p className="mt-1.5 line-clamp-2 text-sm leading-5 text-ink-soft"><span className="font-medium text-positive">Liked </span>{r.positives}</p>}
                     {r.negatives && <p className="mt-1 line-clamp-2 text-sm leading-5 text-ink-soft"><span className="font-medium text-caution">Didn’t like </span>{r.negatives}</p>}
                     {!r.positives && !r.negatives && r.text && <p className="mt-1.5 line-clamp-3 text-sm leading-5 text-ink-soft">{r.text}</p>}
-                    {(r.travellerType || r.country) && <figcaption className="mt-3 text-xs text-muted-foreground">{[prettyTraveller(r.travellerType), prettyCountry(r.country)].filter(Boolean).join(" · ")}</figcaption>}
+                    {(r.travellerType || r.country || (s.google && r.name)) && <figcaption className="mt-3 text-xs text-muted-foreground">{[prettyTraveller(r.travellerType), prettyCountry(r.country), s.google ? r.name : null].filter(Boolean).join(" · ")}</figcaption>}
                   </figure>
                 ))}
               </div>

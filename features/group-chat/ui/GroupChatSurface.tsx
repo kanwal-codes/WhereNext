@@ -21,6 +21,7 @@ import type { Poll } from "@/packages/contracts/poll";
 import { mentionsRoam, type GroupMessage } from "../domain/message";
 import { memberInitials } from "@/lib/member-initials";
 import { useTripMembers, type TripMember } from "@/lib/client/use-trip-members";
+import { GroupInviteCard } from "./GroupInviteCard";
 import { cn } from "@/lib/utils";
 import { MessageBlocks } from "@/features/conversation/ui/blocks/MessageBlocks";
 
@@ -113,7 +114,7 @@ export function GroupChatSurface({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once for the param that brought us here, not on every searchParams identity change
   }, []);
   const [messages, setMessages] = useState<GroupMessage[]>((initialMessages ?? []) as GroupMessage[]);
-  const { members } = useTripMembers(tripId);
+  const { members, loaded: membersLoaded } = useTripMembers(tripId);
   const [loaded, setLoaded] = useState(Boolean(initialMessages));
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -336,8 +337,8 @@ export function GroupChatSurface({
   function onOpenPlace(place: PlaceCard) {
     openPanel({ kind: "place", placeId: place.providerId, name: place.name });
   }
-  function onOpenStay(stay: StayCardItem, dates: { checkin: string; checkout: string }) {
-    openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name, checkin: dates.checkin, checkout: dates.checkout });
+  function onOpenStay(stay: StayCardItem, dates: { checkin: string; checkout: string; adults?: number }) {
+    openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name, checkin: dates.checkin, checkout: dates.checkout, adults: dates.adults });
   }
   function onOpenEvent(seed: EventSeed) {
     openPanel({ kind: "event", seed });
@@ -673,6 +674,12 @@ export function GroupChatSurface({
                   <button type="button" onClick={() => setPollSheetOpen(true)} className="btn-chip h-9 px-4 text-sm">Start a poll</button>
                 </StaggerItem>
               </Stagger>
+              {/* Nobody else has joined: the invite link, here, rather than a chat that talks to itself. */}
+              {membersLoaded && members.length <= 1 && (
+                <Reveal delay={0.45} y={12} className="w-full">
+                  <GroupInviteCard tripId={tripId} />
+                </Reveal>
+              )}
             </div>
           )}
 

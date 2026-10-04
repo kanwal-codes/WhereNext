@@ -22,10 +22,16 @@ export async function PUT(request: Request) {
     const supabase = await createSupabaseServerClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-    const update = travelerProfileSchema.parse(await request.json());
+    // null on one of these means "back to not set": drop it from the stored profile rather than keep an old choice.
+    const body = (await request.json()) as Record<string, unknown>;
+    const cleared = (["pace", "budget", "groupType"] as const).filter((k) => body?.[k] === null);
+    for (const k of cleared) delete body[k];
+    const update = travelerProfileSchema.parse(body);
     const existing = await supabase.from("profiles").select("data").eq("id", user.id).maybeSingle();
     if (existing.error) throw existing.error;
-    const merged = travelerProfileSchema.parse({ ...(existing.data?.data ?? {}), ...update });
+    const kept = { ...(existing.data?.data ?? {}) } as Record<string, unknown>;
+    for (const k of cleared) delete kept[k];
+    const merged = travelerProfileSchema.parse({ ...kept, ...update });
     const result = await supabase.from("profiles").upsert({ id: user.id, data: merged }).select("data,updated_at").single();
     if (result.error) throw result.error;
     return NextResponse.json({ profile: result.data.data, updatedAt: result.data.updated_at });

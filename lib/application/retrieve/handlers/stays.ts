@@ -1,4 +1,6 @@
-import { liteApiConfigured, searchStays } from "@/packages/providers/liteapi/client";
+import { searchStays } from "@/packages/providers/liteapi/client";
+import { searchGoogleHotels } from "@/packages/providers/serpapi/hotels";
+import { stayProvider } from "@/lib/server/stay-provider";
 import { cached } from "@/lib/server/ttl-cache";
 import { resolveStayDates, staysCacheKey, DEFAULT_STAY_FILTERS } from "../../stay-dates";
 import type { StaySearch } from "../../retrieve";
@@ -8,7 +10,8 @@ import type { RetrieveContext } from "../context";
 type StaysCall = Extract<ToolCall, { tool: "stays" }>;
 
 export async function handleStays(call: StaysCall, ctx: RetrieveContext): Promise<void> {
-  if (!liteApiConfigured()) return;
+  const provider = stayProvider();
+  if (!provider) return;
   const { checkin, checkout, assumed: assumedDates } = resolveStayDates(call.checkin, call.checkout);
   const adults = ctx.filters.travelers ?? undefined;
   // Same 5-minute, party/date-aware cache the Stays tab route uses — a chat ask for a hotel
@@ -16,8 +19,10 @@ export async function handleStays(call: StaysCall, ctx: RetrieveContext): Promis
   // search. Built with the exact same key shape the route uses (DEFAULT_STAY_FILTERS
   // matches its filters object when no filter control has been touched) so the two can
   // actually collide instead of silently keying differently forever.
-  const cacheKey = staysCacheKey({ location: call.location, checkin, checkout, adults: adults ?? "", rooms: 1, currency: ctx.filters.currency ?? "", filters: DEFAULT_STAY_FILTERS });
+  const cacheKey = (provider === "serpapi" ? "serp:" : "") + staysCacheKey({ location: call.location, checkin, checkout, adults: adults ?? "", rooms: 1, currency: ctx.filters.currency ?? "", filters: DEFAULT_STAY_FILTERS });
   const result = await cached(cacheKey, 5 * 60_000, async () => {
+    // Real hotels and prices from Google Hotels when it is set up; LiteAPI otherwise.
+    if (provider === "serpapi") return searchGoogleHotels({ location: call.location, checkin, checkout, adults, currency: ctx.filters.currency ?? "CAD", limit: 12 }, ctx.signal);
     const point = await ctx.geocode(call.location);
     return searchStays(
       point
@@ -25,7 +30,7 @@ export async function handleStays(call: StaysCall, ctx: RetrieveContext): Promis
         : { city: call.location, checkin, checkout, currency: ctx.filters.currency, adults },
       ctx.signal,
     );
-  }).catch(ctx.fail("liteapi"));
+  }).catch(ctx.fail(provider === "serpapi" ? "google-hotels" : "liteapi"));
   if (!result || result.options.length === 0) return;
   // Room rates were already in the search response — no second provider call.
   let detail: StaySearch["detail"];
@@ -42,5 +47,5 @@ export async function handleStays(call: StaysCall, ctx: RetrieveContext): Promis
     const match = candidates.length === 1 ? candidates[0] : undefined;
     if (match && match.rooms.length) detail = { hotelName: match.name, rooms: match.rooms };
   }
-  ctx.stays.push({ location: call.location, checkin, checkout, nights: result.nights, assumedDates, options: result.options, detail });
+  ctx.stays.push({ location: call.location, checkin, checkout, nights: result.nights, assumedDates, options: result.options, detail, adults, provider });
 }

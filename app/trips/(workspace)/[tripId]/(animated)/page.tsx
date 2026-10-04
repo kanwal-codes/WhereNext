@@ -137,15 +137,15 @@ export default function TripOverviewPage() {
 
       <div className="mx-auto max-w-6xl space-y-16 px-5 pt-8 sm:px-8 sm:pt-10">
         <Reveal>
-          {/* On a phone: the main action full width, the two shortcuts side by side. From lg up the sidebar already lists Itinerary and Discover, so only the main action stays. */}
+          {/* The main action, then the two shortcuts: on a phone the action is full width with the shortcuts side by side; from sm up all three sit in a row. Desktop shows them too, though the sidebar lists them, so both layouts offer the same next steps. */}
           <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
             <Link href={`/trips/${tripId}/chat`} className="btn-primary col-span-2 h-11 rounded-full px-6 sm:col-span-1">
               <RoamMark state="settled" size={30} /> Continue planning
             </Link>
-            <Link href={`/trips/${tripId}/itinerary`} className={cn(action, "lg:hidden")}>
+            <Link href={`/trips/${tripId}/itinerary`} className={action}>
               <CalendarDays className="h-4 w-4" /> Itinerary
             </Link>
-            <Link href={`/trips/${tripId}/discover`} className={cn(action, "lg:hidden")}>
+            <Link href={`/trips/${tripId}/discover`} className={action}>
               <Compass className="h-4 w-4" /> Discover
             </Link>
           </div>

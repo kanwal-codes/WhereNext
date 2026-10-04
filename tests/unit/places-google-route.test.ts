@@ -6,6 +6,7 @@ const TRIP = "11111111-1111-4111-8111-111111111111";
 const requireTripMemberMock = vi.fn();
 const detailsMock = vi.fn();
 const researchMock = vi.fn();
+const writeMock = vi.fn();
 
 class TripAuthError extends Error {
   constructor(readonly status: 401 | 403 | 404, message: string) { super(message); this.name = "TripAuthError"; }
@@ -22,90 +23,97 @@ vi.mock("@/packages/providers/google-places/client", () => ({
   GooglePlacesProvider: vi.fn().mockImplementation(() => ({ details: detailsMock })),
 }));
 vi.mock("@/packages/providers/tavily/client", () => ({ research: researchMock }));
+vi.mock("@/lib/application/place-about", () => ({ writePlaceAbout: writeMock }));
 
 async function getDetails(placeId = "place-1") {
   const mod = await import("@/app/api/trips/[tripId]/places/google/route");
-  const req = new Request(`http://localhost/x?placeId=${encodeURIComponent(placeId)}`);
-  const res = await mod.GET(req, { params: Promise.resolve({ tripId: TRIP }) });
-  return res.json() as Promise<{ place?: { displayName?: { text?: string } }; webSummary?: { content: string; source: { title: string; url: string } } | null }>;
+  const res = await mod.GET(new Request(`http://localhost/x?placeId=${encodeURIComponent(placeId)}`), { params: Promise.resolve({ tripId: TRIP }) });
+  return res.json() as Promise<{ place?: { displayName?: { text?: string } }; webSummary?: unknown }>;
 }
+async function getAbout(placeId = "place-1") {
+  const mod = await import("@/app/api/trips/[tripId]/places/google/about/route");
+  const res = await mod.GET(new Request(`http://localhost/x?placeId=${encodeURIComponent(placeId)}`), { params: Promise.resolve({ tripId: TRIP }) });
+  return res.json() as Promise<{ about: { content: string } | null }>;
+}
+const snippetsSentToWriter = () => (writeMock.mock.calls.at(-1)?.[0].snippets ?? []) as Array<{ title: string; content: string }>;
 
 beforeEach(() => {
   vi.clearAllMocks();
   clearMemoryCache();
   requireTripMemberMock.mockResolvedValue({ supabase: {}, user: { id: "u1" }, role: "owner" });
   detailsMock.mockResolvedValue({ id: "place-1", displayName: { text: "Bar George" }, formattedAddress: "1440 Rue Drummond, Montréal, QC, Canada" });
+  writeMock.mockResolvedValue({ content: "A grand, wood-panelled cocktail room in Montréal, known for its Scottish menu." });
 });
 afterEach(() => {
   vi.resetModules();
 });
 
 describe("GET /api/trips/[tripId]/places/google", () => {
-  it("supplements the reply with a web summary when Tavily returns real results", async () => {
-    researchMock.mockResolvedValue([{ title: "Eater Montreal", url: "https://eater.com/bar-george", content: "Bar George is a grand, wood-panelled spot inside Le Mount Stephen known for its Scottish menu and clubby atmosphere." }]);
-    const body = await getDetails();
-    expect(body.webSummary).toEqual({
-      content: "Bar George is a grand, wood-panelled spot inside Le Mount Stephen known for its Scottish menu and clubby atmosphere.",
-      source: { title: "Eater Montreal", url: "https://eater.com/bar-george" },
-    });
-    expect(researchMock).toHaveBeenCalledWith(expect.stringContaining("Bar George"), expect.anything());
-  });
-
-  it("is null (never breaks the response) when Tavily errors", async () => {
-    researchMock.mockRejectedValue(new Error("Tavily down"));
+  it("returns the place at once, with no scraped web text in it", async () => {
     const body = await getDetails();
     expect(body.place?.displayName?.text).toBe("Bar George");
-    expect(body.webSummary ?? null).toBeNull();
+    expect(body.webSummary).toBeUndefined();
+    expect(researchMock).not.toHaveBeenCalled();
   });
+});
 
-  it("is null when Tavily returns only thin/empty snippets", async () => {
-    researchMock.mockResolvedValue([{ title: "Some Blog", url: "https://example.com", content: "ok" }]);
-    const body = await getDetails();
-    expect(body.webSummary ?? null).toBeNull();
-  });
-
-  it("rejects a fluent, long-enough result that never actually mentions the place — live-caught: a generic name matched an unrelated video transcript", async () => {
-    researchMock.mockResolvedValue([{
-      title: "Stream VOD — Season 4 Highlights",
-      url: "https://example.com/vod",
-      content: "That's like what's going on in the boardrooms behind the scenes, but it kind of is what it feels like. And I think they did a great job with it, maintaining the feeling to the crew.",
-    }]);
-    const body = await getDetails();
-    expect(body.webSummary ?? null).toBeNull();
+describe("GET /api/trips/[tripId]/places/google/about", () => {
+  it("hands the writer the page's facts and only web text that is really about the place", async () => {
+    researchMock.mockResolvedValue([
+      { title: "Eater Montreal", url: "https://eater.com/bar-george", content: "Bar George is a grand, wood-panelled spot inside Le Mount Stephen known for its Scottish menu and clubby atmosphere." },
+      { title: "Some Blog", url: "https://example.com", content: "ok" },
+      { title: "Stream VOD", url: "https://example.com/vod", content: "That's like what's going on in the boardrooms behind the scenes, but it kind of is what it feels like to the crew." },
+      { title: "Reviews", url: "https://example.com/r", content: "Title: Bar George Helpful Translate user-icon 4.5/5 Reviewed on Jul 2026 great place a lot of text here" },
+    ]);
+    const body = await getAbout();
+    expect(body.about?.content).toContain("cocktail room");
+    expect(writeMock.mock.calls[0][0].place.displayName.text).toBe("Bar George");
+    expect(snippetsSentToWriter().map((s) => s.title)).toEqual(["Eater Montreal"]);
+    expect(researchMock.mock.calls[0][0]).toContain("Bar George");
   });
 
   it("accepts a result that mentions the place by a close variant of its name (punctuation-insensitive)", async () => {
-    researchMock.mockResolvedValue([{ title: "Local Eats", url: "https://example.com/review", content: "Bar George at Le Mount Stephen is the city's grandest new cocktail room, all dark wood and tartan." }]);
-    const body = await getDetails();
-    expect(body.webSummary?.content).toContain("Bar George");
+    researchMock.mockResolvedValue([{ title: "Local Eats", url: "https://example.com/review", content: "Bar-George at Le Mount Stephen is the city's grandest new cocktail room, all dark wood and tartan." }]);
+    await getAbout();
+    expect(snippetsSentToWriter()).toHaveLength(1);
   });
 
-  it("skips the web search entirely when Google returned no place name", async () => {
-    detailsMock.mockResolvedValue({ id: "place-1" });
-    const body = await getDetails();
-    expect(researchMock).not.toHaveBeenCalled();
-    expect(body.webSummary ?? null).toBeNull();
-  });
-
-  it("cuts a raw scrape excerpt at an embedded splice marker instead of showing it verbatim — live-caught: Montmorency Falls", async () => {
+  it("cuts a raw scrape at an embedded splice marker before the writer sees it — live-caught: Montmorency Falls", async () => {
     detailsMock.mockResolvedValue({ id: "place-1", displayName: { text: "Montmorency Falls" }, formattedAddress: "Québec City, QC, Canada" });
     researchMock.mockResolvedValue([{
-      title: "TripAdvisor",
-      url: "https://example.com/montmorency-falls",
-      content: "Montmorency Falls offers visitors a rewarding experience with its stunning natural beauty and multiple viewpoints. A visit typically lasts 2-3 hours. Visitors commend the [...] The Happy Traveler ·Jul 2026 Montmorency Falks is a beautiful place to visit while in Quebec City.",
+      title: "TripAdvisor", url: "https://example.com/montmorency-falls",
+      content: "Montmorency Falls offers visitors a rewarding experience with its stunning natural beauty and multiple viewpoints. A visit typically lasts 2-3 hours. Visitors commend the [...] The Happy Traveler ·Jul 2026 typo'd second review",
     }]);
-    const body = await getDetails();
-    expect(body.webSummary?.content).toBe(
-      "Montmorency Falls offers visitors a rewarding experience with its stunning natural beauty and multiple viewpoints. A visit typically lasts 2-3 hours.",
-    );
-    expect(body.webSummary?.content).not.toContain("[...]");
-    expect(body.webSummary?.content).not.toContain("The Happy Traveler");
+    await getAbout();
+    expect(snippetsSentToWriter()[0].content).toBe("Montmorency Falls offers visitors a rewarding experience with its stunning natural beauty and multiple viewpoints. A visit typically lasts 2-3 hours.");
   });
 
-  it("caches the web summary per place id — a second lookup doesn't re-call Tavily", async () => {
+  it("still writes from the listing's own facts when Tavily errors", async () => {
+    researchMock.mockRejectedValue(new Error("Tavily down"));
+    const body = await getAbout();
+    expect(snippetsSentToWriter()).toEqual([]);
+    expect(body.about).not.toBeNull();
+  });
+
+  it("is null when there is nothing good to say", async () => {
+    researchMock.mockResolvedValue([]);
+    writeMock.mockResolvedValue(null);
+    expect((await getAbout()).about).toBeNull();
+  });
+
+  it("skips the web search and the writer when Google returned no place name", async () => {
+    detailsMock.mockResolvedValue({ id: "place-1" });
+    const body = await getAbout();
+    expect(researchMock).not.toHaveBeenCalled();
+    expect(writeMock).not.toHaveBeenCalled();
+    expect(body.about).toBeNull();
+  });
+
+  it("caches the blurb per place id: a second lookup writes nothing new", async () => {
     researchMock.mockResolvedValue([{ title: "Eater Montreal", url: "https://eater.com/bar-george", content: "Bar George is a grand, wood-panelled spot inside Le Mount Stephen." }]);
-    await getDetails();
-    await getDetails();
+    await getAbout();
+    await getAbout();
     expect(researchMock).toHaveBeenCalledTimes(1);
+    expect(writeMock).toHaveBeenCalledTimes(1);
   });
 });

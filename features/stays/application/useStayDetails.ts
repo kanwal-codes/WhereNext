@@ -5,7 +5,7 @@ import { useTripData } from "@/components/TripDataProvider";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
 import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache";
-import { readStayDecision, type StayDecision, type StayDetails, type StayReview, type StayRoom } from "@/packages/contracts/stay";
+import { readStayDecision, type StayDecision, type StayDetails, type StayNearbyPlace, type StayPriceRead, type StayPriceSource, type StayReview, type StayRoom, type StayTheme } from "@/packages/contracts/stay";
 
 type State = "loading" | "ready" | "error";
 
@@ -20,6 +20,15 @@ type Body = {
   currency: string;
   assumedDates: boolean;
   freshness?: { retrievedAt: string };
+  /** Google Hotels: who sells it at what price, and how guests rate it. */
+  provider?: "serpapi" | "liteapi";
+  sources?: StayPriceSource[];
+  priceRead?: StayPriceRead | null;
+  themes?: StayTheme[];
+  ratingCounts?: Array<{ stars: number; count: number }>;
+  nearby?: StayNearbyPlace[];
+  phone?: string | null;
+  website?: string | null;
 };
 
 /**
@@ -117,6 +126,46 @@ export function useStayDetails(
     }
   }
 
+  /** Google Hotels has no bookable rate to lock: the choice is the hotel, at the price of the site it will be booked on. */
+  async function lockSource(source: StayPriceSource) {
+    if (!body || busy) return;
+    setBusy(true);
+    const hotel = body.hotel;
+    const value: StayDecision = {
+      provider: "serpapi",
+      hotelId,
+      hotelName: hotel?.name ?? "Hotel",
+      roomName: `Booking on ${source.source}`.slice(0, 120),
+      board: null,
+      refundable: source.freeCancellation,
+      checkin: body.checkin,
+      checkout: body.checkout,
+      nights: body.nights,
+      nightlyAmount: source.nightly,
+      totalAmount: source.total,
+      currency: body.currency,
+      latitude: hotel?.latitude ?? null,
+      longitude: hotel?.longitude ?? null,
+      address: hotel?.address ?? null,
+      thumbnail: hotel?.images[0] ?? null,
+    };
+    try {
+      const r = await fetch("/api/commands", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ type: "record_decision", tripId, kind: "stay", idempotencyKey: "stay", value }),
+      });
+      if (!r.ok) throw new Error();
+      setLocked(value);
+      notifyToast(`${value.hotelName} is your stay.`, "success");
+      announceWorkspaceChange("decision");
+    } catch {
+      notifyToast("Could not save this as your stay.", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const freshness = body?.freshness?.retrievedAt ? new Date(body.freshness.retrievedAt).toLocaleString() : "";
 
   return {
@@ -136,5 +185,14 @@ export function useStayDetails(
     lockedStay,
     busy,
     lockRoom,
+    lockSource,
+    google: body?.provider === "serpapi",
+    sources: body?.sources ?? [],
+    priceRead: body?.priceRead ?? null,
+    themes: body?.themes ?? [],
+    ratingCounts: body?.ratingCounts ?? [],
+    nearby: body?.nearby ?? [],
+    phone: body?.phone ?? null,
+    website: body?.website ?? null,
   };
 }

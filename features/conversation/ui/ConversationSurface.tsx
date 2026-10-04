@@ -251,7 +251,7 @@ export function ConversationSurface({
   initialMessages?: Array<Record<string, unknown>>;
   onSurfaceSelect?: (surface: string) => void;
   onOpenPlace?: (place: PlaceCard) => void;
-  onOpenStay?: (stay: StayCardItem, dates: { checkin: string; checkout: string }) => void;
+  onOpenStay?: (stay: StayCardItem, dates: { checkin: string; checkout: string; adults?: number }) => void;
   onOpenEvent?: (seed: EventSeed) => void;
   onOpenCollection?: (title: string, block: AssistantBlock) => void;
   onOpenPanel?: (panel: CardPanel) => void;
@@ -269,6 +269,8 @@ export function ConversationSurface({
   const [messages, setMessages] = useState<Message[]>((initialMessages ?? []) as Message[]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  // The id of the message the server has not confirmed yet: "Sending…" belongs to it alone, and ends the moment the server has it, not when the whole reply is done.
+  const [undelivered, setUndelivered] = useState<string | null>(null);
   // Set synchronously: two quick taps on a chip (or Enter twice) can both arrive before `sending` has re-rendered, and each used to send its own copy of the message.
   const sendingRef = useRef(false);
   const [loaded, setLoaded] = useState(Boolean(initialMessages));
@@ -561,6 +563,7 @@ export function ConversationSurface({
     // Same id across retries too — don't stack a second bubble for a message already showing.
     const next = previous.some((m) => m.id === userMessage.id) ? previous : [...previous, userMessage];
     setMessages(next);
+    setUndelivered(userMessage.id);
     let userSaved = false;
     try {
       const controller = new AbortController();
@@ -578,6 +581,7 @@ export function ConversationSurface({
         onProposal: (next) => { if (!guest) setProposal(next); },
         onUserSaved: () => {
           userSaved = true;
+          setUndelivered(null);
         },
         onAssistantStart: (responseId) => {
           assistantId = responseId;
@@ -634,6 +638,7 @@ export function ConversationSurface({
       requestRef.current = null;
       sendingRef.current = false;
       setSending(false);
+      setUndelivered(null);
     }
   }
 
@@ -788,12 +793,12 @@ export function ConversationSurface({
                   style={{ transformOrigin: "100% 100%" }}
                   className="flex flex-col items-end gap-1"
                 >
-                  <p className={cn("max-w-[85%] rounded-2xl rounded-br-lg bg-primary px-4 py-2.5 text-body leading-normal text-primary-foreground transition-opacity duration-300 dark:border dark:border-border dark:bg-surface-raised dark:text-foreground", sending && message.id.startsWith("local-") && "opacity-70")}>
+                  <p className={cn("max-w-[85%] rounded-2xl rounded-br-lg bg-primary px-4 py-2.5 text-body leading-normal text-primary-foreground transition-opacity duration-300 dark:border dark:border-border dark:bg-surface-raised dark:text-foreground", undelivered === message.id && "opacity-70")}>
                     <span className="sr-only">You: </span>
                     {message.content}
                   </p>
                   {/* Until the server has the message it carries a local id: say so, rather than leaving "did that go?" */}
-                  {sending && message.id.startsWith("local-") && <span role="status" className="pr-1 text-xs text-muted-foreground">Sending…</span>}
+                  {undelivered === message.id && <span role="status" className="pr-1 text-xs text-muted-foreground">Sending…</span>}
                 </motion.div>
               );
             }

@@ -10,6 +10,28 @@ const HEADERS = () => ({
   "content-type": "application/json",
 });
 
+/** One flight within a journey, and the wait before the next one. Google Flights supplies these; the airports are named for people, the codes for searches. */
+export type FlightLeg = {
+  from: string;
+  fromName?: string;
+  departAt: string;
+  to: string;
+  toName?: string;
+  arriveAt: string;
+  minutes: number;
+  airline?: string;
+  flightNumber?: string;
+  aircraft?: string;
+  /** That airline's own logo, seat legroom ("30 in"), the comforts listed for the flight (Wi-Fi, power, entertainment), and whether it is often late. */
+  logo?: string;
+  legroom?: string;
+  amenities?: string[];
+  oftenDelayed?: boolean;
+  /** The wait at `to` before the next leg, and whether it runs through the night. */
+  layoverMinutes?: number;
+  overnight?: boolean;
+};
+
 export type FlightOffer = {
   id: string;
   airline: string;
@@ -17,6 +39,9 @@ export type FlightOffer = {
   cabinClass?: string;
   priceAmount: string;
   priceCurrency: string;
+  /** Set when `priceAmount` was converted into the traveller's currency: what the airline actually lists. */
+  listedAmount?: string;
+  listedCurrency?: string;
   durationMinutes: number;
   stops: number;
   departAt: string;
@@ -28,6 +53,15 @@ export type FlightOffer = {
   aircraft?: string;
   fareConditions?: string[];
   expiresAt?: string;
+  /** Airline logo, flight numbers and CO₂ estimate, when the search provider supplies them (Google Flights does). */
+  logo?: string;
+  flightNumbers?: string[];
+  co2Kg?: number;
+  co2Diff?: number;
+  /** Google Flights: hand back to fetch the return flights this outbound pairs with. */
+  departureToken?: string;
+  /** Each flight of the journey, in order. */
+  legs?: FlightLeg[];
   /** Duffel passenger ids (`pas_...`) this offer was priced for — required to book it. */
   passengerIds: string[];
 };

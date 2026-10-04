@@ -13,7 +13,7 @@ import { DestinationCombobox } from "@/components/DestinationCombobox";
 import { accountPhotoUrl } from "@/lib/places-ui";
 import { notifyToast } from "@/lib/application/toast";
 import { cn } from "@/lib/utils";
-import { COUNTRIES, LANGUAGES, displayName, fromBrowserLocale } from "@/lib/locales";
+import { COUNTRIES, LANGUAGES, countryFromPlace, displayName, fromBrowserLocale } from "@/lib/locales";
 import { updateName, updateEmail, updatePassword, disconnectGoogle, signInWithGoogle, signOut as signOutUser, uploadAvatar } from "@/features/identity/application/authClient";
 import type { TravelerProfile } from "@/packages/contracts/profile";
 import { memberInitials } from "@/lib/member-initials";
@@ -43,6 +43,7 @@ const BUDGET = [
 ];
 const STAY_TYPES = ["Hotel", "Apartment", "Guesthouse", "Anything"];
 const COMPANIONS = ["Solo", "Partner", "Friends", "Family"];
+const UNSET_NOTE = "Not set. Roam won\u2019t assume one until you choose.";
 
 /* --------------------------------- pieces -------------------------------- */
 
@@ -121,11 +122,12 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   );
 }
 
-function Segmented({ options, value, onChange }: { options: string[]; value: string; onChange: (v: string) => void }) {
+/** `clearable`: choosing the chosen one again unchooses it, so a preference can go back to "not set". */
+function Segmented({ options, value, onChange, clearable }: { options: string[]; value: string; onChange: (v: string) => void; clearable?: boolean }) {
   return (
     <div className="inline-flex flex-wrap gap-1 rounded-full border border-border bg-surface p-1">
       {options.map((o) => (
-        <button key={o} type="button" onClick={() => onChange(o)} className="relative rounded-full px-3.5 py-1.5 text-sm transition-colors">
+        <button key={o} type="button" onClick={() => onChange(clearable && value === o ? "" : o)} className="relative rounded-full px-3.5 py-1.5 text-sm transition-colors">
           {value === o && (
             <motion.span layoutId={`seg-${options.join("")}`} className="absolute inset-0 rounded-full bg-primary" transition={{ type: "spring", stiffness: 380, damping: 30 }} />
           )}
@@ -269,6 +271,13 @@ export function AccountView({
   const [dreamDraft, setDreamDraft] = useState(profile.dreamDestination ?? "");
   const [dreamPhoto, setDreamPhoto] = useState<string | null>(profile.dreamPhotoName ?? null);
   const [savingDream, setSavingDream] = useState(false);
+  // The picker stays out of the way until asked for: from the profile header's "Add your dream destination" or the one set already.
+  const [dreamOpen, setDreamOpen] = useState(false);
+  const openDream = () => {
+    setActive("profile");
+    setDreamOpen(true);
+    window.setTimeout(() => document.getElementById("dream")?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
+  };
   const [heroFailed, setHeroFailed] = useState(false);
   const dreamHero = dreamPhoto && !heroFailed ? accountPhotoUrl(dreamPhoto, 1600) : undefined;
 
@@ -279,8 +288,19 @@ export function AccountView({
   const [bio, setBio] = useState(profile.bio ?? "");
   const [language, setLanguage] = useState(profile.language ?? "");
   const [country, setCountry] = useState(profile.country ?? "");
+  // Once the traveller picks a country themselves, typing a city no longer changes it.
+  const countryChosen = useRef(Boolean(profile.country));
   const [detected, setDetected] = useState<{ language?: string; country?: string }>({});
   useEffect(() => setDetected(fromBrowserLocale(navigator.language)), []);
+  // A home city saved without a country: the city already says which, so fill it in and keep it.
+  useEffect(() => {
+    const named = !profile.country ? countryFromPlace(profile.homeCity) : undefined;
+    if (!named) return;
+    setCountry(named);
+    void fetch("/api/profile", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ country: named }) }).then((r) => {
+      if (r.ok) notifyToast(`Home country set to ${displayName("region", named)}, from your home city.`, "success");
+    });
+  }, [profile.country, profile.homeCity]);
   const [pwOpen, setPwOpen] = useState(false);
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
@@ -291,10 +311,10 @@ export function AccountView({
   const [interests, setInterests] = useState<string[]>(profile.interests ?? []);
   const [dietary, setDietary] = useState<string[]>(asDietaryArray(profile.dietaryNeeds));
   const [dietNote, setDietNote] = useState(profile.dietaryNote ?? "");
-  const [pace, setPace] = useState(() => Math.max(0, PACE.findIndex((p) => p.label === profile.pace)));
-  const [budget, setBudget] = useState(() => Math.max(0, BUDGET.findIndex((b) => b.label === String(profile.budget ?? ""))));
+  const [pace, setPace] = useState(() => PACE.findIndex((p) => p.label === profile.pace));
+  const [budget, setBudget] = useState(() => BUDGET.findIndex((b) => b.label === String(profile.budget ?? "")));
   const [stay, setStay] = useState(profile.stayType ?? "Anything");
-  const [companions, setCompanions] = useState(profile.groupType ?? "Solo");
+  const [companions, setCompanions] = useState(profile.groupType ?? "");
   const [editingStyle, setEditingStyle] = useState(false);
   const styleSnapshot = useMemo(() => ({ interests, dietary, dietNote, pace, budget, stay, companions }), []); // eslint-disable-line react-hooks/exhaustive-deps
   const [snapshot, setSnapshot] = useState(styleSnapshot);
@@ -308,7 +328,7 @@ export function AccountView({
   const [savingStyle, setSavingStyle] = useState(false);
   async function finishStyleEdit() {
     setSavingStyle(true);
-    const ok = await saveProfile({ interests, dietaryNeeds: dietary, dietaryNote: dietNote || undefined, pace: PACE[pace]!.label, budget: BUDGET[budget]!.label, stayType: stay, groupType: companions });
+    const ok = await saveProfile({ interests, dietaryNeeds: dietary, dietaryNote: dietNote || undefined, pace: PACE[pace]?.label ?? null, budget: BUDGET[budget]?.label ?? null, stayType: stay, groupType: companions || null } as Partial<TravelerProfile>); // null clears one that was set
     setSavingStyle(false);
     if (ok) { setStyleSaved(true); setEditingStyle(false); }
   }
@@ -346,6 +366,7 @@ export function AccountView({
       setDreamDraft(place);
       setDreamPhoto(photoName);
       setHeroFailed(false);
+      setDreamOpen(false);
       notifyToast(photoName ? "Your dream destination is your backdrop now." : "Saved. We couldn’t find a photo for it, though.", photoName ? "success" : "info");
     } finally {
       setSavingDream(false);
@@ -436,7 +457,13 @@ export function AccountView({
 
   const summary = useMemo(() => {
     const top = interests.slice(0, 3).join(", ").toLowerCase() || "whatever looks good";
-    return `New trips will lean towards ${top}, at a ${PACE[pace]!.label.toLowerCase()} pace on a ${BUDGET[budget]!.label.toLowerCase()} budget, usually travelling ${companions.toLowerCase() === "solo" ? "solo" : `with ${companions.toLowerCase()}`}.`;
+    // Only what was actually chosen: a pace, budget or company left unset is not assumed.
+    const parts = [
+      PACE[pace] && `at a ${PACE[pace]!.label.toLowerCase()} pace`,
+      BUDGET[budget] && `on a ${BUDGET[budget]!.label.toLowerCase()} budget`,
+      companions && `usually travelling ${companions.toLowerCase() === "solo" ? "solo" : `with ${companions.toLowerCase()}`}`,
+    ].filter(Boolean);
+    return `New trips will lean towards ${top}${parts.length ? `, ${parts.join(", ")}` : ""}.`;
   }, [interests, pace, budget, companions]);
 
   const pwScore = strengthOf(newPw);
@@ -504,13 +531,13 @@ export function AccountView({
                     </span>
                   )}
                   {dreamText ? (
-                    <span className="inline-flex items-center gap-1.5">
+                    <button type="button" onClick={openDream} title="Change your dream destination" className="inline-flex items-center gap-1.5 underline-offset-4 transition-opacity hover:underline">
                       <Compass className="h-4 w-4 opacity-70" /> Dreaming of {dreamText}
-                    </span>
+                    </button>
                   ) : (
-                    <a href="#dream" onClick={() => setActive("profile")} className="daisy-badge h-7 gap-1.5 border-white/30 bg-white/15 px-3 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/25">
+                    <button type="button" onClick={openDream} className="daisy-badge h-7 gap-1.5 border-white/30 bg-white/15 px-3 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/25">
                       <Compass className="h-3.5 w-3.5" /> Add your dream destination
-                    </a>
+                    </button>
                   )}
                 </div>
                 {bio && <p className="mt-3 max-w-xl text-body leading-relaxed text-white/80 [text-shadow:0_1px_14px_rgba(0,0,0,0.55)]">{bio}</p>}
@@ -562,8 +589,22 @@ export function AccountView({
           <div className="space-y-8">
             {/* Profile & account */}
             <SettingSection id="profile" title="Profile & account" blurb="How you appear to the people you plan with.">
-              <div id="dream" className="scroll-mt-28 rounded-3xl bg-gradient-to-br from-muted/60 to-coral-soft/50 p-5 sm:p-6">
-                <p className="eyebrow mb-2 flex items-center gap-1.5"><Compass className="h-3.5 w-3.5" /> Dream destination</p>
+              <div id="dream" className="scroll-mt-28">
+              <AnimatePresence initial={false}>
+              {dreamOpen && (
+              <motion.div
+                key="dream-box"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                className="overflow-hidden"
+              >
+              <div className="rounded-3xl bg-gradient-to-br from-muted/60 to-coral-soft/50 p-5 sm:p-6">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <p className="eyebrow flex items-center gap-1.5"><Compass className="h-3.5 w-3.5" /> Dream destination</p>
+                  <button type="button" onClick={() => setDreamOpen(false)} className="text-sm text-ink-soft underline-offset-2 hover:text-foreground hover:underline">Close</button>
+                </div>
                 <p className="font-display text-xl tracking-tight text-balance sm:text-2xl">Where would you go tomorrow?</p>
                 <p className="mt-1 max-w-xl text-sm leading-relaxed text-ink-soft">Pick the place you keep coming back to. Its photo becomes the backdrop of your profile.</p>
                 <div className="mt-4 flex max-w-xl items-center gap-3">
@@ -587,6 +628,10 @@ export function AccountView({
                   </p>
                 )}
               </div>
+              </motion.div>
+              )}
+              </AnimatePresence>
+              </div>
 
               <div className="grid gap-6 sm:grid-cols-2">
                 <Field label="Full name">
@@ -602,7 +647,19 @@ export function AccountView({
                   </div>
                 </Field>
                 <Field label="Home city">
-                  <input value={city} onChange={(e) => { setCity(e.target.value); touch(); }} maxLength={120} placeholder="Toronto, Canada" className="input-field" />
+                  <input
+                    value={city}
+                    onChange={(e) => {
+                      setCity(e.target.value);
+                      // A city that names its country sets the home country, until the traveller sets it by hand.
+                      const named = countryFromPlace(e.target.value);
+                      if (named && !countryChosen.current) setCountry(named);
+                      touch();
+                    }}
+                    maxLength={120}
+                    placeholder="Toronto, Canada"
+                    className="input-field"
+                  />
                 </Field>
                 <Field label="Preferred language">
                   <select value={language} onChange={(e) => { setLanguage(e.target.value); touch(); }} className="input-field">
@@ -611,7 +668,7 @@ export function AccountView({
                   </select>
                 </Field>
                 <Field label="Home country">
-                  <select value={country} onChange={(e) => { setCountry(e.target.value); touch(); }} className="input-field">
+                  <select value={country} onChange={(e) => { countryChosen.current = true; setCountry(e.target.value); touch(); }} className="input-field">
                     <option value="">Not set</option>
                     {clientReady && [...COUNTRIES].sort((a, b) => displayName("region", a).localeCompare(displayName("region", b))).map((code) => <option key={code} value={code}>{displayName("region", code)}</option>)}
                   </select>
@@ -717,13 +774,13 @@ export function AccountView({
                     <div className="grid gap-8 sm:grid-cols-2">
                       <div>
                         <p className="eyebrow mb-4">Pace</p>
-                        <Segmented options={PACE.map((p) => p.label)} value={PACE[pace]!.label} onChange={(v) => { setPace(PACE.findIndex((p) => p.label === v)); touch(); }} />
-                        <p className="mt-3 text-sm text-ink-soft">{PACE[pace]!.note}</p>
+                        <Segmented clearable options={PACE.map((p) => p.label)} value={PACE[pace]?.label ?? ""} onChange={(v) => { setPace(PACE.findIndex((p) => p.label === v)); touch(); }} />
+                        <p className="mt-3 text-sm text-ink-soft">{PACE[pace]?.note ?? UNSET_NOTE}</p>
                       </div>
                       <div>
                         <p className="eyebrow mb-4">Budget</p>
-                        <Segmented options={BUDGET.map((b) => b.label)} value={BUDGET[budget]!.label} onChange={(v) => { setBudget(BUDGET.findIndex((b) => b.label === v)); touch(); }} />
-                        <p className="mt-3 text-sm text-ink-soft">{BUDGET[budget]!.note}</p>
+                        <Segmented clearable options={BUDGET.map((b) => b.label)} value={BUDGET[budget]?.label ?? ""} onChange={(v) => { setBudget(BUDGET.findIndex((b) => b.label === v)); touch(); }} />
+                        <p className="mt-3 text-sm text-ink-soft">{BUDGET[budget]?.note ?? UNSET_NOTE}</p>
                       </div>
                     </div>
 
@@ -742,7 +799,7 @@ export function AccountView({
                       </div>
                       <div>
                         <p className="eyebrow mb-3">Usually travelling</p>
-                        <Segmented options={COMPANIONS} value={companions} onChange={(v) => { setCompanions(v); touch(); }} />
+                        <Segmented clearable options={COMPANIONS} value={companions} onChange={(v) => { setCompanions(v); touch(); }} />
                       </div>
                     </div>
                   </motion.div>
@@ -762,8 +819,8 @@ export function AccountView({
                     </div>
 
                     <div className="grid gap-8 sm:grid-cols-2">
-                      <ReadRow label="Pace" value={PACE[pace]!.label} note={PACE[pace]!.note} level={{ value: pace, max: PACE.length }} />
-                      <ReadRow label="Budget" value={BUDGET[budget]!.label} note={BUDGET[budget]!.note} level={{ value: budget, max: BUDGET.length }} />
+                      <ReadRow label="Pace" value={PACE[pace]?.label ?? "Not set"} note={PACE[pace]?.note ?? UNSET_NOTE} level={PACE[pace] ? { value: pace, max: PACE.length } : undefined} />
+                      <ReadRow label="Budget" value={BUDGET[budget]?.label ?? "Not set"} note={BUDGET[budget]?.note ?? UNSET_NOTE} level={BUDGET[budget] ? { value: budget, max: BUDGET.length } : undefined} />
                     </div>
 
                     <div>
@@ -774,7 +831,7 @@ export function AccountView({
 
                     <div className="grid gap-8 sm:grid-cols-2">
                       <ReadRow label="Preferred stay" value={stay} />
-                      <ReadRow label="Usually travelling" value={companions} />
+                      <ReadRow label="Usually travelling" value={companions || "Not set"} />
                     </div>
                   </motion.div>
                 )}

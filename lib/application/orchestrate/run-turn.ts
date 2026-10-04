@@ -455,7 +455,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   const compactFlights = evidence.flights.map((search) => ({
     origin: search.origin, destination: search.destination, departureDate: search.departureDate, exampleDate: search.assumedDate,
     offers: search.offers.map((offer) => ({
-      airline: offer.airline, price: `${offer.priceAmount} ${offer.priceCurrency}`,
+      airline: offer.airline, price: `${offer.priceAmount} ${offer.priceCurrency}`, listedByAirline: offer.listedAmount ? `${offer.listedAmount} ${offer.listedCurrency} (converted at today's rate, so approximate)` : undefined,
       operatingAirline: offer.operatingAirline, cabinClass: offer.cabinClass, baggage: offer.baggage,
       airports: offer.originAirport && offer.destinationAirport ? `${offer.originAirport} → ${offer.destinationAirport}` : undefined,
       hours: +(offer.durationMinutes / 60).toFixed(1), stops: offer.stops, departs: offer.departAt, arrives: offer.arriveAt,
@@ -463,9 +463,12 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   }));
   const compactStays = evidence.stays.map((search) => ({
     location: search.location, checkin: search.checkin, checkout: search.checkout, nights: search.nights, exampleDates: search.assumedDates,
+    // Google Hotels says nothing about what a rate includes and flags free cancellation only sometimes: absent is "not stated", never "no".
+    ...(search.provider === "serpapi" ? { source: `Google Hotels, for ${search.adults ?? 2} guest${(search.adults ?? 2) === 1 ? "" : "s"}; ratings out of 10; board and cancellation not stated` } : {}),
     hotels: search.options.map((option) => ({
       name: option.name, nightly: `${option.nightlyAmount} ${option.currency}`, total: `${option.totalAmount} ${option.currency}`,
-      stars: option.stars, rating: option.rating, reviews: option.reviewCount, board: option.boardName, refundable: option.refundable,
+      stars: option.stars, rating: option.rating, reviews: option.reviewCount,
+      ...(search.provider === "serpapi" ? (option.refundable ? { freeCancellation: true } : {}) : { board: option.boardName, refundable: option.refundable }),
     })),
     rooms: search.detail ? { hotel: search.detail.hotelName, options: search.detail.rooms.map((room) => ({ name: room.name, nightly: `${room.nightlyAmount} ${room.currency}`, total: `${room.totalAmount} ${room.currency}`, board: room.boardName, refundable: room.refundable })) } : null,
   }));
@@ -516,7 +519,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
         ? Promise.resolve(weatherCardFromForecast(locationFocus, evidence.weatherDays!))
         : weatherCardFromSeasonal(locationFocus, weatherMonth!, compactSources.map((source) => source.content).join("\n\n"), language, signal, onUsage),
     caps.has("itinerary")
-      ? buildItineraryPlan({ prompt, tripSummary, evidence, tripCtx, anchorEvent, language, signal, onUsage })
+      ? buildItineraryPlan({ prompt, tripSummary, evidence, tripCtx, anchorEvent, requestedDays: resolved.itineraryDays, language, signal, onUsage })
       : Promise.resolve(null),
     caps.has("budget")
       ? buildBudgetBreakdown({ prompt, tripSummary, currency: resolveCurrency(tripCtx.preferences), statedDailyBudget, evidence, tripCtx, language, signal, onUsage })

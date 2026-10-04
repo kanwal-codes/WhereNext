@@ -93,10 +93,12 @@ export function DayDetail({ block, dayIndex, tripId }: { block: ItineraryBlock; 
         <p className="eyebrow text-coral-ink">{eyebrow}</p>
         {/* The tab and the panel title already say which day this is; the headline is what the day is about. */}
         <h2 className="mt-2 max-w-[16ch] font-display text-4xl font-medium leading-[1.04] tracking-[-0.03em]">{day.subtitle ?? day.label}</h2>
-        <p className="mt-3 text-sm text-ink-soft">{day.stops.length} stop{day.stops.length === 1 ? "" : "s"}</p>
+        <p className="mt-3 text-sm text-ink-soft">{day.open ? "Open day" : `${day.stops.length} stop${day.stops.length === 1 ? "" : "s"}`}</p>
         {arc && <DayArc minutes={minutes} />}
         <div className="mt-6 flex flex-wrap items-center gap-2">
-        {missing.length === 0 ? (
+        {day.open ? (
+          <p className="text-sm text-ink-soft">Nothing lined up for this day yet. It is yours to wander, or ask Roam for more ideas in the chat.</p>
+        ) : missing.length === 0 ? (
           <Badge tone="positive" icon={Check} className="h-8 px-3 text-sm">Already in your itinerary</Badge>
         ) : (
           <button

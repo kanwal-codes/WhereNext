@@ -5,6 +5,8 @@ import type { TripContext } from "@/lib/application/trip-context";
 import type { ResolvedTurn, ToolCall } from "@/lib/application/turn-resolver";
 import type { RetrievedEvidence, EventResult } from "@/lib/application/retrieve";
 import type { WeatherCard } from "@/lib/application/weather-card";
+import { toFlightItem } from "@/lib/application/flight-items";
+import { toStayCardItem } from "@/lib/application/stay-items";
 import type { buildItineraryPlan } from "@/lib/application/itinerary-plan";
 import type { buildBudgetBreakdown } from "@/lib/application/budget-plan";
 import type { buildExploreOptions } from "@/lib/application/explore-options";
@@ -148,26 +150,14 @@ export function selectBlocks(params: {
       retrievedAt: evidence.retrievedAt,
       origin: search.origin.slice(0, 80),
       destination: search.destination.slice(0, 80),
-      dateNote: search.assumedDate ? `Example date ${search.departureDate} — no travel date set yet` : `Departing ${search.departureDate}`,
-      items: search.offers.slice(0, 8).map((offer) => ({
-        id: offer.id?.slice(0, 240),
-        airline: offer.airline.slice(0, 80),
-        operatingAirline: offer.operatingAirline?.slice(0, 80),
-        price: offer.priceAmount.slice(0, 20),
-        currency: offer.priceCurrency.slice(0, 8),
-        durationMinutes: offer.durationMinutes,
-        stops: offer.stops,
-        departAt: offer.departAt.slice(0, 40),
-        arriveAt: offer.arriveAt.slice(0, 40),
-        originAirport: offer.originAirport?.slice(0, 8),
-        destinationAirport: offer.destinationAirport?.slice(0, 8),
-        cabinClass: offer.cabinClass?.slice(0, 40),
-        baggage: offer.baggage?.slice(0, 120),
-        layoverAirports: offer.layoverAirports?.slice(0, 6),
-        aircraft: offer.aircraft?.slice(0, 120),
-        fareConditions: offer.fareConditions?.slice(0, 4),
-        expiresAt: offer.expiresAt?.slice(0, 40),
-      })),
+      dateNote: (search.assumedDate ? `Example date ${search.departureDate} — no travel date set yet` : `Departing ${search.departureDate}`) + (search.returnDate ? `, returning ${search.returnDate}` : ""),
+      departureDate: search.departureDate,
+      assumedDate: search.assumedDate,
+      ...(search.returnDate ? { returnDate: search.returnDate } : {}),
+      ...(search.originId ? { originId: search.originId.slice(0, 60) } : {}),
+      ...(search.destinationId ? { destinationId: search.destinationId.slice(0, 60) } : {}),
+      ...(search.insights ? { insights: search.insights } : {}),
+      items: search.offers.slice(0, 12).map(toFlightItem),
     });
   }
   for (const search of evidence.stays) {
@@ -184,24 +174,8 @@ export function selectBlocks(params: {
         dormMismatchNote(prompt, search.options.slice(0, 6).map((option) => option.name)),
       ].filter(Boolean).join(" · ").slice(0, 140),
       detailHotel: search.detail?.hotelName,
-      items: search.options.slice(0, 6).map((option) => ({
-        hotelId: option.hotelId.slice(0, 120),
-        name: option.name.slice(0, 160),
-        nightlyPrice: String(option.nightlyAmount),
-        totalPrice: String(option.totalAmount),
-        currency: option.currency.slice(0, 8),
-        stars: option.stars ?? undefined,
-        rating: option.rating ?? undefined,
-        reviews: option.reviewCount ?? undefined,
-        board: option.boardName ?? undefined,
-        refundable: option.refundable,
-        distanceToLocked: option.latitude != null && option.longitude != null ? distanceToLocked({ latitude: option.latitude, longitude: option.longitude }) : undefined,
-        thumbnailUrl: option.thumbnail?.startsWith("http") ? option.thumbnail : undefined,
-        latitude: option.latitude ?? undefined,
-        longitude: option.longitude ?? undefined,
-        address: option.address?.slice(0, 200) ?? undefined,
-        city: option.city?.slice(0, 80) ?? undefined,
-      })),
+      adults: search.adults,
+      items: search.options.slice(0, 6).map((option) => toStayCardItem(option, option.latitude != null && option.longitude != null ? distanceToLocked({ latitude: option.latitude, longitude: option.longitude }) : undefined)),
       rooms: search.detail?.rooms.slice(0, 12).map((room) => ({
         name: room.name.slice(0, 120),
         boardName: room.boardName,

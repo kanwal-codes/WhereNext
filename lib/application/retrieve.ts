@@ -13,6 +13,7 @@ export type { RetrieveFilters } from "./retrieve/context";
 import { handleSearchPlaces } from "./retrieve/handlers/search-places";
 import { handleResearchWeb } from "./retrieve/handlers/research-web";
 import { handleEvents } from "./retrieve/handlers/events";
+import type { PriceInsights } from "@/packages/providers/serpapi/client";
 import { handleFlights } from "./retrieve/handlers/flights";
 import { handleStays } from "./retrieve/handlers/stays";
 import { handleWeather } from "./retrieve/handlers/weather";
@@ -52,7 +53,19 @@ export type EventResult = {
   /** Days from the trip edge — 0 for "in", N for "before" (arrive − date) / "after" (date − depart). */
   offsetDays?: number;
 };
-export type FlightSearch = { origin: string; destination: string; departureDate: string; assumedDate: boolean; offers: FlightOffer[] };
+export type FlightSearch = {
+  origin: string;
+  destination: string;
+  departureDate: string;
+  returnDate?: string;
+  assumedDate: boolean;
+  offers: FlightOffer[];
+  /** Google Flights ids for the two ends and its read on the price, when that is where the fares came from. */
+  originId?: string;
+  destinationId?: string;
+  insights?: PriceInsights | null;
+  provider?: "serpapi" | "duffel";
+};
 export type StaySearch = {
   location: string;
   checkin: string;
@@ -60,6 +73,8 @@ export type StaySearch = {
   nights: number;
   assumedDates: boolean;
   options: StayOption[];
+  adults?: number;
+  provider?: "serpapi" | "liteapi";
   detail?: { hotelName: string; rooms: StayRoom[] };
 };
 

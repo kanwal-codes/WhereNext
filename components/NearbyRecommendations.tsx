@@ -330,10 +330,7 @@ export function NearbyRecommendations({
 
   return (
     <div className="mt-12 space-y-8 border-t border-border pt-8">
-      <div>
-        <h2 className="font-display text-xl">Around here</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Picked to match {anchorName} — tap any to open it.</p>
-      </div>
+      <h2 className="font-display text-xl">Around here</h2>
       {(showAll ? results : results.slice(0, INITIAL_LANES)).map(({ lane, places, events }, i) => {
         const shownPlaces = places.slice(0, 4);
         const shownEvents = events.slice(0, Math.max(0, 4 - shownPlaces.length));
@@ -367,7 +364,7 @@ export function NearbyRecommendations({
                   </button>
                 )}
               </div>
-              <div className="mt-2 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain no-scrollbar pb-9 -mb-8 pt-2">
+              <div className="mt-2 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain no-scrollbar -mx-2 px-2 scroll-px-2 pb-14 -mb-12 pt-2">
                 {shownPlaces.map((r, idx) => (
                   <MiniCard
                     key={r.place.providerId}

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { currencyForCountry } from "@/lib/currency";
-import { fromBrowserLocale } from "@/lib/locales";
+import { countryFromPlace, fromBrowserLocale } from "@/lib/locales";
 
 export type TravellerDefaults = { language?: string; country?: string; currency?: string };
 
@@ -18,7 +18,8 @@ export async function loadTravellerDefaults(supabase: SupabaseClient, userId: st
   const asked = fromBrowserLocale(headers?.get("accept-language")?.split(",")[0]?.trim());
   const ip = headers?.get("x-vercel-ip-country")?.toUpperCase();
   const str = (value: unknown) => (typeof value === "string" && value ? value : undefined);
-  const country = str(profile.country) ?? (ip && /^[A-Z]{2}$/.test(ip) ? ip : asked.country);
+  // Their own country first, then the one their home city names ("Toronto, Canada"), and only then a guess from the request.
+  const country = str(profile.country) ?? countryFromPlace(str(profile.homeCity)) ?? (ip && /^[A-Z]{2}$/.test(ip) ? ip : asked.country);
   return { language: str(profile.language) ?? asked.language, country, currency: str(profile.currency) ?? currencyForCountry(country) };
 }
 

@@ -2,10 +2,15 @@ import { z } from "zod";
 import { AI_DEADLINE_MS, withDeadline } from "@/packages/ai/model-policy";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 import type { UsageEntry } from "@/lib/ai/pricing";
+import { tripDurationDays } from "@/features/trip/domain/trip";
 import { runBulkBuilder } from "./bulk-builder";
 import type { RetrievedEvidence } from "./retrieve";
 import type { TripContext } from "./trip-context";
 
+/** A plan can cover a whole trip: the old cap of 7 cut an 8-day trip short. Matches the day rows the add-to-trip control offers. */
+const MAX_PLAN_DAYS = 30;
+type PlanDay = { label: string; subtitle?: string; stops: PlanStop[]; open: boolean };
+const OPEN_DAY = "Open day";
 const stopSchema = z.object({
   time: z.string().trim().max(20).optional(),
   title: z.string().trim().min(1).max(120),
@@ -19,22 +24,22 @@ const planSchema = z.object({
   days: z.array(z.object({
     label: z.string().trim().min(1).max(40),
     subtitle: z.string().trim().max(80).optional(),
-    stops: z.array(stopSchema).min(1).max(6),
-  })).min(1).max(7),
+    stops: z.array(stopSchema).max(6),
+  })).min(1).max(MAX_PLAN_DAYS),
 });
 type PlanStop = z.infer<typeof stopSchema>;
 
 const SYSTEM = (language: string = "en") => `You draft a day-by-day plan for a trip. Write every text field ("title", "intro", "subtitle", "note") in language "${language}" (BCP-47) — never "time" or "kind", which stay in their given formats. Return JSON only:
-{"title":"7 days in <city>","intro":"<2-3 concise sentences: the shape of the trip, why the pacing fits, and one or two things to book ahead>","days":[{"label":"Day 1","subtitle":"<3-5 word theme>","stops":[{"time":"09:00","title":"<place or activity>","note":"<one line: why it fits or a tip>","placeId":"<id from KNOWN PLACES, or omit>","kind":"sight"}]}]}
+{"title":"<N> days in <city>","intro":"<2-3 concise sentences: the shape of the trip, why the pacing fits, and one or two things to book ahead>","days":[{"label":"Day 1","subtitle":"<3-5 word theme>","stops":[{"time":"09:00","title":"<place or activity>","note":"<one line: why it fits or a tip>","placeId":"<id from KNOWN PLACES, or omit>","kind":"sight"}]}]}
 Rules:
-- Build ONLY from KNOWN PLACES (the traveller's saved spots + what was found this turn). Never invent a venue. Too few to fill the days? Make fewer or shorter days.
+- Build ONLY from KNOWN PLACES (the traveller's saved spots + what was found this turn). Never invent a venue. Too few to fill the days? Keep every day: give thin days one or two stops, and a day with no known place left gets "stops":[] — never leave a day out, never invent a venue to fill it.
 - 2 to 4 stops per day. Give every stop a real 24-hour clock time ("09:00", "13:30", "19:00") reflecting a sensible pace through the day — not just an ordering label. Use a specific known time (a show's start, a reservation) when there is one; otherwise pick a reasonable time for that stop's kind (e.g. breakfast ~08:30, lunch ~12:30, dinner ~19:00, a museum/sight ~10:00-15:00, nightlife ~21:00+). Leave "time" out only when the stop is genuinely flexible and no reasonable time applies.
 - note: one short line — why it suits this traveller, or a practical tip. No fluff.
 - placeId: copy the exact id from KNOWN PLACES when the stop IS that place; omit otherwise.
 - kind: one of food | sight | activity | nightlife | transit | event | rest.
 - Respect the traveller's pace and interests. Keep consecutive stops in the same area where you can.
-- Never put the same place on two different days. If KNOWN PLACES runs out before the trip length does, give the later days fewer stops (or drop them) rather than repeating an earlier day's place — and make the day's subtitle match the places actually listed under it.
-- If they asked for ONE specific day, return only that day (labelled e.g. "Day 2"). Otherwise cover the whole trip length.
+- Never put the same place on two different days. If KNOWN PLACES runs out before the trip length does, give the later days fewer stops (or drop them) rather than repeating an earlier day's place — and make the day's subtitle match the places actually listed under it. A day with fewer stops is fine; a missing day is not.
+- If they asked for ONE specific day, return only that day (labelled e.g. "Day 2"). Otherwise return exactly the number of days in "Days to plan" (labelled Day 1 … Day N, no day skipped or merged), or the whole trip length when none is given.
 - If Existing itinerary below is non-empty and the request only targets some days ("redo days 5-7", "swap out the last two days", "change day 3"), this is an EDIT: output every day of the existing plan, copying the days NOT mentioned exactly as they already are (same day number, same stop titles) and only replacing the ones asked for. Never shrink the trip to just the edited days.
 - If an ANCHOR EVENT is given below, it is already booked and non-negotiable — it MUST appear as a stop, exactly once, on the exact day named, with kind "event" and its given time (copy the title/venue/time verbatim). Build that day around it: keep the hours before an evening event light, and don't schedule anything else at a conflicting time. Never move, drop, or duplicate it, even if you'd otherwise have picked a different pace for that day.
 No preamble, no markdown.`;
@@ -61,14 +66,19 @@ export async function buildItineraryPlan(input: {
    *  the day matching its real date. Null when there's no single clear anchor, or no trip
    *  start_date yet to place it against (the event still shows as its own card either way). */
   anchorEvent?: AnchorEvent | null;
+  /** Days the traveller asked for this turn (from the resolver). Wins over the trip's saved length. */
+  requestedDays?: number | null;
   language?: string;
   signal?: AbortSignal;
   onUsage?: (entry: UsageEntry) => void;
 }): Promise<AssistantBlock | null> {
-  const found = input.evidence.places.slice(0, 12).map((p) => `- ${p.name} | id:${p.providerId} | ${p.category ?? "place"}${p.address ? ` | ${p.address}` : ""}`);
+  // One stop is ~3 per day: a fixed 12 + 12 could not fill more than a handful of days.
+  const targetDays = Math.min(input.requestedDays ?? 0, MAX_PLAN_DAYS) || 0;
+  const poolSize = Math.max(12, targetDays * 4);
+  const found = input.evidence.places.slice(0, poolSize).map((p) => `- ${p.name} | id:${p.providerId} | ${p.category ?? "place"}${p.address ? ` | ${p.address}` : ""}`);
   const saved = input.tripCtx.places
     .filter((entry) => entry.place?.name && entry.status !== "rejected")
-    .slice(0, 12)
+    .slice(0, poolSize)
     .map((entry) => `- ${entry.place!.name} | ${entry.place!.category ?? "place"}${entry.place!.address ? ` | ${entry.place!.address}` : ""} (saved, no id)`);
   const known = [...saved, ...found];
   const anchorDay = input.anchorEvent ? dayIndexForDate(input.tripCtx.trip?.start_date, input.anchorEvent.date) : null;
@@ -80,14 +90,22 @@ export async function buildItineraryPlan(input: {
     : "(nothing planned yet)";
   const prefs = input.tripCtx.preferences as Record<string, unknown>;
   const pace = typeof prefs.pace === "string" ? prefs.pace : "unspecified";
-  const duration = input.tripCtx.trip?.duration_days;
+  const duration = input.tripCtx.trip?.duration_days ?? tripDurationDays(input.tripCtx.trip?.start_date, input.tripCtx.trip?.end_date);
+  const fresh = existing === "(nothing planned yet)";
+  // What was asked beats what the trip says; an edit of some days has no target (the model copies the rest).
+  const wanted = targetDays || (fresh ? Math.min(duration ?? 0, MAX_PLAN_DAYS) : 0);
+  const daysDirective = targetDays
+    ? `${targetDays} (exactly ${targetDays} days, Day 1 to Day ${targetDays})`
+    : wanted
+      ? `${wanted}, the whole trip (unless the request names one specific day)`
+      : "as the request says";
   const anchorLine = anchorDay
     ? `\n\nANCHOR EVENT (already booked — must appear exactly once, on Day ${anchorDay}, kind "event", using this exact time): ${input.anchorEvent!.title}${input.anchorEvent!.venue ? ` at ${input.anchorEvent!.venue}` : ""}${input.anchorEvent!.time ? `, ${input.anchorEvent!.time}` : ""}`
     : "";
 
   const parsed = await runBulkBuilder(
     SYSTEM(input.language),
-    `Traveller: ${input.tripSummary}\nTrip length: ${duration ? `${duration} days` : "unspecified"}\nPace: ${pace}\nRequest: ${input.prompt}\n\nExisting itinerary:\n${existing}\n\nKNOWN PLACES:\n${known.join("\n")}${anchorLine}`,
+    `Traveller: ${input.tripSummary}\nTrip length: ${duration ? `${duration} days` : "unspecified"}\nDays to plan: ${daysDirective}\nPace: ${pace}\nRequest: ${input.prompt}\n\nExisting itinerary:\n${existing}\n\nKNOWN PLACES:\n${known.join("\n")}${anchorLine}`,
     planSchema,
     withDeadline(input.signal, AI_DEADLINE_MS.sideBuilder),
     input.onUsage,
@@ -110,7 +128,7 @@ export async function buildItineraryPlan(input: {
     // on the last few days) despite being told not to. Enforce it here rather than trust the
     // prompt: a place already used on an earlier day is dropped, not repeated.
     const usedPlaces = new Set<string>();
-    const days = parsed.days.map((day, i) => {
+    const all: PlanDay[] = parsed.days.map((day, i) => {
       const dayNumber = Number(day.label.match(/\d+/)?.[0]) || i + 1;
       const onAnchorDay = dayNumber === anchorDay;
       const stops: PlanStop[] = day.stops.flatMap((stop): PlanStop[] => {
@@ -140,20 +158,35 @@ export async function buildItineraryPlan(input: {
         anchorPlaced = true;
         stops.unshift(anchorStop);
       }
-      return { label: day.label, ...(day.subtitle ? { subtitle: day.subtitle } : {}), stops };
-    }).filter((day) => day.stops.length > 0);
+      return { label: day.label, ...(day.subtitle ? { subtitle: day.subtitle } : {}), stops, open: false };
+    });
+    // An explicit day count keeps its days even when one ran out of places; otherwise a day with nothing in it is dropped.
+    const keepEmpty = Boolean(targetDays && fresh);
+    const days: PlanDay[] = all.filter((day) => keepEmpty || day.stops.length > 0).map((day) => (day.stops.length ? day : { ...day, subtitle: OPEN_DAY, open: true }));
     // The model dropped the anchor's entire day (common when it runs out of known places before
     // reaching it). Append a fresh day for it rather than silently lose the trip's whole reason —
     // but only for a full-trip build, not a partial edit that deliberately didn't touch that day.
     if (anchorDay && anchorStop && !anchorPlaced && (existing === "(nothing planned yet)" || parsed.days.length > 1)) {
-      days.push({ label: `Day ${anchorDay}`, stops: [anchorStop] });
+      days.push({ label: `Day ${anchorDay}`, stops: [anchorStop], open: false });
       days.sort((a, b) => (Number(a.label.match(/\d+/)?.[0]) || 0) - (Number(b.label.match(/\d+/)?.[0]) || 0));
     }
-  if (!days.length) return null;
+    // Asked for N days, got fewer (the model skipped one, or a day lost all its stops): keep the count honest with an
+    // open day (no stops, flagged `open`, which the card explains) rather than hand back a shorter plan than the one requested. Fresh builds only, an edit keeps its days.
+    if (targetDays && fresh && days.length) {
+      // ...and never more: a sixth day on a five-day ask is as wrong as a missing one.
+      for (let i = days.length - 1; i >= 0; i--) if ((Number(days[i].label.match(/\d+/)?.[0]) || i + 1) > targetDays) days.splice(i, 1);
+      const have = new Set(days.map((d) => Number(d.label.match(/\d+/)?.[0]) || 0));
+      for (let n = 1; n <= targetDays; n++) {
+        if (!have.has(n)) days.push({ label: `Day ${n}`, subtitle: OPEN_DAY, stops: [], open: true });
+      }
+      days.sort((a, b) => (Number(a.label.match(/\d+/)?.[0]) || 0) - (Number(b.label.match(/\d+/)?.[0]) || 0));
+    }
+  // A plan of nothing but open days says nothing: let the turn fall back to a normal answer instead.
+  if (!days.some((day) => day.stops.length > 0)) return null;
   return {
     type: "itinerary",
     ...(parsed.title ? { title: parsed.title } : {}),
     ...(parsed.intro ? { intro: parsed.intro } : {}),
-    days,
+    days: days.map(({ open, ...day }) => (open ? { ...day, open: true } : day)),
   };
 }

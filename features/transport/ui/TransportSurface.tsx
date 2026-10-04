@@ -205,7 +205,7 @@ export function TransportSurface({
           fetch(`/api/trips/${tripId}/flights`, {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ from: a, to: b }),
+            body: JSON.stringify({ from: a, to: b, provider: "duffel" }),
             signal: request.signal,
           }),
           Promise.all([geocode(a, request.signal), geocode(b, request.signal)]),

@@ -335,7 +335,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   const body: ReactNode = !shown ? null : shown.kind === "place" ? (
     <PlaceDetailView tripId={tripId} placeId={shown.placeId} variant="panel" />
   ) : shown.kind === "stay" ? (
-    <StayDetailView tripId={tripId} hotelId={shown.hotelId} checkin={shown.checkin} checkout={shown.checkout} seedName={shown.name} variant="panel" />
+    <StayDetailView tripId={tripId} hotelId={shown.hotelId} checkin={shown.checkin} checkout={shown.checkout} adults={shown.adults} seedName={shown.name} variant="panel" />
   ) : shown.kind === "event" ? (
     <EventDetailView tripId={tripId} seed={shown.seed} variant="panel" />
   ) : shown.kind === "flight" ? (

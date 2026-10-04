@@ -91,12 +91,25 @@ export const assistantBlockSchema = z.discriminatedUnion("type", [
     origin: z.string().max(80),
     destination: z.string().max(80),
     dateNote: z.string().max(120).optional(),
+    /** The day these fares are for, and whether Roam picked it (no travel date set yet), so the card can offer to change it. */
+    departureDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    assumedDate: z.boolean().optional(),
+    /** Round trip: the day back. Fares are then round-trip totals. */
+    returnDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    /** Google Flights ids for the two ends, so the card can search them again exactly. */
+    originId: z.string().max(60).optional(),
+    destinationId: z.string().max(60).optional(),
+    /** Google's read on these dates: are the fares low, typical or high for the route. */
+    insights: z.object({ level: z.enum(["low", "typical", "high"]), lowest: z.number(), typicalLow: z.number().nullable(), typicalHigh: z.number().nullable() }).optional(),
     items: z.array(z.object({
       id: z.string().max(240).optional(),
       airline: z.string().max(80),
       operatingAirline: z.string().max(80).optional(),
       price: z.string().max(20),
       currency: z.string().max(8),
+      /** What the airline actually lists, when `price` is that converted into the trip's currency. */
+      listedPrice: z.string().max(20).optional(),
+      listedCurrency: z.string().max(8).optional(),
       durationMinutes: z.number().int().nonnegative(),
       stops: z.number().int().nonnegative(),
       departAt: z.string().max(40),
@@ -109,7 +122,32 @@ export const assistantBlockSchema = z.discriminatedUnion("type", [
       aircraft: z.string().max(120).optional(),
       fareConditions: z.array(z.string().max(80)).max(4).optional(),
       expiresAt: z.string().max(40).optional(),
-    })).min(1).max(8),
+      logo: z.string().max(300).optional(),
+      flightNumbers: z.array(z.string().max(16)).max(8).optional(),
+      co2Kg: z.number().int().nonnegative().optional(),
+      co2Diff: z.number().int().optional(),
+      /** Round trip: hand back to the flights route to list the return flights this outbound pairs with. */
+      departureToken: z.string().max(700).optional(),
+      /** The flights that make up the journey, in order, with the wait between them. */
+      legs: z.array(z.object({
+        from: z.string().max(8),
+        fromName: z.string().max(80).optional(),
+        departAt: z.string().max(40),
+        to: z.string().max(8),
+        toName: z.string().max(80).optional(),
+        arriveAt: z.string().max(40),
+        minutes: z.number().int().nonnegative(),
+        airline: z.string().max(60).optional(),
+        flightNumber: z.string().max(16).optional(),
+        aircraft: z.string().max(60).optional(),
+        logo: z.string().max(300).optional(),
+        legroom: z.string().max(20).optional(),
+        amenities: z.array(z.string().max(60)).max(4).optional(),
+        oftenDelayed: z.boolean().optional(),
+        layoverMinutes: z.number().int().nonnegative().optional(),
+        overnight: z.boolean().optional(),
+      })).max(6).optional(),
+    })).min(1).max(12),
   }),
   z.object({
     type: z.literal("stays"),
@@ -118,6 +156,8 @@ export const assistantBlockSchema = z.discriminatedUnion("type", [
     checkin: z.string().max(20),
     checkout: z.string().max(20),
     nights: z.number().int().positive(),
+    /** Guests the prices are for. */
+    adults: z.number().int().min(1).max(24).optional(),
     dateNote: z.string().max(140).optional(),
     detailHotel: z.string().max(160).optional(),
     items: z.array(stayItemSchema).min(1).max(6),
@@ -211,6 +251,8 @@ export const assistantBlockSchema = z.discriminatedUnion("type", [
     days: z.array(z.object({
       label: z.string().max(40),
       subtitle: z.string().max(80).optional(),
+      /** A day Roam had no place left to put in: the plan keeps it (the traveller asked for that many days) and says so. It has no stops. */
+      open: z.boolean().optional(),
       stops: z.array(z.object({
         time: z.string().max(20).optional(),
         title: z.string().max(120),
@@ -218,8 +260,8 @@ export const assistantBlockSchema = z.discriminatedUnion("type", [
         /** Google provider id — set when the stop is a real place, so the card opens its panel. */
         placeId: z.string().max(240).optional(),
         kind: z.enum(["food", "sight", "activity", "nightlife", "transit", "event", "rest"]).optional(),
-      })).min(1).max(6),
-    })).min(1).max(7),
+      })).max(6),
+    })).min(1).max(30),
   }),
   z.object({
     type: z.literal("weather"),
