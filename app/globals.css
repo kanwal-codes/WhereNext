@@ -168,9 +168,9 @@
      shadow, a body shadow and a long soft ambient one. Four steps, and only these four:
      hairline (a 1px ring), soft (resting cards), lift (hover, open menus), float (sheets, dialogs). */
   --shadow-hairline: 0 0 0 1px oklch(0.2 0.012 65 / 6%);
-  /* Warm, layered, long: a tight contact line, then three ever wider, fainter falloffs, so a card sits on the
+  /* Warm, layered, long: a tight contact line, then two ever wider, fainter falloffs, so a card sits on the
      page like paper on a table instead of wearing a grey halo. */
-  --shadow-soft: 0 1px 2px oklch(0.2 0.012 65 / 4.5%), 0 3px 8px -2px oklch(0.2 0.012 65 / 5%), 0 10px 24px -10px oklch(0.2 0.012 65 / 8%), 0 22px 44px -24px oklch(0.2 0.012 65 / 9%);
+  --shadow-soft: 0 1px 2px oklch(0.2 0.012 65 / 4%), 0 3px 8px -3px oklch(0.2 0.012 65 / 4.5%), 0 10px 22px -12px oklch(0.2 0.012 65 / 7%);
   --shadow-lift: 0 1px 2px oklch(0.2 0.012 65 / 5%), 0 6px 14px -4px oklch(0.2 0.012 65 / 7%), 0 18px 34px -10px oklch(0.2 0.012 65 / 11%), 0 36px 68px -22px oklch(0.2 0.012 65 / 17%);
   --shadow-float: 0 2px 4px oklch(0.2 0.012 65 / 6%), 0 12px 24px -8px oklch(0.2 0.012 65 / 12%), 0 32px 64px -20px oklch(0.2 0.012 65 / 24%);
 }
@@ -955,12 +955,29 @@
 .card-lift {
   transition: box-shadow var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out);
 }
+/* A card the pointer is over rises a few pixels and its shadow deepens, nothing more: a hairline for the edge, then
+   three soft, neutral falls that stay inside the rail's bottom padding so they are never cut off. No colour in it. */
+:root {
+  --shadow-hover:
+    0 0 0 1px oklch(0.2 0.012 65 / 4%),
+    0 2px 5px -1px oklch(0.2 0.012 65 / 4%),
+    0 8px 18px -6px oklch(0.2 0.012 65 / 7%),
+    0 18px 30px -14px oklch(0.2 0.012 65 / 9%);
+}
+.dark {
+  --shadow-hover:
+    0 0 0 1px oklch(1 0 0 / 8%),
+    0 10px 20px -8px oklch(0 0 0 / 50%),
+    0 22px 36px -16px oklch(0 0 0 / 55%);
+}
+.card-lift img { transition-property: opacity, transform, scale; transition-duration: 600ms; transition-timing-function: var(--ease-out); }
 @media (hover: hover) {
   .card-lift:hover {
-    box-shadow: var(--shadow-lift);
+    box-shadow: var(--shadow-hover);
     transform: translateY(-3px);
-    border-color: color-mix(in oklab, var(--color-ink) 16%, var(--color-border));
+    border-color: color-mix(in oklab, var(--color-ink) 10%, var(--color-border));
   }
+  .card-lift:hover img { scale: 1.045; }
 }
 .card-lift:active { transform: translateY(-1px) scale(0.994); box-shadow: var(--shadow-soft); }
 
@@ -971,6 +988,7 @@
   .settle-in { animation: none; }
   .card-lift { transition: none; }
   .card-lift:hover, .card-lift:active { transform: none; }
+  .card-lift:hover img { scale: 1; }
 }
 
 /* ---- Cinematic -----------------------------------------------------------------------------

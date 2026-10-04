@@ -20,3 +20,24 @@ export function fromBrowserLocale(locale: string | undefined): { language?: stri
   const country = region?.toUpperCase();
   return { language: language && LANGUAGES.includes(language) ? language : undefined, country: country && COUNTRIES.includes(country) ? country : undefined };
 }
+
+/** Names people write that Intl's English name for the country is not. */
+const COUNTRY_ALIASES: Record<string, string> = {
+  usa: "US", "u.s.": "US", "u.s.a.": "US", "united states of america": "US", america: "US",
+  uk: "GB", "u.k.": "GB", england: "GB", scotland: "GB", wales: "GB", "northern ireland": "GB", "great britain": "GB",
+  uae: "AE", korea: "KR", russia: "RU", czechia: "CZ", "czech republic": "CZ", turkiye: "TR", türkiye: "TR", holland: "NL", "the netherlands": "NL",
+};
+let countryByName: Map<string, string> | undefined;
+
+/** The country a typed place names — "Toronto, Canada", "Austin, TX, USA", "Canada" — as an ISO code we offer, else undefined. Reads the last part. */
+export function countryFromPlace(place: string | null | undefined): string | undefined {
+  const last = (place ?? "").split(",").map((part) => part.trim().toLowerCase()).filter(Boolean).pop();
+  if (!last) return undefined;
+  if (!countryByName) countryByName = new Map(COUNTRIES.map((code) => [displayName("region", code).toLowerCase(), code] as const));
+  const alias = COUNTRY_ALIASES[last];
+  if (alias && COUNTRIES.includes(alias)) return alias;
+  const byName = countryByName.get(last);
+  if (byName) return byName;
+  const upper = last.toUpperCase();
+  return last.length === 2 && COUNTRIES.includes(upper) ? upper : undefined;
+}

@@ -41,7 +41,7 @@ export type EventSeed = { name: string; url: string; source: string; imageUrl?: 
  */
 export type PanelState =
   | { kind: "place"; placeId: string; name: string }
-  | { kind: "stay"; hotelId: string; name: string; checkin?: string; checkout?: string }
+  | { kind: "stay"; hotelId: string; name: string; checkin?: string; checkout?: string; adults?: number }
   | { kind: "event"; seed: EventSeed }
   | { kind: "collection"; title: string; block: AssistantBlock }
   | { kind: "flight"; flight: FlightOffer; route: FlightRoute }
@@ -53,7 +53,7 @@ export type PanelState =
 
 type FlightsBlock = Extract<AssistantBlock, { type: "flights" }>;
 export type FlightOffer = FlightsBlock["items"][number];
-export type FlightRoute = Pick<FlightsBlock, "origin" | "destination" | "dateNote" | "retrievedAt"> & {
+export type FlightRoute = Pick<FlightsBlock, "origin" | "destination" | "dateNote" | "retrievedAt" | "departureDate" | "returnDate" | "originId" | "destinationId"> & {
   /** Every offer in the search this flight came from, so the panel can put it in context. */
   offers?: FlightOffer[];
 };

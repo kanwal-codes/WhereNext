@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Lock, PanelRight, PanelRightClose, PanelRightOpen, X } from "lucide-react";
@@ -67,25 +67,6 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   const { data } = useTripData();
   const { guest, openGate } = useGuest();
   const desktop = useMediaQuery("(min-width: 1024px)");
-  // A callback-ref state, not a ref: the element may not exist on the first commit (this shell can render something else first).
-  const [root, setRoot] = useState<HTMLDivElement | null>(null);
-  // The shell's width only matters while a panel is open (its pixel tracks depend on it). Re-measuring
-  // on every resize otherwise re-renders this whole tree once per frame while the trip sidebar slides,
-  // one frame behind the real width: that was the jitter. Closed, the columns are pure CSS (below).
-  const [width, setWidth] = useState(0);
-  const panelOpenRef = useRef(false);
-  const measureRef = useRef<() => void>(() => {});
-  useEffect(() => {
-    if (!root) return;
-    const measure = () => setWidth(Math.round(root.getBoundingClientRect().width));
-    measureRef.current = measure;
-    measure();
-    const observer = new ResizeObserver(() => {
-      if (panelOpenRef.current) measure();
-    });
-    observer.observe(root);
-    return () => observer.disconnect();
-  }, [root]);
   const reduceMotion = useReducedMotion();
   const [contextCollapsed, setContextCollapsed] = useState(false);
   const [mobileContextOpen, setMobileContextOpen] = useState(false);
@@ -146,31 +127,22 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   // shell's tab switch will start leaking a stale panel across tabs.
   const { panel, openPanel } = useTripPanel();
   const panelOpen = Boolean(panel);
-  panelOpenRef.current = panelOpen;
-  // The width is current the moment a panel opens, before it paints.
-  useLayoutEffect(() => {
-    if (panelOpen) measureRef.current();
-  }, [panelOpen]);
 
   const showContext = desktop && !panel && !contextCollapsed;
   // Collapsed context doesn't drop to 0 — it stays a slim rail (mirrors TripShell's sidebar
   // collapse) so the re-expand toggle always has somewhere to live, inside the panel it controls.
   const RAIL_WIDTH = 48;
   // Length tracks, not `minmax(…, 1fr)` strings: a track list that mixes `fr` and `px` cannot be interpolated, so
-  // the old resize snapped at the end of its animation. With a panel closed the tracks are `calc(100% - Npx) Npx`,
-  // which the browser resolves and interpolates itself (no JS on every resize); with a panel open they are pixels
-  // measured from the shell. Until the width is measured the CSS form is used as is.
+  // the old resize snapped at the end of its animation. Every track is a CSS length the browser resolves itself, in
+  // the same frame as the width it depends on. That matters while the trip sidebar slides: the panel's tracks used to
+  // be pixels measured from the shell by a ResizeObserver, which reports one frame late, so with a panel open the
+  // chat and the panel shook for the whole 420 ms. Now nothing is measured.
   const CHAT_WHEN_PANEL = 512; // 32rem
   // The panel takes what the chat leaves, up to 720 px: a detail view stretched across 940 px reads worse, and the chat gets the rest on a wide screen.
   const PANEL_MAX = 720;
-  const sidePx = panel ? Math.min(PANEL_MAX, Math.max(0, width - Math.min(width, CHAT_WHEN_PANEL))) : showContext ? 340 : RAIL_WIDTH;
-  const columns = !desktop
-    ? "minmax(0, 1fr) 0px"
-    : !panel
-      ? `calc(100% - ${sidePx}px) ${sidePx}px`
-      : width > 0
-        ? `${Math.max(0, width - sidePx)}px ${sidePx}px`
-        : "minmax(420px, 32rem) minmax(0, 1fr)";
+  const panelTrack = `min(${PANEL_MAX}px, max(0px, calc(100% - ${CHAT_WHEN_PANEL}px)))`;
+  const sideTrack = panel ? panelTrack : `${showContext ? 340 : RAIL_WIDTH}px`;
+  const columns = !desktop ? "minmax(0, 1fr) 0px" : `calc(100% - ${sideTrack}) ${sideTrack}`;
   // Animate only when the layout mode changes (panel opens or closes, rail expands); a window resize follows instantly.
   const layoutMode = panel ? "panel" : showContext ? "context" : "rail";
   const lastLayoutMode = useRef(layoutMode);
@@ -182,8 +154,8 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   function openPlace(place: PlaceCard) {
     openPanel({ kind: "place", placeId: place.providerId, name: place.name });
   }
-  function openStay(stay: StayCardItem, dates: { checkin: string; checkout: string }) {
-    openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name, checkin: dates.checkin, checkout: dates.checkout });
+  function openStay(stay: StayCardItem, dates: { checkin: string; checkout: string; adults?: number }) {
+    openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name, checkin: dates.checkin, checkout: dates.checkout, adults: dates.adults });
   }
   function openEvent(seed: EventSeed) {
     openPanel({ kind: "event", seed });
@@ -206,7 +178,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   );
 
   return (
-    <div ref={setRoot} data-roam-shell className="flex h-[calc(100dvh-var(--topbar))] min-h-0 w-full max-w-full flex-col overflow-x-hidden lg:h-[100dvh]">
+    <div data-roam-shell className="flex h-[calc(100dvh-var(--topbar))] min-h-0 w-full max-w-full flex-col overflow-x-hidden lg:h-[100dvh]">
       <div
         // A CSS transition on pixel tracks (they interpolate natively), only for the moment the layout mode changes.
         style={{ gridTemplateColumns: columns, transition: `grid-template-columns ${reduceMotion || !modeChanged ? 0 : 420}ms cubic-bezier(0.22, 1, 0.36, 1)` }}

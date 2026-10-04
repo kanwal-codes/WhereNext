@@ -78,6 +78,42 @@ export type StayDetails = {
   roomCatalogue: Array<{ name: string; maxOccupancy: number | null; photo: string | null; description: string | null }>;
 };
 
+/** One site's price for the same hotel and dates (Google Hotels lists several): where to go to book it. */
+export type StayPriceSource = {
+  source: string;
+  logo: string | null;
+  link: string;
+  nightly: number;
+  total: number;
+  /** Before taxes and fees, when the site says. */
+  nightlyBeforeTaxes: number | null;
+  totalBeforeTaxes: number | null;
+  freeCancellation: boolean;
+  /** "Nov 8", as the site words it. */
+  cancelUntil: string | null;
+  /** The hotel's own site. */
+  official: boolean;
+};
+
+/** Google's read on one hotel's price for the dates against what it usually costs. */
+export type StayPriceRead = { level: "low" | "typical" | "high"; typicalLow: number; typicalHigh: number; currency: string };
+
+/** What guests mention, by theme ("Location", "Rooms"), with how many were positive, negative or neutral. */
+export type StayTheme = { name: string; positive: number; negative: number; neutral: number; total: number };
+
+/** A place close to a hotel, with how long it takes to get there: walking first when it can be walked. Google's own list, kept whole. */
+export type StayNearbyPlace = {
+  name: string;
+  /** Google's label for it: "Airport", "Train station", "Point of interest". */
+  category: string | null;
+  thumbnail: string | null;
+  /** Out of 5, as Google rates it. */
+  rating: number | null;
+  reviewCount: number | null;
+  description: string | null;
+  ways: Array<{ mode: "walk" | "transit" | "taxi" | "other"; minutes: number }>;
+};
+
 /** One hotel card inside an assistant `stays` block. Carries the id so the UI can open it in-app. */
 export const stayItemSchema = z.object({
   hotelId: z.string().max(120),
@@ -101,7 +137,7 @@ export type StayCardItem = z.infer<typeof stayItemSchema>;
 
 /** The trip's locked stay — a `trip_decisions` row of kind "stay". */
 export const stayDecisionSchema = z.object({
-  provider: z.literal("liteapi"),
+  provider: z.enum(["liteapi", "serpapi"]),
   hotelId: z.string().max(120),
   hotelName: z.string().max(160),
   roomName: z.string().max(120),

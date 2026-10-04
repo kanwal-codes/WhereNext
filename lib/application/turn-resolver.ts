@@ -156,6 +156,8 @@ export const resolvedTurnSchema = z.object({
   // Keep every valid lookup, drop only the malformed ones, cap the turn so a multi-topic
   // request can still render separate sections without letting latency run unbounded.
   // from the router still does useful work instead of collapsing the whole turn to tool-less.
+  /** How many days of a day-by-day plan the traveller asked for this turn ("plan 5 days", or a short reply to a question that asked for 5), else null. */
+  itineraryDays: z.number().int().min(1).max(30).nullable().catch(null),
   toolPlan: lenientArray(toolCallSchema, MAX_TOOL_CALLS),
   clarify: z
     .object({ question: z.string().trim().min(1).max(240), chips: z.array(z.string().trim().min(1).max(48)).max(6).catch([]) })
@@ -203,6 +205,7 @@ Fields:
     * "area_guide" — which neighbourhood / district / part of the city to base in or spend time ("which neighbourhood", "what area should we explore"). Add a research_web call "best neighbourhoods in <city> for <their vibe>".
     * "day_trips" — trips OUT of the city for a day ("day trips from <city>", "anywhere nearby worth a day"). Add a research_web call "best day trips from <city>".
     * "structured_answer" — the answer is best as 2-4 short sections of bullets and no other menu item fits: local customs / etiquette, how something works (the metro, tipping, a pass), a "things to know" rundown, language/etiquette questions, and questions that NAME specific practical facts ("plugs, currency and tipping", "what voltage", "emergency number", "is tap water safe") — those are a fact list, never the packing checklist (intent essentials would answer with weather and a packing list and not the question). NOT a packing/what-to-bring/what-to-wear question, even when it's phrased as "things to know" or comes up alongside other essentials talk — that's intent essentials, which already has its own dedicated, weather-aware checklist; adding structured_answer on top doesn't just duplicate it, it actively REPLACES that weather-grounded checklist with a worse generic one (live-caught: "what should I pack" produced a destination-blind list — toothbrush, deodorant, a travel pillow — with no mention of Montreal's actual October weather, because structured_answer's own reply took priority over the checklist it was never supposed to compete with). Add a research_web call for the topic.
+- itineraryDays: set ONLY with the "itinerary" capability, to the number of days the traveller wants planned: the number they state ("plan 5 days", "a 5-day itinerary", "a week" = 7), taking it from the earlier request when this message only answers a question about it (they asked for 5 days, you asked which city, they said "Rome" -> 5). null when they gave no number, or when they are editing days of an existing plan.
 - toolPlan: 0 to 3 read-only lookups to run now. Tools:
     {"tool":"search_places","query":"...","location":"<locationFocus>"}  - find places, venues, activities, restaurants, clubs, temples, museums.
     {"tool":"research_web","query":"..."}                                - current info, events, prices, "what is it known for", articles.
@@ -211,7 +214,7 @@ Fields:
         * artist: set ONLY when the traveller names a specific act/person/team they want to see ("is Bruno Mars playing", "I want to see the Habs"). Leave empty for "any concerts".
         * category: the KIND of event in their own words — "comedy", "tech meetups", "cooking classes", "jazz", "hockey", "art exhibitions". Leave empty for "any events / what's on".
         * dateScoped: true (the default) whenever the ask is tied to the trip ("while I'm there", "during our trip", "on our dates", "when we're in <city>"). false only for a general "what's the <city> comedy scene like" with no date sense.
-    {"tool":"flights","origin":"...","destination":"...","departureDate":"YYYY-MM-DD"}  - airfare / flight cost / cheapest flights / how to fly somewhere far. departureDate is OPTIONAL: include it ONLY if the user named a real future date, otherwise leave it out.
+    {"tool":"flights","origin":"...","destination":"...","departureDate":"YYYY-MM-DD","returnDate":"YYYY-MM-DD"}  - airfare / flight cost / cheapest flights / how to fly somewhere far. departureDate is OPTIONAL: include it ONLY if the user named a real future date, otherwise leave it out. returnDate is OPTIONAL too: include it ONLY when they asked for a round trip or named a return day.
     {"tool":"directions","from":"...","to":"...","mode":"transit|walking|driving"}  - travel between two places (local / same region).
     {"tool":"stays","location":"...","checkin":"YYYY-MM-DD","hotelName":"..."}  - "where should we stay / hotels in X / places to stay / best area to stay". checkin/checkout OPTIONAL (include only real future dates). Set hotelName ONLY when the user names one specific hotel from earlier and asks about its price or rooms.
   ROUTING (follow exactly):

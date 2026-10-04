@@ -4,7 +4,9 @@ import { LIMITS } from "@/lib/server/limits";
 import { withRoute, fail } from "@/lib/server/with-route";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
-import { liteApiConfigured, searchStays, type StaySearchInput } from "@/packages/providers/liteapi/client";
+import { searchStays, type StaySearchInput } from "@/packages/providers/liteapi/client";
+import { searchGoogleHotels } from "@/packages/providers/serpapi/hotels";
+import { stayProvider } from "@/lib/server/stay-provider";
 import { resolveStayDates, staysCacheKey } from "@/lib/application/stay-dates";
 import { resolveCurrency } from "@/lib/currency";
 import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
@@ -18,7 +20,8 @@ export const GET = withRoute(async (request: Request, { params }: { params: Prom
   try {
     const { tripId } = await params;
     const { supabase, user } = await requireTripMember(tripId, { limit: LIMITS.provider });
-    if (!liteApiConfigured()) return NextResponse.json({ error: "Stay search is not configured" }, { status: 503 });
+    const provider = stayProvider();
+    if (!provider) return NextResponse.json({ error: "Stay search is not configured" }, { status: 503 });
 
     const [trip, prefs, defaults] = await Promise.all([
       createTripRepository(supabase).get(tripId),
@@ -46,8 +49,13 @@ export const GET = withRoute(async (request: Request, { params }: { params: Prom
       propertyTypes: strs(q.get("propertyTypes")),
     };
 
-    const key = staysCacheKey({ location, checkin, checkout, adults, rooms, currency, filters });
+    const key = (provider === "serpapi" ? "serp:" : "") + staysCacheKey({ location, checkin, checkout, adults, rooms, currency, filters });
     const result = await cached(key, 5 * 60_000, async () => {
+      // Google Hotels takes a place name and guests (no room count): real hotels, with prices from several sites.
+      if (provider === "serpapi") {
+        const out = await searchGoogleHotels({ location, checkin, checkout, adults, currency, limit: 24, ...filters }, request.signal);
+        return { ...out, retrievedAt: new Date().toISOString() };
+      }
       const anchor = (await new GooglePlacesProvider().search(location, request.signal).catch(() => null))?.[0];
       const out = await searchStays(
         {
@@ -70,7 +78,8 @@ export const GET = withRoute(async (request: Request, { params }: { params: Prom
       currency,
       options: result.options,
       facets: result.facets,
-      freshness: { provider: "liteapi", retrievedAt: result.retrievedAt, cacheTtlSeconds: 300 },
+      provider,
+      freshness: { provider, retrievedAt: result.retrievedAt, cacheTtlSeconds: 300 },
     });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Stay rates are unavailable right now");

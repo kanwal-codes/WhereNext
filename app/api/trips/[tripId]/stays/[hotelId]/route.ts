@@ -4,36 +4,15 @@ import { LIMITS } from "@/lib/server/limits";
 import { fail } from "@/lib/server/with-route";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
 import { hotelDetails, liteApiConfigured, stayReviews, stayRooms } from "@/packages/providers/liteapi/client";
+import { googleHotelDetails, isGoogleStayId } from "@/packages/providers/serpapi/hotels";
+import { serpConfigured } from "@/packages/providers/serpapi/client";
 import { research } from "@/packages/providers/tavily/client";
 import { generateText } from "@/packages/ai/model-policy";
+import { writeStayAbout } from "@/lib/application/stay-about";
 import { resolveStayDates } from "@/lib/application/stay-dates";
 import { resolveCurrency } from "@/lib/currency";
 import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 import { cached } from "@/lib/server/ttl-cache";
-
-/** Tighten LiteAPI's marketing description into 2–3 honest sentences. Falls back to a trimmed original. */
-async function summariseAbout(name: string, raw: string, signal?: AbortSignal): Promise<string> {
-  const text = raw.trim();
-  if (text.length < 240 || !process.env.AI_GATEWAY_API_KEY) return text.slice(0, 700);
-  try {
-    return (
-      await generateText(
-        "bulk",
-        [
-          {
-            role: "system",
-            content:
-              "Rewrite this hotel description as 2–3 plain, factual sentences: what kind of property it is, where it sits, and who it suits (location, style, standout amenities). Drop marketing adjectives, exclamation, room-rate talk and lists. British English.",
-          },
-          { role: "user", content: `${name}:\n${text.slice(0, 3000)}` },
-        ],
-        signal,
-      )
-    ).trim();
-  } catch {
-    return text.slice(0, 700);
-  }
-}
 
 /** One clean paragraph on what guests actually say, from web results. Null if nothing usable. */
 async function guestSentiment(name: string, city: string | null, signal?: AbortSignal): Promise<string | null> {
@@ -72,7 +51,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
   try {
     const { tripId, hotelId } = await params;
     const { supabase, user } = await requireTripMember(tripId, { limit: LIMITS.provider });
-    if (!liteApiConfigured()) return NextResponse.json({ error: "Stay search is not configured" }, { status: 503 });
+    const google = isGoogleStayId(hotelId);
+    if (google ? !serpConfigured() : !liteApiConfigured()) return NextResponse.json({ error: "Stay search is not configured" }, { status: 503 });
 
     const [trip, prefs, defaults] = await Promise.all([
       createTripRepository(supabase).get(tripId),
@@ -88,6 +68,38 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
       checkin: (trip as { start_date?: string | null } | null)?.start_date,
       checkout: (trip as { end_date?: string | null } | null)?.end_date,
     });
+
+    // A Google Hotels property: its own details call carries the content, who sells it at what price, the reviews and what is near.
+    if (google) {
+      const location = (q.get("location") || (trip as { destination?: string | null } | null)?.destination || "").trim();
+      const found = await cached(`stay:google:${hotelId}:${checkin}:${checkout}:${adults}:${currency}`, 10 * 60_000, () =>
+        googleHotelDetails({ hotelId, location, checkin, checkout, adults, currency }),
+      );
+      // Written from the facts, not Google's marketing text; kept a day, since it does not depend on the dates.
+      const about = await cached(`stay:about:v2:${hotelId}`, 24 * 60 * 60_000, () => writeStayAbout({ hotel: { ...found.hotel, kind: found.kind, nearby: found.nearby }, signal: AbortSignal.timeout(8000) }));
+      return NextResponse.json({
+        provider: "serpapi",
+        hotel: { ...found.hotel, description: about },
+        rooms: [],
+        sources: found.sources,
+        priceRead: found.priceRead,
+        themes: found.themes,
+        ratingCounts: found.ratingCounts,
+        nearby: found.nearby,
+        phone: found.phone,
+        website: found.website,
+        reviews: found.reviews,
+        sentiment: null,
+        nights: Math.max(1, Math.round((Date.parse(checkout) - Date.parse(checkin)) / 864e5)),
+        checkin,
+        checkout,
+        adults,
+        roomCount: rooms,
+        currency,
+        assumedDates: assumed,
+        freshness: { provider: "serpapi", retrievedAt: new Date().toISOString(), cacheTtlSeconds: 600 },
+      });
+    }
 
     const [details, rates, reviews] = await Promise.allSettled([
       cached(`stay:details:${hotelId}`, 10 * 60_000, () => hotelDetails(hotelId, request.signal)),
@@ -105,9 +117,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     const [sentiment, about] = hotel
       ? await Promise.all([
           cached(`stay:sentiment:${hotelId}`, 24 * 60 * 60_000, () => guestSentiment(hotel!.name, hotel!.city, request.signal)),
-          hotel.description
-            ? cached(`stay:about:${hotelId}`, 24 * 60 * 60_000, () => summariseAbout(hotel!.name, hotel!.description!, request.signal))
-            : Promise.resolve(null),
+          cached(`stay:about:v2:${hotelId}`, 24 * 60 * 60_000, () => writeStayAbout({ hotel: hotel!, signal: AbortSignal.timeout(8000) })),
         ])
       : [null, null];
     if (hotel && about) hotel = { ...hotel, description: about };

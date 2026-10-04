@@ -13,12 +13,27 @@ type Maybe<T> = T | null | false | undefined | "";
 const present = <T,>(list: Array<Maybe<T>>): T[] => list.filter((item): item is T => Boolean(item));
 
 export type Fact = { label: string; value: ReactNode; note?: ReactNode; tone?: "positive" | "caution" };
-type Action = { icon: LucideIcon; label: string; href: string; external?: boolean };
+type Action = { icon: LucideIcon; label: string; href: string; external?: boolean; /** A second, quieter line (the number, the site) in the `bar` variant. */ hint?: string };
 
 /** The few numbers a thing is judged on — rating, price, open now — in one bordered strip with equal columns. */
-export function FactStrip({ facts, className }: { facts: Array<Maybe<Fact>>; className?: string }) {
+export function FactStrip({ facts, className, variant = "default" }: { facts: Array<Maybe<Fact>>; className?: string; /** `hero`: big numerals under quiet small-caps labels, for a place's headline facts. */ variant?: "default" | "hero" }) {
   const shown = present(facts);
   if (shown.length === 0) return null;
+  if (variant === "hero") {
+    return (
+      <dl className={cn("grid grid-flow-col auto-cols-fr rounded-3xl border border-border bg-card shadow-soft", className)}>
+        {shown.map((fact) => (
+          <div key={fact.label} className="relative min-w-0 px-3 py-4 before:absolute before:inset-y-4 before:left-0 before:w-px before:bg-border first:before:hidden sm:px-5">
+            <dt className="eyebrow">{fact.label}</dt>
+            <dd className={cn("mt-2.5 flex min-w-0 items-center gap-1.5 font-display text-2xl leading-none font-medium tracking-[-0.03em] tabular-nums sm:text-[1.75rem]", fact.tone === "positive" && "text-positive", fact.tone === "caution" && "text-caution")}>
+              {fact.value}
+            </dd>
+            {fact.note && <dd className="mt-2.5 text-xs leading-snug text-muted-foreground">{fact.note}</dd>}
+          </div>
+        ))}
+      </dl>
+    );
+  }
   return (
     <dl className={cn("daisy-stats w-full auto-cols-fr rounded-2xl border border-border bg-card shadow-soft", className)}>
       {shown.map((fact) => (
@@ -50,10 +65,35 @@ const OTHERS = [
   cn("size-12 rounded-[1.15rem] bg-leaf-soft text-leaf hover:shadow-soft", press, ring),
 ] as const;
 
+const BAR_TINT = ["bg-coral-soft text-coral-ink", "bg-leaf-soft text-leaf", "bg-lagoon-soft text-lagoon"] as const;
+
 /** A row of quick actions (Directions, Call, Website…): the first a wide pill with its label, the others round or rounded-square icon buttons (named for screen readers and as a tooltip). */
-export function QuickActions({ actions }: { actions: Array<Maybe<Action>> }) {
+export function QuickActions({ actions, variant = "row" }: { actions: Array<Maybe<Action>>; /** `bar`: one card of equal cells, each a tinted round icon over its label; quieter than the main action above it. */ variant?: "row" | "bar" }) {
   const shown = present(actions);
   if (shown.length === 0) return null;
+  if (variant === "bar") {
+    const single = shown.length === 1;
+    return (
+      <div className={cn("grid grid-flow-col auto-cols-fr divide-x divide-border overflow-hidden rounded-3xl border border-border bg-card shadow-soft")}>
+        {shown.map(({ icon: Icon, label, href, external, hint }, i) => (
+          <a
+            key={label}
+            href={href.startsWith("tel:") ? href : safeHref(href)}
+            {...(external ? { target: "_blank", rel: "noreferrer noopener" } : {})}
+            className={cn("group min-w-0 transition-[background-color,transform] duration-200 ease-out hover:bg-accent/60 active:scale-[0.985]", single ? "flex items-center justify-center gap-3.5 px-5 py-4" : "flex flex-col items-center gap-2.5 px-3 py-4", ring)}
+          >
+            <span className={cn("grid size-11 shrink-0 place-items-center rounded-full transition-transform duration-300 ease-out group-hover:-translate-y-0.5 group-hover:scale-105", BAR_TINT[i % BAR_TINT.length])}>
+              <Icon className="size-5" aria-hidden />
+            </span>
+            <span className={cn("min-w-0 max-w-full", single ? "text-left" : "text-center")}>
+              <span className="block text-sm leading-tight font-medium">{label}</span>
+              {hint && <span className="mt-1 block truncate text-xs leading-tight text-muted-foreground">{hint}</span>}
+            </span>
+          </a>
+        ))}
+      </div>
+    );
+  }
   return (
     <div className="flex items-center gap-2.5">
       {shown.map(({ icon: Icon, label, href, external }, i) => {

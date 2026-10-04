@@ -19,6 +19,7 @@ import { GetYourGuideCard } from "@/components/GetYourGuideCard";
 import { Hero } from "@/components/Hero";
 import { DetailSectionHeading } from "@/components/DetailSectionHeading";
 import { FactStrip, InfoList, InfoRow, QuickActions, ShowMore } from "@/components/DetailKit";
+import { placeFacts } from "@/features/places/ui/placeFacts";
 import { NearbyRecommendations } from "@/components/NearbyRecommendations";
 import { BackLink } from "@/components/BackLink";
 import { ExternalLink } from "@/components/ExternalLink";
@@ -84,7 +85,7 @@ export function PlaceDetailView({
   variant?: "page" | "panel";
 }) {
   const panel = variant === "panel";
-  const { details, webSummary, state, retry } = usePlaceDetails(tripId, placeId);
+  const { details, about, aboutLoading, state, retry } = usePlaceDetails(tripId, placeId);
   const titleTag = useDocumentTitle(panel ? null : details?.displayName?.text ?? "Place");
   const [reviewsOpen, setReviewsOpen] = useState(false);
   const lightbox = usePhotoLightbox();
@@ -129,7 +130,7 @@ export function PlaceDetailView({
   // a button at every width instead of a banner at in-between ones.
   const asideAction = place ? (
     <div className={panel ? "max-w-md" : "max-w-sm"}>
-      <AddToTripControl tripId={tripId} place={place} size="md" block />
+      <AddToTripControl tripId={tripId} place={place} size="lg" block />
     </div>
   ) : (
     <p className="text-sm text-muted-foreground">This place can&rsquo;t be added &mdash; we don&rsquo;t have a location for it.</p>
@@ -202,49 +203,48 @@ export function PlaceDetailView({
   const body = (
     <div className="min-w-0 space-y-8">
       <Reveal delay={0.04}>
-        <div className="space-y-3">
+        <div className="space-y-4">
           <FactStrip
-            facts={[
-              typeof details.rating === "number" && {
-                label: "Rating",
-                value: (
-                  <>
-                    <Star className="size-4 fill-current text-coral" aria-hidden /> {details.rating.toFixed(1)}
-                  </>
-                ),
-                note: details.userRatingCount ? `${details.userRatingCount.toLocaleString()} reviews` : undefined,
-              },
-              price && { label: "Price", value: price, note: price === "Free" ? undefined : "per person" },
-              typeof openNow === "boolean" && { label: "Right now", value: openNow ? "Open" : "Closed", tone: openNow ? "positive" : undefined, note: todayHours ?? undefined },
-            ]}
+            variant="hero"
+            facts={placeFacts({ rating: details.rating, ratingCount: details.userRatingCount, price, openNow, todayHours })}
           />
           <QuickActions
+            variant="bar"
             actions={[
-              { icon: Navigation, label: "Directions", href: directionsHref, external: true },
-              details.nationalPhoneNumber && { icon: Phone, label: "Call", href: `tel:${details.nationalPhoneNumber.replace(/\s/g, "")}` },
-              details.websiteUri && { icon: Globe, label: "Website", href: details.websiteUri, external: true },
+              { icon: Navigation, label: "Directions", href: directionsHref, external: true, hint: "Google Maps" },
+              details.nationalPhoneNumber && { icon: Phone, label: "Call", href: `tel:${details.nationalPhoneNumber.replace(/\s/g, "")}`, hint: details.nationalPhoneNumber },
+              details.websiteUri && { icon: Globe, label: "Website", href: details.websiteUri, external: true, hint: prettyWebsite(details.websiteUri).split("/")[0] },
             ]}
           />
         </div>
       </Reveal>
 
-      {(details.editorialSummary?.text || webSummary || typeChips.length > 0 || amenities.length > 0) && (
+      {(details.editorialSummary?.text || about || aboutLoading || typeChips.length > 0 || amenities.length > 0) && (
       <Reveal delay={0.06}>
         <section>
           <DetailSectionHeading>About</DetailSectionHeading>
-          {details.editorialSummary?.text && <p className="mt-2 text-body leading-[1.8] text-ink-soft">{details.editorialSummary.text}</p>}
-          {/* Google's own editorialSummary above is only written for a subset of well-known
-              places, and even then is often one generic sentence — this supplements it with a
-              real excerpt from the web, clearly sourced rather than presented as Google's own
-              words, so a thin or missing summary still leaves the traveller with something. */}
-          {webSummary && (
-            <p className="mt-2 text-sm leading-[1.75] text-muted-foreground">
-              {webSummary.content}{" "}
-              <ExternalLink href={webSummary.source.url} className="text-xs whitespace-nowrap">
-                {prettyWebsite(webSummary.source.url).split("/")[0]}
-              </ExternalLink>
+          {/* Written for the page (see lib/application/place-about.ts), never pasted from the web. Google's own one-liner stands in
+              while it is written, and when nothing good could be written. */}
+          {about ? (
+            <p className="mt-2 text-body leading-[1.8] text-ink-soft">
+              {about.content}
+              {about.source && (
+                <>
+                  {" "}
+                  <ExternalLink href={about.source.url} className="text-xs whitespace-nowrap">
+                    {prettyWebsite(about.source.url).split("/")[0]}
+                  </ExternalLink>
+                </>
+              )}
             </p>
-          )}
+          ) : details.editorialSummary?.text ? (
+            <p className="mt-2 text-body leading-[1.8] text-ink-soft">{details.editorialSummary.text}</p>
+          ) : aboutLoading ? (
+            <div aria-hidden className="mt-3 space-y-2.5">
+              <div className="skeleton h-4 w-full rounded-md" />
+              <div className="skeleton h-4 w-4/5 rounded-md" />
+            </div>
+          ) : null}
           {(typeChips.length > 0 || amenities.length > 0) && (
             <div className="mt-3 flex flex-wrap gap-1.5">
               {typeChips.map((t) => <Badge key={t} className="capitalize">{t}</Badge>)}
@@ -259,7 +259,7 @@ export function PlaceDetailView({
         <Reveal delay={0.08}>
           <section>
             <DetailSectionHeading>Photos</DetailSectionHeading>
-            <div className={cn("mt-1 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain no-scrollbar px-1 pb-9 -mb-8 pt-2", panel ? "" : "-mx-5 px-5 sm:mx-0 sm:px-0")}>
+            <div className={cn("mt-1 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain no-scrollbar px-1 pb-14 -mb-12 pt-2", panel ? "" : "-mx-5 px-5 sm:mx-0 sm:px-0")}>
               {morePhotos.map((src, i) => (
                 <button
                   key={src}

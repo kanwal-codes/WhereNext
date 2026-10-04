@@ -159,15 +159,16 @@ export function MediaFallback({ icon: Icon, className }: { icon: LucideIcon; cla
 
 const formatters = new Map<string, Intl.NumberFormat>();
 /** "CA$97", "€230", "US$48.20" — the symbol, never a bare code, and cents only when there are cents. */
-export function money(value: number | string, currency: string): string {
+export function money(value: number | string, currency: string, apart = false): string {
   const amount = typeof value === "number" ? value : Number(String(value).replace(/,/g, ""));
   if (!Number.isFinite(amount)) return `${value} ${currency}`;
   const whole = Number.isInteger(amount);
-  const key = `${currency}|${whole}`;
+  const key = `${currency}|${whole}|${apart}`;
   let formatter = formatters.get(key);
   if (!formatter) {
     try {
-      formatter = new Intl.NumberFormat("en", { style: "currency", currency, currencyDisplay: "symbol", minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2 });
+      // `apart`: "en" writes US dollars as a bare "$", which a Canadian reads as their own; en-CA writes "US$" (CAD is "CA$" in "en" already).
+      formatter = new Intl.NumberFormat(apart && currency === "USD" ? "en-CA" : "en", { style: "currency", currency, currencyDisplay: "symbol", minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2 });
     } catch {
       return `${amount} ${currency}`;
     }

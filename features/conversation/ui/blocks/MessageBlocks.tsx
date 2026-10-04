@@ -24,6 +24,7 @@ import {
   ChevronRight,
   Info,
   Luggage,
+  Pencil,
   PersonStanding,
   Globe,
   Loader2,
@@ -37,6 +38,7 @@ import {
   TrainFront,
   Umbrella,
   Wallet,
+  X,
   CalendarRange,
   Scale,
 } from "lucide-react";
@@ -57,13 +59,19 @@ import { portableProxyPhotoUrl } from "../portable-photo-url";
 import type { CardPanel } from "@/components/TripPanelProvider";
 import { PlanStops, type PlanStop } from "./PlanStops";
 import { FactStrip } from "@/components/DetailKit";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { ContentSwap, Enter, motionTokens } from "@/components/motion-primitives";
 import { SlidingTabs } from "./SlidingTabs";
 import { ChecklistBlock } from "./ChecklistBlock";
 import { parseRouteStep, routeLines, splitRouteEnds } from "./routeText";
 import { pointsFromItinerary, pointsFromPlaces, pointsFromStays } from "./mapPoints";
 import { DEFAULT_FLIGHT_VIEW, FlightControls, applyFlightView, arrivalDayOffset, type FlightView } from "./FlightFilters";
+import { FlightRowsSkeleton, FlightSearchBar, PriceInsight, useFlightSearch } from "./FlightSearch";
+import { shiftIso } from "./SearchBarParts";
+import { AirlineMark } from "../panels/OtherFlights";
+import { StayCardsSkeleton, StaySearchBar, useStaySearch } from "./StaySearch";
+import { useTripDataMaybe } from "@/components/TripDataProvider";
+import { resolveCurrency } from "@/lib/currency";
 import { HoldHeight, ScrollWindow, ScrollX, ViewControls } from "./ListControls";
 import { DEFAULT_EVENT_VIEW, DEFAULT_STAY_VIEW, applyEventView, applyStayView, eventControls, stayControls, type EventView, type StayView } from "./listViews";
 import { factGlyph, placeGlyph } from "./glyphs";
@@ -76,7 +84,7 @@ export type BlockHandlers = {
   /** When set, the card head opens this place in the chat side-panel. */
   onOpenPlace?: (place: PlaceCard) => void;
   /** When set, a stay card opens the hotel (rooms + details) in the chat side-panel. */
-  onOpenStay?: (stay: StayCardItem, dates: { checkin: string; checkout: string }) => void;
+  onOpenStay?: (stay: StayCardItem, dates: { checkin: string; checkout: string; adults?: number }) => void;
   /** When set, an event card/row opens the full event view in the chat side-panel. */
   onOpenEvent?: (seed: EventSeed) => void;
   /** Opens the complete result set in the shared side panel. */
@@ -628,7 +636,29 @@ function itineraryOrderKey(tripId: string, block: ItineraryBlockData): string {
   return `roam-itinerary-order:${tripId}:${(hash >>> 0).toString(36)}`;
 }
 
-function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPanel, replyText }: { block: ItineraryBlockData; tripId: string; replyText?: string } & Pick<BlockHandlers, "onOpenPlace" | "onOpenPanel">) {
+/** "Day 4", "Day 4 and Day 5", "Day 4, Day 5 and Day 6". */
+const joinDays = (labels: string[]) => (labels.length < 2 ? labels.join("") : `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`);
+
+/** Said once on the plan, in plain words: these days were asked for, and there is nothing more to put in them yet. Not an error. */
+function OpenDaysNotice({ labels, onFollowup }: { labels: string[]; onFollowup?: (prompt: string) => void }) {
+  const names = joinDays(labels);
+  return (
+    <div className="flex items-start gap-3 border-b border-border bg-muted/50 px-4 py-3" role="note">
+      <Compass className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+      <div className="min-w-0 space-y-1.5">
+        <p className={cn(type.body, "font-medium")}>{labels.length === 1 ? `${names} is open` : `${names} are open`}</p>
+        <p className={cn(type.meta)}>That is everything I could find that fits this trip so far, so I have left {labels.length === 1 ? "it" : "them"} free rather than pad {labels.length === 1 ? "it" : "them"} out.</p>
+        {onFollowup && (
+          <button type="button" onClick={() => onFollowup(`Find more things to do for ${names}`)} className={cn(textAction, "pt-0.5")}>
+            Find more for {names} <ArrowRight className="size-3.5" aria-hidden />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPanel, onFollowup, replyText }: { block: ItineraryBlockData; tripId: string; replyText?: string } & Pick<BlockHandlers, "onOpenPlace" | "onOpenPanel" | "onFollowup">) {
   const orderKey = itineraryOrderKey(tripId, sourceBlock);
   // The visitor's own order, kept on this device like the checklist's ticks; a failing store only means it resets.
   const [orders, setOrders] = useState<Record<number, string[]>>({});
@@ -657,6 +687,7 @@ function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPan
   const multi = block.days.length > 1;
   const day = block.days[Math.min(active, block.days.length - 1)];
   const totalStops = block.days.reduce((n, d) => n + d.stops.length, 0);
+  const openLabels = block.days.filter((d) => d.open).map((d) => d.label);
   // The reply above already says this sentence; repeating it inside the card is noise.
   const introIsRepeat = Boolean(block.intro && replyText && normalize(replyText).includes(normalize(block.intro).slice(0, 60)));
   const title = itineraryTitle(block.title, block.days.length) ?? (multi ? undefined : day.label);
@@ -696,6 +727,7 @@ function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPan
         }
       />
       {block.intro && !introIsRepeat && <p className={cn(type.body, "border-b border-border px-4 py-3 text-ink-soft")}>{block.intro}</p>}
+      {openLabels.length > 0 && <OpenDaysNotice labels={openLabels} onFollowup={onFollowup} />}
       {multi && (
         <SlidingTabs
           label="Days"
@@ -710,19 +742,22 @@ function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPan
         {(day.subtitle || onOpenPanel) && (
           <div className="flex items-center justify-between gap-3">
             <p className={cn(type.meta, "min-w-0")}>{day.subtitle}</p>
-            {onOpenPanel && (
+            {onOpenPanel && !day.open && (
               <button type="button" onClick={() => onOpenPanel({ kind: "day", block, dayIndex: Math.min(active, block.days.length - 1) })} className={cn(textAction, "shrink-0")}>
                 Open {day.label} <ArrowUpRight className="size-3.5" aria-hidden />
               </button>
             )}
           </div>
         )}
-        <PlanStops
-          stops={day.stops}
-          variant="card"
-          onReorder={day.stops.length > 1 ? (ids) => reorderDay(Math.min(active, block.days.length - 1), ids) : undefined}
-          onOpenPlace={onOpenPlace ? (stop) => onOpenPlace({ providerId: stop.placeId!, name: stop.title } as PlaceCard) : undefined}
-        />
+        {day.open && <p className={cn(type.body, "rounded-xl border border-dashed border-border px-4 py-6 text-center text-ink-soft")}>Nothing lined up for {day.label} yet. It is yours to wander, or ask for more ideas above.</p>}
+        {!day.open && (
+          <PlanStops
+            stops={day.stops}
+            variant="card"
+            onReorder={day.stops.length > 1 ? (ids) => reorderDay(Math.min(active, block.days.length - 1), ids) : undefined}
+            onOpenPlace={onOpenPlace ? (stop) => onOpenPlace({ providerId: stop.placeId!, name: stop.title } as PlaceCard) : undefined}
+          />
+        )}
       </div>
       </ContentSwap>
     </div>
@@ -1035,22 +1070,49 @@ function EventsBlockView({ block, tripId, preview, onOpenEvent, onOpenCollection
 
 type StaysBlockData = Extract<AssistantBlock, { type: "stays" }>;
 
-function StaysBlockView({ block, preview, onOpenStay, onOpenCollection, onOpenPanel }: { block: StaysBlockData; preview: boolean } & Pick<BlockHandlers, "onOpenStay" | "onOpenCollection" | "onOpenPanel">) {
+function StaysBlockView({ block, tripId, preview, onOpenStay, onOpenCollection, onOpenPanel }: { block: StaysBlockData; tripId: string; preview: boolean } & Pick<BlockHandlers, "onOpenStay" | "onOpenCollection" | "onOpenPanel">) {
   const [view, setView] = useState<StayView>(DEFAULT_STAY_VIEW);
-  const items = applyStayView(block.items, view);
+  const trip = useTripDataMaybe()?.data?.trip;
+  const tripDates = { start: trip?.start_date ?? null, end: trip?.end_date ?? null };
+  const search = useStaySearch(block, tripId);
+  // In the chat the card searches again as the bar changes; in the "see all" panel it is just the list it was handed.
+  const live = preview;
+  const source = live ? search.items : block.items;
+  const where = live ? search.query.location : block.location;
+  const nights = live ? search.nights : block.nights;
+  const loading = live && search.status === "loading";
+  const items = applyStayView(source, view);
   const filtersOn = view.refundable || view.breakfast || view.stars4;
-  const { sorts, filters } = stayControls(block.items, view, setView);
-  const dates = { checkin: block.checkin, checkout: block.checkout };
+  const { sorts, filters } = stayControls(source, view, setView);
+  const dates = live ? { checkin: search.query.checkin, checkout: search.query.checkout, adults: search.query.adults } : { checkin: block.checkin, checkout: block.checkout, adults: block.adults };
+  const searchForBar = {
+    ...search,
+    setLocation: (v: string) => { setView(DEFAULT_STAY_VIEW); search.setLocation(v); },
+    setCheckin: search.setCheckin, setCheckout: search.setCheckout, setAdults: search.setAdults, setBoth: search.setBoth,
+  };
           const visible = preview ? items.slice(0, MAX_CHAT_CARDS) : items;
           return (
             <div className="flex flex-col gap-3">
               <SectionHeader
-                title={preview ? `Stays in ${block.location}` : undefined}
-                onSeeAll={preview && items.length > MAX_CHAT_CARDS && onOpenCollection ? () => onOpenCollection(`All stays in ${block.location}`, { ...block, items }) : undefined}
-                onMap={preview && onOpenPanel && pointsFromStays(items).length > 0 ? () => onOpenPanel({ kind: "map", title: `Stays in ${block.location}`, points: pointsFromStays(items), connect: false }) : undefined}
+                title={preview ? `Stays in ${where}` : undefined}
+                onSeeAll={preview && items.length > MAX_CHAT_CARDS && onOpenCollection ? () => onOpenCollection(`All stays in ${where}`, { ...block, location: where, checkin: dates.checkin, checkout: dates.checkout, nights, items }) : undefined}
+                onMap={preview && onOpenPanel && pointsFromStays(items).length > 0 ? () => onOpenPanel({ kind: "map", title: `Stays in ${where}`, points: pointsFromStays(items), connect: false }) : undefined}
               />
-              <Meta items={[`${block.nights} night${block.nights > 1 ? "s" : ""}`, `${prettyDate(block.checkin)} – ${prettyDate(block.checkout)}`]} />
-              {block.dateNote && <Notice tone="caution">{block.dateNote.replace(/\d{4}-\d{2}-\d{2}/g, (m) => prettyDate(m) ?? m)}</Notice>}
+              {live ? <StaySearchBar search={searchForBar} tripId={tripId} trip={tripDates} /> : <Meta items={[`${block.nights} night${block.nights > 1 ? "s" : ""}`, `${prettyDate(block.checkin)} – ${prettyDate(block.checkout)}`]} />}
+              {live ? (search.assumed && <Notice tone="caution">Example dates, pick yours above for accurate prices.</Notice>) : block.dateNote && <Notice tone="caution">{block.dateNote.replace(/\d{4}-\d{2}-\d{2}/g, (m) => prettyDate(m) ?? m)}</Notice>}
+              {search.status === "error" && live ? (
+                <div role="alert" className={cn(surface, "space-y-3 px-4 py-8 text-center")}>
+                  <p className={type.body}>We couldn’t load stays in {where} just now.</p>
+                  <button type="button" onClick={search.retry} className={controlSecondary}>Try again</button>
+                </div>
+              ) : search.status === "empty" && live ? (
+                <div className={cn(surface, "space-y-1.5 px-4 py-8 text-center")}>
+                  <p className={type.body}>No stays found in {where} for those dates.</p>
+                  <p className={type.meta}>Try other days, fewer guests, or a nearby area above.</p>
+                </div>
+              ) : (
+              <>
+              <div className={cn("transition-opacity duration-200", loading && "pointer-events-none opacity-50")} aria-busy={loading}>
               <ViewControls
                 bordered={false}
                 label="stays"
@@ -1060,19 +1122,34 @@ function StaysBlockView({ block, preview, onOpenStay, onOpenCollection, onOpenPa
                 onSort={(id) => setView({ ...view, sort: id as StayView["sort"] })}
                 filters={filters}
                 shown={items.length}
-                total={block.items.length}
+                total={source.length}
                 onClear={() => setView({ ...DEFAULT_STAY_VIEW, sort: view.sort })}
               />
-              <HoldHeight frozen={filtersOn}>
+              </div>
+              <HoldHeight frozen={filtersOn || loading}>
+              {loading ? (
+                <StayCardsSkeleton className={preview ? rail : grid} cardClassName={preview ? cn(CARD_W, "shrink-0 snap-start") : undefined} />
+              ) : (
+              <>
               {items.length === 0 && <p className={cn(type.body, "py-6 text-center text-muted-foreground")}>No stays match those filters.</p>}
               <div className={preview ? rail : grid}>
                 {visible.map((hotel, hotelIndex) => (
-                  <div key={hotel.hotelId || `${hotel.name}-${hotelIndex}`} className={preview ? cn(CARD_W, "shrink-0 snap-start") : undefined}>
-                    <StayCardView hotel={hotel} photoless={!block.items.some((h) => h.thumbnailUrl)} onOpen={onOpenStay && hotel.hotelId ? () => onOpenStay(hotel, dates) : undefined} />
-                  </div>
+                  <motion.div
+                    key={hotel.hotelId || `${hotel.name}-${hotelIndex}`}
+                    initial={live && search.searched ? { opacity: 0, y: 12 } : false}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1], delay: live && search.searched ? Math.min(hotelIndex, 6) * 0.05 : 0 }}
+                    className={preview ? cn(CARD_W, "shrink-0 snap-start") : undefined}
+                  >
+                    <StayCardView hotel={hotel} photoless={!source.some((h) => h.thumbnailUrl)} onOpen={onOpenStay && hotel.hotelId ? () => onOpenStay(hotel, dates) : undefined} />
+                  </motion.div>
                 ))}
               </div>
+              </>
+              )}
               </HoldHeight>
+              </>
+              )}
               {block.rooms && block.rooms.length > 0 && (
                 <div className={cn(surface, "overflow-hidden")}>
                   <h4 className={cn(type.title, "px-4 pt-4 pb-1")}>Rooms at {block.detailHotel}</h4>
@@ -1108,30 +1185,111 @@ function StaysBlockView({ block, preview, onOpenStay, onOpenCollection, onOpenPa
 
 type FlightsBlockData = Extract<AssistantBlock, { type: "flights" }>;
 
-function FlightsBlockView({ block, onOpenPanel }: { block: FlightsBlockData } & Pick<BlockHandlers, "onOpenPanel">) {
+function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockData; tripId: string } & Pick<BlockHandlers, "onOpenPanel">) {
   const [view, setView] = useState<FlightView>(DEFAULT_FLIGHT_VIEW);
-  const offers = applyFlightView(block.items, view);
+  const trip = useTripDataMaybe()?.data?.trip;
+  const tripDates = { start: trip?.start_date ?? null, end: trip?.end_date ?? null };
+  const fares = useFlightSearch(block, tripId, tripDates);
+  const [routeOpen, setRouteOpen] = useState(false);
+  const { query } = fares;
+  const roundTrip = query.ret !== null;
+  const offers = applyFlightView(fares.items, view);
   const filtersOn = view.nonstop || view.changes || view.airport !== null;
+  const loading = fares.status === "loading";
+  const day = query.depart ? prettyDate(query.depart) : undefined;
+  // A new search starts with a clean view: an airport filter from the last one may not exist in this one.
+  const resetView = () => setView((v) => ({ ...v, airport: null }));
+  const change = <A extends unknown[]>(fn: (...args: A) => void) => (...args: A) => {
+    resetView();
+    fn(...args);
+  };
+  // A card saved before the trip had a currency (or before prices were converted) keeps its old one until it is searched again.
+  const tripCurrency = resolveCurrency(useTripDataMaybe()?.data?.preferences);
+  const shownCurrency = fares.items[0]?.currency;
+  const staleCurrency = !fares.searched && fares.status === "ready" && Boolean(shownCurrency) && shownCurrency !== tripCurrency && !fares.items.some((o) => o.listedCurrency);
+  const dateNote = query.depart ? `${fares.assumed ? `Example date ${query.depart} — no travel date set yet` : `Departing ${query.depart}`}${query.ret ? `, returning ${query.ret}` : ""}` : block.dateNote;
+  const searchForBar = { ...fares, setFrom: change(fares.setFrom), setTo: change(fares.setTo), swap: change(fares.swap), setDepart: change(fares.setDepart), setReturn: change(fares.setReturn), setRoundTrip: change(fares.setRoundTrip), setBoth: change(fares.setBoth) };
   return (
     <div className={cn(surface, "overflow-hidden")}>
       <BlockHeader
         icon={Plane}
-        title={<>{block.origin} <ArrowRight className="size-3.5 text-muted-foreground" aria-label="to" /> {block.destination}</>}
-        meta={block.dateNote ? block.dateNote.replace(/\d{4}-\d{2}-\d{2}/g, (m) => prettyDate(m) ?? m) : undefined}
+        title={<>{query.fromLabel.split(",")[0]} <ArrowRight className="size-3.5 text-muted-foreground" aria-label="to" /> {query.toLabel.split(",")[0]}</>}
+        meta={roundTrip ? "Round trip" : "One way"}
+        actions={
+          <button
+            type="button"
+            onClick={() => setRouteOpen((v) => !v)}
+            aria-expanded={routeOpen}
+            aria-controls="flight-route-editor"
+            className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-[background-color,border-color,color,transform] active:scale-95", routeOpen ? "border-foreground/30 bg-muted text-foreground" : "border-border text-ink-soft hover:border-foreground/25 hover:bg-muted/60 hover:text-foreground")}
+          >
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span key={routeOpen ? "done" : "edit"} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.14 }} className="inline-flex items-center gap-1.5">
+                {routeOpen ? <X className="size-3.5" aria-hidden /> : <Pencil className="size-3.5" aria-hidden />}
+                {routeOpen ? "Done" : "Edit route"}
+              </motion.span>
+            </AnimatePresence>
+          </button>
+        }
       />
-      <FlightControls items={block.items} view={view} onChange={setView} shown={offers.length} />
-      <ScrollWindow label="Flights" frozen={filtersOn} resetKey={JSON.stringify(view)}>
-      {offers.length === 0 && (
+      <FlightSearchBar search={searchForBar} tripId={tripId} trip={tripDates} routeOpen={routeOpen} onRouteDone={() => setRouteOpen(false)} />
+      {fares.insights && fares.status === "ready" && fares.currency && <PriceInsight insights={fares.insights} currency={fares.currency} />}
+      {fares.items.length > 0 && fares.status !== "error" && (
+        <div className={cn("transition-opacity duration-200", loading && "pointer-events-none opacity-50")} aria-busy={loading}>
+          <FlightControls items={fares.items} view={view} onChange={setView} shown={offers.length} />
+        </div>
+      )}
+      {fares.status === "error" && (
+        <motion.div role="alert" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={motionTokens.standard} className="space-y-3 px-4 py-8 text-center">
+          <p className={type.body}>We couldn’t load flights{day ? ` for ${day}` : ""} just now.</p>
+          <button type="button" onClick={fares.retry} className={controlSecondary}>Try again</button>
+        </motion.div>
+      )}
+      {fares.status === "empty" && (
+        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={motionTokens.standard} className="space-y-3 px-4 py-8 text-center">
+          {fares.problem ? (
+            <>
+              <p className={type.body}>We couldn’t find “{fares.problem}”.</p>
+              <p className={type.meta}>Try a nearby city, or the airport’s three-letter code.</p>
+            </>
+          ) : (
+            <>
+              <p className={type.body}>No flights found{day ? ` for ${day}` : ""}{roundTrip && query.ret ? ` to ${prettyDate(query.ret)}` : ""}.</p>
+              <p className={type.meta}>Try nearby days, or another route above.</p>
+              {query.depart && (
+                <div className="flex justify-center gap-2">
+                  <button type="button" onClick={() => searchForBar.setDepart(shiftIso(query.depart!, -1))} className={controlSecondary}>Day before</button>
+                  <button type="button" onClick={() => searchForBar.setDepart(shiftIso(query.depart!, 1))} className={controlSecondary}>Day after</button>
+                </div>
+              )}
+            </>
+          )}
+        </motion.div>
+      )}
+      {fares.status !== "error" && fares.status !== "empty" && (
+      <ScrollWindow label="Flights" frozen={filtersOn || loading} resetKey={`${query.depart}:${query.ret}:${query.fromLabel}:${query.toLabel}:${JSON.stringify(view)}`}>
+      {loading && <FlightRowsSkeleton />}
+      {fares.status === "ready" && offers.length === 0 && (
         <div className="space-y-2 px-4 py-6 text-center">
           <p className={type.body}>No flights match those filters.</p>
           <button type="button" onClick={() => setView({ ...DEFAULT_FLIGHT_VIEW, sort: view.sort })} className={controlSecondary}>Clear filters</button>
         </div>
       )}
+      {fares.status === "ready" && (
       <ul className="divide-y divide-border">
         {offers.map((offer, offerIndex) => {
           const dayOffset = arrivalDayOffset(offer.departAt, offer.arriveAt);
           return (
-            <motion.li layout="position" transition={motionTokens.standard} key={offerIndex} className="grid grid-cols-[1fr_auto] items-start gap-x-4 gap-y-1.5 px-4 py-3">
+            <motion.li
+              layout="position"
+              transition={{ ...motionTokens.standard, delay: fares.searched ? Math.min(offerIndex, 6) * 0.045 : 0 }}
+              initial={fares.searched ? { opacity: 0, y: 10 } : false}
+              animate={{ opacity: 1, y: 0 }}
+              key={offer.id ?? offerIndex}
+              className="grid grid-cols-[1fr_auto] items-start gap-x-4 gap-y-1.5 px-4 py-3"
+            >
+              <div className="flex min-w-0 gap-3">
+              <AirlineMark offer={offer} className="mt-0.5 size-8" />
               <div className="min-w-0 space-y-1">
                 <p className={cn(type.body, "font-medium")}>{offer.airline}</p>
                 <p className={cn(type.body, "tabular-nums")}>
@@ -1143,6 +1301,7 @@ function FlightsBlockView({ block, onOpenPanel }: { block: FlightsBlockData } & 
                     offer.originAirport && offer.destinationAirport ? `${offer.originAirport}–${offer.destinationAirport}` : null,
                     `${Math.floor(offer.durationMinutes / 60)}h ${offer.durationMinutes % 60}m`,
                     offer.stops === 0 ? "nonstop" : `${offer.stops} stop${offer.stops > 1 ? "s" : ""}${offer.layoverAirports?.length ? ` via ${offer.layoverAirports.join(", ")}` : ""}`,
+                    offer.flightNumbers?.slice(0, 2).join(" · "),
                     offer.cabinClass,
                     offer.baggage,
                   ]}
@@ -1154,19 +1313,27 @@ function FlightsBlockView({ block, onOpenPanel }: { block: FlightsBlockData } & 
                   </div>
                 )}
               </div>
+              </div>
               <div className="flex flex-col items-end gap-2">
-                <p className={cn(type.title, "tabular-nums whitespace-nowrap")}>{money(offer.price, offer.currency)}</p>
+                <p className={cn(type.title, "tabular-nums whitespace-nowrap")}>{offer.listedCurrency && <span className="mr-0.5 text-muted-foreground" title={`Converted from ${money(offer.listedPrice ?? "", offer.listedCurrency, true)} at today’s rate`}>≈</span>}{money(offer.price, offer.currency, true)}</p>
+                {roundTrip && <p className={cn(type.meta, "-mt-1.5")}>round trip</p>}
                 {onOpenPanel && (
-                  <DetailsButton label={`Details: ${offer.airline}, ${clock(offer.departAt)} to ${clock(offer.arriveAt)}`} onClick={() => onOpenPanel({ kind: "flight", flight: offer, route: { origin: block.origin, destination: block.destination, dateNote: block.dateNote, retrievedAt: block.retrievedAt, offers: block.items } })} />
+                  <DetailsButton label={`Details: ${offer.airline}, ${clock(offer.departAt)} to ${clock(offer.arriveAt)}`} onClick={() => onOpenPanel({ kind: "flight", flight: offer, route: { origin: query.fromLabel, destination: query.toLabel, dateNote, retrievedAt: fares.retrievedAt, offers: fares.items, departureDate: query.depart ?? undefined, returnDate: query.ret ?? undefined, originId: query.fromId, destinationId: query.toId } })} />
                 )}
               </div>
             </motion.li>
           );
         })}
       </ul>
+      )}
       </ScrollWindow>
+      )}
       <div className="border-t border-border px-4 py-3">
-        <Notice>Fares change quickly — check the airline or a travel site before booking.</Notice>
+        <Notice>
+          Prices are per person{roundTrip ? ", for the round trip" : ""}{fares.currency ? `, in ${fares.currency}` : ""}
+          {fares.items.some((o) => o.listedCurrency) ? `, converted from ${[...new Set(fares.items.map((o) => o.listedCurrency).filter(Boolean))].join(", ")} at today’s rate, so approximate` : ""}. Fares change quickly — check the airline or a travel site before booking.
+          {staleCurrency && <button type="button" onClick={() => { resetView(); fares.retry(); }} className={cn(textAction, "ml-1.5 align-baseline")}>Show prices in {tripCurrency}</button>}
+        </Notice>
       </div>
     </div>
   );
@@ -1269,11 +1436,11 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
         }
 
         if (block.type === "flights") {
-          return <div key={index}><FlightsBlockView block={block} onOpenPanel={onOpenPanel} /></div>;
+          return <div key={index}><FlightsBlockView block={block} tripId={tripId} onOpenPanel={onOpenPanel} /></div>;
         }
 
         if (block.type === "stays") {
-          return <StaysBlockView key={index} block={block} preview={preview} onOpenStay={onOpenStay} onOpenCollection={onOpenCollection} onOpenPanel={onOpenPanel} />;
+          return <StaysBlockView key={index} block={block} tripId={tripId} preview={preview} onOpenStay={onOpenStay} onOpenCollection={onOpenCollection} onOpenPanel={onOpenPanel} />;
         }
 
         if (block.type === "weather") {
@@ -1281,7 +1448,7 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
         }
 
         if (block.type === "itinerary") {
-          return <div key={index}><ItineraryBlockView block={block} tripId={tripId} onOpenPlace={onOpenPlace} onOpenPanel={onOpenPanel} replyText={replyText} /></div>;
+          return <div key={index}><ItineraryBlockView block={block} tripId={tripId} onOpenPlace={onOpenPlace} onOpenPanel={onOpenPanel} onFollowup={onFollowup} replyText={replyText} /></div>;
         }
 
         if (block.type === "budget") {

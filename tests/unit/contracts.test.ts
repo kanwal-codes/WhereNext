@@ -188,3 +188,10 @@ describe("rebuild contracts", () => {
     expect(sanitized).not.toContain("invented.example");
   });
 });
+
+describe("itinerary block length", () => {
+  it("holds a plan longer than a week (an 8-day trip was cut to 7)", () => {
+    const days = Array.from({ length: 8 }, (_, i) => ({ label: `Day ${i + 1}`, stops: [{ title: "Colosseum" }] }));
+    expect(assistantBlockSchema.safeParse({ type: "itinerary", days }).success).toBe(true);
+  });
+});
