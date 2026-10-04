@@ -234,6 +234,10 @@ function TurnOutcome({ kind }: { kind: "error" }) {
   );
 }
 
+/** The width of the text beside an open detail panel: the narrowest the column ever is (512px less its padding), so the
+ *  words never re-wrap when the column around them grows or shrinks (the sidebar collapsing, the window resizing). */
+export const RAIL_MEASURE = "max-w-[28.5rem]";
+
 export function ConversationSurface({
   tripId,
   initialMessages,
@@ -723,7 +727,7 @@ export function ConversationSurface({
           log — the rubber-band should feel self-contained here, the same way a native app's
           message list never drags the rest of the screen along with it. */}
       <div ref={logRef} onScroll={handleLogScroll} data-scrolled={scroll.scrolled} role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions" className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim scroll-fade-t">
-        <div className={cn("mx-auto w-full max-w-full space-y-6 pt-2 pb-28 max-lg:pt-16", rail ? "px-1" : "max-w-2xl")}>
+        <div className={cn("mx-auto w-full space-y-6 pt-2 pb-28 max-lg:pt-16", rail ? RAIL_MEASURE : "max-w-2xl")}>
           {!loaded && messages.length === 0 && (
             <div aria-hidden className="space-y-6">
               <div className="flex justify-end">
@@ -827,9 +831,11 @@ export function ConversationSurface({
                 aria-busy={streaming || undefined}
                 // The reply reveals itself word by word (AssistantMessage → StreamedText); the
                 // "answering" mark below the log only shows while Roam is still working out what to say.
-                className="space-y-3"
+                className="turn space-y-3"
               >
                 <span className="sr-only">Roam: </span>
+                {/* Roam signs its turn: the route mark, small and quiet, so a reply never reads as unsigned text on a white page. */}
+                {!rail && <RoamMark state="settled" size={30} animated={false} className="-mt-0.5 mb-0.5 block text-ink-soft" />}
                 <AssistantMessage content={message.content} blocks={blocks} handlers={handlers} streaming={streaming} live={live} />
                 {notes.length > 0 && (
                   <div role="note" className="flex items-start gap-2 text-xs leading-snug text-muted-foreground">
@@ -862,7 +868,12 @@ export function ConversationSurface({
                     ) : (
                       <span />
                     )}
-                    {message.content.trim() && !streaming && <CopyButton text={message.content} tabbable={isLatest} />}
+                    {/* Copy rests quietly: on a mouse it appears when the reply is under the pointer (the latest always shows it); on touch it is always there. */}
+                    {message.content.trim() && !streaming && (
+                      <span className={cn(!isLatest && "turn-action")}>
+                        <CopyButton text={message.content} tabbable={isLatest} />
+                      </span>
+                    )}
                   </div>
                 )}
               </motion.div>
@@ -929,7 +940,7 @@ export function ConversationSurface({
       </Sheet>
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-background from-55% to-transparent px-3 pt-8 pb-3">
-        <div className={cn("pointer-events-auto relative mx-auto w-full min-w-0", rail ? "max-w-full" : "max-w-2xl")}>
+        <div className={cn("pointer-events-auto relative mx-auto w-full min-w-0", rail ? RAIL_MEASURE : "max-w-2xl")}>
           <AnimatePresence>
             {scroll.away && (
               <motion.button

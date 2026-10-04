@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { openWithTransition } from "@/lib/view-transition";
 import { ArrowRight, MapPin } from "lucide-react";
 import { Tactile } from "@/components/motion-primitives";
 import { TripCover } from "@/components/trips/TripCover";
@@ -47,12 +49,19 @@ export function FeaturedTrip({
   deleting: boolean;
   onDelete: () => void;
 }) {
+  const router = useRouter();
   const when = tripWhen(trip.start_date, trip.end_date, trip.duration_days, "Dates not set");
   const stats = statsFor(trip, status);
   return (
     <Tactile lift={3} className="group relative has-[details[open]]:z-30">
       <Link
         href={`/trips/${trip.id}`}
+        onClick={(event) => {
+          // A plain click morphs the cover into the trip's hero; a modified click keeps its usual meaning (new tab, etc.).
+          if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          event.preventDefault();
+          openWithTransition(router, `/trips/${trip.id}`, event.currentTarget.firstElementChild as HTMLElement | null);
+        }}
         className="block overflow-hidden rounded-3xl border border-border/70 bg-card shadow-soft transition-colors duration-300 group-hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         <TripCover trip={trip} size="feature" className="flex min-h-[28rem] flex-col justify-end sm:min-h-[32rem]">
@@ -90,7 +99,7 @@ export function FeaturedTrip({
                   >
                     {stats.map((stat) => (
                       <div key={stat.title} className="daisy-stat">
-                        <div className="daisy-stat-title text-2xs tracking-[0.08em] uppercase">{stat.title}</div>
+                        <div className="daisy-stat-title text-2xs tracking-[0.1em] uppercase">{stat.title}</div>
                         <div className="daisy-stat-value font-display text-3xl tracking-tight tabular-nums sm:text-4xl">{stat.value}</div>
                         <div className="daisy-stat-desc">{stat.desc}</div>
                       </div>

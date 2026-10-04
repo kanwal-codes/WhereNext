@@ -102,7 +102,7 @@ export function Field({ label, hint, children }: { label: string; hint?: ReactNo
   return (
     <div className="relative">
       <label className="block">
-        <span className="text-xs font-medium tracking-[0.06em] text-ink-soft uppercase">{label}</span>
+        <span className="text-xs font-medium tracking-[0.1em] text-ink-soft uppercase">{label}</span>
         <div className="mt-2">{children}</div>
       </label>
       {hint ? <div className="absolute top-0 right-0">{hint}</div> : null}

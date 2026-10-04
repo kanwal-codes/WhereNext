@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowUpRight } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { motionTokens } from "@/components/motion-primitives";
@@ -109,6 +110,7 @@ export function MapDetail({ tripId, panel }: { tripId: string; panel: Extract<Pa
                 <span aria-hidden className={cn("grid size-6 shrink-0 place-items-center rounded-full text-xs font-semibold text-white tabular-nums", DOT[p.kind])}>{i + 1}</span>
                 <span className={cn(type.body, "min-w-0 flex-1 font-medium")}>{p.name}</span>
                 {active === "all" && days.length > 1 && p.day && <span className={type.meta}>Day {p.day}</span>}
+                {open && <ArrowUpRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />}
               </>
             );
             return (

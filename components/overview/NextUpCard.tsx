@@ -1,5 +1,6 @@
 "use client";
 
+import { hotelPhotoSrc } from "@/lib/hotel-photo";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { MapPin } from "lucide-react";
@@ -38,7 +39,7 @@ export function NextUpCard({ item, onOpenBooking, onEdit }: { item: TimelineItem
     <TripArt seed={hashString(item.id)} grain className="flex min-h-[22rem] flex-col justify-between rounded-3xl border border-border/70 p-6 shadow-soft sm:min-h-[26rem] sm:p-9">
       {photo ? (
         // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
-        <img src={item.thumbnail!} alt="" loading="lazy" decoding="async" onError={() => setImageFailed(true)} className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1400ms] ease-out group-hover:scale-[1.05]" />
+        <img src={hotelPhotoSrc(item.thumbnail!)} alt="" loading="lazy" decoding="async" onError={() => setImageFailed(true)} className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1400ms] ease-out group-hover:scale-[1.05]" />
       ) : (
         <Icon aria-hidden className="pointer-events-none absolute -right-6 -bottom-8 h-72 w-72 text-foreground/[0.06]" strokeWidth={1} />
       )}

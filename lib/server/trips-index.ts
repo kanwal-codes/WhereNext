@@ -1,3 +1,4 @@
+import { decodeCover } from "@/lib/cover-photo";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { TripSummary } from "@/components/TripsHome";
 import { firstSavedPhotoByTrip } from "@/lib/trip-cover";
@@ -27,7 +28,7 @@ export async function loadTripsIndex(supabase: SupabaseClient): Promise<TripsInd
   // Second choice for a cover photo: a place the group saved to the trip. Only asked for trips
   // that have no destination photo, in one query for all of them. Best-effort: a failure here just
   // means those trips fall back to the type-led cover.
-  const needCover = trips.filter((trip) => !trip.hero_photo_name).map((trip) => trip.id);
+  const needCover = trips.filter((trip) => !decodeCover(trip.hero_photo_name).name).map((trip) => trip.id);
   if (needCover.length > 0) {
     const saved = await supabase
       .from("trip_places")

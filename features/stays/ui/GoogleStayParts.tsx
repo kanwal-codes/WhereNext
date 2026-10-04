@@ -1,8 +1,10 @@
 "use client";
 
+import { hotelPhotoSrc } from "@/lib/hotel-photo";
 import React from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { ArrowUpRight, Bus, Car, Check, Footprints, MapPin, Minus, Plane, TrainFront, TrendingDown, TrendingUp } from "lucide-react";
+import { Fold } from "@/components/Fold";
 import { DetailSectionHeading } from "@/components/DetailSectionHeading";
 import type { useStayDetails } from "@/features/stays/application/useStayDetails";
 import { Badge, Notice, RatingMeta, money, prettyDate, type as T } from "@/features/conversation/ui/blocks/ui";
@@ -11,98 +13,153 @@ import type { StayNearbyPlace, StayTheme } from "@/packages/contracts/stay";
 
 type Details = ReturnType<typeof useStayDetails>;
 
-/** Google's read on this hotel's price for the dates against what it usually costs. */
-function PriceRead({ s }: { s: Details }) {
+/** Google's read on this hotel's price for the dates, drawn as a gauge: the band it usually costs, and where this price sits in it. */
+function PriceGauge({ s }: { s: Details }) {
   const r = s.priceRead;
-  if (!r) return null;
-  const tone = { low: { Icon: TrendingDown, text: "A low price for this hotel", cls: "bg-positive-soft text-positive" }, typical: { Icon: Minus, text: "A typical price for this hotel", cls: "bg-muted text-ink-soft" }, high: { Icon: TrendingUp, text: "Higher than usual for this hotel", cls: "bg-caution-soft text-caution" } }[r.level];
+  const here = s.sources[0]?.nightly;
+  if (!r || here === undefined) return null;
+  const lo = Math.min(r.typicalLow, here) * 0.88;
+  const hi = Math.max(r.typicalHigh, here) * 1.08;
+  const at = (n: number) => `${Math.min(100, Math.max(0, ((n - lo) / (hi - lo)) * 100))}%`;
+  const tone = {
+    low: { Icon: TrendingDown, text: "A low price for this hotel", cls: "text-positive", dot: "bg-positive" },
+    typical: { Icon: Minus, text: "A typical price for this hotel", cls: "text-ink-soft", dot: "bg-foreground" },
+    high: { Icon: TrendingUp, text: "Higher than usual for this hotel", cls: "text-caution", dot: "bg-caution" },
+  }[r.level];
   return (
-    <div className={cn("flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-2xl px-4 py-2.5 text-sm", tone.cls)} role="note">
-      <tone.Icon className="size-4 shrink-0" aria-hidden />
-      <span className="font-medium">{tone.text}</span>
-      <span className="text-xs opacity-80">Usually {money(r.typicalLow, r.currency, true)} to {money(r.typicalHigh, r.currency, true)} a night</span>
+    <div role="note" className="space-y-2.5">
+      <p className={cn("flex items-center gap-2 text-sm font-medium", tone.cls)}>
+        <tone.Icon className="size-4 shrink-0" aria-hidden />
+        {tone.text}
+      </p>
+      <div className="relative h-1.5 rounded-full bg-muted" aria-hidden>
+        <span className="absolute inset-y-0 rounded-full bg-foreground/10" style={{ left: at(r.typicalLow), right: `calc(100% - ${at(r.typicalHigh)})` }} />
+        <span className={cn("absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-4 ring-card", tone.dot)} style={{ left: at(here) }} />
+      </div>
+      <p className={cn(T.meta, "tabular-nums")}>Usually {money(r.typicalLow, r.currency, true)} to {money(r.typicalHigh, r.currency, true)} a night</p>
     </div>
   );
 }
 
-/** Every site that sells this hotel for the dates, cheapest first: the price each charges, whether it cancels free, and the way there. */
+/** Where a hotel is sold for the dates: the best price set large with the way to book it, then every other site quietly beneath. */
 export function WhereToBook({ s, hotelId }: { s: Details; hotelId: string }) {
   const reduce = useReducedMotion();
   const locked = s.lockedStay && s.lockedStay.hotelId === hotelId ? s.lockedStay : null;
   const dates = s.checkin && s.checkout ? `${prettyDate(s.checkin)} – ${prettyDate(s.checkout)}` : null;
-  const lowest = s.sources[0]?.nightly;
-  const uniqueLowest = s.sources.filter((x) => x.nightly === lowest).length === 1;
+  const [best, ...others] = s.sources;
+  const bestHref = best ? safeHref(best.link) : null;
+  const siteMark = (src: (typeof s.sources)[number], size: string) => (
+    <span className={cn("grid shrink-0 place-items-center overflow-hidden rounded-xl bg-white ring-1 ring-black/10", size)}>
+      {src.logo ? (
+        // eslint-disable-next-line @next/next/no-img-element -- a site's own logo from Google Hotels
+        <img src={hotelPhotoSrc(src.logo)} alt="" loading="lazy" referrerPolicy="no-referrer" className="size-[70%] object-contain" />
+      ) : (
+        <span aria-hidden className="text-xs font-semibold text-muted-foreground">{src.source.slice(0, 2).toUpperCase()}</span>
+      )}
+    </span>
+  );
   return (
-    <section aria-labelledby="stay-book" className="space-y-3">
+    <section aria-labelledby="stay-book" className="space-y-4">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <DetailSectionHeading id="stay-book">Where to book</DetailSectionHeading>
         {dates && <p className={cn(T.meta, "tabular-nums")}>{dates}{s.nights ? ` · ${s.nights} night${s.nights === 1 ? "" : "s"}` : ""}</p>}
       </div>
       {s.assumedDates && <Notice tone="caution">These are example dates. Set your real dates to see accurate prices.</Notice>}
-      <PriceRead s={s} />
-      {s.sources.length === 0 ? (
+      {!best ? (
         <Notice>No prices came back for these dates. The hotel may be full, or try different dates.</Notice>
       ) : (
         <>
-          <ul className="space-y-2.5">
-            {s.sources.map((src, i) => {
-              const href = safeHref(src.link);
-              return (
-                <motion.li
-                  key={src.source}
-                  initial={reduce ? false : { opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1], delay: Math.min(i, 6) * 0.05 }}
-                  className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-soft"
-                >
-                  <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-white ring-1 ring-black/10">
-                    {src.logo ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- a site's own logo from Google Hotels
-                      <img src={src.logo} alt="" loading="lazy" referrerPolicy="no-referrer" className="size-7 object-contain" />
-                    ) : (
-                      <span aria-hidden className="text-xs font-semibold text-muted-foreground">{src.source.slice(0, 2).toUpperCase()}</span>
-                    )}
-                  </span>
-                  <div className="min-w-0 flex-1 space-y-1.5">
-                    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium">
-                      {src.source}
-                      {src.official && <Badge>Official site</Badge>}
-                      {uniqueLowest && i === 0 && <Badge tone="positive" icon={Check}>Lowest price</Badge>}
-                    </p>
-                    {src.freeCancellation && <p className="text-xs text-positive">Free cancellation{src.cancelUntil ? ` until ${src.cancelUntil}` : ""}</p>}
-                    <p className={cn(T.meta, "tabular-nums")}>
-                      {money(src.total, s.currency, true)} total{src.totalBeforeTaxes ? ` · ${money(src.totalBeforeTaxes, s.currency, true)} before taxes` : ""}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="font-display text-lg font-semibold leading-tight tabular-nums">{money(src.nightly, s.currency, true)}</p>
-                    <p className={T.meta}>a night</p>
-                  </div>
-                  {href && (
-                    <a
-                      href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label={`Book on ${src.source} (opens their site)`}
-                      className={cn("grid size-10 shrink-0 place-items-center rounded-full transition-[transform,opacity,background-color] active:scale-95", i === 0 ? "bg-primary text-primary-foreground hover:opacity-90" : "border border-border text-ink-soft hover:bg-accent hover:text-foreground")}
-                    >
-                      <ArrowUpRight className="size-4" aria-hidden />
-                    </a>
-                  )}
-                </motion.li>
-              );
-            })}
-          </ul>
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <motion.div
+            initial={reduce ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+            className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-soft"
+          >
+            <div className="relative p-5">
+            <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-coral/[0.07] to-transparent" />
+            <div className="relative flex items-center gap-3">
+              {siteMark(best, "size-10")}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{best.source}</p>
+                <p className={T.meta}>{best.official ? "The hotel's own site" : "Best price for your dates"}</p>
+              </div>
+              {others.length > 0 && <Badge tone="positive" icon={Check}>Lowest price</Badge>}
+            </div>
+            <div className="relative mt-5 flex items-baseline gap-2">
+              <span className="font-display text-4xl font-semibold leading-none tabular-nums tracking-[-0.03em]">{money(best.nightly, s.currency, true)}</span>
+              <span className="text-sm text-muted-foreground">a night</span>
+            </div>
+            <p className={cn(T.meta, "relative mt-2 tabular-nums")}>
+              {money(best.total, s.currency, true)} for {s.nights} night{s.nights === 1 ? "" : "s"}{best.totalBeforeTaxes ? ` · ${money(best.totalBeforeTaxes, s.currency, true)} before taxes` : ""}
+            </p>
+            {best.freeCancellation && (
+              <p className="relative mt-3 flex items-center gap-1.5 text-sm text-positive">
+                <Check className="size-4" aria-hidden />Free cancellation{best.cancelUntil ? ` until ${best.cancelUntil}` : ""}
+              </p>
+            )}
+            {s.priceRead && <div className="relative mt-5 border-t border-border pt-4"><PriceGauge s={s} /></div>}
+            {bestHref && (
+              <a
+                href={bestHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="relative mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground shadow-lift transition-[opacity,transform] hover:opacity-90 active:scale-[0.98]"
+              >
+                Book on {best.source} <ArrowUpRight className="size-4" aria-hidden />
+              </a>
+            )}
+            </div>
+          {others.length > 0 && (
+              <Fold variant="strip" label="Also available" count={others.length} defaultOpen={s.sources.length <= 4} hint={`${others.slice(0, 3).map((o) => o.source).join(", ")}${others.length > 3 ? ` +${others.length - 3}` : ""}`}>
+              <ul className="divide-y divide-border border-t border-border bg-card">
+                {others.map((src, i) => {
+                  const href = safeHref(src.link);
+                  const extra = src.nightly - best.nightly;
+                  const row = (
+                    <>
+                      {siteMark(src, "size-9")}
+                      <div className="min-w-0 flex-1">
+                        <p className="flex flex-wrap items-center gap-x-2 text-sm font-medium">
+                          {src.source}
+                          {src.official && <span className="rounded-full bg-muted px-2 py-0.5 text-2xs font-medium text-ink-soft">Official site</span>}
+                        </p>
+                        <p className={cn(T.meta, "tabular-nums", src.freeCancellation && "text-positive")}>
+                          {src.freeCancellation ? `Free cancellation${src.cancelUntil ? ` until ${src.cancelUntil}` : ""}` : `${money(src.total, s.currency, true)} total`}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="font-display text-base font-semibold tabular-nums">{money(src.nightly, s.currency, true)}</p>
+                        <p className={cn(T.meta, "tabular-nums")}>{extra > 0 ? `+${money(extra, s.currency, true)}` : "a night"}</p>
+                      </div>
+                      <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden />
+                    </>
+                  );
+                  return (
+                    <motion.li key={src.source} initial={reduce ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1], delay: 0.1 + Math.min(i, 6) * 0.04 }}>
+                      {href ? (
+                        <a href={href} target="_blank" rel="noopener noreferrer" aria-label={`Book on ${src.source} (opens their site)`} className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring">{row}</a>
+                      ) : (
+                        <div className="flex items-center gap-3 px-4 py-3">{row}</div>
+                      )}
+                    </motion.li>
+                  );
+                })}
+              </ul>
+              </Fold>
+          )}
+
+          </motion.div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
             {locked ? (
               <Badge tone="positive" icon={Check}>Your stay</Badge>
             ) : (
-              <button type="button" className="btn-primary-sm" disabled={s.busy} onClick={() => void s.lockSource(s.sources[0]!)}>
+              <button type="button" className="btn-primary-sm" disabled={s.busy} onClick={() => void s.lockSource(best)}>
                 {s.busy ? "Saving…" : "Make this my stay"}
               </button>
             )}
+            <p className={cn(T.meta, "max-w-[28ch] text-right")}>You book on the site you pick. Prices and availability change.</p>
           </div>
-          <Notice>You book on the site you pick. Prices and availability change, and taxes and fees are shown as each site lists them.</Notice>
         </>
       )}
     </section>
@@ -156,7 +213,7 @@ function NearbyRow({ place, hub }: { place: StayNearbyPlace; hub: boolean }) {
     <li className="grid grid-cols-[3rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2 px-3.5 py-3 transition-colors hover:bg-muted/40 sm:grid-cols-[3rem_minmax(0,1fr)_auto]">
       {place.thumbnail ? (
         // eslint-disable-next-line @next/next/no-img-element -- a place's photo from Google Hotels
-        <img src={place.thumbnail} alt="" loading="lazy" referrerPolicy="no-referrer" className="size-12 shrink-0 rounded-xl border border-border object-cover" />
+        <img src={hotelPhotoSrc(place.thumbnail)} alt="" loading="lazy" referrerPolicy="no-referrer" className="size-12 shrink-0 rounded-xl border border-border object-cover" />
       ) : (
         <span aria-hidden className="grid size-12 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground"><Glyph className="size-5" /></span>
       )}
@@ -191,22 +248,30 @@ export function StayNearby({ nearby }: { nearby: StayNearbyPlace[] }) {
   const sorted = [...nearby].sort((a, b) => quickest(a) - quickest(b));
   const hubs = sorted.filter(isHub);
   const sights = sorted.filter((n) => !isHub(n));
-  const group = (label: string, list: StayNearbyPlace[], hub: boolean) => list.length > 0 && (
-    <div>
-      <p className="eyebrow mb-2">{label}</p>
-      <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
-        {list.map((n) => <NearbyRow key={n.name} place={n} hub={hub} />)}
-      </ul>
-    </div>
+  const list = (items: StayNearbyPlace[], hub: boolean) => (
+    <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
+      {items.map((n) => <NearbyRow key={n.name} place={n} hub={hub} />)}
+    </ul>
   );
   return (
     <section className="space-y-4">
       <div>
         <DetailSectionHeading>From the front door</DetailSectionHeading>
-        <p className={cn(T.meta, "mt-1")}>How long it takes to reach what is close by.</p>
+        <p className={cn(T.meta, "mt-1")}>How long it takes to get in and out, and to reach what is close by.</p>
       </div>
-      {group("Sights", sights, false)}
-      {group("Stations and airports", hubs, true)}
+      {/* Getting in and out is what only this list knows, so it leads. */}
+      {hubs.length > 0 && (
+        <div>
+          <p className="eyebrow mb-2">Stations and airports</p>
+          {list(hubs, true)}
+        </div>
+      )}
+      {/* "Around here" below is the better guide to what to do (photos, ratings, saving); this is the same places by distance, so it folds. */}
+      {sights.length > 0 && (
+        <Fold label="Sights by distance" count={sights.length} hint={sights.slice(0, 2).map((n) => n.name).join(", ")}>
+          {list(sights, false)}
+        </Fold>
+      )}
     </section>
   );
 }

@@ -45,7 +45,7 @@ export function ToastHost() {
       className={cn(
         "pointer-events-none fixed z-[60] flex flex-col gap-2 px-4",
         nearComposer
-          ? "inset-x-0 bottom-[4.75rem] items-center"
+          ? "inset-x-0 bottom-[calc(4.75rem+var(--tabbar))] items-center lg:bottom-[4.75rem]"
           : "inset-x-0 top-3 items-center sm:inset-x-auto sm:right-4 sm:items-end",
       )}
     >

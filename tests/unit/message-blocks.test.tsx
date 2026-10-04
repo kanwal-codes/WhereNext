@@ -290,7 +290,7 @@ describe("MessageBlocks", () => {
     expect(html).toContain("per person");
     expect(html).toContain("Food &amp; drink");
     expect(html).toContain("casual spots");
-    expect(html).toContain("Per day, typical");
+    expect(html).toContain("Typical day");
     expect(html).toContain("67");
     expect(html).toMatch(/Fits your CA\$150\/day/);
     expect(html).toContain("excludes flights &amp; hotel");
@@ -303,15 +303,23 @@ describe("MessageBlocks", () => {
     expect(html).toMatch(/Over your \$100\/day/);
   });
 
-  it("stays block: in the chat it carries a search bar for the place, the days and the guests", () => {
+  it("stays block: in the chat the search is one summary line (place, days, guests) that opens to edit", () => {
     const hotel = { hotelId: "g:tok1", name: "Hotel Blue", nightlyPrice: "93", totalPrice: "279", currency: "CAD", rating: 9, reviews: 120 };
     const html = render([{ type: "stays", retrievedAt: "t", location: "Zagreb, Croatia", checkin: "2026-11-15", checkout: "2026-11-18", nights: 3, adults: 3, dateNote: "2026-11-15 → 2026-11-18", items: [hotel] }]);
+    expect(html).toContain("Zagreb, Croatia");
+    expect(html).toContain("3 nights");
+    expect(html).toContain("3 guests");
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).not.toContain('aria-label="Check-in date"');
+    expect(html).not.toContain("Example dates");
+  });
+
+  it("stays block: when the days are a guess the full search opens straight away", () => {
+    const hotel = { hotelId: "g:tok1", name: "Hotel Blue", nightlyPrice: "93", totalPrice: "279", currency: "CAD" };
+    const html = render([{ type: "stays", retrievedAt: "t", location: "Zagreb, Croatia", checkin: "2026-11-15", checkout: "2026-11-18", nights: 3, adults: 3, dateNote: "Example dates 2026-11-15 → 2026-11-18 — set your real dates", items: [hotel] }]);
     expect(html).toContain("Looking for stays in Zagreb, Croatia. Change");
     expect(html).toContain('aria-label="Check-in date"');
     expect(html).toContain('aria-label="Check-out date"');
-    expect(html).toContain("3 guests");
-    expect(html).toContain("3 nights");
-    expect(html).not.toContain("Example dates");
   });
 
   it("stays block: guesses at the days are called out, and the see-all list has no bar", () => {

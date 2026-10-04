@@ -10,6 +10,7 @@ import { Reveal } from "@/components/motion-primitives";
 import { RoamMark } from "@/features/roam/ui/RoamMark";
 import { TripWeather } from "@/components/TripWeather";
 import { BriefPanels } from "@/components/overview/BriefPanels";
+import { ActionBar } from "@/components/overview/ActionBar";
 import { OverviewHero, type HeroFact } from "@/components/overview/OverviewHero";
 import { PlanDays } from "@/components/overview/PlanDays";
 import { PlacesMosaic } from "@/components/overview/PlacesMosaic";
@@ -30,8 +31,6 @@ import { cn } from "@/lib/utils";
 type SavedPlace = { status?: string; places?: { id: string; name: string; category?: string | null; address?: string | null; metadata?: unknown } };
 type ItineraryRow = { id: string; title: string; day_index: number; position?: number | null };
 type DecisionRow = { id: string; kind: string; value: Record<string, unknown>; source?: string };
-
-const action = "daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-card px-5 font-medium shadow-none hover:border-foreground/30 hover:bg-accent";
 
 export default function TripOverviewPage() {
   const { tripId, data } = useTripData();
@@ -135,22 +134,9 @@ export default function TripOverviewPage() {
         <div className="min-h-[34rem] animate-pulse bg-gradient-to-br from-muted to-card sm:min-h-[40rem]" />
       )}
 
-      <div className="mx-auto max-w-6xl space-y-16 px-5 pt-8 sm:px-8 sm:pt-10">
-        <Reveal>
-          {/* The main action, then the two shortcuts: on a phone the action is full width with the shortcuts side by side; from sm up all three sit in a row. Desktop shows them too, though the sidebar lists them, so both layouts offer the same next steps. */}
-          <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
-            <Link href={`/trips/${tripId}/chat`} className="btn-primary col-span-2 h-11 rounded-full px-6 sm:col-span-1">
-              <RoamMark state="settled" size={30} /> Continue planning
-            </Link>
-            <Link href={`/trips/${tripId}/itinerary`} className={action}>
-              <CalendarDays className="h-4 w-4" /> Itinerary
-            </Link>
-            <Link href={`/trips/${tripId}/discover`} className={action}>
-              <Compass className="h-4 w-4" /> Discover
-            </Link>
-          </div>
-        </Reveal>
+      <ActionBar tripId={tripId} name={trip?.name || destination} />
 
+      <div className="mx-auto max-w-6xl space-y-16 px-5 pt-4 sm:px-8 sm:pt-6">
         <Reveal>
           <TripReviewPanel tripId={tripId} />
         </Reveal>

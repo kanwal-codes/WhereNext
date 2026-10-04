@@ -46,6 +46,7 @@ export function OverviewHero({
         size="feature"
         typeLed={false}
         parallax
+        vtName="trip-cover"
         width={1600}
         imageClassName="hero-drift"
         className="flex min-h-[34rem] flex-col justify-end sm:min-h-[40rem] lg:min-h-[44rem]"
@@ -53,8 +54,8 @@ export function OverviewHero({
         {({ photo }) => (
           <>
             {/* The grade: a dark top for the chips, a deep bottom for the title, and a pool behind the words. */}
-            <div aria-hidden className={cn("pointer-events-none absolute inset-0 z-[2] scrim-v transition-opacity duration-1000", photo ? "opacity-100" : "opacity-0")} />
-            <div aria-hidden className={cn("pointer-events-none absolute inset-0 z-[2] bg-[radial-gradient(85%_65%_at_22%_88%,rgba(0,0,0,0.6),transparent)] transition-opacity duration-1000", photo ? "opacity-100" : "opacity-0")} />
+            <div aria-hidden className={cn("pointer-events-none absolute inset-0 z-[2] scrim-v [--scrim:0.85] transition-opacity duration-1000", photo ? "opacity-100" : "opacity-0")} />
+            <div aria-hidden className={cn("pointer-events-none absolute inset-0 z-[2] bg-[radial-gradient(85%_65%_at_22%_88%,rgba(0,0,0,0.42),transparent)] transition-opacity duration-1000", photo ? "opacity-100" : "opacity-0")} />
 
             <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-3 px-5 pt-5 sm:px-8 sm:pt-7">
               {statusText ? (
@@ -82,7 +83,7 @@ export function OverviewHero({
 
             <div className={cn("relative z-10 mx-auto w-full max-w-6xl px-5 pt-40 pb-6 transition-colors duration-1000 sm:px-8 sm:pb-9", photo ? "text-white" : "text-foreground")}>
               <Reveal delay={0.1}>
-                <p className={cn("flex items-center gap-1.5 text-sm font-medium tracking-[0.16em] uppercase transition-colors duration-1000", photo ? "text-white/85 [text-shadow:0_1px_12px_rgba(0,0,0,0.6)]" : "text-muted-foreground")}>
+                <p className={cn("flex items-center gap-1.5 text-sm font-medium tracking-[0.14em] uppercase transition-colors duration-1000", photo ? "text-white/85 [text-shadow:0_1px_12px_rgba(0,0,0,0.6)]" : "text-muted-foreground")}>
                   <MapPin className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">
                     {/* "London, England, United Kingdom" is a provider string; the place a traveller names is "London, United Kingdom". */}

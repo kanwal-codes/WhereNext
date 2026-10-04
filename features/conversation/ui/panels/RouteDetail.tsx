@@ -107,7 +107,16 @@ export function RouteDetail({ routes, active: initial }: { routes: RouteBlock[];
         ) : route.path ? (
           <Skeleton className="h-[26vh] min-h-[170px] max-h-[260px]" />
         ) : (
-          <div className="grid h-24 place-items-center rounded-2xl border border-dashed border-border text-sm text-muted-foreground">No map line for this one</div>
+          // No line to draw: the journey as a strip (where from, how far, where to) instead of a tall empty box.
+          <div className={cn(surface, "flex items-center gap-3 px-4 py-4")}>
+            <span aria-hidden className="size-2.5 shrink-0 rounded-full border-2 border-foreground bg-card" />
+            <span className="min-w-0 max-w-[40%] truncate text-sm font-medium">{ends.from}</span>
+            <span aria-hidden className="h-px flex-1 border-t border-dashed border-muted-foreground/50" />
+            <span className="shrink-0 font-display text-sm font-semibold tabular-nums">{minutes(route.durationSeconds)}</span>
+            <span aria-hidden className="h-px flex-1 border-t border-dashed border-muted-foreground/50" />
+            <span className="min-w-0 max-w-[40%] truncate text-right text-sm font-medium">{ends.to}</span>
+            <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-foreground" />
+          </div>
         )}
       </div>
 

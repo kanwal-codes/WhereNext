@@ -120,7 +120,7 @@ export function ExpensesPanel({ tripId, defaultCurrency }: { tripId: string; def
     <div className="space-y-3">
       {state.balances && state.balances.length > 0 && (
         <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
-          <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">Who owes what</p>
+          <p className="text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground">Who owes what</p>
           <ul className="mt-2 space-y-1 text-sm">
             {state.balances.map((b, i) => (
               <li key={i}>

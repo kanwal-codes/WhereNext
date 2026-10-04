@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { SwapView } from "@/components/SwapView";
+import { StayResultCard } from "@/features/stays/ui/StayResultCard";
 import { ArrowUpRight, BedDouble, Check, ChevronDown, Loader2, MapPin, Minus, Plus, SlidersHorizontal, Star, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { AiSearchBar } from "@/components/AiSearchBar";
@@ -33,16 +36,17 @@ type Result = {
 };
 
 function Stepper({ label, value, set, min, max }: { label: string; value: number; set: (n: number) => void; min: number; max: number }) {
+  const btn = "grid size-8 place-items-center rounded-full border border-input text-ink-soft transition-[background-color,border-color,transform] hover:border-foreground/30 hover:bg-accent active:scale-90 disabled:opacity-35 disabled:hover:bg-transparent";
   return (
-    <div>
-      <span className="block text-sm font-medium">{label}</span>
-      <div className="mt-1.5 flex h-11 w-fit items-center gap-3 rounded-full border border-input px-2">
-        <button type="button" onClick={() => set(Math.max(min, value - 1))} disabled={value <= min} aria-label={`Fewer ${label}`} className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground disabled:opacity-30 hover:text-foreground">
-          <Minus className="h-3.5 w-3.5" />
+    <div className="bg-card px-4 py-3">
+      <span className="eyebrow block">{label}</span>
+      <div className="mt-1.5 flex items-center gap-3">
+        <button type="button" onClick={() => set(Math.max(min, value - 1))} disabled={value <= min} aria-label={`Fewer ${label}`} className={btn}>
+          <Minus className="size-3.5" />
         </button>
-        <span className="w-5 text-center text-sm tabular-nums">{value}</span>
-        <button type="button" onClick={() => set(Math.min(max, value + 1))} disabled={value >= max} aria-label={`More ${label}`} className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground disabled:opacity-30 hover:text-foreground">
-          <Plus className="h-3.5 w-3.5" />
+        <span className="w-6 text-center text-base font-medium tabular-nums">{value}</span>
+        <button type="button" onClick={() => set(Math.min(max, value + 1))} disabled={value >= max} aria-label={`More ${label}`} className={btn}>
+          <Plus className="size-3.5" />
         </button>
       </div>
     </div>
@@ -52,13 +56,14 @@ function Stepper({ label, value, set, min, max }: { label: string; value: number
 /** A hotel photo that falls back to the same soft stand-in as every other card when it is missing or fails to load (alt text in display type is not a fallback). */
 function StayPhoto({ src, alt, className }: { src?: string | null; alt: string; className?: string }) {
   const [failed, setFailed] = useState(false);
-  if (!src || failed) return <MediaFallback icon={BedDouble} className={cn(className, "[&_svg]:size-10")} />;
+  if (!src || failed) return <MediaFallback icon={BedDouble} className={className} />;
   return <BlurImage src={src} alt={alt} onError={() => setFailed(true)} className={className} />;
 }
 
 export function StaySurface({ tripId, destination }: { tripId: string; destination: string }) {
   const { data } = useTripData();
   const lockedStay = readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
+  const router = useRouter();
   const trip = data?.trip as { start_date?: string | null; end_date?: string | null; travelers?: number | null } | undefined;
 
   const [checkin, setCheckin] = useState(lockedStay?.checkin ?? trip?.start_date ?? "");
@@ -212,46 +217,41 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
         </p>
       )}
 
-      {/* Search controls */}
-      <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-        <p className="eyebrow">Where to stay</p>
-        <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">
-          Hotels, apartments and guesthouses in {near.trim() || destination || "your destination"}, priced for your dates and party.
-        </p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="block text-sm font-medium">
-            Check-in
-            <input type="date" value={checkin} onChange={(e) => setCheckin(e.target.value)} className="input-field" />
+      {/* The booking bar: four cells divided by hairlines (the gap shows the border colour through), then filters and sort. */}
+      <div className="rounded-3xl border border-border bg-card shadow-soft">
+        <div className="grid gap-px overflow-hidden rounded-t-3xl bg-border grid-cols-2 lg:grid-cols-4">
+          <label className="col-span-2 block cursor-pointer bg-card px-4 py-3 transition-colors focus-within:bg-accent/50 hover:bg-accent/40 sm:col-span-1">
+            <span className="eyebrow block">Check-in</span>
+            <input type="date" value={checkin} onChange={(e) => setCheckin(e.target.value)} className="mt-1.5 block w-full bg-transparent text-base font-medium outline-none" />
           </label>
-          <label className="block text-sm font-medium">
-            Check-out
-            <input type="date" value={checkout} min={checkin || undefined} onChange={(e) => setCheckout(e.target.value)} className="input-field" />
+          <label className="col-span-2 block cursor-pointer bg-card px-4 py-3 transition-colors focus-within:bg-accent/50 hover:bg-accent/40 sm:col-span-1">
+            <span className="eyebrow block">Check-out</span>
+            <input type="date" value={checkout} min={checkin || undefined} onChange={(e) => setCheckout(e.target.value)} className="mt-1.5 block w-full bg-transparent text-base font-medium outline-none" />
           </label>
-          <div className="grid grid-cols-2 gap-4 sm:contents">
-            <Stepper label="Guests" value={adults} set={setAdults} min={1} max={16} />
-            <Stepper label="Rooms" value={rooms} set={setRooms} min={1} max={8} />
-          </div>
+          <Stepper label="Guests" value={adults} set={setAdults} min={1} max={16} />
+          <Stepper label="Rooms" value={rooms} set={setRooms} min={1} max={8} />
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <button type="button" onClick={() => setShowFilters((v) => !v)} className="btn-secondary">
-            <SlidersHorizontal className="h-3.5 w-3.5" /> Filters{activeFilters ? ` (${activeFilters})` : ""}
+        <div className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-3">
+          <button type="button" onClick={() => setShowFilters((v) => !v)} aria-pressed={showFilters} className="btn-chip">
+            <SlidersHorizontal className="size-3.5" aria-hidden /> Filters{activeFilters ? ` · ${activeFilters}` : ""}
           </button>
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
             Sort
             <span className="relative">
-              <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="h-10 cursor-pointer appearance-none rounded-full border border-border bg-background pr-9 pl-4 text-sm text-foreground transition-colors hover:border-ink/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-              <option value="price">Price</option>
-              <option value="rating">Guest rating</option>
-              <option value="stars">Stars</option>
+              <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="h-8 cursor-pointer appearance-none rounded-full border border-border bg-background pr-8 pl-3.5 text-xs font-medium text-ink-soft transition-colors hover:border-ink/30 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+                <option value="price">Price</option>
+                <option value="rating">Guest rating</option>
+                <option value="stars">Stars</option>
               </select>
-              <ChevronDown aria-hidden className="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
+              <ChevronDown aria-hidden className="pointer-events-none absolute top-1/2 right-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
             </span>
           </label>
+          {status && <p role="status" className="ml-auto text-xs text-muted-foreground">{status}</p>}
         </div>
 
         {showFilters && facets && (
-          <div className="mt-4 space-y-4 border-t border-border pt-4">
+          <div className="space-y-4 border-t border-border px-4 py-4">
             {facets.priceMax > facets.priceMin && (
               <div>
                 <div className="flex items-center justify-between text-sm">
@@ -277,7 +277,8 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                       key={t}
                       type="button"
                       onClick={() => toggle(propertyTypes, t, setPropertyTypes)}
-                      className={cn("rounded-full border px-2.5 py-1 text-xs", propertyTypes.includes(t) ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-ink-soft")}
+                      aria-pressed={propertyTypes.includes(t)}
+                      className="btn-chip"
                     >
                       {t}
                     </button>
@@ -294,7 +295,8 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                       key={s}
                       type="button"
                       onClick={() => toggleN(stars, s, setStars)}
-                      className={cn("inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs", stars.includes(s) ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-ink-soft")}
+                      aria-pressed={stars.includes(s)}
+                      className="btn-chip"
                     >
                       {s} <Star className="h-3 w-3 fill-current" />
                     </button>
@@ -311,7 +313,8 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                       key={b}
                       type="button"
                       onClick={() => toggle(boards, b, setBoards)}
-                      className={cn("rounded-full border px-2.5 py-1 text-xs", boards.includes(b) ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-ink-soft")}
+                      aria-pressed={boards.includes(b)}
+                      className="btn-chip"
                     >
                       {b}
                     </button>
@@ -330,9 +333,10 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
             )}
           </div>
         )}
-        {status && <p role="status" className="mt-3 text-xs text-muted-foreground">{status}</p>}
       </div>
 
+      <div className="relative">
+        <SwapView id={loading && !result ? "skeleton" : "results"}>
       {loading && !result ? (
         <SkeletonCards count={6} />
       ) : result && result.options.length > 0 ? (
@@ -343,53 +347,21 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
           </p>
           <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {result.options.slice(0, visible).map((o) => {
-              const locked = lockedStay?.hotelId === o.hotelId;
+              const comparing = Boolean(panelCtx?.compareMode);
               return (
-                <li key={o.hotelId} className={cn("card-lift flex flex-col overflow-hidden rounded-2xl border bg-card shadow-soft", locked ? "border-leaf/40" : "border-border")}>
-                  {/* The title below is the named link to the same place; the photo is a second way to press it, so assistive tech and the tab key skip it (as on every other card). */}
-                  <Link href={detailHref(o.hotelId)} onClick={openStay(o)} aria-hidden tabIndex={-1} className="block aspect-[16/10] shrink-0 overflow-hidden bg-muted">
-                    <StayPhoto src={o.thumbnail} alt={o.name} className="h-full w-full object-cover" />
-                  </Link>
-                  <div className="flex min-h-0 flex-1 flex-col p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      {/* line-clamp-2, not truncate — a real hotel name ("Holiday Inn Hotel &
-                          Suites - Montreal Centre-ville Ouest by IHG") was cutting off almost
-                          immediately on a narrow card; this list item's height is already
-                          content-driven (no fixed height to fight), so 2 lines costs nothing. */}
-                      <Link href={detailHref(o.hotelId)} onClick={openStay(o)} className="min-w-0 flex-1 line-clamp-2 font-display text-base leading-tight underline-offset-4 decoration-1 hover:underline">{o.name}</Link>
-                      {locked && (
-                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-leaf-soft px-2 py-0.5 text-2xs font-medium text-leaf">
-                          <Check className="h-3 w-3" /> Locked
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-                      {o.propertyType && o.propertyType !== "Hotel" && (
-                        <span className="rounded-md bg-muted px-1.5 py-0.5 text-2xs font-medium text-ink-soft">{o.propertyType}</span>
-                      )}
-                      {typeof o.stars === "number" && o.stars > 0 && <span>{o.stars}★</span>}
-                      {typeof o.rating === "number" && o.rating > 0 && (
-                        <span className="inline-flex items-center gap-1 font-medium text-foreground">
-                          <Star className="h-3 w-3 fill-current text-coral" />
-                          {o.rating.toFixed(1)}/10{o.reviewCount ? <span className="font-normal text-muted-foreground"> ({o.reviewCount.toLocaleString()})</span> : null}
-                        </span>
-                      )}
-                      {o.boardName && <span>{o.boardName}</span>}
-                      {o.refundable && <span className="text-leaf">Free cancellation</span>}
-                    </p>
-                    <div className="mt-auto flex items-end justify-between pt-3">
-                      <span className="text-sm font-semibold tabular-nums">
-                        {money(o.nightlyAmount)}
-                        <span className="block text-2xs font-normal text-muted-foreground">/night · {money(o.totalAmount)} total</span>
-                      </span>
-                      <div className="flex items-center gap-2">
-                        {panelCtx?.compareMode && <span className="text-2xs text-muted-foreground">{panelCtx.compareHas(o.hotelId) ? "Selected" : "Select in compare mode"}</span>}
-                        <Link href={detailHref(o.hotelId)} onClick={openStay(o)} className="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline">
-                          View <ArrowUpRight className="h-3 w-3" />
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
+                <li key={o.hotelId} className="min-w-0">
+                  <StayResultCard
+                    stay={{ ...o, reviewCount: o.reviewCount, boardName: o.boardName }}
+                    href={detailHref(o.hotelId)}
+                    onOpen={() => {
+                      if (!panelCtx) return router.push(detailHref(o.hotelId));
+                      if (panelCtx.compareMode) return panelCtx.compareToggle(stayEntry(o));
+                      panelCtx.openPanel({ kind: "stay", hotelId: o.hotelId, name: o.name, checkin: result?.checkin ?? checkin, checkout: result?.checkout ?? checkout });
+                    }}
+                    locked={lockedStay?.hotelId === o.hotelId}
+                    comparing={comparing}
+                    selected={comparing && Boolean(panelCtx?.compareHas(o.hotelId))}
+                  />
                 </li>
               );
             })}
@@ -402,6 +374,8 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
           <EmptyState icon={BedDouble}>{status || "No stays to show yet."}</EmptyState>
         )
       )}
+        </SwapView>
+      </div>
     </div>
   );
 }

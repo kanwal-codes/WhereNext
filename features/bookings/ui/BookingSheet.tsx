@@ -93,7 +93,7 @@ function DetailsStage({ subject, flow }: { subject: BookingSubject; flow: Flow }
         <div className="space-y-3">
           {flow.passengers.map((p, i) => (
             <div key={p.rowId} className="rounded-2xl border border-border bg-card p-4">
-              {flow.passengers.length > 1 && <p className="mb-3 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">Traveler {i + 1}</p>}
+              {flow.passengers.length > 1 && <p className="mb-3 text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground">Traveler {i + 1}</p>}
               <div className="grid grid-cols-2 gap-2.5">
                 <select value={p.title} onChange={(e) => flow.updatePassenger(i, { title: e.target.value })} className="input-field col-span-2 sm:col-span-1">
                   <option value="mr">Mr</option>
@@ -116,7 +116,7 @@ function DetailsStage({ subject, flow }: { subject: BookingSubject; flow: Flow }
           {flow.guests.map((g, i) => (
             <div key={g.rowId} className="rounded-2xl border border-border bg-card p-4">
               <div className="mb-3 flex items-center justify-between">
-                <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">Guest {i + 1}</p>
+                <p className="text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground">Guest {i + 1}</p>
                 {flow.guests.length > 1 && (
                   <button type="button" onClick={() => flow.removeGuest(i)} className="text-xs text-muted-foreground transition-colors hover:text-destructive">
                     Remove

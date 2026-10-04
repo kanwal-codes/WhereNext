@@ -1,5 +1,6 @@
 "use client";
 
+import { hotelPhotoSrc } from "@/lib/hotel-photo";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Check, ChevronDown, Globe, MapPin, MessageCircle, Navigation, Phone, Star, Users } from "lucide-react";
@@ -176,7 +177,8 @@ export function StayDetailView({
 
   const hotel = s.hotel;
   const name = hotel?.name ?? seedName ?? "Hotel";
-  const images = hotel?.images ?? [];
+  // Proxied: Google's image hosts refuse many direct browser loads (lib/hotel-photo.ts).
+  const images = (hotel?.images ?? []).map((src) => hotelPhotoSrc(src));
 
   const directionsHref = hotel?.latitude != null && hotel?.longitude != null
     ? `https://www.google.com/maps/dir/?api=1&destination=${hotel.latitude},${hotel.longitude}`

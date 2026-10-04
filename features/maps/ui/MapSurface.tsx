@@ -203,7 +203,7 @@ function MapPanel({ className, collapsedLabel, children }: { className?: string;
 
 export function GettingAroundTabs({ tab, onChange }: { tab: "trip" | "browse"; onChange: (t: "trip" | "browse") => void }) {
   return (
-    <div className="flex justify-center">
+    <div className="flex">
       <div className="inline-flex rounded-full bg-muted p-1 text-sm">
         {(["trip", "browse"] as const).map((t) => (
           <button

@@ -1,9 +1,11 @@
 "use client";
 
+import { hotelPhotoSrc } from "@/lib/hotel-photo";
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BedDouble } from "lucide-react";
+import { BedDouble } from "lucide-react";
 import { Tactile } from "@/components/motion-primitives";
+import { InviteCard } from "@/components/overview/InviteCard";
 import { TripArt, hashString } from "@/components/trips/TripArt";
 import { fmtDay } from "@/lib/trip-dates";
 import type { StayDecision } from "@/packages/contracts/stay";
@@ -15,24 +17,9 @@ export function StayFeature({ tripId, stay, compact = false }: { tripId: string;
 
   if (!stay) {
     return (
-      <Link href={`/trips/${tripId}/stay`} className="group block rounded-3xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">
-        <TripArt seed={hashString(tripId)} className="rounded-3xl border border-border/70 p-7 shadow-soft transition-[border-color,box-shadow,transform] duration-300 group-hover:border-foreground/20 group-hover:shadow-lift group-active:scale-[0.995] sm:p-10">
-          <div className="relative z-10 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-4">
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-border/60 bg-background/85">
-                <BedDouble className="h-5 w-5" />
-              </span>
-              <div>
-                <h3 className="font-display text-2xl tracking-tight sm:text-3xl">Where will you sleep?</h3>
-                <p className="mt-1 max-w-md text-sm leading-relaxed text-muted-foreground">Compare places that fit your dates and budget, then lock one in for the whole group.</p>
-              </div>
-            </div>
-            <span className="daisy-btn daisy-btn-neutral w-fit shrink-0 border-0">
-              Find a stay <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
-            </span>
-          </div>
-        </TripArt>
-      </Link>
+      <InviteCard seed={tripId} icon={BedDouble} title="Where will you sleep?" href={`/trips/${tripId}/stay`} cta="Find a stay">
+        Compare places that fit your dates and budget, then lock one in for the whole group.
+      </InviteCard>
     );
   }
 
@@ -47,7 +34,7 @@ export function StayFeature({ tripId, stay, compact = false }: { tripId: string;
         {showImage && (
           // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
           <img
-            src={stay.thumbnail!}
+            src={hotelPhotoSrc(stay.thumbnail!)}
             alt={stay.hotelName}
             loading="lazy"
             decoding="async"

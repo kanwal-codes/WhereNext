@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { MapPin, Minus, Plus, Users } from "lucide-react";
+import { ChevronDown, MapPin, Minus, Plus, Users } from "lucide-react";
 import { LoadingNote, SEARCH_NOTES } from "@/components/LoadingNote";
 import { SkeletonCard } from "@/components/Skeleton";
 import { cn } from "@/lib/utils";
@@ -107,9 +107,23 @@ function Counter({ value, min, max, onChange, noun, disabled }: { value: number;
 }
 
 /** Where, which days, and for how many: everything that decides which hotels and prices are shown. */
-export function StaySearchBar({ search, tripId, trip }: { search: StaySearchView; tripId: string; trip: { start?: string | null; end?: string | null } }) {
+export function StaySearchBar({ search, tripId, trip, defaultOpen = false }: { search: StaySearchView; tripId: string; trip: { start?: string | null; end?: string | null }; /** Open the form straight away (the dates were a guess, so the traveller should set them). */ defaultOpen?: boolean }) {
   const { query, status } = search;
   const busy = status === "loading";
+  // At rest the search is one quiet line (where, when, who); the form opens when it is needed, so it never outweighs the hotels beneath it.
+  const [open, setOpen] = useState(defaultOpen);
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} aria-expanded={false} className="group flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-left shadow-soft transition-[border-color,box-shadow] hover:border-foreground/25 hover:shadow-lift">
+        <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-full bg-coral-soft text-coral-ink"><MapPin className="size-4" /></span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium">{query.location}</span>
+          <span className="block truncate text-xs text-muted-foreground tabular-nums">{prettyDate(query.checkin)} – {prettyDate(query.checkout)} · {search.nights} night{search.nights === 1 ? "" : "s"} · {query.adults} guest{query.adults === 1 ? "" : "s"}</span>
+        </span>
+        <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-ink-soft group-hover:text-foreground">Edit <ChevronDown className="size-3.5" aria-hidden /></span>
+      </button>
+    );
+  }
   const min = tomorrowIso();
   const showTrip = Boolean(trip.start && trip.end && ISO.test(trip.start) && ISO.test(trip.end) && trip.start >= min && (query.checkin !== trip.start || query.checkout !== trip.end));
   return (

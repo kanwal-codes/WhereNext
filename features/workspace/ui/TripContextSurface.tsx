@@ -505,13 +505,13 @@ export function TripContextSurface({
 
         {row.suggestionKey && !isEditing && (
           <div className="mt-2">
-            {row.note && <p className="text-2xs leading-relaxed text-muted-foreground">{row.note}</p>}
+            {row.note && <p className="text-xs leading-relaxed text-muted-foreground">{row.note}</p>}
             <div className="mt-1.5 flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => void act(row.suggestionKey!, "confirm")}
                 disabled={busyKey === row.suggestionKey}
-                className="inline-flex items-center gap-1 rounded-full bg-leaf px-2.5 py-1 text-2xs font-semibold text-background disabled:opacity-60"
+                className="inline-flex items-center gap-1 rounded-full bg-leaf px-3 py-1.5 text-xs font-semibold text-background disabled:opacity-60"
               >
                 <Check className="h-3 w-3" /> Confirm
               </button>
@@ -569,7 +569,7 @@ export function TripContextSurface({
       {/* Locked in */}
       {confirmedRows.length > 0 && (
         <section>
-          <p className="mb-1.5 px-1 text-2xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Locked in</p>
+          <p className="mb-1.5 px-1 text-2xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Locked in</p>
           <div className="divide-y divide-border/50 overflow-hidden rounded-3xl border border-border/60 bg-card">
             {confirmedRows.map(renderRow)}
           </div>
@@ -579,7 +579,7 @@ export function TripContextSurface({
       {/* Suggested by the assistant */}
       {suggestedRows.length > 0 && (
         <section>
-          <p className="mb-1.5 px-1 text-2xs font-semibold tracking-[0.16em] text-coral uppercase">Suggested — confirm or dismiss</p>
+          <p className="mb-1.5 px-1 text-2xs font-semibold tracking-[0.14em] text-coral uppercase">Suggested — confirm or dismiss</p>
           <div className="divide-y divide-border/50 overflow-hidden rounded-3xl border border-coral/25 bg-card">
             {suggestedRows.map(renderRow)}
           </div>
@@ -589,7 +589,7 @@ export function TripContextSurface({
       {/* To decide */}
       {undecidedRows.length > 0 && (
         <section>
-          <p className="mb-1.5 px-1 text-2xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">To decide</p>
+          <p className="mb-1.5 px-1 text-2xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">To decide</p>
           <div className="rounded-3xl border border-dashed border-border/70 bg-card/40 p-3">
             <div className="flex flex-wrap gap-1.5">
               {undecidedRows.map((row) => {
@@ -600,19 +600,15 @@ export function TripContextSurface({
                       key={row.id}
                       type="button"
                       onClick={() => startEdit(row)}
-                      className={cn(
-                        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-2xs font-medium transition-colors",
-                        isRowEditing(row)
-                          ? "border-coral bg-coral-soft text-coral"
-                          : "border-border bg-background text-foreground hover:border-coral/50 hover:text-coral",
-                      )}
+                      aria-pressed={isRowEditing(row)}
+                      className="btn-chip"
                     >
-                      <Pencil className="h-3 w-3" /> {row.label}
+                      <Pencil className="size-3" aria-hidden /> {row.label}
                     </button>
                   );
                 }
                 return (
-                  <span key={row.id} className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-2xs text-muted-foreground">
+                  <span key={row.id} className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
                     {row.label}
                   </span>
                 );
@@ -624,7 +620,7 @@ export function TripContextSurface({
                 {renderRow(row)}
               </div>
             ))}
-            <p className="mt-2 px-1 text-2xs leading-relaxed text-muted-foreground">
+            <p className="mt-2 px-1 text-xs leading-relaxed text-muted-foreground">
               Tap one to set it now, or just keep talking — Roam fills these in as you plan.
             </p>
           </div>

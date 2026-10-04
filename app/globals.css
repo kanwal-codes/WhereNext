@@ -200,6 +200,8 @@
   --radius: 0.75rem;
   /* Mobile top bar height — the chat page and its sheets measure from it. */
   --topbar: 3.5rem;
+  /* The phone's bottom tab bar (components/TripShell.tsx), safe area included. */
+  --tabbar: calc(3.5rem + env(safe-area-inset-bottom));
 
   /* 3-step ground: page (white) -> surface (sidebar, sunken wells) -> card (white, lifted by
      hairline + shadow). */
@@ -636,10 +638,13 @@
   &:disabled { opacity: 0.45; }
 }
 @utility btn-chip {
-  @apply inline-flex h-8 items-center gap-1.5 rounded-xl border border-border bg-background px-3 text-xs font-medium text-ink-soft;
+  @apply inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-background px-3.5 text-xs font-medium text-ink-soft;
   transition: background-color var(--duration-base) var(--ease-out), color var(--duration-fast) var(--ease-out), border-color var(--duration-base) var(--ease-out), transform var(--duration-fast) var(--ease-out);
   &:hover { border-color: color-mix(in oklab, var(--color-ink) 28%, var(--color-border)); color: var(--color-ink); background-color: var(--color-surface); }
   &:active { transform: scale(0.97); }
+  /* One selected state for every filter chip in the app: ink, like the primary button. */
+  &[aria-pressed="true"], &[data-active="true"] { background-color: var(--color-primary); border-color: var(--color-primary); color: var(--color-primary-foreground); }
+  &[aria-pressed="true"]:hover, &[data-active="true"]:hover { background-color: color-mix(in oklab, var(--color-primary) 86%, white); color: var(--color-primary-foreground); }
 }
 
 @utility hairline {
@@ -991,6 +996,12 @@
   .card-lift:hover img { scale: 1; }
 }
 
+/* Older replies keep their quiet actions (copy) out of sight until the reply is under a mouse or has keyboard focus; the latest reply, and every reply on touch, shows them. */
+@media (hover: hover) {
+  .turn-action { opacity: 0; transition: opacity var(--duration-base) var(--ease-out); }
+  .turn:hover .turn-action, .turn:focus-within .turn-action { opacity: 1; }
+}
+
 /* ---- Cinematic -----------------------------------------------------------------------------
  * The grammar that makes a screen read as a frame from a film.
  *
@@ -1029,6 +1040,11 @@
   background-image:
     linear-gradient(to bottom, oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.5)) 0%, oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.3)) 14%, oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.1)) 32%, transparent 52%),
     linear-gradient(to top, oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.86)) 0%, oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.82)) 14%, oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.66)) 28%, oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.4)) 42%, oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.15)) 58%, oklch(0.14 0.012 60 / calc(var(--scrim, 1) * 0.04)) 74%, transparent 100%);
+}
+
+/* One grade for every destination photograph, so a snapshot from one traveller and a frame from another read as shots from the same film: a touch less saturated, a touch more contrast. Constant, so it costs nothing per frame. */
+@utility photo-grade {
+  filter: saturate(0.88) contrast(1.05) brightness(0.97);
 }
 
 @utility photo-chip {
@@ -1527,7 +1543,13 @@
 /* The on-screen keyboard (see lib/use-keyboard-fit.ts): while it is up, the Roam / Chat screen is exactly the part of the window you can see, the trip's own top bar steps aside, and the screen follows any pan the browser made to show the field. */
 @media (max-width: 1023.98px) {
   [data-roam-shell] { transition: height 0.25s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)); }
-  html[data-keyboard="open"] [data-trip-topbar] { display: none; }
+  html[data-keyboard="open"] [data-trip-topbar], html[data-keyboard="open"] [data-trip-tabbar] { display: none; }
   html[data-keyboard="open"] [data-roam-shell] { height: var(--vvh); transform: translateY(var(--vv-top, 0px)); }
 }
 @media (prefers-reduced-motion: reduce) { [data-roam-shell] { transition: none; } }
+
+/* Shared-element navigation (lib/view-transition.ts): a trip card's photograph travels into the Overview's hero. The
+   cover keeps its crop while it changes shape; everything else crossfades quickly underneath it. */
+::view-transition-group(trip-cover) { animation-duration: 620ms; animation-timing-function: var(--ease-out); }
+::view-transition-old(trip-cover), ::view-transition-new(trip-cover) { height: 100%; object-fit: cover; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 260ms; }

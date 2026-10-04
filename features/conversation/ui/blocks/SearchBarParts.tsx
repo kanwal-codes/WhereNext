@@ -35,7 +35,7 @@ export function PlaceField({ caption, Icon, label, code, endpoint, busy, onPick,
     document.addEventListener("pointerdown", away);
     return () => document.removeEventListener("pointerdown", away);
   }, [editing]);
-  const captionEl = <span className="block text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">{caption}</span>;
+  const captionEl = <span className="block text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{caption}</span>;
   return (
     <div ref={rootRef} className={cn("relative min-w-0", className)} onKeyDown={(e) => e.key === "Escape" && setEditing(false)}>
       {editing ? (
@@ -130,7 +130,7 @@ export const stepper = "grid size-9 max-sm:hidden place-items-center rounded-ful
 export function DayControl({ caption, date, min, busy, onPick, prevLabel, nextLabel, dateLabel }: { caption: string; date: string | null; min: string; busy: boolean; onPick: (iso: string) => void; prevLabel: string; nextLabel: string; dateLabel: string }) {
   return (
     <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
-      <span className="pl-1 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground sm:pl-0">{caption}</span>
+      <span className="pl-1 text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground sm:pl-0">{caption}</span>
       {/* On a phone the day is one wide, easy-to-hit pill that opens the phone's own date wheel; the one-day steppers are for a pointer. */}
       <div className="inline-flex items-center rounded-full border border-border bg-background/60 max-sm:w-full">
         <button type="button" aria-label={prevLabel} disabled={busy || !date || shiftIso(date, -1) < min} onClick={() => date && onPick(shiftIso(date, -1))} className={stepper}><ChevronLeft className="size-4" aria-hidden /></button>

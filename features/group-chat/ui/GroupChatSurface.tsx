@@ -1,5 +1,6 @@
 "use client";
 
+import { RAIL_MEASURE } from "@/features/conversation/ui/ConversationSurface";
 import { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -86,6 +87,7 @@ export function GroupChatSurface({
   tripId,
   initialMessages,
   onLogScroll,
+  rail = false,
 }: {
   tripId: string;
   /** Server-rendered history (`data.groupChat` from `loadTripWorkspace`) — lets this open already
@@ -98,6 +100,8 @@ export function GroupChatSurface({
    *  while the other tab is the visible one, both fire scroll events that aren't this log
    *  actually being scrolled by the user). The parent passes this only while this tab is active. */
   onLogScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
+  /** A detail panel is open beside the chat: the text keeps one fixed measure (see RAIL_MEASURE). */
+  rail?: boolean;
 }) {
   const { me, data } = useTripData();
   const { openPanel } = useTripPanel();
@@ -611,7 +615,7 @@ export function GroupChatSurface({
             void submit(input);
           }
         }}
-        placeholder={!loaded ? "Loading…" : speech.listening ? "Listening…" : "Message the group — try @Roam…"}
+        placeholder={!loaded ? "Loading…" : speech.listening ? "Listening…" : "Message the group"}
         disabled={!loaded}
         className={cn(
           "block max-h-[96px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent py-2 text-base leading-normal outline-none transition-[height] duration-150 ease-out placeholder:text-muted-foreground disabled:opacity-60",
@@ -640,7 +644,7 @@ export function GroupChatSurface({
           rubber-band bounce at the top/bottom confined to this log instead of chaining into the
           page. */}
       <div ref={logRef} onScroll={onLogScroll} className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim">
-        <div className="mx-auto w-full max-w-2xl space-y-1 pt-3 pb-28 max-lg:pt-16">
+        <div className={cn("mx-auto w-full space-y-1 pt-3 pb-28 max-lg:pt-16", rail ? RAIL_MEASURE : "max-w-2xl")}>
           {!loaded && (
             <div aria-hidden className="space-y-5">
               <div className="h-9 w-40 skeleton rounded-2xl rounded-br-lg" />
@@ -649,22 +653,22 @@ export function GroupChatSurface({
           )}
 
           {loaded && messages.length === 0 && (
-            <div className="flex flex-col items-center pt-8 text-center">
+            <div className="flex flex-col items-center pt-0 text-center sm:pt-8">
               {/* The opening shot: a lit icon, the line, the explanation, then a few ways to break the ice. */}
               <Reveal y={8}>
-                <span className="relative grid size-14 place-items-center rounded-3xl bg-coral-soft text-coral-ink shadow-hairline">
+                <span className="relative grid size-12 place-items-center rounded-2xl bg-coral-soft text-coral-ink shadow-hairline sm:size-14 sm:rounded-3xl">
                   <CalendarRange className="size-6" />
                 </span>
               </Reveal>
               <Reveal delay={0.1} y={12}>
-                <h2 className="mt-5 font-display text-3xl font-medium tracking-[-0.03em] text-balance">Plan it together</h2>
+                <h2 className="mt-4 font-display text-3xl font-medium tracking-[-0.03em] text-balance sm:mt-5">Plan it together</h2>
               </Reveal>
               <Reveal delay={0.18} y={10}>
                 <p className="mx-auto mt-3 max-w-sm text-body leading-relaxed text-ink-soft text-pretty">
                   This is the whole group&rsquo;s chat — everyone on the trip, plus Roam. Tag <span className="font-medium text-foreground">@Roam</span> to ask it something here.
                 </p>
               </Reveal>
-              <Stagger delay={0.3} gap={0.07} className="mt-6 flex flex-wrap justify-center gap-2">
+              <Stagger delay={0.3} gap={0.07} className="mt-5 flex flex-wrap justify-center gap-2 sm:mt-6">
                 {["@Roam what should we do first?", "@Roam where should we eat tonight?"].map((starter) => (
                   <StaggerItem key={starter}>
                     <button type="button" onClick={() => setInput(starter)} className="btn-chip h-9 px-4 text-sm">{starter}</button>
@@ -693,7 +697,7 @@ export function GroupChatSurface({
 
             const divider = showDateDivider && (
               <div className="flex items-center justify-center py-3">
-                <span className="rounded-full bg-muted px-3 py-1 text-2xs font-medium tracking-[0.06em] text-muted-foreground uppercase">{dayLabel(message.created_at)}</span>
+                <span className="rounded-full bg-muted px-3 py-1 text-2xs font-medium tracking-[0.1em] text-muted-foreground uppercase">{dayLabel(message.created_at)}</span>
               </div>
             );
 
@@ -931,7 +935,7 @@ export function GroupChatSurface({
 
       <Sheet open={reactingTo !== null} onClose={() => setReactingTo(null)} ariaLabel="Add reaction" side="bottom">
         <div className="px-5 pt-1 pb-6">
-          <p className="mb-3 text-center text-2xs font-medium tracking-[0.06em] text-muted-foreground uppercase">Quick react</p>
+          <p className="mb-3 text-center text-2xs font-medium tracking-[0.1em] text-muted-foreground uppercase">Quick react</p>
           <div className="flex flex-wrap justify-center gap-2">
             {COMMON_EMOJI.map((emoji) => (
               <Pressable key={emoji}>
@@ -1009,7 +1013,7 @@ export function GroupChatSurface({
       </Sheet>
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-3 pb-3">
-        <div className="pointer-events-auto mx-auto w-full max-w-2xl">
+        <div className={cn("pointer-events-auto mx-auto w-full", rail ? RAIL_MEASURE : "max-w-2xl")}>
           <form
             onSubmit={(event: FormEvent) => {
               event.preventDefault();

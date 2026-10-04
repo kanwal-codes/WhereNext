@@ -24,11 +24,14 @@ export function TripArt({
   seed,
   className,
   grain = false,
+  vtName,
   children,
 }: {
   seed: number;
   className?: string;
   grain?: boolean;
+  /** Gives this surface a view-transition name, so another screen can morph into it (see lib/view-transition.ts). */
+  vtName?: string;
   children?: ReactNode;
 }) {
   const glowX = 12 + (seed % 70);
@@ -41,8 +44,9 @@ export function TripArt({
       `radial-gradient(90% 80% at ${100 - glowX}% 100%, color-mix(in oklab, var(--lagoon) 8%, transparent), transparent 68%)`,
     ].join(", "),
   } satisfies CSSProperties;
+  const named: CSSProperties = vtName ? { ...style, viewTransitionName: vtName } : style;
   return (
-    <div className={cn("relative isolate overflow-hidden bg-surface", className)} style={style}>
+    <div className={cn("relative isolate overflow-hidden bg-surface", className)} style={named} data-vt-name={vtName}>
       {grain && <div aria-hidden className="pointer-events-none absolute inset-0 opacity-0 dark:opacity-[0.12] dark:mix-blend-screen" style={{ backgroundImage: GRAIN }} />}
       {children}
     </div>

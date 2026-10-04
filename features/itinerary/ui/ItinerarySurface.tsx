@@ -1,8 +1,10 @@
 "use client";
 
+import { hotelPhotoSrc } from "@/lib/hotel-photo";
+import { stopGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowDown, ArrowUp, ArrowUpRight, BedDouble, ChevronDown, ChevronUp, Clock, GripVertical, Loader2, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight, BedDouble, ChevronDown, ChevronUp, Clock, GripVertical, Loader2, Lock, LockOpen, MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import type { ItineraryItem } from "@/features/itinerary/domain/item";
 import type { StayDecision } from "@/packages/contracts/stay";
 import { useTripPanel } from "@/components/TripPanelProvider";
@@ -45,6 +47,8 @@ export function ItinerarySurface({
   const [day, setDay] = useState(1);
   const [removed, setRemoved] = useState<ItineraryItem | null>(null);
   const [dragTitle, setDragTitle] = useState<string | null>(null);
+  // On a phone a stop's controls (move, lock, remove) stay tucked away until its ⋯ is tapped.
+  const [openTools, setOpenTools] = useState<string | null>(null);
   const [dropHint, setDropHint] = useState<string | null>(null); // `${day}:${beforeTitle ?? "end"}`
   const [resolvingTitle, setResolvingTitle] = useState<string | null>(null);
   // What is already booked (hotels, tours, dinners), shown on its day beside what is planned. Best-effort:
@@ -278,7 +282,7 @@ export function ItinerarySurface({
         <div className="flex items-center gap-4 overflow-hidden rounded-3xl border border-border/70 bg-card p-3 pr-5 shadow-soft">
           {lockedStay.thumbnail ? (
             // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
-            <img src={lockedStay.thumbnail} alt="" width={96} height={96} className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
+            <img src={hotelPhotoSrc(lockedStay.thumbnail)} alt="" width={96} height={96} className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
           ) : (
             <span className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-muted">
               <BedDouble className="h-5 w-5 text-muted-foreground" />
@@ -430,7 +434,7 @@ export function ItinerarySurface({
                       </span>
                       <div
                         className={cn(
-                          "grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-3xl sm:grid-cols-[auto_minmax(0,1fr)_auto] border bg-card px-3 py-4 shadow-soft transition-[border-color,box-shadow] duration-300 hover:shadow-lift",
+                          "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-3xl border bg-card px-3 py-4 shadow-soft transition-[border-color,box-shadow] duration-300 hover:shadow-lift",
                           hint ? "border-coral" : locked ? "border-leaf/30" : "border-border/70",
                         )}
                       >
@@ -447,6 +451,16 @@ export function ItinerarySurface({
                         >
                           <GripVertical className="h-3.5 w-3.5" />
                         </button>
+                        <div className="flex min-w-0 items-start gap-3">
+                          {/* What the stop is, drawn the way the plan shows it in Roam. */}
+                          {(() => {
+                            const Glyph = stopGlyph(undefined, item.title).icon;
+                            return (
+                              <span aria-hidden className={cn("mt-0.5 hidden size-9 shrink-0 place-items-center rounded-xl sm:grid", locked ? "bg-positive-soft text-positive" : "bg-coral-soft text-coral-ink")}>
+                                <Glyph className="size-[18px]" />
+                              </span>
+                            );
+                          })()}
                         <div className="min-w-0">
                           <p className="flex items-center gap-2 font-display text-lg leading-snug tracking-tight">
                             <button
@@ -484,14 +498,24 @@ export function ItinerarySurface({
                                     just transparent) input to say that instead. */}
                                 {!time && (
                                   <span className="pointer-events-none absolute left-0 flex items-center gap-1 text-xs text-muted-foreground">
-                                    <Clock className="h-3 w-3" /> Add time
+                                    <Clock className="h-3 w-3" /> <span className="whitespace-nowrap">Add time</span>
                                   </span>
                                 )}
                               </div>
                             );
                           })()}
                         </div>
-                        <div className="col-span-2 flex shrink-0 flex-wrap items-center justify-end gap-1 border-t border-border/60 pt-2 sm:col-span-1 sm:border-0 sm:pt-0 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:focus-within:opacity-100">
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setOpenTools((current) => (current === item.id ? null : item.id))}
+                          aria-expanded={openTools === item.id}
+                          aria-label={`Options for ${item.title}`}
+                          className="grid size-9 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent sm:hidden"
+                        >
+                          <MoreHorizontal className="size-4" />
+                        </button>
+                        <div className={cn("col-span-3 row-start-2 flex-wrap items-center justify-end gap-1 border-t border-border/60 pt-2 sm:col-span-1 sm:col-start-3 sm:row-start-1 sm:flex sm:shrink-0 sm:border-0 sm:pt-0 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:focus-within:opacity-100", openTools === item.id ? "flex" : "hidden")}>
                           <button
                             aria-label={`Move ${item.title} earlier in the day`}
                             onClick={() => moveWithinDay(item, -1)}

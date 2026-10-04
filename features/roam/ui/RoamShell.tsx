@@ -140,7 +140,10 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   const CHAT_WHEN_PANEL = 512; // 32rem
   // The panel takes what the chat leaves, up to 720 px: a detail view stretched across 940 px reads worse, and the chat gets the rest on a wide screen.
   const PANEL_MAX = 720;
-  const panelTrack = `min(${PANEL_MAX}px, max(0px, calc(100% - ${CHAT_WHEN_PANEL}px)))`;
+  // Sized from the SCREEN, as if the trip sidebar were open (264 px), not from the room beside it. The sidebar collapsing then
+  // hands its 188 px to the chat column and never to the panel, so nothing inside the panel re-wraps while it slides.
+  const SIDEBAR_OPEN = 264;
+  const panelTrack = `min(${PANEL_MAX}px, max(0px, calc(100vw - ${SIDEBAR_OPEN + CHAT_WHEN_PANEL}px)))`;
   const sideTrack = panel ? panelTrack : `${showContext ? 340 : RAIL_WIDTH}px`;
   const columns = !desktop ? "minmax(0, 1fr) 0px" : `calc(100% - ${sideTrack}) ${sideTrack}`;
   // Animate only when the layout mode changes (panel opens or closes, rail expands); a window resize follows instantly.
@@ -178,7 +181,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   );
 
   return (
-    <div data-roam-shell className="flex h-[calc(100dvh-var(--topbar))] min-h-0 w-full max-w-full flex-col overflow-x-hidden lg:h-[100dvh]">
+    <div data-roam-shell className="flex h-[calc(100dvh-var(--topbar)-var(--tabbar))] min-h-0 w-full max-w-full flex-col overflow-x-hidden lg:h-[100dvh]">
       <div
         // A CSS transition on pixel tracks (they interpolate natively), only for the moment the layout mode changes.
         style={{ gridTemplateColumns: columns, transition: `grid-template-columns ${reduceMotion || !modeChanged ? 0 : 420}ms cubic-bezier(0.22, 1, 0.36, 1)` }}
@@ -189,7 +192,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
             // Phone: floats over the log (soft fade behind it so messages passing underneath stay legible) and slides up out of view.
             className={cn(
               "lg:overflow-hidden max-lg:absolute max-lg:inset-x-4 max-lg:top-4 max-lg:z-20 max-lg:transition-[transform,opacity] max-lg:duration-300 max-lg:ease-[cubic-bezier(0.22,1,0.36,1)]",
-              "max-lg:before:pointer-events-none max-lg:before:absolute max-lg:before:inset-x-[-1rem] max-lg:before:top-[-1rem] max-lg:before:bottom-[-0.9rem] max-lg:before:-z-10 max-lg:before:bg-gradient-to-b max-lg:before:from-background max-lg:before:via-background/85 max-lg:before:to-transparent",
+              "max-lg:before:pointer-events-none max-lg:before:absolute max-lg:before:inset-x-[-1rem] max-lg:before:top-[-1rem] max-lg:before:bottom-[-1.6rem] max-lg:before:-z-10 max-lg:before:bg-gradient-to-b max-lg:before:from-background max-lg:before:from-55% max-lg:before:to-transparent",
               chromeHidden && "max-lg:pointer-events-none max-lg:-translate-y-[calc(100%+1.25rem)] max-lg:opacity-0",
             )}
             inert={chromeHidden}
@@ -258,7 +261,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
               animate={{ opacity: optimisticTab === "group" ? 1 : 0 }}
               transition={reduceMotion ? { duration: 0 } : motionTokens.swap}
             >
-              {!guest && (warm || optimisticTab === "group") && <GroupChatSurface tripId={tripId} initialMessages={data?.groupChat} onLogScroll={onLogScroll} />}
+              {!guest && (warm || optimisticTab === "group") && <GroupChatSurface tripId={tripId} initialMessages={data?.groupChat} onLogScroll={onLogScroll} rail={desktop && Boolean(panel)} />}
             </motion.div>
           </div>
         </div>

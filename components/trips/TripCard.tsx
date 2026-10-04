@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { openWithTransition } from "@/lib/view-transition";
 import { MapPin, Users } from "lucide-react";
 import { Tactile } from "@/components/motion-primitives";
 import { TripCover } from "@/components/trips/TripCover";
@@ -32,11 +34,18 @@ export function TripCard({
   deleting: boolean;
   onDelete: () => void;
 }) {
+  const router = useRouter();
   const when = tripWhen(trip.start_date, trip.end_date, trip.duration_days, "Dates not set");
   return (
     <Tactile lift={5} className="group relative h-full has-[details[open]]:z-30">
       <Link
         href={`/trips/${trip.id}`}
+        onClick={(event) => {
+          // A plain click morphs the cover into the trip's hero; a modified click keeps its usual meaning (new tab, etc.).
+          if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          event.preventDefault();
+          openWithTransition(router, `/trips/${trip.id}`, event.currentTarget.firstElementChild as HTMLElement | null);
+        }}
         className="daisy-card h-full overflow-hidden border border-border/70 bg-card shadow-soft transition-colors duration-300 group-hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         <TripCover trip={trip} className="h-40 sm:h-44">

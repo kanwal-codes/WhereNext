@@ -10,6 +10,7 @@ import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { ThemeSync } from "@/components/ThemeSync";
 import { MotionProvider } from "@/components/MotionProvider";
 import { NavProgress } from "@/components/NavProgress";
+import { ViewTransitionGate } from "@/components/ViewTransitionGate";
 
 // Runs before hydration so dark mode never flashes light-then-dark. An explicit choice
 // (from ThemeToggle, in localStorage) wins; otherwise this falls back to the OS preference
@@ -52,6 +53,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <Script id="theme-init" strategy="beforeInteractive">{THEME_INIT}</Script>
         <MotionProvider>
           <NavProgress />
+          <ViewTransitionGate />
           {children}
           <ToastHost />
           <ServiceWorkerRegister />

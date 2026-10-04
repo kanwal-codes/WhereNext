@@ -382,7 +382,7 @@ function PasswordField({ label, hint, value, onChange, reveal, onReveal, autoCom
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
-        <label htmlFor={id} className="text-xs font-medium tracking-[0.06em] text-ink-soft uppercase">{label}</label>
+        <label htmlFor={id} className="text-xs font-medium tracking-[0.1em] text-ink-soft uppercase">{label}</label>
         {hint}
       </div>
       <div className="relative mt-2">

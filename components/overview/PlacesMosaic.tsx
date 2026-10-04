@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowRight, Compass } from "lucide-react";
+import { Compass } from "lucide-react";
+import { InviteCard } from "@/components/overview/InviteCard";
+import { placeGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { Stagger, StaggerItem } from "@/components/motion-primitives";
 import { TripArt, hashString } from "@/components/trips/TripArt";
 import { photoProxyUrl } from "@/lib/places-ui";
@@ -24,9 +26,15 @@ function Tile({ tripId, place, large, more }: { tripId: string; place: MosaicPla
       className={cn("group relative block h-full min-h-44 overflow-hidden rounded-3xl border border-border/70 shadow-soft focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none")}
     >
       <TripArt seed={hashString(place.name)} className="absolute inset-0">
-        <span aria-hidden className="absolute top-3 left-4 font-display text-6xl leading-none text-foreground/10 select-none">
-          {place.name.charAt(0)}
-        </span>
+        {/* No photograph yet: the kind of place in a small lit tile, the way a card without a photo shows it elsewhere. */}
+        {(() => {
+          const Glyph = placeGlyph(place.category, place.name).icon;
+          return (
+            <span aria-hidden className={cn("absolute top-4 left-4 grid place-items-center rounded-xl bg-background/70 text-coral-ink shadow-hairline", large ? "size-12" : "size-9")}>
+              <Glyph className={large ? "size-6" : "size-[18px]"} />
+            </span>
+          );
+        })()}
       </TripArt>
       {src && (
         // eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin proxy
@@ -48,19 +56,10 @@ function Tile({ tripId, place, large, more }: { tripId: string; place: MosaicPla
 export function PlacesMosaic({ tripId, places }: { tripId: string; places: MosaicPlace[] }) {
   if (places.length === 0) {
     return (
-      <div className="mt-6 flex flex-col gap-4 rounded-3xl border border-dashed border-border bg-card/50 p-7 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-4">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-border bg-background">
-            <Compass className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="font-display text-xl tracking-tight">Nothing saved yet</p>
-            <p className="mt-1 max-w-md text-sm leading-relaxed text-muted-foreground">Explore places that fit the way you want this trip to feel, and save the ones that catch your eye.</p>
-          </div>
-        </div>
-        <Link href={`/trips/${tripId}/discover`} className="btn-primary w-fit shrink-0">
-          Discover places <ArrowRight className="h-4 w-4" />
-        </Link>
+      <div className="mt-6">
+        <InviteCard seed={`${tripId}places`} icon={Compass} title="Nothing saved yet" href={`/trips/${tripId}/discover`} cta="Discover places">
+          Explore places that fit the way you want this trip to feel, and save the ones that catch your eye.
+        </InviteCard>
       </div>
     );
   }

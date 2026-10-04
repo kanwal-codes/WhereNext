@@ -1,5 +1,7 @@
 "use client";
 
+import { SwapView } from "@/components/SwapView";
+import { StayResultCard } from "@/features/stays/ui/StayResultCard";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -72,7 +74,7 @@ const toStayItem = (o: Record<string, unknown>): StayItem => ({
 
 export function DiscoverTabs({ view, onChange, savedCount }: { view: "results" | "saved"; onChange: (v: "results" | "saved") => void; savedCount: number }) {
   return (
-    <div className="flex justify-center">
+    <div className="flex">
       <div className="inline-flex rounded-full bg-muted p-1 text-sm">
         {(["results", "saved"] as const).map((v) => (
           <button
@@ -532,10 +534,8 @@ export function DiscoverySurface({
                   panelCtx.setCompareMode(!panelCtx.compareMode);
                   panelCtx.compareClear();
                 }}
-                className={cn(
-                  "shrink-0 rounded-full border border-foreground bg-background px-3 py-1 text-xs font-medium text-foreground shadow-soft transition-[background-color,box-shadow] hover:bg-accent",
-                  panelCtx.compareMode && "ring-2 ring-coral ring-offset-2 ring-offset-background",
-                )}
+                aria-pressed={panelCtx.compareMode}
+                className="btn-chip shrink-0"
               >
                 {panelCtx.compareMode ? `Comparing · ${panelCtx.compareList.length}` : "Compare"}
               </button>
@@ -543,10 +543,8 @@ export function DiscoverySurface({
             <button
               type="button"
               onClick={() => pickCategory(null)}
-              className={cn(
-                "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                !searchMode && catKey === null ? "border-transparent bg-primary text-primary-foreground" : "border-border bg-background text-ink-soft hover:bg-accent",
-              )}
+              aria-pressed={!searchMode && catKey === null}
+              className="btn-chip shrink-0"
             >
               All
             </button>
@@ -558,10 +556,8 @@ export function DiscoverySurface({
                   key={c.key}
                   type="button"
                   onClick={() => pickCategory(c.key)}
-                  className={cn(
-                    "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                    on ? "border-transparent bg-primary text-primary-foreground" : "border-border bg-background text-ink-soft hover:bg-accent",
-                  )}
+                  aria-pressed={on}
+                  className="btn-chip shrink-0"
                 >
                   <Icon className="h-3.5 w-3.5" /> {c.label}
                 </button>
@@ -585,10 +581,8 @@ export function DiscoverySurface({
                   key={s.label}
                   type="button"
                   onClick={() => toggleSub(s.label)}
-                  className={cn(
-                    "shrink-0 rounded-full border px-2.5 py-1 text-2xs font-medium transition-colors",
-                    subs.includes(s.label) ? "border-coral/50 bg-coral-soft text-coral" : "border-border bg-background text-muted-foreground hover:text-foreground",
-                  )}
+                  aria-pressed={subs.includes(s.label)}
+                  className="btn-chip h-7 shrink-0 px-3"
                 >
                   {s.label}
                 </button>
@@ -605,7 +599,9 @@ export function DiscoverySurface({
 
       {message && <p className="mt-3 text-xs text-muted-foreground">{message}</p>}
 
-      {/* Feed */}
+      {/* Feed: each state (skeleton, grid, digest) crossfades into the next. */}
+      <div className="relative">
+        <SwapView id={loading && gridItems.length === 0 && (bands === null || gridView) ? "skeleton" : gridView ? "grid" : loading && !bands ? "digest-loading" : "digest"}>
       {loading && gridItems.length === 0 && (bands === null || gridView) ? (
         <SkeletonCards count={6} className={cn("mt-5", !gridView && "grid-cols-2 sm:grid-cols-3")} />
       ) : gridView ? (
@@ -676,6 +672,8 @@ export function DiscoverySurface({
           )}
         </div>
       )}
+        </SwapView>
+      </div>
 
     </div>
   );
@@ -694,31 +692,5 @@ export function StayMiniCard({ tripId, stay }: { tripId: string; stay: StayItem 
   };
   const comparing = Boolean(panelCtx?.compareMode);
   const selected = comparing && Boolean(panelCtx?.compareHas(stay.hotelId));
-  return (
-    <EntityCard
-      label={`Open ${stay.name}`}
-      onOpen={open}
-      href={href}
-      className={selected ? "ring-2 ring-coral" : undefined}
-      media={
-        <div className="relative">
-          <CardMedia src={stay.thumbnail} alt={stay.name} fallback={<MediaFallback icon={BedDouble} className="aspect-[16/10] w-full rounded-t-2xl" />} />
-          {comparing && <CompareMark selected={selected} />}
-        </div>
-      }
-      title={stay.name}
-      meta={[
-        stay.stars ? `${stay.stars}-star` : null,
-        stay.rating ? <span key="g" className="tabular-nums">{`${stay.rating}/10 guests`}</span> : null,
-      ]}
-      fact={
-        <p className="flex flex-wrap items-baseline gap-x-1.5">
-          <span className="font-display text-lg leading-tight font-semibold tabular-nums">{money(stay.nightlyAmount, stay.currency)}</span>
-          <span className="text-xs leading-snug text-muted-foreground">/ night</span>
-        </p>
-      }
-      extra={comparing ? <p className="text-xs text-muted-foreground">{selected ? "Selected" : "Click card to select"}</p> : undefined}
-      actions={<DetailsButton label={`Rooms & details: ${stay.name}`} onClick={open}>Rooms &amp; details</DetailsButton>}
-    />
-  );
+  return <StayResultCard stay={stay} href={href} onOpen={open} comparing={comparing} selected={selected} />;
 }

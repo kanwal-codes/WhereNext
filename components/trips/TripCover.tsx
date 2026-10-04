@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useLayoutEffect, useState, type ReactNode } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { TripArt, hashString } from "@/components/trips/TripArt";
 import type { TripSummary } from "@/components/trips/types";
@@ -65,6 +65,7 @@ export function TripCover({
   imageClassName,
   typeLed = true,
   parallax = false,
+  vtName,
   children,
 }: {
   trip: TripSummary;
@@ -78,6 +79,8 @@ export function TripCover({
   typeLed?: boolean;
   /** The photograph travels slower than the page. Only for a full-bleed hero at the top of a page: on a card mid-page it slides the photo off its own frame. */
   parallax?: boolean;
+  /** The name this cover answers to in a shared-element transition. */
+  vtName?: string;
   /** Overlay content (badges etc). `photo` is true once a photo is showing, for text that must stay legible on it. */
   children?: (state: { photo: boolean }) => ReactNode;
 }) {
@@ -86,10 +89,26 @@ export function TripCover({
   const [loaded, setLoaded] = useState<string | null>(null);
   const [failed, setFailed] = useState<string[]>([]);
   const src = candidates.find((url) => !failed.includes(url)) ?? null;
-  const showPhoto = src !== null && loaded === src;
+  // A hero asks for a wide photograph, but the card the visitor just clicked already holds the default-width one in
+  // the browser's cache: show that at once and let the sharp one fade in over it, so opening a trip never starts on a
+  // bare wash.
+  const lowSrc = width && src ? src.replace(/&w=\d+$/, "") : null;
+  const hasLow = Boolean(lowSrc && lowSrc !== src);
+  const [lowDone, setLowDone] = useState(false);
+  const [instant, setInstant] = useState(false);
+  useLayoutEffect(() => {
+    if (!hasLow || !lowSrc) return;
+    const probe = new Image();
+    probe.src = lowSrc;
+    if (probe.complete && probe.naturalWidth > 0) {
+      setInstant(true);
+      setLowDone(true);
+    }
+  }, [hasLow, lowSrc]);
+  const showPhoto = src !== null && (loaded === src || (hasLow && lowDone));
 
   return (
-    <TripArt seed={hashString(`${trip.id}${trip.name}`)} grain={size === "feature"} className={className}>
+    <TripArt seed={hashString(`${trip.id}${trip.name}`)} grain={size === "feature"} className={className} vtName={vtName}>
       {typeLed && <BoardingPass trip={trip} size={size} />}
       {src && (
         <motion.div
@@ -97,8 +116,21 @@ export function TripCover({
           className={cn("absolute inset-0 z-[1]", parallax && "hero-parallax")}
           initial={false}
           animate={{ opacity: showPhoto ? 1 : 0 }}
-          transition={{ duration: reduce ? 0 : 0.9, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: reduce || instant ? 0 : 0.9, ease: [0.22, 1, 0.36, 1] }}
         >
+          {hasLow && lowSrc && (
+            // eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin proxy
+            <img
+              src={lowSrc}
+              alt=""
+              decoding="async"
+              ref={(el) => {
+                if (el?.complete && el.naturalWidth > 0) setLowDone(true);
+              }}
+              onLoad={() => setLowDone(true)}
+              className={cn("photo-grade absolute inset-0 h-full w-full object-cover", imageClassName)}
+            />
+          )}
           {/* eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin proxy; next/image can't size a remote proxy */}
           <img
             key={src}
@@ -113,7 +145,7 @@ export function TripCover({
             }}
             onLoad={() => setLoaded(src)}
             onError={() => setFailed((current) => [...current, src])}
-            className={cn("h-full w-full object-cover", imageClassName ?? "transition-transform duration-[900ms] ease-out group-hover:scale-[1.04]")}
+            className={cn("photo-grade h-full w-full object-cover", hasLow && "relative transition-opacity duration-700", hasLow && (loaded === src ? "opacity-100" : "opacity-0"), imageClassName ?? "transition-transform duration-[900ms] ease-out group-hover:scale-[1.04]")}
           />
           {/* Keeps the badge and menu legible on any photo, bright or dark. */}
           <div className="absolute inset-0 scrim-v [--scrim:0.5]" />

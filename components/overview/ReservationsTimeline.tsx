@@ -1,5 +1,6 @@
 "use client";
 
+import { hotelPhotoSrc } from "@/lib/hotel-photo";
 import Link from "next/link";
 import { useState } from "react";
 import { ChevronRight, MapPin, Paperclip, Plus, UtensilsCrossed } from "lucide-react";
@@ -32,7 +33,7 @@ function Thumb({ item }: { item: TimelineItem }) {
     <TripArt seed={hashString(item.id)} className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl">
       {item.thumbnail && !failed ? (
         // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
-        <img src={item.thumbnail} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />
+        <img src={hotelPhotoSrc(item.thumbnail)} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />
       ) : (
         <Icon className="relative h-6 w-6 text-foreground/70" />
       )}

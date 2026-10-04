@@ -2,6 +2,7 @@ import type { Place } from "@/packages/contracts/place";
 import { withProviderTimeout } from "../request-signal";
 import { guardedFetch } from "@/lib/server/provider-guard";
 import { cached } from "../../../lib/server/ttl-cache";
+import { pickCoverPhoto, type CoverCandidate } from "../../../lib/cover-photo";
 
 type SearchPlace = { id: string; displayName?: { text?: string }; formattedAddress?: string; location?: { latitude: number; longitude: number }; primaryType?: string; googleMapsUri?: string; rating?: number; userRatingCount?: number; photos?: Array<{ name: string }> };
 type NearbyPlace = SearchPlace & { nationalPhoneNumber?: string; websiteUri?: string };
@@ -203,6 +204,17 @@ export class GooglePlacesProvider {
     };
     if (process.env.NODE_ENV === "test") return load(signal);
     return cached(`google-place-table:${placeId}`, 15 * 60_000, () => load());
+  }
+  /** The photograph that stands for a destination (see lib/cover-photo.ts). Null when nothing suitable exists. */
+  async coverPhoto(destination: string, signal?: AbortSignal): Promise<string | null> {
+    const load = async () => {
+      const response = await guardedFetch("google-places", "https://places.googleapis.com/v1/places:searchText", { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": this.key(), "x-goog-fieldmask": "places.displayName,places.primaryType,places.userRatingCount,places.photos" }, body: JSON.stringify({ textQuery: `${destination} skyline view`, pageSize: 20 }), signal: withProviderTimeout(signal) });
+      if (!response.ok) throw new Error(`Google cover photo search failed: ${response.status}`);
+      const body = (await response.json()) as { places?: CoverCandidate[] };
+      return pickCoverPhoto(body.places ?? []);
+    };
+    if (process.env.NODE_ENV === "test") return load();
+    return cached(`google-cover:${destination.trim().toLowerCase()}`, 24 * 60 * 60_000, load);
   }
   photoUrl(photoName: string, widthPx = 800) { return `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=${widthPx}&key=${encodeURIComponent(this.key())}`; }
 }

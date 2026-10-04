@@ -148,11 +148,16 @@ export function Meta({ items, className }: { items: Array<ReactNode | null | und
   );
 }
 
-/** Photo stand-in: a soft coral wash with a large faded glyph, so a missing photo reads as designed. */
+/** Photo stand-in: the app's warm wash (coral glow above, lagoon haze below) with the kind of thing drawn in a small lit tile, so a missing photo reads as designed and matches the Overview's tiles. */
 export function MediaFallback({ icon: Icon, className }: { icon: LucideIcon; className?: string }) {
   return (
-    <div className={cn("relative isolate grid place-items-center overflow-hidden bg-gradient-to-br from-coral-soft via-muted to-card text-coral/40", className)}>
-      <Icon className="size-16" strokeWidth={1.25} aria-hidden />
+    <div
+      className={cn("relative isolate grid place-items-center overflow-hidden bg-surface", className)}
+      style={{ backgroundImage: "radial-gradient(90% 85% at 18% 12%, color-mix(in oklab, var(--coral) 17%, transparent), transparent 66%), radial-gradient(80% 70% at 88% 100%, color-mix(in oklab, var(--lagoon) 10%, transparent), transparent 70%)" }}
+    >
+      <span className="grid size-14 place-items-center rounded-2xl bg-background/75 text-coral-ink shadow-soft ring-1 ring-border/60">
+        <Icon className="size-6" strokeWidth={1.5} aria-hidden />
+      </span>
     </div>
   );
 }
@@ -202,7 +207,8 @@ export function prettyDates(raw?: string | null): string {
 export const CardOpenOverlay = ({ label, onOpen, href }: { label: string; onOpen: () => void; /** With a real destination the overlay is a link, so a modified click still opens a new tab. */ href?: string }) => {
   // A mouse-only target over the whole card: the card's own Details button is the keyboard and screen-reader path,
   // so this one stays out of the tab order and the accessibility tree (it used to be a second, duplicate tab stop).
-  const className = "absolute inset-0 z-0 rounded-2xl transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none";
+  // No tint of its own: it sits above the card's unpositioned text and photo in paint order, so a hover fill here washed them out. The card's lift and shadow (`card-lift`) are its hover.
+  const className = "absolute inset-0 z-0 rounded-2xl focus-visible:outline-none";
   if (href) {
     return (
       <a

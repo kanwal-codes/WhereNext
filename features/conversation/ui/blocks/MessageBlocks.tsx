@@ -380,7 +380,7 @@ function WeatherBlockView({ block }: { block: WeatherBlockData }) {
 
   if (block.mode === "forecast" && block.days.length > 0) {
     return (
-      <div className={cn(surface, "space-y-3 p-4")}>
+      <div className={cn(surface, "space-y-3 bg-gradient-to-br from-lagoon-soft via-card to-card p-4")}>
         <div className="space-y-0.5">
           <p className={cn(type.body, "font-medium")}>{block.headline}</p>
           <Meta items={[block.location]} />
@@ -402,7 +402,7 @@ function WeatherBlockView({ block }: { block: WeatherBlockData }) {
   }
 
   return (
-    <div className={cn(surface, "flex items-start gap-4 p-4")}>
+    <div className={cn(surface, "flex items-start gap-4 bg-gradient-to-br from-lagoon-soft via-card to-card p-4")}>
       <WeatherGlyph condition={block.condition} className="size-10 shrink-0" />
       <div className="min-w-0 flex-1 space-y-2">
         <p className={cn(type.meta, "flex flex-wrap items-center gap-x-2 gap-y-1")}>
@@ -559,6 +559,9 @@ function OptionsBlockView({ block, onFollowup }: { block: OptionsBlockData } & P
 
 type BudgetBlockData = Extract<AssistantBlock, { type: "budget" }>;
 
+/** One colour per line, the same as the budget panel's ledger, so the card and its expanded form read as one thing. */
+const BUDGET_TONE = ["bg-chart-1", "bg-chart-2", "bg-chart-3", "bg-chart-4", "bg-chart-5", "bg-muted-foreground"] as const;
+
 function BudgetBlockView({ block, onOpenPanel }: { block: BudgetBlockData } & Pick<BlockHandlers, "onOpenPanel">) {
   const maxTypical = Math.max(...block.lines.map((line) => line.typical), 1);
   const under = typeof block.setBudget === "number" && block.dailyTotal.typical <= block.setBudget;
@@ -570,19 +573,41 @@ function BudgetBlockView({ block, onOpenPanel }: { block: BudgetBlockData } & Pi
         title={<>Daily spend · {block.perPerson ? "per person" : "for the group"}</>}
         actions={<>{block.estimated && <Badge>Estimated</Badge>}{onOpenPanel && <DetailsButton label="Budget details" onClick={() => onOpenPanel({ kind: "budget", block })} />}</>}
       />
-      <ul className="divide-y divide-border">
+      {/* The answer first: the typical day as the figure, what it usually swings between, and whether it fits. */}
+      <div className="space-y-1.5 px-4 pt-4 pb-3">
+        <p className={cn(type.meta, "font-medium")}>Typical day</p>
+        <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span className="font-display text-4xl leading-none font-medium tracking-[-0.03em] tabular-nums">{money(Math.round(block.dailyTotal.typical), cur)}</span>
+          <span className={cn(type.meta, "tabular-nums")}>usually {money(Math.round(block.dailyTotal.low), cur)}–{money(Math.round(block.dailyTotal.high), cur)}</span>
+        </p>
+        {(typeof block.setBudget === "number" || block.tripNote) && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-1">
+            {typeof block.setBudget === "number" && (
+              <Badge tone={under ? "positive" : "caution"} icon={under ? Check : undefined}>
+                {under ? "Fits your" : "Over your"} {money(Math.round(block.setBudget), cur)}/day budget
+              </Badge>
+            )}
+            {block.tripNote && <p className={type.meta}>{block.tripNote}</p>}
+          </div>
+        )}
+      </div>
+      <ul className="divide-y divide-border border-t border-border">
         {block.lines.map((line, i) => (
-          <li key={i} className="space-y-1.5 px-4 py-3">
+          <li key={i} className="space-y-2 px-4 py-3">
             <div className="flex items-baseline justify-between gap-3">
-              <span className={cn(type.body, "font-medium")}>{line.category}</span>
+              <span className={cn(type.body, "flex items-center gap-2 font-medium")}>
+                <span aria-hidden className={cn("size-2 shrink-0 rounded-full", BUDGET_TONE[Math.min(i, BUDGET_TONE.length - 1)])} />
+                {line.category}
+              </span>
               <span className={cn(type.body, type.num)}>{money(Math.round(line.typical), cur)}</span>
             </div>
-            <progress
-              className="daisy-progress h-1.5 w-full text-coral/70 [&::-webkit-progress-bar]:bg-muted"
-              value={line.typical}
-              max={maxTypical}
+            <div
+              role="img"
               aria-label={`${line.category}: about ${money(Math.round(line.typical), cur)} a day`}
-            />
+              className="h-1 overflow-hidden rounded-full bg-muted"
+            >
+              <div className={cn("h-full rounded-full", BUDGET_TONE[Math.min(i, BUDGET_TONE.length - 1)])} style={{ width: `${Math.max(4, (line.typical / maxTypical) * 100)}%` }} />
+            </div>
             <p className={cn(type.meta, "flex items-baseline justify-between gap-3")}>
               <span className="min-w-0 truncate">{line.note}</span>
               <span className="shrink-0 tabular-nums">{money(Math.round(line.low), cur)}–{money(Math.round(line.high), cur)}</span>
@@ -590,23 +615,6 @@ function BudgetBlockView({ block, onOpenPanel }: { block: BudgetBlockData } & Pi
           </li>
         ))}
       </ul>
-      <div className="daisy-stats w-full rounded-none border-t border-border bg-muted/40">
-        <div className="daisy-stat px-4 py-3">
-          <div className="daisy-stat-title text-sm font-medium text-foreground">Per day, typical</div>
-          <div className={cn("daisy-stat-value", type.figure, "text-3xl")}>{money(Math.round(block.dailyTotal.typical), cur)}</div>
-          <div className="daisy-stat-desc text-xs tabular-nums">Range {money(Math.round(block.dailyTotal.low), cur)}–{money(Math.round(block.dailyTotal.high), cur)}</div>
-          {(typeof block.setBudget === "number" || block.tripNote) && (
-            <div className="daisy-stat-actions mt-2 flex flex-col items-start gap-1.5">
-              {typeof block.setBudget === "number" && (
-                <Badge tone={under ? "positive" : "caution"} icon={under ? Check : undefined}>
-                  {under ? "Fits your" : "Over your"} {money(Math.round(block.setBudget), cur)}/day budget
-                </Badge>
-              )}
-              {block.tripNote && <p className={type.meta}>{block.tripNote}</p>}
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
@@ -1098,7 +1106,7 @@ function StaysBlockView({ block, tripId, preview, onOpenStay, onOpenCollection, 
                 onSeeAll={preview && items.length > MAX_CHAT_CARDS && onOpenCollection ? () => onOpenCollection(`All stays in ${where}`, { ...block, location: where, checkin: dates.checkin, checkout: dates.checkout, nights, items }) : undefined}
                 onMap={preview && onOpenPanel && pointsFromStays(items).length > 0 ? () => onOpenPanel({ kind: "map", title: `Stays in ${where}`, points: pointsFromStays(items), connect: false }) : undefined}
               />
-              {live ? <StaySearchBar search={searchForBar} tripId={tripId} trip={tripDates} /> : <Meta items={[`${block.nights} night${block.nights > 1 ? "s" : ""}`, `${prettyDate(block.checkin)} – ${prettyDate(block.checkout)}`]} />}
+              {live ? <StaySearchBar search={searchForBar} tripId={tripId} trip={tripDates} defaultOpen={search.assumed} /> : <Meta items={[`${block.nights} night${block.nights > 1 ? "s" : ""}`, `${prettyDate(block.checkin)} – ${prettyDate(block.checkout)}`]} />}
               {live ? (search.assumed && <Notice tone="caution">Example dates, pick yours above for accurate prices.</Notice>) : block.dateNote && <Notice tone="caution">{block.dateNote.replace(/\d{4}-\d{2}-\d{2}/g, (m) => prettyDate(m) ?? m)}</Notice>}
               {search.status === "error" && live ? (
                 <div role="alert" className={cn(surface, "space-y-3 px-4 py-8 text-center")}>

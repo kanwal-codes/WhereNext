@@ -1,3 +1,4 @@
+import { hotelPhotoSrc } from "@/lib/hotel-photo";
 import Link from "next/link";
 import { ArrowRight, MapPin } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
@@ -22,7 +23,7 @@ export function SharedTripView({ trip, slug }: { trip: PublicTrip; slug: string 
   const dateLine = fmt(trip.startDate) && fmt(trip.endDate) ? `${fmt(trip.startDate)} – ${fmt(trip.endDate)}` : null;
 
   const stopCount = trip.itinerary.length;
-  const photo = trip.stay?.thumbnail ?? null;
+  const photo = hotelPhotoSrc(trip.stay?.thumbnail ?? null);
 
   return (
     <main className="min-h-screen bg-background text-foreground">

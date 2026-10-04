@@ -65,7 +65,7 @@ export default function GroupDetailsPage() {
           <ArrowLeft className="h-3.5 w-3.5" /> Back to group chat
         </Link>
         <div className="mt-3 mb-5 flex items-center justify-between gap-3">
-          <h1 className="font-display text-lg leading-tight lg:text-xl">Group details</h1>
+          <h1 className="font-display text-3xl leading-tight font-medium tracking-[-0.03em] sm:text-4xl">Group details</h1>
           <button type="button" onClick={() => setAvailabilityOpen(true)} className="btn-chip shrink-0 gap-1.5">
             <CalendarRange className="h-3.5 w-3.5" /> Set your dates
           </button>
@@ -115,7 +115,7 @@ export default function GroupDetailsPage() {
         </div>
       ) : (
         <Reveal delay={0.08}>
-          <p className="mb-2 flex items-center gap-1.5 px-1 text-2xs font-medium tracking-[0.08em] text-muted-foreground uppercase">
+          <p className="mb-2 flex items-center gap-1.5 px-1 text-2xs font-medium tracking-[0.1em] text-muted-foreground uppercase">
             <Users className="h-3 w-3" aria-hidden="true" /> {members.length} member{members.length === 1 ? "" : "s"}
           </p>
           <ul className="space-y-2">

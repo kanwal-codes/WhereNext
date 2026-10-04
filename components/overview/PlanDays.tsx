@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowRight, CalendarPlus } from "lucide-react";
+import { CalendarPlus } from "lucide-react";
+import { InviteCard } from "@/components/overview/InviteCard";
 import { Stagger, StaggerItem } from "@/components/motion-primitives";
 import type { PlanDay } from "@/lib/trip-overview";
 
@@ -9,19 +9,10 @@ import type { PlanDay } from "@/lib/trip-overview";
 export function PlanDays({ tripId, days }: { tripId: string; days: PlanDay[] }) {
   if (days.length === 0) {
     return (
-      <div className="mt-6 flex flex-col gap-4 rounded-3xl border border-dashed border-border bg-card/50 p-7 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-4">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-border bg-background">
-            <CalendarPlus className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="font-display text-xl tracking-tight">Nothing planned yet</p>
-            <p className="mt-1 max-w-md text-sm leading-relaxed text-muted-foreground">Ask Roam for a first draft of the days, or add places from Discover as you find them.</p>
-          </div>
-        </div>
-        <Link href={`/trips/${tripId}/chat`} className="btn-primary w-fit shrink-0">
-          Plan the days <ArrowRight className="h-4 w-4" />
-        </Link>
+      <div className="mt-6">
+        <InviteCard seed={`${tripId}plan`} icon={CalendarPlus} title="Nothing planned yet" href={`/trips/${tripId}/chat`} cta="Plan the days">
+          Ask Roam for a first draft of the days, or add places from Discover as you find them.
+        </InviteCard>
       </div>
     );
   }
@@ -33,7 +24,7 @@ export function PlanDays({ tripId, days }: { tripId: string; days: PlanDay[] }) 
             <span aria-hidden className="pointer-events-none absolute -top-2 right-4 font-display text-[7.5rem] leading-none tabular-nums text-foreground/[0.055] select-none">
               {String(day.day).padStart(2, "0")}
             </span>
-            <p className="text-2xs font-medium tracking-[0.16em] text-muted-foreground uppercase">Day {day.day}</p>
+            <p className="text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">Day {day.day}</p>
             <h3 suppressHydrationWarning className="mt-1 font-display text-2xl tracking-tight">
               {day.label ?? `Day ${day.day}`}
             </h3>
