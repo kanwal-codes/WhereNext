@@ -1287,6 +1287,8 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
       <ul className="divide-y divide-border">
         {offers.map((offer, offerIndex) => {
           const dayOffset = arrivalDayOffset(offer.departAt, offer.arriveAt);
+          const flightPanel = { kind: "flight" as const, flight: offer, route: { origin: query.fromLabel, destination: query.toLabel, dateNote, retrievedAt: fares.retrievedAt, offers: fares.items, departureDate: query.depart ?? undefined, returnDate: query.ret ?? undefined, originId: query.fromId, destinationId: query.toId } };
+          const openFlight = () => onOpenPanel?.(flightPanel);
           return (
             <motion.li
               layout="position"
@@ -1294,7 +1296,21 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
               initial={fares.searched ? { opacity: 0, y: 10 } : false}
               animate={{ opacity: 1, y: 0 }}
               key={offer.id ?? offerIndex}
-              className="grid grid-cols-[1fr_auto] items-start gap-x-4 gap-y-1.5 px-4 py-3"
+              className={cn("grid grid-cols-[1fr_auto] items-start gap-x-4 gap-y-1.5 px-4 py-3", onOpenPanel && "cursor-pointer transition-colors hover:bg-muted/35 focus-visible:bg-muted/45 focus-visible:outline-none")}
+              onClick={onOpenPanel ? (event) => {
+                if ((event.target as HTMLElement).closest("[data-details]")) return;
+                openFlight();
+              } : undefined}
+              onKeyDown={onOpenPanel ? (event) => {
+                if (event.target !== event.currentTarget) return;
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  openFlight();
+                }
+              } : undefined}
+              role={onOpenPanel ? "button" : undefined}
+              tabIndex={onOpenPanel ? 0 : undefined}
+              aria-label={onOpenPanel ? `Open details for ${offer.airline}, ${clock(offer.departAt)} to ${clock(offer.arriveAt)}` : undefined}
             >
               <div className="flex min-w-0 gap-3">
               <AirlineMark offer={offer} className="mt-0.5 size-8" />
@@ -1326,7 +1342,7 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
                 <p className={cn(type.title, "tabular-nums whitespace-nowrap")}>{offer.listedCurrency && <span className="mr-0.5 text-muted-foreground" title={`Converted from ${money(offer.listedPrice ?? "", offer.listedCurrency, true)} at today’s rate`}>≈</span>}{money(offer.price, offer.currency, true)}</p>
                 {roundTrip && <p className={cn(type.meta, "-mt-1.5")}>round trip</p>}
                 {onOpenPanel && (
-                  <DetailsButton label={`Details: ${offer.airline}, ${clock(offer.departAt)} to ${clock(offer.arriveAt)}`} onClick={() => onOpenPanel({ kind: "flight", flight: offer, route: { origin: query.fromLabel, destination: query.toLabel, dateNote, retrievedAt: fares.retrievedAt, offers: fares.items, departureDate: query.depart ?? undefined, returnDate: query.ret ?? undefined, originId: query.fromId, destinationId: query.toId } })} />
+                  <DetailsButton label={`Details: ${offer.airline}, ${clock(offer.departAt)} to ${clock(offer.arriveAt)}`} onClick={openFlight} />
                 )}
               </div>
             </motion.li>

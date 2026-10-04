@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 
 const spring = motionTokens.fast;
+const LAYOUT_MOTION = "420ms cubic-bezier(0.22, 1, 0.36, 1)";
 
 /** Same visual as DiscoverTabs (features/places/ui/DiscoverySurface.tsx) — a route change
  *  instead of local state, since Roam and Group chat need to stay independently deep-linkable.
@@ -184,7 +185,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
     <div data-roam-shell className="flex h-[calc(100dvh-var(--topbar)-var(--tabbar))] min-h-0 w-full max-w-full flex-col overflow-x-hidden lg:h-[100dvh]">
       <div
         // A CSS transition on pixel tracks (they interpolate natively), only for the moment the layout mode changes.
-        style={{ gridTemplateColumns: columns, transition: `grid-template-columns ${reduceMotion || !modeChanged ? 0 : 420}ms cubic-bezier(0.22, 1, 0.36, 1)` }}
+        style={{ gridTemplateColumns: columns, transition: `grid-template-columns ${reduceMotion || !modeChanged ? 0 : LAYOUT_MOTION}` }}
         className="grid h-full min-h-0 w-full min-w-0 max-w-full"
       >
         <div className="relative flex min-w-0 max-w-full flex-col overflow-hidden px-4 py-4 sm:px-6 lg:border-r lg:border-border lg:py-5">
@@ -276,10 +277,10 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
               {panel ? (
                 <motion.div
                   key="panel"
-                  initial={reduceMotion ? false : { opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={reduceMotion ? undefined : { opacity: 0, x: 12, pointerEvents: "none" }}
-                  transition={reduceMotion ? { duration: 0 } : { duration: 0.34, ease: motionTokens.swap.ease }}
+                  initial={reduceMotion ? false : { opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={reduceMotion ? undefined : { opacity: 0, pointerEvents: "none" }}
+                  transition={reduceMotion ? { duration: 0 } : { duration: 0.42, ease: motionTokens.swap.ease }}
                   className="absolute inset-0"
                 >
                   <TripPanel layout="inline" />
