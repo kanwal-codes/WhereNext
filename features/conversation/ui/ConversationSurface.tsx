@@ -718,7 +718,7 @@ export function ConversationSurface({
           log — the rubber-band should feel self-contained here, the same way a native app's
           message list never drags the rest of the screen along with it. */}
       <div ref={logRef} onScroll={handleLogScroll} data-scrolled={scroll.scrolled} role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions" className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim scroll-fade-t">
-        <div className={cn("mx-auto w-full max-w-full space-y-6 pt-2 pb-28", rail ? "px-1" : "max-w-2xl")}>
+        <div className={cn("mx-auto w-full max-w-full space-y-6 pt-2 pb-28 max-lg:pt-16", rail ? "px-1" : "max-w-2xl")}>
           {!loaded && messages.length === 0 && (
             <div aria-hidden className="space-y-6">
               <div className="flex justify-end">

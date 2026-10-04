@@ -639,7 +639,7 @@ export function GroupChatSurface({
           rubber-band bounce at the top/bottom confined to this log instead of chaining into the
           page. */}
       <div ref={logRef} onScroll={onLogScroll} className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim">
-        <div className="mx-auto w-full max-w-2xl space-y-1 pt-3 pb-28">
+        <div className="mx-auto w-full max-w-2xl space-y-1 pt-3 pb-28 max-lg:pt-16">
           {!loaded && (
             <div aria-hidden className="space-y-5">
               <div className="h-9 w-40 skeleton rounded-2xl rounded-br-lg" />
