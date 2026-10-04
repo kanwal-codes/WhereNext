@@ -20,6 +20,7 @@ describe("guest policy: Roam only", () => {
     ["GET", "/_next/static/chunks/app.js"],
     ["POST", "/api/guest/start"],
     ["POST", "/api/guest/reset"],
+    ["POST", "/api/guest/claim-ticket"],
     ["POST", "/api/ai"],
     ["GET", "/api/profile"],
     ["GET", `/api/trips/${TRIP}/conversation`],

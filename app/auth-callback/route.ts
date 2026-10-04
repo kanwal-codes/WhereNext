@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getPublicEnv } from "@/lib/env";
 import { safeRedirect } from "@/lib/client/safe-redirect";
+import { CLAIM_COOKIE, claimGuestTrips } from "@/lib/server/guest-claim";
+import { logger } from "@/lib/server/logger";
 
 // `next` used to be allow-listed to exactly one hardcoded path ("/reset-password/update"),
 // falling back to "/trips" for anything else — including a pending invite (`/join/[token]`),
@@ -30,5 +32,11 @@ export async function GET(request: Request) {
   });
   const result = await supabase.auth.exchangeCodeForSession(code);
   if (result.error) return NextResponse.redirect(new URL(`/sign-in?error=${encodeURIComponent(result.error.message)}`, url.origin));
+  // A guest who came back through Google or an emailed link as an existing account brings their trip along. A failure never blocks the sign-in.
+  const ticket = store.get(CLAIM_COOKIE)?.value;
+  if (ticket && result.data.user) {
+    await claimGuestTrips(result.data.user, ticket).catch((err) => logger.warn({ err }, "couldn't move a guest's trip after sign-in"));
+    response.cookies.delete(CLAIM_COOKIE);
+  }
   return response;
 }
