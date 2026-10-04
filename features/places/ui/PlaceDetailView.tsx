@@ -19,6 +19,7 @@ import { GetYourGuideCard } from "@/components/GetYourGuideCard";
 import { Hero } from "@/components/Hero";
 import { DetailSectionHeading } from "@/components/DetailSectionHeading";
 import { FactStrip, InfoList, InfoRow, QuickActions, ShowMore } from "@/components/DetailKit";
+import { placeFacts } from "@/features/places/ui/placeFacts";
 import { NearbyRecommendations } from "@/components/NearbyRecommendations";
 import { BackLink } from "@/components/BackLink";
 import { ExternalLink } from "@/components/ExternalLink";
@@ -129,7 +130,7 @@ export function PlaceDetailView({
   // a button at every width instead of a banner at in-between ones.
   const asideAction = place ? (
     <div className={panel ? "max-w-md" : "max-w-sm"}>
-      <AddToTripControl tripId={tripId} place={place} size="md" block />
+      <AddToTripControl tripId={tripId} place={place} size="lg" block />
     </div>
   ) : (
     <p className="text-sm text-muted-foreground">This place can&rsquo;t be added &mdash; we don&rsquo;t have a location for it.</p>
@@ -202,27 +203,17 @@ export function PlaceDetailView({
   const body = (
     <div className="min-w-0 space-y-8">
       <Reveal delay={0.04}>
-        <div className="space-y-3">
+        <div className="space-y-4">
           <FactStrip
-            facts={[
-              typeof details.rating === "number" && {
-                label: "Rating",
-                value: (
-                  <>
-                    <Star className="size-4 fill-current text-coral" aria-hidden /> {details.rating.toFixed(1)}
-                  </>
-                ),
-                note: details.userRatingCount ? `${details.userRatingCount.toLocaleString()} reviews` : undefined,
-              },
-              price && { label: "Price", value: price, note: price === "Free" ? undefined : "per person" },
-              typeof openNow === "boolean" && { label: "Right now", value: openNow ? "Open" : "Closed", tone: openNow ? "positive" : undefined, note: todayHours ?? undefined },
-            ]}
+            variant="hero"
+            facts={placeFacts({ rating: details.rating, ratingCount: details.userRatingCount, price, openNow, todayHours })}
           />
           <QuickActions
+            variant="bar"
             actions={[
-              { icon: Navigation, label: "Directions", href: directionsHref, external: true },
-              details.nationalPhoneNumber && { icon: Phone, label: "Call", href: `tel:${details.nationalPhoneNumber.replace(/\s/g, "")}` },
-              details.websiteUri && { icon: Globe, label: "Website", href: details.websiteUri, external: true },
+              { icon: Navigation, label: "Directions", href: directionsHref, external: true, hint: "Google Maps" },
+              details.nationalPhoneNumber && { icon: Phone, label: "Call", href: `tel:${details.nationalPhoneNumber.replace(/\s/g, "")}`, hint: details.nationalPhoneNumber },
+              details.websiteUri && { icon: Globe, label: "Website", href: details.websiteUri, external: true, hint: prettyWebsite(details.websiteUri).split("/")[0] },
             ]}
           />
         </div>
