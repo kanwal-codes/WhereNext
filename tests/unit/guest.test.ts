@@ -45,10 +45,12 @@ describe("withinRateLimit failClosed", () => {
     return import("@/lib/server/rate-limit");
   }
 
-  it("fails open by default and closed for guests when the limiter itself errors", async () => {
+  it("fails open by default, and counts in memory for guests, when the limiter itself errors", async () => {
     const { withinRateLimit } = await withBrokenRedis();
     expect(await withinRateLimit("k", 5, 1000)).toBe(true);
-    expect(await withinRateLimit("k", 5, 1000, { failClosed: true })).toBe(false);
+    // Guests are not refused outright (a full Redis once locked every visitor out); they still hit a ceiling.
+    for (let i = 0; i < 5; i += 1) expect(await withinRateLimit("kg", 5, 60_000, { failClosed: true })).toBe(true);
+    expect(await withinRateLimit("kg", 5, 60_000, { failClosed: true })).toBe(false);
   });
 
   it("forgets a guest's own counters in-process, so a deleted session doesn't linger", async () => {
