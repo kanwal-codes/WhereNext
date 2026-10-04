@@ -64,8 +64,9 @@ export async function clearRateLimits(keys: string[]): Promise<void> {
 
 /** True if `key` is still within `limit` hits per `windowMs`; false once exceeded. Fails OPEN on
  *  a Redis error — availability over strict enforcement, since this exists to blunt abuse, not
- *  to gate correctness. `failClosed` flips that for unauthenticated guest traffic, where an
- *  outage in the limiter must not become an open door to paid model and provider calls. */
+ *  to gate correctness. `failClosed` is for unauthenticated guest traffic, where an outage in the
+ *  limiter must not become an open door to paid model and provider calls: it falls back to a
+ *  per-instance in-memory count, so there is still a ceiling and visitors are not all refused. */
 export async function withinRateLimit(key: string, limit: number, windowMs: number, opts: { failClosed?: boolean } = {}): Promise<boolean> {
   const limiter = limiterFor(limit, windowMs);
   if (limiter) {
@@ -73,7 +74,11 @@ export async function withinRateLimit(key: string, limit: number, windowMs: numb
       const { success } = await limiter.limit(key);
       return success;
     } catch {
-      return !opts.failClosed;
+      // Redis is unreachable or refusing writes (a full database answers every write with an
+      // error). Fail open for signed-in traffic. For guests, count in this instance's memory
+      // instead of refusing everyone: still a ceiling, but a limiter outage no longer locks every
+      // visitor out of the front door.
+      if (!opts.failClosed) return true;
     }
   }
   const now = Date.now();
