@@ -67,6 +67,10 @@ export function TripMap({
   const drawState = useRef<{ key: string; startedAt: number }>({ key: "", startedAt: 0 });
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
+  const fail = (why: unknown) => {
+    console.error("[TripMap] the map could not start", why);
+    setFailed(true);
+  };
   // Bumped after a live theme swap (`setStyle` wipes the map's custom sources) so the data-paint
   // effect below re-runs and redraws pins/legs even though none of its own props changed.
   const [styleVersion, setStyleVersion] = useState(0);
@@ -125,10 +129,13 @@ export function TripMap({
           attributionControl: false,
         });
         m.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
-        m.on("error", () => {
-          if (!map.current) setFailed(true); // only fatal (never-loaded) errors kill the map
+        let styleLoaded = false;
+        m.on("error", (e) => {
+          // Only a map that never got its style is dead; a missed tile or sprite is not.
+          if (!styleLoaded) fail(e.error);
         });
         m.on("style.load", () => {
+          styleLoaded = true;
           addLayers(m);
           setStyleVersion((v) => v + 1);
         });
@@ -155,7 +162,7 @@ export function TripMap({
         });
         observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
       })
-      .catch(() => setFailed(true));
+      .catch(fail);
 
     const ro = holder.current ? new ResizeObserver(() => map.current?.resize()) : null;
     if (ro && holder.current) ro.observe(holder.current);
@@ -322,7 +329,7 @@ export function TripMap({
     animateRoute(legList);
   }, [pins, legs, activeDay, ready, center, browse, connect, styleVersion]);
 
-  if (failed) return null;
+  if (failed) return <div className={cn("grid h-[52vh] min-h-[320px] w-full place-items-center rounded-2xl border border-border bg-muted/40 p-6 text-center text-sm text-muted-foreground", className)}>The map couldn’t load. Try reloading the page.</div>;
 
   return (
     <div className={cn("relative h-[52vh] min-h-[320px] w-full overflow-hidden rounded-2xl border border-border", className)}>
