@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { LIMITS } from "@/lib/server/limits";
 import { fail } from "@/lib/server/with-route";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { events as ticketmasterEvents } from "@/packages/providers/ticketmaster/client";
@@ -10,7 +11,7 @@ import { mergeEventSources, presentEvent } from "@/lib/application/nearby-events
 /** Ticketmaster + Eventbrite events near a place, for the detail-page "what's on" section. */
 export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
-    await requireTripMember((await params).tripId);
+    await requireTripMember((await params).tripId, { limit: LIMITS.provider });
     const search = new URL(request.url).searchParams;
     const location = (search.get("location") ?? "").trim();
     const query = (search.get("query") ?? "").trim();

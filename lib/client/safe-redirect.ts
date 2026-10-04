@@ -6,5 +6,12 @@
  * reimplement this check themselves.
  */
 export function safeRedirect(value: string | null | undefined, fallback: string): string {
-  return value && value.startsWith("/") && !value.startsWith("//") ? value : fallback;
+  // Browsers read a backslash as a slash (`/\evil.com` and `/<tab>/evil.com` both land on evil.com), so those are refused
+  // outright; anything left must still resolve to this site once parsed.
+  if (!value || !value.startsWith("/") || /[\\\u0000-\u001f\u007f]/.test(value)) return fallback;
+  try {
+    return new URL(value, "http://internal.invalid").origin === "http://internal.invalid" ? value : fallback;
+  } catch {
+    return fallback;
+  }
 }

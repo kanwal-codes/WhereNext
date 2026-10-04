@@ -138,12 +138,27 @@ describe("requireTripMember for guests", () => {
     await expect(requireTripMember(TRIP)).rejects.toMatchObject({ status: 429 });
   });
 
-  it("never rate-limits or restricts a registered user", async () => {
+  it("never restricts a registered user, and holds them only to the generous per-person ceilings", async () => {
     const limit = mockAuth({ id: "u1", is_anonymous: false });
     const { requireTripMember } = await import("@/lib/server/trip-auth");
     const member = await requireTripMember(TRIP, { registered: true });
     expect(member.guest).toBe(false);
-    expect(limit).not.toHaveBeenCalled();
+    // One overall hourly ceiling, fail-open, and none of the guest keys.
+    expect(limit).toHaveBeenCalledTimes(1);
+    expect(limit).toHaveBeenCalledWith("user-api:u1", 3000, 60 * 60_000);
+  });
+
+  it("applies a route's own bucket (model or paid-provider calls) on top", async () => {
+    const limit = mockAuth({ id: "u1", is_anonymous: false });
+    const { requireTripMember } = await import("@/lib/server/trip-auth");
+    await requireTripMember(TRIP, { limit: { bucket: "llm", max: 60 } });
+    expect(limit).toHaveBeenCalledWith("user-llm:u1", 60, 60 * 60_000);
+  });
+
+  it("answers 429 once a registered user passes the ceiling", async () => {
+    mockAuth({ id: "u1", is_anonymous: false }, false);
+    const { requireTripMember } = await import("@/lib/server/trip-auth");
+    await expect(requireTripMember(TRIP)).rejects.toMatchObject({ status: 429 });
   });
 });
 

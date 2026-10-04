@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { LIMITS } from "@/lib/server/limits";
 import { withRoute, fail } from "@/lib/server/with-route";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
@@ -16,7 +17,7 @@ const strs = (v: string | null): string[] => (v ?? "").split(",").map((s) => s.t
 export const GET = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
-    const { supabase, user } = await requireTripMember(tripId);
+    const { supabase, user } = await requireTripMember(tripId, { limit: LIMITS.provider });
     if (!liteApiConfigured()) return NextResponse.json({ error: "Stay search is not configured" }, { status: 503 });
 
     const [trip, prefs, defaults] = await Promise.all([

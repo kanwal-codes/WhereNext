@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { LIMITS } from "@/lib/server/limits";
 import { fail } from "@/lib/server/with-route";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
 import { hotelDetails, liteApiConfigured, stayReviews, stayRooms } from "@/packages/providers/liteapi/client";
@@ -70,7 +71,7 @@ async function guestSentiment(name: string, city: string | null, signal?: AbortS
 export async function GET(request: Request, { params }: { params: Promise<{ tripId: string; hotelId: string }> }) {
   try {
     const { tripId, hotelId } = await params;
-    const { supabase, user } = await requireTripMember(tripId);
+    const { supabase, user } = await requireTripMember(tripId, { limit: LIMITS.provider });
     if (!liteApiConfigured()) return NextResponse.json({ error: "Stay search is not configured" }, { status: 503 });
 
     const [trip, prefs, defaults] = await Promise.all([

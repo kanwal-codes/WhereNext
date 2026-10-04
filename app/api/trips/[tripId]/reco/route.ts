@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { LIMITS } from "@/lib/server/limits";
 import { fail } from "@/lib/server/with-route";
 import { cached } from "@/lib/server/ttl-cache";
 import { classifyPlaceVibe } from "@/packages/reco/vibes";
@@ -62,7 +63,7 @@ const bodySchema = z.discriminatedUnion("op", [
 export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
-    const { supabase } = await requireTripMember(tripId);
+    const { supabase } = await requireTripMember(tripId, { limit: LIMITS.provider });
     const input = bodySchema.parse(await request.json().catch(() => null)); // unparseable body → ZodError → 400
 
     if (input.op === "log") {

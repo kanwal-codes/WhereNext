@@ -13,6 +13,7 @@ import { ConversationSurface } from "@/features/conversation/ui/ConversationSurf
 import { GroupChatSurface } from "@/features/group-chat/ui/GroupChatSurface";
 import { TripContextSurface } from "@/features/workspace/ui/TripContextSurface";
 import { useMediaQuery } from "@/lib/use-media-query";
+import { useKeyboardFit } from "@/lib/use-keyboard-fit";
 import type { AssistantBlock, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { Trip } from "@/features/trip/domain/trip";
 import { cn } from "@/lib/utils";
@@ -100,9 +101,29 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   // up (a moment later, or immediately via back/forward navigation).
   const [optimisticTab, setOptimisticTab] = useState(activeTab);
   useEffect(() => setOptimisticTab(activeTab), [activeTab]);
-  // The tabs row used to collapse on scroll-down and return on scroll-up. Every toggle resized the message log
-  // (a 53px shove of the whole conversation, plus a re-render of the shell), and trackpad momentum flips direction
-  // often enough that it shook the page. The row now stays put: nothing moves while you read.
+  // On a phone the Roam / Chat row floats over the top of the conversation and slides away as you read down, and comes
+  // back the moment you scroll up (or reach the top, or switch tabs). It is an overlay, so showing and hiding it moves
+  // nothing in the log (the log keeps its own top padding): the old version resized the log on every toggle and shook
+  // the page. It also steps out of the way while the keyboard is up, to leave the room to the conversation.
+  const keyboardOpen = useKeyboardFit(!desktop);
+  const [scrolledAway, setScrolledAway] = useState(false);
+  const scrollTrack = useRef(new WeakMap<Element, { top: number; run: number }>());
+  const onLogScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const top = el.scrollTop;
+    const max = el.scrollHeight - el.clientHeight;
+    const t = scrollTrack.current.get(el) ?? { top, run: 0 };
+    const delta = top - t.top;
+    t.top = top;
+    // Rubber-banding past either end reports movement that is not the reader's.
+    if (top > 0 && top < max) t.run = Math.sign(delta) === Math.sign(t.run) ? t.run + delta : delta;
+    scrollTrack.current.set(el, t);
+    if (top < 32) setScrolledAway(false);
+    else if (t.run > 28) setScrolledAway(true);
+    else if (t.run < -14) setScrolledAway(false);
+  };
+  useEffect(() => setScrolledAway(false), [optimisticTab]);
+  const chromeHidden = !desktop && (keyboardOpen || scrolledAway);
   // TripPanelProvider closes `panel` on every pathname change (internal effect, not exposed on
   // its Ctx) — that's what makes switching tabs here also close whatever panel was open on the
   // previous one, with no extra code needed. If that internal behavior is ever removed, this
@@ -169,16 +190,25 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   );
 
   return (
-    <div ref={setRoot} className="flex h-[calc(100dvh-var(--topbar))] min-h-0 w-full max-w-full flex-col overflow-x-hidden lg:h-[100dvh]">
+    <div ref={setRoot} data-roam-shell className="flex h-[calc(100dvh-var(--topbar))] min-h-0 w-full max-w-full flex-col overflow-x-hidden lg:h-[100dvh]">
       <div
         // A CSS transition on pixel tracks (they interpolate natively), only for the moment the layout mode changes.
         style={{ gridTemplateColumns: columns, transition: `grid-template-columns ${reduceMotion || !modeChanged ? 0 : 420}ms cubic-bezier(0.22, 1, 0.36, 1)` }}
         className="grid h-full min-h-0 w-full min-w-0 max-w-full"
       >
         <div className="relative flex min-w-0 max-w-full flex-col overflow-hidden px-4 py-4 sm:px-6 lg:border-r lg:border-border lg:py-5">
-          <div className="overflow-hidden">
+          <div
+            // Phone: floats over the log (soft fade behind it so messages passing underneath stay legible) and slides up out of view.
+            className={cn(
+              "lg:overflow-hidden max-lg:absolute max-lg:inset-x-4 max-lg:top-4 max-lg:z-20 max-lg:transition-[transform,opacity] max-lg:duration-300 max-lg:ease-[cubic-bezier(0.22,1,0.36,1)]",
+              "max-lg:before:pointer-events-none max-lg:before:absolute max-lg:before:inset-x-[-1rem] max-lg:before:top-[-1rem] max-lg:before:bottom-[-0.9rem] max-lg:before:-z-10 max-lg:before:bg-gradient-to-b max-lg:before:from-background max-lg:before:via-background/85 max-lg:before:to-transparent",
+              chromeHidden && "max-lg:pointer-events-none max-lg:-translate-y-[calc(100%+1.25rem)] max-lg:opacity-0",
+            )}
+            inert={chromeHidden}
+            aria-hidden={chromeHidden || undefined}
+          >
             <Reveal>
-                <div className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                <div className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3 max-lg:mb-0">
                   <div className="justify-self-start">
                     {optimisticTab === "group" && <GroupMembersBadge tripId={tripId} />}
                   </div>
@@ -227,6 +257,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
                 onOpenEvent={openEvent}
                 onOpenCollection={openCollection}
                 onOpenPanel={openPanel}
+                onLogScroll={onLogScroll}
                 viewContext={panel && panel.kind !== "compare" ? panelTitle(panel) : undefined}
                 rail={desktop && Boolean(panel)}
                               />
@@ -239,7 +270,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
               animate={{ opacity: optimisticTab === "group" ? 1 : 0 }}
               transition={reduceMotion ? { duration: 0 } : motionTokens.swap}
             >
-              {!guest && <GroupChatSurface tripId={tripId} initialMessages={data?.groupChat} />}
+              {!guest && <GroupChatSurface tripId={tripId} initialMessages={data?.groupChat} onLogScroll={onLogScroll} />}
             </motion.div>
           </div>
         </div>

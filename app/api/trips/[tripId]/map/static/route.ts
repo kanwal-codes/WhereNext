@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { staticMapUrl } from "@/packages/providers/mapbox/client";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { LIMITS } from "@/lib/server/limits";
 import { fail } from "@/lib/server/with-route";
 
 /** Parse `?markers=lng,lat|lng,lat` into validated [lng,lat] pairs. */
@@ -13,7 +14,7 @@ function parseMarkers(raw: string): Array<[number, number]> {
 
 export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
-    await requireTripMember((await params).tripId);
+    await requireTripMember((await params).tripId, { limit: LIMITS.provider });
     if (!process.env.MAPBOX_ACCESS_TOKEN) return NextResponse.json({ error: "Map imagery is not configured" }, { status: 503 });
     const search = new URL(request.url).searchParams;
     const markers = parseMarkers(search.get("markers") ?? "");

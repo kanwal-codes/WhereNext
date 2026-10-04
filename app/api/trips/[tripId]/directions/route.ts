@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { LIMITS } from "@/lib/server/limits";
 import { fail } from "@/lib/server/with-route";
 import { route } from "@/packages/providers/mapbox/client";
 import { cached } from "@/lib/server/ttl-cache";
@@ -10,7 +11,7 @@ const inputSchema = z.object({ origin: coordinate, destination: coordinate, prof
 
 export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
-    await requireTripMember((await params).tripId);
+    await requireTripMember((await params).tripId, { limit: LIMITS.provider });
     if (!process.env.MAPBOX_ACCESS_TOKEN) return NextResponse.json({ error: "Directions are not configured" }, { status: 503 });
     const input = inputSchema.parse(await request.json());
     const key = `directions:${JSON.stringify(input)}`;

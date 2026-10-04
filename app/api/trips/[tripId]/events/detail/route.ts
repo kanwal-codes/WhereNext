@@ -5,6 +5,7 @@ import { eventDetail as ticketmasterDetail, eventDetailBySearch, ticketmasterIdF
 import { research } from "@/packages/providers/tavily/client";
 import { generateStructured } from "@/packages/ai/model-policy";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { LIMITS } from "@/lib/server/limits";
 import { fail } from "@/lib/server/with-route";
 import { cached } from "@/lib/server/ttl-cache";
 import { ticketSellerLabel } from "@/lib/ticket-provider";
@@ -125,7 +126,7 @@ async function enrich(
 export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
-    await requireTripMember(tripId);
+    await requireTripMember(tripId, { limit: LIMITS.provider });
     const q = new URL(request.url).searchParams;
     const name = (q.get("name") ?? "").trim();
     const url = (q.get("url") ?? "").trim();

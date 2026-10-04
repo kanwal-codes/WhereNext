@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { LIMITS } from "@/lib/server/limits";
 import { fail } from "@/lib/server/with-route";
 import { transit } from "@/packages/providers/google-places/transit";
 import { cached } from "@/lib/server/ttl-cache";
@@ -12,7 +13,7 @@ const inputSchema = z
 
 export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
-    await requireTripMember((await params).tripId);
+    await requireTripMember((await params).tripId, { limit: LIMITS.provider });
     if (!process.env.GOOGLE_MAPS_API_KEY) return NextResponse.json({ error: "Transit search is not configured" }, { status: 503 });
     const input = inputSchema.parse(await request.json());
     const key = `transit:${JSON.stringify(input)}`;
