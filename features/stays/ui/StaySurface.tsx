@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { SwapView } from "@/components/SwapView";
 import { StayResultCard } from "@/features/stays/ui/StayResultCard";
 import { BedDouble, ChevronDown, Loader2, MapPin, Minus, Plus, SlidersHorizontal, Star, X } from "lucide-react";
@@ -20,9 +19,6 @@ import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache"
 import { cn } from "@/lib/utils";
 import { fmtDay } from "@/lib/trip-dates";
 import { cachedGet } from "@/lib/client/cached-get";
-import { motionTokens } from "@/components/motion-primitives";
-import { LockedStayCard } from "@/features/stays/ui/LockedStayCard";
-import { useRemoveTripItem } from "@/features/bookings/application/useRemoveTripItem";
 
 type Result = {
   location: string;
@@ -58,8 +54,6 @@ function Stepper({ label, value, set, min, max }: { label: string; value: number
 export function StaySurface({ tripId, destination }: { tripId: string; destination: string }) {
   const { data } = useTripData();
   const lockedStay = readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
-  const { removeDecision } = useRemoveTripItem(tripId);
-  const reduceMotion = useReducedMotion();
   const router = useRouter();
   const trip = data?.trip as { start_date?: string | null; end_date?: string | null; travelers?: number | null } | undefined;
 
@@ -174,15 +168,6 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
 
   return (
     <div className="space-y-5">
-      <AnimatePresence initial={false}>
-        {lockedStay && (
-          // Collapses on remove: the height and the gap `space-y` puts under it both close, so nothing jumps when this unmounts.
-          <motion.div key="locked-stay" animate={{ opacity: 1, height: "auto", marginBottom: "1.25rem" }} exit={{ opacity: 0, height: 0, marginBottom: 0, overflow: "hidden" }} transition={reduceMotion ? { duration: 0 } : motionTokens.drawer}>
-            <LockedStayCard stay={lockedStay} href={detailHref(lockedStay.hotelId)} onRemove={() => removeDecision("stay", lockedStay.hotelName)} />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <AiSearchBar
         tripId={tripId}
         scope="stays"

@@ -55,7 +55,7 @@ export function PageHeader({
             </Reveal>
             {description && (
               <Reveal delay={0.14} y={10}>
-                <p className="mt-3 max-w-xl text-base leading-relaxed text-ink-soft text-pretty">
+                <p className="mt-3 max-w-2xl text-base leading-relaxed text-ink-soft text-pretty">
                   {description}
                 </p>
               </Reveal>
