@@ -6,6 +6,7 @@ import { useState } from "react";
 import { ChevronRight, MapPin, Paperclip, Plus, UtensilsCrossed } from "lucide-react";
 import { Stagger, StaggerItem } from "@/components/motion-primitives";
 import { KIND_META } from "@/components/overview/ReservationSheet";
+import { RemoveControl } from "@/components/overview/RemoveControl";
 import { TripArt, hashString } from "@/components/trips/TripArt";
 import { CATEGORY_LABEL, clockLabel, countByCategory, filterByCategory, groupByDate, type Category, type TimelineItem } from "@/lib/trip-reservations";
 import { cn } from "@/lib/utils";
@@ -41,7 +42,7 @@ function Thumb({ item }: { item: TimelineItem }) {
   );
 }
 
-function Row({ item, onOpenBooking, onEdit }: { item: TimelineItem; onOpenBooking: (id: string) => void; onEdit: (item: TimelineItem) => void }) {
+function Row({ item, onOpenBooking, onEdit, onRemove }: { item: TimelineItem; onOpenBooking: (id: string) => void; onEdit: (item: TimelineItem) => void; onRemove?: (item: TimelineItem) => Promise<boolean> }) {
   const n = nights(item);
   const dim = item.status === "cancelled" || item.status === "failed";
   const body = (
@@ -80,7 +81,7 @@ function Row({ item, onOpenBooking, onEdit }: { item: TimelineItem; onOpenBookin
   );
   const cls = "group flex w-full items-stretch gap-4 rounded-3xl border border-border/70 bg-card p-3.5 text-left shadow-soft transition-shadow hover:shadow-lift focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none";
   return (
-    <div className={cn(dim && "opacity-75")}>
+    <div className={cn("card-host relative", dim && "opacity-75")}>
       {item.href ? (
         <Link href={item.href} className={cls}>{body}</Link>
       ) : item.reservation ? (
@@ -90,6 +91,7 @@ function Row({ item, onOpenBooking, onEdit }: { item: TimelineItem; onOpenBookin
       ) : (
         <div className={cls}>{body}</div>
       )}
+      {item.removal && onRemove && <RemoveControl label={item.title} onConfirm={() => onRemove(item)} className="right-12 bottom-3.5" />}
       {item.href && item.bookingId && (
         <button type="button" onClick={() => onOpenBooking(item.bookingId!)} className="mt-1.5 ml-4 text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
           Booking details
@@ -107,6 +109,7 @@ export function ReservationsTimeline({
   onReserveTable,
   onOpenBooking,
   onEdit,
+  onRemove,
 }: {
   items: TimelineItem[];
   /** A featured "next up" card sits above, so this list is the rest. */
@@ -115,6 +118,7 @@ export function ReservationsTimeline({
   onReserveTable: () => void;
   onOpenBooking: (id: string) => void;
   onEdit: (item: TimelineItem) => void;
+  onRemove?: (item: TimelineItem) => Promise<boolean>;
 }) {
   const [filter, setFilter] = useState<Category | "all">("all");
   const counts = countByCategory(items);
@@ -168,7 +172,7 @@ export function ReservationsTimeline({
               <Stagger className="min-w-0 space-y-3">
                 {group.items.map((item) => (
                   <StaggerItem key={item.id}>
-                    <Row item={item} onOpenBooking={onOpenBooking} onEdit={onEdit} />
+                    <Row item={item} onOpenBooking={onOpenBooking} onEdit={onEdit} onRemove={onRemove} />
                   </StaggerItem>
                 ))}
               </Stagger>

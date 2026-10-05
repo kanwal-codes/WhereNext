@@ -1002,6 +1002,12 @@
   .turn:hover .turn-action, .turn:focus-within .turn-action { opacity: 1; }
 }
 
+/* A card's own quiet actions (remove): hidden until the card is under a mouse or has keyboard focus; always shown on touch, and while open. */
+@media (hover: hover) {
+  .card-action { opacity: 0; transition: opacity var(--duration-base) var(--ease-out); }
+  .card-host:hover .card-action, .card-host:focus-within .card-action, .card-action[data-armed] { opacity: 1; }
+}
+
 /* ---- Cinematic -----------------------------------------------------------------------------
  * The grammar that makes a screen read as a frame from a film.
  *

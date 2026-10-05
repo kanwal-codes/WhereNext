@@ -36,6 +36,11 @@ export type TimelineItem = {
   href: string | null;
   /** Files attached to the reservation (tickets, vouchers); 0 for rows that are not hand-entered. */
   fileCount: number;
+  /**
+   * What taking this row off the trip deletes: the hand-entered reservation, or the locked stay / flight choice.
+   * Null for anything a provider order backs: a confirmed booking is cancelled from its details, never just deleted.
+   */
+  removal: { type: "reservation" } | { type: "decision"; kind: "stay" | "flight" } | null;
 };
 
 export type FlightChoice = { from: string; to: string; airline: string; fare: string; stops: number | null; minutes: number | null; departAt: string | null; arriveAt: string | null };
@@ -119,6 +124,7 @@ export function buildTimeline(input: {
       bookingId: booking?.id ?? null,
       reservation: null,
       fileCount: 0,
+      removal: booking ? null : { type: "decision", kind: "stay" },
       href: `/trips/${tripId}/stay/${encodeURIComponent(stay.hotelId)}?checkin=${stay.checkin}&checkout=${stay.checkout}`,
     });
   }
@@ -142,6 +148,7 @@ export function buildTimeline(input: {
       bookingId: booking?.id ?? null,
       reservation: null,
       fileCount: 0,
+      removal: booking ? null : { type: "decision", kind: "flight" },
       href: null,
     });
   }
@@ -166,6 +173,7 @@ export function buildTimeline(input: {
       bookingId: booking.id,
       reservation: null,
       fileCount: 0,
+      removal: null,
       href: null,
     });
   }
@@ -188,6 +196,7 @@ export function buildTimeline(input: {
       bookingId: null,
       reservation: r,
       fileCount: r.attachments.length,
+      removal: { type: "reservation" },
       href: null,
     });
   }

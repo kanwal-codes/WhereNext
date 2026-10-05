@@ -23,6 +23,8 @@ import { RoamMark } from "@/features/roam/ui/RoamMark";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { resolveCurrency } from "@/lib/currency";
 import type { Booking } from "@/packages/contracts/booking";
+import { useRemoveTripItem } from "@/features/bookings/application/useRemoveTripItem";
+import type { TimelineItem } from "@/lib/trip-reservations";
 import { ExpensesPanel } from "@/features/expenses/ui/ExpensesPanel";
 
 /** Saved places that are somewhere to eat, by Google's place type ("restaurant", "cafe", "brunch_restaurant"...). */
@@ -88,6 +90,13 @@ export default function BookingsPage() {
     setEditing(item.reservation);
     setSheetOpen(true);
   };
+  const { removeDecision, removeReservation } = useRemoveTripItem(tripId);
+  const removeItem = async (item: TimelineItem): Promise<boolean> => {
+    const { removal, reservation } = item;
+    if (removal?.type === "reservation" && reservation) return removeReservation(reservation, (id) => setReservations((list) => (list ?? []).filter((r) => r.id !== id)));
+    if (removal?.type === "decision") return removeDecision(removal.kind, item.title);
+    return false;
+  };
   const confirmed = timeline.filter((i) => i.status === "confirmed").length;
   const done = essentialsDone(data?.essentials);
   const loading = bookings === null || reservations === null;
@@ -141,8 +150,8 @@ export default function BookingsPage() {
               </div>
             ) : (
               <div className="space-y-10">
-                {nextUp && <NextUpCard item={nextUp} onOpenBooking={setOpenBookingId} onEdit={editItem} />}
-                <ReservationsTimeline items={rest} hasNextUp={Boolean(nextUp)} onAdd={openAdd} onReserveTable={() => setTableOpen(true)} onOpenBooking={setOpenBookingId} onEdit={editItem} />
+                {nextUp && <NextUpCard item={nextUp} onOpenBooking={setOpenBookingId} onEdit={editItem} onRemove={removeItem} />}
+                <ReservationsTimeline items={rest} hasNextUp={Boolean(nextUp)} onAdd={openAdd} onReserveTable={() => setTableOpen(true)} onOpenBooking={setOpenBookingId} onEdit={editItem} onRemove={removeItem} />
               </div>
             )}
           </div>
