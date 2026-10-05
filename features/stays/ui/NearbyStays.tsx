@@ -123,14 +123,65 @@ export function NearbyStays({
     kind,
   })}`;
 
+  // Inside a stay: just recommendations. Three photo cards, nearest first, and the way to the rest. No filters.
+  if (mode === "preview") {
+    const shown = alternatives;
+    return (
+      <section className="border-t border-border/70 pt-8">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="font-display text-xl">Other places to stay</h2>
+          {!loading && matched.length > shown.length && (
+            <Link href={seeMoreHref} className="relative shrink-0 text-xs font-medium text-primary hover:underline after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']">See all {matched.length} <span aria-hidden="true">→</span></Link>
+          )}
+        </div>
+        {loading ? (
+          <div className="mt-4 grid grid-cols-3 gap-3"><Skeleton className="aspect-[4/5]" /><Skeleton className="aspect-[4/5]" /><Skeleton className="aspect-[4/5]" /></div>
+        ) : (
+          // A row of three on a laptop; a swipe row on a phone, with the next card peeking in.
+          <ul className="no-scrollbar -mx-5 mt-4 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0">
+            {shown.map(({ option, distance }) => {
+              const card = (
+                <>
+                  <span className="relative block aspect-[4/3] overflow-hidden rounded-2xl bg-muted">
+                    {option.thumbnail ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- provider image URL is arbitrary
+                      <img src={hotelPhotoSrc(option.thumbnail)} alt="" loading="lazy" className="size-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]" />
+                    ) : (
+                      <span className="grid size-full place-items-center"><BedDouble className="size-5 text-muted-foreground" /></span>
+                    )}
+                    {typeof option.rating === "number" && (
+                      <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-card/90 px-2 py-0.5 text-xs font-medium tabular-nums shadow-soft backdrop-blur"><Star className="size-3 fill-current" aria-hidden />{option.rating.toFixed(1)}</span>
+                    )}
+                  </span>
+                  <span className="mt-2.5 block truncate text-sm font-medium">{option.name}</span>
+                  <span className="mt-0.5 flex items-baseline justify-between gap-2 text-xs text-muted-foreground">
+                    <span><span className="font-semibold text-foreground tabular-nums">{formatMoney(option.nightlyAmount, option.currency || currency)}</span> night</span>
+                    {distance != null && <span className="shrink-0 tabular-nums">{distance < 1 ? `${Math.round(distance * 1000)} m` : `${distance.toFixed(1)} km`}</span>}
+                  </span>
+                </>
+              );
+              const cls = "group block w-full text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring";
+              return (
+                <li key={option.hotelId} className="w-[62%] shrink-0 snap-start sm:w-auto">
+                  {panel ? (
+                    <button type="button" className={cls} onClick={() => panel.openPanel({ kind: "stay", hotelId: option.hotelId, name: option.name, checkin, checkout })}>{card}</button>
+                  ) : (
+                    <a className={cls} href={`/trips/${tripId}/stay/${encodeURIComponent(option.hotelId)}?checkin=${checkin ?? ""}&checkout=${checkout ?? ""}`}>{card}</a>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+    );
+  }
+
   return (
     <section className="border-t border-border/70 pt-8">
       <div>
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="font-display text-xl">Other places to stay</h2>
-          {mode === "preview" && (
-            <Link href={seeMoreHref} className="relative shrink-0 text-xs font-medium text-primary hover:underline after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']">See more <span aria-hidden="true">→</span></Link>
-          )}
         </div>
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">A short list around this hotel, priced for your dates.</p>
       </div>
@@ -178,12 +229,6 @@ export function NearbyStays({
         </div>
       )}
       {mode === "full" && !loading && <div className="mt-4"><ShowMoreButton next={more.next} visible={more.visible} total={matched.length} onClick={more.showMore} /></div>}
-      {mode === "preview" && !loading && matched.length > alternatives.length && (
-        <Link href={seeMoreHref} className="relative mt-4 inline-block text-xs font-medium text-primary hover:underline after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']">
-          See all {matched.length} {kind === "All" ? "stays" : kind.toLowerCase()} <span aria-hidden="true">→</span>
-        </Link>
-      )}
-      <p className="mt-4 text-xs text-muted-foreground">Prices are an estimate for the selected dates and can change.</p>
     </section>
   );
 }
