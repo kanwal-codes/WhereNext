@@ -22,6 +22,7 @@ import { ticketSellerLabel } from "@/lib/ticket-provider";
 import { eventFallbackImage } from "@/lib/event-imagery";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { mutate } from "@/lib/client/mutation-queue";
+import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { notifyToast } from "@/lib/application/toast";
 import { extractEventDayIndex, extractEventTime } from "@/lib/application/event-schedule";
 
@@ -76,8 +77,10 @@ function AddEventButton({ tripId, title, rawDate, showTime, latitude, longitude 
   const existing = (data?.itinerary ?? []).find((i: { title?: string }) => i.title?.trim().toLowerCase() === title.trim().toLowerCase()) as { day_index?: number } | undefined;
   const alreadyAdded = Boolean(existing);
   const [busy, setBusy] = useState(false);
+  const { guest, openGate } = useGuest();
 
   async function add() {
+    if (guest) return openGate("add events to your itinerary");
     if (busy || alreadyAdded) return;
     setBusy(true);
     try {

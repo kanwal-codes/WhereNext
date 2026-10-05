@@ -53,6 +53,7 @@ import { BlurImage } from "@/components/motion-primitives";
 import { cn, safeHref } from "@/lib/utils";
 import { notifyToast } from "@/lib/application/toast";
 import { formatClockTime } from "@/lib/application/clock-time";
+import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { addStopsToItinerary, dayIndexFromLabel, itineraryTitle } from "@/features/conversation/application/addPlanToItinerary";
 import { categoryLabel, priceLabel } from "@/lib/places-ui";
 import { portableProxyPhotoUrl } from "../portable-photo-url";
@@ -692,6 +693,7 @@ function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPan
   const block = useMemo(() => ({ ...sourceBlock, days: sourceBlock.days.map((d, di) => ({ ...d, stops: orderedStops(d.stops, orders[di]) })) }), [sourceBlock, orders]);
   const [active, setActive] = useState(0);
   const [status, setStatus] = useState<"idle" | "adding" | "added">("idle");
+  const { guest, openGate } = useGuest();
   const multi = block.days.length > 1;
   const day = block.days[Math.min(active, block.days.length - 1)];
   const totalStops = block.days.reduce((n, d) => n + d.stops.length, 0);
@@ -701,6 +703,7 @@ function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPan
   const title = itineraryTitle(block.title, block.days.length) ?? (multi ? undefined : day.label);
 
   async function addAll() {
+    if (guest) return openGate("add a plan to your itinerary");
     if (status !== "idle") return;
     setStatus("adding");
     let failures = 0;
@@ -1103,6 +1106,7 @@ function StaysBlockView({ block, tripId, preview, onOpenStay, onOpenCollection, 
             <div className="flex flex-col gap-3">
               <SectionHeader
                 title={preview ? `Stays in ${where}` : undefined}
+                count={preview ? items.length : undefined}
                 onSeeAll={preview && items.length > MAX_CHAT_CARDS && onOpenCollection ? () => onOpenCollection(`All stays in ${where}`, { ...block, location: where, checkin: dates.checkin, checkout: dates.checkout, nights, items }) : undefined}
                 onMap={preview && onOpenPanel && pointsFromStays(items).length > 0 ? () => onOpenPanel({ kind: "map", title: `Stays in ${where}`, points: pointsFromStays(items), connect: false }) : undefined}
               />

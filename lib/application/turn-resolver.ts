@@ -71,6 +71,43 @@ export function routePracticalFacts(message: string, resolved: ResolvedTurn): Re
   };
 }
 
+// A second question is never the answer to a traveller who has just answered (or dodged) the first. Live-caught: "find
+// resorts in Tulum" was met with "what dates?", then "I'm not sure yet" and "flexible dates" each got the same question
+// again, and "just show me resorts" was the fourth turn: with five free messages, a guest never saw a card. Prompt
+// wording did not hold, so this is the code backstop (as with routePracticalFacts): after a question the traveller
+// could not or would not answer, Roam proceeds with sensible defaults (for stays, example dates, which the card labels).
+const LODGING_WORDS = /\b(?:resorts?|villas?|hotels?|hostels?|guest\s?houses?|apartments?|airbnbs?|bnbs?|accommodations?|lodging|places?\s+to\s+stay|somewhere\s+to\s+stay|where\s+to\s+stay)\b/i;
+const DECLINES = /\b(?:not\s+sure|don'?t\s+know|no\s+idea|idk|flexible|whenever|any\s?time|doesn'?t\s+matter|up\s+to\s+you|you\s+(?:choose|pick|decide)|just\s+show|skip|anything|whatever|no\s+preference|not\s+yet|undecided)\b/i;
+const ASKS_DATES = /\b(?:dates?|check-?\s?in|check-?\s?out|when\b)/i;
+
+/** Both are about the same missing fact: dates, or mostly the same words. */
+function sameQuestion(previous: string, next: string): boolean {
+  if (ASKS_DATES.test(previous) && ASKS_DATES.test(next)) return true;
+  const words = (t: string) => new Set(t.toLowerCase().match(/[a-z]{4,}/g) ?? []);
+  const a = words(previous);
+  const b = words(next);
+  if (a.size === 0 || b.size === 0) return false;
+  let shared = 0;
+  for (const w of b) if (a.has(w)) shared += 1;
+  return shared / b.size >= 0.6;
+}
+
+export function guardRepeatedClarify(message: string, history: Array<{ role: "user" | "assistant"; content: string }>, resolved: ResolvedTurn): ResolvedTurn {
+  if (!resolved.clarify || resolved.outOfScope) return resolved;
+  const previous = [...history].reverse().find((entry) => entry.role === "assistant")?.content.trim() ?? "";
+  if (!previous.endsWith("?")) return resolved;
+  const repeated = sameQuestion(previous, resolved.clarify.question);
+  const dodged = message.trim().length <= 80 && DECLINES.test(message);
+  if (!repeated && !dodged) return resolved;
+  // The traveller's own words and the recent conversation say what they were after.
+  const recent = [message, ...history.filter((entry) => entry.role === "user").slice(-4).map((entry) => entry.content)].join(" ");
+  const place = resolved.locationFocus?.trim();
+  const wantsStays = LODGING_WORDS.test(recent) || LODGING_WORDS.test(previous) || LODGING_WORDS.test(resolved.clarify.question);
+  const hasStays = resolved.toolPlan.some((call) => call.tool === "stays");
+  const toolPlan = wantsStays && place && !hasStays ? [...resolved.toolPlan, { tool: "stays" as const, location: place.slice(0, 200), checkin: null, checkout: null, hotelName: null }].slice(0, MAX_TOOL_CALLS) : resolved.toolPlan;
+  return { ...resolved, clarify: null, intent: wantsStays && place ? "stays" : resolved.intent, toolPlan };
+}
+
 // The model often sends "" or a stale/garbage value instead of truly omitting an
 // optional date. Coerce anything that isn't a clean YYYY-MM-DD to null (not undefined: this
 // field must stay in every OpenAI structured-output "required" array, which excludes any
@@ -220,7 +257,7 @@ Fields:
   ROUTING (follow exactly):
   * The traveller names a specific event/performer/team/match as the reason for the trip AND asks to plan around it ("I'm going to see X on <date>, plan me a trip", "plan the trip around the match") -> include ALL of: an events call (artist or category set, dateScoped true), capabilities:["itinerary"], and a search_places call for things to fill the other days. The named event anchors the plan; everything else is built around it.
   * intent discovery | nightlife | food | activities | history_culture  ->  you MUST include a search_places call for venues/activities WITHIN a place. BUT "which city / where should we go / which region" (choosing between destinations) -> research_web instead, no search_places.
-  * intent stays ("where should we stay", "hotels in X", "places to stay", "cost of a hotel", "rooms at <hotel>")  ->  you MUST include ONE stays call (location = the city/area). Never set clarify for stay dates.
+  * intent stays ("where should we stay", "hotels in X", "resorts in X", "villas / hostels / apartments / an Airbnb in X", "places to stay", "somewhere to stay", "cost of a hotel", "rooms at <hotel>")  ->  you MUST include ONE stays call (location = the city/area). Never set clarify for stay dates, and never wait for them: with none given, call stays without dates (the answer is labelled as example dates). "Just show me", "anything", "flexible" and "not sure yet" are all reasons to search now.
   * "how much to fly / flight cost / airfare / cheapest flight / flights to <far city>"  ->  intent transport, ONE flights call (origin = the trip's origin city, destination = the place asked about). Never set clarify for this - omit departureDate if no real date was given. (A daily LOCAL transit/transport spending question — "what's a daily transport budget", "how much for the metro per day" — is the "budget" capability above instead, not this: no flights call, no departure date.)
   * "how do I get / how to get from X to Y", "how far is X from Y", "can we walk from X to Y", "best way to X", "route for day N"  ->  when the traveller named ONE specific mode ("can we walk", "should we drive", "is there a direct bus"), give ONE directions call in that mode. Otherwise give TWO calls so the reply can show a real comparison: {"mode":"transit"} and {"mode":"driving"}; add a third {"mode":"walking"} call too only when the two places are plausibly walkable (same neighbourhood or a few blocks apart — not across the city or between different towns). Resolve "day N" to the itinerary's place names. Give from/to as specific place names with the city.
   * ANY weather question — including a vague one ("how's the weather", "will it be nice", "is it cold", "do I need an umbrella", "what to pack for the weather") -> intent weather. A weather question with no time named is about the TRIP; read its dates from the trip profile above.
@@ -232,7 +269,7 @@ Fields:
   * If the message contains a URL, add a research_web call with that URL as the query.
   * For multi-topic requests, preserve each distinct requested topic as its own tool call where useful. Cap the total plan at ${MAX_TOOL_CALLS} calls.
   * ONLY skip tools for greetings, thanks, or a question purely about the traveller's own saved trip data (intent trip_memory).
-- clarify: {"question":"...","chips":["...","..."]} ONLY when one missing fact (budget, group size, dates, or pace) would clearly change the answer, OR when the request is open-ended about what KIND of thing is wanted ("somewhere nice", "something fun", "a good place") and nothing in the conversation or trip narrows it: then ask what kind (for example food, views, nightlife, something quiet) with 3-4 chips instead of guessing one. Never to ask for flight travel dates. Otherwise null. At most one question.
+- clarify: {"question":"...","chips":["...","..."]} ONLY when one missing fact (budget, group size, dates, or pace) would clearly change the answer, OR when the request is open-ended about what KIND of thing is wanted ("somewhere nice", "something fun", "a good place") and nothing in the conversation or trip narrows it: then ask what kind (for example food, views, nightlife, something quiet) with 3-4 chips instead of guessing one. Never to ask for flight travel dates. NEVER clarify when your own previous message in the conversation was already a clarifying question: the traveller's reply is the answer, even when it is "not sure", "flexible", "anything" or "just show me" - take sensible defaults, plan the tools, and say what you assumed. Otherwise null. At most one question.
 - suggestedFollowups: 2 to 4 short next things the user might ask, each {"label":"...","prompt":"..."}. "prompt" is put verbatim into the chat input and sent AS the traveller's own next message — it must read exactly like something a traveller would type TO Roam, first-person ask, never a question addressed back AT the traveller ("What are the best nightclubs in Pune?", never "What kind of nightlife are you interested in?" or any phrasing containing "you"/"your" aimed at the reader). Mostly narrow the current topic (label "Clubs in Pune", prompt "What are the best nightclubs in Pune?"). When the current topic looks resolved, include the natural NEXT planning step (after places -> "Where should we stay?"; after stay -> "Plan day 1"; after a full plan -> "What should we pack?"). If something being discussed usually sells out or needs timed entry, add one like {"label":"Book <X> ahead","prompt":"Do we need to book <X> in advance?"}.
     * This breaks hardest when your OWN reply just asked the traveller a clarifying question (missing region, dates, budget, activities, pace) — the pull is to generate a followup that just echoes that same question back with a generic label, sending it as if the TRAVELLER were asking ROAM their own question. Live-caught failure: reply asked "where would you be traveling from, and is there a region you're drawn to?", then suggestedFollowups included {"label":"Pick a region","prompt":"What region or country are you thinking about for the weekend?"} — backwards. The safe shape for this case is the traveller asking ROAM to suggest options for that same gap — e.g., for that exact turn, {"label":"Suggest a region","prompt":"Can you suggest a few regions for a relaxing hiking weekend?"} and {"label":"Suggest activities","prompt":"What relaxing activities would you recommend for this trip?"} — grounded in whatever the conversation has actually established (destination, trip vibe, dates already known) rather than a generic template repeated turn after turn. Every label and prompt must read as fluent, natural English — no broken non-native constructions like "suggest me X" (say "suggest X", "suggest X for me", or "any X ideas?" instead).
 - proposedProfileUpdate: if the user states a DURABLE preference, put it as a partial preferences object; else null.
@@ -286,7 +323,7 @@ export async function resolveTurn(input: {
       const capabilities = !resolved.outOfScope && !resolved.capabilities.includes("budget") && BUDGET_PHRASING.test(input.message)
         ? [...resolved.capabilities, "budget" as const].slice(0, 4)
         : resolved.capabilities;
-      return { ...routePracticalFacts(input.message, { ...resolved, capabilities }), modelUsed };
+      return { ...guardRepeatedClarify(input.message, input.history, routePracticalFacts(input.message, { ...resolved, capabilities })), modelUsed };
     } catch (error) {
       if (input.signal?.aborted) throw error;
       if (attempt === 1) break;
