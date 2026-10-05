@@ -674,9 +674,6 @@ export function GroupChatSurface({
                     <button type="button" onClick={() => setInput(starter)} className="btn-chip h-9 px-4 text-sm">{starter}</button>
                   </StaggerItem>
                 ))}
-                <StaggerItem>
-                  <button type="button" onClick={() => setPollSheetOpen(true)} className="btn-chip h-9 px-4 text-sm">Start a poll</button>
-                </StaggerItem>
               </Stagger>
               {/* Nobody else has joined: the invite link, here, rather than a chat that talks to itself. */}
               {membersLoaded && members.length <= 1 && (
