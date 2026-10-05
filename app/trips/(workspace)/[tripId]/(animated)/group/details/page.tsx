@@ -10,9 +10,12 @@ import { InviteToGroup } from "@/features/group-chat/ui/InviteToGroup";
 import { notifyToast } from "@/lib/application/toast";
 import { PageHeader } from "@/components/PageHeader";
 import { memberInitials } from "@/lib/member-initials";
+import { memberTint } from "@/lib/member-tint";
+import { memberLabel } from "@/lib/client/use-trip-members";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-type Member = { userId: string; joinedAt: string; email: string | null; isYou: boolean };
+type Member = { userId: string; role?: string; joinedAt: string; email: string | null; name?: string | null; isYou: boolean };
 
 async function extractError(response: Response, fallback: string): Promise<string> {
   const body = await response.json().catch(() => ({}));
@@ -21,6 +24,8 @@ async function extractError(response: Response, fallback: string): Promise<strin
 
 export default function GroupDetailsPage() {
   const { tripId } = useTripData();
+  const router = useRouter();
+  const [confirmLeave, setConfirmLeave] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
@@ -46,8 +51,9 @@ export default function GroupDetailsPage() {
     try {
       const response = await fetch(`/api/trips/${tripId}/members/${userId}`, { method: "DELETE" });
       if (!response.ok) throw new Error(await extractError(response, "Couldn’t leave the trip."));
-      await refresh();
       notifyToast("You left the trip.", "success");
+      // You are no longer a member, so there is nothing left to show here.
+      router.push("/trips");
     } catch (error) {
       notifyToast(error instanceof Error ? error.message : "Couldn’t leave the trip.", "error");
     } finally {
@@ -117,26 +123,34 @@ export default function GroupDetailsPage() {
           </p>
           <ul className="space-y-2">
             {members.map((m) => {
-              const name = m.isYou ? "You" : (m.email?.split("@")[0] ?? "Someone");
+              const label = memberLabel(m);
+              const name = m.isYou ? "You" : label;
               const busy = busyUserId === m.userId;
               return (
                 <li key={m.userId} className="flex items-center gap-3 rounded-2xl border border-border bg-card px-3 py-2.5">
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-semibold text-primary">{memberInitials(name)}</span>
+                  <span aria-hidden style={memberTint(label)} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-semibold">{memberInitials(label)}</span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{name}</p>
-                    <p className="truncate text-2xs text-muted-foreground">{m.email ?? "—"}</p>
+                    <p className="flex items-center gap-2 text-sm font-medium">
+                      <span className="truncate">{name}</span>
+                      {m.role === "owner" && <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-2xs font-medium text-ink-soft">Owner</span>}
+                    </p>
+                    <p className="truncate text-2xs text-muted-foreground">{m.email ?? "No email"}</p>
                   </div>
-                  {m.isYou && (
+                  {m.isYou && (confirmLeave ? (
+                    // Leaving cannot be taken back, so it asks once: the same "Leave? / Stay" beat the bookings use for removal.
+                    <span className="flex shrink-0 items-center gap-1.5 text-xs">
+                      <button type="button" onClick={() => void leaveGroup(m.userId)} disabled={busy} className="h-8 rounded-full bg-destructive px-3 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40">{busy ? "Leaving…" : "Leave"}</button>
+                      <button type="button" onClick={() => setConfirmLeave(false)} disabled={busy} className="h-8 rounded-full border border-border px-3 font-medium text-muted-foreground transition-colors hover:text-foreground">Stay</button>
+                    </span>
+                  ) : (
                     <button
                       type="button"
-                      onClick={() => void leaveGroup(m.userId)}
-                      disabled={busy}
-                      aria-label="Leave trip"
-                      className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
+                      onClick={() => setConfirmLeave(true)}
+                      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                     >
-                      <LogOut className="h-3.5 w-3.5" />
+                      <LogOut className="h-3.5 w-3.5" aria-hidden /> Leave
                     </button>
-                  )}
+                  ))}
                 </li>
               );
             })}

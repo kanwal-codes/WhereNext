@@ -1,11 +1,8 @@
+import { GROUP_HISTORY_LIMIT } from "@/features/group-chat/domain/message";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Trip } from "@/features/trip/domain/trip";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
 import { createGroupChatRepository } from "@/features/group-chat/infrastructure/groupChatRepository";
-
-// Same ceiling as the group-chat route's own HISTORY_LIMIT (app/api/trips/[tripId]/group-chat/route.ts)
-// — kept in sync by hand since one lives in the application layer and the other in a route handler.
-const GROUP_CHAT_HISTORY_LIMIT = 200;
 
 export type TripWorkspaceData = { trip: Trip; preferences: Record<string, unknown>; decisions: Array<Record<string, unknown>>; itinerary: Array<Record<string, unknown>>; savedPlaces: Array<Record<string, unknown>>; rejectedPlaceIds: string[]; conversation: Array<Record<string, unknown>>; groupChat: Array<Record<string, unknown>>; essentials: string[] };
 
@@ -15,7 +12,7 @@ export async function loadTripWorkspace(supabase: SupabaseClient, tripId: string
   // in hand — matching the personal conversation thread's own treatment above. Without this, the
   // group chat had no equivalent to `conversation`, so every mount (including crossing back from
   // a different route group, like /group/details) started from an empty list and a visible fetch.
-  const groupChat = createGroupChatRepository(supabase).list(tripId, userId, { limit: GROUP_CHAT_HISTORY_LIMIT });
+  const groupChat = createGroupChatRepository(supabase).list(tripId, userId, { limit: GROUP_HISTORY_LIMIT });
   // Nothing below depends on the trip row, so it joins the same fan-out (8 wide, one round-trip).
   const [trip, preferences, decisions, itinerary, savedPlaces, rejectedPlaces, essentials, conversationData, groupChatData] = await Promise.all([
     createTripRepository(supabase).get(tripId),

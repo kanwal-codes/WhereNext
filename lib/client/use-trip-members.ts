@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
 
-export type TripMember = { userId: string; email: string | null; isYou: boolean };
+export type TripMember = { userId: string; email: string | null; /** Their name, else the start of their email; null when it could not be looked up. */ name?: string | null; role?: string; isYou: boolean };
+
+/** What to call a member on screen: the name they gave, else the start of their email, else "Someone". */
+export function memberLabel(member: Pick<TripMember, "name" | "email"> | undefined): string {
+  return member?.name || member?.email?.split("@")[0] || "Someone";
+}
 
 // Live-caught: the Group tab's header badge (GroupMembersBadge) and its message list
 // (GroupChatSurface) are always mounted together and both independently called

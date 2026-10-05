@@ -34,6 +34,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ tripId: st
       role: m.role,
       joinedAt: m.created_at,
       email: identities.get(m.user_id)?.email ?? null,
+      name: identities.get(m.user_id)?.name ?? null,
       isYou: m.user_id === user.id,
     }));
     return NextResponse.json({ members });
