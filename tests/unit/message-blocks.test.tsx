@@ -320,6 +320,15 @@ describe("MessageBlocks", () => {
     expect(html).toMatch(/Stays in Madrid<span[^>]*>3<\/span>/);
   });
 
+  it("stays block: \"See all\" sits at the right edge of the Sort row, not in the header", () => {
+    const hotel = (n: number) => ({ hotelId: `g:tok${n}`, name: `Hotel ${n}`, nightlyPrice: "93", totalPrice: "279", currency: "CAD", rating: 8 + n / 10 });
+    const block: AssistantBlock = { type: "stays", retrievedAt: "t", location: "Madrid", checkin: "2026-11-07", checkout: "2026-11-15", nights: 8, dateNote: "x", items: [1, 2, 3, 4, 5, 6].map(hotel) };
+    const html = renderToStaticMarkup(<MessageBlocks blocks={[block]} {...handlers} onOpenCollection={vi.fn()} />);
+    expect(html.match(/aria-label="See all/g)).toHaveLength(1);
+    expect(html.indexOf("Sort by")).toBeGreaterThan(-1);
+    expect(html.indexOf('aria-label="See all')).toBeGreaterThan(html.indexOf("Sort by"));
+  });
+
   it("stays block: when the days are a guess the full search opens straight away", () => {
     const hotel = { hotelId: "g:tok1", name: "Hotel Blue", nightlyPrice: "93", totalPrice: "279", currency: "CAD" };
     const html = render([{ type: "stays", retrievedAt: "t", location: "Zagreb, Croatia", checkin: "2026-11-15", checkout: "2026-11-18", nights: 3, adults: 3, dateNote: "Example dates 2026-11-15 → 2026-11-18 — set your real dates", items: [hotel] }]);

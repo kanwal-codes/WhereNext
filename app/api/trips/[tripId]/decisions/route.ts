@@ -41,3 +41,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     return tripAuthResponse(error) ?? fail(error, "Decision could not be saved");
   }
 }
+
+/** Take back a locked stay or flight. Decisions only ever append and the newest of a kind wins, so removing means clearing every row of that kind. */
+export async function DELETE(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+  try {
+    const { tripId } = await params;
+    const { supabase } = await requireTripMember(tripId, { role: "editor" });
+    const what = new URL(request.url).searchParams.get("kind");
+    if (what !== "stay" && what !== "flight") return NextResponse.json({ error: "Only a stay or a flight can be removed" }, { status: 400 });
+    const query = supabase.from("trip_decisions").delete().eq("trip_id", tripId);
+    // The flight choice is a `transport` decision whose mode is "flight"; other transport decisions (train, car) stay.
+    const result = await (what === "stay" ? query.eq("kind", "stay") : query.eq("kind", "transport").eq("value->>mode", "flight"));
+    if (result.error) throw result.error;
+    invalidateWorkspace(tripId);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return tripAuthResponse(error) ?? fail(error, "Couldn’t remove that");
+  }
+}

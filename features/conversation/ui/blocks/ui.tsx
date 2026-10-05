@@ -93,6 +93,24 @@ export const MapButton = ({ onClick, children = "Map", className }: { onClick: (
 );
 
 /** Section heading for a group of cards, with an optional "Map" and "See all". */
+/** "See all →": the way into the full list a card only previews. */
+export function SeeAllButton({ onClick, label = "See all results" }: { onClick: () => void; label?: string }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onClick();
+      }}
+      className={textAction}
+    >
+      See all <ArrowRight className="size-3.5" aria-hidden />
+    </button>
+  );
+}
+
 export function SectionHeader({ title, count, onSeeAll, onMap }: { title?: string; /** How many are in the row: a narrow column shows one card and a sliver of the next, so say how many there are. */ count?: number; onSeeAll?: () => void; onMap?: () => void }) {
   if (!title && !onSeeAll && !onMap) return null;
   return (
@@ -105,20 +123,7 @@ export function SectionHeader({ title, count, onSeeAll, onMap }: { title?: strin
       ) : <span />}
       <div className="flex shrink-0 items-center gap-3">
         {onMap && <MapButton onClick={onMap} />}
-        {onSeeAll && (
-          <button
-            type="button"
-            aria-label={title ? `See all ${title}` : "See all results"}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onSeeAll();
-            }}
-            className={textAction}
-          >
-            See all <ArrowRight className="size-3.5" aria-hidden />
-          </button>
-        )}
+        {onSeeAll && <SeeAllButton onClick={onSeeAll} label={title ? `See all ${title}` : "See all results"} />}
       </div>
     </div>
   );
@@ -265,13 +270,15 @@ export const DetailsButton = ({ onClick, children = "Details", label, className 
 );
 
 /** Card photo: 16:10, resolves out of a blur, and falls back to the kind's own stand-in if it is missing or fails to load. */
-export function CardMedia({ src, alt, fallback }: { src?: string | null; alt: string; fallback: ReactNode }) {
+/** `row`: on a phone the photo is the left block of a horizontal card (it fills the card's height) instead of a banner on top. */
+export const MEDIA_ROW = "max-sm:aspect-auto max-sm:h-full max-sm:min-h-[7.5rem] max-sm:rounded-l-2xl max-sm:rounded-tr-none";
+export function CardMedia({ src, alt, fallback, row = false }: { src?: string | null; alt: string; fallback: ReactNode; row?: boolean }) {
   const [failed, setFailed] = useState(false);
   if (!src || failed) return <>{fallback}</>;
   // The tinted well shows while the photo is on its way (photos come through our proxy and can take a second);
   // without it the top of every card was blank white until the picture faded in.
   return (
-    <div className="aspect-[16/10] w-full overflow-hidden rounded-t-2xl bg-muted">
+    <div className={cn("aspect-[16/10] w-full overflow-hidden rounded-t-2xl bg-muted", row && MEDIA_ROW)}>
       <BlurImage src={src} alt={alt} width={416} height={260} onError={() => setFailed(true)} className="size-full object-cover" />
     </div>
   );
@@ -282,7 +289,7 @@ export function CardMedia({ src, alt, fallback }: { src?: string | null; alt: st
  * photo · title · one meta line · optional key fact · badges · extra · actions pinned to the foot.
  * A card fills the slots its data has; the order and spacing never change between kinds.
  */
-export function EntityCard({ label, onOpen, href, className, media, glyph: Glyph, title, meta, fact, badges, extra, actions, alone = false, compact = false }: {
+export function EntityCard({ label, onOpen, href, className, media, glyph: Glyph, title, meta, fact, badges, extra, actions, alone = false, compact = false, phoneRow = false }: {
   label: string;
   onOpen?: () => void;
   /** A real destination for the whole-card click, so it behaves as a link (new tab, copy address). */
@@ -302,13 +309,15 @@ export function EntityCard({ label, onOpen, href, className, media, glyph: Glyph
   alone?: boolean;
   /** The narrow lane version (a ~200px card in a side-panel rail): photo, title and one meta line, nothing else. Same surface, same hover. */
   compact?: boolean;
+  /** In a long list on a phone: a horizontal card (photo left, details right), so a screen shows several. `true`: no button, the whole card opens; `"actions"`: the card's actions stay under the details. */
+  phoneRow?: boolean | "actions";
 }) {
   return (
-    <article data-tappable={onOpen ? "" : undefined} className={cn(surface, "card-lift group relative flex h-full flex-col", className)}>
+    <article data-tappable={onOpen ? "" : undefined} className={cn(surface, "card-lift group relative flex h-full flex-col", phoneRow && "max-sm:flex-row", className)}>
       {onOpen && <CardOpenOverlay label={label} onOpen={onOpen} href={href} />}
       {/* The photo is part of the tap target: it sits above the overlay in paint order, so it hands every touch down to it. */}
-      {media && <div className="pointer-events-none">{media}</div>}
-      <div className={cn("flex flex-1 flex-col", compact ? "gap-1 p-3" : "gap-2 p-4")}>
+      {media && <div className={cn("pointer-events-none", phoneRow && "max-sm:w-[7.75rem] max-sm:shrink-0")}>{media}</div>}
+      <div className={cn("flex min-w-0 flex-1 flex-col", compact ? "gap-1 p-3" : "gap-2 p-4", phoneRow && "max-sm:justify-center max-sm:gap-1 max-sm:p-3")}>
         {(() => {
           const tile = !media && Glyph && (
             <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-coral-soft text-coral-ink" aria-hidden>
@@ -318,8 +327,8 @@ export function EntityCard({ label, onOpen, href, className, media, glyph: Glyph
           // Two title lines and one meta line are always reserved in a row of cards, so the figure below starts at the same height on every card.
           const heading = (
             <>
-              <h4 className={cn(compact ? "font-display text-sm font-semibold leading-snug tracking-[-0.01em]" : type.title, "line-clamp-2", !alone && !compact && "min-h-[2lh]")}>{title}</h4>
-              {meta && <div className={cn("text-xs leading-snug", !alone && !compact && "min-h-[1lh]")}><Meta items={meta} /></div>}
+              <h4 className={cn(compact ? "font-display text-sm font-semibold leading-snug tracking-[-0.01em]" : type.title, "line-clamp-2", !alone && !compact && "min-h-[2lh]", phoneRow && "max-sm:min-h-0")}>{title}</h4>
+              {meta && <div className={cn("text-xs leading-snug", !alone && !compact && "min-h-[1lh]", phoneRow && "max-sm:min-h-0")}><Meta items={meta} /></div>}
             </>
           );
           return alone && tile ? (
@@ -337,7 +346,7 @@ export function EntityCard({ label, onOpen, href, className, media, glyph: Glyph
         {!compact && fact}
         {!compact && badges && <div className="flex flex-wrap gap-1.5">{badges}</div>}
         {!compact && extra}
-        {!compact && actions && <div className="entity-actions relative z-10 mt-auto flex flex-wrap items-center gap-x-2 gap-y-1.5 pt-2">{actions}</div>}
+        {!compact && actions && <div className={cn("entity-actions relative z-10 mt-auto flex flex-wrap items-center gap-x-2 gap-y-1.5 pt-2", phoneRow === true && "max-sm:hidden", phoneRow === "actions" && "max-sm:flex-nowrap max-sm:pt-0")}>{actions}</div>}
       </div>
     </article>
   );

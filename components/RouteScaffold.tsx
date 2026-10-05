@@ -28,7 +28,7 @@ export function RouteScaffold({
         switcher={tabs}
       />
       <Reveal delay={0.08}>
-        <div className="mt-8">{children}</div>
+        <div className="mt-6 sm:mt-8">{children}</div>
       </Reveal>
     </div>
   );

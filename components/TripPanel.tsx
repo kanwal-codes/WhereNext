@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link, { useLinkStatus } from "next/link";
 import { SendButton } from "@/components/ComposerButtons";
 import { usePathname } from "next/navigation";
@@ -177,6 +177,18 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   const scrollRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const scrollMem = useRef(new Map<string, number>());
+  // How tall the floating ask box (and the answers above it) is right now, so the panel's content can scroll clear of it.
+  const [composerHeight, setComposerHeight] = useState(0);
+  const composerWatch = useRef<ResizeObserver | null>(null);
+  const composerBox = useCallback((el: HTMLDivElement | null) => {
+    composerWatch.current?.disconnect();
+    composerWatch.current = null;
+    if (!el) { setComposerHeight(0); return; }
+    const measure = () => setComposerHeight(Math.ceil(el.getBoundingClientRect().height));
+    measure();
+    composerWatch.current = new ResizeObserver(measure);
+    composerWatch.current.observe(el);
+  }, []);
 
   const panel = ctx?.panel ?? null;
   const closePanel = ctx?.closePanel;
@@ -423,10 +435,13 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
     </header>
   );
 
+  // The ask box floats over the bottom of the panel (a soft fade behind it, no rule), like the main chat's message box. The panel's own
+  // content gets bottom padding as tall as it is, measured, so the last of it can always be scrolled clear.
   const composer = layout === "drawer" && panel && (
-    <>
+    <div ref={composerBox} className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-surface from-60% to-transparent px-3 pt-8 pb-3">
+    <div className="pointer-events-auto flex flex-col gap-2">
       {chat.filter((m) => m !== verdictMsg && !(m.role === "user" && m.content === COMPARE_VERDICT_PROMPT)).length > 0 && (
-        <div className="max-h-[40%] shrink-0 space-y-3 overscroll-contain overflow-y-auto scrollbar-slim border-t border-border px-4 py-3">
+        <div className="max-h-[40dvh] shrink-0 space-y-3 overscroll-contain overflow-y-auto scrollbar-slim rounded-2xl border border-border bg-card px-4 py-3 shadow-lift">
           {chat.map((m, i) => {
             // The auto-verdict prompt is never something the traveller typed — show its answer, not the prompt.
             if (m.role === "user" && m.content === COMPARE_VERDICT_PROMPT) return null;
@@ -460,10 +475,10 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
           e.preventDefault();
           void ask(input);
         }}
-        className="shrink-0 border-t border-border p-3"
+        className="shrink-0"
       >
         {/* The same pill as the main chat's message box, so asking about a card feels like asking Roam. */}
-        <div className="flex items-center gap-1 rounded-full border border-input bg-card py-1.5 pl-4 pr-1.5 shadow-soft transition-[border-color,box-shadow] duration-200 focus-within:border-ink/30 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_6%,transparent),var(--shadow-soft)]">
+        <div className="flex items-center gap-1 rounded-full border border-input bg-card py-1.5 pl-4 pr-1.5 shadow-lift transition-[border-color,box-shadow] duration-200 focus-within:border-ink/30 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_6%,transparent),var(--shadow-lift)]">
           <input
             aria-label="Ask about this item"
             name="panel-question"
@@ -475,7 +490,8 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
           <SendButton canSend={!sending && Boolean(input.trim())} />
         </div>
       </form>
-    </>
+    </div>
+    </div>
   );
 
   // Chat route: render inline in its own column — no drawer chrome, no composer (the main chat serves).
@@ -517,8 +533,10 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
         ariaLabel={shown ? panelTitle(shown) : undefined}
       >
         {header}
-        <div ref={scrollRef} className="min-h-0 flex-1 overscroll-contain overflow-y-auto scrollbar-slim">{animatedBody}</div>
-        {composer}
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          <div ref={scrollRef} style={composer ? { paddingBottom: composerHeight } : undefined} className="min-h-0 flex-1 overscroll-contain overflow-y-auto scrollbar-slim">{animatedBody}</div>
+          {composer}
+        </div>
       </Sheet>
     </>
   );

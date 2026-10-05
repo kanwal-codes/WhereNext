@@ -1,11 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SwapView } from "@/components/SwapView";
 import { StayResultCard } from "@/features/stays/ui/StayResultCard";
-import { ArrowUpRight, BedDouble, Check, ChevronDown, Loader2, MapPin, Minus, Plus, SlidersHorizontal, Star, X } from "lucide-react";
+import { BedDouble, ChevronDown, Loader2, MapPin, Minus, Plus, SlidersHorizontal, Star, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { AiSearchBar } from "@/components/AiSearchBar";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
@@ -14,13 +13,12 @@ import { readStayDecision, type StayFacets, type StayOption } from "@/packages/c
 import { SkeletonCards } from "@/components/Skeleton";
 import { EmptyState } from "@/components/EmptyState";
 import { formatMoney } from "@/lib/currency";
-import { useInfiniteReveal } from "@/lib/use-infinite-reveal";
+import { useShowMore } from "@/lib/use-show-more";
+import { ShowMoreButton } from "@/components/ShowMoreButton";
 import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache";
 import { cn } from "@/lib/utils";
 import { fmtDay } from "@/lib/trip-dates";
 import { cachedGet } from "@/lib/client/cached-get";
-import { BlurImage } from "@/components/motion-primitives";
-import { MediaFallback } from "@/features/conversation/ui/blocks/ui";
 
 type Result = {
   location: string;
@@ -53,13 +51,6 @@ function Stepper({ label, value, set, min, max }: { label: string; value: number
   );
 }
 
-/** A hotel photo that falls back to the same soft stand-in as every other card when it is missing or fails to load (alt text in display type is not a fallback). */
-function StayPhoto({ src, alt, className }: { src?: string | null; alt: string; className?: string }) {
-  const [failed, setFailed] = useState(false);
-  if (!src || failed) return <MediaFallback icon={BedDouble} className={className} />;
-  return <BlurImage src={src} alt={alt} onError={() => setFailed(true)} className={className} />;
-}
-
 export function StaySurface({ tripId, destination }: { tripId: string; destination: string }) {
   const { data } = useTripData();
   const lockedStay = readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
@@ -70,6 +61,9 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   const [checkout, setCheckout] = useState(lockedStay?.checkout ?? trip?.end_date ?? "");
   const [adults, setAdults] = useState(Math.max(1, Math.min(trip?.travelers ?? 2, 24)));
   const [rooms, setRooms] = useState(1);
+  const [barOpen, setBarOpen] = useState(false);
+  const nightsCount = checkin && checkout ? Math.round((Date.parse(`${checkout}T00:00:00`) - Date.parse(`${checkin}T00:00:00`)) / 864e5) : 0;
+  const nightsLabel = nightsCount > 0 ? `${nightsCount} night${nightsCount === 1 ? "" : "s"}` : "";
   const [stars, setStars] = useState<number[]>([]);
   const [boards, setBoards] = useState<string[]>([]);
   const [propertyTypes, setPropertyTypes] = useState<string[]>([]);
@@ -141,7 +135,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
     void search();
   }, [search]);
 
-  const { visible, sentinel, more } = useInfiniteReveal(result?.options.length ?? 0, 6, result);
+  const { visible, remaining, next, showMore, first } = useShowMore(result?.options.length ?? 0, result);
 
   function applyDirective(d: import("@/lib/application/ai-search").AiSearchDirective) {
     if (d.location !== undefined) setNear(d.location);
@@ -176,37 +170,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   const activeFilters = stars.length + boards.length + propertyTypes.length + (refundable ? 1 : 0) + (priceMax ? 1 : 0);
 
   return (
-    <div className="space-y-5">
-      {lockedStay && (
-        <Link
-          href={detailHref(lockedStay.hotelId)}
-          className="flex gap-4 rounded-2xl border border-leaf/30 bg-leaf-soft/40 p-4 transition-colors hover:bg-leaf-soft/60"
-        >
-          <StayPhoto src={lockedStay.thumbnail} alt={lockedStay.hotelName} className="h-24 w-24 shrink-0 rounded-xl object-cover" />
-          <div className="min-w-0 flex-1">
-            <p className="eyebrow inline-flex items-center gap-1 text-leaf">
-              <Check className="h-3 w-3" /> Your stay
-            </p>
-            <p className="mt-1 truncate font-display text-lg">{lockedStay.hotelName}</p>
-            <p className="truncate text-sm text-ink-soft">{lockedStay.roomName}{lockedStay.board ? ` · ${lockedStay.board}` : ""}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {fmtDay(lockedStay.checkin)} → {fmtDay(lockedStay.checkout)} · {lockedStay.nights} night{lockedStay.nights === 1 ? "" : "s"} ·{" "}
-              <span className="font-medium text-foreground tabular-nums">{formatMoney(lockedStay.totalAmount, lockedStay.currency)}</span> total
-            </p>
-          </div>
-          <span className="hidden shrink-0 self-center text-xs font-medium text-primary sm:inline-flex sm:items-center sm:gap-1">
-            Change <ArrowUpRight className="h-3 w-3" />
-          </span>
-        </Link>
-      )}
-
-      <AiSearchBar
-        tripId={tripId}
-        scope="stays"
-        placeholder={`Ask — “near ${destination ? destination.split(",")[0] : "the old town"} station, under 250 a night, free cancellation”`}
-        onDirective={applyDirective}
-      />
-
+    <div className="flex min-h-[calc(100dvh-13rem)] flex-col gap-5">
       {near.trim() && (
         <p className="flex items-center gap-2 text-sm">
           <MapPin className="h-3.5 w-3.5 shrink-0 text-coral" />
@@ -219,7 +183,26 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
 
       {/* The booking bar: four cells divided by hairlines (the gap shows the border colour through), then filters and sort. */}
       <div className="rounded-3xl border border-border bg-card shadow-soft">
-        <div className="grid gap-px overflow-hidden rounded-t-3xl bg-border grid-cols-2 lg:grid-cols-4">
+        {/* On a phone the four fields fold into one line (dates, guests, rooms) that opens them: the list starts a screen sooner. */}
+        <button
+          type="button"
+          onClick={() => setBarOpen((v) => !v)}
+          aria-expanded={barOpen}
+          className="flex w-full items-center gap-3 px-4 py-3 text-left sm:hidden"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium tabular-nums">
+              {checkin && checkout ? `${fmtDay(checkin)} – ${fmtDay(checkout)}` : "Choose your dates"}
+            </span>
+            <span className="block truncate text-xs text-muted-foreground">
+              {nightsLabel ? `${nightsLabel} · ` : ""}{adults} guest{adults === 1 ? "" : "s"} · {rooms} room{rooms === 1 ? "" : "s"}
+            </span>
+          </span>
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+            {barOpen ? "Done" : "Edit"} <ChevronDown className={cn("size-3.5 transition-transform duration-300", barOpen && "rotate-180")} aria-hidden />
+          </span>
+        </button>
+        <div className={cn("grid gap-px overflow-hidden bg-border grid-cols-2 max-sm:border-t max-sm:border-border sm:rounded-t-3xl lg:grid-cols-4", !barOpen && "max-sm:hidden")}>
           <label className="col-span-2 block cursor-pointer bg-card px-4 py-3 transition-colors focus-within:bg-accent/50 hover:bg-accent/40 sm:col-span-1">
             <span className="eyebrow block">Check-in</span>
             <input type="date" value={checkin} onChange={(e) => setCheckin(e.target.value)} className="mt-1.5 block w-full bg-transparent text-base font-medium outline-none" />
@@ -341,16 +324,14 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
         <SkeletonCards count={6} />
       ) : result && result.options.length > 0 ? (
         <>
-          <p className="text-xs text-muted-foreground">
-            {result.options.length} place{result.options.length === 1 ? "" : "s"} · {result.nights} night{result.nights > 1 ? "s" : ""} · {fmtDay(result.checkin)} → {fmtDay(result.checkout)}
-            {result.assumedDates ? " · example dates (set yours above)" : ""} · {result.adults} guest{result.adults === 1 ? "" : "s"}, {result.rooms} room{result.rooms === 1 ? "" : "s"}
-          </p>
+          {result.assumedDates && <p className="text-xs text-caution">Example dates, set yours above for accurate prices.</p>}
           <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {result.options.slice(0, visible).map((o) => {
+            {result.options.slice(0, visible).map((o, index) => {
               const comparing = Boolean(panelCtx?.compareMode);
               return (
-                <li key={o.hotelId} className="min-w-0">
+                <li key={o.hotelId} className={cn("min-w-0", index >= first && "settle-in")}>
                   <StayResultCard
+                    phoneRow
                     stay={{ ...o, reviewCount: o.reviewCount, boardName: o.boardName }}
                     href={detailHref(o.hotelId)}
                     onOpen={() => {
@@ -366,8 +347,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
               );
             })}
           </ul>
-          {more && <div ref={sentinel} aria-hidden className="h-8" />}
-          <p className="text-xs text-muted-foreground">Prices shown in {result.currency}. Taxes and fees may be added at checkout — confirm the total when you book.</p>
+          <ShowMoreButton next={next} visible={visible} total={visible + remaining} onClick={showMore} />
         </>
       ) : (
         !loading && (
@@ -376,6 +356,15 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       )}
         </SwapView>
       </div>
+
+      {/* Last in the column so it can rest on the bottom edge of the page (see `.ask-dock`). */}
+      <AiSearchBar
+        variant="dock"
+        tripId={tripId}
+        scope="stays"
+        placeholder={`Ask — “near ${destination ? destination.split(",")[0] : "the old town"} station, under 250 a night, free cancellation”`}
+        onDirective={applyDirective}
+      />
     </div>
   );
 }

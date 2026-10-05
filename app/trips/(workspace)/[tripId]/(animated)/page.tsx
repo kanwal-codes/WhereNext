@@ -66,8 +66,13 @@ export default function TripOverviewPage() {
     : trip?.duration_days ? "Trip complete"
     : null;
 
+  // "Nov 26 – Dec 10 (15 days)" wraps in the middle of the range on a phone: the range is the value, the length sits under it.
+  const when = trip?.start_date || trip?.duration_days ? tripWhen(trip?.start_date, trip?.end_date, trip?.duration_days) : null;
+  const whenParts = when ? /^(.*?)\s*\((.*)\)$/.exec(when) : null;
+  const dateFact = whenParts ? { value: whenParts[1].replace(" – ", "\u2009–\u2009"), desc: whenParts[2] } : { value: when };
+
   const facts: HeroFact[] = [
-    { icon: CalendarDays, label: "Dates", value: trip?.start_date || trip?.duration_days ? tripWhen(trip?.start_date, trip?.end_date, trip?.duration_days) : null },
+    { icon: CalendarDays, label: "Dates", ...dateFact },
     { icon: Users, label: "Travellers", value: trip?.travelers ? String(trip.travelers) : null, desc: trip?.travelers ? "going" : undefined },
     { icon: Wallet, label: "Budget", value: budgetLabel(prefs) },
     { icon: MapPin, label: "From", value: trip?.origin || null },

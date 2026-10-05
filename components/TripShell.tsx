@@ -387,7 +387,7 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
 
       {/* Mobile top bar */}
       <div data-trip-topbar className="sticky top-0 z-30 grid h-[var(--topbar)] grid-cols-[minmax(0,1fr)] items-center gap-3 border-b border-border bg-background/95 px-4 lg:hidden">
-        <Link href={homeHref} className="flex min-w-0 items-center gap-3 transition-[opacity,transform] duration-200 hover:opacity-80 active:scale-[0.98]" aria-label={trip.name}>
+        <Link href={homeHref} className="flex h-full min-w-0 items-center gap-3 transition-[opacity,transform] duration-200 hover:opacity-80 active:scale-[0.98]" aria-label={trip.name}>
           <BrandMark variant="compact" className="h-6 w-6 shrink-0 text-2xs" />
           <h2 className="truncate font-display text-sm leading-tight">{trip.name}</h2>
         </Link>

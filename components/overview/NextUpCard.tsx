@@ -6,6 +6,7 @@ import { useState, type ReactNode } from "react";
 import { MapPin } from "lucide-react";
 import { Tactile } from "@/components/motion-primitives";
 import { KIND_META } from "@/components/overview/ReservationSheet";
+import { RemoveControl } from "@/components/overview/RemoveControl";
 import { TripArt, hashString } from "@/components/trips/TripArt";
 import { clockLabel, dayHeading, whenLabel, type TimelineItem } from "@/lib/trip-reservations";
 import { cn } from "@/lib/utils";
@@ -28,7 +29,7 @@ function factsFor(item: TimelineItem): Fact[] {
  * The booking that is coming up next, set large: its photo when it has one (a hotel), otherwise the
  * trip's warm wash with the kind's icon. Everything after it in the list stays small.
  */
-export function NextUpCard({ item, onOpenBooking, onEdit }: { item: TimelineItem; onOpenBooking: (id: string) => void; onEdit: (item: TimelineItem) => void }) {
+export function NextUpCard({ item, onOpenBooking, onEdit, onRemove }: { item: TimelineItem; onOpenBooking: (id: string) => void; onEdit: (item: TimelineItem) => void; onRemove?: (item: TimelineItem) => Promise<boolean> }) {
   const [imageFailed, setImageFailed] = useState(false);
   const photo = Boolean(item.thumbnail) && !imageFailed;
   const Icon = KIND_META[item.kind].icon;
@@ -91,7 +92,7 @@ export function NextUpCard({ item, onOpenBooking, onEdit }: { item: TimelineItem
 
   const ring = "group block w-full text-left focus-visible:outline-none focus-visible:[&>div]:ring-2 focus-visible:[&>div]:ring-ring/50";
   return (
-    <Tactile lift={3}>
+    <Tactile lift={3} className="card-host relative">
       {item.href ? (
         <Link href={item.href} className={ring}>{inner}</Link>
       ) : item.reservation ? (
@@ -101,6 +102,7 @@ export function NextUpCard({ item, onOpenBooking, onEdit }: { item: TimelineItem
       ) : (
         <div className={ring}>{inner}</div>
       )}
+      {item.removal && onRemove && <RemoveControl label={item.title} onConfirm={() => onRemove(item)} className="top-4 right-4" />}
       {item.href && item.bookingId && (
         <button type="button" onClick={() => onOpenBooking(item.bookingId!)} className="mt-2 ml-2 text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
           Booking details

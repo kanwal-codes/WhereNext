@@ -642,6 +642,8 @@
   transition: background-color var(--duration-base) var(--ease-out), color var(--duration-fast) var(--ease-out), border-color var(--duration-base) var(--ease-out), transform var(--duration-fast) var(--ease-out);
   &:hover { border-color: color-mix(in oklab, var(--color-ink) 28%, var(--color-border)); color: var(--color-ink); background-color: var(--color-surface); }
   &:active { transform: scale(0.97); }
+  /* A thumb needs 36px: the chip grows a little on a phone. */
+  @media (max-width: 639px) { height: 2.25rem; }
   /* One selected state for every filter chip in the app: ink, like the primary button. */
   &[aria-pressed="true"], &[data-active="true"] { background-color: var(--color-primary); border-color: var(--color-primary); color: var(--color-primary-foreground); }
   &[aria-pressed="true"]:hover, &[data-active="true"]:hover { background-color: color-mix(in oklab, var(--color-primary) 86%, white); color: var(--color-primary-foreground); }
@@ -1002,6 +1004,75 @@
   .turn:hover .turn-action, .turn:focus-within .turn-action { opacity: 1; }
 }
 
+/* A card's own quiet actions (remove): hidden until the card is under a mouse or has keyboard focus; always shown on touch, and while open. */
+@media (hover: hover) {
+  .card-action { opacity: 0; transition: opacity var(--duration-base) var(--ease-out); }
+  .card-host:hover .card-action, .card-host:focus-within .card-action, .card-action[data-armed] { opacity: 1; }
+}
+
+/* The floating search on Discover. It is the last thing in the page column and `sticky`, so it rests on the bottom edge of the
+   column wherever the sidebar is, above the phone tab bar, and settles into the page's own end when the list ends. At rest it is a wide
+   pill; while the reader scrolls down it closes to a small "Ask" pill, and opens again on the way up (see `useScrollCompact`). The pill's
+   width and height ease on one long curve while the two faces cross-fade, so it reads as one object changing size, not two swapping. */
+.ask-dock {
+  position: sticky;
+  bottom: calc(var(--tabbar) + 0.75rem);
+  z-index: 20;
+  margin-top: auto;
+  padding-top: 2.5rem;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+@media (min-width: 1024px) { .ask-dock { bottom: 1.25rem; } }
+.ask-dock::before {
+  content: "";
+  position: absolute;
+  /* As wide as the page's own side padding, no wider: past the screen edge it made the whole page scroll sideways on a phone. */
+  inset: 0 -1.25rem -1.5rem;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(to top, var(--color-background) 35%, transparent);
+}
+@media (min-width: 640px) { .ask-dock::before { inset-inline: -2rem; } }
+.ask-dock-form {
+  pointer-events: auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: min(42rem, 100%);
+  height: 3.5rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in oklab, var(--color-border) 80%, transparent);
+  background: color-mix(in oklab, var(--color-card) 95%, transparent);
+  box-shadow: var(--shadow-lift), inset 0 1px 0 oklch(1 0 0 / 0.6);
+  transition: width 460ms var(--ease-out), height 460ms var(--ease-out), box-shadow 300ms var(--ease-out), background-color 360ms var(--ease-out), border-color 360ms var(--ease-out);
+  animation: dock-in 700ms var(--ease-out) 450ms both;
+}
+.ask-dock-form:focus-within { box-shadow: var(--shadow-lift), inset 0 1px 0 oklch(1 0 0 / 0.6), 0 0 0 3px color-mix(in oklab, var(--color-coral) 24%, transparent); }
+.ask-dock-form[data-compact] { width: 8.25rem; height: 2.75rem; border-color: transparent; background: var(--color-foreground); color: var(--color-background); box-shadow: var(--shadow-lift), inset 0 1px 0 oklch(1 0 0 / 0.14); }
+.ask-dock-full { display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0 0.5rem 0 1.25rem; transition: opacity 220ms var(--ease-out) 170ms; }
+.ask-dock-form[data-compact] .ask-dock-full { opacity: 0; pointer-events: none; transition-duration: 110ms; transition-delay: 0s; }
+.ask-dock-mini {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 110ms var(--ease-out);
+}
+.ask-dock-form[data-compact] .ask-dock-mini { opacity: 1; pointer-events: auto; transition: opacity 240ms var(--ease-out) 200ms; }
+@keyframes dock-in { from { opacity: 0; transform: translateY(1rem) scale(0.96); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .ask-dock-form, .ask-dock-full, .ask-dock-mini { transition-duration: 0s !important; transition-delay: 0s !important; animation: none; }
+}
+
 /* ---- Cinematic -----------------------------------------------------------------------------
  * The grammar that makes a screen read as a frame from a film.
  *
@@ -1271,8 +1342,8 @@
 .bp-tag { flex: none; display: inline-flex; align-items: center; height: 40px; padding: 0 18px; border: 1px solid var(--hairline); border-radius: 12px; background: #fff; font-size: 14px; font-weight: 500; white-space: nowrap; box-shadow: 0 6px 10px -8px rgb(31 24 16 / 30%); transition: transform 0.18s, box-shadow 0.18s; }
 .bp-tag:hover { transform: translateY(-1px); box-shadow: 0 10px 14px -8px rgb(31 24 16 / 34%); }
 .bp-alert { display: flex; flex-direction: column; gap: 12px; margin-top: 36px; padding: 14px 20px; border: 1px solid var(--hairline); border-radius: 16px; background: var(--surface); box-shadow: var(--shadow-soft); }
-.bp-toast { position: fixed; z-index: 80; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); width: min(42rem, calc(100vw - 32px)); margin: 0; background: #fff; box-shadow: var(--shadow-lift); transform: translateX(-50%); animation: bp-toast 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
-@keyframes bp-toast { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translateX(-50%); } }
+.bp-toast { position: fixed; z-index: 80; left: 50%; top: max(16px, env(safe-area-inset-top)); width: min(42rem, calc(100vw - 32px)); margin: 0; background: #fff; box-shadow: var(--shadow-lift); transform: translateX(-50%); animation: bp-toast 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes bp-toast { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translateX(-50%); } }
 @media (min-width: 640px) { .bp-alert { flex-direction: row; align-items: center; justify-content: space-between; } }
 
 /* Sending: the stub tears off along the perforation, then both pieces leave. */

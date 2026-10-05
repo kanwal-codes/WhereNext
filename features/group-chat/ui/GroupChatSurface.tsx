@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { memberTint } from "@/lib/member-tint";
-import { CalendarRange, ListChecks, Plus, SmilePlus, X } from "lucide-react";
+import { ArrowDown, CalendarRange, ListChecks, Plus, SmilePlus, X } from "lucide-react";
 import { MicButton, SendButton } from "@/components/ComposerButtons";
 import { Sheet, Pressable, Reveal, Stagger, StaggerItem } from "@/components/motion-primitives";
 import { useMediaQuery } from "@/lib/use-media-query";
@@ -19,10 +19,11 @@ import { notifyToast } from "@/lib/application/toast";
 import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
 import type { AssistantBlock, AssistantTurnMeta, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { Poll } from "@/packages/contracts/poll";
-import { mentionsRoam, type GroupMessage } from "../domain/message";
+import { GROUP_HISTORY_LIMIT, hasAsk, mentionsRoam, type GroupMessage } from "../domain/message";
 import { memberInitials } from "@/lib/member-initials";
-import { useTripMembers, type TripMember } from "@/lib/client/use-trip-members";
+import { memberLabel, useTripMembers, type TripMember } from "@/lib/client/use-trip-members";
 import { GroupInviteCard } from "./GroupInviteCard";
+import { renderRich } from "./rich-text";
 import { cn } from "@/lib/utils";
 import { MessageBlocks } from "@/features/conversation/ui/blocks/MessageBlocks";
 
@@ -30,26 +31,23 @@ const COMMON_EMOJI = ["👍", "❤️", "😂", "🎉", "😍", "🤔"];
 // Same sender, close enough in time to read as one turn — collapses the repeated avatar/name.
 const GROUP_WINDOW_MS = 5 * 60_000;
 const LONG_PRESS_MS = 450;
+// An @Roam ask with no reply yet reads as "Roam is typing" for everyone, for this long (a reply that never comes stops showing).
+const ROAM_WAIT_MS = 120_000;
+// Within this distance of the bottom you are "reading the latest", so a new message follows you down.
+const NEAR_BOTTOM_PX = 160;
+
+/** A message that has not reached the server yet (sending) or could not (failed). It lives outside the real history. */
+type Outgoing = { key: string; content: string; status: "sending" | "failed"; created_at: string };
+
 
 function displayName(userId: string | null, members: TripMember[], meId: string | undefined): string {
   if (!userId) return "Roam";
   if (userId === meId) return "You";
-  const member = members.find((m) => m.userId === userId);
-  return member?.email?.split("@")[0] ?? "Someone";
+  return memberLabel(members.find((m) => m.userId === userId));
 }
 
-/** Splits on "@Roam" (any casing) and colors just that token, so a mention stands out in the sentence. */
-function renderWithMentions(content: string) {
-  return content.split(/(@roam\b)/gi).map((part, index) =>
-    /^@roam$/i.test(part) ? (
-      <span key={index} className="font-semibold text-coral">
-        {part}
-      </span>
-    ) : (
-      <span key={index}>{part}</span>
-    ),
-  );
-}
+const timeLabel = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+const fullTime = (iso: string) => new Date(iso).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
 /** Every member gets the same avatar — Roam included. In this chat Roam is just the fifth friend. */
 function Avatar({ name }: { name: string }) {
@@ -121,9 +119,22 @@ export function GroupChatSurface({
   const { members, loaded: membersLoaded } = useTripMembers(tripId);
   const [loaded, setLoaded] = useState(Boolean(initialMessages));
   const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
-  // Synchronous twin of `sending`: a double Enter can arrive before the state has re-rendered and would post the message twice.
-  const sendingRef = useRef(false);
+  // Messages you have sent that the server has not confirmed: they show at once, as "Sending…", and stay with a Retry if they fail.
+  const [outbox, setOutbox] = useState<Outgoing[]>([]);
+  // A double Enter can arrive before the state has re-rendered and would post the message twice.
+  const submitLockRef = useRef(false);
+  // Pages of history older than the newest window, loaded on request and kept apart from it (a refresh replaces only the newest).
+  const [older, setOlder] = useState<GroupMessage[]>([]);
+  const [hasOlder, setHasOlder] = useState((initialMessages?.length ?? 0) >= GROUP_HISTORY_LIMIT);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const olderAnchorRef = useRef<{ height: number; top: number } | null>(null);
+  const olderLoadedRef = useRef(false);
+  // Following the conversation: true while you are at the bottom. A message that arrives while you are reading higher up waits behind a pill.
+  const nearBottomRef = useRef(true);
+  const lastIdRef = useRef<string | null>(null);
+  const [unseen, setUnseen] = useState(false);
+  // Roam asks (anyone's) that are still waiting for a reply.
+  const [waitingIds, setWaitingIds] = useState<string[]>([]);
   const [reactingTo, setReactingTo] = useState<string | null>(null);
   const [expandedReactionFor, setExpandedReactionFor] = useState<string | null>(null);
   const [pressingId, setPressingId] = useState<string | null>(null);
@@ -186,6 +197,7 @@ export function GroupChatSurface({
       if (mine !== refreshIdRef.current) return undefined;
       const fresh = (body.messages ?? []) as GroupMessage[];
       setMessages(fresh);
+      if (!olderLoadedRef.current) setHasOlder(fresh.length >= GROUP_HISTORY_LIMIT);
       return fresh;
     } catch {
       // Best-effort — the last successfully loaded state stays on screen.
@@ -228,9 +240,76 @@ export function GroupChatSurface({
     setTimeout(jump, 200);
     setTimeout(jump, 600);
   }, []);
+  // A new message follows you down only if you were already at the bottom, or it is yours. Reading higher up, it waits behind the "New messages" pill instead of yanking the page away.
+  const lastMessage = outbox.length > 0 ? null : messages[messages.length - 1];
+  const lastKey = outbox.length > 0 ? `out:${outbox[outbox.length - 1]!.key}:${outbox.length}` : (lastMessage?.id ?? null);
   useEffect(() => {
-    scrollToEnd();
-  }, [messages.length, pendingRoamIds.size, scrollToEnd]);
+    const first = lastIdRef.current === null;
+    const changed = lastIdRef.current !== lastKey;
+    lastIdRef.current = lastKey;
+    if (first || !changed) return;
+    const mineLatest = outbox.length > 0 || (lastMessage?.role === "user" && lastMessage.userId === me?.userId);
+    if (nearBottomRef.current || mineLatest) scrollToEnd();
+    else setUnseen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reacts to the newest message changing, not to every list identity
+  }, [lastKey]);
+  useEffect(() => {
+    if (pendingRoamIds.size > 0 && nearBottomRef.current) scrollToEnd();
+  }, [pendingRoamIds.size, scrollToEnd]);
+  useEffect(() => {
+    if (waitingIds.length > 0 && nearBottomRef.current) scrollToEnd();
+  }, [waitingIds.length, scrollToEnd]);
+
+  // Anyone's @Roam ask with no answer yet shows the typing bubble to the whole group, not just to whoever asked.
+  useEffect(() => {
+    const compute = () => {
+      const now = Date.now();
+      const answered = new Set(messages.filter((m) => m.role === "assistant").map((m) => (m.metadata as { replyToMessageId?: string } | undefined)?.replyToMessageId));
+      const ids = messages.filter((m) => m.role === "user" && mentionsRoam(m.content) && !answered.has(m.id) && now - Date.parse(m.created_at) < ROAM_WAIT_MS).map((m) => m.id);
+      setWaitingIds((current) => (current.length === ids.length && current.every((id, i) => id === ids[i]) ? current : ids));
+      return ids.length;
+    };
+    if (compute() === 0) return;
+    const timer = setInterval(compute, 5000);
+    return () => clearInterval(timer);
+  }, [messages]);
+
+  // Keep what you were reading in place when older messages land above it.
+  useLayoutEffect(() => {
+    const anchor = olderAnchorRef.current;
+    const log = logRef.current;
+    if (!anchor || !log) return;
+    log.scrollTop = anchor.top + (log.scrollHeight - anchor.height);
+    olderAnchorRef.current = null;
+  }, [older]);
+
+  async function loadOlder() {
+    const oldest = older[0] ?? messages[0];
+    const log = logRef.current;
+    if (!oldest || loadingOlder || !log) return;
+    setLoadingOlder(true);
+    try {
+      const body = await fetch(`/api/trips/${tripId}/group-chat?before=${encodeURIComponent(oldest.created_at)}`).then((r) => (r.ok ? r.json() : Promise.reject(new Error("load"))));
+      const page = (body.messages ?? []) as GroupMessage[];
+      olderLoadedRef.current = true;
+      olderAnchorRef.current = { height: log.scrollHeight, top: log.scrollTop };
+      for (const m of page) seenIdsRef.current.add(m.id);
+      setOlder((current) => [...page, ...current]);
+      setHasOlder(page.length >= GROUP_HISTORY_LIMIT);
+    } catch {
+      notifyToast("Couldn’t load earlier messages.", "error");
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
+
+  function onLogScrollInner(event: React.UIEvent<HTMLDivElement>) {
+    const el = event.currentTarget;
+    const near = el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX;
+    nearBottomRef.current = near;
+    if (near) setUnseen(false);
+    onLogScroll?.(event);
+  }
 
   // First landing: jump straight to the latest message, instantly — not the smooth `scrollToEnd`
   // above, which would otherwise visibly animate down the entire history on every single mount
@@ -315,24 +394,25 @@ export function GroupChatSurface({
       }));
   }
 
-  async function submit(raw: string) {
+  // Optimistic: the message appears at once as "Sending…", and keeps its idempotency key through a Retry, so a reply
+  // lost on the way back never posts the same words twice.
+  async function submit(raw: string, retryKey?: string) {
     const content = raw.trim();
-    if (!content || sending || sendingRef.current) return;
+    if (!content || !hasAsk(content) || submitLockRef.current) return;
     if (speech.listening) speech.stop();
-    sendingRef.current = true;
-    setSending(true);
-    setInput("");
-    const idempotencyKey = crypto.randomUUID();
+    submitLockRef.current = true;
+    requestAnimationFrame(() => { submitLockRef.current = false; });
+    const key = retryKey ?? crypto.randomUUID();
+    if (!retryKey) setInput("");
+    setOutbox((current) => (retryKey ? current.map((o) => (o.key === key ? { ...o, status: "sending" } : o)) : [...current, { key, content, status: "sending", created_at: new Date().toISOString() }]));
     try {
-      const { message } = await postJson<{ message: GroupMessage }>(`/api/trips/${tripId}/group-chat`, { content, kind: "text", idempotencyKey });
-      setMessages((current) => [...current, message]);
+      const { message } = await postJson<{ message: GroupMessage }>(`/api/trips/${tripId}/group-chat`, { content, kind: "text", idempotencyKey: key });
+      seenIdsRef.current.add(message.id);
+      setMessages((current) => (current.some((m) => m.id === message.id) ? current : [...current, message]));
+      setOutbox((current) => current.filter((o) => o.key !== key));
       if (mentionsRoam(content)) askRoam(message.id);
     } catch {
-      setInput(content);
-      notifyToast("Your message didn’t send.", "error", { label: "Retry", onClick: () => void submit(content) });
-    } finally {
-      sendingRef.current = false;
-      setSending(false);
+      setOutbox((current) => current.map((o) => (o.key === key ? { ...o, status: "failed" } : o)));
     }
   }
 
@@ -380,7 +460,6 @@ export function GroupChatSurface({
   async function castVote(messageId: string, pollId: string, optionKey: string) {
     if (pendingVoteFor === pollId) return;
     setPendingVoteFor(pollId);
-    const previous = messages;
     setMessages((current) =>
       current.map((m) => {
         const poll = (m.metadata as { poll?: Poll } | undefined)?.poll;
@@ -397,7 +476,8 @@ export function GroupChatSurface({
     try {
       await postJson(`/api/trips/${tripId}/polls/${pollId}/vote`, { optionKey });
     } catch {
-      setMessages(previous);
+      // Back to what the server says, not to an old snapshot of the whole chat (which would drop anything that arrived since).
+      void refresh();
       notifyToast("Your vote didn’t save.", "error");
     } finally {
       setPendingVoteFor(null);
@@ -465,7 +545,7 @@ export function GroupChatSurface({
     onBubblePressEnd();
   }
 
-  const messagesById = useMemo(() => new Map(messages.map((m) => [m.id, m])), [messages]);
+  const messagesById = useMemo(() => new Map([...older, ...messages].map((m) => [m.id, m])), [older, messages]);
 
   // Jump to and briefly flash a message — used by a reply's quoted "replying to" strip so the
   // source of a threaded answer is one tap away, even once it's scrolled out of view.
@@ -479,8 +559,11 @@ export function GroupChatSurface({
   // Precompute date-divider and same-sender-run boundaries once per message list, rather than
   // re-deriving neighbour lookups inline for every row on every render.
   const rows = useMemo(() => {
-    return messages.map((message, index) => {
-      const previous = messages[index - 1];
+    // Your unsent messages sit after everything confirmed, shaped like any other so they group, divide and align the same way.
+    const pending = outbox.map((o): GroupMessage & { local: Outgoing } => ({ id: `out-${o.key}`, userId: me?.userId ?? null, role: "user", kind: "text", content: o.content, metadata: {}, created_at: o.created_at, reactions: [], local: o }));
+    const all: Array<GroupMessage & { local?: Outgoing }> = [...older, ...messages, ...pending];
+    return all.map((message, index) => {
+      const previous = all[index - 1];
       const showDateDivider = !previous || dayLabel(previous.created_at) !== dayLabel(message.created_at);
       const sameSenderAsPrevious =
         previous &&
@@ -491,7 +574,7 @@ export function GroupChatSurface({
         Date.parse(message.created_at) - Date.parse(previous.created_at) < GROUP_WINDOW_MS;
       return { message, showDateDivider, isFirstInGroup: !sameSenderAsPrevious || showDateDivider };
     });
-  }, [messages]);
+  }, [older, messages, outbox, me?.userId]);
 
   // Inline ghost-text autocomplete for "@Roam" — replaces the old suggestion pill. Matches a
   // partial mention token at the very end of the input ("@", "@r", "@ro", ... "@roam", any
@@ -566,8 +649,8 @@ export function GroupChatSurface({
     </div>
   );
 
-  const micButton = speech.supported && <MicButton listening={speech.listening} disabled={!loaded || sending} onToggle={speech.toggle} />;
-  const sendButton = <SendButton canSend={loaded && Boolean(input.trim())} />;
+  const micButton = speech.supported && <MicButton listening={speech.listening} disabled={!loaded} onToggle={speech.toggle} />;
+  const sendButton = <SendButton canSend={loaded && hasAsk(input)} />;
 
   // The single-line layout's reserved space for the overlaid plus/mic/send — used two ways
   // below: as the visible textarea's own padding while that overlay is showing, and permanently
@@ -610,7 +693,8 @@ export function GroupChatSurface({
             insertRoamMention();
             return;
           }
-          if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) {
+          // On a phone the keyboard's Return makes a new line (the arrow button sends); with a keyboard it sends, Shift+Return adds a line.
+          if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229 && !window.matchMedia("(pointer: coarse)").matches) {
             event.preventDefault();
             void submit(input);
           }
@@ -643,7 +727,9 @@ export function GroupChatSurface({
       {/* `overscroll-contain` — see the identical comment in ConversationSurface.tsx: keeps the
           rubber-band bounce at the top/bottom confined to this log instead of chaining into the
           page. */}
-      <div ref={logRef} onScroll={onLogScroll} className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim">
+      <div ref={logRef} onScroll={onLogScrollInner} role="log" aria-label="Group chat messages" aria-live="polite" aria-relevant="additions" className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim">
+        {/* The controls above float over the log: messages fade out beneath them instead of running into them. */}
+        <div aria-hidden className="pointer-events-none sticky top-0 z-[1] -mb-14 h-14 w-full bg-gradient-to-b from-background via-background/85 to-transparent" />
         <div className={cn("mx-auto w-full space-y-1 pt-3 pb-28 max-lg:pt-16", rail ? RAIL_MEASURE : "max-w-2xl")}>
           {!loaded && (
             <div aria-hidden className="space-y-5">
@@ -652,7 +738,13 @@ export function GroupChatSurface({
             </div>
           )}
 
-          {loaded && messages.length === 0 && (
+          {loaded && hasOlder && (
+            <div className="flex justify-center pb-2">
+              <button type="button" onClick={() => void loadOlder()} disabled={loadingOlder} className="btn-chip h-9 px-4 text-xs">{loadingOlder ? "Loading…" : "Show earlier messages"}</button>
+            </div>
+          )}
+
+          {loaded && messages.length === 0 && older.length === 0 && outbox.length === 0 && (
             <div className="flex flex-col items-center pt-0 text-center sm:pt-8">
               {/* The opening shot: a lit icon, the line, the explanation, then a few ways to break the ice. */}
               <Reveal y={8}>
@@ -674,9 +766,6 @@ export function GroupChatSurface({
                     <button type="button" onClick={() => setInput(starter)} className="btn-chip h-9 px-4 text-sm">{starter}</button>
                   </StaggerItem>
                 ))}
-                <StaggerItem>
-                  <button type="button" onClick={() => setPollSheetOpen(true)} className="btn-chip h-9 px-4 text-sm">Start a poll</button>
-                </StaggerItem>
               </Stagger>
               {/* Nobody else has joined: the invite link, here, rather than a chat that talks to itself. */}
               {membersLoaded && members.length <= 1 && (
@@ -688,9 +777,10 @@ export function GroupChatSurface({
           )}
 
           {rows.map(({ message, showDateDivider, isFirstInGroup }) => {
+            const local = (message as { local?: Outgoing }).local;
             const isNew = !seenIdsRef.current.has(message.id);
             if (isNew) seenIdsRef.current.add(message.id);
-            const mine = message.userId !== null && message.userId === me?.userId;
+            const mine = local ? true : message.userId !== null && message.userId === me?.userId;
             const isRoam = message.role === "assistant";
             const name = displayName(message.userId, members, me?.userId);
             const expanded = expandedReactionFor === message.id;
@@ -788,7 +878,7 @@ export function GroupChatSurface({
                 <AssistantMessage content={message.content} />
               </div>
             ) : (
-              <p className={bubbleClass}>{renderWithMentions(message.content)}</p>
+              <p className={cn(bubbleClass, local?.status === "sending" && "opacity-70")}>{renderRich(message.content)}</p>
             );
 
             return (
@@ -813,7 +903,12 @@ export function GroupChatSurface({
                 >
                   {!mine && <div className="w-7 shrink-0">{isFirstInGroup && <Avatar name={name} />}</div>}
                   <div className={cn("flex min-w-0 max-w-[85%] flex-col gap-1.5", mine ? "items-end" : "items-start")}>
-                    {!mine && isFirstInGroup && <p style={{ color: memberTint(name).color }} className="px-1 text-2xs font-semibold">{name}</p>}
+                    {isFirstInGroup && (
+                      <p className={cn("flex items-baseline gap-1.5 px-1 text-2xs", mine && "justify-end")}>
+                        {!mine && <span style={{ color: memberTint(name).color }} className="font-semibold">{name}</span>}
+                        <time dateTime={message.created_at} title={fullTime(message.created_at)} className="text-muted-foreground tabular-nums">{timeLabel(message.created_at)}</time>
+                      </p>
+                    )}
                     <motion.div
                       animate={{ scale: pressingId === message.id ? 0.96 : 1 }}
                       transition={{ type: "spring", stiffness: 500, damping: 30 }}
@@ -821,7 +916,8 @@ export function GroupChatSurface({
                       onPointerUp={onBubblePressEnd}
                       onPointerCancel={onBubblePressEnd}
                       onPointerMove={onBubblePressMove}
-                      className="group relative min-w-0 max-w-full select-none [touch-action:pan-y]"
+                      title={fullTime(message.created_at)}
+                      className="group relative min-w-0 max-w-full [touch-action:pan-y] [@media(pointer:coarse)]:select-none"
                     >
                       {bubble}
                       {/* The reaction trigger sits in the gutter at the vertical middle of the bubble —
@@ -832,7 +928,7 @@ export function GroupChatSurface({
                           the empty gutter, which is too narrow for six emoji anyway. Reveal-on-
                           hover; touch has no hover state, so this never shows there — long-press
                           → the Sheet below is how touch reacts. */}
-                      {!expanded && (
+                      {!expanded && !local && (
                         <div
                           className={cn(
                             "pointer-events-none absolute top-1/2 z-10 flex -translate-y-1/2 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100",
@@ -869,6 +965,7 @@ export function GroupChatSurface({
                               <button
                                 key={emoji}
                                 type="button"
+                                aria-label={`React ${emoji}`}
                                 onClick={() => void toggleReaction(message.id, emoji)}
                                 className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-base transition-transform hover:scale-125 active:scale-95"
                               >
@@ -887,12 +984,25 @@ export function GroupChatSurface({
                     {isRoam && (message.metadata as Partial<AssistantTurnMeta> | undefined)?.unverified && (
                       <p className="px-1 text-2xs text-muted-foreground">A figure or detail above is an estimate and hasn’t been independently verified.</p>
                     )}
+                    {local && (
+                      <p role={local.status === "failed" ? "alert" : undefined} className={cn("flex items-center gap-2 px-1 text-2xs", local.status === "failed" ? "text-destructive" : "text-muted-foreground")}>
+                        {local.status === "sending" ? "Sending…" : (
+                          <>
+                            Not sent
+                            <button type="button" onClick={() => void submit(local.content, local.key)} className="font-semibold underline underline-offset-2">Retry</button>
+                            <button type="button" onClick={() => setOutbox((current) => current.filter((o) => o.key !== local.key))} className="text-muted-foreground underline underline-offset-2">Delete</button>
+                          </>
+                        )}
+                      </p>
+                    )}
                     <div className="flex flex-wrap items-center gap-1.5 px-1">
                       {message.reactions.map((r) => (
                         <Pressable key={r.emoji}>
                           <motion.button
                             layout
                             type="button"
+                            aria-pressed={r.mine}
+                            aria-label={`${r.emoji} ${r.count}${r.mine ? ", you reacted" : ""}`}
                             onClick={() => void toggleReaction(message.id, r.emoji)}
                             className={cn(
                               "flex h-6 items-center gap-1 rounded-full border px-2 text-2xs transition-colors",
@@ -910,7 +1020,7 @@ export function GroupChatSurface({
               </div>
             );
           })}
-          {pendingRoamIds.size > 0 && (
+          {(pendingRoamIds.size > 0 || waitingIds.length > 0) && (
             // The same "typing…" bubble any friend would show while they write back.
             <motion.div initial={{ opacity: 0, y: 10, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ type: "spring", stiffness: 380, damping: 30 }} style={{ transformOrigin: "0% 100%" }} className="mt-3 flex items-start gap-2">
               <div className="w-7 shrink-0">
@@ -941,6 +1051,7 @@ export function GroupChatSurface({
               <Pressable key={emoji}>
                 <button
                   type="button"
+                  aria-label={`React ${emoji}`}
                   onClick={() => reactingTo && void toggleReaction(reactingTo, emoji)}
                   className="grid h-11 w-11 place-items-center rounded-full border border-border text-xl transition-colors hover:bg-accent"
                 >
@@ -1012,6 +1123,16 @@ export function GroupChatSurface({
         </div>
       </Sheet>
 
+      {unseen && (
+        <button
+          type="button"
+          onClick={() => { setUnseen(false); scrollToEnd(); }}
+          className="absolute bottom-[5.25rem] left-1/2 z-10 inline-flex h-9 -translate-x-1/2 items-center gap-1.5 rounded-full bg-foreground px-4 text-xs font-medium text-background shadow-lift transition-transform active:scale-[0.97]"
+        >
+          <ArrowDown className="size-3.5" aria-hidden /> New messages
+        </button>
+      )}
+
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-3 pb-3">
         <div className={cn("pointer-events-auto mx-auto w-full", rail ? RAIL_MEASURE : "max-w-2xl")}>
           <form
@@ -1022,7 +1143,7 @@ export function GroupChatSurface({
             className={cn(
               "flex w-full flex-col gap-1 overflow-hidden rounded-3xl border border-input bg-card p-1.5 shadow-lift transition-[border-color,box-shadow] duration-200 ease-out",
               "focus-within:border-ink/30 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_6%,transparent),var(--shadow-lift)]",
-              pendingRoamIds.size > 0 && "composer-live",
+              (pendingRoamIds.size > 0 || waitingIds.length > 0) && "composer-live",
             )}
           >
             {/* `messageTextarea` (defined above, alongside the buttons it conditionally overlays)

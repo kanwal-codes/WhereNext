@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useShowMore } from "@/lib/use-show-more";
+import { ShowMoreButton } from "@/components/ShowMoreButton";
 import { Loader2, MapPin, Phone, Star } from "lucide-react";
 import { ExternalLink } from "@/components/ExternalLink";
 import type { NearbyBusiness } from "@/packages/providers/google-places/client";
@@ -10,6 +12,7 @@ export function RentalCarList({ tripId, center }: { tripId: string; center: { la
   const [businesses, setBusinesses] = useState<NearbyBusiness[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const more = useShowMore(businesses?.length ?? 0, businesses);
 
   useEffect(() => {
     if (!center) return;
@@ -46,7 +49,7 @@ export function RentalCarList({ tripId, center }: { tripId: string; center: { la
 
   return (
     <div className="space-y-3">
-      {businesses.map((b) => (
+      {businesses.slice(0, more.visible).map((b) => (
         <div key={b.providerId} className="rounded-2xl border border-border bg-card p-5 shadow-soft">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span className="font-display text-base">{b.name}</span>
@@ -71,6 +74,7 @@ export function RentalCarList({ tripId, center }: { tripId: string; center: { la
           </div>
         </div>
       ))}
+      <ShowMoreButton next={more.next} visible={more.visible} total={businesses.length} onClick={more.showMore} noun="locations" />
     </div>
   );
 }

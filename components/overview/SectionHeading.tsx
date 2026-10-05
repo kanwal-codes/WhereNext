@@ -11,7 +11,7 @@ export function SectionHeading({ title, count, href, cta }: { title: string; cou
         {count !== undefined && count > 0 && <span className="daisy-badge daisy-badge-ghost tabular-nums">{count}</span>}
       </div>
       {href && cta && (
-        <Link href={href} className="group inline-flex shrink-0 items-center gap-1 pb-1 text-sm font-medium text-foreground/80 underline-offset-4 transition-colors hover:text-foreground hover:underline">
+        <Link href={href} className="group relative inline-flex shrink-0 items-center gap-1 pb-1 text-sm after:absolute after:-inset-x-2 after:-inset-y-3 after:content-[''] font-medium text-foreground/80 underline-offset-4 transition-colors hover:text-foreground hover:underline">
           {cta}
           <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
         </Link>

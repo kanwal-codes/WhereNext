@@ -834,8 +834,6 @@ export function ConversationSurface({
                 className="turn space-y-3"
               >
                 <span className="sr-only">Roam: </span>
-                {/* Roam signs its turn: the route mark, small and quiet, so a reply never reads as unsigned text on a white page. */}
-                {!rail && !streaming && <RoamMark state="settled" size={30} animated={false} className="-mt-0.5 mb-0.5 block text-ink-soft" />}
                 <AssistantMessage content={message.content} blocks={blocks} handlers={handlers} streaming={streaming} live={live} />
                 {notes.length > 0 && (
                   <div role="note" className="flex items-start gap-2 text-xs leading-snug text-muted-foreground">

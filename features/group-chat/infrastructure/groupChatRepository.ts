@@ -69,7 +69,7 @@ const scopedIdempotencyKey = (role: string, key: string) => `${role}:${key}`;
  */
 export function createGroupChatRepository(supabase: SupabaseClient) {
   return {
-    async list(tripId: string, viewerId: string, options: { limit?: number } = {}): Promise<GroupMessage[]> {
+    async list(tripId: string, viewerId: string, options: { limit?: number; /** Only messages sent before this ISO time: the page of history older than what is already on screen. */ before?: string } = {}): Promise<GroupMessage[]> {
       // Same newest-first-then-reverse paging as conversationRepository — Supabase caps a
       // single page, so page backwards and only flip once every page has arrived.
       const pageSize = 500;
@@ -77,10 +77,12 @@ export function createGroupChatRepository(supabase: SupabaseClient) {
       for (let from = 0; ; from += pageSize) {
         const remaining = options.limit == null ? pageSize : Math.min(pageSize, options.limit - from);
         if (remaining <= 0) break;
-        const result = await supabase
+        let query = supabase
           .from("group_messages")
           .select(COLUMNS)
-          .eq("trip_id", tripId)
+          .eq("trip_id", tripId);
+        if (options.before) query = query.lt("created_at", options.before);
+        const result = await query
           // Secondary tiebreaker on id — several members can write within the same created_at
           // granularity, and Postgres doesn't guarantee stable ordering across separate
           // paginated queries without one, risking a duplicated or skipped row at a page edge.

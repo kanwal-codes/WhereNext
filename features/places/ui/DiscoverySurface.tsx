@@ -6,14 +6,15 @@ import { StayResultCard } from "@/features/stays/ui/StayResultCard";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BedDouble, Compass } from "lucide-react";
+import { BedDouble, Compass, X } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
 import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { useTripData } from "@/components/TripDataProvider";
 import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
 import { AiSearchBar } from "@/components/AiSearchBar";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
-import { useInfiniteReveal } from "@/lib/use-infinite-reveal";
+import { useShowMore } from "@/lib/use-show-more";
+import { ShowMoreButton } from "@/components/ShowMoreButton";
 import { PlaceCard } from "@/components/PlaceCard";
 import { CardMedia, CompareMark, DetailsButton, EntityCard, MediaFallback, money } from "@/features/conversation/ui/blocks/ui";
 import { rankPlaces, type RankAnchor } from "@/lib/application/rank-places";
@@ -27,7 +28,6 @@ import { CATEGORIES, CATEGORY_BY_KEY, type DiscoverCategory } from "./discoverTa
 import { cn } from "@/lib/utils";
 import { cachedGet } from "@/lib/client/cached-get";
 
-const PAGE = 6;
 
 /**
  * Raw category results, cached per session so tabbing Eat → Nightlife → Eat
@@ -158,10 +158,9 @@ export function DiscoverySurface({
   // request keeps running server-side to completion regardless, burning provider quota and
   // backend load on every fast category switch or re-search.
   const abortRef = useRef<AbortController | null>(null);
-  const eventsPage = useRef(0);
-  const eventsLoading = useRef(false);
-  const eventsHasMore = useRef(true);
-  const eventsSentinel = useRef<HTMLDivElement | null>(null);
+  // The provider pages events one request at a time. Only an events category asks for the next page, and only when the reader presses the button.
+  const eventPaging = useRef({ q: "", page: 0, more: false });
+  const [eventsBusy, setEventsBusy] = useState(false);
 
   const fetchPlaces = useCallback(
     async (q: string, signal?: AbortSignal): Promise<Place[]> => {
@@ -233,8 +232,6 @@ export function DiscoverySurface({
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    eventsPage.current = 0;
-    eventsHasMore.current = true;
     // Not keyed on saved places: the digest's *membership* doesn't change when you
     // shortlist something (only its ordering would), so tabbing away and back stays
     // instant instead of re-hitting five providers. 30-min TTL keeps events fresh.
@@ -273,7 +270,7 @@ export function DiscoverySurface({
       // via PlaceDetailView's GetYourGuideCard.
       { key: "activities", label: "Tours & activities", items: rankToItems(ok(tours).filter(isTourOperator)) },
       { key: "events", label: "On while you’re there", items: ok(ev).map((e) => ({ kind: "event", event: e }) as Item) },
-      { key: "stays", label: "Places to stay", items: ok(st).slice(0, 4).map((s) => ({ kind: "stay", stay: s }) as Item) },
+      { key: "stays", label: "Places to stay", items: ok(st).slice(0, 6).map((s) => ({ kind: "stay", stay: s }) as Item) },
     ].filter((b) => b.items.length);
     setBands(next);
     // Live-caught: every provider call can transiently return nothing at once (a rate limit, a
@@ -289,38 +286,6 @@ export function DiscoverySurface({
     setLoading(false);
     setMessage(next.length ? "" : "Nothing came back just now. Try a search or a different category.");
   }, [fetchPlaces, fetchEvents, fetchStays, interests, interestsKey, dislikesKey, destination, tripId, rankToItems]);
-
-  const loadMoreEvents = useCallback(async () => {
-    if (eventsLoading.current || !eventsHasMore.current || !destination) return;
-    eventsLoading.current = true;
-    const nextPage = eventsPage.current + 1;
-    try {
-      const next = await fetchEvents("", nextPage);
-      if (next.length === 0) {
-        eventsHasMore.current = false;
-        return;
-      }
-      eventsPage.current = nextPage;
-      setBands((current) => current?.map((band) => {
-        if (band.key !== "events") return band;
-        const existing = new Set(band.items.map((item) => item.kind === "event" ? `${item.event.url}|${item.event.date ?? ""}` : ""));
-        const additions = next.filter((event) => !existing.has(`${event.url}|${event.date ?? ""}`)).map((event) => ({ kind: "event", event }) as Item);
-        return additions.length ? { ...band, items: [...band.items, ...additions] } : band;
-      }) ?? current);
-    } finally {
-      eventsLoading.current = false;
-    }
-  }, [destination, fetchEvents]);
-
-  useEffect(() => {
-    const sentinel = eventsSentinel.current;
-    if (!sentinel || view !== "results" || flat || searchMode || catKey !== null || !bands?.some((band) => band.key === "events")) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) void loadMoreEvents();
-    }, { rootMargin: "900px 0px" });
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [bands, view, flat, searchMode, catKey, loadMoreEvents]);
 
   const loadCategory = useCallback(
     async (cat: DiscoverCategory, chosen: string[]) => {
@@ -348,10 +313,12 @@ export function DiscoverySurface({
           next = rankToItems(places);
         } else if (cat.kind === "event") {
           let events = cachedRaw as NearbyEvent[] | undefined;
+          const eventQuery = chosen.map(subQ).join(" ");
           if (!events) {
-            events = await fetchEvents(chosen.map(subQ).join(" "), 0, controller.signal);
+            events = await fetchEvents(eventQuery, 0, controller.signal);
             categoryRawCache.set(cacheKey, events);
           }
+          eventPaging.current = { q: eventQuery, page: 0, more: events.length > 0 };
           next = events.map((e) => ({ kind: "event", event: e }));
         } else {
           let all = cachedRaw as StayItem[] | undefined;
@@ -400,7 +367,7 @@ export function DiscoverySurface({
         setItems(eventIntent ? events.map((event) => ({ kind: "event", event }) as Item) : rankToItems(places));
         setLoading(false);
         const count = eventIntent ? events.length : places.length;
-        setMessage(count ? `“${q}” · ${count} near ${destination || "your destination"}` : "Nothing came back — try different words.");
+        setMessage(count ? "" : "Nothing came back — try different words.");
       } catch (error) {
         if (mine !== reqId.current) return;
         if (error instanceof DOMException && error.name === "AbortError") return;
@@ -408,7 +375,7 @@ export function DiscoverySurface({
         setMessage("Nothing came back — try different words.");
       }
     },
-    [fetchPlaces, fetchEvents, destination, rankToItems],
+    [fetchPlaces, fetchEvents, rankToItems],
   );
 
   // Arriving from a "See more" elsewhere (a place's nearby recommendations) — run that
@@ -468,7 +435,7 @@ export function DiscoverySurface({
   const savedItems: Item[] = saved.map((p) => ({ kind: "place", place: p }));
   const gridItems = view === "saved" ? savedItems : items;
   // Reset the reveal only when the list itself changes — not when `saved` re-fetches under us.
-  const { visible, sentinel, more } = useInfiniteReveal(gridItems.length, PAGE, view === "saved" ? `saved:${saved.length}` : items);
+  const gridMore = useShowMore(gridItems.length, view === "saved" ? `saved:${saved.length}` : items);
   const flatItems = useMemo(() => {
     const seen = new Set<string>();
     return (bands ?? []).flatMap((b) => b.items).filter((it) => (seen.has(idOf(it)) ? false : (seen.add(idOf(it)), true)));
@@ -476,26 +443,43 @@ export function DiscoverySurface({
   // "Just show everything" is every band's items deduped into one list — same windowing the
   // grid view already gets, so asking to see more doesn't mount every card (150+, for a full
   // digest) synchronously in one pass.
-  const { visible: visibleFlat, sentinel: flatSentinel, more: moreFlat } = useInfiniteReveal(flatItems.length, PAGE, flatItems);
+  const flatMore = useShowMore(flatItems.length, flatItems);
+  async function loadMoreEvents() {
+    if (eventsBusy || !eventPaging.current.more) return;
+    setEventsBusy(true);
+    const { q, page } = eventPaging.current;
+    try {
+      const next = await fetchEvents(q, page + 1);
+      eventPaging.current = { q, page: page + 1, more: next.length > 0 };
+      setItems((current) => {
+        const have = new Set(current.map(idOf));
+        return [...current, ...next.map((event) => ({ kind: "event", event }) as Item).filter((it) => !have.has(idOf(it)))];
+      });
+    } finally {
+      setEventsBusy(false);
+    }
+  }
 
-  const renderItem = (item: Item) => {
+  // In a band on a phone each card is a swipeable slide (the next one peeks in), not a half-width tile: two to a row cramped the buttons.
+  const slide = "max-sm:w-[15.5rem] max-sm:shrink-0 max-sm:snap-start";
+  const renderItem = (item: Item, inRail = false, row = false) => {
     if (item.kind === "place") {
       return (
-        <StaggerItem key={`p:${item.place.providerId}`}>
-          <PlaceCard tripId={tripId} place={item.place} why={item.why ?? undefined} />
+        <StaggerItem key={`p:${item.place.providerId}`} className={inRail ? slide : undefined}>
+          <PlaceCard tripId={tripId} place={item.place} why={item.why ?? undefined} phoneRow={row} />
         </StaggerItem>
       );
     }
     if (item.kind === "event") {
       return (
-        <StaggerItem key={`e:${item.event.url}|${item.event.date ?? ""}`}>
-          <EventCard tripId={tripId} event={item.event} />
+        <StaggerItem key={`e:${item.event.url}|${item.event.date ?? ""}`} className={inRail ? slide : undefined}>
+          <EventCard tripId={tripId} event={item.event} phoneRow={row} />
         </StaggerItem>
       );
     }
     return (
-      <StaggerItem key={`s:${item.stay.hotelId}`}>
-        <StayMiniCard tripId={tripId} stay={item.stay} />
+      <StaggerItem key={`s:${item.stay.hotelId}`} className={inRail ? slide : undefined}>
+        <StayMiniCard tripId={tripId} stay={item.stay} phoneRow={row} />
       </StaggerItem>
     );
   };
@@ -503,25 +487,9 @@ export function DiscoverySurface({
   const grid = "grid gap-4 sm:grid-cols-2 xl:grid-cols-3";
 
   return (
-    <div>
-      <AiSearchBar
-        tripId={tripId}
-        scope="discover"
-        placeholder={destination ? `Ask — “rooftop bars near ${destination.split(",")[0].trim()}”, “kid-friendly museums”, “ramen”` : "Ask for places for this trip"}
-        onDirective={applyDirective}
-        className="w-full max-w-3xl"
-      />
-      {(searchMode || catKey !== null) && searchLabel && (
-        <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="min-w-0 truncate">Showing: <span className="font-medium text-foreground">{searchLabel}</span></span>
-          <button type="button" onClick={() => { setSearchMode(false); setSearchLabel(""); pickCategory(null); }} className="shrink-0 hover:text-foreground">
-            Clear
-          </button>
-        </p>
-      )}
-
+    <div className="flex min-h-[calc(100dvh-13rem)] flex-col">
       {/* Tier 1 — Compare + broad categories (Discover/Saved lives in the page header now). One row, scrolls sideways. */}
-      {view === "results" && (
+      {view === "results" && (!searchMode || panelCtx || searchLabel) && (
         <div className="mt-4 flex items-center gap-2 overflow-x-auto overscroll-x-contain scrollbar-slim px-1 py-1">
             {panelCtx && (
               <button
@@ -536,29 +504,48 @@ export function DiscoverySurface({
                 {panelCtx.compareMode ? `Comparing · ${panelCtx.compareList.length}` : "Compare"}
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => pickCategory(null)}
-              aria-pressed={!searchMode && catKey === null}
-              className="btn-chip shrink-0"
-            >
-              All
-            </button>
-            {CATEGORIES.map((c) => {
-              const Icon = c.icon;
-              const on = !searchMode && catKey === c.key;
-              return (
-                <button
-                  key={c.key}
-                  type="button"
-                  onClick={() => pickCategory(c.key)}
-                  aria-pressed={on}
-                  className="btn-chip shrink-0"
-                >
-                  <Icon className="h-3.5 w-3.5" /> {c.label}
-                </button>
-              );
-            })}
+            {/* What the search resolved to, as a chip that clears it: the one way back to the digest while the category chips are away. */}
+            {searchMode && searchLabel && (
+              <button
+                type="button"
+                onClick={() => { setSearchMode(false); setSearchLabel(""); pickCategory(null); }}
+                aria-label={`Clear search: ${searchLabel}`}
+                className="btn-chip max-w-[18rem] shrink-0"
+              >
+                <span className="truncate">{searchLabel}</span> <X className="size-3.5 shrink-0" aria-hidden />
+              </button>
+            )}
+            {/* The category chips narrow the digest, so they mean nothing beside a search's own results: the strip keeps only Compare until the search is cleared. */}
+            <AnimatePresence initial={false}>
+              {!searchMode && (
+                <motion.div key="categories" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }} className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => pickCategory(null)}
+                    aria-pressed={!searchMode && catKey === null}
+                    className="btn-chip shrink-0"
+                  >
+                    All
+                  </button>
+                  {CATEGORIES.map((c) => {
+                    const Icon = c.icon;
+                    const on = !searchMode && catKey === c.key;
+                    return (
+                      <button
+                        key={c.key}
+                        type="button"
+                        // Pressing the chosen category again lets go of it: back to the whole digest.
+                        onClick={() => pickCategory(on ? null : c.key)}
+                        aria-pressed={on}
+                        className="btn-chip shrink-0"
+                      >
+                        <Icon className="h-3.5 w-3.5" /> {c.label}
+                      </button>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
         </div>
       )}
       {/* Tier 2 — sub-types for the active category. One row, scrolls sideways. */}
@@ -603,8 +590,13 @@ export function DiscoverySurface({
       ) : gridView ? (
         gridItems.length > 0 ? (
           <>
-            <Stagger className={cn(grid, "mt-5")}>{gridItems.slice(0, visible).map((it) => renderItem(it))}</Stagger>
-            {more && <div ref={sentinel} aria-hidden className="h-8" />}
+            <Stagger className={cn(grid, "mt-5")}>{gridItems.slice(0, gridMore.visible).map((it) => renderItem(it, false, true))}</Stagger>
+            {/* Rows already in hand come first (no request); an events list that has run out of them asks the provider for its next page. */}
+            {gridMore.remaining > 0 ? (
+              <div className="mt-6"><ShowMoreButton next={gridMore.next} visible={gridMore.visible} total={gridItems.length} onClick={gridMore.showMore} noun="results" /></div>
+            ) : view !== "saved" && activeCat?.kind === "event" && eventPaging.current.more ? (
+              <div className="mt-6"><ShowMoreButton force busy={eventsBusy} next={0} visible={gridItems.length} total={gridItems.length} onClick={() => void loadMoreEvents()} noun="events" /></div>
+            ) : null}
           </>
         ) : (
           <EmptyState icon={Compass} className="mt-8">
@@ -617,9 +609,9 @@ export function DiscoverySurface({
         // "All" digest
         <div className="mt-5">
           <div className="flex items-center justify-between gap-3">
-            <p className="eyebrow min-w-0 truncate">A mix for {destination || "this trip"}</p>
+            <p className="eyebrow min-w-0 truncate">A mix for {destination ? destination.split(",")[0].trim() : "this trip"}</p>
             {bands && bands.length > 0 && (
-              <button type="button" onClick={() => setFlat((f) => !f)} className="shrink-0 text-xs font-medium whitespace-nowrap text-primary hover:underline">
+              <button type="button" onClick={() => setFlat((f) => !f)} className="shrink-0 text-xs font-medium whitespace-nowrap text-primary hover:underline relative after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']">
                 {flat ? "Show bands" : "Just show everything"}
               </button>
             )}
@@ -633,8 +625,8 @@ export function DiscoverySurface({
             </EmptyState>
           ) : flat ? (
             <>
-              <Stagger className={cn(grid, "mt-4")}>{flatItems.slice(0, visibleFlat).map((it) => renderItem(it))}</Stagger>
-              {moreFlat && <div ref={flatSentinel} aria-hidden className="h-8" />}
+              <Stagger className={cn(grid, "mt-4")}>{flatItems.slice(0, flatMore.visible).map((it) => renderItem(it, false, true))}</Stagger>
+              <div className="mt-6"><ShowMoreButton next={flatMore.next} visible={flatMore.visible} total={flatItems.length} onClick={flatMore.showMore} noun="places" /></div>
             </>
           ) : (
             <div className="mt-4 space-y-9">
@@ -643,25 +635,24 @@ export function DiscoverySurface({
                   <div className="flex items-baseline justify-between gap-3">
                     <h3 className="font-display text-lg">{band.label}</h3>
                     {band.key && (
-                      <button type="button" onClick={() => pickCategory(band.key)} className="shrink-0 text-xs font-medium text-primary hover:underline">
+                      <button type="button" onClick={() => pickCategory(band.key)} className="shrink-0 text-xs font-medium text-primary hover:underline relative after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']">
                         See all &rarr;
                       </button>
                     )}
                   </div>
                   {/* Two rows of three per band; the rest lives behind "See all". */}
-                  <Stagger className={cn("mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3")}>
-                    {band.items.slice(0, 6).map((it) => renderItem(it))}
+                  <Stagger className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 max-sm:-mx-5 max-sm:-mb-10 max-sm:flex max-sm:snap-x max-sm:snap-mandatory max-sm:items-stretch max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:px-5 max-sm:pt-2 max-sm:pb-10 max-sm:scroll-px-5 no-scrollbar">
+                    {band.items.slice(0, 6).map((it) => renderItem(it, true))}
                   </Stagger>
                   {band.key && band.items.length > 6 && (
                     <button
                       type="button"
                       onClick={() => pickCategory(band.key)}
-                      className="mt-3 inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium shadow-soft transition-colors hover:bg-accent"
+                      className="mt-3 inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium shadow-soft transition-colors hover:bg-accent max-sm:hidden"
                     >
                       See all {band.label.toLowerCase()} &rarr;
                     </button>
                   )}
-                  {band.key === "events" && <div ref={eventsSentinel} aria-hidden className="h-8" />}
                 </section>
               ))}
             </div>
@@ -671,12 +662,20 @@ export function DiscoverySurface({
         </SwapView>
       </div>
 
+      {/* Last in the column so it can rest on the bottom edge of the page (see `.ask-dock`). */}
+      <AiSearchBar
+        variant="dock"
+        tripId={tripId}
+        scope="discover"
+        placeholder={destination ? `Ask — “rooftop bars near ${destination.split(",")[0].trim()}”, “kid-friendly museums”, “ramen”` : "Ask for places for this trip"}
+        onDirective={applyDirective}
+      />
     </div>
   );
 }
 
 /** A stay, as Discover shows it: the same `EntityCard` Roam uses (4-star, guest score, "£230 / night"). */
-export function StayMiniCard({ tripId, stay }: { tripId: string; stay: StayItem }) {
+export function StayMiniCard({ tripId, stay, phoneRow = false }: { tripId: string; stay: StayItem; phoneRow?: boolean }) {
   const router = useRouter();
   const panelCtx = useTripPanelMaybe();
   const href = `/trips/${tripId}/stay/${encodeURIComponent(stay.hotelId)}`;
@@ -688,5 +687,5 @@ export function StayMiniCard({ tripId, stay }: { tripId: string; stay: StayItem 
   };
   const comparing = Boolean(panelCtx?.compareMode);
   const selected = comparing && Boolean(panelCtx?.compareHas(stay.hotelId));
-  return <StayResultCard stay={stay} href={href} onOpen={open} comparing={comparing} selected={selected} />;
+  return <StayResultCard stay={stay} href={href} onOpen={open} comparing={comparing} selected={selected} phoneRow={phoneRow} />;
 }

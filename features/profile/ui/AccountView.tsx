@@ -145,7 +145,7 @@ function ToggleSwitch({ checked, onChange, label }: { checked: boolean; onChange
       aria-checked={checked}
       aria-label={label}
       onClick={() => onChange(!checked)}
-      className={cn("relative mt-0.5 h-6 w-10 shrink-0 rounded-full transition-colors", checked ? "bg-coral" : "bg-border")}
+      className={cn("relative mt-0.5 h-6 w-10 shrink-0 rounded-full transition-colors before:absolute before:-inset-2.5 before:content-['']", checked ? "bg-coral" : "bg-border")}
     >
       <motion.span
         className="absolute top-0.5 h-5 w-5 rounded-full bg-background shadow-soft"
@@ -534,7 +534,7 @@ export function AccountView({
                       <Compass className="h-4 w-4 opacity-70" /> Dreaming of {dreamText}
                     </button>
                   ) : (
-                    <button type="button" onClick={openDream} className="daisy-badge h-7 gap-1.5 border-white/30 bg-white/15 px-3 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/25">
+                    <button type="button" onClick={openDream} className="daisy-badge h-7 gap-1.5 border-white/30 bg-white/15 px-3 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/25 max-sm:h-9 max-sm:px-4">
                       <Compass className="h-3.5 w-3.5" /> Add your dream destination
                     </button>
                   )}
@@ -544,7 +544,7 @@ export function AccountView({
             </div>
 
             <Reveal delay={0.3}>
-              <div className="daisy-stats w-full rounded-2xl border border-white/20 bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md lg:w-auto [&_.daisy-stat-desc]:text-white/70 [&_.daisy-stat-title]:text-white/70 [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:border-white/20 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3">
+              <div className="daisy-stats w-full rounded-2xl border border-white/20 bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md lg:w-auto [&_.daisy-stat-desc]:text-white/70 [&_.daisy-stat-title]:text-white/70 [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:border-white/20 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3 max-sm:[&>.daisy-stat]:px-3 max-sm:[&_.daisy-stat-title]:tracking-[0.06em]">
                 {[
                   { label: "Trips planned", value: String(tripCount) },
                   { label: "Places", value: String(destinationCount) },
@@ -568,7 +568,7 @@ export function AccountView({
           <nav className="sticky top-0 z-20 -mx-5 mb-8 overflow-x-auto overscroll-x-contain border-b border-border bg-background/95 px-5 py-3 scrollbar-slim sm:-mx-8 sm:px-8 lg:top-10 lg:mx-0 lg:mb-0 lg:self-start lg:overflow-visible lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
             <ul className="flex gap-2 lg:flex-col lg:gap-1">
               {SECTIONS.map((s) => (
-                <li key={s.id}>
+                <li key={s.id} className="shrink-0">
                   <a
                     href={`#${s.id}`}
                     onClick={() => {

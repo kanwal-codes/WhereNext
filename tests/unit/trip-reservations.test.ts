@@ -23,6 +23,17 @@ describe("buildTimeline", () => {
     expect(items.filter((i) => i.bookingId).map((i) => i.bookingId).sort()).toEqual(["b1", "b2"]);
   });
 
+  it("says what removing a row deletes: hand-entered rows and unbooked locks yes, anything a provider order backs no", () => {
+    const loose = buildTimeline({ reservations: [reservation("r1")], bookings: [], stay, flight, tripId: "t" });
+    expect(Object.fromEntries(loose.map((i) => [i.id, i.removal]))).toEqual({
+      "stay:h1": { type: "decision", kind: "stay" },
+      "flight:choice": { type: "decision", kind: "flight" },
+      "reservation:r1": { type: "reservation" },
+    });
+    const booked = buildTimeline({ reservations: [], bookings: [booking("b1", "stay"), booking("b2", "flight"), booking("b3", "stay")], stay, flight, tripId: "t" });
+    expect(booked.every((i) => i.removal === null)).toBe(true);
+  });
+
   it("orders by date then time, with undated rows last", () => {
     const items = buildTimeline({
       reservations: [
