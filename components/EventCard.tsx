@@ -16,7 +16,7 @@ export type NearbyEvent = { title: string; url: string; date?: string; venue?: s
  * uses for a place or a stay (16:10 photo, title, one meta line, the action at the foot). Opens the
  * shared trip panel, and falls back to the detail route when there is no panel.
  */
-export function EventCard({ tripId, event, className, onSelect, compact = false, phoneRow = false }: { tripId: string; event: NearbyEvent; className?: string; onSelect?: () => void; /** The narrow lane version: photo, title, one meta line. */ compact?: boolean; /** A horizontal card on a phone (a long list): the whole card opens. */ phoneRow?: boolean }) {
+export function EventCard({ tripId, event, className, onSelect, compact = false, phoneRow = false, tile = false }: { tripId: string; event: NearbyEvent; className?: string; onSelect?: () => void; /** The narrow lane version: photo, title, one meta line. */ compact?: boolean; /** A horizontal card on a phone (a long list): the whole card opens. */ phoneRow?: boolean; /** A bare photo tile (photo, when, title, venue) for a short row of suggestions inside a detail view. */ tile?: boolean }) {
   const router = useRouter();
   const href = eventDetailHref(tripId, event);
   const seller = ticketSellerLabel(event.source, event.url);
@@ -30,6 +30,25 @@ export function EventCard({ tripId, event, className, onSelect, compact = false,
   };
   const comparing = Boolean(panelCtx?.compareMode);
   const selected = comparing && Boolean(panelCtx?.compareHas(event.url));
+  if (tile) {
+    return (
+      <button type="button" onClick={open} aria-label={`Open ${event.title}`} className={cn("group block w-full text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring", className)}>
+        <span className="relative block overflow-hidden rounded-2xl bg-muted">
+          <SafeImage
+            src={event.imageUrl}
+            alt=""
+            width={416}
+            height={312}
+            className="aspect-[4/3] w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+            fallback={<EventPoster title={event.title} className="aspect-[4/3] w-full" />}
+          />
+        </span>
+        {event.date && <span className="mt-2.5 block text-xs font-medium text-coral-ink">{formatEventWhen(event.date)}</span>}
+        <span className={cn("block line-clamp-2 text-sm leading-snug font-medium", event.date ? "mt-0.5" : "mt-2.5")}>{event.title}</span>
+        {event.venue && <span className="mt-0.5 block truncate text-xs text-muted-foreground">{event.venue}</span>}
+      </button>
+    );
+  }
   return (
     <div className={cn("h-full", className)}>
       <EntityCard

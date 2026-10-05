@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
-import { ArrowRight, CalendarClock, ChevronUp } from "lucide-react";
 import { EventCard, type NearbyEvent } from "@/components/EventCard";
 import { Reveal } from "@/components/motion-primitives";
 import { Skeleton } from "@/components/Skeleton";
+import { cn } from "@/lib/utils";
 
 /** "What's on nearby" — Ticketmaster + Eventbrite events for a place's city. */
 export function NearbyEvents({ tripId, location, query = "" }: { tripId: string; location: string; query?: string }) {
@@ -59,10 +59,10 @@ export function NearbyEvents({ tripId, location, query = "" }: { tripId: string;
     return (
       <div aria-busy="true" aria-label={`Loading events near ${location}`} className="space-y-3">
         <div className="h-6 w-40 skeleton rounded-md" />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <Skeleton className="h-32" />
-          <Skeleton className="h-32" />
-          <Skeleton className="hidden h-32 lg:block" />
+        <div className="grid grid-cols-3 gap-3">
+          <Skeleton className="aspect-[4/5]" />
+          <Skeleton className="aspect-[4/5]" />
+          <Skeleton className="aspect-[4/5]" />
         </div>
       </div>
     );
@@ -75,10 +75,8 @@ export function NearbyEvents({ tripId, location, query = "" }: { tripId: string;
   return (
     <Reveal>
       <section>
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="flex items-center gap-2 font-display text-xl">
-            <CalendarClock className="h-4 w-4 text-coral" /> What&rsquo;s on nearby
-          </h2>
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="font-display text-xl">What&rsquo;s on nearby</h2>
           {hasMore && (
             <button
               type="button"
@@ -88,21 +86,28 @@ export function NearbyEvents({ tripId, location, query = "" }: { tripId: string;
               }}
               aria-expanded={expanded}
               aria-controls="nearby-events-list"
-              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+              className="relative shrink-0 text-xs font-medium text-primary hover:underline after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']"
             >
-              {expanded ? "Show less" : "See more"}
-              {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ArrowRight className="h-3.5 w-3.5" />}
+              {expanded ? "Show less" : `See all ${events.length}`} <span aria-hidden="true">{expanded ? "↑" : "→"}</span>
             </button>
           )}
         </div>
-        <div id="nearby-events-list" className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {visibleEvents.map((event) => (
-              <EventCard key={`${event.url}|${event.date ?? ""}`} tripId={tripId} event={event} className="w-full" />
-            ))}
-        </div>
-        {expanded && (
-          <p className="mt-2 text-xs text-muted-foreground">Confirm dates and availability on the ticket page.</p>
-        )}
+        {/* Photo tiles, like "Other places to stay": a row of three on a laptop, a swipe row on a phone; "See all" lets them wrap into a grid. */}
+        <ul
+          id="nearby-events-list"
+          className={cn(
+            "mt-4",
+            expanded
+              ? "grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3"
+              : "no-scrollbar -mx-5 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0",
+          )}
+        >
+          {visibleEvents.map((event) => (
+            <li key={`${event.url}|${event.date ?? ""}`} className={cn(!expanded && "w-[62%] shrink-0 snap-start sm:w-auto")}>
+              <EventCard tripId={tripId} event={event} tile />
+            </li>
+          ))}
+        </ul>
       </section>
     </Reveal>
   );
