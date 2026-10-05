@@ -1,21 +1,54 @@
 import { isGoogleImageUrl } from "@/lib/hotel-photo";
+import { readBytesCapped, safeFetch, UnsafeUrlError } from "@/lib/server/safe-fetch";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { logger } from "@/lib/server/logger";
 
 const MAX_BYTES = 6 * 1024 * 1024;
+const ACCEPT = { accept: "image/avif,image/webp,image/*", "user-agent": "Mozilla/5.0 (compatible; WhereNext/1.0)" };
 
-/** A Google Hotels photograph, fetched here and served from our own origin (see lib/hotel-photo.ts). Google's image hosts only. */
+const unavailable = (reason: string, host: string, extra?: Record<string, unknown>) => {
+  // A photo that cannot be fetched used to vanish without a trace; the host and the reason are what a missing picture needs.
+  logger.warn({ host, reason, ...extra }, "hotel photo unavailable");
+  return new Response("Photo unavailable", { status: 502 });
+};
+
+/**
+ * A hotel photograph, fetched here and served from our own origin (see lib/hotel-photo.ts).
+ * Google's image hosts are fetched directly. Any other host is fetched through the SSRF-guarded fetch
+ * (https only, public addresses only, redirects re-checked) and only for a signed-in visitor (guests included),
+ * so this is never an open proxy.
+ */
 export async function GET(request: Request) {
   const target = new URL(request.url).searchParams.get("u") ?? "";
-  if (!isGoogleImageUrl(target)) return new Response("Not an image we serve", { status: 400 });
-  // Google's "original" size (=s10000) can be many megabytes; nothing here is shown wider than a screen.
-  const sized = target.replace(/=s(\d{4,})$/, "=s1600");
+  let parsed: URL;
   try {
-    const upstream = await fetch(sized, { signal: AbortSignal.timeout(10_000), headers: { accept: "image/avif,image/webp,image/*" }, redirect: "error" });
-    const type = upstream.headers.get("content-type") ?? "";
-    if (!upstream.ok || !type.startsWith("image/")) return new Response("Photo unavailable", { status: 502 });
-    const bytes = await upstream.arrayBuffer();
-    if (bytes.byteLength > MAX_BYTES) return new Response("Photo too large", { status: 502 });
-    return new Response(bytes, { headers: { "content-type": type, "cache-control": "public, max-age=86400, stale-while-revalidate=604800", "x-content-type-options": "nosniff" } });
+    parsed = new URL(target);
   } catch {
-    return new Response("Photo unavailable", { status: 502 });
+    return new Response("Not an image address", { status: 400 });
+  }
+  if (parsed.protocol !== "https:") return new Response("Not an image address", { status: 400 });
+  const host = parsed.hostname;
+  const google = isGoogleImageUrl(target);
+
+  if (!google) {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase.auth.getClaims();
+    if (!data?.claims) return new Response("Sign in to see photos", { status: 401 });
+  }
+
+  // Google's "original" size (=s10000) can be many megabytes; nothing here is shown wider than a screen.
+  const sized = google ? target.replace(/=s(\d{4,})$/, "=s1600") : target;
+  try {
+    const upstream = google
+      ? await fetch(sized, { signal: AbortSignal.timeout(10_000), headers: ACCEPT, redirect: "follow" })
+      : await safeFetch(sized, { signal: request.signal, headers: ACCEPT });
+    const type = upstream.headers.get("content-type") ?? "";
+    if (!upstream.ok || !type.startsWith("image/")) return unavailable(`upstream ${upstream.status} ${type.split(";")[0]}`, host);
+    const bytes = await readBytesCapped(upstream, MAX_BYTES);
+    if (!bytes) return unavailable("too large", host);
+    return new Response(bytes, { headers: { "content-type": type, "cache-control": "public, max-age=86400, stale-while-revalidate=604800", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; sandbox" } });
+  } catch (error) {
+    if (error instanceof UnsafeUrlError) return new Response("Not an image we serve", { status: 400 });
+    return unavailable(error instanceof Error ? error.message : "fetch failed", host);
   }
 }

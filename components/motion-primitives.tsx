@@ -1,6 +1,6 @@
 "use client";
 
-import { hotelPhotoSrc } from "@/lib/hotel-photo";
+import { googlePhotoSrc } from "@/lib/hotel-photo";
 import React from "react";
 import {
   AnimatePresence,
@@ -506,7 +506,7 @@ export function BlurImage({
     // eslint-disable-next-line @next/next/no-img-element -- decorative, arbitrary sources
     <img
       ref={checkLoaded}
-      src={hotelPhotoSrc(src)}
+      src={googlePhotoSrc(src)}
       alt={alt}
       loading="lazy"
       decoding="async"

@@ -1,6 +1,6 @@
 "use client";
 
-import { hotelPhotoSrc } from "@/lib/hotel-photo";
+import { HotelPhoto } from "@/components/HotelPhoto";
 import { useEffect, useMemo, useState } from "react";
 import { useShowMore } from "@/lib/use-show-more";
 import { ShowMoreButton } from "@/components/ShowMoreButton";
@@ -143,12 +143,7 @@ export function NearbyStays({
               const card = (
                 <>
                   <span className="relative block aspect-[4/3] overflow-hidden rounded-2xl bg-muted">
-                    {option.thumbnail ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- provider image URL is arbitrary
-                      <img src={hotelPhotoSrc(option.thumbnail)} alt="" loading="lazy" className="size-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]" />
-                    ) : (
-                      <span className="grid size-full place-items-center"><BedDouble className="size-5 text-muted-foreground" /></span>
-                    )}
+                    <HotelPhoto src={option.thumbnail} className="size-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]" fallback={<span className="grid size-full place-items-center"><BedDouble className="size-5 text-muted-foreground" /></span>} />
                     {typeof option.rating === "number" && (
                       <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-card/90 px-2 py-0.5 text-xs font-medium tabular-nums shadow-soft backdrop-blur"><Star className="size-3 fill-current" aria-hidden />{option.rating.toFixed(1)}</span>
                     )}
@@ -212,10 +207,7 @@ export function NearbyStays({
               <>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0"><p className="text-xs text-muted-foreground">{optionKind}</p><p className="mt-0.5 truncate font-display text-base font-semibold">{option.name}</p></div>
-                  {option.thumbnail ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- provider image URL is arbitrary
-                    <img src={hotelPhotoSrc(option.thumbnail)} alt="" loading="lazy" width={64} height={48} className="h-12 w-16 shrink-0 rounded-lg object-cover" />
-                  ) : <div className="grid h-12 w-16 shrink-0 place-items-center rounded-lg bg-muted"><BedDouble className="h-4 w-4 text-muted-foreground" /></div>}
+                  <HotelPhoto src={option.thumbnail} width={64} height={48} className="h-12 w-16 shrink-0 rounded-lg object-cover" fallback={<div className="grid h-12 w-16 shrink-0 place-items-center rounded-lg bg-muted"><BedDouble className="h-4 w-4 text-muted-foreground" /></div>} />
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span className="font-medium text-foreground">{formatMoney(option.nightlyAmount, option.currency || currency)}<span className="font-normal text-muted-foreground"> / night</span></span>

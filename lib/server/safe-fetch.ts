@@ -75,7 +75,7 @@ function assertAllowedUrl(url: URL, allowHttp: boolean): void {
   throw new UnsafeUrlError(`unsupported scheme: ${url.protocol}`);
 }
 
-export type SafeFetchOptions = { allowHttp?: boolean; signal?: AbortSignal };
+export type SafeFetchOptions = { allowHttp?: boolean; signal?: AbortSignal; /** Replaces the default page-fetching request headers. */ headers?: Record<string, string> };
 
 /** Fetch `rawUrl` with SSRF checks at every hop. Returns the final Response (body not yet read). */
 export async function safeFetch(rawUrl: string, opts: SafeFetchOptions = {}): Promise<Response> {
@@ -95,7 +95,7 @@ export async function safeFetch(rawUrl: string, opts: SafeFetchOptions = {}): Pr
     const response = await fetch(url, {
       redirect: "manual",
       signal,
-      headers: { "user-agent": "WhereNextBot/1.0 (+trip import)", accept: "text/html,application/xhtml+xml" },
+      headers: opts.headers ?? { "user-agent": "WhereNextBot/1.0 (+trip import)", accept: "text/html,application/xhtml+xml" },
     });
 
     if (response.status >= 300 && response.status < 400 && response.headers.get("location")) {
@@ -127,4 +127,29 @@ export async function readCapped(response: Response, maxBytes = MAX_BYTES): Prom
     }
   }
   return Buffer.concat(chunks.map((c) => Buffer.from(c))).toString("utf8");
+}
+
+/** Read a Response body as bytes with a hard cap; null when it is larger than `maxBytes`. */
+export async function readBytesCapped(response: Response, maxBytes: number): Promise<Uint8Array<ArrayBuffer> | null> {
+  const declared = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > maxBytes) return null;
+  const reader = response.body?.getReader();
+  if (!reader) return null;
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      return null;
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(new ArrayBuffer(total));
+  let offset = 0;
+  for (const chunk of chunks) { out.set(chunk, offset); offset += chunk.byteLength; }
+  return out;
 }

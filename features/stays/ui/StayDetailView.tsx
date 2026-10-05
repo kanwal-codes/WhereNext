@@ -137,6 +137,7 @@ export function StayDetailView({
   const [reviewsOpen, setReviewsOpen] = useState(false);
   const [amenityGroupOpen, setAmenityGroupOpen] = useState<string | null>(null);
   const lightbox = usePhotoLightbox();
+  const [deadPhotos, setDeadPhotos] = useState<string[]>([]);
   const s = useStayDetails(tripId, hotelId, { checkin, checkout, adults });
   const titleTag = useDocumentTitle(panel ? null : s.hotel?.name ?? "Stay");
 
@@ -177,8 +178,9 @@ export function StayDetailView({
 
   const hotel = s.hotel;
   const name = hotel?.name ?? seedName ?? "Hotel";
-  // Proxied: Google's image hosts refuse many direct browser loads (lib/hotel-photo.ts).
-  const images = (hotel?.images ?? []).map((src) => hotelPhotoSrc(src));
+  // Proxied: hotel photo hosts refuse many direct browser loads (lib/hotel-photo.ts). A photo that fails to load (a dead link) is
+  // dropped, so the strip never shows an empty frame and the lightbox never opens on one.
+  const images = [...new Set((hotel?.images ?? []).map((src) => hotelPhotoSrc(src)))].filter((src) => !deadPhotos.includes(src));
 
   const directionsHref = hotel?.latitude != null && hotel?.longitude != null
     ? `https://www.google.com/maps/dir/?api=1&destination=${hotel.latitude},${hotel.longitude}`
@@ -232,7 +234,7 @@ export function StayDetailView({
                   className="shrink-0 snap-start rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI */}
-                  <img src={src} alt="" loading="lazy" width={288} height={192} className="h-44 w-72 rounded-2xl border border-border object-cover transition-opacity hover:opacity-90" />
+                  <img src={src} alt="" loading="lazy" width={288} height={192} onError={() => setDeadPhotos((current) => [...current, src])} className="h-44 w-72 rounded-2xl border border-border object-cover transition-opacity hover:opacity-90" />
                 </button>
               ))}
             </div>
@@ -346,8 +348,11 @@ export function StayDetailView({
     <div>
       {titleTag}
       <Hero
-        image={images[0] ?? "/design/place-hotel.jpg"}
-        alt={name}
+        image="/design/place-hotel.jpg"
+        coverImages={images}
+        onCoverError={(src) => setDeadPhotos((current) => (current.includes(src) ? current : [...current, src]))}
+        coverAlt={name}
+        alt=""
         plain
         surface={panel}
         className={cn(panel ? PANEL_HERO : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")}

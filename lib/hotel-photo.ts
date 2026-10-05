@@ -1,8 +1,9 @@
 /**
- * Hotel photographs from Google Hotels live on Google's image hosts. Browsers load them unreliably straight from
- * the page (Chromium's opaque-response blocking refuses a good share of them, and the card shows its stand-in), so
- * they are fetched by our own server (`/api/hotel-photo`) and served from the app's own origin. Only Google's image
- * hosts are ever rewritten: any other URL, and our own proxied ones, pass through untouched.
+ * Hotel photographs come from a dozen hosts: Google's image servers for the thumbnails, and for the full-size gallery
+ * whatever the hotel or the listing site uses (Vrbo, Expedia, Hotelbeds, a property manager's own bucket). Browsers load
+ * them unreliably straight from the page — Chromium's opaque-response blocking refuses a good share, and many hosts turn
+ * away a request that carries our page as its referrer — and the card shows a blank box. So they are fetched by our own
+ * server (`/api/hotel-photo`), which sends no referrer, and served from the app's own origin.
  */
 const GOOGLE_IMAGE_HOST = /^(?:lh\d+\.googleusercontent\.com|(?:encrypted-)?tbn\d*\.gstatic\.com|[a-z0-9-]+\.ggpht\.com|streetviewpixels-pa\.googleapis\.com)$/i;
 
@@ -15,7 +16,14 @@ export const isGoogleImageUrl = (value: string): boolean => {
   }
 };
 
-/** The URL a hotel photograph should be loaded from. */
+const PROXY_PATH = "/api/hotel-photo";
+
+/** Google's image hosts only: for generic images (events, places) whose other hosts load fine on their own. */
+export function googlePhotoSrc<T extends string | null | undefined>(src: T): T | string {
+  return typeof src === "string" && isGoogleImageUrl(src) ? `${PROXY_PATH}?u=${encodeURIComponent(src)}` : src;
+}
+
+/** The URL a hotel photograph should be loaded from: any web address goes through our server; ours, relative ones and inline data stay as they are. */
 export function hotelPhotoSrc<T extends string | null | undefined>(src: T): T | string {
-  return typeof src === "string" && isGoogleImageUrl(src) ? `/api/hotel-photo?u=${encodeURIComponent(src)}` : src;
+  return typeof src === "string" && /^https:\/\//i.test(src) ? `${PROXY_PATH}?u=${encodeURIComponent(src)}` : src;
 }
