@@ -152,47 +152,35 @@ export function WhereToBook({ s, hotelId }: { s: Details; hotelId: string }) {
 
           </motion.div>
 
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 max-sm:flex-col max-sm:items-stretch">
-            {locked ? (
-              <Badge tone="positive" icon={Check}>Your stay</Badge>
-            ) : (
-              <button type="button" className="btn-primary-sm max-sm:h-12 max-sm:w-full max-sm:text-sm" disabled={s.busy} onClick={() => void s.lockSource(best)}>
-                {s.busy ? "Saving…" : "Make this my stay"}
-              </button>
-            )}
-            <p className={cn(T.meta, "text-right max-sm:text-center")}>You book on the site you pick. Prices change.</p>
-          </div>
+          {locked && <div><Badge tone="positive" icon={Check}>Your stay</Badge></div>}
         </>
       )}
     </section>
   );
 }
 
-/** What guests mention, by theme, with how much of it is praise. */
+/** What guests mention, by theme: two columns of a name, how many were positive, and a thin bar of the split. */
 export function StayThemes({ themes }: { themes: StayTheme[] }) {
   if (themes.length === 0) return null;
   return (
-    <div className="rounded-2xl border border-border bg-card p-4">
-      <p className="text-sm font-medium">What guests keep mentioning</p>
-      <ul className="mt-3 space-y-3">
-        {themes.map((t) => {
-          const pct = (n: number) => `${(n / t.total) * 100}%`;
-          return (
-            <li key={t.name}>
-              <div className="flex items-baseline justify-between gap-3 text-sm">
-                <span className="font-medium">{t.name}</span>
-                <span className={cn(T.meta, "tabular-nums")}>{t.positive} of {t.total} positive</span>
-              </div>
-              <div className="mt-1.5 flex h-1.5 overflow-hidden rounded-full bg-muted" role="img" aria-label={`${t.name}: ${t.positive} positive, ${t.neutral} neutral, ${t.negative} negative`}>
-                <span className="bg-positive" style={{ width: pct(t.positive) }} />
-                <span className="bg-muted-foreground/30" style={{ width: pct(t.neutral) }} />
-                <span className="bg-caution" style={{ width: pct(t.negative) }} />
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
+    <ul className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+      {themes.map((t) => {
+        const pct = (n: number) => `${(n / t.total) * 100}%`;
+        return (
+          <li key={t.name}>
+            <div className="flex items-baseline justify-between gap-3 text-sm">
+              <span className="font-medium">{t.name}</span>
+              <span className={cn(T.meta, "tabular-nums")}><span className="font-medium text-foreground">{t.positive}</span> of {t.total} liked</span>
+            </div>
+            <div className="mt-1.5 flex h-1 gap-px overflow-hidden rounded-full bg-muted" role="img" aria-label={`${t.name}: ${t.positive} positive, ${t.neutral} neutral, ${t.negative} negative`}>
+              <span className="bg-positive" style={{ width: pct(t.positive) }} />
+              <span className="bg-muted-foreground/30" style={{ width: pct(t.neutral) }} />
+              <span className="bg-caution" style={{ width: pct(t.negative) }} />
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

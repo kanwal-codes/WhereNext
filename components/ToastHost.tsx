@@ -1,26 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Check, Info, X } from "lucide-react";
 import { subscribeToasts, type ToastPayload } from "@/lib/application/toast";
 import { cn } from "@/lib/utils";
 
-const TONE: Record<ToastPayload["tone"], string> = {
-  success: "border-leaf/30 bg-leaf-soft text-leaf",
-  error: "border-destructive/30 bg-destructive/10 text-destructive",
-  info: "border-border bg-card text-foreground",
+const ICON: Record<ToastPayload["tone"], { Icon: typeof Check; chip: string }> = {
+  success: { Icon: Check, chip: "bg-positive-soft text-positive" },
+  error: { Icon: X, chip: "bg-destructive/10 text-destructive" },
+  info: { Icon: Info, chip: "bg-muted text-ink-soft" },
 };
 
 /** One mount per app shell. The single place any error or status reaches the user. */
 export function ToastHost() {
   const [toasts, setToasts] = useState<ToastPayload[]>([]);
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
-  const pathname = usePathname();
   const reduceMotion = useReducedMotion();
-  // In the conversation, float toasts just above the composer instead of the top corner.
-  const nearComposer = Boolean(pathname?.endsWith("/chat"));
 
   const dismiss = (id: number) => {
     const timer = timers.current.get(id);
@@ -32,57 +28,52 @@ export function ToastHost() {
     const map = timers.current;
     const off = subscribeToasts((toast) => {
       setToasts((current) => [...current, toast].slice(-3));
-      // A toast with an action (e.g. "Retry") stays until the user acts or closes it.
-      if (!toast.action) {
-        map.set(toast.id, setTimeout(() => setToasts((current) => current.filter((t) => t.id !== toast.id)), 3600));
-      }
+      // A toast with an action (Undo, Retry) stays longer, so there is time to use it.
+      map.set(toast.id, setTimeout(() => setToasts((current) => current.filter((t) => t.id !== toast.id)), toast.action ? 8000 : 4200));
     });
     return () => { off(); map.forEach(clearTimeout); map.clear(); };
   }, []);
 
   return (
-    <div
-      className={cn(
-        "pointer-events-none fixed z-[60] flex flex-col gap-2 px-4",
-        nearComposer
-          ? "inset-x-0 bottom-[calc(4.75rem+var(--tabbar))] items-center lg:bottom-[4.75rem]"
-          : "inset-x-0 top-3 items-center sm:inset-x-auto sm:right-4 sm:items-end",
-      )}
-    >
+    // Top centre, where the eye already is, on every screen (clear of the notch on a phone).
+    <div aria-live="polite" className="pointer-events-none fixed inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] z-[60] flex flex-col items-center gap-2 px-4">
       <AnimatePresence initial={false}>
-        {toasts.map((toast) => (
-          <motion.div
-            key={toast.id}
-            initial={reduceMotion ? false : { opacity: 0, y: nearComposer ? 12 : -12, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={reduceMotion ? undefined : { opacity: 0, y: nearComposer ? 8 : -8, scale: 0.98 }}
-            transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 320, damping: 28 }}
-            className={cn(
-              "pointer-events-auto flex max-w-sm items-center gap-2 rounded-full border py-2 pr-2 pl-3.5 text-xs font-medium shadow-lift backdrop-blur",
-              TONE[toast.tone],
-            )}
-          >
-            {toast.tone === "success" ? <Check className="h-3.5 w-3.5 shrink-0" /> : toast.tone === "error" ? <X className="h-3.5 w-3.5 shrink-0" /> : <Info className="h-3.5 w-3.5 shrink-0" />}
-            <span className="min-w-0">{toast.message}</span>
-            {toast.action && (
+        {toasts.map((toast) => {
+          const { Icon, chip } = ICON[toast.tone];
+          return (
+            <motion.div
+              key={toast.id}
+              role={toast.tone === "error" ? "alert" : "status"}
+              initial={reduceMotion ? false : { opacity: 0, y: -16, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={reduceMotion ? undefined : { opacity: 0, y: -10, scale: 0.98 }}
+              transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 320, damping: 28 }}
+              className="pointer-events-auto flex w-[min(26rem,calc(100vw-2rem))] items-center gap-3 rounded-2xl border border-border bg-card/95 py-2.5 pr-2.5 pl-3 text-sm shadow-lift backdrop-blur-xl"
+            >
+              <span aria-hidden className={cn("grid size-7 shrink-0 place-items-center rounded-full", chip)}>
+                <Icon className="size-3.5" strokeWidth={2.5} />
+              </span>
+              <span className="min-w-0 flex-1 leading-snug text-foreground text-pretty">{toast.message}</span>
+              {toast.action && (
+                <button
+                  type="button"
+                  onClick={() => { toast.action!.onClick(); dismiss(toast.id); }}
+                  className="h-8 shrink-0 rounded-full bg-foreground px-3.5 text-xs font-medium text-background transition-opacity hover:opacity-85 active:scale-[0.97]"
+                >
+                  {toast.action.label}
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => { toast.action!.onClick(); dismiss(toast.id); }}
-                className="ml-1 shrink-0 rounded-full bg-background/70 px-2.5 py-1 font-semibold text-foreground transition-colors hover:bg-background"
+                aria-label="Dismiss"
+                onClick={() => dismiss(toast.id)}
+                className="grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
-                {toast.action.label}
+                <X className="size-3.5" />
               </button>
-            )}
-            <button
-              type="button"
-              aria-label="Dismiss"
-              onClick={() => dismiss(toast.id)}
-              className="shrink-0 rounded-full p-1 opacity-60 transition-opacity hover:opacity-100"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </motion.div>
-        ))}
+            </motion.div>
+          );
+        })}
       </AnimatePresence>
     </div>
   );

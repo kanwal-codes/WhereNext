@@ -278,22 +278,23 @@ export function StayDetailView({
         <Reveal delay={0.14}>
           <section>
             <DetailSectionHeading>What guests say</DetailSectionHeading>
-            <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]">
-              {reviewScore !== null && (
-                <div className="rounded-2xl border border-border bg-card p-4">
-                  <p className="text-sm font-medium">Recent reviews</p>
-                  <div className="mt-2 flex items-end gap-2">
-                    <span className="font-display text-3xl leading-none">{reviewScore.toFixed(1)}</span>
-                    <span className="pb-0.5 text-xs text-muted-foreground">/ 10</span>
-                  </div>
-                  <p className="mt-2 text-xs text-muted-foreground">Average of the last {ratedReviews.length} review{ratedReviews.length === 1 ? "" : "s"}</p>
+            {/* One card: the score and the one-line verdict across the top, what guests mention beneath. */}
+            <div className="mt-3 rounded-2xl border border-border bg-card p-4 sm:p-5">
+              {(reviewScore !== null || s.sentiment) && (
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
+                  {reviewScore !== null && (
+                    <div className="flex shrink-0 items-center gap-3">
+                      <span className="font-display text-5xl leading-none tabular-nums tracking-[-0.03em]">{reviewScore.toFixed(1)}</span>
+                      <span className="text-xs leading-snug text-muted-foreground">out of 10<br />from {ratedReviews.length} recent review{ratedReviews.length === 1 ? "" : "s"}</span>
+                    </div>
+                  )}
+                  {s.sentiment && <p className={cn("text-sm leading-relaxed text-ink-soft text-pretty", reviewScore !== null && "sm:border-l sm:border-border sm:pl-6")}>{s.sentiment}</p>}
                 </div>
               )}
-              {s.themes.length > 0 && <div className={cn(reviewScore === null && "sm:col-span-2")}><StayThemes themes={s.themes} /></div>}
-              {s.sentiment && (
-                <div className={cn("rounded-2xl border border-border bg-card p-4", reviewScore === null && "sm:col-span-2")}>
-                  <p className="text-sm font-medium">What guests keep mentioning</p>
-                  <p className="mt-2 text-sm leading-relaxed text-ink-soft">{s.sentiment}</p>
+              {s.themes.length > 0 && (
+                <div className={cn((reviewScore !== null || s.sentiment) && "mt-4 border-t border-border pt-4")}>
+                  <p className="eyebrow mb-3">Guests mention</p>
+                  <StayThemes themes={s.themes} />
                 </div>
               )}
             </div>
