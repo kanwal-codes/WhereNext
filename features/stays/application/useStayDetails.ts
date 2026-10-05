@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTripData } from "@/components/TripDataProvider";
+import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
 import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache";
@@ -45,6 +46,7 @@ export function useStayDetails(
   const [body, setBody] = useState<Body | null>(null);
   const [state, setState] = useState<State>("loading");
   const [busy, setBusy] = useState(false);
+  const { guest, openGate } = useGuest();
   const [locked, setLocked] = useState<StayDecision | null>(null);
   const [attempt, setAttempt] = useState(0);
 
@@ -87,6 +89,7 @@ export function useStayDetails(
   }, [tripId, hotelId, dates.checkin, dates.checkout, dates.adults, dates.rooms, attempt]);
 
   async function lockRoom(room: StayRoom) {
+    if (guest) return openGate("lock in your stay");
     if (!body || busy) return;
     setBusy(true);
     const hotel = body.hotel;
@@ -128,6 +131,7 @@ export function useStayDetails(
 
   /** Google Hotels has no bookable rate to lock: the choice is the hotel, at the price of the site it will be booked on. */
   async function lockSource(source: StayPriceSource) {
+    if (guest) return openGate("lock in your stay");
     if (!body || busy) return;
     setBusy(true);
     const hotel = body.hotel;

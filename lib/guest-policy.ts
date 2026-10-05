@@ -19,13 +19,20 @@ const API_ALLOW: readonly ApiRule[] = [
   { methods: ["GET"], path: /^\/api\/(health|profile)$/ },
   // Hotel photographs from Google's image hosts, served from our origin (lib/hotel-photo.ts). Host-allow-listed in the route itself.
   { methods: ["GET"], path: /^\/api\/hotel-photo$/ },
+  // The map's public token (the maps Roam opens beside a card) and the ticket-site logos on event cards.
+  { methods: ["GET"], path: /^\/api\/(config\/mapbox|brand-icon\/[a-z0-9-]+)$/i },
   {
-    // Reads only. `places/google` + `stays/:id` + `events/detail` are the card "Details" lookups; `stays` is the stays card's own search (its dates and guests bar), already rate-limited per user.
+    // Reads only. `places/google` (+ `about`) + `stays/:id` + `events/detail` are the card "Details" lookups; `stays`, `flights/places` and `places/google/autocomplete` are the cards' own search bars; `cover` is the sidebar's destination photo. All rate-limited per user.
     methods: ["GET"],
     path: new RegExp(
-      `^/api/trips/${UUID}/(conversation|workspace|members|memory|decisions|map/static|places/google|places/google/photo|events/detail|stays|stays/[^/]+)$`,
+      `^/api/trips/${UUID}/(conversation|workspace|members|memory|decisions|map/static|cover|places/google|places/google/(about|photo|autocomplete)|events/detail|flights/places|stays|stays/[^/]+)$`,
       "i",
     ),
+  },
+  {
+    // The flights card searches again when its route or dates change. These are searches, not writes (provider-limited per user), same as the chat turn that produced the card.
+    methods: ["POST"],
+    path: new RegExp(`^/api/trips/${UUID}/flights(/return)?$`, "i"),
   },
 ];
 

@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { CalendarPlus, Check, Loader2 } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type ItineraryBlock } from "@/components/TripPanelProvider";
+import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { addStopsToItinerary, dayIndexFromLabel } from "@/features/conversation/application/addPlanToItinerary";
 import { ContentSwap } from "@/components/motion-primitives";
 import { SlidingTabs } from "@/features/conversation/ui/blocks/SlidingTabs";
@@ -55,6 +56,7 @@ export function DayDetail({ block, dayIndex, tripId }: { block: ItineraryBlock; 
   const { data } = useTripData();
   const [active, setActive] = useState(Math.min(dayIndex, block.days.length - 1));
   const [status, setStatus] = useState<"idle" | "adding">("idle");
+  const { guest, openGate } = useGuest();
   const day = block.days[active];
   const index = dayIndexFromLabel(day.label, active + 1);
   // What the itinerary already holds for this day, so the button never offers to add it twice.
@@ -67,6 +69,7 @@ export function DayDetail({ block, dayIndex, tripId }: { block: ItineraryBlock; 
   const eyebrow = minutes.length === 0 ? day.label : from === to ? from : `${from} to ${to.toLowerCase()}`;
 
   async function addDay() {
+    if (guest) return openGate("add days to your itinerary");
     if (status !== "idle" || missing.length === 0) return;
     setStatus("adding");
     const failures = await addStopsToItinerary(tripId, index, missing);
