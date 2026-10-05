@@ -22,21 +22,23 @@ function PriceGauge({ s }: { s: Details }) {
   const hi = Math.max(r.typicalHigh, here) * 1.08;
   const at = (n: number) => `${Math.min(100, Math.max(0, ((n - lo) / (hi - lo)) * 100))}%`;
   const tone = {
-    low: { Icon: TrendingDown, text: "A low price for this hotel", cls: "text-positive", dot: "bg-positive" },
-    typical: { Icon: Minus, text: "A typical price for this hotel", cls: "text-ink-soft", dot: "bg-foreground" },
-    high: { Icon: TrendingUp, text: "Higher than usual for this hotel", cls: "text-caution", dot: "bg-caution" },
+    low: { Icon: TrendingDown, text: "Low for this hotel", cls: "text-positive", dot: "bg-positive" },
+    typical: { Icon: Minus, text: "Typical for this hotel", cls: "text-ink-soft", dot: "bg-foreground" },
+    high: { Icon: TrendingUp, text: "High for this hotel", cls: "text-caution", dot: "bg-caution" },
   }[r.level];
   return (
-    <div role="note" className="space-y-2.5">
-      <p className={cn("flex items-center gap-2 text-sm font-medium", tone.cls)}>
-        <tone.Icon className="size-4 shrink-0" aria-hidden />
-        {tone.text}
-      </p>
-      <div className="relative h-1.5 rounded-full bg-muted" aria-hidden>
-        <span className="absolute inset-y-0 rounded-full bg-foreground/10" style={{ left: at(r.typicalLow), right: `calc(100% - ${at(r.typicalHigh)})` }} />
-        <span className={cn("absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-4 ring-card", tone.dot)} style={{ left: at(here) }} />
+    <div role="note" className="space-y-2">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className={cn("flex min-w-0 items-center gap-1.5 text-xs font-medium", tone.cls)}>
+          <tone.Icon className="size-3.5 shrink-0" aria-hidden />
+          <span className="truncate">{tone.text}</span>
+        </p>
+        <p className={cn(T.meta, "shrink-0 tabular-nums")}>Usually {money(r.typicalLow, r.currency, true)}–{money(r.typicalHigh, r.currency, true)}</p>
       </div>
-      <p className={cn(T.meta, "tabular-nums")}>Usually {money(r.typicalLow, r.currency, true)} to {money(r.typicalHigh, r.currency, true)} a night</p>
+      <div className="relative h-1 rounded-full bg-muted" aria-hidden>
+        <span className="absolute inset-y-0 rounded-full bg-foreground/10" style={{ left: at(r.typicalLow), right: `calc(100% - ${at(r.typicalHigh)})` }} />
+        <span className={cn("absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-[3px] ring-card", tone.dot)} style={{ left: at(here) }} />
+      </div>
     </div>
   );
 }
@@ -75,35 +77,35 @@ export function WhereToBook({ s, hotelId }: { s: Details; hotelId: string }) {
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
             className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-soft"
           >
-            <div className="relative p-5">
-            <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-coral/[0.07] to-transparent" />
-            <div className="relative flex items-center gap-3">
-              {siteMark(best, "size-10")}
+            <div className="relative p-4 sm:p-5">
+            <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-coral/[0.07] to-transparent" />
+            <div className="relative flex items-start gap-3">
+              {siteMark(best, "size-9")}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{best.source}</p>
-                <p className={T.meta}>{best.official ? "The hotel's own site" : "Best price for your dates"}</p>
+                <p className={cn(T.meta, "flex flex-wrap items-center gap-x-1.5")}>
+                  {others.length > 0 && <span className="inline-flex items-center gap-0.5 font-medium text-positive"><Check className="size-3.5" aria-hidden />Lowest price</span>}
+                  <span>{best.official ? "The hotel's own site" : "Best price for your dates"}</span>
+                </p>
               </div>
-              {others.length > 0 && <Badge tone="positive" icon={Check}>Lowest price</Badge>}
+              <div className="shrink-0 text-right">
+                <p className="font-display text-3xl font-semibold leading-none tabular-nums tracking-[-0.03em]">{money(best.nightly, s.currency, true)}</p>
+                <p className={cn(T.meta, "mt-1")}>a night</p>
+              </div>
             </div>
-            <div className="relative mt-5 flex items-baseline gap-2">
-              <span className="font-display text-4xl font-semibold leading-none tabular-nums tracking-[-0.03em]">{money(best.nightly, s.currency, true)}</span>
-              <span className="text-sm text-muted-foreground">a night</span>
-            </div>
-            <p className={cn(T.meta, "relative mt-2 tabular-nums")}>
-              {money(best.total, s.currency, true)} for {s.nights} night{s.nights === 1 ? "" : "s"}{best.totalBeforeTaxes ? ` · ${money(best.totalBeforeTaxes, s.currency, true)} before taxes` : ""}
+            <p className={cn(T.meta, "relative mt-3 flex flex-wrap items-center gap-x-2 gap-y-0.5 tabular-nums")}>
+              <span>{money(best.total, s.currency, true)} for {s.nights} night{s.nights === 1 ? "" : "s"}{best.totalBeforeTaxes ? ` · ${money(best.totalBeforeTaxes, s.currency, true)} before taxes` : ""}</span>
+              {best.freeCancellation && (
+                <span className="inline-flex items-center gap-1 font-medium text-positive"><Check className="size-3.5" aria-hidden />Free cancellation{best.cancelUntil ? ` until ${best.cancelUntil}` : ""}</span>
+              )}
             </p>
-            {best.freeCancellation && (
-              <p className="relative mt-3 flex items-center gap-1.5 text-sm text-positive">
-                <Check className="size-4" aria-hidden />Free cancellation{best.cancelUntil ? ` until ${best.cancelUntil}` : ""}
-              </p>
-            )}
-            {s.priceRead && <div className="relative mt-5 border-t border-border pt-4"><PriceGauge s={s} /></div>}
+            {s.priceRead && <div className="relative mt-4"><PriceGauge s={s} /></div>}
             {bestHref && (
               <a
                 href={bestHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="relative mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground shadow-lift transition-[opacity,transform] hover:opacity-90 active:scale-[0.98]"
+                className="relative mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground shadow-lift transition-[opacity,transform] hover:opacity-90 active:scale-[0.98]"
               >
                 Book on {best.source} <ArrowUpRight className="size-4" aria-hidden />
               </a>
@@ -150,7 +152,7 @@ export function WhereToBook({ s, hotelId }: { s: Details; hotelId: string }) {
 
           </motion.div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-1 max-sm:flex-col max-sm:items-stretch">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 max-sm:flex-col max-sm:items-stretch">
             {locked ? (
               <Badge tone="positive" icon={Check}>Your stay</Badge>
             ) : (
@@ -158,7 +160,7 @@ export function WhereToBook({ s, hotelId }: { s: Details; hotelId: string }) {
                 {s.busy ? "Saving…" : "Make this my stay"}
               </button>
             )}
-            <p className={cn(T.meta, "max-w-[28ch] text-right max-sm:max-w-none max-sm:text-center")}>You book on the site you pick. Prices and availability change.</p>
+            <p className={cn(T.meta, "text-right max-sm:text-center")}>You book on the site you pick. Prices change.</p>
           </div>
         </>
       )}

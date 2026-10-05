@@ -27,8 +27,8 @@ describe("WhereToBook", () => {
     expect(html).toContain("+CA$8"); // Hotel Blue is CA$8 more a night than Agoda
     expect(html).toContain("+CA$14");
     expect(html).toContain("Official site");
-    expect(html).toContain("A low price for this hotel");
-    expect(html).toContain("Usually CA$117 to CA$132 a night");
+    expect(html).toContain("Low for this hotel");
+    expect(html).toContain("Usually CA$117–CA$132");
   });
 
   it("with one site, shows it as the best price without a 'lowest' claim or an empty list", () => {
