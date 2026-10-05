@@ -167,14 +167,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   const activeFilters = stars.length + boards.length + propertyTypes.length + (refundable ? 1 : 0) + (priceMax ? 1 : 0);
 
   return (
-    <div className="space-y-5">
-      <AiSearchBar
-        tripId={tripId}
-        scope="stays"
-        placeholder={`Ask — “near ${destination ? destination.split(",")[0] : "the old town"} station, under 250 a night, free cancellation”`}
-        onDirective={applyDirective}
-      />
-
+    <div className="flex min-h-[calc(100dvh-13rem)] flex-col gap-5">
       {near.trim() && (
         <p className="flex items-center gap-2 text-sm">
           <MapPin className="h-3.5 w-3.5 shrink-0 text-coral" />
@@ -332,7 +325,6 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
             })}
           </ul>
           <ShowMoreButton next={next} visible={visible} total={visible + remaining} onClick={showMore} />
-          <p className="text-xs text-muted-foreground">Prices shown in {result.currency}. Taxes and fees may be added at checkout — confirm the total when you book.</p>
         </>
       ) : (
         !loading && (
@@ -341,6 +333,15 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       )}
         </SwapView>
       </div>
+
+      {/* Last in the column so it can rest on the bottom edge of the page (see `.ask-dock`). */}
+      <AiSearchBar
+        variant="dock"
+        tripId={tripId}
+        scope="stays"
+        placeholder={`Ask — “near ${destination ? destination.split(",")[0] : "the old town"} station, under 250 a night, free cancellation”`}
+        onDirective={applyDirective}
+      />
     </div>
   );
 }

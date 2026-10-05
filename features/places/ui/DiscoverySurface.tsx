@@ -590,7 +590,7 @@ export function DiscoverySurface({
             {gridMore.remaining > 0 ? (
               <div className="mt-6"><ShowMoreButton next={gridMore.next} visible={gridMore.visible} total={gridItems.length} onClick={gridMore.showMore} noun="results" /></div>
             ) : view !== "saved" && activeCat?.kind === "event" && eventPaging.current.more ? (
-              <div className="mt-6"><ShowMoreButton label="Show more events" busy={eventsBusy} next={0} visible={gridItems.length} total={gridItems.length} onClick={() => void loadMoreEvents()} noun="events" /></div>
+              <div className="mt-6"><ShowMoreButton force busy={eventsBusy} next={0} visible={gridItems.length} total={gridItems.length} onClick={() => void loadMoreEvents()} noun="events" /></div>
             ) : null}
           </>
         ) : (
