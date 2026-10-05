@@ -496,7 +496,7 @@ export function DiscoverySurface({
       )}
 
       {/* Tier 1 — Compare + broad categories (Discover/Saved lives in the page header now). One row, scrolls sideways. */}
-      {view === "results" && (
+      {view === "results" && (!searchMode || panelCtx) && (
         <div className="mt-4 flex items-center gap-2 overflow-x-auto overscroll-x-contain scrollbar-slim px-1 py-1">
             {panelCtx && (
               <button
@@ -511,29 +511,36 @@ export function DiscoverySurface({
                 {panelCtx.compareMode ? `Comparing · ${panelCtx.compareList.length}` : "Compare"}
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => pickCategory(null)}
-              aria-pressed={!searchMode && catKey === null}
-              className="btn-chip shrink-0"
-            >
-              All
-            </button>
-            {CATEGORIES.map((c) => {
-              const Icon = c.icon;
-              const on = !searchMode && catKey === c.key;
-              return (
-                <button
-                  key={c.key}
-                  type="button"
-                  onClick={() => pickCategory(c.key)}
-                  aria-pressed={on}
-                  className="btn-chip shrink-0"
-                >
-                  <Icon className="h-3.5 w-3.5" /> {c.label}
-                </button>
-              );
-            })}
+            {/* The category chips narrow the digest, so they mean nothing beside a search's own results: the strip keeps only Compare until the search is cleared. */}
+            <AnimatePresence initial={false}>
+              {!searchMode && (
+                <motion.div key="categories" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }} className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => pickCategory(null)}
+                    aria-pressed={!searchMode && catKey === null}
+                    className="btn-chip shrink-0"
+                  >
+                    All
+                  </button>
+                  {CATEGORIES.map((c) => {
+                    const Icon = c.icon;
+                    const on = !searchMode && catKey === c.key;
+                    return (
+                      <button
+                        key={c.key}
+                        type="button"
+                        onClick={() => pickCategory(c.key)}
+                        aria-pressed={on}
+                        className="btn-chip shrink-0"
+                      >
+                        <Icon className="h-3.5 w-3.5" /> {c.label}
+                      </button>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
         </div>
       )}
       {/* Tier 2 — sub-types for the active category. One row, scrolls sideways. */}
