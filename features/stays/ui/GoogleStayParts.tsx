@@ -150,15 +150,15 @@ export function WhereToBook({ s, hotelId }: { s: Details; hotelId: string }) {
 
           </motion.div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1 max-sm:flex-col max-sm:items-stretch">
             {locked ? (
               <Badge tone="positive" icon={Check}>Your stay</Badge>
             ) : (
-              <button type="button" className="btn-primary-sm" disabled={s.busy} onClick={() => void s.lockSource(best)}>
+              <button type="button" className="btn-primary-sm max-sm:h-12 max-sm:w-full max-sm:text-sm" disabled={s.busy} onClick={() => void s.lockSource(best)}>
                 {s.busy ? "Saving…" : "Make this my stay"}
               </button>
             )}
-            <p className={cn(T.meta, "max-w-[28ch] text-right")}>You book on the site you pick. Prices and availability change.</p>
+            <p className={cn(T.meta, "max-w-[28ch] text-right max-sm:max-w-none max-sm:text-center")}>You book on the site you pick. Prices and availability change.</p>
           </div>
         </>
       )}

@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
@@ -39,7 +40,7 @@ export function PageHeader({
           {/* On a phone a page with nothing for the rail (no way back, no switch) has no rail at all: its title sits right under the top bar. */}
           <div className={cn("grid min-h-10 items-center gap-x-3 gap-y-3 sm:grid-cols-[1fr_auto_1fr]", !back && !switcher && "max-sm:hidden")}>
             {back ? (
-              <Link href={back.href} className="group inline-flex items-center gap-1.5 justify-self-start text-xs text-muted-foreground transition-colors hover:text-foreground">
+              <Link href={back.href} className="group inline-flex items-center gap-1.5 justify-self-start py-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
                 <ArrowLeft className="h-3.5 w-3.5 transition-transform duration-[220ms] ease-out group-hover:-translate-x-0.5" /> {back.label}
               </Link>
             ) : (

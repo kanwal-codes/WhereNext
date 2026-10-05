@@ -274,7 +274,7 @@ export function ItinerarySurface({
             </a>
           ))}
         </nav>
-        <a href={`/trips/${tripId}/today`} className="group inline-flex items-center gap-1 text-sm font-medium text-foreground/80 transition-colors hover:text-foreground">
+        <a href={`/trips/${tripId}/today`} className="group inline-flex items-center gap-1 text-sm font-medium text-foreground/80 transition-colors hover:text-foreground max-sm:py-2">
           Today view <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
         </a>
       </div>
@@ -435,7 +435,7 @@ export function ItinerarySurface({
                       </span>
                       <div
                         className={cn(
-                          "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-3xl border bg-card px-3 py-4 shadow-soft transition-[border-color,box-shadow] duration-300 hover:shadow-lift",
+                          "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-3xl border bg-card px-3 py-4 shadow-soft max-sm:grid-cols-[minmax(0,1fr)_auto] max-sm:pl-4 transition-[border-color,box-shadow] duration-300 hover:shadow-lift",
                           hint ? "border-coral" : locked ? "border-leaf/30" : "border-border/70",
                         )}
                       >
@@ -448,7 +448,8 @@ export function ItinerarySurface({
                             setDragTitle(null);
                             setDropHint(null);
                           }}
-                          className={cn("cursor-grab rounded p-1 text-muted-foreground active:cursor-grabbing", locked && "cursor-not-allowed opacity-30")}
+                          // Dragging needs a mouse: on a phone the ⋯ menu moves a stop, so the handle is not shown there.
+                          className={cn("cursor-grab rounded p-1 text-muted-foreground active:cursor-grabbing max-sm:hidden", locked && "cursor-not-allowed opacity-30")}
                         >
                           <GripVertical className="h-3.5 w-3.5" />
                         </button>
@@ -468,7 +469,7 @@ export function ItinerarySurface({
                               type="button"
                               onClick={() => void openPlace(item, providerId)}
                               disabled={resolvingTitle === item.title}
-                              className="text-left hover:text-coral hover:underline disabled:opacity-60"
+                              className="text-left hover:text-coral hover:underline disabled:opacity-60 max-sm:py-1"
                             >
                               {item.title}{" "}
                               {resolvingTitle === item.title ? (
@@ -490,7 +491,7 @@ export function ItinerarySurface({
                                   disabled={locked}
                                   onChange={(e) => setTime(item, e.target.value || null)}
                                   className={cn(
-                                    "rounded border-none bg-transparent p-0 text-xs outline-none [color-scheme:auto] disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:hidden",
+                                    "rounded border-none bg-transparent p-0 text-xs outline-none [color-scheme:auto] disabled:opacity-50 max-sm:py-2 [&::-webkit-calendar-picker-indicator]:hidden",
                                     time ? "text-muted-foreground hover:text-foreground" : "text-transparent",
                                   )}
                                 />
@@ -516,7 +517,7 @@ export function ItinerarySurface({
                         >
                           <MoreHorizontal className="size-4" />
                         </button>
-                        <div className={cn("col-span-3 row-start-2 flex-wrap items-center justify-end gap-1 border-t border-border/60 pt-2 sm:col-span-1 sm:col-start-3 sm:row-start-1 sm:flex sm:shrink-0 sm:border-0 sm:pt-0 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:focus-within:opacity-100", openTools === item.id ? "flex" : "hidden")}>
+                        <div className={cn("col-span-3 max-sm:col-span-2 row-start-2 flex-wrap items-center justify-end gap-1 border-t border-border/60 pt-2 sm:col-span-1 sm:col-start-3 sm:row-start-1 sm:flex sm:shrink-0 sm:border-0 sm:pt-0 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:focus-within:opacity-100", openTools === item.id ? "flex" : "hidden")}>
                           <button
                             aria-label={`Move ${item.title} earlier in the day`}
                             onClick={() => moveWithinDay(item, -1)}

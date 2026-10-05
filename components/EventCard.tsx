@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { EventPoster } from "@/components/EventPoster";
 import { SafeImage } from "@/components/SafeImage";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
-import { CompareMark, DetailsButton, EntityCard } from "@/features/conversation/ui/blocks/ui";
+import { CompareMark, DetailsButton, EntityCard, MEDIA_ROW } from "@/features/conversation/ui/blocks/ui";
 import { eventDetailHref, formatEventWhen } from "@/lib/places-ui";
 import { cn } from "@/lib/utils";
 import { ticketSellerLabel } from "@/lib/ticket-provider";
@@ -16,7 +16,7 @@ export type NearbyEvent = { title: string; url: string; date?: string; venue?: s
  * uses for a place or a stay (16:10 photo, title, one meta line, the action at the foot). Opens the
  * shared trip panel, and falls back to the detail route when there is no panel.
  */
-export function EventCard({ tripId, event, className, onSelect, compact = false }: { tripId: string; event: NearbyEvent; className?: string; onSelect?: () => void; /** The narrow lane version: photo, title, one meta line. */ compact?: boolean }) {
+export function EventCard({ tripId, event, className, onSelect, compact = false, phoneRow = false }: { tripId: string; event: NearbyEvent; className?: string; onSelect?: () => void; /** The narrow lane version: photo, title, one meta line. */ compact?: boolean; /** A horizontal card on a phone (a long list): the whole card opens. */ phoneRow?: boolean }) {
   const router = useRouter();
   const href = eventDetailHref(tripId, event);
   const seller = ticketSellerLabel(event.source, event.url);
@@ -37,16 +37,17 @@ export function EventCard({ tripId, event, className, onSelect, compact = false 
         onOpen={open}
         href={href}
         compact={compact}
+        phoneRow={phoneRow}
         className={selected ? "ring-2 ring-coral" : undefined}
         media={
-          <div className="relative">
+          <div className={cn("relative", phoneRow && "max-sm:h-full")}>
             <SafeImage
               src={event.imageUrl}
               alt={event.title}
               width={416}
               height={260}
-              className="aspect-[16/10] w-full rounded-t-2xl object-cover"
-              fallback={<EventPoster title={event.title} className="aspect-[16/10] w-full rounded-t-2xl" />}
+              className={cn("aspect-[16/10] w-full rounded-t-2xl object-cover", phoneRow && MEDIA_ROW)}
+              fallback={<EventPoster title={event.title} className={cn("aspect-[16/10] w-full rounded-t-2xl", phoneRow && MEDIA_ROW)} />}
             />
             {comparing && <CompareMark selected={selected} />}
           </div>

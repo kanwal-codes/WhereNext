@@ -49,11 +49,11 @@ export function TripMenu({
     <details ref={ref} className={cn("daisy-dropdown daisy-dropdown-end", className)}>
       <summary
         aria-label={`Options for ${name}`}
-        className="daisy-btn daisy-btn-circle daisy-btn-sm list-none border border-border/60 bg-background/88 text-foreground shadow-none transition-[background-color,border-color,transform] hover:!bg-background hover:border-foreground/30 active:scale-95 [&::-webkit-details-marker]:hidden"
+        className="daisy-btn daisy-btn-circle daisy-btn-sm list-none max-sm:size-10 border border-border/60 bg-background/88 text-foreground shadow-none transition-[background-color,border-color,transform] hover:!bg-background hover:border-foreground/30 active:scale-95 [&::-webkit-details-marker]:hidden"
       >
         {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ellipsis className="h-4 w-4" />}
       </summary>
-      <ul className="daisy-dropdown-content daisy-menu z-30 mt-2 w-48 gap-0.5 rounded-2xl border border-border bg-popover p-1.5 text-sm shadow-lift [&_a]:rounded-xl [&_button]:rounded-xl">
+      <ul className="daisy-dropdown-content daisy-menu z-30 mt-2 w-48 gap-0.5 rounded-2xl border border-border bg-popover p-1.5 text-sm shadow-lift [&_a]:min-h-11 [&_a]:rounded-xl [&_button]:min-h-11 [&_button]:rounded-xl">
         <li>
           <Link href={href}>
             <ArrowUpRight className="h-4 w-4" /> Open trip

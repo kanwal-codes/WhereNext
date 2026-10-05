@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import type { Place } from "@/packages/contracts/place";
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
-import { Badge, CardMedia, CompareMark, DetailsButton, EntityCard, MediaFallback, RatingMeta } from "@/features/conversation/ui/blocks/ui";
+import { Badge, CardMedia, CompareMark, DetailsButton, EntityCard, MEDIA_ROW, MediaFallback, RatingMeta } from "@/features/conversation/ui/blocks/ui";
+import { cn } from "@/lib/utils";
 import { placeGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
@@ -16,7 +17,7 @@ const norm = (s: string) => s.trim().toLowerCase();
  * photo shape, title, meta line, hover and actions, so a place never looks like two different things
  * depending on which screen it is on. Only the container differs (a rail in chat, a grid here).
  */
-export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place; why?: string }) {
+export function PlaceCard({ tripId, place, why, phoneRow = false }: { tripId: string; place: Place; why?: string; /** A horizontal card on a phone (a long list), keeping Add to trip. */ phoneRow?: boolean }) {
   const router = useRouter();
   const photo = photoProxyUrl(tripId, place.photoNames?.[0], 480);
   const price = priceLabel(place.priceLevel);
@@ -46,10 +47,11 @@ export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place
       label={`Open ${place.name}`}
       onOpen={open}
       href={href}
+      phoneRow={phoneRow ? "actions" : false}
       className={selected ? "ring-2 ring-coral" : undefined}
       media={
-        <div className="relative">
-          <CardMedia src={photo} alt={place.name} fallback={<MediaFallback icon={glyph} className="aspect-[16/10] w-full rounded-t-2xl" />} />
+        <div className={cn("relative", phoneRow && "max-sm:h-full")}>
+          <CardMedia row={phoneRow} src={photo} alt={place.name} fallback={<MediaFallback icon={glyph} className={cn("aspect-[16/10] w-full rounded-t-2xl", phoneRow && MEDIA_ROW)} />} />
           {comparing && <CompareMark selected={selected} />}
         </div>
       }
@@ -60,7 +62,7 @@ export function PlaceCard({ tripId, place, why }: { tripId: string; place: Place
       actions={
         <>
           <AddToTripControl tripId={tripId} place={place} size="sm" block className="min-w-[6.75rem] flex-1" />
-          <DetailsButton label={`Details: ${place.name}`} onClick={open} />
+          <DetailsButton label={`Details: ${place.name}`} onClick={open} className={phoneRow ? "max-sm:hidden" : undefined} />
         </>
       }
     />

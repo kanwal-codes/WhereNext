@@ -642,6 +642,8 @@
   transition: background-color var(--duration-base) var(--ease-out), color var(--duration-fast) var(--ease-out), border-color var(--duration-base) var(--ease-out), transform var(--duration-fast) var(--ease-out);
   &:hover { border-color: color-mix(in oklab, var(--color-ink) 28%, var(--color-border)); color: var(--color-ink); background-color: var(--color-surface); }
   &:active { transform: scale(0.97); }
+  /* A thumb needs 36px: the chip grows a little on a phone. */
+  @media (max-width: 639px) { height: 2.25rem; }
   /* One selected state for every filter chip in the app: ink, like the primary button. */
   &[aria-pressed="true"], &[data-active="true"] { background-color: var(--color-primary); border-color: var(--color-primary); color: var(--color-primary-foreground); }
   &[aria-pressed="true"]:hover, &[data-active="true"]:hover { background-color: color-mix(in oklab, var(--color-primary) 86%, white); color: var(--color-primary-foreground); }
@@ -1026,11 +1028,13 @@
 .ask-dock::before {
   content: "";
   position: absolute;
-  inset: 0 -2rem -1.5rem;
+  /* As wide as the page's own side padding, no wider: past the screen edge it made the whole page scroll sideways on a phone. */
+  inset: 0 -1.25rem -1.5rem;
   z-index: -1;
   pointer-events: none;
   background: linear-gradient(to top, var(--color-background) 35%, transparent);
 }
+@media (min-width: 640px) { .ask-dock::before { inset-inline: -2rem; } }
 .ask-dock-form {
   pointer-events: auto;
   position: relative;

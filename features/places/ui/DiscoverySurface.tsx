@@ -462,24 +462,24 @@ export function DiscoverySurface({
 
   // In a band on a phone each card is a swipeable slide (the next one peeks in), not a half-width tile: two to a row cramped the buttons.
   const slide = "max-sm:w-[15.5rem] max-sm:shrink-0 max-sm:snap-start";
-  const renderItem = (item: Item, inRail = false) => {
+  const renderItem = (item: Item, inRail = false, row = false) => {
     if (item.kind === "place") {
       return (
         <StaggerItem key={`p:${item.place.providerId}`} className={inRail ? slide : undefined}>
-          <PlaceCard tripId={tripId} place={item.place} why={item.why ?? undefined} />
+          <PlaceCard tripId={tripId} place={item.place} why={item.why ?? undefined} phoneRow={row} />
         </StaggerItem>
       );
     }
     if (item.kind === "event") {
       return (
         <StaggerItem key={`e:${item.event.url}|${item.event.date ?? ""}`} className={inRail ? slide : undefined}>
-          <EventCard tripId={tripId} event={item.event} />
+          <EventCard tripId={tripId} event={item.event} phoneRow={row} />
         </StaggerItem>
       );
     }
     return (
       <StaggerItem key={`s:${item.stay.hotelId}`} className={inRail ? slide : undefined}>
-        <StayMiniCard tripId={tripId} stay={item.stay} />
+        <StayMiniCard tripId={tripId} stay={item.stay} phoneRow={row} />
       </StaggerItem>
     );
   };
@@ -590,7 +590,7 @@ export function DiscoverySurface({
       ) : gridView ? (
         gridItems.length > 0 ? (
           <>
-            <Stagger className={cn(grid, "mt-5")}>{gridItems.slice(0, gridMore.visible).map((it) => renderItem(it))}</Stagger>
+            <Stagger className={cn(grid, "mt-5")}>{gridItems.slice(0, gridMore.visible).map((it) => renderItem(it, false, true))}</Stagger>
             {/* Rows already in hand come first (no request); an events list that has run out of them asks the provider for its next page. */}
             {gridMore.remaining > 0 ? (
               <div className="mt-6"><ShowMoreButton next={gridMore.next} visible={gridMore.visible} total={gridItems.length} onClick={gridMore.showMore} noun="results" /></div>
@@ -625,7 +625,7 @@ export function DiscoverySurface({
             </EmptyState>
           ) : flat ? (
             <>
-              <Stagger className={cn(grid, "mt-4")}>{flatItems.slice(0, flatMore.visible).map((it) => renderItem(it))}</Stagger>
+              <Stagger className={cn(grid, "mt-4")}>{flatItems.slice(0, flatMore.visible).map((it) => renderItem(it, false, true))}</Stagger>
               <div className="mt-6"><ShowMoreButton next={flatMore.next} visible={flatMore.visible} total={flatItems.length} onClick={flatMore.showMore} noun="places" /></div>
             </>
           ) : (
@@ -675,7 +675,7 @@ export function DiscoverySurface({
 }
 
 /** A stay, as Discover shows it: the same `EntityCard` Roam uses (4-star, guest score, "£230 / night"). */
-export function StayMiniCard({ tripId, stay }: { tripId: string; stay: StayItem }) {
+export function StayMiniCard({ tripId, stay, phoneRow = false }: { tripId: string; stay: StayItem; phoneRow?: boolean }) {
   const router = useRouter();
   const panelCtx = useTripPanelMaybe();
   const href = `/trips/${tripId}/stay/${encodeURIComponent(stay.hotelId)}`;
@@ -687,5 +687,5 @@ export function StayMiniCard({ tripId, stay }: { tripId: string; stay: StayItem 
   };
   const comparing = Boolean(panelCtx?.compareMode);
   const selected = comparing && Boolean(panelCtx?.compareHas(stay.hotelId));
-  return <StayResultCard stay={stay} href={href} onOpen={open} comparing={comparing} selected={selected} />;
+  return <StayResultCard stay={stay} href={href} onOpen={open} comparing={comparing} selected={selected} phoneRow={phoneRow} />;
 }

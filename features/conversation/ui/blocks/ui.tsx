@@ -309,8 +309,8 @@ export function EntityCard({ label, onOpen, href, className, media, glyph: Glyph
   alone?: boolean;
   /** The narrow lane version (a ~200px card in a side-panel rail): photo, title and one meta line, nothing else. Same surface, same hover. */
   compact?: boolean;
-  /** In a long list on a phone: a horizontal card (photo left, details right, no button: the whole card opens), so a screen shows several. */
-  phoneRow?: boolean;
+  /** In a long list on a phone: a horizontal card (photo left, details right), so a screen shows several. `true`: no button, the whole card opens; `"actions"`: the card's actions stay under the details. */
+  phoneRow?: boolean | "actions";
 }) {
   return (
     <article data-tappable={onOpen ? "" : undefined} className={cn(surface, "card-lift group relative flex h-full flex-col", phoneRow && "max-sm:flex-row", className)}>
@@ -346,7 +346,7 @@ export function EntityCard({ label, onOpen, href, className, media, glyph: Glyph
         {!compact && fact}
         {!compact && badges && <div className="flex flex-wrap gap-1.5">{badges}</div>}
         {!compact && extra}
-        {!compact && actions && <div className={cn("entity-actions relative z-10 mt-auto flex flex-wrap items-center gap-x-2 gap-y-1.5 pt-2", phoneRow && "max-sm:hidden")}>{actions}</div>}
+        {!compact && actions && <div className={cn("entity-actions relative z-10 mt-auto flex flex-wrap items-center gap-x-2 gap-y-1.5 pt-2", phoneRow === true && "max-sm:hidden", phoneRow === "actions" && "max-sm:flex-nowrap max-sm:pt-0")}>{actions}</div>}
       </div>
     </article>
   );

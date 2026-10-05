@@ -190,7 +190,7 @@ function MapPanel({ className, collapsedLabel, children }: { className?: string;
         aria-label={expanded ? "Collapse to see the map" : "Expand for trip details"}
         onPointerDown={(e) => dragControls.start(e)}
         onClick={() => snapTo(!expanded)}
-        className="flex shrink-0 cursor-grab touch-none justify-center pt-2.5 pb-1.5 active:cursor-grabbing"
+        className="flex shrink-0 cursor-grab touch-none justify-center py-3 active:cursor-grabbing"
       >
         <span className="h-1.5 w-10 rounded-full bg-border" />
       </button>
@@ -359,7 +359,7 @@ export function MapSurface({ tripId, tab }: { tripId: string; tab: "trip" | "bro
                         key={d}
                         type="button"
                         onClick={() => setActiveDay(d)}
-                        className={cn("shrink-0 rounded-full border px-3 py-1 text-xs font-medium", activeDay === d ? "border-transparent bg-primary text-primary-foreground" : "border-border bg-background text-ink-soft")}
+                        className={cn("shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium max-sm:h-9", activeDay === d ? "border-transparent bg-primary text-primary-foreground" : "border-border bg-background text-ink-soft")}
                       >
                         Day {d}
                       </button>
