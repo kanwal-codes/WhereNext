@@ -532,7 +532,8 @@ export function DiscoverySurface({
                       <button
                         key={c.key}
                         type="button"
-                        onClick={() => pickCategory(c.key)}
+                        // Pressing the chosen category again lets go of it: back to the whole digest.
+                        onClick={() => pickCategory(on ? null : c.key)}
                         aria-pressed={on}
                         className="btn-chip shrink-0"
                       >
