@@ -17,9 +17,9 @@ declare const self: ServiceWorkerGlobalScope;
 // real offline fallback for this data, not the service worker's HTTP cache.
 const runtimeCaching: RuntimeCaching[] = [
   {
-    // Map imagery + place photos — fine to serve stale while revalidating.
+    // Map imagery + place and hotel photos — fine to serve stale while revalidating.
     matcher: ({ url }) =>
-      url.hostname.endsWith("mapbox.com") || /\/api\/trips\/[^/]+\/(map\/static|places\/google\/photo)/.test(url.pathname),
+      url.hostname.endsWith("mapbox.com") || url.pathname === "/api/hotel-photo" || /\/api\/trips\/[^/]+\/(map\/static|places\/google\/photo)/.test(url.pathname),
     handler: new StaleWhileRevalidate({
       cacheName: "trip-imagery",
       plugins: [new ExpirationPlugin({ maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 7 })],

@@ -23,6 +23,7 @@ export function Hero({
   coverImages = [],
   coverAlt = "",
   onCoverChange,
+  onCoverError,
   dissolve = true,
   children,
 }: {
@@ -45,6 +46,8 @@ export function Hero({
   coverAlt?: string;
   /** Tells the page whether a cover photo is showing, so its text can switch to suit it. */
   onCoverChange?: (shown: boolean) => void;
+  /** A cover photo failed to load (it is skipped); lets the page drop it from anywhere else it lists the same photos. */
+  onCoverError?: (src: string) => void;
   /** false drops the fade into the page background, leaving a hard bottom edge. Default true. */
   dissolve?: boolean;
   children?: ReactNode;
@@ -103,7 +106,10 @@ export function Hero({
               if (el?.complete && el.naturalWidth > 0) setCoverLoaded(coverSrc);
             }}
             onLoad={() => setCoverLoaded(coverSrc)}
-            onError={() => setCoverFailed((current) => [...current, coverSrc])}
+            onError={() => {
+              setCoverFailed((current) => [...current, coverSrc]);
+              onCoverError?.(coverSrc);
+            }}
             className="absolute inset-0 h-full w-full object-cover object-center"
             initial={false}
             animate={{ opacity: coverShown ? 1 : 0 }}

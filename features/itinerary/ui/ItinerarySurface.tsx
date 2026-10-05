@@ -1,6 +1,6 @@
 "use client";
 
-import { hotelPhotoSrc } from "@/lib/hotel-photo";
+import { HotelPhoto } from "@/components/HotelPhoto";
 import { stopGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -281,14 +281,17 @@ export function ItinerarySurface({
 
       {lockedStay && (
         <div className="flex items-center gap-4 overflow-hidden rounded-3xl border border-border/70 bg-card p-3 pr-5 shadow-soft">
-          {lockedStay.thumbnail ? (
-            // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
-            <img src={hotelPhotoSrc(lockedStay.thumbnail)} alt="" width={96} height={96} className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
-          ) : (
-            <span className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-muted">
-              <BedDouble className="h-5 w-5 text-muted-foreground" />
-            </span>
-          )}
+          <HotelPhoto
+            src={lockedStay.thumbnail}
+            width={96}
+            height={96}
+            className="h-16 w-16 shrink-0 rounded-2xl object-cover"
+            fallback={
+              <span className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-muted">
+                <BedDouble className="h-5 w-5 text-muted-foreground" />
+              </span>
+            }
+          />
           <div className="min-w-0">
             <p className="text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">Based at</p>
             <p className="truncate font-display text-xl tracking-tight">{lockedStay.hotelName}</p>
