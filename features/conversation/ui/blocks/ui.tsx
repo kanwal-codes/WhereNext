@@ -93,6 +93,24 @@ export const MapButton = ({ onClick, children = "Map", className }: { onClick: (
 );
 
 /** Section heading for a group of cards, with an optional "Map" and "See all". */
+/** "See all →": the way into the full list a card only previews. */
+export function SeeAllButton({ onClick, label = "See all results" }: { onClick: () => void; label?: string }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onClick();
+      }}
+      className={textAction}
+    >
+      See all <ArrowRight className="size-3.5" aria-hidden />
+    </button>
+  );
+}
+
 export function SectionHeader({ title, count, onSeeAll, onMap }: { title?: string; /** How many are in the row: a narrow column shows one card and a sliver of the next, so say how many there are. */ count?: number; onSeeAll?: () => void; onMap?: () => void }) {
   if (!title && !onSeeAll && !onMap) return null;
   return (
@@ -105,20 +123,7 @@ export function SectionHeader({ title, count, onSeeAll, onMap }: { title?: strin
       ) : <span />}
       <div className="flex shrink-0 items-center gap-3">
         {onMap && <MapButton onClick={onMap} />}
-        {onSeeAll && (
-          <button
-            type="button"
-            aria-label={title ? `See all ${title}` : "See all results"}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onSeeAll();
-            }}
-            className={textAction}
-          >
-            See all <ArrowRight className="size-3.5" aria-hidden />
-          </button>
-        )}
+        {onSeeAll && <SeeAllButton onClick={onSeeAll} label={title ? `See all ${title}` : "See all results"} />}
       </div>
     </div>
   );

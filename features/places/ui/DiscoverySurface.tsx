@@ -273,7 +273,7 @@ export function DiscoverySurface({
       // via PlaceDetailView's GetYourGuideCard.
       { key: "activities", label: "Tours & activities", items: rankToItems(ok(tours).filter(isTourOperator)) },
       { key: "events", label: "On while you’re there", items: ok(ev).map((e) => ({ kind: "event", event: e }) as Item) },
-      { key: "stays", label: "Places to stay", items: ok(st).slice(0, 4).map((s) => ({ kind: "stay", stay: s }) as Item) },
+      { key: "stays", label: "Places to stay", items: ok(st).slice(0, 6).map((s) => ({ kind: "stay", stay: s }) as Item) },
     ].filter((b) => b.items.length);
     setBands(next);
     // Live-caught: every provider call can transiently return nothing at once (a rate limit, a
@@ -503,14 +503,7 @@ export function DiscoverySurface({
   const grid = "grid gap-4 sm:grid-cols-2 xl:grid-cols-3";
 
   return (
-    <div>
-      <AiSearchBar
-        tripId={tripId}
-        scope="discover"
-        placeholder={destination ? `Ask — “rooftop bars near ${destination.split(",")[0].trim()}”, “kid-friendly museums”, “ramen”` : "Ask for places for this trip"}
-        onDirective={applyDirective}
-        className="w-full max-w-3xl"
-      />
+    <div className="flex min-h-[calc(100dvh-13rem)] flex-col">
       {(searchMode || catKey !== null) && searchLabel && (
         <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
           <span className="min-w-0 truncate">Showing: <span className="font-medium text-foreground">{searchLabel}</span></span>
@@ -671,6 +664,14 @@ export function DiscoverySurface({
         </SwapView>
       </div>
 
+      {/* Last in the column so it can rest on the bottom edge of the page (see `.ask-dock`). */}
+      <AiSearchBar
+        variant="dock"
+        tripId={tripId}
+        scope="discover"
+        placeholder={destination ? `Ask — “rooftop bars near ${destination.split(",")[0].trim()}”, “kid-friendly museums”, “ramen”` : "Ask for places for this trip"}
+        onDirective={applyDirective}
+      />
     </div>
   );
 }

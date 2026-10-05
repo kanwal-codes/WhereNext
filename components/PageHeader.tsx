@@ -41,7 +41,7 @@ export function PageHeader({
                 <ArrowLeft className="h-3.5 w-3.5 transition-transform duration-[220ms] ease-out group-hover:-translate-x-0.5" /> {back.label}
               </Link>
             ) : (
-              <p className={cn("eyebrow flex items-center gap-2 justify-self-start", switcher && "max-sm:hidden")}>
+              <p className={cn("eyebrow flex items-center gap-2 justify-self-start", switcher && "hidden")}>
                 <span aria-hidden className="size-1 rounded-full bg-coral" />
                 {eyebrow}
               </p>

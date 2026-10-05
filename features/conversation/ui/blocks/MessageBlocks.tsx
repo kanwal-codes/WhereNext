@@ -76,7 +76,7 @@ import { resolveCurrency } from "@/lib/currency";
 import { HoldHeight, ScrollWindow, ScrollX, ViewControls } from "./ListControls";
 import { DEFAULT_EVENT_VIEW, DEFAULT_STAY_VIEW, applyEventView, applyStayView, eventControls, stayControls, type EventView, type StayView } from "./listViews";
 import { factGlyph, placeGlyph } from "./glyphs";
-import { Badge, BlockHeader, RatingMeta, segmentTab, CARD_W, CardMedia, CardOpenOverlay, DetailsButton, EntityCard, MediaFallback, Meta, Notice, SectionHeader, compactCount, controlSecondary, grid, money, prettyDate, prettyDates, rail, surface, textAction, type, MapButton } from "./ui";
+import { Badge, BlockHeader, RatingMeta, segmentTab, CARD_W, CardMedia, CardOpenOverlay, DetailsButton, EntityCard, MediaFallback, Meta, Notice, SectionHeader, SeeAllButton, compactCount, controlSecondary, grid, money, prettyDate, prettyDates, rail, surface, textAction, type, MapButton } from "./ui";
 
 export type BlockHandlers = {
   /** The trip these blocks belong to — card actions write against it. */
@@ -1102,12 +1102,15 @@ function StaysBlockView({ block, tripId, preview, onOpenStay, onOpenCollection, 
     setCheckin: search.setCheckin, setCheckout: search.setCheckout, setAdults: search.setAdults, setBoth: search.setBoth,
   };
           const visible = preview ? items.slice(0, MAX_CHAT_CARDS) : items;
+          const seeAll = preview && items.length > MAX_CHAT_CARDS && onOpenCollection ? () => onOpenCollection(`All stays in ${where}`, { ...block, location: where, checkin: dates.checkin, checkout: dates.checkout, nights, items }) : undefined;
+          // With a Sort row to sit on, "See all" goes to its right edge; a card with no controls keeps it in the header.
+          const seeAllOnSortRow = Boolean(seeAll) && source.length >= 2 && sorts.length > 1;
           return (
             <div className="flex flex-col gap-3">
               <SectionHeader
                 title={preview ? `Stays in ${where}` : undefined}
                 count={preview ? items.length : undefined}
-                onSeeAll={preview && items.length > MAX_CHAT_CARDS && onOpenCollection ? () => onOpenCollection(`All stays in ${where}`, { ...block, location: where, checkin: dates.checkin, checkout: dates.checkout, nights, items }) : undefined}
+                onSeeAll={seeAllOnSortRow ? undefined : seeAll}
                 onMap={preview && onOpenPanel && pointsFromStays(items).length > 0 ? () => onOpenPanel({ kind: "map", title: `Stays in ${where}`, points: pointsFromStays(items), connect: false }) : undefined}
               />
               {live ? <StaySearchBar search={searchForBar} tripId={tripId} trip={tripDates} defaultOpen={search.assumed} /> : <Meta items={[`${block.nights} night${block.nights > 1 ? "s" : ""}`, `${prettyDate(block.checkin)} – ${prettyDate(block.checkout)}`]} />}
@@ -1136,6 +1139,7 @@ function StaysBlockView({ block, tripId, preview, onOpenStay, onOpenCollection, 
                 shown={items.length}
                 total={source.length}
                 onClear={() => setView({ ...DEFAULT_STAY_VIEW, sort: view.sort })}
+                trailing={seeAllOnSortRow ? <SeeAllButton onClick={seeAll!} label={`See all stays in ${where}`} /> : undefined}
               />
               </div>
               <HoldHeight frozen={filtersOn || loading}>

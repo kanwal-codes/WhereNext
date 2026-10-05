@@ -15,7 +15,7 @@ const chip = (on: boolean) => cn(controlSecondary, "h-8", on && "border-primary 
  * A card passes only the sorts and filters that would change what it shows; this renders nothing when there
  * is nothing to choose between.
  */
-export function ViewControls({ label, noun, sorts, sort, onSort, filters, shown, total, onClear, bordered = true }: {
+export function ViewControls({ label, noun, sorts, sort, onSort, filters, shown, total, onClear, bordered = true, trailing }: {
   label: string;
   noun: string;
   sorts: SortDef[];
@@ -26,6 +26,8 @@ export function ViewControls({ label, noun, sorts, sort, onSort, filters, shown,
   total: number;
   onClear: () => void;
   bordered?: boolean;
+  /** Sits at the right edge of the sort row (a "See all" for the list these controls order). */
+  trailing?: React.ReactNode;
 }) {
   const active = filters.some((f) => f.active);
   if (total < 2 || (sorts.length < 2 && filters.length === 0)) return null;
@@ -41,6 +43,7 @@ export function ViewControls({ label, noun, sorts, sort, onSort, filters, shown,
             onChange={onSort}
             items={sorts.map((s) => ({ key: s.id, content: <span>{s.label}</span> }))}
           />
+          {trailing && <span className="ml-auto">{trailing}</span>}
         </div>
       )}
       {filters.length > 0 && (

@@ -323,10 +323,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
         <SkeletonCards count={6} />
       ) : result && result.options.length > 0 ? (
         <>
-          <p className="text-xs text-muted-foreground">
-            {result.options.length} place{result.options.length === 1 ? "" : "s"} · {result.nights} night{result.nights > 1 ? "s" : ""} · {fmtDay(result.checkin)} → {fmtDay(result.checkout)}
-            {result.assumedDates ? " · example dates (set yours above)" : ""} · {result.adults} guest{result.adults === 1 ? "" : "s"}, {result.rooms} room{result.rooms === 1 ? "" : "s"}
-          </p>
+          {result.assumedDates && <p className="text-xs text-caution">Example dates, set yours above for accurate prices.</p>}
           <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {result.options.slice(0, visible).map((o) => {
               const comparing = Boolean(panelCtx?.compareMode);
