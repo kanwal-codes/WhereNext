@@ -1103,6 +1103,7 @@ function StaysBlockView({ block, tripId, preview, onOpenStay, onOpenCollection, 
             <div className="flex flex-col gap-3">
               <SectionHeader
                 title={preview ? `Stays in ${where}` : undefined}
+                count={preview ? items.length : undefined}
                 onSeeAll={preview && items.length > MAX_CHAT_CARDS && onOpenCollection ? () => onOpenCollection(`All stays in ${where}`, { ...block, location: where, checkin: dates.checkin, checkout: dates.checkout, nights, items }) : undefined}
                 onMap={preview && onOpenPanel && pointsFromStays(items).length > 0 ? () => onOpenPanel({ kind: "map", title: `Stays in ${where}`, points: pointsFromStays(items), connect: false }) : undefined}
               />

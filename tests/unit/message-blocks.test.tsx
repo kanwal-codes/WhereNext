@@ -314,6 +314,12 @@ describe("MessageBlocks", () => {
     expect(html).not.toContain("Example dates");
   });
 
+  it("stays block: the header says how many stays are in the row (a narrow column shows only one and a sliver)", () => {
+    const hotel = (n: number) => ({ hotelId: `g:tok${n}`, name: `Hotel ${n}`, nightlyPrice: "93", totalPrice: "279", currency: "CAD" });
+    const html = render([{ type: "stays", retrievedAt: "t", location: "Madrid", checkin: "2026-11-07", checkout: "2026-11-15", nights: 8, dateNote: "x", items: [hotel(1), hotel(2), hotel(3)] }]);
+    expect(html).toMatch(/Stays in Madrid<span[^>]*>3<\/span>/);
+  });
+
   it("stays block: when the days are a guess the full search opens straight away", () => {
     const hotel = { hotelId: "g:tok1", name: "Hotel Blue", nightlyPrice: "93", totalPrice: "279", currency: "CAD" };
     const html = render([{ type: "stays", retrievedAt: "t", location: "Zagreb, Croatia", checkin: "2026-11-15", checkout: "2026-11-18", nights: 3, adults: 3, dateNote: "Example dates 2026-11-15 → 2026-11-18 — set your real dates", items: [hotel] }]);

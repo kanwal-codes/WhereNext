@@ -93,11 +93,16 @@ export const MapButton = ({ onClick, children = "Map", className }: { onClick: (
 );
 
 /** Section heading for a group of cards, with an optional "Map" and "See all". */
-export function SectionHeader({ title, onSeeAll, onMap }: { title?: string; onSeeAll?: () => void; onMap?: () => void }) {
+export function SectionHeader({ title, count, onSeeAll, onMap }: { title?: string; /** How many are in the row: a narrow column shows one card and a sliver of the next, so say how many there are. */ count?: number; onSeeAll?: () => void; onMap?: () => void }) {
   if (!title && !onSeeAll && !onMap) return null;
   return (
     <div className="flex min-w-0 items-center justify-between gap-3">
-      {title ? <h3 className={cn(type.section, "min-w-0 truncate")}>{title}</h3> : <span />}
+      {title ? (
+        <h3 className={cn(type.section, "min-w-0 truncate")}>
+          {title}
+          {count != null && count > 1 && <span className="ml-2 font-normal text-muted-foreground tabular-nums">{count}</span>}
+        </h3>
+      ) : <span />}
       <div className="flex shrink-0 items-center gap-3">
         {onMap && <MapButton onClick={onMap} />}
         {onSeeAll && (
