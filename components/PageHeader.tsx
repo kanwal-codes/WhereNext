@@ -14,6 +14,7 @@ export function PageHeader({
   switcher,
   back,
 }: {
+  /** The section name: the browser tab title. It is not printed on the page. */
   eyebrow: string;
   title: string;
   description?: string;
@@ -21,16 +22,16 @@ export function PageHeader({
   action?: ReactNode;
   /** A pill switch between views of this page. Centred in the rail, exactly where Roam centres its own. */
   switcher?: ReactNode;
-  /** A sub-page: the way back replaces the section label in the rail. */
+  /** A sub-page: the way back sits at the left of the rail. */
   back?: { href: string; label: string };
 }) {
-  // The section name (eyebrow) is the tab title; the editorial title stays on the page.
+  // The section name is the browser tab title only; the page itself carries just the editorial title.
   const titleTag = useDocumentTitle(eyebrow);
   return (
     <>
       {titleTag}
       {/* A title sequence: the rail, then the title, then the line under it, each a beat after the last.
-          The rail is one fixed 40px row on every page (label left, switch centred) — the same row Roam's own
+          The rail is one fixed 40px row on every page (way back left, switch centred) — the same row Roam's own
           header uses — so the title starts at the same height wherever you are and the pill never jumps. */}
       <header className="border-b border-border pb-7">
         <Reveal y={8}>
@@ -39,14 +40,9 @@ export function PageHeader({
               <Link href={back.href} className="group inline-flex items-center gap-1.5 justify-self-start text-xs text-muted-foreground transition-colors hover:text-foreground">
                 <ArrowLeft className="h-3.5 w-3.5 transition-transform duration-[220ms] ease-out group-hover:-translate-x-0.5" /> {back.label}
               </Link>
-            ) : switcher ? (
-              // A page with a view switch has no label (the pill is its heading), but the empty first column is what keeps the pill centred.
-              <span aria-hidden className="max-sm:hidden" />
             ) : (
-              <p className="eyebrow flex items-center gap-2 justify-self-start">
-                <span aria-hidden className="size-1 rounded-full bg-coral" />
-                {eyebrow}
-              </p>
+              // No section label: the pill (or the title) is the page's heading. The empty first column keeps a pill centred.
+              <span aria-hidden className="max-sm:hidden" />
             )}
             {switcher ? <div className="justify-self-center">{switcher}</div> : <span className="max-sm:hidden" />}
             <span className="max-sm:hidden" />
