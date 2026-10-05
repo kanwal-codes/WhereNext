@@ -13,7 +13,8 @@ import { useTripData } from "@/components/TripDataProvider";
 import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
 import { AiSearchBar } from "@/components/AiSearchBar";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
-import { useInfiniteReveal } from "@/lib/use-infinite-reveal";
+import { useShowMore } from "@/lib/use-show-more";
+import { ShowMoreButton } from "@/components/ShowMoreButton";
 import { PlaceCard } from "@/components/PlaceCard";
 import { CardMedia, CompareMark, DetailsButton, EntityCard, MediaFallback, money } from "@/features/conversation/ui/blocks/ui";
 import { rankPlaces, type RankAnchor } from "@/lib/application/rank-places";
@@ -27,7 +28,6 @@ import { CATEGORIES, CATEGORY_BY_KEY, type DiscoverCategory } from "./discoverTa
 import { cn } from "@/lib/utils";
 import { cachedGet } from "@/lib/client/cached-get";
 
-const PAGE = 6;
 
 /**
  * Raw category results, cached per session so tabbing Eat → Nightlife → Eat
@@ -158,10 +158,9 @@ export function DiscoverySurface({
   // request keeps running server-side to completion regardless, burning provider quota and
   // backend load on every fast category switch or re-search.
   const abortRef = useRef<AbortController | null>(null);
-  const eventsPage = useRef(0);
-  const eventsLoading = useRef(false);
-  const eventsHasMore = useRef(true);
-  const eventsSentinel = useRef<HTMLDivElement | null>(null);
+  // The provider pages events one request at a time. Only an events category asks for the next page, and only when the reader presses the button.
+  const eventPaging = useRef({ q: "", page: 0, more: false });
+  const [eventsBusy, setEventsBusy] = useState(false);
 
   const fetchPlaces = useCallback(
     async (q: string, signal?: AbortSignal): Promise<Place[]> => {
@@ -233,8 +232,6 @@ export function DiscoverySurface({
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    eventsPage.current = 0;
-    eventsHasMore.current = true;
     // Not keyed on saved places: the digest's *membership* doesn't change when you
     // shortlist something (only its ordering would), so tabbing away and back stays
     // instant instead of re-hitting five providers. 30-min TTL keeps events fresh.
@@ -290,38 +287,6 @@ export function DiscoverySurface({
     setMessage(next.length ? "" : "Nothing came back just now. Try a search or a different category.");
   }, [fetchPlaces, fetchEvents, fetchStays, interests, interestsKey, dislikesKey, destination, tripId, rankToItems]);
 
-  const loadMoreEvents = useCallback(async () => {
-    if (eventsLoading.current || !eventsHasMore.current || !destination) return;
-    eventsLoading.current = true;
-    const nextPage = eventsPage.current + 1;
-    try {
-      const next = await fetchEvents("", nextPage);
-      if (next.length === 0) {
-        eventsHasMore.current = false;
-        return;
-      }
-      eventsPage.current = nextPage;
-      setBands((current) => current?.map((band) => {
-        if (band.key !== "events") return band;
-        const existing = new Set(band.items.map((item) => item.kind === "event" ? `${item.event.url}|${item.event.date ?? ""}` : ""));
-        const additions = next.filter((event) => !existing.has(`${event.url}|${event.date ?? ""}`)).map((event) => ({ kind: "event", event }) as Item);
-        return additions.length ? { ...band, items: [...band.items, ...additions] } : band;
-      }) ?? current);
-    } finally {
-      eventsLoading.current = false;
-    }
-  }, [destination, fetchEvents]);
-
-  useEffect(() => {
-    const sentinel = eventsSentinel.current;
-    if (!sentinel || view !== "results" || flat || searchMode || catKey !== null || !bands?.some((band) => band.key === "events")) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) void loadMoreEvents();
-    }, { rootMargin: "900px 0px" });
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [bands, view, flat, searchMode, catKey, loadMoreEvents]);
-
   const loadCategory = useCallback(
     async (cat: DiscoverCategory, chosen: string[]) => {
       const mine = ++reqId.current;
@@ -348,10 +313,12 @@ export function DiscoverySurface({
           next = rankToItems(places);
         } else if (cat.kind === "event") {
           let events = cachedRaw as NearbyEvent[] | undefined;
+          const eventQuery = chosen.map(subQ).join(" ");
           if (!events) {
-            events = await fetchEvents(chosen.map(subQ).join(" "), 0, controller.signal);
+            events = await fetchEvents(eventQuery, 0, controller.signal);
             categoryRawCache.set(cacheKey, events);
           }
+          eventPaging.current = { q: eventQuery, page: 0, more: events.length > 0 };
           next = events.map((e) => ({ kind: "event", event: e }));
         } else {
           let all = cachedRaw as StayItem[] | undefined;
@@ -468,7 +435,7 @@ export function DiscoverySurface({
   const savedItems: Item[] = saved.map((p) => ({ kind: "place", place: p }));
   const gridItems = view === "saved" ? savedItems : items;
   // Reset the reveal only when the list itself changes — not when `saved` re-fetches under us.
-  const { visible, sentinel, more } = useInfiniteReveal(gridItems.length, PAGE, view === "saved" ? `saved:${saved.length}` : items);
+  const gridMore = useShowMore(gridItems.length, view === "saved" ? `saved:${saved.length}` : items);
   const flatItems = useMemo(() => {
     const seen = new Set<string>();
     return (bands ?? []).flatMap((b) => b.items).filter((it) => (seen.has(idOf(it)) ? false : (seen.add(idOf(it)), true)));
@@ -476,7 +443,22 @@ export function DiscoverySurface({
   // "Just show everything" is every band's items deduped into one list — same windowing the
   // grid view already gets, so asking to see more doesn't mount every card (150+, for a full
   // digest) synchronously in one pass.
-  const { visible: visibleFlat, sentinel: flatSentinel, more: moreFlat } = useInfiniteReveal(flatItems.length, PAGE, flatItems);
+  const flatMore = useShowMore(flatItems.length, flatItems);
+  async function loadMoreEvents() {
+    if (eventsBusy || !eventPaging.current.more) return;
+    setEventsBusy(true);
+    const { q, page } = eventPaging.current;
+    try {
+      const next = await fetchEvents(q, page + 1);
+      eventPaging.current = { q, page: page + 1, more: next.length > 0 };
+      setItems((current) => {
+        const have = new Set(current.map(idOf));
+        return [...current, ...next.map((event) => ({ kind: "event", event }) as Item).filter((it) => !have.has(idOf(it)))];
+      });
+    } finally {
+      setEventsBusy(false);
+    }
+  }
 
   const renderItem = (item: Item) => {
     if (item.kind === "place") {
@@ -596,8 +578,13 @@ export function DiscoverySurface({
       ) : gridView ? (
         gridItems.length > 0 ? (
           <>
-            <Stagger className={cn(grid, "mt-5")}>{gridItems.slice(0, visible).map((it) => renderItem(it))}</Stagger>
-            {more && <div ref={sentinel} aria-hidden className="h-8" />}
+            <Stagger className={cn(grid, "mt-5")}>{gridItems.slice(0, gridMore.visible).map((it) => renderItem(it))}</Stagger>
+            {/* Rows already in hand come first (no request); an events list that has run out of them asks the provider for its next page. */}
+            {gridMore.remaining > 0 ? (
+              <div className="mt-6"><ShowMoreButton next={gridMore.next} visible={gridMore.visible} total={gridItems.length} onClick={gridMore.showMore} noun="results" /></div>
+            ) : view !== "saved" && activeCat?.kind === "event" && eventPaging.current.more ? (
+              <div className="mt-6"><ShowMoreButton label="Show more events" busy={eventsBusy} next={0} visible={gridItems.length} total={gridItems.length} onClick={() => void loadMoreEvents()} noun="events" /></div>
+            ) : null}
           </>
         ) : (
           <EmptyState icon={Compass} className="mt-8">
@@ -626,8 +613,8 @@ export function DiscoverySurface({
             </EmptyState>
           ) : flat ? (
             <>
-              <Stagger className={cn(grid, "mt-4")}>{flatItems.slice(0, visibleFlat).map((it) => renderItem(it))}</Stagger>
-              {moreFlat && <div ref={flatSentinel} aria-hidden className="h-8" />}
+              <Stagger className={cn(grid, "mt-4")}>{flatItems.slice(0, flatMore.visible).map((it) => renderItem(it))}</Stagger>
+              <div className="mt-6"><ShowMoreButton next={flatMore.next} visible={flatMore.visible} total={flatItems.length} onClick={flatMore.showMore} noun="places" /></div>
             </>
           ) : (
             <div className="mt-4 space-y-9">
@@ -654,7 +641,6 @@ export function DiscoverySurface({
                       See all {band.label.toLowerCase()} &rarr;
                     </button>
                   )}
-                  {band.key === "events" && <div ref={eventsSentinel} aria-hidden className="h-8" />}
                 </section>
               ))}
             </div>
