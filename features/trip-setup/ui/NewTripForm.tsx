@@ -48,9 +48,9 @@ export function NewTripForm() {
         </div>
         <div className="p-5 sm:p-7">
           <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><Link2 className="h-3.5 w-3.5" /> Or bring a guide with you</div>
-          <div className="mt-3 flex items-center gap-2 rounded-xl border border-input bg-background px-3 py-2 focus-within:ring-2 focus-within:ring-ring/25">
-            <input type="url" value={link} onChange={(event) => setLink(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void importLink(); } }} placeholder="Paste a guide or itinerary link" className="min-w-0 flex-1 bg-transparent py-1 text-sm outline-none placeholder:text-muted-foreground" />
-            <button type="button" onClick={() => void importLink()} disabled={!link.trim() || Boolean(busy)} className="btn-primary-sm shrink-0">{busy === "link" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Import"}</button>
+          <div className="mt-3 flex items-center gap-2 rounded-xl border border-input bg-background px-3 py-2 focus-within:ring-2 focus-within:ring-ring/25 max-sm:py-2.5">
+            <input type="url" value={link} onChange={(event) => setLink(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void importLink(); } }} placeholder="Paste a guide or itinerary link" className="min-w-0 flex-1 bg-transparent py-1 text-base outline-none placeholder:text-muted-foreground sm:text-sm max-sm:min-h-8" />
+            <button type="button" onClick={() => void importLink()} disabled={!link.trim() || Boolean(busy)} className="btn-primary-sm shrink-0 max-sm:h-10 max-sm:px-5">{busy === "link" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Import"}</button>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">We&rsquo;ll pull the useful places into a new conversation.</p>
         </div>
