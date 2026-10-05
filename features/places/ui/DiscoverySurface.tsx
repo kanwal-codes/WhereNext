@@ -460,23 +460,25 @@ export function DiscoverySurface({
     }
   }
 
-  const renderItem = (item: Item) => {
+  // In a band on a phone each card is a swipeable slide (the next one peeks in), not a half-width tile: two to a row cramped the buttons.
+  const slide = "max-sm:w-[15.5rem] max-sm:shrink-0 max-sm:snap-start";
+  const renderItem = (item: Item, inRail = false) => {
     if (item.kind === "place") {
       return (
-        <StaggerItem key={`p:${item.place.providerId}`}>
+        <StaggerItem key={`p:${item.place.providerId}`} className={inRail ? slide : undefined}>
           <PlaceCard tripId={tripId} place={item.place} why={item.why ?? undefined} />
         </StaggerItem>
       );
     }
     if (item.kind === "event") {
       return (
-        <StaggerItem key={`e:${item.event.url}|${item.event.date ?? ""}`}>
+        <StaggerItem key={`e:${item.event.url}|${item.event.date ?? ""}`} className={inRail ? slide : undefined}>
           <EventCard tripId={tripId} event={item.event} />
         </StaggerItem>
       );
     }
     return (
-      <StaggerItem key={`s:${item.stay.hotelId}`}>
+      <StaggerItem key={`s:${item.stay.hotelId}`} className={inRail ? slide : undefined}>
         <StayMiniCard tripId={tripId} stay={item.stay} />
       </StaggerItem>
     );
@@ -607,7 +609,7 @@ export function DiscoverySurface({
         // "All" digest
         <div className="mt-5">
           <div className="flex items-center justify-between gap-3">
-            <p className="eyebrow min-w-0 truncate">A mix for {destination || "this trip"}</p>
+            <p className="eyebrow min-w-0 truncate">A mix for {destination ? destination.split(",")[0].trim() : "this trip"}</p>
             {bands && bands.length > 0 && (
               <button type="button" onClick={() => setFlat((f) => !f)} className="shrink-0 text-xs font-medium whitespace-nowrap text-primary hover:underline">
                 {flat ? "Show bands" : "Just show everything"}
@@ -639,14 +641,14 @@ export function DiscoverySurface({
                     )}
                   </div>
                   {/* Two rows of three per band; the rest lives behind "See all". */}
-                  <Stagger className={cn("mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3")}>
-                    {band.items.slice(0, 6).map((it) => renderItem(it))}
+                  <Stagger className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 max-sm:-mx-5 max-sm:-mb-10 max-sm:flex max-sm:snap-x max-sm:snap-mandatory max-sm:items-stretch max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:px-5 max-sm:pt-2 max-sm:pb-10 max-sm:scroll-px-5 no-scrollbar">
+                    {band.items.slice(0, 6).map((it) => renderItem(it, true))}
                   </Stagger>
                   {band.key && band.items.length > 6 && (
                     <button
                       type="button"
                       onClick={() => pickCategory(band.key)}
-                      className="mt-3 inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium shadow-soft transition-colors hover:bg-accent"
+                      className="mt-3 inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium shadow-soft transition-colors hover:bg-accent max-sm:hidden"
                     >
                       See all {band.label.toLowerCase()} &rarr;
                     </button>

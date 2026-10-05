@@ -91,7 +91,7 @@ export function FeaturedTrip({
                   <div
                     suppressHydrationWarning
                     className={cn(
-                      "daisy-stats w-full rounded-2xl border transition-colors duration-700 lg:w-auto [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3",
+                      "daisy-stats w-full rounded-2xl border transition-colors duration-700 lg:w-auto [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3 max-sm:[&>.daisy-stat]:px-3",
                       photo
                         ? "glass-photo [&_.daisy-stat-desc]:text-white/70 [&_.daisy-stat-title]:text-white/70 [&>.daisy-stat]:border-white/20"
                         : "border-border/60 bg-background/82 [&>.daisy-stat]:border-border/70",

@@ -258,15 +258,16 @@ export function ItinerarySurface({
   }
 
   return (
-    <div className="min-w-0 space-y-12">
+    <div className="min-w-0 space-y-8 sm:space-y-12">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <nav aria-label="Jump to a day" className="flex min-w-0 flex-wrap gap-2">
+        {/* On a phone the days are one swipeable row that runs to the screen edge, not a block that wraps onto a second line. */}
+        <nav aria-label="Jump to a day" className="flex min-w-0 flex-wrap gap-2 max-sm:-mx-5 max-sm:w-[calc(100%+2.5rem)] max-sm:flex-nowrap max-sm:snap-x max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:px-5 max-sm:py-1 max-sm:scroll-px-5 no-scrollbar">
           {days.map((d) => (
             <a
               key={d}
               href={`#day-${d}`}
               suppressHydrationWarning
-              className="daisy-btn daisy-btn-sm h-9 rounded-full border-border bg-card px-4 font-medium shadow-none hover:border-foreground/30 hover:bg-accent"
+              className="daisy-btn daisy-btn-sm h-9 shrink-0 snap-start rounded-full border-border bg-card px-4 font-medium shadow-none hover:border-foreground/30 hover:bg-accent"
             >
               <span className="font-display tabular-nums">{String(d).padStart(2, "0")}</span>
               <span className="text-muted-foreground">{dayDate(startDate, d)?.split(",")[1]?.trim() ?? `Day ${d}`}</span>

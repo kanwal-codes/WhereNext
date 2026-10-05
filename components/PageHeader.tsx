@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Reveal } from "./motion-primitives";
 import { useDocumentTitle } from "@/lib/use-document-title";
+import { cn } from "@/lib/utils";
 
 export function PageHeader({
   eyebrow,
@@ -33,9 +34,10 @@ export function PageHeader({
       {/* A title sequence: the rail, then the title, then the line under it, each a beat after the last.
           The rail is one fixed 40px row on every page (way back left, switch centred) — the same row Roam's own
           header uses — so the title starts at the same height wherever you are and the pill never jumps. */}
-      <header className="border-b border-border pb-7">
+      <header className="border-b border-border pb-5 sm:pb-7">
         <Reveal y={8}>
-          <div className="grid min-h-10 items-center gap-x-3 gap-y-3 sm:grid-cols-[1fr_auto_1fr]">
+          {/* On a phone a page with nothing for the rail (no way back, no switch) has no rail at all: its title sits right under the top bar. */}
+          <div className={cn("grid min-h-10 items-center gap-x-3 gap-y-3 sm:grid-cols-[1fr_auto_1fr]", !back && !switcher && "max-sm:hidden")}>
             {back ? (
               <Link href={back.href} className="group inline-flex items-center gap-1.5 justify-self-start text-xs text-muted-foreground transition-colors hover:text-foreground">
                 <ArrowLeft className="h-3.5 w-3.5 transition-transform duration-[220ms] ease-out group-hover:-translate-x-0.5" /> {back.label}
@@ -48,7 +50,7 @@ export function PageHeader({
             <span className="max-sm:hidden" />
           </div>
         </Reveal>
-        <div className="mt-3 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+        <div className={cn("mt-3 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end", !back && !switcher && "max-sm:mt-0")}>
           <div className="min-w-0">
             <Reveal delay={0.07} y={12}>
               <h1 className="font-display text-4xl leading-[1.04] font-medium tracking-[-0.03em] text-balance sm:text-5xl">{title}</h1>

@@ -544,7 +544,7 @@ export function AccountView({
             </div>
 
             <Reveal delay={0.3}>
-              <div className="daisy-stats w-full rounded-2xl border border-white/20 bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md lg:w-auto [&_.daisy-stat-desc]:text-white/70 [&_.daisy-stat-title]:text-white/70 [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:border-white/20 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3">
+              <div className="daisy-stats w-full rounded-2xl border border-white/20 bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md lg:w-auto [&_.daisy-stat-desc]:text-white/70 [&_.daisy-stat-title]:text-white/70 [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:border-white/20 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3 max-sm:[&>.daisy-stat]:px-3 max-sm:[&_.daisy-stat-title]:tracking-[0.06em]">
                 {[
                   { label: "Trips planned", value: String(tripCount) },
                   { label: "Places", value: String(destinationCount) },
@@ -568,7 +568,7 @@ export function AccountView({
           <nav className="sticky top-0 z-20 -mx-5 mb-8 overflow-x-auto overscroll-x-contain border-b border-border bg-background/95 px-5 py-3 scrollbar-slim sm:-mx-8 sm:px-8 lg:top-10 lg:mx-0 lg:mb-0 lg:self-start lg:overflow-visible lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
             <ul className="flex gap-2 lg:flex-col lg:gap-1">
               {SECTIONS.map((s) => (
-                <li key={s.id}>
+                <li key={s.id} className="shrink-0">
                   <a
                     href={`#${s.id}`}
                     onClick={() => {

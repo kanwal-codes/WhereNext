@@ -61,6 +61,9 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   const [checkout, setCheckout] = useState(lockedStay?.checkout ?? trip?.end_date ?? "");
   const [adults, setAdults] = useState(Math.max(1, Math.min(trip?.travelers ?? 2, 24)));
   const [rooms, setRooms] = useState(1);
+  const [barOpen, setBarOpen] = useState(false);
+  const nightsCount = checkin && checkout ? Math.round((Date.parse(`${checkout}T00:00:00`) - Date.parse(`${checkin}T00:00:00`)) / 864e5) : 0;
+  const nightsLabel = nightsCount > 0 ? `${nightsCount} night${nightsCount === 1 ? "" : "s"}` : "";
   const [stars, setStars] = useState<number[]>([]);
   const [boards, setBoards] = useState<string[]>([]);
   const [propertyTypes, setPropertyTypes] = useState<string[]>([]);
@@ -180,7 +183,26 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
 
       {/* The booking bar: four cells divided by hairlines (the gap shows the border colour through), then filters and sort. */}
       <div className="rounded-3xl border border-border bg-card shadow-soft">
-        <div className="grid gap-px overflow-hidden rounded-t-3xl bg-border grid-cols-2 lg:grid-cols-4">
+        {/* On a phone the four fields fold into one line (dates, guests, rooms) that opens them: the list starts a screen sooner. */}
+        <button
+          type="button"
+          onClick={() => setBarOpen((v) => !v)}
+          aria-expanded={barOpen}
+          className="flex w-full items-center gap-3 px-4 py-3 text-left sm:hidden"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium tabular-nums">
+              {checkin && checkout ? `${fmtDay(checkin)} – ${fmtDay(checkout)}` : "Choose your dates"}
+            </span>
+            <span className="block truncate text-xs text-muted-foreground">
+              {nightsLabel ? `${nightsLabel} · ` : ""}{adults} guest{adults === 1 ? "" : "s"} · {rooms} room{rooms === 1 ? "" : "s"}
+            </span>
+          </span>
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+            {barOpen ? "Done" : "Edit"} <ChevronDown className={cn("size-3.5 transition-transform duration-300", barOpen && "rotate-180")} aria-hidden />
+          </span>
+        </button>
+        <div className={cn("grid gap-px overflow-hidden bg-border grid-cols-2 max-sm:border-t max-sm:border-border sm:rounded-t-3xl lg:grid-cols-4", !barOpen && "max-sm:hidden")}>
           <label className="col-span-2 block cursor-pointer bg-card px-4 py-3 transition-colors focus-within:bg-accent/50 hover:bg-accent/40 sm:col-span-1">
             <span className="eyebrow block">Check-in</span>
             <input type="date" value={checkin} onChange={(e) => setCheckin(e.target.value)} className="mt-1.5 block w-full bg-transparent text-base font-medium outline-none" />
@@ -309,6 +331,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
               return (
                 <li key={o.hotelId} className={cn("min-w-0", index >= first && "settle-in")}>
                   <StayResultCard
+                    phoneRow
                     stay={{ ...o, reviewCount: o.reviewCount, boardName: o.boardName }}
                     href={detailHref(o.hotelId)}
                     onOpen={() => {

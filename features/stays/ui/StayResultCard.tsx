@@ -1,7 +1,7 @@
 "use client";
 
 import { BedDouble, Check } from "lucide-react";
-import { Badge, CardMedia, CompareMark, DetailsButton, EntityCard, MediaFallback, compactCount, money, type } from "@/features/conversation/ui/blocks/ui";
+import { Badge, CardMedia, CompareMark, DetailsButton, EntityCard, MEDIA_ROW, MediaFallback, compactCount, money, type } from "@/features/conversation/ui/blocks/ui";
 import { cn } from "@/lib/utils";
 
 export type StayCardData = {
@@ -24,17 +24,18 @@ export type StayCardData = {
  * "CA$230 / night" and the Rooms & details button look identical on every screen. Only its state differs: the
  * stay the group has locked, and the compare picker.
  */
-export function StayResultCard({ stay, href, onOpen, locked = false, comparing = false, selected = false }: { stay: StayCardData; href: string; onOpen: () => void; locked?: boolean; comparing?: boolean; selected?: boolean }) {
+export function StayResultCard({ stay, href, onOpen, locked = false, comparing = false, selected = false, phoneRow = false }: { stay: StayCardData; href: string; onOpen: () => void; locked?: boolean; comparing?: boolean; selected?: boolean; /** A horizontal card on a phone (the Stay page's long list). */ phoneRow?: boolean }) {
   const kind = stay.propertyType && stay.propertyType !== "Hotel" ? stay.propertyType : null;
   return (
     <EntityCard
       label={`Open ${stay.name}`}
       onOpen={onOpen}
       href={href}
+      phoneRow={phoneRow}
       className={cn(selected && "ring-2 ring-coral", locked && "border-positive/40")}
       media={
-        <div className="relative">
-          <CardMedia src={stay.thumbnail} alt={stay.name} fallback={<MediaFallback icon={BedDouble} className="aspect-[16/10] w-full rounded-t-2xl" />} />
+        <div className={cn("relative", phoneRow && "max-sm:h-full")}>
+          <CardMedia row={phoneRow} src={stay.thumbnail} alt={stay.name} fallback={<MediaFallback icon={BedDouble} className={cn("aspect-[16/10] w-full rounded-t-2xl", phoneRow && MEDIA_ROW)} />} />
           {locked && <span className="photo-chip absolute top-2.5 left-2.5"><Check className="size-3.5 text-positive" aria-hidden /> Your stay</span>}
           {comparing && <CompareMark selected={selected} />}
         </div>
