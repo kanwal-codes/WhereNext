@@ -2,6 +2,8 @@
 
 import { hotelPhotoSrc } from "@/lib/hotel-photo";
 import { useEffect, useMemo, useState } from "react";
+import { useShowMore } from "@/lib/use-show-more";
+import { ShowMoreButton } from "@/components/ShowMoreButton";
 import { ArrowUpRight, BedDouble, ChevronRight, MapPin, Star } from "lucide-react";
 import { useTripPanelMaybe } from "@/components/TripPanelProvider";
 import { Skeleton } from "@/components/Skeleton";
@@ -104,7 +106,9 @@ export function NearbyStays({
     next.sort((a, b) => order === "price" ? a.option.nightlyAmount - b.option.nightlyAmount : order === "rating" ? (b.option.rating ?? 0) - (a.option.rating ?? 0) : (a.distance ?? Number.POSITIVE_INFINITY) - (b.distance ?? Number.POSITIVE_INFINITY));
     return next;
   }, [options, currentHotelId, anchor, order, kind]);
-  const alternatives = mode === "full" ? matched : matched.slice(0, 3);
+  // The full list opens with 15 and grows 6 at a time; the preview inside a stay panel stays at 3.
+  const more = useShowMore(matched.length, `${order}:${kind}`);
+  const alternatives = mode === "full" ? matched.slice(0, more.visible) : matched.slice(0, 3);
   const availableKinds = useMemo(() => Array.from(new Set(options.filter((option) => option.hotelId !== currentHotelId).map((option) => stayKind(option.name)))), [options, currentHotelId]);
 
   if (!loading && alternatives.length === 0) return null;
@@ -173,6 +177,7 @@ export function NearbyStays({
           })}
         </div>
       )}
+      {mode === "full" && !loading && <div className="mt-4"><ShowMoreButton next={more.next} visible={more.visible} total={matched.length} onClick={more.showMore} /></div>}
       {mode === "preview" && !loading && matched.length > alternatives.length && (
         <Link href={seeMoreHref} className="relative mt-4 inline-block text-xs font-medium text-primary hover:underline after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']">
           See all {matched.length} {kind === "All" ? "stays" : kind.toLowerCase()} <span aria-hidden="true">→</span>

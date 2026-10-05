@@ -14,7 +14,8 @@ import { readStayDecision, type StayFacets, type StayOption } from "@/packages/c
 import { SkeletonCards } from "@/components/Skeleton";
 import { EmptyState } from "@/components/EmptyState";
 import { formatMoney } from "@/lib/currency";
-import { useInfiniteReveal } from "@/lib/use-infinite-reveal";
+import { useShowMore } from "@/lib/use-show-more";
+import { ShowMoreButton } from "@/components/ShowMoreButton";
 import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache";
 import { cn } from "@/lib/utils";
 import { fmtDay } from "@/lib/trip-dates";
@@ -137,7 +138,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
     void search();
   }, [search]);
 
-  const { visible, sentinel, more } = useInfiniteReveal(result?.options.length ?? 0, 6, result);
+  const { visible, remaining, next, showMore, first } = useShowMore(result?.options.length ?? 0, result);
 
   function applyDirective(d: import("@/lib/application/ai-search").AiSearchDirective) {
     if (d.location !== undefined) setNear(d.location);
@@ -325,10 +326,10 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
         <>
           {result.assumedDates && <p className="text-xs text-caution">Example dates, set yours above for accurate prices.</p>}
           <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {result.options.slice(0, visible).map((o) => {
+            {result.options.slice(0, visible).map((o, index) => {
               const comparing = Boolean(panelCtx?.compareMode);
               return (
-                <li key={o.hotelId} className="min-w-0">
+                <li key={o.hotelId} className={cn("min-w-0", index >= first && "settle-in")}>
                   <StayResultCard
                     stay={{ ...o, reviewCount: o.reviewCount, boardName: o.boardName }}
                     href={detailHref(o.hotelId)}
@@ -345,7 +346,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
               );
             })}
           </ul>
-          {more && <div ref={sentinel} aria-hidden className="h-8" />}
+          <ShowMoreButton next={next} visible={visible} total={visible + remaining} onClick={showMore} />
           <p className="text-xs text-muted-foreground">Prices shown in {result.currency}. Taxes and fees may be added at checkout — confirm the total when you book.</p>
         </>
       ) : (

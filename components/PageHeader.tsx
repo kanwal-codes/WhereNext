@@ -5,7 +5,6 @@ import type { ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Reveal } from "./motion-primitives";
 import { useDocumentTitle } from "@/lib/use-document-title";
-import { cn } from "@/lib/utils";
 
 export function PageHeader({
   eyebrow,
@@ -40,8 +39,11 @@ export function PageHeader({
               <Link href={back.href} className="group inline-flex items-center gap-1.5 justify-self-start text-xs text-muted-foreground transition-colors hover:text-foreground">
                 <ArrowLeft className="h-3.5 w-3.5 transition-transform duration-[220ms] ease-out group-hover:-translate-x-0.5" /> {back.label}
               </Link>
+            ) : switcher ? (
+              // A page with a view switch has no label (the pill is its heading), but the empty first column is what keeps the pill centred.
+              <span aria-hidden className="max-sm:hidden" />
             ) : (
-              <p className={cn("eyebrow flex items-center gap-2 justify-self-start", switcher && "hidden")}>
+              <p className="eyebrow flex items-center gap-2 justify-self-start">
                 <span aria-hidden className="size-1 rounded-full bg-coral" />
                 {eyebrow}
               </p>
