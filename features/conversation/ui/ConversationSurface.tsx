@@ -499,11 +499,25 @@ export function ConversationSurface({
 
   // Scrolled off the top (fade the edge) / far above the latest message (offer a way back).
   const [scroll, setScroll] = useState({ scrolled: false, away: false });
+  const [reading, setReading] = useState(false);
+  const [composerFocused, setComposerFocused] = useState(false);
+  const direction = useRef({ last: 0, run: 0 });
   const handleLogScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const n = e.currentTarget;
     const scrolled = n.scrollTop > 4;
     const away = n.scrollHeight - n.clientHeight - n.scrollTop > n.clientHeight * 1.2;
     setScroll((s) => (s.scrolled === scrolled && s.away === away ? s : { scrolled, away }));
+    // The composer narrows while the reader heads down through the log and widens on the way up, at the top, and at the latest message
+    // (where the next thing they do is type). The direction has to hold for a few pixels, so a flick or the follow-scroll never flips it.
+    const track = direction.current;
+    const delta = n.scrollTop - track.last;
+    track.last = n.scrollTop;
+    if (n.scrollTop < 80 || n.scrollHeight - n.clientHeight - n.scrollTop < 40) { track.run = 0; setReading(false); }
+    else if (delta !== 0) {
+      track.run = Math.sign(track.run) === Math.sign(delta) ? track.run + delta : delta;
+      if (track.run > 36) setReading(true);
+      else if (track.run < -18) setReading(false);
+    }
     onLogScroll?.(e);
   };
 
@@ -983,8 +997,13 @@ export function ConversationSurface({
               event.preventDefault();
               void submit(input);
             }}
+            onFocus={() => setComposerFocused(true)}
+            onBlur={() => setComposerFocused(false)}
+            // Narrower, never a pill: still a message box. Its width eases on the same long curve as the rest of the app; it stays full while it is being used.
+            style={{ width: reading && !composerFocused && !input.trim() && !sending ? "min(100%, max(20rem, 70%))" : "100%" }}
             className={cn(
-              "flex w-full min-w-0 max-w-full flex-col gap-1 rounded-3xl border border-input bg-card py-1.5 pl-4 pr-1.5 shadow-lift transition-[border-color,box-shadow] duration-200 ease-out",
+              "mx-auto flex min-w-0 max-w-full flex-col gap-1 rounded-3xl border border-input bg-card py-1.5 pl-4 pr-1.5 transition-[border-color,box-shadow,width] duration-[420ms] ease-out",
+              reading && !composerFocused && !input.trim() && !sending ? "shadow-soft" : "shadow-lift",
               "focus-within:border-ink/30 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_6%,transparent),var(--shadow-lift)]",
               sending && "composer-live",
             )}
