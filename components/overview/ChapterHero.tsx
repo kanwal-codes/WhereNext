@@ -39,7 +39,7 @@ export function ChapterHero({
     ) : null;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-5 pt-10 sm:px-8">
+    <div className="mx-auto w-full max-w-6xl px-5 pt-5 sm:px-8">
       <PageHeader
         eyebrow={eyebrow}
         title={title}
