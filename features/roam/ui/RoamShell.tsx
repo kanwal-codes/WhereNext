@@ -1,9 +1,9 @@
 "use client";
 
+import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Lock, PanelRight, PanelRightClose, PanelRightOpen, X } from "lucide-react";
+import { PanelRight, PanelRightClose, PanelRightOpen, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanel, panelSubjectKey, panelTitle, type EventSeed } from "@/components/TripPanelProvider";
 import { TripPanel } from "@/components/TripPanel";
@@ -27,40 +27,18 @@ const LAYOUT_MOTION = "420ms cubic-bezier(0.22, 1, 0.36, 1)";
  *  `onSelect` flips the visible pane immediately, in the same tick as the click — see the
  *  `optimisticTab` comment in `RoamShell` for why waiting on the URL itself feels slow. */
 function RoamTabs({ tripId, activeTab, onSelect, onGuestLocked }: { tripId: string; activeTab: "roam" | "group"; onSelect: (tab: "roam" | "group") => void; onGuestLocked?: () => void }) {
-  const tabs = [
-    { key: "roam" as const, label: "Roam", href: `/trips/${tripId}/chat` },
-    { key: "group" as const, label: "Chat", href: `/trips/${tripId}/group` },
-  ];
   return (
-    <div className="inline-flex rounded-full bg-muted p-1 text-sm">
-      {tabs.map((tab) =>
-        onGuestLocked && tab.key === "group" ? (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={onGuestLocked}
-            aria-label="Chat, needs an account"
-            className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            {tab.label}
-            <Lock className="h-3 w-3 opacity-60" aria-hidden="true" />
-          </button>
-        ) : (
-        <Link
-          key={tab.key}
-          href={tab.href}
-          prefetch
-          onClick={() => onSelect(tab.key)}
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-full px-5 py-1.5 font-medium transition-colors",
-            activeTab === tab.key ? "bg-card text-foreground shadow-soft" : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          {tab.label}
-        </Link>
-        ),
-      )}
-    </div>
+    <SegmentedSwitch
+      label="Conversation"
+      value={activeTab}
+      onChange={(key) => (onGuestLocked && key === "group" ? onGuestLocked() : onSelect(key))}
+      options={[
+        { key: "roam", label: "Roam", href: `/trips/${tripId}/chat` },
+        onGuestLocked
+          ? { key: "group", label: "Chat", ariaLabel: "Chat, needs an account", locked: true }
+          : { key: "group", label: "Chat", href: `/trips/${tripId}/group` },
+      ]}
+    />
   );
 }
 

@@ -19,12 +19,13 @@ export function RouteScaffold({
   children: ReactNode;
 }) {
   return (
-    <div className="mx-auto w-full min-w-0 max-w-6xl px-5 py-10 sm:px-8">
+    <div className="mx-auto w-full min-w-0 max-w-6xl px-5 pt-5 pb-10 sm:px-8">
       <PageHeader
         eyebrow={eyebrow}
         title={title}
         description={description}
-        action={tabs && action ? <div className="flex flex-wrap items-center gap-3">{tabs}{action}</div> : (tabs ?? action)}
+        action={action}
+        switcher={tabs}
       />
       <Reveal delay={0.08}>
         <div className="mt-8">{children}</div>

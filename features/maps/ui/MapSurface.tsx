@@ -1,5 +1,6 @@
 "use client";
 
+import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { CATEGORY_HEX } from "@/lib/map-colors";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
@@ -203,20 +204,15 @@ function MapPanel({ className, collapsedLabel, children }: { className?: string;
 
 export function GettingAroundTabs({ tab, onChange }: { tab: "trip" | "browse"; onChange: (t: "trip" | "browse") => void }) {
   return (
-    <div className="flex">
-      <div className="inline-flex rounded-full bg-muted p-1 text-sm">
-        {(["trip", "browse"] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => onChange(t)}
-            className={cn("rounded-full px-5 py-2 font-medium transition-colors", tab === t ? "bg-card text-foreground shadow-soft" : "text-muted-foreground hover:text-foreground")}
-          >
-            {t === "trip" ? "My trip" : "Browse"}
-          </button>
-        ))}
-      </div>
-    </div>
+    <SegmentedSwitch
+      label="Map view"
+      value={tab}
+      onChange={onChange}
+      options={[
+        { key: "trip", label: "My trip" },
+        { key: "browse", label: "Browse" },
+      ]}
+    />
   );
 }
 

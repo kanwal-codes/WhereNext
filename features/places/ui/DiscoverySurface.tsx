@@ -1,5 +1,6 @@
 "use client";
 
+import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { SwapView } from "@/components/SwapView";
 import { StayResultCard } from "@/features/stays/ui/StayResultCard";
 import { useRouter } from "next/navigation";
@@ -74,20 +75,15 @@ const toStayItem = (o: Record<string, unknown>): StayItem => ({
 
 export function DiscoverTabs({ view, onChange, savedCount }: { view: "results" | "saved"; onChange: (v: "results" | "saved") => void; savedCount: number }) {
   return (
-    <div className="flex">
-      <div className="inline-flex rounded-full bg-muted p-1 text-sm">
-        {(["results", "saved"] as const).map((v) => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => onChange(v)}
-            className={cn("rounded-full px-5 py-2 font-medium transition-colors", view === v ? "bg-card text-foreground shadow-soft" : "text-muted-foreground hover:text-foreground")}
-          >
-            {v === "saved" ? `Saved (${savedCount})` : "Discover"}
-          </button>
-        ))}
-      </div>
-    </div>
+    <SegmentedSwitch
+      label="Discover view"
+      value={view}
+      onChange={onChange}
+      options={[
+        { key: "results", label: "Discover" },
+        { key: "saved", label: `Saved (${savedCount})` },
+      ]}
+    />
   );
 }
 

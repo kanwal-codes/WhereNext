@@ -1,15 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowLeft, CalendarRange, ChevronDown, LogOut, Mail, Users } from "lucide-react";
+import { CalendarRange, ChevronDown, LogOut, Mail, Users } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { Reveal, Sheet, motionTokens } from "@/components/motion-primitives";
 import { AvailabilityPanel } from "@/features/availability/ui/AvailabilityPanel";
 import { InviteToGroup } from "@/features/group-chat/ui/InviteToGroup";
 import { notifyToast } from "@/lib/application/toast";
-import { useDocumentTitle } from "@/lib/use-document-title";
+import { PageHeader } from "@/components/PageHeader";
 import { memberInitials } from "@/lib/member-initials";
 import { cn } from "@/lib/utils";
 
@@ -22,7 +21,6 @@ async function extractError(response: Response, fallback: string): Promise<strin
 
 export default function GroupDetailsPage() {
   const { tripId } = useTripData();
-  const titleTag = useDocumentTitle("Group details");
   const [members, setMembers] = useState<Member[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
@@ -58,19 +56,18 @@ export default function GroupDetailsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-4 sm:px-6 lg:py-5">
-      {titleTag}
-      <Reveal>
-        <Link href={`/trips/${tripId}/group`} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to group chat
-        </Link>
-        <div className="mt-3 mb-5 flex items-center justify-between gap-3">
-          <h1 className="font-display text-3xl leading-tight font-medium tracking-[-0.03em] sm:text-4xl">Group details</h1>
+    <div className="mx-auto w-full max-w-2xl px-5 pt-5 pb-10 sm:px-8">
+      <PageHeader
+        eyebrow="Group details"
+        title="Group details"
+        back={{ href: `/trips/${tripId}/group`, label: "Back to group chat" }}
+        action={
           <button type="button" onClick={() => setAvailabilityOpen(true)} className="btn-chip shrink-0 gap-1.5">
             <CalendarRange className="h-3.5 w-3.5" /> Set your dates
           </button>
-        </div>
-      </Reveal>
+        }
+      />
+      <div className="mt-6" />
 
       <Reveal delay={0.05}>
         <div className="mb-5 rounded-2xl border border-border bg-card shadow-soft">
