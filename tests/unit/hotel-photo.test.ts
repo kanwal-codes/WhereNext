@@ -7,6 +7,9 @@ describe("googlePhotoSrc", () => {
     expect(googlePhotoSrc(g)).toBe(`/api/hotel-photo?u=${encodeURIComponent(g)}`);
     expect(googlePhotoSrc("https://encrypted-tbn3.gstatic.com/images?q=tbn:abc")).toContain("/api/hotel-photo?u=");
     expect(googlePhotoSrc("https://streetviewpixels-pa.googleapis.com/v1/thumbnail?panoid=x")).toContain("/api/hotel-photo?u=");
+    // Google Hotels' OTA brand logos (Booking.com, Expedia, ...) live on www.gstatic.com, not a tbn* subdomain —
+    // must stay in the Google bucket so guests (who need sign-in for non-Google hosts) still see them.
+    expect(googlePhotoSrc("https://www.gstatic.com/travel-hotels/branding/icon_184.png")).toContain("/api/hotel-photo?u=");
     expect(googlePhotoSrc("https://example.com/a.jpg")).toBe("https://example.com/a.jpg");
     expect(googlePhotoSrc("/api/trips/x/places/google/photo?name=y")).toBe("/api/trips/x/places/google/photo?name=y");
     expect(googlePhotoSrc(null)).toBeNull();

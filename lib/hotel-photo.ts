@@ -5,7 +5,7 @@
  * away a request that carries our page as its referrer — and the card shows a blank box. So they are fetched by our own
  * server (`/api/hotel-photo`), which sends no referrer, and served from the app's own origin.
  */
-const GOOGLE_IMAGE_HOST = /^(?:lh\d+\.googleusercontent\.com|(?:encrypted-)?tbn\d*\.gstatic\.com|[a-z0-9-]+\.ggpht\.com|streetviewpixels-pa\.googleapis\.com)$/i;
+const GOOGLE_IMAGE_HOST = /^(?:lh\d+\.googleusercontent\.com|(?:encrypted-)?tbn\d*\.gstatic\.com|www\.gstatic\.com|[a-z0-9-]+\.ggpht\.com|streetviewpixels-pa\.googleapis\.com)$/i;
 
 export const isGoogleImageUrl = (value: string): boolean => {
   try {
