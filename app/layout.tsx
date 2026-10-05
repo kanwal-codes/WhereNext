@@ -23,8 +23,8 @@ const figtree = Figtree({ subsets: ["latin"], weight: ["400", "500", "600"], var
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://www.wherenexts.com"),
-  title: "Where next? — plan a trip by talking about it",
-  description: "A calm travel workspace: talk through your trip, then explore, compare and build the itinerary in one place.",
+  title: "Where Next — AI Trip Planner",
+  description: "Talk through your trip and Roam plans it: stays, flights, and an itinerary built as you chat — all in one calm workspace.",
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: "Where next?", statusBarStyle: "default" },
 };
