@@ -6,7 +6,7 @@ import { StayResultCard } from "@/features/stays/ui/StayResultCard";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BedDouble, Compass } from "lucide-react";
+import { BedDouble, Compass, X } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
 import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { useTripData } from "@/components/TripDataProvider";
@@ -367,7 +367,7 @@ export function DiscoverySurface({
         setItems(eventIntent ? events.map((event) => ({ kind: "event", event }) as Item) : rankToItems(places));
         setLoading(false);
         const count = eventIntent ? events.length : places.length;
-        setMessage(count ? `“${q}” · ${count} near ${destination || "your destination"}` : "Nothing came back — try different words.");
+        setMessage(count ? "" : "Nothing came back — try different words.");
       } catch (error) {
         if (mine !== reqId.current) return;
         if (error instanceof DOMException && error.name === "AbortError") return;
@@ -375,7 +375,7 @@ export function DiscoverySurface({
         setMessage("Nothing came back — try different words.");
       }
     },
-    [fetchPlaces, fetchEvents, destination, rankToItems],
+    [fetchPlaces, fetchEvents, rankToItems],
   );
 
   // Arriving from a "See more" elsewhere (a place's nearby recommendations) — run that
@@ -486,17 +486,8 @@ export function DiscoverySurface({
 
   return (
     <div className="flex min-h-[calc(100dvh-13rem)] flex-col">
-      {(searchMode || catKey !== null) && searchLabel && (
-        <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="min-w-0 truncate">Showing: <span className="font-medium text-foreground">{searchLabel}</span></span>
-          <button type="button" onClick={() => { setSearchMode(false); setSearchLabel(""); pickCategory(null); }} className="shrink-0 hover:text-foreground">
-            Clear
-          </button>
-        </p>
-      )}
-
       {/* Tier 1 — Compare + broad categories (Discover/Saved lives in the page header now). One row, scrolls sideways. */}
-      {view === "results" && (!searchMode || panelCtx) && (
+      {view === "results" && (!searchMode || panelCtx || searchLabel) && (
         <div className="mt-4 flex items-center gap-2 overflow-x-auto overscroll-x-contain scrollbar-slim px-1 py-1">
             {panelCtx && (
               <button
@@ -509,6 +500,17 @@ export function DiscoverySurface({
                 className="btn-chip shrink-0"
               >
                 {panelCtx.compareMode ? `Comparing · ${panelCtx.compareList.length}` : "Compare"}
+              </button>
+            )}
+            {/* What the search resolved to, as a chip that clears it: the one way back to the digest while the category chips are away. */}
+            {searchMode && searchLabel && (
+              <button
+                type="button"
+                onClick={() => { setSearchMode(false); setSearchLabel(""); pickCategory(null); }}
+                aria-label={`Clear search: ${searchLabel}`}
+                className="btn-chip max-w-[18rem] shrink-0"
+              >
+                <span className="truncate">{searchLabel}</span> <X className="size-3.5 shrink-0" aria-hidden />
               </button>
             )}
             {/* The category chips narrow the digest, so they mean nothing beside a search's own results: the strip keeps only Compare until the search is cleared. */}
