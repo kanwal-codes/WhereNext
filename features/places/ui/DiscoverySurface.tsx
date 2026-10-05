@@ -611,7 +611,7 @@ export function DiscoverySurface({
           <div className="flex items-center justify-between gap-3">
             <p className="eyebrow min-w-0 truncate">A mix for {destination ? destination.split(",")[0].trim() : "this trip"}</p>
             {bands && bands.length > 0 && (
-              <button type="button" onClick={() => setFlat((f) => !f)} className="shrink-0 text-xs font-medium whitespace-nowrap text-primary hover:underline">
+              <button type="button" onClick={() => setFlat((f) => !f)} className="shrink-0 text-xs font-medium whitespace-nowrap text-primary hover:underline relative after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']">
                 {flat ? "Show bands" : "Just show everything"}
               </button>
             )}
@@ -635,7 +635,7 @@ export function DiscoverySurface({
                   <div className="flex items-baseline justify-between gap-3">
                     <h3 className="font-display text-lg">{band.label}</h3>
                     {band.key && (
-                      <button type="button" onClick={() => pickCategory(band.key)} className="shrink-0 text-xs font-medium text-primary hover:underline">
+                      <button type="button" onClick={() => pickCategory(band.key)} className="shrink-0 text-xs font-medium text-primary hover:underline relative after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']">
                         See all &rarr;
                       </button>
                     )}
