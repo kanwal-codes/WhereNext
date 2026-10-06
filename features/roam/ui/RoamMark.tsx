@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, type ReactNode, type RefObject } from "react";
+import React, { useEffect, useId, useRef, type ReactNode, type RefObject } from "react";
 import {
   animate,
   cubicBezier,
@@ -26,10 +26,11 @@ import { cn } from "@/lib/utils";
  *   arrived   — the route settles and the destination dot glows
  *   settled   — the final, minimal route with its dot
  *   error     — the route breaks into fragments, hesitates, then reconnects
+ *   handoff   — the planned route erases from its tail to its dot as the widget's own icon draws in (the reply has arrived)
  *
  * Drawn in `currentColor` on a 2:1 canvas; `size` is the rendered width.
  */
-export type RoamMarkState = "idle" | "thinking" | "planning" | "searching" | "answering" | "arrived" | "settled" | "error";
+export type RoamMarkState = "idle" | "thinking" | "planning" | "searching" | "answering" | "arrived" | "settled" | "error" | "handoff";
 
 // The signature route: sets off, arches back on itself, then heads out to the destination.
 const MARK = "M8 27 C14 27 20 9 29 9 C35 9 36 15 33 20 C30 26 31 32 39 32 C48 32 58 24 65 16.5";
@@ -144,7 +145,37 @@ function State({ state, ...draw }: Draw & { state: RoamMarkState }) {
       );
     case "error":
       return <Broken {...draw} />;
+    case "handoff":
+      return <Handoff {...draw} />;
   }
+}
+
+/** The reply has arrived: the planned route erases from its tail to its dot while the widget's icon draws itself in. */
+function Handoff({ still, sw, dotR }: Draw) {
+  // Reduced motion: nothing to play, the icon is already drawn.
+  if (still) return null;
+  return (
+    <>
+      <motion.path
+        d={PLAN_MAIN}
+        {...line(sw)}
+        initial={{ pathOffset: 0, pathLength: 1, opacity: 1 }}
+        animate={{ pathOffset: 1, pathLength: 0, opacity: 0 }}
+        // A zero-length stroke with round caps would leave a speck behind: fade the last of it out.
+        transition={{ pathOffset: { duration: 0.5, ease }, pathLength: { duration: 0.5, ease }, opacity: { delay: 0.42, duration: 0.08 } }}
+      />
+      <motion.circle
+        cx={PLAN_END[0]}
+        cy={PLAN_END[1]}
+        r={dotR}
+        fill="currentColor"
+        initial={{ scale: 1, opacity: 1 }}
+        animate={{ scale: 0, opacity: 0 }}
+        transition={{ delay: 0.3, duration: 0.2, ease }}
+        style={{ transformBox: "fill-box", transformOrigin: "center" }}
+      />
+    </>
+  );
 }
 
 function Idle({ still, sw, dotR }: Draw) {

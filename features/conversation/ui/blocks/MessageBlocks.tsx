@@ -19,9 +19,7 @@ import {
   Compass,
   Droplets,
   Footprints,
-  SearchX,
   Info,
-  Luggage,
   Pencil,
   PersonStanding,
   Loader2,
@@ -35,10 +33,7 @@ import {
   Undo2,
   ChevronDown,
   ChevronRight,
-  Wallet,
   X,
-  CalendarRange,
-  Scale,
 } from "lucide-react";
 import type { AssistantBlock, PlaceCard, StayCardItem, TrustLabel } from "@/packages/contracts/assistant";
 import type { Place } from "@/packages/contracts/place";
@@ -55,6 +50,7 @@ import { addStopsToItinerary, dayIndexFromLabel, itineraryTitle } from "@/featur
 import { categoryLabel, eventDayParts, priceLabel } from "@/lib/places-ui";
 import { CINE_ORB, CINE_ORB_WHITE, CINE_PILL_ACTION, CineCard, CineDate, CinePill, CineRating } from "./CineCard";
 import { MODE_COLOR } from "@/lib/application/mode-visuals";
+import { HandoffContext, LiveReplyContext, RoamIcon } from "@/features/roam/ui/RoamIcon";
 import { FlightHero, FlightJourney, FlightPicks, FlightPicksSkeleton, FlightRowBody, offerKey, pickFares } from "./FlightWidget";
 import { RowBar, RowValue, Widget, WidgetAction, WidgetFigure, WidgetFoot, WidgetHero, WidgetPill, WidgetRow, WidgetRows } from "./Widget";
 import { portableProxyPhotoUrl } from "../portable-photo-url";
@@ -393,7 +389,7 @@ function WeatherBlockView({ block }: { block: WeatherBlockData }) {
     const Icon = WX_ICON[days[0]?.condition ?? "mixed"];
     return (
       <Widget
-        icon={Icon}
+        glyph="weather"
         tone="lagoon"
         eyebrow={`Forecast${block.location ? ` · ${block.location}` : ""}`}
         title={block.headline}
@@ -424,10 +420,9 @@ function WeatherBlockView({ block }: { block: WeatherBlockData }) {
   }
 
   const rainy = typeof block.rainyDays === "number" ? Math.max(0, Math.min(31, Math.round(block.rainyDays))) : 0;
-  const Icon = WX_ICON[block.condition ?? "mixed"];
   return (
     <Widget
-      icon={Icon}
+      glyph="weather"
       tone="lagoon"
       eyebrow={block.mode === "forecast" ? `Forecast not ready${block.location ? ` · ${block.location}` : ""}` : `Typical ${block.month ?? "weather"}${block.location ? ` · ${block.location}` : ""}`}
       title={block.headline}
@@ -476,7 +471,7 @@ function ComparisonBlockView({ block }: { block: ComparisonBlockData }) {
   const rows = all || block.rows.length <= 4 ? block.rows : block.rows.slice(0, 3);
   return (
     <Widget
-      icon={Scale}
+      glyph="compare"
       tone="lagoon"
       eyebrow="Compare"
       title={block.title}
@@ -526,7 +521,7 @@ function StructuredAnswerBlockView({ block }: { block: StructuredAnswerBlockData
   const [openSet, setOpenSet] = useState<Set<number>>(new Set());
   const folds = block.sections.length > 3;
   return (
-    <Widget icon={Info} tone="lagoon" eyebrow="Good to know" title={block.sections.length === 1 && first ? first.heading : "Quick answer"} foot={undefined}>
+    <Widget glyph="star" tone="lagoon" eyebrow="Good to know" title={block.sections.length === 1 && first ? first.heading : "Quick answer"} foot={undefined}>
       <div className="mt-1 divide-y divide-border">
         {block.sections.map((section, i) => {
           const figures = section.bullets.some((bullet) => bullet.detail);
@@ -599,7 +594,7 @@ function OptionsBlockView({ block, onFollowup }: { block: OptionsBlockData } & P
       : [["How to get there", `How do I get to ${name} for a day trip, and how long does it take each way?`], ["Plan the day", `Plan a day trip to ${name}: what to see, in what order, and when to head back.`]];
   return (
     <Widget
-      icon={Icon}
+      glyph="place"
       tone="coral"
       eyebrow={block.kind === "area" ? "Areas" : "Day trips"}
       title={block.kind === "area" ? "Where to base yourselves" : "Day trips worth the journey"}
@@ -679,7 +674,7 @@ function BudgetBlockView({ block, onOpenPanel }: { block: BudgetBlockData } & Pi
   const scale = hasBudget ? Math.max(block.setBudget as number, block.dailyTotal.typical) * 1.05 : 1;
   return (
     <Widget
-      icon={Wallet}
+      glyph="budget"
       tone={hasBudget && !under ? "saffron" : "sage"}
       eyebrow={`Daily spend · ${block.perPerson ? "per person" : "for the group"}`}
       title={hasBudget ? (gap === 0 ? <>Right on your {money(Math.round(block.setBudget as number), cur)} a day</> : <>{under ? "Fits your" : "Over your"} {money(Math.round(block.setBudget as number), cur)} a day</>) : "Your typical day"}
@@ -829,7 +824,7 @@ function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPan
   const timedStops = day.stops.length;
   return (
     <Widget
-      icon={CalendarRange}
+      glyph="plan"
       tone="coral"
       eyebrow={block.intro && !introIsRepeat ? block.intro : `Plan · ${block.days.length} day${block.days.length === 1 ? "" : "s"}`}
       title={title ?? "Plan"}
@@ -915,7 +910,7 @@ type TripSummaryBlockData = Extract<AssistantBlock, { type: "trip_summary" }>;
 function TripSummaryBlockView({ block }: { block: TripSummaryBlockData }) {
   const unset = (value: string) => (value === "Not set" ? <span className="font-normal text-muted-foreground">{value}</span> : value);
   return (
-    <Widget icon={Luggage} tone="coral" eyebrow="Your trip" title={block.title}>
+    <Widget glyph="trip" tone="coral" eyebrow="Your trip" title={block.title}>
       {block.facts.length > 0 && <FactStrip className="mt-3 rounded-none border-0 border-t border-border bg-transparent shadow-none" facts={block.facts.map((fact) => ({ ...fact, value: unset(fact.label === "Dates" ? prettyDates(fact.value) : fact.value) }))} />}
       {block.rows.length > 0 && (
         <dl className="divide-y divide-border border-t border-border px-4 sm:px-[1.125rem]">
@@ -943,7 +938,7 @@ function TripUpdateBlockView({ block, onFollowup }: { block: TripUpdateBlockData
   const count = block.changes.length;
   return (
     <Widget
-      icon={Check}
+      glyph="update"
       tone="sage"
       eyebrow="Trip updated"
       title={count === 1 ? (showChange(block.changes[0].field, block.changes[0].to) === "Not set" && block.changes[0].from ? `${block.changes[0].label} cleared` : `${block.changes[0].label} updated`) : `${count} changes saved`}
@@ -1119,7 +1114,6 @@ const clockOf = (iso?: string) => (iso ? new Date(iso).toLocaleTimeString([], { 
 
 function RouteSummaryCard({ route, onOpenPanel }: { route: RouteSummaryBlockData } & Pick<BlockHandlers, "onOpenPanel">) {
   const distance = useDistance();
-  const Icon = routeModeIcon(route.mode);
   const ends = splitRouteEnds(route.from, route.to);
   const minutes = Math.max(1, Math.round(route.durationSeconds / 60));
   const span = longDuration(minutes);
@@ -1132,7 +1126,7 @@ function RouteSummaryCard({ route, onOpenPanel }: { route: RouteSummaryBlockData
   const drawable = (route.legs?.some((leg) => leg.path.length > 1) ?? false) || (route.path?.length ?? 0) > 1;
   return (
     <Widget
-      icon={Icon}
+      glyph="route"
       tone="lagoon"
       eyebrow={`${ROUTE_MODE_LABEL[route.mode] ?? route.mode}${ends.where ? ` · ${ends.where}` : ""}`}
       title={<RouteEnds from={ends.from} to={ends.to} />}
@@ -1196,7 +1190,7 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel }: { from: string; 
   const ends = splitRouteEnds(from, to);
   return (
     <Widget
-      icon={TrainFront}
+      glyph="route"
       tone="lagoon"
       eyebrow={`Ways to get there${ends.where ? ` · ${ends.where}` : ""}`}
       title={<RouteEnds from={ends.from} to={ends.to} />}
@@ -1607,10 +1601,16 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
   );
 }
 
+/** Blocks that open with a Roam line icon in their header (the first of them in a live reply plays the handoff). */
+const ICON_WIDGETS = new Set(["weather", "comparison", "structured_answer", "options", "budget", "itinerary", "trip_summary", "trip_update", "route_group", "checklist", "empty_result"]);
+
 export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenStay, onOpenEvent, onOpenCollection, onOpenPanel, preview = true, replyText, live = false }: { blocks: AssistantBlock[]; preview?: boolean; replyText?: string; /** A reply that just arrived: its blocks rise in one after another. Restored history stays still. */ live?: boolean } & BlockHandlers) {
+  const grouped = groupRouteSummaries(blocks);
+  const firstWidget = grouped.findIndex((b) => ICON_WIDGETS.has(b.type));
   return (
+    <LiveReplyContext.Provider value={live}>
     <div className="roam-blocks mt-4 flex flex-col gap-4 [overflow-wrap:anywhere]">
-      {groupRouteSummaries(blocks).map((block, index, all) => {
+      {grouped.map((block, index, all) => {
         // A key from the block's kind and its place among blocks of that kind, not its raw position: filtering or reordering blocks no longer remounts the rest.
         const occurrence = all.slice(0, index).filter((other) => other.type === block.type).length;
         const node = ((): React.ReactNode => {
@@ -1734,7 +1734,7 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
         if (block.type === "empty_result") {
           return (
             <div key={index} className={cn(surface, "flex items-start gap-3 border-dashed p-4")}>
-              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground"><SearchX className="size-[18px]" aria-hidden /></span>
+              <span className="grid size-10 shrink-0 place-items-center rounded-[0.8125rem] bg-caution-soft text-caution"><RoamIcon name="search" size={26} /></span>
               <div className="min-w-0 space-y-0.5">
                 <p className={cn(type.body, "font-medium")}>Nothing found for {block.what}</p>
                 <p className={type.meta}>{block.hint}</p>
@@ -1753,8 +1753,9 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
 
         return null;
         })();
-        return node ? <Enter key={`${block.type}-${occurrence}`} live={live} index={index}>{node}</Enter> : null;
+        return node ? <Enter key={`${block.type}-${occurrence}`} live={live} index={index}><HandoffContext.Provider value={index === firstWidget}>{node}</HandoffContext.Provider></Enter> : null;
       })}
     </div>
+    </LiveReplyContext.Provider>
   );
 }

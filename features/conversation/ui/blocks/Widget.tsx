@@ -3,6 +3,7 @@
 import React, { type ReactNode } from "react";
 import { ArrowUpRight, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RoamIcon, type RoamIconName } from "@/features/roam/ui/RoamIcon";
 
 /**
  * The frame every Roam widget (flights, route, budget, weather, plan, checklist, ...) is built from, so they
@@ -53,9 +54,12 @@ export function WidgetPill({ tone = "neutral", icon: Icon, children, className }
 }
 
 export function Widget({
-  icon: Icon, tone = "coral", eyebrow, title, status, hero, foot, action, className, children, label,
+  icon: Icon, glyph, tone = "coral", eyebrow, title, status, hero, foot, action, className, children, label,
 }: {
-  icon: LucideIcon;
+  /** The chip's icon when there is no Roam line icon for the kind. */
+  icon?: LucideIcon;
+  /** Roam's own line icon for this kind of widget; it draws itself in when the reply is live. */
+  glyph?: RoamIconName;
   tone?: WidgetTone;
   /** What kind of widget this is: "Flights · one way". */
   eyebrow?: ReactNode;
@@ -77,7 +81,7 @@ export function Widget({
     <section aria-label={label} className={cn("roam-widget relative overflow-hidden rounded-3xl bg-card shadow-soft", className)}>
       <header className="flex items-center gap-3 px-4 pt-4 sm:px-[1.125rem]">
         <span className={cn("grid size-10 shrink-0 place-items-center rounded-[0.8125rem]", CHIP[tone])} aria-hidden>
-          <Icon className="size-5" />
+          {glyph ? <RoamIcon name={glyph} size={26} /> : Icon ? <Icon className="size-5" /> : null}
         </span>
         <div className="min-w-0 flex-1">
           {eyebrow && <p className="eyebrow truncate">{eyebrow}</p>}

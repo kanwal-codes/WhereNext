@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { ListChecks } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { motionTokens } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
@@ -58,7 +57,7 @@ export function ChecklistBlock({ groups: given, tripId }: { groups: Groups; trip
   const r = 22, c = 2 * Math.PI * r;
   return (
     <Widget
-      icon={ListChecks}
+      glyph="checklist"
       tone="coral"
       eyebrow="Checklist"
       title={left === 0 && total > 0 ? "All set" : left === 1 ? "One thing left" : "Before you go"}

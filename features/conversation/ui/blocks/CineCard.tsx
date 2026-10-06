@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, type ReactNode } from "react";
-import { Sparkles, Star, type LucideIcon } from "lucide-react";
+import { Star, type LucideIcon } from "lucide-react";
+import { RoamIcon } from "@/features/roam/ui/RoamIcon";
 import { BlurImage } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
 import { CardOpenOverlay } from "./ui";
@@ -147,7 +148,7 @@ export function CineCard({
                 <div className="min-w-0 flex-1">
                   {why ? (
                     <p className="flex gap-1.5 text-[0.8125rem] leading-[1.35] text-white/85">
-                      <Sparkles className="mt-0.5 size-3.5 shrink-0 text-coral-soft" aria-hidden />
+                      <span className="mt-px shrink-0 text-coral-soft"><RoamIcon name="star" size={18} draw={false} /></span>
                       <span className="line-clamp-2">{why}</span>
                     </p>
                   ) : (
