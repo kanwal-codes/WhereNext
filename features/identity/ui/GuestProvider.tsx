@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { GuestSavePrompt } from "@/features/identity/ui/GuestSavePrompt";
 import { GUEST_LIVE_KEY } from "@/features/identity/application/guestSession";
@@ -67,7 +67,8 @@ export function GuestProvider({ guest, tripId, children }: { guest: boolean; tri
   const openGate = useCallback((what?: string) => setGate({ what }), []);
   const value = useMemo(() => ({ guest, openGate }), [guest, openGate]);
 
-  useEffect(() => {
+  // Before the first paint: with an effect, the handed-off visitor saw one blank frame between the landing page and the chat.
+  useLayoutEffect(() => {
     if (!guest) return;
     const navigation = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
     let handedOff = false;

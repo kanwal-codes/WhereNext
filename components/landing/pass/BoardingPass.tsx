@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { GUEST_LIVE_KEY } from "@/features/identity/application/guestSession";
@@ -102,6 +103,7 @@ export function BoardingPass({ finale = false }: { finale?: boolean }) {
   const [announce, setAnnounce] = useState("");
   const attemptRef = useRef(crypto.randomUUID());
   const { container: turnstile, getToken } = useTurnstile();
+  const router = useRouter();
   const compact = useMediaQuery("(max-width: 819px)");
   const typed = useTypingPlaceholder(
     compact ? EXAMPLES_COMPACT : EXAMPLES,
@@ -217,7 +219,8 @@ export function BoardingPass({ finale = false }: { finale?: boolean }) {
       // Lets the chat page tell this hand-off from a reload or a return visit (a guest chat is disposable).
       window.sessionStorage.setItem(GUEST_LIVE_KEY, body.tripId);
       // The stub tears off along the perforation on the way in to the chat.
-      const go = () => window.location.assign(`/trips/${body.tripId}/chat`);
+      // A client-side navigation: the page stays up while the chat route loads, instead of a blank document load.
+      const go = () => router.push(`/trips/${body.tripId}/chat`);
       if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
         setTearing(true);
         window.setTimeout(go, TEAR_MS);

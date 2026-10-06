@@ -245,7 +245,7 @@ export class GooglePlacesProvider {
     const city = destination.split(",")[0]?.trim();
     const load = async () => (await search(`${destination} skyline view`)) ?? (city && city !== destination ? await search(`${city} skyline view`) : null);
     if (process.env.NODE_ENV === "test") return load();
-    return cached(`google-cover:v2:${destination.trim().toLowerCase()}`, 24 * 60 * 60_000, load);
+    return cached(`google-cover:v3:${destination.trim().toLowerCase()}`, 24 * 60 * 60_000, load);
   }
   photoUrl(photoName: string, widthPx = 800) { return `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=${widthPx}&key=${encodeURIComponent(this.key())}`; }
 }

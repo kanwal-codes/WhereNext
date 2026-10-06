@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowDown, ChevronRight, Copy, Info } from "lucide-react";
 import { MicButton, SendButton } from "@/components/ComposerButtons";
@@ -301,6 +301,9 @@ export function ConversationSurface({
   // The thread's own load from the server has finished (or was not needed). The landing page's first message waits for it:
   // sent earlier, the load's rows are merged in while Roam's reply is streaming.
   const [synced, setSynced] = useState(false);
+  // The sentence the landing page handed over, shown the moment the chat opens (before the thread has loaded and before
+  // it is sent) so the visitor never sees an empty chat between the landing page and their own message.
+  const [pendingFirst, setPendingFirst] = useState<{ text: string; key: string } | null>(null);
   const [confirming, setConfirming] = useState(false);
   // A guest who has used their free messages (the server said so) — the composer closes and the
   // save card opens. `saveOpen` is the softer version: they asked to save before running out.
@@ -681,6 +684,20 @@ export function ConversationSurface({
     setMessages((current) => current.filter((m) => !(m.role === "assistant" && !m.content.trim())));
   }
 
+  useLayoutEffect(() => {
+    let text: string | null = null;
+    try {
+      text = window.sessionStorage.getItem(`wn:first-message:${tripId}`);
+    } catch {
+      /* storage blocked: no hand-off */
+    }
+    if (!text?.trim()) return;
+    const key = crypto.randomUUID();
+    // Its bubble is already on screen, so the real one that replaces it does not rise in again.
+    seenMessageIdsRef.current.add(`local-${key}`);
+    setPendingFirst({ text: text.trim(), key });
+  }, [tripId]);
+
   // A slow load must not hold the visitor's first message forever: after a few seconds it goes anyway (the merge keeps the order).
   useEffect(() => {
     const timer = setTimeout(() => setSynced(true), 4000);
@@ -699,11 +716,11 @@ export function ConversationSurface({
       const first = window.sessionStorage.getItem(key);
       if (!first) return;
       window.sessionStorage.removeItem(key);
-      void submit(first);
+      void submit(first, pendingFirst?.text === first.trim() ? pendingFirst.key : undefined);
     }, 0);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the thread has loaded empty
-  }, [loaded, synced]);
+  }, [loaded, synced, pendingFirst]);
 
   const userTurns = messages.filter((m) => m.role === "user").length;
   const turnsLeft = Math.max(0, GUEST_TURN_LIMIT - userTurns);
@@ -734,8 +751,9 @@ export function ConversationSurface({
               ? `Save “${proposal.place.name}” to the trip?`
               : "Apply this proposed trip change?";
 
-  const showHero = loaded && messages.length === 0 && !rail;
-  const waiting = sending && messages[messages.length - 1]?.content.trim() === "";
+  const pendingBubble = pendingFirst !== null && !messages.some((m) => m.role === "user");
+  const showHero = loaded && messages.length === 0 && !rail && !pendingBubble;
+  const waiting = (sending && messages[messages.length - 1]?.content.trim() === "") || pendingBubble;
 
   const micButton = speech.supported && <MicButton listening={speech.listening} disabled={!loaded || sending} onToggle={speech.toggle} />;
   const canSend = loaded && Boolean(input.trim());
@@ -762,7 +780,7 @@ export function ConversationSurface({
           message list never drags the rest of the screen along with it. */}
       <div ref={logRef} onScroll={handleLogScroll} data-scrolled={scroll.scrolled} role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions" className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim scroll-fade-t">
         <div className={cn("mx-auto w-full space-y-6 pt-2 pb-28 max-lg:pt-16", rail ? RAIL_MEASURE : "max-w-2xl")}>
-          {!loaded && messages.length === 0 && (
+          {!loaded && messages.length === 0 && !pendingBubble && (
             <div aria-hidden className="space-y-6">
               <div className="flex justify-end">
                 <div className="h-9 w-40 skeleton rounded-2xl rounded-br-lg" />
@@ -912,6 +930,14 @@ export function ConversationSurface({
             );
           })}
 
+          {pendingBubble && pendingFirst && (
+            <div className="flex flex-col items-end gap-1">
+              <p className="max-w-[85%] rounded-2xl rounded-br-lg bg-primary px-4 py-2.5 text-body leading-normal text-primary-foreground dark:border dark:border-border dark:bg-surface-raised dark:text-foreground">
+                <span className="sr-only">You: </span>
+                {pendingFirst.text}
+              </p>
+            </div>
+          )}
           <div role="status" aria-live="polite">
             {/* Roam's mark while it works (thinking → searching → planning). It hands over to the
                 text itself as soon as the first words arrive — nothing trails the reply. */}

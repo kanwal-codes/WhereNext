@@ -29,17 +29,27 @@ const fits = (p: CoverPhoto) => {
   return ratio >= 1.3 && ratio <= 2.2 && p.widthPx >= 2000;
 };
 
+/** The same shape at a smaller size (1000px+): a little soft on a full-bleed hero, but a view; used only when no place has a frame that `fits`. A smaller city may have no 2000px photograph at all, and a slightly soft real photograph beats an empty gradient. */
+const fitsLoosely = (p: CoverPhoto) => {
+  if (!p.widthPx || !p.heightPx) return false;
+  const ratio = p.widthPx / p.heightPx;
+  return ratio >= 1.3 && ratio <= 2.2 && p.widthPx >= 1000;
+};
+
 export function pickCoverPhoto(places: CoverCandidate[]): string | null {
   const score = (c: CoverCandidate) => (WEIGHT[c.primaryType ?? ""] ?? 0) * Math.log10((c.userRatingCount ?? 0) + 10);
   const ranked = places.filter((c) => score(c) > 0).sort((a, b) => score(b) - score(a));
-  for (const place of ranked) {
-    const photo = (place.photos ?? []).slice(0, 4).find(fits);
-    if (photo) return photo.name;
-  }
-  // Nothing scenic with a good frame: any place's first landscape photograph beats the city listing's.
-  for (const place of places) {
-    const photo = (place.photos ?? []).slice(0, 4).find(fits);
-    if (photo) return photo.name;
+  // Best first: a full-size frame from the best-rated sight, then from any place; then the same two with the smaller size.
+  for (const frame of [fits, fitsLoosely]) {
+    for (const place of ranked) {
+      const photo = (place.photos ?? []).slice(0, 4).find(frame);
+      if (photo) return photo.name;
+    }
+    // Nothing scenic with a good frame: any place's first landscape photograph beats the city listing's.
+    for (const place of places) {
+      const photo = (place.photos ?? []).slice(0, 4).find(frame);
+      if (photo) return photo.name;
+    }
   }
   return null;
 }
