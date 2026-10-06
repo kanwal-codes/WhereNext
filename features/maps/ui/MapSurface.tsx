@@ -265,8 +265,8 @@ export function GettingAroundTabs({ tab, onChange, floating = false }: { tab: "t
       onChange={onChange}
       floating={floating}
       options={[
-        { key: "trip", label: "My trip" },
         { key: "browse", label: "Browse" },
+        { key: "trip", label: "My trip" },
       ]}
     />
   );

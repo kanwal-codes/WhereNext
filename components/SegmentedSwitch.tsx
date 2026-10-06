@@ -17,7 +17,7 @@ export type SwitchOption<K extends string> = {
 };
 
 /**
- * The one pill switch for the app: Roam / Chat, Discover / Saved, My trip / Browse. The black
+ * The one pill switch for the app: Roam / Chat, Discover / Saved, Browse / My trip. The black
  * thumb glides to the chosen segment (a shared `layoutId`) instead of cutting, and every instance
  * is the same 40px so the pill never changes size between screens.
  */
