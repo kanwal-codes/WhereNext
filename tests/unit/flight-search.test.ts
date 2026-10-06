@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { serpMock, duffelMock, suggestMock, configured } = vi.hoisted(() => ({ serpMock: vi.fn(), duffelMock: vi.fn(), suggestMock: vi.fn(), configured: vi.fn() }));
-vi.mock("../../lib/server/ttl-cache", () => ({ cached: async (_k: string, _t: number, load: () => Promise<unknown>) => load() }));
+vi.mock("../../lib/server/ttl-cache", () => ({ cached: async (_k: string, _t: number, load: () => Promise<unknown>) => load(), invalidate: async () => {} }));
 vi.mock("../../lib/server/fx", () => ({ offersInCurrency: async (offers: unknown[]) => offers }));
 vi.mock("../../packages/providers/duffel/client", () => ({ searchFlights: duffelMock }));
 vi.mock("../../packages/providers/serpapi/client", () => ({ searchGoogleFlights: serpMock, suggestFlightPlaces: suggestMock, serpConfigured: configured }));
@@ -24,6 +24,14 @@ describe("resolveEnd", () => {
     expect(await resolveEnd("Toronto")).toEqual({ id: "/m/toronto", label: "Toronto, Ontario, Canada" });
     expect(await resolveEnd("Toronto, Ohio")).toEqual({ id: "/m/ohio", label: "Toronto, Ohio" });
     expect(await resolveEnd("x")).toBeNull();
+  });
+  it("retries a qualified name Google does not recognise as the bare city, preferring the qualifier it was given", async () => {
+    const places = [{ id: "/m/london", label: "London, United Kingdom", detail: "", kind: "city", airports: ["LHR"] }, { id: "/m/london-ontario", label: "London, Ontario, Canada", detail: "", kind: "city", airports: [] }];
+    suggestMock.mockImplementation(async (q: string) => (q === "London" ? places : []));
+    expect(await resolveEnd("London, United Kingdom")).toEqual({ id: "/m/london", label: "London, United Kingdom" });
+    expect(await resolveEnd("London, UK")).toEqual({ id: "/m/london", label: "London, United Kingdom" }); // "UK" is too short to match on: the first suggestion
+    expect(await resolveEnd("London, Ontario, Canada")).toEqual({ id: "/m/london-ontario", label: "London, Ontario, Canada" });
+    expect(await resolveEnd("Toronto, ON, Nowhere")).toBeNull();
   });
 });
 

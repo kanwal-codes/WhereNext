@@ -10,7 +10,7 @@ import { stayProvider } from "@/lib/server/stay-provider";
 import { resolveStayDates, staysCacheKey } from "@/lib/application/stay-dates";
 import { resolveCurrency } from "@/lib/currency";
 import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
-import { cached } from "@/lib/server/ttl-cache";
+import { cached, invalidate } from "@/lib/server/ttl-cache";
 
 const nums = (v: string | null): number[] =>
   (v ?? "").split(",").map((s) => Number(s.trim())).filter((n) => Number.isFinite(n) && n > 0);
@@ -53,7 +53,10 @@ export const GET = withRoute(async (request: Request, { params }: { params: Prom
     const result = await cached(key, 5 * 60_000, async () => {
       // Google Hotels takes a place name and guests (no room count): real hotels, with prices from several sites.
       if (provider === "serpapi") {
-        const out = await searchGoogleHotels({ location, checkin, checkout, adults, currency, limit: 24, ...filters }, request.signal);
+        let out = await searchGoogleHotels({ location, checkin, checkout, adults, currency, limit: 24, ...filters }, request.signal);
+        // A qualified place Google Hotels doesn't resolve ("Old Town, Dubrovnik") retries as the bare first part.
+        const bare = location.split(",")[0]?.trim();
+        if (out.options.length === 0 && out.facets.priceMax === 0 && bare && bare !== location) out = await searchGoogleHotels({ location: bare, checkin, checkout, adults, currency, limit: 24, ...filters }, request.signal);
         return { ...out, retrievedAt: new Date().toISOString() };
       }
       const anchor = (await new GooglePlacesProvider().search(location, request.signal).catch(() => null))?.[0];
@@ -66,6 +69,9 @@ export const GET = withRoute(async (request: Request, { params }: { params: Prom
       );
       return { ...out, retrievedAt: new Date().toISOString() };
     });
+
+    // Nothing came back before any filter applied: don't hold that for five minutes.
+    if (result.options.length === 0 && result.facets.priceMax === 0) await invalidate(key);
 
     return NextResponse.json({
       location,

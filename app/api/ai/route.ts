@@ -22,7 +22,7 @@ import { withTripAiStream } from "@/lib/server/trip-ai-queue";
 import { recordAiTurn } from "@/lib/server/ai-turn-trace";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { withinRateLimit } from "@/lib/server/rate-limit";
-import { DAY_MS, GUEST_IP_TURN_LIMIT, GUEST_TURN_LIMIT, GUEST_WINDOW_MS, clientKey, guestKey } from "@/lib/server/guest";
+import { DAY_MS, GUEST_IP_TURN_LIMIT, GUEST_TURN_LIMIT, GUEST_WINDOW_MS, clientKey, guestDeviceId, guestKey } from "@/lib/server/guest";
 
 /** Service-role writer used to create a brand-new trip's thread row and to append turn traces
  *  (ai_turn_traces is server-write-only since migration 0047); undefined if unavailable (same
@@ -104,6 +104,12 @@ export const POST = withRoute(async function POST(request: Request) {
   if (guest) {
     if (!(await withinRateLimit(`guest-ip-turns:${clientKey(request)}`, GUEST_IP_TURN_LIMIT, DAY_MS, { failClosed: true }))) {
       return NextResponse.json({ error: "Roam is busy right now. Save your trip and pick it up from your account.", code: "guest_busy" }, { status: 429 });
+    }
+    // The free messages belong to the browser, not the session: a reload deletes the guest user (and its counter), and
+    // this one outlives that.
+    const device = guestDeviceId(request);
+    if (device && !(await withinRateLimit(guestKey.deviceTurns(device), GUEST_TURN_LIMIT, GUEST_WINDOW_MS, { failClosed: true }))) {
+      return NextResponse.json({ error: "Save your trip to keep planning with Roam.", code: "guest_limit" }, { status: 403 });
     }
     if (!(await withinRateLimit(guestKey.turns(userId), GUEST_TURN_LIMIT, GUEST_WINDOW_MS, { failClosed: true }))) {
       return NextResponse.json({ error: "Save your trip to keep planning with Roam.", code: "guest_limit" }, { status: 403 });

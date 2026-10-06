@@ -28,7 +28,7 @@ describe("pickCoverPhoto", () => {
 describe("stored cover", () => {
   it("round-trips a pick and a none-found, and reads anything older as never looked", () => {
     expect(decodeCover(encodeCover("places/x/photos/y"))).toEqual({ known: true, name: "places/x/photos/y" });
-    expect(decodeCover(encodeCover(undefined))).toEqual({ known: true, name: undefined });
+    expect(decodeCover(encodeCover(undefined))).toEqual({ known: false }); // an empty "found nothing" is retried, never trusted
     expect(decodeCover("places/x/photos/y")).toEqual({ known: false });
     expect(decodeCover("")).toEqual({ known: false });
     expect(decodeCover(null)).toEqual({ known: false });

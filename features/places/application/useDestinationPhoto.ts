@@ -41,14 +41,15 @@ export function useDestinationPhoto(tripId: string, destination: string | undefi
       return;
     }
     fetch(`/api/trips/${tripId}/cover?destination=${encodeURIComponent(destination as string)}`, { signal: controller.signal })
-      .then((r) => (r.ok ? r.json() : { photoName: null }))
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("cover lookup failed"))))
       .then((body) => {
         const name = (body.photoName as string | null) ?? undefined;
         const url = photoProxyUrl(tripId, name) ?? null;
         cache.set(key, url);
         setPhoto(url);
-        // Best-effort: an empty string means "checked, nothing" — still worth saving so this
-        // trip never re-runs the search even when the destination genuinely has no photo.
+        // Only a real photo is saved. "Nothing found" stays unsaved (the server caches it for a day), so a
+        // lookup that failed or missed once is tried again on a later visit instead of sticking forever.
+        if (!name) return;
         fetch(`/api/trips/${tripId}`, {
           method: "PATCH",
           headers: { "content-type": "application/json" },
