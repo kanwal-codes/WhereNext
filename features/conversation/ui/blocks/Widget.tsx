@@ -78,7 +78,7 @@ export function Widget({
   label?: string;
 }) {
   return (
-    <section aria-label={label} className={cn("roam-widget relative overflow-hidden rounded-3xl bg-card shadow-soft", className)}>
+    <section aria-label={label} className={cn("roam-widget relative overflow-hidden rounded-3xl border border-border bg-card shadow-widget", className)}>
       <header className="flex items-center gap-3 px-4 pt-4 sm:px-[1.125rem]">
         <span className={cn("grid size-10 shrink-0 place-items-center rounded-[0.8125rem]", CHIP[tone])} aria-hidden>
           {glyph ? <RoamIcon name={glyph} size={26} /> : Icon ? <Icon className="size-5" /> : null}
