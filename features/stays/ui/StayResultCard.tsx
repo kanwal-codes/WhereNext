@@ -1,7 +1,8 @@
 "use client";
 
-import { BedDouble, Check } from "lucide-react";
-import { Badge, CardMedia, CompareMark, DetailsButton, EntityCard, MEDIA_ROW, MediaFallback, compactCount, money, type } from "@/features/conversation/ui/blocks/ui";
+import { ArrowUpRight, BedDouble, Check } from "lucide-react";
+import { CompareMark, compactCount, money } from "@/features/conversation/ui/blocks/ui";
+import { CINE_ORB, CINE_ORB_WHITE, CineCard, CinePill, CineRating } from "@/features/conversation/ui/blocks/CineCard";
 import { cn } from "@/lib/utils";
 
 export type StayCardData = {
@@ -20,48 +21,53 @@ export type StayCardData = {
 };
 
 /**
- * A stay, wherever it is listed (Roam, Discover, the Stay page): the same `EntityCard`, so "4-star", the guest score,
- * "CA$230 / night" and the Rooms & details button look identical on every screen. Only its state differs: the
+ * A stay, wherever it is listed (Roam, Discover, the Stay page): the same cinematic `CineCard`, so "4-star", the guest score,
+ * "CA$230 / night" and the details button look identical on every screen. Only its state differs: the
  * stay the group has locked, and the compare picker.
  */
 export function StayResultCard({ stay, href, onOpen, locked = false, comparing = false, selected = false, phoneRow = false }: { stay: StayCardData; href: string; onOpen: () => void; locked?: boolean; comparing?: boolean; selected?: boolean; /** A horizontal card on a phone (the Stay page's long list). */ phoneRow?: boolean }) {
   const kind = stay.propertyType && stay.propertyType !== "Hotel" ? stay.propertyType : null;
   return (
-    <EntityCard
+    <CineCard
       label={`Open ${stay.name}`}
       onOpen={onOpen}
       href={href}
-      phoneRow={phoneRow}
-      className={cn(selected && "ring-2 ring-coral", locked && "border-positive/40")}
-      media={
-        <div className={cn("relative", phoneRow && "max-sm:h-full")}>
-          <CardMedia row={phoneRow} src={stay.thumbnail} alt={stay.name} fallback={<MediaFallback icon={BedDouble} className={cn("aspect-[16/10] w-full rounded-t-2xl", phoneRow && MEDIA_ROW)} />} />
-          {locked && <span className="photo-chip absolute top-2.5 left-2.5"><Check className="size-3.5 text-positive" aria-hidden /> Your stay</span>}
-          {comparing && <CompareMark selected={selected} />}
-        </div>
-      }
+      wide={phoneRow}
+      selected={selected}
+      className={cn(locked && "ring-2 ring-positive/60")}
+      src={stay.thumbnail}
+      alt={stay.name}
       glyph={BedDouble}
+      topLeft={
+        locked ? (
+          <CinePill tone="positive" icon={Check}>Your stay</CinePill>
+        ) : typeof stay.rating === "number" && stay.rating > 0 ? (
+          <CineRating rating={stay.rating} outOf="/10" count={stay.reviewCount ? compactCount(stay.reviewCount) : undefined} />
+        ) : undefined
+      }
+      eyebrow={[kind, typeof stay.stars === "number" && stay.stars > 0 ? `${stay.stars}-star` : null].filter(Boolean).join(" · ") || "Stay"}
       title={stay.name}
-      meta={[
-        kind,
-        typeof stay.stars === "number" && stay.stars > 0 ? `${stay.stars}-star` : null,
-        typeof stay.rating === "number" && stay.rating > 0 ? <span key="g" className="tabular-nums">{`${stay.rating}/10 guests${stay.reviewCount ? ` (${compactCount(stay.reviewCount)})` : ""}`}</span> : null,
-      ]}
-      fact={
+      pills={
+        stay.boardName || stay.refundable ? (
+          <>
+            {stay.refundable && <CinePill tone="positive" icon={Check}>Free cancellation</CinePill>}
+            {stay.boardName && <CinePill>{stay.boardName}</CinePill>}
+          </>
+        ) : undefined
+      }
+      foot={
         <p className="flex flex-wrap items-baseline gap-x-1.5">
-          <span className="font-display text-lg leading-tight font-semibold tabular-nums">{money(stay.nightlyAmount, stay.currency)}</span>
-          <span className={type.meta}>/ night</span>
-          {stay.totalAmount ? <span className={cn(type.meta, "w-full tabular-nums")}>{money(stay.totalAmount, stay.currency)} total</span> : null}
+          <span className="font-display text-[1.75rem] leading-none font-medium tracking-[-0.025em] tabular-nums">{money(stay.nightlyAmount, stay.currency)}</span>
+          <span className="text-[0.8125rem] text-white/70">/ night</span>
+          {stay.totalAmount ? <span className="w-full pt-0.5 text-xs text-white/60 tabular-nums">{money(stay.totalAmount, stay.currency)} total</span> : null}
         </p>
       }
-      badges={stay.boardName || stay.refundable ? (
-        <>
-          {stay.boardName && <Badge>{stay.boardName}</Badge>}
-          {stay.refundable && <Badge tone="positive" icon={Check}>Free cancellation</Badge>}
-        </>
-      ) : undefined}
-      extra={comparing ? <p className={type.meta}>{selected ? "Selected" : "Click card to select"}</p> : undefined}
-      actions={<DetailsButton label={`Rooms & details: ${stay.name}`} onClick={onOpen}>Rooms &amp; details</DetailsButton>}
+      action={
+        <button type="button" onClick={onOpen} aria-label={`Rooms & details: ${stay.name}`} className={cn(CINE_ORB, CINE_ORB_WHITE)}>
+          <ArrowUpRight className="size-5" aria-hidden />
+        </button>
+      }
+      overlay={comparing ? <CompareMark selected={selected} /> : undefined}
     />
   );
 }

@@ -46,6 +46,7 @@ export function AddToTripControl({
   place,
   initialPlacement,
   size = "md",
+  variant = "default",
   block = false,
   onPlacementChange,
   className,
@@ -54,6 +55,8 @@ export function AddToTripControl({
   place: Place;
   initialPlacement?: Placement;
   size?: "sm" | "md" | "lg";
+  /** "orb": one round coral button for a photo card (a plus; "Day 3" once planned), with no separate save button. */
+  variant?: "default" | "orb";
   /** Stretch to fill the container (detail aside) instead of hugging its content. */
   block?: boolean;
   onPlacementChange?: (placement: Placement) => void;
@@ -199,6 +202,7 @@ export function AddToTripControl({
   const label = state === "day" ? `Day ${day}` : size === "sm" ? "Add" : "Add to trip";
 
   const sm = size === "sm";
+  const orb = variant === "orb";
   const ring = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
   // Two controls, not one pill: the main action (put it on a day) and a separate round save button.
@@ -215,25 +219,35 @@ export function AddToTripControl({
             aria-haspopup="menu"
             aria-expanded={open}
             className={cn(
-              "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full border font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out active:scale-[0.98] disabled:opacity-70",
-              ring,
-              block && "w-full",
-              sm ? "h-8 px-3 text-xs" : size === "lg" ? "h-12 px-6 text-[0.9375rem]" : "h-10 px-5 text-sm",
-              day
-                ? "border-transparent bg-coral-fill text-coral-fill-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.18)] hover:brightness-105"
-                : sm
-                  ? "border-border bg-background text-ink-soft hover:border-ink/30 hover:text-ink"
-                  : "border-primary bg-primary text-primary-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.14),0_1px_2px_oklch(0.2_0.012_65/0.25)] hover:bg-primary/88",
+              orb
+                ? cn(
+                    "inline-flex h-12 min-w-12 items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-sm font-semibold transition-[background-color,color,box-shadow,transform,filter] duration-200 ease-out hover:brightness-105 active:scale-95 disabled:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
+                    day
+                      ? "bg-white px-4 text-ink shadow-[0_6px_16px_oklch(0_0_0/0.35)]"
+                      : "bg-coral-fill text-coral-fill-foreground shadow-[0_10px_26px_oklch(0.64_0.175_36/0.5),inset_0_1px_0_oklch(1_0_0/0.35)]",
+                  )
+                : "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full border font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out active:scale-[0.98] disabled:opacity-70",
+              !orb && ring,
+              !orb && block && "w-full",
+              !orb && (sm ? "h-8 px-3 text-xs" : size === "lg" ? "h-12 px-6 text-[0.9375rem]" : "h-10 px-5 text-sm"),
+              !orb &&
+                (day
+                  ? "border-transparent bg-coral-fill text-coral-fill-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.18)] hover:brightness-105"
+                  : sm
+                    ? "border-border bg-background text-ink-soft hover:border-ink/30 hover:text-ink"
+                    : "border-primary bg-primary text-primary-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.14),0_1px_2px_oklch(0.2_0.012_65/0.25)] hover:bg-primary/88"),
             )}
           >
             {busy ? (
               <Loader2 className={cn(sm ? "size-3.5" : "size-4", "animate-spin")} />
             ) : day ? (
               <CalendarCheck className={cn(sm ? "size-3.5" : "size-4")} />
+            ) : orb ? (
+              <Plus className="size-6" strokeWidth={2} />
             ) : sm ? (
               <Plus className="size-3.5" strokeWidth={2.25} />
             ) : null}
-            <AnimatePresence mode="wait" initial={false}>
+            {orb && !day ? null : <AnimatePresence mode="wait" initial={false}>
               <motion.span
                 key={label}
                 initial={reduce ? false : { opacity: 0, y: 3 }}
@@ -243,10 +257,10 @@ export function AddToTripControl({
               >
                 {label}
               </motion.span>
-            </AnimatePresence>
+            </AnimatePresence>}
           </button>
         </div>
-        <button
+        {!orb && <button
           type="button"
           disabled={busy}
           onClick={() => (guest ? openGate("save places") : void toggleBookmark())}
@@ -262,7 +276,7 @@ export function AddToTripControl({
           )}
         >
           <Bookmark className={cn(sm ? "size-3.5" : size === "lg" ? "size-[18px]" : "size-4", "transition-transform duration-200", saved && "scale-110 fill-current")} />
-        </button>
+        </button>}
       </div>
 
       {typeof document !== "undefined" &&

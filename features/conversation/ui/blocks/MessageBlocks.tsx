@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useDistance } from "@/lib/use-distance";
 import {
-  Accessibility,
   ArrowRight,
   ArrowUpRight,
   Backpack,
@@ -26,10 +25,8 @@ import {
   Luggage,
   Pencil,
   PersonStanding,
-  Globe,
   Loader2,
   MapPin,
-  Phone,
   Plane,
   Shirt,
   Snowflake,
@@ -46,7 +43,6 @@ import type { AssistantBlock, PlaceCard, StayCardItem, TrustLabel } from "@/pack
 import type { Place } from "@/packages/contracts/place";
 import type { EventSeed } from "@/components/TripPanelProvider";
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
-import { EventPoster } from "@/components/EventPoster";
 import { EventCard, type NearbyEvent } from "@/components/EventCard";
 import { CompareView } from "@/components/CompareView";
 import { BlurImage } from "@/components/motion-primitives";
@@ -55,7 +51,8 @@ import { notifyToast } from "@/lib/application/toast";
 import { formatClockTime } from "@/lib/application/clock-time";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { addStopsToItinerary, dayIndexFromLabel, itineraryTitle } from "@/features/conversation/application/addPlanToItinerary";
-import { categoryLabel, priceLabel } from "@/lib/places-ui";
+import { categoryLabel, eventDayParts, priceLabel } from "@/lib/places-ui";
+import { CINE_ORB, CINE_ORB_WHITE, CINE_PILL_ACTION, CineCard, CineDate, CinePill, CineRating } from "./CineCard";
 import { portableProxyPhotoUrl } from "../portable-photo-url";
 import type { CardPanel } from "@/components/TripPanelProvider";
 import { PlanStops, type PlanStop } from "./PlanStops";
@@ -76,7 +73,7 @@ import { resolveCurrency } from "@/lib/currency";
 import { HoldHeight, ScrollWindow, ScrollX, ViewControls } from "./ListControls";
 import { DEFAULT_EVENT_VIEW, DEFAULT_STAY_VIEW, applyEventView, applyStayView, eventControls, stayControls, type EventView, type StayView } from "./listViews";
 import { factGlyph, placeGlyph } from "./glyphs";
-import { Badge, BlockHeader, RatingMeta, segmentTab, CARD_W, CardMedia, CardOpenOverlay, DetailsButton, EntityCard, MediaFallback, Meta, Notice, SectionHeader, SeeAllButton, compactCount, controlSecondary, grid, money, prettyDate, prettyDates, rail, surface, textAction, type, MapButton } from "./ui";
+import { Badge, BlockHeader, segmentTab, CARD_W, CardOpenOverlay, DetailsButton, EntityCard, Meta, Notice, SectionHeader, SeeAllButton, compactCount, controlSecondary, grid, money, prettyDate, prettyDates, rail, surface, textAction, type, MapButton } from "./ui";
 
 export type BlockHandlers = {
   /** The trip these blocks belong to — card actions write against it. */
@@ -199,93 +196,71 @@ function PlaceCardView({
   place,
   tripId,
   onOpenPlace,
-  photoless = false,
-}: { place: PlaceCard; tripId: string; /** No card in this list has a photo: show a glyph tile instead of an empty banner. */ photoless?: boolean } & Pick<BlockHandlers, "onOpenPlace">) {
+}: { place: PlaceCard; tripId: string } & Pick<BlockHandlers, "onOpenPlace">) {
   const price = priceLabel(place.priceLevel);
   const category = place.category ? categoryLabel(place.category) : undefined;
-  const showBadges = place.openNow !== undefined || place.distanceToLocked || place.trust !== "sourced";
   return (
-    <EntityCard
+    <CineCard
       label={`Open ${place.name}`}
       onOpen={onOpenPlace ? () => onOpenPlace(place) : undefined}
-      media={photoless ? undefined : <CardMedia src={portableProxyPhotoUrl(place.photoUrl)} alt={place.name} fallback={<MediaFallback icon={placeGlyph(place.category, place.name).icon} className="aspect-[16/10] w-full rounded-t-2xl" />} />}
+      src={portableProxyPhotoUrl(place.photoUrl)}
+      alt={place.name}
       glyph={placeGlyph(place.category, place.name).icon}
+      topLeft={typeof place.rating === "number" ? <CineRating rating={place.rating} count={place.userRatingCount ? compactCount(place.userRatingCount) : undefined} /> : undefined}
+      // "From the web" is the default for every card: only a non-default trust label carries information.
+      topRight={place.trust !== "sourced" ? <CinePill>{TRUST_LABEL[place.trust] ?? place.trust}</CinePill> : undefined}
+      eyebrow={category}
       title={place.name}
-      meta={[
-        typeof place.rating === "number" ? <RatingMeta rating={place.rating} count={place.userRatingCount} /> : null,
-        category,
-        price,
-      ]}
-      badges={showBadges ? (
+      pills={
         <>
-          {place.openNow !== undefined && <Badge tone={place.openNow ? "positive" : "neutral"} icon={Clock}>{place.openNow ? "Open now" : "Closed now"}</Badge>}
-          {place.distanceToLocked && <Badge icon={MapPin}>{place.distanceToLocked}</Badge>}
-          {/* "From the web" is the default for every card — only a non-default trust label carries information. */}
-          {place.trust !== "sourced" && <Badge tone="caution">{TRUST_LABEL[place.trust] ?? place.trust}</Badge>}
-        </>
-      ) : undefined}
-      extra={
-        <>
-          {place.reviewSummary && <p className={cn(type.meta, "line-clamp-2")}>{place.reviewSummary}</p>}
-          {(place.phone || place.websiteUri || place.wheelchairAccessible) && (
-            <div className={cn(type.meta, "relative z-10 flex flex-wrap gap-x-3 gap-y-1")}>
-              {place.phone && <a href={`tel:${place.phone}`} className="inline-flex items-center gap-1 hover:text-foreground"><Phone className="size-3.5" aria-hidden />{place.phone}</a>}
-              {place.websiteUri && <a href={safeHref(place.websiteUri)} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 hover:text-foreground"><Globe className="size-3.5" aria-hidden />Website</a>}
-              {place.wheelchairAccessible && <span className="inline-flex items-center gap-1"><Accessibility className="size-3.5" aria-hidden />Step-free entrance</span>}
-            </div>
-          )}
+          {place.openNow !== undefined && <CinePill tone={place.openNow ? "positive" : "glass"} icon={Clock}>{place.openNow ? "Open now" : "Closed now"}</CinePill>}
+          {place.distanceToLocked && <CinePill icon={MapPin}>{place.distanceToLocked}</CinePill>}
+          {price && <CinePill>{price}</CinePill>}
         </>
       }
-      actions={
-        <>
-          {/* One control: shortlist (still deciding) → a day (going in the plan) → remove. */}
-          <AddToTripControl tripId={tripId} place={toPlace(place)} size="sm" block className="min-w-[6.75rem] flex-1" />
-          {onOpenPlace ? (
-            <DetailsButton label={`Details: ${place.name}`} onClick={() => onOpenPlace(place)} />
-          ) : (
-            place.sourceUrl && /^https?:\/\//i.test(place.sourceUrl) && (
-              <a href={place.sourceUrl} target="_blank" rel="noreferrer noopener" className={controlSecondary}>
-                Maps <ArrowUpRight className="size-3.5" aria-hidden />
-              </a>
-            )
-          )}
-        </>
-      }
+      why={place.reviewSummary}
+      // One control: shortlist (still deciding) → a day (going in the plan) → remove.
+      action={<AddToTripControl tripId={tripId} place={toPlace(place)} variant="orb" />}
     />
   );
 }
 
-function StayCardView({ hotel, onOpen, photoless = false }: { hotel: StayCardItem; onOpen?: () => void; photoless?: boolean }) {
+function StayCardView({ hotel, onOpen }: { hotel: StayCardItem; onOpen?: () => void }) {
   const priced = Number(hotel.nightlyPrice) > 0;
   return (
-    <EntityCard
+    <CineCard
       label={`Open ${hotel.name}`}
       onOpen={onOpen}
-      media={photoless ? undefined : <CardMedia src={hotel.thumbnailUrl} alt={hotel.name} fallback={<MediaFallback icon={BedDouble} className="aspect-[16/10] w-full rounded-t-2xl" />} />}
+      src={hotel.thumbnailUrl}
+      alt={hotel.name}
       glyph={BedDouble}
-      title={hotel.name}
+      topLeft={typeof hotel.rating === "number" ? <CineRating rating={hotel.rating} outOf="/10" count={hotel.reviews ? compactCount(hotel.reviews) : undefined} /> : undefined}
       // A hotel's star class is not a guest rating: it reads "4-star", never a bare ★ 4 next to a place's ★ 4.3.
-      meta={[
-        typeof hotel.stars === "number" ? `${hotel.stars}-star` : null,
-        typeof hotel.rating === "number" ? <span className="tabular-nums">{`${hotel.rating}/10 guests${hotel.reviews ? ` (${hotel.reviews.toLocaleString()})` : ""}`}</span> : null,
-      ]}
-      fact={priced ? (
+      eyebrow={typeof hotel.stars === "number" ? `${hotel.stars}-star` : "Stay"}
+      title={hotel.name}
+      pills={
+        hotel.board || hotel.refundable || hotel.distanceToLocked ? (
+          <>
+            {hotel.refundable && <CinePill tone="positive" icon={Check}>Refundable</CinePill>}
+            {hotel.distanceToLocked && <CinePill icon={MapPin}>{hotel.distanceToLocked}</CinePill>}
+            {hotel.board && <CinePill>{hotel.board}</CinePill>}
+          </>
+        ) : undefined
+      }
+      foot={priced ? (
         <p className="flex flex-wrap items-baseline gap-x-1.5">
-          <span className="font-display text-lg leading-tight font-semibold tabular-nums">{money(hotel.nightlyPrice, hotel.currency)}</span>
-          <span className={type.meta}>/ night</span>
-          <span className={cn(type.meta, "w-full tabular-nums")}>{money(hotel.totalPrice, hotel.currency)} total</span>
+          <span className="font-display text-[1.75rem] leading-none font-medium tracking-[-0.025em] tabular-nums">{money(hotel.nightlyPrice, hotel.currency)}</span>
+          <span className="text-[0.8125rem] text-white/70">/ night</span>
+          <span className="w-full pt-0.5 text-xs text-white/60 tabular-nums">{money(hotel.totalPrice, hotel.currency)} total</span>
         </p>
       ) : (
-        <p className={cn(type.body, "text-muted-foreground")}>Price unavailable for these dates</p>
+        <p className="text-[0.8125rem] text-white/70">Price unavailable for these dates</p>
       )}
-      badges={hotel.board || hotel.refundable || hotel.distanceToLocked ? (
-        <>
-          {hotel.distanceToLocked && <Badge icon={MapPin}>{hotel.distanceToLocked}</Badge>}
-          {hotel.board && <Badge>{hotel.board}</Badge>}
-          {hotel.refundable && <Badge tone="positive" icon={Check}>Refundable</Badge>}
-        </>
+      action={onOpen ? (
+        <button type="button" onClick={onOpen} aria-label={`Rooms & details: ${hotel.name}`} className={cn(CINE_ORB, CINE_ORB_WHITE)}>
+          <ArrowUpRight className="size-5" aria-hidden />
+        </button>
       ) : undefined}
-      actions={onOpen ? <DetailsButton label={`Rooms & details: ${hotel.name}`} onClick={onOpen}>Rooms &amp; details</DetailsButton> : undefined}
     />
   );
 }
@@ -296,26 +271,28 @@ function FeaturedEventCard({ group, onOpen }: { group: EventGroup; onOpen?: (see
   const active = group.dates[0] ?? { date: event.date, url: event.url };
   const open = () => onOpen?.({ ...eventSeed(event), url: active.url, date: active.date });
   const major = typeof event.rank === "number" && event.rank >= 65;
+  const day = eventDayParts(active.date);
   return (
-    <EntityCard
+    <CineCard
       label={`Open ${event.title}`}
       onOpen={onOpen ? open : undefined}
-      media={<CardMedia src={event.imageUrl} alt={event.title} fallback={<EventPoster title={event.title} className="aspect-[16/10] w-full rounded-t-2xl" />} />}
+      src={event.imageUrl}
+      alt={event.title}
+      glyph={CalendarDays}
+      topLeft={day ? <CineDate month={day.month} day={day.day} /> : undefined}
+      topRight={major ? <CinePill>Major event</CinePill> : undefined}
+      eyebrow={event.venue}
       title={event.title}
-      meta={[formatEventDates(group.dates), event.venue]}
-      badges={major || rel ? (
+      pills={
         <>
-          {major && <Badge tone="brand">Major event</Badge>}
-          {rel && <Badge tone={event.relToTrip === "in" ? "positive" : "neutral"}>{rel}</Badge>}
+          <CinePill>{formatEventDates(group.dates)}</CinePill>
+          {rel && <CinePill tone={event.relToTrip === "in" ? "positive" : "glass"}>{rel}</CinePill>}
         </>
-      ) : undefined}
-      actions={
-        <>
-          <a href={safeHref(active.url)} target="_blank" rel="noreferrer noopener" aria-label={`Tickets: ${event.title}`} className={controlSecondary}>
-            Tickets <ArrowUpRight className="size-3.5" aria-hidden />
-          </a>
-          {onOpen && <DetailsButton label={`Details: ${event.title}`} onClick={open} />}
-        </>
+      }
+      action={
+        <a href={safeHref(active.url)} target="_blank" rel="noreferrer noopener" aria-label={`Tickets: ${event.title}`} className={CINE_PILL_ACTION}>
+          Tickets <ArrowUpRight className="size-4" aria-hidden />
+        </a>
       }
     />
   );
@@ -1157,7 +1134,7 @@ function StaysBlockView({ block, tripId, preview, onOpenStay, onOpenCollection, 
                     transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1], delay: live && search.searched ? Math.min(hotelIndex, 6) * 0.05 : 0 }}
                     className={preview ? cn(CARD_W, "shrink-0 snap-start") : undefined}
                   >
-                    <StayCardView hotel={hotel} photoless={!source.some((h) => h.thumbnailUrl)} onOpen={onOpenStay && hotel.hotelId ? () => onOpenStay(hotel, dates) : undefined} />
+                    <StayCardView hotel={hotel} onOpen={onOpenStay && hotel.hotelId ? () => onOpenStay(hotel, dates) : undefined} />
                   </motion.div>
                 ))}
               </div>
@@ -1395,7 +1372,7 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
               <div className={preview ? rail : grid}>
                 {visible.map((place) => (
                   <div key={place.providerId} className={preview ? cn(CARD_W, "shrink-0 snap-start") : undefined}>
-                    <PlaceCardView place={place} tripId={tripId} onOpenPlace={onOpenPlace} photoless={!block.places.some((p) => p.photoUrl)} />
+                    <PlaceCardView place={place} tripId={tripId} onOpenPlace={onOpenPlace} />
                   </div>
                 ))}
               </div>

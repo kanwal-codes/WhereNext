@@ -3,8 +3,9 @@
 import { useRouter } from "next/navigation";
 import type { Place } from "@/packages/contracts/place";
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
-import { Badge, CardMedia, CompareMark, DetailsButton, EntityCard, MEDIA_ROW, MediaFallback, RatingMeta } from "@/features/conversation/ui/blocks/ui";
-import { cn } from "@/lib/utils";
+import { Clock } from "lucide-react";
+import { CompareMark, compactCount } from "@/features/conversation/ui/blocks/ui";
+import { CinePill, CineCard, CineRating } from "@/features/conversation/ui/blocks/CineCard";
 import { placeGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
@@ -13,13 +14,13 @@ import { categoryLabel, photoProxyUrl, priceLabel, priceRank } from "@/lib/place
 const norm = (s: string) => s.trim().toLowerCase();
 
 /**
- * A place, as Discover shows it. This is the same card Roam puts in a reply (`EntityCard`): the same
- * photo shape, title, meta line, hover and actions, so a place never looks like two different things
- * depending on which screen it is on. Only the container differs (a rail in chat, a grid here).
+ * A place, as Discover shows it. This is the same cinematic card Roam puts in a reply (`CineCard`), so a place
+ * never looks like two different things depending on which screen it is on. Only the container differs (a rail
+ * in chat, a grid here).
  */
 export function PlaceCard({ tripId, place, why, phoneRow = false }: { tripId: string; place: Place; why?: string; /** A horizontal card on a phone (a long list), keeping Add to trip. */ phoneRow?: boolean }) {
   const router = useRouter();
-  const photo = photoProxyUrl(tripId, place.photoNames?.[0], 480);
+  const photo = photoProxyUrl(tripId, place.photoNames?.[0], 640);
   const price = priceLabel(place.priceLevel);
   const category = place.category ? categoryLabel(place.category) : undefined;
   const href = `/trips/${tripId}/place/${encodeURIComponent(place.providerId)}`;
@@ -43,28 +44,27 @@ export function PlaceCard({ tripId, place, why, phoneRow = false }: { tripId: st
   const glyph = placeGlyph(place.category, place.name).icon;
 
   return (
-    <EntityCard
+    <CineCard
       label={`Open ${place.name}`}
       onOpen={open}
       href={href}
-      phoneRow={phoneRow ? "actions" : false}
-      className={selected ? "ring-2 ring-coral" : undefined}
-      media={
-        <div className={cn("relative", phoneRow && "max-sm:h-full")}>
-          <CardMedia row={phoneRow} src={photo} alt={place.name} fallback={<MediaFallback icon={glyph} className={cn("aspect-[16/10] w-full rounded-t-2xl", phoneRow && MEDIA_ROW)} />} />
-          {comparing && <CompareMark selected={selected} />}
-        </div>
-      }
+      wide={phoneRow}
+      selected={selected}
+      src={photo}
+      alt={place.name}
+      glyph={glyph}
+      topLeft={typeof place.rating === "number" ? <CineRating rating={place.rating} count={place.userRatingCount ? compactCount(place.userRatingCount) : undefined} /> : undefined}
+      eyebrow={category}
       title={place.name}
-      meta={[typeof place.rating === "number" ? <RatingMeta key="r" rating={place.rating} count={place.userRatingCount} /> : null, category, price]}
-      badges={why && why !== "Top-rated" ? <Badge tone="brand">{why}</Badge> : undefined}
-      extra={comparing ? <p className="text-xs text-muted-foreground">{selected ? "Selected" : "Click card to select"}</p> : undefined}
-      actions={
+      pills={
         <>
-          <AddToTripControl tripId={tripId} place={place} size="sm" block className="min-w-[6.75rem] flex-1" />
-          <DetailsButton label={`Details: ${place.name}`} onClick={open} className={phoneRow ? "max-sm:hidden" : undefined} />
+          {place.openNow !== undefined && <CinePill tone={place.openNow ? "positive" : "glass"} icon={Clock}>{place.openNow ? "Open now" : "Closed now"}</CinePill>}
+          {price && <CinePill>{price}</CinePill>}
         </>
       }
+      why={why && why !== "Top-rated" ? why : place.reviewSummary}
+      action={comparing ? undefined : <AddToTripControl tripId={tripId} place={place} variant="orb" />}
+      overlay={comparing ? <CompareMark selected={selected} /> : undefined}
     />
   );
 }

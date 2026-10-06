@@ -4,16 +4,18 @@ import { useRouter } from "next/navigation";
 import { EventPoster } from "@/components/EventPoster";
 import { SafeImage } from "@/components/SafeImage";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
-import { CompareMark, DetailsButton, EntityCard, MEDIA_ROW } from "@/features/conversation/ui/blocks/ui";
-import { eventDetailHref, formatEventWhen } from "@/lib/places-ui";
-import { cn } from "@/lib/utils";
+import { ArrowUpRight, CalendarDays } from "lucide-react";
+import { CompareMark } from "@/features/conversation/ui/blocks/ui";
+import { CINE_PILL_ACTION, CineCard, CineDate, CinePill } from "@/features/conversation/ui/blocks/CineCard";
+import { eventDayParts, eventDetailHref, formatEventWhen } from "@/lib/places-ui";
+import { cn, safeHref } from "@/lib/utils";
 import { ticketSellerLabel } from "@/lib/ticket-provider";
 
 export type NearbyEvent = { title: string; url: string; date?: string; venue?: string; source: string; imageUrl?: string };
 
 /**
- * An event, as Discover and the nearby lists show it: the shared `EntityCard`, the same anatomy Roam
- * uses for a place or a stay (16:10 photo, title, one meta line, the action at the foot). Opens the
+ * An event, as Discover and the nearby lists show it: the shared cinematic `CineCard`, the same anatomy Roam
+ * uses for a place or a stay (full photo, title, frosted pills, the action at the bottom right). Opens the
  * shared trip panel, and falls back to the detail route when there is no panel.
  */
 export function EventCard({ tripId, event, className, onSelect, compact = false, phoneRow = false, tile = false }: { tripId: string; event: NearbyEvent; className?: string; onSelect?: () => void; /** The narrow lane version: photo, title, one meta line. */ compact?: boolean; /** A horizontal card on a phone (a long list): the whole card opens. */ phoneRow?: boolean; /** A bare photo tile (photo, when, title, venue) for a short row of suggestions inside a detail view. */ tile?: boolean }) {
@@ -49,32 +51,34 @@ export function EventCard({ tripId, event, className, onSelect, compact = false,
       </button>
     );
   }
+  const day = eventDayParts(event.date);
+  const when = formatEventWhen(event.date);
   return (
     <div className={cn("h-full", className)}>
-      <EntityCard
+      <CineCard
         label={`Open ${event.title}`}
         onOpen={open}
         href={href}
         compact={compact}
-        phoneRow={phoneRow}
-        className={selected ? "ring-2 ring-coral" : undefined}
-        media={
-          <div className={cn("relative", phoneRow && "max-sm:h-full")}>
-            <SafeImage
-              src={event.imageUrl}
-              alt={event.title}
-              width={416}
-              height={260}
-              className={cn("aspect-[16/10] w-full rounded-t-2xl object-cover", phoneRow && MEDIA_ROW)}
-              fallback={<EventPoster title={event.title} className={cn("aspect-[16/10] w-full rounded-t-2xl", phoneRow && MEDIA_ROW)} />}
-            />
-            {comparing && <CompareMark selected={selected} />}
-          </div>
-        }
+        wide={phoneRow}
+        selected={selected}
+        src={event.imageUrl}
+        alt={event.title}
+        glyph={CalendarDays}
+        topLeft={day ? <CineDate month={day.month} day={day.day} /> : undefined}
+        eyebrow={event.venue}
         title={event.title}
-        meta={[event.date ? formatEventWhen(event.date) : null, event.venue, seller]}
-        extra={comparing ? <p className="text-xs text-muted-foreground">{selected ? "Selected" : "Click card to select"}</p> : undefined}
-        actions={<DetailsButton label={`Details: ${event.title}`} onClick={open} />}
+        meta={[when, event.venue].filter(Boolean).join(" · ")}
+        pills={when ? <CinePill>{when}</CinePill> : undefined}
+        foot={seller ? <p className="truncate text-[0.8125rem] text-white/70">via {seller}</p> : undefined}
+        action={
+          comparing ? undefined : (
+            <a href={safeHref(event.url)} target="_blank" rel="noreferrer noopener" aria-label={`Tickets: ${event.title}`} className={CINE_PILL_ACTION}>
+              Tickets <ArrowUpRight className="size-4" aria-hidden />
+            </a>
+          )
+        }
+        overlay={comparing ? <CompareMark selected={selected} /> : undefined}
       />
     </div>
   );
