@@ -1356,7 +1356,8 @@
 .bp-shake { animation: bp-shake 0.36s ease-in-out; }
 
 /* The last screen: the same pass, stamped. */
-.bp-finale { display: flex; flex-direction: column; justify-content: center; padding-top: clamp(24px, 4dvh, 48px); }
+/* The pass arrives straight after the last story card, with no heading to separate them, so it gets a scene's worth of room on top of its own: the card-to-pass gap is then well over the gap between any two other scenes. */
+.bp-finale { display: flex; flex-direction: column; justify-content: center; padding-top: calc(clamp(24px, 4dvh, 48px) + clamp(72px, 11dvh, 132px)); }
 .bp-stamp { pointer-events: none; position: absolute; right: 44px; bottom: 34px; z-index: 2; padding: 6px 16px; border: 3px solid var(--coral); border-radius: 10px; font-family: var(--font-display); font-size: 1.375rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--coral); transform: rotate(-7deg); mix-blend-mode: normal; opacity: 0.95; }
 .bp-stamp-late { opacity: 0; }
 .bp-tear .bp-stamp-late { animation: bp-stamp 0.26s cubic-bezier(0.22, 1, 0.36, 1) 0.04s both; }
@@ -1535,7 +1536,7 @@
   .bp-calm .bp-route { margin-top: 26px; }
   .bp-calm .bp-code { height: 3.25rem; font-size: 3.5rem; }
   .bp-q { padding-bottom: 6px; }
-  .bp-finale { padding-top: 40px; }
+  .bp-finale { padding-top: calc(40px + clamp(64px, 10dvh, 120px)); }
   .story-scene { padding-block: clamp(64px, 10dvh, 120px); }
   /* On a phone the wallet is a compact pocket: the pass shows its route, the question and one row of fields, with a coral edge peeking out above the leather. */
   .wl { --hide: 0.08; }
