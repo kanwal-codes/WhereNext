@@ -298,6 +298,9 @@ export function ConversationSurface({
   // Set synchronously: two quick taps on a chip (or Enter twice) can both arrive before `sending` has re-rendered, and each used to send its own copy of the message.
   const sendingRef = useRef(false);
   const [loaded, setLoaded] = useState(Boolean(initialMessages));
+  // The thread's own load from the server has finished (or was not needed). The landing page's first message waits for it:
+  // sent earlier, the load's rows are merged in while Roam's reply is streaming.
+  const [synced, setSynced] = useState(false);
   const [confirming, setConfirming] = useState(false);
   // A guest who has used their free messages (the server said so) — the composer closes and the
   // save card opens. `saveOpen` is the softer version: they asked to save before running out.
@@ -385,7 +388,10 @@ export function ConversationSurface({
     setCacheReady(true);
     // A quick tab round-trip should not hit the conversation API again. A new device has no
     // session cache, so it still loads the durable server thread immediately.
-    if (cached && Date.now() - cached.savedAt < CONVERSATION_CACHE_TTL_MS) return;
+    if (cached && Date.now() - cached.savedAt < CONVERSATION_CACHE_TTL_MS) {
+      setSynced(true);
+      return;
+    }
     const controller = new AbortController();
     fetch(`/api/trips/${tripId}/conversation`, { signal: controller.signal })
       .then(async (response) => {
@@ -399,12 +405,14 @@ export function ConversationSurface({
           for (const m of fresh) seenMessageIdsRef.current.add(m.id);
           setMessages((current) => mergeConversationMessages(current, fresh));
           setLoaded(true);
+          setSynced(true);
         }
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
         if (!cached && !initialMessagesRef.current) notifyToast("Couldn’t load the conversation — reload to try again.", "error");
         setLoaded(true);
+        setSynced(true);
       });
     return () => controller.abort();
     // Deliberately not depending on initialMessages — see initialMessagesRef above. This effect
@@ -673,13 +681,19 @@ export function ConversationSurface({
     setMessages((current) => current.filter((m) => !(m.role === "assistant" && !m.content.trim())));
   }
 
+  // A slow load must not hold the visitor's first message forever: after a few seconds it goes anyway (the merge keeps the order).
+  useEffect(() => {
+    const timer = setTimeout(() => setSynced(true), 4000);
+    return () => clearTimeout(timer);
+  }, []);
+
   // The landing page's prompt box creates the trip and drops its sentence here: it becomes the
   // first message, sent once the (empty) thread has loaded — the visitor lands mid-conversation.
   // Deferred a tick so React's dev-only mount/unmount/mount pass can't consume the sentence and
   // then abort the send (the unmount cleanup above aborts any in-flight request).
   useEffect(() => {
     // A fresh thread already holds Roam's greeting, so "empty" means no message from the visitor yet.
-    if (!loaded || sending || messages.some((m) => m.role === "user")) return;
+    if (!loaded || !synced || sending || messages.some((m) => m.role === "user")) return;
     const timer = setTimeout(() => {
       const key = `wn:first-message:${tripId}`;
       const first = window.sessionStorage.getItem(key);
@@ -688,8 +702,8 @@ export function ConversationSurface({
       void submit(first);
     }, 0);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the thread loads empty
-  }, [loaded]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the thread has loaded empty
+  }, [loaded, synced]);
 
   const userTurns = messages.filter((m) => m.role === "user").length;
   const turnsLeft = Math.max(0, GUEST_TURN_LIMIT - userTurns);
