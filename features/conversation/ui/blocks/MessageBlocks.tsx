@@ -374,7 +374,7 @@ function TempCurve({ days }: { days: WeatherBlockData["days"] }) {
 function PackRow({ items }: { items: string[] }) {
   if (items.length === 0) return null;
   return (
-    <div className="flex flex-wrap items-center gap-1.5 px-4 pt-3 pb-4 sm:px-[1.125rem]">
+    <div className="flex flex-wrap items-center gap-1.5 px-4 pt-3 pb-4 @[34rem]:px-[1.125rem]">
       <span className="eyebrow mr-1">Pack</span>
       {items.map((item) => (
         <Badge key={item} icon={packIcon(item)}>{item}</Badge>
@@ -398,7 +398,7 @@ function WeatherBlockView({ block }: { block: WeatherBlockData }) {
         status={wet > 0 ? <WidgetPill tone="lagoon" icon={Droplets}>{wet} wet day{wet === 1 ? "" : "s"}</WidgetPill> : <WidgetPill tone="sage" icon={Check}>All dry</WidgetPill>}
         hero={
           <WidgetHero tone="lagoon" className="relative overflow-hidden pb-2">
-            <Icon className="absolute top-3 right-4 size-16 text-caution/80 max-sm:hidden" strokeWidth={1.2} aria-hidden />
+            <Icon className="absolute top-3 right-4 size-16 text-caution/80 @max-[34rem]:hidden" strokeWidth={1.2} aria-hidden />
             <WidgetFigure unit={days[0]?.label ? `high ${days[0].label.toLowerCase() === "today" ? "today" : `on ${days[0].label}`}` : undefined}>{degrees(days[0]?.max ?? 0)}</WidgetFigure>
             <TempCurve days={days} />
           </WidgetHero>
@@ -504,7 +504,7 @@ function ComparisonBlockView({ block }: { block: ComparisonBlockData }) {
           </table>
         </ScrollX>
         {rows.length < block.rows.length && (
-          <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 sm:px-[1.125rem]">
+          <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 @[34rem]:px-[1.125rem]">
             <span className={type.meta}>{block.rows.length - rows.length} more options hidden</span>
             <button type="button" onClick={() => setAll(true)} className={controlSecondary}>Show all <ChevronDown className="size-3.5" aria-hidden /></button>
           </div>
@@ -532,12 +532,12 @@ function StructuredAnswerBlockView({ block }: { block: StructuredAnswerBlockData
           const tiles = figures && !icons && section.bullets.length <= 4 && section.bullets.every((bullet) => (bullet.detail ?? "").length <= 14);
           return (
             folds && i >= 2 && !openSet.has(i) ? (
-              <button key={i} type="button" aria-expanded={false} onClick={() => setOpenSet((cur) => new Set(cur).add(i))} className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left sm:px-[1.125rem]">
+              <button key={i} type="button" aria-expanded={false} onClick={() => setOpenSet((cur) => new Set(cur).add(i))} className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left @[34rem]:px-[1.125rem]">
                 <span className={type.title}>{section.heading}</span>
                 <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               </button>
             ) : (
-            <section key={i} className="space-y-2 px-4 py-4 sm:px-[1.125rem]">
+            <section key={i} className="space-y-2 px-4 py-4 @[34rem]:px-[1.125rem]">
               {(block.sections.length > 1 || i > 0) && <h3 className={type.title}>{section.heading}</h3>}
               {tiles ? (
                 <dl className="grid grid-cols-2 gap-2.5 pt-1">
@@ -605,7 +605,7 @@ function OptionsBlockView({ block, onFollowup }: { block: OptionsBlockData } & P
     >
       <div className="mt-3.5 divide-y divide-border border-t border-border">
         {items.map((item) => (
-          <article key={item.name} className="flex flex-wrap items-start gap-x-4 gap-y-3 px-4 py-4 sm:px-[1.125rem]">
+          <article key={item.name} className="flex flex-wrap items-start gap-x-4 gap-y-3 px-4 py-4 @[34rem]:px-[1.125rem]">
             <span className="grid size-[4.5rem] shrink-0 place-items-center rounded-2xl bg-coral-soft text-coral-ink" aria-hidden>
               <Icon className="size-7" strokeWidth={1.5} />
             </span>
@@ -620,9 +620,9 @@ function OptionsBlockView({ block, onFollowup }: { block: OptionsBlockData } & P
                 </div>
               )}
             </div>
-            <div className="flex shrink-0 gap-2 max-sm:w-full sm:w-36 sm:flex-col">
+            <div className="flex shrink-0 gap-2 @max-[34rem]:w-full @[34rem]:w-36 @[34rem]:flex-col">
               {actions(item.name).map(([label, prompt]) => (
-                <button key={label} type="button" className={cn(controlSecondary, "h-9 flex-1 justify-between px-3.5 sm:flex-none")} onClick={() => onFollowup(prompt)}>
+                <button key={label} type="button" className={cn(controlSecondary, "h-9 flex-1 justify-between px-3.5 @[34rem]:flex-none")} onClick={() => onFollowup(prompt)}>
                   {label} <ArrowRight className="size-3.5" aria-hidden />
                 </button>
               ))}
@@ -630,7 +630,7 @@ function OptionsBlockView({ block, onFollowup }: { block: OptionsBlockData } & P
           </article>
         ))}
         {items.length < block.items.length && (
-          <div className="flex items-center justify-between gap-3 px-4 py-3.5 sm:px-[1.125rem]">
+          <div className="flex items-center justify-between gap-3 px-4 py-3.5 @[34rem]:px-[1.125rem]">
             <span className={cn(type.meta, "min-w-0 truncate")}>{block.items.length - items.length} more · {block.items.slice(items.length).map((i) => i.name).join(", ")}</span>
             <button type="button" onClick={() => setShowAll(true)} className={controlSecondary}>Show {block.items.length - items.length} more <ChevronDown className="size-3.5" aria-hidden /></button>
           </div>
@@ -651,7 +651,7 @@ function BudgetRing({ block }: { block: BudgetBlockData }) {
   const r = 46, c = 2 * Math.PI * r;
   let offset = 0;
   return (
-    <svg viewBox="0 0 120 120" className="size-[8.25rem] shrink-0 max-sm:hidden" role="img" aria-label="Share of the day's spend by category">
+    <svg viewBox="0 0 120 120" className="size-[8.25rem] shrink-0 @max-[34rem]:hidden" role="img" aria-label="Share of the day's spend by category">
       <circle cx="60" cy="60" r={r} fill="none" stroke="white" strokeOpacity="0.7" strokeWidth="14" />
       {block.lines.map((line, i) => {
         const len = (c * line.typical) / total;
@@ -849,7 +849,7 @@ function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPan
     >
       {openLabels.length > 0 && <div className="mt-3"><OpenDaysNotice labels={openLabels} onFollowup={onFollowup} /></div>}
       {multi && block.days.length > 12 && (
-        <div className="flex items-center gap-2 px-4 pt-4 sm:px-[1.375rem]">
+        <div className="flex items-center gap-2 px-4 pt-4 @[34rem]:px-[1.375rem]">
           <label className="relative flex-1">
             <span className="sr-only">Day</span>
             <select
@@ -867,7 +867,7 @@ function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPan
       )}
       {multi && block.days.length <= 12 && (
         <>
-        <div role="tablist" aria-label="Days" className="no-scrollbar flex gap-2 overflow-x-auto px-4 pt-4 sm:px-[1.375rem]">
+        <div role="tablist" aria-label="Days" className="no-scrollbar flex gap-2 overflow-x-auto px-4 pt-4 @[34rem]:px-[1.375rem]">
           {block.days.map((d, i) => (
             <button
               key={i}
@@ -885,11 +885,11 @@ function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPan
             </button>
           ))}
         </div>
-        {block.days.length > 4 && <p className="px-4 pt-2 text-xs text-muted-foreground sm:px-[1.375rem]">{day.label} of {block.days.length} · swipe for the rest</p>}
+        {block.days.length > 4 && <p className="px-4 pt-2 text-xs text-muted-foreground @[34rem]:px-[1.375rem]">{day.label} of {block.days.length} · swipe for the rest</p>}
         </>
       )}
       <ContentSwap swapKey={String(active)}>
-      <div role="tabpanel" className="px-4 pt-5 pb-4 sm:px-[1.375rem]">
+      <div role="tabpanel" className="px-4 pt-5 pb-4 @[34rem]:px-[1.375rem]">
         {day.subtitle && multi === false && <p className={cn(type.meta, "mb-4")}>{day.subtitle}</p>}
         {day.open && <p className={cn(type.body, "rounded-2xl border border-dashed border-border px-4 py-8 text-center text-ink-soft")}>Nothing lined up for {day.label} yet. It is yours to wander, or ask for more ideas above.</p>}
         {!day.open && (
@@ -915,7 +915,7 @@ function TripSummaryBlockView({ block }: { block: TripSummaryBlockData }) {
     <Widget glyph="trip" tone="coral" eyebrow="Your trip" title={block.title}>
       {block.facts.length > 0 && <FactStrip className="mt-3 rounded-none border-0 border-t border-border bg-transparent shadow-none" facts={block.facts.map((fact) => ({ ...fact, value: unset(fact.label === "Dates" ? prettyDates(fact.value) : fact.value) }))} />}
       {block.rows.length > 0 && (
-        <dl className="divide-y divide-border border-t border-border px-4 sm:px-[1.125rem]">
+        <dl className="divide-y divide-border border-t border-border px-4 @[34rem]:px-[1.125rem]">
           {block.rows.map((row) => (
             <div key={row.label} className="flex min-h-11 items-center justify-between gap-4 py-2">
               <dt className={type.meta}>{row.label}</dt>
@@ -951,7 +951,7 @@ function TripUpdateBlockView({ block, onFollowup }: { block: TripUpdateBlockData
           const from = showChange(change.field, change.from);
           const to = showChange(change.field, change.to);
           return (
-            <li key={i} className="flex items-center gap-3.5 px-4 py-3 sm:px-[1.125rem]">
+            <li key={i} className="flex items-center gap-3.5 px-4 py-3 @[34rem]:px-[1.125rem]">
               <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-positive-soft text-positive" aria-hidden><Check className="size-4" /></span>
               <div className="min-w-0 flex-1">
                 <p className="eyebrow">{change.label}</p>
@@ -1139,9 +1139,9 @@ function RouteSummaryCard({ route, onOpenPanel }: { route: RouteSummaryBlockData
           <p className={cn(type.body, "min-w-0 flex-1 text-ink-soft")}>You are nearly there ({distance(route.distanceMeters / 1000)}). A short walk, no map needed.</p>
         </WidgetHero>
       ) : (
-        <div className="mx-4 mt-3.5 flex flex-col gap-3.5 sm:mx-[1.125rem] sm:flex-row">
-          {drawable && <div className="aspect-[300/176] shrink-0 overflow-hidden rounded-[1.125rem] sm:aspect-auto sm:h-auto sm:w-[19rem]"><RouteSketch route={route} /></div>}
-          <WidgetHero tone="lagoon" className="!m-0 flex min-w-0 flex-1 flex-col justify-between gap-3 sm:!p-[1.125rem]">
+        <div className="mx-4 mt-3.5 flex flex-col gap-3.5 @[34rem]:mx-[1.125rem] @[34rem]:flex-row">
+          {drawable && <div className="aspect-[300/176] shrink-0 overflow-hidden rounded-[1.125rem] @[34rem]:aspect-auto @[34rem]:h-auto @[34rem]:w-[19rem]"><RouteSketch route={route} /></div>}
+          <WidgetHero tone="lagoon" className="!m-0 flex min-w-0 flex-1 flex-col justify-between gap-3 @[34rem]:!p-[1.125rem]">
             <p className="flex items-baseline gap-1.5">
               <span className="font-display text-[3.5rem] leading-none font-medium tracking-[-0.04em] tabular-nums">{span.big}</span>{" "}
               <span className="text-base text-ink-soft">{span.unit}</span>
@@ -1218,13 +1218,13 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel }: { from: string; 
       foot={onOpenPanel ? "Tap a way to see its steps and map" : "Times are estimates"}
       action={onOpenPanel ? <WidgetAction onClick={() => onOpenPanel({ kind: "route", routes: sorted, active: sorted.indexOf(chosen) })}>{chosen.path ? "Steps and map" : "Steps"}</WidgetAction> : undefined}
       hero={mapRequest && (
-        <div className="relative mx-4 mt-3.5 aspect-[640/260] overflow-hidden rounded-[1.125rem] bg-lagoon-soft sm:mx-[1.125rem]">
+        <div className="relative mx-4 mt-3.5 aspect-[640/260] overflow-hidden rounded-[1.125rem] bg-lagoon-soft @[34rem]:mx-[1.125rem]">
           <RouteMap request={mapRequest} label={`The ${ROUTE_MODE_LABEL[chosen.mode] ?? chosen.mode} route from ${from} to ${to}`} fallback={<RouteSketch route={chosen} />} />
           <span className="absolute top-2.5 left-2.5"><WidgetPill className="bg-white text-ink shadow-soft">{ROUTE_MODE_LABEL[chosen.mode] ?? chosen.mode} · {minutes(chosen)} min</WidgetPill></span>
         </div>
       )}
     >
-      <div role="tablist" aria-label="Ways to travel" className="mx-4 mt-3.5 flex gap-2 sm:mx-[1.125rem]">
+      <div role="tablist" aria-label="Ways to travel" className="mx-4 mt-3.5 flex gap-2 @[34rem]:mx-[1.125rem]">
         {groups.map((g) => {
           const Icon = routeModeIcon(g.mode);
           const on = g.mode === group.mode;
@@ -1242,7 +1242,7 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel }: { from: string; 
                 <span className="block truncate text-[0.9375rem] leading-tight font-medium">{ROUTE_MODE_LABEL[g.mode] ?? g.mode}</span>
                 <span className="block truncate text-xs leading-tight text-muted-foreground tabular-nums">{g.routes.length > 1 ? `${g.routes.length} routes · ${minutes(g.routes[0])} min` : `${minutes(g.routes[0])} min · ${distance(g.routes[0].distanceMeters / 1000)}`}</span>
               </span>
-              {g.routes[0] === fastest ? <WidgetPill tone="sage" className="ml-auto h-5 text-[0.6875rem] max-sm:hidden">Fastest</WidgetPill> : minutes(g.routes[0]) === minutes(fastest) ? <WidgetPill className="ml-auto h-5 text-[0.6875rem] max-sm:hidden">Same time</WidgetPill> : null}
+              {g.routes[0] === fastest ? <WidgetPill tone="sage" className="ml-auto h-5 text-[0.6875rem] @max-[34rem]:hidden">Fastest</WidgetPill> : minutes(g.routes[0]) === minutes(fastest) ? <WidgetPill className="ml-auto h-5 text-[0.6875rem] @max-[34rem]:hidden">Same time</WidgetPill> : null}
             </button>
           );
         })}
@@ -1522,7 +1522,7 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
     </Notice>
   );
   return (
-    <section aria-label="Flights" className="roam-widget relative overflow-hidden rounded-3xl border border-border bg-card shadow-widget">
+    <section aria-label="Flights" className="roam-widget @container relative overflow-hidden rounded-3xl border border-border bg-card shadow-widget">
       <FlightHero
         eyebrow={`Flights · ${roundTrip ? "round trip" : "one way"}${day ? ` · ${day}` : ""}`}
         title={<>{fromName} to {toName}</>}
@@ -1551,7 +1551,7 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
       {loading && fares.items.length === 0 ? <FlightPicksSkeleton /> : ready && picks.length > 0 && <FlightPicks picks={picks} selected={chosenPick ? offerKey(chosenPick.offer) : null} onSelect={setChosen} roundTrip={roundTrip} />}
       <FlightSearchBar search={searchForBar} tripId={tripId} trip={tripDates} routeOpen={routeOpen} onRouteDone={() => setRouteOpen(false)} />
       {ready && fares.assumed && (
-        <div role="note" className="mx-4 mb-1 flex items-center gap-2.5 rounded-2xl bg-caution-soft px-3.5 py-3 text-[0.84375rem] text-caution sm:mx-5">
+        <div role="note" className="mx-4 mb-1 flex items-center gap-2.5 rounded-2xl bg-caution-soft px-3.5 py-3 text-[0.84375rem] text-caution @[34rem]:mx-5">
           <Info className="size-4 shrink-0" aria-hidden />
           <span>No travel date set, so these are example prices. Pick your date above.</span>
         </div>
@@ -1616,7 +1616,7 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
               initial={fares.searched ? { opacity: 0, y: 10 } : false}
               animate={{ opacity: 1, y: 0 }}
               key={key + offerIndex}
-              className={cn("px-4 py-3.5 sm:px-[1.125rem]", onOpenPanel && "cursor-pointer transition-colors hover:bg-muted/35 focus-visible:bg-muted/45 focus-visible:outline-none")}
+              className={cn("px-4 py-3.5 @[34rem]:px-[1.125rem]", onOpenPanel && "cursor-pointer transition-colors hover:bg-muted/35 focus-visible:bg-muted/45 focus-visible:outline-none")}
               onClick={onOpenPanel ? () => openFlight() : undefined}
               onKeyDown={onOpenPanel ? (event) => {
                 if (event.target !== event.currentTarget) return;

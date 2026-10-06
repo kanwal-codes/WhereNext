@@ -84,7 +84,7 @@ export function PlaceField({ caption, Icon, label, code, endpoint, busy, onPick,
               </span>
             )}
           </span>
-          <Pencil className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity duration-200 group-hover:opacity-70 group-focus-visible:opacity-70 max-sm:opacity-50" aria-hidden />
+          <Pencil className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity duration-200 group-hover:opacity-70 group-focus-visible:opacity-70 @max-[34rem]:opacity-50" aria-hidden />
         </button>
       )}
     </div>
@@ -97,9 +97,9 @@ export function DatePill({ date, min, onPick, busy, label }: { date: string | nu
   const reduce = useReducedMotion();
   const text = date ? longDate(date) : "Pick a date";
   return (
-    <label className={cn("relative inline-flex h-9 min-w-0 cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-medium transition-colors hover:bg-muted has-[:focus-visible]:bg-muted has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring max-sm:h-11 max-sm:flex-1 max-sm:justify-center", busy && "pointer-events-none")}>
+    <label className={cn("relative inline-flex h-9 min-w-0 cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-medium transition-colors hover:bg-muted has-[:focus-visible]:bg-muted has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring @max-[34rem]:h-11 @max-[34rem]:flex-1 @max-[34rem]:justify-center", busy && "pointer-events-none")}>
       <CalendarDays className="size-4 shrink-0 text-coral" aria-hidden />
-      <span className="relative inline-flex overflow-hidden whitespace-nowrap tabular-nums sm:min-w-[6.5rem]">
+      <span className="relative inline-flex overflow-hidden whitespace-nowrap tabular-nums @[34rem]:min-w-[6.5rem]">
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.span key={text} initial={reduce ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={reduce ? undefined : { opacity: 0, y: -8 }} transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}>
             {text}
@@ -125,15 +125,15 @@ export function DatePill({ date, min, onPick, busy, label }: { date: string | nu
   );
 }
 
-export const stepper = "grid size-9 max-sm:hidden place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-35";
+export const stepper = "grid size-9 @max-[34rem]:hidden place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-35";
 
 /** A day with a caption, a step either way, and the picker. */
 export function DayControl({ caption, date, min, busy, onPick, prevLabel, nextLabel, dateLabel }: { caption: string; date: string | null; min: string; busy: boolean; onPick: (iso: string) => void; prevLabel: string; nextLabel: string; dateLabel: string }) {
   return (
-    <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
-      <span className="pl-1 text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground sm:pl-0">{caption}</span>
+    <div className="flex flex-col gap-1.5 @[34rem]:flex-row @[34rem]:items-center @[34rem]:gap-2">
+      <span className="shrink-0 whitespace-nowrap pl-1 text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground @[34rem]:pl-0">{caption}</span>
       {/* On a phone the day is one wide, easy-to-hit pill that opens the phone's own date wheel; the one-day steppers are for a pointer. */}
-      <div className="inline-flex items-center rounded-full border border-border bg-background/60 max-sm:w-full">
+      <div className="inline-flex items-center rounded-full border border-border bg-background/60 @max-[34rem]:w-full">
         <button type="button" aria-label={prevLabel} disabled={busy || !date || shiftIso(date, -1) < min} onClick={() => date && onPick(shiftIso(date, -1))} className={stepper}><ChevronLeft className="size-4" aria-hidden /></button>
         <DatePill date={date} min={min} onPick={onPick} busy={busy} label={dateLabel} />
         <button type="button" aria-label={nextLabel} disabled={busy || !date} onClick={() => date && onPick(shiftIso(date, 1))} className={stepper}><ChevronRight className="size-4" aria-hidden /></button>
