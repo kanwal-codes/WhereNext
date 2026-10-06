@@ -13,7 +13,6 @@ import {
   LayoutGrid,
   Map,
   Users,
-  Lock,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
@@ -101,7 +100,6 @@ function NavRow({
       >
         <Icon className="h-4 w-4 shrink-0 opacity-60" />
         <span className={cn("truncate transition-[max-width,margin,opacity]", SIDEBAR_MOTION, collapsed ? "ml-0 max-w-0 opacity-0" : "ml-2.5 max-w-[12rem] flex-1 opacity-100")}>{label}</span>
-        <Lock className={cn("h-3 shrink-0 transition-[width,margin,opacity]", SIDEBAR_MOTION, collapsed ? "ml-0 w-0 opacity-0" : "ml-2 w-3 opacity-50")} aria-hidden="true" />
       </button>
     );
   }

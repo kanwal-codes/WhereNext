@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useId, type ReactNode } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type SwitchOption<K extends string> = {
@@ -12,7 +11,7 @@ export type SwitchOption<K extends string> = {
   /** A route change instead of local state (Roam / Chat stay independently deep-linkable). */
   href?: string;
   ariaLabel?: string;
-  /** Needs an account: shows a lock, never becomes the selected segment, and only calls `onChange`. */
+  /** Needs an account: stays dimmed (no icon), never becomes the selected segment, and only calls `onChange`. */
   locked?: boolean;
 };
 
@@ -59,7 +58,6 @@ export function SegmentedSwitch<K extends string>({
             )}
             <span className="relative inline-flex items-center gap-1.5">
               {o.label}
-              {o.locked && <Lock className="h-3 w-3 opacity-60" aria-hidden="true" />}
             </span>
           </>
         );
