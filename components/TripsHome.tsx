@@ -14,7 +14,7 @@ import { notifyToast } from "@/lib/application/toast";
 import { matchesFilter, pickFeatured, sortForHome, tripCounts, tripStatus, type TripFilter } from "@/lib/trip-status";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { useSpeechInput } from "@/lib/use-speech-input";
-import { memberInitials } from "@/lib/member-initials";
+import { AccountMenu } from "@/components/AccountMenu";
 import { cn } from "@/lib/utils";
 
 const PROMPT_CHIPS = ["A relaxing weekend", "Somewhere new", "Reunite with friends"];
@@ -117,14 +117,7 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
                 <BrandMark variant="compact" className={cn("transition-shadow duration-700", onPhoto && "ring-1 ring-white/60")} />
                 <BrandMark variant="text" className={cn("hidden transition-colors duration-700 sm:inline", onPhoto && "text-white")} />
               </Link>
-              <Link
-                href="/account"
-                title={displayName}
-                aria-label="Account"
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-border/60 bg-background/92 text-xs font-semibold text-foreground transition-opacity hover:opacity-70"
-              >
-                {memberInitials(displayName)}
-              </Link>
+              <AccountMenu displayName={displayName} />
             </div>
           </Reveal>
         </div>
