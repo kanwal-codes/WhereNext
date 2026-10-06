@@ -70,3 +70,35 @@ export function useKeyboardFit(enabled: boolean): boolean {
 
   return open;
 }
+
+/**
+ * For every ordinary screen (Discover's search, a form, a sheet): when a text field takes focus on a touch phone, the
+ * browser sometimes leaves it under the keyboard, or half under it, when the keyboard is slow to arrive or the field sits
+ * in a scrolling panel. Once the keyboard has settled, this scrolls a field that is not fully in the visible area to the
+ * middle of it. The Roam / Chat screen fits itself to the keyboard (above), so it is left alone.
+ */
+export function useFocusIntoView() {
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv || !window.matchMedia("(pointer: coarse)").matches) return;
+    let timer = 0;
+    const reveal = () => {
+      const el = document.activeElement as HTMLElement | null;
+      if (!el || !(el.tagName === "TEXTAREA" || el.tagName === "INPUT" || el.isContentEditable)) return;
+      if (el.closest("[data-roam-shell]")) return;
+      const box = el.getBoundingClientRect();
+      const top = vv.offsetTop + 12, bottom = vv.offsetTop + vv.height - 12;
+      if (box.bottom > bottom || box.top < top) el.scrollIntoView({ block: "center", inline: "nearest" });
+    };
+    const later = () => { window.clearTimeout(timer); timer = window.setTimeout(reveal, 120); };
+    // Focus first (the keyboard is only starting), then the visible area changes as it arrives: check when it settles.
+    const onFocus = () => { window.clearTimeout(timer); timer = window.setTimeout(reveal, 350); };
+    document.addEventListener("focusin", onFocus);
+    vv.addEventListener("resize", later);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("focusin", onFocus);
+      vv.removeEventListener("resize", later);
+    };
+  }, []);
+}

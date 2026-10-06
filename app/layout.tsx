@@ -1,3 +1,4 @@
+import { KeyboardAssist } from "@/components/KeyboardAssist";
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
@@ -37,6 +38,9 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  // Chrome on Android resizes the page itself when the keyboard opens (instead of covering it), so fixed bars and
+  // full-height screens ride up with it in step rather than after it. iOS ignores this; use-keyboard-fit.ts covers iOS.
+  interactiveWidget: "resizes-content",
 };
 
 // overflow-x-hidden lives on <html> only, not <body>. Per the CSS spec, setting only
@@ -57,6 +61,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <ViewTransitionGate />
           {children}
           <ToastHost />
+          <KeyboardAssist />
           <ServiceWorkerRegister />
           <ThemeSync />
           <Analytics />
