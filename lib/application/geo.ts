@@ -26,6 +26,14 @@ export const usesMiles = (country: unknown): boolean => typeof country === "stri
  */
 export const NEARBY_STAY_KM = 2;
 
+/** A rough "8 min walk", "20 min transit" or "25 min drive" for a straight-line distance, by what a person would do over it. An estimate, not a route. */
+export function travelTimeLabel(km: number): string {
+  const road = km * 1.3; // streets are longer than the straight line
+  if (road <= 1.8) return `${Math.max(1, Math.round(road * 12))} min walk`; // 5 km/h
+  if (road <= 12) return `${Math.round(5 + road * 4)} min transit`; // ~15 km/h door to door, with the wait
+  return `${Math.round(5 + road * 2)} min drive`; // ~30 km/h through a city
+}
+
 /** Straight-line distance in km. A rough proxy for "how close" — not travel time. */
 export function haversineKm(a: Point, b: Point): number {
   const toRad = (degrees: number) => (degrees * Math.PI) / 180;

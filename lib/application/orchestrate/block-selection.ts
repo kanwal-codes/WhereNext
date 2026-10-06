@@ -1,6 +1,6 @@
 import type { AssistantBlock, PlaceCard } from "@/packages/contracts/assistant";
 import type { Place } from "@/packages/contracts/place";
-import { formatDistanceKm, haversineKm, nearest, usesMiles } from "@/lib/application/geo";
+import { formatDistanceKm, haversineKm, NEARBY_STAY_KM, nearest, travelTimeLabel, usesMiles } from "@/lib/application/geo";
 import type { TripContext } from "@/lib/application/trip-context";
 import type { ResolvedTurn, ToolCall } from "@/lib/application/turn-resolver";
 import type { RetrievedEvidence, EventResult } from "@/lib/application/retrieve";
@@ -81,6 +81,14 @@ export function selectBlocks(params: {
     const hit = nearest({ latitude: place.latitude, longitude: place.longitude }, tripCtx.lockedPlaces);
     return hit ? `${formatDistanceKm(hit.km, miles)} from ${hit.target.title}` : undefined;
   };
+  // On a place card: with a stay set, the time to get there from it ("8 min walk"), always, since that is what it is
+  // for; without one, a distance from the nearest locked thing only when it is close and the traveller asked about it.
+  const placeDistance = (place: { latitude: number; longitude: number }): string | undefined => {
+    if (tripCtx.accommodationAnchor) return travelTimeLabel(haversineKm(place, tripCtx.accommodationAnchor));
+    const label = distanceToLocked(place);
+    const hit = label && tripCtx.lockedPlaces.length > 0 ? nearest({ latitude: place.latitude, longitude: place.longitude }, tripCtx.lockedPlaces) : undefined;
+    return hit && hit.km <= NEARBY_STAY_KM ? label : undefined;
+  };
   // A concert / named-act / specific-kind event query is about the EVENT, not the venue.
   // Suppress the place cards (the arena, the club) so the events block below carries the turn.
   // Gated on `intent` alone (not "any events call exists") so a multi-topic turn — "restaurants
@@ -101,7 +109,7 @@ export function selectBlocks(params: {
         rating: place.rating, userRatingCount: place.userRatingCount, priceLevel: place.priceLevel,
         sourceUrl: place.sourceUrl, photoNames: place.photoNames,
         photoUrl: place.photoNames?.[0] ? photoUrl(place.photoNames[0]) : undefined,
-        distanceToLocked: distanceToLocked(place),
+        distanceToLocked: placeDistance(place),
         trust: "sourced",
       })),
     });

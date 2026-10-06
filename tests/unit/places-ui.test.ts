@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { amenityChips, categoryLabel, cityFrom, secondaryTypes } from "@/lib/places-ui";
+import { amenityChips, categoryLabel, cityFrom, isFoodPlace, secondaryTypes } from "@/lib/places-ui";
 
 describe("categoryLabel", () => {
   it("title-cases and de-underscores", () => {
@@ -67,5 +67,12 @@ describe("cityFrom", () => {
     expect(cityFrom(undefined)).toBe("");
     expect(cityFrom(null)).toBe("");
     expect(cityFrom("")).toBe("");
+  });
+});
+
+describe("isFoodPlace", () => {
+  it("is true for places you eat or drink at, false for the rest", () => {
+    for (const c of ["restaurant", "indian_restaurant", "cafe", "coffee_shop", "bar", "bakery", "meal_takeaway"]) expect(isFoodPlace(c)).toBe(true);
+    for (const c of ["amusement_center", "museum", "barber_shop", "park", null, undefined]) expect(isFoodPlace(c)).toBe(false);
   });
 });
