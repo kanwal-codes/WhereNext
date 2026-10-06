@@ -5,7 +5,7 @@ import type { Place } from "@/packages/contracts/place";
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
 import { Clock } from "lucide-react";
 import { CompareMark, compactCount } from "@/features/conversation/ui/blocks/ui";
-import { CinePill, CineCard, CineRating } from "@/features/conversation/ui/blocks/CineCard";
+import { CineAddress, CinePill, CineCard, CineRating } from "@/features/conversation/ui/blocks/CineCard";
 import { placeGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
@@ -64,6 +64,7 @@ export function PlaceCard({ tripId, place, why, phoneRow = false }: { tripId: st
         </>
       }
       why={why && why !== "Top-rated" ? why : place.reviewSummary}
+      foot={place.address ? <CineAddress address={place.address} /> : undefined}
       action={comparing ? undefined : <AddToTripControl tripId={tripId} place={place} variant="orb" />}
       overlay={comparing ? <CompareMark selected={selected} /> : undefined}
     />
