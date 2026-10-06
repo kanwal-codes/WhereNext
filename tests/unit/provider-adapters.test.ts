@@ -221,6 +221,23 @@ describe("provider adapters", () => {
     expect(requestBody.data.slices).toEqual([{ origin: "YTO", destination: "LON", departure_date: "2026-10-13" }]);
   });
 
+  it("retries a qualified place name Duffel doesn't match as the bare city", async () => {
+    process.env.DUFFEL_API_KEY = "duffel_test_x";
+    const asked: string[] = [];
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: unknown, init?: { method?: string }) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/places/suggestions")) {
+        const q = url.searchParams.get("query") ?? "";
+        asked.push(q);
+        return Promise.resolve(new Response(JSON.stringify({ data: q.includes(",") ? [] : [{ type: "city", iata_code: q === "Toronto" ? "YTO" : "LON" }] }), { status: 200 }));
+      }
+      if (init?.method === "POST") return Promise.resolve(new Response(JSON.stringify({ data: { id: "orq_1" } }), { status: 200 }));
+      return Promise.resolve(new Response(JSON.stringify({ data: [] }), { status: 200 }));
+    }));
+    await searchFlights({ origin: "Toronto, ON, Canada", destination: "London, UK", departureDate: "2026-10-13" });
+    expect(asked).toEqual(expect.arrayContaining(["Toronto, ON, Canada", "Toronto", "London, UK", "London"]));
+  });
+
   it("joins LiteAPI hotel data with rates into cheapest-first stay options", async () => {
     process.env.LITEAPI_KEY = "sand_x";
     const hotels = { data: [
