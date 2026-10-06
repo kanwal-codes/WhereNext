@@ -84,9 +84,9 @@ const TEAR_MS = 620;
  * upgrades the same user. While it is empty it writes example trips by itself, and the four fields
  * under it read whatever is in the box (the example, then the visitor's own words).
  *
- * `finale` is the same pass on the last screen, packed in the travel wallet: the question "Where
- * next?" is printed on the pass itself (it is the field: no pill), nothing is pre-filled, the stub
- * stays attached, and it is stamped CHECKED IN only once it is sent.
+ * `finale` is the same pass on the last screen, packed in the travel wallet: the same box, writing
+ * its own examples (the scene above it asks "Where next?"), the stub stays attached, and it is
+ * stamped CHECKED IN only once it is sent.
  */
 export function BoardingPass({ finale = false }: { finale?: boolean }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -105,8 +105,8 @@ export function BoardingPass({ finale = false }: { finale?: boolean }) {
   const compact = useMediaQuery("(max-width: 819px)");
   const typed = useTypingPlaceholder(
     compact ? EXAMPLES_COMPACT : EXAMPLES,
-    !finale && !prompt && !focused,
-    1500,
+    !prompt && !focused,
+    finale ? 600 : 1500,
   );
 
   useEffect(() => setHome(guessHomeCode()), []);
@@ -245,10 +245,9 @@ export function BoardingPass({ finale = false }: { finale?: boolean }) {
             onPointerMove={moveShine}
             to={
               <div
-                className={`${finale ? "bp-q" : "bp-to"}${pulse ? " bp-pulse" : ""}`}
-                data-long={finale && prompt.length > 20 ? "" : undefined}
+                className={`bp-to${pulse ? " bp-pulse" : ""}`}
               >
-                {!finale && <b aria-hidden="true">Where next?</b>}
+                <b aria-hidden="true">Where next?</b>
                 <textarea
                   ref={textareaRef}
                   id={finale ? "trip-prompt-end" : "trip-prompt"}
@@ -279,11 +278,7 @@ export function BoardingPass({ finale = false }: { finale?: boolean }) {
                     }
                   }}
                   placeholder={
-                    finale
-                      ? "Where next?"
-                      : !prompt && !focused
-                        ? typed
-                        : "Tell Roam about your trip…"
+                    !prompt && !focused ? typed : "Tell Roam about your trip…"
                   }
                 />
                 <button

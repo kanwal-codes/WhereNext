@@ -1357,7 +1357,7 @@
 
 /* The last screen: the same pass, stamped. */
 /* The pass arrives straight after the last story card, with no heading to separate them, so it gets a scene's worth of room on top of its own: the card-to-pass gap is then well over the gap between any two other scenes. */
-.bp-finale { display: flex; flex-direction: column; justify-content: center; padding-top: calc(clamp(24px, 4dvh, 48px) + clamp(72px, 11dvh, 132px)); }
+.bp-finale { display: flex; flex-direction: column; justify-content: center; padding-top: clamp(72px, 11dvh, 132px); }
 .bp-stamp { pointer-events: none; position: absolute; right: 44px; bottom: 34px; z-index: 2; padding: 6px 16px; border: 3px solid var(--coral); border-radius: 10px; font-family: var(--font-display); font-size: 1.375rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--coral); transform: rotate(-7deg); mix-blend-mode: normal; opacity: 0.95; }
 .bp-stamp-late { opacity: 0; }
 .bp-tear .bp-stamp-late { animation: bp-stamp 0.26s cubic-bezier(0.22, 1, 0.36, 1) 0.04s both; }
@@ -1471,17 +1471,18 @@
 /* ---- The travel wallet on the last screen, and the end of the page: warm stone leather, tone-on-tone stitching, the legal line lettered on it. ---- */
 .wl { --l1: oklch(0.925 0.013 76); --l2: oklch(0.885 0.015 74); --back1: oklch(0.86 0.016 72); --back2: oklch(0.82 0.017 70); --thread: oklch(0.5 0.012 72); --ink-leather: oklch(0.4 0.015 72); --hl: rgb(255 255 255 / 0.55);
   --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-  position: relative; display: flow-root; width: 100%; --hide: 0.27; margin-top: calc(var(--hide) * -24rem); }
+  position: relative; display: flow-root; width: 100%; --hide: 0.27; /* The wallet is pulled up by exactly the depth the pass sits in the pocket (measured by Wallet.tsx; until it is, the share of a typical pass height), so nothing is left blank above it. */ margin-top: calc(-1 * var(--hide-px, calc(var(--hide) * 24rem))); }
 .wl-back { position: absolute; z-index: 0; left: calc(var(--gutter) * -0.55); right: calc(var(--gutter) * -0.55); top: 46%; bottom: 0; border-radius: 40px 40px 0 0; overflow: hidden;
   background: linear-gradient(180deg, var(--back1), var(--back2)); box-shadow: 0 2px 2px rgb(31 24 16 / 10%), 0 -10px 30px -14px rgb(31 24 16 / 22%); }
 .wl-back::before, .wl-front::before { content: ""; position: absolute; inset: 0; background: var(--grain); opacity: 0.11; mix-blend-mode: multiply; pointer-events: none; }
 /* The slot clips the pass at the front's top edge: lowered by a share of its own height, the pass is inside the pocket by that much. */
 .wl-slot { position: relative; z-index: 1; overflow: clip; padding: 90px 90px 0; margin: -90px -90px 0; pointer-events: none; }
-.wl-slot > * { pointer-events: auto; transform: translateY(calc(var(--hide) * 100%)); transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.15s; }
-@media (scripting: enabled) { .wl:not([data-out]) .wl-slot > * { transform: translateY(104%); } }
+.wl { --rest: var(--hide-px, calc(var(--hide) * 100%)); }
+.wl-slot > * { pointer-events: auto; transform: translateY(var(--rest)); transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.15s; }
+@media (scripting: enabled) { .wl:not([data-out]) .wl-slot > * { transform: translateY(calc(100% + 8px)); } }
 .wl-slot > .bp-area { margin-top: 0; }
-.wl-slot > *:hover { transform: translateY(calc(var(--hide) * 100% - 44px)); transition-delay: 0s; transition-duration: 0.45s; }
-.wl-slot > *:focus-within { transform: translateY(calc(var(--hide) * 100% - 72px)); transition-delay: 0s; transition-duration: 0.45s; }
+.wl-slot > *:hover { transform: translateY(max(0px, calc(var(--rest) - 44px))); transition-delay: 0s; transition-duration: 0.45s; }
+.wl-slot > *:focus-within { transform: translateY(max(0px, calc(var(--rest) - 72px))); transition-delay: 0s; transition-duration: 0.45s; }
 .wl-front { position: relative; z-index: 3; margin: 0 calc(var(--gutter) * -0.4); height: clamp(9rem, 17dvh, 14.5rem); border-radius: 30px 30px 0 0; overflow: hidden;
   background: radial-gradient(130% 120% at 18% 0%, var(--hl), transparent 60%), linear-gradient(180deg, var(--l1), var(--l2));
   box-shadow: 0 -14px 24px -10px rgb(0 0 0 / 22%), inset 0 1px 0 rgb(255 255 255 / 50%); }
@@ -1501,27 +1502,21 @@
 .wl .bp-stubfields { margin-top: 22px; }
 .wl .bp-main, .wl .bp-stub { padding-bottom: 28px; }
 
-/* The question is printed on the pass: there is no box. */
-.bp-q { display: flex; align-items: flex-end; gap: 14px; min-width: 0; position: relative; }
-.bp-q textarea { flex: 1; min-width: 0; min-height: 1.06em; padding: 0; resize: none; overflow-y: auto; scrollbar-width: none; background: transparent; border: 0; outline: 0; font-family: var(--font-display); font-weight: 300; font-size: clamp(3.75rem, 6.1vw, 5.5rem); line-height: 0.98; letter-spacing: -0.045em; color: #fff; caret-color: var(--coral); }
-.bp-q textarea::-webkit-scrollbar { display: none; }
-.bp-q textarea::placeholder { color: #fff; opacity: 1; }
-.bp-q[data-long] textarea { font-size: clamp(1.75rem, 3.3vw, 3rem); line-height: 1.1; }
-.bp-q::after { content: ""; position: absolute; left: 0; right: 0; bottom: -8px; height: 1.5px; background: rgb(255 255 255 / 0.35); transform: scaleX(0); transform-origin: 0 50%; transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
-.bp-q:focus-within::after { transform: scaleX(1); }
-.bp-calm .bp-lab-d { display: inline; }
-.bp-calm .bp-lab-m { display: none; }
-.bp-calm .bp-code { height: 60px; font-size: 3.875rem; line-height: 0.9; }
-.bp-calm { --c1: clamp(7rem, 11vw, 9.5rem); }
-.bp-calm .bp-route { margin-top: 30px; }
-.bp-calm .bp-fields { margin-top: 24px; }
-.bp-finale { justify-content: flex-end; gap: 28px; padding-bottom: 0; min-height: 0; }
+.bp-finale { justify-content: flex-end; padding-bottom: 0; min-height: 0; }
 .bp-finale .bp-area-wrap { margin-top: 0; }
+/* The scene's own opening: a boarding-pass line with a plane, then the question as the headline (sized to the width between the gutters, "Where next?" is ~5.1em wide). */
+.fin-break { display: flex; align-items: center; gap: 14px; color: var(--coral); }
+.fin-line { flex: 1; border-top: 2px dashed var(--border-strong, oklch(0.85 0.01 75)); }
+.fin-plane { width: 26px; height: 26px; flex: none; }
+.fin-head { text-align: center; margin-top: clamp(40px, 7dvh, 72px); }
+.fin-eyebrow { margin: 0; font-size: 0.75rem; letter-spacing: 0.38em; text-transform: uppercase; color: var(--muted-foreground); }
+.fin-h2 { margin: clamp(10px, 2dvh, 20px) 0 0; font-family: var(--font-display); font-weight: 500; line-height: 1; letter-spacing: -0.045em; font-size: min(calc((100vw - 2 * var(--lp-gutter)) / 5.3), 11rem, 22dvh); }
+.bp-finale { gap: clamp(28px, 5dvh, 56px); }
 
 @media (max-width: 1199px) { .wl-legal { left: 44px; right: 44px; } }
 @media (max-height: 760px) and (min-width: 820px) {
   .wl { --hide: 0.22; }
-  @media (scripting: enabled) { .wl:not([data-out]) .wl-slot > * { transform: translateY(104%); } }
+  @media (scripting: enabled) { .wl:not([data-out]) .wl-slot > * { transform: translateY(calc(100% + 8px)); } }
   .wl .bp-stubfields > div { display: none; }
   .wl .bp-stubfields { margin-top: 12px; }
 }
@@ -1531,12 +1526,7 @@
   .wl-stitch { inset: 12px 12px -30px; border-radius: 14px 14px 0 0; }
   .wl-legal { left: 28px; right: 28px; top: 28px; flex-direction: column; align-items: flex-start; gap: 6px; font-size: 1rem; }
   .wl .bp-main { padding-bottom: 28px; }
-  .bp-q textarea { font-weight: 400; font-size: clamp(1.875rem, 9.4vw, 2.5rem); }
-  .bp-q[data-long] textarea { font-size: 1.5rem; }
-  .bp-calm .bp-route { margin-top: 26px; }
-  .bp-calm .bp-code { height: 3.25rem; font-size: 3.5rem; }
-  .bp-q { padding-bottom: 6px; }
-  .bp-finale { padding-top: calc(40px + clamp(64px, 10dvh, 120px)); }
+        .bp-finale { padding-top: clamp(64px, 10dvh, 120px); }
   .story-scene { padding-block: clamp(64px, 10dvh, 120px); }
   /* On a phone the wallet is a compact pocket: the pass shows its route, the question and one row of fields, with a coral edge peeking out above the leather. */
   .wl { --hide: 0.08; }

@@ -16,6 +16,30 @@ export function Wallet() {
   const ref = useRef<HTMLDivElement>(null);
   const [out, setOut] = useState(false);
 
+  // How far the pass sits down in the pocket, in px, measured from the pass itself: about a third of it, but never
+  // so far that the question row (the part you use) goes into the pocket. The pass changes height with the window
+  // (the fields wrap, the stub stacks under it on a phone, a long answer grows the box), so this is re-measured
+  // whenever it resizes; a fixed share of the height would hide a different part of it at every size.
+  useEffect(() => {
+    const el = ref.current;
+    const area = el?.querySelector<HTMLElement>(".wl-slot > .bp-area");
+    if (!el || !area) return;
+    const measure = () => {
+      const route = area.querySelector<HTMLElement>(".bp-route");
+      const height = area.offsetHeight;
+      if (!route || !height) return;
+      // Both rects move together under the slide transform, so their difference is the layout distance.
+      const routeBottom = route.getBoundingClientRect().bottom - area.getBoundingClientRect().top;
+      const room = Math.max(0, height - routeBottom - 20);
+      const hide = Math.round(Math.min(height * 0.3, room));
+      el.style.setProperty("--hide-px", `${hide}px`);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(area);
+    return () => observer.disconnect();
+  }, []);
+
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setOut(true);
