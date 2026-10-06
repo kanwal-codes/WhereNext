@@ -89,32 +89,44 @@ export const POST = withRoute(async function POST(request: Request) {
     return tripAuthResponse(error) ?? fail(error, "Assistant unavailable");
   }
 
-  if (!(await withinRateLimit(`ai-turn:${userId}`, DAILY_TURN_LIMIT, 24 * 60 * 60_000))) {
-    return NextResponse.json({ error: "You've hit today's limit for assistant messages. Try again tomorrow." }, { status: 429 });
-  }
-  // Per-user limits don't add up to a per-trip ceiling — a group trip's members each get their
-  // own budget above, so nothing bounded the trip's total cost until now.
-  if (!(await withinRateLimit(`ai-turn-trip:${tripId}`, DAILY_TRIP_TURN_LIMIT, 24 * 60 * 60_000))) {
-    return NextResponse.json({ error: "This trip has hit today's shared assistant limit. Try again tomorrow." }, { status: 429 });
-  }
-
+  // Every limit is checked at once (each is a round trip to the rate limiter), then the first one that failed, in the
+  // order they used to be checked, decides the answer. The message that hits a limit is still never saved.
+  const device = guest ? guestDeviceId(request) : null;
+  const checks: Array<{ pass: Promise<boolean>; refuse: () => NextResponse }> = [
+    {
+      pass: withinRateLimit(`ai-turn:${userId}`, DAILY_TURN_LIMIT, 24 * 60 * 60_000),
+      refuse: () => NextResponse.json({ error: "You've hit today's limit for assistant messages. Try again tomorrow." }, { status: 429 }),
+    },
+    // Per-user limits don't add up to a per-trip ceiling — a group trip's members each get their
+    // own budget above, so nothing bounded the trip's total cost until now.
+    {
+      pass: withinRateLimit(`ai-turn-trip:${tripId}`, DAILY_TRIP_TURN_LIMIT, 24 * 60 * 60_000),
+      refuse: () => NextResponse.json({ error: "This trip has hit today's shared assistant limit. Try again tomorrow." }, { status: 429 }),
+    },
+  ];
   // Guests (anonymous sessions) get a handful of free messages, enforced here — never only in
-  // the browser — before anything is persisted, so the message that hits the wall isn't saved.
-  // Both counters fail closed: this is the one unauthenticated door to paid model/tool calls.
+  // the browser. All three counters fail closed: this is the one unauthenticated door to paid model/tool calls.
   if (guest) {
-    if (!(await withinRateLimit(`guest-ip-turns:${clientKey(request)}`, GUEST_IP_TURN_LIMIT, DAY_MS, { failClosed: true }))) {
-      return NextResponse.json({ error: "Roam is busy right now. Save your trip and pick it up from your account.", code: "guest_busy" }, { status: 429 });
-    }
+    checks.push({
+      pass: withinRateLimit(`guest-ip-turns:${clientKey(request)}`, GUEST_IP_TURN_LIMIT, DAY_MS, { failClosed: true }),
+      refuse: () => NextResponse.json({ error: "Roam is busy right now. Save your trip and pick it up from your account.", code: "guest_busy" }, { status: 429 }),
+    });
     // The free messages belong to the browser, not the session: a reload deletes the guest user (and its counter), and
     // this one outlives that.
-    const device = guestDeviceId(request);
-    if (device && !(await withinRateLimit(guestKey.deviceTurns(device), GUEST_TURN_LIMIT, GUEST_WINDOW_MS, { failClosed: true }))) {
-      return NextResponse.json({ error: "Save your trip to keep planning with Roam.", code: "guest_limit" }, { status: 403 });
+    if (device) {
+      checks.push({
+        pass: withinRateLimit(guestKey.deviceTurns(device), GUEST_TURN_LIMIT, GUEST_WINDOW_MS, { failClosed: true }),
+        refuse: () => NextResponse.json({ error: "Save your trip to keep planning with Roam.", code: "guest_limit" }, { status: 403 }),
+      });
     }
-    if (!(await withinRateLimit(guestKey.turns(userId), GUEST_TURN_LIMIT, GUEST_WINDOW_MS, { failClosed: true }))) {
-      return NextResponse.json({ error: "Save your trip to keep planning with Roam.", code: "guest_limit" }, { status: 403 });
-    }
+    checks.push({
+      pass: withinRateLimit(guestKey.turns(userId), GUEST_TURN_LIMIT, GUEST_WINDOW_MS, { failClosed: true }),
+      refuse: () => NextResponse.json({ error: "Save your trip to keep planning with Roam.", code: "guest_limit" }, { status: 403 }),
+    });
   }
+  const passed = await Promise.all(checks.map((check) => check.pass));
+  const refused = checks.find((_, index) => !passed[index]);
+  if (refused) return refused.refuse();
 
   const prompt = parsed.data.messages.at(-1)?.content ?? "";
 
@@ -124,6 +136,14 @@ export const POST = withRoute(async function POST(request: Request) {
   // network hop from every message send. The idempotency key makes this safe to call even if
   // something upstream (an e2e script, a retry) also persists the same message separately —
   // it upserts onto the same row rather than duplicating it.
+  // Saving the question and reading the trip's context do not depend on each other, so they run together (the context
+  // used to wait for the save). Only the stored transcript, which must include this question, waits for it.
+  const contextLoad = Promise.all([
+    loadTripContext(supabase, tripId),
+    loadTravellerDefaults(supabase, userId, request.headers),
+    supabase.from("conversation_threads").select("summary").eq("trip_id", tripId).eq("user_id", userId).maybeSingle(),
+  ]);
+  contextLoad.catch(() => undefined); // awaited below; this only keeps a failure from being reported as unhandled while the save is awaited
   try {
     await createConversationRepository(supabase, threadWriter()).append(tripId, userId, {
       role: "user",
@@ -135,11 +155,8 @@ export const POST = withRoute(async function POST(request: Request) {
   }
 
   try {
-    // Context, thread summary and the stored transcript are independent — one round-trip.
-    const [loadedCtx, defaults, threadRow, storedMessages] = await Promise.all([
-      loadTripContext(supabase, tripId),
-      loadTravellerDefaults(supabase, userId, request.headers),
-      supabase.from("conversation_threads").select("summary").eq("trip_id", tripId).eq("user_id", userId).maybeSingle(),
+    const [[loadedCtx, defaults, threadRow], storedMessages] = await Promise.all([
+      contextLoad,
       // The UI can page the full durable thread; model context stays bounded and is supplemented
       // by the thread summary so a long-running trip does not balloon every AI request.
       // ponytail: 60 not 200 — COMPOSE only ever uses the last 12 (compactAiMessages below) and

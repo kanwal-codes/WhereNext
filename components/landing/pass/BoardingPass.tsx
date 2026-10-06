@@ -76,7 +76,7 @@ const TAGS = [
   },
 ] as const;
 
-const TEAR_MS = 620;
+const TEAR_MS = 340;
 
 /**
  * The first screen's prompt: a boarding pass made out to the visitor. The TO field is the real
@@ -220,7 +220,10 @@ export function BoardingPass({ finale = false }: { finale?: boolean }) {
       window.sessionStorage.setItem(GUEST_LIVE_KEY, body.tripId);
       // The stub tears off along the perforation on the way in to the chat.
       // A client-side navigation: the page stays up while the chat route loads, instead of a blank document load.
-      const go = () => router.push(`/trips/${body.tripId}/chat`);
+      const chat = `/trips/${body.tripId}/chat`;
+      // The route's code starts loading while the stub tears, not after it.
+      router.prefetch(chat);
+      const go = () => router.push(chat);
       if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
         setTearing(true);
         window.setTimeout(go, TEAR_MS);
