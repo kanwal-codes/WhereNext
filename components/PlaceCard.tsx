@@ -9,7 +9,7 @@ import { CinePill, CineCard, CineRating } from "@/features/conversation/ui/block
 import { placeGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
-import { categoryLabel, photoProxyUrl, priceLabel, priceRank } from "@/lib/places-ui";
+import { categoryLabel, isFoodPlace, photoProxyUrl, priceLabel, priceRank } from "@/lib/places-ui";
 
 const norm = (s: string) => s.trim().toLowerCase();
 
@@ -60,7 +60,7 @@ export function PlaceCard({ tripId, place, why, phoneRow = false }: { tripId: st
       pills={
         <>
           {place.openNow !== undefined && <CinePill tone={place.openNow ? "positive" : "glass"} icon={Clock}>{place.openNow ? "Open now" : "Closed now"}</CinePill>}
-          {price && <CinePill>{price}</CinePill>}
+          {price && isFoodPlace(place.category) && <CinePill>{price}</CinePill>}
         </>
       }
       why={why && why !== "Top-rated" ? why : place.reviewSummary}

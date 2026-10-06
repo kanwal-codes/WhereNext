@@ -121,6 +121,11 @@ export function eventDetailHref(
   return `/trips/${tripId}/event?${q.toString()}`;
 }
 
+/** A place you eat or drink at (restaurant, cafe, bar, bakery...), the only kind a price level ($$$) means anything for. */
+export function isFoodPlace(category: string | null | undefined): boolean {
+  return /\b(restaurants?|cafe|coffee|bakery|bar|pub|food|diner|bistro|eatery|brewery|pizza|ice cream|dessert|steak|sushi|brunch|tea house|juice|meal|snack|deli|bbq|barbecue|grill|noodle|burger|sandwich)\b/i.test((category ?? "").replaceAll("_", " "));
+}
+
 export function categoryLabel(category: string | null | undefined): string {
   return titleCase((category ?? "place").replaceAll("_", " "));
 }

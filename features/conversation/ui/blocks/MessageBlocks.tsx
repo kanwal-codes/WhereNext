@@ -47,7 +47,7 @@ import { notifyToast } from "@/lib/application/toast";
 import { formatClockTime } from "@/lib/application/clock-time";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { addStopsToItinerary, dayIndexFromLabel, itineraryTitle } from "@/features/conversation/application/addPlanToItinerary";
-import { categoryLabel, eventDayParts, priceLabel } from "@/lib/places-ui";
+import { categoryLabel, eventDayParts, isFoodPlace, priceLabel } from "@/lib/places-ui";
 import { CINE_ORB, CINE_ORB_WHITE, CINE_PILL_ACTION, CineCard, CineDate, CinePill, CineRating } from "./CineCard";
 import { MODE_COLOR } from "@/lib/application/mode-visuals";
 import { HandoffContext, LiveReplyContext, RoamIcon } from "@/features/roam/ui/RoamIcon";
@@ -213,7 +213,7 @@ function PlaceCardView({
         <>
           {place.openNow !== undefined && <CinePill tone={place.openNow ? "positive" : "glass"} icon={Clock}>{place.openNow ? "Open now" : "Closed now"}</CinePill>}
           {place.distanceToLocked && <CinePill icon={MapPin}>{place.distanceToLocked}</CinePill>}
-          {price && <CinePill>{price}</CinePill>}
+          {price && isFoodPlace(place.category) && <CinePill>{price}</CinePill>}
         </>
       }
       why={place.reviewSummary}

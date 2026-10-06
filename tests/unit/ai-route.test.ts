@@ -485,7 +485,7 @@ describe("POST /api/ai", () => {
     expect(String((await cardFor()).distanceToLocked)).toMatch(/from Jerónimos Monastery/);
   });
 
-  it("prefers the locked accommodation over any other locked place as the distance anchor", async () => {
+  it("measures from the locked accommodation, not another locked place, as a travel time", async () => {
     loadTripContextMock.mockResolvedValue({
       trip: { name: "T", destination: "Lisbon", origin: null, duration_days: 5, travelers: 2 },
       preferences: {}, itinerary: [], lockedTitles: ["Jerónimos Monastery"],
@@ -499,7 +499,42 @@ describe("POST /api/ai", () => {
     retrieveEvidenceMock.mockResolvedValue({ places: [{ provider: "g", providerId: "p1", name: "Belém Tower", category: "tourist_attraction", latitude: 38.6916, longitude: -9.216, address: "Belém", sourceUrl: null }], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" });
     const { meta } = await readMeta(await post());
     const card = (meta!.blocks as Array<{ type: string; places: Array<Record<string, unknown>> }>).find((b) => b.type === "place_list")!.places[0];
-    expect(String(card.distanceToLocked)).toMatch(/from Hotel Alfama/);
+    // ~5 km from the hotel (transit); the monastery is under 1 km away and would have read as a walk.
+    expect(String(card.distanceToLocked)).toMatch(/^\d+ min transit$/);
+  });
+
+  it("shows the time from the accommodation even when the traveller did not ask about distance", async () => {
+    loadTripContextMock.mockResolvedValue({
+      trip: { name: "T", destination: "Lisbon", origin: null, duration_days: 5, travelers: 2 },
+      preferences: {}, itinerary: [], lockedTitles: ["Jerónimos Monastery"],
+      // The monastery is geographically CLOSER to the returned place than the hotel is — a plain
+      // nearest-of-all-locked-things rule would pick it. The hotel should win anyway.
+      lockedPlaces: [{ title: "Jerónimos Monastery", latitude: 38.6979, longitude: -9.2064 }],
+      accommodationAnchor: { title: "Hotel Alfama", latitude: 38.7, longitude: -9.13 },
+      places: [], decisions: [],
+    });
+    resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "Lisbon", intent: "discovery", proximityMatters: false, wantsComparison: false, toolPlan: [{ tool: "search_places", query: "sights", location: "Lisbon" }], clarify: null, suggestedFollowups: [], proposedProfileUpdate: null });
+    retrieveEvidenceMock.mockResolvedValue({ places: [{ provider: "g", providerId: "p1", name: "Belém Tower", category: "tourist_attraction", latitude: 38.6916, longitude: -9.216, address: "Belém", sourceUrl: null }], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" });
+    const { meta } = await readMeta(await post());
+    const card = (meta!.blocks as Array<{ type: string; places: Array<Record<string, unknown>> }>).find((b) => b.type === "place_list")!.places[0];
+    expect(String(card.distanceToLocked)).toMatch(/^\d+ min (walk|transit|drive)$/);
+  });
+
+  it("without an accommodation, shows a distance from a locked place only when it is close", async () => {
+    loadTripContextMock.mockResolvedValue({
+      trip: { name: "T", destination: "Lisbon", origin: null, duration_days: 5, travelers: 2 },
+      preferences: {}, itinerary: [], lockedTitles: ["Jerónimos Monastery"],
+      // The monastery is geographically CLOSER to the returned place than the hotel is — a plain
+      // nearest-of-all-locked-things rule would pick it. The hotel should win anyway.
+      lockedPlaces: [{ title: "Jerónimos Monastery", latitude: 38.55, longitude: -9.0 }],
+      accommodationAnchor: null,
+      places: [], decisions: [],
+    });
+    resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "Lisbon", intent: "discovery", proximityMatters: true, wantsComparison: false, toolPlan: [{ tool: "search_places", query: "sights", location: "Lisbon" }], clarify: null, suggestedFollowups: [], proposedProfileUpdate: null });
+    retrieveEvidenceMock.mockResolvedValue({ places: [{ provider: "g", providerId: "p1", name: "Belém Tower", category: "tourist_attraction", latitude: 38.6916, longitude: -9.216, address: "Belém", sourceUrl: null }], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" });
+    const { meta } = await readMeta(await post());
+    const card = (meta!.blocks as Array<{ type: string; places: Array<Record<string, unknown>> }>).find((b) => b.type === "place_list")!.places[0];
+    expect(card.distanceToLocked).toBeUndefined();
   });
 
   it("passes the trip's stored dislikes into retrieval", async () => {

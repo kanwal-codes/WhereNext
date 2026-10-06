@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { distanceDecay, greatCircleArc, haversineKm, nearest } from "../../lib/application/geo";
+import { distanceDecay, greatCircleArc, haversineKm, nearest, travelTimeLabel } from "../../lib/application/geo";
 
 describe("geo", () => {
   it("measures straight-line distance", () => {
@@ -54,5 +54,13 @@ describe("greatCircleArc", () => {
     expect(arc[0][1]).toBeCloseTo(jfk[1], 1);
     expect(arc[arc.length - 1][0]).toBeCloseTo(lhr[0], 1);
     expect(arc[arc.length - 1][1]).toBeCloseTo(lhr[1], 1);
+  });
+});
+
+describe("travelTimeLabel", () => {
+  it("walks short distances, takes transit across a city, drives far", () => {
+    expect(travelTimeLabel(0.5)).toBe("8 min walk");
+    expect(travelTimeLabel(3)).toBe("21 min transit");
+    expect(travelTimeLabel(20)).toBe("57 min drive");
   });
 });
