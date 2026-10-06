@@ -1185,6 +1185,17 @@ function RouteSummaryCard({ route, onOpenPanel }: { route: RouteSummaryBlockData
   const longest = Math.max(...steps.map((step) => step.minutes), 1);
   const leaves = clockOf(route.departureTime), arrives = clockOf(route.arrivalTime);
   const drawable = (route.legs?.some((leg) => leg.path.length > 1) ?? false) || (route.path?.length ?? 0) > 1;
+  // The same real street map the comparison card draws (the sketch stays underneath until it arrives, or if it never does).
+  const lines = (route.legs?.length ? route.legs.map((leg) => ({ path: leg.path, color: legColor(leg) })) : route.path ? [{ path: route.path, color: legColor({ mode: route.mode }) }] : [])
+    .filter((part) => part.path.length > 1);
+  const mapRequest: RouteMapRequest | null = lines.length === 0 ? null : {
+    lines: [
+      ...lines.map((part) => ({ points: part.path, color: "#ffffff", width: 9 })),
+      ...lines.map((part) => ({ points: part.path, color: part.color, width: 5 })),
+    ],
+    pins: [{ at: lines[0].path[0], color: "#27221e" }, { at: lines.at(-1)!.path.at(-1)!, color: "#ec6a3a" }],
+    size: { width: 600, height: 352 },
+  };
   return (
     <Widget
       glyph="route"
@@ -1199,7 +1210,7 @@ function RouteSummaryCard({ route, onOpenPanel }: { route: RouteSummaryBlockData
         </WidgetHero>
       ) : (
         <div className="mx-4 mt-3.5 flex flex-col gap-3.5 @[34rem]:mx-[1.125rem] @[34rem]:flex-row">
-          {drawable && <div className="aspect-[300/176] shrink-0 overflow-hidden rounded-[1.125rem] @[34rem]:aspect-auto @[34rem]:h-auto @[34rem]:w-[19rem]"><RouteSketch route={route} /></div>}
+          {drawable && mapRequest && <div className="aspect-[300/176] shrink-0 overflow-hidden rounded-[1.125rem] @[34rem]:aspect-auto @[34rem]:h-auto @[34rem]:w-[19rem]"><RouteMap request={mapRequest!} label={`The route from ${route.from} to ${route.to}`} fallback={<RouteSketch route={route} />} /></div>}
           <WidgetHero tone="lagoon" className="!m-0 flex min-w-0 flex-1 flex-col justify-between gap-3 @[34rem]:!p-[1.125rem]">
             <p className="flex items-baseline gap-1.5">
               <span className="font-display text-[3.5rem] leading-none font-medium tracking-[-0.04em] tabular-nums">{span.big}</span>{" "}

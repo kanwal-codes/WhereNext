@@ -390,9 +390,6 @@ export function TripContextSurface({
     const rowIcon = ROW_ICON[row.id] ?? FALLBACK_ICON;
     const flashId = row.tripField ?? (row.suggestionKey ? `sugg-${row.suggestionKey}` : row.editKey ?? row.id);
     const wide = isEditing || lone || isWideRow(row);
-    const check = row.certainty === "confirmed" && !isEditing && (
-      <Check aria-label="Locked in" className="size-4 shrink-0 text-leaf" strokeWidth={2.4} />
-    );
     const chip = (
       <span aria-hidden className={cn("grid shrink-0 place-items-center rounded-xl", tile && !wide ? "size-9" : "size-10", rowIcon.tint)}>
         <rowIcon.icon className="size-[1.0625rem]" strokeWidth={1.8} />
@@ -418,14 +415,7 @@ export function TripContextSurface({
           flash === flashId && "bg-leaf-soft/40",
         )}
       >
-        {tile && !wide ? (
-          <div className="flex items-center justify-between">
-            {chip}
-            {check}
-          </div>
-        ) : (
-          chip
-        )}
+        {chip}
         <div className="min-w-0 flex-1">
         {label}
         {isEditing && row.id === "dates" ? (
@@ -567,7 +557,6 @@ export function TripContextSurface({
           </div>
         )}
         </div>
-        {(!tile || wide) && check && <span className="mt-0.5">{check}</span>}
       </div>
     );
   };
