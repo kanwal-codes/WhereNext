@@ -1,5 +1,6 @@
 "use client";
 
+import { DestinationCombobox } from "@/components/DestinationCombobox";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { BedDouble, ClipboardPaste, FileText, ImageIcon, Loader2, Paperclip, Plane, Ticket, TrainFront, UtensilsCrossed, X, Sparkles } from "lucide-react";
 import { Sheet } from "@/components/motion-primitives";
@@ -311,7 +312,7 @@ export function ReservationSheet({
           </div>
 
           <Field label="Where">
-            <input value={draft.place} onChange={(e) => set("place", e.target.value)} maxLength={200} placeholder="Address or meeting point" className={input} />
+            <DestinationCombobox tripId={tripId} scope="places" enter="free" value={draft.place} onChange={(v) => set("place", v)} onSelect={(v) => set("place", v)} ariaLabel="Where" maxLength={200} placeholder="Address or meeting point" inputClassName={input} />
           </Field>
 
           <div className="grid grid-cols-[minmax(0,1fr)_6rem] gap-3">

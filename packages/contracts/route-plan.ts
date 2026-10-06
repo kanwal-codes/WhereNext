@@ -12,6 +12,8 @@ export type RouteLegStep = {
   stopCount?: number;
   from?: string;
   to?: string;
+  /** [lng, lat] pairs for just this step, so the map can draw each part of a journey in its own mode. */
+  polyline?: Array<[number, number]>;
 };
 
 export type RouteLeg = {

@@ -89,8 +89,12 @@ export type RouteResult = {
   arrivalTime?: string;
   /** The route's line as [lng, lat], thinned, so a chat reply can show it on a map. */
   path?: Array<[number, number]>;
+  /** The journey part by part, each with its own thinned line (see `route_summary.legs`). */
+  legs?: RouteLegPart[];
   fare?: { amount: number; currency: string };
 };
+
+export type RouteLegPart = { mode: string; minutes: number; from?: string; to?: string; line?: string; color?: string; traffic?: string; path: Array<[number, number]> };
 
 export type RetrievedEvidence = {
   places: Place[];

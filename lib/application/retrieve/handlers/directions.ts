@@ -3,7 +3,8 @@ import { transit } from "@/packages/providers/google-places/transit";
 import { route as mapboxRoute } from "@/packages/providers/mapbox/client";
 import { transitAppPlan } from "@/packages/providers/transit-app/client";
 import { cached } from "@/lib/server/ttl-cache";
-import { simplifyPath } from "../../route-path";
+import { driveParts, simplifyPath, transitParts } from "../../route-path";
+import { congestionRuns } from "../../route-overlay";
 import type { ToolCall } from "../../turn-resolver";
 import type { RetrieveContext } from "../context";
 
@@ -35,6 +36,7 @@ export async function handleDirections(call: DirectionsCall, ctx: RetrieveContex
         steps,
         fare: leg.fare,
         path: simplifyPath(leg.polyline),
+        legs: transitParts(leg.steps),
       });
     }
     if (!got) {
@@ -56,10 +58,17 @@ export async function handleDirections(call: DirectionsCall, ctx: RetrieveContex
   } else {
     const [from, to] = await Promise.all([ctx.geocode(call.from), ctx.geocode(call.to)]);
     if (from && to) {
-      const drawn = await cached(`directions:mapbox:${call.mode}:${from.join(",")}:${to.join(",")}`, 5 * 60_000, () =>
-        mapboxRoute({ origin: from, destination: to, profile: call.mode === "walking" ? "walking" : "driving" }),
+      const drawn = await cached(`directions:mapbox:v2:${call.mode}:${from.join(",")}:${to.join(",")}`, 5 * 60_000, () =>
+        mapboxRoute({ origin: from, destination: to, profile: call.mode === "walking" ? "walking" : "driving", traffic: call.mode !== "walking" }),
       ).catch(ctx.fail("mapbox"));
-      if (drawn) { got = true; ctx.routes.push({ from: call.from, to: call.to, mode: call.mode, distanceMeters: drawn.distanceMeters, durationSeconds: drawn.durationSeconds, steps: [], path: simplifyPath(drawn.geometry.coordinates) }); }
+      if (drawn) {
+        got = true;
+        const coords = drawn.geometry.coordinates as Array<[number, number]>;
+        const legs = call.mode === "walking"
+          ? (simplifyPath(coords) ? [{ mode: "walk", minutes: drawn.durationSeconds / 60, path: simplifyPath(coords, 40)! }] : [])
+          : driveParts(coords, congestionRuns(coords, drawn.congestion), drawn.durationSeconds / 60);
+        ctx.routes.push({ from: call.from, to: call.to, mode: call.mode, distanceMeters: drawn.distanceMeters, durationSeconds: drawn.durationSeconds, steps: [], path: simplifyPath(coords), legs });
+      }
     }
   }
   // Routes API doesn't do intercity rail/coach well (e.g. Tokyo→Kyoto Shinkansen).

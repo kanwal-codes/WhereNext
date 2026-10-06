@@ -40,6 +40,12 @@ describe("provider circuit breaker", () => {
     await expect(guard("r", async () => "fine")).resolves.toBe("fine");
   });
 
+  it("does not count Next's ResponseAborted (a client that hung up) as a provider failure", async () => {
+    const hungUp = () => Promise.reject(Object.assign(new Error("aborted"), { name: "ResponseAborted" }));
+    for (let i = 0; i < 8; i += 1) await expect(guard("r", hungUp)).rejects.toMatchObject({ name: "ResponseAborted" });
+    await expect(guard("r", async () => "fine")).resolves.toBe("fine");
+  });
+
   it("guardedFetch throws on upstream 5xx/429 so the breaker counts them, passes 4xx through", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("nope", { status: 503 })));
     for (let i = 0; i < 5; i += 1) {

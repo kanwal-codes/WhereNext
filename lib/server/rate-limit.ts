@@ -71,7 +71,11 @@ export async function withinRateLimit(key: string, limit: number, windowMs: numb
   const limiter = limiterFor(limit, windowMs);
   if (limiter) {
     try {
-      const { success } = await limiter.limit(key);
+      const { success, reason } = await limiter.limit(key);
+      // @upstash/ratelimit resolves `{ success: true, reason: "timeout" }` (it does NOT throw) when
+      // Redis stalls past its timeout — which would let a failClosed caller straight through
+      // without ever reaching the in-memory ceiling below. Treat a timeout as the outage it is.
+      if (reason === "timeout") throw new Error("rate limit backend timed out");
       return success;
     } catch {
       // Redis is unreachable or refusing writes (a full database answers every write with an

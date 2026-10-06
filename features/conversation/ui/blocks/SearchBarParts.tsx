@@ -22,7 +22,7 @@ export const longDate = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDat
 
 
 /** One end of the flight: shows the place; a tap turns it into a search box for another. */
-export function PlaceField({ caption, Icon, label, code, endpoint, busy, onPick, srLabel, variant = "pill", className }: { caption: string; Icon: LucideIcon; label: string; code?: string; endpoint: string; busy: boolean; onPick: (label: string) => void; srLabel: string; /** "panel": sits inside a shared panel with its neighbour, the city set large. */ variant?: "pill" | "panel"; className?: string }) {
+export function PlaceField({ caption, Icon, label, code, endpoint, busy, onPick, srLabel, variant = "pill", className, scope }: { caption: string; Icon: LucideIcon; label: string; code?: string; endpoint: string; busy: boolean; onPick: (label: string) => void; srLabel: string; /** "panel": sits inside a shared panel with its neighbour, the city set large. */ variant?: "pill" | "panel"; className?: string; /** What the suggestions cover: cities (default), or neighbourhoods too ("areas"). */ scope?: "regions" | "areas" }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(label);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -43,6 +43,7 @@ export function PlaceField({ caption, Icon, label, code, endpoint, busy, onPick,
           {captionEl}
           <DestinationCombobox
             endpoint={endpoint}
+            scope={scope}
             value={draft}
             onChange={setDraft}
             onSelect={(text) => {

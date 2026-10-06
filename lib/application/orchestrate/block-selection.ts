@@ -111,7 +111,7 @@ export function selectBlocks(params: {
       type: "route_summary",
       from: route.from, to: route.to, mode: route.mode,
       durationSeconds: route.durationSeconds, distanceMeters: route.distanceMeters, fare: route.fare,
-      steps: route.steps.slice(0, 12), departureTime: route.departureTime, arrivalTime: route.arrivalTime, ...(route.path ? { path: route.path } : {}),
+      steps: route.steps.slice(0, 12), departureTime: route.departureTime, arrivalTime: route.arrivalTime, ...(route.path ? { path: route.path } : {}), ...(route.legs?.length ? { legs: route.legs } : {}),
       retrievedAt: evidence.retrievedAt,
     });
   }

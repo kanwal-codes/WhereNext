@@ -9,7 +9,7 @@ import { snapPhotoWidth } from "@/lib/places-ui";
 export async function placePhotoResponse(query: URLSearchParams): Promise<Response> {
   const name = query.get("name") ?? "";
   const width = snapPhotoWidth(query.get("w"));
-  if (!/^places\/[^/]+\/photos\/[^/]+$/.test(name)) return Response.json({ error: "Invalid Google photo name" }, { status: 400 });
+  if (!/^places\/[A-Za-z0-9_-]+\/photos\/[A-Za-z0-9_-]+$/.test(name)) return Response.json({ error: "Invalid Google photo name" }, { status: 400 });
   // A photo resource name maps to immutable bytes. They are NOT kept in the shared Redis cache: a
   // single photo is hundreds of KB to 1.6 MB, and 30 days of them filled the whole database, after
   // which every Redis write (rate limits included) failed. The browser caches them for a week

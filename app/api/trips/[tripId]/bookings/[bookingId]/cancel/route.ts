@@ -6,11 +6,20 @@ import { cancelBooking } from "@/packages/providers/liteapi/client";
 import { toBooking } from "@/packages/contracts/booking";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 import { logger } from "@/lib/server/logger";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+
+// Only a provider error that says the order is ALREADY cancelled may be treated as success on a
+// retry. Any other error (rejection, 429/5xx, timeout, open breaker) means the booking is still
+// live and must not be recorded as cancelled.
+const ALREADY_CANCELLED = /already[\s_-]*cancel|cancel[\s_-]*already|order_already/i;
 
 export async function POST(request: Request, { params }: { params: Promise<{ tripId: string; bookingId: string }> }) {
   try {
     const { tripId, bookingId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor", registered: true });
+    // `bookings` is read-only for members (migration 0047): the ledger of real provider orders is
+    // written by the server only, after the role check above.
+    const admin = createSupabaseAdminClient();
 
     const existing = await supabase
       .from("bookings")
@@ -29,7 +38,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     // "never asked" apart from "asked before, response lost" (see the retry branch below).
     const alreadyRequested = Boolean(raw.cancel_requested_at);
     if (!alreadyRequested) {
-      const flagged = await supabase.from("bookings").update({ raw: { ...raw, cancel_requested_at: new Date().toISOString() } }).eq("id", bookingId);
+      const flagged = await admin.from("bookings").update({ raw: { ...raw, cancel_requested_at: new Date().toISOString() } }).eq("id", bookingId).eq("trip_id", tripId);
       if (flagged.error) throw flagged.error;
     }
 
@@ -38,12 +47,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
       else await cancelBooking(existing.data.provider_reference, request.signal);
     } catch (providerError) {
       // A first attempt failing here is a real cancellation failure — safe to just report and
-      // let the user retry, nothing has been persisted as cancelled yet. But a retry that
-      // already flagged cancel_requested_at on a prior attempt most likely means the provider
-      // already cancelled it and is now rejecting the redundant confirm call — treat that as
-      // success rather than looping the user through the same failure forever.
-      if (!alreadyRequested) throw providerError;
-      logger.warn({ err: providerError, tripId, bookingId, provider: existing.data.provider }, "cancel retry: provider rejected re-cancellation, treating as already cancelled");
+      // let the user retry, nothing has been persisted as cancelled yet. A retry whose earlier
+      // attempt got as far as asking the provider may find the order already cancelled and the
+      // provider rejecting the redundant call — but ONLY that specific answer counts as success.
+      // Treating every provider error as "already cancelled" recorded still-live, chargeable
+      // bookings as cancelled.
+      const message = providerError instanceof Error ? providerError.message : String(providerError);
+      if (!alreadyRequested || !ALREADY_CANCELLED.test(message)) throw providerError;
+      logger.warn({ err: providerError, tripId, bookingId, provider: existing.data.provider }, "cancel retry: provider reports the order is already cancelled");
     }
 
     // The provider has now committed the cancellation (or already had, per the retry branch
@@ -53,10 +64,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
 
     let result;
     try {
-      result = await supabase
+      result = await admin
         .from("bookings")
         .update({ status: "cancelled" })
         .eq("id", bookingId)
+        .eq("trip_id", tripId)
         .select("id,kind,provider,status,provider_reference,confirmation_code,currency,total_amount,created_at")
         .single();
       if (result.error) throw result.error;

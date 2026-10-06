@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { LIMITS } from "@/lib/server/limits";
@@ -8,6 +9,7 @@ import { classifyPlaceVibe } from "@/packages/reco/vibes";
 import { classifyByEmbedding } from "@/packages/reco/classify-embed";
 import { cosine, embed } from "@/packages/ai/embed";
 import { recordRecoEvents } from "@/lib/server/reco-trace";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
  * The AI touch-points for detail-page recommendations. Every op degrades to a harmless
@@ -20,11 +22,11 @@ import { recordRecoEvents } from "@/lib/server/reco-trace";
  *   log      — fire-and-forget impression / click rows into `reco_events` for later tuning.
  */
 
-/** Short stable key fragment for a longish string (djb2). */
-function hash(input: string): string {
-  let h = 5381;
-  for (let i = 0; i < input.length; i += 1) h = (((h << 5) + h) + input.charCodeAt(i)) | 0;
-  return (h >>> 0).toString(36);
+/** Collision-resistant key fragment over EVERY input that determines a cached value. The shared
+ *  cache is keyed by this alone, so anything left out of it (the client-supplied text) lets one
+ *  member plant the result every other user then receives. */
+function digest(input: unknown): string {
+  return createHash("sha256").update(JSON.stringify(input)).digest("hex").slice(0, 32);
 }
 
 const bodySchema = z.discriminatedUnion("op", [
@@ -67,8 +69,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     const input = bodySchema.parse(await request.json().catch(() => null)); // unparseable body → ZodError → 400
 
     if (input.op === "log") {
+      // reco_events is server-write-only (migration 0047); fall back to the member client where the
+      // service role isn't configured (the write is best-effort analytics either way).
+      let traceWriter = supabase;
+      try { traceWriter = createSupabaseAdminClient(); } catch { /* best-effort */ }
       recordRecoEvents(
-        supabase,
+        traceWriter,
         tripId,
         input.events.map((e) => ({
           anchor_kind: input.anchorKind,
@@ -90,7 +96,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
       const text = [input.name, input.primaryType, (input.types ?? []).join(" "), input.summary].filter(Boolean).join(". ");
       // Only a real embedding result is cached — a transient outage throws, `cached()` drops
       // the key, and we return the sync default without poisoning the 24h slot.
-      const result = await cached(`reco:vibe:${input.id}`, 24 * 60 * 60_000, async () => {
+      const result = await cached(`reco:vibe:${input.id}:${digest(text)}`, 24 * 60 * 60_000, async () => {
         const embedded = await classifyByEmbedding(text);
         if (!embedded) throw new Error("embeddings unavailable");
         return embedded;
@@ -103,7 +109,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     try {
       // Google/TM results behind these candidates are themselves cached minutes-long, so the
       // same anchor + candidate set recurs across views — cache the cosine pass for an hour.
-      const key = `reco:rank:${hash(input.anchor)}:${hash(input.candidates.map((c) => c.id).sort().join(","))}`;
+      const key = `reco:rank:${digest([input.anchor, [...input.candidates].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)).map((c) => [c.id, c.text])])}`;
       const scores = await cached(key, 60 * 60_000, async () => {
         const [anchorVec, ...candVecs] = await embed([input.anchor, ...input.candidates.map((c) => c.text)]);
         return Object.fromEntries(input.candidates.map((c, i) => [c.id, cosine(anchorVec, candVecs[i])]));

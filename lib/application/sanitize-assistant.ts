@@ -65,7 +65,11 @@ export function sanitizeAssistantContent(content: string, allowedUrls: ReadonlyS
     .replace(/!\[[^\]]*\]\([^)]*$/g, "")
     .replace(new RegExp(`!\\[([^\\]]*)\\]\\(${LINK_URL}\\)`, "gi"), (match, _alt: string, url: string) => allowedUrls.has(url) ? match : "")
     .replace(new RegExp(`\\[([^\\]]+)\\]\\(${LINK_URL}\\)`, "gi"), (match, label: string, url: string) => allowedUrls.has(url) ? match : label)
-    .replace(/https?:\/\/[^\s)]+/gi, (url: string) => allowedUrls.has(url) ? url : "");
+    .replace(/https?:\/\/[^\s)]+/gi, (url: string) => allowedUrls.has(url) ? url : "")
+    // The renderer (remark-gfm) also linkifies a scheme-less `www.host/path` as http://www.host/path,
+    // which none of the passes above recognise — so it would render as a clickable link to a host
+    // that was never vetted. The lookbehind skips the `www.` inside an https:// URL kept above.
+    .replace(/(?<![\w/.:@-])www\.[^\s)]+/gi, (url: string) => allowedUrls.has(url) ? url : "");
   if (groundingText) {
     // Figures the traveller typed themselves are grounded, in any shape: "80" in their message
     // makes "CA$80" in the reply theirs to hear back, not an invention.

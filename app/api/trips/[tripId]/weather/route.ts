@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { LIMITS } from "@/lib/server/limits";
+import { withinRateLimit } from "@/lib/server/rate-limit";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
 import { weather as openWeather } from "@/packages/providers/openweather/client";
 import { weather as googleWeather } from "@/packages/providers/google-weather/client";
@@ -76,7 +77,7 @@ async function seasonalSummary(place: string, month: string, signal?: AbortSigna
 export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
-    const { supabase } = await requireTripMember(tripId, { limit: LIMITS.provider });
+    const { supabase, user } = await requireTripMember(tripId, { limit: LIMITS.provider });
     const location = (new URL(request.url).searchParams.get("location") ?? "").trim();
     if (!location) return NextResponse.json({ error: "A location is required" }, { status: 400 });
 
@@ -105,8 +106,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     // --- seasonal: a month is known but the trip is too far out for a forecast
     const month = tripOver ? null : monthOf(start, (prefs.data?.data as Record<string, unknown> | undefined)?.dates);
     if (month) {
+      // Only this branch runs web search + a model call on a miss (the forecast above is plain provider data),
+      // so only this branch is held to the tighter per-person bucket.
+      if (!(await withinRateLimit(`user-${LIMITS.enrich.bucket}:${user.id}`, LIMITS.enrich.max, 60 * 60_000))) return NextResponse.json({ kind: "none" });
+      // The loader's result is shared across users, so it runs on its own signal: a disconnecting first
+      // request used to abort the search and cache the fallback text for 24h.
+      const sharedSignal = AbortSignal.timeout(20_000);
       const result = await cached(`weather:season:${location.toLowerCase()}:${month}`, 24 * 60 * 60_000, async () => {
-        const summary = await seasonalSummary(location, month, request.signal);
+        const summary = await seasonalSummary(location, month, sharedSignal);
         if (!summary) throw new Error("no seasonal summary"); // don't cache a miss for 24h
         return { summary, retrievedAt: new Date().toISOString() };
       }).catch(() => null);

@@ -81,7 +81,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     // Roam's own rows are written through the service-role client — regular members' sessions
     // are RLS-restricted to role='user' inserts (see migration 0027), so a request-scoped client
     // can't write an assistant row even if this handler tried to.
-    const writeRepo = createGroupChatRepository(createSupabaseAdminClient());
+    const adminClient = createSupabaseAdminClient();
+    const writeRepo = createGroupChatRepository(adminClient);
 
     // Same daily ceiling as the personal /api/ai route — this triggers the identical
     // RESOLVE/RETRIEVE/COMPOSE pipeline and cost. trip-ai-queue.ts only serializes per
@@ -194,7 +195,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
       const tokensOut = usage.reduce((sum, u) => sum + u.completionTokens, 0);
       const cost = Number(sumCostUsd(usage).toFixed(5));
       after(() =>
-        recordAiTurn(supabase, tripId, {
+        recordAiTurn(adminClient, tripId, {
           intent: declinedResult.resolved.intent,
           tools: declinedResult.kind === "ungrounded" ? declinedResult.toolsUsed : [],
           providers_failed: declinedResult.kind === "ungrounded" ? declinedResult.providersFailed : [],
@@ -300,7 +301,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     // a bare fire-and-forget, so the platform keeps this request alive long enough for the write
     // to actually land instead of racing a serverless teardown right after the reply is sent.
     after(() =>
-      recordAiTurn(supabase, tripId, {
+      recordAiTurn(adminClient, tripId, {
         intent: resolved.intent,
         tools: toolsUsed,
         providers_failed: providersFailed,

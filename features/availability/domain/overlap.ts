@@ -18,7 +18,10 @@ function sameMembers(a: string[], b: string[]): boolean {
  * ponytail: O(days * members) — trip-length date ranges and a handful of members, not
  * hundreds; revisit with an interval-sweep only if that scale ever shows up.
  */
-export function computeOverlaps(ranges: AvailabilityRangeInput[]): Overlap[] {
+export function computeOverlaps(allRanges: AvailabilityRangeInput[]): Overlap[] {
+  // Rows stored before the input schema bounded span (or written straight to the table) can still be
+  // enormous; skip them rather than walk millions of days on every GET.
+  const ranges = allRanges.filter((r) => (toEpochDay(r.endDate) - toEpochDay(r.startDate)) / DAY_MS <= 400);
   if (ranges.length === 0) return [];
 
   let minDay = Infinity;

@@ -2,7 +2,7 @@
 
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { CATEGORY_HEX } from "@/lib/map-colors";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { animate as animateValue, motion, useDragControls, useMotionValue, useReducedMotion } from "motion/react";
 import { Car, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
@@ -11,23 +11,35 @@ import { coarseKind } from "@/features/places/ui/discoverTaxonomy";
 import { readStayDecision } from "@/packages/contracts/stay";
 import type { RoutePlan } from "@/packages/contracts/route-plan";
 import { RouteTimeline } from "@/features/maps/ui/RouteTimeline";
+import { modeSwatch } from "@/features/maps/ui/modeParts";
+import { MODE_LABEL } from "@/lib/application/mode-visuals";
 import { TransportSurface, type TransportPreset } from "@/features/transport/ui/TransportSurface";
 import { RentalCarList } from "@/features/transport/ui/RentalCarList";
 import { AiSearchBar } from "@/components/AiSearchBar";
 import { Reveal } from "@/components/motion-primitives";
 import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { useMediaQuery } from "@/lib/use-media-query";
-import { cn } from "@/lib/utils";
-import type { MapPin as Pin, MapLeg } from "@/components/TripMap";
+import { cn, formatDuration } from "@/lib/utils";
+import type { MapPin as Pin, MapLeg, MapInset, MapOverlay } from "@/components/TripMap";
+import { interchangeNodes } from "@/lib/application/route-overlay";
 import { cachedGet } from "@/lib/client/cached-get";
 
 const TripMap = dynamic(() => import("@/components/TripMap").then((m) => m.TripMap), {
   ssr: false,
-  loading: () => <div className="grid h-[52vh] min-h-[320px] place-items-center rounded-2xl border border-border bg-muted/40 text-sm text-muted-foreground">Loading map…</div>,
+  loading: () => <div className="skeleton absolute inset-0 grid place-items-center text-sm text-muted-foreground">Loading map…</div>,
 });
 
 type Row = { places?: { id: string; name: string; provider_id?: string; category?: string | null; metadata?: { latitude?: number; longitude?: number } | null } };
 type ItineraryRow = { id: string; title: string; day_index: number; metadata?: { latitude?: number; longitude?: number; source?: string; provider_id?: string } | null };
+
+/** "Wed, Sep 30" for day N of a trip that has a start date. */
+function dayDate(startDate: string | null | undefined, dayN: number): string | null {
+  if (!startDate) return null;
+  const d = new Date(`${startDate}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  d.setDate(d.getDate() + (dayN - 1));
+  return d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+}
 
 const coords = (m?: { latitude?: number; longitude?: number } | null) => {
   const lng = Number(m?.longitude);
@@ -102,12 +114,16 @@ function HScrollFade({ className, children }: { className?: string; children: Re
 
 /** Peek height (px) when the mobile sheet is collapsed — just the drag handle plus enough of the
  * first row to hint there's more, deliberately short so most of the map stays visible. */
-const SHEET_PEEK = 88;
+const SHEET_PEEK = 96;
+const PANEL_WIDTH = 420;
+const PANEL_GAP = 16;
+const EASE = [0.22, 1, 0.36, 1] as const;
 
-/** On lg+ screens, a floating panel beside the map (unchanged). Below that, the panel would cover
- * the whole map, so it becomes a draggable bottom sheet instead — pull it down to see the map,
- * up to see the plan. No backdrop: the map stays visible and interactive either way. */
-function MapPanel({ className, collapsedLabel, children }: { className?: string; collapsedLabel?: string; children: ReactNode }) {
+/** On lg+ screens, a floating panel beside the map. Below that, the panel would cover the whole
+ * map, so it becomes a draggable bottom sheet instead — pull it down to see the map, up to see
+ * the plan. No backdrop: the map stays visible and interactive either way. Reports how much of
+ * the map it covers so the route is framed in what is left. */
+function MapPanel({ collapsedLabel, onInset, away = false, children }: { collapsedLabel?: string; onInset?: (inset: MapInset) => void; /** Steps aside (a route preview is playing): the camera gets the whole screen. */ away?: boolean; children: ReactNode }) {
   const desktop = useMediaQuery("(min-width: 1024px)");
   const reduce = useReducedMotion();
   const dragControls = useDragControls();
@@ -128,6 +144,18 @@ function MapPanel({ className, collapsedLabel, children }: { className?: string;
     return () => ro.disconnect();
   }, [desktop]);
 
+  useEffect(() => {
+    if (desktop) onInset?.({ left: collapsed || away ? 0 : PANEL_WIDTH + PANEL_GAP });
+    else onInset?.({ bottom: Math.min(expanded && !away ? travel + SHEET_PEEK : SHEET_PEEK, Math.round(window.innerHeight * 0.38)) });
+  }, [desktop, collapsed, expanded, away, travel, onInset]);
+
+  useEffect(() => {
+    if (desktop) return;
+    setExpanded(!away);
+    animateValue(y, away ? travel : 0, reduce ? { duration: 0 } : { type: "spring", stiffness: 300, damping: 38 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [away, desktop]);
+
   const snapTo = (next: boolean) => {
     setExpanded(next);
     animateValue(y, next ? 0 : travel, reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 42 });
@@ -140,34 +168,39 @@ function MapPanel({ className, collapsedLabel, children }: { className?: string;
   }, [travel, expanded, y]);
 
   if (desktop) {
-    if (collapsed) {
+    if (collapsed && !away) {
       return (
         <button
           type="button"
           onClick={() => setCollapsed(false)}
-          aria-label="Show trip panel"
-          className={cn(
-            "absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-full border border-border bg-card py-2 pl-3.5 pr-2.5 text-sm font-medium shadow-lift transition-colors hover:bg-muted",
-            className,
-          )}
+          aria-label="Show the trip panel"
+          className="absolute left-4 top-4 z-10 flex h-11 items-center gap-1.5 rounded-full bg-card/95 pl-5 pr-3.5 text-sm font-semibold shadow-lift ring-1 ring-black/[0.04] transition-[transform,background-color] duration-150 hover:bg-card active:scale-[0.97]"
         >
           {collapsedLabel && <span>{collapsedLabel}</span>}
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
         </button>
       );
     }
     return (
       <>
-        <div className={cn("absolute inset-y-3 left-3 z-10 flex w-[380px] max-w-[calc(100%-1.5rem)] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-lift", className)}>
+        <motion.div
+          initial={reduce ? false : { opacity: 0, x: -28 }}
+          animate={away ? { opacity: 0, x: -(PANEL_WIDTH + 48) } : { opacity: 1, x: 0 }}
+          transition={{ duration: away ? 0.9 : 0.65, ease: EASE }}
+          inert={away}
+          className="absolute left-4 top-[4.5rem] z-10 flex max-h-[calc(100%-5.5rem)] w-[420px] max-w-[calc(100%-2rem)] flex-col overflow-hidden rounded-3xl bg-card shadow-float ring-1 ring-black/[0.05]"
+        >
           {children}
-        </div>
+        </motion.div>
         <button
           type="button"
           onClick={() => setCollapsed(true)}
-          aria-label="Hide trip panel to see the full map"
-          className="absolute left-[392px] top-3 z-20 grid h-7 w-7 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-lift transition-colors hover:bg-muted hover:text-foreground"
+          hidden={away}
+          aria-label="Hide the trip panel to see the full map"
+          className="absolute top-[5.25rem] z-20 grid size-9 place-items-center rounded-full bg-card text-muted-foreground shadow-lift ring-1 ring-black/[0.04] transition-[transform,color] duration-150 hover:text-foreground active:scale-95"
+          style={{ left: PANEL_WIDTH + PANEL_GAP + 8 }}
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="size-4" aria-hidden="true" />
         </button>
       </>
     );
@@ -182,17 +215,20 @@ function MapPanel({ className, collapsedLabel, children }: { className?: string;
       dragListener={false}
       dragConstraints={{ top: 0, bottom: travel }}
       dragElastic={0}
+      initial={reduce ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5, ease: EASE }}
       onDragEnd={(_, info) => snapTo(!(info.offset.y > travel / 2 || info.velocity.y > 500))}
-      className={cn("absolute inset-x-0 bottom-0 z-10 flex max-h-[70%] flex-col overflow-hidden rounded-t-3xl border border-border bg-card shadow-lift", className)}
+      className="absolute inset-x-0 bottom-0 z-10 flex max-h-[54%] flex-col overflow-hidden rounded-t-3xl bg-card shadow-float ring-1 ring-black/[0.05]"
     >
       <button
         type="button"
         aria-label={expanded ? "Collapse to see the map" : "Expand for trip details"}
         onPointerDown={(e) => dragControls.start(e)}
         onClick={() => snapTo(!expanded)}
-        className="flex shrink-0 cursor-grab touch-none justify-center py-3 active:cursor-grabbing"
+        className="flex shrink-0 cursor-grab touch-none justify-center pb-2 pt-3 active:cursor-grabbing"
       >
-        <span className="h-1.5 w-10 rounded-full bg-border" />
+        <span className="h-1.5 w-10 rounded-full bg-input" />
       </button>
       {/* Passed straight through, same as the desktop branch above — callers already split their
           own content into a shrink-0 header (day chips) plus a separately-scrolling body; wrapping
@@ -202,12 +238,32 @@ function MapPanel({ className, collapsedLabel, children }: { className?: string;
   );
 }
 
-export function GettingAroundTabs({ tab, onChange }: { tab: "trip" | "browse"; onChange: (t: "trip" | "browse") => void }) {
+/** Which ways of getting around the day uses, drawn the way the map draws them. */
+function MapLegend({ modes, panelOpen }: { modes: string[]; panelOpen: boolean }) {
+  if (modes.length === 0) return null;
+  return (
+    <ul
+      aria-label="Map key"
+      className="pointer-events-none absolute bottom-5 z-10 hidden items-center gap-4 rounded-full bg-card/95 px-4 py-2.5 shadow-lift ring-1 ring-black/[0.04] lg:flex"
+      style={{ left: panelOpen ? PANEL_WIDTH + PANEL_GAP * 2 : PANEL_GAP }}
+    >
+      {modes.map((m) => (
+        <li key={m} className="flex items-center gap-2 text-xs font-medium text-ink-soft">
+          <span className="h-1.5 w-6 rounded-full" style={modeSwatch(m)} aria-hidden="true" />
+          {MODE_LABEL[m] ?? m}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function GettingAroundTabs({ tab, onChange, floating = false }: { tab: "trip" | "browse"; onChange: (t: "trip" | "browse") => void; floating?: boolean }) {
   return (
     <SegmentedSwitch
       label="Map view"
       value={tab}
       onChange={onChange}
+      floating={floating}
       options={[
         { key: "trip", label: "My trip" },
         { key: "browse", label: "Browse" },
@@ -216,9 +272,30 @@ export function GettingAroundTabs({ tab, onChange }: { tab: "trip" | "browse"; o
   );
 }
 
-export function MapSurface({ tripId, tab }: { tripId: string; tab: "trip" | "browse" }) {
+/** The whole screen is the map: a quiet shade at the top, a vignette at the edges, and the controls float over it. */
+function MapStage({ tab, onTab, children }: { tab: "trip" | "browse"; onTab: (t: "trip" | "browse") => void; children: ReactNode }) {
+  return (
+    <section aria-label="Getting around" className="relative isolate h-[calc(100dvh-var(--topbar)-var(--tabbar))] min-h-[520px] w-full overflow-hidden bg-surface lg:h-[100dvh]">
+      <h1 className="sr-only">Getting around</h1>
+      {children}
+      <div aria-hidden className="vignette pointer-events-none absolute inset-0 z-[1] opacity-30" />
+      <div aria-hidden className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(70%_55%_at_94%_0%,oklch(0.64_0.175_36/0.08),transparent)]" />
+      <div aria-hidden className="grain pointer-events-none absolute inset-0 z-[1]" />
+      <div aria-hidden className="scrim-t pointer-events-none absolute inset-x-0 top-0 z-[1] h-28 [--scrim:0.14]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center p-4">
+        <div className="pointer-events-auto">
+          <GettingAroundTabs tab={tab} onChange={onTab} floating />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function MapSurface({ tripId, tab, onTab, start }: { tripId: string; tab: "trip" | "browse"; onTab: (t: "trip" | "browse") => void; /** Where a link from chat drops the reader: a search to run, or a day to open. */ start?: { preset?: TransportPreset; day?: number } }) {
   const { data } = useTripData();
-  const [activeDay, setActiveDay] = useState<number | "all">("all");
+  const [activeDay, setActiveDay] = useState<number | "all">(start?.day ?? "all");
+  const [inset, setInset] = useState<MapInset>({});
+  const [previewing, setPreviewing] = useState(false);
 
   const lockedStay = readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
 
@@ -232,7 +309,7 @@ export function MapSurface({ tripId, tab }: { tripId: string; tab: "trip" | "bro
     // Route legs are relatively expensive to compute (live transit/driving lookups per hop), so a
     // same-session revisit shows the last plan instantly instead of a multi-second blank reload —
     // then quietly refetches to pick up anything that changed. Same pattern as EventDetailView.
-    const cacheKey = `route-plan:v1:${tripId}:${itineraryKey}`;
+    const cacheKey = `route-plan:v2:${tripId}:${itineraryKey}`;
     try {
       const hit = sessionStorage.getItem(cacheKey);
       if (hit) setPlan(JSON.parse(hit) as RoutePlan);
@@ -295,19 +372,39 @@ export function MapSurface({ tripId, tab }: { tripId: string; tab: "trip" | "bro
   const shown = pins.filter((p) => activeDay === "all" || p.day === activeDay);
 
   const [hoverLeg, setHoverLeg] = useState<number | null>(null);
-  const planDays = activeDay === "all" ? (plan?.days ?? []) : (plan?.days ?? []).filter((d) => d.day === activeDay);
+  const planDays = useMemo(() => (activeDay === "all" ? (plan?.days ?? []) : (plan?.days ?? []).filter((d) => d.day === activeDay)), [plan, activeDay]);
+  // A journey that changes vehicle is drawn as its parts, each in its own mode; one without per-step lines is drawn whole.
   const mapLegs: MapLeg[] = planDays.flatMap((d, di) =>
-    d.legs.map((l, li) => ({
-      polyline: l.polyline,
-      mode: l.mode,
-      dim: activeDay !== "all" && hoverLeg != null && !(di === 0 && li === hoverLeg),
-    })),
+    d.legs.flatMap((l, li) => {
+      const dim = activeDay !== "all" && hoverLeg != null && !(di === 0 && li === hoverLeg);
+      const parts = l.steps.length > 0 && l.steps.every((st) => (st.polyline?.length ?? 0) >= 2);
+      return parts ? l.steps.map((st) => ({ polyline: st.polyline!, mode: st.mode, dim })) : [{ polyline: l.polyline, mode: l.mode, dim }];
+    }),
   );
+
+  // Where the day changes vehicle, and the time of the hop the pointer is on.
+  const dayOverlay = useMemo<MapOverlay>(() => {
+    const nodes = planDays.flatMap((d) =>
+      d.legs.flatMap((l, li) =>
+        l.steps.length > 1 && l.steps.every((st) => (st.polyline?.length ?? 0) >= 2)
+          ? interchangeNodes(l.steps.map((st) => ({ mode: st.mode, polyline: st.polyline, from: st.from, to: st.to })), `d${d.day}-${li}`)
+          : [],
+      ),
+    );
+    const leg = hoverLeg != null && activeDay !== "all" ? planDays[0]?.legs[hoverLeg] : undefined;
+    const pills = leg && leg.polyline.length > 1 && leg.minutes != null ? [{ id: "hover", polyline: leg.polyline, text: formatDuration(leg.minutes), tone: "main" as const }] : [];
+    return { nodes, pills };
+  }, [planDays, hoverLeg, activeDay]);
 
   // Browse mode: an A→B route the user picked, drawn on the map.
   const [browseLegs, setBrowseLegs] = useState<MapLeg[] | null>(null);
+  const [browseOverlay, setBrowseOverlay] = useState<MapOverlay | undefined>();
+  const onBrowseRoute = useCallback((legs: MapLeg[] | null, overlay?: MapOverlay) => {
+    setBrowseLegs(legs);
+    setBrowseOverlay(overlay);
+  }, []);
   const browse = useMemo(() => ({ legs: browseLegs ?? [] }), [browseLegs]);
-  const [gaPreset, setGaPreset] = useState<TransportPreset | undefined>();
+  const [gaPreset, setGaPreset] = useState<TransportPreset | undefined>(start?.preset);
   const applyGaDirective = (d: AiSearchDirective) =>
     setGaPreset({ from: d.from, to: d.to, modes: d.modes ?? [], nonce: Date.now() });
 
@@ -337,73 +434,88 @@ export function MapSurface({ tripId, tab }: { tripId: string; tab: "trip" | "bro
     return () => { cancelled = true; };
   }, [tripId, destination, pins.length]);
 
-  return (
-    <div className="min-w-0 space-y-5">
-      {tab === "trip" ? (
-        pins.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-border px-5 py-12 text-center text-sm text-muted-foreground">
-            <MapPin className="mx-auto mb-2 h-6 w-6 text-muted-foreground/50" />
+  useEffect(() => setPreviewing(false), [activeDay, tab]);
+  const modesUsed = useMemo(() => {
+    const seen = new Set<string>();
+    if (tab === "browse") for (const l of browseLegs ?? []) seen.add(l.mode);
+    else for (const d of planDays) for (const l of d.legs) if (l.polyline.length > 1) for (const m of l.steps.length ? l.steps.map((st) => st.mode) : [l.mode]) seen.add(m);
+    return Array.from(seen);
+  }, [planDays, tab, browseLegs]);
+
+  if (tab === "trip" && pins.length === 0) {
+    return (
+      <MapStage tab={tab} onTab={onTab}>
+        <div className="absolute inset-0 grid place-items-center bg-surface px-6">
+          <p className="max-w-sm text-center text-sm leading-relaxed text-muted-foreground">
+            <MapPin className="mx-auto mb-3 size-6 text-muted-foreground/50" aria-hidden="true" />
             Add stops to your itinerary or save places from Discover — they&rsquo;ll appear on the map here, day by day.
           </p>
-        ) : (
-          // Map fills the whole box; the day panel floats over its left edge and scrolls on its
-          // own, like Google Maps' results panel — no page-scroll-linked positioning to fight.
-          <div className="relative h-[70vh] min-h-[480px] w-full overflow-hidden rounded-2xl border border-border">
-            <TripMap className="absolute inset-0 h-full w-full rounded-none border-0" pins={pins} legs={mapLegs} activeDay={activeDay} />
-            <MapPanel collapsedLabel={activeDay !== "all" ? `Day ${activeDay}` : undefined}>
-              {days.length > 0 && (
-                <div className="shrink-0 border-b border-border">
-                  <HScrollFade className="flex gap-1.5 p-3">
-                    {days.map((d) => (
-                      <button
-                        key={d}
-                        type="button"
-                        onClick={() => setActiveDay(d)}
-                        className={cn("shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium max-sm:h-9", activeDay === d ? "border-transparent bg-primary text-primary-foreground" : "border-border bg-background text-ink-soft")}
-                      >
-                        Day {d}
-                      </button>
-                    ))}
-                  </HScrollFade>
-                </div>
-              )}
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
+        </div>
+      </MapStage>
+    );
+  }
+
+  return (
+    <MapStage tab={tab} onTab={onTab}>
+      {tab === "trip" ? (
+        <>
+          <TripMap className="absolute inset-0 h-full min-h-0 w-full rounded-none border-0" pins={pins} legs={mapLegs} activeDay={activeDay} inset={inset} fitControl cinematic preview={previewing} onPreviewChange={setPreviewing} overlay={dayOverlay} />
+          <MapLegend modes={modesUsed} panelOpen={Boolean(inset.left)} />
+          <MapPanel collapsedLabel={activeDay !== "all" ? `Day ${activeDay}` : undefined} onInset={setInset} away={previewing}>
+            {days.length > 1 && (
+              <div className="shrink-0 border-b border-border">
+                <HScrollFade className="flex gap-2 px-5 py-4">
+                  {days.map((d) => (
+                    <button key={d} type="button" aria-pressed={activeDay === d} onClick={() => setActiveDay(d)} className="btn-chip shrink-0">
+                      Day {d}
+                    </button>
+                  ))}
+                </HScrollFade>
+              </div>
+            )}
+            <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-8 pt-5">
+              <motion.div
+                key={String(activeDay)}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.45, ease: EASE }}
+              >
                 {planDays.length > 0 && planDays.some((d) => d.legs.length > 0) ? (
-                  <div className="space-y-6">
+                  <div className="space-y-10">
                     {planDays.map((d) => (
-                      <RouteTimeline key={d.day} day={d} tripId={tripId} onHoverLeg={setHoverLeg} onLegChosen={() => setPlanVersion((v) => v + 1)} />
+                      <RouteTimeline key={d.day} day={d} tripId={tripId} onHoverLeg={setHoverLeg} onLegChosen={() => setPlanVersion((v) => v + 1)} onPreview={() => setPreviewing(true)} date={dayDate(data?.trip?.start_date, d.day)} />
                     ))}
                   </div>
                 ) : (
                   <>
-                    <ol className="space-y-1.5">
+                    <ol className="space-y-3">
                       {shown.map((p, i) => (
-                        <li key={p.id} className="flex items-center gap-2.5 text-sm">
-                          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-2xs font-semibold text-white" style={{ background: CATEGORY_HEX[p.kind] }}>
-                            {i + 1}
-                          </span>
-                          <span className="truncate">{p.name}</span>
+                        <li key={p.id} className="flex items-center gap-3 text-sm">
+                          <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground shadow-soft">{i + 1}</span>
+                          <span className="truncate font-display text-[15px] font-medium">{p.name}</span>
                         </li>
                       ))}
                     </ol>
-                    <p className="mt-2 text-2xs text-muted-foreground">
+                    <p className="mt-4 text-xs text-muted-foreground">
                       {plan ? "Working out how to get between these stops…" : "Numbered in visit order."}
                     </p>
                   </>
                 )}
-              </div>
-            </MapPanel>
-          </div>
-        )
+              </motion.div>
+            </div>
+          </MapPanel>
+        </>
       ) : (
-        <div className="relative h-[70vh] min-h-[480px] w-full overflow-hidden rounded-2xl border border-border">
-          <TripMap className="absolute inset-0 h-full w-full rounded-none border-0" pins={[]} activeDay="all" center={center} browse={browseLegs && browseLegs.length ? browse : null} />
-          <MapPanel>
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-3">
+        <>
+          <TripMap className="absolute inset-0 h-full min-h-0 w-full rounded-none border-0" pins={[]} activeDay="all" center={center} browse={browseLegs && browseLegs.length ? browse : null} inset={inset} fitControl cinematic preview={previewing} onPreviewChange={setPreviewing} overlay={browseOverlay} />
+          <MapLegend modes={modesUsed} panelOpen={Boolean(inset.left)} />
+          <MapPanel onInset={setInset} away={previewing}>
+            <div className="scrollbar-slim min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5 pt-6">
               <TransportSurface
                 tripId={tripId}
+                near={rentalCenter ? [rentalCenter.lng, rentalCenter.lat] : undefined}
                 preset={gaPreset}
-                onRoute={setBrowseLegs}
+                onRoute={onBrowseRoute}
                 searchSlot={
                   <div className="space-y-1.5">
                     <AiSearchBar
@@ -433,8 +545,8 @@ export function MapSurface({ tripId, tab }: { tripId: string; tab: "trip" | "bro
               )}
             </div>
           </MapPanel>
-        </div>
+        </>
       )}
-    </div>
+    </MapStage>
   );
 }

@@ -29,3 +29,12 @@ frontend/
 .vercel
 .claude/
 .env*
+
+# local tooling / scratch
+.agents/
+.codex/
+.impeccable/
+design-masters/
+pw3000.tmp.config.ts
+.github/hooks/
+.github/skills/

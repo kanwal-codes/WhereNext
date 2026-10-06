@@ -30,11 +30,13 @@ export async function POST(_: Request, { params }: { params: Promise<{ tripId: s
     // calls can't both read "no slug" and each write a different one — only the row that
     // actually still has share_slug IS NULL when this UPDATE runs gets it, the other affects
     // zero rows and falls through to read back whichever slug actually won.
-    const won = await supabase.from("trips").update({ share_slug: slug, share_visibility: "link" }).eq("id", tripId).is("share_slug", null).select("share_slug").maybeSingle();
+    // Goes through set_trip_share (migration 0047): share_slug/share_visibility are no longer
+    // writable by the general member UPDATE policy, and the function re-checks the owner role.
+    const won = await supabase.rpc("set_trip_share", { p_trip_id: tripId, p_slug: slug, p_visibility: "link", p_only_if_unset: true });
     if (won.error) throw won.error;
     if (won.data) {
       invalidateWorkspace(tripId);
-      return NextResponse.json({ slug: won.data.share_slug, visibility: "link" });
+      return NextResponse.json({ slug: won.data as string, visibility: "link" });
     }
     const current = await supabase.from("trips").select("share_slug").eq("id", tripId).single();
     if (current.error) throw current.error;
@@ -53,7 +55,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ tripId:
     // now-revoked trip out of loadPublicTrip's cache for up to its TTL after this returns.
     const existing = await supabase.from("trips").select("share_slug").eq("id", tripId).single();
     if (existing.error) throw existing.error;
-    const updated = await supabase.from("trips").update({ share_slug: null, share_visibility: "private" }).eq("id", tripId);
+    const updated = await supabase.rpc("set_trip_share", { p_trip_id: tripId, p_slug: null, p_visibility: "private", p_only_if_unset: false });
     if (updated.error) throw updated.error;
     invalidateWorkspace(tripId);
     if (existing.data.share_slug) await invalidate(`public-trip:${existing.data.share_slug}`);

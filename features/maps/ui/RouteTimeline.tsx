@@ -1,10 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { motion } from "motion/react";
 import { useDistance } from "@/lib/use-distance";
-import { ChevronDown, TriangleAlert } from "lucide-react";
+import { ChevronDown, Play, TriangleAlert } from "lucide-react";
 import type { RouteDay, RouteLegStep } from "@/packages/contracts/route-plan";
-import { MODE_COLOR, MODE_ICON } from "@/lib/application/mode-visuals";
+import { MODE_ICON, MODE_LABEL } from "@/lib/application/mode-visuals";
+import { ModeTile, Ribbon, colorOf, legRailStyle, mainMode, mergeWalkSteps } from "@/features/maps/ui/modeParts";
+import { FactStrip } from "@/components/DetailKit";
 import { formatClockTime } from "@/lib/application/clock-time";
 import { isTimeFitAtRisk } from "@/lib/application/time-fit";
 import { formatMoney } from "@/lib/currency";
@@ -17,37 +20,39 @@ const time = (iso: string | null) => {
 };
 
 function StepLine({ s }: { s: RouteLegStep }) {
-  const Icon = MODE_ICON[s.mode] ?? MODE_ICON.unknown;
   return (
-    <div className="flex items-start gap-2 text-xs text-muted-foreground">
-      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: MODE_COLOR[s.mode] }} />
-      <span className="min-w-0">
+    <li className="flex items-start gap-2.5 text-xs leading-snug text-muted-foreground">
+      <ModeTile mode={s.mode} size="sm" />
+      <span className="min-w-0 pt-0.5">
         {s.mode === "walk" ? (
           <>Walk {formatDuration(s.minutes)}{s.to ? ` to ${s.to}` : ""}</>
         ) : (
           <>
             {s.line && (
-              <span className="mr-1 rounded px-1 py-0.5 text-2xs font-semibold text-white" style={{ background: s.color ? `#${s.color.replace("#", "")}` : MODE_COLOR[s.mode] }}>
+              <span className="mr-1.5 rounded-md px-1.5 py-0.5 text-2xs font-semibold text-white" style={{ background: s.color ? `#${s.color.replace("#", "")}` : colorOf(s.mode) }}>
                 {s.line}
               </span>
             )}
-            {s.headsign ? `toward ${s.headsign}` : s.mode}
+            {s.headsign ? `toward ${s.headsign}` : MODE_LABEL[s.mode]?.toLowerCase() ?? s.mode}
             {s.stopCount ? ` · ${s.stopCount} stop${s.stopCount === 1 ? "" : "s"}` : ""} · {formatDuration(s.minutes)}
-            {s.from && s.to ? <span className="block text-2xs">{s.from} → {s.to}</span> : null}
+            {s.from && s.to ? <span className="mt-0.5 block text-2xs">{s.from} → {s.to}</span> : null}
           </>
         )}
       </span>
-    </div>
+    </li>
   );
 }
 
 function AltChip({ tripId, dayIndex, leg, alt, onChosen }: { tripId: string; dayIndex: number; leg: RouteDay["legs"][number]; alt: RouteDay["legs"][number]["alternatives"][number]; onChosen: () => void }) {
   const [busy, setBusy] = useState(false);
   const Icon = MODE_ICON[alt.mode] ?? MODE_ICON.unknown;
+  const label = MODE_LABEL[alt.mode] ?? alt.mode;
   return (
     <button
       type="button"
       disabled={busy}
+      aria-label={`Go by ${label.toLowerCase()} instead, ${formatDuration(alt.minutes)}`}
+      title={`Go by ${label.toLowerCase()} instead`}
       onClick={async (e) => {
         e.stopPropagation();
         setBusy(true);
@@ -68,91 +73,128 @@ function AltChip({ tripId, dayIndex, leg, alt, onChosen }: { tripId: string; day
           setBusy(false);
         }
       }}
-      className="flex shrink-0 items-center gap-1 rounded-full border border-border bg-background px-2 py-1 text-2xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-foreground disabled:opacity-50"
+      className="group/alt inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-border bg-card pl-2 pr-3 text-xs font-medium tabular-nums text-ink-soft transition-[border-color,background-color,color,transform] duration-150 hover:border-input hover:bg-surface hover:text-foreground active:scale-[0.97] disabled:opacity-50"
     >
-      <Icon className="h-3 w-3" style={{ color: MODE_COLOR[alt.mode] }} />
+      <Icon className="size-3.5 transition-colors" style={{ color: colorOf(alt.mode) }} aria-hidden="true" />
       {formatDuration(alt.minutes)}
     </button>
   );
 }
 
-export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen }: { day: RouteDay; tripId: string; onHoverLeg?: (index: number | null) => void; onLegChosen?: () => void }) {
+export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, onPreview, date }: { day: RouteDay; tripId: string; onHoverLeg?: (index: number | null) => void; onLegChosen?: () => void; onPreview?: () => void; date?: string | null }) {
   const distance = useDistance();
   const [open, setOpen] = useState<number | null>(null);
+  const [hover, setHover] = useState<number | null>(null);
+  const hoverLeg = (i: number | null) => {
+    setHover(i);
+    onHoverLeg?.(i);
+  };
 
   if (day.stops.length < 2) {
     return <p className="text-sm text-muted-foreground">Add at least two stops to this day to see how to get between them.</p>;
   }
 
   const s = day.summary;
+
   return (
     <div>
-      <p className="text-xs text-muted-foreground">
-        Day {day.day} · {day.stops.length} stops · ~{formatDuration(s.movingMinutes)} moving
-        {s.transitRides ? ` · ${s.transitRides} transit ride${s.transitRides === 1 ? "" : "s"}` : ""}
-        {s.fare ? ` · ~${formatMoney(s.fare.amount, s.fare.currency)} fares` : ""}
-      </p>
+      <h2 className="font-display text-[1.75rem] font-medium leading-none tracking-[-0.03em]">
+        Day {day.day}
+        {date && <span className="ml-2.5 align-[2px] text-base font-normal tracking-[-0.01em] text-muted-foreground">{date}</span>}
+      </h2>
+      <FactStrip
+        className="mt-4"
+        facts={[
+          { label: "On the move", value: formatDuration(s.movingMinutes) },
+          { label: "Stops", value: day.stops.length },
+          s.transitRides ? { label: "Transit rides", value: s.transitRides, note: s.fare ? `~${formatMoney(s.fare.amount, s.fare.currency)} in fares` : undefined } : false,
+        ]}
+      />
+      <Ribbon
+        className="mt-4"
+        parts={day.legs.flatMap((l, i) => (l.steps.length > 0 ? mergeWalkSteps(l.steps).map((st) => ({ mode: st.mode, minutes: st.minutes, group: i })) : [{ mode: l.mode, minutes: l.minutes ?? 0, group: i }]))}
+        dim={hover}
+      />
+      {onPreview && (
+        <button type="button" onClick={onPreview} className="group/play mt-5 inline-flex h-10 items-center gap-2 rounded-full bg-primary pl-3.5 pr-5 text-sm font-semibold text-primary-foreground shadow-soft transition-[transform,box-shadow] duration-150 hover:shadow-lift active:scale-[0.97]">
+          <Play className="size-3.5 fill-current" aria-hidden="true" />
+          Preview the route
+        </button>
+      )}
 
-      <ol className="mt-3">
+      <ol className="mt-6">
         {day.stops.map((stop, i) => {
           const leg = i < day.legs.length ? day.legs[i] : null;
-          const LegIcon = leg ? MODE_ICON[leg.mode] ?? MODE_ICON.unknown : MODE_ICON.unknown;
           return (
-            <li key={stop.id}>
-              <div className="flex items-center gap-2.5">
-                <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary text-2xs font-semibold text-primary-foreground">{i + 1}</span>
-                <span className="truncate text-sm font-medium">{stop.name}</span>
+            <motion.li
+              key={stop.id}
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay: 0.07 * i }}
+              className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3"
+            >
+              <span className="mt-px grid size-7 place-items-center rounded-full bg-coral-fill text-xs font-semibold text-white shadow-soft">{i + 1}</span>
+              <div className="flex min-w-0 items-center justify-between gap-3 py-[3px]">
+                <span className="truncate font-display text-[15px] font-medium leading-snug tracking-[-0.006em]">{stop.name}</span>
                 {stop.time && <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{formatClockTime(stop.time)}</span>}
               </div>
 
-              {leg && (
-                <div
-                  className="my-1 ml-2.5 border-l border-border pl-4"
-                  onMouseEnter={() => onHoverLeg?.(i)}
-                  onMouseLeave={() => onHoverLeg?.(null)}
-                >
-                  {leg.kind === "longhaul" ? (
-                    <p className="py-1 text-xs text-coral">{leg.note}</p>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setOpen(open === i ? null : i)}
-                      className="flex w-full items-center gap-2 py-1 text-left text-xs"
-                    >
-                      <LegIcon className="h-3.5 w-3.5 shrink-0" style={{ color: MODE_COLOR[leg.mode] }} />
-                      <span className="font-medium">
-                        {leg.minutes != null ? formatDuration(leg.minutes) : "route"}
-                        {leg.km != null ? ` · ${distance(leg.km)}` : ""}
-                        {time(leg.departure) && time(leg.arrival) ? ` · ${time(leg.departure)}–${time(leg.arrival)}` : ""}
-                      </span>
-                      {leg.steps.length > 1 && <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform", open === i && "rotate-180")} />}
-                    </button>
-                  )}
-                  {leg.note && leg.kind === "local" && <p className="pb-1 text-2xs text-muted-foreground">{leg.note}</p>}
-                  {isTimeFitAtRisk(leg.timeFit) && leg.timeFit && (
-                    <p className="flex items-center gap-1.5 pb-1 text-2xs font-medium text-coral">
-                      <TriangleAlert className="h-3 w-3 shrink-0" />
-                      {leg.timeFit.availableMinutes <= 0
-                        ? `No time between these stops for a ${formatDuration(leg.timeFit.neededMinutes)} trip.`
-                        : `Only ${formatDuration(leg.timeFit.availableMinutes)} between these stops — this trip takes ~${formatDuration(leg.timeFit.neededMinutes)}.`}
-                    </p>
-                  )}
-                  {leg.kind === "local" && leg.alternatives.length > 0 && (
-                    <div className="flex items-center gap-1.5 pb-1.5">
-                      <span className="shrink-0 text-2xs text-muted-foreground">Or:</span>
-                      {leg.alternatives.map((alt) => (
-                        <AltChip key={alt.mode} tripId={tripId} dayIndex={day.day} leg={leg} alt={alt} onChosen={() => onLegChosen?.()} />
-                      ))}
-                    </div>
-                  )}
-                  {open === i && leg.steps.length > 0 && (
-                    <div className="space-y-1.5 border-l border-dashed border-border pb-2 pl-3">
-                      {leg.steps.map((st, k) => <StepLine key={k} s={st} />)}
-                    </div>
-                  )}
-                </div>
-              )}
-            </li>
+              {leg ? (
+                <>
+                  <div className="flex justify-center py-1.5" aria-hidden="true">
+                    <span className="w-1 self-stretch" style={legRailStyle(leg)} />
+                  </div>
+                  <div
+                    className="min-w-0 py-1.5 pb-4"
+                    onMouseEnter={() => hoverLeg(i)}
+                    onMouseLeave={() => hoverLeg(null)}
+                  >
+                    {leg.kind === "longhaul" ? (
+                      <p className="text-xs leading-snug text-caution">{leg.note}</p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setOpen(open === i ? null : i)}
+                        aria-expanded={leg.steps.length > 1 ? open === i : undefined}
+                        className="group/leg -mx-2 flex w-[calc(100%+1rem)] items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-surface"
+                      >
+                        <ModeTile mode={mainMode(leg)} />
+                        <span className="min-w-0 flex-1 text-sm leading-tight">
+                          <span className="font-semibold tabular-nums">{leg.minutes != null ? formatDuration(leg.minutes) : "Route"}</span>
+                          <span className="text-muted-foreground tabular-nums">
+                            {leg.km != null ? ` · ${distance(leg.km)}` : ""}
+                            {time(leg.departure) && time(leg.arrival) ? ` · ${time(leg.departure)}–${time(leg.arrival)}` : ""}
+                          </span>
+                        </span>
+                        {leg.steps.length > 1 && <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-300", open === i && "rotate-180")} aria-hidden="true" />}
+                      </button>
+                    )}
+                    {leg.note && leg.kind === "local" && <p className="mt-1 text-2xs leading-snug text-muted-foreground">{leg.note}</p>}
+                    {isTimeFitAtRisk(leg.timeFit) && leg.timeFit && (
+                      <p className="mt-1.5 flex items-start gap-1.5 text-2xs font-medium leading-snug text-caution">
+                        <TriangleAlert className="mt-px size-3 shrink-0" aria-hidden="true" />
+                        {leg.timeFit.availableMinutes <= 0
+                          ? `No time between these stops for a ${formatDuration(leg.timeFit.neededMinutes)} trip.`
+                          : `Only ${formatDuration(leg.timeFit.availableMinutes)} between these stops — this trip takes ~${formatDuration(leg.timeFit.neededMinutes)}.`}
+                      </p>
+                    )}
+                    {leg.kind === "local" && leg.alternatives.length > 0 && (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <span className="mr-0.5 text-2xs text-muted-foreground">Or</span>
+                        {leg.alternatives.map((alt) => (
+                          <AltChip key={alt.mode} tripId={tripId} dayIndex={day.day} leg={leg} alt={alt} onChosen={() => onLegChosen?.()} />
+                        ))}
+                      </div>
+                    )}
+                    {open === i && leg.steps.length > 0 && (
+                      <ul className="mt-2.5 space-y-2 pb-1">
+                        {mergeWalkSteps(leg.steps).map((st, k) => <StepLine key={k} s={st} />)}
+                      </ul>
+                    )}
+                  </div>
+                </>
+              ) : null}
+            </motion.li>
           );
         })}
       </ol>

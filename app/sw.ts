@@ -1,6 +1,6 @@
 import { defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, RuntimeCaching, SerwistGlobalConfig } from "serwist";
-import { ExpirationPlugin, Serwist, StaleWhileRevalidate } from "serwist";
+import { ExpirationPlugin, NetworkOnly, Serwist, StaleWhileRevalidate } from "serwist";
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -24,6 +24,14 @@ const runtimeCaching: RuntimeCaching[] = [
       cacheName: "trip-imagery",
       plugins: [new ExpirationPlugin({ maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 7 })],
     }),
+  },
+  {
+    // Every other same-origin API response is per-viewer (workspace, conversation, account export, …) and
+    // the Cache API keys on URL alone. Serwist's defaultCache would otherwise add a catch-all NetworkFirst
+    // `/api/` cache that stores them for 24h and serves them back on a timeout or offline — this route
+    // must come BEFORE it for the exclusion above to actually hold. Imagery is matched earlier.
+    matcher: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith("/api/"),
+    handler: new NetworkOnly(),
   },
   ...defaultCache,
 ];

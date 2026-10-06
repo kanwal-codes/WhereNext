@@ -2,6 +2,18 @@ import { logger } from "@/lib/server/logger";
 
 type SendArgs = { to: string; subject: string; html: string; text: string };
 
+/** Escape a value before interpolating it into an HTML email body. Trip names, inviter names and
+ *  finding text are user-controlled; without this the recipient gets attacker-chosen markup
+ *  (e.g. a phishing link) inside a message sent from the operator's own sender address. */
+export function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 /**
  * Transactional email via Resend's REST API (no SDK — one endpoint). A no-op that
  * logs a warning when RESEND_API_KEY / EMAIL_FROM are unset, so a missing config

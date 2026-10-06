@@ -65,8 +65,18 @@ export async function PUT(request: Request, { params }: Ctx) {
     if (current.length >= MAX_FILES_PER_RESERVATION) return NextResponse.json({ error: "Too many files" }, { status: 400 });
     const name = parsed.data.path.split("/")[2]!;
     const found = await supabase.storage.from(RESERVATION_FILES_BUCKET).list(reservationFolder(tripId, reservationId).slice(0, -1), { search: name });
-    if (found.error || !found.data?.some((o) => o.name === name)) return NextResponse.json({ error: "The upload didn't finish" }, { status: 409 });
-    const attachments = [...current.filter((f) => f.path !== parsed.data.path), { path: parsed.data.path, name: parsed.data.name, size: parsed.data.size, type: parsed.data.type }];
+    const stored = found.data?.find((o) => o.name === name);
+    if (found.error || !stored) return NextResponse.json({ error: "The upload didn't finish" }, { status: 409 });
+    // Trust what storage actually holds, not what the browser declared: the type and size checked at
+    // step 1 were the client's own claim. (Falls back to the claim only if storage returns no metadata.)
+    const storedMeta = (stored.metadata ?? {}) as { size?: number; mimetype?: string };
+    const actual = { name: parsed.data.name, size: Number(storedMeta.size) > 0 ? Number(storedMeta.size) : parsed.data.size, type: typeof storedMeta.mimetype === "string" && storedMeta.mimetype ? storedMeta.mimetype : parsed.data.type };
+    const problem = fileProblem(actual, current.length);
+    if (problem) {
+      await supabase.storage.from(RESERVATION_FILES_BUCKET).remove([parsed.data.path]);
+      return NextResponse.json({ error: problem }, { status: 400 });
+    }
+    const attachments = [...current.filter((f) => f.path !== parsed.data.path), { path: parsed.data.path, name: parsed.data.name, size: actual.size, type: actual.type }];
     const result = await supabase.from("trip_reservations").update({ attachments }).eq("trip_id", tripId).eq("id", reservationId).select(RESERVATION_COLUMNS).single();
     if (result.error) throw result.error;
     return NextResponse.json({ reservation: toReservation(result.data) });

@@ -272,6 +272,10 @@ export function AccountView({
   const [savingDream, setSavingDream] = useState(false);
   // The picker stays out of the way until asked for: from the profile header's "Add your dream destination" or the one set already.
   const [dreamOpen, setDreamOpen] = useState(false);
+  // overflow-hidden is only needed while the card's height is animating open/closed — left on permanently,
+  // it also clips the destination combobox's dropdown, which has to float past the card's bottom edge.
+  const [dreamSettled, setDreamSettled] = useState(false);
+  useEffect(() => { if (!dreamOpen) setDreamSettled(false); }, [dreamOpen]);
   const openDream = () => {
     setActive("profile");
     setDreamOpen(true);
@@ -283,12 +287,26 @@ export function AccountView({
   const [name, setName] = useState(initialName);
   const [emailDraft, setEmailDraft] = useState(email);
   const [airport, setAirport] = useState(profile.homeAirport ?? "");
+  const [airportText, setAirportText] = useState(profile.homeAirport ?? "");
   const [city, setCity] = useState(profile.homeCity ?? "");
   const [bio, setBio] = useState(profile.bio ?? "");
   const [language, setLanguage] = useState(profile.language ?? "");
   const [country, setCountry] = useState(profile.country ?? "");
   // Once the traveller picks a country themselves, typing a city no longer changes it.
   const countryChosen = useRef(Boolean(profile.country));
+  const changeCity = (value: string) => {
+    setCity(value);
+    // A city that names its country sets the home country, until the traveller sets it by hand.
+    const named = countryFromPlace(value);
+    if (named && !countryChosen.current) setCountry(named);
+    touch();
+  };
+  /** The three-letter code in what was typed or picked: "YYZ", or "Toronto Pearson International Airport (YYZ)". */
+  const airportCode = (text: string): string | null => {
+    const v = text.trim();
+    if (/^[A-Za-z]{3}$/.test(v)) return v.toUpperCase();
+    return /\(([A-Za-z]{3})\)\s*$/.exec(v)?.[1]?.toUpperCase() ?? null;
+  };
   const [detected, setDetected] = useState<{ language?: string; country?: string }>({});
   useEffect(() => setDetected(fromBrowserLocale(navigator.language)), []);
   // A home city saved without a country: the city already says which, so fill it in and keep it.
@@ -597,7 +615,8 @@ export function AccountView({
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                className="overflow-hidden"
+                onAnimationComplete={() => dreamOpen && setDreamSettled(true)}
+                className={dreamSettled ? undefined : "overflow-hidden"}
               >
               <div className="rounded-3xl bg-gradient-to-br from-muted/60 to-coral-soft/50 p-5 sm:p-6">
                 <div className="mb-2 flex items-center justify-between gap-3">
@@ -640,24 +659,50 @@ export function AccountView({
                   <input type="email" value={emailDraft} onChange={(e) => { setEmailDraft(e.target.value); touch(); }} className="input-field" />
                 </Field>
                 <Field label="Home airport">
-                  <div className="relative">
-                    <Plane className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
-                    <input value={airport} onChange={(e) => { setAirport(e.target.value.toUpperCase()); touch(); }} maxLength={8} placeholder="YYZ" className="input-field pl-9 uppercase" />
+                  {/* Pick it by name ("pearson") and the code is saved; a bare code still works. Text that is neither goes back to what is saved. */}
+                  <div
+                    className="relative"
+                    onBlur={() => {
+                      if (airportText.trim() && !airportCode(airportText)) setAirportText(airport);
+                    }}
+                  >
+                    <Plane className="pointer-events-none absolute left-3 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 text-ink-soft" />
+                    <DestinationCombobox
+                      endpoint="/api/account/airports"
+                      value={airportText}
+                      onChange={(text) => {
+                        const code = airportCode(text);
+                        setAirportText(/^[A-Za-z]{3}$/.test(text.trim()) ? text.trim().toUpperCase() : text);
+                        if (!text.trim()) setAirport("");
+                        else if (code) setAirport(code);
+                        touch();
+                      }}
+                      onPick={(s) => {
+                        setAirport(s.placeId);
+                        setAirportText(s.text.includes(`(${s.placeId})`) ? s.text : `${s.text} (${s.placeId})`);
+                        touch();
+                      }}
+                      onSelect={() => undefined}
+                      maxLength={80}
+                      selectOnFocus
+                      ariaLabel="Home airport"
+                      placeholder="Toronto Pearson, or YYZ"
+                      inputClassName="input-field pl-9"
+                    />
                   </div>
                 </Field>
                 <Field label="Home city">
-                  <input
+                  <DestinationCombobox
+                    endpoint="/api/account/places/autocomplete"
+                    full
                     value={city}
-                    onChange={(e) => {
-                      setCity(e.target.value);
-                      // A city that names its country sets the home country, until the traveller sets it by hand.
-                      const named = countryFromPlace(e.target.value);
-                      if (named && !countryChosen.current) setCountry(named);
-                      touch();
-                    }}
+                    onChange={changeCity}
+                    onSelect={changeCity}
                     maxLength={120}
+                    selectOnFocus
+                    ariaLabel="Home city"
                     placeholder="Toronto, Canada"
-                    className="input-field"
+                    inputClassName="input-field"
                   />
                 </Field>
                 <Field label="Preferred language">

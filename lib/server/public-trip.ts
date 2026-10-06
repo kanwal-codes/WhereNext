@@ -85,5 +85,9 @@ async function fetchPublicTrip(slug: string): Promise<PublicTrip | null> {
  * edited moment-to-moment. Revisit if a fresher-than-60s shared link ever actually matters.
  */
 export function loadPublicTrip(slug: string): Promise<PublicTrip | null> {
+  // Validate BEFORE the cache: the slug is attacker-controlled on an unauthenticated route, and
+  // `cached()` stores a (null) entry for whatever key it is given — so any junk slug used to mint
+  // a shared-cache key.
+  if (!/^[a-f0-9]{8,64}$/.test(slug)) return Promise.resolve(null);
   return cached(`public-trip:${slug}`, 60_000, () => fetchPublicTrip(slug));
 }

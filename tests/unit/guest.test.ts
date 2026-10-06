@@ -220,13 +220,23 @@ describe("POST /api/guest/start", () => {
     await expect(Promise.resolve(afterTasks[0]())).resolves.toBeUndefined();
   });
 
-  it("reuses a signed-in user and skips the guest limits entirely", async () => {
+  it("reuses a signed-in user, skips the guest limits, and holds them to the per-person model limit", async () => {
     const { signInAnonymously, create, limit } = setup({ user: { id: "u1", is_anonymous: false } });
     const res = await post({ prompt: "Rome for 5 days" });
     expect(res.status).toBe(201);
     expect(signInAnonymously).not.toHaveBeenCalled();
-    expect(limit).not.toHaveBeenCalled();
+    // Only the same user-llm budget /api/trips/parse uses: no per-IP or per-guest counter.
+    expect(limit).toHaveBeenCalledTimes(1);
+    expect(limit).toHaveBeenCalledWith("user-llm:u1", 60, 3_600_000);
     expect(create).toHaveBeenCalledWith("u1", expect.anything(), { opener: false });
+  });
+
+  it("refuses a signed-in user who has used up their model budget, without creating a trip", async () => {
+    const { create, limit } = setup({ user: { id: "u1", is_anonymous: false } });
+    limit.mockResolvedValueOnce(false);
+    const res = await post({ prompt: "Rome for 5 days" });
+    expect(res.status).toBe(429);
+    expect(create).not.toHaveBeenCalled();
   });
 
   it("tells the client to fall back to sign-up when anonymous sign-ins are unavailable", async () => {

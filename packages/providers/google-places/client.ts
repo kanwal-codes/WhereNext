@@ -57,6 +57,8 @@ const GOOGLE_MAX_RESULTS = 60;
 export type LocationBias = { lat: number; lng: number; radiusMeters?: number };
 const DEFAULT_BIAS_RADIUS_METERS = 20_000;
 
+export type AutocompleteSuggestion = { placeId: string; text: string; secondaryText: string | null; /** "King's Cross Station, London, UK": the whole line, for a field that must say which one. */ fullText: string; types: string[] };
+
 export class GooglePlacesProvider {
   private key() { const key = process.env.GOOGLE_MAPS_API_KEY; if (!key) throw new Error("GOOGLE_MAPS_API_KEY is not configured"); return key; }
   /**
@@ -140,22 +142,47 @@ export class GooglePlacesProvider {
 
   /** City/region typeahead for a destination field — restricted to locality-level results so
    *  "Paris" surfaces the city, not a bakery chain, the way a general text search would. */
-  async autocompleteRegions(input: string, signal?: AbortSignal): Promise<Array<{ placeId: string; text: string; secondaryText: string | null }>> {
+  async autocompleteRegions(input: string, signal?: AbortSignal): Promise<AutocompleteSuggestion[]> {
+    return this.autocomplete({ input, includedPrimaryTypes: ["locality", "administrative_area_level_1", "administrative_area_level_2", "country"] }, signal);
+  }
+
+  /** Airports, by name or code ("pearson", "YYZ"). */
+  async autocompleteAirports(input: string, signal?: AbortSignal): Promise<AutocompleteSuggestion[]> {
+    return this.autocomplete({ input, includedPrimaryTypes: ["airport"] }, signal);
+  }
+
+  /** Where to stay: cities and regions plus neighbourhoods ("Shoreditch"), ranked toward `near` when given. */
+  async autocompleteAreas(input: string, signal?: AbortSignal, near?: { lat: number; lng: number }): Promise<AutocompleteSuggestion[]> {
+    return this.autocomplete({
+      input,
+      // Google accepts at most five types in this filter.
+      includedPrimaryTypes: ["locality", "sublocality", "neighborhood", "administrative_area_level_1", "country"],
+      ...(near ? { locationBias: { circle: { center: { latitude: near.lat, longitude: near.lng }, radius: 50_000 } } } : {}),
+    }, signal);
+  }
+
+  /** Anywhere you might travel to or from — stations, airports, parks, hotels, addresses — ranked toward `near` when given
+   *  (a bias, not a limit: a traveller can still type a place in another city). */
+  async autocompletePlaces(input: string, signal?: AbortSignal, near?: { lat: number; lng: number }): Promise<AutocompleteSuggestion[]> {
+    return this.autocomplete({ input, ...(near ? { locationBias: { circle: { center: { latitude: near.lat, longitude: near.lng }, radius: 50_000 } } } : {}) }, signal);
+  }
+
+  private async autocomplete(request: Record<string, unknown>, signal?: AbortSignal): Promise<AutocompleteSuggestion[]> {
     const response = await guardedFetch("google-places", "https://places.googleapis.com/v1/places:autocomplete", {
       method: "POST",
       headers: { "content-type": "application/json", "x-goog-api-key": this.key() },
-      body: JSON.stringify({ input, includedPrimaryTypes: ["locality", "administrative_area_level_1", "administrative_area_level_2", "country"] }),
+      body: JSON.stringify(request),
       signal: withProviderTimeout(signal),
     });
     if (!response.ok) throw new Error(`Google Places autocomplete failed: ${response.status}`);
     const body = await response.json() as {
-      suggestions?: Array<{ placePrediction?: { placeId?: string; text?: { text?: string }; structuredFormat?: { mainText?: { text?: string }; secondaryText?: { text?: string } } } }>;
+      suggestions?: Array<{ placePrediction?: { placeId?: string; types?: string[]; text?: { text?: string }; structuredFormat?: { mainText?: { text?: string }; secondaryText?: { text?: string } } } }>;
     };
     return (body.suggestions ?? []).flatMap((s) => {
       const p = s.placePrediction;
       const text = p?.structuredFormat?.mainText?.text ?? p?.text?.text;
       if (!p?.placeId || !text) return [];
-      return [{ placeId: p.placeId, text, secondaryText: p.structuredFormat?.secondaryText?.text ?? null }];
+      return [{ placeId: p.placeId, text, secondaryText: p.structuredFormat?.secondaryText?.text ?? null, fullText: p.text?.text ?? text, types: p.types ?? [] }];
     });
   }
 

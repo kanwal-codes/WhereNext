@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
+import { LIMITS } from "@/lib/server/limits";
 
 /** The cover photograph for a trip's destination: `{ photoName }`, or null when nothing suitable exists. */
 export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
-    await requireTripMember(tripId);
-    const destination = new URL(request.url).searchParams.get("destination")?.trim();
+    await requireTripMember(tripId, { limit: LIMITS.photo });
+    const destination = new URL(request.url).searchParams.get("destination")?.trim().slice(0, 160);
     if (!destination) return NextResponse.json({ photoName: null });
     return NextResponse.json({ photoName: await new GooglePlacesProvider().coverPhoto(destination, request.signal) });
   } catch (error) {

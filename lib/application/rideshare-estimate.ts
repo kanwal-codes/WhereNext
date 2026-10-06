@@ -7,10 +7,10 @@ const PER_MINUTE = 0.25;
 
 export type RideshareEstimate = { low: number; high: number; currency: string; minutes: number };
 
-/** A rough cost/time range for a rideshare covering the same distance as a driving route. */
-export function estimateRideshare(distanceMeters: number, durationSeconds: number, currency = "USD"): RideshareEstimate {
+/** A rough cost/time range for a rideshare covering the same distance as a driving route. The constants are US dollars; `usdRate` converts them into `currency`. */
+export function estimateRideshare(distanceMeters: number, durationSeconds: number, currency = "USD", usdRate = 1): RideshareEstimate {
   const km = distanceMeters / 1000;
   const minutes = Math.round(durationSeconds / 60);
   const fare = BASE_FARE + PER_KM * km + PER_MINUTE * minutes;
-  return { low: Math.round(fare * 0.85), high: Math.round(fare * 1.25), currency, minutes };
+  return { low: Math.round(fare * usdRate * 0.85), high: Math.round(fare * usdRate * 1.25), currency, minutes };
 }

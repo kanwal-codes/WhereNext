@@ -35,7 +35,8 @@ function stateFor(provider: string): State {
   return s;
 }
 
-const isAbort = (e: unknown) => e instanceof DOMException && e.name === "AbortError";
+// The caller hanging up is not the provider failing. Next aborts a cancelled request's signal with a plain Error named "ResponseAborted", not a DOMException.
+const isAbort = (e: unknown) => e instanceof Error && (e.name === "AbortError" || e.name === "ResponseAborted");
 const isProviderFailure = (e: unknown) => !isAbort(e) && !(e instanceof ProviderUnavailableError);
 
 export async function guard<T>(provider: string, fn: () => Promise<T>): Promise<T> {

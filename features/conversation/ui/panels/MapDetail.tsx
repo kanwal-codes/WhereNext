@@ -1,12 +1,17 @@
 "use client";
 
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Expand } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { motionTokens } from "@/components/motion-primitives";
 import { Skeleton } from "@/components/Skeleton";
 import { LazyTripMap } from "./LazyTripMap";
+import { mapOfHops, minutes } from "./routeMap";
+import { useHops } from "./useHops";
+import { ModeTile, mainMode } from "@/features/maps/ui/modeParts";
+import { MODE_LABEL, STOP_CORAL } from "@/lib/application/mode-visuals";
 import { useSettled } from "./useSettled";
+import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type MapPoint, type PanelState } from "@/components/TripPanelProvider";
 import type { MapLeg, MapPin } from "@/components/TripMap";
 import { SlidingTabs } from "@/features/conversation/ui/blocks/SlidingTabs";
@@ -75,9 +80,17 @@ export function MapDetail({ tripId, panel }: { tripId: string; panel: Extract<Pa
   const shown = located.filter((p) => active === "all" || p.day === active).sort((a, b) => (a.day ?? 0) - (b.day ?? 0));
   const unplaced = panel.points.filter((p) => active === "all" || p.day === active).length - shown.length;
   const pins: MapPin[] = located.map((p) => ({ id: p.id, name: p.name, lng: p.lng, lat: p.lat, kind: p.kind, day: p.day }));
-  const legs: MapLeg[] | undefined = panel.path ? [{ polyline: panel.path, mode: panel.mode ?? "transit" }] : undefined;
+  const pathLegs: MapLeg[] | undefined = panel.path ? [{ polyline: panel.path, mode: panel.mode ?? "transit" }] : undefined;
   // A straight line across different days says nothing, so it is drawn only for one day (or a route).
   const connect = panel.connect !== false && (days.length < 2 || active !== "all");
+
+  // Real ways between the stops (walk, ride, change) when it is one day or one route, not a straight line across the city.
+  const hopStops = connect && !panel.path && shown.length >= 2 && shown.length <= 10 ? shown.map((p) => ({ id: p.id, name: p.name, lat: p.lat, lng: p.lng })) : null;
+  const hops = useHops(tripId, hopStops);
+  const real = useMemo(() => (hops ? mapOfHops(hops) : null), [hops]);
+  // The full map shows the saved itinerary, so link to it only for a day whose stops are all saved.
+  const saved = (useTripDataMaybe()?.data?.itinerary ?? []) as Array<{ title: string; day_index: number }>;
+  const savedDay = active !== "all" && shown.length > 0 && shown.every((p) => saved.some((i) => i.day_index === active && i.title.trim().toLowerCase() === p.name.trim().toLowerCase())) ? active : null;
 
   if (pending) return <div className="space-y-4 p-4"><Skeleton className="h-[46vh] min-h-[280px]" /><span className="sr-only" role="status">Finding these on the map</span></div>;
 
@@ -98,16 +111,22 @@ export function MapDetail({ tripId, panel }: { tripId: string; panel: Extract<Pa
       ) : !settled ? (
         <Skeleton className="h-[46vh] min-h-[280px]" />
       ) : (
-        <LazyTripMap className="h-[46vh] min-h-[280px]" pins={pins} legs={legs} activeDay={active} connect={connect} />
+        <LazyTripMap className="h-[46vh] min-h-[280px]" pins={pins} legs={real?.legs.length ? real.legs : pathLegs} overlay={real?.overlay} fitControl scaleBar activeDay={active} connect={connect} />
+      )}
+      {savedDay !== null && (
+        <a href={`/trips/${tripId}/map?day=${savedDay}`} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-card px-5 text-sm font-medium transition-[background-color,transform] hover:bg-accent/40 active:scale-[0.98]">
+          <Expand className="size-4" aria-hidden /> Open Day {savedDay} on the full map
+        </a>
       )}
       {unplaced > 0 && located.length > 0 && <Notice>{unplaced} stop{unplaced === 1 ? " has" : "s have"} no location, so {unplaced === 1 ? "it isn’t" : "they aren’t"} on the map.</Notice>}
       {shown.length > 0 && (
         <ol className={cn(surface, "divide-y divide-border overflow-hidden")}>
           {shown.map((p, i) => {
+            const hop = hops && hops.length === shown.length - 1 ? hops[i] : undefined;
             const open = p.placeId && ctx ? () => ctx.openPanel({ kind: "place", placeId: p.placeId!, name: p.name }) : null;
             const row = (
               <>
-                <span aria-hidden className={cn("grid size-6 shrink-0 place-items-center rounded-full text-xs font-semibold text-white tabular-nums", DOT[p.kind])}>{i + 1}</span>
+                <span aria-hidden style={p.day != null ? { background: STOP_CORAL } : undefined} className={cn("grid size-6 shrink-0 place-items-center rounded-full text-xs font-semibold text-white tabular-nums", p.day == null && DOT[p.kind])}>{i + 1}</span>
                 <span className={cn(type.body, "min-w-0 flex-1 font-medium")}>{p.name}</span>
                 {active === "all" && days.length > 1 && p.day && <span className={type.meta}>Day {p.day}</span>}
                 {open && <ArrowUpRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />}
@@ -119,6 +138,15 @@ export function MapDetail({ tripId, panel }: { tripId: string; panel: Extract<Pa
                   <button type="button" onClick={open} className="flex min-h-12 w-full items-center gap-3 px-4 text-left transition-colors hover:bg-accent/40">{row}</button>
                 ) : (
                   <div className="flex min-h-12 items-center gap-3 px-4">{row}</div>
+                )}
+                {hop && (
+                  <p className={cn(type.meta, "flex items-center gap-2 border-t border-dashed border-border bg-muted/40 py-2 pl-[2.75rem] pr-4 tabular-nums")}>
+                    <ModeTile mode={mainMode({ mode: hop.mode, steps: hop.steps })} size="sm" />
+                    {hop.minutes ? minutes(hop.minutes * 60) : "Intercity"}
+                    <span aria-hidden>·</span>
+                    {MODE_LABEL[mainMode({ mode: hop.mode, steps: hop.steps })] ?? "Transit"}
+                    {hop.fare ? <><span aria-hidden>·</span>{new Intl.NumberFormat(undefined, { style: "currency", currency: hop.fare.currency }).format(hop.fare.amount)}</> : null}
+                  </p>
                 )}
               </motion.li>
             );

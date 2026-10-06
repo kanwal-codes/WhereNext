@@ -129,7 +129,12 @@ async function cachedRedis<T>(r: Redis, key: string, ttlMs: number, load: () => 
   return pending ?? run();
 }
 
+/** Keys longer than this are not cached at all: several callers build keys from request text, and an
+ *  unbounded key is an unbounded memory/Redis entry that anyone can mint. */
+const MAX_KEY_LENGTH = 512;
+
 export function cached<T>(key: string, ttlMs: number, load: () => Promise<T>): Promise<T> {
+  if (key.length > MAX_KEY_LENGTH) return load();
   const r = client();
   return r && r.status === "ready" ? cachedRedis(r, key, ttlMs, load) : cachedMemory(key, ttlMs, load);
 }
@@ -141,6 +146,17 @@ export async function invalidate(key: string): Promise<void> {
   entries.delete(key);
   inflight.delete(key);
   const r = client();
+  // A cold instance has just started connecting (see client()): wait briefly for it instead of
+  // skipping the delete, which left a revoked share link served from Redis until its TTL.
+  if (r && r.status !== "ready" && r.status !== "end") {
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, 1_500);
+      r.once("ready", () => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+  }
   if (r && r.status === "ready") {
     try {
       await r.del(PREFIX + key);

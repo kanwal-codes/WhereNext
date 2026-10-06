@@ -5,7 +5,7 @@ import { ticketmasterIdFromUrl } from "../../packages/providers/ticketmaster/cli
 import { route } from "../../packages/providers/mapbox/client";
 import { transit } from "../../packages/providers/google-places/transit";
 import { transitAppPlan } from "../../packages/providers/transit-app/client";
-import { searchFlights } from "../../packages/providers/duffel/client";
+import { legsOfSegments, searchFlights } from "../../packages/providers/duffel/client";
 import { bookStay, cancelBooking, hotelDetails, prebookRate, searchStays, stayRooms } from "../../packages/providers/liteapi/client";
 import { cancelOrder, createOrder } from "../../packages/providers/duffel/client";
 import { localEvents } from "../../packages/providers/eventbrite/client";
@@ -149,12 +149,12 @@ describe("provider adapters", () => {
       duration: "4197s",
       legs: [{ steps: [
         { travelMode: "WALK", staticDuration: "30s" },
-        { travelMode: "TRANSIT", staticDuration: "2086s", transitDetails: { transitLine: { nameShort: "208", vehicle: { type: "BUS" }, agencies: [{ name: "Carris" }] }, headsign: "Cais Sodré", stopCount: 9, stopDetails: { departureStop: { name: "Airport", departureTime: "2026-09-02T09:00:00Z" }, arrivalStop: { name: "Cais Sodré" } } } },
+        { travelMode: "TRANSIT", staticDuration: "2086s", transitDetails: { transitLine: { nameShort: "208", vehicle: { type: "BUS" }, agencies: [{ name: "Carris" }] }, headsign: "Cais Sodré", stopCount: 9, stopDetails: { departureStop: { name: "Airport" }, arrivalStop: { name: "Cais Sodré" }, departureTime: "2026-09-02T09:00:00Z", arrivalTime: "2026-09-02T09:35:00Z" }, localizedValues: { departureTime: { timeZone: "Europe/Lisbon" } } } },
       ] }],
     }] }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
     const [first] = await transit({ origin: "Lisbon Airport", destination: "Belém" });
-    expect(first).toMatchObject({ provider: "google-routes", distanceMeters: 22072, durationSeconds: 4197, departureTime: "2026-09-02T09:00:00Z" });
+    expect(first).toMatchObject({ provider: "google-routes", distanceMeters: 22072, durationSeconds: 4197, departureTime: "2026-09-02T09:00:00Z", arrivalTime: "2026-09-02T09:35:00Z", timeZone: "Europe/Lisbon" });
     expect(first.steps).toHaveLength(2);
     expect(first.steps[0]).toMatchObject({ mode: "walk" });
     expect(first.steps[1]).toMatchObject({ mode: "bus", line: "208", agency: "Carris", stopCount: 9, departureStop: "Airport", arrivalStop: "Cais Sodré" });
@@ -420,5 +420,20 @@ describe("provider adapters", () => {
     await provider.search(" UNIQUE CACHE QUERY ");
     expect(fetchMock).toHaveBeenCalledOnce();
     vi.unstubAllEnvs();
+  });
+
+  it("builds each flight of a journey with the wait at the connection", () => {
+    const seg = (from: string, to: string, departing_at: string, arriving_at: string, number: string) => ({
+      origin: { iata_code: from, name: `${from} Airport` }, destination: { iata_code: to, name: `${to} Airport` }, departing_at, arriving_at,
+      duration: "PT2H10M", marketing_carrier_flight_number: number, marketing_carrier: { name: "Air Canada", iata_code: "AC" }, aircraft: { name: "Airbus A320" },
+    });
+    const legs = legsOfSegments([
+      seg("YYZ", "YUL", "2026-11-16T11:36:00", "2026-11-16T12:55:00", "401"),
+      seg("YUL", "LHR", "2026-11-16T14:15:00", "2026-11-17T02:00:00", "870"),
+    ]);
+    expect(legs).toHaveLength(2);
+    expect(legs[0]).toMatchObject({ from: "YYZ", to: "YUL", minutes: 130, flightNumber: "AC 401", aircraft: "Airbus A320", layoverMinutes: 80, overnight: false });
+    expect(legs[1]).toMatchObject({ from: "YUL", to: "LHR" });
+    expect(legs[1].layoverMinutes).toBeUndefined();
   });
 });

@@ -17,7 +17,7 @@ export type SwitchOption<K extends string> = {
 };
 
 /**
- * The one pill switch for the app: Roam / Chat, Discover / Saved, My trip / Browse. The white
+ * The one pill switch for the app: Roam / Chat, Discover / Saved, My trip / Browse. The black
  * thumb glides to the chosen segment (a shared `layoutId`) instead of cutting, and every instance
  * is the same 40px so the pill never changes size between screens.
  */
@@ -27,22 +27,25 @@ export function SegmentedSwitch<K extends string>({
   onChange,
   label,
   className,
+  floating = false,
 }: {
   options: ReadonlyArray<SwitchOption<K>>;
   value: K;
   onChange?: (key: K) => void;
   label: string;
   className?: string;
+  /** Sits over a map or photo: the same pill, lifted off the ground with a shadow. */
+  floating?: boolean;
 }) {
   const thumbId = useId();
   const reduce = useReducedMotion();
   return (
-    <div role="group" aria-label={label} className={cn("inline-flex rounded-full bg-muted p-1 text-sm", className)}>
+    <div role="group" aria-label={label} className={cn("inline-flex rounded-full bg-muted p-1 text-sm", floating && "shadow-lift ring-1 ring-black/[0.05]", className)}>
       {options.map((o) => {
         const active = o.key === value && !o.locked;
         const cls = cn(
           "relative inline-flex h-8 items-center justify-center gap-1.5 rounded-full px-5 font-medium whitespace-nowrap transition-colors",
-          active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+          active ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
         );
         const inner = (
           <>
@@ -50,7 +53,7 @@ export function SegmentedSwitch<K extends string>({
               <motion.span
                 layoutId={thumbId}
                 aria-hidden
-                className="absolute inset-0 rounded-full bg-card shadow-soft"
+                className="absolute inset-0 rounded-full bg-primary shadow-soft"
                 transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 36 }}
               />
             )}

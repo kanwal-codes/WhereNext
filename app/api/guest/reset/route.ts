@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { clearRateLimits } from "@/lib/server/rate-limit";
 import { guestLimiterKeys, isGuest } from "@/lib/server/guest";
+import { purgeUserFiles } from "@/lib/server/storage-cleanup";
 
 /**
  * Throws a guest's session away: deletes the anonymous user (every trip, message and decision
@@ -20,7 +21,9 @@ export const POST = withRoute(async function POST() {
     if (!user) return new NextResponse(null, { status: 204 });
     if (!isGuest(user)) return NextResponse.json({ error: "Only guest sessions can be reset." }, { status: 403 });
 
-    const { error } = await createSupabaseAdminClient().auth.admin.deleteUser(user.id);
+    const admin = createSupabaseAdminClient();
+    await purgeUserFiles(admin, user.id);
+    const { error } = await admin.auth.admin.deleteUser(user.id);
     if (error) throw error;
     // Their own limiter counters go with them (their IP's do not: those outlive the guest).
     await clearRateLimits(guestLimiterKeys(user.id)).catch(() => undefined);

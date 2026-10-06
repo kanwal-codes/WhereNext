@@ -1,8 +1,8 @@
 import length from "@turf/length";
 import { lineString } from "@turf/helpers";
 
-export type AnimatedLeg = { polyline: Array<[number, number]>; mode: string; dim?: boolean; color?: string };
-export type LegLine = { line: ReturnType<typeof lineString>; mode: string; color?: string; dim?: boolean; startKm: number; endKm: number };
+export type AnimatedLeg = { polyline: Array<[number, number]>; mode: string; dim?: boolean; color?: string; /** Congestion on a stretch of road: drawn over the drive line. */ traffic?: string };
+export type LegLine = { line: ReturnType<typeof lineString>; mode: string; color?: string; dim?: boolean; traffic?: string; startKm: number; endKm: number };
 
 /** Per-leg cumulative distance along the concatenated path — lets the draw-in reveal and the
  * mode-icon marker both answer "how much of this leg is visible" / "which leg is this point in". */
@@ -13,7 +13,7 @@ export function legLines(legList: AnimatedLeg[]): { legs: LegLine[]; totalKm: nu
     if (l.polyline.length < 2) continue;
     const line = lineString(l.polyline);
     const km = length(line, { units: "kilometers" }) || 0.001;
-    legs.push({ line, mode: l.mode, color: l.color, dim: l.dim, startKm: cursor, endKm: cursor + km });
+    legs.push({ line, mode: l.mode, color: l.color, dim: l.dim, traffic: l.traffic, startKm: cursor, endKm: cursor + km });
     cursor += km;
   }
   return { legs, totalKm: cursor || 0.001 };

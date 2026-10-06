@@ -56,7 +56,7 @@ export async function searchFlightOffers(query: FlightQuery, signal?: AbortSigna
     );
     return { offers, insights, provider: "serpapi", from, to };
   }
-  const key = `flights:duffel:${query.origin}:${query.destination}:${query.departureDate}:${query.returnDate ?? ""}:${query.adults ?? 1}`;
+  const key = `flights:duffel:v2:${query.origin}:${query.destination}:${query.departureDate}:${query.returnDate ?? ""}:${query.adults ?? 1}`;
   const found = await cached(key, 10 * 60_000, () => searchDuffel({ origin: query.origin, destination: query.destination, departureDate: query.departureDate, returnDate: query.returnDate, adults: query.adults }, signal));
   return { offers: await offersInCurrency(found, query.currency, signal), insights: null, provider: "duffel", from: null, to: null };
 }

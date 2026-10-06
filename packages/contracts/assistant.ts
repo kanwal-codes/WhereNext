@@ -176,6 +176,18 @@ export const assistantBlockSchema = z.discriminatedUnion("type", [
     arrivalTime: z.string().optional(),
     /** The route's line as [lng, lat] (thinned), so the card can open it on a map. */
     path: z.array(z.tuple([z.number(), z.number()])).max(80).optional(),
+    /** The journey part by part (each in its own mode, thinned), so the map can draw a train, then a walk, and mark where one hands over to the next. */
+    legs: z.array(z.object({
+      mode: z.string().max(12),
+      minutes: z.number().nonnegative(),
+      from: z.string().max(80).optional(),
+      to: z.string().max(80).optional(),
+      line: z.string().max(24).optional(),
+      color: z.string().max(9).optional(),
+      /** Drive only: how busy this stretch of road is ("moderate", "heavy", "severe"). */
+      traffic: z.string().max(10).optional(),
+      path: z.array(z.tuple([z.number(), z.number()])).max(40),
+    })).max(24).optional(),
     retrievedAt: z.string(),
   }),
   z.object({

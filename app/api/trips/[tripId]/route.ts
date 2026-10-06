@@ -4,6 +4,8 @@ import { isoDate, tripDurationDays } from "@/features/trip/domain/trip";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { purgeTripFiles } from "@/lib/server/storage-cleanup";
 
 /** Delete a whole trip. Owner only; the DB cascades places, itinerary, conversation, decisions. */
 export async function DELETE(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
@@ -16,6 +18,12 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ tripId:
     if (result.error) throw result.error;
     if (!result.data || result.data.length === 0) {
       return NextResponse.json({ error: "Trip could not be deleted" }, { status: 500 });
+    }
+    // The DB cascade does not reach uploaded reservation files; remove them (best effort).
+    try {
+      await purgeTripFiles(createSupabaseAdminClient(), tripId);
+    } catch {
+      /* the admin client isn't configured here — the files stay, the deletion still succeeded */
     }
     return new Response(null, { status: 204 });
   } catch (error) {
