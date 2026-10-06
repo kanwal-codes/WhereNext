@@ -204,6 +204,14 @@ export const RESOLVE_GRADE_SET: GradeCase[] = [
     expect: { intent: "other", tools: ["research_web"] },
   },
 
+  // --- a trip brief is a request for the plan (live run only: the "itinerary" capability is not scored here, the tools are) ---
+  {
+    id: "activities/trip-brief-with-length",
+    message: "trip to manali india 2 days, trekking vibe",
+    tripSummary: UNDECIDED,
+    expect: { intent: "activities", tools: ["search_places"] },
+  },
+
   // --- trip memory -> no tools -------------------------------------------
   {
     id: "trip_memory/itinerary",
