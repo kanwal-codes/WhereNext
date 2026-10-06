@@ -9,7 +9,7 @@ import { createTripRepository } from "@/features/trip/infrastructure/tripReposit
 import { createTrip } from "@/features/trip/application/createTrip";
 import { withinRateLimit } from "@/lib/server/rate-limit";
 import { LIMITS } from "@/lib/server/limits";
-import { DAY_MS, GUEST_IP_START_LIMIT, GUEST_WINDOW_MS, clientKey, guestKey, isGuest } from "@/lib/server/guest";
+import { DAY_MS, GUEST_IP_START_LIMIT, GUEST_WINDOW_MS, clientKey, guestDeviceCookie, guestDeviceId, guestKey, isGuest, newGuestDeviceId } from "@/lib/server/guest";
 
 const bodySchema = z.object({
   prompt: z.string().trim().min(1).max(600),
@@ -78,7 +78,10 @@ export const POST = withRoute(async function POST(request: Request) {
       ),
     );
     mark("create-trip");
-    return NextResponse.json({ tripId: trip.id }, { status: 201, headers: { "server-timing": marks.join(", ") } });
+    const response = NextResponse.json({ tripId: trip.id }, { status: 201, headers: { "server-timing": marks.join(", ") } });
+    // Tag this browser once, so the free-message count follows it across guest sessions (see guestDeviceId).
+    if (isGuest(user)) response.cookies.set(guestDeviceCookie(guestDeviceId(request) ?? newGuestDeviceId()));
+    return response;
   } catch (error) {
     return fail(error, "We couldn’t start that trip. Try again in a moment.");
   }

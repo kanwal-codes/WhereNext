@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { User } from "@supabase/supabase-js";
 
 export { GUEST_TURN_LIMIT } from "@/lib/guest-limits";
@@ -25,6 +25,8 @@ export const guestKey = {
   turns: (userId: string) => `guest-turns:${userId}`,
   trips: (userId: string) => `guest-trips:${userId}`,
   api: (userId: string) => `guest-api:${userId}`,
+  /** Per browser, not per session: it survives a guest session being thrown away, so a reload can't hand back the free messages. */
+  deviceTurns: (deviceId: string) => `guest-device-turns:${deviceId}`,
 };
 export const guestLimiterKeys = (userId: string) => [guestKey.turns(userId), guestKey.trips(userId), guestKey.api(userId)];
 
@@ -56,3 +58,14 @@ export function clientKey(request: Request) {
   const ip = platform || request.headers.get("x-real-ip") || forwarded || "unknown";
   return createHash("sha256").update(normalizeIp(ip)).digest("hex").slice(0, 24);
 }
+
+/** A random id kept in a long-lived cookie, outside the Supabase session. Resetting a guest (a reload deletes the anonymous
+ *  user) must not reset what that browser has already used; clearing cookies still does, which is what the per-IP ceilings are for. */
+export const GUEST_DEVICE_COOKIE = "wn_guest_device";
+const DEVICE_ID = /^[A-Za-z0-9-]{16,64}$/;
+export function guestDeviceId(request: Request): string | null {
+  const value = request.headers.get("cookie")?.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${GUEST_DEVICE_COOKIE}=`))?.slice(GUEST_DEVICE_COOKIE.length + 1);
+  return value && DEVICE_ID.test(value) ? value : null;
+}
+export const newGuestDeviceId = () => randomUUID();
+export const guestDeviceCookie = (value: string) => ({ name: GUEST_DEVICE_COOKIE, value, httpOnly: true, sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", path: "/", maxAge: GUEST_WINDOW_MS / 1000 });

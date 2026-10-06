@@ -1,4 +1,4 @@
-import { cached } from "@/lib/server/ttl-cache";
+import { cached, invalidate } from "@/lib/server/ttl-cache";
 import { offersInCurrency } from "@/lib/server/fx";
 import { searchFlights as searchDuffel, type FlightOffer } from "@/packages/providers/duffel/client";
 import { searchGoogleFlights, serpConfigured, suggestFlightPlaces, type FlightPlace, type PriceInsights } from "@/packages/providers/serpapi/client";
@@ -32,7 +32,11 @@ const DAY = 24 * 60 * 60_000;
 
 /** Cities and airports for a typed name. A day's cache: a place's name for its airport does not change. */
 export const flightPlaces = (query: string, signal?: AbortSignal): Promise<FlightPlace[]> =>
-  cached(`flights:places:${query.trim().toLowerCase()}`, DAY, () => suggestFlightPlaces(query.trim(), signal));
+  cached(`flights:places:${query.trim().toLowerCase()}`, DAY, () => suggestFlightPlaces(query.trim(), signal)).then(async (places) => {
+    // An empty answer is usually a name Google didn't recognise or a hiccup; don't remember it for a day.
+    if (places.length === 0) await invalidate(`flights:places:${query.trim().toLowerCase()}`);
+    return places;
+  });
 
 /** The Google Flights id for a typed place: a known id, a bare airport code, or the best suggestion for the text. */
 export async function resolveEnd(text: string, knownId?: string, signal?: AbortSignal): Promise<FlightEnd | null> {
@@ -40,7 +44,17 @@ export async function resolveEnd(text: string, knownId?: string, signal?: AbortS
   if (knownId) return { id: knownId, label };
   if (label.length < 2) return null;
   if (/^[A-Za-z]{3}$/.test(label)) return { id: label.toUpperCase(), label: label.toUpperCase() };
-  const options = await flightPlaces(label, signal).catch(() => []);
+  let options = await flightPlaces(label, signal).catch(() => []);
+  // Google Flights' autocomplete answers "Toronto" and "London, United Kingdom" but returns nothing for "Toronto, ON, Canada"
+  // or "London, UK". A qualified name that finds nothing retries as the bare city, preferring the suggestion that names the
+  // qualifier it was given.
+  if (options.length === 0 && label.includes(",")) {
+    const [city, ...rest] = label.split(",").map((part) => part.trim());
+    options = await flightPlaces(city, signal).catch(() => []);
+    const hint = rest.filter((part) => part.length > 2).map((part) => part.toLowerCase());
+    const named = options.find((o) => hint.some((h) => `${o.label} ${o.detail}`.toLowerCase().includes(h)));
+    if (named) options = [named, ...options.filter((o) => o !== named)];
+  }
   const pick = options.find((o) => o.label.toLowerCase() === label.toLowerCase()) ?? options.find((o) => o.label.toLowerCase().startsWith(label.toLowerCase())) ?? options[0];
   return pick ? { id: pick.id, label: pick.label } : null;
 }
@@ -54,6 +68,8 @@ export async function searchFlightOffers(query: FlightQuery, signal?: AbortSigna
     const { offers, insights } = await cached(key, 10 * 60_000, () =>
       searchGoogleFlights({ departureId: from.id, arrivalId: to.id, departureDate: query.departureDate, returnDate: query.returnDate, currency: query.currency, adults: query.adults }),
     );
+    // "No results" can be a blip on Google's side; a miss must not stick for ten minutes.
+    if (offers.length === 0) await invalidate(key);
     return { offers, insights, provider: "serpapi", from, to };
   }
   const key = `flights:duffel:v2:${query.origin}:${query.destination}:${query.departureDate}:${query.returnDate ?? ""}:${query.adults ?? 1}`;

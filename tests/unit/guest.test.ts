@@ -293,6 +293,37 @@ describe("POST /api/ai for guests", () => {
   });
 });
 
+describe("free messages follow the browser, not the guest session", () => {
+  const aiRequest = (cookie?: string) =>
+    new Request("http://localhost/api/ai", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.7", ...(cookie ? { cookie } : {}) },
+      body: JSON.stringify({ tripId: TRIP, messages: [{ role: "user", content: "hello" }], messageIdempotencyKey: "k1" }),
+    });
+  it("refuses a brand-new guest session whose browser has already used its messages (a reload deletes the session, not the device)", async () => {
+    const append = vi.fn();
+    const limited: string[] = [];
+    vi.doMock("@/lib/server/trip-auth", () => ({ requireTripMember: async () => ({ supabase: {}, user: { id: "g-new" }, role: "owner", guest: true }), tripAuthResponse: () => null }));
+    // The fresh session's own counter is untouched; only this browser's is spent.
+    vi.doMock("@/lib/server/rate-limit", () => ({ withinRateLimit: async (key: string) => (limited.push(key), !key.startsWith("guest-device-turns:")) }));
+    vi.doMock("@/features/conversation/infrastructure/conversationRepository", () => ({ createConversationRepository: () => ({ append, list: async () => [] }) }));
+    const { POST } = await import("@/app/api/ai/route");
+    const res = await POST(aiRequest("a=b; wn_guest_device=7c9e6679-7425-40de-944b-e07fc1f90ae7"), { params: Promise.resolve({}) });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ code: "guest_limit" });
+    expect(limited).toContain("guest-device-turns:7c9e6679-7425-40de-944b-e07fc1f90ae7");
+    expect(append).not.toHaveBeenCalled();
+  });
+  it("reads the device cookie only when it is well-formed, and tags a new guest's browser once", async () => {
+    const { guestDeviceId, guestDeviceCookie } = await import("@/lib/server/guest");
+    const req = (cookie: string) => new Request("http://x", { headers: { cookie } });
+    expect(guestDeviceId(req("wn_guest_device=7c9e6679-7425-40de-944b-e07fc1f90ae7"))).toBe("7c9e6679-7425-40de-944b-e07fc1f90ae7");
+    expect(guestDeviceId(req("wn_guest_device=short"))).toBeNull();
+    expect(guestDeviceId(new Request("http://x"))).toBeNull();
+    expect(guestDeviceCookie("7c9e6679-7425-40de-944b-e07fc1f90ae7")).toMatchObject({ httpOnly: true, sameSite: "lax", maxAge: 30 * 24 * 60 * 60 });
+  });
+});
+
 describe("blankTripFields", () => {
   beforeEach(() => vi.doUnmock("@/lib/application/enrich-trip"));
   const blank = { name: "New trip · Sep 30", destination: null, origin: null, travelers: null, duration_days: null, start_date: null, end_date: null };

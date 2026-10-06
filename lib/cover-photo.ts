@@ -52,7 +52,8 @@ export function pickCoverPhoto(places: CoverCandidate[]): string | null {
 const STORED_PREFIX = "v2:";
 export const encodeCover = (photoName: string | undefined): string => `${STORED_PREFIX}${photoName ?? ""}`;
 export function decodeCover(stored: string | null | undefined): { known: boolean; name?: string } {
-  if (!stored?.startsWith(STORED_PREFIX)) return { known: false };
-  const name = stored.slice(STORED_PREFIX.length);
-  return { known: true, name: name || undefined };
+  // A bare "v2:" (older builds saved "looked, found nothing") counts as never looked: that answer was often a
+  // transient failure or a query Google couldn't match, and it locked the trip into the type-only cover for good.
+  const name = stored?.startsWith(STORED_PREFIX) ? stored.slice(STORED_PREFIX.length) : "";
+  return name ? { known: true, name } : { known: false };
 }

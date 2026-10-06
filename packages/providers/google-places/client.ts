@@ -234,14 +234,18 @@ export class GooglePlacesProvider {
   }
   /** The photograph that stands for a destination (see lib/cover-photo.ts). Null when nothing suitable exists. */
   async coverPhoto(destination: string, signal?: AbortSignal): Promise<string | null> {
-    const load = async () => {
-      const response = await guardedFetch("google-places", "https://places.googleapis.com/v1/places:searchText", { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": this.key(), "x-goog-fieldmask": "places.displayName,places.primaryType,places.userRatingCount,places.photos" }, body: JSON.stringify({ textQuery: `${destination} skyline view`, pageSize: 20 }), signal: withProviderTimeout(signal) });
+    const search = async (textQuery: string) => {
+      const response = await guardedFetch("google-places", "https://places.googleapis.com/v1/places:searchText", { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": this.key(), "x-goog-fieldmask": "places.displayName,places.primaryType,places.userRatingCount,places.photos" }, body: JSON.stringify({ textQuery, pageSize: 20 }), signal: withProviderTimeout(signal) });
       if (!response.ok) throw new Error(`Google cover photo search failed: ${response.status}`);
       const body = (await response.json()) as { places?: CoverCandidate[] };
       return pickCoverPhoto(body.places ?? []);
     };
+    // "London, United Kingdom skyline view" returns no places at all while "London skyline view" returns twenty,
+    // so a miss retries with just the city before giving up.
+    const city = destination.split(",")[0]?.trim();
+    const load = async () => (await search(`${destination} skyline view`)) ?? (city && city !== destination ? await search(`${city} skyline view`) : null);
     if (process.env.NODE_ENV === "test") return load();
-    return cached(`google-cover:${destination.trim().toLowerCase()}`, 24 * 60 * 60_000, load);
+    return cached(`google-cover:v2:${destination.trim().toLowerCase()}`, 24 * 60 * 60_000, load);
   }
   photoUrl(photoName: string, widthPx = 800) { return `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=${widthPx}&key=${encodeURIComponent(this.key())}`; }
 }
