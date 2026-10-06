@@ -180,8 +180,9 @@ describe("POST /api/guest/start", () => {
     const create = vi.fn(async (_userId: string, input: { name: string }, _options?: { opener?: boolean }) => ({ id: "trip-1", name: input.name, destination: null }));
     vi.doMock("@/features/trip/infrastructure/tripRepository", () => ({ createTripRepository: () => ({ create }) }));
     const limit = vi.fn(async (key: string) => (typeof opts.allow === "function" ? opts.allow(key) : (opts.allow ?? true)));
-    vi.doMock("@/lib/server/rate-limit", () => ({ withinRateLimit: limit }));
-    return { signInAnonymously, create, limit, enrich, afterTasks };
+    const clear = vi.fn(async (_keys: string[]) => undefined);
+    vi.doMock("@/lib/server/rate-limit", () => ({ withinRateLimit: limit, clearRateLimits: clear }));
+    return { signInAnonymously, create, limit, clear, enrich, afterTasks };
   }
   const post = async (body: unknown) => {
     const { POST } = await import("@/app/api/guest/start/route");
@@ -253,6 +254,36 @@ describe("POST /api/guest/start", () => {
     expect(res.status).toBe(429);
     expect(await res.json()).toMatchObject({ code: "guest_busy" });
     expect(signInAnonymously).not.toHaveBeenCalled();
+  });
+
+  it("gives a guest one trip: counted per IP and per browser over the whole guest window", async () => {
+    const { limit } = setup();
+    await post({ prompt: "Kyoto in April" });
+    const calls = limit.mock.calls as unknown as Array<[string, number, number]>;
+    const ip = calls.find(([key]) => key.startsWith("guest-start:"));
+    const device = calls.find(([key]) => key.startsWith("guest-device-trips:"));
+    // (Outside production the per-IP ceilings are 100x, so only the window is pinned here; the figures are 1 in production.)
+    const { GUEST_IP_START_LIMIT, GUEST_TRIP_LIMIT, GUEST_WINDOW_MS } = await import("@/lib/server/guest");
+    expect(ip?.slice(1, 3)).toEqual([GUEST_IP_START_LIMIT, GUEST_WINDOW_MS]);
+    expect(device?.slice(1, 3)).toEqual([GUEST_TRIP_LIMIT, GUEST_WINDOW_MS]);
+    expect(GUEST_WINDOW_MS).toBe(30 * 24 * 60 * 60_000);
+  });
+
+  it("refuses a second trip from the same browser, whatever its IP", async () => {
+    const { create } = setup({ allow: (key) => !key.startsWith("guest-device-trips:") });
+    const res = await post({ prompt: "Another one" });
+    expect(res.status).toBe(429);
+    expect(await res.json()).toMatchObject({ code: "guest_busy" });
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("gives the only trip back when the start itself fails", async () => {
+    const { clear } = setup({ signInError: true });
+    const res = await post({ prompt: "Kyoto in April" });
+    expect(res.status).toBe(503);
+    const refunded = clear.mock.calls.flatMap(([keys]) => keys);
+    expect(refunded.some((key) => key.startsWith("guest-start:"))).toBe(true);
+    expect(refunded.some((key) => key.startsWith("guest-device-trips:"))).toBe(true);
   });
 
   it("caps how many trips one guest can open", async () => {

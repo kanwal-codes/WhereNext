@@ -10,10 +10,12 @@ function ipLimit(name: string, production: number) {
   if (Number.isFinite(fromEnv) && fromEnv > 0) return fromEnv;
   return process.env.NODE_ENV === "production" ? production : production * 100;
 }
-/** Per IP per day. A guest who clears cookies is a brand-new user, an IP is harder to shed. */
-export const GUEST_IP_TURN_LIMIT = ipLimit("GUEST_IP_TURN_LIMIT", 30);
-/** Guest sessions/trips one IP can start per day. */
-export const GUEST_IP_START_LIMIT = ipLimit("GUEST_IP_START_LIMIT", 8);
+/** Free messages one IP gets in total (over `GUEST_WINDOW_MS`): a guest who clears cookies is a brand-new user, an IP is harder to shed. */
+export const GUEST_IP_TURN_LIMIT = ipLimit("GUEST_IP_TURN_LIMIT", 10);
+/** Guest trips one IP can start in total (over `GUEST_WINDOW_MS`). A guest gets one trip; reloading or clearing cookies does not hand back another. */
+export const GUEST_IP_START_LIMIT = ipLimit("GUEST_IP_START_LIMIT", 1);
+/** Guest trips one browser (or one guest session) can start. */
+export const GUEST_TRIP_LIMIT = ipLimit("GUEST_TRIP_LIMIT", 1);
 /** Trip-API requests one guest can make per hour (opening a trip fans out to many routes). */
 export const GUEST_API_LIMIT = 600;
 export const DAY_MS = 24 * 60 * 60_000;
@@ -27,6 +29,7 @@ export const guestKey = {
   api: (userId: string) => `guest-api:${userId}`,
   /** Per browser, not per session: it survives a guest session being thrown away, so a reload can't hand back the free messages. */
   deviceTurns: (deviceId: string) => `guest-device-turns:${deviceId}`,
+  deviceTrips: (deviceId: string) => `guest-device-trips:${deviceId}`,
 };
 export const guestLimiterKeys = (userId: string) => [guestKey.turns(userId), guestKey.trips(userId), guestKey.api(userId)];
 
