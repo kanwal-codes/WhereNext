@@ -14,7 +14,7 @@ import { DestinationCombobox } from "@/components/DestinationCombobox";
 import { DateRangeField } from "@/components/DateRangeField";
 import { notifyToast } from "@/lib/application/toast";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
-import { tripCompleteness, type Certainty } from "@/lib/design";
+import type { Certainty } from "@/lib/design";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { readSuggestions, type SuggestionKey } from "@/packages/contracts/suggestion";
 
@@ -80,21 +80,11 @@ export function TripContextSurface({
   trip,
   initialMemory,
   initialDecisions,
-  itinerary = [],
-  savedPlaces = [],
-  essentials = [],
-  conversation = [],
 }: {
   tripId: string;
   trip: Trip | null;
   initialMemory?: Record<string, unknown>;
   initialDecisions?: Array<Record<string, unknown>>;
-  /** Same workspace snapshot the trip shell's own progress ring uses — kept identical here so the
-   *  two "how complete is this trip" numbers shown to the user never disagree (see lib/design.ts). */
-  itinerary?: unknown[];
-  savedPlaces?: unknown[];
-  essentials?: unknown[];
-  conversation?: unknown[];
 }) {
   const [memory, setMemory] = useState<Record<string, unknown>>(initialMemory ?? {});
   const [decisions, setDecisions] = useState<Decision[]>((initialDecisions ?? []) as Decision[]);
@@ -191,11 +181,6 @@ export function TripContextSurface({
   const suggestionFor = (key: SuggestionKey) => suggestions.find((s) => s.key === key);
   const lockedStay = useMemo(() => readStayDecision(decisions), [decisions]);
   const realDecisions = decisions.filter((d) => isDisplayableDecision(d.kind));
-
-  const progress = useMemo(
-    () => tripCompleteness({ preferences: memory, decisions: decisions.filter((d) => d.kind !== "suggestion"), conversation, itinerary, savedPlaces, essentials }),
-    [memory, decisions, conversation, itinerary, savedPlaces, essentials],
-  );
 
   async function savePref(key: PrefKey, raw: string) {
     setSavingKey(key);
@@ -387,9 +372,16 @@ export function TripContextSurface({
   const confirmedRows = rows.filter((r) => r.certainty === "confirmed");
   const suggestedRows = rows.filter((r) => r.certainty === "suggested");
   const undecidedRows = rows.filter((r) => r.certainty === "undecided");
+  const isRowEditing = (row: Row) =>
+    row.id === "dates" ? editingDates : row.tripField ? editingField === row.tripField : editing != null && editing === row.editKey;
+  const isWideRow = (row: Row) =>
+    ["destination", "dates", "base_area", "stay"].includes(row.id) || row.id.startsWith("dec-") || row.value.length > 20;
   const setCount = confirmedRows.length;
+  // An odd number of half-width tiles would leave the last one beside a hole — let it span the row.
+  const narrow = confirmedRows.filter((r) => !isWideRow(r) && !isRowEditing(r));
+  const loneTile = narrow.length % 2 === 1 ? narrow[narrow.length - 1] : null;
 
-  const renderRow = (row: Row) => {
+  const renderRow = (row: Row, tile = false, lone = false) => {
     const isEditing = row.id === "dates"
       ? editingDates
       : row.tripField
@@ -397,25 +389,45 @@ export function TripContextSurface({
         : editing != null && editing === row.editKey;
     const rowIcon = ROW_ICON[row.id] ?? FALLBACK_ICON;
     const flashId = row.tripField ?? (row.suggestionKey ? `sugg-${row.suggestionKey}` : row.editKey ?? row.id);
+    const wide = isEditing || lone || isWideRow(row);
+    const check = row.certainty === "confirmed" && !isEditing && (
+      <Check aria-label="Locked in" className="size-4 shrink-0 text-leaf" strokeWidth={2.4} />
+    );
+    const chip = (
+      <span aria-hidden className={cn("grid shrink-0 place-items-center rounded-xl", tile && !wide ? "size-9" : "size-10", rowIcon.tint)}>
+        <rowIcon.icon className="size-[1.0625rem]" strokeWidth={1.8} />
+      </span>
+    );
+    const label = (
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="min-w-0 text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">{row.label}</p>
+        {row.certainty === "suggested" && <CertaintyBadge certainty={row.certainty} />}
+      </div>
+    );
     return (
       <div
         key={row.id}
         className={cn(
-          "group/row flex items-start gap-3 px-4 py-3 transition-colors",
-          row.certainty === "suggested" ? "bg-coral-soft/25" : "hover:bg-accent/30",
+          "group/row transition-colors",
+          tile
+            ? cn(
+                "rounded-[22px] border border-border/60 bg-card p-4 shadow-[0_14px_30px_-26px_color-mix(in_oklab,var(--color-ink)_50%,transparent)]",
+                wide ? "col-span-2 flex items-start gap-3.5" : "flex flex-col gap-3.5",
+              )
+            : "flex items-start gap-3.5 px-4 py-4",
           flash === flashId && "bg-leaf-soft/40",
         )}
       >
-        <span aria-hidden className={cn("mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl", rowIcon.tint)}>
-          <rowIcon.icon className="size-[1.0625rem]" strokeWidth={1.8} />
-        </span>
+        {tile && !wide ? (
+          <div className="flex items-center justify-between">
+            {chip}
+            {check}
+          </div>
+        ) : (
+          chip
+        )}
         <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <p className="min-w-0 text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">{row.label}</p>
-          {row.certainty === "suggested" && <CertaintyBadge certainty={row.certainty} />}
-          {row.certainty === "confirmed" && !isEditing && <Check aria-label="Locked in" className="size-4 shrink-0 self-center text-leaf" strokeWidth={2.4} />}
-        </div>
-
+        {label}
         {isEditing && row.id === "dates" ? (
                 <div className="mt-1.5 space-y-1.5">
                   <DateRangeField start={dStart} end={dEnd} onChange={(s, e) => { setDStart(s); setDEnd(e); }} />
@@ -555,6 +567,7 @@ export function TripContextSurface({
           </div>
         )}
         </div>
+        {(!tile || wide) && check && <span className="mt-0.5">{check}</span>}
       </div>
     );
   };
@@ -573,49 +586,39 @@ export function TripContextSurface({
       setDraft(row.value);
     }
   };
-  const isRowEditing = (row: Row) =>
-    row.id === "dates" ? editingDates : row.tripField ? editingField === row.tripField : editing != null && editing === row.editKey;
 
   return (
     <div className="min-w-0 space-y-4">
-      <h3 className="px-1 text-2xs font-semibold tracking-[0.24em] text-muted-foreground uppercase">What we know</h3>
-
-      {/* Hero — one big readiness number. It is the coarse whole-trip score (saved places, itinerary,
-          decisions, etc.), not a share of the facts below, so the caption says what it measures. */}
-      <div className="rounded-3xl border border-border/60 bg-gradient-to-br from-card to-coral-soft/50 px-5 py-5 shadow-[0_1px_3px_color-mix(in_oklab,var(--color-ink)_7%,transparent)]">
-        <div className="flex items-end gap-3">
-          <p className="font-display text-6xl leading-[0.9] tracking-tight tabular-nums">
-            {progress}
-            <span className="text-3xl text-coral">%</span>
-          </p>
-          <p className="pb-1 text-sm leading-snug text-muted-foreground">of the trip is<br />pinned down</p>
-        </div>
-        <div
-          role="progressbar"
-          aria-label="Trip progress"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={progress}
-          className="mt-4 flex gap-1"
-        >
-          {Array.from({ length: 12 }, (_, n) => (
-            <i key={n} className={cn("h-2 flex-1 rounded-full transition-colors duration-700", n < Math.round((progress / 100) * 12) ? "bg-coral" : "bg-border")} />
-          ))}
-        </div>
-        <div className="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-          <span>{setCount === 0 ? "Nothing locked in yet" : `${setCount} locked in`}</span>
-          {undecidedRows.length > 0 && (
-            <span className="min-w-0 truncate">Next: {undecidedRows.slice(0, 2).map((r) => r.label.toLowerCase()).join(", ")}</span>
+      <header className="px-1 pt-1">
+        <h3 className="font-display text-[2rem] leading-none tracking-tight">What we know</h3>
+        <p className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <i aria-hidden className="size-2 rounded-full bg-leaf" />
+            {setCount === 0 ? "Nothing locked in yet" : `${setCount} locked in`}
+          </span>
+          {suggestedRows.length > 0 && (
+            <>
+              <span aria-hidden>·</span>
+              <span className="inline-flex items-center gap-1.5">
+                <i aria-hidden className="size-2 rounded-full bg-coral" />
+                {suggestedRows.length} needs you
+              </span>
+            </>
           )}
-        </div>
-      </div>
+          {undecidedRows.length > 0 && (
+            <>
+              <span aria-hidden>·</span>
+              <span>{undecidedRows.length} still open</span>
+            </>
+          )}
+        </p>
+      </header>
 
       {/* Locked in */}
       {confirmedRows.length > 0 && (
         <section>
-          <p className="mb-1.5 px-1 text-2xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Locked in</p>
-          <div className="divide-y divide-border/50 overflow-hidden rounded-3xl border border-border/60 bg-card">
-            {confirmedRows.map(renderRow)}
+          <div className="grid grid-flow-dense grid-cols-2 gap-2.5">
+            {confirmedRows.map((row) => renderRow(row, true, row === loneTile))}
           </div>
         </section>
       )}
@@ -623,9 +626,12 @@ export function TripContextSurface({
       {/* Suggested by the assistant */}
       {suggestedRows.length > 0 && (
         <section>
-          <p className="mb-1.5 px-1 text-2xs font-semibold tracking-[0.14em] text-coral uppercase">Needs your call — confirm or dismiss</p>
-          <div className="divide-y divide-border/50 overflow-hidden rounded-3xl border-[1.5px] border-coral/40 bg-card shadow-[0_18px_36px_-26px_color-mix(in_oklab,var(--color-coral)_60%,transparent)]">
-            {suggestedRows.map(renderRow)}
+          <p className="mb-2 flex items-center gap-2 px-1 text-2xs font-semibold tracking-[0.2em] text-coral uppercase">
+            <i aria-hidden className="size-1.5 rounded-full bg-coral" />
+            Needs your call
+          </p>
+          <div className="divide-y divide-coral/15 overflow-hidden rounded-[26px] border-[1.5px] border-coral/40 bg-gradient-to-br from-card to-coral-soft/60 shadow-[0_26px_44px_-30px_color-mix(in_oklab,var(--color-coral)_65%,transparent)]">
+            {suggestedRows.map((row) => renderRow(row))}
           </div>
         </section>
       )}
@@ -633,9 +639,9 @@ export function TripContextSurface({
       {/* To decide */}
       {undecidedRows.length > 0 && (
         <section>
-          <p className="mb-1.5 px-1 text-2xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">To decide</p>
-          <div className="rounded-3xl border border-dashed border-border/70 bg-card/40 p-3">
-            <div className="flex flex-wrap gap-1.5">
+          <p className="mb-2 px-1 text-2xs font-semibold tracking-[0.2em] text-muted-foreground uppercase">Still open · tap to set</p>
+          <div>
+            <div className="flex flex-wrap gap-2">
               {undecidedRows.map((row) => {
                 const canEdit = Boolean(row.editKey || row.editable);
                 if (canEdit) {
@@ -645,14 +651,17 @@ export function TripContextSurface({
                       type="button"
                       onClick={() => startEdit(row)}
                       aria-pressed={isRowEditing(row)}
-                      className="btn-chip"
+                      className="inline-flex h-[34px] items-center gap-1.5 rounded-full border border-dashed border-border bg-transparent px-4 text-sm text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground aria-pressed:border-foreground/50 aria-pressed:text-foreground"
                     >
-                      <Pencil className="size-3" aria-hidden /> {row.label}
+                      {(() => {
+                        const Icon = (ROW_ICON[row.id] ?? FALLBACK_ICON).icon;
+                        return <Icon className="size-3.5" aria-hidden />;
+                      })()} {row.label}
                     </button>
                   );
                 }
                 return (
-                  <span key={row.id} className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
+                  <span key={row.id} className="inline-flex h-[34px] items-center rounded-full border border-dashed border-border px-4 text-sm text-muted-foreground">
                     {row.label}
                   </span>
                 );
@@ -660,7 +669,7 @@ export function TripContextSurface({
             </div>
             {/* Inline editor for whichever undecided row is being edited */}
             {undecidedRows.filter(isRowEditing).map((row) => (
-              <div key={`edit-${row.id}`} className="mt-2 overflow-hidden rounded-xl border border-border/60 bg-background">
+              <div key={`edit-${row.id}`} className="mt-3 overflow-hidden rounded-2xl border border-border/60 bg-card">
                 {renderRow(row)}
               </div>
             ))}
