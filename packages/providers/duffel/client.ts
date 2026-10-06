@@ -90,14 +90,17 @@ const suggestionSchema = z.object({ data: z.array(z.object({ type: z.string().op
 
 /** Resolve a city or airport name to an IATA code (prefers the metro/city code). */
 async function resolveIata(query: string, signal?: AbortSignal): Promise<string | null> {
-  const url = new URL(`${API}/places/suggestions`);
-  url.searchParams.set("query", query.slice(0, 80));
-  const response = await guardedFetch("duffel", url, { headers: HEADERS(), signal: withProviderTimeout(signal) });
-  if (!response.ok) throw new Error(`Duffel place lookup failed: ${response.status}`);
-  const data = suggestionSchema.parse(await response.json()).data;
-  return (data.find((entry) => entry.type === "city" && entry.iata_code)?.iata_code
-    ?? data.find((entry) => entry.iata_code)?.iata_code
-    ?? null);
+  const lookup = async (text: string) => {
+    const url = new URL(`${API}/places/suggestions`);
+    url.searchParams.set("query", text.slice(0, 80));
+    const response = await guardedFetch("duffel", url, { headers: HEADERS(), signal: withProviderTimeout(signal) });
+    if (!response.ok) throw new Error(`Duffel place lookup failed: ${response.status}`);
+    const data = suggestionSchema.parse(await response.json()).data;
+    return data.find((entry) => entry.type === "city" && entry.iata_code)?.iata_code ?? data.find((entry) => entry.iata_code)?.iata_code ?? null;
+  };
+  // "Toronto, ON, Canada" and "London, UK" match nothing, while "Toronto" and "London" do: retry as the bare city.
+  const city = query.split(",")[0]?.trim();
+  return (await lookup(query)) ?? (city && city !== query.trim() ? await lookup(city) : null);
 }
 
 const offersSchema = z.object({
