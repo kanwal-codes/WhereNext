@@ -55,6 +55,12 @@ const SENTINEL: Record<string, string> = {
     "select exists (select 1 from pg_policies where schemaname='public' and tablename='group_message_reactions' and policyname='members can insert own reactions') as ok",
   "0027_group_messages_role_integrity.sql":
     "select exists (select 1 from pg_policies where schemaname='public' and tablename='group_messages' and policyname='members can insert own group messages') as ok",
+  "0042_trip_polls.sql":
+    "select to_regclass('public.trip_polls') is not null and to_regclass('public.trip_poll_votes') is not null as ok",
+  "0043_trip_reservations.sql":
+    "select to_regclass('public.trip_reservations') is not null as ok",
+  "0044_reservation_files.sql":
+    "select exists (select 1 from pg_policies where schemaname='storage' and tablename='objects' and policyname='trip members can read reservation files') as ok",
 };
 
 const url = process.env.DATABASE_URL;
