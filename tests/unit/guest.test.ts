@@ -191,10 +191,10 @@ describe("POST /api/guest/start", () => {
 
   it("opens a guest session and a real draft trip for a brand-new visitor", async () => {
     const { signInAnonymously, create } = setup();
-    const res = await post({ prompt: "Montreal for Bad Bunny with 3 friends", captchaToken: "tok" });
+    const res = await post({ prompt: "Montreal for Bad Bunny with 3 friends" });
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ tripId: "trip-1" });
-    expect(signInAnonymously).toHaveBeenCalledWith({ options: { captchaToken: "tok" } });
+    expect(signInAnonymously).toHaveBeenCalledTimes(1);
     // Created blank and without a greeting: the visitor's own sentence is the first message.
     expect(create).toHaveBeenCalledWith("anon-1", expect.objectContaining({ name: "Untitled trip" }), { opener: false });
   });

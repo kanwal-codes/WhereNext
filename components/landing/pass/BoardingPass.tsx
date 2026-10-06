@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { GUEST_LIVE_KEY } from "@/features/identity/application/guestSession";
-import { useTurnstile } from "@/components/landing/useTurnstile";
 import { useTypingPlaceholder } from "@/components/landing/useTypingPlaceholder";
 import {
   Field,
@@ -104,7 +103,6 @@ export function BoardingPass({ finale = false }: { finale?: boolean }) {
   const [home, setHome] = useState(serverHome ?? HOME_CODE);
   const [announce, setAnnounce] = useState("");
   const attemptRef = useRef(crypto.randomUUID());
-  const { container: turnstile, getToken } = useTurnstile();
   const router = useRouter();
   const compact = useMediaQuery("(max-width: 819px)");
   const typed = useTypingPlaceholder(
@@ -190,13 +188,11 @@ export function BoardingPass({ finale = false }: { finale?: boolean }) {
     setBusy(true);
     setProblem(null);
     try {
-      const captchaToken = await getToken();
       const response = await fetch("/api/guest/start", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           prompt: text,
-          captchaToken,
           idempotencyKey: attemptRef.current,
         }),
       });
@@ -338,7 +334,6 @@ export function BoardingPass({ finale = false }: { finale?: boolean }) {
       <p className="sr-only" role="status" aria-live="polite">
         {announce}
       </p>
-      <div ref={turnstile} />
 
       {!finale && (
         <div
