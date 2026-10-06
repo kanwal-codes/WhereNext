@@ -94,7 +94,7 @@ export type TransitRoute = {
 };
 
 export async function transit(
-  input: { origin: [number, number] | string; destination: [number, number] | string; departureTime?: string; arrivalTime?: string },
+  input: { origin: [number, number] | string; destination: [number, number] | string; departureTime?: string; arrivalTime?: string; /** Plan for fewer changes or less walking: a different set of alternatives from the default. */ routingPreference?: "LESS_WALKING" | "FEWER_TRANSFERS" },
   signal?: AbortSignal,
 ): Promise<TransitRoute[]> {
   if (input.departureTime && input.arrivalTime) throw new Error("Transit requests cannot specify both times");
@@ -115,6 +115,7 @@ export async function transit(
       destination: place(input.destination),
       travelMode: "TRANSIT",
       computeAlternativeRoutes: true,
+      ...(input.routingPreference ? { transitPreferences: { routingPreference: input.routingPreference } } : {}),
       ...(input.departureTime ? { departureTime: input.departureTime } : {}),
       ...(input.arrivalTime ? { arrivalTime: input.arrivalTime } : {}),
     }),

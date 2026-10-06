@@ -251,6 +251,41 @@ describe("retrieveEvidence", () => {
     expect(evidence.sources).toMatchObject([{ url: "https://rail.example" }]);
   });
 
+  describe("transit alternatives", () => {
+    const step = (line: string, type: string, seconds: number) => ({ travelMode: "TRANSIT", staticDuration: `${seconds}s`, transitDetails: { transitLine: { nameShort: line, vehicle: { type } }, stopDetails: { arrivalStop: { name: "Stop" } } } });
+    const route = (seconds: number, ...steps: object[]) => ({ distanceMeters: 5100, duration: `${seconds}s`, legs: [{ steps }] });
+    const walk = { travelMode: "WALK", staticDuration: "300s" };
+    const subwayBus = route(2520, walk, step("1", "SUBWAY", 600), step("165", "BUS", 700));
+    const direct = route(2700, walk, step("24", "BUS", 1500));
+    const mock = (byPreference: Record<string, object[]>) => {
+      const bodies: Array<{ transitPreferences?: { routingPreference?: string } }> = [];
+      vi.stubGlobal("fetch", vi.fn().mockImplementation((_url: string, init?: { body?: string }) => {
+        const body = JSON.parse(init?.body ?? "{}");
+        bodies.push(body);
+        return Promise.resolve(new Response(JSON.stringify({ routes: byPreference[body.transitPreferences?.routingPreference ?? "default"] ?? [] }), { status: 200 }));
+      }));
+      return bodies;
+    };
+    const plan = [{ tool: "directions" as const, from: "Hotel", to: "Park", mode: "transit" as const }];
+
+    it("asks for fewer changes and less walking when Google returns one plan, and keeps only plans with different lines", async () => {
+      process.env.GOOGLE_MAPS_API_KEY = "k";
+      const bodies = mock({ default: [subwayBus], FEWER_TRANSFERS: [direct, subwayBus], LESS_WALKING: [subwayBus] });
+      const evidence = await retrieveEvidence(plan);
+      expect(bodies.map((b) => b.transitPreferences?.routingPreference)).toEqual([undefined, "FEWER_TRANSFERS", "LESS_WALKING"]);
+      expect(evidence.routes.map((r) => r.steps.join(" "))).toEqual([expect.stringContaining("165"), expect.stringContaining("(25 min)")]);
+    });
+
+    it("does not spend the extra calls when Google already returned three different plans", async () => {
+      process.env.GOOGLE_MAPS_API_KEY = "k";
+      const third = route(3000, walk, step("7", "TRAM", 1800));
+      const bodies = mock({ default: [subwayBus, direct, third] });
+      const evidence = await retrieveEvidence(plan);
+      expect(bodies).toHaveLength(1);
+      expect(evidence.routes).toHaveLength(3);
+    });
+  });
+
   it("merges Ticketmaster and Eventbrite results into structured events", async () => {
     process.env.TICKETMASTER_CONSUMER_KEY = "tm-key";
     process.env.EVENTBRITE_API_KEY = "eb-key";

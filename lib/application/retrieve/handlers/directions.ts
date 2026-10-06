@@ -1,5 +1,5 @@
 import { research } from "@/packages/providers/tavily/client";
-import { transit } from "@/packages/providers/google-places/transit";
+import { transit, type TransitRoute } from "@/packages/providers/google-places/transit";
 import { route as mapboxRoute } from "@/packages/providers/mapbox/client";
 import { transitAppPlan } from "@/packages/providers/transit-app/client";
 import { cached } from "@/lib/server/ttl-cache";
@@ -7,6 +7,8 @@ import { driveParts, simplifyPath, transitParts } from "../../route-path";
 import { congestionRuns } from "../../route-overlay";
 import type { ToolCall } from "../../turn-resolver";
 import type { RetrieveContext } from "../context";
+
+const MAX_TRANSIT = 3;
 
 type DirectionsCall = Extract<ToolCall, { tool: "directions" }>;
 
@@ -19,21 +21,29 @@ export async function handleDirections(call: DirectionsCall, ctx: RetrieveContex
   const dirFrom = call.from.trim().toLowerCase();
   const dirTo = call.to.trim().toLowerCase();
   if (call.mode === "transit") {
-    const legs = await cached(`directions:transit:${dirFrom}:${dirTo}`, 5 * 60_000, () => transit({ origin: call.from, destination: call.to })).catch(ctx.fail("google-routes"));
-    // Google returns a few alternatives; show up to three that really differ (different line changes), fastest first.
-    const seen = new Set<string>();
-    for (const leg of legs ?? []) {
-      if (leg.durationSeconds <= 0 || ctx.routes.filter((r) => r.mode === "transit" && r.from === call.from && r.to === call.to).length >= 3) continue;
-      const steps = ctx.formatTransitSteps(leg.steps);
-      const signature = steps.join("|");
-      if (seen.has(signature)) continue;
-      seen.add(signature);
+    const fetchTransit = (preference?: "LESS_WALKING" | "FEWER_TRANSFERS") =>
+      cached(`directions:transit:${preference ? `${preference}:` : ""}${dirFrom}:${dirTo}`, 5 * 60_000, () => transit({ origin: call.from, destination: call.to, routingPreference: preference })).catch(ctx.fail("google-routes"));
+    // Up to three ways that really differ (a different set of lines, not the same train a few minutes later).
+    const lineKey = (leg: TransitRoute) => leg.steps.filter((step) => step.mode !== "walk").map((step) => `${step.mode}:${step.line ?? ""}`).join(">");
+    const distinct = (list: TransitRoute[]) => {
+      const seen = new Set<string>();
+      return list.filter((leg) => leg.durationSeconds > 0 && !seen.has(lineKey(leg)) && seen.add(lineKey(leg)));
+    };
+    const first = (await fetchTransit()) ?? [];
+    let options = distinct(first);
+    // Google often answers a short trip with one plan. Ask it to plan for fewer changes and for less walking too: those
+    // are the other ways a person would choose between, and they come back different. Only asked when needed.
+    if (options.length > 0 && options.length < MAX_TRANSIT) {
+      const more = await Promise.all([fetchTransit("FEWER_TRANSFERS"), fetchTransit("LESS_WALKING")]);
+      options = distinct([...first, ...more.flatMap((legs) => legs ?? [])]);
+    }
+    for (const leg of options.sort((a, b) => a.durationSeconds - b.durationSeconds).slice(0, MAX_TRANSIT)) {
       got = true;
       ctx.routes.push({
         from: call.from, to: call.to, mode: "transit",
         distanceMeters: leg.distanceMeters, durationSeconds: leg.durationSeconds,
         departureTime: leg.departureTime, arrivalTime: leg.arrivalTime,
-        steps,
+        steps: ctx.formatTransitSteps(leg.steps),
         fare: leg.fare,
         path: simplifyPath(leg.polyline),
         legs: transitParts(leg.steps),
