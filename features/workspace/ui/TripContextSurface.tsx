@@ -1,13 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, Pencil, X } from "lucide-react";
+import {
+  Ban, BedDouble, CalendarDays, Car, Check, Clock, Compass, Home, MapPin, PartyPopper, Pencil, PlaneLanding,
+  Sparkles, Users, Utensils, Wallet, X, Zap, type LucideIcon,
+} from "lucide-react";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 import type { Trip } from "@/features/trip/domain/trip";
 import { cn } from "@/lib/utils";
 import { certaintyFor, decisionSummary, isDisplayableDecision } from "@/lib/decisions-ui";
 import { CertaintyBadge } from "@/components/CertaintyBadge";
-import { ProgressRing } from "@/components/ProgressRing";
 import { DestinationCombobox } from "@/components/DestinationCombobox";
 import { DateRangeField } from "@/components/DateRangeField";
 import { notifyToast } from "@/lib/application/toast";
@@ -38,6 +40,26 @@ const PREF_PLACEHOLDER: Record<PrefKey, string> = {
   arrival: "flight number, or landing time",
   transport: "rental car, transit, rideshare…",
 };
+
+/** Icon chip per fact: icon plus a tint taken from the palette, so the list scans by colour. */
+const ROW_ICON: Record<string, { icon: LucideIcon; tint: string }> = {
+  destination: { icon: MapPin, tint: "bg-coral-soft text-coral" },
+  length: { icon: Clock, tint: "bg-water-soft text-water" },
+  travellers: { icon: Users, tint: "bg-water-soft text-water" },
+  dates: { icon: CalendarDays, tint: "bg-water-soft text-water" },
+  occasion: { icon: PartyPopper, tint: "bg-coral-soft text-coral" },
+  budget: { icon: Wallet, tint: "bg-leaf-soft text-leaf" },
+  group: { icon: Users, tint: "bg-water-soft text-water" },
+  pace: { icon: Zap, tint: "bg-accent text-foreground" },
+  interests: { icon: Sparkles, tint: "bg-coral-soft text-coral" },
+  base_area: { icon: Home, tint: "bg-coral-soft text-coral" },
+  getting_around: { icon: Car, tint: "bg-water-soft text-water" },
+  arrival: { icon: PlaneLanding, tint: "bg-water-soft text-water" },
+  dislikes: { icon: Ban, tint: "bg-accent text-foreground" },
+  dietary: { icon: Utensils, tint: "bg-leaf-soft text-leaf" },
+  stay: { icon: BedDouble, tint: "bg-coral-soft text-coral" },
+};
+const FALLBACK_ICON = { icon: Compass, tint: "bg-accent text-foreground" };
 
 type Row = {
   id: string;
@@ -373,19 +395,25 @@ export function TripContextSurface({
       : row.tripField
         ? editingField === row.tripField
         : editing != null && editing === row.editKey;
+    const rowIcon = ROW_ICON[row.id] ?? FALLBACK_ICON;
     const flashId = row.tripField ?? (row.suggestionKey ? `sugg-${row.suggestionKey}` : row.editKey ?? row.id);
     return (
       <div
         key={row.id}
         className={cn(
-          "group/row px-4 py-3 transition-colors",
+          "group/row flex items-start gap-3 px-4 py-3 transition-colors",
           row.certainty === "suggested" ? "bg-coral-soft/25" : "hover:bg-accent/30",
           flash === flashId && "bg-leaf-soft/40",
         )}
       >
+        <span aria-hidden className={cn("mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl", rowIcon.tint)}>
+          <rowIcon.icon className="size-[1.0625rem]" strokeWidth={1.8} />
+        </span>
+        <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
           <p className="min-w-0 text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">{row.label}</p>
           {row.certainty === "suggested" && <CertaintyBadge certainty={row.certainty} />}
+          {row.certainty === "confirmed" && !isEditing && <Check aria-label="Locked in" className="size-4 shrink-0 self-center text-leaf" strokeWidth={2.4} />}
         </div>
 
         {isEditing && row.id === "dates" ? (
@@ -511,7 +539,7 @@ export function TripContextSurface({
                 type="button"
                 onClick={() => void act(row.suggestionKey!, "confirm")}
                 disabled={busyKey === row.suggestionKey}
-                className="inline-flex items-center gap-1 rounded-full bg-leaf px-3 py-1.5 text-xs font-semibold text-background disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-xs font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-60"
               >
                 <Check className="h-3 w-3" /> Confirm
               </button>
@@ -519,13 +547,14 @@ export function TripContextSurface({
                 type="button"
                 onClick={() => void act(row.suggestionKey!, "dismiss")}
                 disabled={busyKey === row.suggestionKey}
-                className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-2xs text-muted-foreground hover:text-foreground disabled:opacity-60"
+                className="inline-flex items-center gap-1 rounded-full border border-border px-3.5 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
               >
                 <X className="h-3 w-3" /> Dismiss
               </button>
             </div>
           </div>
         )}
+        </div>
       </div>
     );
   };
@@ -549,20 +578,35 @@ export function TripContextSurface({
 
   return (
     <div className="min-w-0 space-y-4">
-      {/* Hero — clean card, the ring carries the colour */}
-      <div className="flex items-center justify-between gap-3 rounded-3xl border border-border/60 bg-card px-4 py-4 shadow-[0_1px_3px_color-mix(in_oklab,var(--color-ink)_7%,transparent)]">
-        <div>
-          <h3 className="font-display text-lg leading-tight">What we know</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {setCount === 0 ? "Nothing locked in yet" : `${setCount} thing${setCount === 1 ? "" : "s"} locked in`}
+      <h3 className="px-1 text-2xs font-semibold tracking-[0.24em] text-muted-foreground uppercase">What we know</h3>
+
+      {/* Hero — one big readiness number. It is the coarse whole-trip score (saved places, itinerary,
+          decisions, etc.), not a share of the facts below, so the caption says what it measures. */}
+      <div className="rounded-3xl border border-border/60 bg-gradient-to-br from-card to-coral-soft/50 px-5 py-5 shadow-[0_1px_3px_color-mix(in_oklab,var(--color-ink)_7%,transparent)]">
+        <div className="flex items-end gap-3">
+          <p className="font-display text-6xl leading-[0.9] tracking-tight tabular-nums">
+            {progress}
+            <span className="text-3xl text-coral">%</span>
           </p>
+          <p className="pb-1 text-sm leading-snug text-muted-foreground">of the trip is<br />pinned down</p>
         </div>
-        {/* A separate, coarser "how far along is the whole trip" score (saved places, itinerary,
-            decisions, etc.) — not a percentage of the facts listed below, so it gets its own
-            caption rather than sitting unlabeled next to a count it doesn't correspond to. */}
-        <div className="flex flex-col items-center gap-1">
-          <ProgressRing value={progress} size={56} />
-          <span className="text-2xs tracking-wide text-muted-foreground uppercase">Trip progress</span>
+        <div
+          role="progressbar"
+          aria-label="Trip progress"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progress}
+          className="mt-4 flex gap-1"
+        >
+          {Array.from({ length: 12 }, (_, n) => (
+            <i key={n} className={cn("h-2 flex-1 rounded-full transition-colors duration-700", n < Math.round((progress / 100) * 12) ? "bg-coral" : "bg-border")} />
+          ))}
+        </div>
+        <div className="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+          <span>{setCount === 0 ? "Nothing locked in yet" : `${setCount} locked in`}</span>
+          {undecidedRows.length > 0 && (
+            <span className="min-w-0 truncate">Next: {undecidedRows.slice(0, 2).map((r) => r.label.toLowerCase()).join(", ")}</span>
+          )}
         </div>
       </div>
 
@@ -579,8 +623,8 @@ export function TripContextSurface({
       {/* Suggested by the assistant */}
       {suggestedRows.length > 0 && (
         <section>
-          <p className="mb-1.5 px-1 text-2xs font-semibold tracking-[0.14em] text-coral uppercase">Suggested — confirm or dismiss</p>
-          <div className="divide-y divide-border/50 overflow-hidden rounded-3xl border border-coral/25 bg-card">
+          <p className="mb-1.5 px-1 text-2xs font-semibold tracking-[0.14em] text-coral uppercase">Needs your call — confirm or dismiss</p>
+          <div className="divide-y divide-border/50 overflow-hidden rounded-3xl border-[1.5px] border-coral/40 bg-card shadow-[0_18px_36px_-26px_color-mix(in_oklab,var(--color-coral)_60%,transparent)]">
             {suggestedRows.map(renderRow)}
           </div>
         </section>
