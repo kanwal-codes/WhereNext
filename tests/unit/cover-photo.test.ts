@@ -33,4 +33,11 @@ describe("stored cover", () => {
     expect(decodeCover("")).toEqual({ known: false });
     expect(decodeCover(null)).toEqual({ known: false });
   });
+
+  it("uses a smaller landscape photograph when the destination has none big enough, but still prefers a big one", () => {
+    const mid = (name: string) => ({ name, widthPx: 1400, heightPx: 900 });
+    expect(pickCoverPhoto([{ primaryType: "tourist_attraction", userRatingCount: 500, photos: [mid("mid")] }])).toBe("mid");
+    expect(pickCoverPhoto([{ primaryType: "tourist_attraction", userRatingCount: 500, photos: [mid("mid")] }, { primaryType: "park", userRatingCount: 50, photos: [wide("big")] }])).toBe("big");
+    expect(pickCoverPhoto([{ primaryType: "tourist_attraction", photos: [{ name: "tiny", widthPx: 612, heightPx: 437 }] }])).toBeNull();
+  });
 });

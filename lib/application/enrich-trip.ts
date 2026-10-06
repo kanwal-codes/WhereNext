@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { tripDurationDays, type ParsedTrip } from "@/features/trip/domain/trip";
 import { parseTripPrompt } from "@/lib/application/parse-trip";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
+import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
+import { encodeCover } from "@/lib/cover-photo";
 
 type TripRow = {
   name: string | null;
@@ -11,6 +13,7 @@ type TripRow = {
   duration_days: number | null;
   start_date: string | null;
   end_date: string | null;
+  hero_photo_name?: string | null;
 };
 
 /**
@@ -41,11 +44,20 @@ export async function enrichTripFromPrompt(supabase: SupabaseClient, tripId: str
   const fields = await parseTripPrompt(prompt);
   const current = await supabase
     .from("trips")
-    .select("name,destination,origin,travelers,duration_days,start_date,end_date")
+    .select("name,destination,origin,travelers,duration_days,start_date,end_date,hero_photo_name")
     .eq("id", tripId)
     .maybeSingle();
   if (current.error || !current.data) return;
-  const update = blankTripFields(current.data as TripRow, fields);
+  const row = current.data as TripRow;
+  const update = blankTripFields(row, fields);
+  // The trip's cover photograph, found now rather than when the sidebar first asks: a guest cannot save it from the
+  // browser (that write is closed to them), and looking it up on first paint leaves the sidebar's picture empty for a
+  // second or two after the chat opens. Best effort: a failed or empty lookup just leaves the cover to be found later.
+  const destination = (update.destination as string | undefined) ?? row.destination;
+  if (destination && !row.hero_photo_name) {
+    const photo = await new GooglePlacesProvider().coverPhoto(destination).catch(() => null);
+    if (photo) update.hero_photo_name = encodeCover(photo);
+  }
   if (Object.keys(update).length === 0) return;
   const result = await supabase.from("trips").update(update).eq("id", tripId);
   if (!result.error) invalidateWorkspace(tripId);
