@@ -73,7 +73,7 @@ const TAGS = [
   {
     label: "Inspire me",
     prompt:
-      "Inspire me: where should I go in October for great food and a bit of adventure?",
+      "Where should I go in October for great food and a bit of adventure?",
   },
 ] as const;
 
