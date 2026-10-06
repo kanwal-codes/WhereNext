@@ -6,7 +6,7 @@ import { StayResultCard } from "@/features/stays/ui/StayResultCard";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BedDouble, Compass, X } from "lucide-react";
+import { Compass, X } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
 import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { useTripData } from "@/components/TripDataProvider";
@@ -16,7 +16,6 @@ import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProv
 import { useShowMore } from "@/lib/use-show-more";
 import { ShowMoreButton } from "@/components/ShowMoreButton";
 import { PlaceCard } from "@/components/PlaceCard";
-import { CardMedia, CompareMark, DetailsButton, EntityCard, MediaFallback, money } from "@/features/conversation/ui/blocks/ui";
 import { rankPlaces, type RankAnchor } from "@/lib/application/rank-places";
 import { usesMiles } from "@/lib/application/geo";
 import { readStayDecision } from "@/packages/contracts/stay";

@@ -135,7 +135,7 @@ describe("MessageBlocks", () => {
     expect(html).toContain("Torel Palace");
     expect(html).toContain("€230");
     expect(html).toContain("€690 total");
-    expect(html).toContain("9.4/10 guests (1,200)");
+    expect(html).toMatch(/9\.4<span[^>]*>\/10<\/span><span[^>]*> 1,200<\/span>/); // the guest score pill: 9.4 /10 and how many guests gave it
     expect(html).toContain("400 m from Jerónimos Monastery");
     expect(html).toContain("Rooms at Torel Palace");
     expect(html).toContain("Deluxe Room");

@@ -8,7 +8,8 @@ import type { Place } from "@/packages/contracts/place";
 import type { NearbyEvent } from "@/components/EventCard";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 import { EventCard } from "@/components/EventCard";
-import { CardMedia, CompareMark, EntityCard, MediaFallback, RatingMeta } from "@/features/conversation/ui/blocks/ui";
+import { CompareMark } from "@/features/conversation/ui/blocks/ui";
+import { CineCard } from "@/features/conversation/ui/blocks/CineCard";
 import { placeGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { Reveal } from "@/components/motion-primitives";
 import { ShowMore } from "@/components/DetailKit";
@@ -28,7 +29,7 @@ const norm = (s: string) => s.trim().toLowerCase();
 
 function MiniCard({ tripId, place, why, onSelect }: { tripId: string; place: Place; why?: string | null; onSelect?: () => void }) {
   const router = useRouter();
-  const photo = photoProxyUrl(tripId, place.photoNames?.[0], 400);
+  const photo = photoProxyUrl(tripId, place.photoNames?.[0], 480);
   const panelCtx = useTripPanelMaybe();
   const href = `/trips/${tripId}/place/${encodeURIComponent(place.providerId)}`;
   const itinerary = (useTripDataMaybe()?.data?.itinerary ?? []) as Array<{ title?: string; day_index?: number }>;
@@ -44,20 +45,18 @@ function MiniCard({ tripId, place, why, onSelect }: { tripId: string; place: Pla
   const selected = comparing && Boolean(panelCtx?.compareHas(place.providerId));
   return (
     <div className="w-[196px] shrink-0 snap-start">
-      <EntityCard
+      <CineCard
         compact
         label={`Open ${place.name}`}
         onOpen={open}
         href={href}
-        className={selected ? "ring-2 ring-coral" : undefined}
-        media={
-          <div className="relative">
-            <CardMedia src={photo} alt={place.name} fallback={<MediaFallback icon={placeGlyph(place.category, place.name).icon} className="aspect-[16/10] w-full rounded-t-2xl" />} />
-            {comparing && <CompareMark selected={selected} />}
-          </div>
-        }
+        selected={selected}
+        src={photo}
+        alt={place.name}
+        glyph={placeGlyph(place.category, place.name).icon}
         title={place.name}
-        meta={[typeof place.rating === "number" ? <RatingMeta key="r" rating={place.rating} count={place.userRatingCount} /> : null, why && why !== "Top-rated" ? why : null]}
+        meta={[typeof place.rating === "number" ? `★ ${place.rating.toFixed(1)}` : null, why && why !== "Top-rated" ? why : null].filter(Boolean).join(" · ")}
+        overlay={comparing ? <CompareMark selected={selected} /> : undefined}
       />
     </div>
   );

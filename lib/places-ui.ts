@@ -255,6 +255,15 @@ export function detailsToPlace(d: GooglePlaceDetails): Place | null {
   };
 }
 
+/** The month and day of an event for a calendar tile ("OCT", "24"), or undefined when the date isn't a day. */
+export function eventDayParts(raw?: string | null): { month: string; day: string } | undefined {
+  const m = raw?.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return undefined;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  if (Number.isNaN(d.getTime())) return undefined;
+  return { month: d.toLocaleDateString("en", { month: "short" }).toUpperCase(), day: String(d.getDate()) };
+}
+
 /** "2026-10-10" → "Sat, Oct 10"; "2026-09-30 18:30" → "Wed, Sep 30 · 6:30 PM". Anything else is returned untouched. */
 export function formatEventWhen(raw?: string | null): string | undefined {
   if (!raw) return undefined;
