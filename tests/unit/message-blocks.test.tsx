@@ -292,7 +292,7 @@ describe("MessageBlocks", () => {
     expect(html).toContain("casual spots");
     expect(html).toContain("Typical day");
     expect(html).toContain("67");
-    expect(html).toMatch(/Fits your CA\$150\/day/);
+    expect(html).toMatch(/Fits your CA\$150 a day/);
     expect(html).toContain("excludes flights &amp; hotel");
   });
 
@@ -300,7 +300,7 @@ describe("MessageBlocks", () => {
     const html = render([{ type: "budget", currency: "USD", perPerson: true, summary: "over budget",
       lines: [{ category: "Food", low: 40, typical: 90, high: 160 }, { category: "Fun", low: 20, typical: 60, high: 120 }],
       dailyTotal: { low: 60, typical: 150, high: 280 }, setBudget: 100 }]);
-    expect(html).toMatch(/Over your \$100\/day/);
+    expect(html).toMatch(/Over your \$100 a day/);
   });
 
   it("stays block: in the chat the search is one summary line (place, days, guests) that opens to edit", () => {
@@ -469,7 +469,7 @@ describe("MessageBlocks", () => {
     expect(without).not.toContain("Details");
     expect(without).not.toContain("Open Day 1");
     const withOpen = renderToStaticMarkup(<MessageBlocks blocks={blocks} {...handlers} onOpenPanel={vi.fn()} />);
-    expect(withOpen.replace(/aria-label="[^"]*"/g, "").match(/Details/g)).toHaveLength(2); // visible labels; each button also has a named accessible label
+    expect(withOpen.replace(/aria-label="[^"]*"/g, "").match(/Details/g)).toHaveLength(1); // the budget's visible label; the flight's button says "See this flight" and has a named accessible label
     expect(withOpen).toContain('aria-label="Details: Air Canada');
     expect(withOpen).toContain('aria-label="Budget details"');
     expect(withOpen).toContain("Open Day 1");

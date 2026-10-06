@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { ListChecks } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { motionTokens } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
-import { BlockHeader, surface, type } from "./ui";
+import { type } from "./ui";
+import { Widget, WidgetHero, WidgetPill } from "./Widget";
 
 type Groups = Array<{ title: string; items: Array<{ text: string; why?: string }> }>;
 
@@ -40,35 +40,59 @@ function useTicks(key: string) {
 }
 
 /** A readiness list you can tick off, with a running "3 of 11". */
-export function ChecklistBlock({ groups, tripId }: { groups: Groups; tripId: string }) {
+export function ChecklistBlock({ groups: given, tripId }: { groups: Groups; tripId: string }) {
+  // A group with nothing in it is not drawn.
+  const groups = given.filter((group) => group.items.length > 0);
   const { ticked, toggle } = useTicks(checklistKey(tripId, groups));
+  const [showAll, setShowAll] = useState(false);
   const reduce = useReducedMotion();
   const total = groups.reduce((sum, g) => sum + g.items.length, 0);
+  if (total === 0) return null;
   const done = groups.reduce((sum, g, gi) => sum + g.items.filter((item) => ticked.has(itemId(gi, item.text))).length, 0);
+  const left = total - done;
+  // A long list opens its first two groups; the rest are one tap away. The count always covers everything.
+  const FOLD = 2;
+  const visible = showAll || groups.length <= FOLD + 1 ? groups : groups.slice(0, FOLD);
+  const frac = total ? done / total : 0;
+  const r = 22, c = 2 * Math.PI * r;
   return (
-    <div className={cn(surface, "overflow-hidden")}>
-      <BlockHeader
-        icon={ListChecks}
-        title="Checklist"
-        actions={
-          <p role="status" className={cn(type.meta, "tabular-nums")}>
-            <span className="font-medium text-foreground">{done}</span> of {total}
-          </p>
-        }
-      />
-      <div role="progressbar" aria-label="Checklist progress" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} className="h-1 w-full bg-positive/20">
-        <motion.div className="h-full origin-left bg-positive" initial={false} animate={{ width: `${total ? (done / total) * 100 : 0}%` }} transition={reduce ? { duration: 0 } : motionTokens.standard} />
-      </div>
-      <div className="divide-y divide-border">
-        {groups.map((group, gi) => {
+    <Widget
+      glyph="checklist"
+      tone="coral"
+      eyebrow="Checklist"
+      title={left === 0 && total > 0 ? "All set" : left === 1 ? "One thing left" : "Before you go"}
+      status={
+        <WidgetPill tone={left === 0 && total > 0 ? "sage" : "coral"}>
+          <span role="status" className="tabular-nums"><span className="font-semibold">{done}</span> of {total}</span>
+        </WidgetPill>
+      }
+      hero={
+        <WidgetHero tone="coral" className="flex items-center gap-4">
+          <div role="progressbar" aria-label="Checklist progress" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} className="relative size-16 shrink-0">
+            <svg viewBox="0 0 56 56" className="size-16 -rotate-90" aria-hidden>
+              <circle cx="28" cy="28" r={r} fill="none" stroke="white" strokeOpacity="0.8" strokeWidth="7" />
+              <motion.circle cx="28" cy="28" r={r} fill="none" stroke="var(--coral-fill)" strokeWidth="7" strokeLinecap="round" strokeDasharray={c} initial={false} animate={{ strokeDashoffset: c * (1 - frac) }} transition={reduce ? { duration: 0 } : motionTokens.standard} />
+            </svg>
+            <span className="absolute inset-0 grid place-items-center font-display text-[0.8125rem] font-medium tabular-nums">{done}/{total}</span>
+          </div>
+          <div className="min-w-0">
+            <p className="font-display text-xl leading-tight font-medium tracking-[-0.012em]">{left === 0 && total > 0 ? "Everything is ticked off" : left === total ? "Nothing ticked yet" : "Getting there"}</p>
+            <p className={type.meta}>{left === 0 && total > 0 ? "You're ready" : `${left} thing${left === 1 ? "" : "s"} left`}</p>
+          </div>
+        </WidgetHero>
+      }
+      foot="Your ticks stay on this device"
+    >
+      <div className="mt-2 divide-y divide-border">
+        {visible.map((group, gi) => {
           const groupDone = group.items.filter((item) => ticked.has(itemId(gi, item.text))).length;
           return (
-            <section key={group.title} className="px-4 py-3">
+            <section key={group.title} className="px-4 py-3 sm:px-[1.125rem]">
               <div className="flex items-baseline justify-between gap-3">
                 <h3 className={type.title}>{group.title}</h3>
                 <span className={cn(type.meta, "tabular-nums")}>{groupDone}/{group.items.length}</span>
               </div>
-              <ul className="mt-1">
+              <ul className="mt-1 grid gap-x-6 sm:grid-cols-2">
                 {group.items.map((item) => {
                   const id = itemId(gi, item.text);
                   const on = ticked.has(id);
@@ -88,7 +112,13 @@ export function ChecklistBlock({ groups, tripId }: { groups: Groups; tripId: str
             </section>
           );
         })}
+        {visible.length < groups.length && (
+          <div className="flex items-center justify-between gap-3 px-4 py-3.5 sm:px-[1.125rem]">
+            <span className={cn(type.meta, "min-w-0 truncate")}>{groups.length - visible.length} more groups · {groups.slice(visible.length).map((g) => g.title).join(", ")}</span>
+            <button type="button" onClick={() => setShowAll(true)} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-border bg-background px-3 text-xs font-medium text-ink-soft hover:border-primary/40 hover:text-foreground">Show all</button>
+          </div>
+        )}
       </div>
-    </div>
+    </Widget>
   );
 }

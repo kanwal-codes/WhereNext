@@ -55,18 +55,20 @@ export function StayResultCard({ stay, href, onOpen, locked = false, comparing =
           </>
         ) : undefined
       }
-      foot={
+      foot={stay.nightlyAmount > 0 ? (
         <p className="flex flex-wrap items-baseline gap-x-1.5">
           <span className="font-display text-[1.75rem] leading-none font-medium tracking-[-0.025em] tabular-nums">{money(stay.nightlyAmount, stay.currency)}</span>
           <span className="text-[0.8125rem] text-white/70">/ night</span>
           {stay.totalAmount ? <span className="w-full pt-0.5 text-xs text-white/60 tabular-nums">{money(stay.totalAmount, stay.currency)} total</span> : null}
         </p>
-      }
-      action={
+      ) : (
+        <p className="text-[0.8125rem] text-white/75">Price unavailable for these dates</p>
+      )}
+      action={stay.nightlyAmount > 0 ? (
         <button type="button" onClick={onOpen} aria-label={`Rooms & details: ${stay.name}`} className={cn(CINE_ORB, CINE_ORB_WHITE)}>
           <ArrowUpRight className="size-5" aria-hidden />
         </button>
-      }
+      ) : undefined}
       overlay={comparing ? <CompareMark selected={selected} /> : undefined}
     />
   );

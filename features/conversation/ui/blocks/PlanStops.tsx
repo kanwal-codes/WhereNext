@@ -31,6 +31,8 @@ type RowProps = {
   index: number;
   last: boolean;
   panel: boolean;
+  /** The roomy plan version: a big tinted tile per stop and more air between stops. */
+  roomy?: boolean;
   timed: boolean;
   band: string;
   onOpenPlace?: (stop: PlanStop) => void;
@@ -41,7 +43,7 @@ type RowProps = {
 };
 
 /** One stop: icon with its connector, time, title, note. Shared by the static list and the reorderable one. */
-function StopRow({ stop, last, panel, timed, band, onOpenPlace, reorder, dragging, controls, index }: RowProps) {
+function StopRow({ stop, last, panel, roomy = false, timed, band, onOpenPlace, reorder, dragging, controls, index }: RowProps) {
   const glyph = stop.glyph ?? stopGlyph(stop.kind, stop.title);
   const Icon = glyph.icon;
   const time = stop.time ? formatClockTime(stop.time) : null;
@@ -49,31 +51,31 @@ function StopRow({ stop, last, panel, timed, band, onOpenPlace, reorder, draggin
   return (
     <>
       {panel && timed && (
-        <div className={cn(band, "flex w-[4.5rem] shrink-0 items-center justify-end self-start whitespace-nowrap text-sm font-medium tabular-nums text-muted-foreground")}>{time}</div>
+        <div className={cn(band, "flex shrink-0 justify-end self-start whitespace-nowrap font-medium tabular-nums", roomy ? cn("pt-1", /\d/.test(time ?? "") ? "w-[3.75rem] font-display text-lg text-foreground" : "w-[4.5rem] text-[0.8125rem] font-semibold text-ink-soft") : "w-[4.5rem] items-center text-sm text-muted-foreground")}>{time}</div>
       )}
       <div className="flex shrink-0 flex-col items-center">
         <span
           role="img"
           aria-label={glyph.label}
-          className={cn("grid shrink-0 place-items-center rounded-full transition-shadow duration-200", panel ? cn("size-9", TINT[stop.kind ?? "activity"]) : "size-8 border border-border bg-card text-coral", dragging && "shadow-lift")}
+          className={cn("grid shrink-0 place-items-center transition-shadow duration-200", roomy ? "size-14 rounded-[1.25rem]" : "rounded-full", panel ? cn(roomy ? "" : "size-9", TINT[stop.kind ?? "activity"]) : "size-8 border border-border bg-card text-coral", dragging && "shadow-lift")}
         >
-          <Icon className="size-4" aria-hidden />
+          {roomy && !timed ? <span className="font-display text-lg font-medium tabular-nums" aria-hidden>{index + 1}</span> : <Icon className={roomy ? "size-6" : "size-4"} aria-hidden />}
         </span>
         {!last && <span aria-hidden className={cn("mt-1 mb-1 w-0.5 flex-1 rounded-full bg-foreground/15 transition-opacity", dragging && "opacity-0")} />}
       </div>
-      <div className={cn("min-w-0 flex-1", !last && (panel ? "pb-6" : "pb-4"))}>
-        <div className={cn(band, "flex items-center gap-2")}>
+      <div className={cn("min-w-0 flex-1", roomy && "pt-0.5", !last && (roomy ? "pb-7" : panel ? "pb-6" : "pb-4"))}>
+        <div className={cn(roomy ? "flex items-center gap-2" : cn(band, "flex items-center gap-2"))}>
           {!panel && time && <span className={cn(type.meta, "shrink-0 font-medium tabular-nums")}>{time}</span>}
           {open ? (
-            <button type="button" onClick={open} className={cn(textAction, "min-w-0 text-left", panel ? "font-display text-base font-semibold leading-snug" : "text-sm font-medium")}>
+            <button type="button" onClick={open} className={cn(textAction, "min-w-0 text-left", roomy ? "font-display text-[1.0625rem] font-medium leading-snug" : panel ? "font-display text-base font-semibold leading-snug" : "text-sm font-medium")}>
               {stop.title} <ArrowUpRight className={cn("text-muted-foreground", panel ? "size-4" : "size-3.5")} aria-hidden />
             </button>
           ) : (
-            <p className={cn("min-w-0", panel ? "font-display text-base font-semibold leading-snug" : cn(type.body, "font-medium"))}>{stop.title}</p>
+            <p className={cn("min-w-0", roomy ? "font-display text-[1.0625rem] font-medium leading-snug" : panel ? "font-display text-base font-semibold leading-snug" : cn(type.body, "font-medium"))}>{stop.title}</p>
           )}
           {stop.trailing && <span className={cn(type.meta, "ml-auto shrink-0 font-medium tabular-nums")}>{stop.trailing}</span>}
         </div>
-        {stop.note && <p className={cn(panel ? cn(type.body, "text-ink-soft") : type.meta)}>{stop.note}</p>}
+        {stop.note && <p className={cn(roomy ? "mt-1 text-sm leading-snug text-ink-soft" : panel ? cn(type.body, "text-ink-soft") : type.meta)}>{stop.note}</p>}
       </div>
       {reorder && (
         <button
@@ -190,11 +192,12 @@ function ReorderableRow(props: Omit<RowProps, "dragging" | "controls" | "reorder
  * icons); `panel` is the side-panel version (time in its own column, icons tinted by kind).
  * With `onReorder` the rows can be moved: by the grip, by touch and hold, or by the arrow keys on the grip.
  */
-export function PlanStops({ stops, variant, onOpenPlace, stagger = false, onReorder }: { stops: PlanStop[]; variant: "card" | "panel"; onOpenPlace?: (stop: PlanStop) => void; /** Rows settle in one after another (for a list that has just opened). */ stagger?: boolean; /** Called with the stop ids in their new order; each stop needs an `id`. */ onReorder?: (ids: string[]) => void }) {
+export function PlanStops({ stops, variant, onOpenPlace, stagger = false, onReorder }: { stops: PlanStop[]; variant: "card" | "panel" | "plan"; onOpenPlace?: (stop: PlanStop) => void; /** Rows settle in one after another (for a list that has just opened). */ stagger?: boolean; /** Called with the stop ids in their new order; each stop needs an `id`. */ onReorder?: (ids: string[]) => void }) {
   const reduce = useReducedMotion();
-  const panel = variant === "panel";
+  const roomy = variant === "plan";
+  const panel = variant === "panel" || roomy;
   const timed = stops.some((stop) => stop.time); // no time column when no stop has a time
-  const band = panel ? "min-h-9" : "min-h-8";
+  const band = roomy ? "" : panel ? "min-h-9" : "min-h-8";
   const [carrying, setCarrying] = useState(false);
 
   if (onReorder && stops.every((stop) => stop.id)) {
@@ -217,6 +220,7 @@ export function PlanStops({ stops, variant, onOpenPlace, stagger = false, onReor
             count={stops.length}
             last={i === stops.length - 1}
             panel={panel}
+            roomy={roomy}
             timed={timed}
             band={band}
             onOpenPlace={onOpenPlace}
@@ -238,7 +242,7 @@ export function PlanStops({ stops, variant, onOpenPlace, stagger = false, onReor
           animate={{ opacity: 1, y: 0 }}
           transition={{ ...motionTokens.swap, delay: stagger ? 0.05 + i * 0.05 : 0 }}
         >
-          <StopRow stop={stop} index={i} last={i === stops.length - 1} panel={panel} timed={timed} band={band} onOpenPlace={onOpenPlace} />
+          <StopRow stop={stop} index={i} last={i === stops.length - 1} panel={panel} roomy={roomy} timed={timed} band={band} onOpenPlace={onOpenPlace} />
         </motion.li>
       ))}
     </ol>

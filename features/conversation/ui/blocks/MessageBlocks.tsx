@@ -19,25 +19,21 @@ import {
   Compass,
   Droplets,
   Footprints,
-  SearchX,
-  ChevronRight,
   Info,
-  Luggage,
   Pencil,
   PersonStanding,
   Loader2,
   MapPin,
-  Plane,
   Shirt,
   Snowflake,
   Star,
   Sun,
   TrainFront,
   Umbrella,
-  Wallet,
+  Undo2,
+  ChevronDown,
+  ChevronRight,
   X,
-  CalendarRange,
-  Scale,
 } from "lucide-react";
 import type { AssistantBlock, PlaceCard, StayCardItem, TrustLabel } from "@/packages/contracts/assistant";
 import type { Place } from "@/packages/contracts/place";
@@ -53,27 +49,29 @@ import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { addStopsToItinerary, dayIndexFromLabel, itineraryTitle } from "@/features/conversation/application/addPlanToItinerary";
 import { categoryLabel, eventDayParts, priceLabel } from "@/lib/places-ui";
 import { CINE_ORB, CINE_ORB_WHITE, CINE_PILL_ACTION, CineCard, CineDate, CinePill, CineRating } from "./CineCard";
+import { MODE_COLOR } from "@/lib/application/mode-visuals";
+import { HandoffContext, LiveReplyContext, RoamIcon } from "@/features/roam/ui/RoamIcon";
+import { FlightHero, FlightJourney, FlightPicks, FlightPicksSkeleton, FlightRowBody, offerKey, pickFares } from "./FlightWidget";
+import { RowBar, RowValue, Widget, WidgetAction, WidgetFigure, WidgetFoot, WidgetHero, WidgetPill, WidgetRow, WidgetRows } from "./Widget";
 import { portableProxyPhotoUrl } from "../portable-photo-url";
 import type { CardPanel } from "@/components/TripPanelProvider";
-import { PlanStops, type PlanStop } from "./PlanStops";
+import { PlanStops } from "./PlanStops";
 import { FactStrip } from "@/components/DetailKit";
 import { AnimatePresence, motion } from "motion/react";
 import { ContentSwap, Enter, motionTokens } from "@/components/motion-primitives";
-import { SlidingTabs } from "./SlidingTabs";
 import { ChecklistBlock } from "./ChecklistBlock";
 import { parseRouteStep, routeLines, splitRouteEnds } from "./routeText";
 import { pointsFromItinerary, pointsFromPlaces, pointsFromStays } from "./mapPoints";
-import { DEFAULT_FLIGHT_VIEW, FlightControls, applyFlightView, arrivalDayOffset, type FlightView } from "./FlightFilters";
+import { DEFAULT_FLIGHT_VIEW, FlightControls, applyFlightView, type FlightView } from "./FlightFilters";
 import { FlightRowsSkeleton, FlightSearchBar, PriceInsight, useFlightSearch } from "./FlightSearch";
 import { shiftIso } from "./SearchBarParts";
-import { AirlineMark } from "../panels/OtherFlights";
 import { StayCardsSkeleton, StaySearchBar, useStaySearch } from "./StaySearch";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { resolveCurrency } from "@/lib/currency";
-import { HoldHeight, ScrollWindow, ScrollX, ViewControls } from "./ListControls";
+import { HoldHeight, ScrollX, ViewControls } from "./ListControls";
 import { DEFAULT_EVENT_VIEW, DEFAULT_STAY_VIEW, applyEventView, applyStayView, eventControls, stayControls, type EventView, type StayView } from "./listViews";
 import { factGlyph, placeGlyph } from "./glyphs";
-import { Badge, BlockHeader, segmentTab, CARD_W, CardOpenOverlay, DetailsButton, EntityCard, Meta, Notice, SectionHeader, SeeAllButton, compactCount, controlSecondary, grid, money, prettyDate, prettyDates, rail, surface, textAction, type, MapButton } from "./ui";
+import { Badge, segmentTab, CARD_W, CardOpenOverlay, Meta, Notice, SectionHeader, SeeAllButton, compactCount, controlSecondary, grid, money, prettyDate, prettyDates, rail, surface, textAction, type, MapButton } from "./ui";
 
 export type BlockHandlers = {
   /** The trip these blocks belong to — card actions write against it. */
@@ -206,7 +204,7 @@ function PlaceCardView({
       src={portableProxyPhotoUrl(place.photoUrl)}
       alt={place.name}
       glyph={placeGlyph(place.category, place.name).icon}
-      topLeft={typeof place.rating === "number" ? <CineRating rating={place.rating} count={place.userRatingCount ? compactCount(place.userRatingCount) : undefined} /> : undefined}
+      topLeft={typeof place.rating === "number" ? <CineRating rating={place.rating} count={place.userRatingCount ? compactCount(place.userRatingCount) : undefined} /> : category ? <CinePill>{category}</CinePill> : undefined}
       // "From the web" is the default for every card: only a non-default trust label carries information.
       topRight={place.trust !== "sourced" ? <CinePill>{TRUST_LABEL[place.trust] ?? place.trust}</CinePill> : undefined}
       eyebrow={category}
@@ -256,7 +254,7 @@ function StayCardView({ hotel, onOpen }: { hotel: StayCardItem; onOpen?: () => v
       ) : (
         <p className="text-[0.8125rem] text-white/70">Price unavailable for these dates</p>
       )}
-      action={onOpen ? (
+      action={onOpen && priced ? (
         <button type="button" onClick={onOpen} aria-label={`Rooms & details: ${hotel.name}`} className={cn(CINE_ORB, CINE_ORB_WHITE)}>
           <ArrowUpRight className="size-5" aria-hidden />
         </button>
@@ -285,7 +283,7 @@ function FeaturedEventCard({ group, onOpen }: { group: EventGroup; onOpen?: (see
       title={event.title}
       pills={
         <>
-          <CinePill>{formatEventDates(group.dates)}</CinePill>
+          <CinePill>{active.date ? formatEventDates(group.dates) : "Date to be announced"}</CinePill>
           {rel && <CinePill tone={event.relToTrip === "in" ? "positive" : "glass"}>{rel}</CinePill>}
         </>
       }
@@ -347,62 +345,118 @@ function packIcon(item: string) {
   return Backpack;
 }
 
-function WeatherBlockView({ block }: { block: WeatherBlockData }) {
-  const chips = block.packing.length > 0 && (
-    <div className="flex flex-wrap gap-1.5">
-      {block.packing.map((item) => (
+/** The highs and lows as two quiet curves across the forecast days, in the hero. */
+function TempCurve({ days }: { days: WeatherBlockData["days"] }) {
+  const list = days.slice(0, 7);
+  // Two points are not a trend: the curve needs at least three days.
+  if (list.length < 3) return null;
+  const w = 560, h = 72;
+  const lo = Math.min(...list.map((d) => d.min)) - 2, hi = Math.max(...list.map((d) => d.max)) + 2;
+  const x = (i: number) => 14 + (i * (w - 28)) / (list.length - 1);
+  const y = (v: number) => h - 8 - ((v - lo) / (hi - lo || 1)) * (h - 16);
+  const line = (key: "max" | "min") => list.map((d, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(0)} ${y(d[key]).toFixed(0)}`).join(" ");
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="mt-1 h-[4.5rem] w-full" role="img" aria-label="Highs and lows across the week">
+      <path d={line("max")} fill="none" stroke="var(--coral)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={line("min")} fill="none" stroke="var(--lagoon)" strokeOpacity="0.7" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      {list.map((d, i) => (
+        <g key={i}>
+          <circle cx={x(i)} cy={y(d.max)} r="3.6" fill="var(--coral)" />
+          <circle cx={x(i)} cy={y(d.min)} r="3.2" fill="var(--lagoon)" fillOpacity="0.8" />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+function PackRow({ items }: { items: string[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 px-4 pt-3 pb-4 sm:px-[1.125rem]">
+      <span className="eyebrow mr-1">Pack</span>
+      {items.map((item) => (
         <Badge key={item} icon={packIcon(item)}>{item}</Badge>
       ))}
     </div>
   );
+}
 
+function WeatherBlockView({ block }: { block: WeatherBlockData }) {
   if (block.mode === "forecast" && block.days.length > 0) {
+    const days = block.days.slice(0, 7);
+    const dry = days.filter((d) => !d.wet).map((d) => d.label);
+    const wet = days.filter((d) => d.wet).length;
+    const Icon = WX_ICON[days[0]?.condition ?? "mixed"];
     return (
-      <div className={cn(surface, "space-y-3 bg-gradient-to-br from-lagoon-soft via-card to-card p-4")}>
-        <div className="space-y-0.5">
-          <p className={cn(type.body, "font-medium")}>{block.headline}</p>
-          <Meta items={[block.location]} />
-        </div>
-        <ul className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(block.days.length, 7)}, minmax(0, ${block.days.length >= 5 ? "1fr" : "4.5rem"}))` }}>
-          {block.days.slice(0, 7).map((day, dayIndex) => (
-            <li key={dayIndex} className="flex min-w-0 flex-col items-center gap-1 rounded-xl border border-border bg-background/60 px-1 py-3">
-              <span className={cn(type.meta, "font-medium")}>{day.label}</span>
-              <WeatherGlyph condition={day.condition} className="size-5" />
-              <span className={cn(type.body, type.num)}>{day.max}°</span>
-              <span className={cn(type.meta, "tabular-nums")}>{day.min}°</span>
-              <span className="grid h-3.5 place-items-center">{day.wet && <Droplets className="size-3.5 text-coral" aria-label="Rain expected" />}</span>
+      <Widget
+        glyph="weather"
+        tone="lagoon"
+        eyebrow={`Forecast${block.location ? ` · ${block.location}` : ""}`}
+        title={block.headline}
+        status={wet > 0 ? <WidgetPill tone="lagoon" icon={Droplets}>{wet} wet day{wet === 1 ? "" : "s"}</WidgetPill> : <WidgetPill tone="sage" icon={Check}>All dry</WidgetPill>}
+        hero={
+          <WidgetHero tone="lagoon" className="relative overflow-hidden pb-2">
+            <Icon className="absolute top-3 right-4 size-16 text-caution/80 max-sm:hidden" strokeWidth={1.2} aria-hidden />
+            <WidgetFigure unit={days[0]?.label ? `high ${days[0].label.toLowerCase() === "today" ? "today" : `on ${days[0].label}`}` : undefined}>{degrees(days[0]?.max ?? 0)}</WidgetFigure>
+            <TempCurve days={days} />
+          </WidgetHero>
+        }
+        foot={dry.length > 0 && wet > 0 ? <>Driest days: {dry.slice(0, 4).join(", ")}</> : <>Forecast for the next {days.length} days</>}
+      >
+        <ul className="no-scrollbar grid gap-1 overflow-x-auto px-3 pt-3.5" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(${days.length > 6 ? "3.5rem" : "0px"}, 1fr))` }}>
+          {days.map((day, i) => (
+            <li key={i} className="flex min-w-0 flex-col items-center gap-1 px-0.5 py-1.5 text-center">
+              <span className={cn(type.meta, "font-semibold text-ink-soft")}>{day.label}</span>
+              <WeatherGlyph condition={day.condition} className={cn("size-6", day.wet ? "text-lagoon" : "text-caution")} />
+              <span className="font-display text-base leading-tight font-medium tabular-nums">{degrees(day.max)}</span>
+              <span className={cn(type.meta, "tabular-nums")}>{degrees(day.min)}</span>
+              <span className="mt-1 grid h-4 place-items-center">{day.wet ? <Droplets className="size-4 text-lagoon" aria-label="Rain expected" /> : null}</span>
             </li>
           ))}
         </ul>
-        {chips}
-      </div>
+        <PackRow items={block.packing} />
+      </Widget>
     );
   }
 
+  const rainy = typeof block.rainyDays === "number" ? Math.max(0, Math.min(31, Math.round(block.rainyDays))) : 0;
   return (
-    <div className={cn(surface, "flex items-start gap-4 bg-gradient-to-br from-lagoon-soft via-card to-card p-4")}>
-      <WeatherGlyph condition={block.condition} className="size-10 shrink-0" />
-      <div className="min-w-0 flex-1 space-y-2">
-        <p className={cn(type.meta, "flex flex-wrap items-center gap-x-2 gap-y-1")}>
-          <span className="font-medium text-foreground">Typical {block.month ?? "weather"}{block.location ? ` · ${block.location}` : ""}</span>
-          {block.estimated && <Badge>Estimated</Badge>}
-        </p>
-        {(typeof block.highC === "number" || typeof block.lowC === "number") && (
-          <p className="flex items-baseline gap-2">
-            {typeof block.highC === "number" && <span className={type.figure}>{block.highC}°</span>}
-            {typeof block.lowC === "number" && <span className={cn(type.body, "tabular-nums text-muted-foreground")}>/ {block.lowC}°</span>}
-            <span className={type.meta}>typical high / low</span>
-          </p>
-        )}
-        <p className={cn(type.body, "text-ink-soft")}>{block.headline}</p>
-        {typeof block.rainyDays === "number" && block.rainyDays > 0 && (
-          <p className={cn(type.meta, "flex items-center gap-1.5")}>
-            <Droplets className="size-3.5" aria-hidden /> about {block.rainyDays} rainy day{block.rainyDays === 1 ? "" : "s"} that month
-          </p>
-        )}
-        {chips}
-      </div>
-    </div>
+    <Widget
+      glyph="weather"
+      tone="lagoon"
+      eyebrow={block.mode === "forecast" ? `Forecast not ready${block.location ? ` · ${block.location}` : ""}` : `Typical ${block.month ?? "weather"}${block.location ? ` · ${block.location}` : ""}`}
+      title={block.headline}
+      status={block.estimated ? <WidgetPill>Estimated</WidgetPill> : undefined}
+      hero={
+        (typeof block.highC === "number" || typeof block.lowC === "number" || rainy > 0) ? (
+          <WidgetHero tone="lagoon" className="flex flex-wrap items-center gap-x-8 gap-y-4">
+            {(typeof block.highC === "number" || typeof block.lowC === "number") && (
+              <div className="min-w-0 flex-1">
+                <p className="flex flex-wrap items-baseline gap-x-2">
+                  {typeof block.highC === "number" && <span className="font-display text-[3.5rem] leading-none font-medium tracking-[-0.04em] tabular-nums">{degrees(block.highC)}</span>}
+                  {typeof block.lowC === "number" && <span className="text-base text-ink-soft tabular-nums">/ {degrees(block.lowC)}</span>}
+                </p>
+                <p className={cn(type.meta, "mt-1")}>typical high and low</p>
+              </div>
+            )}
+            {rainy > 0 && (
+              <div className="min-w-[11rem] max-w-[15rem] flex-1">
+                <p className="eyebrow mb-2">Rainy days</p>
+                <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-1" role="img" aria-label={`About ${rainy} rainy days that month`}>
+                  {Array.from({ length: 30 }, (_, i) => (
+                    <span key={i} className={cn("aspect-square rounded-full", i < rainy ? "bg-lagoon" : "bg-lagoon/20")} />
+                  ))}
+                </div>
+                <p className={cn(type.meta, "mt-2")}>about {rainy} rainy day{rainy === 1 ? "" : "s"} that month</p>
+              </div>
+            )}
+          </WidgetHero>
+        ) : undefined
+      }
+      foot={block.mode === "forecast" ? "No forecast yet, so this is the typical month. A real forecast arrives about a week before the trip." : "Typical values from past years, not a forecast"}
+    >
+      <PackRow items={block.packing} />
+    </Widget>
   );
 }
 
@@ -411,85 +465,118 @@ type ComparisonBlockData = Extract<AssistantBlock, { type: "comparison" }>;
 /** Attribute rows × option columns. The redundant "Option" column is dropped — the header row names each option once. */
 function ComparisonBlockView({ block }: { block: ComparisonBlockData }) {
   const attrs = block.columns.slice(1);
+  const best = block.bestForYou;
+  const [all, setAll] = useState(false);
+  // Three options show side by side; the rest are one tap away. Attribute names stay in a fixed first column.
+  const rows = all || block.rows.length <= 4 ? block.rows : block.rows.slice(0, 3);
   return (
-    <div className={cn(surface, "overflow-hidden")}>
-      <BlockHeader icon={Scale} title={block.title} />
-      <ScrollX label={`${block.title}, scroll sideways for more`}>
-        <table className="daisy-table daisy-table-zebra daisy-table-pin-cols w-full text-sm">
-          <thead>
-            <tr className="text-foreground">
-              <th scope="col" className="w-28 bg-card" />
-              {block.rows.map((row) => (
-                <th key={row.label} scope="col" className="static min-w-32 font-display text-sm font-semibold">{row.label}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {attrs.map((attr, attrIndex) => (
-              <tr key={attr}>
-                <th scope="row" className="text-xs font-medium text-muted-foreground">{attr}</th>
-                {block.rows.map((row) => (
-                  <td key={row.label} className="align-top leading-snug">{row.cells[attrIndex + 1] ?? "—"}</td>
+    <Widget
+      glyph="compare"
+      tone="lagoon"
+      eyebrow="Compare"
+      title={block.title}
+      status={best ? <WidgetPill tone="sage" icon={Check}>{best.label} fits you</WidgetPill> : undefined}
+      foot={best ? <span><strong className="font-semibold text-positive">{best.label}</strong> — {best.reason}</span> : `${block.rows.length} options compared`}
+    >
+      <div className="mt-3.5 border-t border-border">
+        <ScrollX label={`${block.title}, scroll sideways for more`}>
+          <table className="daisy-table daisy-table-zebra daisy-table-pin-cols w-full text-sm">
+            <thead>
+              <tr className="text-foreground">
+                <th scope="col" className="w-28 bg-card" />
+                {rows.map((row) => (
+                  <th key={row.label} scope="col" className={cn("static min-w-32 font-display text-base font-medium", best?.label === row.label && "text-positive")}>{row.label}</th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </ScrollX>
-      {block.bestForYou && (
-        <p className="flex items-start gap-2 border-t border-border bg-positive-soft px-4 py-3 text-sm text-positive">
-          <Check className="mt-0.5 size-4 shrink-0" aria-hidden />
-          <span>
-            <strong className="font-semibold">{block.bestForYou.label}</strong> — {block.bestForYou.reason}
-          </span>
-        </p>
-      )}
-    </div>
+            </thead>
+            <tbody>
+              {attrs.map((attr, attrIndex) => (
+                <tr key={attr}>
+                  <th scope="row" className="text-xs font-medium text-muted-foreground">{attr}</th>
+                  {rows.map((row) => (
+                    <td key={row.label} className="align-top leading-snug">{row.cells[attrIndex + 1] ?? "—"}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </ScrollX>
+        {rows.length < block.rows.length && (
+          <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 sm:px-[1.125rem]">
+            <span className={type.meta}>{block.rows.length - rows.length} more options hidden</span>
+            <button type="button" onClick={() => setAll(true)} className={controlSecondary}>Show all <ChevronDown className="size-3.5" aria-hidden /></button>
+          </div>
+        )}
+      </div>
+    </Widget>
   );
 }
 
 type StructuredAnswerBlockData = Extract<AssistantBlock, { type: "structured_answer" }>;
 
-/** Sections in one card, separated by rules — a section with figures becomes a small price list. */
+/** Sections in one card — a section of short figures becomes tiles, a longer list of figures a price list. */
 function StructuredAnswerBlockView({ block }: { block: StructuredAnswerBlockData }) {
+  const first = block.sections[0];
+  // A long answer keeps its first two sections open; the others are headings that open on a tap.
+  const [openSet, setOpenSet] = useState<Set<number>>(new Set());
+  const folds = block.sections.length > 3;
   return (
-    <div className={cn(surface, "divide-y divide-border")}>
-      {block.sections.map((section, i) => {
-        const figures = section.bullets.some((bullet) => bullet.detail);
-        // Icons only when the section is practical facts (a plug, a tip, an emergency number); a plain price list stays plain.
-        const icons = figures && section.bullets.some((bullet) => factGlyph(`${bullet.text} ${bullet.detail ?? ""}`));
-        return (
-          <section key={i} className="space-y-2 p-4">
-            <h3 className={type.title}>{section.heading}</h3>
-            {figures ? (
-              <dl className="divide-y divide-border/60">
-                {section.bullets.map((bullet, j) => {
-                  const glyph = icons ? factGlyph(`${bullet.text} ${bullet.detail ?? ""}`) : null;
-                  const Icon = glyph?.icon ?? Info;
-                  return (
-                    <div key={j} className="flex items-start gap-3 py-2">
-                      {icons && (
-                        <span aria-hidden className="mt-px grid size-7 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
-                          <Icon className="size-3.5" />
-                        </span>
-                      )}
-                      <dt className={cn(type.body, "min-w-0 flex-1 pt-[3px] text-ink-soft")}>{bullet.text}</dt>
-                      <dd className={cn(type.body, type.num, "max-w-[55%] shrink-0 pt-[3px] text-right")}>{bullet.detail}</dd>
-                    </div>
-                  );
-                })}
-              </dl>
+    <Widget glyph="star" tone="lagoon" eyebrow="Good to know" title={block.sections.length === 1 && first ? first.heading : "Quick answer"} foot={undefined}>
+      <div className="mt-1 divide-y divide-border">
+        {block.sections.map((section, i) => {
+          const figures = section.bullets.some((bullet) => bullet.detail);
+          // Icons only when the section is practical facts (a plug, a tip, an emergency number); a plain price list stays plain.
+          const icons = figures && section.bullets.some((bullet) => factGlyph(`${bullet.text} ${bullet.detail ?? ""}`));
+          const tiles = figures && !icons && section.bullets.length <= 4 && section.bullets.every((bullet) => (bullet.detail ?? "").length <= 14);
+          return (
+            folds && i >= 2 && !openSet.has(i) ? (
+              <button key={i} type="button" aria-expanded={false} onClick={() => setOpenSet((cur) => new Set(cur).add(i))} className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left sm:px-[1.125rem]">
+                <span className={type.title}>{section.heading}</span>
+                <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+              </button>
             ) : (
-              <ul className={cn(type.body, "list-disc space-y-1 pl-5 text-ink-soft marker:text-muted-foreground")}>
-                {section.bullets.map((bullet, j) => (
-                  <li key={j}>{bullet.text}</li>
-                ))}
-              </ul>
-            )}
-          </section>
-        );
-      })}
-    </div>
+            <section key={i} className="space-y-2 px-4 py-4 sm:px-[1.125rem]">
+              {(block.sections.length > 1 || i > 0) && <h3 className={type.title}>{section.heading}</h3>}
+              {tiles ? (
+                <dl className="grid grid-cols-2 gap-2.5 pt-1">
+                  {section.bullets.map((bullet, j) => (
+                    <div key={j} className="rounded-2xl bg-lagoon-soft px-3.5 py-3">
+                      <dt className="eyebrow">{bullet.text}</dt>
+                      <dd className="mt-1 font-display text-[1.625rem] leading-none font-medium tracking-[-0.025em] tabular-nums">{bullet.detail}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : figures ? (
+                <dl className="divide-y divide-border/60">
+                  {section.bullets.map((bullet, j) => {
+                    const glyph = icons ? factGlyph(`${bullet.text} ${bullet.detail ?? ""}`) : null;
+                    const Icon = glyph?.icon ?? Info;
+                    return (
+                      <div key={j} className="flex items-start gap-3 py-2">
+                        {icons && (
+                          <span aria-hidden className="mt-px grid size-8 shrink-0 place-items-center rounded-xl bg-lagoon-soft text-lagoon">
+                            <Icon className="size-4" />
+                          </span>
+                        )}
+                        <dt className={cn(type.body, "min-w-0 flex-1 pt-1 text-ink-soft")}>{bullet.text}</dt>
+                        <dd className={cn(type.body, type.num, "max-w-[55%] shrink-0 pt-1 text-right")}>{bullet.detail}</dd>
+                      </div>
+                    );
+                  })}
+                </dl>
+              ) : (
+                <ul className={cn(type.body, "list-disc space-y-1 pl-5 text-ink-soft marker:text-muted-foreground")}>
+                  {section.bullets.map((bullet, j) => (
+                    <li key={j}>{bullet.text}</li>
+                  ))}
+                </ul>
+              )}
+            </section>
+            )
+          );
+        })}
+      </div>
+    </Widget>
   );
 }
 
@@ -497,103 +584,141 @@ type OptionsBlockData = Extract<AssistantBlock, { type: "options" }>;
 
 function OptionsBlockView({ block, onFollowup }: { block: OptionsBlockData } & Pick<BlockHandlers, "onFollowup">) {
   const Icon = block.kind === "area" ? MapPin : Compass;
+  const [showAll, setShowAll] = useState(false);
+  // Three show; the rest are one tap away, so the card never grows without limit.
+  const items = showAll || block.items.length <= 4 ? block.items : block.items.slice(0, 3);
   // Each option leads somewhere: the two next things a traveller asks about an area or a day trip.
   const actions = (name: string): Array<[label: string, prompt: string]> =>
     block.kind === "area"
       ? [["Stays here", `Show me places to stay in ${name}.`], ["What to do", `What is there to do in and around ${name}, and is it a good base for us?`]]
       : [["How to get there", `How do I get to ${name} for a day trip, and how long does it take each way?`], ["Plan the day", `Plan a day trip to ${name}: what to see, in what order, and when to head back.`]];
   return (
-    <div className="flex flex-col gap-3">
-      {block.estimated && <Notice tone="caution">Estimated from general knowledge — not backed by a current source.</Notice>}
-      {block.items.map((item) => (
-        <EntityCard
-          key={item.name}
-          alone
-          label={item.name}
-          glyph={Icon}
-          title={item.name}
-          meta={[item.meta]}
-          extra={
-            <>
-              <p className={cn(type.body, "text-ink-soft")}>{item.blurb}</p>
+    <Widget
+      glyph="place"
+      tone="coral"
+      eyebrow={block.kind === "area" ? "Areas" : "Day trips"}
+      title={block.kind === "area" ? "Where to base yourselves" : "Day trips worth the journey"}
+      status={<WidgetPill>{block.items.length} {block.kind === "area" ? "area" : "trip"}{block.items.length === 1 ? "" : "s"}</WidgetPill>}
+      foot={block.estimated ? "Estimated from general knowledge, not backed by a current source" : undefined}
+    >
+      <div className="mt-3.5 divide-y divide-border border-t border-border">
+        {items.map((item) => (
+          <article key={item.name} className="flex flex-wrap items-start gap-x-4 gap-y-3 px-4 py-4 sm:px-[1.125rem]">
+            <span className="grid size-[4.5rem] shrink-0 place-items-center rounded-2xl bg-coral-soft text-coral-ink" aria-hidden>
+              <Icon className="size-7" strokeWidth={1.5} />
+            </span>
+            <div className="min-w-0 flex-1 basis-48 space-y-1">
+              <h4 className="line-clamp-2 font-display text-[1.0625rem] leading-snug font-medium">{item.name}</h4>
+              <Meta items={[item.meta]} />
+              <p className={cn(type.body, "line-clamp-3 text-ink-soft")}>{item.blurb}</p>
               {(item.tags.length > 0 || item.bestFor) && (
-                <div className="flex flex-wrap items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
                   {item.tags.map((tag) => <Badge key={tag}>{tag}</Badge>)}
                   {item.bestFor && <Badge tone="positive" icon={Check}>Best for {item.bestFor}</Badge>}
                 </div>
               )}
-            </>
-          }
-          actions={actions(item.name).map(([label, prompt]) => (
-            <button key={label} type="button" className={controlSecondary} onClick={() => onFollowup(prompt)}>
-              {label} <ArrowRight className="size-3.5" aria-hidden />
-            </button>
-          ))}
-        />
-      ))}
-    </div>
+            </div>
+            <div className="flex shrink-0 gap-2 max-sm:w-full sm:w-36 sm:flex-col">
+              {actions(item.name).map(([label, prompt]) => (
+                <button key={label} type="button" className={cn(controlSecondary, "h-9 flex-1 justify-between px-3.5 sm:flex-none")} onClick={() => onFollowup(prompt)}>
+                  {label} <ArrowRight className="size-3.5" aria-hidden />
+                </button>
+              ))}
+            </div>
+          </article>
+        ))}
+        {items.length < block.items.length && (
+          <div className="flex items-center justify-between gap-3 px-4 py-3.5 sm:px-[1.125rem]">
+            <span className={cn(type.meta, "min-w-0 truncate")}>{block.items.length - items.length} more · {block.items.slice(items.length).map((i) => i.name).join(", ")}</span>
+            <button type="button" onClick={() => setShowAll(true)} className={controlSecondary}>Show {block.items.length - items.length} more <ChevronDown className="size-3.5" aria-hidden /></button>
+          </div>
+        )}
+      </div>
+    </Widget>
   );
 }
 
 type BudgetBlockData = Extract<AssistantBlock, { type: "budget" }>;
 
 /** One colour per line, the same as the budget panel's ledger, so the card and its expanded form read as one thing. */
-const BUDGET_TONE = ["bg-chart-1", "bg-chart-2", "bg-chart-3", "bg-chart-4", "bg-chart-5", "bg-muted-foreground"] as const;
+const BUDGET_COLOR = ["var(--color-chart-1)", "var(--color-chart-2)", "var(--color-chart-3)", "var(--color-chart-4)", "var(--color-chart-5)", "var(--color-muted-foreground)"] as const;
+
+/** The day's spend as a ring: each category's share, with the total in the middle. */
+function BudgetRing({ block }: { block: BudgetBlockData }) {
+  const total = block.lines.reduce((sum, line) => sum + line.typical, 0) || 1;
+  const r = 46, c = 2 * Math.PI * r;
+  let offset = 0;
+  return (
+    <svg viewBox="0 0 120 120" className="size-[8.25rem] shrink-0 max-sm:hidden" role="img" aria-label="Share of the day's spend by category">
+      <circle cx="60" cy="60" r={r} fill="none" stroke="white" strokeOpacity="0.7" strokeWidth="14" />
+      {block.lines.map((line, i) => {
+        const len = (c * line.typical) / total;
+        const seg = (
+          <circle key={i} cx="60" cy="60" r={r} fill="none" stroke={BUDGET_COLOR[Math.min(i, BUDGET_COLOR.length - 1)]} strokeWidth="14" strokeLinecap="round" strokeDasharray={`${Math.max(0, len - 3)} ${c - Math.max(0, len - 3)}`} strokeDashoffset={-offset} transform="rotate(-90 60 60)" />
+        );
+        offset += len;
+        return seg;
+      })}
+      <text x="60" y="58" textAnchor="middle" className="fill-foreground font-display text-[20px] font-medium">{compactMoney(block.dailyTotal.typical, block.currency)}</text>
+      <text x="60" y="75" textAnchor="middle" className="fill-ink-soft text-[10px]">per day</text>
+    </svg>
+  );
+}
 
 function BudgetBlockView({ block, onOpenPanel }: { block: BudgetBlockData } & Pick<BlockHandlers, "onOpenPanel">) {
   const maxTypical = Math.max(...block.lines.map((line) => line.typical), 1);
-  const under = typeof block.setBudget === "number" && block.dailyTotal.typical <= block.setBudget;
+  const hasBudget = typeof block.setBudget === "number";
+  const under = hasBudget && block.dailyTotal.typical <= (block.setBudget as number);
   const cur = block.currency;
+  const gap = hasBudget ? Math.abs(Math.round((block.setBudget as number) - block.dailyTotal.typical)) : 0;
+  const scale = hasBudget ? Math.max(block.setBudget as number, block.dailyTotal.typical) * 1.05 : 1;
   return (
-    <div className={cn(surface, "overflow-hidden")}>
-      <BlockHeader
-        icon={Wallet}
-        title={<>Daily spend · {block.perPerson ? "per person" : "for the group"}</>}
-        actions={<>{block.estimated && <Badge>Estimated</Badge>}{onOpenPanel && <DetailsButton label="Budget details" onClick={() => onOpenPanel({ kind: "budget", block })} />}</>}
-      />
-      {/* The answer first: the typical day as the figure, what it usually swings between, and whether it fits. */}
-      <div className="space-y-1.5 px-4 pt-4 pb-3">
-        <p className={cn(type.meta, "font-medium")}>Typical day</p>
-        <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="font-display text-4xl leading-none font-medium tracking-[-0.03em] tabular-nums">{money(Math.round(block.dailyTotal.typical), cur)}</span>
-          <span className={cn(type.meta, "tabular-nums")}>usually {money(Math.round(block.dailyTotal.low), cur)}–{money(Math.round(block.dailyTotal.high), cur)}</span>
-        </p>
-        {(typeof block.setBudget === "number" || block.tripNote) && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-1">
-            {typeof block.setBudget === "number" && (
-              <Badge tone={under ? "positive" : "caution"} icon={under ? Check : undefined}>
-                {under ? "Fits your" : "Over your"} {money(Math.round(block.setBudget), cur)}/day budget
-              </Badge>
+    <Widget
+      glyph="budget"
+      tone={hasBudget && !under ? "saffron" : "sage"}
+      eyebrow={`Daily spend · ${block.perPerson ? "per person" : "for the group"}`}
+      title={hasBudget ? (gap === 0 ? <>Right on your {money(Math.round(block.setBudget as number), cur)} a day</> : <>{under ? "Fits your" : "Over your"} {money(Math.round(block.setBudget as number), cur)} a day</>) : "Your typical day"}
+      status={block.estimated ? <WidgetPill>Estimated</WidgetPill> : undefined}
+      hero={
+        <WidgetHero tone={hasBudget && !under ? "saffron" : "sage"} className="flex items-center gap-6">
+          <div className="min-w-0 flex-1">
+            <p className="eyebrow mb-1">Typical day</p>
+            <WidgetFigure>{money(Math.round(block.dailyTotal.typical), cur)}</WidgetFigure>
+            <p className={cn(type.meta, "mt-1 tabular-nums")}>usually {money(Math.round(block.dailyTotal.low), cur)} to {money(Math.round(block.dailyTotal.high), cur)}</p>
+            {hasBudget && (
+              <>
+                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <WidgetPill tone={under ? "sage" : "saffron"} icon={under ? Check : undefined}>{gap === 0 ? "Exactly on budget" : `${money(gap, cur)} ${under ? "under" : "over"} budget`}</WidgetPill>
+                  {block.tripNote && <span className={type.meta}>{block.tripNote}</span>}
+                </div>
+                <div className="relative mt-4 h-2 rounded-full bg-foreground/10" role="img" aria-label={`Typical day against a ${money(Math.round(block.setBudget as number), cur)} budget`}>
+                  <div className={cn("h-full rounded-full", under ? "bg-positive" : "bg-caution")} style={{ width: `${Math.min(100, (block.dailyTotal.typical / scale) * 100)}%` }} />
+                  <span className="absolute -top-1 h-4 w-0.5 bg-foreground" style={{ left: `${Math.min(100, ((block.setBudget as number) / scale) * 100)}%` }} aria-hidden />
+                </div>
+                <p className={cn(type.meta, "mt-1.5")}>Your budget {money(Math.round(block.setBudget as number), cur)}</p>
+              </>
             )}
-            {block.tripNote && <p className={type.meta}>{block.tripNote}</p>}
+            {!hasBudget && block.tripNote && <p className={cn(type.meta, "mt-2")}>{block.tripNote}</p>}
           </div>
-        )}
-      </div>
-      <ul className="divide-y divide-border border-t border-border">
+          <BudgetRing block={block} />
+        </WidgetHero>
+      }
+      foot={block.estimated ? "Not backed by a current source: treat these as rough" : hasBudget && block.tripNote ? "Estimates from typical prices, not quotes" : "Estimates from typical prices, not quotes. Excludes flights and hotel."}
+      action={onOpenPanel ? <WidgetAction onClick={() => onOpenPanel({ kind: "budget", block })} label="Budget details">Details</WidgetAction> : undefined}
+    >
+      <WidgetRows>
         {block.lines.map((line, i) => (
-          <li key={i} className="space-y-2 px-4 py-3">
-            <div className="flex items-baseline justify-between gap-3">
-              <span className={cn(type.body, "flex items-center gap-2 font-medium")}>
-                <span aria-hidden className={cn("size-2 shrink-0 rounded-full", BUDGET_TONE[Math.min(i, BUDGET_TONE.length - 1)])} />
-                {line.category}
-              </span>
-              <span className={cn(type.body, type.num)}>{money(Math.round(line.typical), cur)}</span>
-            </div>
-            <div
-              role="img"
-              aria-label={`${line.category}: about ${money(Math.round(line.typical), cur)} a day`}
-              className="h-1 overflow-hidden rounded-full bg-muted"
-            >
-              <div className={cn("h-full rounded-full", BUDGET_TONE[Math.min(i, BUDGET_TONE.length - 1)])} style={{ width: `${Math.max(4, (line.typical / maxTypical) * 100)}%` }} />
-            </div>
-            <p className={cn(type.meta, "flex items-baseline justify-between gap-3")}>
-              <span className="min-w-0 truncate">{line.note}</span>
-              <span className="shrink-0 tabular-nums">{money(Math.round(line.low), cur)}–{money(Math.round(line.high), cur)}</span>
-            </p>
-          </li>
+          <WidgetRow
+            key={i}
+            lead={<span aria-hidden className="size-3 shrink-0 rounded-[0.3125rem]" style={{ background: BUDGET_COLOR[Math.min(i, BUDGET_COLOR.length - 1)] }} />}
+            title={line.category}
+            detail={line.note}
+            mid={<RowBar frac={line.typical === 0 ? 0 : line.typical / maxTypical} color={BUDGET_COLOR[Math.min(i, BUDGET_COLOR.length - 1)]} />}
+            value={<RowValue sub={rangeOf(line.low, line.high, cur)}>{priceOrFree(line.typical, cur)}</RowValue>}
+          />
         ))}
-      </ul>
-    </div>
+      </WidgetRows>
+    </Widget>
   );
 }
 
@@ -694,61 +819,88 @@ function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPan
     }
   }
 
+  const dayIndex = Math.min(active, block.days.length - 1);
+  const mapPoints = pointsFromItinerary(block);
+  const timedStops = day.stops.length;
   return (
-    <div className={cn(surface, "overflow-hidden")}>
-      <BlockHeader
-        icon={CalendarRange}
-        title={title ?? "Plan"}
-        actions={
-          <>
-          {onOpenPanel && pointsFromItinerary(block).length > 0 && <MapButton onClick={() => onOpenPanel({ kind: "map", title: `${title ?? "Plan"} on the map`, points: pointsFromItinerary(block) })} />}
+    <Widget
+      glyph="plan"
+      tone="coral"
+      eyebrow={block.intro && !introIsRepeat ? block.intro : `Plan · ${block.days.length} day${block.days.length === 1 ? "" : "s"}`}
+      title={title ?? "Plan"}
+      status={
+        <>
+          {onOpenPanel && mapPoints.length > 0 && <MapButton onClick={() => onOpenPanel({ kind: "map", title: `${title ?? "Plan"} on the map`, points: mapPoints })} />}
           <button
             type="button"
             onClick={() => void addAll()}
-            disabled={status !== "idle"}
+            disabled={status !== "idle" || totalStops === 0}
             className={cn(controlSecondary, status === "added" && "border-positive/40 bg-positive-soft text-positive")}
           >
             {status === "adding" ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : status === "added" ? <Check className="size-3.5" aria-hidden /> : <CalendarPlus className="size-3.5" aria-hidden />}
             {status === "added" ? "Added to itinerary" : "Add whole plan"}
           </button>
-          </>
-        }
-      />
-      {block.intro && !introIsRepeat && <p className={cn(type.body, "border-b border-border px-4 py-3 text-ink-soft")}>{block.intro}</p>}
-      {openLabels.length > 0 && <OpenDaysNotice labels={openLabels} onFollowup={onFollowup} />}
-      {multi && (
-        <SlidingTabs
-          label="Days"
-          className="mx-4 mt-4 w-fit max-w-[calc(100%-2rem)] overflow-x-auto no-scrollbar daisy-tabs-sm"
-          value={active}
-          onChange={setActive}
-          items={block.days.map((d, i) => ({ key: i, content: <span>{d.label}</span> }))}
-        />
+        </>
+      }
+      foot={day.open ? "This day is open: yours to wander" : timedStops > 1 ? `${timedStops} stops · drag the grip to reorder` : `${timedStops} stop`}
+      action={onOpenPanel && !day.open ? <WidgetAction onClick={() => onOpenPanel({ kind: "day", block, dayIndex })}>Open {day.label}</WidgetAction> : undefined}
+    >
+      {openLabels.length > 0 && <div className="mt-3"><OpenDaysNotice labels={openLabels} onFollowup={onFollowup} /></div>}
+      {multi && block.days.length > 12 && (
+        <div className="flex items-center gap-2 px-4 pt-4 sm:px-[1.375rem]">
+          <label className="relative flex-1">
+            <span className="sr-only">Day</span>
+            <select
+              value={dayIndex}
+              onChange={(event) => setActive(Number(event.target.value))}
+              className="h-11 w-full appearance-none rounded-2xl border border-border bg-surface pr-9 pl-4 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              {block.days.map((d, i) => <option key={i} value={i}>{d.label}{d.subtitle ? ` · ${d.subtitle}` : ""}</option>)}
+            </select>
+            <ChevronDown className="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          </label>
+          <button type="button" aria-label="Previous day" disabled={dayIndex === 0} onClick={() => setActive(dayIndex - 1)} className={cn(controlSecondary, "size-11 px-0 disabled:opacity-40")}><ChevronRight className="size-4 rotate-180" aria-hidden /></button>
+          <button type="button" aria-label="Next day" disabled={dayIndex === block.days.length - 1} onClick={() => setActive(dayIndex + 1)} className={cn(controlSecondary, "size-11 px-0 disabled:opacity-40")}><ChevronRight className="size-4" aria-hidden /></button>
+        </div>
+      )}
+      {multi && block.days.length <= 12 && (
+        <>
+        <div role="tablist" aria-label="Days" className="no-scrollbar flex gap-2 overflow-x-auto px-4 pt-4 sm:px-[1.375rem]">
+          {block.days.map((d, i) => (
+            <button
+              key={i}
+              type="button"
+              role="tab"
+              aria-selected={i === active}
+              onClick={() => setActive(i)}
+              className={cn(
+                "min-w-[6.5rem] flex-1 rounded-[1.125rem] border px-3.5 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                i === active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-surface text-foreground hover:border-ink/25",
+              )}
+            >
+              <span className="block font-display text-base leading-tight font-medium">{d.label}</span>
+              <span className={cn("mt-0.5 block truncate text-xs", i === active ? "text-primary-foreground/70" : "text-muted-foreground")}>{d.subtitle ?? (d.open ? "Open" : `${d.stops.length} stop${d.stops.length === 1 ? "" : "s"}`)}</span>
+            </button>
+          ))}
+        </div>
+        {block.days.length > 4 && <p className="px-4 pt-2 text-xs text-muted-foreground sm:px-[1.375rem]">{day.label} of {block.days.length} · swipe for the rest</p>}
+        </>
       )}
       <ContentSwap swapKey={String(active)}>
-      <div role="tabpanel" className="space-y-3 p-4">
-        {(day.subtitle || onOpenPanel) && (
-          <div className="flex items-center justify-between gap-3">
-            <p className={cn(type.meta, "min-w-0")}>{day.subtitle}</p>
-            {onOpenPanel && !day.open && (
-              <button type="button" onClick={() => onOpenPanel({ kind: "day", block, dayIndex: Math.min(active, block.days.length - 1) })} className={cn(textAction, "shrink-0")}>
-                Open {day.label} <ArrowUpRight className="size-3.5" aria-hidden />
-              </button>
-            )}
-          </div>
-        )}
-        {day.open && <p className={cn(type.body, "rounded-xl border border-dashed border-border px-4 py-6 text-center text-ink-soft")}>Nothing lined up for {day.label} yet. It is yours to wander, or ask for more ideas above.</p>}
+      <div role="tabpanel" className="px-4 pt-5 pb-4 sm:px-[1.375rem]">
+        {day.subtitle && multi === false && <p className={cn(type.meta, "mb-4")}>{day.subtitle}</p>}
+        {day.open && <p className={cn(type.body, "rounded-2xl border border-dashed border-border px-4 py-8 text-center text-ink-soft")}>Nothing lined up for {day.label} yet. It is yours to wander, or ask for more ideas above.</p>}
         {!day.open && (
           <PlanStops
             stops={day.stops}
-            variant="card"
-            onReorder={day.stops.length > 1 ? (ids) => reorderDay(Math.min(active, block.days.length - 1), ids) : undefined}
+            variant="plan"
+            onReorder={day.stops.length > 1 ? (ids) => reorderDay(dayIndex, ids) : undefined}
             onOpenPlace={onOpenPlace ? (stop) => onOpenPlace({ providerId: stop.placeId!, name: stop.title } as PlaceCard) : undefined}
           />
         )}
       </div>
       </ContentSwap>
-    </div>
+    </Widget>
   );
 }
 
@@ -758,11 +910,10 @@ type TripSummaryBlockData = Extract<AssistantBlock, { type: "trip_summary" }>;
 function TripSummaryBlockView({ block }: { block: TripSummaryBlockData }) {
   const unset = (value: string) => (value === "Not set" ? <span className="font-normal text-muted-foreground">{value}</span> : value);
   return (
-    <div className={cn(surface, "overflow-hidden")}>
-      <BlockHeader icon={Luggage} title={block.title} />
-      <FactStrip className="rounded-none border-0 bg-transparent shadow-none" facts={block.facts.map((fact) => ({ ...fact, value: unset(fact.label === "Dates" ? prettyDates(fact.value) : fact.value) }))} />
+    <Widget glyph="trip" tone="coral" eyebrow="Your trip" title={block.title}>
+      {block.facts.length > 0 && <FactStrip className="mt-3 rounded-none border-0 border-t border-border bg-transparent shadow-none" facts={block.facts.map((fact) => ({ ...fact, value: unset(fact.label === "Dates" ? prettyDates(fact.value) : fact.value) }))} />}
       {block.rows.length > 0 && (
-        <dl className="divide-y divide-border border-t border-border px-4">
+        <dl className="divide-y divide-border border-t border-border px-4 sm:px-[1.125rem]">
           {block.rows.map((row) => (
             <div key={row.label} className="flex min-h-11 items-center justify-between gap-4 py-2">
               <dt className={type.meta}>{row.label}</dt>
@@ -771,7 +922,7 @@ function TripSummaryBlockView({ block }: { block: TripSummaryBlockData }) {
           ))}
         </dl>
       )}
-    </div>
+    </Widget>
   );
 }
 
@@ -784,35 +935,40 @@ const showChange = (field: string, value: string | null) => (value === null || /
  *  Applied immediately, never gated behind a confirm dialog — but shown plainly, with a one-tap
  *  Undo that re-sends the reverse statement through the same chat pipeline. */
 function TripUpdateBlockView({ block, onFollowup }: { block: TripUpdateBlockData } & Pick<BlockHandlers, "onFollowup">) {
+  const count = block.changes.length;
   return (
-    <ul aria-label="Trip changes" className="flex flex-col gap-2">
-      {block.changes.map((change, i) => {
-        const from = showChange(change.field, change.from);
-        const to = showChange(change.field, change.to);
-        return (
-          <li key={i} className="daisy-alert daisy-alert-soft block space-y-1 rounded-xl border-0 bg-muted px-3 py-2.5 text-sm">
-            <div className="flex min-h-6 w-full items-center gap-2">
-              <Check className="size-4 shrink-0 text-positive" aria-hidden />
-              <span className="min-w-0 flex-1 font-medium">{change.label} updated</span>
+    <Widget
+      glyph="update"
+      tone="sage"
+      eyebrow="Trip updated"
+      title={count === 1 ? (showChange(block.changes[0].field, block.changes[0].to) === "Not set" && block.changes[0].from ? `${block.changes[0].label} cleared` : `${block.changes[0].label} updated`) : `${count} changes saved`}
+      status={<WidgetPill tone="sage">{count} change{count === 1 ? "" : "s"}</WidgetPill>}
+    >
+      <ul aria-label="Trip changes" className="mt-3 divide-y divide-border border-t border-border">
+        {block.changes.map((change, i) => {
+          const from = showChange(change.field, change.from);
+          const to = showChange(change.field, change.to);
+          return (
+            <li key={i} className="flex items-center gap-3.5 px-4 py-3 sm:px-[1.125rem]">
+              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-positive-soft text-positive" aria-hidden><Check className="size-4" /></span>
+              <div className="min-w-0 flex-1">
+                <p className="eyebrow">{change.label}</p>
+                <p className="mt-0.5 text-[0.9375rem] leading-snug">
+                  {from !== "Not set" && <span className="text-muted-foreground line-through decoration-muted-foreground/50">{from}</span>}
+                  {from !== "Not set" && to !== "Not set" && <ArrowRight className="mx-1.5 inline size-3.5 align-[-2px] text-muted-foreground" aria-label="to" />}
+                  {from !== "Not set" && to === "Not set" ? <WidgetPill className="ml-2 h-5">Cleared</WidgetPill> : <span className="font-medium text-foreground">{to}</span>}
+                </p>
+              </div>
               {change.undoPrompt && (
-                <button type="button" onClick={() => onFollowup(change.undoPrompt!)} className={cn(textAction, "shrink-0")}>
-                  Undo
+                <button type="button" onClick={() => onFollowup(change.undoPrompt!)} className={cn(controlSecondary, "h-9 shrink-0 px-3.5")}>
+                  <Undo2 className="size-3.5" aria-hidden /> Undo
                 </button>
               )}
-            </div>
-            <p className="pl-6 leading-snug">
-              {from !== "Not set" && (
-                <>
-                  <span className="text-muted-foreground line-through decoration-muted-foreground/50">{from}</span>
-                  <ArrowRight className="mx-1.5 inline size-3.5 align-[-2px] text-muted-foreground" aria-label="to" />
-                </>
-              )}
-              <span className="text-foreground">{to}</span>
-            </p>
-          </li>
-        );
-      })}
-    </ul>
+            </li>
+          );
+        })}
+      </ul>
+    </Widget>
   );
 }
 
@@ -872,55 +1028,156 @@ function RouteEnds({ from, to }: { from: string; to: string }) {
   );
 }
 
-/** A route's length in time as one figure: "26 min", "1 h 05 min". */
-function RouteTime({ seconds }: { seconds: number }) {
-  const minutes = Math.max(1, Math.round(seconds / 60));
-  return minutes < 60 ? (
-    <p className="shrink-0 text-right">
-      <span className={type.figure}>{minutes}</span> <span className={type.meta}>min</span>
-    </p>
-  ) : (
-    <p className="shrink-0 text-right">
-      <span className={type.figure}>{Math.floor(minutes / 60)}</span> <span className={type.meta}>h</span> <span className={type.figure}>{String(minutes % 60).padStart(2, "0")}</span> <span className={type.meta}>min</span>
-    </p>
+/** A temperature with a true minus sign: "−23°", "16°". */
+const degrees = (n: number) => (n < 0 ? `−${Math.abs(n)}°` : `${n}°`);
+
+/** Money for a row: zero is the word Free, never a bare 0. */
+const priceOrFree = (amount: number, currency: string) => (Math.round(amount) === 0 ? "Free" : money(Math.round(amount), currency));
+
+/** A range for a row ("£30–£100", "Free–£20", "Free"). */
+const rangeOf = (low: number, high: number, currency: string) => (Math.round(high) === 0 ? "Free" : `${priceOrFree(low, currency)}–${money(Math.round(high), currency)}`);
+
+/** Compact money for the middle of a ring ("¥22.9k"), so a big number never overflows it. */
+function compactMoney(amount: number, currency: string): string {
+  if (amount < 10000) return money(Math.round(amount), currency);
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency, notation: "compact", maximumFractionDigits: 1 }).format(amount);
+  } catch {
+    return money(Math.round(amount), currency);
+  }
+}
+
+/** A journey's length as one figure: "26" min, "1:10" h, "1 d 2 h". */
+function longDuration(minutes: number): { big: string; unit: string; rest?: { big: string; unit: string } } {
+  if (minutes < 60) return { big: String(minutes), unit: "min" };
+  if (minutes < 24 * 60) return { big: String(Math.floor(minutes / 60)), unit: "h", rest: { big: String(minutes % 60).padStart(2, "0"), unit: "min" } };
+  return { big: String(Math.floor(minutes / 1440)), unit: "d", rest: { big: String(Math.floor((minutes % 1440) / 60)), unit: "h" } };
+}
+
+/** Minutes in a step's "35 min" / "1 h 05" text, for how wide its bar is. */
+const stepMinutes = (duration?: string) => {
+  if (!duration) return 0;
+  const h = duration.match(/(\d+)\s*h/i), m = duration.match(/(\d+)\s*min/i);
+  return (h ? Number(h[1]) * 60 : 0) + (m ? Number(m[1]) : 0);
+};
+const legColor = (leg: { mode: string; color?: string }) => (leg.color ? `#${leg.color.replace(/^#/, "")}` : MODE_COLOR[leg.mode === "walking" ? "walk" : leg.mode === "driving" ? "drive" : leg.mode] ?? MODE_COLOR.unknown);
+
+/** The route drawn from its own coordinates on a quiet ground: each part in its mode's colour, a dark dot at the start, a coral pin at the end. */
+function RouteSketch({ route }: { route: RouteSummaryBlockData }) {
+  const parts = route.legs?.length ? route.legs.map((leg) => ({ path: leg.path, color: legColor(leg) })) : route.path ? [{ path: route.path, color: legColor({ mode: route.mode }) }] : [];
+  const all = parts.flatMap((part) => part.path);
+  if (all.length < 2) return null;
+  const lat0 = (all.reduce((sum, [, lat]) => sum + lat, 0) / all.length) * (Math.PI / 180);
+  const pts = (path: Array<[number, number]>) => path.map(([lng, lat]) => [lng * Math.cos(lat0), -lat] as const);
+  const flat = pts(all);
+  const minX = Math.min(...flat.map((p) => p[0])), maxX = Math.max(...flat.map((p) => p[0]));
+  const minY = Math.min(...flat.map((p) => p[1])), maxY = Math.max(...flat.map((p) => p[1]));
+  const W = 300, H = 176, pad = 22;
+  const k = Math.min((W - pad * 2) / (maxX - minX || 1e-9), (H - pad * 2) / (maxY - minY || 1e-9));
+  const ox = (W - (maxX - minX) * k) / 2, oy = (H - (maxY - minY) * k) / 2;
+  const project = (path: Array<[number, number]>) => pts(path).map(([x, y]) => `${(ox + (x - minX) * k).toFixed(1)},${(oy + (y - minY) * k).toFixed(1)}`);
+  const first = project(all)[0].split(",").map(Number), last = project(all).at(-1)!.split(",").map(Number);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="h-full min-h-[11rem] w-full" role="img" aria-label={`The route from ${route.from} to ${route.to}`} preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <pattern id="route-grid" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M30 0H0V30" fill="none" stroke="white" strokeOpacity="0.7" strokeWidth="1" /></pattern>
+      </defs>
+      <rect width={W} height={H} fill="var(--lagoon-soft)" />
+      <rect width={W} height={H} fill="url(#route-grid)" />
+      {parts.map((part, i) => <polyline key={`c${i}`} points={project(part.path).join(" ")} fill="none" stroke="white" strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" />)}
+      {parts.map((part, i) => <polyline key={i} points={project(part.path).join(" ")} fill="none" stroke={part.color} strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />)}
+      <circle cx={first[0]} cy={first[1]} r="8" fill="white" />
+      <circle cx={first[0]} cy={first[1]} r="4.5" fill="var(--foreground)" />
+      <circle cx={last[0]} cy={last[1]} r="9" fill="white" />
+      <circle cx={last[0]} cy={last[1]} r="5.5" fill="var(--coral)" />
+    </svg>
   );
 }
 
-const leaves = (iso?: string) => (iso ? `leaves ${new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : null);
+/** The journey as one ribbon, each part as wide as it takes. */
+function RouteRibbon({ route }: { route: RouteSummaryBlockData }) {
+  const parts = route.legs?.length
+    ? route.legs.map((leg) => ({ minutes: leg.minutes, color: legColor(leg), walk: leg.mode === "walk" || leg.mode === "walking" }))
+    : route.steps.map(parseRouteStep).map((step) => ({ minutes: stepMinutes(step.duration), color: step.glyph.label === "Walk" ? MODE_COLOR.walk : MODE_COLOR.transit, walk: step.glyph.label === "Walk" }));
+  const total = parts.reduce((sum, part) => sum + part.minutes, 0);
+  if (total <= 0) return null;
+  return (
+    <div className="flex h-2.5 gap-[3px]" role="img" aria-label="The journey, part by part">
+      {parts.filter((part) => part.minutes > 0).map((part, i) => (
+        <span key={i} className="min-w-1.5 rounded-full" style={{ flex: part.minutes, background: part.walk ? `repeating-linear-gradient(90deg, ${part.color} 0 3px, transparent 3px 6px)` : part.color, opacity: part.walk ? 0.7 : 1 }} />
+      ))}
+    </div>
+  );
+}
+
+const clockOf = (iso?: string) => (iso ? new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null);
 
 function RouteSummaryCard({ route, onOpenPanel }: { route: RouteSummaryBlockData } & Pick<BlockHandlers, "onOpenPanel">) {
   const distance = useDistance();
-  const Icon = routeModeIcon(route.mode);
   const ends = splitRouteEnds(route.from, route.to);
-  const stops: PlanStop[] = route.steps.map((step) => {
-    const parsed = parseRouteStep(step);
-    return { title: parsed.title, glyph: parsed.glyph, trailing: parsed.duration };
-  });
+  const minutes = Math.max(1, Math.round(route.durationSeconds / 60));
+  const span = longDuration(minutes);
+  const [allSteps, setAllSteps] = useState(false);
+  // A short walk needs no map, ribbon or steps: one reassuring line is the whole answer.
+  const nearby = route.mode === "walking" && minutes <= 5;
+  const steps = route.steps.map(parseRouteStep).map((step) => ({ ...step, minutes: stepMinutes(step.duration) }));
+  const longest = Math.max(...steps.map((step) => step.minutes), 1);
+  const leaves = clockOf(route.departureTime), arrives = clockOf(route.arrivalTime);
+  const drawable = (route.legs?.some((leg) => leg.path.length > 1) ?? false) || (route.path?.length ?? 0) > 1;
   return (
-    <div className={cn(surface, "overflow-hidden")}>
-      <div className={cn("flex items-center gap-3 px-4 py-3", stops.length > 0 && "border-b border-border")}>
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-coral-soft text-coral-ink">
-          <Icon className="size-5" aria-hidden />
-        </span>
-        <div className="min-w-0 flex-1 space-y-0.5">
-          <h4 className={type.title}>
-            <RouteEnds from={ends.from} to={ends.to} />
-          </h4>
-          <Meta className="tabular-nums" items={[ends.where, distance(route.distanceMeters / 1000), route.fare ? money(route.fare.amount, route.fare.currency) : null, leaves(route.departureTime)]} />
-        </div>
-        <RouteTime seconds={route.durationSeconds} />
-      </div>
-      {stops.length > 0 && (
-        <div className="px-4 py-4">
-          <PlanStops stops={stops} variant="card" />
+    <Widget
+      glyph="route"
+      tone="lagoon"
+      eyebrow={`${ROUTE_MODE_LABEL[route.mode] ?? route.mode}${ends.where ? ` · ${ends.where}` : ""}`}
+      title={<RouteEnds from={ends.from} to={ends.to} />}
+      status={route.fare ? <WidgetPill tone="lagoon">{money(route.fare.amount, route.fare.currency)}</WidgetPill> : undefined}
+      hero={nearby ? (
+        <WidgetHero tone="lagoon" className="flex flex-wrap items-center gap-x-5 gap-y-2">
+          <p className="flex items-baseline gap-1.5"><span className="font-display text-[3.5rem] leading-none font-medium tracking-[-0.04em] tabular-nums">{span.big}</span> <span className="text-base text-ink-soft">{span.unit}</span></p>
+          <p className={cn(type.body, "min-w-0 flex-1 text-ink-soft")}>You are nearly there ({distance(route.distanceMeters / 1000)}). A short walk, no map needed.</p>
+        </WidgetHero>
+      ) : (
+        <WidgetHero tone="lagoon" className="flex flex-col gap-4 !p-0 overflow-hidden sm:flex-row">
+          {drawable && <div className="h-44 shrink-0 overflow-hidden sm:h-auto sm:w-[19rem]"><RouteSketch route={route} /></div>}
+          <div className="flex min-w-0 flex-1 flex-col justify-between gap-3 p-4 sm:py-[1.125rem]">
+            <p className="flex items-baseline gap-1.5">
+              <span className="font-display text-[3.5rem] leading-none font-medium tracking-[-0.04em] tabular-nums">{span.big}</span>{" "}
+              <span className="text-base text-ink-soft">{span.unit}</span>
+              {span.rest && (
+                <>
+                  {" "}
+                  <span className="font-display text-[3.5rem] leading-none font-medium tracking-[-0.04em] tabular-nums">{span.rest.big}</span>{" "}
+                  <span className="text-base text-ink-soft">{span.rest.unit}</span>
+                </>
+              )}
+            </p>
+            <p className={cn(type.meta, "tabular-nums")}>{[distance(route.distanceMeters / 1000), leaves ? `leaves ${leaves}` : null, arrives ? `arrives ${arrives}` : null].filter(Boolean).join(" · ")}</p>
+            <RouteRibbon route={route} />
+          </div>
+        </WidgetHero>
+      )}
+      foot={nearby ? undefined : leaves && arrives ? <>Leaves {leaves}, arrives {arrives}</> : "Times are estimates and can change with traffic and service"}
+      action={onOpenPanel && !nearby ? <WidgetAction onClick={() => onOpenPanel({ kind: "route", routes: [route], active: 0 })}>{route.path ? "Steps and map" : "Steps"}</WidgetAction> : undefined}
+    >
+      {steps.length > 0 && !nearby && (
+        <WidgetRows>
+          {(allSteps ? steps : steps.slice(0, 5)).map((step, i) => (
+            <WidgetRow
+              key={i}
+              lead={<span className="grid size-9 shrink-0 place-items-center rounded-xl bg-lagoon-soft text-lagoon" aria-hidden><step.glyph.icon className="size-[1.125rem]" /></span>}
+              title={step.title}
+              mid={step.minutes > 0 ? <RowBar frac={step.minutes / longest} color={step.glyph.label === "Walk" ? MODE_COLOR.walk : MODE_COLOR.transit} /> : undefined}
+              value={step.duration ? <RowValue>{step.duration}</RowValue> : undefined}
+            />
+          ))}
+        </WidgetRows>
+      )}
+      {steps.length > 5 && !nearby && !allSteps && (
+        <div className="border-t border-border px-4 py-3 text-center">
+          <button type="button" onClick={() => setAllSteps(true)} className={controlSecondary}>Show {steps.length - 5} more steps <ChevronDown className="size-3.5" aria-hidden /></button>
         </div>
       )}
-      {onOpenPanel && (
-        <div className="border-t border-border px-4 py-3">
-          <MapButton onClick={() => onOpenPanel({ kind: "route", routes: [route], active: 0 })}>{route.path ? "Steps and map" : "Steps"}</MapButton>
-        </div>
-      )}
-    </div>
+    </Widget>
   );
 }
 
@@ -929,47 +1186,36 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel }: { from: string; 
   const distance = useDistance();
   const sorted = [...routes].sort((a, b) => a.durationSeconds - b.durationSeconds);
   const fastest = sorted[0];
+  const slowest = Math.max(...sorted.map((route) => route.durationSeconds), 1);
   const ends = splitRouteEnds(from, to);
   return (
-    <div className={cn(surface, "divide-y divide-border overflow-hidden")}>
-      <div className="space-y-0.5 px-4 py-3">
-        <h4 className={type.title}>
-          <RouteEnds from={ends.from} to={ends.to} />
-        </h4>
-        {ends.where && <p className={type.meta}>{ends.where}</p>}
-      </div>
-      {sorted.map((route, i) => {
-        const Icon = routeModeIcon(route.mode);
-        const row = (
-          <>
-            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-coral">
-              <Icon className="size-4" aria-hidden />
-            </span>
-            <div className="min-w-0 flex-1 space-y-0.5">
-              <p className={cn(type.body, "flex flex-wrap items-center gap-1.5 font-medium")}>
-                {ROUTE_MODE_LABEL[route.mode] ?? route.mode}
-                {route === fastest && <Badge tone="positive">Fastest</Badge>}
-              </p>
-              {route.mode === "transit" && route.steps.length > 0 && <p className={cn(type.meta, "truncate")}>{routeLines(route.steps)}</p>}
-            </div>
-            <p className="shrink-0 text-right">
-              <span className={cn(type.body, type.num, "block")}>{Math.round(route.durationSeconds / 60)} min</span>
-              <span className={cn(type.meta, "tabular-nums")}>
-                {distance(route.distanceMeters / 1000)}{route.fare ? ` · ${money(route.fare.amount, route.fare.currency)}` : ""}
-              </span>
-            </p>
-            {onOpenPanel && <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
-          </>
-        );
-        return onOpenPanel ? (
-          <button key={i} type="button" onClick={() => onOpenPanel({ kind: "route", routes: sorted, active: i })} aria-label={`${ROUTE_MODE_LABEL[route.mode] ?? route.mode}, ${Math.round(route.durationSeconds / 60)} minutes: steps and map`} className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/40">
-            {row}
-          </button>
-        ) : (
-          <div key={i} className="flex items-center gap-3 px-4 py-3">{row}</div>
-        );
-      })}
-    </div>
+    <Widget
+      glyph="route"
+      tone="lagoon"
+      eyebrow={`Ways to get there${ends.where ? ` · ${ends.where}` : ""}`}
+      title={<RouteEnds from={ends.from} to={ends.to} />}
+      status={<WidgetPill tone="lagoon" icon={Check}>{ROUTE_MODE_LABEL[fastest.mode] ?? fastest.mode} is fastest</WidgetPill>}
+      foot={onOpenPanel ? "Tap a way to see its steps and map" : "Times are estimates"}
+    >
+      <WidgetRows className="mt-3">
+        {sorted.map((route, i) => {
+          const Icon = routeModeIcon(route.mode);
+          const label = `${ROUTE_MODE_LABEL[route.mode] ?? route.mode}, ${Math.round(route.durationSeconds / 60)} minutes: steps and map`;
+          return (
+            <WidgetRow
+              key={i}
+              onClick={onOpenPanel ? () => onOpenPanel({ kind: "route", routes: sorted, active: i }) : undefined}
+              label={onOpenPanel ? label : undefined}
+              lead={<span className="grid size-9 shrink-0 place-items-center rounded-xl bg-lagoon-soft text-lagoon" aria-hidden><Icon className="size-[1.125rem]" /></span>}
+              title={<span className="inline-flex items-center gap-1.5">{ROUTE_MODE_LABEL[route.mode] ?? route.mode}{route === fastest ? <WidgetPill tone="sage" className="h-5 text-[0.6875rem]">Fastest</WidgetPill> : Math.round(route.durationSeconds / 60) === Math.round(fastest.durationSeconds / 60) ? <WidgetPill className="h-5 text-[0.6875rem]">Same time</WidgetPill> : null}</span>}
+              detail={route.mode === "transit" && route.steps.length > 0 ? routeLines(route.steps) : undefined}
+              mid={<RowBar frac={route.durationSeconds / slowest} color={route === fastest ? "var(--positive)" : "var(--lagoon)"} />}
+              value={<RowValue sub={`${distance(route.distanceMeters / 1000)}${route.fare ? ` · ${money(route.fare.amount, route.fare.currency)}` : ""}`}>{Math.round(route.durationSeconds / 60)} min</RowValue>}
+            />
+          );
+        })}
+      </WidgetRows>
+    </Widget>
   );
 }
 
@@ -1184,14 +1430,26 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
   const tripDates = { start: trip?.start_date ?? null, end: trip?.end_date ?? null };
   const fares = useFlightSearch(block, tripId, tripDates);
   const [routeOpen, setRouteOpen] = useState(false);
+  const [chosen, setChosen] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const { query } = fares;
   const roundTrip = query.ret !== null;
   const offers = applyFlightView(fares.items, view);
   const filtersOn = view.nonstop || view.changes || view.airport !== null;
   const loading = fares.status === "loading";
+  const ready = fares.status === "ready";
   const day = query.depart ? prettyDate(query.depart) : undefined;
+  const picks = useMemo(() => pickFares(fares.items), [fares.items]);
+  const chosenPick = picks.find((p) => offerKey(p.offer) === chosen) ?? picks[0] ?? null;
+  // A long list shows its best rows and the rest on request; the card never grows without limit.
+  const ROWS = 6;
+  const shown = showAll || filtersOn ? offers : offers.slice(0, ROWS);
   // A new search starts with a clean view: an airport filter from the last one may not exist in this one.
-  const resetView = () => setView((v) => ({ ...v, airport: null }));
+  const resetView = () => {
+    setView((v) => ({ ...v, airport: null }));
+    setChosen(null);
+    setShowAll(false);
+  };
   const change = <A extends unknown[]>(fn: (...args: A) => void) => (...args: A) => {
     resetView();
     fn(...args);
@@ -1199,22 +1457,41 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
   // A card saved before the trip had a currency (or before prices were converted) keeps its old one until it is searched again.
   const tripCurrency = resolveCurrency(useTripDataMaybe()?.data?.preferences);
   const shownCurrency = fares.items[0]?.currency;
-  const staleCurrency = !fares.searched && fares.status === "ready" && Boolean(shownCurrency) && shownCurrency !== tripCurrency && !fares.items.some((o) => o.listedCurrency);
+  const staleCurrency = !fares.searched && ready && Boolean(shownCurrency) && shownCurrency !== tripCurrency && !fares.items.some((o) => o.listedCurrency);
   const dateNote = query.depart ? `${fares.assumed ? `Example date ${query.depart} — no travel date set yet` : `Departing ${query.depart}`}${query.ret ? `, returning ${query.ret}` : ""}` : block.dateNote;
   const searchForBar = { ...fares, setFrom: change(fares.setFrom), setTo: change(fares.setTo), swap: change(fares.swap), setDepart: change(fares.setDepart), setReturn: change(fares.setReturn), setRoundTrip: change(fares.setRoundTrip), setBoth: change(fares.setBoth) };
+  const lowest = fares.items.length ? fares.items.reduce((best, o) => (Number(o.price) < Number(best.price) ? o : best), fares.items[0]) : null;
+  const shortest = fares.items.length ? Math.min(...fares.items.map((o) => o.durationMinutes)) : 0;
+  const fromName = query.fromLabel.split(",")[0];
+  const toName = query.toLabel.split(",")[0];
+  // No airport code known: the city name stands in for it.
+  const fromCode = fares.items[0]?.originAirport ?? (fromName.length <= 14 ? fromName : fromName.slice(0, 3).toUpperCase());
+  const toCode = fares.items[0]?.destinationAirport ?? (toName.length <= 14 ? toName : toName.slice(0, 3).toUpperCase());
+  const panelFor = (offer: FlightsBlockData["items"][number]) => ({ kind: "flight" as const, flight: offer, route: { origin: query.fromLabel, destination: query.toLabel, dateNote, retrievedAt: fares.retrievedAt, offers: fares.items, departureDate: query.depart ?? undefined, returnDate: query.ret ?? undefined, originId: query.fromId, destinationId: query.toId } });
+  const footNote = (
+    <Notice>
+      Prices are per person{roundTrip ? ", for the round trip" : ""}{fares.currency ? `, in ${fares.currency}` : ""}
+      {fares.items.some((o) => o.listedCurrency) ? `, converted from ${[...new Set(fares.items.map((o) => o.listedCurrency).filter(Boolean))].join(", ")} at today’s rate, so approximate` : ""}. Fares change quickly — check the airline or a travel site before booking.
+      {staleCurrency && <button type="button" onClick={() => { resetView(); fares.retry(); }} className={cn(textAction, "ml-1.5 align-baseline")}>Show prices in {tripCurrency}</button>}
+    </Notice>
+  );
   return (
-    <div className={cn(surface, "overflow-hidden")}>
-      <BlockHeader
-        icon={Plane}
-        title={<>{query.fromLabel.split(",")[0]} <ArrowRight className="size-3.5 text-muted-foreground" aria-label="to" /> {query.toLabel.split(",")[0]}</>}
-        meta={roundTrip ? "Round trip" : "One way"}
-        actions={
+    <section aria-label="Flights" className="roam-widget relative overflow-hidden rounded-3xl bg-card shadow-soft">
+      <FlightHero
+        eyebrow={`Flights · ${roundTrip ? "round trip" : "one way"}${day ? ` · ${day}` : ""}`}
+        title={<>{fromName} to {toName}</>}
+        from={{ code: fromCode, name: fromName }}
+        to={{ code: toCode, name: toName }}
+        duration={ready ? shortest : 0}
+        dim={!ready}
+        chip={loading ? <span className="inline-flex h-7 items-center rounded-full border border-white/25 bg-white/15 px-3 text-xs font-medium text-white">Searching…</span> : fares.status === "empty" && !fares.problem ? <span className="inline-flex h-7 items-center rounded-full border border-white/25 bg-white/15 px-3 text-xs font-medium text-white">No flights</span> : lowest && ready ? <span className="inline-flex h-7 items-center rounded-full border border-white/25 bg-white/15 px-3 text-xs font-semibold text-white tabular-nums">From {money(lowest.price, lowest.currency, true)}</span> : undefined}
+        right={
           <button
             type="button"
             onClick={() => setRouteOpen((v) => !v)}
             aria-expanded={routeOpen}
             aria-controls="flight-route-editor"
-            className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-[background-color,border-color,color,transform] active:scale-95", routeOpen ? "border-foreground/30 bg-muted text-foreground" : "border-border text-ink-soft hover:border-foreground/25 hover:bg-muted/60 hover:text-foreground")}
+            className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-md transition-[background-color,border-color,color,transform] active:scale-95", routeOpen ? "border-white/50 bg-white/25 text-white" : "border-white/25 bg-white/10 text-white/90 hover:bg-white/20")}
           >
             <AnimatePresence mode="wait" initial={false}>
               <motion.span key={routeOpen ? "done" : "edit"} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.14 }} className="inline-flex items-center gap-1.5">
@@ -1225,30 +1502,40 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
           </button>
         }
       />
+      {loading && fares.items.length === 0 ? <FlightPicksSkeleton /> : ready && picks.length > 0 && <FlightPicks picks={picks} selected={chosenPick ? offerKey(chosenPick.offer) : null} onSelect={setChosen} roundTrip={roundTrip} />}
       <FlightSearchBar search={searchForBar} tripId={tripId} trip={tripDates} routeOpen={routeOpen} onRouteDone={() => setRouteOpen(false)} />
-      {fares.insights && fares.status === "ready" && fares.currency && <PriceInsight insights={fares.insights} currency={fares.currency} />}
+      {ready && fares.assumed && (
+        <div role="note" className="mx-4 mb-1 flex items-center gap-2.5 rounded-2xl bg-caution-soft px-3.5 py-3 text-[0.84375rem] text-caution sm:mx-5">
+          <Info className="size-4 shrink-0" aria-hidden />
+          <span>No travel date set, so these are example prices. Pick your date above.</span>
+        </div>
+      )}
+      {fares.insights && ready && fares.currency && <PriceInsight insights={fares.insights} currency={fares.currency} />}
+      {ready && chosenPick && <FlightJourney offer={chosenPick.offer} labels={chosenPick.labels} roundTrip={roundTrip} onDetails={onOpenPanel ? () => onOpenPanel(panelFor(chosenPick.offer)) : undefined} tripCurrency={tripCurrency} />}
       {fares.items.length > 0 && fares.status !== "error" && (
-        <div className={cn("transition-opacity duration-200", loading && "pointer-events-none opacity-50")} aria-busy={loading}>
+        <div className={cn("mt-4 transition-opacity duration-200", loading && "pointer-events-none opacity-50")} aria-busy={loading}>
           <FlightControls items={fares.items} view={view} onChange={setView} shown={offers.length} />
         </div>
       )}
       {fares.status === "error" && (
-        <motion.div role="alert" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={motionTokens.standard} className="space-y-3 px-4 py-8 text-center">
-          <p className={type.body}>We couldn’t load flights{day ? ` for ${day}` : ""} just now.</p>
+        <motion.div role="alert" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={motionTokens.standard} className="space-y-3 px-4 py-9 text-center">
+          <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-caution-soft text-caution" aria-hidden><Info className="size-6" /></span>
+          <p className="font-display text-lg font-medium">We couldn’t load flights{day ? ` for ${day}` : ""} just now</p>
+          <p className={type.meta}>The fares service didn’t answer. Nothing is wrong with your search.</p>
           <button type="button" onClick={fares.retry} className={controlSecondary}>Try again</button>
         </motion.div>
       )}
       {fares.status === "empty" && (
-        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={motionTokens.standard} className="space-y-3 px-4 py-8 text-center">
+        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={motionTokens.standard} className="space-y-3 px-4 py-9 text-center">
           {fares.problem ? (
             <>
-              <p className={type.body}>We couldn’t find “{fares.problem}”.</p>
+              <p className="font-display text-lg font-medium">We couldn’t find “{fares.problem}”</p>
               <p className={type.meta}>Try a nearby city, or the airport’s three-letter code.</p>
             </>
           ) : (
             <>
-              <p className={type.body}>No flights found{day ? ` for ${day}` : ""}{roundTrip && query.ret ? ` to ${prettyDate(query.ret)}` : ""}.</p>
-              <p className={type.meta}>Try nearby days, or another route above.</p>
+              <p className="font-display text-lg font-medium">No flights{day ? ` on ${day}` : ""}{roundTrip && query.ret ? ` to ${prettyDate(query.ret)}` : ""}</p>
+              <p className={type.meta}>Nothing is flying this route that day. Nearby days often have fares.</p>
               {query.depart && (
                 <div className="flex justify-center gap-2">
                   <button type="button" onClick={() => searchForBar.setDepart(shiftIso(query.depart!, -1))} className={controlSecondary}>Day before</button>
@@ -1260,32 +1547,31 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
         </motion.div>
       )}
       {fares.status !== "error" && fares.status !== "empty" && (
-      <ScrollWindow label="Flights" frozen={filtersOn || loading} resetKey={`${query.depart}:${query.ret}:${query.fromLabel}:${query.toLabel}:${JSON.stringify(view)}`}>
+      <div>
       {loading && <FlightRowsSkeleton />}
-      {fares.status === "ready" && offers.length === 0 && (
-        <div className="space-y-2 px-4 py-6 text-center">
-          <p className={type.body}>No flights match those filters.</p>
+      {ready && offers.length === 0 && (
+        <div className="space-y-2 px-4 py-8 text-center">
+          <p className="font-display text-lg font-medium">No flights match those filters</p>
+          <p className={type.meta}>The picks above ignore filters. Clear them to see all {fares.items.length}.</p>
           <button type="button" onClick={() => setView({ ...DEFAULT_FLIGHT_VIEW, sort: view.sort })} className={controlSecondary}>Clear filters</button>
         </div>
       )}
-      {fares.status === "ready" && (
+      {ready && fares.items.length > 1 && (
       <ul className="divide-y divide-border">
-        {offers.map((offer, offerIndex) => {
-          const dayOffset = arrivalDayOffset(offer.departAt, offer.arriveAt);
-          const flightPanel = { kind: "flight" as const, flight: offer, route: { origin: query.fromLabel, destination: query.toLabel, dateNote, retrievedAt: fares.retrievedAt, offers: fares.items, departureDate: query.depart ?? undefined, returnDate: query.ret ?? undefined, originId: query.fromId, destinationId: query.toId } };
+        {shown.map((offer, offerIndex) => {
+          const flightPanel = panelFor(offer);
           const openFlight = () => onOpenPanel?.(flightPanel);
+          const key = offerKey(offer);
+          const isPicked = chosenPick ? offerKey(chosenPick.offer) === key : false;
           return (
             <motion.li
               layout="position"
               transition={{ ...motionTokens.standard, delay: fares.searched ? Math.min(offerIndex, 6) * 0.045 : 0 }}
               initial={fares.searched ? { opacity: 0, y: 10 } : false}
               animate={{ opacity: 1, y: 0 }}
-              key={offer.id ?? offerIndex}
-              className={cn("grid grid-cols-[1fr_auto] items-start gap-x-4 gap-y-1.5 px-4 py-3", onOpenPanel && "cursor-pointer transition-colors hover:bg-muted/35 focus-visible:bg-muted/45 focus-visible:outline-none")}
-              onClick={onOpenPanel ? (event) => {
-                if ((event.target as HTMLElement).closest("[data-details]")) return;
-                openFlight();
-              } : undefined}
+              key={key + offerIndex}
+              className={cn("px-4 py-3.5 sm:px-[1.125rem]", onOpenPanel && "cursor-pointer transition-colors hover:bg-muted/35 focus-visible:bg-muted/45 focus-visible:outline-none")}
+              onClick={onOpenPanel ? () => openFlight() : undefined}
               onKeyDown={onOpenPanel ? (event) => {
                 if (event.target !== event.currentTarget) return;
                 if (event.key === "Enter" || event.key === " ") {
@@ -1297,61 +1583,34 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
               tabIndex={onOpenPanel ? 0 : undefined}
               aria-label={onOpenPanel ? `Open details for ${offer.airline}, ${clock(offer.departAt)} to ${clock(offer.arriveAt)}` : undefined}
             >
-              <div className="flex min-w-0 gap-3">
-              <AirlineMark offer={offer} className="mt-0.5 size-8" />
-              <div className="min-w-0 space-y-1">
-                <p className={cn(type.body, "font-medium")}>{offer.airline}</p>
-                <p className={cn(type.body, "tabular-nums")}>
-                  {clock(offer.departAt)} <span className="text-muted-foreground">–</span> {clock(offer.arriveAt)}
-                  {dayOffset > 0 && <sup className="ml-0.5 text-xs text-muted-foreground">+{dayOffset}</sup>}
-                </p>
-                <Meta
-                  items={[
-                    offer.originAirport && offer.destinationAirport ? `${offer.originAirport}–${offer.destinationAirport}` : null,
-                    `${Math.floor(offer.durationMinutes / 60)}h ${offer.durationMinutes % 60}m`,
-                    offer.stops === 0 ? "nonstop" : `${offer.stops} stop${offer.stops > 1 ? "s" : ""}${offer.layoverAirports?.length ? ` via ${offer.layoverAirports.join(", ")}` : ""}`,
-                    offer.flightNumbers?.slice(0, 2).join(" · "),
-                    offer.cabinClass,
-                    offer.baggage,
-                  ]}
-                />
-                {(offer.fareConditions?.length || offer.aircraft) && (
-                  <div className="flex flex-wrap gap-1.5 pt-0.5">
-                    {offer.fareConditions?.slice(0, 2).map((c) => <Badge key={c}>{c}</Badge>)}
-                    {offer.aircraft && <Badge>{offer.aircraft}</Badge>}
-                  </div>
-                )}
-              </div>
-              </div>
-              <div className="flex flex-col items-end gap-2">
-                <p className={cn(type.title, "tabular-nums whitespace-nowrap")}>{offer.listedCurrency && <span className="mr-0.5 text-muted-foreground" title={`Converted from ${money(offer.listedPrice ?? "", offer.listedCurrency, true)} at today’s rate`}>≈</span>}{money(offer.price, offer.currency, true)}</p>
-                {roundTrip && <p className={cn(type.meta, "-mt-1.5")}>round trip</p>}
-                {onOpenPanel && (
-                  <DetailsButton label={`Details: ${offer.airline}, ${clock(offer.departAt)} to ${clock(offer.arriveAt)}`} onClick={openFlight} />
-                )}
-              </div>
+              <FlightRowBody offer={offer} roundTrip={roundTrip} cheapest={offers.length > 1 && offer === lowest} selected={isPicked} onDetails={onOpenPanel ? openFlight : undefined} />
             </motion.li>
           );
         })}
       </ul>
       )}
-      </ScrollWindow>
+      {ready && !showAll && !filtersOn && offers.length > ROWS && (
+        <div className="border-t border-border px-4 py-3.5 text-center">
+          <button type="button" onClick={() => setShowAll(true)} className={controlSecondary}>Show {offers.length - ROWS} more <ChevronDown className="size-3.5" aria-hidden /></button>
+        </div>
       )}
-      <div className="border-t border-border px-4 py-3">
-        <Notice>
-          Prices are per person{roundTrip ? ", for the round trip" : ""}{fares.currency ? `, in ${fares.currency}` : ""}
-          {fares.items.some((o) => o.listedCurrency) ? `, converted from ${[...new Set(fares.items.map((o) => o.listedCurrency).filter(Boolean))].join(", ")} at today’s rate, so approximate` : ""}. Fares change quickly — check the airline or a travel site before booking.
-          {staleCurrency && <button type="button" onClick={() => { resetView(); fares.retry(); }} className={cn(textAction, "ml-1.5 align-baseline")}>Show prices in {tripCurrency}</button>}
-        </Notice>
       </div>
-    </div>
+      )}
+      <WidgetFoot foot={footNote} />
+    </section>
   );
 }
 
+/** Blocks that open with a Roam line icon in their header (the first of them in a live reply plays the handoff). */
+const ICON_WIDGETS = new Set(["weather", "comparison", "structured_answer", "options", "budget", "itinerary", "trip_summary", "trip_update", "route_group", "checklist", "empty_result"]);
+
 export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenStay, onOpenEvent, onOpenCollection, onOpenPanel, preview = true, replyText, live = false }: { blocks: AssistantBlock[]; preview?: boolean; replyText?: string; /** A reply that just arrived: its blocks rise in one after another. Restored history stays still. */ live?: boolean } & BlockHandlers) {
+  const grouped = groupRouteSummaries(blocks);
+  const firstWidget = grouped.findIndex((b) => ICON_WIDGETS.has(b.type));
   return (
+    <LiveReplyContext.Provider value={live}>
     <div className="roam-blocks mt-4 flex flex-col gap-4 [overflow-wrap:anywhere]">
-      {groupRouteSummaries(blocks).map((block, index, all) => {
+      {grouped.map((block, index, all) => {
         // A key from the block's kind and its place among blocks of that kind, not its raw position: filtering or reordering blocks no longer remounts the rest.
         const occurrence = all.slice(0, index).filter((other) => other.type === block.type).length;
         const node = ((): React.ReactNode => {
@@ -1475,7 +1734,7 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
         if (block.type === "empty_result") {
           return (
             <div key={index} className={cn(surface, "flex items-start gap-3 border-dashed p-4")}>
-              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground"><SearchX className="size-[18px]" aria-hidden /></span>
+              <span className="grid size-10 shrink-0 place-items-center rounded-[0.8125rem] bg-caution-soft text-caution"><RoamIcon name="search" size={26} /></span>
               <div className="min-w-0 space-y-0.5">
                 <p className={cn(type.body, "font-medium")}>Nothing found for {block.what}</p>
                 <p className={type.meta}>{block.hint}</p>
@@ -1494,8 +1753,9 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
 
         return null;
         })();
-        return node ? <Enter key={`${block.type}-${occurrence}`} live={live} index={index}>{node}</Enter> : null;
+        return node ? <Enter key={`${block.type}-${occurrence}`} live={live} index={index}><HandoffContext.Provider value={index === firstWidget}>{node}</HandoffContext.Provider></Enter> : null;
       })}
     </div>
+    </LiveReplyContext.Provider>
   );
 }
