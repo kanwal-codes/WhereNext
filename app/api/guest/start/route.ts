@@ -13,8 +13,6 @@ import { GUEST_IP_START_LIMIT, GUEST_TRIP_LIMIT, GUEST_WINDOW_MS, clientKey, gue
 
 const bodySchema = z.object({
   prompt: z.string().trim().min(1).max(600),
-  /** Cloudflare Turnstile token, when the site has one configured (Supabase verifies it). */
-  captchaToken: z.string().max(4096).optional(),
   idempotencyKey: z.string().trim().min(1).max(120).optional(),
 });
 
@@ -64,7 +62,7 @@ export const POST = withRoute(async function POST(request: Request) {
       }
     }
     if (!user) {
-      const { data, error } = await supabase.auth.signInAnonymously({ options: { captchaToken: parsed.data.captchaToken } });
+      const { data, error } = await supabase.auth.signInAnonymously();
       if (error || !data.user) {
         await refund();
         return NextResponse.json({ error: "We couldn't start a guest session just now. Please try again in a moment, or create a free account.", code: "guest_unavailable" }, { status: 503 });

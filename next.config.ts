@@ -36,13 +36,11 @@ const connectSrc = [
 // script/style stay pragmatic: Next's App Router injects inline bootstrap scripts and
 // Tailwind/motion inject inline styles, and there's no nonce pipeline here. The real
 // hardening is frame-ancestors / object-src / base-uri / form-action + the connect allow-list.
-// Cloudflare Turnstile (guest sign-in CAPTCHA) — only allowed when a site key is configured.
-const turnstile = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? " https://challenges.cloudflare.com" : "";
 const csp = [
   "default-src 'self'",
   // va.vercel-scripts.com serves the Analytics/Speed Insights loader; both report back
   // to same-origin /_vercel/... endpoints, already covered by 'self' in connect-src.
-  `script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com${turnstile}${isDev ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   // dev runs the Next server on a sibling port behind the preview proxy, so same-origin
   // proxy URLs (photos, static maps) can carry that port — allow localhost in dev only.
@@ -50,7 +48,7 @@ const csp = [
   "font-src 'self' data:",
   `connect-src ${connectSrc}`,
   "worker-src 'self' blob:",
-  `frame-src 'self'${turnstile}`,
+  `frame-src 'self'`,
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",
