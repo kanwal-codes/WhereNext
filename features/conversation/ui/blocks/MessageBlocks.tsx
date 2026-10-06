@@ -1137,9 +1137,9 @@ function RouteSummaryCard({ route, onOpenPanel }: { route: RouteSummaryBlockData
           <p className={cn(type.body, "min-w-0 flex-1 text-ink-soft")}>You are nearly there ({distance(route.distanceMeters / 1000)}). A short walk, no map needed.</p>
         </WidgetHero>
       ) : (
-        <WidgetHero tone="lagoon" className="flex flex-col gap-4 !p-0 overflow-hidden sm:flex-row">
-          {drawable && <div className="h-44 shrink-0 overflow-hidden sm:h-auto sm:w-[19rem]"><RouteSketch route={route} /></div>}
-          <div className="flex min-w-0 flex-1 flex-col justify-between gap-3 p-4 sm:py-[1.125rem]">
+        <div className="mx-4 mt-3.5 flex flex-col gap-3.5 sm:mx-[1.125rem] sm:flex-row">
+          {drawable && <div className="aspect-[300/176] shrink-0 overflow-hidden rounded-[1.125rem] sm:aspect-auto sm:h-auto sm:w-[19rem]"><RouteSketch route={route} /></div>}
+          <WidgetHero tone="lagoon" className="!m-0 flex min-w-0 flex-1 flex-col justify-between gap-3 sm:!p-[1.125rem]">
             <p className="flex items-baseline gap-1.5">
               <span className="font-display text-[3.5rem] leading-none font-medium tracking-[-0.04em] tabular-nums">{span.big}</span>{" "}
               <span className="text-base text-ink-soft">{span.unit}</span>
@@ -1153,8 +1153,8 @@ function RouteSummaryCard({ route, onOpenPanel }: { route: RouteSummaryBlockData
             </p>
             <p className={cn(type.meta, "tabular-nums")}>{[distance(route.distanceMeters / 1000), leaves ? `leaves ${leaves}` : null, arrives ? `arrives ${arrives}` : null].filter(Boolean).join(" · ")}</p>
             <RouteRibbon route={route} />
-          </div>
-        </WidgetHero>
+          </WidgetHero>
+        </div>
       )}
       foot={nearby ? undefined : leaves && arrives ? <>Leaves {leaves}, arrives {arrives}</> : "Times are estimates and can change with traffic and service"}
       action={onOpenPanel && !nearby ? <WidgetAction onClick={() => onOpenPanel({ kind: "route", routes: [route], active: 0 })}>{route.path ? "Steps and map" : "Steps"}</WidgetAction> : undefined}
@@ -1476,7 +1476,7 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
     </Notice>
   );
   return (
-    <section aria-label="Flights" className="roam-widget relative overflow-hidden rounded-3xl bg-card shadow-soft">
+    <section aria-label="Flights" className="roam-widget relative overflow-hidden rounded-3xl border border-border bg-card shadow-widget">
       <FlightHero
         eyebrow={`Flights · ${roundTrip ? "round trip" : "one way"}${day ? ` · ${day}` : ""}`}
         title={<>{fromName} to {toName}</>}
@@ -1609,7 +1609,7 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
   const firstWidget = grouped.findIndex((b) => ICON_WIDGETS.has(b.type));
   return (
     <LiveReplyContext.Provider value={live}>
-    <div className="roam-blocks mt-4 flex flex-col gap-4 [overflow-wrap:anywhere]">
+    <div className="roam-blocks mt-4 flex flex-col gap-6 [overflow-wrap:anywhere]">
       {grouped.map((block, index, all) => {
         // A key from the block's kind and its place among blocks of that kind, not its raw position: filtering or reordering blocks no longer remounts the rest.
         const occurrence = all.slice(0, index).filter((other) => other.type === block.type).length;
