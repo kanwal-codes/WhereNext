@@ -22,7 +22,7 @@ import { withTripAiStream } from "@/lib/server/trip-ai-queue";
 import { recordAiTurn } from "@/lib/server/ai-turn-trace";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { withinRateLimit } from "@/lib/server/rate-limit";
-import { DAY_MS, GUEST_IP_TURN_LIMIT, GUEST_TURN_LIMIT, GUEST_WINDOW_MS, clientKey, guestDeviceId, guestKey } from "@/lib/server/guest";
+import { GUEST_IP_TURN_LIMIT, GUEST_TURN_LIMIT, GUEST_WINDOW_MS, clientKey, guestDeviceId, guestKey } from "@/lib/server/guest";
 
 /** Service-role writer used to create a brand-new trip's thread row and to append turn traces
  *  (ai_turn_traces is server-write-only since migration 0047); undefined if unavailable (same
@@ -108,7 +108,7 @@ export const POST = withRoute(async function POST(request: Request) {
   // the browser. All three counters fail closed: this is the one unauthenticated door to paid model/tool calls.
   if (guest) {
     checks.push({
-      pass: withinRateLimit(`guest-ip-turns:${clientKey(request)}`, GUEST_IP_TURN_LIMIT, DAY_MS, { failClosed: true }),
+      pass: withinRateLimit(`guest-ip-turns:${clientKey(request)}`, GUEST_IP_TURN_LIMIT, GUEST_WINDOW_MS, { failClosed: true }),
       refuse: () => NextResponse.json({ error: "Roam is busy right now. Save your trip and pick it up from your account.", code: "guest_busy" }, { status: 429 }),
     });
     // The free messages belong to the browser, not the session: a reload deletes the guest user (and its counter), and
