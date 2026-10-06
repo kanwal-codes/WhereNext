@@ -10,6 +10,7 @@ import type { ItineraryItem } from "@/features/itinerary/domain/item";
 import type { StayDecision } from "@/packages/contracts/stay";
 import { useTripPanel } from "@/components/TripPanelProvider";
 import { announceWorkspaceChange, subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
+import { cachedGet } from "@/lib/client/cached-get";
 import { notifyToast } from "@/lib/application/toast";
 import { cn } from "@/lib/utils";
 import { fmtDay } from "@/lib/trip-dates";
@@ -58,7 +59,7 @@ export function ItinerarySurface({
   const [reservations, setReservations] = useState<Reservation[]>([]);
   useEffect(() => {
     const load = () =>
-      fetch(`/api/trips/${tripId}/reservations`)
+      cachedGet(`/api/trips/${tripId}/reservations`, { ttlMs: 0 })
         .then((r) => (r.ok ? r.json() : { reservations: [] }))
         .then((body) => setReservations(body.reservations ?? []))
         .catch(() => undefined);

@@ -196,7 +196,7 @@ export function GroupChatSurface({
       const body = await fetch(`/api/trips/${tripId}/group-chat`).then((r) => (r.ok ? r.json() : Promise.reject(new Error("load"))));
       if (mine !== refreshIdRef.current) return undefined;
       const fresh = (body.messages ?? []) as GroupMessage[];
-      // Keep the same array when nothing changed, so the 10s poll below doesn't re-render the whole log.
+      // Keep the same array when nothing changed, so the poll below doesn't re-render the whole log.
       setMessages((prev) => (JSON.stringify(prev) === JSON.stringify(fresh) ? prev : fresh));
       if (!olderLoadedRef.current) setHasOlder(fresh.length >= GROUP_HISTORY_LIMIT);
       return fresh;
@@ -220,13 +220,13 @@ export function GroupChatSurface({
   }), [refresh]);
 
   // Safety net for when the realtime socket is down or silently dropped (a bad table on the channel, a
-  // suspended tab): while the chat is on screen, re-read it every 10s so a collaborator's message still
+  // suspended tab): while the chat is on screen, re-read it every 30s so a collaborator's message still
   // lands without a manual reload. Realtime stays the fast path; this only covers its gaps.
   // ponytail: plain interval poll, swap for an `after=<last id>` delta fetch if history gets large.
   useEffect(() => {
     const id = setInterval(() => {
       if (document.visibilityState === "visible") void refresh();
-    }, 10_000);
+    }, 30_000);
     return () => clearInterval(id);
   }, [refresh]);
 

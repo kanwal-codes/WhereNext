@@ -32,7 +32,10 @@ export function TripReviewPanel({ tripId }: { tripId: string }) {
 
   useEffect(() => {
     load();
-    return subscribeWorkspaceChanges(load);
+    // Only what a finding is computed from: chat, members, essentials etc. cannot change it.
+    return subscribeWorkspaceChanges((changes) => {
+      if (changes.some((c) => c === "decision" || c === "itinerary" || c === "places" || c === "trip" || c === "preferences")) load();
+    });
   }, [load]);
 
   async function dismiss(id: string) {

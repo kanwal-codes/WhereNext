@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight, Plus, UtensilsCrossed } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
+import { cachedGet } from "@/lib/client/cached-get";
 import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache";
 import { ESSENTIALS_TOTAL, EssentialsSurface, essentialsDone } from "@/features/essentials/ui/EssentialsSurface";
 import { Reveal, Stagger, StaggerItem, Tactile } from "@/components/motion-primitives";
@@ -46,7 +47,7 @@ export default function BookingsPage() {
     // Until the reservations table exists (or if the request fails) the page still shows
     // bookings, the stay and the flight: an empty list, not an error.
     const load = () =>
-      fetch(`/api/trips/${tripId}/reservations`)
+      cachedGet(`/api/trips/${tripId}/reservations`, { ttlMs: 0 })
         .then((r) => (r.ok ? r.json() : { reservations: [] }))
         .then((body) => setReservations(body.reservations ?? []))
         .catch(() => setReservations((current) => current ?? []));
@@ -63,7 +64,7 @@ export default function BookingsPage() {
     const cached = readSessionCache<Booking[]>(`bookings:${tripId}`, 60_000);
     if (cached) setBookings(cached);
     const load = () =>
-      fetch(`/api/trips/${tripId}/bookings`)
+      cachedGet(`/api/trips/${tripId}/bookings`, { ttlMs: 0 })
         .then((r) => r.json())
         .then((body) => {
           const next = body.bookings ?? [];

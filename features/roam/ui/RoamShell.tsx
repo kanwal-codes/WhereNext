@@ -152,10 +152,6 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
       trip={(data?.trip as Trip) ?? null}
       initialMemory={data?.preferences}
       initialDecisions={data?.decisions}
-      itinerary={data?.itinerary}
-      savedPlaces={data?.savedPlaces}
-      essentials={data?.essentials}
-      conversation={data?.conversation}
     />
   );
 

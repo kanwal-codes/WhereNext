@@ -43,7 +43,10 @@ export async function primeTrip(tripId: string): Promise<void> {
         const photo = row.places?.metadata?.photoNames?.[0];
         if (photo) urls.add(`/api/trips/${tripId}/places/google/photo?name=${encodeURIComponent(photo)}`);
       }
-      await Promise.allSettled([...urls].map((u) => cache.add(u)));
+      // cache.add always goes to the network; a place photo's name never changes, so only fetch the ones not mirrored yet.
+      // The static map has no stable key (its markers move), so it is always re-added (the server's max-age covers repeats).
+      const fresh = await Promise.all([...urls].map(async (u) => (u.endsWith("/map/static") || !(await cache.match(u)) ? u : null)));
+      await Promise.allSettled(fresh.filter((u): u is string => u !== null).map((u) => cache.add(u)));
     }
   } catch {
     // offline or storage unavailable — nothing to mirror
