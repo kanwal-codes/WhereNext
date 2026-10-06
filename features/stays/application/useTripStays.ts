@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTripData } from "@/components/TripDataProvider";
 import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
+import { cachedGet } from "@/lib/client/cached-get";
 import { buildTimeline, type TimelineItem } from "@/lib/trip-reservations";
 import { useRemoveTripItem } from "@/features/bookings/application/useRemoveTripItem";
 import { readStayDecision } from "@/packages/contracts/stay";
@@ -22,8 +23,8 @@ export function useTripStays(tripId: string) {
   useEffect(() => {
     // An unavailable list is an empty one: the page still shows the chosen hotel.
     const load = () => {
-      void fetch(`/api/trips/${tripId}/reservations`).then((r) => (r.ok ? r.json() : { reservations: [] })).then((b) => setReservations(b.reservations ?? [])).catch(() => setReservations((c) => c ?? []));
-      void fetch(`/api/trips/${tripId}/bookings`).then((r) => (r.ok ? r.json() : { bookings: [] })).then((b) => setBookings(b.bookings ?? [])).catch(() => setBookings((c) => c ?? []));
+      void cachedGet(`/api/trips/${tripId}/reservations`, { ttlMs: 0 }).then((r) => (r.ok ? r.json() : { reservations: [] })).then((b) => setReservations(b.reservations ?? [])).catch(() => setReservations((c) => c ?? []));
+      void cachedGet(`/api/trips/${tripId}/bookings`, { ttlMs: 0 }).then((r) => (r.ok ? r.json() : { bookings: [] })).then((b) => setBookings(b.bookings ?? [])).catch(() => setBookings((c) => c ?? []));
     };
     load();
     return subscribeWorkspaceChanges((changes) => { if (changes.includes("decision")) load(); });

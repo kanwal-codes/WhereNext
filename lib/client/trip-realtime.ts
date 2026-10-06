@@ -106,7 +106,7 @@ export function useTripRealtime(tripId: string, me?: { userId: string; name: str
 
     const flush = () => {
       timer.current = null;
-      announceWorkspaceChanges([...pending.current]);
+      announceWorkspaceChanges([...pending.current], "realtime");
       pending.current.clear();
     };
     const schedule = (change: WorkspaceChange) => {

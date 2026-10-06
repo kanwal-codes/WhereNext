@@ -134,7 +134,9 @@ export function DiscoverySurface({
   useEffect(() => {
     // The server already seeds `saved`; only fetch on mount when it didn't (preview route).
     if (!initialSaved) refreshSaved();
-    return subscribeWorkspaceChanges(refreshSaved);
+    return subscribeWorkspaceChanges((changes) => {
+      if (changes.includes("places")) refreshSaved();
+    });
   }, [refreshSaved, initialSaved]);
   useEffect(() => {
     onSavedCountChange?.(saved.length);
