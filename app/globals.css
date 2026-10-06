@@ -1436,6 +1436,12 @@
   .bp-stub .bp-go { margin-top: 18px; }
 }
 @media (max-height: 640px) and (min-width: 820px) { .bp-sub { display: none; } }
+/* On a wide screen the headline is one line, as wide as the page: the size comes from the width between the gutters (the line is ~10.1em wide at this tracking, a little margin left for a scrollbar), held to a share of the window height so the pass still fits. Narrower windows keep the two-line headline. */
+@media (min-width: 900px) {
+  .bp-h1 { white-space: nowrap; letter-spacing: -0.045em; font-size: min(calc((100vw - 2 * var(--gutter)) / 10.3), 17dvh); }
+  .bp-h1 .ln { display: inline-block; vertical-align: top; }
+  .bp-h1 .ln:first-child { margin-right: 0.13em; }
+}
 /* A landscape phone: the pass keeps its route, question and button; the rest waits below the fold. */
 @media (max-height: 520px) {
   .bp-hero { padding-top: 66px; padding-bottom: 40px; }
