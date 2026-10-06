@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
+import { homeAirportFromHeaders } from "@/lib/landing/nearest-airport";
 import { LandingNext } from "@/components/landing/LandingNext";
 
 export const metadata: Metadata = {
@@ -6,6 +8,6 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function LandingNextPage() {
-  return <LandingNext />;
+export default async function LandingNextPage() {
+  return <LandingNext homeCode={homeAirportFromHeaders(await headers())} />;
 }

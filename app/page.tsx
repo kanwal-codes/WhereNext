@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { LandingNext } from "@/components/landing/LandingNext";
 import { TripsHome } from "@/components/TripsHome";
 import { loadTripsIndex } from "@/lib/server/trips-index";
+import { homeAirportFromHeaders } from "@/lib/landing/nearest-airport";
 
 export const metadata: Metadata = {
   title: "Where Next — AI Trip Planner for Group Travel",
@@ -32,7 +34,7 @@ export default async function HomePage() {
   } catch {
     /* Supabase unavailable — show the public landing. */
   }
-  if (!data) return <LandingNext />;
+  if (!data) return <LandingNext homeCode={homeAirportFromHeaders(await headers())} />;
   if (data.trips.length === 0) redirect("/trips/new");
   return <TripsHome trips={data.trips} displayName={data.displayName} />;
 }

@@ -14,6 +14,7 @@ import {
   PassBody,
 } from "@/components/landing/pass/PassShell";
 import { guessHomeCode, HOME_CODE } from "@/lib/landing/airports";
+import { useServerHomeAirport } from "@/components/landing/pass/HomeAirport";
 import { readTrip } from "@/lib/landing/readTrip";
 import { useMediaQuery } from "@/lib/use-media-query";
 
@@ -98,7 +99,8 @@ export function BoardingPass({ finale = false }: { finale?: boolean }) {
   const [tearing, setTearing] = useState(false);
   const [shake, setShake] = useState(false);
   const [pulse, setPulse] = useState(false);
-  const [home, setHome] = useState(HOME_CODE);
+  const serverHome = useServerHomeAirport();
+  const [home, setHome] = useState(serverHome ?? HOME_CODE);
   const [announce, setAnnounce] = useState("");
   const attemptRef = useRef(crypto.randomUUID());
   const { container: turnstile, getToken } = useTurnstile();
@@ -109,7 +111,8 @@ export function BoardingPass({ finale = false }: { finale?: boolean }) {
     finale ? 600 : 1500,
   );
 
-  useEffect(() => setHome(guessHomeCode()), []);
+  // The server's answer (the nearest airport to where the request came from) wins; the time zone is the fallback.
+  useEffect(() => setHome(serverHome ?? guessHomeCode()), [serverHome]);
 
   // The pass reads the box: the visitor's words once there are any, the example while it types itself.
   const reading = readTrip(prompt || (focused ? "" : typed));

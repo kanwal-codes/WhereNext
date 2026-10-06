@@ -98,18 +98,11 @@ export function PassBody({
           style={{ "--d": "900ms" } as React.CSSProperties}
           aria-hidden="true"
         >
-          <span className="bp-air">Where Next</span>
           <span>Boarding pass</span>
           <span>Trip 001</span>
         </div>
         <div className="bp-route">
           <div className="bp-from">
-            <span
-              className="bp-lab bp-in"
-              style={{ "--d": "940ms" } as React.CSSProperties}
-            >
-              From
-            </span>
             <Code value={code} />
           </div>
           <div
