@@ -1,12 +1,10 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { ArrowRight, PartyPopper, UserPlus } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
 import { StatusScreen } from "@/components/StatusScreen";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { invalidate } from "@/lib/server/ttl-cache";
 
 export const dynamic = "force-dynamic";
 
@@ -39,8 +37,9 @@ function DeadInvite({ reason }: { reason: string }) {
   );
 }
 
-export default async function JoinPage({ params }: { params: Promise<{ token: string }> }) {
+export default async function JoinPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ error?: string }> }) {
   const { token } = await params;
+  const { error: joinError } = await searchParams;
 
   // Looked up with the admin client (bypasses RLS — nobody has a trip_members row for this trip
   // yet) so a dead link says so immediately, and a live one can be shown with real trip/inviter
@@ -96,30 +95,25 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
     );
   }
 
-  const { data: tripId, error } = await supabase.rpc("accept_trip_invite", { p_token: token });
-  // `error` is the RPC call itself failing (outage, permissions) — retryable, and not the same
-  // as the RPC succeeding and reporting no trip (an actually expired/used/invalid token, e.g. a
-  // race with someone else redeeming it between the preview lookup above and this call).
-  if (error) {
-    return (
-      <JoinCard>
-        <h1 className="font-display text-xl">Something went wrong</h1>
-        <p className="mt-2 text-sm text-muted-foreground">We couldn’t process this invite right now. Try the link again in a moment.</p>
-        <Link href={`/join/${token}`} className="link-underline mt-6 inline-block text-sm font-medium">
-          Try again
-        </Link>
-      </JoinCard>
-    );
-  }
-  if (!tripId) return <DeadInvite reason="It may have expired or already been used. Ask for a fresh link." />;
-
-  // The RPC inserts the new member row directly in Postgres — it never goes through the
-  // members routes' own cache invalidation, so without this a just-joined member stays
-  // invisible in the member list, and unaddressable by name in Roam group replies, for up
-  // to the cache's TTL.
-  await Promise.all([invalidate(`members:${tripId}`), invalidate(`member-identities:${tripId}`)]);
-
-  // `joined=1` lets the group chat surface show a one-time welcome moment instead of dropping
-  // the new member into the thread with zero acknowledgment that anything happened.
-  redirect(`/trips/${tripId}/group?joined=1`);
+  // Joining happens on an explicit click (a same-site POST to ./accept), never on this GET: a
+  // top-level navigation from another site carries the session cookie, so auto-joining here let any
+  // page enrol a signed-in visitor into a trip of its choosing just by redirecting them.
+  if (joinError === "dead") return <DeadInvite reason="It may have expired or already been used. Ask for a fresh link." />;
+  return (
+    <JoinCard>
+      <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-coral/15" aria-hidden="true">
+        <PartyPopper className="h-5 w-5 text-coral" />
+      </span>
+      <h1 className="mt-4 font-display text-xl leading-snug">
+        {inviterName} invited you to help plan <span className="text-coral">{tripName}</span>
+      </h1>
+      {trip?.destination && <p className="mt-1.5 text-sm text-muted-foreground">{trip.destination}</p>}
+      {joinError === "retry" && <p className="mt-4 text-sm text-destructive">We couldn’t process this invite just now. Try again in a moment.</p>}
+      <form method="post" action={`/join/${token}/accept`} className="mt-6">
+        <button type="submit" className="btn-primary inline-flex w-full items-center justify-center gap-1.5">
+          Join the trip <ArrowRight className="h-3.5 w-3.5" />
+        </button>
+      </form>
+    </JoinCard>
+  );
 }

@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
-import { sendEmail } from "@/lib/server/email";
+import { escapeHtml, sendEmail } from "@/lib/server/email";
 import { withinRateLimit } from "@/lib/server/rate-limit";
 
 // Every invite grants full (editor) access — a group trip has no read-only tier a person joins
@@ -12,11 +12,13 @@ import { withinRateLimit } from "@/lib/server/rate-limit";
 // but that's never something an invite itself hands out.
 const bodySchema = z.object({ email: z.string().email().optional() });
 
-/** Outstanding (unaccepted, unexpired) invite links. Any member — RLS enforces this too. */
+/** Outstanding (unaccepted, unexpired) invite links. Owners and editors — RLS enforces this too
+ *  (migration 0047): a demoted viewer must not be able to read or mint a credential that
+ *  `accept_trip_invite` would turn back into editor access. */
 export async function GET(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
-    const { supabase } = await requireTripMember(tripId);
+    const { supabase } = await requireTripMember(tripId, { role: "editor" });
     const rows = await supabase
       .from("trip_invites")
       .select("id,token,role,email,expires_at,created_at")
@@ -33,14 +35,14 @@ export async function GET(_: Request, { params }: { params: Promise<{ tripId: st
 }
 
 /**
- * Mint a shareable invite link. Any member — a shared trip has no single gatekeeper for who
- * gets to bring people in. If `email` is given and email is configured, also sends the link;
+ * Mint a shareable invite link. Owners and editors (every invitee joins as an editor, so a
+ * viewer minting one would just upgrade themselves). If `email` is given and email is configured, also sends the link;
  * either way the link is returned so it can be shared by hand.
  */
 export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
-    const { supabase, user } = await requireTripMember(tripId, { registered: true });
+    const { supabase, user } = await requireTripMember(tripId, { role: "editor", registered: true });
     if (!(await withinRateLimit(`invite:${user.id}`, 20, 60 * 60_000))) {
       return NextResponse.json({ error: "Too many invites created. Try again in a while." }, { status: 429 });
     }
@@ -66,9 +68,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
         to: body.email,
         subject: `${inviter} invited you to plan ${tripName}`,
         text: `${inviter} invited you to help plan ${tripName} on Where next?\n\nJoin: ${url}\n\nThis link expires ${expires}. You'll need to sign in or create an account.`,
-        html: `<p><strong>${inviter}</strong> invited you to help plan <strong>${tripName}</strong> on Where next?</p>
-<p><a href="${url}" style="display:inline-block;padding:10px 16px;background:#1b1c20;color:#fff;border-radius:8px;text-decoration:none">Join the trip</a></p>
-<p style="color:#888;font-size:12px">Link expires ${expires}. You'll need to sign in or create an account.</p>`,
+        html: `<p><strong>${escapeHtml(inviter)}</strong> invited you to help plan <strong>${escapeHtml(tripName)}</strong> on Where next?</p>
+<p><a href="${escapeHtml(url)}" style="display:inline-block;padding:10px 16px;background:#1b1c20;color:#fff;border-radius:8px;text-decoration:none">Join the trip</a></p>
+<p style="color:#888;font-size:12px">Link expires ${escapeHtml(expires)}. You'll need to sign in or create an account.</p>`,
       }).catch(() => false);
     }
 

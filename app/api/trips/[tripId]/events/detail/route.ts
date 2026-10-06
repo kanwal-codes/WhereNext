@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { eventDetailSchema, type EventDetail } from "@/packages/contracts/event";
 import { eventDetail as ticketmasterDetail, eventDetailBySearch, ticketmasterIdFromUrl, type TicketmasterEventDetail } from "@/packages/providers/ticketmaster/client";
@@ -118,6 +119,19 @@ async function enrich(
   }
 }
 
+/** The card's image hint is client-supplied and ends up in a shared cache entry and an <img src>:
+ *  accept only a plain https URL of sane length (no credentials), anything else is dropped. */
+function safeImageHint(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    const u = new URL(value.trim());
+    if (u.protocol !== "https:" || u.username || u.password || value.length > 500) return null;
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Full detail for one event card. Ticketmaster is the backbone (line-up, price,
  * on-sale window, doors, seat map); two targeted web searches fill in what it
@@ -126,7 +140,7 @@ async function enrich(
 export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
-    await requireTripMember(tripId, { limit: LIMITS.provider });
+    await requireTripMember(tripId, { limit: LIMITS.enrich });
     const q = new URL(request.url).searchParams;
     const name = (q.get("name") ?? "").trim();
     const url = (q.get("url") ?? "").trim();
@@ -135,9 +149,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     const dateHint = (q.get("date") ?? "").trim();
     if (!name) return NextResponse.json({ error: "An event name is required" }, { status: 400 });
 
-    const key = `event-detail:v4:${(url || `${name}|${venueHint}`).toLowerCase()}`;
+    // The cached value embeds these client hints (title/venue/date/source/image whenever Ticketmaster
+    // doesn't resolve), and the cache is shared across users — so every hint is part of the key, or
+    // the first caller's text would be served to everyone who opens the same event.
+    const imgHint = safeImageHint(q.get("img"));
+    const hints = createHash("sha256").update(JSON.stringify([name, venueHint, dateHint, source, imgHint ?? ""])).digest("hex").slice(0, 24);
+    const key = `event-detail:v5:${(url || `${name}|${venueHint}`).toLowerCase()}:${hints}`;
+    // The loader's result is shared, so it must not be bound to THIS caller's request signal: a
+    // disconnecting first request used to abort every sub-call and store the degraded result for all.
+    const sharedSignal = AbortSignal.timeout(25_000);
+    let degraded: EventDetail | null = null;
     const detail = await cached<EventDetail>(key, 30 * 60_000, async () => {
-      const tm = await resolveTicketmaster(name, url, venueHint, dateHint, request.signal);
+      const tm = await resolveTicketmaster(name, url, venueHint, dateHint, sharedSignal);
 
       const title = tm?.title || name;
       const venue = tm?.venue?.name || venueHint || null;
@@ -146,10 +169,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
 
       const [lineupRes, expectRes] = await Promise.allSettled([
         webConfigured()
-          ? research(`${title} ${venue ?? ""} ${date ?? ""} — full line-up, support acts, set times, doors open`.trim(), request.signal)
+          ? research(`${title} ${venue ?? ""} ${date ?? ""} — full line-up, support acts, set times, doors open`.trim(), sharedSignal)
           : Promise.resolve([]),
         webConfigured()
-          ? research(`${title} ${venue ?? ""} — what to expect, running time, format, age restriction, fan reviews`.trim(), request.signal)
+          ? research(`${title} ${venue ?? ""} — what to expect, running time, format, age restriction, fan reviews`.trim(), sharedSignal)
           : Promise.resolve([]),
       ]);
       const lineupWeb = lineupRes.status === "fulfilled" ? lineupRes.value : [];
@@ -157,7 +180,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
       const web = [...lineupWeb, ...expectWeb];
 
       const notes = [tm?.info, usefulNote(tm?.pleaseNote), ...web.map((r) => r.content)].filter(Boolean).join("\n\n");
-      const ai = await enrich(title, { genre: tm?.genre, venue, date, performers }, notes, request.signal);
+      const ai = await enrich(title, { genre: tm?.genre, venue, date, performers }, notes, sharedSignal);
 
       const ticketOptions: EventDetail["ticketOptions"] = [];
       const primaryUrl = tm?.url || (ticketSellerLabel(source, url) ? url : null);
@@ -168,11 +191,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
         ticketOptions.push({ label: `Also on ${alternateSeller}`, url });
       }
 
-      return eventDetailSchema.parse({
+      const built = eventDetailSchema.parse({
         title,
         source: primarySeller ?? source,
         url: primaryUrl,
-        imageUrl: tm?.imageUrl ?? q.get("img") ?? null,
+        imageUrl: tm?.imageUrl ?? imgHint ?? null,
         date,
         doorsTime: tm?.doorsTime ?? ai.doorsTime ?? null,
         showTime: ai.showTime ?? null,
@@ -197,6 +220,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
         ticketOptions: ticketOptions.slice(0, 4),
         sources: web.slice(0, 5).map((r) => ({ title: r.title, url: r.url })),
       } satisfies EventDetail);
+      // Both web searches failing means this is a degraded detail: serve it, but don't cache it
+      // (a thrown loader skips the store) so one provider hiccup isn't kept for 30 minutes.
+      if (webConfigured() && lineupRes.status === "rejected" && expectRes.status === "rejected") {
+        degraded = built;
+        throw new Error("event detail degraded — not cached");
+      }
+      return built;
+    }).catch((err) => {
+      if (degraded) return degraded;
+      throw err;
     });
 
     return NextResponse.json({ detail });

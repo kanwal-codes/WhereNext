@@ -80,8 +80,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
       .limit(1)
       .maybeSingle();
     const position = item.position ?? ((last.data?.position ?? -1) + 1);
-    const coords = await geocodeStop(supabase, tripId, item.title);
+    const coords = await geocodeStop(supabase, tripId, item.title, item.providerId);
     const metadata: Record<string, unknown> = { locked: item.locked ?? false };
+    if (item.providerId) metadata.provider_id = item.providerId;
     if (coords) Object.assign(metadata, coords);
     if (item.time) metadata.time = item.time;
     // removed_at must be explicit: upsert only touches columns present in the payload, so a title

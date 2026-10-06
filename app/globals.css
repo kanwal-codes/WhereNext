@@ -1624,3 +1624,139 @@
 ::view-transition-group(trip-cover) { animation-duration: 620ms; animation-timing-function: var(--ease-out); }
 ::view-transition-old(trip-cover), ::view-transition-new(trip-cover) { height: 100%; object-fit: cover; }
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 260ms; }
+
+/* ---- Getting around: the trip map ------------------------------------------------------------------------------- */
+
+/* A stop drops onto the map: it falls a short way, settles, and the label arrives with it. */
+@keyframes pin-drop {
+  0% { opacity: 0; transform: translateY(-20px) scale(0.72); }
+  62% { opacity: 1; }
+  100% { opacity: 1; transform: none; }
+}
+.trip-pin-drop { transform-origin: 50% 100%; animation: pin-drop 680ms var(--ease-out) both; }
+.trip-pin-label {
+  position: absolute;
+  left: 38px;
+  top: 9px;
+  max-width: 224px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 5px 11px;
+  border-radius: 9999px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.005em;
+  box-shadow: 0 1px 2px oklch(0.2 0.012 65 / 8%), 0 8px 16px -6px oklch(0.2 0.012 65 / 26%);
+}
+
+.trip-pin-label[data-side="left"] { left: auto; right: 38px; }
+
+/* The marker that travels the route, in the colour of the leg it is on, with a ring that breathes. */
+.trip-rider { box-shadow: 0 6px 14px -4px oklch(0.2 0.012 65 / 40%); }
+.trip-rider::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 9999px;
+  border: 2px solid var(--rider, currentColor);
+  opacity: 0;
+  animation: rider-ring 2.2s var(--ease-out) infinite;
+}
+@keyframes rider-ring { 0% { transform: scale(1); opacity: 0.5; } 100% { transform: scale(2); opacity: 0; } }
+
+/* A time sitting on a route: ink for the one you are on, white for the others, which you can tap. */
+@keyframes trip-pop { 0% { opacity: 0; transform: scale(0.82) translateY(4px); } 100% { opacity: 1; transform: none; } }
+.trip-pill {
+  display: inline-flex;
+  height: 30px;
+  align-items: center;
+  padding: 0 13px;
+  border-radius: 9999px;
+  background: var(--ink);
+  color: #fff;
+  font-family: var(--font-outfit), system-ui, sans-serif;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px oklch(0.2 0.012 65 / 20%), 0 10px 18px -6px oklch(0.2 0.012 65 / 38%);
+  animation: trip-pop 520ms var(--ease-out) both;
+}
+.trip-pill--ghost {
+  background: #fff;
+  color: var(--ink-soft);
+  box-shadow: 0 0 0 1px oklch(0.2 0.012 65 / 8%), 0 8px 16px -6px oklch(0.2 0.012 65 / 24%);
+  cursor: pointer;
+  transition: background-color 0.16s var(--ease-out), color 0.16s var(--ease-out), transform 0.14s var(--ease-out);
+}
+.trip-pill--ghost:hover { background: var(--ink); color: #fff; transform: translateY(-1px); }
+.trip-pill--ghost:active { transform: scale(0.96); }
+
+/* Where one vehicle hands over to the next: a ring in the colour of the ride that starts there, and (up close) its name. */
+.trip-node {
+  position: relative;
+  display: block;
+  width: 17px;
+  height: 17px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 4px solid var(--node, var(--ink));
+  box-shadow: 0 4px 8px -2px oklch(0.2 0.012 65 / 35%);
+  animation: trip-pop 480ms var(--ease-out) 1000ms both;
+}
+.trip-node-label {
+  position: absolute;
+  left: 22px;
+  top: 50%;
+  translate: 0 -50%;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px oklch(0.2 0.012 65 / 8%), 0 6px 12px -5px oklch(0.2 0.012 65 / 26%);
+  opacity: 0;
+  transition: opacity 0.25s var(--ease-out);
+  pointer-events: none;
+}
+.trip-map [data-near] .trip-node-label { opacity: 1; }
+
+/* The scale: a small pill in the same skin as the rest of the map's chrome. */
+.trip-map .mapboxgl-ctrl-scale {
+  margin: 0 12px 6px 0;
+  padding: 2px 9px 3px;
+  border: 0;
+  border-radius: 9999px;
+  background: oklch(1 0 0 / 92%);
+  box-shadow: 0 1px 2px oklch(0.2 0.012 65 / 8%), 0 6px 14px -6px oklch(0.2 0.012 65 / 22%);
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+/* Mapbox's own controls, in the app's skin: white, soft shadow, rounded to match the floating panel. */
+.trip-map .mapboxgl-ctrl-top-right { margin: 14px 14px 0 0; }
+.trip-map .mapboxgl-ctrl-group {
+  overflow: hidden;
+  border-radius: 16px;
+  background: oklch(1 0 0 / 94%);
+  box-shadow: 0 1px 2px oklch(0.2 0.012 65 / 8%), 0 10px 24px -8px oklch(0.2 0.012 65 / 24%);
+}
+.trip-map .mapboxgl-ctrl-group:not(:empty) { box-shadow: 0 1px 2px oklch(0.2 0.012 65 / 8%), 0 10px 24px -8px oklch(0.2 0.012 65 / 24%); }
+.trip-map .mapboxgl-ctrl-group button { width: 44px; height: 44px; color: var(--ink); transition: background-color 0.18s var(--ease-out), transform 0.14s var(--ease-out); }
+.trip-map .mapboxgl-ctrl-group button + button { border-top: 1px solid var(--hairline); }
+.trip-map .mapboxgl-ctrl-group button:hover { background-color: var(--surface); }
+.trip-map .mapboxgl-ctrl-group button:active { transform: scale(0.94); }
+.trip-map .mapboxgl-ctrl-icon { filter: none; }
+/* Names would pile on top of each other at phone width, where the pins sit close; the numbers and the list carry it. */
+@media (max-width: 639.98px) { .trip-pin-label { display: none; } }
+@media (prefers-reduced-motion: reduce) { .trip-pin-drop, .trip-rider::after, .trip-pill, .trip-node { animation: none; } }

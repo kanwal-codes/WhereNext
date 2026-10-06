@@ -72,6 +72,17 @@ function normalize(output: unknown): unknown {
   return JSON.parse(JSON.stringify(output, (key, value) => (key === "retrievedAt" ? "<normalized>" : value)));
 }
 
+/** Request headers that carry credentials. Recorded traffic is committed, so these must never be persisted as-is:
+ *  the Duffel bearer token and LiteAPI key had been left in clear text in two cassettes. */
+const SECRET_HEADERS = new Set(["authorization", "x-api-key", "x-goog-api-key", "api-key", "x-api-token", "cookie", "set-cookie"]);
+function scrubSecrets(polly: Polly): void {
+  polly.server.any().on("beforePersist", (_request: unknown, recording: { request?: { headers?: Array<{ name: string; value: string }> } }) => {
+    for (const header of recording.request?.headers ?? []) {
+      if (SECRET_HEADERS.has(String(header.name).toLowerCase())) header.value = "REDACTED";
+    }
+  });
+}
+
 const pollyConfig = {
   adapters: ["fetch"],
   persister: "fs" as const,
@@ -85,6 +96,7 @@ async function recordAndValidate(name: string, plan: ToolCall[]): Promise<boolea
   // --- Record: real network, force a fresh recording (overwrite any prior cassette). ---
   clearMemoryCache();
   const recorder = new Polly(name, { ...pollyConfig, mode: "record", recordIfMissing: true });
+  scrubSecrets(recorder);
   const liveOutput = await retrieveEvidence(plan, FILTERS);
   await recorder.stop();
 

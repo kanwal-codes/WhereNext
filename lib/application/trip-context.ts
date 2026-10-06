@@ -160,7 +160,7 @@ export function formatTripMemory(
   const stay = readStayDecision(context.decisions);
   const decisions = context.decisions
     .filter((item) => !["stay", "review_notified", "review_dismissed"].includes(item.kind))
-    .map((item) => (item.kind ? `${item.kind}: ${typeof item.value === "string" ? item.value : JSON.stringify(item.value)}` : ""))
+    .map((item) => (item.kind ? `${item.kind}: ${(typeof item.value === "string" ? item.value : JSON.stringify(item.value)).slice(0, 300)}` : ""))
     .filter(Boolean);
 
   return [
@@ -169,5 +169,7 @@ export function formatTripMemory(
     itinerary.length ? `Itinerary: ${itinerary.join(", ")}.` : "Itinerary: nothing added yet.",
     savedPlaces.length ? `Saved places: ${savedPlaces.join(", ")}.` : "Saved places: none yet.",
     decisions.length ? `Decisions: ${decisions.join("; ")}.` : "Decisions: none recorded yet.",
-  ].join(" ");
+    // Every field above is member-writable and is interpolated into every model call of every member's turn:
+    // bound the whole block so one oversized row can degrade a turn but never inflate it.
+  ].join(" ").slice(0, 6_000);
 }

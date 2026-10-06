@@ -7,6 +7,7 @@ import { bookFlightInput, toBooking } from "@/packages/contracts/booking";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 import { logger } from "@/lib/server/logger";
 import { withinRateLimit } from "@/lib/server/rate-limit";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
@@ -42,15 +43,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
 
     let result;
     try {
-      result = await supabase
+      // `bookings` is read-only for members (migration 0047): the ledger of real provider orders is
+      // written by the server only, after requireTripMember(editor, registered). A plain insert, not
+      // an upsert: if a concurrent request with the same idempotency key already recorded a booking,
+      // overwriting its provider_reference would orphan that real order.
+      const admin = createSupabaseAdminClient();
+      const inserted = await admin
         .from("bookings")
-        .upsert(
+        .insert(
           { trip_id: tripId, kind: "flight", provider: "duffel", status: order.status, provider_reference: order.orderId, confirmation_code: order.bookingReference, currency: order.totalCurrency, total_amount: order.totalAmount, raw: order.raw, idempotency_key: input.idempotencyKey },
-          { onConflict: "trip_id,idempotency_key" },
         )
         .select("id,kind,provider,status,provider_reference,confirmation_code,currency,total_amount,created_at")
         .single();
-      if (result.error) throw result.error;
+      if (inserted.error && inserted.error.code === "23505") {
+        logger.error({ tripId, provider: "duffel", providerReference: order.orderId, idempotencyKey: input.idempotencyKey }, "second provider booking for an idempotency key already recorded — needs manual reconciliation");
+        const first = await admin.from("bookings").select("id,kind,provider,status,provider_reference,confirmation_code,currency,total_amount,created_at").eq("trip_id", tripId).eq("idempotency_key", input.idempotencyKey).single();
+        if (first.error) throw first.error;
+        return NextResponse.json({ booking: toBooking(first.data) }, { status: 200 });
+      }
+      if (inserted.error) throw inserted.error;
+      result = inserted;
     } catch (writeError) {
       // A real order exists with the provider (reference logged above) but we failed to record
       // it — the idempotency check on a retry would find nothing and order a second one. Tell

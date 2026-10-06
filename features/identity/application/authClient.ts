@@ -1,3 +1,4 @@
+import { clearLocalUserData } from "@/lib/client/clear-local-data";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export function signIn(email: string, password: string) { return createSupabaseBrowserClient().auth.signInWithPassword({ email, password }); }
@@ -6,7 +7,12 @@ export function resetPassword(email: string, redirectTo: string) { return create
 export function signInWithGoogle(redirectTo: string) {
   return createSupabaseBrowserClient().auth.signInWithOAuth({ provider: "google", options: { redirectTo } });
 }
-export function signOut() { return createSupabaseBrowserClient().auth.signOut(); }
+export async function signOut() {
+  const result = await createSupabaseBrowserClient().auth.signOut();
+  // Cache Storage, IndexedDB and sessionStorage are not partitioned by account: drop them with the session.
+  await clearLocalUserData();
+  return result;
+}
 export function updatePassword(password: string) { return createSupabaseBrowserClient().auth.updateUser({ password }); }
 export function updateName(name: string) { return createSupabaseBrowserClient().auth.updateUser({ data: { name } }); }
 /** Triggers Supabase's own confirmation-email flow — the address only changes once the user clicks it. */

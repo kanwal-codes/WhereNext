@@ -50,7 +50,7 @@ async function guestSentiment(name: string, city: string | null, signal?: AbortS
 export async function GET(request: Request, { params }: { params: Promise<{ tripId: string; hotelId: string }> }) {
   try {
     const { tripId, hotelId } = await params;
-    const { supabase, user } = await requireTripMember(tripId, { limit: LIMITS.provider });
+    const { supabase, user } = await requireTripMember(tripId, { limit: LIMITS.enrich });
     const google = isGoogleStayId(hotelId);
     if (google ? !serpConfigured() : !liteApiConfigured()) return NextResponse.json({ error: "Stay search is not configured" }, { status: 503 });
 
@@ -116,7 +116,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     let hotel = details.status === "fulfilled" ? details.value : null;
     const [sentiment, about] = hotel
       ? await Promise.all([
-          cached(`stay:sentiment:${hotelId}`, 24 * 60 * 60_000, () => guestSentiment(hotel!.name, hotel!.city, request.signal)),
+          cached(`stay:sentiment:${hotelId}`, 24 * 60 * 60_000, () => guestSentiment(hotel!.name, hotel!.city, AbortSignal.timeout(15_000))),
           cached(`stay:about:v2:${hotelId}`, 24 * 60 * 60_000, () => writeStayAbout({ hotel: hotel!, signal: AbortSignal.timeout(8000) })),
         ])
       : [null, null];

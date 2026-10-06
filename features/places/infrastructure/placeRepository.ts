@@ -18,8 +18,22 @@ export function createPlaceRepository(supabase: SupabaseClient, catalog = supaba
       });
     },
     async save(tripId: string, place: Place) {
-      const saved = await catalog.from("places").upsert({ provider: place.provider, provider_id: place.providerId, name: place.name, category: place.category, address: place.address, location: `SRID=4326;POINT(${place.longitude} ${place.latitude})`, metadata: { sourceUrl: place.sourceUrl, rating: place.rating, userRatingCount: place.userRatingCount, latitude: place.latitude, longitude: place.longitude, photoNames: place.photoNames ?? [] } }, { onConflict: "provider,provider_id" }).select("id").single();
-      if (saved.error) throw saved.error;
+      // Insert-if-absent, never update. `places` is a shared catalog keyed by (provider, provider_id)
+      // and read by EVERY trip that links the row (workspace, assistant context, public share
+      // page); overwriting an existing row from a client-supplied Place let any editor rewrite
+      // what other tenants see for a public Google place id. The first writer wins; later saves
+      // just link the existing row to the caller's trip.
+      const row = { provider: place.provider, provider_id: place.providerId, name: place.name, category: place.category, address: place.address, location: `SRID=4326;POINT(${place.longitude} ${place.latitude})`, metadata: { sourceUrl: place.sourceUrl, rating: place.rating, userRatingCount: place.userRatingCount, latitude: place.latitude, longitude: place.longitude, photoNames: place.photoNames ?? [] } };
+      const inserted = await catalog.from("places").upsert(row, { onConflict: "provider,provider_id", ignoreDuplicates: true }).select("id").maybeSingle();
+      if (inserted.error) throw inserted.error;
+      let saved: { data: { id: string } };
+      if (inserted.data) {
+        saved = { data: inserted.data as { id: string } };
+      } else {
+        const existing = await catalog.from("places").select("id").eq("provider", place.provider).eq("provider_id", place.providerId).single();
+        if (existing.error) throw existing.error;
+        saved = { data: existing.data as { id: string } };
+      }
       const link = await supabase.from("trip_places").upsert({ trip_id: tripId, place_id: saved.data.id, status: "saved" });
       if (link.error) throw link.error;
       if (place.sourceUrl) {

@@ -55,6 +55,26 @@ export function reconnectDelayMs(attempt: number): number {
   return Math.min(1000 * 2 ** attempt, 30_000);
 }
 
+/** Tables whose changes drive the group chat (messages, reactions, polls, the member list). */
+export const CHAT_TABLES = ["group_messages", "group_message_reactions", "trip_polls", "trip_poll_votes", "trip_members"] as const;
+
+export type RealtimeGroup = { topic: string; tables: string[]; presence: boolean };
+
+/**
+ * The channels a trip subscribes to. They are split on purpose: Supabase validates every
+ * `postgres_changes` binding on a channel together, so ONE table that is missing from the project's
+ * `supabase_realtime` publication (or whose policy errors) fails the whole channel. With everything on
+ * a single channel that took the group chat down with it — a collaborator's message only appeared after a
+ * manual reload. The chat now has its own channel, so an unrelated table can no longer silence it.
+ */
+export function realtimeGroups(tripId: string): RealtimeGroup[] {
+  const chat = new Set<string>(CHAT_TABLES);
+  return [
+    { topic: `trip:${tripId}:chat`, tables: [...CHAT_TABLES], presence: false },
+    { topic: `trip:${tripId}`, tables: Object.keys(TABLE_TO_CHANGE).filter((table) => !chat.has(table)), presence: true },
+  ];
+}
+
 /**
  * Subscribe to a trip's row changes over Supabase Realtime and re-broadcast them
  * on the same in-tab bus every mutation already uses, so `TripDataProvider`'s
@@ -71,7 +91,7 @@ export function useTripRealtime(tripId: string, me?: { userId: string; name: str
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pending = useRef<Set<WorkspaceChange>>(new Set());
   const pathname = usePathname();
-  // Live handle to the current channel + whether it's actually subscribed yet — lets the
+  // Live handle to the presence channel + whether it's actually subscribed yet — lets the
   // separate name/path effect below re-announce presence without tearing the channel down.
   const channelRef = useRef<RealtimeChannel | null>(null);
   const subscribedRef = useRef(false);
@@ -83,61 +103,6 @@ export function useTripRealtime(tripId: string, me?: { userId: string; name: str
 
     const supabase = createSupabaseBrowserClient();
     let cancelled = false;
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-    let attempt = 0;
-    let channel: RealtimeChannel | null = null;
-
-    const connect = () => {
-      if (cancelled) return;
-      // A local, stable reference to THIS connect() call's own channel — the subscribe callback
-      // below checks identity against the shared `channel` variable before acting, so a stray
-      // event from a channel this function has already superseded (a duplicate CHANNEL_ERROR
-      // immediately followed by CLOSED for the same dead channel, both racing in before the
-      // first one's `removeChannel` finishes) is ignored instead of scheduling a second parallel
-      // reconnect — which used to create a second channel for the same topic while Supabase's
-      // client still had the first one's teardown in flight, and crash calling `.on()` on it
-      // ("cannot add postgres_changes callbacks... after subscribe()"). Confirmed live: this
-      // exact crash reproduced immediately without the identity guard.
-      const ch = supabase.channel(`trip:${tripId}`, { config: { presence: { key: me?.userId ?? "anon" } } });
-      channel = ch;
-      channelRef.current = ch;
-      subscribedRef.current = false;
-
-      for (const table of Object.keys(TABLE_TO_CHANGE)) {
-        ch.on("postgres_changes", { event: "*", schema: "public", table, filter: realtimeFilterForTable(table, tripId) }, () => schedule(TABLE_TO_CHANGE[table]));
-      }
-
-      ch.on("presence", { event: "sync" }, () => {
-        const state = ch.presenceState<{ userId: string; name: string; viewingPath: string }>();
-        const seen = new Map<string, PresencePeer>();
-        for (const entries of Object.values(state)) for (const e of entries) seen.set(e.userId, { userId: e.userId, name: e.name, viewingPath: e.viewingPath });
-        setPeers([...seen.values()]);
-      });
-
-      ch.subscribe((status, error) => {
-        if (cancelled || channel !== ch) return;
-        if (status === "SUBSCRIBED") {
-          subscribedRef.current = true;
-          attempt = 0;
-          if (me) void ch.track({ userId: me.userId, name: me.name, viewingPath: pathname ?? "" });
-          return;
-        }
-        // Logged either way — picked up by Sentry like any other console error — but now also
-        // retried with backoff instead of leaving this tab permanently deaf to collaborator
-        // edits for the rest of the session.
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-          subscribedRef.current = false;
-          console.error(`[trip-realtime] channel ${status.toLowerCase()} for trip ${tripId}`, error);
-          channel = null;
-          void supabase.removeChannel(ch);
-          if (cancelled) return;
-          if (reconnectTimer) clearTimeout(reconnectTimer);
-          const delay = reconnectDelayMs(attempt);
-          attempt += 1;
-          reconnectTimer = setTimeout(connect, delay);
-        }
-      });
-    };
 
     const flush = () => {
       timer.current = null;
@@ -149,14 +114,97 @@ export function useTripRealtime(tripId: string, me?: { userId: string; name: str
       if (!timer.current) timer.current = setTimeout(flush, 250);
     };
 
-    connect();
+    /** One channel with its own reconnect-with-backoff state, so a failing group never affects the others. */
+    const connectGroup = (group: RealtimeGroup) => {
+      let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+      let attempt = 0;
+      let channel: RealtimeChannel | null = null;
+      let subscribed = false;
+
+      const connect = () => {
+        if (cancelled) return;
+        // A local, stable reference to THIS connect() call's own channel — the subscribe callback
+        // below checks identity against the shared `channel` variable before acting, so a stray
+        // event from a channel this function has already superseded (a duplicate CHANNEL_ERROR
+        // immediately followed by CLOSED for the same dead channel, both racing in before the
+        // first one's `removeChannel` finishes) is ignored instead of scheduling a second parallel
+        // reconnect — which used to create a second channel for the same topic while Supabase's
+        // client still had the first one's teardown in flight, and crash calling `.on()` on it
+        // ("cannot add postgres_changes callbacks... after subscribe()"). Confirmed live: this
+        // exact crash reproduced immediately without the identity guard.
+        const ch = supabase.channel(group.topic, group.presence ? { config: { presence: { key: me?.userId ?? "anon" } } } : undefined);
+        channel = ch;
+        subscribed = false;
+        if (group.presence) {
+          channelRef.current = ch;
+          subscribedRef.current = false;
+        }
+
+        for (const table of group.tables) {
+          ch.on("postgres_changes", { event: "*", schema: "public", table, filter: realtimeFilterForTable(table, tripId) }, () => schedule(TABLE_TO_CHANGE[table]));
+        }
+
+        if (group.presence) {
+          ch.on("presence", { event: "sync" }, () => {
+            const state = ch.presenceState<{ userId: string; name: string; viewingPath: string }>();
+            const seen = new Map<string, PresencePeer>();
+            for (const entries of Object.values(state)) for (const e of entries) seen.set(e.userId, { userId: e.userId, name: e.name, viewingPath: e.viewingPath });
+            setPeers([...seen.values()]);
+          });
+        }
+
+        ch.subscribe((status, error) => {
+          if (cancelled || channel !== ch) return;
+          if (status === "SUBSCRIBED") {
+            subscribed = true;
+            attempt = 0;
+            if (group.presence) {
+              subscribedRef.current = true;
+              if (me) void ch.track({ userId: me.userId, name: me.name, viewingPath: pathname ?? "" });
+            }
+            return;
+          }
+          // Logged either way — picked up by Sentry like any other console error — but now also
+          // retried with backoff instead of leaving this tab permanently deaf to collaborator
+          // edits for the rest of the session.
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+            subscribed = false;
+            if (group.presence) subscribedRef.current = false;
+            console.error(`[trip-realtime] ${group.topic} ${status.toLowerCase()} (tables: ${group.tables.join(", ")})`, error);
+            channel = null;
+            void supabase.removeChannel(ch);
+            if (cancelled) return;
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+            const delay = reconnectDelayMs(attempt);
+            attempt += 1;
+            reconnectTimer = setTimeout(connect, delay);
+          }
+        });
+      };
+
+      connect();
+      return {
+        isSubscribed: () => subscribed,
+        reconnectNow: () => {
+          if (reconnectTimer) clearTimeout(reconnectTimer);
+          attempt = 0;
+          connect();
+        },
+        stop: () => {
+          if (reconnectTimer) clearTimeout(reconnectTimer);
+          if (channel) void supabase.removeChannel(channel);
+        },
+      };
+    };
+
+    const connections = realtimeGroups(tripId).map(connectGroup);
 
     // The socket can die silently while a tab is backgrounded — mobile OSes (and some desktop
     // browsers) suspend an inactive tab's WebSocket with no CHANNEL_ERROR/CLOSED event ever
     // firing, so the reconnect-with-backoff logic above never triggers. Live-caught: a member
     // returning to a group chat tab that sat backgrounded saw no new messages until a manual
     // reload, even though someone else had sent one minutes earlier. Coming back to a visible
-    // tab both forces an immediate reconnect if the channel died, and — regardless of whether it
+    // tab both forces an immediate reconnect if a channel died, and — regardless of whether it
     // did — re-announces every change type once, so any mounted component (group chat, the
     // itinerary, etc.) refetches instead of trusting a channel that may have missed events while
     // backgrounded.
@@ -168,11 +216,7 @@ export function useTripRealtime(tripId: string, me?: { userId: string; name: str
       if (document.visibilityState !== "visible") { hiddenAt ||= Date.now(); return; }
       const away = hiddenAt ? Date.now() - hiddenAt : 0;
       hiddenAt = 0;
-      if (!subscribedRef.current) {
-        if (reconnectTimer) clearTimeout(reconnectTimer);
-        attempt = 0;
-        connect();
-      }
+      for (const connection of connections) if (!connection.isSubscribed()) connection.reconnectNow();
       if (away >= 20_000) announceWorkspaceChanges([...new Set(Object.values(TABLE_TO_CHANGE))]);
     };
     document.addEventListener("visibilitychange", onVisible);
@@ -183,13 +227,12 @@ export function useTripRealtime(tripId: string, me?: { userId: string; name: str
       subscribedRef.current = false;
       document.removeEventListener("visibilitychange", onVisible);
       if (timer.current) clearTimeout(timer.current);
-      if (reconnectTimer) clearTimeout(reconnectTimer);
-      if (channel) void supabase.removeChannel(channel);
+      for (const connection of connections) connection.stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- resubscribe only on the identity primitive; name/path re-announce below without resubscribing
   }, [tripId, me?.userId]);
 
-  // A display-name edit or a client-side navigation shouldn't tear down and resubscribe all ten
+  // A display-name edit or a client-side navigation shouldn't tear down and resubscribe all the
   // table listeners just to update two presence fields — re-track on the same channel instead.
   useEffect(() => {
     if (!me || !channelRef.current || !subscribedRef.current) return;

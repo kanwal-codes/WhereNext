@@ -4,6 +4,7 @@ import { HotelPhoto } from "@/components/HotelPhoto";
 import { stopGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { DestinationCombobox } from "@/components/DestinationCombobox";
 import { ArrowDown, ArrowUp, ArrowUpRight, BedDouble, ChevronDown, ChevronUp, Clock, GripVertical, Loader2, Lock, LockOpen, MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import type { ItineraryItem } from "@/features/itinerary/domain/item";
 import type { StayDecision } from "@/packages/contracts/stay";
@@ -44,6 +45,7 @@ export function ItinerarySurface({
   const { openPanel } = useTripPanel();
   const [items, setItems] = useState<ItineraryItem[]>((initialItems ?? []) as ItineraryItem[]);
   const [title, setTitle] = useState("");
+  const [picked, setPicked] = useState<{ id: string; text: string } | null>(null);
   const [day, setDay] = useState(1);
   const [removed, setRemoved] = useState<ItineraryItem | null>(null);
   const [dragTitle, setDragTitle] = useState<string | null>(null);
@@ -127,7 +129,10 @@ export function ItinerarySurface({
     // at Schwartz's Deli"), two items concatenated with no separator. Restored on failure only,
     // so a real error doesn't lose what they typed.
     setTitle("");
-    const r = await fetch(`/api/trips/${tripId}/itinerary`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: value, dayIndex: day }) });
+    // Only a place that was picked, and not edited since, is attached by id; anything else is looked up from its name as before.
+    const providerId = picked && picked.text === value ? picked.id : undefined;
+    setPicked(null);
+    const r = await fetch(`/api/trips/${tripId}/itinerary`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: value, dayIndex: day, providerId }) });
     if (r.ok) {
       const body = await r.json();
       setItems((cur) => (cur.some((i) => i.title === body.item.title) ? cur : [...cur, body.item]));
@@ -238,6 +243,11 @@ export function ItinerarySurface({
 
   // Both derived from `items` alone — memoized so typing in the "add" title input (or any other
   // state change that doesn't touch `items`) doesn't re-scan and re-sort the whole list.
+  // Suggestions are ranked toward where the plan already is: the first stop that has a location.
+  const near = useMemo<[number, number] | undefined>(() => {
+    const at = items.find((i) => typeof i.metadata?.latitude === "number" && typeof i.metadata?.longitude === "number");
+    return at ? [at.metadata!.longitude as number, at.metadata!.latitude as number] : undefined;
+  }, [items]);
   const days = useMemo(() => Array.from(new Set([...items.map((i) => i.day_index), ...bookedByDay.keys(), 1])).sort((a, b) => a - b), [items, bookedByDay]);
   const itemsByDay = useMemo(() => {
     const map = new Map<number, ItineraryItem[]>();
@@ -310,13 +320,26 @@ export function ItinerarySurface({
         className="flex flex-wrap items-center gap-2 rounded-3xl border border-border/70 bg-card p-2 pl-5 shadow-soft transition-colors focus-within:border-foreground/30"
       >
         <Plus aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <input
-          aria-label="Add itinerary item"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Add something to the plan…"
-          className="min-w-0 flex-1 basis-48 bg-transparent px-1 py-2 text-body outline-none placeholder:text-muted-foreground"
-        />
+        <div className="min-w-0 flex-1 basis-48">
+          <DestinationCombobox
+            tripId={tripId}
+            scope="places"
+            near={near}
+            enter="free"
+            onEnter={() => void add()}
+            ariaLabel="Add itinerary item"
+            value={title}
+            onChange={setTitle}
+            onPick={(sug) => {
+              setPicked({ id: sug.placeId, text: sug.text });
+              setTitle(sug.text);
+            }}
+            onSelect={() => undefined}
+            maxLength={200}
+            placeholder="Add something to the plan…"
+            inputClassName="w-full min-w-0 bg-transparent px-1 py-2 text-body outline-none placeholder:text-muted-foreground"
+          />
+        </div>
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           Day
           <input

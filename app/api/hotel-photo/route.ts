@@ -2,6 +2,8 @@ import { isGoogleImageUrl } from "@/lib/hotel-photo";
 import { readBytesCapped, safeFetch, UnsafeUrlError } from "@/lib/server/safe-fetch";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/server/logger";
+import { withinRateLimit } from "@/lib/server/rate-limit";
+import { clientKey } from "@/lib/server/guest";
 
 const MAX_BYTES = 6 * 1024 * 1024;
 const ACCEPT = { accept: "image/avif,image/webp,image/*", "user-agent": "Mozilla/5.0 (compatible; WhereNext/1.0)" };
@@ -18,7 +20,28 @@ const unavailable = (reason: string, host: string, extra?: Record<string, unknow
  * (https only, public addresses only, redirects re-checked) and only for a signed-in visitor (guests included),
  * so this is never an open proxy.
  */
+/** Follows redirects by hand so every hop is re-checked against the Google image-host allow-list
+ *  (a plain `redirect: "follow"` would happily chase a Google host's redirect to anywhere). */
+async function fetchGoogleImage(url: string, signal: AbortSignal): Promise<Response> {
+  let current = url;
+  for (let hop = 0; hop < 4; hop += 1) {
+    const response = await fetch(current, { signal, headers: ACCEPT, redirect: "manual" });
+    if (response.status < 300 || response.status >= 400) return response;
+    const location = response.headers.get("location");
+    if (!location) return response;
+    const next = new URL(location, current).toString();
+    if (!isGoogleImageUrl(next)) throw new UnsafeUrlError("redirect left the Google image hosts");
+    current = next;
+  }
+  throw new UnsafeUrlError("too many redirects");
+}
+
 export async function GET(request: Request) {
+  // Unauthenticated for Google image hosts, so bound it per client: every request is one upstream
+  // fetch and up to 6 MiB through a function. Fails open (availability over strict enforcement).
+  if (!(await withinRateLimit(`hotel-photo:${clientKey(request)}`, 1200, 60 * 60_000))) {
+    return new Response("Too many photo requests", { status: 429 });
+  }
   const target = new URL(request.url).searchParams.get("u") ?? "";
   let parsed: URL;
   try {
@@ -40,7 +63,7 @@ export async function GET(request: Request) {
   const sized = google ? target.replace(/=s(\d{4,})$/, "=s1600") : target;
   try {
     const upstream = google
-      ? await fetch(sized, { signal: AbortSignal.timeout(10_000), headers: ACCEPT, redirect: "follow" })
+      ? await fetchGoogleImage(sized, AbortSignal.timeout(10_000))
       : await safeFetch(sized, { signal: request.signal, headers: ACCEPT });
     const type = upstream.headers.get("content-type") ?? "";
     if (!upstream.ok || !type.startsWith("image/")) return unavailable(`upstream ${upstream.status} ${type.split(";")[0]}`, host);

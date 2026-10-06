@@ -144,7 +144,6 @@ export function DiscoverySurface({
   // --- filter + feed state ------------------------------------------
   const [catKey, setCatKey] = useState<string | null>(null); // null = "All"
   const [subs, setSubs] = useState<string[]>([]);
-  const [flat, setFlat] = useState(false);
   const [searchLabel, setSearchLabel] = useState(""); // what the AI search resolved to, for the "Clear" chip
   const [searchMode, setSearchMode] = useState(false);
 
@@ -351,7 +350,6 @@ export function DiscoverySurface({
       setSearchMode(true);
       setCatKey(null);
       setSubs([]);
-      setFlat(false);
       setLoading(true);
       setMessage("");
       const mine = ++reqId.current;
@@ -407,7 +405,6 @@ export function DiscoverySurface({
   function pickCategory(key: string | null) {
     setSearchMode(false);
     setSearchLabel("");
-    setFlat(false);
     setSubs([]);
     setCatKey(key);
   }
@@ -436,14 +433,6 @@ export function DiscoverySurface({
   const gridItems = view === "saved" ? savedItems : items;
   // Reset the reveal only when the list itself changes — not when `saved` re-fetches under us.
   const gridMore = useShowMore(gridItems.length, view === "saved" ? `saved:${saved.length}` : items);
-  const flatItems = useMemo(() => {
-    const seen = new Set<string>();
-    return (bands ?? []).flatMap((b) => b.items).filter((it) => (seen.has(idOf(it)) ? false : (seen.add(idOf(it)), true)));
-  }, [bands]);
-  // "Just show everything" is every band's items deduped into one list — same windowing the
-  // grid view already gets, so asking to see more doesn't mount every card (150+, for a full
-  // digest) synchronously in one pass.
-  const flatMore = useShowMore(flatItems.length, flatItems);
   async function loadMoreEvents() {
     if (eventsBusy || !eventPaging.current.more) return;
     setEventsBusy(true);
@@ -608,26 +597,12 @@ export function DiscoverySurface({
       ) : (
         // "All" digest
         <div className="mt-5">
-          <div className="flex items-center justify-between gap-3">
-            <p className="eyebrow min-w-0 truncate">A mix for {destination ? destination.split(",")[0].trim() : "this trip"}</p>
-            {bands && bands.length > 0 && (
-              <button type="button" onClick={() => setFlat((f) => !f)} className="shrink-0 text-xs font-medium whitespace-nowrap text-primary hover:underline relative after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']">
-                {flat ? "Show bands" : "Just show everything"}
-              </button>
-            )}
-          </div>
-
           {loading && !bands ? (
             <SkeletonCards count={6} className="mt-4 grid-cols-2 sm:grid-cols-3" />
           ) : !bands || bands.length === 0 ? (
             <EmptyState icon={Compass} className="mt-8">
               {destination ? "Nothing came back just now. Try a search or a different category." : "Set a destination for this trip to see ideas here."}
             </EmptyState>
-          ) : flat ? (
-            <>
-              <Stagger className={cn(grid, "mt-4")}>{flatItems.slice(0, flatMore.visible).map((it) => renderItem(it, false, true))}</Stagger>
-              <div className="mt-6"><ShowMoreButton next={flatMore.next} visible={flatMore.visible} total={flatItems.length} onClick={flatMore.showMore} noun="places" /></div>
-            </>
           ) : (
             <div className="mt-4 space-y-9">
               {(bands ?? []).map((band) => (

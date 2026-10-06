@@ -8,6 +8,7 @@ import { createTripInput } from "@/features/trip/domain/trip";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
 import { createTrip } from "@/features/trip/application/createTrip";
 import { withinRateLimit } from "@/lib/server/rate-limit";
+import { LIMITS } from "@/lib/server/limits";
 import { DAY_MS, GUEST_IP_START_LIMIT, GUEST_WINDOW_MS, clientKey, guestKey, isGuest } from "@/lib/server/guest";
 
 const bodySchema = z.object({
@@ -44,6 +45,13 @@ export const POST = withRoute(async function POST(request: Request) {
       // is free to make — so the ceiling is per IP, and it fails closed.
       if (!(await withinRateLimit(`guest-start:${clientKey(request)}`, GUEST_IP_START_LIMIT, DAY_MS, { failClosed: true }))) {
         return NextResponse.json({ error: "You've started a few trips today. Create a free account to keep planning.", code: "guest_busy" }, { status: 429 });
+      }
+    }
+    if (user && !isGuest(user)) {
+      // A signed-in user skipped every limit above, yet each call still creates a trip and schedules
+      // a model call. Hold them to the same per-person model budget as /api/trips/parse (same key).
+      if (!(await withinRateLimit(`user-${LIMITS.llm.bucket}:${user.id}`, LIMITS.llm.max, 60 * 60_000))) {
+        return NextResponse.json({ error: "You’ve started a lot of trips this hour. Try again in a little while." }, { status: 429 });
       }
     }
     if (!user) {

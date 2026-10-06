@@ -357,7 +357,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   ) : shown.kind === "budget" ? (
     <BudgetDetail block={shown.block} />
   ) : shown.kind === "route" ? (
-    <RouteDetail routes={shown.routes} active={shown.active} />
+    <RouteDetail tripId={tripId} routes={shown.routes} active={shown.active} />
   ) : shown.kind === "map" ? (
     <MapDetail tripId={tripId} panel={shown} />
   ) : shown.kind === "collection" ? (

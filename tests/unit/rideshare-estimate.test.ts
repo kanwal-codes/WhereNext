@@ -16,4 +16,12 @@ describe("estimateRideshare", () => {
     expect(long.low).toBeGreaterThan(short.low);
     expect(long.high).toBeGreaterThan(short.high);
   });
+
+  it("converts the dollar-based estimate into the traveller's currency", () => {
+    const usd = estimateRideshare(100_000, 3600);
+    const cad = estimateRideshare(100_000, 3600, "CAD", 1.4);
+    expect(cad.currency).toBe("CAD");
+    expect(Math.abs(cad.low - usd.low * 1.4)).toBeLessThanOrEqual(1);
+    expect(Math.abs(cad.high - usd.high * 1.4)).toBeLessThanOrEqual(1);
+  });
 });

@@ -31,9 +31,28 @@ export const guestLimiterKeys = (userId: string) => [guestKey.turns(userId), gue
 /** Supabase anonymous sign-in: a real user id that can later be upgraded in place. */
 export const isGuest = (user: Pick<User, "is_anonymous"> | null | undefined) => user?.is_anonymous === true;
 
-/** Stable, non-reversible per-client key for rate limits. */
+/** IPv6 addresses collapse to their /64 prefix: one subscriber normally controls a whole /64, so
+ *  keying on the full address would let a single client rotate through 2^64 "different" IPs. */
+export function normalizeIp(raw: string): string {
+  const ip = raw.trim().toLowerCase().replace(/^\[|\]$/g, "").split("%")[0];
+  if (!ip.includes(":")) return ip;
+  const mapped = ip.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (mapped) return mapped[1];
+  const [head, tail = ""] = ip.split("::");
+  const headParts = head ? head.split(":") : [];
+  const tailParts = ip.includes("::") && tail ? tail.split(":") : [];
+  const fill = ip.includes("::") ? Array(Math.max(0, 8 - headParts.length - tailParts.length)).fill("0") : [];
+  const groups = [...headParts, ...fill, ...(ip.includes("::") ? tailParts : [])].slice(0, 8);
+  if (groups.length < 4) return ip;
+  return groups.slice(0, 4).map((g) => g.replace(/^0+(?=.)/, "")).join(":") + "::/64";
+}
+
+/** Stable, non-reversible per-client key for rate limits. Prefers the address the platform itself
+ *  stamps (`x-vercel-forwarded-for`, never client-supplied) over the client-influenceable
+ *  `x-forwarded-for` chain. */
 export function clientKey(request: Request) {
+  const platform = request.headers.get("x-vercel-forwarded-for")?.split(",")[0]?.trim();
   const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const ip = forwarded || request.headers.get("x-real-ip") || "unknown";
-  return createHash("sha256").update(ip).digest("hex").slice(0, 24);
+  const ip = platform || request.headers.get("x-real-ip") || forwarded || "unknown";
+  return createHash("sha256").update(normalizeIp(ip)).digest("hex").slice(0, 24);
 }

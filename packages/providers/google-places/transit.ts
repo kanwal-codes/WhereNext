@@ -2,7 +2,7 @@ import { z } from "zod";
 import { withProviderTimeout } from "../request-signal";
 import { guardedFetch } from "@/lib/server/provider-guard";
 
-const stopSchema = z.object({ name: z.string().optional(), departureTime: z.string().optional(), arrivalTime: z.string().optional() }).optional();
+const stopSchema = z.object({ name: z.string().optional() }).optional();
 const responseSchema = z.object({
   routes: z.array(z.object({
     distanceMeters: z.number().optional(),
@@ -28,7 +28,9 @@ const responseSchema = z.object({
             vehicle: z.object({ type: z.string().optional(), name: z.object({ text: z.string().optional() }).optional() }).optional(),
             agencies: z.array(z.object({ name: z.string().optional() })).optional(),
           }).optional(),
-          stopDetails: z.object({ departureStop: stopSchema, arrivalStop: stopSchema }).optional(),
+          // The clock times sit beside the stops, not inside them.
+          stopDetails: z.object({ departureStop: stopSchema, arrivalStop: stopSchema, departureTime: z.string().optional(), arrivalTime: z.string().optional() }).optional(),
+          localizedValues: z.object({ departureTime: z.object({ timeZone: z.string().optional() }).optional() }).optional(),
         }).optional(),
       })).default([]),
     })).default([]),
@@ -86,6 +88,8 @@ export type TransitRoute = {
   arrivalTime?: string;
   fare?: { amount: number; currency: string };
   polyline?: Array<[number, number]>;
+  /** The IANA zone the journey's clock times are in (where it starts), so they can be shown as the station clocks read. */
+  timeZone?: string;
   steps: TransitStep[];
 };
 
@@ -126,12 +130,13 @@ export async function transit(
       provider: "google-routes" as const,
       distanceMeters: route.distanceMeters ?? 0,
       durationSeconds: seconds(route.duration) || steps.reduce((total, step) => total + seconds(step.staticDuration), 0),
-      departureTime: transitSteps[0]?.transitDetails?.stopDetails?.departureStop?.departureTime,
-      arrivalTime: transitSteps.at(-1)?.transitDetails?.stopDetails?.arrivalStop?.arrivalTime,
+      departureTime: transitSteps[0]?.transitDetails?.stopDetails?.departureTime,
+      arrivalTime: transitSteps.at(-1)?.transitDetails?.stopDetails?.arrivalTime,
       fare: fareAmount != null && route.travelAdvisory?.transitFare?.currencyCode
         ? { amount: fareAmount, currency: route.travelAdvisory.transitFare.currencyCode }
         : undefined,
       polyline: route.polyline?.encodedPolyline ? decodePolyline(route.polyline.encodedPolyline) : undefined,
+      timeZone: transitSteps[0]?.transitDetails?.localizedValues?.departureTime?.timeZone,
       steps: steps.map((step) => {
         const td = step.transitDetails;
         const line = td?.transitLine;

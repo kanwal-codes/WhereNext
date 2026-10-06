@@ -128,7 +128,7 @@ export function StaySearchBar({ search, tripId, trip, defaultOpen = false }: { s
   const showTrip = Boolean(trip.start && trip.end && ISO.test(trip.start) && ISO.test(trip.end) && trip.start >= min && (query.checkin !== trip.start || query.checkout !== trip.end));
   return (
     <div className="relative space-y-3 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-soft">
-      <PlaceField caption="Where" Icon={MapPin} srLabel="Looking for stays in" label={query.location} endpoint={`/api/trips/${tripId}/places/google/autocomplete`} busy={busy} onPick={search.setLocation} />
+      <PlaceField caption="Where" Icon={MapPin} srLabel="Looking for stays in" label={query.location} endpoint={`/api/trips/${tripId}/places/google/autocomplete`} scope="areas" busy={busy} onPick={search.setLocation} />
       <div className="grid grid-cols-2 gap-x-2.5 gap-y-3 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2.5">
         <DayControl caption="Check in" date={query.checkin} min={min} busy={busy} onPick={search.setCheckin} prevLabel="Check in: previous day" nextLabel="Check in: next day" dateLabel="Check-in date" />
         <DayControl caption="Check out" date={query.checkout} min={shiftIso(query.checkin, 1)} busy={busy} onPick={search.setCheckout} prevLabel="Check out: previous day" nextLabel="Check out: next day" dateLabel="Check-out date" />

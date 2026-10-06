@@ -24,8 +24,9 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { withinRateLimit } from "@/lib/server/rate-limit";
 import { DAY_MS, GUEST_IP_TURN_LIMIT, GUEST_TURN_LIMIT, GUEST_WINDOW_MS, clientKey, guestKey } from "@/lib/server/guest";
 
-/** Service-role writer used only to create a brand-new trip's thread row; undefined if unavailable
- *  (same fallback the /conversation route itself uses). */
+/** Service-role writer used to create a brand-new trip's thread row and to append turn traces
+ *  (ai_turn_traces is server-write-only since migration 0047); undefined if unavailable (same
+ *  fallback the /conversation route itself uses). */
 function threadWriter() {
   try {
     return createSupabaseAdminClient();
@@ -145,7 +146,8 @@ export const POST = withRoute(async function POST(request: Request) {
     ]);
     // The trip's own language / country / currency win; this traveller's defaults fill the gaps.
     const tripCtx = { ...loadedCtx, preferences: withTravellerDefaults(loadedCtx.preferences, defaults) };
-    const threadSummary = (threadRow.data?.summary as string | null) ?? "";
+    // The writer slices to 600 chars, but the row is member-writable; clamp on read as well.
+    const threadSummary = ((threadRow.data?.summary as string | null) ?? "").slice(0, 600);
     const tripSummary = [formatTripMemory(tripCtx), threadSummary && `Earlier in this conversation: ${threadSummary}`].filter(Boolean).join(" ");
     const viewContext = parsed.data.viewContext;
     // conversationRepository.append() scopes this by role itself (scopedMessageIdempotencyKey) —
@@ -179,8 +181,8 @@ export const POST = withRoute(async function POST(request: Request) {
           ? (message.metadata as { suggestedFollowups?: Array<{ label: string; prompt: string }> } | null)?.suggestedFollowups
           : undefined;
         const content = followups?.length
-          ? `${message.content}\n\n[Suggested next steps shown to the user just now: ${followups.map((f) => `"${f.label}" (${f.prompt})`).join("; ")}]`
-          : message.content;
+          ? `${message.content.slice(0, 8_000)}\n\n[Suggested next steps shown to the user just now: ${followups.map((f) => `"${f.label}" (${f.prompt})`).join("; ")}]`
+          : message.content.slice(0, 8_000);
         return { role: message.role as "user" | "assistant", content };
       });
 
@@ -527,7 +529,7 @@ export const POST = withRoute(async function POST(request: Request) {
             // call risks losing the write if the platform tears the process down instantly after
             // the response finishes, the exact race `after()` was meant to avoid, but that's
             // strictly better than the current 100%-guaranteed silent no-op.
-            void recordAiTurn(supabase, tripId, {
+            void recordAiTurn(threadWriter() ?? supabase, tripId, {
               intent: result!.resolved.intent,
               tools: toolsForTrace,
               providers_failed: providersFailedForTrace,
@@ -593,7 +595,7 @@ export const POST = withRoute(async function POST(request: Request) {
           // risks losing the write if the platform tears the process down instantly after the
           // response finishes — the exact race `after()` was meant to avoid — but that's strictly
           // better than the current 100%-guaranteed silent no-op.
-          void recordAiTurn(supabase, tripId, {
+          void recordAiTurn(threadWriter() ?? supabase, tripId, {
             intent: resolved.intent,
             tools: toolsUsed,
             providers_failed: providersFailed,

@@ -2,13 +2,18 @@ import { NextResponse } from "next/server";
 import { hasBearer } from "@/lib/server/bearer";
 import { fail } from "@/lib/server/with-route";
 import { logger } from "@/lib/server/logger";
-import { sendEmail } from "@/lib/server/email";
+import { escapeHtml, sendEmail } from "@/lib/server/email";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { loadTripContext } from "@/lib/application/trip-context";
 import { reviewTrip, pendingNotifications, type ReviewFinding } from "@/lib/application/trip-review";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 export const runtime = "nodejs";
+
+// Bounds on one sweep. Trip creation isn't metered per user, so the work (and the operator-paid
+// email volume) must not scale with how many near-dated trips one account creates.
+const MAX_TRIPS_PER_RUN = 500;
+const MAX_EMAILS_PER_RUN = 200;
 
 const siteUrl = () => (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/$/, "");
 
@@ -18,9 +23,9 @@ function digest(tripId: string, tripName: string, findings: ReviewFinding[]) {
   return {
     subject: `${findings.length} thing${findings.length === 1 ? "" : "s"} to check before ${tripName}`,
     text: `A quick review of ${tripName} turned up:\n\n${lines.join("\n")}\n\nOpen the trip: ${link}`,
-    html: `<p>A quick review of <strong>${tripName}</strong> turned up:</p>
-<ul>${findings.map((f) => `<li><strong>${f.title}</strong> — ${f.detail}</li>`).join("")}</ul>
-<p><a href="${link}">Open the trip</a></p>`,
+    html: `<p>A quick review of <strong>${escapeHtml(tripName)}</strong> turned up:</p>
+<ul>${findings.map((f) => `<li><strong>${escapeHtml(f.title)}</strong> — ${escapeHtml(f.detail)}</li>`).join("")}</ul>
+<p><a href="${escapeHtml(link)}">Open the trip</a></p>`,
   };
 }
 
@@ -39,7 +44,7 @@ async function run(request: Request): Promise<Response> {
     const admin = createSupabaseAdminClient();
     const today = new Date().toISOString().slice(0, 10);
     const soon = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
-    const trips = await admin.from("trips").select("id,name,owner_id").gte("start_date", today).lte("start_date", soon);
+    const trips = await admin.from("trips").select("id,name,owner_id").gte("start_date", today).lte("start_date", soon).order("start_date", { ascending: true }).limit(MAX_TRIPS_PER_RUN);
     if (trips.error) throw trips.error;
 
     let flagged = 0;
@@ -69,7 +74,11 @@ async function run(request: Request): Promise<Response> {
       );
 
       const pending = pendingNotifications(findings, notified, dismissed);
-      if (pending.length) {
+      if (pending.length && emailed < MAX_EMAILS_PER_RUN) {
+        // The recipient comes from trips.owner_id; only mail someone who is actually an owner member of
+        // the trip, so a rewritten owner_id can never point the operator's sender at a third party.
+        const membership = await admin.from("trip_members").select("user_id").eq("trip_id", trip.id).eq("user_id", trip.owner_id).eq("role", "owner").maybeSingle();
+        if (membership.error || !membership.data) continue;
         const owner = await admin.auth.admin.getUserById(trip.owner_id).then((r) => r.data.user, () => null);
         const sent = owner?.email ? await sendEmail({ to: owner.email, ...digest(trip.id, trip.name, pending) }).catch(() => false) : false;
         if (sent) {
