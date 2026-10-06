@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
@@ -20,6 +20,9 @@ export function useTurnstile() {
   const container = useRef<HTMLDivElement>(null);
   const token = useRef<string | undefined>(undefined);
   const widget = useRef<string | undefined>(undefined);
+  // Cloudflare usually passes a visitor silently; when it does need a tick it shows a checkbox, and the visitor has to know to give it one.
+  const interactive = useRef(false);
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     if (!SITE_KEY) return;
@@ -28,8 +31,18 @@ export function useTurnstile() {
       widget.current = window.turnstile.render(container.current, {
         sitekey: SITE_KEY,
         appearance: "interaction-only",
+        "before-interactive-callback": () => {
+          interactive.current = true;
+          setChecking(true);
+        },
+        "after-interactive-callback": () => {
+          interactive.current = false;
+          setChecking(false);
+        },
         callback: (value: string) => {
           token.current = value;
+          interactive.current = false;
+          setChecking(false);
         },
         "expired-callback": () => {
           token.current = undefined;
@@ -55,12 +68,14 @@ export function useTurnstile() {
   /** Waits (up to ~10s) for a fresh, single-use token; undefined when Turnstile isn't configured. */
   const getToken = useCallback(async () => {
     if (!SITE_KEY) return undefined;
-    for (let i = 0; i < 100 && !token.current; i++) await new Promise((resolve) => setTimeout(resolve, 100));
+    // A silent check takes a moment; one waiting on a tick gets two minutes, since it is waiting on a person.
+    const from = Date.now();
+    while (!token.current && Date.now() - from < (interactive.current ? 120_000 : 10_000)) await new Promise((resolve) => setTimeout(resolve, 100));
     const value = token.current;
     token.current = undefined;
     if (widget.current) window.turnstile?.reset(widget.current);
     return value;
   }, []);
 
-  return { container, getToken };
+  return { container, getToken, checking };
 }

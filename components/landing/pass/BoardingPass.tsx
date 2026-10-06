@@ -104,7 +104,7 @@ export function BoardingPass({ finale = false }: { finale?: boolean }) {
   const [home, setHome] = useState(serverHome ?? HOME_CODE);
   const [announce, setAnnounce] = useState("");
   const attemptRef = useRef(crypto.randomUUID());
-  const { container: turnstile, getToken } = useTurnstile();
+  const { container: turnstile, getToken, checking } = useTurnstile();
   const router = useRouter();
   const compact = useMediaQuery("(max-width: 819px)");
   const typed = useTypingPlaceholder(
@@ -338,7 +338,7 @@ export function BoardingPass({ finale = false }: { finale?: boolean }) {
       <p className="sr-only" role="status" aria-live="polite">
         {announce}
       </p>
-      <div ref={turnstile} />
+      <div ref={turnstile} className="[&:not(:empty)]:mt-3" />
 
       {!finale && (
         <div
@@ -362,6 +362,16 @@ export function BoardingPass({ finale = false }: { finale?: boolean }) {
         </div>
       )}
       {/* In the page's own layer, not under the pass: on the last screen the pass sits in the wallet's pocket and on a phone the stub pushes this off screen, so an error there is never seen. */}
+      {busy && checking && !problem &&
+        createPortal(
+          <div role="status" className="bp-alert bp-toast">
+            <div>
+              <p className="font-display text-base">One quick check first</p>
+              <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">Tick “Verify you are human” under the pass and we’ll take off.</p>
+            </div>
+          </div>,
+          document.body,
+        )}
       {problem &&
         createPortal(
           <div role="alert" className="bp-alert bp-toast">
