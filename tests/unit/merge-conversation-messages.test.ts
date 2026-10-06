@@ -60,4 +60,21 @@ describe("mergeConversationMessages", () => {
     const merged = mergeConversationMessages([local], [server]);
     expect(merged.map((m) => m.id)).toEqual(["db-1", "local-assistant-second"]);
   });
+
+  it("keeps Roam's reply under the question when the browser's clock is behind the server's", () => {
+    // A first message sent while the thread's load is still finishing: the load's rows arrive mid-stream. The server
+    // saved the question at :05 by ITS clock; the reply placeholder was stamped :02 by the browser's, a few seconds behind.
+    const localUser = msg({ id: "local-k", role: "user", content: "trip to manali india 2 days", created_at: "2026-09-04T12:00:01.000Z" });
+    const streaming = msg({ id: "local-assistant-k", role: "assistant", content: "For 2 days", created_at: "2026-09-04T12:00:02.000Z" });
+    const serverUser = msg({ id: "db-1", role: "user", content: "trip to manali india 2 days", created_at: "2026-09-04T12:00:05.000Z", idempotency_key: "user:k" });
+    const merged = mergeConversationMessages([localUser, streaming], [serverUser]);
+    expect(merged.map((m) => m.id)).toEqual(["db-1", "local-assistant-k"]);
+    expect(Date.parse(merged[1].created_at)).toBeGreaterThan(Date.parse(merged[0].created_at));
+  });
+
+  it("still places a server row from another device by its own time", () => {
+    const earlier = msg({ id: "db-0", role: "assistant", content: "Welcome", created_at: "2026-09-04T11:00:00.000Z" });
+    const localUser = msg({ id: "local-k", role: "user", content: "hi", created_at: "2026-09-04T12:00:01.000Z" });
+    expect(mergeConversationMessages([localUser], [earlier]).map((m) => m.id)).toEqual(["db-0", "local-k"]);
+  });
 });

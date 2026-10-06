@@ -71,8 +71,17 @@ function writeConversationCache(tripId: string, messages: Message[], verifiedAt:
 
 export function mergeConversationMessages(current: Message[], fresh: Message[]): Message[] {
   const byId = new Map(fresh.map((message) => [message.id, message]));
-  for (const message of current) {
-    if (byId.has(message.id)) continue;
+  // `current` is in the order the messages were sent. A local message carries the BROWSER's clock and a server row the
+  // SERVER's, so sorting them together by time can put Roam's streaming reply above the question that caused it
+  // whenever the two clocks differ by a second or two (a first message sent while the thread's load is still finishing
+  // merges in exactly that state). So a message with no server row keeps its place after the one before it.
+  let previous = -Infinity;
+  for (let message of current) {
+    const served = byId.get(message.id);
+    if (served) {
+      previous = Date.parse(served.created_at);
+      continue;
+    }
     // A locally-streamed message keeps its client-generated id, so it never matches the server
     // row by id. Both roles' local ids are deterministic from the turn's own send idempotency
     // key (`local-${key}` for the user's own echo, `local-assistant-${key}` for the reply
@@ -84,15 +93,26 @@ export function mergeConversationMessages(current: Message[], fresh: Message[]):
     // the old fixed 5-minute window as a visible duplicate).
     const userLocalKey = message.role === "user" && message.id.startsWith("local-") ? message.id.slice("local-".length) : null;
     const assistantLocalKey = message.role === "assistant" && message.id.startsWith("local-assistant-") ? message.id.slice("local-assistant-".length) : null;
-    const hasServerTwin = userLocalKey
-      ? fresh.some((c) => c.role === "user" && c.idempotency_key === `user:${userLocalKey}`)
+    const twin = userLocalKey
+      ? fresh.find((c) => c.role === "user" && c.idempotency_key === `user:${userLocalKey}`)
       : assistantLocalKey
-        ? fresh.some((c) => c.role === "assistant" && c.idempotency_key === `assistant:${assistantLocalKey}`)
+        ? fresh.find((c) => c.role === "assistant" && c.idempotency_key === `assistant:${assistantLocalKey}`)
         : message.role === "user"
-          ? fresh.some((c) => c.role === "user" && c.content === message.content && Math.abs(Date.parse(c.created_at) - Date.parse(message.created_at)) < 60_000)
-          : message.content.trim().length > 0 &&
-            fresh.some((c) => c.role === "assistant" && c.content.trim() === message.content.trim() && Math.abs(Date.parse(c.created_at) - Date.parse(message.created_at)) < 5 * 60_000);
-    if (!hasServerTwin) byId.set(message.id, message);
+          ? fresh.find((c) => c.role === "user" && c.content === message.content && Math.abs(Date.parse(c.created_at) - Date.parse(message.created_at)) < 60_000)
+          : message.content.trim().length > 0
+            ? fresh.find((c) => c.role === "assistant" && c.content.trim() === message.content.trim() && Math.abs(Date.parse(c.created_at) - Date.parse(message.created_at)) < 5 * 60_000)
+            : undefined;
+    if (twin) {
+      previous = Date.parse(twin.created_at);
+      continue;
+    }
+    let at = Date.parse(message.created_at);
+    if (!(at > previous)) {
+      at = previous + 1;
+      message = { ...message, created_at: new Date(at).toISOString() };
+    }
+    previous = at;
+    byId.set(message.id, message);
   }
   return [...byId.values()].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
 }
@@ -278,6 +298,9 @@ export function ConversationSurface({
   // Set synchronously: two quick taps on a chip (or Enter twice) can both arrive before `sending` has re-rendered, and each used to send its own copy of the message.
   const sendingRef = useRef(false);
   const [loaded, setLoaded] = useState(Boolean(initialMessages));
+  // The thread's own load from the server has finished (or was not needed). The landing page's first message waits for it:
+  // sent earlier, the load's rows are merged in while Roam's reply is streaming.
+  const [synced, setSynced] = useState(false);
   const [confirming, setConfirming] = useState(false);
   // A guest who has used their free messages (the server said so) — the composer closes and the
   // save card opens. `saveOpen` is the softer version: they asked to save before running out.
@@ -365,7 +388,10 @@ export function ConversationSurface({
     setCacheReady(true);
     // A quick tab round-trip should not hit the conversation API again. A new device has no
     // session cache, so it still loads the durable server thread immediately.
-    if (cached && Date.now() - cached.savedAt < CONVERSATION_CACHE_TTL_MS) return;
+    if (cached && Date.now() - cached.savedAt < CONVERSATION_CACHE_TTL_MS) {
+      setSynced(true);
+      return;
+    }
     const controller = new AbortController();
     fetch(`/api/trips/${tripId}/conversation`, { signal: controller.signal })
       .then(async (response) => {
@@ -379,12 +405,14 @@ export function ConversationSurface({
           for (const m of fresh) seenMessageIdsRef.current.add(m.id);
           setMessages((current) => mergeConversationMessages(current, fresh));
           setLoaded(true);
+          setSynced(true);
         }
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
         if (!cached && !initialMessagesRef.current) notifyToast("Couldn’t load the conversation — reload to try again.", "error");
         setLoaded(true);
+        setSynced(true);
       });
     return () => controller.abort();
     // Deliberately not depending on initialMessages — see initialMessagesRef above. This effect
@@ -653,13 +681,19 @@ export function ConversationSurface({
     setMessages((current) => current.filter((m) => !(m.role === "assistant" && !m.content.trim())));
   }
 
+  // A slow load must not hold the visitor's first message forever: after a few seconds it goes anyway (the merge keeps the order).
+  useEffect(() => {
+    const timer = setTimeout(() => setSynced(true), 4000);
+    return () => clearTimeout(timer);
+  }, []);
+
   // The landing page's prompt box creates the trip and drops its sentence here: it becomes the
   // first message, sent once the (empty) thread has loaded — the visitor lands mid-conversation.
   // Deferred a tick so React's dev-only mount/unmount/mount pass can't consume the sentence and
   // then abort the send (the unmount cleanup above aborts any in-flight request).
   useEffect(() => {
     // A fresh thread already holds Roam's greeting, so "empty" means no message from the visitor yet.
-    if (!loaded || sending || messages.some((m) => m.role === "user")) return;
+    if (!loaded || !synced || sending || messages.some((m) => m.role === "user")) return;
     const timer = setTimeout(() => {
       const key = `wn:first-message:${tripId}`;
       const first = window.sessionStorage.getItem(key);
@@ -668,8 +702,8 @@ export function ConversationSurface({
       void submit(first);
     }, 0);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the thread loads empty
-  }, [loaded]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the thread has loaded empty
+  }, [loaded, synced]);
 
   const userTurns = messages.filter((m) => m.role === "user").length;
   const turnsLeft = Math.max(0, GUEST_TURN_LIMIT - userTurns);
