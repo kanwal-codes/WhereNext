@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeAuthError } from "@/features/identity/application/saveErrors";
+import { authErrorText, describeAuthError } from "@/features/identity/application/saveErrors";
 
 describe("describeAuthError", () => {
   it.each([
@@ -23,5 +23,18 @@ describe("describeAuthError", () => {
 
   it("never shows raw provider text", () => {
     expect(describeAuthError({ code: "email_exists", message: "A user with this email address has already been registered" }).message).not.toMatch(/registered/);
+  });
+});
+
+describe("authErrorText", () => {
+  it("says a dropped connection in plain words, not the browser's raw message", () => {
+    expect(authErrorText({ name: "AuthRetryableFetchError", status: 0, message: "Failed to fetch" })).toBe("Can’t reach Where Next. Check your connection and try again.");
+    expect(authErrorText({ message: "Load failed" })).toMatch(/Check your connection/);
+  });
+
+  it("keeps Supabase's own wording for everything else, and has a fallback", () => {
+    expect(authErrorText({ code: "validation_failed", message: "Password should contain a number" })).toBe("Password should contain a number");
+    expect(authErrorText({ message: "Signups not allowed for this instance" })).toBe("Signups not allowed for this instance");
+    expect(authErrorText({})).toBe("Something went wrong. Please try again.");
   });
 });

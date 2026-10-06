@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { signInWithGoogle } from "@/features/identity/application/authClient";
+import { authErrorText } from "@/features/identity/application/saveErrors";
 
 export function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -27,7 +28,7 @@ export function GoogleAuthButton({ label = "Continue with Google", redirectTo }:
     const { error } = await signInWithGoogle(callback);
     if (error) {
       setLoading(false); // on success the browser is already navigating away
-      window.location.assign(`/sign-in?error=${encodeURIComponent(error.message)}`);
+      window.location.assign(`/sign-in?error=${encodeURIComponent(authErrorText(error))}`);
     }
   }
 

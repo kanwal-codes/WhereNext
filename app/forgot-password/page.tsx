@@ -6,6 +6,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowLeft, ArrowRight, MailCheck } from "lucide-react";
 import { AuthShell, Field, SubmitButton, inputClass } from "@/components/AuthShell";
 import { resetPassword } from "@/features/identity/application/authClient";
+import { authErrorText } from "@/features/identity/application/saveErrors";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -20,7 +21,7 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     const result = await resetPassword(email, `${location.origin}/auth-callback?next=/reset-password/update`);
     setLoading(false);
-    if (result.error) setError(result.error.message);
+    if (result.error) setError(authErrorText(result.error));
     else setSent(true);
   }
 

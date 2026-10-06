@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { AuthShell, Field, SubmitButton, inputClass } from "@/components/AuthShell";
 import { updatePassword } from "@/features/identity/application/authClient";
+import { authErrorText } from "@/features/identity/application/saveErrors";
 
 export default function UpdatePasswordPage() {
   const [password, setPassword] = useState("");
@@ -24,7 +25,7 @@ export default function UpdatePasswordPage() {
     setLoading(true);
     const result = await updatePassword(password);
     setLoading(false);
-    if (result.error) setError(result.error.message);
+    if (result.error) setError(authErrorText(result.error));
     else {
       setMessage("Password updated. You can continue planning.");
       setPassword("");

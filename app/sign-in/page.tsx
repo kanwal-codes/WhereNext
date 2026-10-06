@@ -7,6 +7,7 @@ import { AuthShell, Divider, Field, SubmitButton, inputClass } from "@/component
 import { GoogleAuthButton } from "@/features/identity/ui/GoogleAuthButton";
 import { signIn } from "@/features/identity/application/authClient";
 import { safeRedirect } from "@/lib/client/safe-redirect";
+import { authErrorText } from "@/features/identity/application/saveErrors";
 
 export default function SignInPage() {
   const [email, setEmail] = useState("");
@@ -29,7 +30,7 @@ export default function SignInPage() {
     setLoading(true);
     const result = await signIn(email, password);
     if (result.error) {
-      setError(result.error.message);
+      setError(authErrorText(result.error));
       setLoading(false);
       return;
     }

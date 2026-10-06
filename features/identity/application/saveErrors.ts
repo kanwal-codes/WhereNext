@@ -31,3 +31,9 @@ export function describeAuthError(error: AuthLike): SaveFailure {
     return { kind: "network", message: "Can’t reach Where Next. Check your connection and try again." };
   return { kind: "other", message: "Something went wrong. Please try again." };
 }
+
+/** The text to show for any auth form's error: a dropped connection says so in plain words (the raw browser message is "Failed to fetch"); anything else keeps Supabase's own wording. */
+export function authErrorText(error: AuthLike): string {
+  const described = describeAuthError(error);
+  return described.kind === "network" ? described.message : error?.message || described.message;
+}
