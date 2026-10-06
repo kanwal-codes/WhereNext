@@ -977,7 +977,7 @@ function TripSummaryBlockView({ block }: { block: TripSummaryBlockData }) {
         <dl className="divide-y divide-border border-t border-border px-4 @[34rem]:px-[1.125rem]">
           {block.rows.map((row) => (
             <div key={row.label} className="flex min-h-11 items-center justify-between gap-4 py-2">
-              <dt className={type.meta}>{row.label}</dt>
+              <dt className={cn(type.meta, "shrink-0")}>{row.label}</dt>
               <dd className={cn(type.body, "min-w-0 text-right font-medium", /^(not chosen yet|nothing planned yet)$/i.test(row.value) && "font-normal text-muted-foreground")}>{row.value}</dd>
             </div>
           ))}
@@ -1308,10 +1308,12 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel }: { from: string; 
               onClick={() => { setMode(g.mode); setPick(0); }}
               className={cn("flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl border px-3 py-2 text-left transition-colors", on ? "border-ink bg-card ring-1 ring-ink" : "border-border bg-card hover:border-ink/30")}
             >
-              <Icon className="size-5 shrink-0" aria-hidden />
+              <Icon className="size-5 shrink-0 @max-[27rem]:hidden" aria-hidden />
               <span className="min-w-0">
                 <span className="block truncate text-[0.9375rem] leading-tight font-medium">{ROUTE_MODE_LABEL[g.mode] ?? g.mode}</span>
-                <span className="block truncate text-xs leading-tight text-muted-foreground tabular-nums">{g.routes.length > 1 ? `${g.routes.length} routes · ${minutes(g.routes[0])} min` : `${minutes(g.routes[0])} min · ${distance(g.routes[0].distanceMeters / 1000)}`}</span>
+                <span className="block truncate text-xs leading-tight text-muted-foreground tabular-nums">{g.routes.length > 1 ? `${g.routes.length} routes · ${minutes(g.routes[0])} min` : (
+                  <>{minutes(g.routes[0])} min<span className="@max-[34rem]:hidden"> · {distance(g.routes[0].distanceMeters / 1000)}</span></>
+                )}</span>
               </span>
               {g.routes[0] === fastest ? <WidgetPill tone="sage" className="ml-auto h-5 text-[0.6875rem] @max-[34rem]:hidden">Fastest</WidgetPill> : minutes(g.routes[0]) === minutes(fastest) ? <WidgetPill className="ml-auto h-5 text-[0.6875rem] @max-[34rem]:hidden">Same time</WidgetPill> : null}
             </button>
@@ -1446,7 +1448,8 @@ function StaysBlockView({ block, tripId, preview, onOpenStay, onOpenCollection, 
           // With a Sort row to sit on, "See all" goes to its right edge; a card with no controls keeps it in the header.
           const seeAllOnSortRow = Boolean(seeAll) && source.length >= 2 && sorts.length > 1;
           return (
-            <div className="flex flex-col gap-3">
+            // @container: the search bar's narrow/wide layouts (@[34rem] / @max-[34rem]) are keyed to this card's own width, and nothing above it set one up.
+            <div className="@container flex flex-col gap-3">
               <SectionHeader
                 title={preview ? `Stays in ${where}` : undefined}
                 count={preview ? items.length : undefined}
