@@ -356,7 +356,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   const rejectedNames = tripCtx.places
     .filter((entry) => entry.status === "rejected" && entry.place?.name)
     .map((entry) => entry.place!.name);
-  const retrieveFilters = { dislikes, currency: resolveCurrency(tripCtx.preferences), interests: readStrList(tripCtx.preferences, "interests"), likes: readStrList(tripCtx.preferences, "likes"), tripStart: tripCtx.trip?.start_date, tripEnd: tripCtx.trip?.end_date, excludeNames: rejectedNames, travelers: tripCtx.trip?.travelers, accessibilityNeeds: readStrList(tripCtx.preferences, "accessibilityNeeds") };
+  const retrieveFilters = { dislikes, currency: resolveCurrency(tripCtx.preferences), country: typeof tripCtx.preferences.country === "string" ? tripCtx.preferences.country : undefined, interests: readStrList(tripCtx.preferences, "interests"), likes: readStrList(tripCtx.preferences, "likes"), tripStart: tripCtx.trip?.start_date, tripEnd: tripCtx.trip?.end_date, excludeNames: rejectedNames, travelers: tripCtx.trip?.travelers, accessibilityNeeds: readStrList(tripCtx.preferences, "accessibilityNeeds") };
   const grounded = (result: Awaited<ReturnType<typeof retrieveEvidence>>) =>
     result.places.length > 0 || result.sources.length > 0 || result.routes.length > 0 || result.events.length > 0 || result.flights.length > 0 || result.stays.length > 0 || Boolean(result.weather);
 

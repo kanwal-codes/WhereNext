@@ -30,10 +30,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
       supabase.from("trip_preferences").select("data").eq("trip_id", tripId).maybeSingle(),
       loadTravellerDefaults(supabase, user.id, request.headers),
     ]);
-    const currency = resolveCurrency(withTravellerDefaults((prefs.data?.data ?? {}) as Record<string, unknown>, defaults));
+    const merged = withTravellerDefaults((prefs.data?.data ?? {}) as Record<string, unknown>, defaults);
+    const currency = resolveCurrency(merged);
+    const country = typeof merged.country === "string" ? merged.country : undefined;
     const offers = await searchReturnOffers({
       origin: input.fromId, destination: input.toId, originId: input.fromId, destinationId: input.toId,
-      departureDate: input.departureDate, returnDate: input.returnDate, departureToken: input.departureToken, currency, adults: input.adults,
+      departureDate: input.departureDate, returnDate: input.returnDate, departureToken: input.departureToken, currency, country, adults: input.adults,
     });
     return NextResponse.json({ items: offers.slice(0, 10).map(toFlightItem), currency });
   } catch (error) {
