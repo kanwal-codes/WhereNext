@@ -710,7 +710,9 @@ export function ConversationSurface({
   // then abort the send (the unmount cleanup above aborts any in-flight request).
   useEffect(() => {
     // A fresh thread already holds Roam's greeting, so "empty" means no message from the visitor yet.
-    if (!loaded || !synced || sending || messages.some((m) => m.role === "user")) return;
+    // A chat opened with its messages already in the page (the landing hand-off: a brand-new, empty thread) has nothing
+    // to wait for; only one that has to fetch its thread first waits for it (see `synced`).
+    if (!loaded || (!synced && !initialMessagesRef.current) || sending || messages.some((m) => m.role === "user")) return;
     const timer = setTimeout(() => {
       const key = `wn:first-message:${tripId}`;
       const first = window.sessionStorage.getItem(key);

@@ -45,17 +45,24 @@ export function createTripRepository(supabase: SupabaseClient) { return {
     const tripId = crypto.randomUUID();
     // When we have a real date pair, the length is derived from it; otherwise use the stated length.
     const durationDays = tripDurationDays(input.startDate, input.endDate) ?? input.durationDays ?? null;
-    const { error } = await supabase.from("trips").insert({ id: tripId, owner_id: userId, name: automaticTripName(input), destination: input.destination ?? null, origin: input.origin ?? null, duration_days: durationDays, start_date: input.startDate ?? null, end_date: input.endDate ?? null, travelers: input.travelerCount ?? null, idempotency_key: input.idempotencyKey ?? null });
-    if (error) throw error;
-    const member = await supabase.from("trip_members").insert({ trip_id: tripId, user_id: userId, role: "owner" });
+    const inserted = await supabase.from("trips").insert({ id: tripId, owner_id: userId, name: automaticTripName(input), destination: input.destination ?? null, origin: input.origin ?? null, duration_days: durationDays, start_date: input.startDate ?? null, end_date: input.endDate ?? null, travelers: input.travelerCount ?? null, idempotency_key: input.idempotencyKey ?? null });
+    if (inserted.error) throw inserted.error;
+    // The member row (the read policy on trips is membership, so the row cannot be read back before it exists) and the profile read do not depend on each other; the preferences insert needs both.
+    const [member, profile] = await Promise.all([
+      supabase.from("trip_members").insert({ trip_id: tripId, user_id: userId, role: "owner" }),
+      // Seed this trip's preferences from the traveller's cross-trip profile. A
+      // missing profile or a read failure must never block trip creation.
+      supabase.from("profiles").select("data").eq("id", userId).maybeSingle()
+        .then((r) => (r.data?.data ?? {}) as Record<string, unknown>, () => ({})),
+    ]);
     if (member.error) throw member.error;
-    // Seed this trip's preferences from the traveller's cross-trip profile. A
-    // missing profile or a read failure must never block trip creation.
-    const profileData = await supabase.from("profiles").select("data").eq("id", userId).maybeSingle()
-      .then((r) => (r.data?.data ?? {}) as Record<string, unknown>, () => ({}));
-    const seeded = mergePreferences(profileData, (input.preferences ?? {}) as Record<string, unknown>);
-    const preferences = await supabase.from("trip_preferences").insert({ trip_id: tripId, data: seeded });
+    const seeded = mergePreferences(profile, (input.preferences ?? {}) as Record<string, unknown>);
+    const [preferences, created] = await Promise.all([
+      supabase.from("trip_preferences").insert({ trip_id: tripId, data: seeded }),
+      supabase.from("trips").select(COLUMNS).eq("id", tripId).single(),
+    ]);
     if (preferences.error) throw preferences.error;
+    if (created.error) throw created.error;
 
     // A seed-message failure must never fail trip creation. A guest's chat opens with their own
     // sentence already sent, so it gets no greeting above it.
@@ -66,8 +73,6 @@ export function createTripRepository(supabase: SupabaseClient) { return {
         .catch(() => undefined);
     }
 
-    const created = await supabase.from("trips").select(COLUMNS).eq("id", tripId).single();
-    if (created.error) throw created.error;
     return created.data;
   },
   async get(id: string): Promise<Trip | null> {
