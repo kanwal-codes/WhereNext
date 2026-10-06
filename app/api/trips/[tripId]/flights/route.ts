@@ -37,7 +37,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
       supabase.from("trip_preferences").select("data").eq("trip_id", tripId).maybeSingle(),
       loadTravellerDefaults(supabase, user.id, request.headers),
     ]);
-    const currency = resolveCurrency(withTravellerDefaults((prefs.data?.data ?? {}) as Record<string, unknown>, defaults));
+    const merged = withTravellerDefaults((prefs.data?.data ?? {}) as Record<string, unknown>, defaults);
+    const currency = resolveCurrency(merged);
+    const country = typeof merged.country === "string" ? merged.country : undefined;
     const tripStart = (trip as { start_date?: string | null } | null)?.start_date ?? undefined;
     const wanted = input.departureDate && input.departureDate > today ? input.departureDate : undefined;
     const departureDate = wanted ?? (tripStart && tripStart > today ? tripStart : new Date(Date.now() + 42 * 864e5).toISOString().slice(0, 10));
@@ -45,7 +47,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     const returnDate = input.returnDate && input.returnDate > departureDate ? input.returnDate : undefined;
 
     const found = await searchFlightOffers(
-      { origin: input.from, destination: input.to, originId: input.fromId, destinationId: input.toId, departureDate, returnDate, currency, adults: input.adults, provider: input.provider },
+      { origin: input.from, destination: input.to, originId: input.fromId, destinationId: input.toId, departureDate, returnDate, currency, country, adults: input.adults, provider: input.provider },
       request.signal,
     );
 

@@ -16,6 +16,8 @@ export type FlightQuery = {
   returnDate?: string;
   currency: string;
   adults?: number;
+  /** Where the traveller is searching from (ISO country), so fares and the list match what Google shows them. */
+  country?: string;
   /** "duffel" keeps the old bookable search (the Getting around page books through it); default is the real fares. */
   provider?: "serpapi" | "duffel";
 };
@@ -64,9 +66,9 @@ export async function searchFlightOffers(query: FlightQuery, signal?: AbortSigna
   if (query.provider !== "duffel" && serpConfigured()) {
     const [from, to] = await Promise.all([resolveEnd(query.origin, query.originId, signal), resolveEnd(query.destination, query.destinationId, signal)]);
     if (!from || !to) return { offers: [], insights: null, provider: "serpapi", from, to };
-    const key = `flights:serp:${from.id}:${to.id}:${query.departureDate}:${query.returnDate ?? ""}:${query.currency}:${query.adults ?? 1}`;
+    const key = `flights:serp:v2:${from.id}:${to.id}:${query.departureDate}:${query.returnDate ?? ""}:${query.currency}:${query.adults ?? 1}:${query.country ?? ""}`;
     const { offers, insights } = await cached(key, 10 * 60_000, () =>
-      searchGoogleFlights({ departureId: from.id, arrivalId: to.id, departureDate: query.departureDate, returnDate: query.returnDate, currency: query.currency, adults: query.adults }),
+      searchGoogleFlights({ departureId: from.id, arrivalId: to.id, departureDate: query.departureDate, returnDate: query.returnDate, currency: query.currency, adults: query.adults, country: query.country }),
     );
     // "No results" can be a blip on Google's side; a miss must not stick for ten minutes.
     if (offers.length === 0) await invalidate(key);
@@ -79,9 +81,9 @@ export async function searchFlightOffers(query: FlightQuery, signal?: AbortSigna
 
 /** The return flights that pair with one outbound of a round-trip search (its `departureToken`), priced as the round trip. */
 export async function searchReturnOffers(query: FlightQuery & { departureToken: string; originId: string; destinationId: string }): Promise<FlightOffer[]> {
-  const key = `flights:serp-return:${query.departureToken}:${query.currency}`;
+  const key = `flights:serp-return:v2:${query.departureToken}:${query.currency}:${query.country ?? ""}`;
   const { offers } = await cached(key, 10 * 60_000, () =>
-    searchGoogleFlights({ departureId: query.originId, arrivalId: query.destinationId, departureDate: query.departureDate, returnDate: query.returnDate, currency: query.currency, adults: query.adults, departureToken: query.departureToken }),
+    searchGoogleFlights({ departureId: query.originId, arrivalId: query.destinationId, departureDate: query.departureDate, returnDate: query.returnDate, currency: query.currency, adults: query.adults, departureToken: query.departureToken, country: query.country }),
   );
   return offers;
 }

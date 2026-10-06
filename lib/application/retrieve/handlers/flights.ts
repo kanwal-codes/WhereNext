@@ -14,7 +14,7 @@ export async function handleFlights(call: FlightsCall, ctx: RetrieveContext): Pr
   const departureDate = assumedDate ? new Date(Date.now() + 42 * 864e5).toISOString().slice(0, 10) : call.departureDate!;
   const returnDate = call.returnDate && call.returnDate > departureDate ? call.returnDate : undefined;
   // Real Google Flights fares in the trip's currency when SerpAPI is set up, else the Duffel stand-in converted to it.
-  const found = await searchFlightOffers({ origin: call.origin, destination: call.destination, departureDate, returnDate, currency: ctx.filters.currency ?? "CAD" }, ctx.signal).catch(ctx.fail("flights"));
+  const found = await searchFlightOffers({ origin: call.origin, destination: call.destination, departureDate, returnDate, currency: ctx.filters.currency ?? "CAD", country: ctx.filters.country }, ctx.signal).catch(ctx.fail("flights"));
   if (found && found.offers.length) {
     ctx.flights.push({
       origin: found.from?.label ?? call.origin,

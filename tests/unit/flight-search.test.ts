@@ -42,6 +42,10 @@ describe("searchFlightOffers", () => {
     expect(found).toMatchObject({ provider: "serpapi", offers: [{ id: "a" }], from: { label: "Toronto, Ontario, Canada" } });
     expect(duffelMock).not.toHaveBeenCalled();
   });
+  it("searches from the traveller's country, since Google lists and prices flights by where the search comes from", async () => {
+    await searchFlightOffers({ ...base, country: "CA" });
+    expect(serpMock).toHaveBeenCalledWith(expect.objectContaining({ country: "CA" }));
+  });
   it("answers with nothing, and says which end it could not find, rather than guess", async () => {
     suggestMock.mockResolvedValue([]);
     const found = await searchFlightOffers(base);

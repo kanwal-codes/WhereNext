@@ -12,6 +12,8 @@ export const RESEARCH_CACHE_MS = 30 * 60_000;
 export type RetrieveFilters = {
   dislikes?: string[];
   currency?: string;
+  /** The traveller's country (ISO), so flight fares and lists match what Google shows them. */
+  country?: string;
   interests?: string[];
   likes?: string[];
   tripStart?: string | null;

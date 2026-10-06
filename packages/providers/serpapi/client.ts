@@ -106,7 +106,7 @@ function toOffer(group: Group, currency: string): FlightOffer | null {
   };
 }
 
-export type FlightSearchInput = { departureId: string; arrivalId: string; departureDate: string; returnDate?: string; currency: string; adults?: number; departureToken?: string };
+export type FlightSearchInput = { departureId: string; arrivalId: string; departureDate: string; returnDate?: string; currency: string; adults?: number; departureToken?: string; /** ISO 3166 country the traveller searches from: Google prices and lists flights by where the search comes from. */ country?: string };
 
 /**
  * Flights for the days asked. With a return date the fares are round-trip totals and each outbound carries a
@@ -124,6 +124,7 @@ export async function searchGoogleFlights(input: FlightSearchInput, signal?: Abo
     adults: Math.max(1, Math.min(input.adults ?? 1, 9)),
     departure_token: input.departureToken,
     hl: "en",
+    gl: /^[A-Za-z]{2}$/.test(input.country ?? "") ? input.country!.toLowerCase() : undefined,
   }, signal);
   const offers: FlightOffer[] = [];
   const seen = new Set<string>();
