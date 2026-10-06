@@ -73,6 +73,23 @@ describe("route edge cases", () => {
   });
 });
 
+describe("route comparison grouping", () => {
+  const base = { type: "route_summary" as const, from: "King's Cross", to: "Heathrow", distanceMeters: 31200, retrievedAt: "t" };
+  const path: Array<[number, number]> = [[-0.12, 51.53], [-0.45, 51.47]];
+  it("shows one tab per mode, with the transit routes listed under a single Transit tab", () => {
+    const html = render([
+      { ...base, mode: "driving", durationSeconds: 3900, steps: [], path },
+      { ...base, mode: "transit", durationSeconds: 3900, steps: ["TRANSIT Piccadilly (60 min)"], path },
+      { ...base, mode: "transit", durationSeconds: 4020, steps: ["TRANSIT Piccadilly (62 min)"], path },
+      { ...base, mode: "transit", durationSeconds: 4500, steps: ["TRANSIT Elizabeth line (70 min)"], path },
+    ]);
+    expect(html.match(/role="tab"/g)?.length).toBe(2);
+    expect(html).toContain("3 routes");
+    expect(html).toContain("Same time");
+    expect(html).toContain("The route from");
+  });
+});
+
 describe("budget edge cases", () => {
   const budget = (extra: object) => ({ type: "budget" as const, currency: "GBP", perPerson: true, summary: "x", lines: [{ category: "Food", low: 30, typical: 60, high: 90 }, { category: "Museums", low: 0, typical: 0, high: 0, note: "free on Sundays" }], dailyTotal: { low: 30, typical: 60, high: 90 }, ...extra });
   it("writes zero as Free, never £0", () => {

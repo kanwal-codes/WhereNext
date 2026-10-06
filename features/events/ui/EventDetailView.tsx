@@ -12,7 +12,7 @@ import { ExternalLink } from "@/components/ExternalLink";
 import { SourceCard } from "@/components/SourceCard";
 import { NearbyRecommendations } from "@/components/NearbyRecommendations";
 import { PanelError, PanelLoading, PANEL_PAD, PANEL_HERO } from "@/components/PanelStates";
-import { BlurImage, Reveal, Stagger, StaggerItem, Tactile, WordReveal } from "@/components/motion-primitives";
+import { Reveal, Stagger, StaggerItem, Tactile, WordReveal } from "@/components/motion-primitives";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { askAssistantHref, cityFrom } from "@/lib/places-ui";
 import { displayClockTime } from "@/lib/application/clock-time";
@@ -191,6 +191,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+  const fallbackImage = eventFallbackImage({ genre: d?.genre, title });
   const cityHint = cityFrom(d?.venueAddress) || d?.city || venueName || "";
 
   const goodToKnow: Array<[string, string]> = [];
@@ -204,7 +205,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
   return (
     <div>
       {titleTag}
-      <Hero image={image || eventFallbackImage({ genre: d?.genre, title })} alt={title} plain surface={panel} className={cn(panel ? PANEL_HERO : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]")}>
+      <Hero image={image || fallbackImage} fallbackImage={fallbackImage} alt={title} plain surface={panel} className={cn(panel ? PANEL_HERO : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]")}>
         <div className={cn("absolute inset-x-0 bottom-0", pad, "pb-6")}>
           {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className="shadow-soft" />}
           {panel ? (
@@ -354,31 +355,18 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
               </Section>
             )}
 
-            {/* When & where */}
-            <Section title={dt ? "Venue" : "When & where"} delay={0.1}>
-              <div className="space-y-3 text-sm">
-                {!dt && (
-                  <p className="text-muted-foreground">
-                    Date: check the ticket page{" "}
-                    {ticketUrl && <ExternalLink href={ticketUrl} className="text-sm">here</ExternalLink>}
-                  </p>
-                )}
-                <p>
-                  <span className="block font-medium">{venueName ?? "See the ticket page"}</span>
+            {/* Venue: only when we know one (the date has its own fact above, so there is no placeholder when it is missing). */}
+            {venueName && (
+              <Section title="Venue" delay={0.1}>
+                <p className="text-sm">
+                  <span className="block font-medium">{venueName}</span>
                   {d?.venueAddress ? <span className="block text-muted-foreground">{d.venueAddress}</span> : null}
                 </p>
-              </div>
-              {mapsUrl && (
-                <div className="mt-4">
-                  <SourceCard provider="Google Maps" href={mapsUrl} />
-                </div>
-              )}
-            </Section>
-
-            {/* Seat map */}
-            {d?.seatmapUrl && (
-              <Section title="Seat map" delay={0.11}>
-                <BlurImage src={d.seatmapUrl} alt={`${title} seat map`} className="w-full rounded-2xl border border-border" />
+                {mapsUrl && (
+                  <div className="mt-4">
+                    <SourceCard provider="Google Maps" href={mapsUrl} />
+                  </div>
+                )}
               </Section>
             )}
 
