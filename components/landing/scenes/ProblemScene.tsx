@@ -143,7 +143,7 @@ export function ProblemScene() {
 
   return (
     <section ref={sectionRef} data-scene="problem" className={`story-scene ${hand.variable}`}>
-      <div className="mx-auto max-w-4xl px-6 text-center">
+      <div className="mx-auto max-w-4xl px-[var(--lp-gutter)] text-center">
         <div ref={headingRef}>
           <Reveal as="h2" className="story-h2">
             Every trip starts as a mess.
@@ -154,13 +154,13 @@ export function ProblemScene() {
         </Reveal>
       </div>
 
-      <div className="mx-auto mt-14 w-full max-w-[74rem] px-4 sm:mt-16">
+      <div className="mx-auto mt-14 w-full max-w-[74rem] px-[var(--lp-gutter)] sm:mt-16">
         <Desk deskRef={wideRef} pieces={WIDE} base={70} height={43} className="relative hidden sm:block" />
         <Desk deskRef={narrowRef} pieces={NARROW} base={31} height={36} className="relative sm:hidden" />
       </div>
 
       {/* The answer, once the desk has settled. Its space is kept, so nothing moves when it arrives. */}
-      <div aria-hidden="true" className="problem-b pointer-events-none mx-auto mt-10 max-w-2xl px-6 text-center sm:mt-14">
+      <div aria-hidden="true" className="problem-b pointer-events-none mx-auto mt-10 max-w-2xl px-[var(--lp-gutter)] text-center sm:mt-14">
         <p className="font-display text-[clamp(1.9rem,4vw,3.25rem)] leading-[1.05] font-medium tracking-[-0.03em] text-balance">Roam puts it all in one place.</p>
         <p className="story-lede mx-auto mt-3 max-w-md">Dates, tickets, places and who’s paying, gathered into one plan everyone can see.</p>
       </div>

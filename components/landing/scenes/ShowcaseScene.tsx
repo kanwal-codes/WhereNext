@@ -57,7 +57,7 @@ export function ShowcaseScene() {
 
   return (
     <section data-scene="showcase" className="story-scene !pb-0">
-      <div className="mx-auto max-w-4xl px-6 text-center">
+      <div className="mx-auto max-w-4xl px-[var(--lp-gutter)] text-center">
         <Reveal as="h2" className="story-h2">
           One plan, every decision connected.
         </Reveal>
@@ -68,7 +68,7 @@ export function ShowcaseScene() {
 
       {/* Tall desktop: a sticky list beside a swapping panel. */}
       <div ref={trackRef} className="relative mt-10 hidden tall-lg:block" style={{ height: `${STEPS.length * 85}dvh` }}>
-        <div className="sticky top-0 mx-auto grid h-dvh max-w-6xl grid-cols-[minmax(0,0.78fr)_minmax(0,1.22fr)] items-center gap-14 px-6 pt-10">
+        <div className="lp-wrap sticky top-0 grid h-dvh grid-cols-[minmax(0,0.78fr)_minmax(0,1.22fr)] items-center gap-14 pt-10">
           <ul className="space-y-1">
             {STEPS.map((s, i) => (
               <li key={s.id}>
@@ -118,7 +118,7 @@ export function ShowcaseScene() {
       </div>
 
       {/* Everywhere else: the three moments in order. */}
-      <div className="mx-auto mt-14 max-w-xl space-y-20 px-6 tall-lg:hidden">
+      <div className="mx-auto mt-14 max-w-xl space-y-20 px-[var(--lp-gutter)] tall-lg:hidden">
         {STEPS.map(({ id, title, body, Panel }) => (
           <Reveal as="article" key={id}>
             <h3 className="font-display text-[1.75rem] leading-tight font-medium tracking-[-0.02em]">{title}</h3>

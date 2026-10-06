@@ -30,7 +30,7 @@ export function Nav() {
 
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-50 flex items-center justify-between px-4 transition-[height,background-color,backdrop-filter,border-color] duration-[350ms] md:px-8 ${
+      className={`landing-nav fixed inset-x-0 top-0 z-50 flex items-center justify-between transition-[height,background-color,backdrop-filter,border-color] duration-[350ms] ${
         compressed ? "h-16 border-b border-border bg-background/82 backdrop-blur-md" : "h-20 border-b border-transparent bg-transparent"
       }`}
     >

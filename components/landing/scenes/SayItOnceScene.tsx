@@ -59,7 +59,7 @@ export function SayItOnceScene() {
 
   return (
     <section data-scene="say-it-once" className="story-scene">
-      <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-16">
+      <div className="lp-wrap grid items-center gap-12 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-16">
         <div className="text-center lg:text-left">
           <Reveal as="h2" className="story-h2">
             Say it once.

@@ -15,7 +15,7 @@ const ROWS = [
 export function TradeoffScene() {
   return (
     <section data-scene="tradeoff" className="story-scene">
-      <div className="mx-auto max-w-4xl px-6 text-center">
+      <div className="mx-auto max-w-4xl px-[var(--lp-gutter)] text-center">
         <Reveal as="h2" className="story-h2">
           Roam suggests.
           <br />
@@ -26,7 +26,7 @@ export function TradeoffScene() {
         </Reveal>
       </div>
 
-      <Reveal offset={50} className="mx-auto mt-14 max-w-5xl px-6">
+      <Reveal offset={50} className="mx-auto mt-14 max-w-5xl px-[var(--lp-gutter)]">
         <article className="grid overflow-hidden rounded-[2rem] border border-border bg-white shadow-lift md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
           <div className="relative min-h-60 md:min-h-full">
             <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/design/discover-pottery.jpg)", filter: "brightness(1.22) saturate(1.08) contrast(0.96)" }} />

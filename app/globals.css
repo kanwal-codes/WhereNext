@@ -1251,7 +1251,11 @@
 :root:has(.landing-cinematic-scope) { scrollbar-color: #c4c4ca transparent; scrollbar-width: thin; }
 
 /* ---- The first screen: a boarding pass made out to the visitor. Spec: "Boarding Pass Hero". ---- */
-.bp-hero { --gutter: clamp(16px, 5vw, 72px); position: relative; min-height: 100dvh; padding: clamp(88px, 11dvh, 150px) var(--gutter) 64px; }
+/* One page width for the whole landing page: content is at most 81rem wide and centred, with a gutter that grows from 16px on a phone to 72px. The nav, the first screen, the two-column scenes and the last pass all use it, so their left and right edges line up at every window size. */
+:root { --lp-gutter: clamp(16px, 5vw, 72px); --lp-max: 81rem; --lp-pad: max(var(--lp-gutter), calc((100% - var(--lp-max)) / 2)); }
+.lp-wrap { margin-inline: auto; max-width: calc(var(--lp-max) + 2 * var(--lp-gutter)); padding-inline: var(--lp-gutter); }
+.landing-nav { padding-inline: var(--lp-pad); }
+.bp-hero { --gutter: var(--lp-gutter); position: relative; min-height: 100dvh; padding: clamp(88px, 11dvh, 150px) var(--lp-pad) 64px; }
 /* The headline has the left; a faint warm wash gathers in the empty top right and falls away before the pass, so the first screen has depth without a picture. */
 .bp-hero[data-scene=prompt] { isolation: isolate; }
 .bp-hero[data-scene=prompt]::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 78%; z-index: -1; pointer-events: none; background: radial-gradient(52% 70% at 86% 6%, oklch(0.962 0.034 55 / 0.9), transparent 72%), radial-gradient(40% 50% at 100% 40%, oklch(0.964 0.02 215 / 0.7), transparent 70%); }
@@ -1436,9 +1440,9 @@
   .bp-stub .bp-go { margin-top: 18px; }
 }
 @media (max-height: 640px) and (min-width: 820px) { .bp-sub { display: none; } }
-/* On a wide screen the headline is one line, as wide as the page: the size comes from the width between the gutters (the line is ~10.1em wide at this tracking, a little margin left for a scrollbar), held to a share of the window height so the pass still fits. Narrower windows keep the two-line headline. */
-@media (min-width: 900px) {
-  .bp-h1 { white-space: nowrap; letter-spacing: -0.045em; font-size: min(calc((100vw - 2 * var(--gutter)) / 10.3), 17dvh); }
+/* On a wide screen the headline is one line, as wide as the page: the size comes from the width between the gutters (the line is ~10.1em wide at this tracking, a little margin left for a scrollbar), held to a share of the window height so the pass still fits. Windows narrower than 640px keep the two-line headline. */
+@media (min-width: 640px) {
+  .bp-h1 { white-space: nowrap; letter-spacing: -0.045em; font-size: min(calc(min(100vw - 2 * var(--gutter), var(--lp-max)) / 10.3), 17dvh); }
   .bp-h1 .ln { display: inline-block; vertical-align: top; }
   .bp-h1 .ln:first-child { margin-right: 0.13em; }
 }
