@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
  */
 export function Hero({
   image,
+  fallbackImage,
   alt,
   className,
   plain = false,
@@ -28,6 +29,8 @@ export function Hero({
   children,
 }: {
   image: string;
+  /** Shown instead of `image` if that photo fails to load (a dead or blocked link), so the hero is never blank. */
+  fallbackImage?: string;
   alt: string;
   className?: string;
   plain?: boolean;
@@ -53,6 +56,8 @@ export function Hero({
   children?: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [failedImage, setFailedImage] = useState<string | null>(null);
+  const baseImage = failedImage === image && fallbackImage ? fallbackImage : image;
   const [coverLoaded, setCoverLoaded] = useState<string | null>(null);
   const [coverFailed, setCoverFailed] = useState<string[]>([]);
   const coverSrc = coverImages.find((url) => !coverFailed.includes(url)) ?? null;
@@ -77,11 +82,12 @@ export function Hero({
             hero stuck at opacity 0. Until then, render it plain and visible. */}
         {animateIn ? (
           <motion.img
-            src={image}
+            src={baseImage}
             alt={alt}
             width={1600}
             height={900}
             fetchPriority="high"
+            onError={() => setFailedImage(image)}
             className="h-full w-full object-cover object-center"
             initial={{ scale: 1.1, opacity: 0 }}
             animate={{ scale: reduce ? 1.02 : 1.06, opacity: 1 }}
@@ -92,7 +98,7 @@ export function Hero({
           />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element -- filmic hero, arbitrary sources
-          <img src={image} alt={alt} width={1600} height={900} fetchPriority="high" className="h-full w-full object-cover object-center" />
+          <img src={baseImage} alt={alt} width={1600} height={900} fetchPriority="high" onError={() => setFailedImage(image)} className="h-full w-full object-cover object-center" />
         )}
         {coverSrc && (
           <motion.img

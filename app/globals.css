@@ -1611,13 +1611,11 @@
   [data-tappable] .entity-actions:not(:has(> :not([data-details]))) { display: none; }
 }
 
-/* The on-screen keyboard (see lib/use-keyboard-fit.ts): while it is up, the Roam / Chat screen is exactly the part of the window you can see, the trip's own top bar steps aside, and the screen follows any pan the browser made to show the field. */
+/* The on-screen keyboard (see lib/use-keyboard-fit.ts): while it is up, the Roam / Chat screen is exactly the part of the window you can see, the trip's own top bar steps aside, and the screen follows any pan the browser made to show the field. No height transition here on purpose: the height and the pan arrive together, in one frame, and the composer is always above the keyboard; animating the height made it trail the keyboard and dip behind it. */
 @media (max-width: 1023.98px) {
-  [data-roam-shell] { transition: height 0.25s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)); }
   html[data-keyboard="open"] [data-trip-topbar], html[data-keyboard="open"] [data-trip-tabbar] { display: none; }
   html[data-keyboard="open"] [data-roam-shell] { height: var(--vvh); transform: translateY(var(--vv-top, 0px)); }
 }
-@media (prefers-reduced-motion: reduce) { [data-roam-shell] { transition: none; } }
 
 /* Shared-element navigation (lib/view-transition.ts): a trip card's photograph travels into the Overview's hero. The
    cover keeps its crop while it changes shape; everything else crossfades quickly underneath it. */
