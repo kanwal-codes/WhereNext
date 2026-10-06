@@ -59,7 +59,7 @@ function StopRow({ stop, last, panel, roomy = false, timed, band, onOpenPlace, r
           aria-label={glyph.label}
           className={cn("grid shrink-0 place-items-center transition-shadow duration-200", roomy ? "size-14 rounded-[1.25rem]" : "rounded-full", panel ? cn(roomy ? "" : "size-9", TINT[stop.kind ?? "activity"]) : "size-8 border border-border bg-card text-coral", dragging && "shadow-lift")}
         >
-          <Icon className={roomy ? "size-6" : "size-4"} aria-hidden />
+          {roomy && !timed ? <span className="font-display text-lg font-medium tabular-nums" aria-hidden>{index + 1}</span> : <Icon className={roomy ? "size-6" : "size-4"} aria-hidden />}
         </span>
         {!last && <span aria-hidden className={cn("mt-1 mb-1 w-0.5 flex-1 rounded-full bg-foreground/15 transition-opacity", dragging && "opacity-0")} />}
       </div>

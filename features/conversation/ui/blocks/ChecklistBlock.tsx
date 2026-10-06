@@ -41,12 +41,19 @@ function useTicks(key: string) {
 }
 
 /** A readiness list you can tick off, with a running "3 of 11". */
-export function ChecklistBlock({ groups, tripId }: { groups: Groups; tripId: string }) {
+export function ChecklistBlock({ groups: given, tripId }: { groups: Groups; tripId: string }) {
+  // A group with nothing in it is not drawn.
+  const groups = given.filter((group) => group.items.length > 0);
   const { ticked, toggle } = useTicks(checklistKey(tripId, groups));
+  const [showAll, setShowAll] = useState(false);
   const reduce = useReducedMotion();
   const total = groups.reduce((sum, g) => sum + g.items.length, 0);
+  if (total === 0) return null;
   const done = groups.reduce((sum, g, gi) => sum + g.items.filter((item) => ticked.has(itemId(gi, item.text))).length, 0);
   const left = total - done;
+  // A long list opens its first two groups; the rest are one tap away. The count always covers everything.
+  const FOLD = 2;
+  const visible = showAll || groups.length <= FOLD + 1 ? groups : groups.slice(0, FOLD);
   const frac = total ? done / total : 0;
   const r = 22, c = 2 * Math.PI * r;
   return (
@@ -78,7 +85,7 @@ export function ChecklistBlock({ groups, tripId }: { groups: Groups; tripId: str
       foot="Your ticks stay on this device"
     >
       <div className="mt-2 divide-y divide-border">
-        {groups.map((group, gi) => {
+        {visible.map((group, gi) => {
           const groupDone = group.items.filter((item) => ticked.has(itemId(gi, item.text))).length;
           return (
             <section key={group.title} className="px-4 py-3 sm:px-[1.125rem]">
@@ -106,6 +113,12 @@ export function ChecklistBlock({ groups, tripId }: { groups: Groups; tripId: str
             </section>
           );
         })}
+        {visible.length < groups.length && (
+          <div className="flex items-center justify-between gap-3 px-4 py-3.5 sm:px-[1.125rem]">
+            <span className={cn(type.meta, "min-w-0 truncate")}>{groups.length - visible.length} more groups · {groups.slice(visible.length).map((g) => g.title).join(", ")}</span>
+            <button type="button" onClick={() => setShowAll(true)} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-border bg-background px-3 text-xs font-medium text-ink-soft hover:border-primary/40 hover:text-foreground">Show all</button>
+          </div>
+        )}
       </div>
     </Widget>
   );

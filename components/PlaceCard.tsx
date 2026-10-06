@@ -53,7 +53,8 @@ export function PlaceCard({ tripId, place, why, phoneRow = false }: { tripId: st
       src={photo}
       alt={place.name}
       glyph={glyph}
-      topLeft={typeof place.rating === "number" ? <CineRating rating={place.rating} count={place.userRatingCount ? compactCount(place.userRatingCount) : undefined} /> : undefined}
+      // No rating: the category stands in, never "0.0".
+      topLeft={typeof place.rating === "number" ? <CineRating rating={place.rating} count={place.userRatingCount ? compactCount(place.userRatingCount) : undefined} /> : category ? <CinePill>{category}</CinePill> : undefined}
       eyebrow={category}
       title={place.name}
       pills={

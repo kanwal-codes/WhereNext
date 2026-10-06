@@ -88,13 +88,18 @@ export function Widget({
       {status && <div className="flex flex-wrap items-center gap-2 px-4 pt-2.5 sm:hidden">{status}</div>}
       {hero}
       {children}
-      {(foot || action) && (
-        <footer className="mt-1 flex items-center justify-between gap-4 border-t border-border bg-surface px-4 py-3 sm:px-[1.125rem]">
-          <div className="flex min-w-0 flex-1 items-start gap-1.5 text-[0.78125rem] leading-[1.35] text-muted-foreground">{foot}</div>
-          {action && <div className="shrink-0">{action}</div>}
-        </footer>
-      )}
+      {(foot || action) && <WidgetFoot foot={foot} action={action} />}
     </section>
+  );
+}
+
+/** The foot of a widget: a one-line caveat on the left, the one next step on the right. */
+export function WidgetFoot({ foot, action }: { foot?: ReactNode; action?: ReactNode }) {
+  return (
+    <footer className="mt-1 flex items-center justify-between gap-4 border-t border-border bg-surface px-4 py-3 sm:px-[1.125rem]">
+      <div className="flex min-w-0 flex-1 items-start gap-1.5 text-[0.78125rem] leading-[1.35] text-muted-foreground">{foot}</div>
+      {action && <div className="shrink-0">{action}</div>}
+    </footer>
   );
 }
 

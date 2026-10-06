@@ -69,7 +69,8 @@ export function EventCard({ tripId, event, className, onSelect, compact = false,
         eyebrow={event.venue}
         title={event.title}
         meta={[when, event.venue].filter(Boolean).join(" · ")}
-        pills={when ? <CinePill>{when}</CinePill> : undefined}
+        // A date is never invented: with none, the card says so.
+        pills={<CinePill>{when ?? "Date to be announced"}</CinePill>}
         foot={seller ? <p className="truncate text-[0.8125rem] text-white/70">via {seller}</p> : undefined}
         action={
           comparing ? undefined : (

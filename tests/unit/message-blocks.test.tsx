@@ -469,7 +469,7 @@ describe("MessageBlocks", () => {
     expect(without).not.toContain("Details");
     expect(without).not.toContain("Open Day 1");
     const withOpen = renderToStaticMarkup(<MessageBlocks blocks={blocks} {...handlers} onOpenPanel={vi.fn()} />);
-    expect(withOpen.replace(/aria-label="[^"]*"/g, "").match(/Details/g)).toHaveLength(2); // visible labels; each button also has a named accessible label
+    expect(withOpen.replace(/aria-label="[^"]*"/g, "").match(/Details/g)).toHaveLength(1); // the budget's visible label; the flight's button says "See this flight" and has a named accessible label
     expect(withOpen).toContain('aria-label="Details: Air Canada');
     expect(withOpen).toContain('aria-label="Budget details"');
     expect(withOpen).toContain("Open Day 1");

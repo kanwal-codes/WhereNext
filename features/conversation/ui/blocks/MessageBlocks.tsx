@@ -26,7 +26,6 @@ import {
   PersonStanding,
   Loader2,
   MapPin,
-  Plane,
   Shirt,
   Snowflake,
   Star,
@@ -34,6 +33,8 @@ import {
   TrainFront,
   Umbrella,
   Undo2,
+  ChevronDown,
+  ChevronRight,
   Wallet,
   X,
   CalendarRange,
@@ -54,7 +55,8 @@ import { addStopsToItinerary, dayIndexFromLabel, itineraryTitle } from "@/featur
 import { categoryLabel, eventDayParts, priceLabel } from "@/lib/places-ui";
 import { CINE_ORB, CINE_ORB_WHITE, CINE_PILL_ACTION, CineCard, CineDate, CinePill, CineRating } from "./CineCard";
 import { MODE_COLOR } from "@/lib/application/mode-visuals";
-import { RowBar, RowValue, Widget, WidgetAction, WidgetFigure, WidgetHero, WidgetPill, WidgetRow, WidgetRows } from "./Widget";
+import { FlightHero, FlightJourney, FlightPicks, FlightPicksSkeleton, FlightRowBody, offerKey, pickFares } from "./FlightWidget";
+import { RowBar, RowValue, Widget, WidgetAction, WidgetFigure, WidgetFoot, WidgetHero, WidgetPill, WidgetRow, WidgetRows } from "./Widget";
 import { portableProxyPhotoUrl } from "../portable-photo-url";
 import type { CardPanel } from "@/components/TripPanelProvider";
 import { PlanStops } from "./PlanStops";
@@ -64,14 +66,13 @@ import { ContentSwap, Enter, motionTokens } from "@/components/motion-primitives
 import { ChecklistBlock } from "./ChecklistBlock";
 import { parseRouteStep, routeLines, splitRouteEnds } from "./routeText";
 import { pointsFromItinerary, pointsFromPlaces, pointsFromStays } from "./mapPoints";
-import { DEFAULT_FLIGHT_VIEW, FlightControls, applyFlightView, arrivalDayOffset, type FlightView } from "./FlightFilters";
+import { DEFAULT_FLIGHT_VIEW, FlightControls, applyFlightView, type FlightView } from "./FlightFilters";
 import { FlightRowsSkeleton, FlightSearchBar, PriceInsight, useFlightSearch } from "./FlightSearch";
 import { shiftIso } from "./SearchBarParts";
-import { AirlineMark } from "../panels/OtherFlights";
 import { StayCardsSkeleton, StaySearchBar, useStaySearch } from "./StaySearch";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { resolveCurrency } from "@/lib/currency";
-import { HoldHeight, ScrollWindow, ScrollX, ViewControls } from "./ListControls";
+import { HoldHeight, ScrollX, ViewControls } from "./ListControls";
 import { DEFAULT_EVENT_VIEW, DEFAULT_STAY_VIEW, applyEventView, applyStayView, eventControls, stayControls, type EventView, type StayView } from "./listViews";
 import { factGlyph, placeGlyph } from "./glyphs";
 import { Badge, segmentTab, CARD_W, CardOpenOverlay, Meta, Notice, SectionHeader, SeeAllButton, compactCount, controlSecondary, grid, money, prettyDate, prettyDates, rail, surface, textAction, type, MapButton } from "./ui";
@@ -207,7 +208,7 @@ function PlaceCardView({
       src={portableProxyPhotoUrl(place.photoUrl)}
       alt={place.name}
       glyph={placeGlyph(place.category, place.name).icon}
-      topLeft={typeof place.rating === "number" ? <CineRating rating={place.rating} count={place.userRatingCount ? compactCount(place.userRatingCount) : undefined} /> : undefined}
+      topLeft={typeof place.rating === "number" ? <CineRating rating={place.rating} count={place.userRatingCount ? compactCount(place.userRatingCount) : undefined} /> : category ? <CinePill>{category}</CinePill> : undefined}
       // "From the web" is the default for every card: only a non-default trust label carries information.
       topRight={place.trust !== "sourced" ? <CinePill>{TRUST_LABEL[place.trust] ?? place.trust}</CinePill> : undefined}
       eyebrow={category}
@@ -257,7 +258,7 @@ function StayCardView({ hotel, onOpen }: { hotel: StayCardItem; onOpen?: () => v
       ) : (
         <p className="text-[0.8125rem] text-white/70">Price unavailable for these dates</p>
       )}
-      action={onOpen ? (
+      action={onOpen && priced ? (
         <button type="button" onClick={onOpen} aria-label={`Rooms & details: ${hotel.name}`} className={cn(CINE_ORB, CINE_ORB_WHITE)}>
           <ArrowUpRight className="size-5" aria-hidden />
         </button>
@@ -286,7 +287,7 @@ function FeaturedEventCard({ group, onOpen }: { group: EventGroup; onOpen?: (see
       title={event.title}
       pills={
         <>
-          <CinePill>{formatEventDates(group.dates)}</CinePill>
+          <CinePill>{active.date ? formatEventDates(group.dates) : "Date to be announced"}</CinePill>
           {rel && <CinePill tone={event.relToTrip === "in" ? "positive" : "glass"}>{rel}</CinePill>}
         </>
       }
@@ -351,7 +352,8 @@ function packIcon(item: string) {
 /** The highs and lows as two quiet curves across the forecast days, in the hero. */
 function TempCurve({ days }: { days: WeatherBlockData["days"] }) {
   const list = days.slice(0, 7);
-  if (list.length < 2) return null;
+  // Two points are not a trend: the curve needs at least three days.
+  if (list.length < 3) return null;
   const w = 560, h = 72;
   const lo = Math.min(...list.map((d) => d.min)) - 2, hi = Math.max(...list.map((d) => d.max)) + 2;
   const x = (i: number) => 14 + (i * (w - 28)) / (list.length - 1);
@@ -399,19 +401,19 @@ function WeatherBlockView({ block }: { block: WeatherBlockData }) {
         hero={
           <WidgetHero tone="lagoon" className="relative overflow-hidden pb-2">
             <Icon className="absolute top-3 right-4 size-16 text-caution/80 max-sm:hidden" strokeWidth={1.2} aria-hidden />
-            <WidgetFigure unit={days[0]?.label ? `high ${days[0].label.toLowerCase() === "today" ? "today" : `on ${days[0].label}`}` : undefined}>{days[0]?.max}°</WidgetFigure>
+            <WidgetFigure unit={days[0]?.label ? `high ${days[0].label.toLowerCase() === "today" ? "today" : `on ${days[0].label}`}` : undefined}>{degrees(days[0]?.max ?? 0)}</WidgetFigure>
             <TempCurve days={days} />
           </WidgetHero>
         }
         foot={dry.length > 0 && wet > 0 ? <>Driest days: {dry.slice(0, 4).join(", ")}</> : <>Forecast for the next {days.length} days</>}
       >
-        <ul className="grid gap-1 px-3 pt-3.5" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}>
+        <ul className="no-scrollbar grid gap-1 overflow-x-auto px-3 pt-3.5" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(${days.length > 6 ? "3.5rem" : "0px"}, 1fr))` }}>
           {days.map((day, i) => (
             <li key={i} className="flex min-w-0 flex-col items-center gap-1 px-0.5 py-1.5 text-center">
               <span className={cn(type.meta, "font-semibold text-ink-soft")}>{day.label}</span>
               <WeatherGlyph condition={day.condition} className={cn("size-6", day.wet ? "text-lagoon" : "text-caution")} />
-              <span className="font-display text-base leading-tight font-medium tabular-nums">{day.max}°</span>
-              <span className={cn(type.meta, "tabular-nums")}>{day.min}°</span>
+              <span className="font-display text-base leading-tight font-medium tabular-nums">{degrees(day.max)}</span>
+              <span className={cn(type.meta, "tabular-nums")}>{degrees(day.min)}</span>
               <span className="mt-1 grid h-4 place-items-center">{day.wet ? <Droplets className="size-4 text-lagoon" aria-label="Rain expected" /> : null}</span>
             </li>
           ))}
@@ -427,7 +429,7 @@ function WeatherBlockView({ block }: { block: WeatherBlockData }) {
     <Widget
       icon={Icon}
       tone="lagoon"
-      eyebrow={`Typical ${block.month ?? "weather"}${block.location ? ` · ${block.location}` : ""}`}
+      eyebrow={block.mode === "forecast" ? `Forecast not ready${block.location ? ` · ${block.location}` : ""}` : `Typical ${block.month ?? "weather"}${block.location ? ` · ${block.location}` : ""}`}
       title={block.headline}
       status={block.estimated ? <WidgetPill>Estimated</WidgetPill> : undefined}
       hero={
@@ -436,8 +438,8 @@ function WeatherBlockView({ block }: { block: WeatherBlockData }) {
             {(typeof block.highC === "number" || typeof block.lowC === "number") && (
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-baseline gap-x-2">
-                  {typeof block.highC === "number" && <span className="font-display text-[3.5rem] leading-none font-medium tracking-[-0.04em] tabular-nums">{block.highC}°</span>}
-                  {typeof block.lowC === "number" && <span className="text-base text-ink-soft tabular-nums">/ {block.lowC}°</span>}
+                  {typeof block.highC === "number" && <span className="font-display text-[3.5rem] leading-none font-medium tracking-[-0.04em] tabular-nums">{degrees(block.highC)}</span>}
+                  {typeof block.lowC === "number" && <span className="text-base text-ink-soft tabular-nums">/ {degrees(block.lowC)}</span>}
                 </p>
                 <p className={cn(type.meta, "mt-1")}>typical high and low</p>
               </div>
@@ -456,7 +458,7 @@ function WeatherBlockView({ block }: { block: WeatherBlockData }) {
           </WidgetHero>
         ) : undefined
       }
-      foot="Typical values from past years, not a forecast"
+      foot={block.mode === "forecast" ? "No forecast yet, so this is the typical month. A real forecast arrives about a week before the trip." : "Typical values from past years, not a forecast"}
     >
       <PackRow items={block.packing} />
     </Widget>
@@ -469,6 +471,9 @@ type ComparisonBlockData = Extract<AssistantBlock, { type: "comparison" }>;
 function ComparisonBlockView({ block }: { block: ComparisonBlockData }) {
   const attrs = block.columns.slice(1);
   const best = block.bestForYou;
+  const [all, setAll] = useState(false);
+  // Three options show side by side; the rest are one tap away. Attribute names stay in a fixed first column.
+  const rows = all || block.rows.length <= 4 ? block.rows : block.rows.slice(0, 3);
   return (
     <Widget
       icon={Scale}
@@ -484,7 +489,7 @@ function ComparisonBlockView({ block }: { block: ComparisonBlockData }) {
             <thead>
               <tr className="text-foreground">
                 <th scope="col" className="w-28 bg-card" />
-                {block.rows.map((row) => (
+                {rows.map((row) => (
                   <th key={row.label} scope="col" className={cn("static min-w-32 font-display text-base font-medium", best?.label === row.label && "text-positive")}>{row.label}</th>
                 ))}
               </tr>
@@ -493,7 +498,7 @@ function ComparisonBlockView({ block }: { block: ComparisonBlockData }) {
               {attrs.map((attr, attrIndex) => (
                 <tr key={attr}>
                   <th scope="row" className="text-xs font-medium text-muted-foreground">{attr}</th>
-                  {block.rows.map((row) => (
+                  {rows.map((row) => (
                     <td key={row.label} className="align-top leading-snug">{row.cells[attrIndex + 1] ?? "—"}</td>
                   ))}
                 </tr>
@@ -501,6 +506,12 @@ function ComparisonBlockView({ block }: { block: ComparisonBlockData }) {
             </tbody>
           </table>
         </ScrollX>
+        {rows.length < block.rows.length && (
+          <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 sm:px-[1.125rem]">
+            <span className={type.meta}>{block.rows.length - rows.length} more options hidden</span>
+            <button type="button" onClick={() => setAll(true)} className={controlSecondary}>Show all <ChevronDown className="size-3.5" aria-hidden /></button>
+          </div>
+        )}
       </div>
     </Widget>
   );
@@ -511,6 +522,9 @@ type StructuredAnswerBlockData = Extract<AssistantBlock, { type: "structured_ans
 /** Sections in one card — a section of short figures becomes tiles, a longer list of figures a price list. */
 function StructuredAnswerBlockView({ block }: { block: StructuredAnswerBlockData }) {
   const first = block.sections[0];
+  // A long answer keeps its first two sections open; the others are headings that open on a tap.
+  const [openSet, setOpenSet] = useState<Set<number>>(new Set());
+  const folds = block.sections.length > 3;
   return (
     <Widget icon={Info} tone="lagoon" eyebrow="Good to know" title={block.sections.length === 1 && first ? first.heading : "Quick answer"} foot={undefined}>
       <div className="mt-1 divide-y divide-border">
@@ -520,6 +534,12 @@ function StructuredAnswerBlockView({ block }: { block: StructuredAnswerBlockData
           const icons = figures && section.bullets.some((bullet) => factGlyph(`${bullet.text} ${bullet.detail ?? ""}`));
           const tiles = figures && !icons && section.bullets.length <= 4 && section.bullets.every((bullet) => (bullet.detail ?? "").length <= 14);
           return (
+            folds && i >= 2 && !openSet.has(i) ? (
+              <button key={i} type="button" aria-expanded={false} onClick={() => setOpenSet((cur) => new Set(cur).add(i))} className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left sm:px-[1.125rem]">
+                <span className={type.title}>{section.heading}</span>
+                <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+              </button>
+            ) : (
             <section key={i} className="space-y-2 px-4 py-4 sm:px-[1.125rem]">
               {(block.sections.length > 1 || i > 0) && <h3 className={type.title}>{section.heading}</h3>}
               {tiles ? (
@@ -557,6 +577,7 @@ function StructuredAnswerBlockView({ block }: { block: StructuredAnswerBlockData
                 </ul>
               )}
             </section>
+            )
           );
         })}
       </div>
@@ -568,6 +589,9 @@ type OptionsBlockData = Extract<AssistantBlock, { type: "options" }>;
 
 function OptionsBlockView({ block, onFollowup }: { block: OptionsBlockData } & Pick<BlockHandlers, "onFollowup">) {
   const Icon = block.kind === "area" ? MapPin : Compass;
+  const [showAll, setShowAll] = useState(false);
+  // Three show; the rest are one tap away, so the card never grows without limit.
+  const items = showAll || block.items.length <= 4 ? block.items : block.items.slice(0, 3);
   // Each option leads somewhere: the two next things a traveller asks about an area or a day trip.
   const actions = (name: string): Array<[label: string, prompt: string]> =>
     block.kind === "area"
@@ -583,15 +607,15 @@ function OptionsBlockView({ block, onFollowup }: { block: OptionsBlockData } & P
       foot={block.estimated ? "Estimated from general knowledge, not backed by a current source" : undefined}
     >
       <div className="mt-3.5 divide-y divide-border border-t border-border">
-        {block.items.map((item) => (
+        {items.map((item) => (
           <article key={item.name} className="flex flex-wrap items-start gap-x-4 gap-y-3 px-4 py-4 sm:px-[1.125rem]">
             <span className="grid size-[4.5rem] shrink-0 place-items-center rounded-2xl bg-coral-soft text-coral-ink" aria-hidden>
               <Icon className="size-7" strokeWidth={1.5} />
             </span>
             <div className="min-w-0 flex-1 basis-48 space-y-1">
-              <h4 className="font-display text-[1.0625rem] leading-snug font-medium">{item.name}</h4>
+              <h4 className="line-clamp-2 font-display text-[1.0625rem] leading-snug font-medium">{item.name}</h4>
               <Meta items={[item.meta]} />
-              <p className={cn(type.body, "text-ink-soft")}>{item.blurb}</p>
+              <p className={cn(type.body, "line-clamp-3 text-ink-soft")}>{item.blurb}</p>
               {(item.tags.length > 0 || item.bestFor) && (
                 <div className="flex flex-wrap items-center gap-1.5 pt-1">
                   {item.tags.map((tag) => <Badge key={tag}>{tag}</Badge>)}
@@ -608,6 +632,12 @@ function OptionsBlockView({ block, onFollowup }: { block: OptionsBlockData } & P
             </div>
           </article>
         ))}
+        {items.length < block.items.length && (
+          <div className="flex items-center justify-between gap-3 px-4 py-3.5 sm:px-[1.125rem]">
+            <span className={cn(type.meta, "min-w-0 truncate")}>{block.items.length - items.length} more · {block.items.slice(items.length).map((i) => i.name).join(", ")}</span>
+            <button type="button" onClick={() => setShowAll(true)} className={controlSecondary}>Show {block.items.length - items.length} more <ChevronDown className="size-3.5" aria-hidden /></button>
+          </div>
+        )}
       </div>
     </Widget>
   );
@@ -634,7 +664,7 @@ function BudgetRing({ block }: { block: BudgetBlockData }) {
         offset += len;
         return seg;
       })}
-      <text x="60" y="58" textAnchor="middle" className="fill-foreground font-display text-[22px] font-medium">{money(Math.round(block.dailyTotal.typical), block.currency)}</text>
+      <text x="60" y="58" textAnchor="middle" className="fill-foreground font-display text-[20px] font-medium">{compactMoney(block.dailyTotal.typical, block.currency)}</text>
       <text x="60" y="75" textAnchor="middle" className="fill-ink-soft text-[10px]">per day</text>
     </svg>
   );
@@ -652,7 +682,7 @@ function BudgetBlockView({ block, onOpenPanel }: { block: BudgetBlockData } & Pi
       icon={Wallet}
       tone={hasBudget && !under ? "saffron" : "sage"}
       eyebrow={`Daily spend · ${block.perPerson ? "per person" : "for the group"}`}
-      title={hasBudget ? <>{under ? "Fits your" : "Over your"} {money(Math.round(block.setBudget as number), cur)} a day</> : "Your typical day"}
+      title={hasBudget ? (gap === 0 ? <>Right on your {money(Math.round(block.setBudget as number), cur)} a day</> : <>{under ? "Fits your" : "Over your"} {money(Math.round(block.setBudget as number), cur)} a day</>) : "Your typical day"}
       status={block.estimated ? <WidgetPill>Estimated</WidgetPill> : undefined}
       hero={
         <WidgetHero tone={hasBudget && !under ? "saffron" : "sage"} className="flex items-center gap-6">
@@ -663,7 +693,7 @@ function BudgetBlockView({ block, onOpenPanel }: { block: BudgetBlockData } & Pi
             {hasBudget && (
               <>
                 <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                  <WidgetPill tone={under ? "sage" : "saffron"} icon={under ? Check : undefined}>{money(gap, cur)} {under ? "under" : "over"} budget</WidgetPill>
+                  <WidgetPill tone={under ? "sage" : "saffron"} icon={under ? Check : undefined}>{gap === 0 ? "Exactly on budget" : `${money(gap, cur)} ${under ? "under" : "over"} budget`}</WidgetPill>
                   {block.tripNote && <span className={type.meta}>{block.tripNote}</span>}
                 </div>
                 <div className="relative mt-4 h-2 rounded-full bg-foreground/10" role="img" aria-label={`Typical day against a ${money(Math.round(block.setBudget as number), cur)} budget`}>
@@ -678,7 +708,7 @@ function BudgetBlockView({ block, onOpenPanel }: { block: BudgetBlockData } & Pi
           <BudgetRing block={block} />
         </WidgetHero>
       }
-      foot={hasBudget && block.tripNote ? "Estimates from typical prices, not quotes" : "Estimates from typical prices, not quotes. Excludes flights and hotel."}
+      foot={block.estimated ? "Not backed by a current source: treat these as rough" : hasBudget && block.tripNote ? "Estimates from typical prices, not quotes" : "Estimates from typical prices, not quotes. Excludes flights and hotel."}
       action={onOpenPanel ? <WidgetAction onClick={() => onOpenPanel({ kind: "budget", block })} label="Budget details">Details</WidgetAction> : undefined}
     >
       <WidgetRows>
@@ -688,8 +718,8 @@ function BudgetBlockView({ block, onOpenPanel }: { block: BudgetBlockData } & Pi
             lead={<span aria-hidden className="size-3 shrink-0 rounded-[0.3125rem]" style={{ background: BUDGET_COLOR[Math.min(i, BUDGET_COLOR.length - 1)] }} />}
             title={line.category}
             detail={line.note}
-            mid={<RowBar frac={line.typical / maxTypical} color={BUDGET_COLOR[Math.min(i, BUDGET_COLOR.length - 1)]} />}
-            value={<RowValue sub={`${money(Math.round(line.low), cur)}–${money(Math.round(line.high), cur)}`}>{money(Math.round(line.typical), cur)}</RowValue>}
+            mid={<RowBar frac={line.typical === 0 ? 0 : line.typical / maxTypical} color={BUDGET_COLOR[Math.min(i, BUDGET_COLOR.length - 1)]} />}
+            value={<RowValue sub={rangeOf(line.low, line.high, cur)}>{priceOrFree(line.typical, cur)}</RowValue>}
           />
         ))}
       </WidgetRows>
@@ -809,7 +839,7 @@ function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPan
           <button
             type="button"
             onClick={() => void addAll()}
-            disabled={status !== "idle"}
+            disabled={status !== "idle" || totalStops === 0}
             className={cn(controlSecondary, status === "added" && "border-positive/40 bg-positive-soft text-positive")}
           >
             {status === "adding" ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : status === "added" ? <Check className="size-3.5" aria-hidden /> : <CalendarPlus className="size-3.5" aria-hidden />}
@@ -821,7 +851,25 @@ function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPan
       action={onOpenPanel && !day.open ? <WidgetAction onClick={() => onOpenPanel({ kind: "day", block, dayIndex })}>Open {day.label}</WidgetAction> : undefined}
     >
       {openLabels.length > 0 && <div className="mt-3"><OpenDaysNotice labels={openLabels} onFollowup={onFollowup} /></div>}
-      {multi && (
+      {multi && block.days.length > 12 && (
+        <div className="flex items-center gap-2 px-4 pt-4 sm:px-[1.375rem]">
+          <label className="relative flex-1">
+            <span className="sr-only">Day</span>
+            <select
+              value={dayIndex}
+              onChange={(event) => setActive(Number(event.target.value))}
+              className="h-11 w-full appearance-none rounded-2xl border border-border bg-surface pr-9 pl-4 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              {block.days.map((d, i) => <option key={i} value={i}>{d.label}{d.subtitle ? ` · ${d.subtitle}` : ""}</option>)}
+            </select>
+            <ChevronDown className="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          </label>
+          <button type="button" aria-label="Previous day" disabled={dayIndex === 0} onClick={() => setActive(dayIndex - 1)} className={cn(controlSecondary, "size-11 px-0 disabled:opacity-40")}><ChevronRight className="size-4 rotate-180" aria-hidden /></button>
+          <button type="button" aria-label="Next day" disabled={dayIndex === block.days.length - 1} onClick={() => setActive(dayIndex + 1)} className={cn(controlSecondary, "size-11 px-0 disabled:opacity-40")}><ChevronRight className="size-4" aria-hidden /></button>
+        </div>
+      )}
+      {multi && block.days.length <= 12 && (
+        <>
         <div role="tablist" aria-label="Days" className="no-scrollbar flex gap-2 overflow-x-auto px-4 pt-4 sm:px-[1.375rem]">
           {block.days.map((d, i) => (
             <button
@@ -840,6 +888,8 @@ function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPan
             </button>
           ))}
         </div>
+        {block.days.length > 4 && <p className="px-4 pt-2 text-xs text-muted-foreground sm:px-[1.375rem]">{day.label} of {block.days.length} · swipe for the rest</p>}
+        </>
       )}
       <ContentSwap swapKey={String(active)}>
       <div role="tabpanel" className="px-4 pt-5 pb-4 sm:px-[1.375rem]">
@@ -866,7 +916,7 @@ function TripSummaryBlockView({ block }: { block: TripSummaryBlockData }) {
   const unset = (value: string) => (value === "Not set" ? <span className="font-normal text-muted-foreground">{value}</span> : value);
   return (
     <Widget icon={Luggage} tone="coral" eyebrow="Your trip" title={block.title}>
-      <FactStrip className="mt-3 rounded-none border-0 border-t border-border bg-transparent shadow-none" facts={block.facts.map((fact) => ({ ...fact, value: unset(fact.label === "Dates" ? prettyDates(fact.value) : fact.value) }))} />
+      {block.facts.length > 0 && <FactStrip className="mt-3 rounded-none border-0 border-t border-border bg-transparent shadow-none" facts={block.facts.map((fact) => ({ ...fact, value: unset(fact.label === "Dates" ? prettyDates(fact.value) : fact.value) }))} />}
       {block.rows.length > 0 && (
         <dl className="divide-y divide-border border-t border-border px-4 sm:px-[1.125rem]">
           {block.rows.map((row) => (
@@ -896,7 +946,7 @@ function TripUpdateBlockView({ block, onFollowup }: { block: TripUpdateBlockData
       icon={Check}
       tone="sage"
       eyebrow="Trip updated"
-      title={count === 1 ? `${block.changes[0].label} updated` : `${count} changes saved`}
+      title={count === 1 ? (showChange(block.changes[0].field, block.changes[0].to) === "Not set" && block.changes[0].from ? `${block.changes[0].label} cleared` : `${block.changes[0].label} updated`) : `${count} changes saved`}
       status={<WidgetPill tone="sage">{count} change{count === 1 ? "" : "s"}</WidgetPill>}
     >
       <ul aria-label="Trip changes" className="mt-3 divide-y divide-border border-t border-border">
@@ -909,13 +959,9 @@ function TripUpdateBlockView({ block, onFollowup }: { block: TripUpdateBlockData
               <div className="min-w-0 flex-1">
                 <p className="eyebrow">{change.label}</p>
                 <p className="mt-0.5 text-[0.9375rem] leading-snug">
-                  {from !== "Not set" && (
-                    <>
-                      <span className="text-muted-foreground line-through decoration-muted-foreground/50">{from}</span>
-                      <ArrowRight className="mx-1.5 inline size-3.5 align-[-2px] text-muted-foreground" aria-label="to" />
-                    </>
-                  )}
-                  <span className="font-medium text-foreground">{to}</span>
+                  {from !== "Not set" && <span className="text-muted-foreground line-through decoration-muted-foreground/50">{from}</span>}
+                  {from !== "Not set" && to !== "Not set" && <ArrowRight className="mx-1.5 inline size-3.5 align-[-2px] text-muted-foreground" aria-label="to" />}
+                  {from !== "Not set" && to === "Not set" ? <WidgetPill className="ml-2 h-5">Cleared</WidgetPill> : <span className="font-medium text-foreground">{to}</span>}
                 </p>
               </div>
               {change.undoPrompt && (
@@ -987,6 +1033,32 @@ function RouteEnds({ from, to }: { from: string; to: string }) {
   );
 }
 
+/** A temperature with a true minus sign: "−23°", "16°". */
+const degrees = (n: number) => (n < 0 ? `−${Math.abs(n)}°` : `${n}°`);
+
+/** Money for a row: zero is the word Free, never a bare 0. */
+const priceOrFree = (amount: number, currency: string) => (Math.round(amount) === 0 ? "Free" : money(Math.round(amount), currency));
+
+/** A range for a row ("£30–£100", "Free–£20", "Free"). */
+const rangeOf = (low: number, high: number, currency: string) => (Math.round(high) === 0 ? "Free" : `${priceOrFree(low, currency)}–${money(Math.round(high), currency)}`);
+
+/** Compact money for the middle of a ring ("¥22.9k"), so a big number never overflows it. */
+function compactMoney(amount: number, currency: string): string {
+  if (amount < 10000) return money(Math.round(amount), currency);
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency, notation: "compact", maximumFractionDigits: 1 }).format(amount);
+  } catch {
+    return money(Math.round(amount), currency);
+  }
+}
+
+/** A journey's length as one figure: "26" min, "1:10" h, "1 d 2 h". */
+function longDuration(minutes: number): { big: string; unit: string; rest?: { big: string; unit: string } } {
+  if (minutes < 60) return { big: String(minutes), unit: "min" };
+  if (minutes < 24 * 60) return { big: String(Math.floor(minutes / 60)), unit: "h", rest: { big: String(minutes % 60).padStart(2, "0"), unit: "min" } };
+  return { big: String(Math.floor(minutes / 1440)), unit: "d", rest: { big: String(Math.floor((minutes % 1440) / 60)), unit: "h" } };
+}
+
 /** Minutes in a step's "35 min" / "1 h 05" text, for how wide its bar is. */
 const stepMinutes = (duration?: string) => {
   if (!duration) return 0;
@@ -1050,6 +1122,10 @@ function RouteSummaryCard({ route, onOpenPanel }: { route: RouteSummaryBlockData
   const Icon = routeModeIcon(route.mode);
   const ends = splitRouteEnds(route.from, route.to);
   const minutes = Math.max(1, Math.round(route.durationSeconds / 60));
+  const span = longDuration(minutes);
+  const [allSteps, setAllSteps] = useState(false);
+  // A short walk needs no map, ribbon or steps: one reassuring line is the whole answer.
+  const nearby = route.mode === "walking" && minutes <= 5;
   const steps = route.steps.map(parseRouteStep).map((step) => ({ ...step, minutes: stepMinutes(step.duration) }));
   const longest = Math.max(...steps.map((step) => step.minutes), 1);
   const leaves = clockOf(route.departureTime), arrives = clockOf(route.arrivalTime);
@@ -1061,18 +1137,23 @@ function RouteSummaryCard({ route, onOpenPanel }: { route: RouteSummaryBlockData
       eyebrow={`${ROUTE_MODE_LABEL[route.mode] ?? route.mode}${ends.where ? ` · ${ends.where}` : ""}`}
       title={<RouteEnds from={ends.from} to={ends.to} />}
       status={route.fare ? <WidgetPill tone="lagoon">{money(route.fare.amount, route.fare.currency)}</WidgetPill> : undefined}
-      hero={
+      hero={nearby ? (
+        <WidgetHero tone="lagoon" className="flex flex-wrap items-center gap-x-5 gap-y-2">
+          <p className="flex items-baseline gap-1.5"><span className="font-display text-[3.5rem] leading-none font-medium tracking-[-0.04em] tabular-nums">{span.big}</span> <span className="text-base text-ink-soft">{span.unit}</span></p>
+          <p className={cn(type.body, "min-w-0 flex-1 text-ink-soft")}>You are nearly there ({distance(route.distanceMeters / 1000)}). A short walk, no map needed.</p>
+        </WidgetHero>
+      ) : (
         <WidgetHero tone="lagoon" className="flex flex-col gap-4 !p-0 overflow-hidden sm:flex-row">
           {drawable && <div className="h-44 shrink-0 overflow-hidden sm:h-auto sm:w-[19rem]"><RouteSketch route={route} /></div>}
           <div className="flex min-w-0 flex-1 flex-col justify-between gap-3 p-4 sm:py-[1.125rem]">
             <p className="flex items-baseline gap-1.5">
-              <span className="font-display text-[3.5rem] leading-none font-medium tracking-[-0.04em] tabular-nums">{minutes < 60 ? minutes : Math.floor(minutes / 60)}</span>{" "}
-              <span className="text-base text-ink-soft">{minutes < 60 ? "min" : "h"}</span>
-              {minutes >= 60 && (
+              <span className="font-display text-[3.5rem] leading-none font-medium tracking-[-0.04em] tabular-nums">{span.big}</span>{" "}
+              <span className="text-base text-ink-soft">{span.unit}</span>
+              {span.rest && (
                 <>
                   {" "}
-                  <span className="font-display text-[3.5rem] leading-none font-medium tracking-[-0.04em] tabular-nums">{String(minutes % 60).padStart(2, "0")}</span>{" "}
-                  <span className="text-base text-ink-soft">min</span>
+                  <span className="font-display text-[3.5rem] leading-none font-medium tracking-[-0.04em] tabular-nums">{span.rest.big}</span>{" "}
+                  <span className="text-base text-ink-soft">{span.rest.unit}</span>
                 </>
               )}
             </p>
@@ -1080,13 +1161,13 @@ function RouteSummaryCard({ route, onOpenPanel }: { route: RouteSummaryBlockData
             <RouteRibbon route={route} />
           </div>
         </WidgetHero>
-      }
-      foot={leaves && arrives ? <>Leaves {leaves}, arrives {arrives}</> : "Times are estimates and can change with traffic and service"}
-      action={onOpenPanel ? <WidgetAction onClick={() => onOpenPanel({ kind: "route", routes: [route], active: 0 })}>{route.path ? "Steps and map" : "Steps"}</WidgetAction> : undefined}
+      )}
+      foot={nearby ? undefined : leaves && arrives ? <>Leaves {leaves}, arrives {arrives}</> : "Times are estimates and can change with traffic and service"}
+      action={onOpenPanel && !nearby ? <WidgetAction onClick={() => onOpenPanel({ kind: "route", routes: [route], active: 0 })}>{route.path ? "Steps and map" : "Steps"}</WidgetAction> : undefined}
     >
-      {steps.length > 0 && (
+      {steps.length > 0 && !nearby && (
         <WidgetRows>
-          {steps.map((step, i) => (
+          {(allSteps ? steps : steps.slice(0, 5)).map((step, i) => (
             <WidgetRow
               key={i}
               lead={<span className="grid size-9 shrink-0 place-items-center rounded-xl bg-lagoon-soft text-lagoon" aria-hidden><step.glyph.icon className="size-[1.125rem]" /></span>}
@@ -1096,6 +1177,11 @@ function RouteSummaryCard({ route, onOpenPanel }: { route: RouteSummaryBlockData
             />
           ))}
         </WidgetRows>
+      )}
+      {steps.length > 5 && !nearby && !allSteps && (
+        <div className="border-t border-border px-4 py-3 text-center">
+          <button type="button" onClick={() => setAllSteps(true)} className={controlSecondary}>Show {steps.length - 5} more steps <ChevronDown className="size-3.5" aria-hidden /></button>
+        </div>
       )}
     </Widget>
   );
@@ -1127,7 +1213,7 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel }: { from: string; 
               onClick={onOpenPanel ? () => onOpenPanel({ kind: "route", routes: sorted, active: i }) : undefined}
               label={onOpenPanel ? label : undefined}
               lead={<span className="grid size-9 shrink-0 place-items-center rounded-xl bg-lagoon-soft text-lagoon" aria-hidden><Icon className="size-[1.125rem]" /></span>}
-              title={<span className="inline-flex items-center gap-1.5">{ROUTE_MODE_LABEL[route.mode] ?? route.mode}{route === fastest && <WidgetPill tone="sage" className="h-5 text-[0.6875rem]">Fastest</WidgetPill>}</span>}
+              title={<span className="inline-flex items-center gap-1.5">{ROUTE_MODE_LABEL[route.mode] ?? route.mode}{route === fastest ? <WidgetPill tone="sage" className="h-5 text-[0.6875rem]">Fastest</WidgetPill> : Math.round(route.durationSeconds / 60) === Math.round(fastest.durationSeconds / 60) ? <WidgetPill className="h-5 text-[0.6875rem]">Same time</WidgetPill> : null}</span>}
               detail={route.mode === "transit" && route.steps.length > 0 ? routeLines(route.steps) : undefined}
               mid={<RowBar frac={route.durationSeconds / slowest} color={route === fastest ? "var(--positive)" : "var(--lagoon)"} />}
               value={<RowValue sub={`${distance(route.distanceMeters / 1000)}${route.fare ? ` · ${money(route.fare.amount, route.fare.currency)}` : ""}`}>{Math.round(route.durationSeconds / 60)} min</RowValue>}
@@ -1344,85 +1430,32 @@ function StaysBlockView({ block, tripId, preview, onOpenStay, onOpenCollection, 
 
 type FlightsBlockData = Extract<AssistantBlock, { type: "flights" }>;
 
-/** The search as a route: the two airports, the time in the air, and an arc between them. */
-function FlightArc({ from, to, duration, roundTrip }: { from: { code: string; name: string }; to: { code: string; name: string }; duration: number; roundTrip: boolean }) {
-  return (
-    <div className="relative mx-4 mt-3.5 overflow-hidden rounded-[1.125rem] bg-[linear-gradient(135deg,oklch(0.24_0.03_240),oklch(0.22_0.012_60))] px-5 pt-4 pb-1 text-white sm:mx-[1.125rem] sm:px-[1.375rem]">
-      <div aria-hidden className="pointer-events-none absolute -top-20 -right-16 size-64 rounded-full bg-[radial-gradient(closest-side,oklch(0.64_0.175_36/0.35),transparent)]" />
-      <div className="relative flex items-end justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-display text-[2.25rem] leading-9 font-medium tracking-[-0.03em]">{from.code}</p>
-          <p className="mt-1 truncate text-[0.8125rem] text-white/70">{from.name}</p>
-        </div>
-        <div className="pb-1.5 text-center text-[0.8125rem] text-white/65">
-          {duration > 0 && <p><b className="font-display text-[1.0625rem] font-medium text-white">{Math.floor(duration / 60)}h {String(duration % 60).padStart(2, "0")}m</b><br />shortest</p>}
-          {duration <= 0 && roundTrip && <p>round trip</p>}
-        </div>
-        <div className="min-w-0 text-right">
-          <p className="font-display text-[2.25rem] leading-9 font-medium tracking-[-0.03em]">{to.code}</p>
-          <p className="mt-1 truncate text-[0.8125rem] text-white/70">{to.name}</p>
-        </div>
-      </div>
-      <svg viewBox="0 0 560 64" className="relative -mt-3 h-16 w-full" aria-hidden>
-        <defs>
-          <linearGradient id="flight-arc" x1="0" x2="1"><stop offset="0" stopColor="white" stopOpacity="0.15" /><stop offset="0.5" stopColor="white" stopOpacity="0.9" /><stop offset="1" stopColor="white" stopOpacity="0.15" /></linearGradient>
-        </defs>
-        <path d="M 14 58 Q 280 -6 546 58" fill="none" stroke="url(#flight-arc)" strokeWidth="2" strokeDasharray="3 7" strokeLinecap="round" />
-        <circle cx="14" cy="58" r="5" fill="white" />
-        <circle cx="546" cy="58" r="5" fill="white" fillOpacity="0.55" />
-        <path d="M174 18l2.6 6 6 1.8-6 2.6-2.6 6-2.6-6-6-2.6 6-1.8z" fill="white" />
-      </svg>
-    </div>
-  );
-}
-
-/** One fare: airline, the clock times with a timeline between them, and the price on the right. */
-function FlightRowBody({ offer, dayOffset, roundTrip, cheapest, onDetails }: { offer: FlightsBlockData["items"][number]; dayOffset: number; roundTrip: boolean; cheapest: boolean; onDetails?: () => void }) {
-  const stops = offer.stops;
-  const duration = `${Math.floor(offer.durationMinutes / 60)}h ${String(offer.durationMinutes % 60).padStart(2, "0")}m`;
-  return (
-    <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
-      <AirlineMark offer={offer} className="size-9 shrink-0" />
-      <div className="min-w-0 basis-28 sm:w-[7.25rem] sm:flex-none">
-        <p className="truncate text-[0.9375rem] font-medium">{offer.airline}</p>
-        {cheapest ? <WidgetPill tone="sage" className="mt-0.5 h-5 text-[0.6875rem]">Cheapest</WidgetPill> : <p className={cn(type.meta, "truncate")}>{[offer.cabinClass, offer.flightNumbers?.slice(0, 2).join(" · ")].filter(Boolean).join(" · ") || offer.originAirport}</p>}
-      </div>
-      <div className="order-last flex w-full min-w-0 items-center gap-3 sm:order-none sm:w-auto sm:flex-1">
-        <p className="font-display text-base font-medium tabular-nums whitespace-nowrap">{clock(offer.departAt)}</p>
-        <div className="min-w-0 flex-1">
-          <p className="flex justify-between text-xs text-ink-soft tabular-nums"><span>{duration}</span><span>{stops === 0 ? "nonstop" : `${stops} stop${stops > 1 ? "s" : ""}${offer.layoverAirports?.length ? ` · ${offer.layoverAirports.join(", ")}` : ""}`}</span></p>
-          <div className="relative my-1 h-2.5" aria-hidden>
-            <span className="absolute inset-x-0 top-1 h-0.5 rounded-full bg-border" />
-            <span className="absolute top-px left-0 size-2 rounded-full bg-foreground" />
-            {stops > 0 && <span className="absolute top-[0.1875rem] left-[46%] size-1.5 rounded-full bg-coral" />}
-            <span className="absolute top-px right-0 size-2 rounded-full border-2 border-foreground bg-background" />
-          </div>
-        </div>
-        <p className="font-display text-base font-medium tabular-nums whitespace-nowrap">{clock(offer.arriveAt)}{dayOffset > 0 && <sup className="ml-0.5 text-[0.625rem] text-coral">+{dayOffset}</sup>}</p>
-      </div>
-      <div className="ml-auto flex shrink-0 flex-col items-end">
-        <p className="font-display text-xl leading-tight font-medium tracking-[-0.015em] tabular-nums whitespace-nowrap">{offer.listedCurrency && <span className="mr-0.5 text-muted-foreground" title={`Converted from ${money(offer.listedPrice ?? "", offer.listedCurrency, true)} at today’s rate`}>≈</span>}{money(offer.price, offer.currency, true)}</p>
-        <p className="text-[0.71875rem] text-muted-foreground">{roundTrip ? "round trip" : "per person"}</p>
-        {onDetails && <button type="button" data-details="" aria-label={`Details: ${offer.airline}, ${clock(offer.departAt)} to ${clock(offer.arriveAt)}`} onClick={onDetails} className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-ink-soft transition-colors hover:text-foreground">Details <ArrowUpRight className="size-3.5" aria-hidden /></button>}
-      </div>
-    </div>
-  );
-}
-
 function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockData; tripId: string } & Pick<BlockHandlers, "onOpenPanel">) {
   const [view, setView] = useState<FlightView>(DEFAULT_FLIGHT_VIEW);
   const trip = useTripDataMaybe()?.data?.trip;
   const tripDates = { start: trip?.start_date ?? null, end: trip?.end_date ?? null };
   const fares = useFlightSearch(block, tripId, tripDates);
   const [routeOpen, setRouteOpen] = useState(false);
+  const [chosen, setChosen] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const { query } = fares;
   const roundTrip = query.ret !== null;
   const offers = applyFlightView(fares.items, view);
   const filtersOn = view.nonstop || view.changes || view.airport !== null;
   const loading = fares.status === "loading";
+  const ready = fares.status === "ready";
   const day = query.depart ? prettyDate(query.depart) : undefined;
+  const picks = useMemo(() => pickFares(fares.items), [fares.items]);
+  const chosenPick = picks.find((p) => offerKey(p.offer) === chosen) ?? picks[0] ?? null;
+  // A long list shows its best rows and the rest on request; the card never grows without limit.
+  const ROWS = 6;
+  const shown = showAll || filtersOn ? offers : offers.slice(0, ROWS);
   // A new search starts with a clean view: an airport filter from the last one may not exist in this one.
-  const resetView = () => setView((v) => ({ ...v, airport: null }));
+  const resetView = () => {
+    setView((v) => ({ ...v, airport: null }));
+    setChosen(null);
+    setShowAll(false);
+  };
   const change = <A extends unknown[]>(fn: (...args: A) => void) => (...args: A) => {
     resetView();
     fn(...args);
@@ -1430,14 +1463,17 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
   // A card saved before the trip had a currency (or before prices were converted) keeps its old one until it is searched again.
   const tripCurrency = resolveCurrency(useTripDataMaybe()?.data?.preferences);
   const shownCurrency = fares.items[0]?.currency;
-  const staleCurrency = !fares.searched && fares.status === "ready" && Boolean(shownCurrency) && shownCurrency !== tripCurrency && !fares.items.some((o) => o.listedCurrency);
+  const staleCurrency = !fares.searched && ready && Boolean(shownCurrency) && shownCurrency !== tripCurrency && !fares.items.some((o) => o.listedCurrency);
   const dateNote = query.depart ? `${fares.assumed ? `Example date ${query.depart} — no travel date set yet` : `Departing ${query.depart}`}${query.ret ? `, returning ${query.ret}` : ""}` : block.dateNote;
   const searchForBar = { ...fares, setFrom: change(fares.setFrom), setTo: change(fares.setTo), swap: change(fares.swap), setDepart: change(fares.setDepart), setReturn: change(fares.setReturn), setRoundTrip: change(fares.setRoundTrip), setBoth: change(fares.setBoth) };
-  const cheapest = offers.length > 1 ? offers.reduce((best, o) => (Number(o.price) < Number(best.price) ? o : best), offers[0]) : null;
   const lowest = fares.items.length ? fares.items.reduce((best, o) => (Number(o.price) < Number(best.price) ? o : best), fares.items[0]) : null;
   const shortest = fares.items.length ? Math.min(...fares.items.map((o) => o.durationMinutes)) : 0;
-  const fromCode = fares.items[0]?.originAirport ?? query.fromLabel.slice(0, 3).toUpperCase();
-  const toCode = fares.items[0]?.destinationAirport ?? query.toLabel.slice(0, 3).toUpperCase();
+  const fromName = query.fromLabel.split(",")[0];
+  const toName = query.toLabel.split(",")[0];
+  // No airport code known: the city name stands in for it.
+  const fromCode = fares.items[0]?.originAirport ?? (fromName.length <= 14 ? fromName : fromName.slice(0, 3).toUpperCase());
+  const toCode = fares.items[0]?.destinationAirport ?? (toName.length <= 14 ? toName : toName.slice(0, 3).toUpperCase());
+  const panelFor = (offer: FlightsBlockData["items"][number]) => ({ kind: "flight" as const, flight: offer, route: { origin: query.fromLabel, destination: query.toLabel, dateNote, retrievedAt: fares.retrievedAt, offers: fares.items, departureDate: query.depart ?? undefined, returnDate: query.ret ?? undefined, originId: query.fromId, destinationId: query.toId } });
   const footNote = (
     <Notice>
       Prices are per person{roundTrip ? ", for the round trip" : ""}{fares.currency ? `, in ${fares.currency}` : ""}
@@ -1446,20 +1482,22 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
     </Notice>
   );
   return (
-    <Widget
-      icon={Plane}
-      tone="lagoon"
-      eyebrow={`Flights · ${roundTrip ? "round trip" : "one way"}${day ? ` · ${day}` : ""}`}
-      title={<>{query.fromLabel.split(",")[0]} to {query.toLabel.split(",")[0]}</>}
-      status={
-        <>
-          {lowest && fares.status === "ready" && <WidgetPill tone="sage">From {money(lowest.price, lowest.currency, true)}</WidgetPill>}
+    <section aria-label="Flights" className="roam-widget relative overflow-hidden rounded-3xl bg-card shadow-soft">
+      <FlightHero
+        eyebrow={`Flights · ${roundTrip ? "round trip" : "one way"}${day ? ` · ${day}` : ""}`}
+        title={<>{fromName} to {toName}</>}
+        from={{ code: fromCode, name: fromName }}
+        to={{ code: toCode, name: toName }}
+        duration={ready ? shortest : 0}
+        dim={!ready}
+        chip={loading ? <span className="inline-flex h-7 items-center rounded-full border border-white/25 bg-white/15 px-3 text-xs font-medium text-white">Searching…</span> : fares.status === "empty" && !fares.problem ? <span className="inline-flex h-7 items-center rounded-full border border-white/25 bg-white/15 px-3 text-xs font-medium text-white">No flights</span> : lowest && ready ? <span className="inline-flex h-7 items-center rounded-full border border-white/25 bg-white/15 px-3 text-xs font-semibold text-white tabular-nums">From {money(lowest.price, lowest.currency, true)}</span> : undefined}
+        right={
           <button
             type="button"
             onClick={() => setRouteOpen((v) => !v)}
             aria-expanded={routeOpen}
             aria-controls="flight-route-editor"
-            className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-[background-color,border-color,color,transform] active:scale-95", routeOpen ? "border-foreground/30 bg-muted text-foreground" : "border-border text-ink-soft hover:border-foreground/25 hover:bg-muted/60 hover:text-foreground")}
+            className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-md transition-[background-color,border-color,color,transform] active:scale-95", routeOpen ? "border-white/50 bg-white/25 text-white" : "border-white/25 bg-white/10 text-white/90 hover:bg-white/20")}
           >
             <AnimatePresence mode="wait" initial={false}>
               <motion.span key={routeOpen ? "done" : "edit"} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.14 }} className="inline-flex items-center gap-1.5">
@@ -1468,37 +1506,42 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
               </motion.span>
             </AnimatePresence>
           </button>
-        </>
-      }
-      hero={
-        <FlightArc from={{ code: fromCode, name: query.fromLabel.split(",")[0] }} to={{ code: toCode, name: query.toLabel.split(",")[0] }} duration={shortest} roundTrip={roundTrip} />
-      }
-      foot={footNote}
-    >
+        }
+      />
+      {loading && fares.items.length === 0 ? <FlightPicksSkeleton /> : ready && picks.length > 0 && <FlightPicks picks={picks} selected={chosenPick ? offerKey(chosenPick.offer) : null} onSelect={setChosen} roundTrip={roundTrip} />}
       <FlightSearchBar search={searchForBar} tripId={tripId} trip={tripDates} routeOpen={routeOpen} onRouteDone={() => setRouteOpen(false)} />
-      {fares.insights && fares.status === "ready" && fares.currency && <PriceInsight insights={fares.insights} currency={fares.currency} />}
+      {ready && fares.assumed && (
+        <div role="note" className="mx-4 mb-1 flex items-center gap-2.5 rounded-2xl bg-caution-soft px-3.5 py-3 text-[0.84375rem] text-caution sm:mx-5">
+          <Info className="size-4 shrink-0" aria-hidden />
+          <span>No travel date set, so these are example prices. Pick your date above.</span>
+        </div>
+      )}
+      {fares.insights && ready && fares.currency && <PriceInsight insights={fares.insights} currency={fares.currency} />}
+      {ready && chosenPick && <FlightJourney offer={chosenPick.offer} labels={chosenPick.labels} roundTrip={roundTrip} onDetails={onOpenPanel ? () => onOpenPanel(panelFor(chosenPick.offer)) : undefined} tripCurrency={tripCurrency} />}
       {fares.items.length > 0 && fares.status !== "error" && (
-        <div className={cn("transition-opacity duration-200", loading && "pointer-events-none opacity-50")} aria-busy={loading}>
+        <div className={cn("mt-4 transition-opacity duration-200", loading && "pointer-events-none opacity-50")} aria-busy={loading}>
           <FlightControls items={fares.items} view={view} onChange={setView} shown={offers.length} />
         </div>
       )}
       {fares.status === "error" && (
-        <motion.div role="alert" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={motionTokens.standard} className="space-y-3 px-4 py-8 text-center">
-          <p className={type.body}>We couldn’t load flights{day ? ` for ${day}` : ""} just now.</p>
+        <motion.div role="alert" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={motionTokens.standard} className="space-y-3 px-4 py-9 text-center">
+          <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-caution-soft text-caution" aria-hidden><Info className="size-6" /></span>
+          <p className="font-display text-lg font-medium">We couldn’t load flights{day ? ` for ${day}` : ""} just now</p>
+          <p className={type.meta}>The fares service didn’t answer. Nothing is wrong with your search.</p>
           <button type="button" onClick={fares.retry} className={controlSecondary}>Try again</button>
         </motion.div>
       )}
       {fares.status === "empty" && (
-        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={motionTokens.standard} className="space-y-3 px-4 py-8 text-center">
+        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={motionTokens.standard} className="space-y-3 px-4 py-9 text-center">
           {fares.problem ? (
             <>
-              <p className={type.body}>We couldn’t find “{fares.problem}”.</p>
+              <p className="font-display text-lg font-medium">We couldn’t find “{fares.problem}”</p>
               <p className={type.meta}>Try a nearby city, or the airport’s three-letter code.</p>
             </>
           ) : (
             <>
-              <p className={type.body}>No flights found{day ? ` for ${day}` : ""}{roundTrip && query.ret ? ` to ${prettyDate(query.ret)}` : ""}.</p>
-              <p className={type.meta}>Try nearby days, or another route above.</p>
+              <p className="font-display text-lg font-medium">No flights{day ? ` on ${day}` : ""}{roundTrip && query.ret ? ` to ${prettyDate(query.ret)}` : ""}</p>
+              <p className={type.meta}>Nothing is flying this route that day. Nearby days often have fares.</p>
               {query.depart && (
                 <div className="flex justify-center gap-2">
                   <button type="button" onClick={() => searchForBar.setDepart(shiftIso(query.depart!, -1))} className={controlSecondary}>Day before</button>
@@ -1510,32 +1553,31 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
         </motion.div>
       )}
       {fares.status !== "error" && fares.status !== "empty" && (
-      <ScrollWindow label="Flights" frozen={filtersOn || loading} resetKey={`${query.depart}:${query.ret}:${query.fromLabel}:${query.toLabel}:${JSON.stringify(view)}`}>
+      <div>
       {loading && <FlightRowsSkeleton />}
-      {fares.status === "ready" && offers.length === 0 && (
-        <div className="space-y-2 px-4 py-6 text-center">
-          <p className={type.body}>No flights match those filters.</p>
+      {ready && offers.length === 0 && (
+        <div className="space-y-2 px-4 py-8 text-center">
+          <p className="font-display text-lg font-medium">No flights match those filters</p>
+          <p className={type.meta}>The picks above ignore filters. Clear them to see all {fares.items.length}.</p>
           <button type="button" onClick={() => setView({ ...DEFAULT_FLIGHT_VIEW, sort: view.sort })} className={controlSecondary}>Clear filters</button>
         </div>
       )}
-      {fares.status === "ready" && (
+      {ready && fares.items.length > 1 && (
       <ul className="divide-y divide-border">
-        {offers.map((offer, offerIndex) => {
-          const dayOffset = arrivalDayOffset(offer.departAt, offer.arriveAt);
-          const flightPanel = { kind: "flight" as const, flight: offer, route: { origin: query.fromLabel, destination: query.toLabel, dateNote, retrievedAt: fares.retrievedAt, offers: fares.items, departureDate: query.depart ?? undefined, returnDate: query.ret ?? undefined, originId: query.fromId, destinationId: query.toId } };
+        {shown.map((offer, offerIndex) => {
+          const flightPanel = panelFor(offer);
           const openFlight = () => onOpenPanel?.(flightPanel);
+          const key = offerKey(offer);
+          const isPicked = chosenPick ? offerKey(chosenPick.offer) === key : false;
           return (
             <motion.li
               layout="position"
               transition={{ ...motionTokens.standard, delay: fares.searched ? Math.min(offerIndex, 6) * 0.045 : 0 }}
               initial={fares.searched ? { opacity: 0, y: 10 } : false}
               animate={{ opacity: 1, y: 0 }}
-              key={offer.id ?? offerIndex}
-              className={cn("px-4 py-3.5 sm:px-[1.125rem]", cheapest === offer && "bg-[linear-gradient(90deg,var(--positive-soft),transparent_60%)]", onOpenPanel && "cursor-pointer transition-colors hover:bg-muted/35 focus-visible:bg-muted/45 focus-visible:outline-none")}
-              onClick={onOpenPanel ? (event) => {
-                if ((event.target as HTMLElement).closest("[data-details]")) return;
-                openFlight();
-              } : undefined}
+              key={key + offerIndex}
+              className={cn("px-4 py-3.5 sm:px-[1.125rem]", onOpenPanel && "cursor-pointer transition-colors hover:bg-muted/35 focus-visible:bg-muted/45 focus-visible:outline-none")}
+              onClick={onOpenPanel ? () => openFlight() : undefined}
               onKeyDown={onOpenPanel ? (event) => {
                 if (event.target !== event.currentTarget) return;
                 if (event.key === "Enter" || event.key === " ") {
@@ -1547,15 +1589,21 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
               tabIndex={onOpenPanel ? 0 : undefined}
               aria-label={onOpenPanel ? `Open details for ${offer.airline}, ${clock(offer.departAt)} to ${clock(offer.arriveAt)}` : undefined}
             >
-              <FlightRowBody offer={offer} dayOffset={dayOffset} roundTrip={roundTrip} cheapest={cheapest === offer} onDetails={onOpenPanel ? openFlight : undefined} />
+              <FlightRowBody offer={offer} roundTrip={roundTrip} cheapest={offers.length > 1 && offer === lowest} selected={isPicked} onDetails={onOpenPanel ? openFlight : undefined} />
             </motion.li>
           );
         })}
       </ul>
       )}
-      </ScrollWindow>
+      {ready && !showAll && !filtersOn && offers.length > ROWS && (
+        <div className="border-t border-border px-4 py-3.5 text-center">
+          <button type="button" onClick={() => setShowAll(true)} className={controlSecondary}>Show {offers.length - ROWS} more <ChevronDown className="size-3.5" aria-hidden /></button>
+        </div>
       )}
-    </Widget>
+      </div>
+      )}
+      <WidgetFoot foot={footNote} />
+    </section>
   );
 }
 
