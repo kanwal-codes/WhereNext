@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState, type ReactNode } from "react";
+import React, { useEffect, useState, type ReactNode } from "react";
 import { MapPin, Star, type LucideIcon } from "lucide-react";
 import { RoamIcon } from "@/features/roam/ui/RoamIcon";
 import { BlurImage } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
+import { hoursPill, type HoursPill } from "@/lib/place-hours";
+import { isFoodPlace, priceLabel } from "@/lib/places-ui";
 import { CardOpenOverlay } from "./ui";
 
 /**
@@ -54,6 +56,30 @@ export function CineAddress({ address }: { address: string }) {
       <MapPin className="mt-px size-4 shrink-0 text-coral-soft" aria-hidden />
       <span className="line-clamp-2">{address.split(",").slice(0, 2).join(",").trim()}</span>
     </p>
+  );
+}
+
+/**
+ * The floating pills at a place card's top right: whether it is open (and when it closes, or when it opens next) and,
+ * for somewhere you eat or drink, what it costs. Each shows only when there is something to say. The hours depend on
+ * the clock, so they are worked out after the page is on screen (the server's answer would differ from the browser's).
+ */
+export function PlaceFloatingPills({ place, extra }: { place: { openNow?: boolean; openingHours?: readonly string[]; longitude?: number; priceLevel?: string; category?: string | null }; extra?: ReactNode }) {
+  const [hours, setHours] = useState<HoursPill | null>(null);
+  useEffect(() => setHours(hoursPill(place.openNow, place.openingHours, place.longitude)), [place.openNow, place.openingHours, place.longitude]);
+  const price = isFoodPlace(place.category) ? priceLabel(place.priceLevel) : null;
+  if (!hours && !price && !extra) return null;
+  return (
+    <div className="flex flex-col items-end gap-1.5">
+      {hours && (
+        <CinePill tone={hours.open ? "positive" : "glass"}>
+          <span aria-hidden className={cn("mr-0.5 inline-block size-1.5 rounded-full", hours.open ? "bg-[oklch(0.85_0.17_150)]" : "bg-white/50")} />
+          {hours.label}
+        </CinePill>
+      )}
+      {price && <CinePill>{price}</CinePill>}
+      {extra}
+    </div>
   );
 }
 
@@ -143,8 +169,8 @@ export function CineCard({
       <div aria-hidden className="pointer-events-none absolute inset-0" style={{ backgroundImage: SCRIM }} />
       <div className={cn("pointer-events-none relative z-[1] flex h-full min-h-0 flex-col justify-between", compact ? "p-2.5" : "p-3.5")}>
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">{topLeft}</div>
-          <div className="shrink-0">{topRight}</div>
+          <div className="shrink-0">{topLeft}</div>
+          <div className="flex min-w-0 justify-end">{topRight}</div>
         </div>
         <div className="min-w-0">
           {eyebrow && !compact && <p className="eyebrow truncate text-white/70!">{eyebrow}</p>}

@@ -3,13 +3,12 @@
 import { useRouter } from "next/navigation";
 import type { Place } from "@/packages/contracts/place";
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
-import { Clock } from "lucide-react";
 import { CompareMark, compactCount } from "@/features/conversation/ui/blocks/ui";
-import { CineAddress, CinePill, CineCard, CineRating } from "@/features/conversation/ui/blocks/CineCard";
+import { CineAddress, CinePill, CineCard, CineRating, PlaceFloatingPills } from "@/features/conversation/ui/blocks/CineCard";
 import { placeGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
-import { categoryLabel, isFoodPlace, photoProxyUrl, priceLabel, priceRank } from "@/lib/places-ui";
+import { categoryLabel, photoProxyUrl, priceLabel, priceRank } from "@/lib/places-ui";
 
 const norm = (s: string) => s.trim().toLowerCase();
 
@@ -21,7 +20,6 @@ const norm = (s: string) => s.trim().toLowerCase();
 export function PlaceCard({ tripId, place, why, phoneRow = false }: { tripId: string; place: Place; why?: string; /** A horizontal card on a phone (a long list), keeping Add to trip. */ phoneRow?: boolean }) {
   const router = useRouter();
   const photo = photoProxyUrl(tripId, place.photoNames?.[0], 640);
-  const price = priceLabel(place.priceLevel);
   const category = place.category ? categoryLabel(place.category) : undefined;
   const href = `/trips/${tripId}/place/${encodeURIComponent(place.providerId)}`;
   const panelCtx = useTripPanelMaybe();
@@ -54,15 +52,10 @@ export function PlaceCard({ tripId, place, why, phoneRow = false }: { tripId: st
       alt={place.name}
       glyph={glyph}
       // No rating: the category stands in, never "0.0".
+      topRight={<PlaceFloatingPills place={place} />}
       topLeft={typeof place.rating === "number" ? <CineRating rating={place.rating} count={place.userRatingCount ? compactCount(place.userRatingCount) : undefined} /> : category ? <CinePill>{category}</CinePill> : undefined}
       eyebrow={category}
       title={place.name}
-      pills={
-        <>
-          {place.openNow !== undefined && <CinePill tone={place.openNow ? "positive" : "glass"} icon={Clock}>{place.openNow ? "Open now" : "Closed now"}</CinePill>}
-          {price && isFoodPlace(place.category) && <CinePill>{price}</CinePill>}
-        </>
-      }
       why={why && why !== "Top-rated" ? why : place.reviewSummary}
       foot={place.address ? <CineAddress address={place.address} /> : undefined}
       action={comparing ? undefined : <AddToTripControl tripId={tripId} place={place} variant="orb" />}
