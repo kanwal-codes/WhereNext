@@ -11,7 +11,6 @@ import { notifyToast } from "@/lib/application/toast";
 import { estimateRideshare } from "@/lib/application/rideshare-estimate";
 import { greatCircleArc, haversineKm } from "@/lib/application/geo";
 import { cn, durationFromSeconds, formatDuration } from "@/lib/utils";
-import { BookingSheet } from "@/features/bookings/ui/BookingSheet";
 import { DestinationCombobox } from "@/components/DestinationCombobox";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { TripOptions } from "./TripOptions";
@@ -50,6 +49,13 @@ type Route = {
   polyline?: Array<[number, number]>;
 };
 export type Flight = FlightOffer;
+
+/** Where to buy it: Google Flights, on this flight's airports and day (these are Google's own fares; nothing is sold here). */
+const googleFlightsUrl = (f: Flight, returnDate: string) => {
+  const day = f.departAt?.slice(0, 10);
+  const query = `Flights from ${f.originAirport ?? ""} to ${f.destinationAirport ?? ""}${day ? ` on ${day}` : ""}${returnDate ? ` returning ${returnDate}` : ""}`;
+  return `https://www.google.com/travel/flights?q=${encodeURIComponent(query)}`;
+};
 type DriveRoute = { distanceMeters: number; durationSeconds: number; geometry: { coordinates: Array<[number, number]> }; congestion?: string[] };
 
 /** What the AI search bar (or a caller) can push in to run a search without the user retyping. */
@@ -203,7 +209,6 @@ export function TransportSurface({
   const controller = useRef<AbortController | null>(null);
   const toRef = useRef<HTMLInputElement>(null);
   const modesRef = useRef<string[]>([]);
-  const [bookingOffer, setBookingOffer] = useState<Flight | null>(null);
 
   /** What the map shows besides the chosen route: the others (tap one to take it), the time on each, and where the vehicle changes. */
   function overlayFor(list: Route[], i: number): MapOverlay {
@@ -245,7 +250,7 @@ export function TransportSurface({
     setFlightsLoading(true);
     setFlightsStatus("");
     try {
-      const res = await fetch(`/api/trips/${tripId}/flights`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ from: a, to: b, provider: "duffel", adults: travellers, ...(when ? { departureDate: when.date } : {}), ...(returnDate ? { returnDate } : {}) }) });
+      const res = await fetch(`/api/trips/${tripId}/flights`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ from: a, to: b, adults: travellers, ...(when ? { departureDate: when.date } : {}), ...(returnDate ? { returnDate } : {}) }) });
       const body = await res.json();
       const offers = (body.offers ?? []) as Flight[];
       if (flightsKey.current !== key) return;
@@ -683,7 +688,7 @@ export function TransportSurface({
                     <AirlineMark offer={f} className="size-8" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-display text-base font-medium">{f.airline}</span>
-                      <span className="block text-xs text-muted-foreground tabular-nums">{formatDuration(f.durationMinutes)} · {f.stops === 0 ? "non-stop" : `${f.stops} stop${f.stops === 1 ? "" : "s"}${via}`}{f.returnLegs?.length ? " · round trip" : ""}</span>
+                      <span className="block text-xs text-muted-foreground tabular-nums">{formatDuration(f.durationMinutes)} · {f.stops === 0 ? "non-stop" : `${f.stops} stop${f.stops === 1 ? "" : "s"}${via}`}{f.returnLegs?.length || returnDate ? " · round-trip fare" : ""}</span>
                     </span>
                     <span className="font-display text-xl font-medium tabular-nums tracking-[-0.012em]">{price}</span>
                   </span>
@@ -711,9 +716,9 @@ export function TransportSurface({
                   >
                     Save to my trip
                   </button>
-                  <button type="button" onClick={() => setBookingOffer(f)} className="btn-primary-sm">
-                    Book
-                  </button>
+                  <a href={googleFlightsUrl(f, returnDate)} target="_blank" rel="noopener noreferrer" className="btn-primary-sm">
+                    View on Google Flights
+                  </a>
                 </div>
               </li>
             );
@@ -833,7 +838,6 @@ export function TransportSurface({
         </Link>
       )}
 
-      <BookingSheet subject={bookingOffer ? { kind: "flight", tripId, offer: bookingOffer } : null} onClose={() => setBookingOffer(null)} />
     </div>
   );
 }
