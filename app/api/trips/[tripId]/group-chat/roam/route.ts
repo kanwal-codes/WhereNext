@@ -17,7 +17,7 @@ import { recordAiTurn } from "@/lib/server/ai-turn-trace";
 import { estimateTokens, sumCostUsd, type UsageEntry } from "@/lib/ai/pricing";
 import { logger } from "@/lib/server/logger";
 import { createGroupChatRepository } from "@/features/group-chat/infrastructure/groupChatRepository";
-import { mentionsRoam } from "@/features/group-chat/domain/message";
+import { historyThrough, mentionsRoam } from "@/features/group-chat/domain/message";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { tripMemberIdentities } from "@/lib/server/trip-member-identities";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
@@ -74,6 +74,7 @@ async function memberNames(tripId: string): Promise<Map<string, string>> {
  * streaming specifically.
  */
 export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+  const tEnter = performance.now();
   try {
     const { tripId } = await params;
     const { supabase, user } = await requireTripMember(tripId, { registered: true });
@@ -137,7 +138,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     // Chat-completion messages have no per-speaker field, so a human turn folds the sender's
     // name into its content ("Alex: ...") — Roam's own prior replies stay plain "assistant" turns.
     // `prompt` (fed to RESOLVE) stays the raw, unprefixed text of the message that mentioned Roam.
-    const turns = history
+    // Only up to the message being answered: with several members asking at once, later messages in `history` are
+    // other people's questions, and the newest user turn is what COMPOSE answers (see `historyThrough`).
+    const turns = historyThrough(history, target)
       .filter((m) => m.role === "user" || m.role === "assistant")
       .map((m) =>
         m.role === "user"
@@ -159,6 +162,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     }
 
     const t0 = performance.now();
+    // The trace's total_ms starts here, so a slow auth / limiter / context load before this point is otherwise invisible.
+    logger.info({ tripId, preRunMs: Math.round(t0 - tEnter) }, "group-chat roam: starting the turn");
     const result = await runAssistantTurn(
       { supabase, tripId },
       {

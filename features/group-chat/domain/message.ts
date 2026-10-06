@@ -36,3 +36,13 @@ export const GROUP_HISTORY_LIMIT = 200;
 
 /** "@Roam" with nothing after it asks nothing: only a real question is worth sending. */
 export const hasAsk = (text: string) => text.replace(/(^|\s)@roam\b/gi, " ").trim().length > 0;
+
+/** What Roam may read when it answers one specific message: the thread up to and including that message, nothing later.
+ *  Several members can @Roam at once, so by the time a reply is composed the history already holds the others' later
+ *  questions; left in, the newest one becomes "the question" and the reply answers it while the cards (found for the
+ *  target's own text) belong to another. `target` is appended when it has aged out of the fetched page. */
+export function historyThrough<M extends { id: string; created_at: string }>(history: M[], target: M): M[] {
+  const at = history.findIndex((message) => message.id === target.id);
+  if (at >= 0) return history.slice(0, at + 1);
+  return [...history.filter((message) => message.created_at < target.created_at), target];
+}
