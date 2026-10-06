@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, type ReactNode } from "react";
-import { Star, type LucideIcon } from "lucide-react";
+import { MapPin, Star, type LucideIcon } from "lucide-react";
 import { RoamIcon } from "@/features/roam/ui/RoamIcon";
 import { BlurImage } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
@@ -44,6 +44,16 @@ export function CineRating({ rating, count, outOf }: { rating: number; count?: s
       {outOf && <span className="opacity-70">{outOf}</span>}
       {count ? <span className="opacity-70"> {count}</span> : null}
     </CinePill>
+  );
+}
+
+/** Bottom left of a card that has no "why it fits" line: where it is, street and area, so the corner is never empty. */
+export function CineAddress({ address }: { address: string }) {
+  return (
+    <p className="flex gap-1.5 text-[0.8125rem] leading-[1.35] text-white/80">
+      <MapPin className="mt-px size-4 shrink-0 text-coral-soft" aria-hidden />
+      <span className="line-clamp-2">{address.split(",").slice(0, 2).join(",").trim()}</span>
+    </p>
   );
 }
 

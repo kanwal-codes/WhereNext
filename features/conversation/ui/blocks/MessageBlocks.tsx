@@ -48,7 +48,8 @@ import { formatClockTime } from "@/lib/application/clock-time";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { addStopsToItinerary, dayIndexFromLabel, itineraryTitle } from "@/features/conversation/application/addPlanToItinerary";
 import { categoryLabel, eventDayParts, priceLabel } from "@/lib/places-ui";
-import { CINE_ORB, CINE_ORB_WHITE, CINE_PILL_ACTION, CineCard, CineDate, CinePill, CineRating } from "./CineCard";
+import { CINE_ORB, CINE_ORB_WHITE, CINE_PILL_ACTION, CineAddress, CineCard, CineDate, CinePill, CineRating } from "./CineCard";
+import { RouteMap, type RouteMapRequest } from "./RouteMap";
 import { MODE_COLOR } from "@/lib/application/mode-visuals";
 import { HandoffContext, LiveReplyContext, RoamIcon } from "@/features/roam/ui/RoamIcon";
 import { FlightHero, FlightJourney, FlightPicks, FlightPicksSkeleton, FlightRowBody, offerKey, pickFares } from "./FlightWidget";
@@ -217,6 +218,7 @@ function PlaceCardView({
         </>
       }
       why={place.reviewSummary}
+      foot={place.address ? <CineAddress address={place.address} /> : undefined}
       // One control: shortlist (still deciding) → a day (going in the plan) → remove.
       action={<AddToTripControl tripId={tripId} place={toPlace(place)} variant="orb" />}
     />
@@ -1181,13 +1183,31 @@ function RouteSummaryCard({ route, onOpenPanel }: { route: RouteSummaryBlockData
   );
 }
 
-/** 2+ modes between the same two places — one row each, fastest called out, sorted quickest first. */
+/** 2+ modes between the same two places: a real map of every way, then one tab per mode with its routes listed under it. */
 function RouteComparisonCard({ from, to, routes, onOpenPanel }: { from: string; to: string; routes: RouteSummaryBlockData[] } & Pick<BlockHandlers, "onOpenPanel">) {
   const distance = useDistance();
   const sorted = [...routes].sort((a, b) => a.durationSeconds - b.durationSeconds);
   const fastest = sorted[0];
-  const slowest = Math.max(...sorted.map((route) => route.durationSeconds), 1);
   const ends = splitRouteEnds(from, to);
+  // One group per mode, the quickest mode first; each group's routes stay quickest first.
+  const groups = [...new Set(sorted.map((route) => route.mode))].map((mode) => ({ mode, routes: sorted.filter((route) => route.mode === mode) }));
+  const [mode, setMode] = useState(groups[0].mode);
+  const [pick, setPick] = useState(0);
+  const group = groups.find((g) => g.mode === mode) ?? groups[0];
+  const chosen = group.routes[Math.min(pick, group.routes.length - 1)];
+  const minutes = (route: RouteSummaryBlockData) => Math.round(route.durationSeconds / 60);
+  const slowest = Math.max(...group.routes.map((route) => route.durationSeconds), 1);
+  const linesOf = (route: RouteSummaryBlockData) => (route.legs?.length ? route.legs.map((leg) => ({ path: leg.path, color: legColor(leg) })) : route.path ? [{ path: route.path, color: legColor({ mode: route.mode }) }] : []).filter((part) => part.path.length > 1);
+  const chosenLines = linesOf(chosen);
+  const mapRequest: RouteMapRequest | null = chosenLines.length === 0 ? null : {
+    lines: [
+      ...sorted.filter((route) => route !== chosen).flatMap((route) => linesOf(route).map((part) => ({ points: part.path, color: "#9fb3c6", width: 3, opacity: 0.8 }))),
+      ...chosenLines.map((part) => ({ points: part.path, color: "#ffffff", width: 9 })),
+      ...chosenLines.map((part) => ({ points: part.path, color: part.color, width: 5 })),
+    ],
+    pins: [{ at: chosenLines[0].path[0], color: "#27221e" }, { at: chosenLines.at(-1)!.path.at(-1)!, color: "#ec6a3a" }],
+    size: { width: 640, height: 260 },
+  };
   return (
     <Widget
       glyph="route"
@@ -1196,24 +1216,50 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel }: { from: string; 
       title={<RouteEnds from={ends.from} to={ends.to} />}
       status={<WidgetPill tone="lagoon" icon={Check}>{ROUTE_MODE_LABEL[fastest.mode] ?? fastest.mode} is fastest</WidgetPill>}
       foot={onOpenPanel ? "Tap a way to see its steps and map" : "Times are estimates"}
+      action={onOpenPanel ? <WidgetAction onClick={() => onOpenPanel({ kind: "route", routes: sorted, active: sorted.indexOf(chosen) })}>{chosen.path ? "Steps and map" : "Steps"}</WidgetAction> : undefined}
+      hero={mapRequest && (
+        <div className="relative mx-4 mt-3.5 aspect-[640/260] overflow-hidden rounded-[1.125rem] bg-lagoon-soft sm:mx-[1.125rem]">
+          <RouteMap request={mapRequest} label={`The ${ROUTE_MODE_LABEL[chosen.mode] ?? chosen.mode} route from ${from} to ${to}`} fallback={<RouteSketch route={chosen} />} />
+          <span className="absolute top-2.5 left-2.5"><WidgetPill className="bg-white text-ink shadow-soft">{ROUTE_MODE_LABEL[chosen.mode] ?? chosen.mode} · {minutes(chosen)} min</WidgetPill></span>
+        </div>
+      )}
     >
-      <WidgetRows className="mt-3">
-        {sorted.map((route, i) => {
-          const Icon = routeModeIcon(route.mode);
-          const label = `${ROUTE_MODE_LABEL[route.mode] ?? route.mode}, ${Math.round(route.durationSeconds / 60)} minutes: steps and map`;
+      <div role="tablist" aria-label="Ways to travel" className="mx-4 mt-3.5 flex gap-2 sm:mx-[1.125rem]">
+        {groups.map((g) => {
+          const Icon = routeModeIcon(g.mode);
+          const on = g.mode === group.mode;
           return (
-            <WidgetRow
-              key={i}
-              onClick={onOpenPanel ? () => onOpenPanel({ kind: "route", routes: sorted, active: i }) : undefined}
-              label={onOpenPanel ? label : undefined}
-              lead={<span className="grid size-9 shrink-0 place-items-center rounded-xl bg-lagoon-soft text-lagoon" aria-hidden><Icon className="size-[1.125rem]" /></span>}
-              title={<span className="inline-flex items-center gap-1.5">{ROUTE_MODE_LABEL[route.mode] ?? route.mode}{route === fastest ? <WidgetPill tone="sage" className="h-5 text-[0.6875rem]">Fastest</WidgetPill> : Math.round(route.durationSeconds / 60) === Math.round(fastest.durationSeconds / 60) ? <WidgetPill className="h-5 text-[0.6875rem]">Same time</WidgetPill> : null}</span>}
-              detail={route.mode === "transit" && route.steps.length > 0 ? routeLines(route.steps) : undefined}
-              mid={<RowBar frac={route.durationSeconds / slowest} color={route === fastest ? "var(--positive)" : "var(--lagoon)"} />}
-              value={<RowValue sub={`${distance(route.distanceMeters / 1000)}${route.fare ? ` · ${money(route.fare.amount, route.fare.currency)}` : ""}`}>{Math.round(route.durationSeconds / 60)} min</RowValue>}
-            />
+            <button
+              key={g.mode}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              onClick={() => { setMode(g.mode); setPick(0); }}
+              className={cn("flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl border px-3 py-2 text-left transition-colors", on ? "border-ink bg-card ring-1 ring-ink" : "border-border bg-card hover:border-ink/30")}
+            >
+              <Icon className="size-5 shrink-0" aria-hidden />
+              <span className="min-w-0">
+                <span className="block truncate text-[0.9375rem] leading-tight font-medium">{ROUTE_MODE_LABEL[g.mode] ?? g.mode}</span>
+                <span className="block truncate text-xs leading-tight text-muted-foreground tabular-nums">{g.routes.length > 1 ? `${g.routes.length} routes · ${minutes(g.routes[0])} min` : `${minutes(g.routes[0])} min · ${distance(g.routes[0].distanceMeters / 1000)}`}</span>
+              </span>
+              {g.routes[0] === fastest ? <WidgetPill tone="sage" className="ml-auto h-5 text-[0.6875rem] max-sm:hidden">Fastest</WidgetPill> : minutes(g.routes[0]) === minutes(fastest) ? <WidgetPill className="ml-auto h-5 text-[0.6875rem] max-sm:hidden">Same time</WidgetPill> : null}
+            </button>
           );
         })}
+      </div>
+      <WidgetRows className="mt-3">
+        {group.routes.map((route, i) => (
+          <WidgetRow
+            key={i}
+            onClick={() => setPick(i)}
+            label={`${ROUTE_MODE_LABEL[route.mode] ?? route.mode}, ${minutes(route)} minutes: show on the map`}
+            lead={<span className={cn("grid size-9 shrink-0 place-items-center rounded-xl", route === chosen ? "bg-lagoon text-white" : "bg-lagoon-soft text-lagoon")} aria-hidden>{React.createElement(routeModeIcon(route.mode), { className: "size-[1.125rem]" })}</span>}
+            title={<span className="inline-flex items-center gap-1.5">{(route.mode === "transit" && route.steps.length > 0 ? routeLines(route.steps) : null) || ROUTE_MODE_LABEL[route.mode] || route.mode}{group.routes.length > 1 && i === 0 ? <WidgetPill tone="sage" className="h-5 text-[0.6875rem]">Quickest</WidgetPill> : null}</span>}
+            detail={[clockOf(route.departureTime) ? `leaves ${clockOf(route.departureTime)}` : null, route.fare ? money(route.fare.amount, route.fare.currency) : null, distance(route.distanceMeters / 1000)].filter(Boolean).join(" · ")}
+            mid={<RowBar frac={route.durationSeconds / slowest} color={route === fastest ? "var(--positive)" : "var(--lagoon)"} />}
+            value={<RowValue>{minutes(route)} min</RowValue>}
+          />
+        ))}
       </WidgetRows>
     </Widget>
   );
