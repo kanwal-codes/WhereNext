@@ -129,15 +129,15 @@ export function StaySearchBar({ search, tripId, trip, defaultOpen = false }: { s
   return (
     <div className="relative space-y-3 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-soft">
       <PlaceField caption="Where" Icon={MapPin} srLabel="Looking for stays in" label={query.location} endpoint={`/api/trips/${tripId}/places/google/autocomplete`} scope="areas" busy={busy} onPick={search.setLocation} />
-      <div className="grid grid-cols-2 gap-x-2.5 gap-y-3 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2.5">
+      <div className="grid grid-cols-2 gap-x-2.5 gap-y-3 @[34rem]:flex @[34rem]:flex-wrap @[34rem]:items-center @[34rem]:gap-x-4 @[34rem]:gap-y-2.5">
         <DayControl caption="Check in" date={query.checkin} min={min} busy={busy} onPick={search.setCheckin} prevLabel="Check in: previous day" nextLabel="Check in: next day" dateLabel="Check-in date" />
         <DayControl caption="Check out" date={query.checkout} min={shiftIso(query.checkin, 1)} busy={busy} onPick={search.setCheckout} prevLabel="Check out: previous day" nextLabel="Check out: next day" dateLabel="Check-out date" />
-        <div className="col-span-2 flex items-center justify-between gap-3 sm:contents">
-          <span className="pl-1 text-sm tabular-nums text-muted-foreground sm:pl-0">{search.nights} night{search.nights === 1 ? "" : "s"}</span>
+        <div className="col-span-2 flex items-center justify-between gap-3 @[34rem]:contents">
+          <span className="pl-1 text-sm tabular-nums text-muted-foreground @[34rem]:pl-0">{search.nights} night{search.nights === 1 ? "" : "s"}</span>
           <Counter value={query.adults} min={1} max={24} onChange={search.setAdults} noun="guest" disabled={busy} />
         </div>
         {showTrip && (
-          <button type="button" disabled={busy} onClick={() => search.setBoth(trip.start!, trip.end!)} className={cn("col-span-2 h-9 rounded-full px-3 text-sm font-medium text-coral-ink transition-colors hover:bg-coral-soft disabled:opacity-50 max-sm:-ml-3 max-sm:justify-self-start")}>
+          <button type="button" disabled={busy} onClick={() => search.setBoth(trip.start!, trip.end!)} className={cn("col-span-2 h-9 rounded-full px-3 text-sm font-medium text-coral-ink transition-colors hover:bg-coral-soft disabled:opacity-50 @max-[34rem]:-ml-3 @max-[34rem]:justify-self-start")}>
             Trip dates · {prettyDate(trip.start)} – {prettyDate(trip.end)}
           </button>
         )}

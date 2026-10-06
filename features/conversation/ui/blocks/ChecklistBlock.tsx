@@ -87,12 +87,12 @@ export function ChecklistBlock({ groups: given, tripId }: { groups: Groups; trip
         {visible.map((group, gi) => {
           const groupDone = group.items.filter((item) => ticked.has(itemId(gi, item.text))).length;
           return (
-            <section key={group.title} className="px-4 py-3 sm:px-[1.125rem]">
+            <section key={group.title} className="px-4 py-3 @[34rem]:px-[1.125rem]">
               <div className="flex items-baseline justify-between gap-3">
                 <h3 className={type.title}>{group.title}</h3>
                 <span className={cn(type.meta, "tabular-nums")}>{groupDone}/{group.items.length}</span>
               </div>
-              <ul className="mt-1 grid gap-x-6 sm:grid-cols-2">
+              <ul className="mt-1 grid gap-x-6 @[34rem]:grid-cols-2">
                 {group.items.map((item) => {
                   const id = itemId(gi, item.text);
                   const on = ticked.has(id);
@@ -113,7 +113,7 @@ export function ChecklistBlock({ groups: given, tripId }: { groups: Groups; trip
           );
         })}
         {visible.length < groups.length && (
-          <div className="flex items-center justify-between gap-3 px-4 py-3.5 sm:px-[1.125rem]">
+          <div className="flex items-center justify-between gap-3 px-4 py-3.5 @[34rem]:px-[1.125rem]">
             <span className={cn(type.meta, "min-w-0 truncate")}>{groups.length - visible.length} more groups · {groups.slice(visible.length).map((g) => g.title).join(", ")}</span>
             <button type="button" onClick={() => setShowAll(true)} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-border bg-background px-3 text-xs font-medium text-ink-soft hover:border-primary/40 hover:text-foreground">Show all</button>
           </div>

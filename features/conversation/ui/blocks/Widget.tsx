@@ -78,8 +78,8 @@ export function Widget({
   label?: string;
 }) {
   return (
-    <section aria-label={label} className={cn("roam-widget relative overflow-hidden rounded-3xl border border-border bg-card shadow-widget", className)}>
-      <header className="flex items-center gap-3 px-4 pt-4 sm:px-[1.125rem]">
+    <section aria-label={label} className={cn("roam-widget @container relative overflow-hidden rounded-3xl border border-border bg-card shadow-widget", className)}>
+      <header className="flex items-center gap-3 px-4 pt-4 @[34rem]:px-[1.125rem]">
         <span className={cn("grid size-10 shrink-0 place-items-center rounded-[0.8125rem]", CHIP[tone])} aria-hidden>
           {glyph ? <RoamIcon name={glyph} size={26} /> : Icon ? <Icon className="size-5" /> : null}
         </span>
@@ -87,9 +87,9 @@ export function Widget({
           {eyebrow && <p className="eyebrow truncate">{eyebrow}</p>}
           <h3 className="font-display text-[1.1875rem] leading-6 font-medium tracking-[-0.012em] text-balance">{title}</h3>
         </div>
-        {status && <div className="flex shrink-0 items-center gap-2 max-sm:hidden">{status}</div>}
+        {status && <div className="flex shrink-0 items-center gap-2 @max-[34rem]:hidden">{status}</div>}
       </header>
-      {status && <div className="flex flex-wrap items-center gap-2 px-4 pt-2.5 sm:hidden">{status}</div>}
+      {status && <div className="flex flex-wrap items-center gap-2 px-4 pt-2.5 @[34rem]:hidden">{status}</div>}
       {hero}
       {children}
       {(foot || action) && <WidgetFoot foot={foot} action={action} />}
@@ -100,7 +100,7 @@ export function Widget({
 /** The foot of a widget: a one-line caveat on the left, the one next step on the right. */
 export function WidgetFoot({ foot, action }: { foot?: ReactNode; action?: ReactNode }) {
   return (
-    <footer className="mt-1 flex items-center justify-between gap-4 border-t border-border bg-surface px-4 py-3 sm:px-[1.125rem]">
+    <footer className="mt-1 flex items-center justify-between gap-4 border-t border-border bg-surface px-4 py-3 @[34rem]:px-[1.125rem]">
       <div className="flex min-w-0 flex-1 items-start gap-1.5 text-[0.78125rem] leading-[1.35] text-muted-foreground">{foot}</div>
       {action && <div className="shrink-0">{action}</div>}
     </footer>
@@ -109,14 +109,14 @@ export function WidgetFoot({ foot, action }: { foot?: ReactNode; action?: ReactN
 
 /** The tinted band that holds the widget's single figure or visual. */
 export function WidgetHero({ tone = "coral", className, children }: { tone?: WidgetTone; className?: string; children: ReactNode }) {
-  return <div className={cn("mx-4 mt-3.5 rounded-[1.125rem] p-4 sm:mx-[1.125rem] sm:px-[1.375rem] sm:py-[1.125rem]", HERO[tone], className)}>{children}</div>;
+  return <div className={cn("mx-4 mt-3.5 rounded-[1.125rem] p-4 @[34rem]:mx-[1.125rem] @[34rem]:px-[1.375rem] @[34rem]:py-[1.125rem]", HERO[tone], className)}>{children}</div>;
 }
 
 /** The big number: a price, a temperature, a duration. */
 export function WidgetFigure({ children, unit, className }: { children: ReactNode; unit?: ReactNode; className?: string }) {
   return (
     <span className={cn("inline-flex items-baseline gap-1.5", className)}>
-      <span className="font-display text-[3rem] leading-[1] font-medium tracking-[-0.04em] tabular-nums sm:text-[3.5rem]">{children}</span>
+      <span className="font-display text-[3rem] leading-[1] font-medium tracking-[-0.04em] tabular-nums @[34rem]:text-[3.5rem]">{children}</span>
       {unit && <span className="text-base text-ink-soft">{unit}</span>}
     </span>
   );
@@ -130,15 +130,15 @@ export function WidgetRow({ lead, title, detail, mid, value, className, onClick,
   const body = (
     <>
       {lead}
-      <div className="min-w-0 flex-1 sm:flex-none sm:basis-[34%]">
+      <div className="min-w-0 flex-1 @[34rem]:flex-none @[34rem]:basis-[34%]">
         <p className="truncate text-[0.9375rem] leading-snug font-medium">{title}</p>
         {detail && <p className="truncate text-xs leading-snug text-muted-foreground">{detail}</p>}
       </div>
-      {mid && <div className="hidden min-w-0 flex-1 sm:block">{mid}</div>}
+      {mid && <div className="hidden min-w-0 flex-1 @[34rem]:block">{mid}</div>}
       {value && <div className="shrink-0 text-right">{value}</div>}
     </>
   );
-  const cls = cn("flex items-center gap-3.5 px-4 py-3 sm:px-[1.125rem]", onClick && "w-full text-left transition-colors hover:bg-accent/40", className);
+  const cls = cn("flex items-center gap-3.5 px-4 py-3 @[34rem]:px-[1.125rem]", onClick && "w-full text-left transition-colors hover:bg-accent/40", className);
   return onClick ? <button type="button" onClick={onClick} aria-label={label} className={cls}>{body}</button> : <div className={cls}>{body}</div>;
 }
 

@@ -70,8 +70,8 @@ const NIGHT_SKY = "bg-[linear-gradient(180deg,#0f1a2b_0%,#1e2a44_38%,#7a3a45_74%
 /** The route as a night sky: the two ends large, an arc between them, the shortest time over it. */
 export function FlightHero({ eyebrow, title, from, to, duration, dim = false, chip, right }: { eyebrow: ReactNode; title: ReactNode; from: { code: string; name: string }; to: { code: string; name: string }; duration: number; dim?: boolean; chip?: ReactNode; right?: ReactNode }) {
   const end = (e: { code: string; name: string }, align: "left" | "right") => (
-    <div className={cn("absolute bottom-[3.5rem] min-w-0 max-w-[40%] text-white", align === "left" ? "left-5 sm:left-[1.625rem]" : "right-5 text-right sm:right-[1.625rem]")}>
-      <p className="font-display text-[2rem] leading-none font-medium tracking-[-0.03em] sm:text-[2.5rem]">{e.code}</p>
+    <div className={cn("absolute bottom-[3.5rem] min-w-0 max-w-[40%] text-white", align === "left" ? "left-5 @[34rem]:left-[1.625rem]" : "right-5 text-right @[34rem]:right-[1.625rem]")}>
+      <p className="font-display text-[2rem] leading-none font-medium tracking-[-0.03em] @[34rem]:text-[2.5rem]">{e.code}</p>
       <p className="mt-1.5 truncate text-[0.8125rem] text-white/70">{e.name}</p>
     </div>
   );
@@ -85,10 +85,10 @@ export function FlightHero({ eyebrow, title, from, to, duration, dim = false, ch
         <circle cx="540" cy="184" r="5.5" fill="white" fillOpacity="0.6" />
         <path d="M204 86l3.2 7.4 7.4 2.3-7.4 3.2-3.2 7.4-3.2-7.4-7.4-3.2 7.4-2.3z" fill="white" />
       </svg>
-      <div className="absolute inset-x-5 top-5 flex items-start justify-between gap-3 text-white sm:inset-x-[1.625rem]">
+      <div className="absolute inset-x-5 top-5 flex items-start justify-between gap-3 text-white @[34rem]:inset-x-[1.625rem]">
         <div className="min-w-0">
           <p className="eyebrow truncate text-white/70!">{eyebrow}</p>
-          <h3 className="mt-1 font-display text-[1.5rem] leading-[1.15] font-medium tracking-[-0.022em] text-balance sm:text-[1.75rem]">{title}</h3>
+          <h3 className="mt-1 font-display text-[1.5rem] leading-[1.15] font-medium tracking-[-0.022em] text-balance @[34rem]:text-[1.75rem]">{title}</h3>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
           {chip}
@@ -97,7 +97,7 @@ export function FlightHero({ eyebrow, title, from, to, duration, dim = false, ch
       </div>
       {end(from, "left")}
       {end(to, "right")}
-      {duration > 0 && <p className="absolute bottom-[5.25rem] left-1/2 -translate-x-1/2 text-center text-[0.8125rem] text-white/65 max-sm:hidden"><b className="font-display text-[1.0625rem] font-medium text-white">{hoursMinutes(duration)}</b> shortest</p>}
+      {duration > 0 && <p className="absolute bottom-[5.25rem] left-1/2 -translate-x-1/2 text-center text-[0.8125rem] text-white/65 @max-[34rem]:hidden"><b className="font-display text-[1.0625rem] font-medium text-white">{hoursMinutes(duration)}</b> shortest</p>}
     </div>
   );
 }
@@ -107,7 +107,7 @@ export function FlightPicks({ picks, selected, onSelect, roundTrip }: { picks: F
   if (picks.length === 1 && picks[0].labels[0] === "The only option") {
     const o = picks[0].offer;
     return (
-      <div className="relative z-[1] mx-4 -mt-10 sm:mx-5">
+      <div className="relative z-[1] mx-4 -mt-10 @[34rem]:mx-5">
         <div className="flex items-center gap-3 rounded-[1.25rem] border-2 border-coral bg-card px-4 py-3.5 shadow-lift">
           <AirlineMark offer={o} className="size-8" />
           <div className="min-w-0 flex-1">
@@ -120,7 +120,7 @@ export function FlightPicks({ picks, selected, onSelect, roundTrip }: { picks: F
     );
   }
   return (
-    <div className="relative z-[1] mx-4 -mt-10 flex gap-2.5 sm:mx-5">
+    <div className="relative z-[1] mx-4 -mt-10 flex gap-2.5 @[34rem]:mx-5">
       {picks.map((pick) => {
         const key = offerKey(pick.offer);
         const on = selected === key;
@@ -148,7 +148,7 @@ export function FlightPicks({ picks, selected, onSelect, roundTrip }: { picks: F
 /** The same shapes as the picks, while a search is on its way. */
 export function FlightPicksSkeleton() {
   return (
-    <div aria-hidden className="relative z-[1] mx-4 -mt-10 flex gap-2.5 sm:mx-5">
+    <div aria-hidden className="relative z-[1] mx-4 -mt-10 flex gap-2.5 @[34rem]:mx-5">
       {[0, 1, 2].map((i) => (
         <div key={i} className="min-w-0 flex-1 rounded-[1.25rem] border border-white/80 bg-card/80 px-3.5 py-3">
           <span className="block h-2.5 w-12 rounded bg-muted" />
@@ -220,9 +220,9 @@ export function FlightJourney({ offer, labels, roundTrip, onDetails, tripCurrenc
   const converted = offer.listedCurrency && offer.listedCurrency !== offer.currency;
   const cabin = offer.cabinClass && !/^economy$/i.test(offer.cabinClass) ? offer.cabinClass : null;
   return (
-    <div className="mx-4 mt-4 overflow-hidden rounded-[1.5rem] border border-border sm:mx-5" role="region" aria-label={`${offer.airline} journey`}>
-      <div className="flex flex-col sm:flex-row">
-        <div className="flex min-w-0 flex-1 flex-col gap-3 p-4 sm:p-5">
+    <div className="mx-4 mt-4 overflow-hidden rounded-[1.5rem] border border-border @[34rem]:mx-5" role="region" aria-label={`${offer.airline} journey`}>
+      <div className="flex flex-col @[34rem]:flex-row">
+        <div className="flex min-w-0 flex-1 flex-col gap-3 p-4 @[34rem]:p-5">
           <div className="flex flex-wrap gap-2">
             {labels.map((l) => <WidgetPill key={l} tone={l === "Cheapest" ? "sage" : l === "Fastest" ? "lagoon" : "coral"}>{l}</WidgetPill>)}
             {cabin && <WidgetPill tone="lagoon">{cabin}</WidgetPill>}
@@ -256,7 +256,7 @@ export function FlightJourney({ offer, labels, roundTrip, onDetails, tripCurrenc
           )}
           <Node end time={clockOf(legs[legs.length - 1]?.arriveAt ?? offer.arriveAt)} code={legs[legs.length - 1]?.to || offer.destinationAirport} name={legs[legs.length - 1]?.toName} note={prettyDate(offer.arriveAt.slice(0, 10))} plus={plus} />
         </div>
-        <div className="flex shrink-0 flex-col gap-4 border-t border-border bg-surface p-4 sm:w-[15rem] sm:border-t-0 sm:border-l sm:p-5">
+        <div className="flex shrink-0 flex-col gap-4 border-t border-border bg-surface p-4 @[34rem]:w-[15rem] @[34rem]:border-t-0 @[34rem]:border-l @[34rem]:p-5">
           <div>
             <p className="eyebrow">{roundTrip ? "Round trip · per person" : "Per person"}</p>
             <p className="mt-1.5 font-display text-[2.25rem] leading-none font-medium tracking-[-0.035em] tabular-nums">{converted && <span className="mr-1 text-xl text-muted-foreground" title={`Converted from ${money(offer.listedPrice ?? "", offer.listedCurrency ?? "", true)} at today’s rate`}>≈</span>}{money(offer.price, offer.currency, true)}</p>
@@ -293,11 +293,11 @@ export function FlightRowBody({ offer, roundTrip, cheapest, selected, onDetails 
   return (
     <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
       <AirlineMark offer={offer} className="size-9 shrink-0" />
-      <div className="min-w-0 basis-28 sm:w-[7.25rem] sm:flex-none">
+      <div className="min-w-0 flex-1 @[34rem]:w-[7.25rem] @[34rem]:flex-none">
         <p className="line-clamp-2 text-[0.9375rem] leading-[1.2] font-medium">{offer.airline}</p>
         {cheapest ? <WidgetPill tone="sage" className="mt-0.5 h-5 text-[0.6875rem]">Cheapest</WidgetPill> : <p className={cn(type.meta, "truncate")}>{[offer.cabinClass, offer.flightNumbers?.slice(0, 2).join(" · ")].filter(Boolean).join(" · ") || offer.originAirport}</p>}
       </div>
-      <div className="order-last flex w-full min-w-0 items-center gap-3 sm:order-none sm:w-auto sm:flex-1">
+      <div className="order-last flex w-full min-w-0 items-center gap-3 @[34rem]:order-none @[34rem]:w-auto @[34rem]:flex-1">
         <p className="font-display text-base font-medium tabular-nums whitespace-nowrap">{clockOf(offer.departAt)}</p>
         <div className="min-w-0 flex-1">
           <p className="flex justify-between gap-2 text-xs text-ink-soft tabular-nums"><span>{offer.durationMinutes > 0 ? hoursMinutes(offer.durationMinutes) : ""}</span><span className="truncate">{stops === 0 ? "nonstop" : `${stops} stop${stops > 1 ? "s" : ""}${via}`}</span></p>

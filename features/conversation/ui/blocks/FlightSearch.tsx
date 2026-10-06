@@ -153,9 +153,9 @@ export function FlightSearchBar({ search, tripId, trip, routeOpen, onRouteDone }
             exit={reduce ? undefined : { height: 0, opacity: 0, overflow: "hidden" }}
             transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
           >
-            <div className="relative grid rounded-2xl border border-border bg-card shadow-soft sm:grid-cols-2">
-              <PlaceField variant="panel" className="max-sm:rounded-t-2xl sm:rounded-l-2xl sm:[&>button]:pr-8 sm:[&>div]:pr-8" caption="From" Icon={PlaneTakeoff} srLabel="Flying from" label={query.fromLabel} code={codeOf(query.fromId)} endpoint={`/api/trips/${tripId}/flights/places`} busy={busy} onPick={(v) => { search.setFrom(v); onRouteDone(); }} />
-              <PlaceField variant="panel" className="border-t border-border max-sm:rounded-b-2xl sm:rounded-r-2xl sm:border-l sm:border-t-0 sm:[&>button]:pl-8 sm:[&>div]:pl-8" caption="To" Icon={PlaneLanding} srLabel="Flying to" label={query.toLabel} code={codeOf(query.toId)} endpoint={`/api/trips/${tripId}/flights/places`} busy={busy} onPick={(v) => { search.setTo(v); onRouteDone(); }} />
+            <div className="relative grid rounded-2xl border border-border bg-card shadow-soft @[34rem]:grid-cols-2">
+              <PlaceField variant="panel" className="@max-[34rem]:rounded-t-2xl @[34rem]:rounded-l-2xl @[34rem]:[&>button]:pr-8 @[34rem]:[&>div]:pr-8" caption="From" Icon={PlaneTakeoff} srLabel="Flying from" label={query.fromLabel} code={codeOf(query.fromId)} endpoint={`/api/trips/${tripId}/flights/places`} busy={busy} onPick={(v) => { search.setFrom(v); onRouteDone(); }} />
+              <PlaceField variant="panel" className="border-t border-border @max-[34rem]:rounded-b-2xl @[34rem]:rounded-r-2xl @[34rem]:border-l @[34rem]:border-t-0 @[34rem]:[&>button]:pl-8 @[34rem]:[&>div]:pl-8" caption="To" Icon={PlaneLanding} srLabel="Flying to" label={query.toLabel} code={codeOf(query.toId)} endpoint={`/api/trips/${tripId}/flights/places`} busy={busy} onPick={(v) => { search.setTo(v); onRouteDone(); }} />
               <button
                 type="button"
                 onClick={() => {
@@ -165,9 +165,9 @@ export function FlightSearchBar({ search, tripId, trip, routeOpen, onRouteDone }
                 }}
                 disabled={busy}
                 aria-label="Swap from and to"
-                className="absolute z-10 grid size-9 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-soft transition-[color,border-color,transform] hover:border-foreground/25 hover:text-foreground active:scale-90 disabled:pointer-events-none disabled:opacity-50 max-sm:right-4 max-sm:top-1/2 max-sm:-translate-y-1/2 sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2"
+                className="absolute z-10 grid size-9 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-soft transition-[color,border-color,transform] hover:border-foreground/25 hover:text-foreground active:scale-90 disabled:pointer-events-none disabled:opacity-50 @max-[34rem]:right-4 @max-[34rem]:top-1/2 @max-[34rem]:-translate-y-1/2 @[34rem]:left-1/2 @[34rem]:top-1/2 @[34rem]:-translate-x-1/2 @[34rem]:-translate-y-1/2"
               >
-                <motion.span animate={{ rotate: turn * 180 }} transition={{ duration: reduce ? 0 : 0.4, ease: [0.22, 1, 0.36, 1] }} className="grid place-items-center max-sm:rotate-90">
+                <motion.span animate={{ rotate: turn * 180 }} transition={{ duration: reduce ? 0 : 0.4, ease: [0.22, 1, 0.36, 1] }} className="grid place-items-center @max-[34rem]:rotate-90">
                   <ArrowLeftRight className="size-4" aria-hidden />
                 </motion.span>
               </button>
@@ -186,7 +186,7 @@ export function FlightSearchBar({ search, tripId, trip, routeOpen, onRouteDone }
       </div>
 
       {/* When: the same day pills the stays card uses; with no return, the second one is the way to add it. */}
-      <div className="grid grid-cols-2 gap-x-2.5 gap-y-3 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2.5">
+      <div className="grid grid-cols-2 gap-x-2.5 gap-y-3 @[34rem]:flex @[34rem]:flex-wrap @[34rem]:items-center @[34rem]:gap-x-4 @[34rem]:gap-y-2.5">
         <DayControl caption="Depart" date={query.depart} min={min} busy={busy} onPick={search.setDepart} prevLabel="Depart: previous day" nextLabel="Depart: next day" dateLabel="Departure date" />
         <AnimatePresence initial={false} mode="popLayout">
           {round ? (
@@ -203,7 +203,7 @@ export function FlightSearchBar({ search, tripId, trip, routeOpen, onRouteDone }
               animate={{ opacity: 1, y: 0 }}
               exit={reduce ? undefined : { opacity: 0, y: -6 }}
               transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-dashed border-border px-3.5 text-sm max-sm:h-11 max-sm:self-end font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-muted/50 hover:text-foreground disabled:opacity-50"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-dashed border-border px-3.5 text-sm @max-[34rem]:h-11 @max-[34rem]:self-end font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-muted/50 hover:text-foreground disabled:opacity-50"
             >
               <Plus className="size-4" aria-hidden /> Add return
             </motion.button>
@@ -225,7 +225,7 @@ export function PriceInsight({ insights, currency }: { insights: Insights; curre
     <div className={cn("flex items-center gap-2.5 border-b border-border px-4 py-2.5 text-sm", tone.cls)} role="note">
       <tone.Icon className="size-4 shrink-0" aria-hidden />
       <span className="font-medium">{tone.text}</span>
-      {usual && <span className="ml-auto hidden text-xs opacity-80 sm:inline">{usual}</span>}
+      {usual && <span className="ml-auto hidden text-xs opacity-80 @[34rem]:inline">{usual}</span>}
     </div>
   );
 }
