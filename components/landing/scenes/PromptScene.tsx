@@ -23,8 +23,7 @@ export function PromptScene() {
         </span>
       </h1>
       <p className="bp-sub">
-        Tell Roam where you’re headed, or just how you want it to feel. Roam plans
-        the rest.
+        Say where, or just how it should feel. Roam plans the rest.
       </p>
       <BoardingPass />
       {/* A quiet cue for people who came to read: hidden on short windows, still under reduced motion. */}
