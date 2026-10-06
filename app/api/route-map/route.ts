@@ -8,7 +8,7 @@ import { clientKey } from "@/lib/server/guest";
 const point = z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]);
 const color = z.string().regex(/^#?[0-9a-fA-F]{6}$/);
 const body = z.object({
-  lines: z.array(z.object({ points: z.array(point).min(2).max(120), color, width: z.number().min(1).max(12), opacity: z.number().min(0).max(1).optional() })).min(1).max(16),
+  lines: z.array(z.object({ points: z.array(point).min(2).max(400), color, width: z.number().min(1).max(12), opacity: z.number().min(0).max(1).optional() })).min(1).max(64),
   pins: z.array(z.object({ at: point, color })).max(2),
   size: z.object({ width: z.number().min(200).max(900), height: z.number().min(100).max(600) }),
 });

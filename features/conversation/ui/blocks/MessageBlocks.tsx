@@ -1201,7 +1201,8 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel }: { from: string; 
   const chosenLines = linesOf(chosen);
   const mapRequest: RouteMapRequest | null = chosenLines.length === 0 ? null : {
     lines: [
-      ...sorted.filter((route) => route !== chosen).flatMap((route) => linesOf(route).map((part) => ({ points: part.path, color: "#9fb3c6", width: 3, opacity: 0.8 }))),
+      // The other ways: one faint line each (a transit route is several legs, but only the chosen one needs them drawn apart).
+      ...sorted.filter((route) => route !== chosen).map((route) => ({ points: route.path && route.path.length > 1 ? route.path : linesOf(route).flatMap((part) => part.path), color: "#9fb3c6", width: 3, opacity: 0.8 })).filter((line) => line.points.length > 1),
       ...chosenLines.map((part) => ({ points: part.path, color: "#ffffff", width: 9 })),
       ...chosenLines.map((part) => ({ points: part.path, color: part.color, width: 5 })),
     ],
