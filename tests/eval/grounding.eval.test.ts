@@ -128,7 +128,7 @@ describe("grounding eval", () => {
     listRows[0].content = "hotels near the old port";
 
     const { bodyText } = await turn("hotels near the old port");
-    expect(bodyText.toLowerCase()).toMatch(/couldn.?t verify|no verified|nothing/);
+    expect(bodyText.toLowerCase()).toMatch(/couldn.?t pull up solid results|couldn.?t verify|no verified|nothing/);
     expect(streamTextMock).not.toHaveBeenCalled();
   });
 });

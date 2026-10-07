@@ -133,6 +133,8 @@ export function GroupChatSurface({
   const nearBottomRef = useRef(true);
   const lastIdRef = useRef<string | null>(null);
   const [unseen, setUnseen] = useState(false);
+  // Far above the newest message: offer a way straight back (same pill as the Roam chat).
+  const [away, setAway] = useState(false);
   // Roam asks (anyone's) that are still waiting for a reply.
   const [waitingIds, setWaitingIds] = useState<string[]>([]);
   const [reactingTo, setReactingTo] = useState<string | null>(null);
@@ -320,6 +322,8 @@ export function GroupChatSurface({
     const near = el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX;
     nearBottomRef.current = near;
     if (near) setUnseen(false);
+    const farAway = el.scrollHeight - el.clientHeight - el.scrollTop > el.clientHeight * 1.2;
+    setAway((current) => (current === farAway ? current : farAway));
     onLogScroll?.(event);
   }
 
@@ -1148,7 +1152,26 @@ export function GroupChatSurface({
       )}
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-3 pb-3">
-        <div className={cn("pointer-events-auto mx-auto w-full", rail ? RAIL_MEASURE : "max-w-2xl")}>
+        <div className={cn("pointer-events-auto relative mx-auto w-full", rail ? RAIL_MEASURE : "max-w-2xl")}>
+          <AnimatePresence>
+            {away && !unseen && (
+              <motion.button
+                key="latest"
+                type="button"
+                onClick={scrollToEnd}
+                aria-label="Jump to latest message"
+                initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 6, scale: 0.97 }}
+                transition={{ duration: 0.2 }}
+                whileTap={{ scale: 0.97 }}
+                className="absolute inset-x-0 bottom-full mx-auto mb-2 flex w-fit items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-ink-soft shadow-lift transition-colors hover:text-ink"
+              >
+                <ArrowDown className="size-3.5" aria-hidden />
+                Latest
+              </motion.button>
+            )}
+          </AnimatePresence>
           <form
             onSubmit={(event: FormEvent) => {
               event.preventDefault();

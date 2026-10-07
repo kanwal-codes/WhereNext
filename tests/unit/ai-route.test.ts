@@ -367,7 +367,7 @@ describe("POST /api/ai", () => {
   it("falls back cleanly when a tool plan returns nothing", async () => {
     const response = await post();
     const { body } = await readMeta(response);
-    expect(body).toContain("couldn't verify");
+    expect(body).toContain("couldn't pull up solid results");
     expect(streamTextMock).not.toHaveBeenCalled();
   });
 
