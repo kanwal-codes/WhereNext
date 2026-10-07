@@ -246,9 +246,7 @@ export async function retrieveEvidence(
     // search is unaffected, since those results come from the separate `stays` tool/ctx.stays,
     // never through here.
     const venuesOnly = accessible.filter((place) => classifyPlaceVibe({ primaryType: place.category, name: place.name }).vibe !== "lodging");
-    // The place search was written for this question, so the provider's order (most relevant first) is the answer to it: ranking by how well known a place is
-    // would put a casino above the rooftop bar that was asked for. Dislikes still drop places.
-    const ranked = rankPlaces(venuesOnly, { interests: filters.interests, likes: filters.likes, dislikes: filters.dislikes, providerOrder: true }).map((r) => r.place);
+    const ranked = rankPlaces(venuesOnly, { interests: filters.interests, likes: filters.likes, dislikes: filters.dislikes }).map((r) => r.place);
     return Array.from(new Map(ranked.map((place) => [`${place.provider}:${place.name.trim().toLowerCase()}`, place])).values()).slice(0, limit);
   };
   const uniquePlaces = filterAndRank(places, 12);
