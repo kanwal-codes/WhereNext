@@ -8,6 +8,7 @@ import { AuthShell, Divider, Field, SubmitButton, inputClass } from "@/component
 import { GoogleAuthButton } from "@/features/identity/ui/GoogleAuthButton";
 import { signUp } from "@/features/identity/application/authClient";
 import { safeRedirect } from "@/lib/client/safe-redirect";
+import { authErrorText } from "@/features/identity/application/saveErrors";
 
 function strengthOf(pw: string) {
   let score = 0;
@@ -50,7 +51,7 @@ export default function SignUpPage() {
     const callback = `${location.origin}/auth-callback${redirect ? `?next=${encodeURIComponent(redirect)}` : ""}`;
     const result = await signUp(email, pw, callback);
     if (result.error) {
-      setError(result.error.message);
+      setError(authErrorText(result.error));
       setLoading(false);
       return;
     }
