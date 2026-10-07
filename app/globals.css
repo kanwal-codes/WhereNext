@@ -1020,12 +1020,15 @@
   bottom: calc(var(--tabbar) + 0.75rem);
   z-index: 20;
   margin-top: auto;
+  /* The page wrapper has 2.5rem of padding under the column. Without this the bar sat that much higher once you scrolled to the very end
+     (28px higher on a phone) than it does everywhere else, instead of staying put just above the tab bar. */
+  margin-bottom: -1.75rem;
   padding-top: 2.5rem;
   display: flex;
   justify-content: center;
   pointer-events: none;
 }
-@media (min-width: 1024px) { .ask-dock { bottom: 1.25rem; } }
+@media (min-width: 1024px) { .ask-dock { bottom: 1.25rem; margin-bottom: -1.25rem; } }
 .ask-dock::before {
   content: "";
   position: absolute;
