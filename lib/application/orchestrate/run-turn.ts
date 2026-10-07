@@ -17,6 +17,7 @@ import { weatherCardFromForecast, weatherCardFromSeasonal, type WeatherCard } fr
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 import { applyTripUpdate, buildProposedProfileCommand } from "@/lib/application/orchestrate/trip-update-handling";
 import { selectBlocks } from "@/lib/application/orchestrate/block-selection";
+import { cardLeadIn, looksLikePlainLookup } from "@/lib/application/orchestrate/card-lead-in";
 import { asksForOverview, buildTripSummary } from "@/lib/application/trip-summary";
 import { buildComposeSystemPrompt } from "@/lib/application/orchestrate/system-prompt-builder";
 import { daysUntilTrip } from "@/lib/trip-dates";
@@ -606,6 +607,15 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
 
   const proposedCommand = buildProposedProfileCommand(tripId, resolved, allowPreferenceLearning);
 
+  // When the cards alone answer a plain lookup, a model-written paragraph would only repeat them (and costs the whole COMPOSE
+  // call): a one-line lead-in is the reply. Only when nothing else needs saying — grounded, English, no web sources to weigh,
+  // no provider that failed, no trip change to report — and exactly one kind of card is shown (see `cardLeadIn`).
+  const firstPlaceQuery = resolved.toolPlan.find((call) => call.tool === "search_places");
+  const leadIn =
+    !composeSkipLine && (resolved.cardsAnswer || looksLikePlainLookup(prompt)) && hasGrounding && !tripUpdateReceipt && language.toLowerCase().startsWith("en") && compactSources.length === 0 && evidence.unavailableProviders.length === 0
+      ? cardLeadIn(blocks, locationFocus, firstPlaceQuery && firstPlaceQuery.tool === "search_places" ? firstPlaceQuery.query : null)
+      : null;
+
   const meta: AssistantTurnMeta = {
     language,
     locationFocus,
@@ -628,7 +638,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
     resolved,
     tripCtx,
     system,
-    composeSkipLine,
+    composeSkipLine: composeSkipLine ?? leadIn,
     composeTools,
     toolEvidence,
     meta,
