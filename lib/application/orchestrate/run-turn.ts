@@ -17,7 +17,7 @@ import { weatherCardFromForecast, weatherCardFromSeasonal, type WeatherCard } fr
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 import { applyTripUpdate, buildProposedProfileCommand } from "@/lib/application/orchestrate/trip-update-handling";
 import { selectBlocks } from "@/lib/application/orchestrate/block-selection";
-import { cardLeadIn, looksLikePlainLookup } from "@/lib/application/orchestrate/card-lead-in";
+import { cardLeadIn, looksLikePlainLookup, tripUpdateLeadIn } from "@/lib/application/orchestrate/card-lead-in";
 import { asksForOverview, buildTripSummary } from "@/lib/application/trip-summary";
 import { buildComposeSystemPrompt } from "@/lib/application/orchestrate/system-prompt-builder";
 import { daysUntilTrip } from "@/lib/trip-dates";
@@ -618,6 +618,15 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
       ? cardLeadIn(blocks, locationFocus, firstPlaceQuery && firstPlaceQuery.tool === "search_places" ? firstPlaceQuery.query : null)
       : null;
 
+  // A plain "we go Sep 30 to Oct 6": the receipt card says what changed, so confirm in a line instead of writing a reply. Only when the
+  // message asked nothing else (no question, no lookup, no plan) and RESOLVE sees nothing to retrieve or build.
+  const receiptLine =
+    !composeSkipLine && !leadIn && tripUpdateReceipt && resolved.toolPlan.length === 0 && resolved.capabilities.length === 0 && (resolved.intent === "other" || resolved.intent === "trip_memory")
+    && !prompt.includes("?") && language.toLowerCase().startsWith("en") && compactSources.length === 0
+      ? tripUpdateLeadIn(blocks)
+      : null;
+  const leadInLine = leadIn ?? receiptLine;
+
   const meta: AssistantTurnMeta = {
     language,
     locationFocus,
@@ -640,8 +649,8 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
     resolved,
     tripCtx,
     system,
-    composeSkipLine: composeSkipLine ?? leadIn,
-    composeSkipIsLeadIn: !composeSkipLine && leadIn !== null,
+    composeSkipLine: composeSkipLine ?? leadInLine,
+    composeSkipIsLeadIn: !composeSkipLine && leadInLine !== null,
     composeTools,
     toolEvidence,
     meta,

@@ -56,6 +56,18 @@ Keys you may use:
 - modes: array from ["flight","train","bus","transit","drive","walk","ferry"] — ONLY the modes they asked for. "on a flight" -> ["flight"]. "cheapest way" or nothing specific -> omit (means "all").`;
 }
 
+// Words that turn a keyword into a filter or a place ("near the basilica", "cheap ramen", "open now"): the model has to read those.
+const FILTERING = /\b(near|nearby|around|close|closest|in|at|by|within|under|over|below|above|cheap\w*|best|good|top|free|open|now|tonight|today|tomorrow|with|without|for|that|which|not|no|only|less|more|than|and|or)\b/i;
+
+/** A bare keyword search ("ramen", "rooftop bars", "record shops"): in Discover it means exactly "search for this", which is what the model
+ *  would return as `freeText`, so it is answered without a model call. Anything with a filter or a place in it still goes to the model. */
+export function plainDiscoverQuery(query: string): AiSearchDirective | null {
+  const text = query.trim().replace(/\s+/g, " ");
+  if (text.length < 2 || text.length > 40 || text.split(" ").length > 4) return null;
+  if (!/^[\p{L}][\p{L}'’&-]*(?: (?:[\p{L}][\p{L}'’&-]*|&))*$/u.test(text) || FILTERING.test(text)) return null;
+  return { freeText: text, interpretation: `Searching for “${text}”` };
+}
+
 /** One structured model call: free-text search -> a typed directive. Never throws; returns {} on failure. */
 export async function parseAiSearch(
   scope: AiSearchScope,
@@ -63,6 +75,10 @@ export async function parseAiSearch(
   ctx: { destination?: string; origin?: string; categories?: string[] },
   signal?: AbortSignal,
 ): Promise<AiSearchDirective> {
+  if (scope === "discover") {
+    const plain = plainDiscoverQuery(query);
+    if (plain) return plain;
+  }
   try {
     return await generateStructured(
       "resolve",
