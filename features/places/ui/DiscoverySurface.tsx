@@ -474,10 +474,11 @@ export function DiscoverySurface({
     );
   };
 
-  const grid = "grid gap-4 sm:grid-cols-2 xl:grid-cols-3";
+  // Columns follow the width of this area, not the window, so an open side panel does not squeeze the cards. About 260px each at four across.
+  const grid = "grid gap-4 sm:grid-cols-2 @[46rem]:grid-cols-3 @[62rem]:grid-cols-4";
 
   return (
-    <div className="flex min-h-[calc(100dvh-13rem)] flex-col">
+    <div className="@container flex min-h-[calc(100dvh-13rem)] flex-col">
       {/* Tier 1 — Compare + broad categories (Discover/Saved lives in the page header now). One row, scrolls sideways. */}
       {view === "results" && (!searchMode || panelCtx || searchLabel) && (
         <div className="mt-4 flex items-center gap-2 overflow-x-auto overscroll-x-contain scrollbar-slim px-1 py-1">
@@ -576,7 +577,7 @@ export function DiscoverySurface({
       <div className="relative">
         <SwapView id={loading && gridItems.length === 0 && (bands === null || gridView) ? "skeleton" : gridView ? "grid" : loading && !bands ? "digest-loading" : "digest"}>
       {loading && gridItems.length === 0 && (bands === null || gridView) ? (
-        <SkeletonCards count={6} className={cn("mt-5", !gridView && "grid-cols-2 sm:grid-cols-3")} />
+        <SkeletonCards count={6} className={cn("mt-5", !gridView && "grid-cols-2 sm:grid-cols-3 @[62rem]:grid-cols-4")} />
       ) : gridView ? (
         gridItems.length > 0 ? (
           <>
@@ -599,7 +600,7 @@ export function DiscoverySurface({
         // "All" digest
         <div className="mt-5">
           {loading && !bands ? (
-            <SkeletonCards count={6} className="mt-4 grid-cols-2 sm:grid-cols-3" />
+            <SkeletonCards count={6} className="mt-4 grid-cols-2 sm:grid-cols-3 @[62rem]:grid-cols-4" />
           ) : !bands || bands.length === 0 ? (
             <EmptyState icon={Compass} className="mt-8">
               {destination ? "Nothing came back just now. Try a search or a different category." : "Set a destination for this trip to see ideas here."}
@@ -616,9 +617,9 @@ export function DiscoverySurface({
                       </button>
                     )}
                   </div>
-                  {/* Two rows of three per band; the rest lives behind "See all". */}
-                  <Stagger className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 max-sm:-mx-5 max-sm:-mb-10 max-sm:flex max-sm:snap-x max-sm:snap-mandatory max-sm:items-stretch max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:px-5 max-sm:pt-2 max-sm:pb-10 max-sm:scroll-px-5 no-scrollbar">
-                    {band.items.slice(0, 6).map((it) => renderItem(it, true))}
+                  {/* Two rows per band (three across, or four on a wide screen); the rest lives behind "See all". */}
+                  <Stagger className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 @[62rem]:grid-cols-4 [&>*:nth-child(n+7)]:hidden @[62rem]:[&>*:nth-child(n+7)]:block max-sm:-mx-5 max-sm:-mb-10 max-sm:flex max-sm:snap-x max-sm:snap-mandatory max-sm:items-stretch max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:px-5 max-sm:pt-2 max-sm:pb-10 max-sm:scroll-px-5 no-scrollbar">
+                    {band.items.slice(0, 8).map((it) => renderItem(it, true))}
                   </Stagger>
                   {band.key && band.items.length > 6 && (
                     <button
