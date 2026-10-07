@@ -28,10 +28,10 @@ const PILL_TONE = {
 } as const;
 
 /** A frosted pill on the photo. */
-export function CinePill({ icon: Icon, tone = "glass", children, className }: { icon?: LucideIcon; tone?: keyof typeof PILL_TONE; children: ReactNode; className?: string }) {
+export function CinePill({ icon: Icon, iconClassName, tone = "glass", children, className }: { icon?: LucideIcon; iconClassName?: string; tone?: keyof typeof PILL_TONE; children: ReactNode; className?: string }) {
   return (
     <span className={cn(pillBase, PILL_TONE[tone], className)}>
-      {Icon && <Icon className="size-3.5 shrink-0" aria-hidden />}
+      {Icon && <Icon className={cn("size-3.5 shrink-0", iconClassName)} aria-hidden />}
       <span className="min-w-0 truncate">{children}</span>
     </span>
   );
@@ -39,9 +39,9 @@ export function CinePill({ icon: Icon, tone = "glass", children, className }: { 
 
 /** The rating pill: star, score, and how many people gave it. */
 export function CineRating({ rating, count, outOf }: { rating: number; count?: string | null; outOf?: string }) {
+  // The star is the pill's own icon (centred beside the text), not a glyph inside it, which sat a pixel low on the baseline.
   return (
-    <CinePill>
-      <Star className="-ml-0.5 mr-0.5 inline size-3.5 fill-current text-coral-soft" aria-hidden />
+    <CinePill icon={Star} iconClassName="fill-current text-coral-soft" className="gap-1 pl-2">
       {rating.toFixed(1)}
       {outOf && <span className="opacity-70">{outOf}</span>}
       {count ? <span className="opacity-70"> {count}</span> : null}
@@ -171,7 +171,8 @@ export function CineCard({
       <div aria-hidden className="pointer-events-none absolute inset-0" style={{ backgroundImage: SCRIM }} />
       <div className={cn("pointer-events-none relative z-[1] flex h-full min-h-0 flex-col justify-between", compact ? "p-2.5" : "p-3.5")}>
         <div className="flex items-start justify-between gap-2">
-          <div className="shrink-0">{topLeft}</div>
+          {/* As tall as the heart beside it, so the rating pill and the heart share a centre line. */}
+          <div className={cn("shrink-0", save && (compact ? "flex h-8 items-center" : "flex h-10 items-center"))}>{topLeft}</div>
           <div className="flex min-w-0 flex-col items-end gap-1.5">{save}{topRight}</div>
         </div>
         <div className="min-w-0">
