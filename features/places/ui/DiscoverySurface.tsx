@@ -452,30 +452,32 @@ export function DiscoverySurface({
 
   // In a band on a phone each card is a swipeable slide (the next one peeks in), not a half-width tile: two to a row cramped the buttons.
   const slide = "max-sm:w-[15.5rem] max-sm:shrink-0 max-sm:snap-start";
+  // From sm up the cards are square, not 3:4: three across a wide screen made each one 350px wide and 470 tall.
+  const squareOnWide = "sm:[&_article]:aspect-square";
   const renderItem = (item: Item, inRail = false, row = false) => {
     if (item.kind === "place") {
       return (
-        <StaggerItem key={`p:${item.place.providerId}`} className={inRail ? slide : undefined}>
+        <StaggerItem key={`p:${item.place.providerId}`} className={cn(squareOnWide, inRail && slide)}>
           <PlaceCard tripId={tripId} place={item.place} why={item.why ?? undefined} phoneRow={row} />
         </StaggerItem>
       );
     }
     if (item.kind === "event") {
       return (
-        <StaggerItem key={`e:${item.event.url}|${item.event.date ?? ""}`} className={inRail ? slide : undefined}>
+        <StaggerItem key={`e:${item.event.url}|${item.event.date ?? ""}`} className={cn(squareOnWide, inRail && slide)}>
           <EventCard tripId={tripId} event={item.event} phoneRow={row} />
         </StaggerItem>
       );
     }
     return (
-      <StaggerItem key={`s:${item.stay.hotelId}`} className={inRail ? slide : undefined}>
+      <StaggerItem key={`s:${item.stay.hotelId}`} className={cn(squareOnWide, inRail && slide)}>
         <StayMiniCard tripId={tripId} stay={item.stay} phoneRow={row} />
       </StaggerItem>
     );
   };
 
-  // Columns follow the width of this area, not the window, so an open side panel does not squeeze the cards. About 260px each at four across.
-  const grid = "grid gap-4 sm:grid-cols-2 @[46rem]:grid-cols-3 @[62rem]:grid-cols-4";
+  // Columns follow the width of this area, not the window, so an open side panel does not squeeze the cards.
+  const grid = "grid gap-4 sm:grid-cols-2 @[46rem]:grid-cols-3";
 
   return (
     <div className="@container flex min-h-[calc(100dvh-13rem)] flex-col">
@@ -577,7 +579,7 @@ export function DiscoverySurface({
       <div className="relative">
         <SwapView id={loading && gridItems.length === 0 && (bands === null || gridView) ? "skeleton" : gridView ? "grid" : loading && !bands ? "digest-loading" : "digest"}>
       {loading && gridItems.length === 0 && (bands === null || gridView) ? (
-        <SkeletonCards count={6} className={cn("mt-5", !gridView && "grid-cols-2 sm:grid-cols-3 @[62rem]:grid-cols-4")} />
+        <SkeletonCards count={6} className={cn("mt-5", !gridView && "grid-cols-2 sm:grid-cols-3")} />
       ) : gridView ? (
         gridItems.length > 0 ? (
           <>
@@ -600,7 +602,7 @@ export function DiscoverySurface({
         // "All" digest
         <div className="mt-5">
           {loading && !bands ? (
-            <SkeletonCards count={6} className="mt-4 grid-cols-2 sm:grid-cols-3 @[62rem]:grid-cols-4" />
+            <SkeletonCards count={6} className="mt-4 grid-cols-2 sm:grid-cols-3" />
           ) : !bands || bands.length === 0 ? (
             <EmptyState icon={Compass} className="mt-8">
               {destination ? "Nothing came back just now. Try a search or a different category." : "Set a destination for this trip to see ideas here."}
@@ -617,9 +619,9 @@ export function DiscoverySurface({
                       </button>
                     )}
                   </div>
-                  {/* Two rows per band (three across, or four on a wide screen); the rest lives behind "See all". */}
-                  <Stagger className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 @[62rem]:grid-cols-4 [&>*:nth-child(n+7)]:hidden @[62rem]:[&>*:nth-child(n+7)]:block max-sm:-mx-5 max-sm:-mb-10 max-sm:flex max-sm:snap-x max-sm:snap-mandatory max-sm:items-stretch max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:px-5 max-sm:pt-2 max-sm:pb-10 max-sm:scroll-px-5 no-scrollbar">
-                    {band.items.slice(0, 8).map((it) => renderItem(it, true))}
+                  {/* Two rows of three per band; the rest lives behind "See all". */}
+                  <Stagger className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 max-sm:-mx-5 max-sm:-mb-10 max-sm:flex max-sm:snap-x max-sm:snap-mandatory max-sm:items-stretch max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:px-5 max-sm:pt-2 max-sm:pb-10 max-sm:scroll-px-5 no-scrollbar">
+                    {band.items.slice(0, 6).map((it) => renderItem(it, true))}
                   </Stagger>
                   {band.key && band.items.length > 6 && (
                     <button
