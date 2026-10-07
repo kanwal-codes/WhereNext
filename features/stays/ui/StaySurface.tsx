@@ -33,21 +33,40 @@ type Result = {
   facets: StayFacets;
 };
 
+/** "Tue, Oct 27", for the big date in a booking cell. */
+const fmtLong = (iso: string) => {
+  const d = new Date(`${iso}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? "" : new Intl.DateTimeFormat("en", { weekday: "short", month: "short", day: "numeric" }).format(d);
+};
+
+const cellLabel = "block text-[0.625rem] font-medium tracking-[0.22em] text-muted-foreground uppercase";
+
 function Stepper({ label, value, set, min, max }: { label: string; value: number; set: (n: number) => void; min: number; max: number }) {
-  const btn = "grid size-8 place-items-center rounded-full border border-input text-ink-soft transition-[background-color,border-color,transform] hover:border-foreground/30 hover:bg-accent active:scale-90 disabled:opacity-35 disabled:hover:bg-transparent";
+  const btn = "grid size-9 place-items-center rounded-full border border-border bg-background text-foreground transition-[background-color,border-color,transform] hover:border-foreground/30 hover:bg-accent active:scale-90 disabled:opacity-30 disabled:hover:bg-background";
   return (
-    <div className="bg-card px-4 py-3">
-      <span className="eyebrow block">{label}</span>
-      <div className="mt-1.5 flex items-center gap-3">
+    <div className="bg-card px-4 py-3.5">
+      <span className={cellLabel}>{label}</span>
+      <div className="mt-2 flex items-center justify-between gap-2">
         <button type="button" onClick={() => set(Math.max(min, value - 1))} disabled={value <= min} aria-label={`Fewer ${label}`} className={btn}>
           <Minus className="size-3.5" />
         </button>
-        <span className="w-6 text-center text-base font-medium tabular-nums">{value}</span>
+        <span className="min-w-6 text-center font-display text-2xl leading-none font-light tabular-nums tracking-[-0.03em]">{value}</span>
         <button type="button" onClick={() => set(Math.min(max, value + 1))} disabled={value >= max} aria-label={`More ${label}`} className={btn}>
           <Plus className="size-3.5" />
         </button>
       </div>
     </div>
+  );
+}
+
+/** A date cell: the date large in the display face, the label above it; the real date input sits invisibly over it, so a tap opens the native picker. */
+function DateCell({ label, value, onChange, min }: { label: string; value: string; onChange: (v: string) => void; min?: string }) {
+  return (
+    <label className="relative block cursor-pointer bg-card px-4 py-3.5 transition-colors focus-within:bg-accent/50 hover:bg-accent/40">
+      <span className={cellLabel}>{label}</span>
+      <span className={cn("mt-2 block font-display text-xl leading-none font-medium tracking-[-0.02em] tabular-nums", !value && "text-muted-foreground")}>{value ? fmtLong(value) : "Add date"}</span>
+      <input type="date" value={value} min={min} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 size-full cursor-pointer opacity-0" />
+    </label>
   );
 }
 
@@ -182,40 +201,34 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       )}
 
       {/* The booking bar: four cells divided by hairlines (the gap shows the border colour through), then filters and sort. */}
-      <div className="rounded-3xl border border-border bg-card shadow-soft">
+      <div className="overflow-hidden rounded-[1.75rem] bg-card shadow-float ring-1 ring-black/[0.05]">
         {/* On a phone the four fields fold into one line (dates, guests, rooms) that opens them: the list starts a screen sooner. */}
         <button
           type="button"
           onClick={() => setBarOpen((v) => !v)}
           aria-expanded={barOpen}
-          className="flex w-full items-center gap-3 px-4 py-3 text-left sm:hidden"
+          className="flex w-full items-center gap-3 px-4 py-3.5 text-left sm:hidden"
         >
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-medium tabular-nums">
-              {checkin && checkout ? `${fmtDay(checkin)} – ${fmtDay(checkout)}` : "Choose your dates"}
+            <span className="block truncate font-display text-[1.0625rem] leading-tight font-medium tracking-[-0.015em] tabular-nums">
+              {checkin && checkout ? <>{fmtDay(checkin)} <span aria-hidden className="mx-0.5 text-coral">→</span> {fmtDay(checkout)}</> : "Choose your dates"}
             </span>
-            <span className="block truncate text-xs text-muted-foreground">
+            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
               {nightsLabel ? `${nightsLabel} · ` : ""}{adults} guest{adults === 1 ? "" : "s"} · {rooms} room{rooms === 1 ? "" : "s"}
             </span>
           </span>
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+          <span className={cn("inline-flex h-8 items-center gap-1 rounded-full px-3.5 text-xs font-medium transition-colors", barOpen ? "bg-primary text-primary-foreground" : "border border-border bg-background text-foreground")}>
             {barOpen ? "Done" : "Edit"} <ChevronDown className={cn("size-3.5 transition-transform duration-300", barOpen && "rotate-180")} aria-hidden />
           </span>
         </button>
-        <div className={cn("grid gap-px overflow-hidden bg-border grid-cols-2 max-sm:border-t max-sm:border-border sm:rounded-t-3xl lg:grid-cols-4", !barOpen && "max-sm:hidden")}>
-          <label className="col-span-2 block cursor-pointer bg-card px-4 py-3 transition-colors focus-within:bg-accent/50 hover:bg-accent/40 sm:col-span-1">
-            <span className="eyebrow block">Check-in</span>
-            <input type="date" value={checkin} onChange={(e) => setCheckin(e.target.value)} className="mt-1.5 block w-full bg-transparent text-base font-medium outline-none" />
-          </label>
-          <label className="col-span-2 block cursor-pointer bg-card px-4 py-3 transition-colors focus-within:bg-accent/50 hover:bg-accent/40 sm:col-span-1">
-            <span className="eyebrow block">Check-out</span>
-            <input type="date" value={checkout} min={checkin || undefined} onChange={(e) => setCheckout(e.target.value)} className="mt-1.5 block w-full bg-transparent text-base font-medium outline-none" />
-          </label>
+        <div className={cn("grid grid-cols-2 gap-px overflow-hidden bg-border max-sm:border-t max-sm:border-border lg:grid-cols-4", !barOpen && "max-sm:hidden")}>
+          <DateCell label="Check-in" value={checkin} onChange={setCheckin} />
+          <DateCell label="Check-out" value={checkout} onChange={setCheckout} min={checkin || undefined} />
           <Stepper label="Guests" value={adults} set={setAdults} min={1} max={16} />
           <Stepper label="Rooms" value={rooms} set={setRooms} min={1} max={8} />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3 border-t border-border bg-card px-4 py-3">
           <button type="button" onClick={() => setShowFilters((v) => !v)} aria-pressed={showFilters} className="btn-chip">
             <SlidersHorizontal className="size-3.5" aria-hidden /> Filters{activeFilters ? ` · ${activeFilters}` : ""}
           </button>
