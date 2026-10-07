@@ -74,7 +74,7 @@ export function PlaceCard({ tripId, place, why, phoneRow = false }: { tripId: st
         ) : undefined,
         sub: place.address ? place.address.split(",").slice(0, 2).join(",").trim() : undefined,
         save: comparing ? undefined : <SaveHeart tripId={tripId} place={place} compact light />,
-        action: comparing ? undefined : <AddToTripControl tripId={tripId} place={place} variant="orb" size="sm" ink />,
+        action: comparing ? undefined : <AddToTripControl tripId={tripId} place={place} variant="orb" size="sm" />,
       }}
     />
   );
