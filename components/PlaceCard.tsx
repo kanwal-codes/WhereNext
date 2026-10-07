@@ -66,7 +66,7 @@ export function PlaceCard({ tripId, place, why, phoneRow = false }: { tripId: st
       row={{
         meta: typeof place.rating === "number" ? (
           <span className="inline-flex items-center gap-1">
-            <Star className="size-3.5 fill-current text-coral" aria-hidden />
+            <Star className="size-3.5 fill-current text-foreground/80" aria-hidden />
             <span className="font-medium text-foreground">{place.rating.toFixed(1)}</span>
             {place.userRatingCount ? <span>{compactCount(place.userRatingCount)}</span> : null}
             {isFoodPlace(place.category) && priceLabel(place.priceLevel) ? <span>· {priceLabel(place.priceLevel)}</span> : null}
@@ -74,7 +74,7 @@ export function PlaceCard({ tripId, place, why, phoneRow = false }: { tripId: st
         ) : undefined,
         sub: place.address ? place.address.split(",").slice(0, 2).join(",").trim() : undefined,
         save: comparing ? undefined : <SaveHeart tripId={tripId} place={place} compact light />,
-        action: comparing ? undefined : <AddToTripControl tripId={tripId} place={place} variant="orb" size="sm" />,
+        action: comparing ? undefined : <AddToTripControl tripId={tripId} place={place} variant="orb" size="sm" ink />,
       }}
     />
   );

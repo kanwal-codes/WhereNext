@@ -63,7 +63,7 @@ export function SaveHeart({ tripId, place, compact = false, light = false }: { t
         "pointer-events-auto relative z-10 grid shrink-0 place-items-center rounded-full border backdrop-blur-md backdrop-saturate-150 transition-[transform,background-color,color] duration-200 ease-out active:scale-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
         compact ? "size-8" : "size-10",
         light
-          ? (on ? "border-transparent bg-coral-soft text-coral" : "border-border bg-background text-muted-foreground hover:text-foreground")
+          ? (on ? "border-transparent bg-transparent text-coral" : "border-transparent bg-transparent text-muted-foreground hover:text-foreground")
           : (on ? "border-transparent bg-white text-coral" : "border-white/25 bg-white/14 text-white hover:bg-white/25"),
       )}
     >
