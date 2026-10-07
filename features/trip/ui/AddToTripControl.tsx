@@ -93,6 +93,11 @@ export function AddToTripControl({
   const menuRef = useRef<HTMLDivElement>(null);
   const savedDerived = isSaved(savedPlaces, place.providerId);
   const [placement, setPlacement] = useState<Placement>(derived);
+  // The last placement the server confirmed (what a failed write falls back to), the writes still on their way, and when the last one landed.
+  const confirmed = useRef<Placement>(derived);
+  const pending = useRef(0);
+  const lastWrite = useRef(0);
+  const chain = useRef<Promise<void>>(Promise.resolve());
   const [saved, setSaved] = useState(savedDerived);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
@@ -114,8 +119,10 @@ export function AddToTripControl({
   // Re-sync from the snapshot when it refreshes and we're not mid-write.
   const derivedKey = JSON.stringify(derived);
   useEffect(() => {
-    if (!busyRef.current) {
-      setPlacement(JSON.parse(derivedKey) as Placement);
+    // Not while a write of ours is on its way, nor for a few seconds after: a refresh rendered between two quick changes can arrive late.
+    if (!busyRef.current && Date.now() - lastWrite.current > 4000) {
+      confirmed.current = JSON.parse(derivedKey) as Placement;
+      setPlacement(confirmed.current);
       setSaved(savedDerived);
     }
   }, [derivedKey, savedDerived]);
@@ -144,31 +151,35 @@ export function AddToTripControl({
     };
   }, [open]);
 
-  async function apply(next: Placement) {
+  function apply(next: Placement) {
     setOpen(false);
     if (same(next, placement)) return;
-    const previous = placement;
+    const confirmedBefore = confirmed.current;
+    // The label answers at once and the write follows; a second change while one is in flight queues behind it, in order.
     setPlacement(next);
-    setBusy(true);
+    pending.current += 1;
     busyRef.current = true;
-    try {
-      const res = await mutate(`/api/trips/${tripId}/places/placement`, {
-        method: "PUT",
-        body: { place, placement: next },
-        announce: ["places", "itinerary"],
-      });
-      if (!res.ok) throw new Error();
-      onPlacementChange?.(next);
-      notifyToast(res.queued ? `${place.name} — saved, will sync when you're back online.` : toast(place.name, next), res.queued ? "info" : "success");
-    } catch {
-      // Revert only if nothing newer has already landed on top of this optimistic value — a
-      // rapid second click that already succeeded must not be clobbered by this failure.
-      setPlacement((current) => (same(current, next) ? previous : current));
-      notifyToast(`Couldn’t update ${place.name}. Try again.`, "error");
-    } finally {
-      setBusy(false);
-      busyRef.current = false;
-    }
+    chain.current = chain.current.then(async () => {
+      try {
+        const res = await mutate(`/api/trips/${tripId}/places/placement`, {
+          method: "PUT",
+          body: { place, placement: next },
+          announce: ["places", "itinerary"],
+        });
+        if (!res.ok) throw new Error();
+        confirmed.current = next;
+        onPlacementChange?.(next);
+        notifyToast(res.queued ? `${place.name} — saved, will sync when you're back online.` : toast(place.name, next), res.queued ? "info" : "success");
+      } catch {
+        // Fall back to the last answer the server gave, unless a newer change of ours is already queued behind this one.
+        if (pending.current === 1) setPlacement(confirmed.current ?? confirmedBefore);
+        notifyToast(`Couldn’t update ${place.name}. Try again.`, "error");
+      } finally {
+        pending.current -= 1;
+        if (pending.current === 0) busyRef.current = false;
+        lastWrite.current = Date.now();
+      }
+    });
   }
 
   async function toggleBookmark() {
