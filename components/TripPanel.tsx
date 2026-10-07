@@ -394,7 +394,9 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   // The surface (header + scroll frame) stays put; only this crossfades between subjects.
   // Flight, day, budget and route are cards and rows with no width of their own: on a wide panel or a tablet sheet they keep a 40rem reading column, like the detail views do.
   const narrow = shown ? ["flight", "day", "budget", "route"].includes(shown.kind) : false;
-  const animatedBody = <ContentSwap swapKey={sk} className="min-h-full">{narrow ? <div className="mx-auto w-full max-w-[40rem]">{body}</div> : body}</ContentSwap>;
+  // On a phone the route is a map with a sheet over it (see RouteDetail) and needs the panel's whole height, not a reading column.
+  const fill = shown?.kind === "route" && !desktop;
+  const animatedBody = <ContentSwap swapKey={sk} className={fill ? "h-full" : "min-h-full"}>{narrow && !fill ? <div className="mx-auto w-full max-w-[40rem]">{body}</div> : body}</ContentSwap>;
   const KindIcon = shown ? KIND_ICON[shown.kind] : null;
   const header = shown && (
     <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2.5">

@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useDistance } from "@/lib/use-distance";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ArrowUpRight, Car, Expand, PersonStanding, TrainFront } from "lucide-react";
+import { AnimatePresence, animate as animateValue, motion, useDragControls, useMotionValue, useReducedMotion } from "motion/react";
+import { ArrowUpRight, Car, PersonStanding, TrainFront } from "lucide-react";
 import type { RouteBlock } from "@/components/TripPanelProvider";
 import { pointsFromRoute } from "@/features/conversation/ui/blocks/mapPoints";
 import { PlanStops, type PlanStop } from "@/features/conversation/ui/blocks/PlanStops";
@@ -14,9 +14,10 @@ import { SlidingTabs } from "@/features/conversation/ui/blocks/SlidingTabs";
 import { Badge, Notice, money, surface, type } from "@/features/conversation/ui/blocks/ui";
 import { cn } from "@/lib/utils";
 import { LazyTripMap } from "./LazyTripMap";
-import { fullMapHref, legsOfRoute, metricsOf, minutes, overlayOfRoutes, tagsOf } from "./routeMap";
+import { legsOfRoute, metricsOf, minutes, overlayOfRoutes, tagsOf } from "./routeMap";
 import type { RouteTag } from "@/lib/application/route-overlay";
 import { useSettled } from "./useSettled";
+import { useMediaQuery } from "@/lib/use-media-query";
 
 const MODE = {
   driving: { label: "Drive", icon: Car, travelmode: "driving" },
@@ -86,6 +87,83 @@ function OptionCard({ route, index, single, tag, on, onSelect }: { route: RouteB
 
 const MODE_ORDER: Array<keyof typeof MODE> = ["driving", "transit", "walking"];
 
+/** Where the phone sheet rests, as how much of it shows: a strip, about half the screen, or all of it (covering the map). */
+type Snap = "peek" | "half" | "full";
+const PEEK_PX = 150;
+
+/**
+ * On a phone the route detail is the Getting around layout: the map fills the panel and the options sit in a sheet over it that
+ * you pull up (to read the steps, covering the map) or down (to see more of the route). Same snap behaviour as that page's sheet.
+ */
+function PhoneRouteSheet({ map, children }: { map: (inset: { bottom: number }) => React.ReactNode; children: React.ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  const reduce = useReducedMotion();
+  const controls = useDragControls();
+  const y = useMotionValue(0);
+  const [height, setHeight] = useState(0);
+  const [snap, setSnap] = useState<Snap>("half");
+
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const measure = () => setHeight(el.getBoundingClientRect().height);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const rest = (at: Snap) => (at === "full" ? 0 : at === "half" ? Math.round(height * 0.5) : Math.max(0, height - PEEK_PX));
+  useEffect(() => {
+    if (height > 0) y.set(rest(snap));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-seat only when the panel's height changes
+  }, [height]);
+
+  const go = (next: Snap) => {
+    setSnap(next);
+    animateValue(y, rest(next), reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 42 });
+  };
+  const settle = (velocity: number) => {
+    const projected = y.get() + velocity * 0.18;
+    const points: Snap[] = ["full", "half", "peek"];
+    go(points.reduce((best, p) => (Math.abs(rest(p) - projected) < Math.abs(rest(best) - projected) ? p : best), "half" as Snap));
+  };
+
+  // The map frames the route in what the sheet leaves free (never more than the top ~60% of the screen).
+  const visible = height - rest(snap);
+  const inset = { bottom: Math.min(Math.max(visible, 0), Math.round((typeof window === "undefined" ? 800 : window.innerHeight) * 0.38)) };
+
+  return (
+    <div ref={box} className="relative h-full min-h-[26rem] overflow-hidden">
+      <div className="absolute inset-0">{map(inset)}</div>
+      <motion.div
+        style={{ y }}
+        drag="y"
+        dragControls={controls}
+        dragListener={snap !== "full"}
+        dragConstraints={{ top: 0, bottom: Math.max(0, height - PEEK_PX) }}
+        dragElastic={0.05}
+        dragMomentum={false}
+        onDragEnd={(_, info) => settle(info.velocity.y)}
+        className="absolute inset-x-0 top-0 flex h-full flex-col rounded-t-3xl bg-surface shadow-float ring-1 ring-black/[0.05]"
+      >
+        <button
+          type="button"
+          aria-label={snap === "full" ? "Show the map" : "Show more"}
+          onPointerDown={(event) => controls.start(event)}
+          onClick={() => go(snap === "full" ? "half" : snap === "half" ? "full" : "half")}
+          className="grid h-7 w-full shrink-0 cursor-grab touch-none place-items-center"
+        >
+          <span aria-hidden className="h-1.5 w-10 rounded-full bg-foreground/20" />
+        </button>
+        {/* Only the open sheet scrolls; a part-open one is dragged, so a swipe on it moves the sheet instead. */}
+        <div className={`min-h-0 flex-1 px-4 pb-8 ${snap === "full" ? "overflow-y-auto overscroll-contain" : "overflow-hidden"}`}>{children}</div>
+      </motion.div>
+    </div>
+  );
+}
+
+
 /** Every way Roam found between two places, organised by how you travel (drive, transit, walk); under transit, its alternatives; then the chosen one with its steps, its line on a map, and a live-times link. */
 export function RouteDetail({ tripId, routes, active: initial }: { tripId: string; routes: RouteBlock[]; active: number }) {
   const groups = MODE_ORDER.map((mode) => ({ mode, options: routes.filter((r) => r.mode === mode).sort((a, b) => a.durationSeconds - b.durationSeconds) })).filter((g) => g.options.length > 0);
@@ -108,28 +186,33 @@ export function RouteDetail({ tripId, routes, active: initial }: { tripId: strin
   const overlay = overlayOfRoutes(routes, route, choose);
   const maps = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(route.from)}&destination=${encodeURIComponent(route.to)}&travelmode=${MODE[mode].travelmode}`;
 
-  return (
-    <div className="space-y-5 p-4 pb-8">
-      {/* Pinned: the options below scroll past it, and the line changes as you pick one. */}
-      <div className="sticky top-0 z-20 -mx-4 -mt-4 bg-surface px-4 pb-3 pt-4">
-        {legs.length > 0 && settled ? (
-          <LazyTripMap className="h-[30vh] min-h-[200px] max-h-[300px]" pins={pointsFromRoute(route).map((p) => ({ id: p.id, name: p.name, lng: p.lng!, lat: p.lat!, kind: p.kind }))} legs={legs} overlay={overlay} fitControl scaleBar activeDay="all" />
-        ) : legs.length > 0 ? (
-          <Skeleton className="h-[30vh] min-h-[200px] max-h-[300px]" />
-        ) : (
-          // No line to draw: the journey as a strip (where from, how far, where to) instead of a tall empty box.
-          <div className={cn(surface, "flex items-center gap-3 px-4 py-4")}>
-            <span aria-hidden className="size-2.5 shrink-0 rounded-full border-2 border-foreground bg-card" />
-            <span className="min-w-0 max-w-[40%] truncate text-sm font-medium">{ends.from}</span>
-            <span aria-hidden className="h-px flex-1 border-t border-dashed border-muted-foreground/50" />
-            <span className="shrink-0 font-display text-sm font-semibold tabular-nums">{minutes(route.durationSeconds)}</span>
-            <span aria-hidden className="h-px flex-1 border-t border-dashed border-muted-foreground/50" />
-            <span className="min-w-0 max-w-[40%] truncate text-right text-sm font-medium">{ends.to}</span>
-            <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-foreground" />
-          </div>
-        )}
-      </div>
+  const desktop = useMediaQuery("(min-width: 1024px)");
+  const [previewing, setPreviewing] = useState(false);
+  const pins = pointsFromRoute(route).map((p) => ({ id: p.id, name: p.name, lng: p.lng!, lat: p.lat!, kind: p.kind }));
+  // The same map as Getting around: tilted camera, 3D buildings, fit button and a "preview the route" fly-through.
+  const mapAt = (className: string, inset?: { bottom: number }) =>
+    legs.length > 0 && settled ? (
+      <LazyTripMap className={className} pins={pins} legs={legs} overlay={overlay} fitControl cinematic preview={previewing} onPreviewChange={setPreviewing} inset={inset} activeDay="all" />
+    ) : legs.length > 0 ? (
+      <Skeleton className={className} />
+    ) : null;
 
+  const strip = (
+    // No line to draw: the journey as a strip (where from, how far, where to) instead of a tall empty box.
+    <div className={cn(surface, "flex items-center gap-3 px-4 py-4")}>
+      <span aria-hidden className="size-2.5 shrink-0 rounded-full border-2 border-foreground bg-card" />
+      <span className="min-w-0 max-w-[40%] truncate text-sm font-medium">{ends.from}</span>
+      <span aria-hidden className="h-px flex-1 border-t border-dashed border-muted-foreground/50" />
+      <span className="shrink-0 font-display text-sm font-semibold tabular-nums">{minutes(route.durationSeconds)}</span>
+      <span aria-hidden className="h-px flex-1 border-t border-dashed border-muted-foreground/50" />
+      <span className="min-w-0 max-w-[40%] truncate text-right text-sm font-medium">{ends.to}</span>
+      <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-foreground" />
+    </div>
+  );
+
+  // Everything under the map: how to travel, the options with their steps, and the live-times link.
+  const options = (
+    <div className="space-y-5">
       {ends.where && <p className={type.meta}>{ends.where}</p>}
 
       {groups.length > 1 && (
@@ -165,15 +248,23 @@ export function RouteDetail({ tripId, routes, active: initial }: { tripId: strin
       </section>
       </ContentSwap>
 
-      {legs.length > 0 && (
-        <a href={fullMapHref(tripId, route)} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-card px-5 text-sm font-medium transition-[background-color,transform] hover:bg-accent/40 active:scale-[0.98]">
-          <Expand className="size-4" aria-hidden /> Open on the full map
-        </a>
-      )}
-      <a href={maps} target="_blank" rel="noreferrer noopener" className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-[opacity,transform] hover:opacity-90 active:scale-[0.98]">
+      <a href={maps} target="_blank" rel="noreferrer noopener" className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-[filter,transform] hover:brightness-110 active:scale-[0.98]">
         {route.mode === "transit" ? "See live departures in Google Maps" : "Open in Google Maps"} <ArrowUpRight className="size-4" aria-hidden />
       </a>
       {route.mode === "transit" && <Notice>These are typical journeys. Departures and delays change, so check them live before you leave.</Notice>}
+    </div>
+  );
+
+  // Phone: the map fills the panel and the options are a sheet over it that can be pulled up to cover it.
+  if (!desktop && legs.length > 0) {
+    return <PhoneRouteSheet map={(inset) => mapAt("h-full w-full rounded-none border-0", inset)}>{options}</PhoneRouteSheet>;
+  }
+
+  return (
+    <div className="space-y-5 p-4 pb-8">
+      {/* Pinned: the options below scroll past it, and the line changes as you pick one. */}
+      <div className="sticky top-0 z-20 -mx-4 -mt-4 bg-surface px-4 pb-3 pt-4">{mapAt("h-[30vh] min-h-[200px] max-h-[300px]") ?? strip}</div>
+      {options}
     </div>
   );
 }
