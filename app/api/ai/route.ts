@@ -10,7 +10,8 @@ import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail, withRoute } from "@/lib/server/with-route";
 import { logger } from "@/lib/server/logger";
 import { estimateTokens, sumCostUsd, type UsageEntry } from "@/lib/ai/pricing";
-import { loadTripContext, formatTripMemory } from "@/lib/application/trip-context";
+import { loadTripContext, formatTripMemory, describeMembers } from "@/lib/application/trip-context";
+import { tripMemberIdentities } from "@/lib/server/trip-member-identities";
 import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 import { runAssistantTurn, finalizeAssistantBlocks, type AssistantTurnResult } from "@/lib/application/orchestrate/run-turn";
 import { refreshThreadSummary } from "@/lib/application/thread-summary";
@@ -142,6 +143,8 @@ export const POST = withRoute(async function POST(request: Request) {
     loadTripContext(supabase, tripId),
     loadTravellerDefaults(supabase, userId, request.headers),
     supabase.from("conversation_threads").select("summary").eq("trip_id", tripId).eq("user_id", userId).maybeSingle(),
+    // Who is on the trip, so "who are the travellers?" can be answered (best effort: names only improve an answer).
+    tripMemberIdentities(tripId).catch(() => new Map<string, { email: string | null; name: string }>()),
   ]);
   contextLoad.catch(() => undefined); // awaited below; this only keeps a failure from being reported as unhandled while the save is awaited
   try {
@@ -155,7 +158,7 @@ export const POST = withRoute(async function POST(request: Request) {
   }
 
   try {
-    const [[loadedCtx, defaults, threadRow], storedMessages] = await Promise.all([
+    const [[loadedCtx, defaults, threadRow, memberIdentities], storedMessages] = await Promise.all([
       contextLoad,
       // The UI can page the full durable thread; model context stays bounded and is supplemented
       // by the thread summary so a long-running trip does not balloon every AI request.
@@ -171,7 +174,8 @@ export const POST = withRoute(async function POST(request: Request) {
     const tripCtx = { ...loadedCtx, preferences: withTravellerDefaults(loadedCtx.preferences, defaults) };
     // The writer slices to 600 chars, but the row is member-writable; clamp on read as well.
     const threadSummary = ((threadRow.data?.summary as string | null) ?? "").slice(0, 600);
-    const tripSummary = [formatTripMemory(tripCtx), threadSummary && `Earlier in this conversation: ${threadSummary}`].filter(Boolean).join(" ");
+    const membersLine = describeMembers(memberIdentities, userId);
+    const tripSummary = [formatTripMemory(tripCtx), membersLine, threadSummary && `Earlier in this conversation: ${threadSummary}`].filter(Boolean).join(" ");
     const viewContext = parsed.data.viewContext;
     // conversationRepository.append() scopes this by role itself (scopedMessageIdempotencyKey) —
     // matching the raw, unprefixed key the "user" append call above already passes, so the
@@ -294,7 +298,7 @@ export const POST = withRoute(async function POST(request: Request) {
             { supabase, tripId },
             {
               tripCtx, prompt, history: modelMessages, tripSummary, viewContext, surfacedEarlier, signal: combinedAbort,
-              deriveTripSummary: (ctx) => [formatTripMemory(ctx), threadSummary && `Earlier context (current trip facts take precedence): ${threadSummary}`].filter(Boolean).join(" "),
+              deriveTripSummary: (ctx) => [formatTripMemory(ctx), membersLine, threadSummary && `Earlier context (current trip facts take precedence): ${threadSummary}`].filter(Boolean).join(" "),
               onRetrieveStart: (tools) => safeEnqueue(progressFrame("retrieve", toolProgressLabel(tools))),
             },
           );

@@ -44,7 +44,9 @@ vi.mock("@/lib/application/trip-context", () => ({
   loadTripContext: loadTripContextMock,
   serializeTripContext: (c: unknown) => JSON.stringify(c),
   formatTripMemory: () => "nothing yet",
+  describeMembers: () => "",
 }));
+vi.mock("@/lib/server/trip-member-identities", () => ({ tripMemberIdentities: vi.fn(async () => new Map()) }));
 vi.mock("@/lib/application/thread-summary", () => ({ refreshThreadSummary: vi.fn(async () => undefined) }));
 vi.mock("@/lib/application/essentials", () => ({ buildEssentialsChecklist: vi.fn(async () => null) }));
 vi.mock("@/lib/application/comparison", () => ({ buildComparison: vi.fn(async () => null) }));
