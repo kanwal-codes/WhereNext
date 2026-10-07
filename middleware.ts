@@ -43,4 +43,5 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
-export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };
+// Not for files: pictures, icons and fonts have no session to read, and each one used to wake the middleware (and its token check) before it was served.
+export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico|design/|hero/|icons/|.*\\.(?:png|jpe?g|webp|avif|gif|svg|ico|woff2?|ttf|otf|mp4|webm|mp3)$).*)"] };
