@@ -204,6 +204,16 @@ describe("POST /api/trips/:tripId/group-chat/roam", () => {
     expect(recordAiTurnMock).toHaveBeenCalledWith(expect.anything(), TRIP, expect.objectContaining({ intent: "other", resolve_ms: 3 }));
   });
 
+  it("persists a card lead-in as the reply with no writing-model call and no grounding check (the cards answer the lookup)", async () => {
+    runAssistantTurnMock.mockResolvedValue(readyResult({ composeSkipLine: "Here are the ways to get from Toronto to Niagara Falls. Driving is quickest at 1 h 20 min.", composeSkipIsLeadIn: true }));
+    evaluateGroundingMock.mockClear();
+    const res = await post();
+    expect(res.status).toBe(201);
+    expect(generateTextMock).not.toHaveBeenCalled();
+    expect(evaluateGroundingMock).not.toHaveBeenCalled();
+    expect(appendMock).toHaveBeenCalledWith(TRIP, expect.objectContaining({ content: "Here are the ways to get from Toronto to Niagara Falls. Driving is quickest at 1 h 20 min." }));
+  });
+
   it("409s and never calls the model when the referenced message doesn't mention @Roam", async () => {
     listMock.mockResolvedValue([{ id: "m1", userId: "u1", role: "user", kind: "text", content: "sounds good", created_at: "2026-01-01T00:00:00Z", reactions: [] }]);
     const res = await post();

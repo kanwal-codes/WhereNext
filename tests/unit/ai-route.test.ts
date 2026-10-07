@@ -418,6 +418,21 @@ describe("POST /api/ai", () => {
     expect(route).toMatchObject({ from: "A", to: "B", mode: "transit", durationSeconds: 900, distanceMeters: 3400 });
   });
 
+  it("answers a plain route lookup with a one-line lead-in and never calls the writing model, since the card says it all", async () => {
+    resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "Lisbon", intent: "transport", wantsComparison: false, cardsAnswer: true, toolPlan: [{ tool: "directions", from: "A", to: "B", mode: "transit" }], clarify: null, suggestedFollowups: [], proposedProfileUpdate: null });
+    retrieveEvidenceMock.mockResolvedValue({ places: [], sources: [], weather: null, routes: [{ from: "A, Lisbon", to: "B, Lisbon", mode: "transit", distanceMeters: 3400, durationSeconds: 900, steps: ["metro Blue → B (12 min)"] }], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "2026-09-02T00:00:00Z" });
+    const { body } = await readMeta(await post());
+    expect(streamTextMock).not.toHaveBeenCalled();
+    expect(body).toContain("Transit from A to B takes 15 min.");
+  });
+
+  it("still writes a reply when RESOLVE says the message needs judgment (cardsAnswer false)", async () => {
+    resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "Lisbon", intent: "transport", wantsComparison: false, cardsAnswer: false, toolPlan: [{ tool: "directions", from: "A", to: "B", mode: "transit" }], clarify: null, suggestedFollowups: [], proposedProfileUpdate: null });
+    retrieveEvidenceMock.mockResolvedValue({ places: [], sources: [], weather: null, routes: [{ from: "A", to: "B", mode: "transit", distanceMeters: 3400, durationSeconds: 900, steps: ["metro Blue → B (12 min)"] }], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "2026-09-02T00:00:00Z" });
+    await readMeta(await post());
+    expect(streamTextMock).toHaveBeenCalled();
+  });
+
   it("emits a flights block from duffel evidence", async () => {
     resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "London", intent: "transport", wantsComparison: false, toolPlan: [{ tool: "flights", origin: "Toronto", destination: "London" }], clarify: null, suggestedFollowups: [], proposedProfileUpdate: null });
     retrieveEvidenceMock.mockResolvedValue({
