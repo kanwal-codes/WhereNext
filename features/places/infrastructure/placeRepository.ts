@@ -34,12 +34,15 @@ export function createPlaceRepository(supabase: SupabaseClient, catalog = supaba
         if (existing.error) throw existing.error;
         saved = { data: existing.data as { id: string } };
       }
-      const link = await supabase.from("trip_places").upsert({ trip_id: tripId, place_id: saved.data.id, status: "saved" });
+      // The link to this trip and the source note do not depend on each other: one round trip, not two.
+      const [link, source] = await Promise.all([
+        supabase.from("trip_places").upsert({ trip_id: tripId, place_id: saved.data.id, status: "saved" }),
+        place.sourceUrl
+          ? supabase.from("sources").upsert({ trip_id: tripId, entity_type: "place", entity_id: place.providerId, provider: place.provider, url: place.sourceUrl, retrieved_at: new Date().toISOString(), metadata: { rating: place.rating, userRatingCount: place.userRatingCount } }, { onConflict: "trip_id,entity_type,entity_id,provider" })
+          : Promise.resolve({ error: null }),
+      ]);
       if (link.error) throw link.error;
-      if (place.sourceUrl) {
-        const source = await supabase.from("sources").upsert({ trip_id: tripId, entity_type: "place", entity_id: place.providerId, provider: place.provider, url: place.sourceUrl, retrieved_at: new Date().toISOString(), metadata: { rating: place.rating, userRatingCount: place.userRatingCount } }, { onConflict: "trip_id,entity_type,entity_id,provider" });
-        if (source.error) throw source.error;
-      }
+      if (source.error) throw source.error;
       return place;
     },
   };
