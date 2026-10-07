@@ -5,7 +5,7 @@ import { stopGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { DestinationCombobox } from "@/components/DestinationCombobox";
-import { ArrowDown, ArrowUp, ArrowUpRight, BedDouble, ChevronDown, ChevronUp, Clock, GripVertical, Loader2, Lock, LockOpen, MoreHorizontal, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight, BedDouble, ChevronDown, ChevronUp, Clock, GripVertical, Loader2, Lock, LockOpen, MoreHorizontal, Plus, Trash2, X } from "lucide-react";
 import type { ItineraryItem } from "@/features/itinerary/domain/item";
 import type { StayDecision } from "@/packages/contracts/stay";
 import { useTripPanel } from "@/components/TripPanelProvider";
@@ -36,18 +36,23 @@ export function ItinerarySurface({
   startDate = null,
   lockedStay = null,
   destination = null,
+  plannedDays = 0,
 }: {
   tripId: string;
   initialItems?: Array<Record<string, unknown>>;
   startDate?: string | null;
   lockedStay?: StayDecision | null;
   destination?: string | null;
+  /** The trip's planned length: every one of its days is listed (and can be added to) even while it is still empty. */
+  plannedDays?: number;
 }) {
   const { openPanel } = useTripPanel();
   const [items, setItems] = useState<ItineraryItem[]>((initialItems ?? []) as ItineraryItem[]);
   const [title, setTitle] = useState("");
   const [picked, setPicked] = useState<{ id: string; text: string } | null>(null);
   const [day, setDay] = useState(1);
+  // The add form stays out of the way until a day's "Add here" opens it (inside that day).
+  const [addOpen, setAddOpen] = useState(false);
   const [removed, setRemoved] = useState<ItineraryItem | null>(null);
   const [dragTitle, setDragTitle] = useState<string | null>(null);
   // On a phone a stop's controls (move, lock, remove) stay tucked away until its ⋯ is tapped.
@@ -137,6 +142,7 @@ export function ItinerarySurface({
     if (r.ok) {
       const body = await r.json();
       setItems((cur) => (cur.some((i) => i.title === body.item.title) ? cur : [...cur, body.item]));
+      setAddOpen(false);
       announceWorkspaceChange("itinerary");
     } else {
       setTitle((cur) => cur || value);
@@ -249,7 +255,10 @@ export function ItinerarySurface({
     const at = items.find((i) => typeof i.metadata?.latitude === "number" && typeof i.metadata?.longitude === "number");
     return at ? [at.metadata!.longitude as number, at.metadata!.latitude as number] : undefined;
   }, [items]);
-  const days = useMemo(() => Array.from(new Set([...items.map((i) => i.day_index), ...bookedByDay.keys(), 1])).sort((a, b) => a - b), [items, bookedByDay]);
+  const days = useMemo(
+    () => Array.from(new Set([...items.map((i) => i.day_index), ...bookedByDay.keys(), ...Array.from({ length: Math.min(Math.max(plannedDays, 1), 60) }, (_, n) => n + 1)])).sort((a, b) => a - b),
+    [items, bookedByDay, plannedDays],
+  );
   const itemsByDay = useMemo(() => {
     const map = new Map<number, ItineraryItem[]>();
     for (const item of items) {
@@ -313,48 +322,6 @@ export function ItinerarySurface({
         </div>
       )}
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void add();
-        }}
-        className="flex flex-wrap items-center gap-2 rounded-3xl border border-border/70 bg-card p-2 pl-5 shadow-soft transition-colors focus-within:border-foreground/30"
-      >
-        <Plus aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <div className="min-w-0 flex-1 basis-48">
-          <DestinationCombobox
-            tripId={tripId}
-            scope="places"
-            near={near}
-            enter="free"
-            onEnter={() => void add()}
-            ariaLabel="Add itinerary item"
-            value={title}
-            onChange={setTitle}
-            onPick={(sug) => {
-              setPicked({ id: sug.placeId, text: sug.text });
-              setTitle(sug.text);
-            }}
-            onSelect={() => undefined}
-            maxLength={200}
-            placeholder="Add something to the plan…"
-            inputClassName="w-full min-w-0 bg-transparent px-1 py-2 text-body outline-none placeholder:text-muted-foreground"
-          />
-        </div>
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          Day
-          <input
-            type="number"
-            min={1}
-            value={day}
-            onChange={(e) => setDay(Math.max(1, Number(e.target.value)))}
-            className="w-16 rounded-full border border-border bg-background px-3 py-1.5 text-center text-sm tabular-nums text-foreground outline-none focus:border-foreground/40"
-          />
-        </label>
-        <button type="submit" className="daisy-btn daisy-btn-neutral h-10 rounded-full border-0 px-6 shadow-none">
-          Add
-        </button>
-      </form>
 
       {days.map((d) => {
         const dayItems = itemsByDay.get(d) ?? [];
@@ -389,7 +356,7 @@ export function ItinerarySurface({
                 type="button"
                 onClick={() => {
                   setDay(d);
-                  document.querySelector<HTMLInputElement>('input[aria-label="Add itinerary item"]')?.focus();
+                  setAddOpen(true);
                 }}
                 className="daisy-btn daisy-btn-sm h-9 shrink-0 rounded-full border-border bg-card px-4 font-medium shadow-none hover:border-foreground/30 hover:bg-accent"
               >
@@ -398,6 +365,61 @@ export function ItinerarySurface({
             </div>
 
             <div className="min-w-0">
+            {addOpen && day === d && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void add();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setAddOpen(false);
+                }}
+                className="relative mb-4 flex flex-wrap items-center gap-2 rounded-3xl border border-border/70 bg-card p-2 pl-5 shadow-soft transition-colors focus-within:border-foreground/30"
+              >
+                <Plus aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1 basis-48 max-sm:pr-8">
+                  <DestinationCombobox
+                    tripId={tripId}
+                    scope="places"
+                    near={near}
+                    enter="free"
+                    onEnter={() => void add()}
+                    ariaLabel="Add itinerary item"
+                    value={title}
+                    onChange={setTitle}
+                    onPick={(sug) => {
+                      setPicked({ id: sug.placeId, text: sug.text });
+                      setTitle(sug.text);
+                    }}
+                    onSelect={() => undefined}
+                    autoFocus
+                    maxLength={200}
+                    placeholder={`Add something to ${date ?? `day ${d}`}…`}
+                    inputClassName="w-full min-w-0 bg-transparent px-1 py-2 text-body outline-none placeholder:text-muted-foreground"
+                  />
+                </div>
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  Day
+                  <select
+                    value={day}
+                    onChange={(e) => setDay(Number(e.target.value))}
+                    className="rounded-full border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-foreground/40"
+                  >
+                    {days.map((n) => (
+                      <option key={n} value={n}>
+                        {`Day ${n}${dayDate(startDate, n) ? ` · ${dayDate(startDate, n)}` : ""}`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button type="submit" className="daisy-btn daisy-btn-neutral h-10 rounded-full border-0 px-6 shadow-none">
+                  Add
+                </button>
+                <button type="button" onClick={() => setAddOpen(false)} aria-label="Close" className="grid size-9 shrink-0 max-sm:absolute max-sm:top-1.5 max-sm:right-1.5 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                  <X aria-hidden className="size-4" />
+                </button>
+              </form>
+            )}
             {(bookedByDay.get(d) ?? []).length > 0 && (
               <ul aria-label={`Booked on day ${d}`} className="mb-4 space-y-2">
                 {(bookedByDay.get(d) ?? []).map(({ reservation, note }) => {
@@ -428,7 +450,7 @@ export function ItinerarySurface({
                       dropHint === `${d}:end` ? "border-coral bg-coral-soft/40" : "border-border",
                     )}
                   >
-                    Nothing planned. Add something above, or drag an item here.
+                    Nothing planned. Use Add here, or drag an item here.
                   </motion.p>
                 )}
                 {dayItems.map((item, itemIndex) => {
