@@ -10,6 +10,7 @@ import { PlanStops, type PlanStop } from "@/features/conversation/ui/blocks/Plan
 import { parseRouteStep, routeLines, splitRouteEnds } from "@/features/conversation/ui/blocks/routeText";
 import { Skeleton } from "@/components/Skeleton";
 import { ContentSwap, motionTokens } from "@/components/motion-primitives";
+import { BigFigure, PanelHeader } from "./PanelHeader";
 import { SlidingTabs } from "@/features/conversation/ui/blocks/SlidingTabs";
 import { Badge, Notice, money, surface, type } from "@/features/conversation/ui/blocks/ui";
 import { cn } from "@/lib/utils";
@@ -86,16 +87,6 @@ function OptionCard({ route, index, single, tag, on, onSelect }: { route: RouteB
 }
 
 /** "2 h 29 min" with the figures large and the units small, so a journey's length reads as one number. */
-function BigDuration({ text }: { text: string }) {
-  return (
-    <p aria-label={text} className="flex flex-wrap items-baseline gap-x-1.5 font-display leading-none tracking-[-0.045em] tabular-nums">
-      {text.split(" ").map((part, i) => (/^\d+$/.test(part)
-        ? <span key={i} className="text-[3.25rem] font-light text-foreground">{part}</span>
-        : <span key={i} className="mr-1.5 text-base font-normal tracking-normal text-muted-foreground">{part}</span>))}
-    </p>
-  );
-}
-
 const MODE_ORDER: Array<keyof typeof MODE> = ["driving", "transit", "walking"];
 
 /** Where the phone sheet rests, as how much of it shows: a strip, about half the screen, or all of it (covering the map). */
@@ -233,14 +224,12 @@ export function RouteDetail({ tripId, routes, active: initial }: { tripId: strin
   const options = (
     <div className="space-y-6">
       {/* The chosen way, as a headline: what it is, how long, between where. */}
-      <header>
-        <p className="text-[0.6875rem] font-medium tracking-[0.26em] text-muted-foreground uppercase">
-          {route.durationSeconds === fastest ? "Fastest" : heroTag ? TAG_TEXT[heroTag] : "Your route"} <span aria-hidden className="mx-1.5 text-coral">·</span> {MODE[mode].label}
-        </p>
-        <div className="mt-3"><BigDuration text={minutes(route.durationSeconds)} /></div>
-        <p className="mt-3 truncate text-sm text-muted-foreground">{ends.from} <span aria-hidden className="mx-1 text-coral">→</span> {ends.to}{ends.where ? ` · ${ends.where}` : ""}</p>
-        <div aria-hidden className="mt-5 h-px w-full bg-gradient-to-r from-coral/70 via-foreground/15 to-transparent" />
-      </header>
+      <PanelHeader
+        eyebrow={[route.durationSeconds === fastest ? "Fastest" : heroTag ? TAG_TEXT[heroTag] : "Your route", MODE[mode].label]}
+        sub={<>{ends.from} <span aria-hidden className="mx-1 text-coral">→</span> {ends.to}{ends.where ? ` · ${ends.where}` : ""}</>}
+      >
+        <BigFigure text={minutes(route.durationSeconds)} />
+      </PanelHeader>
 
       {groups.length > 1 && (
         <SlidingTabs
