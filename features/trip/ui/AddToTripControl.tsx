@@ -221,9 +221,11 @@ export function AddToTripControl({
             className={cn(
               orb
                 ? cn(
-                    "inline-flex h-12 min-w-12 items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-sm font-semibold transition-[background-color,color,box-shadow,transform,filter] duration-200 ease-out hover:brightness-105 active:scale-95 disabled:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
+                    cn(sm ? "h-10 min-w-10" : "h-12 min-w-12"),
+                    "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-sm font-semibold transition-[background-color,color,box-shadow,transform,filter] duration-200 ease-out hover:brightness-105 active:scale-95 disabled:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
                     day
-                      ? "bg-white px-4 text-ink shadow-[0_6px_16px_oklch(0_0_0/0.35)]"
+                      // Over a photo the planned state is a white pill; in a list row (the small orb) the card is already white.
+                      ? (sm ? "bg-coral-soft px-3.5 text-coral-ink" : "bg-white px-4 text-ink shadow-[0_6px_16px_oklch(0_0_0/0.35)]")
                       : "bg-coral-fill text-coral-fill-foreground shadow-[0_10px_26px_oklch(0.64_0.175_36/0.5),inset_0_1px_0_oklch(1_0_0/0.35)]",
                   )
                 : "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full border font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out active:scale-[0.98] disabled:opacity-70",
@@ -243,7 +245,7 @@ export function AddToTripControl({
             ) : day ? (
               <CalendarCheck className={cn(sm ? "size-3.5" : "size-4")} />
             ) : orb ? (
-              <Plus className="size-6" strokeWidth={2} />
+              <Plus className={sm ? "size-5" : "size-6"} strokeWidth={2} />
             ) : sm ? (
               <Plus className="size-3.5" strokeWidth={2.25} />
             ) : null}

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { EventPoster } from "@/components/EventPoster";
 import { SafeImage } from "@/components/SafeImage";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
-import { ArrowUpRight, CalendarDays } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Ticket } from "lucide-react";
 import { CompareMark } from "@/features/conversation/ui/blocks/ui";
 import { CINE_PILL_ACTION, CineCard, CineDate, CinePill } from "@/features/conversation/ui/blocks/CineCard";
 import { eventDayParts, eventDetailHref, formatEventWhen } from "@/lib/places-ui";
@@ -80,6 +80,15 @@ export function EventCard({ tripId, event, className, onSelect, compact = false,
           )
         }
         overlay={comparing ? <CompareMark selected={selected} /> : undefined}
+        row={{
+          meta: <span className="font-medium text-coral-ink">{when ?? "Date to be announced"}</span>,
+          sub: seller ? `via ${seller}` : undefined,
+          action: comparing ? undefined : (
+            <a href={safeHref(event.url)} target="_blank" rel="noreferrer noopener" aria-label={`Tickets: ${event.title}`} className="grid size-10 place-items-center rounded-full border border-border bg-background transition-transform active:scale-95">
+              <Ticket className="size-[18px]" aria-hidden />
+            </a>
+          ),
+        }}
       />
     </div>
   );

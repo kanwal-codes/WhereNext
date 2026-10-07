@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, type ReactNode } from "react";
 import { MapPin, Star, type LucideIcon } from "lucide-react";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { RoamIcon } from "@/features/roam/ui/RoamIcon";
 import { BlurImage } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
@@ -120,8 +121,46 @@ function Backdrop({ src, alt, glyph: Glyph }: { src?: string | null; alt: string
   );
 }
 
+
+/** What a phone list row shows in place of the photo card: a line of facts, an address or venue line, and its two controls. */
+export type CineRowContent = { meta?: ReactNode; sub?: ReactNode; save?: ReactNode; action?: ReactNode };
+
+/**
+ * A card as a row, for a long list on a phone: a square photo, the name and a line or two of facts, and the controls
+ * on the right. About six fit a screen, where the photo card shows two. The whole row opens, as the card does.
+ */
+function CineRow({ label, onOpen, href, src, alt, glyph: Glyph, eyebrow, title, row, selected, overlay }: { label: string; onOpen?: () => void; href?: string; src?: string | null; alt: string; glyph?: LucideIcon; eyebrow?: ReactNode; title: ReactNode; row: CineRowContent; selected: boolean; overlay?: ReactNode }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <article data-tappable={onOpen ? "" : undefined} className={cn("card-lift group relative isolate flex w-full items-center gap-4 overflow-hidden rounded-[1.75rem] bg-card p-3 pr-3.5 shadow-float ring-1 ring-black/[0.05]", selected && "ring-2 ring-coral")}>
+      {onOpen && <CardOpenOverlay label={label} onOpen={onOpen} href={href} />}
+      <div className="pointer-events-none relative h-[7.5rem] w-24 shrink-0 overflow-hidden rounded-[1.25rem] bg-muted shadow-soft ring-1 ring-black/[0.06]">
+        {src && !failed ? (
+          <BlurImage src={src} alt={alt} width={240} height={300} onError={() => setFailed(true)} className="size-full object-cover" />
+        ) : (
+          <div className="grid size-full place-items-center">{Glyph && <Glyph className="size-8 text-muted-foreground/50" strokeWidth={1.25} aria-hidden />}</div>
+        )}
+      </div>
+      <div className="pointer-events-none relative z-[1] flex min-w-0 flex-1 flex-col justify-center py-0.5">
+        {eyebrow && <p className="truncate text-[0.625rem] font-medium tracking-[0.22em] text-muted-foreground uppercase">{eyebrow}</p>}
+        <h4 className="mt-1 line-clamp-2 font-display text-[1.1875rem] leading-[1.15] font-medium tracking-[-0.02em] text-balance">{title}</h4>
+        <span aria-hidden className="my-2 h-px w-8 bg-gradient-to-r from-coral/80 to-transparent" />
+        {row.meta && <div className="truncate text-[0.8125rem] text-muted-foreground tabular-nums">{row.meta}</div>}
+        {row.sub && <div className="mt-0.5 truncate text-xs text-muted-foreground/80">{row.sub}</div>}
+      </div>
+      {(row.save || row.action) && (
+        <div className="pointer-events-auto relative z-10 flex h-[7.5rem] shrink-0 flex-col items-center justify-between">
+          <div>{row.save}</div>
+          <div>{row.action}</div>
+        </div>
+      )}
+      {overlay}
+    </article>
+  );
+}
+
 export function CineCard({
-  label, onOpen, href, className, src, alt, glyph, topLeft, topRight, save, eyebrow, title, meta, pills, why, foot, action, compact = false, wide = false, selected = false, overlay,
+  label, onOpen, href, className, src, alt, glyph, topLeft, topRight, save, eyebrow, title, meta, pills, why, foot, action, compact = false, wide = false, selected = false, overlay, row,
 }: {
   label: string;
   onOpen?: () => void;
@@ -154,7 +193,11 @@ export function CineCard({
   selected?: boolean;
   /** Anything pinned over the whole card (the compare mark). */
   overlay?: ReactNode;
+  /** With `wide`: on a phone the card becomes this compact row. */
+  row?: CineRowContent;
 }) {
+  const phone = useMediaQuery("(max-width: 639.98px)");
+  if (wide && row && phone) return <CineRow label={label} onOpen={onOpen} href={href} src={src} alt={alt} glyph={glyph} eyebrow={eyebrow} title={title} row={row} selected={selected} overlay={overlay} />;
   const hasBottom = !compact && (why || foot || action);
   return (
     <article

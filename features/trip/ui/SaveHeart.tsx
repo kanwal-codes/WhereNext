@@ -16,7 +16,7 @@ const norm = (s: string) => s.trim().toLowerCase();
  * shortlisted or already on a day. A place on a day is the plan's, so the heart does not remove it from there;
  * that is what the add button's menu is for.
  */
-export function SaveHeart({ tripId, place, compact = false }: { tripId: string; place: Place; compact?: boolean }) {
+export function SaveHeart({ tripId, place, compact = false, light = false }: { tripId: string; place: Place; compact?: boolean; /** On a light ground (a list row) rather than over a photo. */ light?: boolean }) {
   const data = useTripDataMaybe()?.data ?? null;
   const { guest, openGate } = useGuest();
   const itinerary = (data?.itinerary ?? []) as Array<{ title?: string; day_index?: number }>;
@@ -62,7 +62,9 @@ export function SaveHeart({ tripId, place, compact = false }: { tripId: string; 
       className={cn(
         "pointer-events-auto relative z-10 grid shrink-0 place-items-center rounded-full border backdrop-blur-md backdrop-saturate-150 transition-[transform,background-color,color] duration-200 ease-out active:scale-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
         compact ? "size-8" : "size-10",
-        on ? "border-transparent bg-white text-coral" : "border-white/25 bg-white/14 text-white hover:bg-white/25",
+        light
+          ? (on ? "border-transparent bg-transparent text-coral" : "border-transparent bg-transparent text-muted-foreground hover:text-foreground")
+          : (on ? "border-transparent bg-white text-coral" : "border-white/25 bg-white/14 text-white hover:bg-white/25"),
       )}
     >
       {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Heart className={cn(compact ? "size-4" : "size-[18px]", "transition-transform duration-200", on && "scale-110 fill-current")} aria-hidden />}
