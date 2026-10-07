@@ -65,26 +65,28 @@ function legsOf(offer: FlightOffer): Leg[] {
   return [{ from: offer.originAirport ?? "", departAt: offer.departAt, to: offer.destinationAirport ?? "", arriveAt: offer.arriveAt, minutes: offer.durationMinutes, airline: offer.airline, flightNumber: offer.flightNumbers?.slice(0, 2).join(" · "), aircraft: offer.aircraft, logo: offer.logo }];
 }
 
-const NIGHT_SKY = "bg-[linear-gradient(180deg,#0f1a2b_0%,#1e2a44_38%,#7a3a45_74%,#e07a4a_100%)]";
+const NIGHT_SKY = "bg-[radial-gradient(90%_70%_at_50%_118%,oklch(0.64_0.175_36/0.55),transparent_74%),linear-gradient(180deg,#120f0e_0%,#1a1513_58%,#2a1d17_100%)]";
+/** A little film grain, so the dark reads as a surface and not a flat fill. */
+const GRAIN = `url("data:image/svg+xml,${encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>")}")`;
 
-/** The route as a night sky: the two ends large, an arc between them, the shortest time over it. */
+/** The route at dusk: the two ends large and light, a fine line arcing between them, the shortest time over it. */
 export function FlightHero({ eyebrow, title, from, to, duration, dim = false, chip, right }: { eyebrow: ReactNode; title: ReactNode; from: { code: string; name: string }; to: { code: string; name: string }; duration: number; dim?: boolean; chip?: ReactNode; right?: ReactNode }) {
   const end = (e: { code: string; name: string }, align: "left" | "right") => (
     <div className={cn("absolute bottom-[3.5rem] min-w-0 max-w-[40%] text-white", align === "left" ? "left-5 @[34rem]:left-[1.625rem]" : "right-5 text-right @[34rem]:right-[1.625rem]")}>
-      <p className="font-display text-[2rem] leading-none font-medium tracking-[-0.03em] @[34rem]:text-[2.5rem]">{e.code}</p>
+      <p className="font-display text-[2rem] leading-none font-light tracking-[-0.04em] @[34rem]:text-[2.75rem]">{e.code}</p>
       <p className="mt-1.5 truncate text-[0.8125rem] text-white/70">{e.name}</p>
     </div>
   );
   return (
     <div className={cn("relative h-[15rem] overflow-hidden", NIGHT_SKY)} role="group" aria-label={`${from.name} to ${to.name}`}>
-      <svg viewBox="0 0 600 240" preserveAspectRatio="xMidYMid slice" className={cn("absolute inset-0 size-full", dim && "opacity-35")} aria-hidden>
-        <defs><linearGradient id="fw-arc" x1="0" x2="1"><stop offset="0" stopColor="white" stopOpacity="0.1" /><stop offset="0.5" stopColor="white" stopOpacity="0.95" /><stop offset="1" stopColor="white" stopOpacity="0.1" /></linearGradient></defs>
-        {[[40, 24, 1.2], [110, 60, 1], [190, 18, 1.4], [290, 50, 1], [380, 22, 1.2], [470, 56, 1], [60, 100, 1], [430, 96, 1.2], [540, 30, 1.2]].map(([x, y, r], i) => <circle key={i} cx={x} cy={y} r={r} fill="white" fillOpacity={0.4 + (i % 3) * 0.2} />)}
-        <path d="M 60 184 Q 300 -6 540 184" fill="none" stroke="url(#fw-arc)" strokeWidth="2" strokeDasharray="3 8" strokeLinecap="round" />
-        <circle cx="60" cy="184" r="5.5" fill="white" />
-        <circle cx="540" cy="184" r="5.5" fill="white" fillOpacity="0.6" />
-        <path d="M204 86l3.2 7.4 7.4 2.3-7.4 3.2-3.2 7.4-3.2-7.4-7.4-3.2 7.4-2.3z" fill="white" />
+      <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.07] mix-blend-overlay" style={{ backgroundImage: GRAIN }} />
+      <svg viewBox="0 0 600 240" preserveAspectRatio="none" className={cn("absolute inset-0 size-full", dim && "opacity-35")} aria-hidden>
+        <defs><linearGradient id="fw-arc" x1="0" x2="1"><stop offset="0" stopColor="white" stopOpacity="0.05" /><stop offset="0.5" stopColor="white" stopOpacity="0.7" /><stop offset="1" stopColor="white" stopOpacity="0.05" /></linearGradient></defs>
+        <path d="M 36 184 Q 300 20 564 184" fill="none" stroke="url(#fw-arc)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
       </svg>
+      {/* The ends are plain elements, not part of the stretched drawing, so they stay round and in view at any width. */}
+      <span aria-hidden className={cn("absolute bottom-[3.5rem] left-[6%] size-[7px] -translate-x-1/2 translate-y-1/2 rounded-full bg-white", dim && "opacity-35")} />
+      <span aria-hidden className={cn("absolute right-[6%] bottom-[3.5rem] size-[7px] translate-x-1/2 translate-y-1/2 rounded-full border border-white/70", dim && "opacity-35")} />
       <div className="absolute inset-x-5 top-5 flex items-start justify-between gap-3 text-white @[34rem]:inset-x-[1.625rem]">
         <div className="min-w-0">
           <p className="eyebrow truncate text-white/70!">{eyebrow}</p>
