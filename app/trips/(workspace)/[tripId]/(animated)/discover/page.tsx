@@ -4,7 +4,7 @@ import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTripData } from "@/components/TripDataProvider";
 import { RouteScaffold } from "@/components/RouteScaffold";
-import { SkeletonCards } from "@/components/Skeleton";
+import { SkeletonBand } from "@/components/Skeleton";
 import { DiscoverTabs, DiscoverySurface } from "@/features/places/ui/DiscoverySurface";
 
 function DiscoverContent({
@@ -41,7 +41,7 @@ export default function DiscoverPage() {
       title="Everything to do in one place"
       tabs={<DiscoverTabs view={view} onChange={setView} savedCount={savedCount} />}
     >
-      <Suspense fallback={<SkeletonCards count={6} />}>
+      <Suspense fallback={<SkeletonBand count={6} className="mt-5" />}>
         <DiscoverContent view={view} onViewChange={setView} onSavedCountChange={setSavedCount} />
       </Suspense>
     </RouteScaffold>

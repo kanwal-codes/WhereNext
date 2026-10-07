@@ -20,7 +20,7 @@ import { rankPlaces, type RankAnchor } from "@/lib/application/rank-places";
 import { usesMiles } from "@/lib/application/geo";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { EventCard, type NearbyEvent } from "@/components/EventCard";
-import { SkeletonCards } from "@/components/Skeleton";
+import { SkeletonBand, SkeletonList } from "@/components/Skeleton";
 import { EmptyState } from "@/components/EmptyState";
 import { Stagger, StaggerItem } from "@/components/motion-primitives";
 import { CATEGORIES, CATEGORY_BY_KEY, type DiscoverCategory } from "./discoverTaxonomy";
@@ -580,7 +580,7 @@ export function DiscoverySurface({
       <div className="relative">
         <SwapView id={loading && gridItems.length === 0 && (bands === null || gridView) ? "skeleton" : gridView ? "grid" : loading && !bands ? "digest-loading" : "digest"}>
       {loading && gridItems.length === 0 && (bands === null || gridView) ? (
-        <SkeletonCards count={6} className={cn("mt-5", !gridView && "grid-cols-2 sm:grid-cols-3")} />
+        gridView ? <SkeletonList count={6} className="mt-5 @[46rem]:grid-cols-3" /> : <SkeletonBand count={6} className="mt-5" />
       ) : gridView ? (
         gridItems.length > 0 ? (
           <>
@@ -603,7 +603,7 @@ export function DiscoverySurface({
         // "All" digest
         <div className="mt-5">
           {loading && !bands ? (
-            <SkeletonCards count={6} className="mt-4 grid-cols-2 sm:grid-cols-3" />
+            <SkeletonBand count={6} className="mt-4" />
           ) : !bands || bands.length === 0 ? (
             <EmptyState icon={Compass} className="mt-8">
               {destination ? "Nothing came back just now. Try a search or a different category." : "Set a destination for this trip to see ideas here."}
