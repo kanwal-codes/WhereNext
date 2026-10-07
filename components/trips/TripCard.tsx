@@ -70,7 +70,7 @@ export function TripCard({
           </div>
         </div>
       </Link>
-      <TripMenu name={trip.name} href={`/trips/${trip.id}`} deleting={deleting} onDelete={onDelete} className="absolute top-3.5 right-3.5 z-20" />
+      <TripMenu name={trip.name} href={`/trips/${trip.id}`} deleting={deleting} onDelete={onDelete} isOwner={trip.is_owner !== false} className="absolute top-3.5 right-3.5 z-20" />
     </Tactile>
   );
 }

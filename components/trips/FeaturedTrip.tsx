@@ -114,7 +114,7 @@ export function FeaturedTrip({
           )}
         </TripCover>
       </Link>
-      <TripMenu name={trip.name} href={`/trips/${trip.id}`} deleting={deleting} onDelete={onDelete} className="absolute top-4 right-4 z-20 sm:top-5 sm:right-5" />
+      <TripMenu name={trip.name} href={`/trips/${trip.id}`} deleting={deleting} onDelete={onDelete} isOwner={trip.is_owner !== false} className="absolute top-4 right-4 z-20 sm:top-5 sm:right-5" />
     </Tactile>
   );
 }

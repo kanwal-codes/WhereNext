@@ -20,10 +20,10 @@ export async function loadTripsIndex(supabase: SupabaseClient): Promise<TripsInd
   const displayName = meta.name || meta.full_name || user.email?.split("@")[0] || "Traveller";
   const result = await supabase
     .from("trips")
-    .select("id,name,destination,origin,duration_days,start_date,end_date,travelers,hero_photo_name")
+    .select("id,name,destination,origin,duration_days,start_date,end_date,travelers,hero_photo_name,owner_id")
     .order("updated_at", { ascending: false });
   if (result.error) throw result.error;
-  const trips = (result.data ?? []) as TripSummary[];
+  const trips = ((result.data ?? []) as Array<TripSummary & { owner_id?: string | null }>).map(({ owner_id, ...trip }) => ({ ...trip, is_owner: owner_id === user.id }));
 
   // Second choice for a cover photo: a place the group saved to the trip. Only asked for trips
   // that have no destination photo, in one query for all of them. Best-effort: a failure here just
