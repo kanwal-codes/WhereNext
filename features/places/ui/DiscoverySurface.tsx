@@ -452,8 +452,9 @@ export function DiscoverySurface({
 
   // In a band on a phone each card is a swipeable slide (the next one peeks in), not a half-width tile: two to a row cramped the buttons.
   const slide = "max-sm:w-[15.5rem] max-sm:shrink-0 max-sm:snap-start";
-  // From sm up the cards are square, not 3:4: three across a wide screen made each one 350px wide and 470 tall.
-  const squareOnWide = "sm:[&_article]:aspect-square";
+  // From sm up the cards are about 11:10, not 3:4: three across a wide screen made each one 350px wide and 470 tall. 11:10 is the height the
+  // Discover cards had before the cinematic ones (a 16:10 photo with its text under it, roughly 330px at this width).
+  const squareOnWide = "sm:[&_article]:aspect-[11/10]";
   const renderItem = (item: Item, inRail = false, row = false) => {
     if (item.kind === "place") {
       return (
