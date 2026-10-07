@@ -34,7 +34,7 @@ const FILTER_TABS: Array<{ key: TripFilter; label: string }> = [
   { key: "past", label: "Past" },
 ];
 
-export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displayName: string }) {
+export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]; displayName: string; userId?: string }) {
   const [list, setList] = useState(trips);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<TripSummary | null>(null);
@@ -97,13 +97,15 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
   async function removeTrip(trip: TripSummary) {
     setPendingDelete(null);
     setDeleting(trip.id);
-    const response = await fetch(`/api/trips/${trip.id}`, { method: "DELETE" });
+    // The owner deletes the trip for everyone on it; anyone else can only leave it (the server enforces both).
+    const leaving = trip.is_owner === false;
+    const response = await fetch(leaving ? `/api/trips/${trip.id}/members/${userId}` : `/api/trips/${trip.id}`, { method: "DELETE" });
     setDeleting(null);
     if (response.ok) {
       setList((current) => current.filter((t) => t.id !== trip.id));
-      notifyToast(`"${trip.name}" deleted.`, "success");
+      notifyToast(leaving ? `You left "${trip.name}".` : `"${trip.name}" deleted.`, "success");
     } else {
-      notifyToast("That trip couldn’t be deleted. Try again.", "error");
+      notifyToast(leaving ? "You couldn’t leave that trip. Try again." : "That trip couldn’t be deleted. Try again.", "error");
     }
   }
 
@@ -300,15 +302,17 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
         )}
       </div>
 
-      <Sheet open={!!pendingDelete} onClose={() => setPendingDelete(null)} ariaLabel="Delete trip" side="center">
+      <Sheet open={!!pendingDelete} onClose={() => setPendingDelete(null)} ariaLabel={pendingDelete?.is_owner === false ? "Leave trip" : "Delete trip"} side="center">
         <div className="space-y-4 p-6">
           <div>
-            <h3 className="font-display text-xl">Delete this trip?</h3>
+            <h3 className="font-display text-xl">{pendingDelete?.is_owner === false ? "Leave this trip?" : "Delete this trip?"}</h3>
             <p className="mt-1 text-sm text-muted-foreground">
               {pendingDelete && (
                 <>
-                  <span className="font-medium text-foreground">&ldquo;{pendingDelete.name}&rdquo;</span> and everything in it —
-                  itinerary, saved places, decisions — will be removed. This can’t be undone.
+                  <span className="font-medium text-foreground">&ldquo;{pendingDelete.name}&rdquo;</span>
+                  {pendingDelete.is_owner === false
+                    ? " is owned by someone else. Leaving takes it off your list; it stays for the rest of the group."
+                    : " and everything in it — itinerary, saved places, decisions — will be removed for everyone on the trip. This can’t be undone."}
                 </>
               )}
             </p>
@@ -326,7 +330,7 @@ export function TripsHome({ trips, displayName }: { trips: TripSummary[]; displa
               onClick={() => pendingDelete && void removeTrip(pendingDelete)}
               className="btn-destructive"
             >
-              <Trash2 className="h-3.5 w-3.5" /> Delete trip
+              <Trash2 className="h-3.5 w-3.5" /> {pendingDelete?.is_owner === false ? "Leave trip" : "Delete trip"}
             </button>
           </div>
         </div>

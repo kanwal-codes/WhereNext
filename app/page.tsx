@@ -36,5 +36,5 @@ export default async function HomePage() {
   }
   if (!data) return <LandingNext homeCode={homeAirportFromHeaders(await headers())} />;
   if (data.trips.length === 0) redirect("/trips/new");
-  return <TripsHome trips={data.trips} displayName={data.displayName} />;
+  return <TripsHome trips={data.trips} displayName={data.displayName} userId={data.userId} />;
 }

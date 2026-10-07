@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Ellipsis, Loader2, Trash2 } from "lucide-react";
+import { ArrowUpRight, Ellipsis, Loader2, LogOut, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -14,12 +14,15 @@ export function TripMenu({
   href,
   deleting,
   onDelete,
+  isOwner = true,
   className,
 }: {
   name: string;
   href: string;
   deleting: boolean;
   onDelete: () => void;
+  /** Only the owner can delete a trip; anyone else gets "Leave trip" (the same handler opens the right confirmation). */
+  isOwner?: boolean;
   className?: string;
 }) {
   const ref = useRef<HTMLDetailsElement>(null);
@@ -69,7 +72,7 @@ export function TripMenu({
             }}
             className="text-destructive"
           >
-            <Trash2 className="h-4 w-4" /> Delete trip
+            {isOwner ? <Trash2 className="h-4 w-4" /> : <LogOut className="h-4 w-4" />} {isOwner ? "Delete trip" : "Leave trip"}
           </button>
         </li>
       </ul>

@@ -11,4 +11,6 @@ export type TripSummary = {
   hero_photo_name?: string | null;
   /** Fallback cover: the photo name of a place saved to this trip. Only filled when there is no destination photo. */
   saved_photo_name?: string | null;
+  /** false when the trip is shared with you and someone else owns it: only an owner can delete a trip, anyone else can leave it. */
+  is_owner?: boolean;
 };
