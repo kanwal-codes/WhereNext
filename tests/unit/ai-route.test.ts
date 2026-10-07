@@ -704,6 +704,25 @@ describe("POST /api/ai", () => {
     expect(changes).toEqual(expect.arrayContaining([expect.objectContaining({ field: "destination", from: "China", to: "Osaka", undoPrompt: expect.stringContaining("China") })]));
   });
 
+  it("confirms a plain trip-fact change in one line and never calls the writing model, since the receipt card shows it", async () => {
+    loadTripContextMock
+      .mockResolvedValueOnce({ trip: { name: "T", destination: "China", origin: null, duration_days: 8, travelers: 5, updated_at: "2026-01-01T00:00:00Z" }, preferences: {}, itinerary: [], lockedTitles: [], lockedPlaces: [], places: [], decisions: [] })
+      .mockResolvedValueOnce({ trip: { name: "T", destination: "Osaka", origin: null, duration_days: 8, travelers: 5, updated_at: "2026-01-01T00:05:00Z" }, preferences: {}, itinerary: [], lockedTitles: [], lockedPlaces: [], places: [], decisions: [] });
+    resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "Osaka", intent: "trip_memory", capabilities: [], toolPlan: [], clarify: null, suggestedFollowups: [], proposedProfileUpdate: null, proposedTripUpdate: { destination: "Osaka" } });
+    const { body } = await readMeta(await post("actually we're going to Osaka instead"));
+    expect(streamTextMock).not.toHaveBeenCalled();
+    expect(body).toContain("Done — destination updated.");
+  });
+
+  it("still writes a reply when the same message also asks something", async () => {
+    loadTripContextMock
+      .mockResolvedValueOnce({ trip: { name: "T", destination: "China", origin: null, duration_days: 8, travelers: 5, updated_at: "2026-01-01T00:00:00Z" }, preferences: {}, itinerary: [], lockedTitles: [], lockedPlaces: [], places: [], decisions: [] })
+      .mockResolvedValueOnce({ trip: { name: "T", destination: "Osaka", origin: null, duration_days: 8, travelers: 5, updated_at: "2026-01-01T00:05:00Z" }, preferences: {}, itinerary: [], lockedTitles: [], lockedPlaces: [], places: [], decisions: [] });
+    resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "Osaka", intent: "trip_memory", capabilities: [], toolPlan: [], clarify: null, suggestedFollowups: [], proposedProfileUpdate: null, proposedTripUpdate: { destination: "Osaka" } });
+    await readMeta(await post("we're going to Osaka instead, is that a good idea?"));
+    expect(streamTextMock).toHaveBeenCalled();
+  });
+
   it("does not apply a trip-fact change, and reloads the current trip instead, when the row changed since this turn loaded it", async () => {
     tripsUpdateSucceeds = false; // simulates a lost race — no row matched the updated_at guard
     loadTripContextMock

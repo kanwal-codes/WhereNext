@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardLeadIn, looksLikePlainLookup } from "@/lib/application/orchestrate/card-lead-in";
+import { cardLeadIn, looksLikePlainLookup, tripUpdateLeadIn } from "@/lib/application/orchestrate/card-lead-in";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 
 const route = (mode: string, seconds: number) => ({ type: "route_summary", from: "Toronto, Ontario, Canada", to: "Niagara Falls, Ontario, Canada", mode, durationSeconds: seconds, distanceMeters: 1, steps: [], retrievedAt: "t" }) as unknown as AssistantBlock;
@@ -33,5 +33,19 @@ describe("looksLikePlainLookup", () => {
 
   it("leaves anything that asks Roam to judge, or is not a lookup, to the writing model", () => {
     for (const m of ["from Toronto to niagra, what's the cheapest way?", "which way is best to get to the airport", "who are the two travellers?", "is it worth it"]) expect(looksLikePlainLookup(m)).toBe(false);
+  });
+});
+
+describe("tripUpdateLeadIn", () => {
+  const receipt = (...labels: Array<[string, string | null]>) => ({ type: "trip_update", changes: labels.map(([label, to]) => ({ field: label.toLowerCase(), label, from: "x", to })) }) as unknown as AssistantBlock;
+
+  it("confirms what changed without repeating the values the card shows", () => {
+    expect(tripUpdateLeadIn([receipt(["Dates", "Sep 30"]), actions])).toBe("Done — dates updated. Undo is on the card if that was not what you meant.");
+    expect(tripUpdateLeadIn([receipt(["Dates", "a"], ["Destination", "b"], ["Travellers", "2"])])).toContain("dates, destination and travellers updated");
+  });
+
+  it("says changed when something was cleared, and nothing when another card is on screen", () => {
+    expect(tripUpdateLeadIn([receipt(["Dates", null])])).toContain("dates changed");
+    expect(tripUpdateLeadIn([receipt(["Dates", "a"]), places(2)])).toBeNull();
   });
 });

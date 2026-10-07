@@ -15,6 +15,17 @@ const duration = (seconds: number) => {
   return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}`;
 };
 
+/** "Done — dates updated." for a trip fact changed on the traveller's say-so: the receipt card shows what changed, so the line only needs to
+ *  confirm it. Null when the receipt is not the whole reply (any other card shown, or nothing changed). */
+export function tripUpdateLeadIn(blocks: AssistantBlock[]): string | null {
+  const receipt = blocks.find((block): block is Extract<AssistantBlock, { type: "trip_update" }> => block.type === "trip_update");
+  if (!receipt || blocks.some((block) => block.type !== "trip_update" && block.type !== "actions")) return null;
+  const labels = receipt.changes.map((change) => change.label.toLowerCase());
+  const list = labels.length > 1 ? `${labels.slice(0, -1).join(", ")} and ${labels.at(-1)}` : labels[0];
+  const word = receipt.changes.every((change) => change.to !== null) ? "updated" : "changed";
+  return `Done — ${list} ${word}. Undo is on the card if that was not what you meant.`;
+}
+
 /** RESOLVE is cautious about calling a message a plain lookup (it marked "from Toronto to niagra" as not), so the clear-cut phrasings
  *  are also recognised here: a bare route or "what's on" request with no word asking Roam to judge anything. */
 const JUDGING = /\b(best|better|cheap\w*|fast\w*|quick\w*|should|worth|which|why|compare|versus|vs|recommend\w*|prefer\w*|safe\w*|easy|easier|kids?|budget)\b/i;

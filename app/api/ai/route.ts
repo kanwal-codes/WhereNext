@@ -496,7 +496,8 @@ export const POST = withRoute(async function POST(request: Request) {
         // its own wall-clock guard, never interrupted early, unlike every other model call in this
         // route.
         (content) => {
-          if (result?.kind !== "ready") return content;
+          // A deterministic card lead-in has no claims or links to check: skip the grounding call (up to ~2.5 s before the cards show).
+          if (result?.kind !== "ready" || result.composeSkipIsLeadIn) return content;
           const p = finalizeAssistantText(
             content, result.allowedUrls, result.system, AbortSignal.any([request.signal, disconnectController.signal]),
             (entry) => { evaluatorUsage = entry; }, result.resolved.intent, () => { unverified = true; },
