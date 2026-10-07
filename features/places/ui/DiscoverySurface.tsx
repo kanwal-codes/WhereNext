@@ -222,8 +222,9 @@ export function DiscoverySurface({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- primitive keys stand in for the object deps
   }, [interestsKey, dislikesKey, savedKey, rejectedKey, itinKey, stayKey, miles]);
+  // `typed`: a search the reader wrote. The provider's order is the answer to it, so it is kept; browsing a category is still ranked by how well known and how close.
   const rankToItems = useCallback(
-    (places: Place[]): Item[] => rankPlaces(places, rankCtx).map((r) => ({ kind: "place", place: r.place, why: r.why })),
+    (places: Place[], typed = false): Item[] => rankPlaces(places, { ...rankCtx, providerOrder: typed }).map((r) => ({ kind: "place", place: r.place, why: r.why })),
     [rankCtx],
   );
 
@@ -363,7 +364,7 @@ export function DiscoverySurface({
         const places = eventIntent ? [] : await fetchPlaces(q, controller.signal);
         const events = eventIntent ? await fetchEvents(q, 0, controller.signal) : [];
         if (mine !== reqId.current) return;
-        setItems(eventIntent ? events.map((event) => ({ kind: "event", event }) as Item) : rankToItems(places));
+        setItems(eventIntent ? events.map((event) => ({ kind: "event", event }) as Item) : rankToItems(places, true));
         setLoading(false);
         const count = eventIntent ? events.length : places.length;
         setMessage(count ? "" : "Nothing came back — try different words.");

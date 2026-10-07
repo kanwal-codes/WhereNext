@@ -85,3 +85,21 @@ describe("rankPlaces", () => {
     expect(out.map((r) => r.place.providerId)).toEqual(["b"]);
   });
 });
+
+describe("rankPlaces with the provider's order", () => {
+  const bar = p({ name: "Patrick's Rooftop", category: "bar", rating: 3.9, userRatingCount: 143 });
+  const casino = p({ name: "Fallsview Casino Resort", category: "casino", rating: 4.3, userRatingCount: 25100 });
+
+  it("ranks a famous place above a small one by default", () => {
+    expect(rankPlaces([bar, casino]).map((r) => r.place.name)).toEqual(["Fallsview Casino Resort", "Patrick's Rooftop"]);
+  });
+
+  it("keeps the order the provider gave when asked, for a search the reader typed", () => {
+    expect(rankPlaces([bar, casino], { providerOrder: true }).map((r) => r.place.name)).toEqual(["Patrick's Rooftop", "Fallsview Casino Resort"]);
+  });
+
+  it("still drops a rejected or disliked place in that mode", () => {
+    const out = rankPlaces([bar, casino], { providerOrder: true, rejectedIds: [casino.providerId] });
+    expect(out.map((r) => r.place.name)).toEqual(["Patrick's Rooftop"]);
+  });
+});
