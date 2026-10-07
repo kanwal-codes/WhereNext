@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Play, Square } from "lucide-react";
 import { renderToStaticMarkup } from "react-dom/server";
 import mapboxgl from "mapbox-gl";
 import { CATEGORY_HEX } from "@/lib/map-colors";
@@ -70,15 +69,6 @@ function pinSvg(color: string, mark: number | string | null): string {
   </svg>`;
 }
 
-const toRad = (d: number) => (d * Math.PI) / 180;
-const bearingBetween = (a: number[], b: number[]) => {
-  const y = Math.sin(toRad(b[0] - a[0])) * Math.cos(toRad(b[1]));
-  const x = Math.cos(toRad(a[1])) * Math.sin(toRad(b[1])) - Math.sin(toRad(a[1])) * Math.cos(toRad(b[1])) * Math.cos(toRad(b[0] - a[0]));
-  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
-};
-/** The short way round from one compass bearing to another, so the camera never spins the long way. */
-const turnToward = (from: number, to: number, k: number) => from + ((((to - from) % 360) + 540) % 360 - 180) * k;
-
 /** The Mapbox control that frames the whole route again after the reader has wandered off. */
 class FitControl implements mapboxgl.IControl {
   private box: HTMLDivElement | null = null;
@@ -114,8 +104,6 @@ export function TripMap({
   fitControl = false,
   scaleBar = false,
   cinematic = false,
-  preview = false,
-  onPreviewChange,
   overlay,
   className,
 }: {
@@ -134,11 +122,8 @@ export function TripMap({
   fitControl?: boolean;
   /** A distance scale in the corner (always on in the cinematic map). */
   scaleBar?: boolean;
-  /** The full-page map: a tilted camera, 3D buildings, and a "preview the route" fly-through. */
+  /** The full-page map: a tilted camera and 3D buildings. */
   cinematic?: boolean;
-  /** The camera is flying the route (controlled: the page's own button and the map's share it). */
-  preview?: boolean;
-  onPreviewChange?: (on: boolean) => void;
   /** Other ways to make the trip (drawn quietly behind), times on routes, and where one vehicle hands over to the next. */
   overlay?: MapOverlay;
   className?: string;
@@ -153,21 +138,17 @@ export function TripMap({
   const framed = useRef<mapboxgl.LngLatBounds | null>(null);
   const insetRef = useRef<MapInset | undefined>(inset);
   const fitRef = useRef<() => void>(() => {});
-  const previewRef = useRef(false);
   const arrived = useRef(false);
   const labelsRef = useRef<() => void>(() => {});
   const extraMarkers = useRef<mapboxgl.Marker[]>([]);
   const ghostSelect = useRef<Map<string, () => void>>(new Map());
   const nodeLabelsRef = useRef<() => void>(() => {});
   const pillsRef = useRef<() => void>(() => {});
-  const onPreviewRef = useRef(onPreviewChange);
   const scaleRef = useRef(scaleBar);
   scaleRef.current = scaleBar;
   const cinematicRef = useRef(cinematic);
   const [hasRoute, setHasRoute] = useState(false);
-  onPreviewRef.current = onPreviewChange;
   cinematicRef.current = cinematic;
-  previewRef.current = preview;
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const fail = (why: unknown) => {
@@ -301,14 +282,6 @@ export function TripMap({
           addLayers(m);
           setStyleVersion((v) => v + 1);
         });
-        // Touching the map takes the controls back from a fly-through.
-        const stopFlight = () => {
-          if (previewRef.current) {
-            previewRef.current = false;
-            onPreviewRef.current?.(false);
-          }
-        };
-        for (const ev of ["mousedown", "touchstart", "wheel"] as const) m.on(ev, stopFlight);
         m.on("load", () => {
           if (!cancelled) {
             map.current = m;
@@ -375,7 +348,7 @@ export function TripMap({
     const frame = (b: mapboxgl.LngLatBounds, duration = 900) => {
       framed.current = b;
       // The first time a route is framed the camera arrives: it starts high above the city and settles onto the route.
-      if (cinematicRef.current && !arrived.current && !previewRef.current) {
+      if (cinematicRef.current && !arrived.current) {
         arrived.current = true;
         m.jumpTo({ center: b.getCenter(), zoom: Math.max(3, m.getZoom() - 3.2), pitch: 0, bearing: 0 });
         duration = 2600;
@@ -415,51 +388,14 @@ export function TripMap({
       let dist = 0;
       let last = performance.now();
       let settled = false;
-      let flying = false;
-      let flightStart = 0;
-      let heading = 0;
       const line = lineString(pieces.flatMap((p) => p.line.geometry.coordinates as Array<[number, number]>));
-      // A whole route in about a quarter of a minute, however long it is; the camera drops lower on a short one.
-      const flightMs = Math.min(40_000, Math.max(14_000, totalKm * 3200));
-      const flightZoom = Math.min(16.2, Math.max(13.2, 16.7 - Math.log2(Math.max(totalKm, 1)) * 0.7));
       const tick = (now: number) => {
         const dt = Math.min(now - last, 64);
         last = now;
-        if (previewRef.current && !flying) {
-          // Lift off from the first stop: the rider restarts there and the camera comes down behind it.
-          flying = true;
-          dist = 0;
-          flightStart = now;
-          const first = pieces[0].line.geometry.coordinates;
-          heading = bearingBetween(first[0], first[Math.min(8, first.length - 1)]);
-          const i = insetRef.current;
-          m.easeTo({ center: first[0] as [number, number], zoom: flightZoom, pitch: 62, bearing: heading, duration: 1500, padding: { top: i?.top ?? 0, right: i?.right ?? 0, bottom: i?.bottom ?? 0, left: i?.left ?? 0 }, essential: true });
-        }
-        if (flying && !previewRef.current) {
-          flying = false;
-          fitRef.current();
-        }
-        if (flying) {
-          dist += (totalKm / flightMs) * dt;
-          if (dist >= totalKm) {
-            flying = false;
-            previewRef.current = false;
-            onPreviewRef.current?.(false);
-            dist = 0;
-            fitRef.current();
-          }
-        } else {
-          dist = (dist + (totalKm / 8) * (dt / 1000)) % totalKm;
-        }
+        dist = (dist + (totalKm / 8) * (dt / 1000)) % totalKm;
         try {
           const at = along(line, dist, { units: "kilometers" });
           pulseMarker.current?.setLngLat(at.geometry.coordinates as [number, number]);
-          if (flying && now - flightStart > 1400) {
-            const ahead = along(line, Math.min(totalKm, dist + Math.max(0.3, totalKm * 0.025)), { units: "kilometers" });
-            heading = turnToward(heading, bearingBetween(at.geometry.coordinates, ahead.geometry.coordinates), 0.05);
-            const i = insetRef.current;
-            m.jumpTo({ center: at.geometry.coordinates as [number, number], bearing: heading, pitch: 62, zoom: flightZoom, padding: { top: i?.top ?? 0, right: i?.right ?? 0, bottom: i?.bottom ?? 0, left: i?.left ?? 0 } });
-          }
 
           const current = pieces.find((p) => dist <= p.endKm) ?? pieces[pieces.length - 1];
           if (current.mode !== pulseMode.current) {
@@ -679,21 +615,6 @@ export function TripMap({
   return (
     <div className={cn("trip-map relative h-[52vh] min-h-[320px] w-full overflow-hidden rounded-2xl border border-border", className)}>
       <div ref={holder} className="h-full w-full" />
-      {cinematic && hasRoute && (
-        <button
-          type="button"
-          onClick={() => onPreviewChange?.(!preview)}
-          aria-pressed={preview}
-          aria-label={preview ? "Stop the route preview" : "Preview the route"}
-          title={preview ? "Stop the preview" : "Preview the route"}
-          className={cn(
-            "absolute right-6 top-[176px] z-[2] grid size-11 place-items-center rounded-2xl shadow-lift ring-1 ring-black/[0.04] transition-[transform,background-color,color] duration-150 active:scale-95",
-            preview ? "bg-primary text-primary-foreground" : "bg-card/95 text-foreground hover:bg-card",
-          )}
-        >
-          {preview ? <Square className="size-4 fill-current" aria-hidden="true" /> : <Play className="size-[18px] fill-current" aria-hidden="true" />}
-        </button>
-      )}
       {!ready && <div className="skeleton absolute inset-0 grid place-items-center text-sm text-muted-foreground">Loading map…</div>}
     </div>
   );

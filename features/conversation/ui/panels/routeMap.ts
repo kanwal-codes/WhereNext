@@ -1,12 +1,10 @@
+import { formatDuration } from "@/lib/format-duration";
 import type { RouteBlock } from "@/components/TripPanelProvider";
 import type { MapLeg, MapOverlay } from "@/components/TripMap";
 import { interchangeNodes, routeMetrics, tagRoutes, type RouteMetrics, type RouteTag } from "@/lib/application/route-overlay";
 
-/** A length of time as "26 min" or "1 h 05". */
-export const minutes = (seconds: number) => {
-  const m = Math.max(1, Math.round(seconds / 60));
-  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`;
-};
+/** A length of time as "26 min", "2 h 29 min" or "1 d 4 h". */
+export const minutes = (seconds: number) => formatDuration(seconds / 60);
 
 const hex = (c?: string) => (c ? `#${c.replace(/^#/, "")}` : undefined);
 const modeOf = (mode: string) => (mode === "walking" ? "walk" : mode === "driving" ? "drive" : mode);

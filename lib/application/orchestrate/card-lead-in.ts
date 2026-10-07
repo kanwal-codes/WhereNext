@@ -1,3 +1,4 @@
+import { formatDuration } from "@/lib/format-duration";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 
 /**
@@ -10,10 +11,7 @@ const MODE: Record<string, string> = { driving: "Driving", walking: "Walking", t
 const label = (mode: string) => MODE[mode] ?? mode.charAt(0).toUpperCase() + mode.slice(1);
 /** "Toronto, Ontario, Canada" reads as "Toronto" in a sentence. */
 const short = (place: string) => place.split(",")[0]?.trim() || place;
-const duration = (seconds: number) => {
-  const m = Math.max(1, Math.round(seconds / 60));
-  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}`;
-};
+const duration = (seconds: number) => formatDuration(seconds / 60);
 
 /** "Done — dates updated." for a trip fact changed on the traveller's say-so: the receipt card shows what changed, so the line only needs to
  *  confirm it. Null when the receipt is not the whole reply (any other card shown, or nothing changed). */

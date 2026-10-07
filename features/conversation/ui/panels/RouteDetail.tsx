@@ -85,6 +85,17 @@ function OptionCard({ route, index, single, tag, on, onSelect }: { route: RouteB
   );
 }
 
+/** "2 h 29 min" with the figures large and the units small, so a journey's length reads as one number. */
+function BigDuration({ text }: { text: string }) {
+  return (
+    <p aria-label={text} className="flex flex-wrap items-baseline gap-x-1.5 font-display leading-none tracking-[-0.045em] tabular-nums">
+      {text.split(" ").map((part, i) => (/^\d+$/.test(part)
+        ? <span key={i} className="text-[3.25rem] font-light text-foreground">{part}</span>
+        : <span key={i} className="mr-1.5 text-base font-normal tracking-normal text-muted-foreground">{part}</span>))}
+    </p>
+  );
+}
+
 const MODE_ORDER: Array<keyof typeof MODE> = ["driving", "transit", "walking"];
 
 /** Where the phone sheet rests, as how much of it shows: a strip, about half the screen, or all of it (covering the map). */
@@ -144,8 +155,16 @@ function PhoneRouteSheet({ map, children }: { map: (inset: { bottom: number }) =
         dragConstraints={{ top: 0, bottom: Math.max(0, height - PEEK_PX) }}
         dragElastic={0.05}
         dragMomentum={false}
-        onDragEnd={(_, info) => settle(info.velocity.y)}
-        className="absolute inset-x-0 top-0 flex h-full flex-col rounded-t-3xl bg-surface shadow-float ring-1 ring-black/[0.05]"
+        onDragEnd={(_, info) => {
+          // A drag that ends over the panel's backdrop (a mouse released above the sheet) must not count as a click on it, which would close the panel.
+          if (Math.abs(info.offset.y) > 6) {
+            const swallow = (event: MouseEvent) => event.stopPropagation();
+            window.addEventListener("click", swallow, { capture: true, once: true });
+            window.setTimeout(() => window.removeEventListener("click", swallow, { capture: true }), 250);
+          }
+          settle(info.velocity.y);
+        }}
+        className="dark luxe-sheet absolute inset-x-0 top-0 flex h-full flex-col rounded-t-3xl bg-surface text-foreground shadow-float ring-1 ring-white/10"
       >
         <button
           type="button"
@@ -154,7 +173,7 @@ function PhoneRouteSheet({ map, children }: { map: (inset: { bottom: number }) =
           onClick={() => go(snap === "full" ? "half" : snap === "half" ? "full" : "half")}
           className="grid h-7 w-full shrink-0 cursor-grab touch-none place-items-center"
         >
-          <span aria-hidden className="h-1.5 w-10 rounded-full bg-foreground/20" />
+          <span aria-hidden className="h-1 w-10 rounded-full bg-foreground/25" />
         </button>
         {/* Only the open sheet scrolls; a part-open one is dragged, so a swipe on it moves the sheet instead. */}
         <div className={`min-h-0 flex-1 px-4 pb-8 ${snap === "full" ? "overflow-y-auto overscroll-contain" : "overflow-hidden"}`}>{children}</div>
@@ -187,12 +206,11 @@ export function RouteDetail({ tripId, routes, active: initial }: { tripId: strin
   const maps = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(route.from)}&destination=${encodeURIComponent(route.to)}&travelmode=${MODE[mode].travelmode}`;
 
   const desktop = useMediaQuery("(min-width: 1024px)");
-  const [previewing, setPreviewing] = useState(false);
   const pins = pointsFromRoute(route).map((p) => ({ id: p.id, name: p.name, lng: p.lng!, lat: p.lat!, kind: p.kind }));
-  // The same map as Getting around: tilted camera, 3D buildings, fit button and a "preview the route" fly-through.
+  // The same map as Getting around: tilted camera, 3D buildings and a fit button.
   const mapAt = (className: string, inset?: { bottom: number }) =>
     legs.length > 0 && settled ? (
-      <LazyTripMap className={className} pins={pins} legs={legs} overlay={overlay} fitControl cinematic preview={previewing} onPreviewChange={setPreviewing} inset={inset} activeDay="all" />
+      <LazyTripMap className={className} pins={pins} legs={legs} overlay={overlay} fitControl cinematic inset={inset} activeDay="all" />
     ) : legs.length > 0 ? (
       <Skeleton className={className} />
     ) : null;
@@ -211,14 +229,23 @@ export function RouteDetail({ tripId, routes, active: initial }: { tripId: strin
   );
 
   // Everything under the map: how to travel, the options with their steps, and the live-times link.
+  const heroTag = tags[Math.min(option, group.options.length - 1)];
   const options = (
-    <div className="space-y-5">
-      {ends.where && <p className={type.meta}>{ends.where}</p>}
+    <div className="space-y-6">
+      {/* The chosen way, as a headline: what it is, how long, between where. */}
+      <header>
+        <p className="text-[0.6875rem] font-medium tracking-[0.26em] text-muted-foreground uppercase">
+          {route.durationSeconds === fastest ? "Fastest" : heroTag ? TAG_TEXT[heroTag] : "Your route"} <span aria-hidden className="mx-1.5 text-coral">·</span> {MODE[mode].label}
+        </p>
+        <div className="mt-3"><BigDuration text={minutes(route.durationSeconds)} /></div>
+        <p className="mt-3 truncate text-sm text-muted-foreground">{ends.from} <span aria-hidden className="mx-1 text-coral">→</span> {ends.to}{ends.where ? ` · ${ends.where}` : ""}</p>
+        <div aria-hidden className="mt-5 h-px w-full bg-gradient-to-r from-coral/70 via-foreground/15 to-transparent" />
+      </header>
 
       {groups.length > 1 && (
         <SlidingTabs
           label="How to get there"
-          className="w-full"
+          className="w-full [--color-base-200:oklch(1_0_0/0.07)] ring-1 ring-white/10"
           tabClassName="h-auto flex-1 py-2"
           value={mode}
           onChange={(m) => { setMode(m); setOption(0); }}
@@ -264,7 +291,7 @@ export function RouteDetail({ tripId, routes, active: initial }: { tripId: strin
     <div className="space-y-5 p-4 pb-8">
       {/* Pinned: the options below scroll past it, and the line changes as you pick one. */}
       <div className="sticky top-0 z-20 -mx-4 -mt-4 bg-surface px-4 pb-3 pt-4">{mapAt("h-[30vh] min-h-[200px] max-h-[300px]") ?? strip}</div>
-      {options}
+      <div className="dark luxe-sheet rounded-3xl bg-surface p-5 text-foreground shadow-float ring-1 ring-white/10">{options}</div>
     </div>
   );
 }
