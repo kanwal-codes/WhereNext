@@ -164,7 +164,7 @@ function PhoneRouteSheet({ map, children }: { map: (inset: { bottom: number }) =
           }
           settle(info.velocity.y);
         }}
-        className="dark luxe-sheet absolute inset-x-0 top-0 flex h-full flex-col rounded-t-3xl bg-surface text-foreground shadow-float ring-1 ring-white/10"
+        className="absolute inset-x-0 top-0 flex h-full flex-col rounded-t-3xl bg-card text-foreground shadow-float ring-1 ring-black/[0.06]"
       >
         <button
           type="button"
@@ -245,7 +245,7 @@ export function RouteDetail({ tripId, routes, active: initial }: { tripId: strin
       {groups.length > 1 && (
         <SlidingTabs
           label="How to get there"
-          className="w-full [--color-base-200:oklch(1_0_0/0.07)] ring-1 ring-white/10"
+          className="w-full"
           tabClassName="h-auto flex-1 py-2"
           value={mode}
           onChange={(m) => { setMode(m); setOption(0); }}
@@ -291,7 +291,7 @@ export function RouteDetail({ tripId, routes, active: initial }: { tripId: strin
     <div className="space-y-5 p-4 pb-8">
       {/* Pinned: the options below scroll past it, and the line changes as you pick one. */}
       <div className="sticky top-0 z-20 -mx-4 -mt-4 bg-surface px-4 pb-3 pt-4">{mapAt("h-[30vh] min-h-[200px] max-h-[300px]") ?? strip}</div>
-      <div className="dark luxe-sheet rounded-3xl bg-surface p-5 text-foreground shadow-float ring-1 ring-white/10">{options}</div>
+      <div className="rounded-3xl bg-card p-5 text-foreground shadow-float ring-1 ring-black/[0.06]">{options}</div>
     </div>
   );
 }
