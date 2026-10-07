@@ -332,7 +332,8 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
         )}
       >
         {/* Both headers stay mounted and cross-fade, so the nav below never jumps when the sidebar toggles. */}
-        <div className="relative mb-6 min-h-10 px-3">
+        {/* Collapsed, this block shrinks to the brand mark's height so the nav starts at the top (it used to keep the tall identity's height, which left the icons floating mid-sidebar). */}
+        <div className={cn("relative mb-6 min-h-10 px-3 transition-[max-height] duration-300 ease-out", collapsed ? "max-h-10 overflow-hidden" : "max-h-52")}>
           <div inert={collapsed} className={cn("transition-opacity duration-200", collapsed && "pointer-events-none opacity-0")}>
             <TripIdentity
               trip={trip}
