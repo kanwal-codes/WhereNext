@@ -165,6 +165,8 @@ export type AssistantTurnResult =
       tripCtx: TripContext;
       system: string;
       composeSkipLine: string | null;
+      /** The skip line is the deterministic card lead-in (built from the evidence, no links), so a caller has nothing to verify in it. */
+      composeSkipIsLeadIn?: boolean;
       // Partial, not the exact full set: a trivial turn (Phase 2.5) hands back {} on purpose —
       // COMPOSE gets no tools at all for a plain greeting/acknowledgment, nothing to look up.
       composeTools: Partial<ReturnType<typeof buildComposeTools>["tools"]>;
@@ -639,6 +641,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
     tripCtx,
     system,
     composeSkipLine: composeSkipLine ?? leadIn,
+    composeSkipIsLeadIn: !composeSkipLine && leadIn !== null,
     composeTools,
     toolEvidence,
     meta,

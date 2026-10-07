@@ -19,7 +19,12 @@ const duration = (seconds: number) => {
  *  are also recognised here: a bare route or "what's on" request with no word asking Roam to judge anything. */
 const JUDGING = /\b(best|better|cheap\w*|fast\w*|quick\w*|should|worth|which|why|compare|versus|vs|recommend\w*|prefer\w*|safe\w*|easy|easier|kids?|budget)\b/i;
 const PLAIN_LOOKUP = /^\s*(from\s+\S.*\sto\s+\S|how\s+(do|can|would)\s+(i|we)\s+(get|go)\b|(directions?|route|routes|ways?)\s+(from|to)\b|what'?s\s+on\b|what\s+is\s+on\b)/i;
-export const looksLikePlainLookup = (message: string) => message.length <= 140 && PLAIN_LOOKUP.test(message) && !JUDGING.test(message);
+// A group-chat message arrives as "@Roam from Toronto to niagra": the mention is not part of the request.
+const withoutMention = (message: string) => message.replace(/^\s*@roam\b[\s,:;-]*/i, "");
+export const looksLikePlainLookup = (message: string) => {
+  const text = withoutMention(message);
+  return text.length <= 140 && PLAIN_LOOKUP.test(text) && !JUDGING.test(text);
+};
 
 export function cardLeadIn(blocks: AssistantBlock[], locationFocus: string | null, query: string | null): string | null {
   const shown = blocks.filter((block) => block.type !== "actions" && block.type !== "trip_update");

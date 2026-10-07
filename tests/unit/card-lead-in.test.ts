@@ -28,7 +28,7 @@ describe("cardLeadIn", () => {
 
 describe("looksLikePlainLookup", () => {
   it("recognises a bare route or what's-on request", () => {
-    for (const m of ["from Toronto to niagra", "how do I get to the airport", "directions to the falls", "what's on this weekend"]) expect(looksLikePlainLookup(m)).toBe(true);
+    for (const m of ["from Toronto to niagra", "@Roam from Toronto to niagra", "how do I get to the airport", "directions to the falls", "what's on this weekend"]) expect(looksLikePlainLookup(m)).toBe(true);
   });
 
   it("leaves anything that asks Roam to judge, or is not a lookup, to the writing model", () => {

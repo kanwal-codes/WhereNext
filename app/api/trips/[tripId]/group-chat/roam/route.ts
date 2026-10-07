@@ -223,7 +223,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     }
 
     // --- COMPOSE (buffered, bounded tool-calling loop) ------------------------
-    const { system, composeSkipLine, composeTools, toolEvidence, allowedUrls, toolPlan, evidenceUnavailableProviders, cardPlaceProviderIds, sideBuilders, resolved } = result;
+    const { composeSkipIsLeadIn, system, composeSkipLine, composeTools, toolEvidence, allowedUrls, toolPlan, evidenceUnavailableProviders, cardPlaceProviderIds, sideBuilders, resolved } = result;
     const tCompose = performance.now();
     let composedModel: string | undefined;
     let composeUsage: { inputTokens?: number; outputTokens?: number } | undefined;
@@ -276,7 +276,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     let unverified = false;
     const [[checklist, comparison], sanitized] = await Promise.all([
       Promise.all([sideBuilders.checklistPromise, sideBuilders.comparisonPromise]),
-      finalizeAssistantText(text, allowedUrls, system, request.signal, (entry) => { evaluatorUsage = entry; }, resolved.intent, () => { unverified = true; }, turns.filter((t) => t.role === "user").map((t) => t.content).join("\n")),
+      // A deterministic card lead-in has no claims or links to check: skip the grounding model call.
+      composeSkipIsLeadIn ? Promise.resolve(text) : finalizeAssistantText(text, allowedUrls, system, request.signal, (entry) => { evaluatorUsage = entry; }, resolved.intent, () => { unverified = true; }, turns.filter((t) => t.role === "user").map((t) => t.content).join("\n")),
     ]);
     const meta = { ...finalizeAssistantBlocks(result.meta, { checklist, comparison }, cardPlaceProviderIds), ...(unverified ? { unverified: true } : {}) };
 
