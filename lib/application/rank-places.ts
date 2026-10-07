@@ -28,6 +28,9 @@ export type RankContext = {
   stayAnchor?: RankAnchor | null;
   /** Show distances in miles. */
   miles?: boolean;
+  /** Keep the provider's own order. For a search the reader typed ("rooftop bars"), the provider's order IS the answer to it (most relevant first);
+   *  blending in how well known a place is would put a casino above a bar that is actually on a roof. Dislikes, rejections and the "why" still apply. */
+  providerOrder?: boolean;
 };
 
 export type RankedPlace = { place: Place; score: number; why: string | null };
@@ -54,8 +57,8 @@ export function rankPlaces(places: Place[], ctx: RankContext = {}): RankedPlace[
   const saved = new Set<string>(ctx.savedIds ?? []);
   const rejected = new Set<string>(ctx.rejectedIds ?? []);
 
-  const scored: RankedPlace[] = [];
-  for (const place of places) {
+  const scored: Array<RankedPlace & { index: number }> = [];
+  for (const [index, place] of places.entries()) {
     // A rejected place contradicts stated intent — drop it outright, not just deprioritise it.
     // An already-saved one still belongs in the feed (just lower down): the novelty penalty below.
     if (rejected.has(place.providerId)) continue;
@@ -89,7 +92,7 @@ export function rankPlaces(places: Place[], ctx: RankContext = {}): RankedPlace[
     }
     if (!why && quality >= 3) why = "Top-rated";
 
-    scored.push({ place, score, why });
+    scored.push({ place, score, why, index });
   }
-  return scored.sort((a, b) => b.score - a.score);
+  return scored.sort((a, b) => (ctx.providerOrder ? a.index - b.index : b.score - a.score)).map(({ place, score, why }) => ({ place, score, why }));
 }

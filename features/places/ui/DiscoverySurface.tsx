@@ -17,6 +17,7 @@ import { useShowMore } from "@/lib/use-show-more";
 import { ShowMoreButton } from "@/components/ShowMoreButton";
 import { PlaceCard } from "@/components/PlaceCard";
 import { rankPlaces, type RankAnchor } from "@/lib/application/rank-places";
+import { inDestination } from "@/lib/places-ui";
 import { usesMiles } from "@/lib/application/geo";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { EventCard, type NearbyEvent } from "@/components/EventCard";
@@ -47,11 +48,6 @@ type Item =
   | { kind: "stay"; stay: StayItem };
 
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) && v !== 0 ? v : null);
-const folded = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-const inDestination = (place: Place, destination: string) => {
-  const city = folded(destination.split(",")[0]?.trim() ?? destination);
-  return !city || folded(place.address ?? "").includes(city);
-};
 // A "guided tours" text search matches loosely — Google mixes in famous landmarks that merely
 // mention tours, not the tour operators themselves. Keep only actual tour/travel businesses.
 const isTourOperator = (place: Place) =>
@@ -222,8 +218,9 @@ export function DiscoverySurface({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- primitive keys stand in for the object deps
   }, [interestsKey, dislikesKey, savedKey, rejectedKey, itinKey, stayKey, miles]);
+  // `typed`: a search the reader wrote. The provider's order is the answer to it, so it is kept; browsing a category is still ranked by how well known and how close.
   const rankToItems = useCallback(
-    (places: Place[]): Item[] => rankPlaces(places, rankCtx).map((r) => ({ kind: "place", place: r.place, why: r.why })),
+    (places: Place[], typed = false): Item[] => rankPlaces(places, { ...rankCtx, providerOrder: typed }).map((r) => ({ kind: "place", place: r.place, why: r.why })),
     [rankCtx],
   );
 
@@ -360,10 +357,15 @@ export function DiscoverySurface({
       try {
         const eventCategory = CATEGORY_BY_KEY.get("events");
         const eventIntent = eventCategory && q.toLowerCase().includes("concert");
-        const places = eventIntent ? [] : await fetchPlaces(q, controller.signal);
+        const found = eventIntent ? [] : await fetchPlaces(q, controller.signal);
+        // A search that was anchored to the trip's destination ("rooftop bars" became "rooftop bars in Niagara Falls") still comes back with the ones in
+        // Toronto and Buffalo. Keep the ones in the destination; if that leaves nothing, show what came back rather than an empty page.
+        const anchored = scope(q) !== q;
+        const here = anchored ? found.filter((place) => inDestination(place, destination)) : found;
+        const places = here.length > 0 ? here : found;
         const events = eventIntent ? await fetchEvents(q, 0, controller.signal) : [];
         if (mine !== reqId.current) return;
-        setItems(eventIntent ? events.map((event) => ({ kind: "event", event }) as Item) : rankToItems(places));
+        setItems(eventIntent ? events.map((event) => ({ kind: "event", event }) as Item) : rankToItems(places, true));
         setLoading(false);
         const count = eventIntent ? events.length : places.length;
         setMessage(count ? "" : "Nothing came back — try different words.");
@@ -374,7 +376,7 @@ export function DiscoverySurface({
         setMessage("Nothing came back — try different words.");
       }
     },
-    [fetchPlaces, fetchEvents, rankToItems],
+    [fetchPlaces, fetchEvents, rankToItems, scope, destination],
   );
 
   // Arriving from a "See more" elsewhere (a place's nearby recommendations) — run that

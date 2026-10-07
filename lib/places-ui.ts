@@ -279,3 +279,12 @@ export function formatEventWhen(raw?: string | null): string | undefined {
   const day = d.toLocaleDateString("en", { weekday: "short", month: "short", day: "numeric" });
   return m[4] && !(m[4] === "00" && m[5] === "00") ? `${day} · ${d.toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" })}` : day;
 }
+
+const folded = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+/** Whether a place's address is in the trip's destination city (the first part of "Niagara Falls, Ontario, Canada"). A search for "rooftop bars" also
+ *  returns the ones in Toronto and Buffalo; this is how those are told apart. With no destination, everything is in. */
+export function inDestination(place: Place, destination: string): boolean {
+  const city = folded(destination.split(",")[0]?.trim() ?? destination);
+  return !city || folded(place.address ?? "").includes(city);
+}
