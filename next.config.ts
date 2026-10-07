@@ -94,7 +94,13 @@ const nextConfig: NextConfig = {
     staleTimes: { dynamic: 300 },
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    // Images and icons in /public are served with `max-age=0, must-revalidate` by default, so every visit asked the server again about
+    // each of them. A day fresh, and a week of serving the old one while a new one is fetched, keeps a revisit to the HTML.
+    const publicAssets = { key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" };
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      ...["design", "hero", "icons"].map((dir) => ({ source: `/${dir}/:path*`, headers: [publicAssets] })),
+    ];
   },
 };
 
