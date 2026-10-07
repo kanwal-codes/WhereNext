@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { useDistance } from "@/lib/use-distance";
-import { ChevronDown, Play, TriangleAlert } from "lucide-react";
+import { ChevronDown, TriangleAlert } from "lucide-react";
 import type { RouteDay, RouteLegStep } from "@/packages/contracts/route-plan";
 import { MODE_ICON, MODE_LABEL } from "@/lib/application/mode-visuals";
 import { ModeTile, Ribbon, colorOf, legRailStyle, mainMode, mergeWalkSteps } from "@/features/maps/ui/modeParts";
@@ -81,7 +81,7 @@ function AltChip({ tripId, dayIndex, leg, alt, onChosen }: { tripId: string; day
   );
 }
 
-export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, onPreview, date }: { day: RouteDay; tripId: string; onHoverLeg?: (index: number | null) => void; onLegChosen?: () => void; onPreview?: () => void; date?: string | null }) {
+export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date }: { day: RouteDay; tripId: string; onHoverLeg?: (index: number | null) => void; onLegChosen?: () => void; date?: string | null }) {
   const distance = useDistance();
   const [open, setOpen] = useState<number | null>(null);
   const [hover, setHover] = useState<number | null>(null);
@@ -115,12 +115,6 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, onPreview,
         parts={day.legs.flatMap((l, i) => (l.steps.length > 0 ? mergeWalkSteps(l.steps).map((st) => ({ mode: st.mode, minutes: st.minutes, group: i })) : [{ mode: l.mode, minutes: l.minutes ?? 0, group: i }]))}
         dim={hover}
       />
-      {onPreview && (
-        <button type="button" onClick={onPreview} className="group/play mt-5 inline-flex h-10 items-center gap-2 rounded-full bg-primary pl-3.5 pr-5 text-sm font-semibold text-primary-foreground shadow-soft transition-[transform,box-shadow] duration-150 hover:shadow-lift active:scale-[0.97]">
-          <Play className="size-3.5 fill-current" aria-hidden="true" />
-          Preview the route
-        </button>
-      )}
 
       <ol className="mt-6">
         {day.stops.map((stop, i) => {

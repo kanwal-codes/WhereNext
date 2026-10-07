@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useDistance } from "@/lib/use-distance";
+import { formatDuration } from "@/lib/format-duration";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -1265,7 +1266,7 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel }: { from: string; 
   const [pick, setPick] = useState(0);
   const group = groups.find((g) => g.mode === mode) ?? groups[0];
   const chosen = group.routes[Math.min(pick, group.routes.length - 1)];
-  const minutes = (route: RouteSummaryBlockData) => Math.round(route.durationSeconds / 60);
+  const minutes = (route: RouteSummaryBlockData) => formatDuration(route.durationSeconds / 60);
   const slowest = Math.max(...group.routes.map((route) => route.durationSeconds), 1);
   const linesOf = (route: RouteSummaryBlockData) => (route.legs?.length ? route.legs.map((leg) => ({ path: leg.path, color: legColor(leg) })) : route.path ? [{ path: route.path, color: legColor({ mode: route.mode }) }] : []).filter((part) => part.path.length > 1);
   const chosenLines = linesOf(chosen);
@@ -1291,7 +1292,7 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel }: { from: string; 
       hero={mapRequest && (
         <div className="relative mx-4 mt-3.5 aspect-[640/260] overflow-hidden rounded-[1.125rem] bg-lagoon-soft @[34rem]:mx-[1.125rem]">
           <RouteMap request={mapRequest} label={`The ${ROUTE_MODE_LABEL[chosen.mode] ?? chosen.mode} route from ${from} to ${to}`} fallback={<RouteSketch route={chosen} />} />
-          <span className="absolute top-2.5 left-2.5"><WidgetPill className="bg-white text-ink shadow-soft">{ROUTE_MODE_LABEL[chosen.mode] ?? chosen.mode} · {minutes(chosen)} min</WidgetPill></span>
+          <span className="absolute top-2.5 left-2.5"><WidgetPill className="bg-white text-ink shadow-soft">{ROUTE_MODE_LABEL[chosen.mode] ?? chosen.mode} · {minutes(chosen)}</WidgetPill></span>
         </div>
       )}
     >
@@ -1311,8 +1312,8 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel }: { from: string; 
               <Icon className="size-5 shrink-0 @max-[27rem]:hidden" aria-hidden />
               <span className="min-w-0">
                 <span className="block truncate text-[0.9375rem] leading-tight font-medium">{ROUTE_MODE_LABEL[g.mode] ?? g.mode}</span>
-                <span className="block truncate text-xs leading-tight text-muted-foreground tabular-nums">{g.routes.length > 1 ? `${g.routes.length} routes · ${minutes(g.routes[0])} min` : (
-                  <>{minutes(g.routes[0])} min<span className="@max-[34rem]:hidden"> · {distance(g.routes[0].distanceMeters / 1000)}</span></>
+                <span className="block truncate text-xs leading-tight text-muted-foreground tabular-nums">{g.routes.length > 1 ? `${g.routes.length} routes · ${minutes(g.routes[0])}` : (
+                  <>{minutes(g.routes[0])}<span className="@max-[34rem]:hidden"> · {distance(g.routes[0].distanceMeters / 1000)}</span></>
                 )}</span>
               </span>
               {g.routes[0] === fastest ? <WidgetPill tone="sage" className="ml-auto h-5 text-[0.6875rem] @max-[34rem]:hidden">Fastest</WidgetPill> : minutes(g.routes[0]) === minutes(fastest) ? <WidgetPill className="ml-auto h-5 text-[0.6875rem] @max-[34rem]:hidden">Same time</WidgetPill> : null}
@@ -1325,12 +1326,12 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel }: { from: string; 
           <WidgetRow
             key={i}
             onClick={() => setPick(i)}
-            label={`${ROUTE_MODE_LABEL[route.mode] ?? route.mode}, ${minutes(route)} minutes: show on the map`}
+            label={`${ROUTE_MODE_LABEL[route.mode] ?? route.mode}, ${minutes(route)}: show on the map`}
             lead={<span className={cn("grid size-9 shrink-0 place-items-center rounded-xl", route === chosen ? "bg-lagoon text-white" : "bg-lagoon-soft text-lagoon")} aria-hidden>{React.createElement(routeModeIcon(route.mode), { className: "size-[1.125rem]" })}</span>}
             title={<span className="inline-flex items-center gap-1.5">{(route.mode === "transit" && route.steps.length > 0 ? routeLines(route.steps) : null) || ROUTE_MODE_LABEL[route.mode] || route.mode}{group.routes.length > 1 && i === 0 ? <WidgetPill tone="sage" className="h-5 text-[0.6875rem]">Quickest</WidgetPill> : null}</span>}
             detail={[clockOf(route.departureTime) ? `leaves ${clockOf(route.departureTime)}` : null, route.fare ? money(route.fare.amount, route.fare.currency) : null, distance(route.distanceMeters / 1000)].filter(Boolean).join(" · ")}
             mid={<RowBar frac={route.durationSeconds / slowest} color={route === fastest ? "var(--positive)" : "var(--lagoon)"} />}
-            value={<RowValue>{minutes(route)} min</RowValue>}
+            value={<RowValue>{minutes(route)}</RowValue>}
           />
         ))}
       </WidgetRows>

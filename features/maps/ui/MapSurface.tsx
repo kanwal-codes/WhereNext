@@ -123,7 +123,7 @@ const EASE = [0.22, 1, 0.36, 1] as const;
  * map, so it becomes a draggable bottom sheet instead — pull it down to see the map, up to see
  * the plan. No backdrop: the map stays visible and interactive either way. Reports how much of
  * the map it covers so the route is framed in what is left. */
-function MapPanel({ collapsedLabel, onInset, away = false, children }: { collapsedLabel?: string; onInset?: (inset: MapInset) => void; /** Steps aside (a route preview is playing): the camera gets the whole screen. */ away?: boolean; children: ReactNode }) {
+function MapPanel({ collapsedLabel, onInset, children }: { collapsedLabel?: string; onInset?: (inset: MapInset) => void; children: ReactNode }) {
   const desktop = useMediaQuery("(min-width: 1024px)");
   const reduce = useReducedMotion();
   const dragControls = useDragControls();
@@ -145,16 +145,9 @@ function MapPanel({ collapsedLabel, onInset, away = false, children }: { collaps
   }, [desktop]);
 
   useEffect(() => {
-    if (desktop) onInset?.({ left: collapsed || away ? 0 : PANEL_WIDTH + PANEL_GAP });
-    else onInset?.({ bottom: Math.min(expanded && !away ? travel + SHEET_PEEK : SHEET_PEEK, Math.round(window.innerHeight * 0.38)) });
-  }, [desktop, collapsed, expanded, away, travel, onInset]);
-
-  useEffect(() => {
-    if (desktop) return;
-    setExpanded(!away);
-    animateValue(y, away ? travel : 0, reduce ? { duration: 0 } : { type: "spring", stiffness: 300, damping: 38 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [away, desktop]);
+    if (desktop) onInset?.({ left: collapsed ? 0 : PANEL_WIDTH + PANEL_GAP });
+    else onInset?.({ bottom: Math.min(expanded ? travel + SHEET_PEEK : SHEET_PEEK, Math.round(window.innerHeight * 0.38)) });
+  }, [desktop, collapsed, expanded, travel, onInset]);
 
   const snapTo = (next: boolean) => {
     setExpanded(next);
@@ -168,7 +161,7 @@ function MapPanel({ collapsedLabel, onInset, away = false, children }: { collaps
   }, [travel, expanded, y]);
 
   if (desktop) {
-    if (collapsed && !away) {
+    if (collapsed) {
       return (
         <button
           type="button"
@@ -185,9 +178,8 @@ function MapPanel({ collapsedLabel, onInset, away = false, children }: { collaps
       <>
         <motion.div
           initial={reduce ? false : { opacity: 0, x: -28 }}
-          animate={away ? { opacity: 0, x: -(PANEL_WIDTH + 48) } : { opacity: 1, x: 0 }}
-          transition={{ duration: away ? 0.9 : 0.65, ease: EASE }}
-          inert={away}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.65, ease: EASE }}
           className="absolute left-4 top-[4.5rem] z-10 flex max-h-[calc(100%-5.5rem)] w-[420px] max-w-[calc(100%-2rem)] flex-col overflow-hidden rounded-3xl bg-card shadow-float ring-1 ring-black/[0.05]"
         >
           {children}
@@ -195,7 +187,6 @@ function MapPanel({ collapsedLabel, onInset, away = false, children }: { collaps
         <button
           type="button"
           onClick={() => setCollapsed(true)}
-          hidden={away}
           aria-label="Hide the trip panel to see the full map"
           className="absolute top-[5.25rem] z-20 grid size-9 place-items-center rounded-full bg-card text-muted-foreground shadow-lift ring-1 ring-black/[0.04] transition-[transform,color] duration-150 hover:text-foreground active:scale-95"
           style={{ left: PANEL_WIDTH + PANEL_GAP + 8 }}
@@ -295,7 +286,6 @@ export function MapSurface({ tripId, tab, onTab, start }: { tripId: string; tab:
   const { data } = useTripData();
   const [activeDay, setActiveDay] = useState<number | "all">(start?.day ?? "all");
   const [inset, setInset] = useState<MapInset>({});
-  const [previewing, setPreviewing] = useState(false);
 
   const lockedStay = readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
 
@@ -434,7 +424,6 @@ export function MapSurface({ tripId, tab, onTab, start }: { tripId: string; tab:
     return () => { cancelled = true; };
   }, [tripId, destination, pins.length]);
 
-  useEffect(() => setPreviewing(false), [activeDay, tab]);
   const modesUsed = useMemo(() => {
     const seen = new Set<string>();
     if (tab === "browse") for (const l of browseLegs ?? []) seen.add(l.mode);
@@ -459,9 +448,9 @@ export function MapSurface({ tripId, tab, onTab, start }: { tripId: string; tab:
     <MapStage tab={tab} onTab={onTab}>
       {tab === "trip" ? (
         <>
-          <TripMap className="absolute inset-0 h-full min-h-0 w-full rounded-none border-0" pins={pins} legs={mapLegs} activeDay={activeDay} inset={inset} fitControl cinematic preview={previewing} onPreviewChange={setPreviewing} overlay={dayOverlay} />
+          <TripMap className="absolute inset-0 h-full min-h-0 w-full rounded-none border-0" pins={pins} legs={mapLegs} activeDay={activeDay} inset={inset} fitControl cinematic overlay={dayOverlay} />
           <MapLegend modes={modesUsed} panelOpen={Boolean(inset.left)} />
-          <MapPanel collapsedLabel={activeDay !== "all" ? `Day ${activeDay}` : undefined} onInset={setInset} away={previewing}>
+          <MapPanel collapsedLabel={activeDay !== "all" ? `Day ${activeDay}` : undefined} onInset={setInset}>
             {days.length > 1 && (
               <div className="shrink-0 border-b border-border">
                 <HScrollFade className="flex gap-2 px-5 py-4">
@@ -483,7 +472,7 @@ export function MapSurface({ tripId, tab, onTab, start }: { tripId: string; tab:
                 {planDays.length > 0 && planDays.some((d) => d.legs.length > 0) ? (
                   <div className="space-y-10">
                     {planDays.map((d) => (
-                      <RouteTimeline key={d.day} day={d} tripId={tripId} onHoverLeg={setHoverLeg} onLegChosen={() => setPlanVersion((v) => v + 1)} onPreview={() => setPreviewing(true)} date={dayDate(data?.trip?.start_date, d.day)} />
+                      <RouteTimeline key={d.day} day={d} tripId={tripId} onHoverLeg={setHoverLeg} onLegChosen={() => setPlanVersion((v) => v + 1)} date={dayDate(data?.trip?.start_date, d.day)} />
                     ))}
                   </div>
                 ) : (
@@ -507,9 +496,9 @@ export function MapSurface({ tripId, tab, onTab, start }: { tripId: string; tab:
         </>
       ) : (
         <>
-          <TripMap className="absolute inset-0 h-full min-h-0 w-full rounded-none border-0" pins={[]} activeDay="all" center={center} browse={browseLegs && browseLegs.length ? browse : null} inset={inset} fitControl cinematic preview={previewing} onPreviewChange={setPreviewing} overlay={browseOverlay} />
+          <TripMap className="absolute inset-0 h-full min-h-0 w-full rounded-none border-0" pins={[]} activeDay="all" center={center} browse={browseLegs && browseLegs.length ? browse : null} inset={inset} fitControl cinematic overlay={browseOverlay} />
           <MapLegend modes={modesUsed} panelOpen={Boolean(inset.left)} />
-          <MapPanel onInset={setInset} away={previewing}>
+          <MapPanel onInset={setInset}>
             <div className="scrollbar-slim min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5 pt-6">
               <TransportSurface
                 tripId={tripId}
