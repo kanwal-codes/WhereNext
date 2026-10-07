@@ -1,5 +1,6 @@
 "use client";
 
+import { SaveHeart } from "@/features/trip/ui/SaveHeart";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
@@ -54,6 +55,7 @@ function MiniCard({ tripId, place, why, onSelect }: { tripId: string; place: Pla
         src={photo}
         alt={place.name}
         glyph={placeGlyph(place.category, place.name).icon}
+        save={comparing ? undefined : <SaveHeart tripId={tripId} place={place} compact />}
         title={place.name}
         meta={[typeof place.rating === "number" ? `★ ${place.rating.toFixed(1)}` : null, why && why !== "Top-rated" ? why : null].filter(Boolean).join(" · ")}
         overlay={comparing ? <CompareMark selected={selected} /> : undefined}

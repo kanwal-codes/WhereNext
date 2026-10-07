@@ -1,5 +1,6 @@
 "use client";
 
+import { SaveHeart } from "@/features/trip/ui/SaveHeart";
 import React, { useEffect, useMemo, useState } from "react";
 import { useDistance } from "@/lib/use-distance";
 import { formatDuration } from "@/lib/format-duration";
@@ -213,6 +214,7 @@ function PlaceCardView({
       pills={place.distanceToLocked ? <CinePill icon={MapPin}>{place.distanceToLocked}</CinePill> : undefined}
       why={place.reviewSummary}
       foot={place.address ? <CineAddress address={place.address} /> : undefined}
+      save={<SaveHeart tripId={tripId} place={toPlace(place)} />}
       // One control: shortlist (still deciding) → a day (going in the plan) → remove.
       action={<AddToTripControl tripId={tripId} place={toPlace(place)} variant="orb" />}
     />

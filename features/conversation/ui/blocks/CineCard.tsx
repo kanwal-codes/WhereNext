@@ -121,7 +121,7 @@ function Backdrop({ src, alt, glyph: Glyph }: { src?: string | null; alt: string
 }
 
 export function CineCard({
-  label, onOpen, href, className, src, alt, glyph, topLeft, topRight, eyebrow, title, meta, pills, why, foot, action, compact = false, wide = false, selected = false, overlay,
+  label, onOpen, href, className, src, alt, glyph, topLeft, topRight, save, eyebrow, title, meta, pills, why, foot, action, compact = false, wide = false, selected = false, overlay,
 }: {
   label: string;
   onOpen?: () => void;
@@ -134,6 +134,8 @@ export function CineCard({
   glyph?: LucideIcon;
   topLeft?: ReactNode;
   topRight?: ReactNode;
+  /** The heart: pinned to the top right corner, with `topRight` stacked under it. */
+  save?: ReactNode;
   eyebrow?: ReactNode;
   title: ReactNode;
   /** Compact only: the single line under the title. */
@@ -170,7 +172,7 @@ export function CineCard({
       <div className={cn("pointer-events-none relative z-[1] flex h-full min-h-0 flex-col justify-between", compact ? "p-2.5" : "p-3.5")}>
         <div className="flex items-start justify-between gap-2">
           <div className="shrink-0">{topLeft}</div>
-          <div className="flex min-w-0 justify-end">{topRight}</div>
+          <div className="flex min-w-0 flex-col items-end gap-1.5">{save}{topRight}</div>
         </div>
         <div className="min-w-0">
           {eyebrow && !compact && <p className="eyebrow truncate text-white/70!">{eyebrow}</p>}

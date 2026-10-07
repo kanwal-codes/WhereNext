@@ -1,5 +1,6 @@
 "use client";
 
+import { SaveHeart } from "@/features/trip/ui/SaveHeart";
 import { useRouter } from "next/navigation";
 import type { Place } from "@/packages/contracts/place";
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
@@ -58,6 +59,7 @@ export function PlaceCard({ tripId, place, why, phoneRow = false }: { tripId: st
       title={place.name}
       why={why && why !== "Top-rated" ? why : place.reviewSummary}
       foot={place.address ? <CineAddress address={place.address} /> : undefined}
+      save={comparing ? undefined : <SaveHeart tripId={tripId} place={place} />}
       action={comparing ? undefined : <AddToTripControl tripId={tripId} place={place} variant="orb" />}
       overlay={comparing ? <CompareMark selected={selected} /> : undefined}
     />
