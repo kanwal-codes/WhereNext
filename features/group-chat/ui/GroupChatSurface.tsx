@@ -882,6 +882,7 @@ export function GroupChatSurface({
             );
             const bubbleClass = cn(
               "min-w-0 max-w-full rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words shadow-sm",
+              roamBlocks && roamBlocks.length > 0 && "max-md:max-w-[92%]",
               mine ? "rounded-br-lg bg-gradient-to-br from-primary to-primary/90 text-primary-foreground" : "rounded-tl-lg bg-muted text-foreground",
             );
             const bubble = isRoam ? (
@@ -914,7 +915,7 @@ export function GroupChatSurface({
                   )}
                 >
                   {!mine && <div className="w-7 shrink-0">{isFirstInGroup && <Avatar name={name} />}</div>}
-                  <div className={cn("flex min-w-0 max-w-[85%] flex-col gap-1.5", mine ? "items-end" : "items-start")}>
+                  <div className={cn("flex min-w-0 max-w-[85%] flex-col gap-1.5", mine ? "items-end" : "items-start", roamBlocks && roamBlocks.length > 0 && "max-md:max-w-full")}>
                     {isFirstInGroup && (
                       <p className={cn("flex items-baseline gap-1.5 px-1 text-2xs", mine && "justify-end")}>
                         {!mine && <span style={{ color: memberTint(name).color }} className="font-semibold">{name}</span>}
@@ -989,7 +990,8 @@ export function GroupChatSurface({
                       </AnimatePresence>
                     </motion.div>
                     {roamBlocks && roamBlocks.length > 0 && (
-                      <div className="min-w-0 max-w-full">
+                      // On a phone the cards use the whole row, not what is left after the avatar gutter and the 85% cap.
+                      <div className="min-w-0 max-w-full max-md:-ml-9 max-md:w-[calc(100%+2.25rem)] max-md:max-w-none">
                         <MessageBlocks blocks={roamBlocks} tripId={tripId} onFollowup={onFollowup} onOpenPlace={onOpenPlace} onOpenStay={onOpenStay} onOpenEvent={onOpenEvent} onOpenCollection={onOpenCollection} onOpenPanel={openPanel} replyText={message.content} />
                       </div>
                     )}
@@ -1155,7 +1157,6 @@ export function GroupChatSurface({
             className={cn(
               "flex w-full flex-col gap-1 overflow-hidden rounded-3xl border border-input bg-card p-1.5 shadow-lift transition-[border-color,box-shadow] duration-200 ease-out",
               "focus-within:border-ink/30 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_6%,transparent),var(--shadow-lift)]",
-              (pendingRoamIds.size > 0 || waitingIds.length > 0) && "composer-live",
             )}
           >
             {/* `messageTextarea` (defined above, alongside the buttons it conditionally overlays)
