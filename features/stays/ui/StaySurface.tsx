@@ -10,7 +10,7 @@ import { AiSearchBar } from "@/components/AiSearchBar";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { readStayDecision, type StayFacets, type StayOption } from "@/packages/contracts/stay";
-import { SkeletonCards } from "@/components/Skeleton";
+import { SkeletonList } from "@/components/Skeleton";
 import { EmptyState } from "@/components/EmptyState";
 import { formatMoney } from "@/lib/currency";
 import { useShowMore } from "@/lib/use-show-more";
@@ -321,7 +321,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       <div className="relative">
         <SwapView id={loading && !result ? "skeleton" : "results"}>
       {loading && !result ? (
-        <SkeletonCards count={6} />
+        <SkeletonList count={6} className="xl:grid-cols-3" />
       ) : result && result.options.length > 0 ? (
         <>
           {result.assumedDates && <p className="text-xs text-caution">Example dates, set yours above for accurate prices.</p>}
