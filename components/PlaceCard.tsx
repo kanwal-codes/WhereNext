@@ -1,5 +1,6 @@
 "use client";
 
+import { Star } from "lucide-react";
 import { SaveHeart } from "@/features/trip/ui/SaveHeart";
 import { useRouter } from "next/navigation";
 import type { Place } from "@/packages/contracts/place";
@@ -9,7 +10,7 @@ import { CineAddress, CinePill, CineCard, CineRating, PlaceFloatingPills } from 
 import { placeGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
-import { categoryLabel, photoProxyUrl, priceLabel, priceRank } from "@/lib/places-ui";
+import { categoryLabel, isFoodPlace, photoProxyUrl, priceLabel, priceRank } from "@/lib/places-ui";
 
 const norm = (s: string) => s.trim().toLowerCase();
 
@@ -62,6 +63,19 @@ export function PlaceCard({ tripId, place, why, phoneRow = false }: { tripId: st
       save={comparing ? undefined : <SaveHeart tripId={tripId} place={place} />}
       action={comparing ? undefined : <AddToTripControl tripId={tripId} place={place} variant="orb" />}
       overlay={comparing ? <CompareMark selected={selected} /> : undefined}
+      row={{
+        meta: typeof place.rating === "number" ? (
+          <span className="inline-flex items-center gap-1">
+            <Star className="size-3.5 fill-current text-coral" aria-hidden />
+            <span className="font-medium text-foreground">{place.rating.toFixed(1)}</span>
+            {place.userRatingCount ? <span>{compactCount(place.userRatingCount)}</span> : null}
+            {isFoodPlace(place.category) && priceLabel(place.priceLevel) ? <span>· {priceLabel(place.priceLevel)}</span> : null}
+          </span>
+        ) : undefined,
+        sub: place.address ? place.address.split(",").slice(0, 2).join(",").trim() : undefined,
+        save: comparing ? undefined : <SaveHeart tripId={tripId} place={place} compact light />,
+        action: comparing ? undefined : <AddToTripControl tripId={tripId} place={place} variant="orb" size="sm" />,
+      }}
     />
   );
 }
