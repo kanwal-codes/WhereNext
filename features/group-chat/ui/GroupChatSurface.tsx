@@ -19,7 +19,7 @@ import { notifyToast } from "@/lib/application/toast";
 import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
 import type { AssistantBlock, AssistantTurnMeta, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { Poll } from "@/packages/contracts/poll";
-import { GROUP_HISTORY_LIMIT, hasAsk, mentionsRoam, type GroupMessage } from "../domain/message";
+import { GROUP_HISTORY_LIMIT, completeRoamMention, hasAsk, mentionsRoam, type GroupMessage } from "../domain/message";
 import { memberInitials } from "@/lib/member-initials";
 import { memberLabel, useTripMembers, type TripMember } from "@/lib/client/use-trip-members";
 import { GroupInviteCard } from "./GroupInviteCard";
@@ -698,7 +698,7 @@ export function GroupChatSurface({
         aria-label="Message the group"
         rows={1}
         value={input}
-        onChange={(event) => setInput(event.target.value)}
+        onChange={(event) => setInput(completeRoamMention(input, event.target.value))}
         onKeyDown={(event) => {
           if (event.key === "Tab" && mentionActive) {
             event.preventDefault();
@@ -915,7 +915,7 @@ export function GroupChatSurface({
                   )}
                 >
                   {!mine && <div className="w-7 shrink-0">{isFirstInGroup && <Avatar name={name} />}</div>}
-                  <div className={cn("flex min-w-0 max-w-[85%] flex-col gap-1.5", mine ? "items-end" : "items-start", roamBlocks && roamBlocks.length > 0 && "max-md:max-w-full")}>
+                  <div className={cn("flex min-w-0 max-w-[85%] flex-col gap-1.5", mine ? "items-end" : "items-start", roamBlocks && roamBlocks.length > 0 && "w-full max-md:max-w-full")}>
                     {isFirstInGroup && (
                       <p className={cn("flex items-baseline gap-1.5 px-1 text-2xs", mine && "justify-end")}>
                         {!mine && <span style={{ color: memberTint(name).color }} className="font-semibold">{name}</span>}
@@ -991,7 +991,7 @@ export function GroupChatSurface({
                     </motion.div>
                     {roamBlocks && roamBlocks.length > 0 && (
                       // On a phone the cards use the whole row, not what is left after the avatar gutter and the 85% cap.
-                      <div className="min-w-0 max-w-full max-md:-ml-9 max-md:w-[calc(100%+2.25rem)] max-md:max-w-none">
+                      <div className="w-full min-w-0 max-w-full max-md:-ml-9 max-md:w-[calc(100%+2.25rem)] max-md:max-w-none">
                         <MessageBlocks blocks={roamBlocks} tripId={tripId} onFollowup={onFollowup} onOpenPlace={onOpenPlace} onOpenStay={onOpenStay} onOpenEvent={onOpenEvent} onOpenCollection={onOpenCollection} onOpenPanel={openPanel} replyText={message.content} />
                       </div>
                     )}

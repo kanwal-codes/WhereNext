@@ -46,3 +46,12 @@ export function historyThrough<M extends { id: string; created_at: string }>(his
   if (at >= 0) return history.slice(0, at + 1);
   return [...history.filter((message) => message.created_at < target.created_at), target];
 }
+
+/** Typing "@r", "@ro" … then a space turns the half-typed mention into "@Roam " (a phone has no Tab to accept the ghost text).
+ *  Only the one space just typed after the token counts; `previous` is what was in the box a moment ago. */
+export function completeRoamMention(previous: string, next: string): string {
+  if (next !== `${previous} ` || previous.length === 0) return next;
+  const token = previous.match(/(^|\s)(@(?:r|ro|roa|roam))$/i);
+  if (!token) return next;
+  return `${previous.slice(0, previous.length - token[2].length)}@Roam `;
+}
