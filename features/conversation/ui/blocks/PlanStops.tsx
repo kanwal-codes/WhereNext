@@ -51,13 +51,13 @@ function StopRow({ stop, last, panel, roomy = false, timed, band, onOpenPlace, r
   return (
     <>
       {panel && timed && (
-        <div className={cn(band, "flex shrink-0 justify-end self-start whitespace-nowrap font-medium tabular-nums", roomy ? cn("pt-1", /\d/.test(time ?? "") ? "w-[3.75rem] font-display text-lg text-foreground" : "w-[4.5rem] text-[0.8125rem] font-semibold text-ink-soft") : "w-[4.5rem] items-center text-sm text-muted-foreground")}>{time}</div>
+        <div className={cn(band, "flex shrink-0 justify-end self-start whitespace-nowrap font-medium tabular-nums", roomy ? cn("pt-1", /\d/.test(time ?? "") ? "w-[3.75rem] text-sm @[28rem]:w-[4.75rem] @[28rem]:text-lg font-display text-foreground" : "w-[4.5rem] text-[0.8125rem] font-semibold text-ink-soft") : "w-[4.5rem] items-center text-sm text-muted-foreground")}>{time}</div>
       )}
       <div className="flex shrink-0 flex-col items-center">
         <span
           role="img"
           aria-label={glyph.label}
-          className={cn("grid shrink-0 place-items-center transition-shadow duration-200", roomy ? "size-14 rounded-[1.25rem]" : "rounded-full", panel ? cn(roomy ? "" : "size-9", TINT[stop.kind ?? "activity"]) : "size-8 border border-border bg-card text-coral", dragging && "shadow-lift")}
+          className={cn("grid shrink-0 place-items-center transition-shadow duration-200", roomy ? "size-12 rounded-2xl @[28rem]:size-14 @[28rem]:rounded-[1.25rem]" : "rounded-full", panel ? cn(roomy ? "" : "size-9", TINT[stop.kind ?? "activity"]) : "size-8 border border-border bg-card text-coral", dragging && "shadow-lift")}
         >
           {roomy && !timed ? <span className="font-display text-lg font-medium tabular-nums" aria-hidden>{index + 1}</span> : <Icon className={roomy ? "size-6" : "size-4"} aria-hidden />}
         </span>

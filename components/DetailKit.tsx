@@ -41,7 +41,7 @@ export function FactStrip({ facts, className, variant = "default" }: { facts: Ar
           <dt className="daisy-stat-title text-xs text-muted-foreground">{fact.label}</dt>
           <dd
             className={cn(
-              "daisy-stat-value flex min-w-0 items-center gap-1 font-display text-lg font-semibold leading-tight tracking-[-0.01em] break-words whitespace-normal",
+              "daisy-stat-value flex min-w-0 items-center gap-1 font-display text-lg font-semibold leading-tight tracking-[-0.01em] break-words whitespace-normal text-balance",
               fact.tone === "positive" && "text-positive",
               fact.tone === "caution" && "text-caution",
             )}
