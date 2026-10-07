@@ -1229,7 +1229,7 @@ function RouteSummaryCard({ route, onOpenPanel }: { route: RouteSummaryBlockData
         </div>
       )}
       foot={nearby ? undefined : leaves && arrives ? <>Leaves {leaves}, arrives {arrives}</> : "Times are estimates and can change with traffic and service"}
-      action={onOpenPanel && !nearby ? <WidgetAction onClick={() => onOpenPanel({ kind: "route", routes: [route], active: 0 })}>{route.path ? "Steps and map" : "Steps"}</WidgetAction> : undefined}
+      action={onOpenPanel && !nearby ? <WidgetAction onClick={() => onOpenPanel({ kind: "route", routes: [route], active: 0 })}>{route.path ? "Map" : "Steps"}</WidgetAction> : undefined}
     >
       {steps.length > 0 && !nearby && (
         <WidgetRows>
@@ -1286,8 +1286,8 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel }: { from: string; 
       eyebrow={`Ways to get there${ends.where ? ` · ${ends.where}` : ""}`}
       title={<RouteEnds from={ends.from} to={ends.to} />}
       status={<WidgetPill tone="lagoon" icon={Check}>{ROUTE_MODE_LABEL[fastest.mode] ?? fastest.mode} is fastest</WidgetPill>}
-      foot={onOpenPanel ? "Tap a way to see its steps and map" : "Times are estimates"}
-      action={onOpenPanel ? <WidgetAction onClick={() => onOpenPanel({ kind: "route", routes: sorted, active: sorted.indexOf(chosen) })}>{chosen.path ? "Steps and map" : "Steps"}</WidgetAction> : undefined}
+      foot={onOpenPanel ? "Tap a way to open it on the map" : "Times are estimates"}
+      action={onOpenPanel ? <WidgetAction onClick={() => onOpenPanel({ kind: "route", routes: sorted, active: sorted.indexOf(chosen) })}>{chosen.path ? "Map" : "Steps"}</WidgetAction> : undefined}
       hero={mapRequest && (
         <div className="relative mx-4 mt-3.5 aspect-[640/260] overflow-hidden rounded-[1.125rem] bg-lagoon-soft @[34rem]:mx-[1.125rem]">
           <RouteMap request={mapRequest} label={`The ${ROUTE_MODE_LABEL[chosen.mode] ?? chosen.mode} route from ${from} to ${to}`} fallback={<RouteSketch route={chosen} />} />

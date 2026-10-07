@@ -553,7 +553,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
     // Actual block presence, not just "was it requested" — see the param doc comment for why.
     showsItineraryBlock: itineraryBlock?.type === "itinerary",
     mapCards: [
-      evidence.routes.length > 0 ? "the route card (tap an option on it, or its Steps and map button, to see every way there step by step with the route on a map)" : "",
+      evidence.routes.length > 0 ? "the route card (tap an option on it, or its Map button, to see every way there step by step with the route on a map)" : "",
       cardPlaces.some((place) => place.latitude || place.longitude) ? "the place cards" : "",
       evidence.stays.some((search) => search.options?.some((option) => option.latitude != null)) ? "the hotel cards" : "",
       itineraryBlock?.type === "itinerary" && itineraryBlock.days.some((day) => day.stops.some((stop) => stop.placeId)) ? "the itinerary" : "",
