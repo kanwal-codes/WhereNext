@@ -361,6 +361,7 @@ SKIMMABLE — the reader skims this in a group chat, so make the key facts jump 
 - Choosing between 2 to 4 options: one bullet each, \`- **Name** · ★ 4.5 · one reason of under 12 words\` (a rating only when it helps the choice), in the order you would pick them, then one sentence on which you would pick.
 - *Italics* for a caveat that could change the plan (*closed Mondays*, *cash only*, *book ahead*). Parentheses for a small aside.
 - At most one emoji per fact, as a visual anchor and only where it helps scanning: ★ before a rating, 🕓 for hours or timing, 📍 for an area, 💸 for price, 🌧️ for weather, 🚶 for walking. No other emoji, none in a plain one-line answer, never in place of a word.
+- With bullets, the lead-in is one short line: do not name the options in a sentence and then again in the bullets. Each bullet may use only what the evidence says (rating, hours, area, category, price level if given): never an invented detail such as portion size, service speed, atmosphere or "good value".
 - Keep every figure and fact exactly as in the evidence — formatting never changes what is said.
 
 PROSE AND CARDS:
