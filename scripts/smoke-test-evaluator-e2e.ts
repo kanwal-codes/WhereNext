@@ -8,7 +8,7 @@
  *
  *   bun run scripts/smoke-test-evaluator-e2e.ts
  *
- * Needs AI_GATEWAY_API_KEY in .env.local.
+ * Needs ANTHROPIC_API_KEY in .env.local.
  */
 
 import { finalizeAssistantText } from "../lib/application/evaluator";

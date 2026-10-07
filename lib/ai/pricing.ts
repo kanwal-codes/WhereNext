@@ -5,14 +5,19 @@ const PRICE: Record<string, { in: number; out: number }> = {
   "gpt-oss-120b": { in: 0.15, out: 0.6 }, // Cerebras — approximate
   "qwen-3.8-27b": { in: 0.1, out: 0.1 }, // Cerebras fast model — approximate
   "gemini-flash-latest": { in: 0.075, out: 0.3 }, // Gemini Flash tier
-  "anthropic/claude-sonnet-4.5": { in: 3, out: 15 }, // OpenRouter
+  "claude-haiku-5-5": { in: 0.1, out: 0.5 }, // prompts up to 100k tokens
+  "claude-haiku-4-5": { in: 1, out: 5 },
+  "claude-sonnet-5-5": { in: 2, out: 10 },
+  "claude-sonnet-5": { in: 2, out: 10 },
+  "claude-opus-5-5": { in: 4, out: 20 },
+  "claude-opus-5": { in: 5, out: 25 },
   default: { in: 0.5, out: 1.5 },
 };
 
 /** Substring fallbacks for a model id not pinned exactly above (a new OpenRouter/Gemini
  *  variant, a re-pinned Gemini alias) — closer than the flat default, still approximate. */
 const PRICE_PATTERNS: Array<[RegExp, { in: number; out: number }]> = [
-  [/claude.*opus/i, { in: 15, out: 75 }],
+  [/claude.*opus/i, { in: 5, out: 25 }],
   [/claude/i, { in: 3, out: 15 }],
   [/gemini.*pro/i, { in: 1.25, out: 5 }],
   [/gemini/i, { in: 0.075, out: 0.3 }],

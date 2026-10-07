@@ -1,19 +1,16 @@
 /**
- * Phase 2.2.1 (docs/overhaul/roadmap/phase-2-speed.md) — live smoke test for RESOLVE now that
- * `openai/gpt-oss-120b` pinned to Cerebras leads the `resolve` chain. Runs real prompts through
- * the real Gateway (no mocks) across the same prompt shapes as the original research smoke test
- * (budget, restaurant, comparison, chitchat, etc.), and checks:
- *   (a) latency lands in the 718ms-5.4s range already measured for the Cerebras-pinned call
- *   (b) capabilities/toolPlan/proposedProfileUpdate are populated sensibly — not byte-identical
- *       to a prior Gemini run (a different model will phrase/plan things slightly differently),
- *       but structurally correct for what each prompt is actually asking.
+ * Live smoke test for RESOLVE on Anthropic. Runs real prompts through the real API (no mocks) across the
+ * same prompt shapes as the original research smoke test (budget, restaurant, comparison, chitchat, etc.), and checks:
+ *   (a) latency and which model of the resolve chain answered
+ *   (b) capabilities/toolPlan/proposedProfileUpdate are populated sensibly, structurally correct for
+ *       what each prompt is actually asking.
  *
- *   bun run scripts/smoke-test-resolve.ts
+ *   bun --env-file=.env.local run scripts/smoke-test-resolve.ts
  *
- * Needs AI_GATEWAY_API_KEY in .env.local. No separate Cerebras credential — pinning routes
- * through the same Gateway/key, per docs/overhaul/chatbot-overhaul/speed-and-latency.md.
+ * Needs ANTHROPIC_API_KEY in .env.local.
  */
 
+import { modelChainFor } from "../packages/ai/model-policy";
 import { resolveTurn } from "../lib/application/turn-resolver";
 
 const PROMPTS: Array<{ id: string; message: string; tripSummary: string }> = [
@@ -38,16 +35,17 @@ async function main() {
     console.log(`  capabilities: ${JSON.stringify(resolved.capabilities)}`);
     console.log(`  toolPlan: ${JSON.stringify(resolved.toolPlan)}`);
     if (resolved.proposedProfileUpdate) console.log(`  proposedProfileUpdate: ${JSON.stringify(resolved.proposedProfileUpdate)}`);
-    if (resolved.degraded) console.log(`  DEGRADED — fell back past Cerebras`);
+    if (resolved.degraded) console.log(`  DEGRADED — every model in the chain failed`);
   }
   console.log("\n=== Summary ===");
-  const cerebras = results.filter((r) => r.modelUsed === "openai/gpt-oss-120b");
-  console.log(`Cerebras answered: ${cerebras.length}/${results.length}`);
+  const lead = modelChainFor("resolve")[0];
+  const cerebras = results.filter((r) => r.modelUsed === lead);
+  console.log(`Lead model answered: ${cerebras.length}/${results.length}`);
   if (cerebras.length) {
     const times = cerebras.map((r) => r.ms).sort((a, b) => a - b);
-    console.log(`Latency range (Cerebras only): ${times[0]}ms - ${times[times.length - 1]}ms`);
+    console.log(`Latency range (lead model only): ${times[0]}ms - ${times[times.length - 1]}ms`);
   }
-  for (const r of results) console.log(`${r.modelUsed === "openai/gpt-oss-120b" ? "PASS" : "FALLBACK"} ${r.id}: ${r.ms}ms (${r.modelUsed})`);
+  for (const r of results) console.log(`${r.modelUsed === lead ? "PASS" : "FALLBACK"} ${r.id}: ${r.ms}ms (${r.modelUsed})`);
 }
 
 main();

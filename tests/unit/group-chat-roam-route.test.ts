@@ -140,7 +140,7 @@ describe("POST /api/trips/:tripId/group-chat/roam", () => {
     expect(await res.json()).toMatchObject({ message: expect.objectContaining({ content: "It opens at 9am." }) });
   });
 
-  it("forwards a chain entry's providerOptions (Gateway provider pin) to generateText", async () => {
+  it("forwards a chain entry's providerOptions (provider options) to generateText", async () => {
     composeChainRef.models = [{ model: { mock: true }, modelId: "test-model", providerOptions: { gateway: { only: ["cerebras"] } } }];
     await post();
     expect(generateTextMock.mock.calls[0][0]).toMatchObject({ providerOptions: { gateway: { only: ["cerebras"] } } });

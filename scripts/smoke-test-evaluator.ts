@@ -8,7 +8,7 @@
  *
  *   bun run scripts/smoke-test-evaluator.ts
  *
- * Needs AI_GATEWAY_API_KEY in .env.local.
+ * Needs ANTHROPIC_API_KEY in .env.local.
  */
 
 import { evaluateGrounding } from "../lib/application/evaluator";
