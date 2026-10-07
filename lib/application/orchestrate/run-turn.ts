@@ -17,6 +17,7 @@ import { weatherCardFromForecast, weatherCardFromSeasonal, type WeatherCard } fr
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 import { applyTripUpdate, buildProposedProfileCommand } from "@/lib/application/orchestrate/trip-update-handling";
 import { selectBlocks } from "@/lib/application/orchestrate/block-selection";
+import { ungroundedFallback } from "@/lib/application/orchestrate/fallback-reply";
 import { cardLeadIn, looksLikePlainLookup, tripUpdateLeadIn } from "@/lib/application/orchestrate/card-lead-in";
 import { asksForOverview, buildTripSummary } from "@/lib/application/trip-summary";
 import { buildComposeSystemPrompt } from "@/lib/application/orchestrate/system-prompt-builder";
@@ -391,8 +392,8 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   const hasGrounding = grounded(evidence);
 
   if (needsGrounding && !hasGrounding) {
-    const fallback = "I couldn't verify anything for this right now — the travel data providers returned nothing. Try again, or narrow it to a specific place or activity.";
-    const meta: AssistantTurnMeta = { language, locationFocus: resolved.locationFocus, surface: "chat", blocks: tripUpdateReceipt ? [tripUpdateReceipt] : [], sources: [], suggestedFollowups: resolved.suggestedFollowups, unavailableProviders: evidence.unavailableProviders.slice(0, 12) };
+    const { content: fallback, actions } = ungroundedFallback(resolved.locationFocus, resolved.suggestedFollowups);
+    const meta: AssistantTurnMeta = { language, locationFocus: resolved.locationFocus, surface: "chat", blocks: [...(tripUpdateReceipt ? [tripUpdateReceipt] : []), ...(actions ? [actions] : [])], sources: [], suggestedFollowups: resolved.suggestedFollowups, unavailableProviders: evidence.unavailableProviders.slice(0, 12) };
     return {
       kind: "ungrounded", resolved, content: fallback, meta, timings: { resolveMs, retrieveMs }, usage: usageLog,
       toolsUsed: toolPlan.map((call) => call.tool), providersFailed: evidence.unavailableProviders,
