@@ -74,7 +74,9 @@ vi.mock("@/lib/application/trip-context", () => ({
   loadTripContext: loadTripContextMock,
   serializeTripContext: (context: unknown) => JSON.stringify(context),
   formatTripMemory: () => "nothing yet",
+  describeMembers: () => "",
 }));
+vi.mock("@/lib/server/trip-member-identities", () => ({ tripMemberIdentities: vi.fn(async () => new Map()) }));
 vi.mock("@/lib/application/thread-summary", () => ({ refreshThreadSummary: vi.fn(async () => undefined) }));
 // Phase 3.2's grounding evaluator makes a real (cheap-role) model call — stubbed here so the
 // route tests stay hermetic (no real network) and unaffected by default (empty claims list is

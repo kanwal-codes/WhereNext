@@ -126,6 +126,16 @@ export const asList = (value: unknown): string[] =>
     .filter(Boolean);
 
 /** Human-readable one-liner of what the trip contains so far, for the system prompt and the resolver. */
+/** "Members on this trip": the people with access, by display name, so Roam can answer who is travelling.
+ *  Names are member-written (profile names), so each is flattened and clamped before it reaches a prompt. */
+export function describeMembers(identities: Iterable<[string, { name: string }]>, askerId?: string): string {
+  const names = [...identities].slice(0, 12).map(([id, who]) => {
+    const name = who.name.replace(/\s+/g, " ").trim().slice(0, 40) || "Someone";
+    return id === askerId ? `${name} (you)` : name;
+  });
+  return names.length ? `members on this trip (the people with access, from their profiles): ${names.join(", ")}.` : "";
+}
+
 export function formatTripMemory(
   context: Pick<TripContext, "preferences" | "itinerary" | "places" | "decisions" | "lockedTitles"> & { trip?: TripContext["trip"] },
 ): string {

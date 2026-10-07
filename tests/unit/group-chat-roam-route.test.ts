@@ -61,6 +61,7 @@ vi.mock("@/lib/server/trip-auth", async () => {
 vi.mock("@/lib/application/trip-context", () => ({
   loadTripContext: loadTripContextMock,
   formatTripMemory: () => "trip memory",
+  describeMembers: () => "",
 }));
 vi.mock("@/lib/application/orchestrate/run-turn", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/application/orchestrate/run-turn")>()),

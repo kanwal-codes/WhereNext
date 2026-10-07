@@ -3,7 +3,7 @@ import { z } from "zod";
 import { generateText, stepCountIs } from "ai";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
-import { loadTripContext, formatTripMemory } from "@/lib/application/trip-context";
+import { loadTripContext, formatTripMemory, describeMembers } from "@/lib/application/trip-context";
 import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 import { runAssistantTurn, finalizeAssistantBlocks } from "@/lib/application/orchestrate/run-turn";
 import { composeModelChain } from "@/packages/ai/compose-model";
@@ -158,11 +158,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
       }
     }
 
+    // The trip's facts plus who is on it ("who are the travellers?" is answered from this).
+    const membersLine = describeMembers([...names].map(([id, name]) => [id, { name }] as [string, { name: string }]), user.id);
+    const summaryOf = (ctx: typeof tripCtx) => [formatTripMemory(ctx), membersLine].filter(Boolean).join(" ");
     const t0 = performance.now();
     const result = await runAssistantTurn(
       { supabase, tripId },
       {
-        tripCtx, prompt: target.content, history: turns, tripSummary: formatTripMemory(tripCtx), signal: request.signal,
+        tripCtx, prompt: target.content, history: turns, tripSummary: summaryOf(tripCtx), deriveTripSummary: summaryOf, signal: request.signal,
         surfacedEarlier,
         // One member's stated preference has no clean owner in a shared group thread — see
         // AssistantTurnRequest.allowPreferenceLearning's doc comment. Trip-fact updates
