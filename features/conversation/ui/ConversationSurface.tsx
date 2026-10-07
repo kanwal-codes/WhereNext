@@ -12,6 +12,7 @@ import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
 import { useSpeechInput } from "@/lib/use-speech-input";
 import { useAutoGrowTextarea } from "@/lib/use-autogrow-textarea";
+import { useKeepScrollGap } from "@/lib/use-keep-scroll-gap";
 import { AssistantMessage } from "./AssistantMessage";
 import type { CardPanel } from "@/components/TripPanelProvider";
 import { CopyButton, controlSecondary, textAction } from "./blocks/ui";
@@ -328,6 +329,7 @@ export function ConversationSurface({
   const [cacheReady, setCacheReady] = useState(false);
   const requestRef = useRef<AbortController | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
+  useKeepScrollGap(logRef);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const speechBaseRef = useRef("");
   // When this state was last confirmed against the server — distinct from "now", so a local

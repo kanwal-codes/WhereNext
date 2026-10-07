@@ -10,6 +10,7 @@ import { ArrowDown, CalendarRange, ListChecks, Plus, SmilePlus, X } from "lucide
 import { MicButton, SendButton } from "@/components/ComposerButtons";
 import { Sheet, Pressable, Reveal, Stagger, StaggerItem } from "@/components/motion-primitives";
 import { useMediaQuery } from "@/lib/use-media-query";
+import { useKeepScrollGap } from "@/lib/use-keep-scroll-gap";
 import { useAutoGrowTextarea } from "@/lib/use-autogrow-textarea";
 import { useSpeechInput } from "@/lib/use-speech-input";
 import { useTripData } from "@/components/TripDataProvider";
@@ -156,6 +157,7 @@ export function GroupChatSurface({
   const [pendingRoamIds, setPendingRoamIds] = useState<Set<string>>(new Set());
   const [menuPos, setMenuPos] = useState<{ left: number; bottom: number } | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
+  useKeepScrollGap(logRef);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mirrorRef = useRef<HTMLDivElement>(null);
   const plusMenuRef = useRef<HTMLDivElement>(null);
