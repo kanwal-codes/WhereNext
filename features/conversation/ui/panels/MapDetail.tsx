@@ -10,6 +10,7 @@ import { mapOfHops, minutes } from "./routeMap";
 import { useHops } from "./useHops";
 import { ModeTile, mainMode } from "@/features/maps/ui/modeParts";
 import { MODE_LABEL, STOP_CORAL } from "@/lib/application/mode-visuals";
+import { BigFigure, PanelHeader } from "./PanelHeader";
 import { useSettled } from "./useSettled";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type MapPoint, type PanelState } from "@/components/TripPanelProvider";
@@ -105,6 +106,11 @@ export function MapDetail({ tripId, panel }: { tripId: string; panel: Extract<Pa
           onChange={setActive}
           items={(["all", ...days] as const).map((d) => ({ key: d, content: <span className="text-sm">{d === "all" ? "All days" : `Day ${d}`}</span> }))}
         />
+      )}
+      {shown.length > 0 && (
+        <PanelHeader eyebrow={["On the map", ...(active === "all" ? (days.length > 1 ? ["All days"] : []) : [`Day ${active}`])]}>
+          <BigFigure text={`${shown.length} ${shown.length === 1 ? "stop" : "stops"}`} />
+        </PanelHeader>
       )}
       {located.length === 0 ? (
         <Notice>None of these have a location Roam can put on a map yet.</Notice>

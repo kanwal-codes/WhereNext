@@ -10,6 +10,7 @@ import { addStopsToItinerary, dayIndexFromLabel } from "@/features/conversation/
 import { ContentSwap } from "@/components/motion-primitives";
 import { SlidingTabs } from "@/features/conversation/ui/blocks/SlidingTabs";
 import { DayStops } from "./DayStops";
+import { PanelHeader } from "./PanelHeader";
 import { pointsFromItinerary } from "@/features/conversation/ui/blocks/mapPoints";
 import { Badge, MapButton } from "@/features/conversation/ui/blocks/ui";
 import { clockToMinutes, formatClockTime, parseClockTime } from "@/lib/application/clock-time";
@@ -91,12 +92,10 @@ export function DayDetail({ block, dayIndex, tripId }: { block: ItineraryBlock; 
       )}
 
       <ContentSwap swapKey={String(active)} className="space-y-5">
-      <header className="relative isolate overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-coral-soft via-card to-card p-5 shadow-soft sm:p-6">
-        <span aria-hidden className="pointer-events-none absolute right-5 top-3 -z-10 select-none font-display text-[8rem] font-medium leading-none tracking-[-0.06em] text-coral/10">{index}</span>
-        <p className="eyebrow text-coral-ink">{eyebrow}</p>
-        {/* The tab and the panel title already say which day this is; the headline is what the day is about. */}
-        <h2 className="mt-2 max-w-[16ch] font-display text-4xl font-medium leading-[1.04] tracking-[-0.03em]">{day.subtitle ?? day.label}</h2>
-        <p className="mt-3 text-sm text-ink-soft">{day.open ? "Open day" : `${day.stops.length} stop${day.stops.length === 1 ? "" : "s"}`}</p>
+      <header className="rounded-3xl bg-card p-5 shadow-float ring-1 ring-black/[0.06] sm:p-6">
+        <PanelHeader eyebrow={[day.label, ...(minutes.length === 0 ? [] : [eyebrow])]} sub={day.open ? "Open day" : `${day.stops.length} stop${day.stops.length === 1 ? "" : "s"}`}>
+          <h2 className="max-w-[16ch] font-display text-4xl font-light leading-[1.04] tracking-[-0.035em] text-balance">{day.subtitle ?? day.label}</h2>
+        </PanelHeader>
         {arc && <DayArc minutes={minutes} />}
         <div className="mt-6 flex flex-wrap items-center gap-2">
         {day.open ? (

@@ -8,6 +8,7 @@ import { useTripData } from "@/components/TripDataProvider";
 import type { BudgetBlock } from "@/components/TripPanelProvider";
 import { Badge, Notice, money, surface, type } from "@/features/conversation/ui/blocks/ui";
 import { cn } from "@/lib/utils";
+import { BigFigure, PanelHeader } from "./PanelHeader";
 
 /** One colour per category, shared by the spend bar and the ledger dots. Chart tokens, not coral: coral stays the brand accent. */
 const TONE = [
@@ -38,12 +39,10 @@ export function BudgetDetail({ block }: { block: BudgetBlock }) {
 
   return (
     <div className="space-y-6 p-4 pb-8">
-      <Reveal delay={0} y={10}><section aria-label="Typical day" className={cn(surface, "space-y-4 p-5")}>
-        <div className="space-y-1.5">
-          <p className={type.meta}>Typical day, {unit}</p>
-          <p className="font-display text-5xl font-semibold leading-none tabular-nums tracking-[-0.04em]">{r(typical)}</p>
-          <p className={cn(type.body, "tabular-nums text-muted-foreground")}>Usually between {r(block.dailyTotal.low)} and {r(block.dailyTotal.high)}</p>
-        </div>
+      <Reveal delay={0} y={10}><section aria-label="Typical day" className={cn(surface, "space-y-5 p-5")}>
+        <PanelHeader eyebrow={["Typical day", unit]} sub={<span className="tabular-nums">Usually between {r(block.dailyTotal.low)} and {r(block.dailyTotal.high)}</span>}>
+          <BigFigure text={r(typical)} />
+        </PanelHeader>
         <motion.div
           role="img"
           aria-label={`Share of a typical day: ${share}`}
