@@ -1,8 +1,11 @@
 import { z } from "zod";
 import { boundedRecord } from "@/packages/contracts/shared";
 
+/** The longest message the server accepts. The composer stops at the same number. */
+export const MAX_MESSAGE_LENGTH = 4000;
+
 export const groupMessageInput = z.object({
-  content: z.string().trim().min(1).max(4000),
+  content: z.string().trim().min(1).max(MAX_MESSAGE_LENGTH),
   kind: z.enum(["text", "content_share"]).default("text"),
   shareCard: boundedRecord().optional(),
   idempotencyKey: z.string().min(1).max(120).optional(),
@@ -23,6 +26,8 @@ export type GroupMessage = {
   metadata: Record<string, unknown>;
   created_at: string;
   reactions: GroupMessageReaction[];
+  /** For a member's own message: the key their device sent it under, so an unsent copy of it can be recognised as delivered. */
+  clientKey?: string;
 };
 
 /** `@Roam` mentioned anywhere in the message — literal match, no NLP needed. */

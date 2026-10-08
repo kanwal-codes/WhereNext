@@ -50,5 +50,13 @@ export function routeLines(steps: string[]): string {
     .filter((step) => step.glyph.label !== "Walk")
     .map((step) => step.title.split("→")[0].trim())
     .filter(Boolean);
-  return lines.length ? lines.join(" + ") : "Walking only";
+  // The same line twice in a row (a change between two buses) reads "Bus Megabus ×2", not the name repeated.
+  const runs = lines.reduce<{ name: string; n: number }[]>((out, name) => (out.at(-1)?.name === name ? (out.at(-1)!.n++, out) : [...out, { name, n: 1 }]), []);
+  return runs.length ? runs.map(({ name, n }) => (n > 1 ? `${name} ×${n}` : name)).join(" + ") : "Walking only";
+}
+
+/** The icon for a route: its walk/drive mode, or for transit the vehicle it actually uses (a bus is not a train). */
+export function routeGlyph(mode: string, steps: string[]): Glyph | undefined {
+  if (mode !== "transit") return undefined;
+  return steps.map(parseRouteStep).find((step) => step.glyph.label !== "Walk")?.glyph;
 }

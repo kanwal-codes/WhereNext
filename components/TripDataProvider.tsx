@@ -68,14 +68,9 @@ export function TripDataProvider({
     // events (or a few quick edits) stacked a dozen of them.
     let last = 0;
     let trailing: ReturnType<typeof setTimeout> | null = null;
-    let cancelPrime: (() => void) | null = null;
     const run = () => {
       last = Date.now();
       void router.refresh();
-      if (!guest && typeof navigator !== "undefined" && navigator.onLine) {
-        cancelPrime?.();
-        cancelPrime = afterQuiet(() => void primeTrip(tripId), 2500);
-      }
     };
     const unsubscribe = subscribeWorkspaceChanges(() => {
       const since = Date.now() - last;
@@ -85,19 +80,18 @@ export function TripDataProvider({
     return () => {
       unsubscribe();
       if (trailing) clearTimeout(trailing);
-      cancelPrime?.();
     };
-  }, [router, tripId, guest]);
+  }, [router]);
 
   // Supabase Realtime re-broadcasts a collaborator's row changes onto that same
   // bus, and reports who else is here.
   const peers = useTripRealtime(tripId, me);
 
-  // Prime once for the initial load too, not just subsequent changes.
-  const hasData = Boolean(data);
+  // Mirror the workspace the server just rendered: on the first load, and again each time a change's refresh brings new data.
+  // It reads `data` itself, so keeping the offline copy warm costs no extra request.
   useEffect(() => {
-    if (!guest && hasData && typeof navigator !== "undefined" && navigator.onLine) return afterQuiet(() => void primeTrip(tripId), 4000);
-  }, [tripId, hasData, guest]);
+    if (!guest && data && typeof navigator !== "undefined" && navigator.onLine) return afterQuiet(() => void primeTrip(tripId, data), 4000);
+  }, [tripId, data, guest]);
 
   // Stable across a presence-only re-render (peers updating doesn't change tripId/data/me), so
   // consumers of just this context bail out instead of re-rendering on every peer sync.

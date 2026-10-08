@@ -63,7 +63,7 @@ import { FactStrip } from "@/components/DetailKit";
 import { AnimatePresence, motion } from "motion/react";
 import { ContentSwap, Enter, motionTokens } from "@/components/motion-primitives";
 import { ChecklistBlock } from "./ChecklistBlock";
-import { parseRouteStep, routeLines, splitRouteEnds } from "./routeText";
+import { parseRouteStep, routeGlyph, routeLines, splitRouteEnds } from "./routeText";
 import { pointsFromItinerary, pointsFromPlaces, pointsFromStays } from "./mapPoints";
 import { DEFAULT_FLIGHT_VIEW, FlightControls, applyFlightView, type FlightView } from "./FlightFilters";
 import { FlightRowsSkeleton, FlightSearchBar, PriceInsight, useFlightSearch } from "./FlightSearch";
@@ -1041,7 +1041,7 @@ type RouteGroupBlock = { type: "route_group"; from: string; to: string; routes: 
 type RenderBlock = AssistantBlock | RouteGroupBlock;
 
 const ROUTE_MODE_LABEL: Record<string, string> = { driving: "Drive", walking: "Walk", transit: "Transit" };
-const routeModeIcon = (mode: string) => (mode === "walking" ? PersonStanding : mode === "driving" ? Car : TrainFront);
+const routeModeIcon = (mode: string, steps: string[] = []) => routeGlyph(mode, steps)?.icon ?? (mode === "walking" ? PersonStanding : mode === "driving" ? Car : TrainFront);
 
 /**
  * A "how do I get there" question now asks for more than one mode when none was named
@@ -1331,7 +1331,7 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel }: { from: string; 
             key={i}
             onClick={() => setPick(i)}
             label={`${ROUTE_MODE_LABEL[route.mode] ?? route.mode}, ${minutes(route)}: show on the map`}
-            lead={<span className={cn("grid size-9 shrink-0 place-items-center rounded-xl", route === chosen ? "bg-lagoon text-white" : "bg-lagoon-soft text-lagoon")} aria-hidden>{React.createElement(routeModeIcon(route.mode), { className: "size-[1.125rem]" })}</span>}
+            lead={<span className={cn("grid size-9 shrink-0 place-items-center rounded-xl", route === chosen ? "bg-lagoon text-white" : "bg-lagoon-soft text-lagoon")} aria-hidden>{React.createElement(routeModeIcon(route.mode, route.steps), { className: "size-[1.125rem]" })}</span>}
             title={<span className="inline-flex items-center gap-1.5">{(route.mode === "transit" && route.steps.length > 0 ? routeLines(route.steps) : null) || ROUTE_MODE_LABEL[route.mode] || route.mode}{group.routes.length > 1 && i === 0 ? <WidgetPill tone="sage" className="h-5 text-[0.6875rem]">Quickest</WidgetPill> : null}</span>}
             detail={[clockOf(route.departureTime) ? `leaves ${clockOf(route.departureTime)}` : null, route.fare ? money(route.fare.amount, route.fare.currency) : null, distance(route.distanceMeters / 1000)].filter(Boolean).join(" · ")}
             mid={<RowBar frac={route.durationSeconds / slowest} color={route === fastest ? "var(--positive)" : "var(--lagoon)"} />}

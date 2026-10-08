@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowDown, ChevronRight, Copy, Info } from "lucide-react";
 import { MicButton, SendButton } from "@/components/ComposerButtons";
@@ -13,7 +13,7 @@ import { notifyToast } from "@/lib/application/toast";
 import { useSpeechInput } from "@/lib/use-speech-input";
 import { useAutoGrowTextarea } from "@/lib/use-autogrow-textarea";
 import { useKeepScrollGap } from "@/lib/use-keep-scroll-gap";
-import { AssistantMessage } from "./AssistantMessage";
+import { AssistantMessage, type BlockHandlers } from "./AssistantMessage";
 import type { CardPanel } from "@/components/TripPanelProvider";
 import { CopyButton, controlSecondary, textAction } from "./blocks/ui";
 import { AssistantRequestError } from "../application/streamAssistantResponse";
@@ -258,6 +258,15 @@ function TurnOutcome({ kind }: { kind: "error" }) {
 /** The width of the text beside an open detail panel: the narrowest the column ever is (512px less its padding), so the
  *  words never re-wrap when the column around them grows or shrinks (the sidebar collapsing, the window resizing). */
 export const RAIL_MEASURE = "max-w-[28.5rem]";
+
+/** An older reply's blocks without its follow-up chips. Cached per source array so the result keeps its identity (a fresh array each render would defeat the memoised AssistantMessage). */
+const settledBlocks = new WeakMap<AssistantBlock[], AssistantBlock[]>();
+function withoutChips(blocks: AssistantBlock[] | undefined) {
+  if (!blocks) return blocks;
+  let kept = settledBlocks.get(blocks);
+  if (!kept) settledBlocks.set(blocks, (kept = blocks.filter((b) => b.type !== "actions" && b.type !== "clarifying_question")));
+  return kept;
+}
 
 export function ConversationSurface({
   tripId,
@@ -729,17 +738,22 @@ export function ConversationSurface({
   const userTurns = messages.filter((m) => m.role === "user").length;
   const turnsLeft = Math.max(0, GUEST_TURN_LIMIT - userTurns);
 
-  const handlers = {
+  // Stable for the life of the surface: the callbacks read the latest props through a ref, so typing in the composer or
+  // opening the side panel does not hand every reply new handlers and re-render the whole log.
+  const latest = useRef({ submit, onOpenPlace, onOpenStay, onOpenEvent, onOpenCollection, onOpenPanel });
+  useLayoutEffect(() => {
+    latest.current = { submit, onOpenPlace, onOpenStay, onOpenEvent, onOpenCollection, onOpenPanel };
+  });
+  const [hasPlace, hasStay, hasEvent, hasCollection, hasPanel] = [onOpenPlace, onOpenStay, onOpenEvent, onOpenCollection, onOpenPanel].map(Boolean);
+  const handlers = useMemo<BlockHandlers>(() => ({
     tripId,
-    onFollowup: (prompt: string) => {
-      void submit(prompt);
-    },
-    onOpenPlace,
-    onOpenStay,
-    onOpenEvent,
-    onOpenCollection,
-    onOpenPanel,
-  };
+    onFollowup: (prompt) => void latest.current.submit(prompt),
+    onOpenPlace: hasPlace ? (place) => latest.current.onOpenPlace?.(place) : undefined,
+    onOpenStay: hasStay ? (stay, dates) => latest.current.onOpenStay?.(stay, dates) : undefined,
+    onOpenEvent: hasEvent ? (seed) => latest.current.onOpenEvent?.(seed) : undefined,
+    onOpenCollection: hasCollection ? (title, block) => latest.current.onOpenCollection?.(title, block) : undefined,
+    onOpenPanel: hasPanel ? (panel) => latest.current.onOpenPanel?.(panel) : undefined,
+  }), [tripId, hasPlace, hasStay, hasEvent, hasCollection, hasPanel]);
 
   const proposalRows = proposal ? describeProposal(proposal) : [];
   const proposalText =
@@ -867,7 +881,7 @@ export function ConversationSurface({
             const sources = streaming ? [] : (meta?.sources ?? []);
             // Chips answer the reply they came with; once the conversation moves on they are stale.
             const isLatest = index === messages.length - 1;
-            const blocks = isLatest ? meta?.blocks : meta?.blocks?.filter((b) => b.type !== "actions" && b.type !== "clarifying_question");
+            const blocks = isLatest ? meta?.blocks : withoutChips(meta?.blocks);
             // One quiet note instead of a stack of separate grey lines.
             const notes: Array<{ text: string; tone: "neutral" | "caution" | "destructive" }> = [];
             if (!streaming && meta?.degraded) notes.push({ text: "Answered from your trip details — the planner had trouble reading that one. Rephrasing may help.", tone: "neutral" });
