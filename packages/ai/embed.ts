@@ -1,8 +1,10 @@
-import { embedMany, cosineSimilarity, gateway } from "ai";
+import { cosineSimilarity } from "ai";
 
 /**
- * Batch text embeddings through Vercel AI Gateway. `EMBED_MODEL` overrides the model (as a
- * Gateway id, e.g. "openai/text-embedding-3-large"); default is `text-embedding-3-small`, 1536d.
+ * Batch text embeddings. Anthropic has no embeddings API, so this uses OpenAI's directly when `OPENAI_API_KEY`
+ * is set; without one it throws, and every caller already treats that as "embeddings unavailable"
+ * (recommendations keep their keyword vibes and their own order). `EMBED_MODEL` overrides the model;
+ * default is `text-embedding-3-small`, 1536d.
  *
  * ponytail: no persistent vector store. Callers embed on the fly and lean on `cached()`
  * for the results. Add a pgvector cache table only if detail-page traffic makes the
@@ -10,11 +12,17 @@ import { embedMany, cosineSimilarity, gateway } from "ai";
  */
 export async function embed(texts: string[], signal?: AbortSignal): Promise<number[][]> {
   if (texts.length === 0) return [];
-  const { embeddings } = await embedMany({
-    model: gateway.embedding(process.env.EMBED_MODEL || "openai/text-embedding-3-small"),
-    values: texts,
-    abortSignal: signal ?? AbortSignal.timeout(8_000),
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) throw new Error("embeddings unavailable: OPENAI_API_KEY is not set");
+  const response = await fetch("https://api.openai.com/v1/embeddings", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
+    body: JSON.stringify({ model: (process.env.EMBED_MODEL || "text-embedding-3-small").replace(/^openai\//, ""), input: texts }),
+    signal: signal ?? AbortSignal.timeout(8_000),
   });
+  if (!response.ok) throw new Error(`embeddings request failed: ${response.status}`);
+  const body = (await response.json()) as { data?: Array<{ index: number; embedding: number[] }> };
+  const embeddings = (body.data ?? []).sort((a, b) => a.index - b.index).map((d) => d.embedding);
   if (embeddings.length !== texts.length) throw new Error("embeddings response length mismatch");
   return embeddings;
 }

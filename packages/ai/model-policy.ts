@@ -1,7 +1,7 @@
 import type { z } from "zod";
 import type { ModelMessage } from "ai";
 import type { UsageEntry } from "@/lib/ai/pricing";
-import * as roleGateway from "./gateway";
+import * as llm from "./llm";
 
 /**
  * The three model *roles* the app has, and the single place their env knobs are read.
@@ -15,63 +15,28 @@ import * as roleGateway from "./gateway";
  *             block-builder (itinerary, budget, comparison, checklist, area guides, ...), plus
  *             thread summaries and trip-import parsing. `SUMMARY_MODEL`.
  *
- * Every role routes through Vercel AI Gateway (`packages/ai/gateway.ts`) — one API key
- * (`AI_GATEWAY_API_KEY`), one client, automatic per-model fallback here and Gateway-side
- * provider failover/observability underneath it. Call sites ask for a role, never a model id.
+ * Every role calls Anthropic's API directly (`packages/ai/llm.ts`) with `ANTHROPIC_API_KEY`: one key,
+ * one client, and a per-role list of Claude models tried in order. Call sites ask for a role, never a model id.
  */
 export type ModelRole = "resolve" | "compose" | "bulk";
 
-/**
- * One entry in a role's model-fallback chain. A bare string behaves exactly as it always has —
- * no pinning, the Gateway picks whichever underlying inference provider it normally would. The
- * object form additionally pins the Gateway to one specific inference provider for that model id
- * (e.g. `{ id: "openai/gpt-oss-120b", only: ["cerebras"] }`) via `providerOptions.gateway.only`
- * (Phase 2.1, docs/overhaul/roadmap/phase-2-speed.md) — a genuinely faster host for the same
- * model, smoke-tested at ~550-1100ms vs the Gateway's normal ~6.7-21.7s for RESOLVE. Only the
- * LEAD entry of a chain is ever pinned; every fallback entry stays a bare, unpinned string, so a
- * Cerebras outage still falls over normally instead of pinning the outage into every attempt.
- */
-export type ModelChainEntry = string | { id: string; only: string[] };
-
-/** The bare Gateway model id for a chain entry, regardless of form. */
-export function chainEntryId(entry: ModelChainEntry): string {
-  return typeof entry === "string" ? entry : entry.id;
-}
+/** One entry in a role's fallback list: an Anthropic model id, e.g. "claude-haiku-5-5". */
+export type ModelChainEntry = string;
 
 /**
- * Default model chain per role, as Vercel AI Gateway model ids ("vendor/model"). The env
- * override for a role (see `ROLE_ENV`) is tried FIRST when set; these remain the fallback.
+ * Default model list per role. The env override for a role (see `ROLE_ENV`) is tried FIRST when set;
+ * these remain the fallback.
  *
- *   The same model, unpinned, is the second entry: when the Cerebras pin is refused (out of credit,
- *   at capacity — it fails in ~0.3s) the Gateway's other hosts answer in ~1s, where Gemini took 12-15s.
- *
- *   resolve/bulk — both lead with `openai/gpt-oss-120b` pinned to Cerebras (Phase 2.2,
- *   docs/overhaul/roadmap/phase-2-speed.md) — live-smoke-tested (resolve: 8 real prompts, 7/8
- *   answered directly at 718ms-5.4s vs. the unpinned Gateway default's 6.7-21.7s, correct output
- *   including the one schema-tricky field, `proposedProfileUpdate`, that OpenAI-strict mode can't
- *   represent; bulk: every builder type, see the same live-test methodology). Requires Cerebras
- *   BYOK configured in the Vercel AI Gateway dashboard — without it, Vercel's shared/pooled
- *   Cerebras capacity can rate-limit (`GatewayRateLimitError`, confirmed live), which makes every
- *   pinned call SLOWER, not faster (a failed ~7s Cerebras attempt before falling back). Gemini/
- *   GPT-5-mini(/GPT-4o-mini for resolve) stay as genuine unpinned fallbacks either way — if
- *   Cerebras has an issue, the chain falls back exactly as before this pin existed, just slower
- *   for that one call.
- *   compose fallback — when Sonnet stalls, `gpt-oss-120b` on Cerebras answers next (then the same model
- *   unpinned, if the pin is refused). Replayed on the same 32 questions it averaged 5.2s vs 14.0s
- *   (worst 9.9s vs 58s) at a third of the cost, but wrote flatter, less personal answers and made
- *   two off-topic ones — good enough as the first fallback, not as the lead. Before this, a stalled
- *   Sonnet fell to Gemini or GPT-5-mini for 28-41s turns.
- *   compose — the one thing the user actually reads: a writing-quality model leads the chain,
- *   with fast/cheap models only as an outage fallback. Directly measured through this Gateway
- *   (6 timed `streamText` runs, same prompt): Claude Sonnet 5 had a consistently FASTER
- *   time-to-first-token than Gemini 3.8 Flash (1.1-1.4s vs 3.1-8.1s) — an earlier attempt to
- *   lead with Flash for latency was reverted once this measurement disproved the "Flash is
- *   faster" assumption it was based on. Don't reorder this chain on assumption again; measure.
+ *   resolve / bulk — Haiku 5.5 leads: in a first comparison against Sonnet 5.5 it answered 1.2-1.8x faster,
+ *   called the same tools, and produced valid structured output 6 of 6 times, at a twentieth of the price
+ *   ($0.10 / $0.50 per million tokens against $2 / $10). Sonnet 5.5 is the fallback for a call Haiku cannot do.
+ *   compose — the one thing the user actually reads: Sonnet 5.5 leads (the better writer in that comparison),
+ *   Haiku 5.5 answers if it stalls, and Sonnet 5 is the last resort. Don't reorder on assumption; measure.
  */
 const DEFAULT_CHAINS: Record<ModelRole, ModelChainEntry[]> = {
-  resolve: [{ id: "openai/gpt-oss-120b", only: ["cerebras"] }, "openai/gpt-oss-120b", "google/gemini-3.8-flash", "openai/gpt-5-mini", "openai/gpt-4o-mini"],
-  compose: ["anthropic/claude-sonnet-5", { id: "openai/gpt-oss-120b", only: ["cerebras"] }, "openai/gpt-oss-120b", "google/gemini-3.8-flash", "openai/gpt-5-mini"],
-  bulk: [{ id: "openai/gpt-oss-120b", only: ["cerebras"] }, "openai/gpt-oss-120b", "google/gemini-3.8-flash", "openai/gpt-5-mini"],
+  resolve: ["claude-haiku-5-5", "claude-sonnet-5-5", "claude-haiku-4-5"],
+  compose: ["claude-sonnet-5-5", "claude-haiku-5-5", "claude-sonnet-5"],
+  bulk: ["claude-haiku-5-5", "claude-sonnet-5-5"],
 };
 
 const ROLE_ENV: Record<ModelRole, string> = { resolve: "RESOLVE_MODEL", compose: "AI_MODEL", bulk: "SUMMARY_MODEL" };
@@ -83,7 +48,7 @@ const ROLE_ENV: Record<ModelRole, string> = { resolve: "RESOLVE_MODEL", compose:
 export function modelChainFor(role: ModelRole): ModelChainEntry[] {
   const override = process.env[ROLE_ENV[role]];
   const defaults = DEFAULT_CHAINS[role];
-  return override ? [override, ...defaults.filter((entry) => chainEntryId(entry) !== override)] : defaults;
+  return override ? [override, ...defaults.filter((entry) => entry !== override)] : defaults;
 }
 
 /**
@@ -207,7 +172,7 @@ export async function generateStructured<T>(
   // so this keeps working the day an explicit-caching provider (Anthropic/MiniMax/Alibaba) joins
   // this chain. `bulk`/`compose` don't get this — out of this sub-phase's scope, unmeasured.
   const opts = role === "resolve" ? { caching: "auto" as const } : undefined;
-  return roleGateway.generateStructured(modelChainFor(role), messages, schema, signal, onUsage, opts);
+  return llm.generateStructured(modelChainFor(role), messages, schema, signal, onUsage, opts);
 }
 
 /** Plain-text call for `role` (thread summaries, compare-chat's verdict, hotel/event blurb rewrites). */
@@ -217,10 +182,10 @@ export async function generateText(
   signal?: AbortSignal,
   onUsage?: (entry: UsageEntry) => void,
 ): Promise<string> {
-  return roleGateway.generateText(modelChainFor(role), messages, signal, onUsage);
+  return llm.generateText(modelChainFor(role), messages, signal, onUsage);
 }
 
 /** COMPOSE's model chain as AI SDK `LanguageModel`s, for a route's own streaming/tool-calling loop. */
 export function composeModelChain() {
-  return roleGateway.gatewayModelChain(modelChainFor("compose"));
+  return llm.modelChain(modelChainFor("compose"));
 }

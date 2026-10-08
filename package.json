@@ -17,6 +17,7 @@
     "verify:phase0": "bun run lint && bun run test && bun run typecheck && bun run build && bun run test:e2e"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.75",
     "@sentry/nextjs": "^10.73.0",
     "@serwist/next": "^9.5.12",
     "@supabase/ssr": "^0.7.0",
@@ -31,7 +32,7 @@
     "@upstash/redis": "^1.38.4",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
-    "ai": "^7.0.91",
+    "ai": "^7.0.131",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

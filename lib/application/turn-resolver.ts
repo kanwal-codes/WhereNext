@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { logger } from "@/lib/server/logger";
 import { AI_DEADLINE_MS, generateStructured, withDeadline } from "@/packages/ai/model-policy";
 import { preferenceUpdateSchema } from "@/packages/contracts/preferences";
 import { SUGGESTION_KEYS } from "@/packages/contracts/suggestion";
@@ -330,6 +331,8 @@ export async function resolveTurn(input: {
       return { ...guardRepeatedClarify(input.message, input.history, routePracticalFacts(input.message, { ...resolved, capabilities })), modelUsed };
     } catch (error) {
       if (input.signal?.aborted) throw error;
+      // The turn carries on with a safe default, so without this line a broken planner call would only show as odd answers.
+      logger.warn({ err: error, attempt }, "resolve failed");
       if (attempt === 1) break;
     }
   }

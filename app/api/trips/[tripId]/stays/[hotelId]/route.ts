@@ -25,7 +25,7 @@ async function guestSentiment(name: string, city: string | null, signal?: AbortS
     return null;
   }
   if (!notes) return null;
-  if (!process.env.AI_GATEWAY_API_KEY) return notes.slice(0, 400);
+  if (!process.env.ANTHROPIC_API_KEY) return notes.slice(0, 400);
   try {
     return (
       await generateText(

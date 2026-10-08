@@ -50,7 +50,7 @@ describe("resolveTurn", () => {
   it("reports which model actually produced the plan, for the turn trace", async () => {
     mockModel(JSON.stringify({ locationFocus: "Kyoto" }));
     const resolved = await resolveTurn({ message: "hi", history: [], tripSummary: "" });
-    expect(resolved.modelUsed).toBe("openai/gpt-oss-120b"); // resolve role's default lead model (Cerebras-pinned, Phase 2.2)
+    expect(resolved.modelUsed).toBe("claude-haiku-5-5"); // resolve role's default lead model
   });
 
   it("fills defaults for a sparse response", async () => {
