@@ -14,7 +14,7 @@ type Leg = NonNullable<FlightOffer["legs"]>[number];
 export const offerKey = (o: FlightOffer) => o.id ?? `${o.airline}|${o.departAt}|${o.price}`;
 
 /** "7h 11m" from minutes. */
-export const hoursMinutes = (minutes: number) => `${Math.floor(minutes / 60)}h ${String(Math.round(minutes % 60)).padStart(2, "0")}m`;
+export const hoursMinutes = (minutes: number) => (minutes < 60 ? `${Math.round(minutes)}m` : `${Math.floor(minutes / 60)}h ${String(Math.round(minutes % 60)).padStart(2, "0")}m`);
 
 /** The clock time of an ISO moment ("6:20 PM"); a dash when it can't be read, never blank space. */
 export function clockOf(iso?: string | null): string {
@@ -167,17 +167,19 @@ const MARK = "inline-flex items-center gap-1 whitespace-nowrap text-xs text-ink-
 const AMENITY_ICON = (text: string) => (/wi-?fi/i.test(text) ? Wifi : /power|usb|outlet/i.test(text) ? Plug : /video|entertain|stream|screen/i.test(text) ? Tv : Check);
 
 /** One flight of the journey: airline, number, aircraft, time in the air, and only the comforts it actually has. */
-function LegBlock({ leg, fallbackAirline }: { leg: Leg; fallbackAirline: string }) {
-  const amenities = leg.amenities ?? [];
+function LegBlock({ leg, fallbackAirline, compact = false }: { leg: Leg; fallbackAirline: string; compact?: boolean }) {
+  // On a journey of three or more flights each box slims down: the comforts of every flight would bury the journey, so only the
+  // legroom and a warning (a flight that is often late) stay; the full list is one tap away on the flight's details.
+  const amenities = compact ? [] : (leg.amenities ?? []);
   const shown = amenities.slice(0, 3);
   const detail = [leg.aircraft, hoursMinutes(leg.minutes)].filter(Boolean).join(" · ");
   return (
     <div className="flex gap-3.5">
       <span className="w-3.5 shrink-0" aria-hidden />
       {/* The logo and the airline share a row; everything else gets the box's full width beneath, so nothing is cut short. */}
-      <div className="min-w-0 flex-1 rounded-[1.25rem] bg-surface p-3.5">
+      <div className={cn("min-w-0 flex-1 rounded-[1.25rem] bg-surface", compact ? "p-3" : "p-3.5")}>
         <div className="flex items-center gap-3">
-          <AirlineMark offer={{ airline: leg.airline ?? fallbackAirline, logo: leg.logo }} className="size-9 shrink-0" />
+          <AirlineMark offer={{ airline: leg.airline ?? fallbackAirline, logo: leg.logo }} className={cn("shrink-0", compact ? "size-8" : "size-9")} />
           <p className="min-w-0 flex-1 truncate text-[0.9375rem] font-semibold">{leg.airline ?? fallbackAirline}{leg.flightNumber && <span className="ml-1.5 font-normal text-muted-foreground">{leg.flightNumber}</span>}</p>
         </div>
         {detail && <p className={cn(type.meta, "mt-2")}>{detail}</p>}
@@ -240,7 +242,7 @@ export function FlightJourney({ offer, labels, roundTrip, onDetails, tripCurrenc
             const wait = i < legs.length - 1 ? layoverNote(leg) : null;
             return (
               <React.Fragment key={i}>
-                {hasLegDetail || legs.length === 1 ? <LegBlock leg={leg} fallbackAirline={offer.airline} /> : null}
+                {hasLegDetail || legs.length === 1 ? <LegBlock leg={leg} fallbackAirline={offer.airline} compact={legs.length >= 3} /> : null}
                 {wait && (
                   <div className="flex items-center gap-4">
                     <span className="flex w-3.5 shrink-0 justify-center" aria-hidden><span className="h-8 w-0.5 bg-[repeating-linear-gradient(to_bottom,var(--border)_0_4px,transparent_4px_8px)]" /></span>
@@ -298,7 +300,8 @@ export function FlightJourney({ offer, labels, roundTrip, onDetails, tripCurrenc
 export function FlightRowBody({ offer, roundTrip, cheapest, selected, onDetails }: { offer: FlightOffer; roundTrip: boolean; cheapest: boolean; selected?: boolean; onDetails?: () => void }) {
   const stops = offer.stops;
   const plus = arrivalDayOffset(offer.departAt, offer.arriveAt);
-  const via = offer.layoverAirports?.length ? ` · ${offer.layoverAirports.join(", ")}` : "";
+  // The airports a short trip changes at; with three or more stops the list would not fit, and the journey card names them all.
+  const via = offer.layoverAirports?.length && stops <= 2 ? ` · ${offer.layoverAirports.join(", ")}` : "";
   return (
     <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
       <AirlineMark offer={offer} className="size-9 shrink-0" />
@@ -309,7 +312,7 @@ export function FlightRowBody({ offer, roundTrip, cheapest, selected, onDetails 
       <div className="order-last flex w-full min-w-0 items-center gap-3 @[34rem]:order-none @[34rem]:w-auto @[34rem]:flex-1">
         <p className="font-display text-base font-medium tabular-nums whitespace-nowrap">{clockOf(offer.departAt)}</p>
         <div className="min-w-0 flex-1">
-          <p className="flex justify-between gap-2 text-xs text-ink-soft tabular-nums"><span>{offer.durationMinutes > 0 ? hoursMinutes(offer.durationMinutes) : ""}</span><span className="truncate">{stops === 0 ? "nonstop" : `${stops} stop${stops > 1 ? "s" : ""}${via}`}</span></p>
+          <p className="flex justify-between gap-2 text-xs text-ink-soft tabular-nums"><span className="whitespace-nowrap">{offer.durationMinutes > 0 ? hoursMinutes(offer.durationMinutes) : ""}</span><span className="truncate">{stops === 0 ? "nonstop" : `${stops} stop${stops > 1 ? "s" : ""}${via}`}</span></p>
           <div className="relative my-1 h-2.5" aria-hidden>
             <span className="absolute inset-x-0 top-1 h-0.5 rounded-full bg-border" />
             <span className="absolute top-px left-0 size-2 rounded-full bg-foreground" />

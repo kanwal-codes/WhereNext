@@ -17,6 +17,7 @@ import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanel, type EventSeed } from "@/components/TripPanelProvider";
 import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
+import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
 import type { AssistantBlock, AssistantTurnMeta, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { Poll } from "@/packages/contracts/poll";
@@ -358,6 +359,8 @@ export function GroupChatSurface({
     for (const m of messages) {
       if (m.role !== "assistant" || seenReplyIdsRef.current.has(m.id)) continue;
       seenReplyIdsRef.current.add(m.id);
+      // Roam changed the trip (dates, destination, travellers): "What we know" beside the chat re-reads it now, not after a reload.
+      if ((m.metadata as Partial<AssistantTurnMeta> | undefined)?.blocks?.some((block) => block.type === "trip_update")) announceWorkspaceChange("preferences");
       const replyToId = (m.metadata as { replyToMessageId?: string } | undefined)?.replyToMessageId;
       const source = replyToId ? messages.find((s) => s.id === replyToId) : undefined;
       if (source?.userId && source.userId === me?.userId) {
@@ -391,7 +394,11 @@ export function GroupChatSurface({
     // connection, not a normal-operation timeout — the "thinking" indicator should never hang
     // forever with nothing to show for it.
     void postJson(`/api/trips/${tripId}/group-chat/roam`, { messageId, ...options }, 150_000)
-      .then(() => void refresh())
+      .then(() => {
+        void refresh();
+        // The planner may also have stored trip facts or suggestions during this turn.
+        announceWorkspaceChange("preferences");
+      })
       .catch(async () => {
         // A failure here doesn't necessarily mean the turn itself failed — this reply is a
         // buffered, potentially slow round trip, and a dropped connection or a proxy timeout can

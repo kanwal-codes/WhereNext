@@ -278,8 +278,8 @@ export function RouteDetail({ tripId, routes, active: initial }: { tripId: strin
 
   return (
     <div className="space-y-5 p-4 pb-8">
-      {/* Pinned: the options below scroll past it, and the line changes as you pick one. */}
-      <div className="sticky top-0 z-20 -mx-4 -mt-4 bg-surface px-4 pb-3 pt-4">{mapAt("h-[30vh] min-h-[200px] max-h-[300px]") ?? strip}</div>
+      {/* Pinned: the options below scroll past it (fading in under the map rather than being cut off by a hard edge), and the line changes as you pick one. */}
+      <div className="sticky top-0 z-20 -mx-4 -mt-4 bg-surface px-4 pb-3 pt-4 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-6 after:bg-gradient-to-b after:from-surface after:to-transparent">{mapAt("h-[30vh] min-h-[200px] max-h-[300px]") ?? strip}</div>
       <div className="rounded-3xl bg-card p-5 text-foreground shadow-float ring-1 ring-black/[0.06]">{options}</div>
     </div>
   );

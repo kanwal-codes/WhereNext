@@ -18,7 +18,7 @@ import { RouteDetail } from "@/features/conversation/ui/panels/RouteDetail";
 import { MapDetail } from "@/features/conversation/ui/panels/MapDetail";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { useMediaQuery } from "@/lib/use-media-query";
-import { cn } from "@/lib/utils";
+import { cn, formatDuration } from "@/lib/utils";
 import { ContentSwap, Sheet } from "@/components/motion-primitives";
 import { MessageBlocks } from "@/features/conversation/ui/blocks/MessageBlocks";
 import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
@@ -291,7 +291,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
     if (p.kind === "collection") return [];
     if (p.kind === "flight") return [{ name: panelTitle(p), detail: "Flight", price: `${p.flight.price} ${p.flight.currency}`, when: p.flight.departAt }];
     if (p.kind === "day") return [{ name: panelTitle(p), detail: `Itinerary day: ${p.block.days[p.dayIndex]?.stops.map((stop) => stop.title).join(", ")}` }];
-    if (p.kind === "route") return [{ name: panelTitle(p), detail: `Ways to get there: ${p.routes.map((r) => `${r.mode} ${Math.round(r.durationSeconds / 60)} min`).join(", ")}` }];
+    if (p.kind === "route") return [{ name: panelTitle(p), detail: `Ways to get there: ${p.routes.map((r) => `${r.mode} ${formatDuration(r.durationSeconds / 60)}`).join(", ")}` }];
     if (p.kind === "map") return [{ name: panelTitle(p), detail: `Map of: ${p.points.map((point) => point.name).join(", ")}` }];
     if (p.kind === "budget") return [{ name: panelTitle(p), detail: `About ${p.block.dailyTotal.typical} ${p.block.currency} a day, ${p.block.perPerson ? "per person" : "for the group"}` }];
     return [{ name: panelTitle(p), detail: p.kind === "stay" ? "Hotel" : p.kind === "event" ? "Event" : "Place" }];

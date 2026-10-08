@@ -1,3 +1,4 @@
+import { formatDuration } from "@/lib/utils";
 import { stepGlyph, type Glyph } from "./glyphs";
 
 /** "Hôtel X, Montreal, Canada" and "Jean Talon Market, Montreal, Canada" → the two names, and the place both are in. */
@@ -35,6 +36,9 @@ export function parseRouteStep(step: string): { glyph: Glyph; title: string; dur
     duration = bare[1];
     text = "";
   }
+  // A step stored as "298 min" reads as "4 h 58 min".
+  const raw = duration?.match(/^(\d+)\s*min$/i);
+  if (raw) duration = formatDuration(Number(raw[1]));
   const glyph = stepGlyph(step);
   return { glyph, title: sentence(text || (mode && !/^transit$/i.test(mode[1]) ? glyph.label : step)), duration };
 }
