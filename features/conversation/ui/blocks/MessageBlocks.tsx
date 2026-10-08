@@ -1267,6 +1267,8 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel }: { from: string; 
   const [mode, setMode] = useState(groups[0].mode);
   const [pick, setPick] = useState(0);
   const group = groups.find((g) => g.mode === mode) ?? groups[0];
+  // One way only (several transit routes, say): nothing is being compared, so no "fastest way" claim and no lone tab.
+  const compared = groups.length > 1;
   const chosen = group.routes[Math.min(pick, group.routes.length - 1)];
   const minutes = (route: RouteSummaryBlockData) => formatDuration(route.durationSeconds / 60);
   const slowest = Math.max(...group.routes.map((route) => route.durationSeconds), 1);
@@ -1286,9 +1288,9 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel }: { from: string; 
     <Widget
       glyph="route"
       tone="lagoon"
-      eyebrow={`Ways to get there${ends.where ? ` · ${ends.where}` : ""}`}
+      eyebrow={`${compared ? "Ways to get there" : ROUTE_MODE_LABEL[group.mode] ?? group.mode}${ends.where ? ` · ${ends.where}` : ""}`}
       title={<RouteEnds from={ends.from} to={ends.to} />}
-      status={<WidgetPill tone="lagoon" icon={Check}>{ROUTE_MODE_LABEL[fastest.mode] ?? fastest.mode} is fastest</WidgetPill>}
+      status={compared ? <WidgetPill tone="lagoon" icon={Check}>{ROUTE_MODE_LABEL[fastest.mode] ?? fastest.mode} is fastest</WidgetPill> : undefined}
       foot={onOpenPanel ? "Tap a way to open it on the map" : "Times are estimates"}
       action={onOpenPanel ? <WidgetAction onClick={() => onOpenPanel({ kind: "route", routes: sorted, active: sorted.indexOf(chosen) })}>{chosen.path ? "Map" : "Steps"}</WidgetAction> : undefined}
       hero={mapRequest && (
@@ -1298,7 +1300,7 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel }: { from: string; 
         </div>
       )}
     >
-      <div role="tablist" aria-label="Ways to travel" className="mx-4 mt-3.5 flex gap-2 @[34rem]:mx-[1.125rem]">
+      {compared && <div role="tablist" aria-label="Ways to travel" className="mx-4 mt-3.5 flex gap-2 @[34rem]:mx-[1.125rem]">
         {groups.map((g) => {
           const Icon = routeModeIcon(g.mode);
           const on = g.mode === group.mode;
@@ -1322,7 +1324,7 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel }: { from: string; 
             </button>
           );
         })}
-      </div>
+      </div>}
       <WidgetRows className="mt-3">
         {group.routes.map((route, i) => (
           <WidgetRow

@@ -133,7 +133,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     // double-click, a slow first attempt plus a "Retry", or two tabs hitting this at once all
     // reach this same path.
     const existingReply = await writeRepo.getByIdempotencyKey(tripId, "assistant", idempotencyKey);
-    if (existingReply) return NextResponse.json({ message: existingReply }, { status: 200 });
+    // A reply Roam wrote without its planner (degraded: nothing was looked up) is not worth protecting: asking again recomputes it onto the same row.
+    if (existingReply && !(existingReply.metadata as { degraded?: boolean } | null)?.degraded) return NextResponse.json({ message: existingReply }, { status: 200 });
 
     // Chat-completion messages have no per-speaker field, so a human turn folds the sender's
     // name into its content ("Alex: ...") — Roam's own prior replies stay plain "assistant" turns.
