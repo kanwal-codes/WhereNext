@@ -50,9 +50,15 @@ export function cardLeadIn(blocks: AssistantBlock[], locationFocus: string | nul
       : `Here are the ways to get from ${trip}. ${label(fastest.mode)} is quickest at ${duration(fastest.durationSeconds)}.`;
   }
   if (first.type === "place_list") {
-    const count = shown.reduce((sum, block) => sum + (block.type === "place_list" ? block.places.length : 0), 0);
-    const what = query && query.length <= 60 ? ` for “${query}”` : locationFocus ? ` in ${short(locationFocus)}` : "";
-    return count === 1 ? `Here is one place${what}.` : `Here are ${count} places${what}.`;
+    const all = shown.flatMap((block) => (block.type === "place_list" ? block.places : []));
+    const count = all.length;
+    // The search words are the planner's, not the traveller's ("top sights and restaurants to visit"): never quoted back at them.
+    const where = locationFocus ? ` in ${short(locationFocus)}` : "";
+    // A line that says something: which one the ratings favour.
+    const rated = all.filter((place) => typeof place.rating === "number");
+    const top = rated.reduce<(typeof rated)[number] | null>((best, place) => (!best || (place.rating ?? 0) > (best.rating ?? 0) || ((place.rating ?? 0) === (best.rating ?? 0) && (place.userRatingCount ?? 0) > (best.userRatingCount ?? 0)) ? place : best), null);
+    const lead = count === 1 ? `One place${where} to start with.` : `${count} places${where} to start with.`;
+    return top && count > 1 ? `${lead} ${top.name} is the top-rated at ${top.rating?.toFixed(1)}.` : lead;
   }
   if (first.type === "stays") return `Here are stays in ${short(first.location)}${first.nights ? ` for ${first.nights} night${first.nights === 1 ? "" : "s"}` : ""}.`;
   if (first.type === "flights") return `Here are flights from ${short(first.origin)} to ${short(first.destination)}.`;

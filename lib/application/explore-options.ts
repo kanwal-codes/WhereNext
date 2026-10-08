@@ -23,7 +23,9 @@ const SYSTEM = (kind: "area" | "daytrip", language: string = "en") =>
     ? `The traveller wants to know which NEIGHBOURHOODS / districts of the destination to base themselves in or spend their time. Return JSON only:
 {"intro":"<ONE sentence naming your top pick and why>","items":[{"name":"<neighbourhood>","blurb":"<2 short sentences: the feel, what's there, who it suits>","tags":["walkable","nightlife","cafes"],"meta":"<e.g. central · walkable>","bestFor":"<short phrase>"}]}
 - EXACTLY 3 real neighbourhoods of THIS city — the three that best fit the traveller, best first. Not more: this is a pick-one decision, not a catalogue.
-- tags: 2 to 4 one-word vibes. Ground it in the web notes + what you know of the city. No preamble.`
+- tags: 2 to 4 one-word tags. At least two should name something a traveller could look up there ("shopping", "bistros", "nightlife", "cafes", "museums", "parks", "views", "markets"); the card turns those into searches. Qualities like "walkable" or "central" can fill the rest.
+- meta: 2 or 3 short facts joined by " · ", e.g. "central · walkable · metro hub". When the traveller's budget is tight or the notes say so, include what staying there costs compared with the other two ("pricier hotels", "better value").
+- Ground it in the web notes + what you know of the city. No preamble.`
     : `The traveller wants DAY TRIPS out of the destination — places within ~2 hours to visit for a day and return. Return JSON only:
 {"intro":"<ONE sentence naming your top pick and why>","items":[{"name":"<place>","blurb":"<2 short sentences: what it is, why go>","tags":["nature","historic"],"meta":"<travel time + mode, e.g. 1h15 by train>","bestFor":"<short phrase>"}]}
 - 2 to 4 real destinations reachable from THIS city for a day. Order by appeal for the traveller.

@@ -11,10 +11,10 @@ afterEach(() => {
   delete process.env.SUMMARY_MODEL;
 });
 
-const RESOLVE_DEFAULT = ["claude-haiku-5-5", "claude-sonnet-5-5", "claude-haiku-4-5"];
+const RESOLVE_DEFAULT = ["claude-sonnet-5-5", "claude-haiku-5-5", "claude-haiku-4-5"];
 
 describe("modelChainFor", () => {
-  it("resolve: the default chain when no override is set — Haiku 5.5 leads, Sonnet 5.5 and Haiku 4.5 follow", () => {
+  it("resolve: the default chain when no override is set — Sonnet 5.5 leads (faster than Haiku 5.5 on the planning call in the 2026-10-08 benchmark), Haiku 5.5 and Haiku 4.5 follow", () => {
     expect(modelChainFor("resolve")).toEqual(RESOLVE_DEFAULT);
   });
 

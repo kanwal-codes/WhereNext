@@ -103,7 +103,10 @@ vi.mock("@/lib/application/evaluator", async (importOriginal) => {
 const buildEssentialsChecklistMock = vi.fn(async () => null as unknown);
 vi.mock("@/lib/application/essentials", () => ({ buildEssentialsChecklist: buildEssentialsChecklistMock }));
 const buildComparisonMock = vi.fn(async () => null as unknown);
-vi.mock("@/lib/application/comparison", () => ({ buildComparison: buildComparisonMock }));
+vi.mock("@/lib/application/comparison", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/application/comparison")>()),
+  buildComparison: buildComparisonMock,
+}));
 vi.mock("@/lib/application/turn-resolver", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/application/turn-resolver")>()),
   resolveTurn: resolveTurnMock,

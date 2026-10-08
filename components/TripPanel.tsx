@@ -15,6 +15,7 @@ import { FlightDetail } from "@/features/conversation/ui/panels/FlightDetail";
 import { DayDetail } from "@/features/conversation/ui/panels/DayDetail";
 import { BudgetDetail } from "@/features/conversation/ui/panels/BudgetDetail";
 import { RouteDetail } from "@/features/conversation/ui/panels/RouteDetail";
+import { AreaDetail } from "@/features/conversation/ui/panels/AreaDetail";
 import { MapDetail } from "@/features/conversation/ui/panels/MapDetail";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { useMediaQuery } from "@/lib/use-media-query";
@@ -38,7 +39,7 @@ const SELF_HOSTED_INLINE_PANEL_ROUTES = ["/chat", "/group"];
  *  inline panel remounts on every subject change and would otherwise forget where the user started. */
 let panelOpener: HTMLElement | null = null;
 
-const KIND_ICON = { place: MapPin, stay: BedDouble, event: CalendarDays, collection: LayoutGrid, flight: Plane, day: CalendarRange, budget: Wallet, map: MapIcon, route: RouteIcon, compare: Scale } as const;
+const KIND_ICON = { area: MapPin, place: MapPin, stay: BedDouble, event: CalendarDays, collection: LayoutGrid, flight: Plane, day: CalendarRange, budget: Wallet, map: MapIcon, route: RouteIcon, compare: Scale } as const;
 
 type Anchor = { name: string; lat: number; lng: number } | null;
 function distanceLabel(entry: CompareEntry, anchor: Anchor): string {
@@ -71,6 +72,7 @@ function fullPageHref(panel: PanelState, tripId: string, compareIds: string[]): 
       return `${base}/event?${qs}`;
     }
     case "collection":
+    case "area":
       return `${base}/discover`;
     case "flight":
       return `${base}/transport`;
@@ -293,6 +295,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
     if (p.kind === "day") return [{ name: panelTitle(p), detail: `Itinerary day: ${p.block.days[p.dayIndex]?.stops.map((stop) => stop.title).join(", ")}` }];
     if (p.kind === "route") return [{ name: panelTitle(p), detail: `Ways to get there: ${p.routes.map((r) => `${r.mode} ${formatDuration(r.durationSeconds / 60)}`).join(", ")}` }];
     if (p.kind === "map") return [{ name: panelTitle(p), detail: `Map of: ${p.points.map((point) => point.name).join(", ")}` }];
+    if (p.kind === "area") { const item = p.items[p.active]; return [{ name: panelTitle(p), detail: `${p.optionKind === "area" ? "Neighbourhood" : "Day trip"}: ${item?.blurb ?? ""} ${item?.tags.join(", ") ?? ""}`.trim() }]; }
     if (p.kind === "budget") return [{ name: panelTitle(p), detail: `About ${p.block.dailyTotal.typical} ${p.block.currency} a day, ${p.block.perPerson ? "per person" : "for the group"}` }];
     return [{ name: panelTitle(p), detail: p.kind === "stay" ? "Hotel" : p.kind === "event" ? "Event" : "Place" }];
   }
@@ -358,6 +361,8 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
     <BudgetDetail block={shown.block} />
   ) : shown.kind === "route" ? (
     <RouteDetail tripId={tripId} routes={shown.routes} active={shown.active} />
+  ) : shown.kind === "area" ? (
+    <AreaDetail tripId={tripId} panel={shown} />
   ) : shown.kind === "map" ? (
     <MapDetail tripId={tripId} panel={shown} />
   ) : shown.kind === "collection" ? (
@@ -393,7 +398,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   );
   // The surface (header + scroll frame) stays put; only this crossfades between subjects.
   // Flight, day, budget and route are cards and rows with no width of their own: on a wide panel or a tablet sheet they keep a 40rem reading column, like the detail views do.
-  const narrow = shown ? ["flight", "day", "budget", "route"].includes(shown.kind) : false;
+  const narrow = shown ? ["flight", "day", "budget", "route", "area"].includes(shown.kind) : false;
   // On a phone the route is a map with a sheet over it (see RouteDetail) and needs the panel's whole height, not a reading column.
   const fill = shown?.kind === "route" && !desktop;
   const animatedBody = <ContentSwap swapKey={sk} className={fill ? "h-full" : "min-h-full"}>{narrow && !fill ? <div className="mx-auto w-full max-w-[40rem]">{body}</div> : body}</ContentSwap>;

@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const { generateObjectMock } = vi.hoisted(() => ({ generateObjectMock: vi.fn() }));
 vi.mock("ai", async (importOriginal) => ({ ...(await importOriginal<object>()), generateObject: generateObjectMock }));
 
-import { guardRepeatedClarify, resolveTurn, resolvedTurnSchema, routePracticalFacts } from "../../lib/application/turn-resolver";
+import { guardNamedArea, guardRepeatedClarify, resolveTurn, resolvedTurnSchema, routePracticalFacts } from "../../lib/application/turn-resolver";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -50,7 +50,7 @@ describe("resolveTurn", () => {
   it("reports which model actually produced the plan, for the turn trace", async () => {
     mockModel(JSON.stringify({ locationFocus: "Kyoto" }));
     const resolved = await resolveTurn({ message: "hi", history: [], tripSummary: "" });
-    expect(resolved.modelUsed).toBe("claude-haiku-5-5"); // resolve role's default lead model
+    expect(resolved.modelUsed).toBe("claude-sonnet-5-5"); // resolve role's default lead model
   });
 
   it("fills defaults for a sparse response", async () => {
@@ -208,6 +208,31 @@ describe("routePracticalFacts", () => {
   it("leaves other intents alone", () => {
     const food = resolvedTurnSchema.parse({ intent: "food" });
     expect(routePracticalFacts("tipping at restaurants?", food)).toBe(food);
+  });
+});
+
+describe("guardNamedArea", () => {
+  const areaTurn = (extra: Record<string, unknown> = {}) => resolvedTurnSchema.parse({ intent: "other", locationFocus: "Le Marais, Paris, France", capabilities: ["area_guide"], toolPlan: [{ tool: "research_web", query: "best neighbourhoods in Paris" }], ...extra });
+  it("turns 'what is there to do in <one area>' into a search for things to do there, not another neighbourhood card", () => {
+    const out = guardNamedArea("What are the best things to do in and around Le Marais?", areaTurn());
+    expect(out.capabilities).not.toContain("area_guide");
+    expect(out.toolPlan).toEqual([{ tool: "search_places", query: "best things to do and see", location: "Le Marais, Paris, France" }]);
+    expect(out.intent).toBe("discovery");
+  });
+  it("catches the old two-question wording the button used to send", () => {
+    expect(guardNamedArea("What is there to do in and around Le Marais (3rd/4th), and is it a good base for us?", areaTurn()).capabilities).not.toContain("area_guide");
+  });
+  it("keeps the comparison when the traveller is choosing between areas", () => {
+    for (const message of ["Which neighbourhood should we stay in?", "What area is best to base ourselves in?", "Where should we stay in Paris?", "Compare Le Marais and Montmartre"]) {
+      const turn = areaTurn();
+      expect(guardNamedArea(message, turn)).toBe(turn);
+    }
+  });
+  it("leaves a turn without an area card, or without a place to search, alone", () => {
+    const plain = resolvedTurnSchema.parse({ intent: "food", locationFocus: "Paris" });
+    expect(guardNamedArea("what is there to do in Paris?", plain)).toBe(plain);
+    const noPlace = areaTurn({ locationFocus: null });
+    expect(guardNamedArea("what is there to do in Le Marais?", noPlace)).toBe(noPlace);
   });
 });
 

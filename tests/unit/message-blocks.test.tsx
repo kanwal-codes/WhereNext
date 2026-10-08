@@ -283,6 +283,19 @@ describe("MessageBlocks", () => {
     expect(html).toContain("Mile End");
   });
 
+  it("options block: each area opens its own panel when the card can open one", () => {
+    const blocks: AssistantBlock[] = [{ type: "options", kind: "area", intro: "Base in the Plateau.", items: [
+      { name: "Plateau-Mont-Royal", blurb: "Leafy and bohemian.", tags: ["cafes"] },
+      { name: "Mile End", blurb: "Indie shops and bagels.", tags: ["indie"] },
+    ] }];
+    const open = renderToStaticMarkup(<MessageBlocks blocks={blocks} {...handlers} onOpenPanel={vi.fn()} />);
+    expect(open).toContain('aria-label="Open Plateau-Mont-Royal"');
+    expect(open).toContain('aria-label="Open Mile End"');
+    expect(open).toContain("Stays here"); // the two quick asks stay beside it
+    // Without a panel to open into (a preview, a shared page) the title is plain text, not a dead button.
+    expect(render(blocks)).not.toContain('aria-label="Open Plateau-Mont-Royal"');
+  });
+
   it("options block: day-trip cards show the travel-time meta", () => {
     const html = render([{ type: "options", kind: "daytrip", intro: "Québec City wins.", items: [
       { name: "Québec City", blurb: "Walled old town.", tags: ["historic"], meta: "3h by train" },
@@ -454,13 +467,25 @@ describe("MessageBlocks", () => {
     const html = render([{ type: "comparison", title: "Alfama vs Bairro Alto", columns: ["Option", "Vibe", "Cost"],
       rows: [{ label: "Alfama", cells: ["Alfama", "quiet", "€€"] }, { label: "Bairro Alto", cells: ["Bairro Alto", "lively", "€€"] }],
       bestForYou: { label: "Alfama", reason: "quieter for a couple who dislike crowds" } }]);
-    expect(html).toContain("<table"); // attribute rows × option columns, options named once in the header
+    expect(html).toContain("<dl"); // one block per thing compared, each option's answer under it
+    expect(html).toContain("Best for you"); // the verdict leads
     expect(html).toContain("Alfama vs Bairro Alto");
     expect(html).toContain("Vibe"); // attribute heading (the redundant "Option" column is dropped)
     expect(html).not.toMatch(/>Option</);
     expect(html).toContain("quiet");
     expect(html).toContain("lively");
     expect(html).toContain("quieter for a couple who dislike crowds");
+  });
+
+  it("comparison block: leaves out what nobody knows and words a blank cell calmly", () => {
+    const html = render([{ type: "comparison", title: "Paris vs Amsterdam", columns: ["Option", "Budget", "Hiking access", "Solo fit"],
+      rows: [{ label: "Paris", cells: ["Paris", "About $89 a day", "unclear", "unclear"] }, { label: "Amsterdam", cells: ["Amsterdam", "About $76 a day", "Unclear from the evidence", "Social hostels"] }],
+      bestForYou: null }]);
+    expect(html).not.toContain("Hiking access"); // nothing known for either option: the row is gone
+    expect(html).not.toMatch(/unclear/i);
+    expect(html).toContain("Not enough information yet"); // Paris has nothing for "Solo fit"
+    expect(html).toContain("2 options compared"); // no pick, so no verdict strip
+    expect(html).not.toContain("Best for you");
   });
 
   it("comparison block: renders a live side-by-side (not a table) when it carries ≥2 place ids", () => {

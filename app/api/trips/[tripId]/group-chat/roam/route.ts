@@ -281,7 +281,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
       // A deterministic card lead-in has no claims or links to check: skip the grounding model call.
       composeSkipIsLeadIn ? Promise.resolve(text) : finalizeAssistantText(text, allowedUrls, system, request.signal, (entry) => { evaluatorUsage = entry; }, resolved.intent, () => { unverified = true; }, turns.filter((t) => t.role === "user").map((t) => t.content).join("\n")),
     ]);
-    const meta = { ...finalizeAssistantBlocks(result.meta, { checklist, comparison }, cardPlaceProviderIds), ...(unverified ? { unverified: true } : {}) };
+    const meta = { ...finalizeAssistantBlocks(result.meta, { checklist, comparison }), ...(unverified ? { unverified: true } : {}) };
 
     const message = await writeRepo.append(tripId, {
       userId: null,

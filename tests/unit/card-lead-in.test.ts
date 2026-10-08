@@ -15,9 +15,11 @@ describe("cardLeadIn", () => {
     expect(cardLeadIn([route("walking", 2700)], null, null)).toBe("Walking from Toronto to Niagara Falls takes 45 min.");
   });
 
-  it("counts the places and quotes a short search", () => {
-    expect(cardLeadIn([places(6)], "Niagara Falls, Ontario", "parks")).toBe("Here are 6 places for “parks”.");
-    expect(cardLeadIn([places(1)], "Niagara Falls, Ontario", null)).toBe("Here is one place in Niagara Falls.");
+  it("counts the places and names the top-rated one, without quoting the planner's search words", () => {
+    const rated = { type: "place_list", places: [{ providerId: "a", name: "Pink Mamma", rating: 4.7, userRatingCount: 9000 }, { providerId: "b", name: "Sphère", rating: 4.8, userRatingCount: 300 }, { providerId: "c", name: "La Coupole", rating: 4.4 }] } as unknown as AssistantBlock;
+    expect(cardLeadIn([rated], "Paris, France", "top sights and restaurants to visit")).toBe("3 places in Paris to start with. Sphère is the top-rated at 4.8.");
+    expect(cardLeadIn([places(6)], "Niagara Falls, Ontario", "parks")).toBe("6 places in Niagara Falls to start with.");
+    expect(cardLeadIn([places(1)], "Niagara Falls, Ontario", null)).toBe("One place in Niagara Falls to start with.");
   });
 
   it("says nothing when more than one kind of card is shown, or none", () => {

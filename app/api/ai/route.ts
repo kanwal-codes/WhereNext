@@ -521,7 +521,7 @@ export const POST = withRoute(async function POST(request: Request) {
         async () => {
           if (!finalMeta && result?.kind === "ready") {
             const [checklist, comparison] = await Promise.all([result.sideBuilders.checklistPromise, result.sideBuilders.comparisonPromise]);
-            finalMeta = finalizeAssistantBlocks(result.meta, { checklist, comparison }, result.cardPlaceProviderIds);
+            finalMeta = finalizeAssistantBlocks(result.meta, { checklist, comparison });
           }
           // Waits for the SAME `sanitize` call above, not a fresh one — side-builders above
           // usually take longer than the evaluator's own bounded (≤2.5s) deadline, so this

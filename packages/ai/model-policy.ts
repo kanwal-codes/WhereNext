@@ -27,14 +27,17 @@ export type ModelChainEntry = string;
  * Default model list per role. The env override for a role (see `ROLE_ENV`) is tried FIRST when set;
  * these remain the fallback.
  *
- *   resolve / bulk — Haiku 5.5 leads: in a first comparison against Sonnet 5.5 it answered 1.2-1.8x faster,
- *   called the same tools, and produced valid structured output 6 of 6 times, at a twentieth of the price
- *   ($0.10 / $0.50 per million tokens against $2 / $10). Sonnet 5.5 is the fallback for a call Haiku cannot do.
+ *   resolve — Sonnet 5.5 leads. Planning is on the critical path of every turn, and in a 10-call benchmark (2026-10-08, same
+ *   five messages) Sonnet's median was 2.9 s against Haiku 5.5's 4.0 s (Haiku 4.5: 3.6 s) with the same plans; Haiku tends to ask
+ *   for an extra search, which lengthens its output. It costs about 20x per token ($2 / $10 against $0.10 / $0.50 per million),
+ *   roughly 1.5 cents more per turn. Haiku 5.5 is the fallback.
+ *   bulk — Haiku 5.5 leads: the side-card builders run beside the written reply and are 20x cheaper; Sonnet 5.5 is the fallback
+ *   (it was ~1.5 s faster on area cards in the same benchmark, at several cents more per turn; revisit if they become the wait).
  *   compose — the one thing the user actually reads: Sonnet 5.5 leads (the better writer in that comparison),
  *   Haiku 5.5 answers if it stalls, and Sonnet 5 is the last resort. Don't reorder on assumption; measure.
  */
 const DEFAULT_CHAINS: Record<ModelRole, ModelChainEntry[]> = {
-  resolve: ["claude-haiku-5-5", "claude-sonnet-5-5", "claude-haiku-4-5"],
+  resolve: ["claude-sonnet-5-5", "claude-haiku-5-5", "claude-haiku-4-5"],
   compose: ["claude-sonnet-5-5", "claude-haiku-5-5", "claude-sonnet-5"],
   bulk: ["claude-haiku-5-5", "claude-sonnet-5-5"],
 };
