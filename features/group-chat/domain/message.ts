@@ -55,3 +55,22 @@ export function completeRoamMention(previous: string, next: string): string {
   if (!token) return next;
   return `${previous.slice(0, previous.length - token[2].length)}@Roam `;
 }
+
+/** An @Roam ask with no reply yet counts as "being answered" for this long, then as one Roam did not answer. */
+export const ROAM_WAIT_MS = 120_000;
+/** A missed ask keeps its "Retry" for this long; older ones are history. */
+const ROAM_RETRY_WINDOW_MS = 24 * 60 * 60_000;
+
+/** The @Roam asks nobody has answered, split by age: still waiting on a reply, or given up on (Roam never replied, so offer a retry). */
+export function unansweredRoamAsks(messages: GroupMessage[], now: number): { waiting: string[]; missed: string[] } {
+  const answered = new Set(messages.filter((m) => m.role === "assistant").map((m) => (m.metadata as { replyToMessageId?: string } | undefined)?.replyToMessageId));
+  const waiting: string[] = [];
+  const missed: string[] = [];
+  for (const m of messages) {
+    if (m.role !== "user" || !mentionsRoam(m.content) || answered.has(m.id)) continue;
+    const age = now - Date.parse(m.created_at);
+    if (age < ROAM_WAIT_MS) waiting.push(m.id);
+    else if (age < ROAM_RETRY_WINDOW_MS) missed.push(m.id);
+  }
+  return { waiting, missed };
+}
