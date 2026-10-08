@@ -263,6 +263,13 @@ describe("POST /api/trips/:tripId/group-chat/roam", () => {
     expect(getByIdempotencyKeyMock).toHaveBeenCalledWith(TRIP, "assistant", "roam-reply:m1:u1");
   });
 
+  it("recomputes a reply that was written without its planner (degraded), so 'Try again' can fix it", async () => {
+    const degraded = { id: "m2", userId: null, role: "assistant" as const, kind: "text" as const, content: "From memory.", created_at: "2026-01-01T00:01:00Z", reactions: [], metadata: { replyToMessageId: "m1", degraded: true } };
+    getByIdempotencyKeyMock.mockResolvedValue(degraded);
+    await post("m1");
+    expect(runAssistantTurnMock).toHaveBeenCalled();
+  });
+
   it("400s when no message id is given", async () => {
     const mod = await import("@/app/api/trips/[tripId]/group-chat/roam/route");
     const req = new Request("http://localhost/x", { method: "POST" });

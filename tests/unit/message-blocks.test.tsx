@@ -85,6 +85,19 @@ describe("MessageBlocks", () => {
     expect(html.indexOf("Drive")).toBeLessThan(html.indexOf("Fastest"));
   });
 
+  it("several routes by one way (all transit) compare nothing: no 'is fastest' claim and no lone tab", () => {
+    const html = render([
+      { type: "route_summary", from: "Toronto", to: "Montreal", mode: "transit", durationSeconds: 17880, distanceMeters: 540000, steps: [], retrievedAt: "t" },
+      { type: "route_summary", from: "Toronto", to: "Montreal", mode: "transit", durationSeconds: 19800, distanceMeters: 540000, steps: [], retrievedAt: "t" },
+    ]);
+    expect(html).toContain("Transit");
+    expect(html).toContain("4 h 58 min");
+    expect(html).toContain("Quickest");
+    expect(html).not.toContain("is fastest");
+    expect(html).not.toContain("Ways to get there");
+    expect(html).not.toContain('role="tablist"');
+  });
+
   it("does not group route_summary blocks for different from/to pairs", () => {
     const html = render([
       { type: "route_summary", from: "Hotel", to: "Belém", mode: "driving", durationSeconds: 900, distanceMeters: 8000, steps: [], retrievedAt: "t" },

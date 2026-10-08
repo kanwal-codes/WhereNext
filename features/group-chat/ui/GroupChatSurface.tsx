@@ -1004,6 +1004,13 @@ export function GroupChatSurface({
                         <MessageBlocks blocks={roamBlocks} tripId={tripId} onFollowup={onFollowup} onOpenPlace={onOpenPlace} onOpenStay={onOpenStay} onOpenEvent={onOpenEvent} onOpenCollection={onOpenCollection} onOpenPanel={openPanel} replyText={message.content} />
                       </div>
                     )}
+                    {isRoam && (message.metadata as Partial<AssistantTurnMeta> | undefined)?.degraded && replyToId && (
+                      // Roam's planner failed for this one, so nothing was looked up (no cards): say so, and offer another go.
+                      <p className="flex flex-wrap items-center gap-x-2 px-1 text-2xs text-muted-foreground">
+                        Answered from the trip details only; Roam couldn’t look anything up.
+                        <button type="button" onClick={() => askRoam(replyToId, { explicit: true })} className="font-semibold text-foreground underline underline-offset-2">Try again</button>
+                      </p>
+                    )}
                     {isRoam && (message.metadata as Partial<AssistantTurnMeta> | undefined)?.unverified && (
                       <p className="px-1 text-2xs text-muted-foreground">A figure or detail above is an estimate and hasn’t been independently verified.</p>
                     )}
