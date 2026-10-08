@@ -236,7 +236,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
               animate={{ opacity: optimisticTab === "group" ? 1 : 0 }}
               transition={reduceMotion ? { duration: 0 } : motionTokens.swap}
             >
-              {!guest && (warm || optimisticTab === "group") && <GroupChatSurface tripId={tripId} initialMessages={data?.groupChat} onLogScroll={onLogScroll} rail={desktop && Boolean(panel)} />}
+              {!guest && (warm || optimisticTab === "group") && <GroupChatSurface tripId={tripId} initialMessages={data?.groupChat} onLogScroll={onLogScroll} rail={desktop && Boolean(panel)} active={optimisticTab === "group"} />}
             </motion.div>
           </div>
         </div>

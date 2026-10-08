@@ -1,5 +1,6 @@
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { realtimeFilterForTable, reconnectDelayMs, TABLE_TO_CHANGE } from "../../lib/client/trip-realtime";
+import { CHAT_TABLES, realtimeFilterForTable, reconnectDelayMs, TABLE_TO_CHANGE } from "../../lib/client/trip-realtime";
 
 describe("realtimeFilterForTable", () => {
   it("uses the trip primary key for the trips table", () => {
@@ -49,5 +50,19 @@ describe("TABLE_TO_CHANGE", () => {
       trip_polls: "groupChat",
       trip_poll_votes: "groupChat",
     });
+  });
+});
+
+describe("live subscriptions", () => {
+  // Realtime validates every binding on a channel together; a `trip_id` filter on a table with no such column
+  // rejects the whole channel (this silenced the group chat's live delivery once). So every filtered table must have one.
+  it("only subscribes tables that have a trip_id column to filter on", () => {
+    const sql = readdirSync("database/migrations").filter((f) => f.endsWith(".sql")).map((f) => readFileSync(`database/migrations/${f}`, "utf8")).join("\n");
+    const tables = [...new Set([...Object.keys(TABLE_TO_CHANGE), ...CHAT_TABLES])].filter((t) => t !== "trips");
+    for (const table of tables) {
+      const block = sql.match(new RegExp(`create table (?:if not exists )?public\\.${table}\\s*\\(([\\s\\S]*?)\\n\\);`, "i"));
+      expect(block, `${table} is created in a migration`).not.toBeNull();
+      expect(block![1], `${table} has a trip_id column`).toMatch(/\btrip_id\b/);
+    }
   });
 });

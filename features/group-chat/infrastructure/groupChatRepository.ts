@@ -11,6 +11,7 @@ type GroupMessageRow = {
   content: string;
   metadata: Record<string, unknown> | null;
   created_at: string;
+  idempotency_key?: string | null;
 };
 
 const toMessage = (row: GroupMessageRow, reactions: GroupMessageReaction[]): GroupMessage => ({
@@ -22,6 +23,8 @@ const toMessage = (row: GroupMessageRow, reactions: GroupMessageReaction[]): Gro
   metadata: row.metadata ?? {},
   created_at: row.created_at,
   reactions,
+  // Only a member's own send key ("user:<key>"); Roam's reserved reply keys are not exposed.
+  ...(row.idempotency_key?.startsWith("user:") ? { clientKey: row.idempotency_key.slice(5) } : {}),
 });
 
 /** Embeds each poll-kind message's LIVE tally into its metadata — a poll's card must show
@@ -58,7 +61,7 @@ async function reactionsByMessage(supabase: SupabaseClient, messageIds: string[]
   return map;
 }
 
-const COLUMNS = "id,user_id,role,kind,content,metadata,created_at";
+const COLUMNS = "id,user_id,role,kind,content,metadata,created_at,idempotency_key";
 
 /** Same scoping `append` stores under — a lookup key must match it exactly to find the row. */
 const scopedIdempotencyKey = (role: string, key: string) => `${role}:${key}`;

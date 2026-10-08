@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -26,7 +26,9 @@ export const TABLE_TO_CHANGE: Record<string, WorkspaceChange> = {
   trip_reservations: "decision",
   conversation_messages: "conversation",
   group_messages: "groupChat",
-  group_message_reactions: "groupChat",
+  // group_message_reactions is NOT listed: it has no trip_id column to filter on, and a filter on a missing column makes
+  // Realtime reject the whole channel (live-caught: with it here, a friend's message only arrived on the 30 s refresh).
+  // An unfiltered subscription would also leak other trips' un-reactions (deletes bypass RLS). A reaction shows up on the next refresh instead.
   // A poll IS a group message (its own kind, with a live tally embedded from trip_poll_votes) —
   // reuses "groupChat" rather than a new WorkspaceChange variant, since a vote should trigger
   // exactly the same message-list refetch a new message already does.
@@ -38,6 +40,23 @@ export const TABLE_TO_CHANGE: Record<string, WorkspaceChange> = {
   // reaches another member's already-open group chat / member list / @mention target list.
   trip_members: "members",
 };
+
+// Whether the group chat's live channel is working right now. Starts true (nothing is wrong until a channel says so) and
+// goes false when the channel errors, times out or closes, so the chat can say that updates are arriving late.
+let chatLive = true;
+const chatLiveListeners = new Set<() => void>();
+function setChatLive(live: boolean) {
+  if (chatLive === live) return;
+  chatLive = live;
+  chatLiveListeners.forEach((listener) => listener());
+}
+export function useChatLive(): boolean {
+  return useSyncExternalStore(
+    (listener) => { chatLiveListeners.add(listener); return () => { chatLiveListeners.delete(listener); }; },
+    () => chatLive,
+    () => true,
+  );
+}
 
 export function realtimeFilterForTable(table: string, tripId: string): string {
   return table === "trips" ? `id=eq.${tripId}` : `trip_id=eq.${tripId}`;
@@ -55,8 +74,8 @@ export function reconnectDelayMs(attempt: number): number {
   return Math.min(1000 * 2 ** attempt, 30_000);
 }
 
-/** Tables whose changes drive the group chat (messages, reactions, polls, the member list). */
-export const CHAT_TABLES = ["group_messages", "group_message_reactions", "trip_polls", "trip_poll_votes", "trip_members"] as const;
+/** Tables whose changes drive the group chat (messages, polls, the member list). */
+export const CHAT_TABLES = ["group_messages", "trip_polls", "trip_poll_votes", "trip_members"] as const;
 
 export type RealtimeGroup = { topic: string; tables: string[]; presence: boolean };
 
@@ -105,13 +124,19 @@ export function useTripRealtime(tripId: string, me?: { userId: string; name: str
     let cancelled = false;
 
     const flush = () => {
-      timer.current = null;
       announceWorkspaceChanges([...pending.current], "realtime");
       pending.current.clear();
     };
+    // Leading edge: the first change of a burst goes out at once (a friend's message should not wait for a quiet moment);
+    // whatever arrives within the next 250 ms is batched into one trailing announcement.
     const schedule = (change: WorkspaceChange) => {
       pending.current.add(change);
-      if (!timer.current) timer.current = setTimeout(flush, 250);
+      if (timer.current) return;
+      flush();
+      timer.current = setTimeout(() => {
+        timer.current = null;
+        if (pending.current.size > 0) flush();
+      }, 250);
     };
 
     /** One channel with its own reconnect-with-backoff state, so a failing group never affects the others. */
@@ -158,6 +183,7 @@ export function useTripRealtime(tripId: string, me?: { userId: string; name: str
           if (status === "SUBSCRIBED") {
             subscribed = true;
             attempt = 0;
+            if (group.topic.endsWith(":chat")) setChatLive(true);
             if (group.presence) {
               subscribedRef.current = true;
               if (me) void ch.track({ userId: me.userId, name: me.name, viewingPath: pathname ?? "" });
@@ -170,6 +196,7 @@ export function useTripRealtime(tripId: string, me?: { userId: string; name: str
           if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
             subscribed = false;
             if (group.presence) subscribedRef.current = false;
+            if (group.topic.endsWith(":chat")) setChatLive(false);
             console.error(`[trip-realtime] ${group.topic} ${status.toLowerCase()} (tables: ${group.tables.join(", ")})`, error);
             channel = null;
             void supabase.removeChannel(ch);
@@ -193,11 +220,23 @@ export function useTripRealtime(tripId: string, me?: { userId: string; name: str
         stop: () => {
           if (reconnectTimer) clearTimeout(reconnectTimer);
           if (channel) void supabase.removeChannel(channel);
+          if (group.topic.endsWith(":chat")) setChatLive(true);
         },
       };
     };
 
-    const connections = realtimeGroups(tripId).map(connectGroup);
+    // The socket must carry the signed-in user's token BEFORE the channels join. supabase-js only hands it over on a
+    // sign-in or token refresh, not for a session that was already there when the page loaded, so without this the socket
+    // joined as the anonymous key, row-level security hid every row from it, and a friend's message never arrived live
+    // (it showed up on the next 30 s refresh). Live-measured: the receiving window saw nothing for 12 s.
+    let connections: Array<ReturnType<typeof connectGroup>> = [];
+    void supabase.auth.getSession().then(({ data }) => {
+      if (cancelled) return;
+      if (data.session) supabase.realtime.setAuth(data.session.access_token);
+      connections = realtimeGroups(tripId).map(connectGroup);
+    }, () => {
+      if (!cancelled) connections = realtimeGroups(tripId).map(connectGroup);
+    });
 
     // The socket can die silently while a tab is backgrounded — mobile OSes (and some desktop
     // browsers) suspend an inactive tab's WebSocket with no CHANNEL_ERROR/CLOSED event ever

@@ -256,7 +256,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
             composeUsage = generated.usage;
             return generated.text;
           } catch (error) {
-            if (error instanceof DOMException && error.name === "AbortError") throw error;
+            // The caller hanging up (Next aborts with a plain Error named "ResponseAborted") is not a model failing: stop, do not try the next model.
+            if (request.signal.aborted || (error instanceof Error && (error.name === "AbortError" || error.name === "ResponseAborted"))) throw error;
             lastError = error;
             logger.warn({ err: error, attempt: i }, "group-chat compose model failed, trying next in chain");
           }
@@ -331,6 +332,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (error) {
+    // A request the client gave up on is not Roam breaking: answer quietly (nobody is listening) instead of logging an error.
+    if (request.signal.aborted) return new NextResponse(null, { status: 499 });
     return tripAuthResponse(error) ?? fail(error, "Roam is unavailable right now");
   }
 }

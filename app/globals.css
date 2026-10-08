@@ -999,6 +999,12 @@
   .card-lift:hover img { scale: 1; }
 }
 
+/* Replies that are off screen are skipped (style, layout, paint). Opening the side panel narrows the chat, and restyling every widget in a long log was the 100 ms stall on the click; now only what is on screen is redone. `auto` in the intrinsic size remembers a reply's real height once it has been seen, so scrolling back up does not jump. The paint containment would cut the widgets' shadows at the reply's edge, so the box is widened by the shadow's reach (18 px) and pulled back by the same margin. */
+@supports (overflow-anchor: auto) {
+  /* Only where scroll anchoring exists (Chrome, Firefox): that is what keeps the log from jumping when a skipped reply is measured for real. Safari keeps the plain layout. */
+  .turn { content-visibility: auto; contain-intrinsic-size: auto 420px; padding-inline: 1.25rem; margin-inline: -1.25rem; }
+}
+
 /* Older replies keep their quiet actions (copy) out of sight until the reply is under a mouse or has keyboard focus; the latest reply, and every reply on touch, shows them. */
 @media (hover: hover) {
   .turn-action { opacity: 0; transition: opacity var(--duration-base) var(--ease-out); }

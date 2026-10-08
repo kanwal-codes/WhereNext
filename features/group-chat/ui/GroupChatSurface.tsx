@@ -21,7 +21,9 @@ import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
 import type { AssistantBlock, AssistantTurnMeta, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { Poll } from "@/packages/contracts/poll";
-import { GROUP_HISTORY_LIMIT, completeRoamMention, hasAsk, mentionsRoam, unansweredRoamAsks, type GroupMessage } from "../domain/message";
+import { GROUP_HISTORY_LIMIT, MAX_MESSAGE_LENGTH, completeRoamMention, hasAsk, mentionsRoam, unansweredRoamAsks, type GroupMessage } from "../domain/message";
+import { HttpError, SEND_TIMEOUT_MS, clockSkewMs, restoreOutbox, sendFailure, serializeOutbox, type Outgoing } from "../domain/outbox";
+import { useChatLive } from "@/lib/client/trip-realtime";
 import { memberInitials } from "@/lib/member-initials";
 import { memberLabel, useTripMembers, type TripMember } from "@/lib/client/use-trip-members";
 import { GroupInviteCard } from "./GroupInviteCard";
@@ -35,9 +37,6 @@ const GROUP_WINDOW_MS = 5 * 60_000;
 const LONG_PRESS_MS = 450;
 // Within this distance of the bottom you are "reading the latest", so a new message follows you down.
 const NEAR_BOTTOM_PX = 160;
-
-/** A message that has not reached the server yet (sending) or could not (failed). It lives outside the real history. */
-type Outgoing = { key: string; content: string; status: "sending" | "failed"; created_at: string };
 
 
 function displayName(userId: string | null, members: TripMember[], meId: string | undefined): string {
@@ -74,7 +73,7 @@ async function postJson<T>(url: string, body: unknown, timeoutMs?: number): Prom
   const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
   try {
     const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: controller?.signal });
-    if (!response.ok) throw new Error(`request failed: ${response.status}`);
+    if (!response.ok) throw new HttpError(response.status);
     return response.json();
   } finally {
     if (timer) clearTimeout(timer);
@@ -86,6 +85,7 @@ export function GroupChatSurface({
   initialMessages,
   onLogScroll,
   rail = false,
+  active = true,
 }: {
   tripId: string;
   /** Server-rendered history (`data.groupChat` from `loadTripWorkspace`) — lets this open already
@@ -100,6 +100,8 @@ export function GroupChatSurface({
   onLogScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
   /** A detail panel is open beside the chat: the text keeps one fixed measure (see RAIL_MEASURE). */
   rail?: boolean;
+  /** This tab is the one on screen. The pane stays mounted behind the Roam tab so switching is instant, but a hidden chat reads the thread only when it is shown (and on a live change), never on a timer. */
+  active?: boolean;
 }) {
   const { me, data } = useTripData();
   const { openPanel } = useTripPanel();
@@ -121,6 +123,21 @@ export function GroupChatSurface({
   const [input, setInput] = useState("");
   // Messages you have sent that the server has not confirmed: they show at once, as "Sending…", and stay with a Retry if they fail.
   const [outbox, setOutbox] = useState<Outgoing[]>([]);
+  // The unsent messages (and the half-typed one) survive a reload or a trip to another page: kept per trip, per tab.
+  const outboxKey = `wn-outbox:${tripId}:${me?.userId ?? "anon"}`;
+  const draftKey = `wn-draft:${tripId}:${me?.userId ?? "anon"}`;
+  const [restored, setRestored] = useState(false);
+  const outboxRef = useRef<Outgoing[]>([]);
+  outboxRef.current = outbox;
+  // Keys with a request in flight right now, so a retry (by hand or by the connection coming back) never doubles up.
+  const inflightRef = useRef<Set<string>>(new Set());
+  // The last read of the thread failed (offline, server down): say so, instead of showing an empty or stale chat as if it were current.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [online, setOnline] = useState(true);
+  const chatLive = useChatLive();
+  const [liveDown, setLiveDown] = useState(false);
+  // This device's clock against the server's: "Roam has not answered for two minutes" is judged on server time.
+  const skewRef = useRef(0);
   // A double Enter can arrive before the state has re-rendered and would post the message twice.
   const submitLockRef = useRef(false);
   // Pages of history older than the newest window, loaded on request and kept apart from it (a refresh replaces only the newest).
@@ -199,15 +216,20 @@ export function GroupChatSurface({
     // after a newer one's would overwrite the fresh list with stale data.
     const mine = ++refreshIdRef.current;
     try {
-      const body = await fetch(`/api/trips/${tripId}/group-chat`).then((r) => (r.ok ? r.json() : Promise.reject(new Error("load"))));
+      const response = await fetch(`/api/trips/${tripId}/group-chat`);
+      if (!response.ok) throw new Error("load");
+      skewRef.current = clockSkewMs(response.headers.get("date"), Date.now());
+      const body = await response.json();
       if (mine !== refreshIdRef.current) return undefined;
+      setLoadFailed(false);
       const fresh = (body.messages ?? []) as GroupMessage[];
       // Keep the same array when nothing changed, so the poll below doesn't re-render the whole log.
       setMessages((prev) => (JSON.stringify(prev) === JSON.stringify(fresh) ? prev : fresh));
       if (!olderLoadedRef.current) setHasOlder(fresh.length >= GROUP_HISTORY_LIMIT);
       return fresh;
     } catch {
-      // Best-effort — the last successfully loaded state stays on screen.
+      // The last successfully loaded state stays on screen, with a note that it may be out of date.
+      if (mine === refreshIdRef.current) setLoadFailed(true);
       return undefined;
     } finally {
       if (mine === refreshIdRef.current) setLoaded(true);
@@ -215,8 +237,8 @@ export function GroupChatSurface({
   }, [tripId]);
 
   useEffect(() => {
-    void refresh();
-  }, [tripId, refresh]);
+    if (active) void refresh();
+  }, [active, tripId, refresh]);
 
   // Only a real group-chat change (a message, a reaction) should pay for this refetch — the
   // bus carries the change type specifically so an itinerary edit or a saved place elsewhere
@@ -230,11 +252,12 @@ export function GroupChatSurface({
   // lands without a manual reload. Realtime stays the fast path; this only covers its gaps.
   // ponytail: plain interval poll, swap for an `after=<last id>` delta fetch if history gets large.
   useEffect(() => {
+    if (!active) return;
     const id = setInterval(() => {
       if (document.visibilityState === "visible") void refresh();
     }, 30_000);
     return () => clearInterval(id);
-  }, [refresh]);
+  }, [active, refresh]);
 
   const scrollToEnd = useCallback(() => {
     const log = logRef.current;
@@ -282,7 +305,7 @@ export function GroupChatSurface({
   useEffect(() => {
     const same = (a: string[], b: string[]) => a.length === b.length && a.every((id, i) => id === b[i]);
     const compute = () => {
-      const { waiting, missed } = unansweredRoamAsks(messages, Date.now());
+      const { waiting, missed } = unansweredRoamAsks(messages, Date.now() + skewRef.current);
       setWaitingIds((current) => (same(current, waiting) ? current : waiting));
       setMissedIds((current) => (same(current, missed) ? current : missed));
       return waiting.length;
@@ -426,23 +449,93 @@ export function GroupChatSurface({
   // lost on the way back never posts the same words twice.
   async function submit(raw: string, retryKey?: string) {
     const content = raw.trim();
-    if (!content || !hasAsk(content) || submitLockRef.current) return;
+    // The double-Enter lock is for a fresh send; a retry is guarded by its own in-flight key instead (several can go out at once).
+    if (!content || !hasAsk(content) || (!retryKey && submitLockRef.current)) return;
+    if (retryKey && inflightRef.current.has(retryKey)) return;
     if (speech.listening) speech.stop();
-    submitLockRef.current = true;
-    requestAnimationFrame(() => { submitLockRef.current = false; });
+    if (!retryKey) {
+      submitLockRef.current = true;
+      requestAnimationFrame(() => { submitLockRef.current = false; });
+    }
     const key = retryKey ?? crypto.randomUUID();
+    inflightRef.current.add(key);
     if (!retryKey) setInput("");
-    setOutbox((current) => (retryKey ? current.map((o) => (o.key === key ? { ...o, status: "sending" } : o)) : [...current, { key, content, status: "sending", created_at: new Date().toISOString() }]));
+    setOutbox((current) => (retryKey ? current.map((o) => (o.key === key ? { ...o, status: "sending", reason: undefined } : o)) : [...current, { key, content, status: "sending", created_at: new Date().toISOString() }]));
     try {
-      const { message } = await postJson<{ message: GroupMessage }>(`/api/trips/${tripId}/group-chat`, { content, kind: "text", idempotencyKey: key });
+      const { message } = await postJson<{ message: GroupMessage }>(`/api/trips/${tripId}/group-chat`, { content, kind: "text", idempotencyKey: key }, SEND_TIMEOUT_MS);
       seenIdsRef.current.add(message.id);
       setMessages((current) => (current.some((m) => m.id === message.id) ? current : [...current, message]));
       setOutbox((current) => current.filter((o) => o.key !== key));
       if (mentionsRoam(content)) askRoam(message.id);
-    } catch {
-      setOutbox((current) => current.map((o) => (o.key === key ? { ...o, status: "failed" } : o)));
+    } catch (error) {
+      const failure = sendFailure(error);
+      setOutbox((current) => current.map((o) => (o.key === key ? { ...o, status: "failed", ...failure } : o)));
+    } finally {
+      inflightRef.current.delete(key);
     }
   }
+
+  // Back online: read the thread again, and send what was waiting (same keys, so nothing posts twice).
+  useEffect(() => {
+    setOnline(navigator.onLine);
+    const goOnline = () => {
+      setOnline(true);
+      void refresh();
+      for (const o of outboxRef.current) if (o.status === "failed" && o.retryable) void submit(o.content, o.key);
+    };
+    const goOffline = () => setOnline(false);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- submit/refresh are read fresh through the closure each time the effect re-runs on trip change
+  }, [tripId]);
+
+  // On open: bring back what was unsent (and the half-typed message), and send the unsent once more if we are online.
+  useEffect(() => {
+    let saved: Outgoing[] = [];
+    try {
+      saved = restoreOutbox(sessionStorage.getItem(outboxKey));
+      const draft = sessionStorage.getItem(draftKey);
+      if (draft) setInput((current) => current || draft);
+    } catch { /* storage blocked: nothing to bring back */ }
+    if (saved.length > 0) setOutbox((current) => [...saved.filter((r) => !current.some((c) => c.key === r.key)), ...current]);
+    setRestored(true);
+    if (navigator.onLine) for (const o of saved) if (o.retryable) void submit(o.content, o.key);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per trip
+  }, [tripId]);
+  useEffect(() => {
+    if (!restored) return;
+    try {
+      if (outbox.length > 0) sessionStorage.setItem(outboxKey, serializeOutbox(outbox));
+      else sessionStorage.removeItem(outboxKey);
+    } catch { /* storage full or blocked */ }
+  }, [outbox, restored, outboxKey]);
+  useEffect(() => {
+    if (!restored) return;
+    try {
+      if (input) sessionStorage.setItem(draftKey, input);
+      else sessionStorage.removeItem(draftKey);
+    } catch { /* storage full or blocked */ }
+  }, [input, restored, draftKey]);
+
+  // A message that really arrived (it came back from the server under the key it was sent with) is no longer "unsent":
+  // this clears the unsent copy that would otherwise sit beside it when the reply to the send was lost, or when the
+  // live update beat the reply.
+  useEffect(() => {
+    const delivered = new Set(messages.map((m) => m.clientKey).filter(Boolean));
+    if (delivered.size === 0) return;
+    setOutbox((current) => (current.some((o) => delivered.has(o.key)) ? current.filter((o) => !delivered.has(o.key)) : current));
+  }, [messages]);
+
+  // "Live updates paused" only after a few seconds without the live channel, so a normal reconnect does not flash it.
+  useEffect(() => {
+    if (chatLive) { setLiveDown(false); return; }
+    const timer = setTimeout(() => setLiveDown(true), 4000);
+    return () => clearTimeout(timer);
+  }, [chatLive]);
 
   // Same side-panel wiring as the personal Conversation tab (chat/page.tsx) — TripPanelProvider
   // is already mounted trip-wide, so a card click here opens the identical shared panel.
@@ -584,11 +677,23 @@ export function GroupChatSurface({
     highlightTimer.current = setTimeout(() => setHighlightedId((current) => (current === id ? null : current)), 1600);
   }
 
+  // One quiet line above the composer for whatever is making the chat unreliable right now, most important first.
+  const notice: { text: string; action?: { label: string; run: () => void } } | null = !online
+    ? { text: "You’re offline. Messages wait here and send when you’re back." }
+    : loadFailed && (messages.length > 0 || initialMessages)
+      ? { text: "Couldn’t refresh the chat. What you see may be out of date.", action: { label: "Retry", run: () => void refresh() } }
+      : liveDown
+        ? { text: "Live updates are paused. New messages may take up to 30 seconds." }
+        : input.length >= MAX_MESSAGE_LENGTH - 500
+          ? { text: `${input.length.toLocaleString()} of ${MAX_MESSAGE_LENGTH.toLocaleString()} characters` }
+          : null;
+
   // Precompute date-divider and same-sender-run boundaries once per message list, rather than
   // re-deriving neighbour lookups inline for every row on every render.
   const rows = useMemo(() => {
     // Your unsent messages sit after everything confirmed, shaped like any other so they group, divide and align the same way.
-    const pending = outbox.map((o): GroupMessage & { local: Outgoing } => ({ id: `out-${o.key}`, userId: me?.userId ?? null, role: "user", kind: "text", content: o.content, metadata: {}, created_at: o.created_at, reactions: [], local: o }));
+    const delivered = new Set(messages.map((m) => m.clientKey).filter(Boolean));
+    const pending = outbox.filter((o) => !delivered.has(o.key)).map((o): GroupMessage & { local: Outgoing } => ({ id: `out-${o.key}`, userId: me?.userId ?? null, role: "user", kind: "text", content: o.content, metadata: {}, created_at: o.created_at, reactions: [], local: o }));
     const all: Array<GroupMessage & { local?: Outgoing }> = [...older, ...messages, ...pending];
     return all.map((message, index) => {
       const previous = all[index - 1];
@@ -728,6 +833,7 @@ export function GroupChatSurface({
           }
         }}
         placeholder={!loaded ? "Loading…" : speech.listening ? "Listening…" : "Message the group"}
+        maxLength={MAX_MESSAGE_LENGTH}
         disabled={!loaded}
         className={cn(
           "block max-h-[96px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent py-2 text-base leading-normal outline-none transition-[height] duration-150 ease-out placeholder:text-muted-foreground disabled:opacity-60",
@@ -772,7 +878,14 @@ export function GroupChatSurface({
             </div>
           )}
 
-          {loaded && messages.length === 0 && older.length === 0 && outbox.length === 0 && (
+          {loaded && loadFailed && !initialMessages && messages.length === 0 && older.length === 0 && (
+            <div role="alert" className="flex flex-col items-center gap-3 pt-8 text-center">
+              <p className="text-body text-ink-soft">Couldn’t load the chat.</p>
+              <button type="button" onClick={() => void refresh()} className="btn-chip h-9 px-4 text-sm">Try again</button>
+            </div>
+          )}
+
+          {loaded && !(loadFailed && !initialMessages) && messages.length === 0 && older.length === 0 && outbox.length === 0 && (
             <div className="flex flex-col items-center pt-0 text-center sm:pt-8">
               {/* The opening shot: a lit icon, the line, the explanation, then a few ways to break the ice. */}
               <Reveal y={8}>
@@ -898,7 +1011,7 @@ export function GroupChatSurface({
             );
             const bubbleClass = cn(
               "min-w-0 max-w-full rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words shadow-sm",
-              roamBlocks && roamBlocks.length > 0 && "max-md:max-w-[92%]",
+              roamBlocks && roamBlocks.length > 0 && "max-w-[92%]",
               mine ? "rounded-br-lg bg-gradient-to-br from-primary to-primary/90 text-primary-foreground" : "rounded-tl-lg bg-muted text-foreground",
             );
             const bubble = isRoam ? (
@@ -931,7 +1044,7 @@ export function GroupChatSurface({
                   )}
                 >
                   {!mine && <div className="w-7 shrink-0">{isFirstInGroup && <Avatar name={name} />}</div>}
-                  <div className={cn("flex min-w-0 max-w-[85%] flex-col gap-1.5", mine ? "items-end" : "items-start", roamBlocks && roamBlocks.length > 0 && "w-full max-md:max-w-full")}>
+                  <div className={cn("flex min-w-0 max-w-[85%] flex-col gap-1.5", mine ? "items-end" : "items-start", roamBlocks && roamBlocks.length > 0 && "w-full max-w-full")}>
                     {isFirstInGroup && (
                       <p className={cn("flex items-baseline gap-1.5 px-1 text-2xs", mine && "justify-end")}>
                         {!mine && <span style={{ color: memberTint(name).color }} className="font-semibold">{name}</span>}
@@ -1006,8 +1119,8 @@ export function GroupChatSurface({
                       </AnimatePresence>
                     </motion.div>
                     {roamBlocks && roamBlocks.length > 0 && (
-                      // On a phone the cards use the whole row, not what is left after the avatar gutter and the 85% cap.
-                      <div className="w-full min-w-0 max-w-full max-md:-ml-9 max-md:w-[calc(100%+2.25rem)] max-md:max-w-none">
+                      // Cards use the whole row, as wide as in the Roam tab, not what is left after the avatar gutter and the 85% cap.
+                      <div className="-ml-9 w-[calc(100%+2.25rem)] min-w-0 max-w-none">
                         <MessageBlocks blocks={roamBlocks} tripId={tripId} onFollowup={onFollowup} onOpenPlace={onOpenPlace} onOpenStay={onOpenStay} onOpenEvent={onOpenEvent} onOpenCollection={onOpenCollection} onOpenPanel={openPanel} replyText={message.content} />
                       </div>
                     )}
@@ -1015,23 +1128,26 @@ export function GroupChatSurface({
                       // Roam's planner failed for this one, so nothing was looked up (no cards): say so, and offer another go.
                       <p className="flex flex-wrap items-center gap-x-2 px-1 text-2xs text-muted-foreground">
                         Answered from the trip details only; Roam couldn’t look anything up.
-                        <button type="button" onClick={() => askRoam(replyToId, { explicit: true })} className="font-semibold text-foreground underline underline-offset-2">Try again</button>
+                        {replySource?.userId != null && replySource.userId === me?.userId && (
+                          <button type="button" onClick={() => askRoam(replyToId, { explicit: true })} className="font-semibold text-foreground underline underline-offset-2">Try again</button>
+                        )}
                       </p>
                     )}
                     {isRoam && (message.metadata as Partial<AssistantTurnMeta> | undefined)?.unverified && (
                       <p className="px-1 text-2xs text-muted-foreground">A figure or detail above is an estimate and hasn’t been independently verified.</p>
                     )}
-                    {!local && !pendingRoamIds.has(message.id) && (failedRoamIds.includes(message.id) || missedIds.includes(message.id)) && (
+                    {/* Only the person who asked sees that Roam didn't answer, with the Retry; the rest of the group just sees the thread. */}
+                    {mine && !local && !pendingRoamIds.has(message.id) && (failedRoamIds.includes(message.id) || missedIds.includes(message.id)) && (
                       <p role="alert" className="flex items-center gap-2 px-1 text-2xs text-destructive">
                         Roam didn’t reply
-                        <button type="button" onClick={() => askRoam(message.id, mine ? {} : { explicit: true })} className="font-semibold underline underline-offset-2">Retry</button>
+                        <button type="button" onClick={() => askRoam(message.id)} className="font-semibold underline underline-offset-2">Retry</button>
                       </p>
                     )}
                     {local && (
                       <p role={local.status === "failed" ? "alert" : undefined} className={cn("flex items-center gap-2 px-1 text-2xs", local.status === "failed" ? "text-destructive" : "text-muted-foreground")}>
                         {local.status === "sending" ? "Sending…" : (
                           <>
-                            Not sent
+                            Not sent{local.reason ? ` · ${local.reason}` : ""}
                             <button type="button" onClick={() => void submit(local.content, local.key)} className="font-semibold underline underline-offset-2">Retry</button>
                             <button type="button" onClick={() => setOutbox((current) => current.filter((o) => o.key !== local.key))} className="text-muted-foreground underline underline-offset-2">Delete</button>
                           </>
@@ -1069,7 +1185,8 @@ export function GroupChatSurface({
               <div className="w-7 shrink-0">
                 <Avatar name="Roam" />
               </div>
-              <div className="flex items-center gap-1 rounded-2xl rounded-tl-lg bg-muted px-4 py-3.5 shadow-sm">
+              <div role="status" className="flex items-center gap-1 rounded-2xl rounded-tl-lg bg-muted px-4 py-3.5 shadow-sm">
+                <span className="sr-only">Roam is typing</span>
                 {[0, 1, 2].map((i) => (
                   <motion.span
                     key={i}
@@ -1178,8 +1295,14 @@ export function GroupChatSurface({
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-3 pb-3">
         <div className={cn("pointer-events-auto relative mx-auto w-full", rail ? RAIL_MEASURE : "max-w-2xl")}>
+          {notice && (
+            <p role="status" className="pointer-events-auto absolute inset-x-0 bottom-full mx-auto mb-2 flex w-fit max-w-full items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs text-ink-soft shadow-lift">
+              <span className="min-w-0 truncate">{notice.text}</span>
+              {notice.action && <button type="button" onClick={notice.action.run} className="shrink-0 font-semibold text-foreground underline underline-offset-2">{notice.action.label}</button>}
+            </p>
+          )}
           <AnimatePresence>
-            {away && !unseen && (
+            {away && !unseen && !notice && (
               <motion.button
                 key="latest"
                 type="button"

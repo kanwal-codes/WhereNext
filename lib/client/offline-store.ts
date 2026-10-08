@@ -25,13 +25,10 @@ function db(): Promise<IDBPDatabase> {
   return dbPromise;
 }
 
-/** Fetch the live workspace and mirror it, plus warm the imagery cache. Safe to call opportunistically. */
-export async function primeTrip(tripId: string): Promise<void> {
+/** Mirror the workspace the page already holds (no second download of it), and warm the imagery cache. Safe to call opportunistically. */
+export async function primeTrip(tripId: string, data: TripWorkspaceData): Promise<void> {
   if (!tripId || tripId === "rebuild-preview") return;
   try {
-    const res = await fetch(`/api/trips/${tripId}/workspace`, { cache: "no-store" });
-    if (!res.ok) return;
-    const data = (await res.json()) as TripWorkspaceData;
     const store = (await db()).transaction(STORE, "readwrite").objectStore(STORE);
     await store.put({ tripId, data, savedAt: Date.now() } satisfies StoredTrip);
 
@@ -43,9 +40,9 @@ export async function primeTrip(tripId: string): Promise<void> {
         const photo = row.places?.metadata?.photoNames?.[0];
         if (photo) urls.add(`/api/trips/${tripId}/places/google/photo?name=${encodeURIComponent(photo)}`);
       }
-      // cache.add always goes to the network; a place photo's name never changes, so only fetch the ones not mirrored yet.
-      // The static map has no stable key (its markers move), so it is always re-added (the server's max-age covers repeats).
-      const fresh = await Promise.all([...urls].map(async (u) => (u.endsWith("/map/static") || !(await cache.match(u)) ? u : null)));
+      // cache.add always goes to the network; a place photo's name never changes, and the static map is requested with no
+      // markers (the same image every time), so only fetch what is not mirrored yet.
+      const fresh = await Promise.all([...urls].map(async (u) => ((await cache.match(u)) ? null : u)));
       await Promise.allSettled(fresh.filter((u): u is string => u !== null).map((u) => cache.add(u)));
     }
   } catch {

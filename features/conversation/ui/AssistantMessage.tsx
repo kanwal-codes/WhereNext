@@ -39,7 +39,7 @@ const components: Components = {
   },
 };
 
-export function AssistantMessage({ content, blocks, handlers, streaming, live }: { content: string; blocks?: AssistantBlock[]; handlers?: BlockHandlers; streaming?: boolean; live?: boolean }) {
+export const AssistantMessage = React.memo(function AssistantMessage({ content, blocks, handlers, streaming, live }: { content: string; blocks?: AssistantBlock[]; handlers?: BlockHandlers; streaming?: boolean; live?: boolean }) {
   // A reply that is being written is revealed by <StreamedText>, which keeps going after the
   // stream itself ends until the last word has landed, and only then hands over to the final
   // render below. History that loads already complete never enters this path.
@@ -79,4 +79,4 @@ export function AssistantMessage({ content, blocks, handlers, streaming, live }:
       ) : null}
     </div>
   );
-}
+});
