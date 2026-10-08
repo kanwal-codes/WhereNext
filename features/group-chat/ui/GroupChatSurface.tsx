@@ -20,7 +20,7 @@ import { notifyToast } from "@/lib/application/toast";
 import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
 import type { AssistantBlock, AssistantTurnMeta, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { Poll } from "@/packages/contracts/poll";
-import { GROUP_HISTORY_LIMIT, completeRoamMention, hasAsk, mentionsRoam, type GroupMessage } from "../domain/message";
+import { GROUP_HISTORY_LIMIT, completeRoamMention, hasAsk, mentionsRoam, unansweredRoamAsks, type GroupMessage } from "../domain/message";
 import { memberInitials } from "@/lib/member-initials";
 import { memberLabel, useTripMembers, type TripMember } from "@/lib/client/use-trip-members";
 import { GroupInviteCard } from "./GroupInviteCard";
@@ -32,8 +32,6 @@ const COMMON_EMOJI = ["👍", "❤️", "😂", "🎉", "😍", "🤔"];
 // Same sender, close enough in time to read as one turn — collapses the repeated avatar/name.
 const GROUP_WINDOW_MS = 5 * 60_000;
 const LONG_PRESS_MS = 450;
-// An @Roam ask with no reply yet reads as "Roam is typing" for everyone, for this long (a reply that never comes stops showing).
-const ROAM_WAIT_MS = 120_000;
 // Within this distance of the bottom you are "reading the latest", so a new message follows you down.
 const NEAR_BOTTOM_PX = 160;
 
@@ -138,6 +136,9 @@ export function GroupChatSurface({
   const [away, setAway] = useState(false);
   // Roam asks (anyone's) that are still waiting for a reply.
   const [waitingIds, setWaitingIds] = useState<string[]>([]);
+  // @Roam asks that got no reply: the call failed just now, or two minutes passed with nothing (also after a reload, and for other members' asks).
+  const [missedIds, setMissedIds] = useState<string[]>([]);
+  const [failedRoamIds, setFailedRoamIds] = useState<string[]>([]);
   const [reactingTo, setReactingTo] = useState<string | null>(null);
   const [expandedReactionFor, setExpandedReactionFor] = useState<string | null>(null);
   const [pressingId, setPressingId] = useState<string | null>(null);
@@ -278,12 +279,12 @@ export function GroupChatSurface({
 
   // Anyone's @Roam ask with no answer yet shows the typing bubble to the whole group, not just to whoever asked.
   useEffect(() => {
+    const same = (a: string[], b: string[]) => a.length === b.length && a.every((id, i) => id === b[i]);
     const compute = () => {
-      const now = Date.now();
-      const answered = new Set(messages.filter((m) => m.role === "assistant").map((m) => (m.metadata as { replyToMessageId?: string } | undefined)?.replyToMessageId));
-      const ids = messages.filter((m) => m.role === "user" && mentionsRoam(m.content) && !answered.has(m.id) && now - Date.parse(m.created_at) < ROAM_WAIT_MS).map((m) => m.id);
-      setWaitingIds((current) => (current.length === ids.length && current.every((id, i) => id === ids[i]) ? current : ids));
-      return ids.length;
+      const { waiting, missed } = unansweredRoamAsks(messages, Date.now());
+      setWaitingIds((current) => (same(current, waiting) ? current : waiting));
+      setMissedIds((current) => (same(current, missed) ? current : missed));
+      return waiting.length;
     };
     if (compute() === 0) return;
     const timer = setInterval(compute, 5000);
@@ -383,6 +384,7 @@ export function GroupChatSurface({
   // surface as reactions) — it works on any member's message, not just one that says "@Roam".
   function askRoam(messageId: string, options: { explicit?: boolean } = {}) {
     setPendingRoamIds((current) => new Set(current).add(messageId));
+    setFailedRoamIds((current) => current.filter((id) => id !== messageId));
     // The generous ceiling (well above the server's own worst-case RESOLVE+RETRIEVE+COMPOSE
     // budget — see AI_DEADLINE_MS in packages/ai/model-policy.ts, whose slowest chain tops out
     // well under this) is deliberate: aborting from here cancels the request the server is still
@@ -402,7 +404,8 @@ export function GroupChatSurface({
         // it in, alongside whatever was asked at that point.
         const fresh = await refresh();
         const alreadyAnswered = fresh?.some((m) => (m.metadata as { replyToMessageId?: string } | null)?.replyToMessageId === messageId);
-        if (!alreadyAnswered) notifyToast("Roam didn’t reply to that.", "error", { label: "Retry", onClick: () => askRoam(messageId, options) });
+        // Shown right under the message (with its Retry), not as a toast that disappears.
+        if (!alreadyAnswered) setFailedRoamIds((current) => (current.includes(messageId) ? current : [...current, messageId]));
       })
       .finally(() => setPendingRoamIds((current) => {
         if (!current.has(messageId)) return current;
@@ -1003,6 +1006,12 @@ export function GroupChatSurface({
                     )}
                     {isRoam && (message.metadata as Partial<AssistantTurnMeta> | undefined)?.unverified && (
                       <p className="px-1 text-2xs text-muted-foreground">A figure or detail above is an estimate and hasn’t been independently verified.</p>
+                    )}
+                    {!local && !pendingRoamIds.has(message.id) && (failedRoamIds.includes(message.id) || missedIds.includes(message.id)) && (
+                      <p role="alert" className="flex items-center gap-2 px-1 text-2xs text-destructive">
+                        Roam didn’t reply
+                        <button type="button" onClick={() => askRoam(message.id, mine ? {} : { explicit: true })} className="font-semibold underline underline-offset-2">Retry</button>
+                      </p>
                     )}
                     {local && (
                       <p role={local.status === "failed" ? "alert" : undefined} className={cn("flex items-center gap-2 px-1 text-2xs", local.status === "failed" ? "text-destructive" : "text-muted-foreground")}>
