@@ -162,30 +162,33 @@ export function FlightPicksSkeleton() {
   );
 }
 
-const CHIP = "inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-surface px-2.5 text-xs font-medium text-ink-soft";
+/** The comforts of a flight read as quiet marks on one line, not as bordered chips that each take a row in a narrow card. */
+const MARK = "inline-flex items-center gap-1 whitespace-nowrap text-xs text-ink-soft";
 const AMENITY_ICON = (text: string) => (/wi-?fi/i.test(text) ? Wifi : /power|usb|outlet/i.test(text) ? Plug : /video|entertain|stream|screen/i.test(text) ? Tv : Check);
 
 /** One flight of the journey: airline, number, aircraft, time in the air, and only the comforts it actually has. */
 function LegBlock({ leg, fallbackAirline }: { leg: Leg; fallbackAirline: string }) {
   const amenities = leg.amenities ?? [];
   const shown = amenities.slice(0, 3);
+  const detail = [leg.aircraft, hoursMinutes(leg.minutes)].filter(Boolean).join(" · ");
   return (
-    <div className="flex gap-4">
+    <div className="flex gap-3.5">
       <span className="w-3.5 shrink-0" aria-hidden />
-      <div className="flex min-w-0 flex-1 items-center gap-3.5 rounded-[1.25rem] bg-surface p-3.5">
-        <AirlineMark offer={{ airline: leg.airline ?? fallbackAirline, logo: leg.logo }} className="size-10" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[0.9375rem] font-semibold">{leg.airline ?? fallbackAirline}{leg.flightNumber && <span className="ml-1.5 font-normal text-muted-foreground">{leg.flightNumber}</span>}</p>
-          <p className={cn(type.meta, "truncate")}>{[leg.aircraft, hoursMinutes(leg.minutes)].filter(Boolean).join(" · ")}</p>
-          {(shown.length > 0 || leg.legroom || leg.oftenDelayed) && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {shown.map((a) => { const Icon = AMENITY_ICON(a); return <span key={a} className={CHIP}><Icon className="size-3.5" aria-hidden />{a}</span>; })}
-              {amenities.length > shown.length && <span className={CHIP}>+{amenities.length - shown.length} more</span>}
-              {leg.legroom && <span className={CHIP}><Armchair className="size-3.5" aria-hidden />{leg.legroom} legroom</span>}
-              {leg.oftenDelayed && <span className={cn(CHIP, "border-transparent bg-caution-soft text-caution")}><AlertTriangle className="size-3.5" aria-hidden />Often delayed 30+ min</span>}
-            </div>
-          )}
+      {/* The logo and the airline share a row; everything else gets the box's full width beneath, so nothing is cut short. */}
+      <div className="min-w-0 flex-1 rounded-[1.25rem] bg-surface p-3.5">
+        <div className="flex items-center gap-3">
+          <AirlineMark offer={{ airline: leg.airline ?? fallbackAirline, logo: leg.logo }} className="size-9 shrink-0" />
+          <p className="min-w-0 flex-1 truncate text-[0.9375rem] font-semibold">{leg.airline ?? fallbackAirline}{leg.flightNumber && <span className="ml-1.5 font-normal text-muted-foreground">{leg.flightNumber}</span>}</p>
         </div>
+        {detail && <p className={cn(type.meta, "mt-2")}>{detail}</p>}
+        {(shown.length > 0 || leg.legroom || leg.oftenDelayed) && (
+          <div className="mt-2 flex flex-wrap gap-x-3.5 gap-y-1.5">
+            {shown.map((a) => { const Icon = AMENITY_ICON(a); return <span key={a} className={MARK}><Icon className="size-3.5 shrink-0" aria-hidden />{a}</span>; })}
+            {amenities.length > shown.length && <span className={MARK}>+{amenities.length - shown.length} more</span>}
+            {leg.legroom && <span className={MARK}><Armchair className="size-3.5 shrink-0" aria-hidden />{leg.legroom} legroom</span>}
+            {leg.oftenDelayed && <span className={cn(MARK, "font-medium text-caution")}><AlertTriangle className="size-3.5 shrink-0" aria-hidden />Often delayed 30+ min</span>}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -223,7 +226,7 @@ export function FlightJourney({ offer, labels, roundTrip, onDetails, tripCurrenc
   const cabin = offer.cabinClass && !/^economy$/i.test(offer.cabinClass) ? offer.cabinClass : null;
   return (
     <div className="mx-4 mt-4 overflow-hidden rounded-[1.5rem] border border-border @[34rem]:mx-5" role="region" aria-label={`${offer.airline} journey`}>
-      <div className="flex flex-col @[34rem]:flex-row">
+      <div className="flex flex-col @[44rem]:flex-row">
         <div className="flex min-w-0 flex-1 flex-col gap-3 p-4 @[34rem]:p-5">
           <div className="flex flex-wrap gap-2">
             {labels.map((l) => <WidgetPill key={l} tone={l === "Cheapest" ? "sage" : l === "Fastest" ? "lagoon" : "coral"}>{l}</WidgetPill>)}
@@ -258,26 +261,30 @@ export function FlightJourney({ offer, labels, roundTrip, onDetails, tripCurrenc
           )}
           <Node end time={clockOf(legs[legs.length - 1]?.arriveAt ?? offer.arriveAt)} code={legs[legs.length - 1]?.to || offer.destinationAirport} name={legs[legs.length - 1]?.toName} note={prettyDate(offer.arriveAt.slice(0, 10))} plus={plus} />
         </div>
-        <div className="flex shrink-0 flex-col gap-4 border-t border-border bg-surface p-4 @[34rem]:w-[15rem] @[34rem]:border-t-0 @[34rem]:border-l @[34rem]:p-5">
-          <div>
-            <p className="eyebrow">{roundTrip ? "Round trip · per person" : "Per person"}</p>
-            <p className="mt-1.5 font-display text-[2.25rem] leading-none font-medium tracking-[-0.035em] tabular-nums">{converted && <span className="mr-1 text-xl text-muted-foreground" title={`Converted from ${money(offer.listedPrice ?? "", offer.listedCurrency ?? "", true)} at today’s rate`}>≈</span>}{money(offer.price, offer.currency, true)}</p>
-            {converted && <p className={cn(type.meta, "mt-1")}>from {money(offer.listedPrice ?? "", offer.listedCurrency ?? "", true)}{tripCurrency ? ` · shown in ${tripCurrency}` : ""}</p>}
+        {/* Under the journey: the price and what the fare includes on the left, the button on the right, as tall as the content and no taller.
+            Only a wide card puts it beside the journey as a column, centred so any spare height is shared above and below it. */}
+        <div className="flex shrink-0 flex-col gap-4 border-t border-border bg-surface p-4 @[34rem]:flex-row @[34rem]:items-end @[34rem]:justify-between @[34rem]:p-5 @[44rem]:w-[15rem] @[44rem]:flex-col @[44rem]:items-stretch @[44rem]:justify-center @[44rem]:gap-5 @[44rem]:border-t-0 @[44rem]:border-l">
+          <div className="min-w-0 space-y-3.5 @[34rem]:flex-1 @[44rem]:flex-none">
+            <div>
+              <p className="eyebrow">{roundTrip ? "Round trip · per person" : "Per person"}</p>
+              <p className="mt-1.5 font-display text-[2.25rem] leading-none font-medium tracking-[-0.035em] tabular-nums">{converted && <span className="mr-1 text-xl text-muted-foreground" title={`Converted from ${money(offer.listedPrice ?? "", offer.listedCurrency ?? "", true)} at today’s rate`}>≈</span>}{money(offer.price, offer.currency, true)}</p>
+              {converted && <p className={cn(type.meta, "mt-1")}>from {money(offer.listedPrice ?? "", offer.listedCurrency ?? "", true)}{tripCurrency ? ` · shown in ${tripCurrency}` : ""}</p>}
+            </div>
+            {terms.length > 0 ? (
+              <ul className="space-y-2 border-t border-border pt-3.5">
+                {terms.map((t) => (
+                  <li key={t.text} className="flex items-start gap-2.5 text-[0.84375rem] leading-snug text-ink-soft">
+                    <t.icon className={cn("mt-0.5 size-4 shrink-0", t.muted ? "text-muted-foreground" : "text-positive")} aria-hidden />
+                    <span>{t.text}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={cn(type.meta, "border-t border-border pt-3.5")}>Fare rules are on the airline’s site.</p>
+            )}
           </div>
-          {terms.length > 0 ? (
-            <ul className="space-y-2.5 border-t border-border pt-4">
-              {terms.map((t) => (
-                <li key={t.text} className="flex items-start gap-2.5 text-[0.84375rem] leading-snug text-ink-soft">
-                  <t.icon className={cn("mt-0.5 size-4 shrink-0", t.muted ? "text-muted-foreground" : "text-positive")} aria-hidden />
-                  <span>{t.text}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className={cn(type.meta, "border-t border-border pt-4")}>Fare rules are on the airline’s site.</p>
-          )}
           {onDetails && (
-            <button type="button" onClick={onDetails} aria-label={`Details: ${offer.airline}, ${clockOf(offer.departAt)} to ${clockOf(offer.arriveAt)}`} className="mt-auto inline-flex h-12 items-center justify-center gap-1.5 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.16),0_1px_2px_oklch(0.2_0.012_65/0.3)] transition-[transform,filter] duration-200 hover:brightness-110 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+            <button type="button" onClick={onDetails} aria-label={`Details: ${offer.airline}, ${clockOf(offer.departAt)} to ${clockOf(offer.arriveAt)}`} className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.16),0_1px_2px_oklch(0.2_0.012_65/0.3)] transition-[transform,filter] duration-200 hover:brightness-110 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
               {roundTrip && offer.departureToken ? "Choose your return" : "See this flight"} <ArrowUpRight className="size-4" aria-hidden />
             </button>
           )}
