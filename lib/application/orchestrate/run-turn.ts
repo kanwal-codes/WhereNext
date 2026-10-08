@@ -8,7 +8,7 @@ import { currentTripDay, detectMealAsk, inferMealAnchor } from "@/lib/applicatio
 import { retrieveEvidence } from "@/lib/application/retrieve";
 import { resolveCurrency } from "@/lib/currency";
 import { buildEssentialsChecklist } from "@/lib/application/essentials";
-import { buildComparison } from "@/lib/application/comparison";
+import { buildComparison, comparedPlaceIds } from "@/lib/application/comparison";
 import { buildItineraryPlan } from "@/lib/application/itinerary-plan";
 import { buildBudgetBreakdown } from "@/lib/application/budget-plan";
 import { buildExploreOptions } from "@/lib/application/explore-options";
@@ -21,6 +21,7 @@ import { ungroundedFallback } from "@/lib/application/orchestrate/fallback-reply
 import { cardLeadIn, looksLikePlainLookup, tripUpdateLeadIn } from "@/lib/application/orchestrate/card-lead-in";
 import { asksForOverview, buildTripSummary } from "@/lib/application/trip-summary";
 import { buildComposeSystemPrompt } from "@/lib/application/orchestrate/system-prompt-builder";
+import { askedForDatesRecently } from "@/lib/application/orchestrate/cadence";
 import { daysUntilTrip } from "@/lib/trip-dates";
 import type { UsageEntry } from "@/lib/ai/pricing";
 import { AI_DEADLINE_MS, withDeadline } from "@/packages/ai/model-policy";
@@ -567,6 +568,8 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
     eventsGuidance,
     compactFlights, compactStays, tripSummary, context, compactPlaces, compactEvents, photoUrl,
     mealAnchor,
+    datesAlreadyAsked: askedForDatesRecently(history),
+    proposedChange: buildProposedProfileCommand(tripId, resolved, allowPreferenceLearning) ? JSON.stringify(resolved.proposedProfileUpdate) : undefined,
   });
 
   // Side builders start now and overlap with the queue slot + model TTFB; awaited when meta is
@@ -671,17 +674,15 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
 export function finalizeAssistantBlocks(
   meta: AssistantTurnMeta,
   side: { checklist: AssistantBlock | null; comparison: AssistantBlock | null },
-  cardPlaceProviderIds: string[],
 ): AssistantTurnMeta {
   const blocks = [...meta.blocks];
   if (side.checklist) blocks.push(side.checklist);
   if (side.comparison) {
-    // When we're comparing real places, carry their ids so the chat can open a live side-by-side.
-    blocks.push(
-      cardPlaceProviderIds.length >= 2
-        ? ({ ...side.comparison, placeIds: cardPlaceProviderIds.slice(0, 4) } as AssistantBlock)
-        : side.comparison,
-    );
+    // When the options compared ARE real places shown this turn, carry their ids so the chat can open a live side-by-side.
+    // (Not merely "some places were found": comparing two neighbourhoods while bagel shops were also found is not a place comparison.)
+    const shown = meta.blocks.flatMap((block) => (block.type === "place_list" ? block.places : []));
+    const placeIds = side.comparison.type === "comparison" ? comparedPlaceIds(side.comparison.rows, shown) : [];
+    blocks.push(placeIds.length >= 2 ? ({ ...side.comparison, placeIds } as AssistantBlock) : side.comparison);
   }
   if (meta.suggestedFollowups.length > 0) blocks.push({ type: "actions", items: meta.suggestedFollowups });
   return { ...meta, blocks };

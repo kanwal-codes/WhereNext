@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const { generateObjectMock } = vi.hoisted(() => ({ generateObjectMock: vi.fn() }));
 vi.mock("ai", async (importOriginal) => ({ ...(await importOriginal<object>()), generateObject: generateObjectMock }));
 
-import { buildComparison } from "../../lib/application/comparison";
+import { buildComparison, comparedPlaceIds } from "../../lib/application/comparison";
 
 const evidence = { places: [], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" };
 
@@ -38,5 +38,23 @@ describe("buildComparison", () => {
   it("returns null on a bad model response", async () => {
     stubModel("{}");
     expect(await buildComparison({ prompt: "compare a and b", tripSummary: "", evidence })).toBeNull();
+  });
+});
+
+describe("comparedPlaceIds", () => {
+  const shown = [
+    { providerId: "p-bagel", name: "St-Viateur Bagel" },
+    { providerId: "p-fair", name: "Fairmount Bagel" },
+    { providerId: "p-olym", name: "Café Olimpico" },
+  ];
+  it("attaches the places when the compared options are those places, in the order compared", () => {
+    expect(comparedPlaceIds([{ label: "Fairmount Bagel" }, { label: "St-Viateur Bagel" }], shown)).toEqual(["p-fair", "p-bagel"]);
+    expect(comparedPlaceIds([{ label: "Cafe Olimpico" }, { label: "St Viateur Bagel, Mile End" }], shown)).toEqual(["p-olym", "p-bagel"]);
+  });
+  it("attaches nothing when two neighbourhoods are compared and some unrelated places were found", () => {
+    expect(comparedPlaceIds([{ label: "Le Plateau" }, { label: "Mile End" }], shown)).toEqual([]);
+  });
+  it("needs two matches, so one lucky name is not a place comparison", () => {
+    expect(comparedPlaceIds([{ label: "Fairmount Bagel" }, { label: "Mile End" }], shown)).toEqual([]);
   });
 });
