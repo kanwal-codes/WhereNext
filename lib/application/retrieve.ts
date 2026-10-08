@@ -1,3 +1,4 @@
+import { formatDuration } from "@/lib/utils";
 import type { Place } from "@/packages/contracts/place";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import type { WeatherDay } from "@/packages/providers/openweather/client";
@@ -190,13 +191,13 @@ export async function retrieveEvidence(
   const formatTransitSteps = (steps: Array<{ mode: string; durationSeconds: number; line?: string; arrivalStop?: string }>): string[] => {
     const out: string[] = [];
     let walk = 0;
-    const flushWalk = () => { if (walk >= 180) out.push(`Walk ${Math.round(walk / 60)} min`); walk = 0; };
+    const flushWalk = () => { if (walk >= 180) out.push(`Walk ${formatDuration(walk / 60)}`); walk = 0; };
     for (const step of steps) {
       const minutes = Math.max(1, Math.round(step.durationSeconds / 60));
       if (/walk/i.test(step.mode)) { walk += step.durationSeconds; continue; }
       flushWalk();
       const name = step.line ? `${step.mode.replace(/_/g, " ")} ${step.line}` : step.mode.replace(/_/g, " ");
-      out.push(`${name}${step.arrivalStop ? ` → ${step.arrivalStop}` : ""} (${minutes} min)`);
+      out.push(`${name}${step.arrivalStop ? ` → ${step.arrivalStop}` : ""} (${formatDuration(minutes)})`);
     }
     flushWalk();
     return out.length ? out : ["Mostly on foot"];

@@ -8,7 +8,7 @@ import { Fold } from "@/components/Fold";
 import { DetailSectionHeading } from "@/components/DetailSectionHeading";
 import type { useStayDetails } from "@/features/stays/application/useStayDetails";
 import { Badge, Notice, RatingMeta, money, prettyDate, type as T } from "@/features/conversation/ui/blocks/ui";
-import { cn, safeHref } from "@/lib/utils";
+import { cn, formatDuration, safeHref } from "@/lib/utils";
 import type { StayNearbyPlace, StayTheme } from "@/packages/contracts/stay";
 
 type Details = ReturnType<typeof useStayDetails>;
@@ -185,10 +185,10 @@ export function StayThemes({ themes }: { themes: StayTheme[] }) {
 }
 
 const modeLook = {
-  walk: { Icon: Footprints, text: (m: number) => `${m} min walk` },
-  transit: { Icon: Bus, text: (m: number) => `${m} min by transit` },
-  taxi: { Icon: Car, text: (m: number) => `${m} min by taxi` },
-  other: { Icon: MapPin, text: (m: number) => `${m} min` },
+  walk: { Icon: Footprints, text: (m: number) => `${formatDuration(m)} walk` },
+  transit: { Icon: Bus, text: (m: number) => `${formatDuration(m)} by transit` },
+  taxi: { Icon: Car, text: (m: number) => `${formatDuration(m)} by taxi` },
+  other: { Icon: MapPin, text: (m: number) => formatDuration(m) },
 } as const;
 
 const isHub = (n: StayNearbyPlace) => /airport|station|terminal|transit|bus|train|rail/i.test(n.category ?? "") || /airport|station|terminal|kolodvor|bahnhof|\bgare\b|estaci[oó]n|aerop/i.test(n.name);

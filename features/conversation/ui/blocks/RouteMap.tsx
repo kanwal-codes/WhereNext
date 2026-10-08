@@ -5,6 +5,14 @@ import React, { useEffect, useState, type ReactNode } from "react";
 export type RouteMapLine = { points: Array<[number, number]>; color: string; width: number; opacity?: number };
 export type RouteMapRequest = { lines: RouteMapLine[]; pins: Array<{ at: [number, number]; color: string }>; size: { width: number; height: number } };
 
+/** The route lines the map route accepts: at most this many points each (a long journey drawn leg by leg can run past it). */
+const MAX_POINTS = 400;
+const thin = (points: Array<[number, number]>) => {
+  if (points.length <= MAX_POINTS) return points;
+  const step = (points.length - 1) / (MAX_POINTS - 1);
+  return Array.from({ length: MAX_POINTS }, (_, i) => points[Math.round(i * step)]);
+};
+
 /** Maps already drawn this session, so flipping between routes and back is instant. */
 const drawn = new Map<string, string>();
 
@@ -13,7 +21,8 @@ const drawn = new Map<string, string>();
  * `fallback` (the plain sketch) shows until the map arrives, and stays if it never does (no token, offline, rate limit).
  */
 export function RouteMap({ request, fallback, label }: { request: RouteMapRequest; fallback: ReactNode; label: string }) {
-  const key = JSON.stringify(request);
+  // Thinned first: an over-long line used to make the whole request a 400, and the card kept its plain sketch instead of a map.
+  const key = JSON.stringify({ ...request, lines: request.lines.map((line) => ({ ...line, points: thin(line.points) })) });
   const [src, setSrc] = useState<string | null>(drawn.get(key) ?? null);
   useEffect(() => {
     const cached = drawn.get(key);

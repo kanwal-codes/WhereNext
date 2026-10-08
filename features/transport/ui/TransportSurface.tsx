@@ -614,7 +614,7 @@ export function TransportSurface({
                 <h3 className="font-display text-lg font-medium tracking-[-0.006em]">Rideshare, roughly</h3>
                 <p className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                   <span className="font-display text-xl font-medium tabular-nums">{est.low}–{est.high} {est.currency}</span>
-                  <span className="text-xs text-muted-foreground">~{est.minutes} min</span>
+                  <span className="text-xs text-muted-foreground">~{formatDuration(est.minutes)}</span>
                 </p>
                 <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">An estimate from driving distance and time, not a live quote. Actual fares vary with demand.</p>
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -763,7 +763,7 @@ export function TransportSurface({
                       </span>
                     ))}
                     <span className="ml-auto text-xs tabular-nums text-muted-foreground">
-                      {routeMeta[i].changes === 0 ? "No changes" : `${routeMeta[i].changes} change${routeMeta[i].changes === 1 ? "" : "s"}`} · {routeMeta[i].walkMinutes} min walking
+                      {routeMeta[i].changes === 0 ? "No changes" : `${routeMeta[i].changes} change${routeMeta[i].changes === 1 ? "" : "s"}`} · {formatDuration(routeMeta[i].walkMinutes)} walking
                     </span>
                   </span>
                 </button>
