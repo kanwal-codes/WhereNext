@@ -47,7 +47,7 @@ async function seasonalSummary(place: string, month: string, signal?: AbortSigna
     }
   }
   if (!notes) return null;
-  if (!process.env.AI_GATEWAY_API_KEY) return notes.slice(0, 300);
+  if (!process.env.ANTHROPIC_API_KEY) return notes.slice(0, 300);
   try {
     return (
       await generateText(

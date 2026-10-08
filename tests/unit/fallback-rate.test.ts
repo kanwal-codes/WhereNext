@@ -14,18 +14,18 @@ function fakeSupabase(result: { data?: unknown; error?: unknown }): SupabaseClie
 }
 
 describe("fallbackRate", () => {
-  it("is 0 when every resolve call landed on the pinned Cerebras model", async () => {
-    const rows = Array.from({ length: 5 }, () => ({ model_resolve: "openai/gpt-oss-120b" }));
+  it("is 0 when every resolve call landed on the lead model", async () => {
+    const rows = Array.from({ length: 5 }, () => ({ model_resolve: "claude-haiku-5-5" }));
     const result = await fallbackRate(fakeSupabase({ data: rows }), 15);
-    expect(result).toEqual({ total: 5, fallback: 0, rate: 0, pinnedModel: "openai/gpt-oss-120b" });
+    expect(result).toEqual({ total: 5, fallback: 0, rate: 0, pinnedModel: "claude-haiku-5-5" });
   });
 
-  it("counts rows that fell through to a non-pinned model as fallbacks", async () => {
+  it("counts rows that fell through to a different model as fallbacks", async () => {
     const rows = [
-      { model_resolve: "openai/gpt-oss-120b" },
-      { model_resolve: "google/gemini-3.8-flash" },
-      { model_resolve: "openai/gpt-5-mini" },
-      { model_resolve: "openai/gpt-oss-120b" },
+      { model_resolve: "claude-haiku-5-5" },
+      { model_resolve: "claude-sonnet-5-5" },
+      { model_resolve: "claude-haiku-4-5" },
+      { model_resolve: "claude-haiku-5-5" },
     ];
     const result = await fallbackRate(fakeSupabase({ data: rows }), 15);
     expect(result.total).toBe(4);
@@ -35,7 +35,7 @@ describe("fallbackRate", () => {
 
   it("is 0 with no rows in the window rather than dividing by zero", async () => {
     const result = await fallbackRate(fakeSupabase({ data: [] }), 15);
-    expect(result).toEqual({ total: 0, fallback: 0, rate: 0, pinnedModel: "openai/gpt-oss-120b" });
+    expect(result).toEqual({ total: 0, fallback: 0, rate: 0, pinnedModel: "claude-haiku-5-5" });
   });
 
   it("treats a missing data array the same as empty", async () => {

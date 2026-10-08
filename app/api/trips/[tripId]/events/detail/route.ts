@@ -13,7 +13,7 @@ import { ticketSellerLabel } from "@/lib/ticket-provider";
 
 const tmConfigured = () => Boolean(process.env.TICKETMASTER_CONSUMER_KEY || process.env.TICKETMASTER_API_KEY);
 const webConfigured = () => Boolean(process.env.TAVILY_API_KEY);
-const aiConfigured = () => Boolean(process.env.AI_GATEWAY_API_KEY);
+const aiConfigured = () => Boolean(process.env.ANTHROPIC_API_KEY);
 
 /** Ticketmaster's `pleaseNote` is often just bilingual terms-and-conditions boilerplate — drop that. */
 function usefulNote(note: string | null | undefined): string | null {

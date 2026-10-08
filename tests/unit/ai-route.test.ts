@@ -780,7 +780,7 @@ describe("POST /api/ai", () => {
     expect(streamTextMock).toHaveBeenCalledTimes(2); // primary threw, fallback produced the stream
   });
 
-  it("forwards a chain entry's providerOptions (Gateway provider pin) to streamText", async () => {
+  it("forwards a chain entry's providerOptions (provider options) to streamText", async () => {
     composeChainRef.models = [{ model: { id: "primary" }, modelId: "primary-model", providerOptions: { gateway: { only: ["cerebras"] } } }];
     retrieveEvidenceMock.mockResolvedValue({ places: [{ provider: "g", providerId: "p", name: "X", category: null, latitude: 1, longitude: 1, address: null, sourceUrl: null }], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" });
     await readMeta(await post());

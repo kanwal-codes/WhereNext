@@ -6,7 +6,7 @@
  *
  * Auth can't be faked — grab a real session cookie from a signed-in browser (DevTools →
  * Application → Cookies) or mint one via the Supabase admin API. The `ai` target hits the real
- * Vercel AI Gateway (AI_GATEWAY_API_KEY) and a real configured model — every request is a real,
+ * Vercel AI Gateway (ANTHROPIC_API_KEY) and a real configured model — every request is a real,
  * billed call. Leave `ai` out of --target unless you're deliberately load-testing real model
  * latency and accept the cost.
  */

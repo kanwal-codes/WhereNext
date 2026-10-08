@@ -1,5 +1,5 @@
-import { generateStructured } from "@/packages/ai/gateway";
-import { chainEntryId, modelChainFor } from "@/packages/ai/model-policy";
+import { generateStructured } from "@/packages/ai/llm";
+import { modelChainFor } from "@/packages/ai/model-policy";
 import { parsedTripSchema, type ParsedTrip } from "@/features/trip/domain/trip";
 
 function system(today: string) {
@@ -22,12 +22,8 @@ Rules:
 - No commentary, no markdown fences. Just the JSON object.`;
 }
 
-/** Reading one sentence is small work, so it leads with a fast unpinned model. Measured through the
- *  Gateway on a typical sentence: ~2.5s and a complete read, against 9-10s (and, on the first call,
- *  a partial read) when the `bulk` chain's Cerebras-pinned lead falls back. The rest of the `bulk`
- *  chain follows as the fallback. */
-const FAST_MODEL = "google/gemini-3.8-flash";
-const readerChain = () => [FAST_MODEL, ...modelChainFor("bulk").filter((entry) => chainEntryId(entry) !== FAST_MODEL)];
+/** Reading one sentence is small work, so the `bulk` chain's fast lead (Haiku 5.5) does it. */
+const readerChain = () => modelChainFor("bulk");
 
 /** One structured model call: a free-text trip description -> form fields. Never throws for a bad parse; returns {} instead. */
 export async function parseTripPrompt(prompt: string, signal?: AbortSignal): Promise<ParsedTrip> {

@@ -12,7 +12,7 @@ const REQUIRED = [
   "SUPABASE_SERVICE_ROLE_KEY",
   "GOOGLE_MAPS_API_KEY",
   "MAPBOX_ACCESS_TOKEN",
-  "AI_GATEWAY_API_KEY",
+  "ANTHROPIC_API_KEY",
 ] as const;
 
 /** Missing → a feature quietly degrades ("could not check ..."), not a crash. */
@@ -37,7 +37,7 @@ const serverEnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   GOOGLE_MAPS_API_KEY: z.string().min(1),
   MAPBOX_ACCESS_TOKEN: z.string().min(1),
-  AI_GATEWAY_API_KEY: z.string().min(1),
+  ANTHROPIC_API_KEY: z.string().min(1),
 });
 
 export type ServerEnvReport = { ok: boolean; missingRequired: string[]; missingOptional: string[] };
