@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Check, ChevronDown, Globe, MapPin, MessageCircle, Navigation, Phone, Star, Users } from "lucide-react";
 import { Hero } from "@/components/Hero";
+import { useTripPanelMaybe } from "@/components/TripPanelProvider";
 import { DetailSectionHeading } from "@/components/DetailSectionHeading";
 import { FactStrip, QuickActions, ShowMore } from "@/components/DetailKit";
 import { BackLink } from "@/components/BackLink";
@@ -122,6 +123,7 @@ export function StayDetailView({
   adults,
   seedName,
   variant = "page",
+  onAsk,
 }: {
   tripId: string;
   hotelId: string;
@@ -132,8 +134,15 @@ export function StayDetailView({
   /** The name the card already showed: used until (or in place of) the hotel's own details, so the page never says just "Hotel". */
   seedName?: string;
   variant?: "page" | "panel";
+  /** Panel only: hands a question to the chat already open beside this panel, instead of the page's "ask Roam" link navigating away from nowhere. */
+  onAsk?: (prompt: string) => void;
 }) {
   const panel = variant === "panel";
+  const panelCtx = useTripPanelMaybe();
+  const ask = (prompt: string) => {
+    onAsk?.(prompt);
+    panelCtx?.closePanel();
+  };
   const [reviewsOpen, setReviewsOpen] = useState(false);
   const [amenityGroupOpen, setAmenityGroupOpen] = useState<string | null>(null);
   const lightbox = usePhotoLightbox();
@@ -382,6 +391,21 @@ export function StayDetailView({
         {panel ? (
           <div className="mt-6 space-y-8">
             {body}
+            {onAsk && (
+              <Reveal delay={0.03}>
+                <button
+                  type="button"
+                  onClick={() => ask(`Does ${name} fit my trip — my budget, pace, and what I've saved so far?\n${name}${hotel?.address ? ` — ${hotel.address}` : ""}`)}
+                  className="flex w-full items-start gap-3 rounded-2xl border border-border bg-card p-4 text-left text-sm transition-colors hover:bg-accent"
+                >
+                  <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <span>
+                    <span className="block text-sm font-medium">Does {name} fit your trip?</span>
+                    <span className="mt-1 block leading-relaxed text-muted-foreground">Ask Roam — it weighs this against your budget and the area you want.</span>
+                  </span>
+                </button>
+              </Reveal>
+            )}
             <NearbyStays
               tripId={tripId}
               currentHotelId={hotelId}

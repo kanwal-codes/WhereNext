@@ -41,7 +41,7 @@ export type EventSeed = { name: string; url: string; source: string; imageUrl?: 
  */
 export type PanelState =
   | { kind: "place"; placeId: string; name: string }
-  | { kind: "stay"; hotelId: string; name: string; checkin?: string; checkout?: string; adults?: number }
+  | { kind: "stay"; hotelId: string; name: string; checkin?: string; checkout?: string; adults?: number; onAsk?: (prompt: string) => void }
   | { kind: "event"; seed: EventSeed }
   | { kind: "collection"; title: string; block: AssistantBlock }
   | { kind: "flight"; flight: FlightOffer; route: FlightRoute }

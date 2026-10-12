@@ -285,7 +285,8 @@ export function ConversationSurface({
   initialMessages?: Array<Record<string, unknown>>;
   onSurfaceSelect?: (surface: string) => void;
   onOpenPlace?: (place: PlaceCard) => void;
-  onOpenStay?: (stay: StayCardItem, dates: { checkin: string; checkout: string; adults?: number }) => void;
+  /** `ask` hands Roam a question straight from the stay panel: the surface's own submit, so the panel never needs its own send path. */
+  onOpenStay?: (stay: StayCardItem, dates: { checkin: string; checkout: string; adults?: number }, ask: (prompt: string) => void) => void;
   onOpenEvent?: (seed: EventSeed) => void;
   onOpenCollection?: (title: string, block: AssistantBlock) => void;
   onOpenPanel?: (panel: CardPanel) => void;
@@ -749,7 +750,7 @@ export function ConversationSurface({
     tripId,
     onFollowup: (prompt) => void latest.current.submit(prompt),
     onOpenPlace: hasPlace ? (place) => latest.current.onOpenPlace?.(place) : undefined,
-    onOpenStay: hasStay ? (stay, dates) => latest.current.onOpenStay?.(stay, dates) : undefined,
+    onOpenStay: hasStay ? (stay, dates) => latest.current.onOpenStay?.(stay, dates, (prompt) => void latest.current.submit(prompt)) : undefined,
     onOpenEvent: hasEvent ? (seed) => latest.current.onOpenEvent?.(seed) : undefined,
     onOpenCollection: hasCollection ? (title, block) => latest.current.onOpenCollection?.(title, block) : undefined,
     onOpenPanel: hasPanel ? (panel) => latest.current.onOpenPanel?.(panel) : undefined,

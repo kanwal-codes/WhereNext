@@ -136,8 +136,8 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   function openPlace(place: PlaceCard) {
     openPanel({ kind: "place", placeId: place.providerId, name: place.name });
   }
-  function openStay(stay: StayCardItem, dates: { checkin: string; checkout: string; adults?: number }) {
-    openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name, checkin: dates.checkin, checkout: dates.checkout, adults: dates.adults });
+  function openStay(stay: StayCardItem, dates: { checkin: string; checkout: string; adults?: number }, ask: (prompt: string) => void) {
+    openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name, checkin: dates.checkin, checkout: dates.checkout, adults: dates.adults, onAsk: ask });
   }
   function openEvent(seed: EventSeed) {
     openPanel({ kind: "event", seed });
