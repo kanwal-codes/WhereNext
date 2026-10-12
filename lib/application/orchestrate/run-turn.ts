@@ -6,6 +6,10 @@ import { resolveTurn, resolvedTurnSchema, MAX_TOOL_CALLS, type ResolvedTurn } fr
 import { trivialTurnKind, type TrivialKind } from "@/lib/application/orchestrate/turn-complexity";
 import { currentTripDay, detectMealAsk, inferMealAnchor } from "@/lib/application/itinerary-anchor";
 import { retrieveEvidence } from "@/lib/application/retrieve";
+import { routePlaceCalls } from "@/lib/application/route-calls";
+import { formatConversion, parseConversionAsk } from "@/lib/application/currency-convert";
+import { fxRate } from "@/lib/server/fx";
+import { effectiveStops } from "@/lib/trip-stops";
 import { resolveCurrency } from "@/lib/currency";
 import { buildEssentialsChecklist } from "@/lib/application/essentials";
 import { buildComparison, comparedPlaceIds } from "@/lib/application/comparison";
@@ -71,6 +75,7 @@ function factAlreadyConfirmed(key: string, ctx: TripContext): boolean {
     case "group": return typeof p.groupType === "string" && p.groupType !== "";
     case "pace": return typeof p.pace === "string" && p.pace !== "";
     case "interests": return hasList(p.interests) || hasList(p.likes);
+    case "dietary": return hasList(p.dietaryNeeds);
     case "occasion": return typeof p.occasion === "string" && p.occasion !== "";
     case "dates": return Boolean(ctx.trip?.start_date && ctx.trip?.end_date) || (typeof p.dates === "string" && p.dates !== "");
     case "arrival": return typeof p.arrival === "string" && p.arrival !== "";
@@ -231,15 +236,16 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   // took as long to answer as a real question. `resolved` is still a full, schema-valid
   // ResolvedTurn (same safe-default pattern resolveTurn itself falls back to on total failure)
   // so every downstream consumer of `AssistantTurnResult` sees a normal shape, just cheaply.
-  const trivialKind = trivialTurnKind(prompt);
-  if (trivialKind) {
-    const trivialResolved = resolvedTurnSchema.parse({ intent: "chitchat" });
-    const destination = tripCtx.trip?.destination;
+  // A reply that needs no model at all: RESOLVE, RETRIEVE and COMPOSE are skipped through the same `composeSkipLine`
+  // short-circuit a fully-answered structured block uses. `resolved` is still a full, schema-valid ResolvedTurn
+  // (the same safe-default pattern resolveTurn falls back to on total failure) so every consumer sees a normal shape.
+  const cannedTurn = (line: string): AssistantTurnResult => {
+    const cannedResolved = resolvedTurnSchema.parse({ intent: "chitchat" });
     // Hand-built, not derived from a shared default — if `AssistantTurnMeta` grows a new
     // OPTIONAL field later, TypeScript won't force this literal to set it (only a new REQUIRED
     // field would). Check this stays reasonable whenever that type changes.
     const meta: AssistantTurnMeta = {
-      language: trivialResolved.language,
+      language: cannedResolved.language,
       locationFocus: null,
       surface: "chat",
       blocks: [],
@@ -249,11 +255,11 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
     };
     return {
       kind: "ready",
-      resolved: trivialResolved,
+      resolved: cannedResolved,
       tripCtx,
       // Unused whenever composeSkipLine is set (always, on this path) — COMPOSE never runs to read it.
       system: "",
-      composeSkipLine: trivialReply(trivialKind, destination),
+      composeSkipLine: line,
       composeTools: {},
       toolEvidence: { places: [], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: new Date().toISOString(), usedTools: [] },
       meta,
@@ -265,6 +271,18 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
       timings: { resolveMs: Math.round(performance.now() - t0) },
       usage: usageLog,
     };
+  };
+
+  const trivialKind = trivialTurnKind(prompt);
+  if (trivialKind) return cannedTurn(trivialReply(trivialKind, tripCtx.trip?.destination));
+
+  // --- CURRENCY CONVERSION SHORT-CIRCUIT -------------------------------------
+  // "Convert 1,184 EUR and 2,200 GBP to CAD" is arithmetic on today's reference rates, not a travel question for the
+  // model (it used to be routed to the weather card and a packing list). Answered directly, with the rates it used.
+  const conversion = parseConversionAsk(prompt, resolveCurrency(tripCtx.preferences));
+  if (conversion) {
+    const rates = new Map(await Promise.all([...new Set(conversion.items.map((i) => i.from))].map(async (code) => [code, await fxRate(code, conversion.to, signal)] as const)));
+    return cannedTurn(formatConversion(conversion, rates));
   }
 
   // --- RESOLVE ---------------------------------------------------------------
@@ -358,6 +376,15 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
       : call.tool === "events" ? { ...call, location: qualify(call.location) }
       : call,
   );
+  // A plan for a whole multi-city trip searches every city on the route, not only the one the resolver picked.
+  toolPlan.push(...routePlaceCalls({
+    wantsItinerary: caps.has("itinerary"),
+    requestedDays: resolved.itineraryDays,
+    tripDays: tripCtx.trip?.duration_days,
+    stops: effectiveStops(tripCtx.trip).stops,
+    locationFocus,
+    existing: toolPlan,
+  }));
   const rejectedNames = tripCtx.places
     .filter((entry) => entry.status === "rejected" && entry.place?.name)
     .map((entry) => entry.place!.name);

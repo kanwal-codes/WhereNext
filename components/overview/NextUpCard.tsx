@@ -8,7 +8,7 @@ import { Tactile } from "@/components/motion-primitives";
 import { KIND_META } from "@/components/overview/ReservationSheet";
 import { RemoveControl } from "@/components/overview/RemoveControl";
 import { TripArt, hashString } from "@/components/trips/TripArt";
-import { clockLabel, dayHeading, whenLabel, type TimelineItem } from "@/lib/trip-reservations";
+import { clockLabel, dayHeading, isTransit, whenLabel, type TimelineItem } from "@/lib/trip-reservations";
 import { cn } from "@/lib/utils";
 
 const badge = "photo-chip";
@@ -16,10 +16,13 @@ const badge = "photo-chip";
 type Fact = { title: string; value: string; desc?: string };
 
 function factsFor(item: TimelineItem): Fact[] {
-  const nights = item.date && item.endDate ? Math.round((new Date(`${item.endDate}T00:00:00`).getTime() - new Date(`${item.date}T00:00:00`).getTime()) / 86_400_000) : 0;
+  const stay = item.kind === "stay";
+  const transit = isTransit(item.kind);
+  const nights = stay && item.date && item.endDate ? Math.round((new Date(`${item.endDate}T00:00:00`).getTime() - new Date(`${item.date}T00:00:00`).getTime()) / 86_400_000) : 0;
   const facts: Fact[] = [];
-  if (item.date) facts.push({ title: nights > 0 ? "Check-in" : "When", value: dayHeading(item.date), desc: item.time ? clockLabel(item.time) : undefined });
+  if (item.date) facts.push({ title: nights > 0 ? "Check-in" : transit ? "Departs" : "When", value: dayHeading(item.date), desc: item.time ? clockLabel(item.time) : undefined });
   if (nights > 0 && item.endDate) facts.push({ title: "Check-out", value: dayHeading(item.endDate), desc: `${nights} ${nights === 1 ? "night" : "nights"}` });
+  else if (transit && (item.endDate || item.endTime)) facts.push({ title: "Arrives", value: dayHeading(item.endDate ?? item.date ?? ""), desc: item.endTime ? clockLabel(item.endTime) : undefined });
   if (item.amountLabel) facts.push({ title: "Price", value: item.amountLabel });
   if (item.code) facts.push({ title: "Ref", value: item.code });
   return facts;

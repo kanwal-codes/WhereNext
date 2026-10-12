@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
+import { findDuplicateReservation } from "@/lib/server/reservation-duplicate";
 import { fail } from "@/lib/server/with-route";
+import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 import { RESERVATION_COLUMNS, reservationInput, toReservation, toReservationRow } from "@/packages/contracts/reservation";
 
 export async function GET(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
@@ -26,12 +28,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     const { supabase, user } = await requireTripMember(tripId, { role: "editor" });
     const parsed = reservationInput.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid reservation" }, { status: 400 });
+    const duplicate = await findDuplicateReservation(supabase, tripId, parsed.data);
+    if (duplicate) return NextResponse.json({ error: `Already on the trip: ${duplicate}. Edit that one instead.` }, { status: 409 });
     const result = await supabase
       .from("trip_reservations")
       .insert({ trip_id: tripId, created_by: user.id, ...toReservationRow(parsed.data) })
       .select(RESERVATION_COLUMNS)
       .single();
     if (result.error) throw result.error;
+    invalidateWorkspace(tripId);
     return NextResponse.json({ reservation: toReservation(result.data) }, { status: 201 });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "That reservation couldn't be saved");

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { canChangeLockedItem, itineraryItemSchema, itineraryReorderSchema } from "@/features/itinerary/domain/item";
+import { canChangeLockedItem, itineraryItemSchema, itineraryReorderSchema, nextVisitTitle } from "@/features/itinerary/domain/item";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
 import { geocodeStop } from "@/lib/server/geocode-stop";
@@ -41,7 +41,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
       .is("removed_at", null)
       .maybeSingle();
     if (existing.error) throw existing.error;
-    if (existing.data) {
+    if (existing.data && item.repeat && item.dayIndex !== undefined && item.dayIndex !== existing.data.day_index) {
+      // A second visit: the same place on another day keeps its first row and gets one of its own.
+      const rows = await supabase.from("trip_itinerary_items").select("title").eq("trip_id", tripId).ilike("title", `${item.title.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+      if (rows.error) throw rows.error;
+      item.title = nextVisitTitle(item.title, (rows.data ?? []).map((r) => r.title as string));
+    } else if (existing.data) {
       // Title is unique per trip (not per day), so a title collision doesn't mean "nothing to
       // do" — the caller may be asking to move this to a different day than where it already
       // sits. Silently returning the stale row here used to drop that request entirely.
@@ -65,7 +70,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
           .single();
         if (moved.error) throw moved.error;
         invalidateWorkspace(tripId);
-        return NextResponse.json({ item: moved.data, alreadyExists: true, moved: true });
+        return NextResponse.json({ item: moved.data, alreadyExists: true, moved: true, fromDay: existing.data.day_index });
       }
       return NextResponse.json({ item: existing.data, alreadyExists: true });
     }

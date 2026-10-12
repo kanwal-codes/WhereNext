@@ -50,3 +50,15 @@ describe("trip update planning", () => {
     });
   });
 });
+
+describe("buildTripRowUpdate and saved cities", () => {
+  it("moves saved cities with the dates when Roam changes the start", () => {
+    const update = buildTripRowUpdate({ start_date: "2027-06-05", end_date: "2027-06-24", stops: [{ city: "Rome", startDate: "2027-06-09", endDate: "2027-06-13" }] }, { startDate: "2027-06-08", endDate: "2027-06-27" });
+    expect(update.stops).toEqual([{ city: "Rome", startDate: "2027-06-12", endDate: "2027-06-16" }]);
+  });
+  it("leaves stops alone when there are none or the start did not move", () => {
+    expect(buildTripRowUpdate({ start_date: "2027-06-05", end_date: "2027-06-24" }, { startDate: "2027-06-08", endDate: "2027-06-27" }).stops).toBeUndefined();
+    expect(buildTripRowUpdate({ start_date: "2027-06-05", end_date: "2027-06-24", stops: [{ city: "Rome", startDate: "2027-06-09", endDate: "2027-06-13" }] }, { endDate: "2027-06-27" }).stops).toBeUndefined();
+  });
+});
+

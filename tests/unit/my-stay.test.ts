@@ -5,7 +5,7 @@ import type { Reservation } from "../../packages/contracts/reservation";
 import type { StayDecision } from "../../packages/contracts/stay";
 
 const decision: StayDecision = { provider: "serpapi", hotelId: "g:abc", hotelName: "Bakal Tulum", roomName: "Booking on Bakal Tulum Hotel", board: null, refundable: true, checkin: "2026-11-15", checkout: "2026-11-18", nights: 3, nightlyAmount: 93, totalAmount: 279, currency: "CAD", latitude: null, longitude: null, address: "Tulum", thumbnail: null };
-const reservation = (id: string, extra: Partial<Reservation> = {}): Reservation => ({ id, kind: "stay", title: `Hotel ${id}`, startsOn: null, endsOn: null, startTime: null, place: null, confirmationCode: null, amount: null, currency: null, notes: null, attachments: [], createdAt: "2026-09-01T10:00:00Z", ...extra });
+const reservation = (id: string, extra: Partial<Reservation> = {}): Reservation => ({ id, kind: "stay", title: `Hotel ${id}`, startsOn: null, endsOn: null, startTime: null, endTime: null, place: null, toPlace: null, confirmationCode: null, amount: null, currency: null, amountBasis: "total", travellers: null, status: "confirmed", notes: null, attachments: [], createdAt: "2026-09-01T10:00:00Z", ...extra });
 
 describe("my stays", () => {
   it("counts nights and rewords a Google lock's booking site", () => {

@@ -6,7 +6,7 @@ import { tripMemberIdentities } from "@/lib/server/trip-member-identities";
 
 type RoleRow = { user_id: string; role: string; created_at: string };
 
-/** List the people on this trip. Any member.
+/** List the people on this trip. Any member (emails only for the owner and each person's own row).
  *
  * `isYou` depends on the caller, so it's computed after the cached lookup rather than
  * baked into the cached rows — otherwise the first caller's identity would leak into
@@ -29,11 +29,13 @@ export async function GET(_: Request, { params }: { params: Promise<{ tripId: st
       tripMemberIdentities(tripId),
     ]);
 
+    // Email addresses are for the trip's owner and for each person's own row; everyone else sees names.
+    const viewerIsOwner = roleRows.some((m) => m.user_id === user.id && m.role === "owner");
     const members = roleRows.map((m) => ({
       userId: m.user_id,
       role: m.role,
       joinedAt: m.created_at,
-      email: identities.get(m.user_id)?.email ?? null,
+      email: viewerIsOwner || m.user_id === user.id ? (identities.get(m.user_id)?.email ?? null) : null,
       name: identities.get(m.user_id)?.name ?? null,
       isYou: m.user_id === user.id,
     }));

@@ -134,7 +134,7 @@ export default function GroupDetailsPage() {
                       <span className="truncate">{name}</span>
                       {m.role === "owner" && <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-2xs font-medium text-ink-soft">Owner</span>}
                     </p>
-                    <p className="truncate text-2xs text-muted-foreground">{m.email ?? "No email"}</p>
+                    <p className="truncate text-2xs text-muted-foreground">{m.email ?? (m.role === "viewer" ? "Can view the plan" : m.role === "owner" ? "Trip owner" : "Can edit the plan")}</p>
                   </div>
                   {m.isYou && (confirmLeave ? (
                     // Leaving cannot be taken back, so it asks once: the same "Leave? / Stay" beat the bookings use for removal.

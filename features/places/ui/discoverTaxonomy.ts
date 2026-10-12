@@ -23,7 +23,8 @@ export const CATEGORIES: DiscoverCategory[] = [
     label: "Eat & Drink",
     kind: "place",
     icon: Utensils,
-    q: "well-reviewed restaurants and cafes",
+    // Not "well-reviewed restaurants and cafes": with that wording Google matched business names ("cafe in Brampton") and answered from wherever the server is, for any city.
+    q: "restaurants and cafes",
     subs: [
       { label: "Restaurants", q: "restaurants" },
       { label: "Cafés", q: "cafes" },

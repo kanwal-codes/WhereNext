@@ -1,5 +1,7 @@
 "use client";
 
+import { formatMoney, resolveCurrency } from "@/lib/currency";
+import { noticeBookingsOutside } from "@/lib/application/bookings-outside-notice";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Ban, BedDouble, CalendarDays, Car, Check, Clock, Compass, Home, MapPin, PartyPopper, Pencil, PlaneLanding,
@@ -218,6 +220,7 @@ export function TripContextSurface({
         body: JSON.stringify({ startDate: dStart || null, endDate: dEnd || null }),
       });
       if (!response.ok) throw new Error();
+      noticeBookingsOutside(await response.json().catch(() => null));
       setTripDates({ start: dStart, end: dEnd });
       setEditingDates(false);
       setFlash("dates");
@@ -321,12 +324,11 @@ export function TripContextSurface({
   // daily dorm bed): a plain number is a per-day budget, so say so, and in which currency when the trip has one.
   const budgetText = csv(memory.budget);
   if (/^\d+(?:[.,]\d+)?$/.test(budgetText.trim())) {
-    const currency = typeof memory.currency === "string" ? memory.currency : "";
-    push({ id: "budget", label: "Budget", value: budgetText, certainty: "confirmed", editKey: "budget", note: `a day${currency ? `, in ${currency}` : ""}` });
+    push({ id: "budget", label: "Budget", value: formatMoney(Number(budgetText.replace(",", ".")), resolveCurrency(memory)), certainty: "confirmed", editKey: "budget", note: "per person, a day" });
   } else {
     softField("budget", "Budget", budgetText, "budget", "budget");
   }
-  softField("group", "Who's travelling", csv(memory.groupType), "group", "groupType");
+  softField("group", "Kind of group", csv(memory.groupType), "group", "groupType");
   softField("pace", "Pace", csv(memory.pace), "pace", "pace");
   softField(
     "interests",
@@ -358,7 +360,7 @@ export function TripContextSurface({
   softField("arrival", "Arrival", csv(memory.arrival), "arrival", "arrival");
 
   push({ id: "dislikes", label: "Avoid", value: csv(memory.dislikes), certainty: csv(memory.dislikes) ? "confirmed" : "undecided", editKey: "dislikes" });
-  push({ id: "dietary", label: "Dietary", value: csv(memory.dietaryNeeds), certainty: csv(memory.dietaryNeeds) ? "confirmed" : "undecided", editKey: "dietaryNeeds" });
+  softField("dietary", "Dietary", csv(memory.dietaryNeeds), "dietary", "dietaryNeeds");
   push({
     id: "stay",
     label: "Where you're staying",

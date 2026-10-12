@@ -12,12 +12,17 @@ export function buildTripSummary(ctx: TripContext): TripSummary | null {
   const trip = ctx.trip;
   if (!trip) return null;
   const prefs = ctx.preferences;
-  const budget = typeof prefs.budget === "number" && prefs.budget > 0 ? `${prefs.budget}${text(prefs.currency) ? ` ${text(prefs.currency)}` : ""} a day` : text(prefs.budget);
+  const budget = typeof prefs.budget === "number" && prefs.budget > 0 ? `${prefs.budget}${text(prefs.currency) ? ` ${text(prefs.currency)}` : ""} per person a day` : text(prefs.budget);
   const dates = trip.start_date && trip.end_date ? `${trip.start_date} to ${trip.end_date}` : null;
   const stops = ctx.itinerary.length;
   const planDays = new Set(ctx.itinerary.map((item) => item.day_index)).size;
   const saved = ctx.places.filter((p) => p.place).length;
-  const stay = ctx.lockedStay?.hotelName ?? null;
+  const live = (ctx.reservations ?? []).filter((r) => !r.cancelled);
+  const bookedStays = live.filter((r) => r.kind === "stay").map((r) => r.title);
+  const stay = ctx.lockedStay?.hotelName ?? (bookedStays.length ? bookedStays.slice(0, 3).join(", ") + (bookedStays.length > 3 ? ` and ${bookedStays.length - 3} more` : "") : null);
+  const kinds = live.reduce<Record<string, number>>((acc, r) => ({ ...acc, [r.kind]: (acc[r.kind] ?? 0) + 1 }), {});
+  const NOUNS: Record<string, [string, string]> = { activity: ["activity", "activities"], dining: ["table", "tables"] };
+  const bookedNote = Object.entries(kinds).map(([kind, n]) => `${n} ${(NOUNS[kind] ?? [kind, `${kind}s`])[n === 1 ? 0 : 1]}`).join(", ");
   const likes = list(prefs.likes).concat(list(prefs.interests));
 
   const facts: TripSummary["facts"] = [
@@ -28,6 +33,7 @@ export function buildTripSummary(ctx: TripContext): TripSummary | null {
   const rows: TripSummary["rows"] = [
     trip.origin ? { label: "From", value: trip.origin } : null,
     stay ? { label: "Staying at", value: stay } : { label: "Staying at", value: "Not chosen yet" },
+    live.length ? { label: "Booked", value: `${plural(live.length, "booking")} (${bookedNote})`.slice(0, 200) } : null,
     { label: "Plan", value: stops ? `${plural(stops, "stop")} over ${plural(planDays, "day")}` : "Nothing planned yet" },
     saved ? { label: "Saved places", value: String(saved) } : null,
     // "Solo" is the default group type; beside several travellers it reads as a contradiction.

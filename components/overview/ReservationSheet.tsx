@@ -23,19 +23,24 @@ export const KIND_META: Record<ReservationKind, { label: string; icon: typeof Pl
 };
 const KINDS = Object.keys(KIND_META) as ReservationKind[];
 
-type Draft = { kind: ReservationKind; title: string; startsOn: string; endsOn: string; startTime: string; place: string; confirmationCode: string; amount: string; currency: string; notes: string };
+type Draft = ReservationDraft;
 
-const blank = (currency: string, startsOn: string): Draft => ({ kind: "activity", title: "", startsOn, endsOn: "", startTime: "", place: "", confirmationCode: "", amount: "", currency, notes: "" });
+const blank = (currency: string, startsOn: string): Draft => ({ kind: "activity", title: "", startsOn, endsOn: "", startTime: "", endTime: "", place: "", toPlace: "", confirmationCode: "", amount: "", currency, amountBasis: "total", travellers: "", status: "confirmed", notes: "" });
 const fromReservation = (r: Reservation, currency: string): Draft => ({
   kind: r.kind,
   title: r.title,
   startsOn: r.startsOn ?? "",
   endsOn: r.endsOn ?? "",
   startTime: r.startTime ?? "",
+  endTime: r.endTime ?? "",
   place: r.place ?? "",
+  toPlace: r.toPlace ?? "",
   confirmationCode: r.confirmationCode ?? "",
   amount: r.amount == null ? "" : String(r.amount),
   currency: r.currency ?? currency,
+  amountBasis: r.amountBasis,
+  travellers: r.travellers == null ? "" : String(r.travellers),
+  status: r.status,
   notes: r.notes ?? "",
 });
 
@@ -85,6 +90,8 @@ export function ReservationSheet({
   const [pasted, setPasted] = useState("");
   const [reading, setReading] = useState(false);
   const [readNote, setReadNote] = useState<string | null>(null);
+  // A round trip pasted as one confirmation: the second leg waits here and opens as its own reservation once the first is saved.
+  const [returnLeg, setReturnLeg] = useState<Draft | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -94,10 +101,12 @@ export function ReservationSheet({
     setPasteOpen(false);
     setPasted("");
     setReadNote(null);
+    setReturnLeg(null);
     setDraft(editing ? fromReservation(editing, defaultCurrency) : blank(defaultCurrency, defaultDate));
     setError(null);
   }, [open, editing, defaultCurrency, defaultDate]);
 
+  const transit = draft.kind === "flight" || draft.kind === "train";
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
 
   /** Send one file straight to storage with a one-time link from the API, then record it on the reservation. */
@@ -124,10 +133,16 @@ export function ReservationSheet({
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error ?? "Couldn't read that. You can still fill it in by hand.");
       const found = body.draft as ReservationDraft;
+      // Text with no booking in it comes back as an empty draft: say so rather than claim it was filled in.
+      if (!found.title && !found.startsOn && !found.confirmationCode && !found.amount) {
+        setReadNote("That doesn’t look like a booking confirmation, so nothing was filled in. You can still add it by hand.");
+        return;
+      }
       // Only fill what the confirmation actually said; keep whatever is already typed for the rest.
       setDraft((current) => ({ ...current, ...Object.fromEntries(Object.entries(found).filter(([, value]) => value !== "")) }) as Draft);
       setPasteOpen(false);
-      setReadNote("Filled in from your confirmation. Check each field before you add it.");
+      setReturnLeg((body.returnDraft as Draft | null) ?? null);
+      setReadNote(body.returnDraft ? "Filled in from your confirmation. It has a return leg too, which opens next. Check each field before you add it." : "Filled in from your confirmation. Check each field before you add it.");
     } catch (e) {
       setReadNote(e instanceof Error ? e.message : "Couldn't read that. You can still fill it in by hand.");
     } finally {
@@ -185,7 +200,7 @@ export function ReservationSheet({
       const res = await fetch(`/api/trips/${tripId}/reservations${editing ? `/${editing.id}` : ""}`, {
         method: editing ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...draft, amount: draft.amount === "" ? null : Number(draft.amount) }),
+        body: JSON.stringify({ ...draft, amount: draft.amount === "" ? null : Number(draft.amount), travellers: draft.travellers === "" ? null : Number(draft.travellers) }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error ?? "That didn't save. Try again.");
@@ -201,6 +216,14 @@ export function ReservationSheet({
       announceWorkspaceChange("decision");
       onSaved(saved);
       if (skipped > 0) notifyToast(`Saved, but ${skipped} ${skipped === 1 ? "file" : "files"} didn't upload. Open it to try again.`, "error");
+      if (!editing && returnLeg) {
+        // Keep the sheet open on the second leg of the same booking.
+        setDraft(returnLeg);
+        setReturnLeg(null);
+        setStaged([]);
+        setReadNote("Saved the outbound leg. Here is the return leg: check it and add it too.");
+        return;
+      }
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : "That didn't save. Try again.");
@@ -297,23 +320,41 @@ export function ReservationSheet({
             <Field label={draft.kind === "stay" ? "Check-in" : "Date"}>
               <input type="date" value={draft.startsOn} onChange={(e) => set("startsOn", e.target.value)} className={input} />
             </Field>
-            <Field label={draft.kind === "stay" ? "Check-out" : "Until (optional)"}>
+            <Field label={draft.kind === "stay" ? "Check-out" : transit ? "Arrives on (if another day)" : "Until (optional)"}>
               <input type="date" value={draft.endsOn} min={draft.startsOn || undefined} onChange={(e) => set("endsOn", e.target.value)} className={input} />
             </Field>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Time (optional)">
+          <div className={cn("grid gap-3", transit || draft.kind === "stay" ? "grid-cols-2" : "grid-cols-2")}>
+            <Field label={transit ? "Departs" : draft.kind === "stay" ? "Check-in time" : "Time (optional)"}>
               <input type="time" value={draft.startTime} onChange={(e) => set("startTime", e.target.value)} className={input} />
             </Field>
+            {(transit || draft.kind === "stay") ? (
+              <Field label={transit ? "Arrives" : "Check-out time"}>
+                <input type="time" value={draft.endTime} onChange={(e) => set("endTime", e.target.value)} className={input} />
+              </Field>
+            ) : (
+              <Field label="Confirmation">
+                <input value={draft.confirmationCode} onChange={(e) => set("confirmationCode", e.target.value)} maxLength={80} placeholder="Booking reference" className={cn(input, "font-mono text-sm")} />
+              </Field>
+            )}
+          </div>
+
+          {(transit || draft.kind === "stay") && (
             <Field label="Confirmation">
               <input value={draft.confirmationCode} onChange={(e) => set("confirmationCode", e.target.value)} maxLength={80} placeholder="Booking reference" className={cn(input, "font-mono text-sm")} />
             </Field>
-          </div>
+          )}
 
-          <Field label="Where">
-            <DestinationCombobox tripId={tripId} scope="places" enter="free" value={draft.place} onChange={(v) => set("place", v)} onSelect={(v) => set("place", v)} ariaLabel="Where" maxLength={200} placeholder="Address or meeting point" inputClassName={input} />
+          <Field label={transit ? "From" : "Where"}>
+            <DestinationCombobox tripId={tripId} scope="places" enter="free" value={draft.place} onChange={(v) => set("place", v)} onSelect={(v) => set("place", v)} ariaLabel={transit ? "From" : "Where"} maxLength={200} placeholder={transit ? "Airport or station you leave from" : "Address or meeting point"} inputClassName={input} />
           </Field>
+
+          {transit && (
+            <Field label="To">
+              <DestinationCombobox tripId={tripId} scope="places" enter="free" value={draft.toPlace} onChange={(v) => set("toPlace", v)} onSelect={(v) => set("toPlace", v)} ariaLabel="To" maxLength={200} placeholder="Airport or station you arrive at" inputClassName={input} />
+            </Field>
+          )}
 
           <div className="grid grid-cols-[minmax(0,1fr)_6rem] gap-3">
             <Field label="Price">
@@ -323,6 +364,23 @@ export function ReservationSheet({
               <input value={draft.currency} onChange={(e) => set("currency", e.target.value.toUpperCase())} maxLength={8} className={cn(input, "uppercase")} />
             </Field>
           </div>
+
+          <div className="grid grid-cols-[minmax(0,1fr)_6rem] gap-3">
+            <Field label="Price is">
+              <select value={draft.amountBasis} onChange={(e) => set("amountBasis", e.target.value as Draft["amountBasis"])} className={input}>
+                <option value="total">The total for everyone</option>
+                <option value="per_person">Per person</option>
+              </select>
+            </Field>
+            <Field label="People">
+              <input type="number" min={1} max={100} inputMode="numeric" value={draft.travellers} onChange={(e) => set("travellers", e.target.value)} placeholder="All" className={cn(input, "tabular-nums")} />
+            </Field>
+          </div>
+
+          <label className="flex items-center gap-3 rounded-2xl border border-border bg-background px-4 py-3 text-sm">
+            <input type="checkbox" checked={draft.status === "cancelled"} onChange={(e) => set("status", e.target.checked ? "cancelled" : "confirmed")} className="h-4 w-4" />
+            <span>This booking was cancelled <span className="text-muted-foreground">(kept for reference, not counted in the budget)</span></span>
+          </label>
 
           <Field label="Notes">
             <textarea value={draft.notes} onChange={(e) => set("notes", e.target.value)} maxLength={1000} rows={3} placeholder="Gate code, what to bring, who is coming" className={cn(input, "resize-none")} />

@@ -30,7 +30,7 @@ export default function ItineraryPage() {
       />
       <Reveal>
         <div className="mx-auto w-full min-w-0 max-w-6xl px-5 pt-8 sm:px-8">
-          <ItinerarySurface tripId={tripId} initialItems={data?.itinerary} startDate={trip?.start_date ?? null} lockedStay={lockedStay} destination={trip?.destination ?? null} plannedDays={length ?? 0} />
+          <ItinerarySurface tripId={tripId} initialItems={data?.itinerary} startDate={trip?.start_date ?? null} lockedStay={lockedStay} destination={trip?.destination ?? null} trip={trip} plannedDays={length ?? 0} />
         </div>
       </Reveal>
     </div>

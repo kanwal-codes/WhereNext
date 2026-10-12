@@ -22,7 +22,7 @@ const STATUS: Record<Booking["status"], string> = {
 const FILTERS: Array<Category | "all"> = ["all", "stay", "travel", "do"];
 
 function nights(item: TimelineItem): number | null {
-  if (!item.date || !item.endDate) return null;
+  if (item.kind !== "stay" || !item.date || !item.endDate) return null;
   const days = Math.round((new Date(`${item.endDate}T00:00:00`).getTime() - new Date(`${item.date}T00:00:00`).getTime()) / 86_400_000);
   return days > 0 ? days : null;
 }

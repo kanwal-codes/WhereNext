@@ -1,6 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
+import { CityChips } from "@/components/CityChips";
+import { useTripCity } from "@/lib/client/use-trip-city";
+import { stayWindow } from "@/lib/trip-stops";
+import { useTripStays } from "@/features/stays/application/useTripStays";
 import { useRouter } from "next/navigation";
 import { SwapView } from "@/components/SwapView";
 import { StayResultCard } from "@/features/stays/ui/StayResultCard";
@@ -74,10 +78,14 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   const { data } = useTripData();
   const lockedStay = readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
   const router = useRouter();
-  const trip = data?.trip as { start_date?: string | null; end_date?: string | null; travelers?: number | null } | undefined;
+  const trip = data?.trip as { id?: string; destination?: string | null; start_date?: string | null; end_date?: string | null; travelers?: number | null; stops?: unknown } | undefined;
+  // A multi-city trip is searched one city at a time, for the nights spent there; a one-city trip keeps its whole stay.
+  const cities = useTripCity(trip);
+  const cityWindow = cities.hasChoice && cities.stop ? stayWindow(cities.stop) : null;
+  const booked = useTripStays(tripId);
 
-  const [checkin, setCheckin] = useState(lockedStay?.checkin ?? trip?.start_date ?? "");
-  const [checkout, setCheckout] = useState(lockedStay?.checkout ?? trip?.end_date ?? "");
+  const [checkin, setCheckin] = useState((cities.hasChoice ? cityWindow?.checkin : lockedStay?.checkin) ?? cityWindow?.checkin ?? trip?.start_date ?? "");
+  const [checkout, setCheckout] = useState((cities.hasChoice ? cityWindow?.checkout : lockedStay?.checkout) ?? cityWindow?.checkout ?? trip?.end_date ?? "");
   const [adults, setAdults] = useState(Math.max(1, Math.min(trip?.travelers ?? 2, 24)));
   const [rooms, setRooms] = useState(1);
   const [barOpen, setBarOpen] = useState(false);
@@ -98,6 +106,18 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   const reqId = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
 
+  // Picking another city moves the search to that city and the nights spent there.
+  const lastCity = useRef(cities.city);
+  useEffect(() => {
+    if (!cities.hasChoice || lastCity.current === cities.city) return;
+    lastCity.current = cities.city;
+    setNear("");
+    if (cityWindow) {
+      setCheckin(cityWindow.checkin);
+      setCheckout(cityWindow.checkout);
+    }
+  }, [cities.city, cities.hasChoice, cityWindow]);
+
   const search = useCallback(async () => {
     const mine = ++reqId.current;
     // Cancel a still-in-flight prior search instead of just ignoring its response — otherwise
@@ -111,6 +131,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
     try {
       const qs = new URLSearchParams({ adults: String(adults), rooms: String(rooms), sort });
       if (near.trim()) qs.set("location", near.trim());
+      else if (cities.hasChoice && cities.city) qs.set("location", cities.city);
       if (checkin) qs.set("checkin", checkin);
       if (checkout) qs.set("checkout", checkout);
       if (stars.length) qs.set("stars", stars.join(","));
@@ -148,7 +169,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
     } finally {
       if (mine === reqId.current) setLoading(false);
     }
-  }, [tripId, adults, rooms, sort, checkin, checkout, stars, boards, propertyTypes, refundable, priceMax, near]);
+  }, [tripId, adults, rooms, sort, checkin, checkout, stars, boards, propertyTypes, refundable, priceMax, near, cities.hasChoice, cities.city]);
 
   useEffect(() => {
     void search();
@@ -188,8 +209,18 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   const toggleN = (list: number[], v: number, set: (l: number[]) => void) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
   const activeFilters = stars.length + boards.length + propertyTypes.length + (refundable ? 1 : 0) + (priceMax ? 1 : 0);
 
+  // A stay already booked for (some of) these nights: said up front, so nobody pays for the same nights twice.
+  const alreadyBooked = booked.items.find((item) => item.date && checkin && checkout && item.date < checkout && (item.endDate ?? item.date) > checkin && item.status !== "cancelled");
+
   return (
     <div className="flex min-h-[calc(100dvh-13rem)] flex-col gap-5">
+      <CityChips stops={cities.stops} current={cities.city} onPick={cities.setCity} estimated={cities.estimated} className="-mb-2" />
+      {alreadyBooked && (
+        <p role="status" className="rounded-2xl border border-leaf/30 bg-leaf/5 px-4 py-3 text-sm">
+          You already have <span className="font-medium">{alreadyBooked.title}</span> booked{alreadyBooked.date ? ` (${fmtDay(alreadyBooked.date)}${alreadyBooked.endDate ? ` → ${fmtDay(alreadyBooked.endDate)}` : ""})` : ""} for some of these nights.{" "}
+          <a href={`/trips/${tripId}/bookings`} className="underline underline-offset-2">See your bookings</a>
+        </p>
+      )}
       {near.trim() && (
         <p className="flex items-center gap-2 text-sm">
           <MapPin className="h-3.5 w-3.5 shrink-0 text-coral" />

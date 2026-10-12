@@ -23,6 +23,8 @@ export type TimelineItem = {
   date: string | null;
   endDate: string | null;
   time: string | null;
+  /** Arrival or check-out time, for a hand-entered flight, train or stay. */
+  endTime?: string | null;
   place: string | null;
   code: string | null;
   amountLabel: string | null;
@@ -188,10 +190,11 @@ export function buildTimeline(input: {
       date: r.startsOn,
       endDate: r.endsOn,
       time: r.startTime,
-      place: r.place,
+      endTime: r.endTime,
+      place: isTransit(r.kind) && r.place && r.toPlace ? `${r.place} → ${r.toPlace}` : r.place,
       code: r.confirmationCode,
-      amountLabel: money(r.amount, r.currency),
-      status: null,
+      amountLabel: reservationMoney(r),
+      status: r.status === "cancelled" ? "cancelled" : null,
       thumbnail: null,
       bookingId: null,
       reservation: r,
@@ -254,7 +257,16 @@ export function whenLabel(item: TimelineItem, now: number = Date.now()): string 
   return start === 0 ? "Today" : start === 1 ? "Tomorrow" : `In ${start} days`;
 }
 
-export type DayBooking = { reservation: Reservation; /** "Check-in" / "Check-out" for a multi-day stay, otherwise null. */ note: string | null };
+/** A flight or train: it has a departure and an arrival, not a check-in and a check-out. */
+export const isTransit = (kind: ReservationKind): boolean => kind === "flight" || kind === "train";
+
+/** A reservation's price as shown to people: "€305", or "€61 each" when it was entered per person. */
+export function reservationMoney(r: Pick<Reservation, "amount" | "currency" | "amountBasis">): string | null {
+  const label = money(r.amount, r.currency);
+  return label && r.amountBasis === "per_person" ? `${label} each` : label;
+}
+
+export type DayBooking = { reservation: Reservation; /** "Check-in" / "Check-out" for a multi-day stay, "Departs" / "Arrives" for an overnight flight or train, otherwise null. */ note: string | null };
 
 /** 1-based trip day for a calendar date, counting from `startDate`; null when either is missing or the date is before the trip. */
 export function tripDayFor(date: string | null, startDate: string | null | undefined): number | null {
@@ -297,6 +309,7 @@ export function findScheduleConflicts(
     if (time) timed.push({ day: item.day_index, title: item.title, time });
   }
   for (const r of reservations) {
+    if (r.status === "cancelled") continue;
     const day = tripDayFor(r.startsOn, startDate);
     if (day !== null && r.startTime) timed.push({ day, title: r.title, time: r.startTime });
   }
@@ -324,14 +337,60 @@ export function reservationsByDay(reservations: Reservation[], startDate: string
     byDay.set(day, [...(byDay.get(day) ?? []), entry]);
   };
   for (const reservation of reservations) {
+    if (reservation.status === "cancelled") continue;
     const first = tripDayFor(reservation.startsOn, startDate);
     const last = tripDayFor(reservation.endsOn, startDate);
     const multiDay = first !== null && last !== null && last > first;
-    add(first, { reservation, note: multiDay ? "Check-in" : null });
-    if (multiDay) add(last, { reservation, note: "Check-out" });
+    const transit = isTransit(reservation.kind);
+    add(first, { reservation, note: multiDay ? (transit ? "Departs" : "Check-in") : null });
+    if (multiDay) add(last, { reservation, note: transit ? "Arrives" : "Check-out" });
   }
   for (const [day, list] of byDay) {
     byDay.set(day, list.sort((a, b) => (a.reservation.startTime ?? "99:99").localeCompare(b.reservation.startTime ?? "99:99")));
   }
   return byDay;
 }
+
+const dayAfter = (day: string): string => new Date(Date.parse(`${day}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+
+export type LodgingGap = { from: string; to: string; nights: number };
+
+/**
+ * Nights of the trip that no booked stay covers, as runs of consecutive dates ("Jun 9 to Jun 13, 4
+ * nights"). A stay covers every night from its check-in up to, not including, its check-out (an overnight flight or train covers the night it travels); the trip's
+ * last day is not a night (you fly home). With no dates on the trip there is nothing to measure.
+ */
+export function lodgingGaps(reservations: Array<Pick<Reservation, "kind" | "startsOn" | "endsOn" | "status">>, startDate: string | null | undefined, endDate: string | null | undefined): LodgingGap[] {
+  if (!startDate || !endDate || endDate <= startDate) return [];
+  const covered = new Set<string>();
+  for (const r of reservations) {
+    // A stay covers its nights; so does an overnight flight or train (it leaves one day and arrives the next).
+    const sleepsThere = r.kind === "stay" || ((r.kind === "flight" || r.kind === "train") && Boolean(r.endsOn) && r.endsOn! > (r.startsOn ?? ""));
+    if (!sleepsThere || r.status === "cancelled" || !r.startsOn) continue;
+    const out = r.endsOn && r.endsOn > r.startsOn ? r.endsOn : dayAfter(r.startsOn);
+    for (let d = r.startsOn; d < out; d = dayAfter(d)) covered.add(d);
+  }
+  const gaps: LodgingGap[] = [];
+  let open: LodgingGap | null = null;
+  for (let d = startDate; d < endDate; d = dayAfter(d)) {
+    if (covered.has(d)) {
+      open = null;
+      continue;
+    }
+    if (open) {
+      open.to = dayAfter(d);
+      open.nights += 1;
+    } else {
+      open = { from: d, to: dayAfter(d), nights: 1 };
+      gaps.push(open);
+    }
+  }
+  return gaps;
+}
+
+/** Bookings dated before the trip starts or after it ends, e.g. after the dates were moved. Cancelled ones do not count. */
+export function outsideTripDates<T extends Pick<Reservation, "startsOn" | "status">>(reservations: T[], startDate: string | null | undefined, endDate: string | null | undefined): T[] {
+  if (!startDate || !endDate) return [];
+  return reservations.filter((r) => r.status !== "cancelled" && r.startsOn && (r.startsOn < startDate || r.startsOn > endDate));
+}
+

@@ -2,16 +2,17 @@
  * The small pure pieces behind the trip Overview page: turning the raw trip record, preferences and
  * itinerary rows into what the page shows. No React, so each one is tested on its own.
  */
+import { formatMoney, resolveCurrency } from "@/lib/currency";
 
 const asList = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
 
 const asText = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
 
-/** "$180/day", or the free text the traveller gave, or null when no budget is set. */
+/** "CA$180/day each" (in the trip's own currency), or the free text the traveller gave, or null when no budget is set. */
 export function budgetLabel(preferences: Record<string, unknown>): string | null {
   const budget = preferences.budget;
-  if (typeof budget === "number" && budget > 0) return `$${budget}/day`;
+  if (typeof budget === "number" && budget > 0) return `${formatMoney(budget, resolveCurrency(preferences))}/day each`;
   if (typeof budget === "string" && budget.trim()) return budget.trim();
   return null;
 }

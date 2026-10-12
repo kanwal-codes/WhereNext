@@ -24,22 +24,24 @@ beforeEach(() => {
   member = { role: "owner" };
 });
 
+const TRIP = "d80df5ea-de66-4542-86d8-3732131887c5";
+
 describe("requireTripMember", () => {
   it("returns the client and role for a member", async () => {
-    await expect(requireTripMember("t1")).resolves.toMatchObject({ role: "owner", user: { id: "u1" } });
+    await expect(requireTripMember(TRIP)).resolves.toMatchObject({ role: "owner", user: { id: "u1" } });
   });
 
   it("401 without a session, 404 for a non-member, 403 for an insufficient role", async () => {
     user = null;
-    await expect(requireTripMember("t1")).rejects.toMatchObject({ status: 401 });
+    await expect(requireTripMember(TRIP)).rejects.toMatchObject({ status: 401 });
     user = { id: "u1" };
     member = null;
-    await expect(requireTripMember("t1")).rejects.toMatchObject({ status: 404 });
+    await expect(requireTripMember(TRIP)).rejects.toMatchObject({ status: 404 });
     member = { role: "viewer" };
-    await expect(requireTripMember("t1", { role: "editor" })).rejects.toMatchObject({ status: 403 });
+    await expect(requireTripMember(TRIP, { role: "editor" })).rejects.toMatchObject({ status: 403 });
     member = { role: "editor" };
-    await expect(requireTripMember("t1", { role: "owner" })).rejects.toMatchObject({ status: 403 });
-    await expect(requireTripMember("t1", { role: "editor" })).resolves.toMatchObject({ role: "editor" });
+    await expect(requireTripMember(TRIP, { role: "owner" })).rejects.toMatchObject({ status: 403 });
+    await expect(requireTripMember(TRIP, { role: "editor" })).resolves.toMatchObject({ role: "editor" });
   });
 });
 
@@ -49,5 +51,8 @@ describe("tripAuthResponse", () => {
     expect(response?.status).toBe(404);
     await expect(response!.json()).resolves.toEqual({ error: "Trip not found" });
     expect(tripAuthResponse(new Error("db"))).toBeNull();
+  });
+  it("treats a malformed trip id as not found, without asking the database", async () => {
+    await expect(requireTripMember("not-a-uuid")).rejects.toMatchObject({ status: 404 });
   });
 });

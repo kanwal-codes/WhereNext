@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildTimeline, categoryOf, countByCategory, filterByCategory, findScheduleConflicts, groupByDate, pickNextUp, reservationsByDay, tripDayFor, whenLabel } from "../../lib/trip-reservations";
+import { buildTimeline, categoryOf, reservationMoney, countByCategory, filterByCategory, findScheduleConflicts, groupByDate, pickNextUp, reservationsByDay, tripDayFor, whenLabel } from "../../lib/trip-reservations";
 import type { Booking } from "../../packages/contracts/booking";
 import type { Reservation } from "../../packages/contracts/reservation";
 import type { StayDecision } from "../../packages/contracts/stay";
 
 const stay: StayDecision = { provider: "liteapi", hotelId: "h1", hotelName: "Memmo Alfama", roomName: "Deluxe", board: "Breakfast", refundable: true, checkin: "2026-10-12", checkout: "2026-10-16", nights: 4, nightlyAmount: 214, totalAmount: 856, currency: "CAD", latitude: null, longitude: null, address: "Lisbon", thumbnail: null };
 const booking = (id: string, kind: Booking["kind"], extra: Partial<Booking> = {}): Booking => ({ id, kind, provider: kind === "stay" ? "liteapi" : "duffel", status: "confirmed", providerReference: `ref-${id}`, confirmationCode: null, currency: "CAD", totalAmount: 100, createdAt: "2026-09-01T10:00:00Z", ...extra });
-const reservation = (id: string, extra: Partial<Reservation> = {}): Reservation => ({ id, kind: "activity", title: `R${id}`, startsOn: null, endsOn: null, startTime: null, place: null, confirmationCode: null, amount: null, currency: null, notes: null, attachments: [], createdAt: "2026-09-01T10:00:00Z", ...extra });
+const reservation = (id: string, extra: Partial<Reservation> = {}): Reservation => ({ id, kind: "activity", title: `R${id}`, startsOn: null, endsOn: null, startTime: null, endTime: null, place: null, toPlace: null, confirmationCode: null, amount: null, currency: null, amountBasis: "total", travellers: null, status: "confirmed", notes: null, attachments: [], createdAt: "2026-09-01T10:00:00Z", ...extra });
 const flight = { from: "Toronto (YYZ)", to: "Lisbon (LIS)", airline: "TAP", fare: "642 CAD", stops: 0, minutes: 415, departAt: "2026-10-11T21:40:00", arriveAt: "2026-10-12T09:35:00" };
 
 describe("buildTimeline", () => {
@@ -159,5 +159,28 @@ describe("findScheduleConflicts", () => {
       "2026-10-12",
     );
     expect(conflicts).toEqual([]);
+  });
+});
+
+describe("flights, trains and cancelled bookings", () => {
+  const overnight = reservation("f", { kind: "flight", title: "JFK to FCO", startsOn: "2027-06-08", endsOn: "2027-06-09", startTime: "19:40", endTime: "09:10", place: "JFK", toPlace: "FCO" });
+
+  it("labels an overnight flight Departs / Arrives, not Check-in / Check-out", () => {
+    const byDay = reservationsByDay([overnight], "2027-06-05");
+    expect(byDay.get(4)?.[0]?.note).toBe("Departs");
+    expect(byDay.get(5)?.[0]?.note).toBe("Arrives");
+    expect(reservationsByDay([reservation("s", { kind: "stay", startsOn: "2027-06-09", endsOn: "2027-06-13" })], "2027-06-05").get(5)?.[0]?.note).toBe("Check-in");
+  });
+  it("leaves a cancelled booking off the days and out of schedule conflicts", () => {
+    const cancelled = { ...overnight, status: "cancelled" as const };
+    expect(reservationsByDay([cancelled], "2027-06-05").size).toBe(0);
+    const other = reservation("o", { startsOn: "2027-06-08", startTime: "19:30" });
+    expect(findScheduleConflicts([], [cancelled, other], "2027-06-05")).toEqual([]);
+    expect(findScheduleConflicts([], [overnight, other], "2027-06-05")).toHaveLength(1);
+  });
+  it("shows the route, the arrival, a cancelled status and a per-person price on the timeline", () => {
+    const [item] = buildTimeline({ reservations: [{ ...overnight, status: "cancelled", amount: 61, currency: "EUR", amountBasis: "per_person" }], bookings: [], stay: null, flight: null, tripId: "t" });
+    expect(item).toMatchObject({ place: "JFK → FCO", endTime: "09:10", status: "cancelled", amountLabel: "€61 each" });
+    expect(reservationMoney({ amount: 305, currency: "EUR", amountBasis: "total" })).toBe("€305");
   });
 });

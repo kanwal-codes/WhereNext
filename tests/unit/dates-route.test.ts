@@ -24,7 +24,9 @@ function fakeSupabase(updateResult: { data?: unknown; error?: unknown } = { data
   const select = vi.fn(() => ({ single }));
   const eq = vi.fn(() => ({ select }));
   const update = vi.fn(() => ({ eq }));
-  return { supabase: { from: () => ({ update }) } as never, update };
+  // The route first reads the trip's current start and saved cities, then counts bookings outside the new dates.
+  const read = (rows: unknown) => ({ eq: () => Object.assign(Promise.resolve({ data: rows, error: null }), { maybeSingle: async () => ({ data: { start_date: null, stops: null }, error: null }) }) });
+  return { supabase: { from: () => ({ update, select: () => read([]) }) } as never, update };
 }
 
 async function patch(body: unknown) {
@@ -43,7 +45,7 @@ describe("PATCH /api/trips/:tripId/dates", () => {
   it("locks the trip's start/end dates", async () => {
     const res = await patch({ startDate: "2026-06-10", endDate: "2026-06-14" });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ startDate: "2026-06-10", endDate: "2026-06-14" });
+    expect(await res.json()).toEqual({ startDate: "2026-06-10", endDate: "2026-06-14", bookingsOutsideDates: 0 });
   });
 
   it("400 when endDate is before startDate", async () => {

@@ -3,6 +3,7 @@ import { AI_DEADLINE_MS, withDeadline } from "@/packages/ai/model-policy";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 import type { UsageEntry } from "@/lib/ai/pricing";
 import { tripDurationDays } from "@/features/trip/domain/trip";
+import { tripCalendar, effectiveStops } from "@/lib/trip-stops";
 import { runBulkBuilder } from "./bulk-builder";
 import type { RetrievedEvidence } from "./retrieve";
 import type { TripContext } from "./trip-context";
@@ -39,6 +40,7 @@ Rules:
 - kind: one of food | sight | activity | nightlife | transit | event | rest.
 - Respect the traveller's pace and interests. Keep consecutive stops in the same area where you can.
 - Never put the same place on two different days. If KNOWN PLACES runs out before the trip length does, give the later days fewer stops (or drop them) rather than repeating an earlier day's place — and make the day's subtitle match the places actually listed under it. A day with fewer stops is fine; a missing day is not.
+- Label days with the TRIP's own day numbers from "Trip calendar" when it is given: a request for particular dates ("Jun 11 and 12"), a stretch of the trip or one city ("our Rome days") uses THOSE days' numbers (Day 7, Day 8), never Day 1, Day 2; only use places that belong to the city the calendar shows for those days. A whole-trip request starts at Day 1.
 - If they asked for ONE specific day, return only that day (labelled e.g. "Day 2"). Otherwise return exactly the number of days in "Days to plan" (labelled Day 1 … Day N, no day skipped or merged), or the whole trip length when none is given.
 - If Existing itinerary below is non-empty and the request only targets some days ("redo days 5-7", "swap out the last two days", "change day 3"), this is an EDIT: output every day of the existing plan, copying the days NOT mentioned exactly as they already are (same day number, same stop titles) and only replacing the ones asked for. Never shrink the trip to just the edited days.
 - If an ANCHOR EVENT is given below, it is already booked and non-negotiable — it MUST appear as a stop, exactly once, on the exact day named, with kind "event" and its given time (copy the title/venue/time verbatim). Build that day around it: keep the hours before an evening event light, and don't schedule anything else at a conflicting time. Never move, drop, or duplicate it, even if you'd otherwise have picked a different pace for that day.
@@ -94,8 +96,10 @@ export async function buildItineraryPlan(input: {
   const fresh = existing === "(nothing planned yet)";
   // What was asked beats what the trip says; an edit of some days has no target (the model copies the rest).
   const wanted = targetDays || (fresh ? Math.min(duration ?? 0, MAX_PLAN_DAYS) : 0);
+  const calendar = tripCalendar(input.tripCtx.trip?.start_date, input.tripCtx.trip?.end_date, effectiveStops(input.tripCtx.trip).stops);
+  const calendarBlock = calendar.length ? `\nTrip calendar (label days by these numbers):\n${calendar.join("\n")}\n` : "";
   const daysDirective = targetDays
-    ? `${targetDays} (exactly ${targetDays} days, Day 1 to Day ${targetDays})`
+    ? `${targetDays} (exactly ${targetDays} consecutive days; number them from the Trip calendar when the request names dates or a city, otherwise Day 1 to Day ${targetDays})`
     : wanted
       ? `${wanted}, the whole trip (unless the request names one specific day)`
       : "as the request says";
@@ -105,7 +109,7 @@ export async function buildItineraryPlan(input: {
 
   const parsed = await runBulkBuilder(
     SYSTEM(input.language),
-    `Traveller: ${input.tripSummary}\nTrip length: ${duration ? `${duration} days` : "unspecified"}\nDays to plan: ${daysDirective}\nPace: ${pace}\nRequest: ${input.prompt}\n\nExisting itinerary:\n${existing}\n\nKNOWN PLACES:\n${known.join("\n")}${anchorLine}`,
+    `Traveller: ${input.tripSummary}\nTrip length: ${duration ? `${duration} days` : "unspecified"}\nDays to plan: ${daysDirective}\n${calendarBlock}Pace: ${pace}\nRequest: ${input.prompt}\n\nExisting itinerary:\n${existing}\n\nKNOWN PLACES:\n${known.join("\n")}${anchorLine}`,
     planSchema,
     withDeadline(input.signal, AI_DEADLINE_MS.sideBuilder),
     input.onUsage,
@@ -173,10 +177,13 @@ export async function buildItineraryPlan(input: {
     // Asked for N days, got fewer (the model skipped one, or a day lost all its stops): keep the count honest with an
     // open day (no stops, flagged `open`, which the card explains) rather than hand back a shorter plan than the one requested. Fresh builds only, an edit keeps its days.
     if (targetDays && fresh && days.length) {
-      // ...and never more: a sixth day on a five-day ask is as wrong as a missing one.
-      for (let i = days.length - 1; i >= 0; i--) if ((Number(days[i].label.match(/\d+/)?.[0]) || i + 1) > targetDays) days.splice(i, 1);
+      // ...and never more: a sixth day on a five-day ask is as wrong as a missing one. The window starts where the
+      // plan starts: Day 1 for a whole-trip plan, a later trip day for "Jun 11 and 12" or "our Rome days".
+      const first = Math.min(...days.map((d, i) => Number(d.label.match(/\d+/)?.[0]) || i + 1)) || 1;
+      const last = first + targetDays - 1;
+      for (let i = days.length - 1; i >= 0; i--) if ((Number(days[i].label.match(/\d+/)?.[0]) || i + 1) > last) days.splice(i, 1);
       const have = new Set(days.map((d) => Number(d.label.match(/\d+/)?.[0]) || 0));
-      for (let n = 1; n <= targetDays; n++) {
+      for (let n = first; n <= last; n++) {
         if (!have.has(n)) days.push({ label: `Day ${n}`, subtitle: OPEN_DAY, stops: [], open: true });
       }
       days.sort((a, b) => (Number(a.label.match(/\d+/)?.[0]) || 0) - (Number(b.label.match(/\d+/)?.[0]) || 0));

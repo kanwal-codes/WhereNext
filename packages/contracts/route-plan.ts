@@ -46,6 +46,8 @@ export type RouteDay = {
   stops: Array<{ id: string; name: string; lat: number; lng: number; time?: string }>;
   legs: RouteLeg[];
   summary: { movingMinutes: number; transitRides: number; fare: { amount: number; currency: string } | null };
+  /** What is already booked for this day (hotels, flights, trains, tickets), from the Bookings page. */
+  booked?: Array<{ kind: string; title: string; detail: string | null }>;
 };
 
 export type RoutePlan = { days: RouteDay[]; unplaced: string[] };

@@ -39,9 +39,11 @@ const LONG_PRESS_MS = 450;
 const NEAR_BOTTOM_PX = 160;
 
 
-function displayName(userId: string | null, members: TripMember[], meId: string | undefined): string {
+/** Roam, You, a friend's name, or an empty string while the member list is still loading (never a flash of "Someone"). */
+function displayName(userId: string | null, members: TripMember[], meId: string | undefined, membersLoaded: boolean): string {
   if (!userId) return "Roam";
   if (userId === meId) return "You";
+  if (!membersLoaded) return "";
   return memberLabel(members.find((m) => m.userId === userId));
 }
 
@@ -923,7 +925,7 @@ export function GroupChatSurface({
             if (isNew) seenIdsRef.current.add(message.id);
             const mine = local ? true : message.userId !== null && message.userId === me?.userId;
             const isRoam = message.role === "assistant";
-            const name = displayName(message.userId, members, me?.userId);
+            const name = displayName(message.userId, members, me?.userId, membersLoaded);
             const expanded = expandedReactionFor === message.id;
 
             const divider = showDateDivider && (
@@ -1005,7 +1007,7 @@ export function GroupChatSurface({
                 onClick={() => scrollToMessage(replySource.id)}
                 className="mb-1.5 flex max-w-full min-w-0 items-start gap-2 rounded-lg border-l-2 border-foreground/25 bg-foreground/5 px-2.5 py-1.5 text-left text-2xs transition-colors hover:bg-foreground/10"
               >
-                <span className="shrink-0 font-medium text-foreground/80">{displayName(replySource.userId, members, me?.userId)}</span>
+                <span className="shrink-0 font-medium text-foreground/80">{displayName(replySource.userId, members, me?.userId, membersLoaded)}</span>
                 <span className="min-w-0 truncate text-muted-foreground">{replySource.content}</span>
               </button>
             );

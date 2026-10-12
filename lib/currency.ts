@@ -29,12 +29,16 @@ export function resolveCurrency(preferences: Record<string, unknown> | null | un
   return typeof c === "string" && /^[A-Za-z]{3}$/.test(c) ? c.toUpperCase() : DEFAULT_CURRENCY;
 }
 
-/** "$1,240" / "CA$1,240" style, falling back to "1240 CAD" if the runtime can't format the code. */
-export function formatMoney(amount: number, currency: string): string {
+/**
+ * "$1,240" / "CA$1,240" style, falling back to "1240 CAD" if the runtime can't format the code. Whole units by default (a price tag);
+ * `exact` keeps the cents when there are any ("€58.34"), for money that is owed and has to be paid back to the cent.
+ */
+export function formatMoney(amount: number, currency: string, opts: { exact?: boolean } = {}): string {
+  const digits = opts.exact && !Number.isInteger(amount) ? 2 : 0;
   try {
-    return new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
+    return new Intl.NumberFormat(undefined, { style: "currency", currency, minimumFractionDigits: digits, maximumFractionDigits: digits }).format(amount);
   } catch {
-    return `${Math.round(amount)} ${currency}`;
+    return `${digits ? amount.toFixed(2) : Math.round(amount)} ${currency}`;
   }
 }
 

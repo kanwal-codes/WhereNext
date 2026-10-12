@@ -6,6 +6,7 @@ import { ChapterHero } from "@/components/overview/ChapterHero";
 import { ConstraintsPanel, SavedPlacesList, UndecidedPanel } from "@/components/overview/KnowledgePanels";
 import { BudgetSurface } from "@/features/budget/ui/BudgetSurface";
 import type { Trip } from "@/features/trip/domain/trip";
+import { resolveCurrency } from "@/lib/currency";
 import { placePhotoName, tastePicture } from "@/lib/trip-overview";
 
 type SavedPlace = { places?: { id: string; name: string; category?: string | null; metadata?: unknown } };
@@ -25,7 +26,7 @@ export default function KnowledgePage() {
     trip?.duration_days ? null : "Trip length",
     prefs.budget === undefined ? "Daily budget" : null,
     str(prefs.pace) ? null : "Daily pace",
-    str(prefs.groupType) ? null : "Who's travelling",
+    str(prefs.groupType) ? null : "Kind of group",
     saved.length === 0 ? "Any saved places" : null,
   ].filter(Boolean) as string[];
   const constraintCount = taste.avoids.length + taste.dietary.length;
@@ -52,7 +53,7 @@ export default function KnowledgePage() {
               durationDays={trip?.duration_days}
               travelers={trip?.travelers}
               initialBudget={(data?.preferences as Record<string, unknown> | undefined)?.budget}
-              decisions={(data?.decisions ?? []) as Array<{ kind: string; value: unknown }>}
+              currency={resolveCurrency(prefs)}
             />
           </Reveal>
           <Reveal delay={0.06}>

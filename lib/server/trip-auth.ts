@@ -11,6 +11,10 @@ export class TripAuthError extends Error {
   }
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** A malformed id is just "not found": passed on, Postgres rejects it and the route answers with a server error. */
+export const isUuid = (value: string): boolean => UUID.test(value);
+
 export type TripMember = { supabase: SupabaseClient; user: User; role: string; guest: boolean };
 
 /**
@@ -28,6 +32,7 @@ export async function requireTripMember(
   const supabase = await createSupabaseServerClient();
   const user = await getSessionUser(supabase);
   if (!user) throw new TripAuthError(401, "Authentication required");
+  if (!isUuid(tripId)) throw new TripAuthError(404, "Trip not found");
   const guest = isGuest(user);
   if (guest && opts.registered) throw new TripAuthError(403, "Save your trip with an account to use this.");
   if (guest && !(await withinRateLimit(guestKey.api(user.id), GUEST_API_LIMIT, 60 * 60_000, { failClosed: true }))) {

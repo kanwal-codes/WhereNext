@@ -3,7 +3,8 @@ import { budgetLabel, categoryLabel, dayLabel, hasTaste, openQuestions, placePho
 
 describe("budgetLabel", () => {
   it("formats a number as a daily amount and passes free text through", () => {
-    expect(budgetLabel({ budget: 180 })).toBe("$180/day");
+    expect(budgetLabel({ budget: 180 })).toBe("CA$180/day each");
+    expect(budgetLabel({ budget: 180, currency: "eur" })).toBe("€180/day each");
     expect(budgetLabel({ budget: " mid-range " })).toBe("mid-range");
   });
   it("is null when there is no usable budget", () => {

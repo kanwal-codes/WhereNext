@@ -5,7 +5,7 @@ import { fail } from "@/lib/server/with-route";
 import { withinRateLimit } from "@/lib/server/rate-limit";
 import { generateStructured } from "@/packages/ai/model-policy";
 import { resolveCurrency } from "@/lib/currency";
-import { MAX_CONFIRMATION_CHARS, extractedReservationSchema, extractionPrompt, toDraft } from "@/lib/reservation-draft";
+import { MAX_CONFIRMATION_CHARS, extractedReservationSchema, extractionPrompt, toDraft, toReturnDraft } from "@/lib/reservation-draft";
 
 /**
  * Reads a pasted confirmation and returns a DRAFT reservation for the form. It saves nothing and
@@ -34,7 +34,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
       extractedReservationSchema,
       request.signal,
     );
-    return NextResponse.json({ draft: toDraft(extracted, resolveCurrency((prefs.data?.data ?? null) as Record<string, unknown> | null)) });
+    const draft = toDraft(extracted, resolveCurrency((prefs.data?.data ?? null) as Record<string, unknown> | null));
+    return NextResponse.json({ draft, returnDraft: toReturnDraft(extracted, draft) });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Couldn't read that confirmation. You can still fill it in by hand.");
   }

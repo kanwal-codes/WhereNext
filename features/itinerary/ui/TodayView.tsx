@@ -9,6 +9,11 @@ import { EmptyState } from "@/components/EmptyState";
 import { readTrip } from "@/lib/client/offline-store";
 import { tripDayIndex } from "@/lib/trip-dates";
 import { readStayDecision } from "@/packages/contracts/stay";
+import { TripWeather } from "@/components/TripWeather";
+import { KIND_META } from "@/components/overview/ReservationSheet";
+import { clockLabel, isTransit, reservationsByDay } from "@/lib/trip-reservations";
+import { effectiveStops, stopForDate } from "@/lib/trip-stops";
+import type { Reservation } from "@/packages/contracts/reservation";
 import type { TripWorkspaceData } from "@/features/workspace/application/loadTripWorkspace";
 
 type ItineraryRow = { id: string; title: string; day_index: number; position?: number };
@@ -43,6 +48,17 @@ export function TodayView({ tripId }: { tripId: string }) {
 
   const stay = useMemo(() => readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>), [data?.decisions]);
 
+  // What is booked for today: flights and trains with their times, check-ins, tickets (their files open from here).
+  const reservations = useMemo(() => (data?.reservations ?? []) as unknown as Reservation[], [data?.reservations]);
+  const bookedToday = useMemo(() => (dayIndex == null ? [] : (reservationsByDay(reservations, data?.trip.start_date).get(dayIndex) ?? [])), [reservations, dayIndex, data?.trip.start_date]);
+  // The stay you are in tonight: the one chosen in the app, else a booked stay whose nights include today.
+  const todayDate = dayIndex != null && data?.trip.start_date ? new Date(Date.parse(`${data.trip.start_date}T00:00:00Z`) + (dayIndex - 1) * 86_400_000).toISOString().slice(0, 10) : null;
+  const bookedStay = useMemo(
+    () => (todayDate ? reservations.find((r) => r.kind === "stay" && r.status !== "cancelled" && r.startsOn && r.startsOn <= todayDate && (r.endsOn ?? r.startsOn) > todayDate) ?? null : null),
+    [reservations, todayDate],
+  );
+  const city = useMemo(() => (data?.trip ? (stopForDate(effectiveStops(data.trip).stops, todayDate)?.city ?? null) : null), [data?.trip, todayDate]);
+
   if (!data) {
     return <p className="mx-auto max-w-lg px-5 py-16 text-center text-sm text-muted-foreground">Nothing saved for offline yet. Open this trip while online first.</p>;
   }
@@ -68,6 +84,55 @@ export function TodayView({ tripId }: { tripId: string }) {
           {dayIndex == null ? data.trip.name : dateLine ?? "Today"}
         </h1>
       </Reveal>
+
+      {city && (
+        <Reveal delay={0.1} y={8}>
+          <p className="mt-3 text-sm text-muted-foreground">Today in {city}</p>
+        </Reveal>
+      )}
+      {city && <TripWeather tripId={tripId} location={city} className="mt-1.5" />}
+
+      {bookedToday.length > 0 && (
+        <Reveal delay={0.12} y={10}>
+          <ul aria-label="Booked today" className="mt-6 space-y-2">
+            {bookedToday.map(({ reservation, note }) => {
+              const Icon = KIND_META[reservation.kind].icon;
+              const time = note === "Arrives" || note === "Check-out" ? reservation.endTime : reservation.startTime;
+              return (
+                <li key={`${reservation.id}-${note ?? "on"}`} className="flex items-center gap-3.5 rounded-2xl border border-leaf/30 bg-leaf/5 p-4">
+                  <Icon className="size-5 shrink-0 text-leaf" aria-hidden />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{reservation.title}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {[note, time ? clockLabel(time) : null, reservation.place && reservation.toPlace && (note === "Departs" || !note) && isTransit(reservation.kind) ? `${reservation.place} → ${reservation.toPlace}` : reservation.place].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
+                  {reservation.attachments[0] && (
+                    <a href={`/api/trips/${tripId}/reservations/${reservation.id}/files?path=${encodeURIComponent(reservation.attachments[0].path)}`} target="_blank" rel="noopener noreferrer" className="btn-chip shrink-0">
+                      Ticket
+                    </a>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </Reveal>
+      )}
+
+      {!stay && bookedStay && (
+        <Reveal delay={0.14} y={10}>
+          <div className="mt-6 flex items-center gap-3.5 rounded-2xl border border-border bg-card p-4 shadow-soft">
+            <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-positive-soft text-positive shadow-hairline">
+              <BedDouble className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="eyebrow text-positive">Where you&rsquo;re sleeping</p>
+              <p className="mt-0.5 truncate font-display text-lg leading-snug font-medium">{bookedStay.title}</p>
+              {bookedStay.place && <p className="truncate text-xs text-muted-foreground">{bookedStay.place}</p>}
+            </div>
+          </div>
+        </Reveal>
+      )}
 
       {stay && (
         <Reveal delay={0.14} y={10}>

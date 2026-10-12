@@ -22,7 +22,8 @@ function daysLeft(iso: string): string {
  *  the person open the section AND press a separate "create" button before there's anything to
  *  copy. Inviting a specific person by email is a secondary action below it. */
 export function InviteToGroup({ tripId }: { tripId: string }) {
-  const [genericInvite, setGenericInvite] = useState<{ url: string; expiresAt: string } | null>(null);
+  const [genericInvite, setGenericInvite] = useState<{ id?: string; url: string; expiresAt: string } | null>(null);
+  const [renewing, setRenewing] = useState(false);
   const [preparingLink, setPreparingLink] = useState(true);
   const [linkError, setLinkError] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -46,7 +47,7 @@ export function InviteToGroup({ tripId }: { tripId: string }) {
       refreshEmailInvites(invites);
       const existing = invites.find((i) => !i.email);
       if (existing) {
-        setGenericInvite({ url: `${location.origin}/join/${existing.token}`, expiresAt: existing.expiresAt });
+        setGenericInvite({ id: existing.id, url: `${location.origin}/join/${existing.token}`, expiresAt: existing.expiresAt });
         setPreparingLink(false);
         return;
       }
@@ -65,6 +66,29 @@ export function InviteToGroup({ tripId }: { tripId: string }) {
   useEffect(() => {
     void loadInvites();
   }, [loadInvites]);
+
+  /** Switch the old link off and make a fresh one: for when it went somewhere it should not have. */
+  async function renewLink() {
+    if (!genericInvite || renewing) return;
+    setRenewing(true);
+    try {
+      if (genericInvite.id) {
+        const off = await fetch(`/api/trips/${tripId}/invites/${genericInvite.id}`, { method: "DELETE" });
+        if (!off.ok && off.status !== 404) throw new Error();
+      }
+      const created = await fetch(`/api/trips/${tripId}/invites`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+      if (!created.ok) throw new Error();
+      const body = await created.json();
+      const list = await fetch(`/api/trips/${tripId}/invites`).then((r) => (r.ok ? r.json() : { invites: [] }));
+      const fresh = ((list.invites ?? []) as Invite[]).find((i) => !i.email && i.token === body.token);
+      setGenericInvite({ id: fresh?.id, url: body.url, expiresAt: body.expiresAt });
+      notifyToast("The old link no longer works. This is a new one.", "success");
+    } catch {
+      notifyToast("Couldn’t make a new link.", "error");
+    } finally {
+      setRenewing(false);
+    }
+  }
 
   async function copyLink() {
     if (!genericInvite) return;
@@ -141,7 +165,10 @@ export function InviteToGroup({ tripId }: { tripId: string }) {
             </button>
           </div>
           <p className="mt-1.5 text-2xs text-muted-foreground">
-            Anyone with this link can join the trip, until {new Date(genericInvite.expiresAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}.
+            Anyone with this link can join the trip, until {new Date(genericInvite.expiresAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}.{" "}
+            <button type="button" onClick={() => void renewLink()} disabled={renewing} className="underline underline-offset-2 hover:text-foreground disabled:opacity-50">
+              {renewing ? "Making a new one…" : "Switch it off and make a new link"}
+            </button>
           </p>
         </>
       )}
