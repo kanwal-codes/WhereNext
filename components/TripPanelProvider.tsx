@@ -47,7 +47,7 @@ export type PanelState =
   | { kind: "flight"; flight: FlightOffer; route: FlightRoute }
   | { kind: "day"; block: ItineraryBlock; dayIndex: number }
   | { kind: "budget"; block: BudgetBlock }
-  | { kind: "route"; routes: RouteBlock[]; active: number }
+  | { kind: "route"; routes: RouteBlock[]; active: number; onAsk?: (prompt: string) => void }
   | { kind: "area"; optionKind: "area" | "daytrip"; items: OptionItem[]; active: number; estimated?: boolean; onAsk?: (prompt: string) => void }
   | { kind: "map"; title: string; points: MapPoint[]; path?: Array<[number, number]>; mode?: string; connect?: boolean }
   | { kind: "compare" }; // the multi-kind selection bucket → CompareGrid + scratch chat

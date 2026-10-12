@@ -1224,7 +1224,7 @@ function RouteRibbon({ route }: { route: RouteSummaryBlockData }) {
 
 const clockOf = (iso?: string) => (iso ? new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null);
 
-function RouteSummaryCard({ route, onOpenPanel }: { route: RouteSummaryBlockData } & Pick<BlockHandlers, "onOpenPanel">) {
+function RouteSummaryCard({ route, onOpenPanel, onFollowup }: { route: RouteSummaryBlockData } & Pick<BlockHandlers, "onOpenPanel" | "onFollowup">) {
   const distance = useDistance();
   const ends = splitRouteEnds(route.from, route.to);
   const minutes = Math.max(1, Math.round(route.durationSeconds / 60));
@@ -1280,7 +1280,7 @@ function RouteSummaryCard({ route, onOpenPanel }: { route: RouteSummaryBlockData
         </div>
       )}
       foot={nearby ? undefined : leaves && arrives ? <>Leaves {leaves}, arrives {arrives}</> : "Times are estimates and can change with traffic and service"}
-      action={onOpenPanel && !nearby ? <WidgetAction onClick={() => onOpenPanel({ kind: "route", routes: [route], active: 0 })}>{route.path ? "Map" : "Steps"}</WidgetAction> : undefined}
+      action={onOpenPanel && !nearby ? <WidgetAction onClick={() => onOpenPanel({ kind: "route", routes: [route], active: 0, onAsk: onFollowup })}>{route.path ? "Map" : "Steps"}</WidgetAction> : undefined}
     >
       {steps.length > 0 && !nearby && (
         <WidgetRows>
@@ -1305,7 +1305,7 @@ function RouteSummaryCard({ route, onOpenPanel }: { route: RouteSummaryBlockData
 }
 
 /** 2+ modes between the same two places: a real map of every way, then one tab per mode with its routes listed under it. */
-function RouteComparisonCard({ from, to, routes, onOpenPanel }: { from: string; to: string; routes: RouteSummaryBlockData[] } & Pick<BlockHandlers, "onOpenPanel">) {
+function RouteComparisonCard({ from, to, routes, onOpenPanel, onFollowup }: { from: string; to: string; routes: RouteSummaryBlockData[] } & Pick<BlockHandlers, "onOpenPanel" | "onFollowup">) {
   const distance = useDistance();
   const sorted = [...routes].sort((a, b) => a.durationSeconds - b.durationSeconds);
   const fastest = sorted[0];
@@ -1340,7 +1340,7 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel }: { from: string; 
       title={<RouteEnds from={ends.from} to={ends.to} />}
       status={compared ? <WidgetPill tone="lagoon" icon={Check}>{ROUTE_MODE_LABEL[fastest.mode] ?? fastest.mode} is fastest</WidgetPill> : undefined}
       foot={onOpenPanel ? "Tap a way to open it on the map" : "Times are estimates"}
-      action={onOpenPanel ? <WidgetAction onClick={() => onOpenPanel({ kind: "route", routes: sorted, active: sorted.indexOf(chosen) })}>{chosen.path ? "Map" : "Steps"}</WidgetAction> : undefined}
+      action={onOpenPanel ? <WidgetAction onClick={() => onOpenPanel({ kind: "route", routes: sorted, active: sorted.indexOf(chosen), onAsk: onFollowup })}>{chosen.path ? "Map" : "Steps"}</WidgetAction> : undefined}
       hero={mapRequest && (
         <div className="relative mx-4 mt-3.5 aspect-[640/260] overflow-hidden rounded-[1.125rem] bg-lagoon-soft @[34rem]:mx-[1.125rem]">
           <RouteMap request={mapRequest} label={`The ${ROUTE_MODE_LABEL[chosen.mode] ?? chosen.mode} route from ${from} to ${to}`} fallback={<RouteSketch route={chosen} />} />
@@ -1849,9 +1849,9 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
           return (
             <div key={index}>
               {block.routes.length === 1 ? (
-                <RouteSummaryCard route={block.routes[0]} onOpenPanel={onOpenPanel} />
+                <RouteSummaryCard route={block.routes[0]} onOpenPanel={onOpenPanel} onFollowup={onFollowup} />
               ) : (
-                <RouteComparisonCard from={block.from} to={block.to} routes={block.routes} onOpenPanel={onOpenPanel} />
+                <RouteComparisonCard from={block.from} to={block.to} routes={block.routes} onOpenPanel={onOpenPanel} onFollowup={onFollowup} />
               )}
             </div>
           );

@@ -3,8 +3,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useDistance } from "@/lib/use-distance";
 import { AnimatePresence, animate as animateValue, motion, useDragControls, useMotionValue, useReducedMotion } from "motion/react";
-import { ArrowUpRight, Car, PersonStanding, TrainFront } from "lucide-react";
-import type { RouteBlock } from "@/components/TripPanelProvider";
+import { ArrowRight, ArrowUpRight, Car, PersonStanding, TrainFront } from "lucide-react";
+import { useTripPanelMaybe, type RouteBlock } from "@/components/TripPanelProvider";
 import { pointsFromRoute } from "@/features/conversation/ui/blocks/mapPoints";
 import { PlanStops, type PlanStop } from "@/features/conversation/ui/blocks/PlanStops";
 import { parseRouteStep, routeLines, splitRouteEnds } from "@/features/conversation/ui/blocks/routeText";
@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/Skeleton";
 import { ContentSwap, motionTokens } from "@/components/motion-primitives";
 import { BigFigure, PanelHeader } from "./PanelHeader";
 import { SlidingTabs } from "@/features/conversation/ui/blocks/SlidingTabs";
-import { Badge, Notice, money, surface, type } from "@/features/conversation/ui/blocks/ui";
+import { Badge, Notice, controlSecondary, money, surface, type } from "@/features/conversation/ui/blocks/ui";
 import { cn } from "@/lib/utils";
 import { LazyTripMap } from "./LazyTripMap";
 import { legsOfRoute, metricsOf, minutes, overlayOfRoutes, tagsOf } from "./routeMap";
@@ -175,7 +175,12 @@ function PhoneRouteSheet({ map, children }: { map: (inset: { bottom: number }) =
 
 
 /** Every way Roam found between two places, organised by how you travel (drive, transit, walk); under transit, its alternatives; then the chosen one with its steps, its line on a map, and a live-times link. */
-export function RouteDetail({ tripId, routes, active: initial }: { tripId: string; routes: RouteBlock[]; active: number }) {
+export function RouteDetail({ tripId, routes, active: initial, onAsk }: { tripId: string; routes: RouteBlock[]; active: number; onAsk?: (prompt: string) => void }) {
+  const ctx = useTripPanelMaybe();
+  const ask = (prompt: string) => {
+    onAsk?.(prompt);
+    ctx?.closePanel();
+  };
   const groups = MODE_ORDER.map((mode) => ({ mode, options: routes.filter((r) => r.mode === mode).sort((a, b) => a.durationSeconds - b.durationSeconds) })).filter((g) => g.options.length > 0);
   const start = routes[Math.min(initial, routes.length - 1)];
   const [mode, setMode] = useState<keyof typeof MODE>((groups.find((g) => g.mode === start.mode) ?? groups[0]).mode);
@@ -268,6 +273,22 @@ export function RouteDetail({ tripId, routes, active: initial }: { tripId: strin
         {route.mode === "transit" ? "See live departures in Google Maps" : "Open in Google Maps"} <ArrowUpRight className="size-4" aria-hidden />
       </a>
       {route.mode === "transit" && <Notice>These are typical journeys. Departures and delays change, so check them live before you leave.</Notice>}
+
+      {onAsk && (
+        <section aria-label="Ask Roam" className="space-y-2.5">
+          <h3 className={type.meta}>Ask Roam</h3>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {([
+              ["A cheaper way there", `Is there a cheaper way to get from ${ends.from} to ${ends.to}?`],
+              ["How to get back", `How do I get back from ${ends.to} to ${ends.from}?`],
+            ] as const).map(([label, prompt]) => (
+              <button key={label} type="button" onClick={() => ask(prompt)} className={cn(controlSecondary, "h-11 justify-between px-4")}>
+                {label} <ArrowRight className="size-4" aria-hidden />
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 
