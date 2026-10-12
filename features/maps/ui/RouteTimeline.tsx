@@ -81,6 +81,20 @@ function AltChip({ tripId, dayIndex, leg, alt, onChosen }: { tripId: string; day
   );
 }
 
+/** What is already booked for the day, above the stops it sits between. */
+function BookedList({ booked, className }: { booked: NonNullable<RouteDay["booked"]>; className?: string }) {
+  return (
+    <ul aria-label="Booked" className={cn("space-y-1.5", className)}>
+      {booked.map((b, i) => (
+        <li key={`${b.title}-${i}`} className="flex flex-wrap items-baseline justify-between gap-x-3 rounded-2xl border border-leaf/30 bg-leaf/5 px-3.5 py-2 text-sm">
+          <span className="min-w-0 truncate font-medium">{b.title}</span>
+          {b.detail && <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{b.detail}</span>}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date }: { day: RouteDay; tripId: string; onHoverLeg?: (index: number | null) => void; onLegChosen?: () => void; date?: string | null }) {
   const distance = useDistance();
   const [open, setOpen] = useState<number | null>(null);
@@ -91,7 +105,20 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date }: { 
   };
 
   if (day.stops.length < 2) {
-    return <p className="text-sm text-muted-foreground">Add at least two stops to this day to see how to get between them.</p>;
+    return (
+      <div>
+        {day.booked?.length ? (
+          <>
+            <h2 className="font-display text-[1.75rem] font-medium leading-none tracking-[-0.03em]">
+              Day {day.day}
+              {date && <span className="ml-2.5 align-[2px] text-base font-normal tracking-[-0.01em] text-muted-foreground">{date}</span>}
+            </h2>
+            <BookedList booked={day.booked} className="mt-4" />
+          </>
+        ) : null}
+        <p className={cn("text-sm text-muted-foreground", day.booked?.length && "mt-4")}>Add at least two stops to this day to see how to get between them.</p>
+      </div>
+    );
   }
 
   const s = day.summary;
@@ -102,6 +129,7 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date }: { 
         Day {day.day}
         {date && <span className="ml-2.5 align-[2px] text-base font-normal tracking-[-0.01em] text-muted-foreground">{date}</span>}
       </h2>
+      {day.booked?.length ? <BookedList booked={day.booked} className="mt-4" /> : null}
       <FactStrip
         className="mt-4"
         facts={[

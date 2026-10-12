@@ -3,7 +3,7 @@ import { mergePreferences } from "@/packages/contracts/preferences";
 import { createConversationRepository } from "@/features/conversation/infrastructure/conversationRepository";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-const COLUMNS = "id,name,destination,origin,duration_days,start_date,end_date,travelers,preferences,hero_photo_name";
+const COLUMNS = "id,name,destination,origin,duration_days,start_date,end_date,travelers,preferences,hero_photo_name,stops";
 
 function automaticTripName(input: CreateTripInput): string {
   if (input.name !== "Untitled trip") return input.name;

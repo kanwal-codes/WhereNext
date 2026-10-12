@@ -14,7 +14,7 @@ describe("buildTripSummary", () => {
   it("collects the saved facts", () => {
     const s = buildTripSummary(ctx())!;
     expect(s.title).toBe("Your trip to Montreal, Canada");
-    expect(s.facts).toEqual([{ label: "Dates", value: "2026-11-26 to 2026-12-10", note: "15 days" }, { label: "Travellers", value: "3" }, { label: "Budget", value: "80 CAD a day" }]);
+    expect(s.facts).toEqual([{ label: "Dates", value: "2026-11-26 to 2026-12-10", note: "15 days" }, { label: "Travellers", value: "3" }, { label: "Budget", value: "80 CAD per person a day" }]);
     expect(s.rows).toContainEqual({ label: "Plan", value: "3 stops over 2 days" });
     expect(s.rows).toContainEqual({ label: "Staying at", value: "Not chosen yet" });
     expect(s.rows).toContainEqual({ label: "Dietary", value: "vegetarian" });
@@ -28,6 +28,11 @@ describe("buildTripSummary", () => {
     const rows = buildTripSummary(ctx({ preferences: { groupType: "Solo" } }))!.rows;
     expect(rows.find((r) => r.label === "Group")).toBeUndefined();
     expect(buildTripSummary(ctx({ preferences: { groupType: "Friends" } }))!.rows).toContainEqual({ label: "Group", value: "Friends" });
+  });
+  it("names the booked kinds in proper plurals", () => {
+    const r = (kind: string) => ({ kind, title: kind, startsOn: null, endsOn: null, startTime: null, endTime: null, place: null, toPlace: null, amount: null, currency: null, amountBasis: "total" as const, cancelled: false });
+    const booked = buildTripSummary(ctx({ reservations: [r("activity"), r("activity"), r("dining"), r("flight"), r("stay"), r("stay")] }))!.rows.find((x) => x.label === "Booked")!;
+    expect(booked.value).toBe("6 bookings (2 activities, 1 table, 1 flight, 2 stays)");
   });
   it("returns nothing for an empty trip", () => {
     expect(buildTripSummary(ctx({ trip: null }))).toBeNull();

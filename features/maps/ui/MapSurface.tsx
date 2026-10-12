@@ -469,7 +469,7 @@ export function MapSurface({ tripId, tab, onTab, start }: { tripId: string; tab:
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.45, ease: EASE }}
               >
-                {planDays.length > 0 && planDays.some((d) => d.legs.length > 0) ? (
+                {planDays.length > 0 && planDays.some((d) => d.legs.length > 0 || (d.booked?.length ?? 0) > 0) ? (
                   <div className="space-y-10">
                     {planDays.map((d) => (
                       <RouteTimeline key={d.day} day={d} tripId={tripId} onHoverLeg={setHoverLeg} onLegChosen={() => setPlanVersion((v) => v + 1)} date={dayDate(data?.trip?.start_date, d.day)} />

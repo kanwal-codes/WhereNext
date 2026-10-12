@@ -201,7 +201,16 @@ describe("buildItineraryPlan: the number of days asked for", () => {
     stubModel({ days: [day(1, "a")] });
     await buildItineraryPlan({ prompt: "Rome", tripSummary: "", evidence: evidence(pool), tripCtx: { places: [], itinerary: [], preferences: {}, trip: { duration_days: 8 } } as never, requestedDays: 5 });
     const user = JSON.stringify(generateObjectMock.mock.calls.at(-1)?.[0].messages);
-    expect(user).toContain("Days to plan: 5 (exactly 5 days");
+    expect(user).toContain("Days to plan: 5 (exactly 5 consecutive days");
+  });
+
+  it("numbers a mid-trip plan from where it starts and gives the model the trip calendar", async () => {
+    stubModel({ days: [day(7, "a"), day(8, "b")] });
+    const trip = { start_date: "2027-06-05", end_date: "2027-06-24", destination: "New York, Rome", duration_days: 20 };
+    const block = await buildItineraryPlan({ prompt: "plan Jun 11, 12 and 13 in Rome", tripSummary: "", evidence: evidence(pool), tripCtx: { places: [], itinerary: [], preferences: {}, trip } as never, requestedDays: 3 });
+    expect(labels(block)).toEqual(["Day 7", "Day 8", "Day 9"]);
+    const user = JSON.stringify(generateObjectMock.mock.calls.at(-1)?.[0].messages);
+    expect(user).toContain("Day 7 = 2027-06-11 (Fri)");
   });
 
   it("keeps a missing day as an open day instead of returning a shorter plan", async () => {

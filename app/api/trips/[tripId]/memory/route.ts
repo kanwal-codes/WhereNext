@@ -21,7 +21,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ tripId: st
 export async function PUT(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
-    const { supabase } = await requireTripMember(tripId, { role: "owner" });
+    const { supabase } = await requireTripMember(tripId, { role: "editor" });
     const memory = preferenceUpdateSchema.parse(await request.json());
     const result = await updateTripPreferences(supabase, tripId, (previous) => mergePreferences(previous, memory));
     invalidateWorkspace(tripId);

@@ -37,6 +37,9 @@ function fakeSupabase() {
       if (table === "trip_expenses") {
         return { select: () => ({ eq: () => ({ order: () => ({ data: [], error: null }) }) }) };
       }
+      if (table === "trip_members") {
+        return { select: () => ({ eq: async () => ({ data: [{ user_id: VIEWER }, { user_id: OTHER }], error: null }) }) };
+      }
       if (table === "trips") {
         return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { splitwise_group_id: "999" }, error: null }) }) }) };
       }
@@ -88,3 +91,76 @@ describe("GET /api/trips/[tripId]/expenses — balance name resolution", () => {
     expect(body.balances?.[0]).toMatchObject({ fromName: "Someone", toName: "You" });
   });
 });
+
+describe("expenses kept in this app (no Splitwise)", () => {
+  const rows: Array<Record<string, unknown>> = [];
+  function localSupabase() {
+    return {
+      from(table: string) {
+        if (table === "trip_members") return { select: () => ({ eq: async () => ({ data: [{ user_id: VIEWER }, { user_id: OTHER }], error: null }) }) };
+        if (table === "trip_expenses") {
+          return {
+            insert: (row: Record<string, unknown>) => ({ select: () => ({ single: async () => { rows.push(row); return { data: { id: "e1", created_at: "t", splitwise_expense_id: null, ...row }, error: null }; } }) }),
+            select: () => ({ eq: () => ({ order: () => ({ data: rows.map((r, i) => ({ id: `e${i}`, created_at: "t", splitwise_expense_id: null, ...r })), error: null }) }) }),
+          };
+        }
+        if (table === "trips") return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { splitwise_group_id: null }, error: null }) }) }) };
+        throw new Error(`unexpected table ${table}`);
+      },
+      rpc: rpcMock,
+    };
+  }
+  const post = async (body: unknown) => {
+    const mod = await import("@/app/api/trips/[tripId]/expenses/route");
+    return mod.POST(new Request("http://localhost/x", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }), { params: Promise.resolve({ tripId: TRIP }) });
+  };
+  beforeEach(() => {
+    rows.length = 0;
+    requireTripMemberMock.mockResolvedValue({ supabase: localSupabase(), user: { id: VIEWER } });
+    liveSplitwiseAccessTokenMock.mockResolvedValue(null);
+  });
+
+  it("logs an expense without a Splitwise account, paid by the logger and shared with everyone", async () => {
+    const res = await post({ description: "Pizza", amount: 60, currency: "EUR" });
+    expect(res.status).toBe(201);
+    expect(rows[0]).toMatchObject({ paid_by: VIEWER, amount: 60, currency: "EUR", split: {} });
+    expect((await res.json()).expense).toMatchObject({ source: "local", splitAmong: null });
+  });
+  it("records who it is split with, and refuses people who are not on the trip", async () => {
+    expect((await post({ description: "Taxi", amount: 30, currency: "EUR", splitAmong: [VIEWER, OTHER] })).status).toBe(201);
+    expect(rows[0]!.split).toEqual({ among: [VIEWER, OTHER] });
+    expect((await post({ description: "Taxi", amount: 30, currency: "EUR", splitAmong: ["44444444-4444-4444-8444-444444444444"] })).status).toBe(400);
+    expect((await post({ description: "Taxi", amount: 30, currency: "EUR", paidBy: "44444444-4444-4444-8444-444444444444" })).status).toBe(400);
+  });
+  it("a retry with the same idempotency key returns the expense that already exists instead of failing", async () => {
+    const existing = { id: "e-old", description: "Pizza", amount: 60, currency: "EUR", paid_by: VIEWER, created_by: VIEWER, created_at: "t", split: {}, splitwise_expense_id: null };
+    requireTripMemberMock.mockResolvedValue({
+      supabase: {
+        from(table: string) {
+          if (table === "trip_members") return { select: () => ({ eq: async () => ({ data: [{ user_id: VIEWER }], error: null }) }) };
+          return {
+            insert: () => ({ select: () => ({ single: async () => ({ data: null, error: { code: "23505", message: "duplicate key" } }) }) }),
+            select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: existing, error: null }), single: async () => ({ data: existing, error: null }) }) }) }),
+          };
+        },
+        rpc: rpcMock,
+      },
+      user: { id: VIEWER },
+    });
+    const res = await post({ description: "Pizza", amount: 60, currency: "EUR", idempotencyKey: "k1" });
+    expect(res.status).toBeLessThan(300);
+    expect((await res.json()).expense.id).toBe("e-old");
+  });
+  it("still asks for a connection when Splitwise is requested explicitly", async () => {
+    expect((await post({ description: "Dinner", amount: 80, currency: "EUR", splitwise: true })).status).toBe(409);
+  });
+  it("returns who owes whom for the local expenses", async () => {
+    await post({ description: "Dinner", amount: 80, currency: "EUR", paidBy: OTHER });
+    tripMemberIdentitiesMock.mockResolvedValue(new Map([[OTHER, { email: "sam@example.com", name: "Sam" }]]));
+    const mod = await import("@/app/api/trips/[tripId]/expenses/route");
+    const body = await (await mod.GET(new Request("http://localhost/x"), { params: Promise.resolve({ tripId: TRIP }) })).json();
+    expect(body.localBalances).toEqual([{ fromUserId: VIEWER, toUserId: OTHER, amount: 40, currency: "EUR", fromName: "You", toName: "Sam" }]);
+    expect(body.totals).toEqual([{ currency: "EUR", total: 80 }]);
+  });
+});
+

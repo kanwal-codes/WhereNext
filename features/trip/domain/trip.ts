@@ -44,6 +44,8 @@ export type Trip = {
   preferences?: Record<string, unknown> | null;
   /** Google Places photo name for the Overview hero image, resolved once and kept — see photoProxyUrl. */
   hero_photo_name?: string | null;
+  /** The cities of a multi-city trip in order, with their dates (see lib/trip-stops.ts); null until the group sets them. */
+  stops?: unknown;
 };
 
 /**

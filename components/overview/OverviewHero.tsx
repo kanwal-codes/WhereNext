@@ -32,8 +32,11 @@ export function OverviewHero({
   statusText,
   facts,
   rename,
+  kicker,
 }: {
   trip: TripSummary;
+  /** Replaces the destination line above the title (a five-city trip says "5 cities", not two of them). */
+  kicker?: string;
   destination: string;
   statusText: string | null;
   facts: HeroFact[];
@@ -86,7 +89,7 @@ export function OverviewHero({
                   <MapPin className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">
                     {/* "London, England, United Kingdom" is a provider string; the place a traveller names is "London, United Kingdom". */}
-                    {(() => { const { city, country } = coverText({ name: destination, destination }); return country && country !== city ? `${city}, ${country}` : city; })()}
+                    {kicker ?? (() => { const { city, country } = coverText({ name: destination, destination }); return country && country !== city ? `${city}, ${country}` : city; })()}
                   </span>
                 </p>
               </Reveal>

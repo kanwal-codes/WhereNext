@@ -1,5 +1,6 @@
 "use client";
 
+import { BookingNotices } from "@/components/overview/BookingNotices";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Plus, UtensilsCrossed } from "lucide-react";
@@ -98,7 +99,8 @@ export default function BookingsPage() {
     if (removal?.type === "decision") return removeDecision(removal.kind, item.title);
     return false;
   };
-  const confirmed = timeline.filter((i) => i.status === "confirmed").length;
+  // Confirmed: a provider order that went through, or a hand-entered booking that has its own booking reference.
+  const confirmed = timeline.filter((i) => i.status === "confirmed" || (i.reservation && i.reservation.status !== "cancelled" && Boolean(i.code))).length;
   const done = essentialsDone(data?.essentials);
   const loading = bookings === null || reservations === null;
 
@@ -115,7 +117,7 @@ export default function BookingsPage() {
         description="Every stay, ticket and reservation in one place, and the practical checklist."
         stats={[
           { label: "Reserved", value: String(timeline.length), desc: timeline.length === 1 ? "thing on the trip" : "things on the trip" },
-          { label: "Confirmed", value: String(confirmed), desc: "with a provider" },
+          { label: "Confirmed", value: String(confirmed), desc: "with a booking reference" },
           { label: "Checklist", value: `${done}/${ESSENTIALS_TOTAL}`, desc: "sorted" },
         ]}
       />
@@ -123,6 +125,11 @@ export default function BookingsPage() {
       <div className="mx-auto max-w-6xl space-y-12 px-5 pt-6 sm:space-y-16 sm:px-8 sm:pt-8">
         <section>
           <SectionHeading title="Your bookings" count={timeline.length} />
+          {!loading && (
+            <div className="mt-6 empty:hidden">
+              <BookingNotices tripId={tripId} reservations={reservations ?? []} startDate={data?.trip?.start_date} endDate={data?.trip?.end_date} />
+            </div>
+          )}
           <div className="mt-6">
             {loading ? (
               <div className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft">

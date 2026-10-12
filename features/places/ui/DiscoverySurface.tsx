@@ -10,6 +10,9 @@ import { Compass, X } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
 import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { useTripData } from "@/components/TripDataProvider";
+import { CityChips } from "@/components/CityChips";
+import { useTripCity } from "@/lib/client/use-trip-city";
+import { stayWindow } from "@/lib/trip-stops";
 import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
 import { AiSearchBar } from "@/components/AiSearchBar";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
@@ -99,7 +102,9 @@ export function DiscoverySurface({
 }) {
   const { data } = useTripData();
   const panelCtx = useTripPanelMaybe();
-  const destination = data?.trip.destination?.trim() ?? "";
+  // A multi-city trip shows one city at a time (the one the group is in, or the one picked); a one-city trip is just its destination.
+  const cities = useTripCity(data?.trip);
+  const destination = cities.hasChoice ? cities.city : (data?.trip.destination?.trim() ?? "");
   const prefs = (data?.preferences ?? {}) as Record<string, unknown>;
   const interestsKey = [...asList(prefs.interests), ...asList(prefs.likes)].join(",").toLowerCase();
   const interests = useMemo(
@@ -180,10 +185,16 @@ export function DiscoverySurface({
   );
   const fetchStays = useCallback(async (signal?: AbortSignal): Promise<StayItem[]> => {
     if (!destination) return [];
-    const r = await cachedGet(`/api/trips/${tripId}/stays`, { signal });
+    const window = cities.hasChoice && cities.stop ? stayWindow(cities.stop) : null;
+    const qs = new URLSearchParams(cities.hasChoice ? { location: destination } : {});
+    if (window) {
+      qs.set("checkin", window.checkin);
+      qs.set("checkout", window.checkout);
+    }
+    const r = await cachedGet(`/api/trips/${tripId}/stays${qs.size ? `?${qs}` : ""}`, { signal });
     const body = await r.json().catch(() => ({}));
     return r.ok ? ((body.options ?? []) as Array<Record<string, unknown>>).map(toStayItem).filter((s) => s.hotelId) : [];
-  }, [tripId, destination]);
+  }, [tripId, destination, cities.hasChoice, cities.stop]);
 
   // Personalised ordering for every place list — same ranker the assistant's
   // RETRIEVE uses, so Discover and chat stay coherent.
@@ -247,7 +258,7 @@ export function DiscoverySurface({
     const [forYou, sights, eat, tours, ev, st] = await Promise.allSettled([
       fetchPlaces(interests.length ? interests.join(", ") : "highly rated things to do", controller.signal),
       fetchPlaces("top sights and landmarks", controller.signal),
-      fetchPlaces("well-reviewed restaurants and cafes", controller.signal),
+      fetchPlaces("restaurants and cafes", controller.signal),
       fetchPlaces("guided tours", controller.signal),
       fetchEvents("", 0, controller.signal),
       fetchStays(controller.signal),
@@ -294,7 +305,7 @@ export function DiscoverySurface({
       setMessage("");
       try {
         const subQ = (label: string) => cat.subs.find((s) => s.label === label)?.q ?? label;
-        const cacheKey = `${tripId}:${cat.key}:${cat.kind === "stay" ? "" : [...chosen].sort().join("|")}`;
+        const cacheKey = `${tripId}:${destination}:${cat.key}:${cat.kind === "stay" ? "" : [...chosen].sort().join("|")}`;
         const cachedRaw = categoryRawCache.get(cacheKey);
         let next: Item[] = [];
         if (cat.kind === "place") {
@@ -338,7 +349,7 @@ export function DiscoverySurface({
         setMessage(`Nothing came back for ${cat.label.toLowerCase()}${chosen.length ? " with those filters" : ""}.`);
       }
     },
-    [tripId, fetchPlaces, fetchEvents, fetchStays, rankToItems],
+    [tripId, destination, fetchPlaces, fetchEvents, fetchStays, rankToItems],
   );
 
   const runSearch = useCallback(
@@ -484,6 +495,7 @@ export function DiscoverySurface({
 
   return (
     <div className="@container flex min-h-[calc(100dvh-13rem)] flex-col">
+      {view === "results" && <CityChips stops={cities.stops} current={cities.city} onPick={cities.setCity} estimated={cities.estimated} className="mt-3 -mb-1" />}
       {/* Tier 1 — Compare + broad categories (Discover/Saved lives in the page header now). One row, scrolls sideways. */}
       {view === "results" && (!searchMode || panelCtx || searchLabel) && (
         <div className="mt-4 flex items-center gap-2 overflow-x-auto overscroll-x-contain scrollbar-slim px-1 py-1">

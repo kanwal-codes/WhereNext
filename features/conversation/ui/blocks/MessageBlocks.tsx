@@ -920,8 +920,9 @@ function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPan
     if (guest) return openGate("add a plan to your itinerary");
     if (status !== "idle") return;
     setStatus("adding");
-    let failures = 0;
-    for (const [i, d] of block.days.entries()) failures += await addStopsToItinerary(tripId, dayIndexFromLabel(d.label, i + 1), d.stops);
+    // Days go in together (a day's own stops stay in order), so a long plan lands in seconds instead of one stop at a time.
+    const results = await Promise.all(block.days.map((d, i) => addStopsToItinerary(tripId, dayIndexFromLabel(d.label, i + 1), d.stops)));
+    const failures = results.reduce((total, n) => total + n, 0);
     if (failures === totalStops) {
       setStatus("idle");
       notifyToast("Couldn’t add the plan to your itinerary. Try again.", "error");

@@ -1,5 +1,6 @@
 "use client";
 
+import { noticeBookingsOutside } from "@/lib/application/bookings-outside-notice";
 import { useEffect, useRef, useState } from "react";
 import { Trash2, Plus } from "lucide-react";
 import { Skeleton } from "@/components/Skeleton";
@@ -113,6 +114,7 @@ export function AvailabilityPanel({ tripId }: { tripId: string }) {
       if (!response.ok) throw new Error("lock failed");
       announceWorkspaceChange("trip");
       notifyToast("Trip dates locked.", "success");
+      noticeBookingsOutside(await response.json().catch(() => null));
     } catch {
       notifyToast("Couldn’t lock these dates.", "error");
     } finally {

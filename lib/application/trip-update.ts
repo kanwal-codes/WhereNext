@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { tripDurationDays, type Trip } from "@/features/trip/domain/trip";
+import { parseStops, shiftStops } from "@/lib/trip-stops";
 
 /** `buildTripRowUpdate` only reads name/start_date/end_date — callers needn't supply a full `Trip` row (with an `id`). */
 type CurrentTrip = Partial<Trip>;
@@ -80,6 +81,9 @@ export function buildTripRowUpdate(current: CurrentTrip | null | undefined, trip
     update.start_date = start;
     update.end_date = end;
     update.duration_days = tripDurationDays(start, end);
+    // Saved cities move with the trip (same lengths), as they do when the dates are edited by hand.
+    const moved = shiftStops(parseStops(current?.stops), current?.start_date ?? null, start, current?.end_date ?? null, end);
+    if (moved) update.stops = moved;
   } else if (tripUpdate.durationDays !== undefined) {
     update.duration_days = tripUpdate.durationDays;
   }

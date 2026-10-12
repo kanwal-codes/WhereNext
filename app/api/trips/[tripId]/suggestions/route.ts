@@ -72,6 +72,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ tr
       }
       if (key === "interests") {
         await updateTripPreferences(supabase, tripId, (previous) => mergePreferences(previous, { interests: splitList(suggestion.display) }));
+      } else if (key === "dietary") {
+        await updateTripPreferences(supabase, tripId, (previous) => mergePreferences(previous, { dietaryNeeds: splitList(suggestion.display) }));
       } else if (prefField) {
         const raw = suggestion.display;
         const value = key === "budget" && raw && !Number.isNaN(Number(raw)) ? Number(raw) : raw;

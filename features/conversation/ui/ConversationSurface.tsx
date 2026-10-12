@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, us
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowDown, ChevronRight, Copy, Info } from "lucide-react";
 import { MicButton, SendButton } from "@/components/ComposerButtons";
-import { Reveal, Sheet, Stagger, StaggerItem, ease, motionTokens } from "@/components/motion-primitives";
+import { Reveal, Stagger, StaggerItem, ease, motionTokens } from "@/components/motion-primitives";
 import type { AssistantBlock, AssistantTurnMeta, PlaceCard, ProposedCommand, StayCardItem } from "@/packages/contracts/assistant";
 import type { EventSeed } from "@/components/TripPanelProvider";
 import type { Message } from "../domain/message";
@@ -759,7 +759,7 @@ export function ConversationSurface({
   const proposalRows = proposal ? describeProposal(proposal) : [];
   const proposalText =
     proposal?.type === "update_preferences" && typeof proposal.preferences.budget === "number" && Object.keys(proposal.preferences).length === 1
-      ? `Set the daily budget assumption to $${proposal.preferences.budget}?`
+      ? `Set the daily budget to ${proposal.preferences.budget} per person?`
       : proposal?.type === "update_preferences"
         ? `Save ${proposalRows.length === 1 ? "this preference" : "these preferences"}: ${proposalRows.map(([k]) => k.toLowerCase()).join(", ")}?`
         : proposal?.type === "record_decision"
@@ -769,6 +769,14 @@ export function ConversationSurface({
             : proposal?.type === "save_place"
               ? `Save “${proposal.place.name}” to the trip?`
               : "Apply this proposed trip change?";
+
+  // A message Roam never answered: the connection dropped before the reply was saved (tab closed, phone locked).
+  // Re-sending under the same key is safe: the server upserts the user's message, so it is not duplicated.
+  const lastMessage = messages[messages.length - 1];
+  const unanswered =
+    loaded && !sending && !queued && lastMessage?.role === "user" && !String(lastMessage.id).startsWith("local-") && typeof lastMessage.idempotency_key === "string" && lastMessage.idempotency_key.startsWith("user:") && Date.now() - new Date(lastMessage.created_at).getTime() > 45_000
+      ? lastMessage
+      : null;
 
   const pendingBubble = pendingFirst !== null && !messages.some((m) => m.role === "user");
   const showHero = loaded && messages.length === 0 && !rail && !pendingBubble;
@@ -957,6 +965,15 @@ export function ConversationSurface({
               </p>
             </div>
           )}
+          {unanswered && (
+            <p role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+              Roam didn&rsquo;t get to answer this one.
+              <button type="button" onClick={() => void submit(unanswered.content, (unanswered.idempotency_key as string).slice("user:".length))} className="link-underline font-medium text-foreground">
+                Try again
+              </button>
+            </p>
+          )}
+
           <div role="status" aria-live="polite">
             {/* Roam's mark while it works (thinking → searching → planning). It hands over to the
                 text itself as soon as the first words arrive — nothing trails the reply. */}
@@ -969,6 +986,42 @@ export function ConversationSurface({
             </AnimatePresence>
           </div>
 
+          {proposal && (
+            <div role="region" aria-label="Confirm change" className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+
+            <p className="text-sm leading-relaxed">{proposalText}</p>
+            {proposalRows.length > 0 && (
+              <details className="group mt-3">
+                <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
+                  <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
+                  See exactly what will be saved
+                </summary>
+                <dl className="mt-1.5 space-y-1 rounded-xl border border-border/60 bg-background/70 px-3 py-2 text-xs leading-relaxed">
+                  {proposalRows.map(([key, value]) => (
+                    <div key={key} className="flex gap-2">
+                      <dt className="w-24 shrink-0 font-medium text-muted-foreground">{key}</dt>
+                      <dd className="min-w-0 break-words">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </details>
+            )}
+            <div className="mt-4 flex items-center gap-2">
+              <button type="button" onClick={() => void confirmProposal()} disabled={confirming} className="btn-primary-sm">
+                {confirming ? "Saving…" : "Confirm"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setProposal(null)}
+                disabled={confirming}
+                className={controlSecondary}
+              >
+                Cancel
+              </button>
+            </div>
+            </div>
+          )}
+
           {guest && !guestGate && !saveOpen && userTurns >= 2 && (
             <p className="text-center text-xs text-muted-foreground">
               {turnsLeft} free {turnsLeft === 1 ? "message" : "messages"} left ·{" "}
@@ -980,41 +1033,6 @@ export function ConversationSurface({
           {(guestGate || saveOpen) && <GuestSavePrompt tripId={tripId} exhausted={guestGate} />}
         </div>
       </div>
-
-      <Sheet open={Boolean(proposal)} onClose={() => (confirming ? undefined : setProposal(null))} ariaLabel="Confirm change" side="center">
-        <div className="p-6">
-          <p className="text-sm leading-relaxed">{proposalText}</p>
-          {proposalRows.length > 0 && (
-            <details className="group mt-3">
-              <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
-                <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
-                See exactly what will be saved
-              </summary>
-              <dl className="mt-1.5 space-y-1 rounded-xl border border-border/60 bg-background/70 px-3 py-2 text-xs leading-relaxed">
-                {proposalRows.map(([key, value]) => (
-                  <div key={key} className="flex gap-2">
-                    <dt className="w-24 shrink-0 font-medium text-muted-foreground">{key}</dt>
-                    <dd className="min-w-0 break-words">{value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </details>
-          )}
-          <div className="mt-4 flex items-center gap-2">
-            <button type="button" onClick={() => void confirmProposal()} disabled={confirming} className="btn-primary-sm">
-              {confirming ? "Saving…" : "Confirm"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setProposal(null)}
-              disabled={confirming}
-              className={controlSecondary}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </Sheet>
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-background from-55% to-transparent px-3 pt-8 pb-3">
         <div className={cn("pointer-events-auto relative mx-auto w-full min-w-0", rail ? RAIL_MEASURE : "max-w-2xl")}>

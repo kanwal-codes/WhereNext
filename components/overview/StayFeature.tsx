@@ -9,11 +9,34 @@ import { InviteCard } from "@/components/overview/InviteCard";
 import { TripArt, hashString } from "@/components/trips/TripArt";
 import { fmtDay } from "@/lib/trip-dates";
 import type { StayDecision } from "@/packages/contracts/stay";
+import type { TimelineItem } from "@/lib/trip-reservations";
 import { cn } from "@/lib/utils";
 
 /** Where the group is sleeping: a wide photographic card when a stay is locked, an invitation when it is not. */
-export function StayFeature({ tripId, stay, compact = false }: { tripId: string; stay: StayDecision | null; compact?: boolean }) {
+export function StayFeature({ tripId, stay, compact = false, booked = [] }: { tripId: string; stay: StayDecision | null; compact?: boolean; booked?: TimelineItem[] }) {
   const [imageFailed, setImageFailed] = useState(false);
+
+  // Stays typed into Bookings count: a trip with its hotels booked is not "where will you sleep?".
+  const liveBooked = booked.filter((item) => item.status !== "cancelled" && item.status !== "failed");
+  if (!stay && liveBooked.length > 0) {
+    return (
+      <section aria-label="Where you are staying" className="rounded-3xl border border-border/70 bg-card p-6 shadow-soft sm:p-8">
+        <p className="eyebrow">Where you&rsquo;re staying</p>
+        <ul className="mt-4 divide-y divide-border">
+          {liveBooked.map((item) => (
+            <li key={item.id} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3">
+              <span className="min-w-0 font-display text-xl tracking-tight">{item.title}</span>
+              <span suppressHydrationWarning className="text-sm text-muted-foreground tabular-nums">
+                {item.date ? fmtDay(item.date) : "dates not set"}
+                {item.endDate ? ` to ${fmtDay(item.endDate)}` : ""}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <Link href={`/trips/${tripId}/stay`} className="mt-4 inline-block text-sm font-medium underline underline-offset-4">Find another stay</Link>
+      </section>
+    );
+  }
 
   if (!stay) {
     return (

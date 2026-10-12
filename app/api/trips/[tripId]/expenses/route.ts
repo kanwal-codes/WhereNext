@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
-import { createExpenseInput, type TripExpense, type SplitwiseBalance } from "@/packages/contracts/expense";
+import { createExpenseInput, type TripExpense, type SplitwiseBalance, type LocalBalance, type ExpenseMember } from "@/packages/contracts/expense";
+import { localDebts, totalsByCurrency } from "@/lib/expense-split";
 import { liveSplitwiseAccessToken } from "@/lib/server/splitwise-account";
 import { createGroup, createExpense as createSplitwiseExpense, getGroupBalances } from "@/packages/providers/splitwise/client";
 import { tripMemberIdentities } from "@/lib/server/trip-member-identities";
@@ -11,12 +13,33 @@ import { withinRateLimit } from "@/lib/server/rate-limit";
 import { logger } from "@/lib/server/logger";
 import { roundMoney } from "@/lib/currency";
 
-const SELECT = "id,description,amount,currency,paid_by,created_by,created_at";
+const SELECT = "id,description,amount,currency,paid_by,created_by,created_at,split,splitwise_expense_id";
 
-type ExpenseRow = { id: string; description: string; amount: number | string; currency: string; paid_by: string | null; created_by: string | null; created_at: string };
+type ExpenseRow = { id: string; description: string; amount: number | string; currency: string; paid_by: string | null; created_by: string | null; created_at: string; split?: unknown; splitwise_expense_id?: string | null };
+
+const amongOf = (split: unknown): string[] | null => {
+  const among = (split as { among?: unknown } | null)?.among;
+  return Array.isArray(among) && among.every((id) => typeof id === "string") && among.length > 0 ? (among as string[]) : null;
+};
 
 function toTripExpense(row: ExpenseRow): TripExpense {
-  return { id: row.id, description: row.description, amount: Number(row.amount), currency: row.currency, paidBy: row.paid_by, createdBy: row.created_by, createdAt: row.created_at };
+  return {
+    id: row.id, description: row.description, amount: Number(row.amount), currency: row.currency, paidBy: row.paid_by, createdBy: row.created_by, createdAt: row.created_at,
+    splitAmong: amongOf(row.split), source: row.splitwise_expense_id ? "splitwise" : "local",
+  };
+}
+
+/**
+ * Insert an expense. A retry with the same idempotency key finds the row that already exists and returns it: the unique
+ * index behind the key is partial (only rows that have a key), which an upsert cannot target, so a duplicate is caught
+ * here instead.
+ */
+async function insertExpense(supabase: SupabaseClient, tripId: string, row: Record<string, unknown>) {
+  const inserted = await supabase.from("trip_expenses").insert(row).select(SELECT).single();
+  if (inserted.error?.code === "23505" && typeof row.idempotency_key === "string") {
+    return supabase.from("trip_expenses").select(SELECT).eq("trip_id", tripId).eq("idempotency_key", row.idempotency_key).single();
+  }
+  return inserted;
 }
 
 /** Expenses logged on the trip, backed by Splitwise. Needs the viewer's own connected
@@ -63,14 +86,29 @@ export async function GET(_: Request, { params }: { params: Promise<{ tripId: st
       }
     }
 
-    return NextResponse.json({ expenses: (expensesRes.data ?? []).map(toTripExpense), connected: Boolean(accessToken), groupId, balances });
+    // Expenses kept in this app are split and settled here, whoever has (or has not) connected Splitwise.
+    const [memberRows, identities] = await Promise.all([
+      supabase.from("trip_members").select("user_id").eq("trip_id", tripId),
+      tripMemberIdentities(tripId),
+    ]);
+    if (memberRows.error) throw memberRows.error;
+    const memberIds = (memberRows.data ?? []).map((m) => m.user_id as string);
+    const members: ExpenseMember[] = memberIds.map((id) => ({ id, name: id === user.id ? "You" : (identities.get(id)?.name ?? "Someone"), isYou: id === user.id }));
+    const nameOf = new Map(members.map((m) => [m.id, m.name]));
+    const expenses = (expensesRes.data ?? []).map(toTripExpense);
+    const localBalances: LocalBalance[] = localDebts(
+      expenses.filter((e) => e.source === "local").map((e) => ({ amount: e.amount, currency: e.currency, paidBy: e.paidBy, among: e.splitAmong })),
+      memberIds,
+    ).map((d) => ({ ...d, fromName: nameOf.get(d.fromUserId) ?? "Someone", toName: nameOf.get(d.toUserId) ?? "Someone" }));
+    return NextResponse.json({ expenses, connected: Boolean(accessToken), groupId, balances, members, localBalances, totals: totalsByCurrency(expenses) });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Expenses are unavailable right now");
   }
 }
 
-/** Log an expense — split equally among every trip member who has connected Splitwise.
- *  Editor role: same as every other trip-mutating action, not owner-restricted. */
+/** Log an expense. Kept in this app and split equally (among everyone, or the people named) unless it is also
+ *  sent to Splitwise (a connected account, the default for someone who has one). Editor role, like every other
+ *  trip-mutating action. */
 export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
@@ -86,7 +124,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     const amount = roundMoney(input.amount);
 
     const accessToken = await liveSplitwiseAccessToken(supabase, user.id);
-    if (!accessToken) return NextResponse.json({ error: "Connect your Splitwise account before logging an expense." }, { status: 409 });
+    const onSplitwise = input.splitwise ?? Boolean(accessToken);
+    if (onSplitwise && !accessToken) return NextResponse.json({ error: "Connect your Splitwise account to add this to Splitwise too." }, { status: 409 });
+
+    // Kept in this app: nobody needs a Splitwise account. Who paid and who shares it are checked against the trip's own members.
+    if (!onSplitwise) {
+      const memberRows = await supabase.from("trip_members").select("user_id").eq("trip_id", tripId);
+      if (memberRows.error) throw memberRows.error;
+      const memberIds = new Set((memberRows.data ?? []).map((m) => m.user_id as string));
+      const paidBy = input.paidBy ?? user.id;
+      if (!memberIds.has(paidBy)) return NextResponse.json({ error: "Whoever paid has to be on the trip." }, { status: 400 });
+      const among = input.splitAmong ? [...new Set(input.splitAmong)] : null;
+      if (among && among.some((id) => !memberIds.has(id))) return NextResponse.json({ error: "Everyone it is split with has to be on the trip." }, { status: 400 });
+      const row = { trip_id: tripId, created_by: user.id, paid_by: paidBy, description: input.description, amount, currency, split: among ? { among } : {} };
+      const saved = await insertExpense(supabase, tripId, { ...row, ...(input.idempotencyKey ? { idempotency_key: input.idempotencyKey } : {}) });
+      if (saved.error) throw saved.error;
+      invalidateWorkspace(tripId);
+      return NextResponse.json({ expense: toTripExpense(saved.data) }, { status: 201 });
+    }
+
+    if (!accessToken) return NextResponse.json({ error: "Connect your Splitwise account to add this to Splitwise too." }, { status: 409 });
 
     // Idempotency check before anything provider-side — a retry (double-click, dropped
     // response) must never log a real expense with Splitwise twice.
@@ -131,20 +188,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
 
     let result;
     try {
-      result = input.idempotencyKey
-        ? await supabase
-            .from("trip_expenses")
-            .upsert(
-              { trip_id: tripId, splitwise_expense_id: String(swExpense.id), created_by: user.id, paid_by: user.id, description: input.description, amount, currency, idempotency_key: input.idempotencyKey },
-              { onConflict: "trip_id,idempotency_key" },
-            )
-            .select(SELECT)
-            .single()
-        : await supabase
-            .from("trip_expenses")
-            .insert({ trip_id: tripId, splitwise_expense_id: String(swExpense.id), created_by: user.id, paid_by: user.id, description: input.description, amount, currency })
-            .select(SELECT)
-            .single();
+      result = await insertExpense(supabase, tripId, {
+        trip_id: tripId, splitwise_expense_id: String(swExpense.id), created_by: user.id, paid_by: user.id, description: input.description, amount, currency,
+        ...(input.idempotencyKey ? { idempotency_key: input.idempotencyKey } : {}),
+      });
       if (result.error) throw result.error;
     } catch (writeError) {
       logger.error({ err: writeError, tripId, splitwiseExpenseId: swExpense.id }, "expense logged with splitwise but failed to persist locally — needs manual reconciliation");

@@ -8,7 +8,7 @@ import { useTripData } from "@/components/TripDataProvider";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { Reveal } from "@/components/motion-primitives";
 import { RoamMark } from "@/features/roam/ui/RoamMark";
-import { TripWeather } from "@/components/TripWeather";
+import { TripRouteWeather } from "@/components/TripWeather";
 import { BriefPanels } from "@/components/overview/BriefPanels";
 import { ActionBar } from "@/components/overview/ActionBar";
 import { OverviewHero, type HeroFact } from "@/components/overview/OverviewHero";
@@ -24,6 +24,9 @@ import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
 import { isDisplayableDecision } from "@/lib/decisions-ui";
 import { daysUntilTrip, tripDayIndex, tripWhen } from "@/lib/trip-dates";
+import { RoutePanel } from "@/components/overview/RoutePanel";
+import { useTripStays } from "@/features/stays/application/useTripStays";
+import { effectiveStops } from "@/lib/trip-stops";
 import { budgetLabel, openQuestions, placePhotoName, planDays, tastePicture } from "@/lib/trip-overview";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { cn } from "@/lib/utils";
@@ -49,9 +52,11 @@ export default function TripOverviewPage() {
   // The stay card already shows the stay and review bookkeeping is internal, so the list is everything else.
   const displayableDecisions = decisions.filter((d) => isDisplayableDecision(d.kind));
   const conversation = (data?.conversation ?? []) as Array<{ role: string; content: string }>;
-  const notes = conversation.filter((m) => m.role === "assistant").slice(-3).reverse().map((m) => m.content.slice(0, 220));
+  const notes = conversation.filter((m) => m.role === "assistant").slice(-3).reverse().map((m) => m.content.replace(/[*_#`>]+/g, "").replace(/\s+/g, " ").trim().slice(0, 220));
 
   const destination = trip?.destination ?? "your destination";
+  const route = effectiveStops(trip);
+  const staysBooked = useTripStays(tripId);
   const durationDays = trip ? (tripDurationDays(trip.start_date, trip.end_date) ?? trip.duration_days) : null;
 
   // Where we are relative to the trip. Null (silent) without a start date to anchor it.
@@ -131,6 +136,7 @@ export default function TripOverviewPage() {
         <OverviewHero
           trip={cover}
           destination={destination}
+          kicker={route.stops.length > 1 ? `${route.stops.length} cities` : undefined}
           statusText={statusText}
           facts={facts}
           rename={{ editing: editingName, draft: nameDraft, saving: savingName, start: startEditingName, setDraft: setNameDraft, save: () => void saveName(), cancel: () => setEditingName(false) }}
@@ -146,8 +152,14 @@ export default function TripOverviewPage() {
           <TripReviewPanel tripId={tripId} />
         </Reveal>
 
+        {route.stops.length > 1 && trip && (
+          <Reveal>
+            <RoutePanel tripId={tripId} trip={trip} stays={staysBooked.items.filter((i) => i.status !== "cancelled" && i.status !== "failed").map((i) => ({ startsOn: i.date, endsOn: i.endDate }))} />
+          </Reveal>
+        )}
+
         <Reveal>
-          <StayFeature tripId={tripId} stay={stay} />
+          <StayFeature tripId={tripId} stay={stay} booked={staysBooked.items} />
         </Reveal>
 
         <section>
@@ -166,7 +178,7 @@ export default function TripOverviewPage() {
           questions={openQuestions({ durationDays, preferences: prefs, savedCount: places.length })}
           decisions={displayableDecisions}
           notes={notes}
-          weather={trip?.destination ? <TripWeather tripId={tripId} location={trip.destination} card /> : null}
+          weather={trip?.destination ? <TripRouteWeather tripId={tripId} trip={trip} /> : null}
           share={<ShareTrip tripId={tripId} />}
         />
       </div>

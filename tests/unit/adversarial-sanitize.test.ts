@@ -207,4 +207,8 @@ describe("createReasoningGate — streaming leak attempts", () => {
   it("still blanks a figure nobody supplied", () => {
     expect(sanitizeAssistantContent("Dorms cost CA$400.", new Set(), "{}", "any dorms under 80?")).toContain("an amount I can't verify here");
   });
+  it("leaves an exchange rate whole instead of matching the tail of it", () => {
+    const out = sanitizeAssistantContent("1 USD = 1.4226 CAD today.", new Set(), "{}", "convert 1 USD");
+    expect(out).toBe("1 USD = 1.4226 CAD today.");
+  });
 });

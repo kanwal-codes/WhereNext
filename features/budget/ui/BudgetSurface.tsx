@@ -5,53 +5,42 @@ import { Check } from "lucide-react";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
 import { cachedGet } from "@/lib/client/cached-get";
-import { formatMoney } from "@/lib/currency";
-import { readStayDecision } from "@/packages/contracts/stay";
-import type { Reservation } from "@/packages/contracts/reservation";
+import { DEFAULT_CURRENCY, formatMoney } from "@/lib/currency";
 
-/**
- * What's already reserved with a real price on it (stays, hand-entered reservations), grouped by
- * currency. Deliberately separate from the daily-spend estimate above, which is a planning
- * assumption for food/activities/transit and explicitly excludes lodging — summing a booked stay
- * into that number would misrepresent what it was ever meant to track. Flights aren't included:
- * the trip's flight choice stores its fare as a display string ("642 CAD"), not a number to sum.
- */
-export function committedByCurrency(reservations: Reservation[], decisions: ReadonlyArray<{ kind: string; value: unknown }>): Array<[string, number]> {
-  const totals = new Map<string, number>();
-  const add = (amount: number | null, currency: string | null) => {
-    if (amount == null || !currency) return;
-    totals.set(currency, (totals.get(currency) ?? 0) + amount);
-  };
-  for (const r of reservations) add(r.amount, r.currency);
-  const stay = readStayDecision(decisions);
-  if (stay) add(stay.totalAmount, stay.currency);
-  return [...totals.entries()];
-}
+type Committed = {
+  currency: string;
+  lines: Array<{ currency: string; total: number; count: number }>;
+  convertedTotal: number;
+  perPerson: number | null;
+  unconverted: Array<{ currency: string; total: number }>;
+};
 
 export function BudgetSurface({
   tripId,
   durationDays,
   travelers,
   initialBudget,
-  decisions = [],
+  currency = DEFAULT_CURRENCY,
 }: {
   tripId: string;
   durationDays?: number | null;
   travelers?: number | null;
   /** Seeded from the layout's workspace snapshot; the surface only fetches when it's absent. */
   initialBudget?: unknown;
-  /** Trip decisions, read for the locked stay's price — same shape every other surface reads them in. */
-  decisions?: ReadonlyArray<{ kind: string; value: unknown }>;
+  /** The trip's own currency: what every figure here is shown in. */
+  currency?: string;
 }) {
-  const [reservations, setReservations] = useState<Reservation[]>([]);
+  // What is already booked, added up server-side (converted into the trip's currency at the day's rate).
+  const [committed, setCommitted] = useState<Committed | null | "loading">("loading");
   useEffect(() => {
-    cachedGet(`/api/trips/${tripId}/reservations`, { ttlMs: 0 })
-      .then((r) => (r.ok ? r.json() : { reservations: [] }))
-      .then((body) => setReservations(body.reservations ?? []))
-      .catch(() => undefined);
-  }, [tripId]);
-  const committed = committedByCurrency(reservations, decisions);
+    cachedGet(`/api/trips/${tripId}/budget`, { ttlMs: 0 })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => setCommitted(body as Committed | null))
+      .catch(() => setCommitted(null));
+  }, [tripId, initialBudget]);
   const seeded = typeof initialBudget === "number";
+  // Until a budget is set the control starts at a sensible middle, but nothing says it is set.
+  const [touched, setTouched] = useState(seeded);
   const [daily, setDaily] = useState(seeded ? (initialBudget as number) : 100);
   const [saved, setSaved] = useState(false);
   const days = durationDays || null;
@@ -62,7 +51,10 @@ export function BudgetSurface({
     fetch(`/api/trips/${tripId}/memory`)
       .then((r) => r.json())
       .then((body) => {
-        if (typeof body.memory?.budget === "number") setDaily(body.memory.budget);
+        if (typeof body.memory?.budget === "number") {
+          setDaily(body.memory.budget);
+          setTouched(true);
+        }
       })
       .catch(() => undefined);
   }, [tripId, seeded]);
@@ -71,7 +63,10 @@ export function BudgetSurface({
   // -> a re-rendered server parent) — useState's initializer only runs once, so without this the
   // budget shown would keep whatever was true at first mount.
   useEffect(() => {
-    if (typeof initialBudget === "number") setDaily(initialBudget);
+    if (typeof initialBudget === "number") {
+      setDaily(initialBudget);
+      setTouched(true);
+    }
   }, [initialBudget]);
 
   // The range input fires onChange on every drag step (dozens of events per gesture) — persist
@@ -87,11 +82,11 @@ export function BudgetSurface({
       setSaved(true);
       announceWorkspaceChange("preferences");
     } else {
-      // The server correctly 400s an out-of-range value the client let through — without this
-      // the input stays showing that rejected number until a full reload, looking saved when
-      // it never was.
+      // The server rejected it (an out-of-range value, or someone who can only view the trip): put the
+      // old number back and say why, rather than leave a rejected number looking saved.
+      const body = await r.json().catch(() => ({}));
       setDaily(previous);
-      notifyToast("That didn't save. Try again.", "error");
+      notifyToast(r.status === 403 ? "Only people who can edit this trip can change its budget." : typeof body.error === "string" ? body.error : "That didn't save. Try again.", "error");
     }
   }
 
@@ -103,16 +98,21 @@ export function BudgetSurface({
     const clamped = Math.max(MIN_DAILY, Math.round(value));
     const previous = daily;
     setDaily(clamped);
+    setTouched(true);
     setSaved(false);
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => void persist(clamped, previous), 400);
   }
 
-  const rows: Array<[string, string]> = [
-    ["Per person, per day", `$${daily}`],
-    ["Per person, whole trip", days ? `$${daily * days}` : "Set the trip length"],
-    ["Whole group", days && people ? `$${daily * days * people}` : people ? "Set the trip length" : "Set travellers"],
-  ];
+  const money = (amount: number) => formatMoney(amount, currency);
+  const rows: Array<[string, string]> = touched
+    ? [
+        ["Per person, per day", money(daily)],
+        ["Per person, whole trip", days ? money(daily * days) : "Set the trip length"],
+        ["Whole group", days && people ? money(daily * days * people) : people ? "Set the trip length" : "Set travellers"],
+      ]
+    : [["Per person, per day", "Not set yet. Drag the slider to set it."]];
+  const wholeTrip = touched && days ? daily * days : null;
 
   return (
     <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-soft">
@@ -157,19 +157,50 @@ export function BudgetSurface({
         ))}
       </dl>
 
-      {committed.length > 0 && (
-        <div className="mt-4 border-t border-border pt-4">
-          <p className="text-xs text-muted-foreground">Booked so far — stays and reservations with a price, separate from the daily assumption above. Flights aren’t counted here.</p>
-          <dl className="mt-2 space-y-1 text-sm">
-            {committed.map(([currency, total]) => (
-              <div key={currency} className="flex items-center justify-between gap-3">
-                <dt className="text-muted-foreground">{currency}</dt>
-                <dd className="font-medium tabular-nums">{formatMoney(total, currency)}</dd>
+      <div className="mt-4 border-t border-border pt-4">
+        <p className="text-xs text-muted-foreground">Booked so far: every booking with a price, entered by hand or chosen here, flights included. Cancelled ones are left out. Shown in {currency} at today&rsquo;s rates.</p>
+        {committed === "loading" ? (
+          <p className="mt-2 text-sm text-muted-foreground" aria-live="polite">Adding up what you&rsquo;ve booked…</p>
+        ) : !committed || committed.lines.length === 0 ? (
+          <p className="mt-2 text-sm text-muted-foreground">Nothing with a price yet. Add bookings on the Bookings page.</p>
+        ) : (
+          <>
+            <dl className="mt-2 space-y-1 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-muted-foreground">Everyone</dt>
+                <dd className="font-medium tabular-nums">{money(committed.convertedTotal)}</dd>
               </div>
-            ))}
-          </dl>
-        </div>
-      )}
+              {committed.perPerson != null && (
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-muted-foreground">Per person</dt>
+                  <dd className="font-medium tabular-nums">{money(committed.perPerson)}</dd>
+                </div>
+              )}
+              {committed.perPerson != null && wholeTrip ? (
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-muted-foreground">Against the whole-trip budget</dt>
+                  <dd className="font-medium tabular-nums">{Math.round((committed.perPerson / wholeTrip) * 100)}%</dd>
+                </div>
+              ) : null}
+            </dl>
+            {committed.perPerson != null && wholeTrip ? <p className="mt-1.5 text-xs text-muted-foreground">Count that against the budget only if it is meant to cover flights and stays too.</p> : null}
+            <details className="mt-2 text-xs text-muted-foreground">
+              <summary className="cursor-pointer select-none">By currency</summary>
+              <dl className="mt-1.5 space-y-1">
+                {committed.lines.map((line) => (
+                  <div key={line.currency} className="flex items-center justify-between gap-3">
+                    <dt>{line.currency} · {line.count} {line.count === 1 ? "booking" : "bookings"}</dt>
+                    <dd className="tabular-nums">{formatMoney(line.total, line.currency)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </details>
+            {committed.unconverted.length > 0 && (
+              <p className="mt-1.5 text-xs text-muted-foreground">No rate for {committed.unconverted.map((u) => `${formatMoney(u.total, u.currency)}`).join(", ")}, so {committed.unconverted.length === 1 ? "it isn’t" : "they aren’t"} in the total above.</p>
+            )}
+          </>
+        )}
+      </div>
     </section>
   );
 }

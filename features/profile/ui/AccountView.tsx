@@ -952,7 +952,7 @@ export function AccountView({
                 <Trash2 className="h-4 w-4 text-destructive" />
                 <div className="mr-auto">
                   <p className="text-sm font-medium text-destructive">Delete account</p>
-                  <p className="text-sm text-ink-soft">Removes your trips and shared links. This can’t be undone.</p>
+                  <p className="text-sm text-ink-soft">Your account and your own details go. Trips you share with friends stay with them and pass to the next member; trips only you are on are deleted. This can’t be undone.</p>
                 </div>
                 <button type="button" onClick={() => setDeleteOpen(true)} className="btn-destructive">Delete</button>
               </div>
@@ -965,7 +965,7 @@ export function AccountView({
         <div className="space-y-4 p-6">
           <div>
             <h3 className="font-display text-xl">Delete your account?</h3>
-            <p className="mt-1 text-sm text-ink-soft">Your trips, itinerary and shared links will be removed. Type DELETE to confirm.</p>
+            <p className="mt-1 text-sm text-ink-soft">Trips you share with friends stay with them (the next member takes over). Trips only you are on, with their itinerary and shared links, are removed. Type DELETE to confirm.</p>
           </div>
           <input value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} placeholder="DELETE" className="input-field" />
           <div className="flex justify-end gap-2 pt-2">
@@ -977,7 +977,7 @@ export function AccountView({
               className="inline-flex items-center gap-2 rounded-full bg-destructive px-4 py-2 text-sm text-destructive-foreground disabled:opacity-50"
             >
               {deleting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              Delete everything
+              Delete my account
             </button>
           </div>
         </div>

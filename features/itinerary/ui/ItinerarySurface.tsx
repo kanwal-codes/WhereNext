@@ -1,7 +1,9 @@
 "use client";
 
 import { HotelPhoto } from "@/components/HotelPhoto";
-import { TripWeather } from "@/components/TripWeather";
+import { TripRouteWeather } from "@/components/TripWeather";
+import { BookingNotices } from "@/components/overview/BookingNotices";
+import { effectiveStops, stopForDate } from "@/lib/trip-stops";
 import { stopGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -16,7 +18,7 @@ import { notifyToast } from "@/lib/application/toast";
 import { cn } from "@/lib/utils";
 import { fmtDay } from "@/lib/trip-dates";
 import { KIND_META } from "@/components/overview/ReservationSheet";
-import { clockLabel, findScheduleConflicts, reservationsByDay } from "@/lib/trip-reservations";
+import { clockLabel, findScheduleConflicts, isTransit, reservationsByDay } from "@/lib/trip-reservations";
 import type { Reservation } from "@/packages/contracts/reservation";
 
 /** The calendar date for day N (1-based) given the trip's start date, or null when there's no start date. */
@@ -37,6 +39,7 @@ export function ItinerarySurface({
   startDate = null,
   lockedStay = null,
   destination = null,
+  trip = null,
   plannedDays = 0,
 }: {
   tripId: string;
@@ -44,6 +47,8 @@ export function ItinerarySurface({
   startDate?: string | null;
   lockedStay?: StayDecision | null;
   destination?: string | null;
+  /** The trip's own record: its saved cities place each day, and drive the per-city weather. */
+  trip?: { destination?: string | null; start_date?: string | null; end_date?: string | null; stops?: unknown } | null;
   /** The trip's planned length: every one of its days is listed (and can be added to) even while it is still empty. */
   plannedDays?: number;
 }) {
@@ -85,6 +90,21 @@ export function ItinerarySurface({
   /** Most itinerary items already carry a provider_id (added from a real place search) and open
    * the panel directly; a few are typed straight into chat with no known place behind them yet
    * — those get looked up by name on click instead of staying a dead label forever. */
+  /** The calendar date of a trip day (YYYY-MM-DD), or null when the trip has no start date. */
+  const isoForDay = (d: number): string | null => (startDate ? new Date(Date.parse(`${startDate}T00:00:00Z`) + (d - 1) * 86_400_000).toISOString().slice(0, 10) : null);
+  /** The city a day is spent in, on a multi-city trip. */
+  const cityOfDay = (d: number): string | null => {
+    if (!trip) return null;
+    const { stops } = effectiveStops(trip);
+    if (stops.length < 2) return null;
+    const iso = isoForDay(d);
+    const here = stopForDate(stops, iso);
+    const previous = here ? stops[stops.indexOf(here) - 1] : undefined;
+    // The day a new city starts, with a flight or train leaving on it, is the move between the two, not a day spent in the new one.
+    if (here && previous && here.startDate === iso && (bookedByDay.get(d) ?? []).some((b) => isTransit(b.reservation.kind) && b.note !== "Arrives")) return `${previous.city} → ${here.city}`;
+    return here?.city ?? null;
+  };
+
   async function openPlace(item: ItineraryItem, providerId: string | null) {
     if (providerId) {
       openPanel({ kind: "place", placeId: providerId, name: item.title });
@@ -93,7 +113,9 @@ export function ItinerarySurface({
     if (resolvingTitle) return;
     setResolvingTitle(item.title);
     try {
-      const query = destination ? `${item.title}, ${destination}` : item.title;
+      // A stop is looked up in the city of the day it sits on, not in the whole list of cities.
+      const where = (trip ? stopForDate(effectiveStops(trip).stops, isoForDay(item.day_index))?.city : null) ?? destination;
+      const query = where ? `${item.title}, ${where}` : item.title;
       const r = await fetch(`/api/trips/${tripId}/places?query=${encodeURIComponent(query)}`);
       const body = await r.json();
       const hit = (body.places ?? [])[0] as { providerId?: string } | undefined;
@@ -133,6 +155,17 @@ export function ItinerarySurface({
     }
   };
 
+  /** Put a moved place back on its first day and give the new day its own visit. */
+  async function addSecondVisit(placeTitle: string, firstDay: number, nextDay: number) {
+    const post = (payload: Record<string, unknown>) => fetch(`/api/trips/${tripId}/itinerary`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: placeTitle, ...payload }) });
+    const back = await post({ dayIndex: firstDay });
+    const again = back.ok ? await post({ dayIndex: nextDay, repeat: true }) : back;
+    if (!again.ok) return notifyToast("Couldn’t add the second visit.", "error");
+    const list = await fetch(`/api/trips/${tripId}/itinerary`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    if (list?.items) setItems(list.items);
+    announceWorkspaceChange("itinerary");
+  }
+
   async function add() {
     const value = title.trim();
     if (!value) return;
@@ -148,9 +181,16 @@ export function ItinerarySurface({
     const r = await fetch(`/api/trips/${tripId}/itinerary`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: value, dayIndex: day, providerId }) });
     if (r.ok) {
       const body = await r.json();
-      setItems((cur) => (cur.some((i) => i.title === body.item.title) ? cur : [...cur, body.item]));
+      setItems((cur) => (cur.some((i) => i.title === body.item.title) ? cur.map((i) => (i.title === body.item.title ? body.item : i)) : [...cur, body.item]));
       setAddOpen(false);
       announceWorkspaceChange("itinerary");
+      if (body.moved && typeof body.fromDay === "number") {
+        // The same place was already on another day, so adding it there moved it. Say so, and offer the other reading: a second visit.
+        notifyToast(`${body.item.title} was already on Day ${body.fromDay}, so it moved to Day ${body.item.day_index}.`, "info", {
+          label: "Visit it on both days",
+          onClick: () => void addSecondVisit(body.item.title, body.fromDay, body.item.day_index),
+        });
+      }
     } else {
       setTitle((cur) => cur || value);
       notifyToast("Couldn’t add that item.", "error");
@@ -306,7 +346,8 @@ export function ItinerarySurface({
         </a>
       </div>
 
-      {destination && <TripWeather tripId={tripId} location={destination} card />}
+      <BookingNotices tripId={tripId} reservations={reservations} startDate={startDate} endDate={trip?.end_date} />
+      {destination && <TripRouteWeather tripId={tripId} trip={trip ?? { destination }} />}
 
       {lockedStay && (
         <div className="flex items-center gap-4 overflow-hidden rounded-3xl border border-border/70 bg-card p-3 pr-5 shadow-soft">
@@ -358,7 +399,8 @@ export function ItinerarySurface({
                 <p aria-hidden className="font-display text-6xl leading-none tabular-nums text-foreground/15 sm:text-7xl">{String(d).padStart(2, "0")}</p>
                 <h3 suppressHydrationWarning className="mt-2 font-display text-2xl tracking-tight">{date ?? `Day ${d}`}</h3>
                 <p className="mt-0.5 text-sm text-muted-foreground">
-                  {dayItems.length === 0 ? "Open day" : `${dayItems.length} ${dayItems.length === 1 ? "stop" : "stops"}`}
+                  {cityOfDay(d) ? `${cityOfDay(d)} · ` : ""}
+                  {dayItems.length === 0 ? ((bookedByDay.get(d) ?? []).length > 0 ? "Booked only" : "Open day") : `${dayItems.length} ${dayItems.length === 1 ? "stop" : "stops"}`}
                 </p>
               </div>
               <button
@@ -451,7 +493,7 @@ export function ItinerarySurface({
                         <Icon className="h-4 w-4 shrink-0 text-leaf" />
                         <span className="min-w-0 flex-1 truncate font-medium">{reservation.title}</span>
                         <span suppressHydrationWarning className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                          {note ?? (reservation.startTime ? clockLabel(reservation.startTime) : "Booked")}
+                          {bookedLabel(reservation, note)}
                         </span>
                       </a>
                     </li>
@@ -640,3 +682,11 @@ export function ItinerarySurface({
     </div>
   );
 }
+
+/** The right-hand label of a booked row: the time, with "Departs" / "Arrives" / "Check-in" / "Check-out" when the booking spans days. */
+function bookedLabel(reservation: Reservation, note: string | null): string {
+  const time = note === "Arrives" || note === "Check-out" ? reservation.endTime : reservation.startTime;
+  if (note) return time ? `${note} ${clockLabel(time)}` : note;
+  return time ? clockLabel(time) : "Booked";
+}
+

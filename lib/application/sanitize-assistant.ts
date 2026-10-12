@@ -24,7 +24,9 @@ const LINK_URL = "(https?:\\/\\/[^)\\s]+|\\/[^)\\s]+)";
 // the `$`, leaving the letters as untouched literal text before the replacement phrase and
 // producing "CAan amount I can't verify here" verbatim in the reply (live-caught on an
 // Uber-fare answer, "CA$X to CA$Y" — every dollar amount matched this shape).
-const MONEY_PATTERN = /(?:CA|US|AU|NZ|HK|SG|MX)?[$€£¥]\s?\d[\d,]*(?:\.\d{1,2})?(?:\s?[-–—]\s?\d[\d,]*(?:\.\d{1,2})?)?|\b\d[\d,]*(?:\.\d{1,2})?\s?(?:USD|EUR|GBP|CAD|AUD|JPY|INR|CHF|MXN)\b/gi;
+// The lookbehind on the code-suffixed form keeps a longer number whole: "1 USD = 1.4226 CAD" is a rate, and without it the match started in the
+// middle ("4226 CAD") and left "1.an amount I can't verify here".
+const MONEY_PATTERN = /(?:CA|US|AU|NZ|HK|SG|MX)?[$€£¥]\s?\d[\d,]*(?:\.\d{1,2})?(?:\s?[-–—]\s?\d[\d,]*(?:\.\d{1,2})?)?|(?<![\d.,])\b\d[\d,]*(?:\.\d{1,2})?\s?(?:USD|EUR|GBP|CAD|AUD|JPY|INR|CHF|MXN)\b/gi;
 
 const BARE_NUMBER = /\d[\d,]*(?:\.\d{1,2})?/g;
 
