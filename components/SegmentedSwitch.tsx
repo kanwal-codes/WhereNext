@@ -16,9 +16,11 @@ export type SwitchOption<K extends string> = {
 };
 
 /**
- * The one pill switch for the app: Roam / Chat, Discover / Saved, Browse / My trip. The black
- * thumb glides to the chosen segment (a shared `layoutId`) instead of cutting, and every instance
- * is the same 40px so the pill never changes size between screens.
+ * The one pill switch for the app: Roam / Chat, Discover / Saved, Browse / My trip. The thumb
+ * glides to the chosen segment (a shared `layoutId`) instead of cutting, and every instance is
+ * the same 40px so the pill never changes size between screens. Solid dark thumb on a flat
+ * background; a floating instance (over a map or photo) gets a frosted white thumb instead, so
+ * it reads as glass over whatever is underneath rather than a flat cutout.
  */
 export function SegmentedSwitch<K extends string>({
   options,
@@ -44,7 +46,7 @@ export function SegmentedSwitch<K extends string>({
         const active = o.key === value && !o.locked;
         const cls = cn(
           "relative inline-flex h-8 items-center justify-center gap-1.5 rounded-full px-5 font-medium whitespace-nowrap transition-colors",
-          active ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+          active ? (floating ? "text-foreground" : "text-primary-foreground") : "text-muted-foreground hover:text-foreground",
         );
         const inner = (
           <>
@@ -52,7 +54,7 @@ export function SegmentedSwitch<K extends string>({
               <motion.span
                 layoutId={thumbId}
                 aria-hidden
-                className="absolute inset-0 rounded-full bg-primary shadow-soft"
+                className={cn("absolute inset-0 rounded-full shadow-soft", floating ? "bg-white/70 ring-1 ring-white/60 backdrop-blur-md" : "bg-primary")}
                 transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 36 }}
               />
             )}
