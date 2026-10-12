@@ -271,6 +271,52 @@ export function tripDayFor(date: string | null, startDate: string | null | undef
  * planned. A reservation with an end date ("check-out") also appears on that day. Undated ones, and
  * ones before the trip starts, are not on any day.
  */
+export type DayConflict = { day: number; a: string; b: string; at: string };
+
+const timeMinutes = (time: string): number => {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+};
+
+const CONFLICT_WINDOW_MINUTES = 60;
+
+/**
+ * Same-day stops and reservations whose clock times land within an hour of each other — a
+ * heads-up that two things are stacked close together. Itinerary stops and most reservations
+ * carry no duration, so this flags proximity, not a true calendar overlap.
+ */
+export function findScheduleConflicts(
+  itineraryItems: Array<{ day_index: number; title: string; metadata?: Record<string, unknown> | null }>,
+  reservations: Reservation[],
+  startDate: string | null | undefined,
+): DayConflict[] {
+  type Timed = { day: number; title: string; time: string };
+  const timed: Timed[] = [];
+  for (const item of itineraryItems) {
+    const time = typeof item.metadata?.time === "string" ? item.metadata.time : null;
+    if (time) timed.push({ day: item.day_index, title: item.title, time });
+  }
+  for (const r of reservations) {
+    const day = tripDayFor(r.startsOn, startDate);
+    if (day !== null && r.startTime) timed.push({ day, title: r.title, time: r.startTime });
+  }
+
+  const byDay = new Map<number, Timed[]>();
+  for (const t of timed) byDay.set(t.day, [...(byDay.get(t.day) ?? []), t]);
+
+  const conflicts: DayConflict[] = [];
+  for (const [day, list] of byDay) {
+    const sorted = list.slice().sort((a, b) => a.time.localeCompare(b.time));
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const a = sorted[i]!;
+      const b = sorted[i + 1]!;
+      if (a.title === b.title) continue;
+      if (timeMinutes(b.time) - timeMinutes(a.time) <= CONFLICT_WINDOW_MINUTES) conflicts.push({ day, a: a.title, b: b.title, at: a.time });
+    }
+  }
+  return conflicts;
+}
+
 export function reservationsByDay(reservations: Reservation[], startDate: string | null | undefined): Map<number, DayBooking[]> {
   const byDay = new Map<number, DayBooking[]>();
   const add = (day: number | null, entry: DayBooking) => {

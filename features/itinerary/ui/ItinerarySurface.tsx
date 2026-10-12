@@ -5,7 +5,7 @@ import { stopGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { DestinationCombobox } from "@/components/DestinationCombobox";
-import { ArrowDown, ArrowUp, ArrowUpRight, BedDouble, ChevronDown, ChevronUp, Clock, GripVertical, Loader2, Lock, LockOpen, MoreHorizontal, Plus, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpRight, BedDouble, ChevronDown, ChevronUp, Clock, GripVertical, Loader2, Lock, LockOpen, MoreHorizontal, Plus, Trash2, X } from "lucide-react";
 import type { ItineraryItem } from "@/features/itinerary/domain/item";
 import type { StayDecision } from "@/packages/contracts/stay";
 import { useTripPanel } from "@/components/TripPanelProvider";
@@ -15,7 +15,7 @@ import { notifyToast } from "@/lib/application/toast";
 import { cn } from "@/lib/utils";
 import { fmtDay } from "@/lib/trip-dates";
 import { KIND_META } from "@/components/overview/ReservationSheet";
-import { clockLabel, reservationsByDay } from "@/lib/trip-reservations";
+import { clockLabel, findScheduleConflicts, reservationsByDay } from "@/lib/trip-reservations";
 import type { Reservation } from "@/packages/contracts/reservation";
 
 /** The calendar date for day N (1-based) given the trip's start date, or null when there's no start date. */
@@ -74,6 +74,12 @@ export function ItinerarySurface({
     });
   }, [tripId]);
   const bookedByDay = useMemo(() => reservationsByDay(reservations, startDate), [reservations, startDate]);
+  // Stops and bookings close together in time on the same day — a heads-up, not a hard block.
+  const conflictsByDay = useMemo(() => {
+    const map = new Map<number, ReturnType<typeof findScheduleConflicts>>();
+    for (const conflict of findScheduleConflicts(items, reservations, startDate)) map.set(conflict.day, [...(map.get(conflict.day) ?? []), conflict]);
+    return map;
+  }, [items, reservations, startDate]);
 
   /** Most itinerary items already carry a provider_id (added from a real place search) and open
    * the panel directly; a few are typed straight into chat with no known place behind them yet
@@ -419,6 +425,18 @@ export function ItinerarySurface({
                   <X aria-hidden className="size-4" />
                 </button>
               </form>
+            )}
+            {(conflictsByDay.get(d) ?? []).length > 0 && (
+              <ul aria-label={`Scheduling clashes on day ${d}`} className="mb-4 space-y-2">
+                {(conflictsByDay.get(d) ?? []).map((c) => (
+                  <li key={`${c.a}-${c.b}`} className="flex items-center gap-3 rounded-2xl border border-caution/30 bg-caution-soft/40 px-4 py-2.5 text-sm">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-caution" />
+                    <span className="min-w-0 flex-1">
+                      <span className="font-medium">{c.a}</span> and <span className="font-medium">{c.b}</span> are close together, around {clockLabel(c.at)}.
+                    </span>
+                  </li>
+                ))}
+              </ul>
             )}
             {(bookedByDay.get(d) ?? []).length > 0 && (
               <ul aria-label={`Booked on day ${d}`} className="mb-4 space-y-2">

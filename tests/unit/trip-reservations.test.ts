@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTimeline, categoryOf, countByCategory, filterByCategory, groupByDate, pickNextUp, reservationsByDay, tripDayFor, whenLabel } from "../../lib/trip-reservations";
+import { buildTimeline, categoryOf, countByCategory, filterByCategory, findScheduleConflicts, groupByDate, pickNextUp, reservationsByDay, tripDayFor, whenLabel } from "../../lib/trip-reservations";
 import type { Booking } from "../../packages/contracts/booking";
 import type { Reservation } from "../../packages/contracts/reservation";
 import type { StayDecision } from "../../packages/contracts/stay";
@@ -128,5 +128,36 @@ describe("tripDayFor and reservationsByDay", () => {
     expect(byDay.get(1)!.map((e) => [e.reservation.title, e.note])).toEqual([["Rhotel", "Check-in"]]);
     expect(byDay.get(2)!.map((e) => e.reservation.title)).toEqual(["Rtour", "Rdinner"]);
     expect(byDay.get(3)!.map((e) => [e.reservation.title, e.note])).toEqual([["Rhotel", "Check-out"]]);
+  });
+});
+
+describe("findScheduleConflicts", () => {
+  const item = (title: string, day_index: number, time: string | null) => ({ title, day_index, metadata: time ? { time } : null });
+
+  it("flags a stop and a reservation within an hour of each other, on the right day", () => {
+    const conflicts = findScheduleConflicts(
+      [item("Schwartz's Deli", 2, "19:00")],
+      [reservation("dinner", { kind: "dining", startsOn: "2026-10-13", startTime: "19:30" })],
+      "2026-10-12",
+    );
+    expect(conflicts).toEqual([{ day: 2, a: "Schwartz's Deli", b: "Rdinner", at: "19:00" }]);
+  });
+
+  it("does not flag things more than an hour apart, or on different days", () => {
+    const conflicts = findScheduleConflicts(
+      [item("Breakfast", 1, "08:00"), item("Museum", 1, "14:00")],
+      [reservation("dinner", { startsOn: "2026-10-14", startTime: "19:00" })],
+      "2026-10-12",
+    );
+    expect(conflicts).toEqual([]);
+  });
+
+  it("ignores stops with no time set and reservations with no day or time", () => {
+    const conflicts = findScheduleConflicts(
+      [item("Untimed stop", 1, null)],
+      [reservation("undated"), reservation("no-time", { startsOn: "2026-10-12" })],
+      "2026-10-12",
+    );
+    expect(conflicts).toEqual([]);
   });
 });
