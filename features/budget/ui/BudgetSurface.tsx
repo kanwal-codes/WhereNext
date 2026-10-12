@@ -4,19 +4,53 @@ import { useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
+import { cachedGet } from "@/lib/client/cached-get";
+import { formatMoney } from "@/lib/currency";
+import { readStayDecision } from "@/packages/contracts/stay";
+import type { Reservation } from "@/packages/contracts/reservation";
+
+/**
+ * What's already reserved with a real price on it (stays, hand-entered reservations), grouped by
+ * currency. Deliberately separate from the daily-spend estimate above, which is a planning
+ * assumption for food/activities/transit and explicitly excludes lodging — summing a booked stay
+ * into that number would misrepresent what it was ever meant to track. Flights aren't included:
+ * the trip's flight choice stores its fare as a display string ("642 CAD"), not a number to sum.
+ */
+export function committedByCurrency(reservations: Reservation[], decisions: ReadonlyArray<{ kind: string; value: unknown }>): Array<[string, number]> {
+  const totals = new Map<string, number>();
+  const add = (amount: number | null, currency: string | null) => {
+    if (amount == null || !currency) return;
+    totals.set(currency, (totals.get(currency) ?? 0) + amount);
+  };
+  for (const r of reservations) add(r.amount, r.currency);
+  const stay = readStayDecision(decisions);
+  if (stay) add(stay.totalAmount, stay.currency);
+  return [...totals.entries()];
+}
 
 export function BudgetSurface({
   tripId,
   durationDays,
   travelers,
   initialBudget,
+  decisions = [],
 }: {
   tripId: string;
   durationDays?: number | null;
   travelers?: number | null;
   /** Seeded from the layout's workspace snapshot; the surface only fetches when it's absent. */
   initialBudget?: unknown;
+  /** Trip decisions, read for the locked stay's price — same shape every other surface reads them in. */
+  decisions?: ReadonlyArray<{ kind: string; value: unknown }>;
 }) {
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  useEffect(() => {
+    cachedGet(`/api/trips/${tripId}/reservations`, { ttlMs: 0 })
+      .then((r) => (r.ok ? r.json() : { reservations: [] }))
+      .then((body) => setReservations(body.reservations ?? []))
+      .catch(() => undefined);
+  }, [tripId]);
+  const committed = committedByCurrency(reservations, decisions);
   const seeded = typeof initialBudget === "number";
   const [daily, setDaily] = useState(seeded ? (initialBudget as number) : 100);
   const [saved, setSaved] = useState(false);
@@ -122,6 +156,20 @@ export function BudgetSurface({
           </div>
         ))}
       </dl>
+
+      {committed.length > 0 && (
+        <div className="mt-4 border-t border-border pt-4">
+          <p className="text-xs text-muted-foreground">Booked so far — stays and reservations with a price, separate from the daily assumption above. Flights aren’t counted here.</p>
+          <dl className="mt-2 space-y-1 text-sm">
+            {committed.map(([currency, total]) => (
+              <div key={currency} className="flex items-center justify-between gap-3">
+                <dt className="text-muted-foreground">{currency}</dt>
+                <dd className="font-medium tabular-nums">{formatMoney(total, currency)}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
     </section>
   );
 }

@@ -52,6 +52,7 @@ export default function KnowledgePage() {
               durationDays={trip?.duration_days}
               travelers={trip?.travelers}
               initialBudget={(data?.preferences as Record<string, unknown> | undefined)?.budget}
+              decisions={(data?.decisions ?? []) as Array<{ kind: string; value: unknown }>}
             />
           </Reveal>
           <Reveal delay={0.06}>
