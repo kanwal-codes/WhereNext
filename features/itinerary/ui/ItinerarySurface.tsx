@@ -1,6 +1,7 @@
 "use client";
 
 import { HotelPhoto } from "@/components/HotelPhoto";
+import { TripWeather } from "@/components/TripWeather";
 import { stopGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -304,6 +305,8 @@ export function ItinerarySurface({
           Today view <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
         </a>
       </div>
+
+      {destination && <TripWeather tripId={tripId} location={destination} card />}
 
       {lockedStay && (
         <div className="flex items-center gap-4 overflow-hidden rounded-3xl border border-border/70 bg-card p-3 pr-5 shadow-soft">
