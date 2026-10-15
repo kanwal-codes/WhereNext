@@ -378,7 +378,7 @@ export function ReservationSheet({
           </div>
 
           <label className="flex items-center gap-3 rounded-2xl border border-border bg-background px-4 py-3 text-sm">
-            <input type="checkbox" checked={draft.status === "cancelled"} onChange={(e) => set("status", e.target.checked ? "cancelled" : "confirmed")} className="h-4 w-4" />
+            <input type="checkbox" checked={draft.status === "cancelled"} onChange={(e) => set("status", e.target.checked ? "cancelled" : "confirmed")} className="h-4 w-4 accent-primary" />
             <span>This booking was cancelled <span className="text-muted-foreground">(kept for reference, not counted in the budget)</span></span>
           </label>
 

@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { Check } from "lucide-react";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
 import { cachedGet } from "@/lib/client/cached-get";
 import { DEFAULT_CURRENCY, formatMoney } from "@/lib/currency";
+import { Skeleton } from "@/components/Skeleton";
 
 type Committed = {
   currency: string;
@@ -118,11 +120,20 @@ export function BudgetSurface({
     <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-soft">
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="font-display text-lg">Budget</h2>
-        {saved && (
-          <span className="inline-flex items-center gap-1 text-xs text-leaf">
-            <Check className="h-3 w-3" /> Saved
-          </span>
-        )}
+        <AnimatePresence>
+          {saved && (
+            <motion.span
+              initial={{ opacity: 0, y: 6, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              onAnimationComplete={(def) => { if (def === "animate") setTimeout(() => setSaved(false), 1600); }}
+              className="inline-flex items-center gap-1 text-xs text-leaf"
+            >
+              <Check className="h-3 w-3" /> Saved
+            </motion.span>
+          )}
+        </AnimatePresence>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">An assumption you set — Roam uses it to weigh options.</p>
 
@@ -160,7 +171,14 @@ export function BudgetSurface({
       <div className="mt-4 border-t border-border pt-4">
         <p className="text-xs text-muted-foreground">Booked so far: every booking with a price, entered by hand or chosen here, flights included. Cancelled ones are left out. Shown in {currency} at today&rsquo;s rates.</p>
         {committed === "loading" ? (
-          <p className="mt-2 text-sm text-muted-foreground" aria-live="polite">Adding up what you&rsquo;ve booked…</p>
+          <dl className="mt-2 space-y-2" aria-label="Adding up what you’ve booked…" aria-live="polite" aria-busy="true">
+            {[0, 1].map((i) => (
+              <div key={i} className="flex items-center justify-between gap-3">
+                <Skeleton className="h-3.5 w-24 rounded-md" />
+                <Skeleton className="h-3.5 w-16 rounded-md" />
+              </div>
+            ))}
+          </dl>
         ) : !committed || committed.lines.length === 0 ? (
           <p className="mt-2 text-sm text-muted-foreground">Nothing with a price yet. Add bookings on the Bookings page.</p>
         ) : (

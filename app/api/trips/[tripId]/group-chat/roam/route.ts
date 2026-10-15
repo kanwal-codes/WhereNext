@@ -3,7 +3,7 @@ import { z } from "zod";
 import { generateText, stepCountIs } from "ai";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
-import { loadTripContext, formatTripMemory, describeMembers } from "@/lib/application/trip-context";
+import { loadTripContext, formatTripMemory, describeMembers, formatExpenses } from "@/lib/application/trip-context";
 import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 import { runAssistantTurn, finalizeAssistantBlocks } from "@/lib/application/orchestrate/run-turn";
 import { composeModelChain } from "@/packages/ai/compose-model";
@@ -163,8 +163,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     }
 
     // The trip's facts plus who is on it ("who are the travellers?" is answered from this).
-    const membersLine = describeMembers([...names].map(([id, name]) => [id, { name }] as [string, { name: string }]), user.id);
-    const summaryOf = (ctx: typeof tripCtx) => [formatTripMemory(ctx), membersLine].filter(Boolean).join(" ");
+    const identityEntries: Array<[string, { name: string }]> = [...names].map(([id, name]) => [id, { name }]);
+    const membersLine = describeMembers(identityEntries, user.id);
+    const summaryOf = (ctx: typeof tripCtx) => [formatTripMemory(ctx), membersLine, formatExpenses(ctx.localExpenses, ctx.localBalances, identityEntries, user.id)].filter(Boolean).join(" ");
     const t0 = performance.now();
     // The trace's total_ms starts here, so a slow auth / limiter / context load before this point is otherwise invisible.
     logger.info({ tripId, preRunMs: Math.round(t0 - tEnter) }, "group-chat roam: starting the turn");

@@ -20,8 +20,8 @@ export function BookingNotices({ tripId, reservations, startDate, endDate }: { t
   return (
     <div className="space-y-2" role="status">
       {gaps.length > 0 && (
-        <p className="flex items-start gap-2.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" aria-hidden />
+        <p className="flex items-start gap-2.5 rounded-2xl border border-caution/30 bg-caution-soft/40 px-4 py-3 text-sm">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-caution" aria-hidden />
           <span suppressHydrationWarning>
             No stay booked for {nights} {nights === 1 ? "night" : "nights"}: {gaps.map((g) => `${day(g.from)} to ${day(g.to)}`).join(", ")}.{" "}
             <Link href={`/trips/${tripId}/stay`} className="font-medium underline underline-offset-2">Find a stay</Link>
@@ -29,8 +29,8 @@ export function BookingNotices({ tripId, reservations, startDate, endDate }: { t
         </p>
       )}
       {stray.length > 0 && (
-        <p className="flex items-start gap-2.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" aria-hidden />
+        <p className="flex items-start gap-2.5 rounded-2xl border border-caution/30 bg-caution-soft/40 px-4 py-3 text-sm">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-caution" aria-hidden />
           <span suppressHydrationWarning>
             {stray.length === 1 ? "A booking falls" : `${stray.length} bookings fall`} outside the trip dates ({startDate && day(startDate)} to {endDate && day(endDate)}): {stray.slice(0, 3).map((r) => `${r.title} (${r.startsOn && day(r.startsOn)})`).join(", ")}
             {stray.length > 3 ? ` and ${stray.length - 3} more` : ""}. Bookings keep their own dates: change the trip dates or edit the booking.

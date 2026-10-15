@@ -11,6 +11,7 @@ import { notifyToast } from "@/lib/application/toast";
 import { estimateRideshare } from "@/lib/application/rideshare-estimate";
 import { greatCircleArc, haversineKm } from "@/lib/application/geo";
 import { cn, durationFromSeconds, formatDuration } from "@/lib/utils";
+import { textAction } from "@/features/conversation/ui/blocks/ui";
 import { DestinationCombobox } from "@/components/DestinationCombobox";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { TripOptions } from "./TripOptions";
@@ -466,7 +467,7 @@ export function TransportSurface({
             void search({ modes: [] });
           }}
         >
-          <div className="relative grid grid-cols-[1.5rem_minmax(0,1fr)] items-center gap-x-3 rounded-[22px] bg-surface px-4 py-1 ring-1 ring-border transition-shadow focus-within:bg-card focus-within:ring-2 focus-within:ring-ink/80">
+          <div className="relative grid grid-cols-[1.5rem_minmax(0,1fr)] items-center gap-x-3 rounded-2xl bg-surface px-4 py-1 ring-1 ring-border transition-shadow focus-within:bg-card focus-within:ring-2 focus-within:ring-ink/80">
             <span className="grid place-items-center" aria-hidden="true"><span className="size-3 rounded-full bg-coral-fill ring-4 ring-coral-soft" /></span>
             <div className="min-w-0">
               <DestinationCombobox
@@ -573,7 +574,7 @@ export function TransportSurface({
 
       {tab === "drive" && driveRoute && (
         <div className="space-y-6">
-          <section className="rounded-[22px] bg-card p-4 ring-1 ring-border" aria-label="Driving">
+          <section className="rounded-2xl bg-card p-4 ring-1 ring-border" aria-label="Driving">
             <div className="flex items-center gap-3">
               <ModeTile mode="drive" />
               <div className="min-w-0 flex-1">
@@ -655,7 +656,7 @@ export function TransportSurface({
           {when && !anyTime && onTime.length < flights.length && (
             <p className="text-xs text-muted-foreground">
               Showing flights {when.kind === "depart" ? "leaving after" : "landing by"} {when.time}.{" "}
-              <button type="button" onClick={() => setAnyTime(true)} className="font-medium text-foreground underline underline-offset-2">
+              <button type="button" onClick={() => setAnyTime(true)} className={cn(textAction, "text-xs underline")}>
                 Show all {flights.length}
               </button>
             </p>
@@ -682,8 +683,8 @@ export function TransportSurface({
             };
             const via = f.layoverAirports?.length ? ` via ${f.layoverAirports.join(", ")}` : "";
             return (
-              <li key={id} className={cn("rounded-[22px] bg-card transition-shadow duration-200", open ? "shadow-lift ring-[1.5px] ring-ink" : "ring-1 ring-border hover:ring-input")}>
-                <button type="button" onClick={() => setOpenFlight(open ? null : id)} aria-expanded={open} className="block w-full rounded-[22px] p-4 text-left">
+              <li key={id} className={cn("rounded-2xl bg-card transition-shadow duration-200", open ? "shadow-lift ring-[1.5px] ring-ink" : "ring-1 ring-border hover:ring-input")}>
+                <button type="button" onClick={() => setOpenFlight(open ? null : id)} aria-expanded={open} className="block w-full rounded-2xl p-4 text-left">
                   <span className="flex items-center gap-3">
                     <AirlineMark offer={f} className="size-8" />
                     <span className="min-w-0 flex-1">
@@ -737,8 +738,8 @@ export function TransportSurface({
             const steps = mergeWalks(route.steps ?? []);
             const rides = steps.filter((st) => (st.mode ?? "") !== "walk");
             return (
-              <li key={i} className={cn("rounded-[22px] bg-card transition-shadow duration-200", open ? "shadow-lift ring-[1.5px] ring-ink" : "ring-1 ring-border hover:ring-input")}>
-                <button type="button" onClick={() => choose(i)} aria-expanded={open} className="block w-full rounded-[22px] p-4 text-left">
+              <li key={i} className={cn("rounded-2xl bg-card transition-shadow duration-200", open ? "shadow-lift ring-[1.5px] ring-ink" : "ring-1 ring-border hover:ring-input")}>
+                <button type="button" onClick={() => choose(i)} aria-expanded={open} className="block w-full rounded-2xl p-4 text-left">
                   <span className="flex items-center justify-between gap-3">
                     {tag ? (
                       <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", tag === "fastest" ? "bg-positive-soft text-positive" : "bg-muted text-ink-soft")}>{TAG_TEXT[tag]}</span>

@@ -410,7 +410,7 @@ export function TripContextSurface({
           "group/row transition-colors",
           tile
             ? cn(
-                "rounded-[22px] border border-border/60 bg-card p-4 shadow-[0_14px_30px_-26px_color-mix(in_oklab,var(--color-ink)_50%,transparent)]",
+                "rounded-2xl border border-border/60 bg-card p-4 shadow-[0_14px_30px_-26px_color-mix(in_oklab,var(--color-ink)_50%,transparent)]",
                 wide ? "col-span-2 flex items-start gap-3.5" : "flex flex-col gap-3.5",
               )
             : "flex items-start gap-3.5 px-4 py-4",
@@ -621,7 +621,7 @@ export function TripContextSurface({
             <i aria-hidden className="size-1.5 rounded-full bg-coral" />
             Needs your call
           </p>
-          <div className="divide-y divide-coral/15 overflow-hidden rounded-[26px] border-[1.5px] border-coral/40 bg-gradient-to-br from-card to-coral-soft/60 shadow-[0_26px_44px_-30px_color-mix(in_oklab,var(--color-coral)_65%,transparent)]">
+          <div className="divide-y divide-coral/15 overflow-hidden rounded-2xl border-[1.5px] border-coral/40 bg-gradient-to-br from-card to-coral-soft/60 shadow-[0_26px_44px_-30px_color-mix(in_oklab,var(--color-coral)_65%,transparent)]">
             {suggestedRows.map((row) => renderRow(row))}
           </div>
         </section>

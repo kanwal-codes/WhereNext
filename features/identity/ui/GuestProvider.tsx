@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
+import { Sheet } from "@/components/motion-primitives";
 import { GuestSavePrompt } from "@/features/identity/ui/GuestSavePrompt";
 import { GUEST_LIVE_KEY } from "@/features/identity/application/guestSession";
 
@@ -17,41 +18,24 @@ const GuestContext = createContext<GuestValue>({ guest: false, openGate: () => u
 /** Server-decided (from the session, not sniffed on the client), so the locked UI never flashes open. */
 export const useGuest = () => useContext(GuestContext);
 
-function GuestGateDialog({ tripId, what, onClose }: { tripId: string; what?: string; onClose: () => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    ref.current?.focus();
-    const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+function GuestGateDialog({ open, tripId, what, onClose }: { open: boolean; tripId: string; what?: string; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-[80] grid place-items-center bg-foreground/40 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div
-        ref={ref}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Create a free account"
-        tabIndex={-1}
-        onClick={(event) => event.stopPropagation()}
-        className="relative w-full max-w-md outline-none"
+    <Sheet open={open} onClose={onClose} side="center" ariaLabel="Create a free account" className="max-w-md">
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close"
+        className="absolute top-3 right-3 z-10 rounded-full p-1.5 text-muted-foreground hover:text-foreground"
       >
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="absolute top-3 right-3 z-10 rounded-full p-1.5 text-muted-foreground hover:text-foreground"
-        >
-          <X className="h-4 w-4" />
-        </button>
-        <GuestSavePrompt
-          tripId={tripId}
-          exhausted={false}
-          heading={what ? `Create a free account to ${what}.` : "Create a free account to unlock this."}
-          body="Roam is free to use without one. Saving places, building an itinerary, group chat and bookings need an account, and this trip comes with you."
-        />
-      </div>
-    </div>
+        <X className="h-4 w-4" />
+      </button>
+      <GuestSavePrompt
+        tripId={tripId}
+        exhausted={false}
+        heading={what ? `Create a free account to ${what}.` : "Create a free account to unlock this."}
+        body="Roam is free to use without one. Saving places, building an itinerary, group chat and bookings need an account, and this trip comes with you."
+      />
+    </Sheet>
   );
 }
 
@@ -97,7 +81,7 @@ export function GuestProvider({ guest, tripId, children }: { guest: boolean; tri
   return (
     <GuestContext.Provider value={value}>
       {fresh ? children : <div className="min-h-screen bg-background" aria-busy="true" />}
-      {gate && <GuestGateDialog tripId={tripId} what={gate.what} onClose={() => setGate(null)} />}
+      <GuestGateDialog open={Boolean(gate)} tripId={tripId} what={gate?.what} onClose={() => setGate(null)} />
     </GuestContext.Provider>
   );
 }

@@ -240,9 +240,10 @@ export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids:
             >
               {onIdsChange && ids.length > 2 && (
                 <button
+                  type="button"
                   onClick={() => onIdsChange(ids.filter((x) => x !== id))}
                   aria-label={`Remove ${d!.displayName?.text ?? "place"} from comparison`}
-                  className="absolute top-2 right-2 rounded-full bg-background/90 p-1.5 backdrop-blur"
+                  className="absolute top-2 right-2 rounded-full bg-background/90 p-1.5 text-muted-foreground backdrop-blur transition-colors hover:text-destructive"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>

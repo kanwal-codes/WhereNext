@@ -162,9 +162,9 @@ function PhoneRouteSheet({ map, children }: { map: (inset: { bottom: number }) =
           aria-label={snap === "full" ? "Show the map" : "Show more"}
           onPointerDown={(event) => controls.start(event)}
           onClick={() => go(snap === "full" ? "half" : snap === "half" ? "full" : "half")}
-          className="grid h-7 w-full shrink-0 cursor-grab touch-none place-items-center"
+          className="group grid h-7 w-full shrink-0 cursor-grab touch-none place-items-center"
         >
-          <span aria-hidden className="h-1 w-10 rounded-full bg-foreground/25" />
+          <span aria-hidden className="h-1 w-10 rounded-full bg-foreground/25 transition-colors group-hover:bg-foreground/45" />
         </button>
         {/* Only the open sheet scrolls; a part-open one is dragged, so a swipe on it moves the sheet instead. */}
         <div className={`min-h-0 flex-1 px-4 pb-8 ${snap === "full" ? "overflow-y-auto overscroll-contain" : "overflow-hidden"}`}>{children}</div>

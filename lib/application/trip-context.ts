@@ -5,6 +5,7 @@ import { cached } from "@/lib/server/ttl-cache";
 import { lodgingGaps, outsideTripDates } from "@/lib/trip-reservations";
 import { describeStops, effectiveStops } from "@/lib/trip-stops";
 import { committedTotals, type CommittedTotals } from "@/lib/server/committed";
+import { localDebts } from "@/lib/expense-split";
 import { formatMoney, resolveCurrency } from "@/lib/currency";
 
 export type TripContext = {
@@ -32,7 +33,17 @@ export type TripContext = {
   reservations?: ContextReservation[];
   /** The bookings above added up, in the trip's currency at today's reference rate: the one set of totals the assistant may quote. */
   committed?: CommittedTotals | null;
+  /** Shared expenses kept in this app — never the handful of legacy rows still bridged to a real
+   *  Splitwise account, which live outside this app and can't be safely summarised here. Raw,
+   *  unnamed: `paidBy`/`fromUserId`/`toUserId` are user ids, resolved to real names by
+   *  `formatExpenses`, alongside `describeMembers`, using the same identities map — never in
+   *  this file, which has no admin client of its own to look names up with. */
+  localExpenses?: LocalExpenseContext[];
+  localBalances?: LocalBalanceContext[];
 };
+
+export type LocalExpenseContext = { description: string; amount: number; currency: string; paidBy: string | null; splitAmong: string[] | null };
+export type LocalBalanceContext = { fromUserId: string; toUserId: string; amount: number; currency: string };
 
 export type ContextReservation = {
   kind: string;
@@ -86,15 +97,17 @@ export function loadTripContext(supabase: SupabaseClient, tripId: string): Promi
 }
 
 async function loadTripContextUncached(supabase: SupabaseClient, tripId: string): Promise<TripContext> {
-  const [trip, preferences, itinerary, places, decisions, reservations] = await Promise.all([
+  const [trip, preferences, itinerary, places, decisions, reservations, expenseRows, memberRows] = await Promise.all([
     supabase.from("trips").select("name,destination,origin,duration_days,start_date,end_date,travelers,updated_at,stops").eq("id", tripId).maybeSingle(),
     supabase.from("trip_preferences").select("data").eq("trip_id", tripId).maybeSingle(),
     supabase.from("trip_itinerary_items").select("title,day_index,position,metadata").eq("trip_id", tripId).is("removed_at", null).order("day_index").order("position").limit(50),
     supabase.from("trip_places").select("status,places(name,category,address)").eq("trip_id", tripId).limit(50),
     supabase.from("trip_decisions").select("kind,value,source,created_at").eq("trip_id", tripId).order("created_at", { ascending: false }).limit(30),
     supabase.from("trip_reservations").select("kind,title,starts_on,ends_on,start_time,end_time,place,to_place,amount,currency,amount_basis,travellers,status").eq("trip_id", tripId).order("starts_on", { ascending: true, nullsFirst: false }).order("start_time", { ascending: true, nullsFirst: false }).limit(60),
+    supabase.from("trip_expenses").select("description,amount,currency,paid_by,split,splitwise_expense_id,created_at").eq("trip_id", tripId).order("created_at", { ascending: false }).limit(30),
+    supabase.from("trip_members").select("user_id").eq("trip_id", tripId),
   ]);
-  const error = trip.error ?? preferences.error ?? itinerary.error ?? places.error ?? decisions.error ?? reservations.error;
+  const error = trip.error ?? preferences.error ?? itinerary.error ?? places.error ?? decisions.error ?? reservations.error ?? expenseRows.error ?? memberRows.error;
   if (error) throw error;
   const items = (itinerary.data ?? []).map((item) => {
     const metadata = item.metadata as Record<string, unknown> | null;
@@ -118,6 +131,23 @@ async function loadTripContextUncached(supabase: SupabaseClient, tripId: string)
   const committed = bookings.some((r) => r.amount != null)
     ? await committedTotals(bookings.map((r) => ({ kind: r.kind as "stay", startsOn: r.startsOn, endsOn: r.endsOn, status: r.cancelled ? "cancelled" as const : "confirmed" as const, amount: r.amount, currency: r.currency, amountBasis: r.amountBasis, travellers: r.travellers ?? null })), lockedStay, trip.data?.travelers ?? null, resolveCurrency((preferences.data?.data ?? null) as Record<string, unknown> | null)).catch(() => null)
     : null;
+
+  const amongOf = (split: unknown): string[] | null => {
+    const among = (split as { among?: unknown } | null)?.among;
+    return Array.isArray(among) && among.every((id) => typeof id === "string") && among.length > 0 ? (among as string[]) : null;
+  };
+  // Legacy rows still bridged to a real Splitwise account (a splitwise_expense_id) live outside
+  // this app's own ledger and are left out — their debt is real but this app can't vouch for it.
+  const localExpenseRows = (expenseRows.data ?? []).filter((e) => !e.splitwise_expense_id);
+  const localExpenses: LocalExpenseContext[] = localExpenseRows.map((e) => ({
+    description: e.description as string, amount: Number(e.amount), currency: e.currency as string, paidBy: e.paid_by as string | null, splitAmong: amongOf(e.split),
+  }));
+  const memberIds = (memberRows.data ?? []).map((m) => m.user_id as string);
+  const localBalances: LocalBalanceContext[] = localDebts(
+    localExpenses.map((e) => ({ amount: e.amount, currency: e.currency, paidBy: e.paidBy, among: e.splitAmong })),
+    memberIds,
+  );
+
   return {
     trip: trip.data ?? null,
     preferences: (preferences.data?.data ?? {}) as Record<string, unknown>,
@@ -138,6 +168,8 @@ async function loadTripContextUncached(supabase: SupabaseClient, tripId: string)
     decisions: decisionRows,
     reservations: bookings,
     committed,
+    localExpenses,
+    localBalances,
   };
 }
 
@@ -151,6 +183,7 @@ export function serializeTripContext(context: TripContext): string {
     places: context.places.slice(0, 20),
     decisions: context.decisions.slice(0, 15),
     reservations: context.reservations?.slice(0, 30),
+    localExpenses: context.localExpenses?.slice(0, 15),
   });
   if (reduced.length <= MAX_CONTEXT_CHARS) return reduced;
   const compactPreferences = Object.fromEntries(
@@ -186,6 +219,25 @@ export function describeMembers(identities: Iterable<[string, { name: string }]>
     return id === askerId ? `${name} (you)` : name;
   });
   return names.length ? `members on this trip (the people with access, from their profiles): ${names.join(", ")}.` : "";
+}
+
+/** Shared local expenses and who-owes-whom, resolved to names via the same identities map
+ *  `describeMembers` uses — kept out of `formatTripMemory` because, unlike everything else
+ *  there, it needs names, and this file has no admin client of its own to resolve them with.
+ *  The split math is already done server-side (lib/expense-split.ts); the model must quote
+ *  these figures exactly — the same discipline `committedLine` already holds bookings to, now
+ *  extended to money owed between real people, where an LLM re-summing or converting a balance
+ *  itself is a real correctness risk, not just an untidy answer. */
+export function formatExpenses(expenses: LocalExpenseContext[] | undefined, balances: LocalBalanceContext[] | undefined, identities: Iterable<[string, { name: string }]>, askerId?: string): string {
+  if (!expenses?.length) return "";
+  const nameOf = new Map([...identities].map(([id, who]) => [id, id === askerId ? "you" : who.name]));
+  const who = (id: string | null) => (id ? (nameOf.get(id) ?? "someone") : "someone");
+  // {exact: true} here, unlike committedLine's rounded ballpark totals: a balance is a specific
+  // amount one person is about to pay another, so the cents stay — rounding "owes $20.33" down
+  // to "$20" would make the quoted figure wrong, not just imprecise.
+  const items = expenses.slice(0, 30).map((e) => `${e.description}: ${formatMoney(e.amount, e.currency, { exact: true })} (paid by ${who(e.paidBy)}${e.splitAmong ? `, split ${e.splitAmong.length} ways` : ""})`);
+  const owed = (balances ?? []).map((b) => `${who(b.fromUserId)} owes ${who(b.toUserId)} ${formatMoney(b.amount, b.currency, { exact: true })}`);
+  return `Shared expenses logged in this app (these are all of them — never invent or guess one): ${items.join("; ")}.${owed.length ? ` Open balances — quote these exactly, never add, subtract or convert them yourself: ${owed.join("; ")}.` : " Everyone is settled up."}`;
 }
 
 const reservationDates = (r: ContextReservation): string => (r.startsOn ? (r.endsOn && r.endsOn !== r.startsOn ? `${r.startsOn} to ${r.endsOn}` : r.startsOn) : "date not set");

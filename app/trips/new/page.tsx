@@ -42,9 +42,9 @@ export default async function NewTripPage() {
               <div className="rounded-2xl border border-border bg-card p-6 shadow-soft">
                 <p className="text-sm">Sign in or create an account before starting a trip.</p>
                 <p className="mt-3 text-sm">
-                  <Link href="/sign-in" className="font-medium text-primary">Sign in</Link>
+                  <Link href="/sign-in" className="font-medium text-primary transition-colors hover:underline">Sign in</Link>
                   {" · "}
-                  <Link href="/sign-up" className="font-medium text-primary">Create an account</Link>
+                  <Link href="/sign-up" className="font-medium text-primary transition-colors hover:underline">Create an account</Link>
                 </p>
               </div>
             )}

@@ -30,6 +30,7 @@ import { GroupInviteCard } from "./GroupInviteCard";
 import { renderRich } from "./rich-text";
 import { cn } from "@/lib/utils";
 import { MessageBlocks } from "@/features/conversation/ui/blocks/MessageBlocks";
+import { textAction } from "@/features/conversation/ui/blocks/ui";
 
 const COMMON_EMOJI = ["👍", "❤️", "😂", "🎉", "😍", "🤔"];
 // Same sender, close enough in time to read as one turn — collapses the repeated avatar/name.
@@ -1131,7 +1132,7 @@ export function GroupChatSurface({
                       <p className="flex flex-wrap items-center gap-x-2 px-1 text-2xs text-muted-foreground">
                         Answered from the trip details only; Roam couldn’t look anything up.
                         {replySource?.userId != null && replySource.userId === me?.userId && (
-                          <button type="button" onClick={() => askRoam(replyToId, { explicit: true })} className="font-semibold text-foreground underline underline-offset-2">Try again</button>
+                          <button type="button" onClick={() => askRoam(replyToId, { explicit: true })} className={cn(textAction, "text-2xs font-semibold underline")}>Try again</button>
                         )}
                       </p>
                     )}
@@ -1142,7 +1143,7 @@ export function GroupChatSurface({
                     {mine && !local && !pendingRoamIds.has(message.id) && (failedRoamIds.includes(message.id) || missedIds.includes(message.id)) && (
                       <p role="alert" className="flex items-center gap-2 px-1 text-2xs text-destructive">
                         Roam didn’t reply
-                        <button type="button" onClick={() => askRoam(message.id)} className="font-semibold underline underline-offset-2">Retry</button>
+                        <button type="button" onClick={() => askRoam(message.id)} className={cn(textAction, "text-2xs font-semibold underline")}>Retry</button>
                       </p>
                     )}
                     {local && (
@@ -1150,8 +1151,8 @@ export function GroupChatSurface({
                         {local.status === "sending" ? "Sending…" : (
                           <>
                             Not sent{local.reason ? ` · ${local.reason}` : ""}
-                            <button type="button" onClick={() => void submit(local.content, local.key)} className="font-semibold underline underline-offset-2">Retry</button>
-                            <button type="button" onClick={() => setOutbox((current) => current.filter((o) => o.key !== local.key))} className="text-muted-foreground underline underline-offset-2">Delete</button>
+                            <button type="button" onClick={() => void submit(local.content, local.key)} className={cn(textAction, "text-2xs font-semibold underline")}>Retry</button>
+                            <button type="button" onClick={() => setOutbox((current) => current.filter((o) => o.key !== local.key))} className={cn(textAction, "text-2xs text-muted-foreground underline hover:text-destructive")}>Delete</button>
                           </>
                         )}
                       </p>
@@ -1278,7 +1279,7 @@ export function GroupChatSurface({
             >
               {pollSaving ? "Starting…" : "Start poll"}
             </button>
-            <button type="button" onClick={() => setPollSheetOpen(false)} disabled={pollSaving} className="rounded-full border border-border px-3 py-1.5 text-xs">
+            <button type="button" onClick={() => setPollSheetOpen(false)} disabled={pollSaving} className="btn-chip">
               Cancel
             </button>
           </div>

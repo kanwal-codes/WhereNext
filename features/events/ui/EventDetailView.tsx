@@ -266,7 +266,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                             href={safeHref(ticketUrl)}
                             target="_blank"
                             rel="noreferrer noopener"
-                            className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground"
+                            className="btn-primary"
                           >
                             <Ticket className="h-4 w-4" /> Get tickets
                           </a>
@@ -394,7 +394,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
             {d && d.sources.length > 0 && (
               <Reveal delay={0.14}>
                 <details className="group text-xs">
-                  <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-muted-foreground hover:text-foreground">
+                  <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground">
                     <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
                     <span className="font-medium">{d.sources.length} source{d.sources.length === 1 ? "" : "s"}</span>
                   </summary>

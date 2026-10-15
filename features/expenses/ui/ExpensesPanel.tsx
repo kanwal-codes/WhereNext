@@ -1,27 +1,74 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { Receipt, X } from "lucide-react";
+import { Bell, BellOff, Check, Loader2, Receipt, X } from "lucide-react";
 import { notifyToast } from "@/lib/application/toast";
 import { announceWorkspaceChange, subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
 import { formatMoney as formatWhole } from "@/lib/currency";
 import { EmptyState } from "@/components/EmptyState";
+import { Skeleton } from "@/components/Skeleton";
+import { Stagger, StaggerItem } from "@/components/motion-primitives";
+import { controlGhost, surface, CopyButton } from "@/features/conversation/ui/blocks/ui";
+import { memberTint } from "@/lib/member-tint";
 import { cn } from "@/lib/utils";
-import type { TripExpense, SplitwiseBalance, LocalBalance, ExpenseMember } from "@/packages/contracts/expense";
+import type { TripExpense, LocalBalance, ExpenseMember } from "@/packages/contracts/expense";
 
 // Money that is owed or was paid out shows its cents.
 const formatMoney = (amount: number, currency: string) => formatWhole(amount, currency, { exact: true });
 
 type ExpensesResponse = {
   expenses: TripExpense[];
-  connected: boolean;
-  groupId: number | null;
-  balances: SplitwiseBalance[] | null;
   members: ExpenseMember[];
   localBalances: LocalBalance[];
   totals: Array<{ currency: string; total: number }>;
+  isOwner: boolean;
 };
+
+/** A person's name, tinted with their stable identity colour (the same recipe group chat uses
+ *  for avatars and names) — so who-owes-whom reads as people, not a bare ledger of strings. */
+function Who({ name }: { name: string }) {
+  const tint = memberTint(name);
+  return <span className="font-medium" style={{ color: tint.color }}>{name}</span>;
+}
+
+/** A one-tap, one-a-day reminder for a single open balance. Flips to a check when it lands, the
+ *  same acknowledgement `CopyButton` uses elsewhere — stays that way until the balance itself
+ *  changes (a fresh `key` from the parent remounts it), not just for a few seconds, since unlike
+ *  a copy there's a real, server-enforced reason a second click wouldn't do anything new today. */
+function RemindButton({ tripId, debtorUserId, currency }: { tripId: string; debtorUserId: string; currency: string }) {
+  const [state, setState] = useState<"idle" | "busy" | "done" | "blocked">("idle");
+  if (state === "done") return <span className={cn(controlGhost, "pointer-events-none")} title="Reminder sent" aria-label="Reminder sent"><Check className="settle-in size-3.5 text-positive" aria-hidden /></span>;
+  if (state === "blocked") return <span className={cn(controlGhost, "pointer-events-none opacity-50")} title="Already reminded today" aria-label="Already reminded today"><BellOff className="settle-in size-3.5" aria-hidden /></span>;
+  return (
+    <button
+      type="button"
+      title="Send a reminder"
+      aria-label="Send a reminder"
+      disabled={state === "busy"}
+      onClick={async () => {
+        setState("busy");
+        try {
+          const res = await fetch(`/api/trips/${tripId}/expenses/nudge`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ debtorUserId, currency }),
+          });
+          if (res.status === 429) { setState("blocked"); return; }
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) { notifyToast(typeof body.error === "string" ? body.error : "The reminder couldn’t be sent.", "error"); setState("idle"); return; }
+          setState("done");
+          notifyToast(body.sent ? "Reminder sent." : "Saved — they won’t get an email for this one.", "success");
+        } catch {
+          notifyToast("The reminder couldn’t be sent.", "error");
+          setState("idle");
+        }
+      }}
+      className={controlGhost}
+    >
+      {state === "busy" ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <Bell className="size-3.5" aria-hidden />}
+    </button>
+  );
+}
 
 async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url);
@@ -29,11 +76,13 @@ async function fetchJson<T>(url: string): Promise<T> {
   return response.json();
 }
 
-const field = "rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/25";
+/** The app's one text/select field, without the label-offset margin `input-field` otherwise
+ *  carries — these sit shoulder to shoulder in a single row. */
+const field = cn("input-field", "!mt-0");
 
 /**
  * Shared expenses for the group. Anyone can log what they paid and who shares it; the panel works out who owes
- * whom, with no account needed. Splitwise is optional: someone who has connected it can also send an expense there.
+ * whom, with no account needed.
  */
 export function ExpensesPanel({ tripId, defaultCurrency }: { tripId: string; defaultCurrency: string }) {
   const [state, setState] = useState<ExpensesResponse | null>(null);
@@ -44,11 +93,7 @@ export function ExpensesPanel({ tripId, defaultCurrency }: { tripId: string; def
   const [paidBy, setPaidBy] = useState("");
   // null = everyone; otherwise exactly the people ticked.
   const [sharedWith, setSharedWith] = useState<string[] | null>(null);
-  const [alsoSplitwise, setAlsoSplitwise] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
 
   const refresh = useCallback(() => {
     return fetchJson<ExpensesResponse>(`/api/trips/${tripId}/expenses`)
@@ -65,24 +110,6 @@ export function ExpensesPanel({ tripId, defaultCurrency }: { tripId: string; def
       if (changes.includes("decision")) void refresh();
     });
   }, [refresh]);
-
-  // The OAuth callback redirects back here with a query flag instead of a fetch response —
-  // surface it once, then strip it so a refresh doesn't re-show the same toast.
-  useEffect(() => {
-    const error = searchParams.get("splitwiseError");
-    const connected = searchParams.get("splitwiseConnected");
-    if (!error && !connected) return;
-    if (error) notifyToast(error, "error");
-    if (connected) {
-      notifyToast("Splitwise connected.", "success");
-      void refresh();
-    }
-    const url = new URL(window.location.href);
-    url.searchParams.delete("splitwiseError");
-    url.searchParams.delete("splitwiseConnected");
-    router.replace(`${pathname}${url.search}`, { scroll: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per redirect, not on every router/pathname identity change
-  }, [searchParams]);
 
   const members = useMemo(() => [...(state?.members ?? [])].sort((a, b) => Number(b.isYou) - Number(a.isYou)), [state]);
   const me = members.find((m) => m.isYou);
@@ -105,7 +132,6 @@ export function ExpensesPanel({ tripId, defaultCurrency }: { tripId: string; def
     }
     setSubmitting(true);
     try {
-      const splitwise = state?.connected ? alsoSplitwise : false;
       const response = await fetch(`/api/trips/${tripId}/expenses`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -114,9 +140,8 @@ export function ExpensesPanel({ tripId, defaultCurrency }: { tripId: string; def
           amount: value,
           currency: currency.trim().toUpperCase(),
           idempotencyKey: crypto.randomUUID(),
-          splitwise,
-          // Splitwise splits equally among its own group; who-paid and who-shares only apply to the ones kept here.
-          ...(splitwise ? {} : { paidBy: payer || undefined, splitAmong: sharedWith ?? undefined }),
+          paidBy: payer || undefined,
+          splitAmong: sharedWith ?? undefined,
         }),
       });
       const body = await response.json().catch(() => ({}));
@@ -159,59 +184,83 @@ export function ExpensesPanel({ tripId, defaultCurrency }: { tripId: string; def
   }
 
   if (!state) {
-    return <div className="h-24 skeleton rounded-2xl border border-border" />;
+    return (
+      <div aria-hidden="true" aria-busy="true" className="space-y-4">
+        <Skeleton className="h-4 w-40" />
+        <div className={cn(surface, "p-4")}>
+          <Skeleton className="h-2.5 w-24" />
+          <div className="mt-3 space-y-2.5">
+            <Skeleton className="h-3.5 w-3/4" />
+            <Skeleton className="h-3.5 w-2/3" />
+          </div>
+        </div>
+        <Skeleton className="h-11 rounded-2xl" />
+        <div className="space-y-1.5">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-14 rounded-xl" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
-  const splitwiseBalances = state.balances ?? [];
   const everyone = sharedWith === null;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {state.totals.length > 0 && (
         <p className="text-sm text-muted-foreground">
           Spent together: <span className="font-medium tabular-nums text-foreground">{state.totals.map((t) => formatMoney(t.total, t.currency)).join(" · ")}</span>
         </p>
       )}
 
-      {(state.localBalances.length > 0 || splitwiseBalances.length > 0) && (
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
-          <p className="text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground">Who owes what</p>
-          <ul className="mt-2 space-y-1 text-sm">
-            {state.localBalances.map((b, i) => (
-              <li key={`l${i}`}>
-                <span className="font-medium text-foreground">{b.fromName}</span> {b.fromName === "You" ? "owe" : "owes"} <span className="font-medium text-foreground">{b.toName}</span>{" "}
-                <span className="tabular-nums">{formatMoney(b.amount, b.currency)}</span>
-              </li>
-            ))}
-            {splitwiseBalances.map((b, i) => (
-              <li key={`s${i}`}>
-                <span className="font-medium text-foreground">{b.fromName}</span> owes <span className="font-medium text-foreground">{b.toName}</span>{" "}
-                <span className="tabular-nums">{formatMoney(Number(b.amount), b.currency)}</span> <span className="text-xs text-muted-foreground">on Splitwise</span>
-              </li>
-            ))}
-          </ul>
+      {state.localBalances.length > 0 && (
+        <div className={cn(surface, "p-4")}>
+          <p className="eyebrow text-muted-foreground">Who owes what</p>
+          <Stagger className="mt-2.5 space-y-2 text-sm">
+            {state.localBalances.map((b, i) => {
+              // The creditor can remind their own debtor; the owner can remind anyone's — never the
+              // debtor's own row (nothing to nudge yourself to pay yourself).
+              const canRemind = b.fromName !== "You" && (b.toName === "You" || state.isOwner);
+              return (
+                <StaggerItem key={`l${i}`} className="flex items-center justify-between gap-2">
+                  <span className="min-w-0">
+                    <Who name={b.fromName} /> {b.fromName === "You" ? "owe" : "owes"} <Who name={b.toName} />{" "}
+                    <span className="tabular-nums text-ink-soft">{formatMoney(b.amount, b.currency)}</span>
+                  </span>
+                  <span className="flex shrink-0 items-center">
+                    {/* The raw number, not the formatted "$24.00" — this is what gets pasted into an
+                        Interac/Venmo/PayPal amount field, which wants a plain decimal, not a currency symbol. */}
+                    <CopyButton text={b.amount.toFixed(2)} label="amount" />
+                    {canRemind && <RemindButton key={`${b.fromUserId}:${b.toUserId}:${b.currency}`} tripId={tripId} debtorUserId={b.fromUserId} currency={b.currency} />}
+                  </span>
+                </StaggerItem>
+              );
+            })}
+          </Stagger>
         </div>
       )}
 
-      <div className="space-y-2">
+      <div className={cn(surface, "space-y-3 p-4")}>
         <div className="flex items-center gap-2">
-          <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What was it for?" aria-label="Expense description" className={cn(field, "min-w-0 flex-1")} />
-          <input type="number" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" aria-label="Expense amount" className={cn(field, "w-24 tabular-nums")} />
-          <input value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} maxLength={3} aria-label="Currency" className={cn(field, "w-16 uppercase")} />
-          <button type="button" onClick={() => void addExpense()} disabled={submitting} className="btn-primary-sm min-h-10 shrink-0">
-            {submitting ? "Saving…" : "Add"}
+          <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What was it for?" aria-label="Expense description" className={cn(field, "min-w-0 flex-1 px-3.5")} />
+          <input type="number" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" aria-label="Expense amount" className={cn(field, "w-24 px-3 tabular-nums")} />
+          <input value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} maxLength={3} aria-label="Currency" className={cn(field, "w-16 px-2.5 text-center uppercase")} />
+          <button type="button" onClick={() => void addExpense()} disabled={submitting} className="btn-primary h-11 shrink-0 px-5">
+            {submitting && <Loader2 className="size-4 animate-spin" aria-hidden />}
+            Add
           </button>
         </div>
 
-        {members.length > 1 && !(state.connected && alsoSplitwise) && (
-          <details className="rounded-xl border border-border bg-card px-3 py-2 text-sm">
-            <summary className="cursor-pointer select-none py-1.5 text-muted-foreground">
+        {members.length > 1 && (
+          <details className="group rounded-xl border border-border/70 bg-surface px-3.5 py-2.5 text-sm open:pb-3">
+            <summary className="cursor-pointer select-none py-0.5 text-ink-soft transition-colors group-open:text-foreground">
               Paid by {payer === me?.id ? "you" : nameOf.get(payer) ?? "someone"}, split {everyone ? "equally between everyone" : `between ${sharedWith!.length} ${sharedWith!.length === 1 ? "person" : "people"}`}
             </summary>
-            <div className="mt-2 space-y-2">
+            <div className="mt-2.5 space-y-2.5">
               <label className="flex items-center gap-2 text-xs text-muted-foreground">
                 Paid by
-                <select value={payer} onChange={(e) => setPaidBy(e.target.value)} className={cn(field, "py-2")}>
+                <select value={payer} onChange={(e) => setPaidBy(e.target.value)} className={cn(field, "h-9 px-2.5 py-1.5 text-xs")}>
                   {members.map((m) => <option key={m.id} value={m.id}>{m.isYou ? "You" : m.name}</option>)}
                 </select>
               </label>
@@ -219,7 +268,7 @@ export function ExpensesPanel({ tripId, defaultCurrency }: { tripId: string; def
                 {members.map((m) => {
                   const on = everyone || sharedWith!.includes(m.id);
                   return (
-                    <button key={m.id} type="button" aria-pressed={on} onClick={() => toggleShared(m.id)} className={cn("btn-chip", on && "bg-foreground text-background")}>
+                    <button key={m.id} type="button" aria-pressed={on} onClick={() => toggleShared(m.id)} className="btn-chip">
                       {m.isYou ? "You" : m.name}
                     </button>
                   );
@@ -228,46 +277,43 @@ export function ExpensesPanel({ tripId, defaultCurrency }: { tripId: string; def
             </div>
           </details>
         )}
-
-        {state.connected ? (
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
-            <input type="checkbox" checked={alsoSplitwise} onChange={(e) => setAlsoSplitwise(e.target.checked)} /> Add it to Splitwise instead (split equally there)
-          </label>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            Kept here: no account needed. Prefer Splitwise?{" "}
-            <a href={`/api/splitwise/connect?tripId=${tripId}`} className="underline underline-offset-2 hover:text-foreground">Connect it</a>.
-          </p>
-        )}
       </div>
 
       {state.expenses.length === 0 ? (
         <EmptyState icon={Receipt}>No expenses logged yet. Add what you pay for and who shares it.</EmptyState>
       ) : (
-        <ul className="space-y-1.5">
+        <Stagger className="space-y-1.5">
           {state.expenses.map((e) => {
             const payerName = e.paidBy ? (nameOf.get(e.paidBy) ?? "Someone") : null;
             const sharers = e.splitAmong ? e.splitAmong.length : members.length;
             return (
-              <li key={e.id} className="flex items-center justify-between gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm">
-                <span className="min-w-0">
-                  <span className="block truncate">{e.description}</span>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {e.source === "splitwise" ? "On Splitwise" : `${payerName ? `${payerName === "You" ? "You paid" : `${payerName} paid`}` : "Paid"}${sharers > 1 ? ` · split ${sharers} ways` : ""}`}
+              <StaggerItem key={e.id}>
+                <div className={cn(surface, "flex items-center justify-between gap-2 px-3.5 py-3 transition-colors hover:border-foreground/15")}>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm">{e.description}</span>
+                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                      {e.source === "splitwise" ? (
+                        "On Splitwise"
+                      ) : payerName ? (
+                        <>{payerName === "You" ? "You" : <Who name={payerName} />} paid{sharers > 1 ? ` · split ${sharers} ways` : ""}</>
+                      ) : (
+                        `Paid${sharers > 1 ? ` · split ${sharers} ways` : ""}`
+                      )}
+                    </span>
                   </span>
-                </span>
-                <span className="flex shrink-0 items-center gap-2">
-                  <span className="tabular-nums text-muted-foreground">{formatMoney(e.amount, e.currency)}</span>
-                  {e.source === "local" && (
-                    <button type="button" onClick={() => void removeExpense(e)} aria-label={`Remove ${e.description}`} className="grid size-9 place-items-center rounded-full text-muted-foreground transition-colors hover:text-destructive">
-                      <X className="size-4" />
-                    </button>
-                  )}
-                </span>
-              </li>
+                  <span className="flex shrink-0 items-center gap-1.5">
+                    <span className="tabular-nums text-sm text-foreground">{formatMoney(e.amount, e.currency)}</span>
+                    {e.source === "local" && (
+                      <button type="button" onClick={() => void removeExpense(e)} aria-label={`Remove ${e.description}`} className={cn(controlGhost, "hover:text-destructive")}>
+                        <X className="size-4" aria-hidden />
+                      </button>
+                    )}
+                  </span>
+                </div>
+              </StaggerItem>
             );
           })}
-        </ul>
+        </Stagger>
       )}
     </div>
   );

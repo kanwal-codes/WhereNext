@@ -170,7 +170,7 @@ export function DestinationCombobox({
           className={inputClassName ?? "w-full rounded-lg border border-input bg-background px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-ring/25 disabled:opacity-60"}
         />
         {showPanel && (
-          <Cmdk.List className="absolute inset-x-0 top-full z-30 mt-2 max-h-72 overflow-y-auto overscroll-contain rounded-2xl border border-border bg-popover p-1.5 shadow-lift">
+          <Cmdk.List className="pop-menu absolute inset-x-0 top-full z-30 mt-2 max-h-72 overflow-y-auto overscroll-contain rounded-2xl border border-border bg-popover p-1.5 shadow-lift">
             {loading && suggestions.length === 0 && (
               <div className="flex items-center gap-2 px-3 py-2.5 text-xs text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" /> Searching…

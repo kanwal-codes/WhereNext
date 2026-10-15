@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { CalendarDays, ChevronLeft, ChevronRight, Pencil, type LucideIcon } from "lucide-react";
 import { DestinationCombobox } from "@/components/DestinationCombobox";
+import { ease } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
 
 /** The pieces the flights and stays search bars share: day maths, an editable place, a day with steppers, and the sweep shown while a search loads. */
@@ -101,7 +102,7 @@ export function DatePill({ date, min, onPick, busy, label }: { date: string | nu
       <CalendarDays className="size-4 shrink-0 text-coral" aria-hidden />
       <span className="relative inline-flex overflow-hidden whitespace-nowrap tabular-nums @[34rem]:min-w-[6.5rem]">
         <AnimatePresence mode="popLayout" initial={false}>
-          <motion.span key={text} initial={reduce ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={reduce ? undefined : { opacity: 0, y: -8 }} transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}>
+          <motion.span key={text} initial={reduce ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={reduce ? undefined : { opacity: 0, y: -8 }} transition={{ duration: 0.18, ease }}>
             {text}
           </motion.span>
         </AnimatePresence>

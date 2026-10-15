@@ -1083,6 +1083,18 @@
   .ask-dock-form, .ask-dock-full, .ask-dock-mini { transition-duration: 0s !important; transition-delay: 0s !important; animation: none; }
 }
 
+/* A popover menu/list that mounts with a plain conditional (TripMenu's native <details> dropdown,
+   DestinationCombobox's suggestion list) instead of AnimatePresence: `@starting-style` gives it the
+   same fade/scale/rise as every JS-driven menu (AccountMenu), at the same duration and curve, with
+   no state machine. `<details>` can't animate its own close (display flips instantly), so only the
+   open gets it; a plain-mounted list is the same on both ends unless its parent exit-animates it. */
+.pop-menu, .daisy-dropdown-content {
+  transition: opacity var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+  transform-origin: top right;
+  @starting-style { opacity: 0; transform: translateY(-4px) scale(0.96); }
+}
+@media (prefers-reduced-motion: reduce) { .pop-menu, .daisy-dropdown-content { transition-duration: 0s; } }
+
 /* ---- Cinematic -----------------------------------------------------------------------------
  * The grammar that makes a screen read as a frame from a film.
  *

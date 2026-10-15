@@ -3,6 +3,7 @@ import { hasBearer } from "@/lib/server/bearer";
 import { fail } from "@/lib/server/with-route";
 import { logger } from "@/lib/server/logger";
 import { escapeHtml, sendEmail } from "@/lib/server/email";
+import { emailShell } from "@/lib/server/email-template";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { loadTripContext } from "@/lib/application/trip-context";
 import { reviewTrip, pendingNotifications, type ReviewFinding } from "@/lib/application/trip-review";
@@ -23,9 +24,12 @@ function digest(tripId: string, tripName: string, findings: ReviewFinding[]) {
   return {
     subject: `${findings.length} thing${findings.length === 1 ? "" : "s"} to check before ${tripName}`,
     text: `A quick review of ${tripName} turned up:\n\n${lines.join("\n")}\n\nOpen the trip: ${link}`,
-    html: `<p>A quick review of <strong>${escapeHtml(tripName)}</strong> turned up:</p>
-<ul>${findings.map((f) => `<li><strong>${escapeHtml(f.title)}</strong> — ${escapeHtml(f.detail)}</li>`).join("")}</ul>
-<p><a href="${escapeHtml(link)}">Open the trip</a></p>`,
+    html: emailShell({
+      preheader: `${findings.length} thing${findings.length === 1 ? "" : "s"} to check before ${tripName}`,
+      bodyHtml: `<p style="margin:0 0 10px">A quick review of <strong>${escapeHtml(tripName)}</strong> turned up:</p>
+<ul style="margin:0;padding-left:20px">${findings.map((f) => `<li style="margin-bottom:6px"><strong>${escapeHtml(f.title)}</strong> — ${escapeHtml(f.detail)}</li>`).join("")}</ul>`,
+      button: { label: "Open the trip", url: link },
+    }),
   };
 }
 

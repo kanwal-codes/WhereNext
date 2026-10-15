@@ -109,7 +109,7 @@ export function WidgetFoot({ foot, action }: { foot?: ReactNode; action?: ReactN
 
 /** The tinted band that holds the widget's single figure or visual. */
 export function WidgetHero({ tone = "coral", className, children }: { tone?: WidgetTone; className?: string; children: ReactNode }) {
-  return <div className={cn("mx-4 mt-3.5 rounded-[1.125rem] p-4 @[34rem]:mx-[1.125rem] @[34rem]:px-[1.375rem] @[34rem]:py-[1.125rem]", HERO[tone], className)}>{children}</div>;
+  return <div className={cn("mx-4 mt-3.5 rounded-xl p-4 @[34rem]:mx-[1.125rem] @[34rem]:px-[1.375rem] @[34rem]:py-[1.125rem]", HERO[tone], className)}>{children}</div>;
 }
 
 /** The big number: a price, a temperature, a duration. */

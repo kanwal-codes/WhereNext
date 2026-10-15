@@ -52,7 +52,7 @@ export function TripOptions({
 
       <div id={panelId} className={cn("grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none", open ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
         <div className="overflow-hidden" inert={!open}>
-          <div className="mt-3 space-y-4 rounded-[22px] bg-surface p-4 ring-1 ring-border">
+          <div className="mt-3 space-y-4 rounded-2xl bg-surface p-4 ring-1 ring-border">
             <SegmentedSwitch
               label="Leave or arrive"
               className="w-full [&>*]:flex-1"

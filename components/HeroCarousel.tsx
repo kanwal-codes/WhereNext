@@ -85,9 +85,9 @@ export function HeroCarousel({ className, children }: { className?: string; chil
           onMouseLeave={release}
           onFocus={hold}
           onBlur={release}
-          className="pointer-events-auto -mr-2 grid h-8 shrink-0 place-items-center px-2 max-sm:hidden"
+          className="group pointer-events-auto -mr-2 grid h-8 shrink-0 place-items-center px-2 max-sm:hidden"
         >
-          <span className="relative block h-[2px] w-16 overflow-hidden rounded-full bg-white/35 shadow-[0_1px_4px_rgba(0,0,0,0.5)]">
+          <span className="relative block h-[2px] w-16 overflow-hidden rounded-full bg-white/35 shadow-[0_1px_4px_rgba(0,0,0,0.5)] transition-colors group-hover:bg-white/55">
             <span key={`${index}-${epoch}`} className={cn("absolute inset-0 origin-left rounded-full bg-white", reduce ? "" : "hero-progress")} style={paused ? { animationPlayState: "paused" } : undefined} />
           </span>
         </button>

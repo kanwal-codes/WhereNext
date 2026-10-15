@@ -60,8 +60,9 @@ import { portableProxyPhotoUrl } from "../portable-photo-url";
 import type { CardPanel } from "@/components/TripPanelProvider";
 import { PlanStops } from "./PlanStops";
 import { FactStrip } from "@/components/DetailKit";
+import { SkeletonPhotoCard } from "@/components/Skeleton";
 import { AnimatePresence, motion } from "motion/react";
-import { ContentSwap, Enter, motionTokens } from "@/components/motion-primitives";
+import { ContentSwap, Enter, ease, motionTokens } from "@/components/motion-primitives";
 import { ChecklistBlock } from "./ChecklistBlock";
 import { parseRouteStep, routeGlyph, routeLines, splitRouteEnds } from "./routeText";
 import { comparisonView } from "@/features/conversation/domain/comparisonView";
@@ -274,10 +275,16 @@ function MorePlaces({ block, tripId, onOpenPlace }: { block: Extract<AssistantBl
           ))}
         </div>
       )}
-      {(!found || left > 0) && (
+      {busy && (
+        <div className={grid}>
+          {Array.from({ length: MORE_STEP }).map((_, i) => (
+            <SkeletonPhotoCard key={i} className="aspect-[3/4]" />
+          ))}
+        </div>
+      )}
+      {!busy && (!found || left > 0) && (
         <div className="flex justify-center pt-1">
           <button type="button" onClick={() => void more()} disabled={busy} className={cn(controlSecondary, "h-11 px-6")}>
-            {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
             {found ? `Show ${Math.min(MORE_STEP, left)} more` : "Show more places"}
           </button>
         </div>
@@ -987,7 +994,7 @@ function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPan
               aria-selected={i === active}
               onClick={() => setActive(i)}
               className={cn(
-                "min-w-[6.5rem] flex-1 rounded-[1.125rem] border px-3.5 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                "min-w-[6.5rem] flex-1 rounded-xl border px-3.5 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                 i === active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-surface text-foreground hover:border-ink/25",
               )}
             >
@@ -1262,7 +1269,7 @@ function RouteSummaryCard({ route, onOpenPanel, onFollowup }: { route: RouteSumm
         </WidgetHero>
       ) : (
         <div className="mx-4 mt-3.5 flex flex-col gap-3.5 @[34rem]:mx-[1.125rem] @[34rem]:flex-row">
-          {drawable && mapRequest && <div className="aspect-[300/176] shrink-0 overflow-hidden rounded-[1.125rem] @[34rem]:aspect-auto @[34rem]:h-auto @[34rem]:w-[19rem]"><RouteMap request={mapRequest!} label={`The route from ${route.from} to ${route.to}`} fallback={<RouteSketch route={route} />} /></div>}
+          {drawable && mapRequest && <div className="aspect-[300/176] shrink-0 overflow-hidden rounded-xl @[34rem]:aspect-auto @[34rem]:h-auto @[34rem]:w-[19rem]"><RouteMap request={mapRequest!} label={`The route from ${route.from} to ${route.to}`} fallback={<RouteSketch route={route} />} /></div>}
           <WidgetHero tone="lagoon" className="!m-0 flex min-w-0 flex-1 flex-col justify-between gap-3 @[34rem]:!p-[1.125rem]">
             <p className="flex items-baseline gap-1.5">
               <span className="font-display text-[3.5rem] leading-none font-medium tracking-[-0.04em] tabular-nums">{span.big}</span>{" "}
@@ -1343,7 +1350,7 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel, onFollowup }: { fr
       foot={onOpenPanel ? "Tap a way to open it on the map" : "Times are estimates"}
       action={onOpenPanel ? <WidgetAction onClick={() => onOpenPanel({ kind: "route", routes: sorted, active: sorted.indexOf(chosen), onAsk: onFollowup })}>{chosen.path ? "Map" : "Steps"}</WidgetAction> : undefined}
       hero={mapRequest && (
-        <div className="relative mx-4 mt-3.5 aspect-[640/260] overflow-hidden rounded-[1.125rem] bg-lagoon-soft @[34rem]:mx-[1.125rem]">
+        <div className="relative mx-4 mt-3.5 aspect-[640/260] overflow-hidden rounded-xl bg-lagoon-soft @[34rem]:mx-[1.125rem]">
           <RouteMap request={mapRequest} label={`The ${ROUTE_MODE_LABEL[chosen.mode] ?? chosen.mode} route from ${from} to ${to}`} fallback={<RouteSketch route={chosen} />} />
           <span className="absolute top-2.5 left-2.5"><WidgetPill className="bg-white text-ink shadow-soft">{ROUTE_MODE_LABEL[chosen.mode] ?? chosen.mode} · {minutes(chosen)}</WidgetPill></span>
         </div>
@@ -1551,7 +1558,7 @@ function StaysBlockView({ block, tripId, preview, onOpenStay, onOpenCollection, 
                     key={hotel.hotelId || `${hotel.name}-${hotelIndex}`}
                     initial={live && search.searched ? { opacity: 0, y: 12 } : false}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1], delay: live && search.searched ? Math.min(hotelIndex, 6) * 0.05 : 0 }}
+                    transition={{ duration: 0.4, ease, delay: live && search.searched ? Math.min(hotelIndex, 6) * 0.05 : 0 }}
                     className={preview ? cn(CARD_W, "shrink-0 snap-start") : undefined}
                   >
                     <StayCardView hotel={hotel} onOpen={onOpenStay && hotel.hotelId ? () => onOpenStay(hotel, dates) : undefined} />

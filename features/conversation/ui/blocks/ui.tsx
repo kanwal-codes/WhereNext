@@ -45,15 +45,16 @@ export const textAction =
 export const controlGhost =
   "relative inline-flex size-8 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-[color,background-color,transform] hover:bg-accent hover:text-foreground active:scale-95 before:absolute before:-inset-1.5 before:content-['']";
 
-/** Copy a reply; flips to a check for a moment so the click is acknowledged. */
+/** Copy something to the clipboard; flips to a check for a moment so the click is acknowledged.
+ *  `label` names what's being copied ("reply", "amount", ...) for the button's own aria-label/title. */
 /** `tabbable` is false for older replies: a long thread otherwise has a Copy stop after every answer (still clickable, just not in the tab order). */
-export function CopyButton({ text, tabbable = true }: { text: string; tabbable?: boolean }) {
+export function CopyButton({ text, label = "reply", tabbable = true }: { text: string; label?: string; tabbable?: boolean }) {
   const [done, setDone] = useState(false);
   return (
     <button
       type="button"
-      aria-label={done ? "Copied" : "Copy reply"}
-      title="Copy reply"
+      aria-label={done ? "Copied" : `Copy ${label}`}
+      title={`Copy ${label}`}
       tabIndex={tabbable ? undefined : -1}
       onClick={() => {
         void navigator.clipboard?.writeText(text);

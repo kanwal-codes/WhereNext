@@ -841,7 +841,7 @@ export function ConversationSurface({
               <Stagger delay={0.34} gap={0.07} className="mt-6 flex flex-wrap justify-center gap-2">
                 {STARTERS.map((starter) => (
                   <StaggerItem key={starter}>
-                    <button type="button" disabled={sending || guestGate} onClick={() => void submit(starter)} className="btn-chip h-9 px-4 text-sm disabled:opacity-50">
+                    <button type="button" disabled={guestGate} onClick={() => setInput(starter)} className="btn-chip h-9 px-4 text-sm disabled:opacity-50">
                       {starter}
                     </button>
                   </StaggerItem>
@@ -928,13 +928,13 @@ export function ConversationSurface({
                   <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
                     {sources.length > 0 ? (
                       <details className="group min-w-0 flex-1 text-xs text-muted-foreground">
-                        <summary className="flex w-fit cursor-pointer list-none select-none items-center gap-1 py-1.5 hover:text-foreground">
+                        <summary className="flex w-fit cursor-pointer list-none select-none items-center gap-1 py-1.5 transition-colors hover:text-foreground">
                           <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" aria-hidden /> Sources ({sources.length})
                         </summary>
                         <ul className="mt-1 space-y-1.5 pl-5">
                           {sources.map((source) => (
                             <li key={source.url}>
-                              <a href={source.url} target="_blank" rel="noreferrer noopener" className="underline-offset-2 hover:text-foreground hover:underline">
+                              <a href={source.url} target="_blank" rel="noreferrer noopener" className="underline-offset-2 transition-colors hover:text-foreground hover:underline">
                                 {source.title}
                               </a>
                               <span className="ml-1.5 opacity-70">{hostOf(source.url)}</span>
@@ -992,7 +992,7 @@ export function ConversationSurface({
             <p className="text-sm leading-relaxed">{proposalText}</p>
             {proposalRows.length > 0 && (
               <details className="group mt-3">
-                <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
+                <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
                   <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
                   See exactly what will be saved
                 </summary>

@@ -84,7 +84,7 @@ export function GroupInviteCard({ tripId, tripName }: { tripId: string; tripName
         </div>
       </div>
 
-      <div className="relative mt-4 flex items-center gap-2 rounded-2xl border border-border bg-background/80 p-1.5 pl-3.5 backdrop-blur">
+      <div className="relative mt-4 flex items-center gap-2 rounded-2xl border border-border bg-background/80 p-1.5 pl-3.5 backdrop-blur transition-[border-color,box-shadow] focus-within:border-ink/30 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_6%,transparent)]">
         <Link2 className="size-4 shrink-0 text-muted-foreground" aria-hidden />
         {link ? (
           <input

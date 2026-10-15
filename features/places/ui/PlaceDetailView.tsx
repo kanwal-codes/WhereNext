@@ -32,7 +32,7 @@ import { isWeatherRelevantPlace } from "@/packages/reco/vibes";
 import { usePlaceDetails } from "@/features/places/application/usePlaceDetails";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { amenityChips, askAssistantHref, businessStatusLabel, categoryLabel, cityFrom, detailsToPlace, photoProxyUrl, prettyWebsite, withPhotoWidth, priceLabel, secondaryTypes, type GoogleReview } from "@/lib/places-ui";
-import { Badge } from "@/features/conversation/ui/blocks/ui";
+import { Badge, textAction } from "@/features/conversation/ui/blocks/ui";
 import { cn } from "@/lib/utils";
 
 function ReviewFigure({ r }: { r: GoogleReview }) {
@@ -62,7 +62,7 @@ function ReviewFigure({ r }: { r: GoogleReview }) {
       </figcaption>
       <blockquote className={cn("mt-3 text-sm leading-relaxed text-ink-soft", !open && "line-clamp-5")}>{text}</blockquote>
       {long && (
-        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="relative mt-2 text-xs font-medium text-primary after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']">
+        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className={cn(textAction, "mt-2 underline")}>
           {open ? "Show less" : "Read more"}
         </button>
       )}
@@ -321,6 +321,7 @@ export function PlaceDetailView({
       {titleTag}
       <Hero
         image={photo ?? "/design/place-neighbourhood.jpg"}
+        fallbackImage="/design/place-neighbourhood.jpg"
         alt={name}
         plain
         surface={panel}

@@ -17,6 +17,7 @@ import { useKeyboardFit } from "@/lib/use-keyboard-fit";
 import type { AssistantBlock, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { Trip } from "@/features/trip/domain/trip";
 import { cn } from "@/lib/utils";
+import { controlGhost } from "@/features/conversation/ui/blocks/ui";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 
 const spring = motionTokens.fast;
@@ -331,7 +332,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
           <Sheet open={mobileContextOpen} onClose={() => setMobileContextOpen(false)} side="bottom" ariaLabel="Trip context" className="max-h-[85vh] px-4 pt-4 pb-8">
             <div className="mb-3 flex shrink-0 items-center justify-between">
               <p className="eyebrow">Trip context</p>
-              <button onClick={() => setMobileContextOpen(false)} aria-label="Close">
+              <button type="button" onClick={() => setMobileContextOpen(false)} aria-label="Close" className={controlGhost}>
                 <X className="h-4 w-4" />
               </button>
             </div>

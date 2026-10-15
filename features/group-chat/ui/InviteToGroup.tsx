@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Check, Clock, Loader2, Mail, Send, X } from "lucide-react";
 import { notifyToast } from "@/lib/application/toast";
 
@@ -27,6 +28,7 @@ export function InviteToGroup({ tripId }: { tripId: string }) {
   const [preparingLink, setPreparingLink] = useState(true);
   const [linkError, setLinkError] = useState(false);
   const [copied, setCopied] = useState(false);
+  const reduce = useReducedMotion();
 
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
@@ -144,7 +146,7 @@ export function InviteToGroup({ tripId }: { tripId: string }) {
       {linkError ? (
         <div className="flex items-center justify-between gap-2 rounded-xl border border-dashed border-destructive/30 bg-destructive/5 px-3 py-2">
           <p className="text-xs text-destructive">Couldn’t create an invite link.</p>
-          <button type="button" onClick={() => { setLinkError(false); setPreparingLink(true); void loadInvites(); }} className="shrink-0 text-xs font-medium text-destructive underline">
+          <button type="button" onClick={() => { setLinkError(false); setPreparingLink(true); void loadInvites(); }} className="shrink-0 text-xs font-medium text-destructive underline decoration-destructive/40 underline-offset-2 transition-[opacity,transform] hover:opacity-70 active:scale-95">
             Retry
           </button>
         </div>
@@ -160,13 +162,24 @@ export function InviteToGroup({ tripId }: { tripId: string }) {
               className="min-w-0 flex-1 bg-transparent text-xs outline-none"
               onFocus={(e) => e.currentTarget.select()}
             />
-            <button type="button" onClick={() => void copyLink()} className="btn-primary-sm shrink-0 gap-1.5">
-              {copied ? <Check className="h-3.5 w-3.5" /> : "Copy"}
+            <button type="button" onClick={() => void copyLink()} className="btn-primary-sm shrink-0 gap-1.5 overflow-hidden">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={copied ? "done" : "copy"}
+                  initial={reduce ? false : { opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={reduce ? undefined : { opacity: 0, y: -8 }}
+                  transition={{ duration: 0.16 }}
+                  className="inline-flex items-center"
+                >
+                  {copied ? <Check className="h-3.5 w-3.5" /> : "Copy"}
+                </motion.span>
+              </AnimatePresence>
             </button>
           </div>
           <p className="mt-1.5 text-2xs text-muted-foreground">
             Anyone with this link can join the trip, until {new Date(genericInvite.expiresAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}.{" "}
-            <button type="button" onClick={() => void renewLink()} disabled={renewing} className="underline underline-offset-2 hover:text-foreground disabled:opacity-50">
+            <button type="button" onClick={() => void renewLink()} disabled={renewing} className="underline underline-offset-2 transition-colors hover:text-foreground disabled:opacity-50">
               {renewing ? "Making a new one…" : "Switch it off and make a new link"}
             </button>
           </p>

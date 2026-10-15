@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { committedLine, formatTripMemory, loadTripContext, type ContextReservation } from "@/lib/application/trip-context";
+import { committedLine, formatExpenses, formatTripMemory, loadTripContext, type ContextReservation } from "@/lib/application/trip-context";
 import { buildTripSummary } from "@/lib/application/trip-summary";
 import { lodgingGaps, outsideTripDates } from "@/lib/trip-reservations";
 
@@ -135,5 +135,52 @@ describe("formatTripMemory budget", () => {
   it("says what a plain number budget is: per person per day, in the trip's currency", () => {
     const text = formatTripMemory({ preferences: { budget: 200 }, itinerary: [], places: [], decisions: [], lockedTitles: [] });
     expect(text).toContain("budget: 200 CAD per person per day");
+  });
+});
+
+describe("expenses in Roam's context", () => {
+  const ME = "11111111-1111-4111-8111-111111111111";
+  const SAM = "22222222-2222-4222-8222-222222222222";
+  const identities: Array<[string, { name: string }]> = [[ME, { name: "Alex" }], [SAM, { name: "Sam" }]];
+
+  it("loadTripContext computes balances from trip_expenses, excluding rows still bridged to a real Splitwise account", async () => {
+    const supabaseWithExpenses = {
+      from: (name: string) =>
+        table(
+          name === "trips" ? { name: "Lisbon week", destination: "Lisbon", origin: null, duration_days: 4, travelers: 2 }
+          : name === "trip_preferences" ? { data: {} }
+          : name === "trip_expenses" ? [
+              { description: "Dinner", amount: 40, currency: "EUR", paid_by: ME, split: { among: [ME, SAM] }, splitwise_expense_id: null, created_at: "t" },
+              { description: "Old Splitwise taxi", amount: 999, currency: "EUR", paid_by: SAM, split: {}, splitwise_expense_id: "sw1", created_at: "t" },
+            ]
+          : name === "trip_members" ? [{ user_id: ME }, { user_id: SAM }]
+          : [],
+        ),
+    } as unknown as SupabaseClient;
+    const context = await loadTripContext(supabaseWithExpenses, "trip-2");
+    expect(context.localExpenses).toEqual([{ description: "Dinner", amount: 40, currency: "EUR", paidBy: ME, splitAmong: [ME, SAM] }]);
+    expect(context.localBalances).toEqual([{ fromUserId: SAM, toUserId: ME, amount: 20, currency: "EUR" }]);
+  });
+
+  it("formatExpenses resolves names, marks the asker as 'you', keeps cents, and tells the model never to do its own money math", () => {
+    const line = formatExpenses(
+      [{ description: "Dinner", amount: 43.5, currency: "EUR", paidBy: ME, splitAmong: [ME, SAM] }],
+      [{ fromUserId: SAM, toUserId: ME, amount: 21.75, currency: "EUR" }],
+      identities,
+      ME,
+    );
+    expect(line).toContain("Dinner: €43.50 (paid by you, split 2 ways)");
+    expect(line).toContain("Sam owes you €21.75");
+    expect(line).toContain("never add, subtract or convert them yourself");
+  });
+
+  it("says everyone is settled up when there are expenses but no open balance", () => {
+    const line = formatExpenses([{ description: "Dinner", amount: 20, currency: "EUR", paidBy: ME, splitAmong: null }], [], identities, ME);
+    expect(line).toContain("Everyone is settled up.");
+  });
+
+  it("is silent when there are no local expenses at all", () => {
+    expect(formatExpenses([], [], identities, ME)).toBe("");
+    expect(formatExpenses(undefined, undefined, identities, ME)).toBe("");
   });
 });

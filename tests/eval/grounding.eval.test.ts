@@ -45,6 +45,7 @@ vi.mock("@/lib/application/trip-context", () => ({
   serializeTripContext: (c: unknown) => JSON.stringify(c),
   formatTripMemory: () => "nothing yet",
   describeMembers: () => "",
+  formatExpenses: () => "",
 }));
 vi.mock("@/lib/server/trip-member-identities", () => ({ tripMemberIdentities: vi.fn(async () => new Map()) }));
 vi.mock("@/lib/application/thread-summary", () => ({ refreshThreadSummary: vi.fn(async () => undefined) }));

@@ -134,7 +134,7 @@ function CineRow({ label, onOpen, href, src, alt, glyph: Glyph, eyebrow, title, 
   return (
     <article data-tappable={onOpen ? "" : undefined} className={cn("card-lift group relative isolate flex w-full items-center gap-4 overflow-hidden rounded-[1.75rem] bg-card p-3 pr-3.5 shadow-float ring-1 ring-black/[0.05]", selected && "ring-2 ring-coral")}>
       {onOpen && <CardOpenOverlay label={label} onOpen={onOpen} href={href} />}
-      <div className="pointer-events-none relative h-[7.5rem] w-24 shrink-0 overflow-hidden rounded-[1.25rem] bg-muted shadow-soft ring-1 ring-black/[0.06]">
+      <div className="pointer-events-none relative h-[7.5rem] w-24 shrink-0 overflow-hidden rounded-2xl bg-muted shadow-soft ring-1 ring-black/[0.06]">
         {src && !failed ? (
           <BlurImage src={src} alt={alt} width={240} height={300} onError={() => setFailed(true)} className="size-full object-cover" />
         ) : (

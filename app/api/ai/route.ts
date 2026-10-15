@@ -10,7 +10,7 @@ import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail, withRoute } from "@/lib/server/with-route";
 import { logger } from "@/lib/server/logger";
 import { estimateTokens, sumCostUsd, type UsageEntry } from "@/lib/ai/pricing";
-import { loadTripContext, formatTripMemory, describeMembers } from "@/lib/application/trip-context";
+import { loadTripContext, formatTripMemory, describeMembers, formatExpenses, type TripContext } from "@/lib/application/trip-context";
 import { tripMemberIdentities } from "@/lib/server/trip-member-identities";
 import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 import { runAssistantTurn, finalizeAssistantBlocks, type AssistantTurnResult } from "@/lib/application/orchestrate/run-turn";
@@ -175,7 +175,8 @@ export const POST = withRoute(async function POST(request: Request) {
     // The writer slices to 600 chars, but the row is member-writable; clamp on read as well.
     const threadSummary = ((threadRow.data?.summary as string | null) ?? "").slice(0, 600);
     const membersLine = describeMembers(memberIdentities, userId);
-    const tripSummary = [formatTripMemory(tripCtx), membersLine, threadSummary && `Earlier in this conversation: ${threadSummary}`].filter(Boolean).join(" ");
+    const expensesOf = (ctx: TripContext) => formatExpenses(ctx.localExpenses, ctx.localBalances, memberIdentities, userId);
+    const tripSummary = [formatTripMemory(tripCtx), membersLine, expensesOf(tripCtx), threadSummary && `Earlier in this conversation: ${threadSummary}`].filter(Boolean).join(" ");
     const viewContext = parsed.data.viewContext;
     // conversationRepository.append() scopes this by role itself (scopedMessageIdempotencyKey) —
     // matching the raw, unprefixed key the "user" append call above already passes, so the
@@ -298,7 +299,7 @@ export const POST = withRoute(async function POST(request: Request) {
             { supabase, tripId },
             {
               tripCtx, prompt, history: modelMessages, tripSummary, viewContext, surfacedEarlier, signal: combinedAbort,
-              deriveTripSummary: (ctx) => [formatTripMemory(ctx), membersLine, threadSummary && `Earlier context (current trip facts take precedence): ${threadSummary}`].filter(Boolean).join(" "),
+              deriveTripSummary: (ctx) => [formatTripMemory(ctx), membersLine, expensesOf(ctx), threadSummary && `Earlier context (current trip facts take precedence): ${threadSummary}`].filter(Boolean).join(" "),
               onRetrieveStart: (tools) => safeEnqueue(progressFrame("retrieve", toolProgressLabel(tools))),
             },
           );

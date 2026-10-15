@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Check, Info, X } from "lucide-react";
 import { subscribeToasts, type ToastPayload } from "@/lib/application/toast";
+import { motionTokens } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
 
 const ICON: Record<ToastPayload["tone"], { Icon: typeof Check; chip: string }> = {
@@ -47,7 +48,7 @@ export function ToastHost() {
               initial={reduceMotion ? false : { opacity: 0, y: -16, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={reduceMotion ? undefined : { opacity: 0, y: -10, scale: 0.98 }}
-              transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 320, damping: 28 }}
+              transition={reduceMotion ? { duration: 0 } : motionTokens.standard}
               className="pointer-events-auto flex w-[min(26rem,calc(100vw-2rem))] items-center gap-3 rounded-2xl border border-border bg-card/95 py-2.5 pr-2.5 pl-3 text-sm shadow-lift backdrop-blur-xl"
             >
               <span aria-hidden className={cn("grid size-7 shrink-0 place-items-center rounded-full", chip)}>

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { motionTokens } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
-import { type } from "./ui";
+import { type, controlSecondary } from "./ui";
 import { Widget, WidgetHero, WidgetPill } from "./Widget";
 
 type Groups = Array<{ title: string; items: Array<{ text: string; why?: string }> }>;
@@ -115,7 +115,7 @@ export function ChecklistBlock({ groups: given, tripId }: { groups: Groups; trip
         {visible.length < groups.length && (
           <div className="flex items-center justify-between gap-3 px-4 py-3.5 @[34rem]:px-[1.125rem]">
             <span className={cn(type.meta, "min-w-0 truncate")}>{groups.length - visible.length} more groups · {groups.slice(visible.length).map((g) => g.title).join(", ")}</span>
-            <button type="button" onClick={() => setShowAll(true)} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-border bg-background px-3 text-xs font-medium text-ink-soft hover:border-primary/40 hover:text-foreground">Show all</button>
+            <button type="button" onClick={() => setShowAll(true)} className={cn(controlSecondary, "h-9")}>Show all</button>
           </div>
         )}
       </div>

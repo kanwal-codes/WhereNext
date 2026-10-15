@@ -16,6 +16,7 @@ import { announceWorkspaceChange, subscribeWorkspaceChanges } from "@/lib/applic
 import { cachedGet } from "@/lib/client/cached-get";
 import { notifyToast } from "@/lib/application/toast";
 import { cn } from "@/lib/utils";
+import { textAction } from "@/features/conversation/ui/blocks/ui";
 import { fmtDay } from "@/lib/trip-dates";
 import { KIND_META } from "@/components/overview/ReservationSheet";
 import { clockLabel, findScheduleConflicts, isTransit, reservationsByDay } from "@/lib/trip-reservations";
@@ -603,7 +604,7 @@ export function ItinerarySurface({
                                   disabled={locked}
                                   onChange={(e) => setTime(item, e.target.value || null)}
                                   className={cn(
-                                    "rounded border-none bg-transparent p-0 text-xs outline-none [color-scheme:auto] disabled:opacity-50 max-sm:py-2 [&::-webkit-calendar-picker-indicator]:hidden",
+                                    "rounded border-none bg-transparent p-0 text-xs outline-none transition-colors [color-scheme:auto] disabled:opacity-50 max-sm:py-2 [&::-webkit-calendar-picker-indicator]:hidden",
                                     time ? "text-muted-foreground hover:text-foreground" : "text-transparent",
                                   )}
                                 />
@@ -634,7 +635,7 @@ export function ItinerarySurface({
                             aria-label={`Move ${item.title} earlier in the day`}
                             onClick={() => moveWithinDay(item, -1)}
                             disabled={locked || itemIndex === 0}
-                            className="rounded-lg p-1.5 hover:bg-accent disabled:opacity-30"
+                            className="rounded-lg p-1.5 transition-colors hover:bg-accent disabled:opacity-30"
                           >
                             <ChevronUp className="h-3.5 w-3.5" />
                           </button>
@@ -642,20 +643,20 @@ export function ItinerarySurface({
                             aria-label={`Move ${item.title} later in the day`}
                             onClick={() => moveWithinDay(item, 1)}
                             disabled={locked || itemIndex === dayItems.length - 1}
-                            className="rounded-lg p-1.5 hover:bg-accent disabled:opacity-30"
+                            className="rounded-lg p-1.5 transition-colors hover:bg-accent disabled:opacity-30"
                           >
                             <ChevronDown className="h-3.5 w-3.5" />
                           </button>
-                          <button aria-label="Move to previous day" onClick={() => move(item, -1)} disabled={locked} className="rounded-lg p-1.5 hover:bg-accent disabled:opacity-30">
+                          <button aria-label="Move to previous day" onClick={() => move(item, -1)} disabled={locked} className="rounded-lg p-1.5 transition-colors hover:bg-accent disabled:opacity-30">
                             <ArrowUp className="h-3.5 w-3.5" />
                           </button>
-                          <button aria-label="Move to next day" onClick={() => move(item, 1)} disabled={locked} className="rounded-lg p-1.5 hover:bg-accent disabled:opacity-30">
+                          <button aria-label="Move to next day" onClick={() => move(item, 1)} disabled={locked} className="rounded-lg p-1.5 transition-colors hover:bg-accent disabled:opacity-30">
                             <ArrowDown className="h-3.5 w-3.5" />
                           </button>
-                          <button aria-label={locked ? "Unlock" : "Lock"} onClick={() => toggleLock(item)} className="rounded-lg p-1.5 hover:bg-accent">
+                          <button aria-label={locked ? "Unlock" : "Lock"} onClick={() => toggleLock(item)} className="rounded-lg p-1.5 transition-colors hover:bg-accent">
                             {locked ? <LockOpen className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
                           </button>
-                          <button aria-label="Remove" onClick={() => remove(item)} disabled={locked} className="rounded-lg p-1.5 text-destructive hover:bg-accent disabled:opacity-30">
+                          <button aria-label="Remove" onClick={() => remove(item)} disabled={locked} className="rounded-lg p-1.5 text-destructive transition-colors hover:bg-accent disabled:opacity-30">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
@@ -674,7 +675,7 @@ export function ItinerarySurface({
       {removed && (
         <p role="status" className="rounded-xl border border-border bg-card px-4 py-2.5 text-sm">
           {removed.title} removed.{" "}
-          <button type="button" onClick={() => void restore()} className="font-medium text-primary underline">
+          <button type="button" onClick={() => void restore()} className={cn(textAction, "text-sm underline")}>
             Undo
           </button>
         </p>

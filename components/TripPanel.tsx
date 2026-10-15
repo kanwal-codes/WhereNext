@@ -25,7 +25,7 @@ import { MessageBlocks } from "@/features/conversation/ui/blocks/MessageBlocks";
 import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
 import { haversineKm } from "@/lib/application/geo";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
-import { Badge, controlGhost } from "@/features/conversation/ui/blocks/ui";
+import { Badge, controlGhost, textAction } from "@/features/conversation/ui/blocks/ui";
 
 const KIND_LABEL: Record<CompareEntry["kind"], string> = { place: "Place", stay: "Stay", event: "Event", route: "Route" };
 /** The question auto-asked the moment a fresh comparison opens — never shown as a "user" bubble
@@ -389,7 +389,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
             <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden /> Comparing your options…</span>
           )}
           {verdictFailed && (
-            <button type="button" className="text-xs font-medium underline underline-offset-4" onClick={() => void ask(COMPARE_VERDICT_PROMPT, [])}>Try again</button>
+            <button type="button" className={cn(textAction, "underline")} onClick={() => void ask(COMPARE_VERDICT_PROMPT, [])}>Try again</button>
           )}
         </section>
       )}

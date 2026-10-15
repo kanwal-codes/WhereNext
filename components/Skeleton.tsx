@@ -52,7 +52,7 @@ export function SkeletonCards({ count = 3, className, cardClassName }: { count?:
 export function SkeletonRow({ className }: { className?: string }) {
   return (
     <div aria-hidden="true" className={cn("flex gap-4 rounded-[1.75rem] bg-card p-3 pr-3.5 shadow-float ring-1 ring-black/[0.05]", className)}>
-      <div className={cn(pulse, "h-[7.5rem] w-24 shrink-0 rounded-[1.25rem]")} />
+      <div className={cn(pulse, "h-[7.5rem] w-24 shrink-0 rounded-2xl")} />
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
         <div className={cn(pulse, "h-2.5 w-1/3 rounded-md")} />
         <div className={cn(pulse, "h-4 w-4/5 rounded-md")} />

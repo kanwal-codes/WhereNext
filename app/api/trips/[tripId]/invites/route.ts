@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
 import { escapeHtml, sendEmail } from "@/lib/server/email";
+import { emailShell, EMAIL_MUTED } from "@/lib/server/email-template";
 import { withinRateLimit } from "@/lib/server/rate-limit";
 
 // Every invite grants full (editor) access — a group trip has no read-only tier a person joins
@@ -68,9 +69,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
         to: body.email,
         subject: `${inviter} invited you to plan ${tripName}`,
         text: `${inviter} invited you to help plan ${tripName} on Where next?\n\nJoin: ${url}\n\nThis link expires ${expires}. You'll need to sign in or create an account.`,
-        html: `<p><strong>${escapeHtml(inviter)}</strong> invited you to help plan <strong>${escapeHtml(tripName)}</strong> on Where next?</p>
-<p><a href="${escapeHtml(url)}" style="display:inline-block;padding:10px 16px;background:#1b1c20;color:#fff;border-radius:8px;text-decoration:none">Join the trip</a></p>
-<p style="color:#888;font-size:12px">Link expires ${escapeHtml(expires)}. You'll need to sign in or create an account.</p>`,
+        html: emailShell({
+          preheader: `${inviter} invited you to plan ${tripName}`,
+          bodyHtml: `<p style="margin:0"><strong>${escapeHtml(inviter)}</strong> invited you to help plan <strong>${escapeHtml(tripName)}</strong> on Where Next.</p>
+<p style="margin:14px 0 0;font-size:13px;color:${EMAIL_MUTED}">This link expires ${escapeHtml(expires)}. You'll need to sign in or create an account.</p>`,
+          button: { label: "Join the trip", url },
+        }),
       }).catch(() => false);
     }
 

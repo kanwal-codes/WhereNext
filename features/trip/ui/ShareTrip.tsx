@@ -77,8 +77,8 @@ export function ShareTrip({ tripId }: { tripId: string }) {
         <>
           <div className="mt-3 flex items-center gap-2 rounded-xl border border-input bg-background px-3 py-2 focus-within:ring-2 focus-within:ring-ring/25">
             <input aria-label="Share link" name="share-link" readOnly value={url} className="min-w-0 flex-1 bg-transparent text-xs outline-none" onFocus={(e) => e.currentTarget.select()} />
-            <button type="button" onClick={() => void copy()} className="shrink-0 text-xs font-medium text-primary">
-              {copied ? <Check className="h-3.5 w-3.5" /> : "Copy"}
+            <button type="button" onClick={() => void copy()} className="shrink-0 text-xs font-medium text-primary underline-offset-2 transition-[opacity,transform] hover:underline hover:opacity-80 active:scale-95">
+              {copied ? <Check className="h-3.5 w-3.5 text-positive" /> : "Copy"}
             </button>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">Anyone with the link can view it. It’s not indexed.</p>

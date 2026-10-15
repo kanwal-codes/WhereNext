@@ -5,6 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowLeftRight, Minus, PlaneLanding, PlaneTakeoff, Plus, TrendingDown, TrendingUp } from "lucide-react";
 import { LoadingNote, SEARCH_NOTES } from "@/components/LoadingNote";
 import { Skeleton } from "@/components/Skeleton";
+import { ease } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 import { SlidingTabs } from "./SlidingTabs";
@@ -151,7 +152,7 @@ export function FlightSearchBar({ search, tripId, trip, routeOpen, onRouteDone }
             initial={reduce ? false : { height: 0, opacity: 0, overflow: "hidden" }}
             animate={{ height: "auto", opacity: 1, transitionEnd: { overflow: "visible" } }}
             exit={reduce ? undefined : { height: 0, opacity: 0, overflow: "hidden" }}
-            transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.34, ease }}
           >
             <div className="relative grid rounded-2xl border border-border bg-card shadow-soft @[34rem]:grid-cols-2">
               <PlaceField variant="panel" className="@max-[34rem]:rounded-t-2xl @[34rem]:rounded-l-2xl @[34rem]:[&>button]:pr-8 @[34rem]:[&>div]:pr-8" caption="From" Icon={PlaneTakeoff} srLabel="Flying from" label={query.fromLabel} code={codeOf(query.fromId)} endpoint={`/api/trips/${tripId}/flights/places`} busy={busy} onPick={(v) => { search.setFrom(v); onRouteDone(); }} />
@@ -167,7 +168,7 @@ export function FlightSearchBar({ search, tripId, trip, routeOpen, onRouteDone }
                 aria-label="Swap from and to"
                 className="absolute z-10 grid size-9 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-soft transition-[color,border-color,transform] hover:border-foreground/25 hover:text-foreground active:scale-90 disabled:pointer-events-none disabled:opacity-50 @max-[34rem]:right-4 @max-[34rem]:top-1/2 @max-[34rem]:-translate-y-1/2 @[34rem]:left-1/2 @[34rem]:top-1/2 @[34rem]:-translate-x-1/2 @[34rem]:-translate-y-1/2"
               >
-                <motion.span animate={{ rotate: turn * 180 }} transition={{ duration: reduce ? 0 : 0.4, ease: [0.22, 1, 0.36, 1] }} className="grid place-items-center @max-[34rem]:rotate-90">
+                <motion.span animate={{ rotate: turn * 180 }} transition={{ duration: reduce ? 0 : 0.4, ease }} className="grid place-items-center @max-[34rem]:rotate-90">
                   <ArrowLeftRight className="size-4" aria-hidden />
                 </motion.span>
               </button>
@@ -190,7 +191,7 @@ export function FlightSearchBar({ search, tripId, trip, routeOpen, onRouteDone }
         <DayControl caption="Depart" date={query.depart} min={min} busy={busy} onPick={search.setDepart} prevLabel="Depart: previous day" nextLabel="Depart: next day" dateLabel="Departure date" />
         <AnimatePresence initial={false} mode="popLayout">
           {round ? (
-            <motion.div key="return" initial={reduce ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={reduce ? undefined : { opacity: 0, y: -6 }} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}>
+            <motion.div key="return" initial={reduce ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={reduce ? undefined : { opacity: 0, y: -6 }} transition={{ duration: 0.22, ease }}>
               <DayControl caption="Return" date={query.ret} min={query.depart ? shiftIso(query.depart, 1) : min} busy={busy} onPick={search.setReturn} prevLabel="Return: previous day" nextLabel="Return: next day" dateLabel="Return date" />
             </motion.div>
           ) : (
@@ -202,7 +203,7 @@ export function FlightSearchBar({ search, tripId, trip, routeOpen, onRouteDone }
               initial={reduce ? false : { opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={reduce ? undefined : { opacity: 0, y: -6 }}
-              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: 0.22, ease }}
               className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-dashed border-border px-3.5 text-sm @max-[34rem]:h-11 @max-[34rem]:self-end font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-muted/50 hover:text-foreground disabled:opacity-50"
             >
               <Plus className="size-4" aria-hidden /> Add return

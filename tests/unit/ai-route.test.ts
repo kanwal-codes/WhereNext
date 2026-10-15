@@ -72,6 +72,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 vi.mock("@/lib/application/trip-context", () => ({
   loadTripContext: loadTripContextMock,
+  formatExpenses: () => "",
   serializeTripContext: (context: unknown) => JSON.stringify(context),
   formatTripMemory: () => "nothing yet",
   describeMembers: () => "",

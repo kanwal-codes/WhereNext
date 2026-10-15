@@ -137,7 +137,7 @@ export function AiSearchBar({
           "flex items-center gap-2",
           variant === "card"
             ? "rounded-2xl border border-input bg-card px-3 py-2 shadow-soft focus-within:ring-2 focus-within:ring-ring/25"
-            : "border-b border-border pb-2",
+            : "border-b border-border pb-2 transition-colors focus-within:border-foreground",
         )}
       >
         <input

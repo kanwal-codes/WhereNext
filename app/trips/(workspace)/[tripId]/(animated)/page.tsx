@@ -25,6 +25,7 @@ import { notifyToast } from "@/lib/application/toast";
 import { isDisplayableDecision } from "@/lib/decisions-ui";
 import { daysUntilTrip, tripDayIndex, tripWhen } from "@/lib/trip-dates";
 import { RoutePanel } from "@/components/overview/RoutePanel";
+import { SettleUpNotice } from "@/components/overview/SettleUpNotice";
 import { useTripStays } from "@/features/stays/application/useTripStays";
 import { effectiveStops } from "@/lib/trip-stops";
 import { budgetLabel, openQuestions, placePhotoName, planDays, tastePicture } from "@/lib/trip-overview";
@@ -142,7 +143,7 @@ export default function TripOverviewPage() {
           rename={{ editing: editingName, draft: nameDraft, saving: savingName, start: startEditingName, setDraft: setNameDraft, save: () => void saveName(), cancel: () => setEditingName(false) }}
         />
       ) : (
-        <div className="min-h-[34rem] animate-pulse bg-gradient-to-br from-muted to-card sm:min-h-[40rem]" />
+        <div aria-hidden="true" className="skeleton min-h-[34rem] sm:min-h-[40rem]" />
       )}
 
       <ActionBar tripId={tripId} name={trip?.name || destination} />
@@ -150,6 +151,10 @@ export default function TripOverviewPage() {
       <div className="mx-auto max-w-6xl space-y-16 px-5 pt-4 sm:px-8 sm:pt-6">
         <Reveal>
           <TripReviewPanel tripId={tripId} />
+        </Reveal>
+
+        <Reveal>
+          <SettleUpNotice tripId={tripId} />
         </Reveal>
 
         {route.stops.length > 1 && trip && (

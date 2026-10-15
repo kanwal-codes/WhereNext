@@ -51,7 +51,6 @@ describe("guest policy: Roam only", () => {
     ["POST", "/api/trips/import"],
     ["PUT", "/api/profile"],
     ["POST", "/api/commands"],
-    ["POST", "/api/splitwise/connect"],
     ["POST", `/api/trips/${TRIP}/conversation`],
     ["PATCH", `/api/trips/${TRIP}`],
     ["DELETE", `/api/trips/${TRIP}`],

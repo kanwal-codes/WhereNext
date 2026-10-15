@@ -579,7 +579,7 @@ export function DiscoverySurface({
                 </button>
               ))}
               {subs.length > 0 && (
-                <button type="button" onClick={() => setSubs([])} className="shrink-0 rounded-full px-2 py-1 text-2xs text-muted-foreground hover:text-foreground">
+                <button type="button" onClick={() => setSubs([])} className="shrink-0 rounded-full px-2 py-1 text-2xs text-muted-foreground transition-colors hover:text-foreground">
                   Clear
                 </button>
               )}

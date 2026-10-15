@@ -110,7 +110,7 @@ export function FlightPicks({ picks, selected, onSelect, roundTrip }: { picks: F
     const o = picks[0].offer;
     return (
       <div className="relative z-[1] mx-4 -mt-10 @[34rem]:mx-5">
-        <div className="flex items-center gap-3 rounded-[1.25rem] border-2 border-coral bg-card px-4 py-3.5 shadow-lift">
+        <div className="flex items-center gap-3 rounded-2xl border-2 border-coral bg-card px-4 py-3.5 shadow-lift">
           <AirlineMark offer={o} className="size-8" />
           <div className="min-w-0 flex-1">
             <p className="eyebrow text-coral-ink!">The only option</p>
@@ -132,7 +132,7 @@ export function FlightPicks({ picks, selected, onSelect, roundTrip }: { picks: F
             type="button"
             onClick={() => onSelect(key)}
             aria-pressed={on}
-            className={cn("min-w-0 flex-1 rounded-[1.25rem] px-3.5 py-3 text-left backdrop-blur-md transition-[box-shadow,background-color,transform] duration-200 ease-out active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", on ? "border-2 border-coral bg-card shadow-lift" : "border border-white/80 bg-card/75 shadow-soft hover:bg-card/90")}
+            className={cn("min-w-0 flex-1 rounded-2xl px-3.5 py-3 text-left backdrop-blur-md transition-[box-shadow,background-color,transform] duration-200 ease-out active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", on ? "border-2 border-coral bg-card shadow-lift" : "border border-white/80 bg-card/75 shadow-soft hover:bg-card/90")}
           >
             <span className="flex items-center justify-between gap-1.5">
               <span className={cn("eyebrow truncate", on && "text-coral-ink!")}>{pick.labels.join(" · ")}</span>
@@ -152,7 +152,7 @@ export function FlightPicksSkeleton() {
   return (
     <div aria-hidden className="relative z-[1] mx-4 -mt-10 flex gap-2.5 @[34rem]:mx-5">
       {[0, 1, 2].map((i) => (
-        <div key={i} className="min-w-0 flex-1 rounded-[1.25rem] border border-white/80 bg-card/80 px-3.5 py-3">
+        <div key={i} className="min-w-0 flex-1 rounded-2xl border border-white/80 bg-card/80 px-3.5 py-3">
           <span className="block h-2.5 w-12 rounded bg-muted" />
           <span className="mt-2.5 block h-6 w-20 rounded-md bg-muted" />
           <span className="mt-2 block h-3 w-24 rounded bg-muted" />
@@ -177,7 +177,7 @@ function LegBlock({ leg, fallbackAirline, compact = false }: { leg: Leg; fallbac
     <div className="flex gap-3.5">
       <span className="w-3.5 shrink-0" aria-hidden />
       {/* The logo and the airline share a row; everything else gets the box's full width beneath, so nothing is cut short. */}
-      <div className={cn("min-w-0 flex-1 rounded-[1.25rem] bg-surface", compact ? "p-3" : "p-3.5")}>
+      <div className={cn("min-w-0 flex-1 rounded-2xl bg-surface", compact ? "p-3" : "p-3.5")}>
         <div className="flex items-center gap-3">
           <AirlineMark offer={{ airline: leg.airline ?? fallbackAirline, logo: leg.logo }} className={cn("shrink-0", compact ? "size-8" : "size-9")} />
           <p className="min-w-0 flex-1 truncate text-[0.9375rem] font-semibold">{leg.airline ?? fallbackAirline}{leg.flightNumber && <span className="ml-1.5 font-normal text-muted-foreground">{leg.flightNumber}</span>}</p>
@@ -227,7 +227,7 @@ export function FlightJourney({ offer, labels, roundTrip, onDetails, tripCurrenc
   const converted = offer.listedCurrency && offer.listedCurrency !== offer.currency;
   const cabin = offer.cabinClass && !/^economy$/i.test(offer.cabinClass) ? offer.cabinClass : null;
   return (
-    <div className="mx-4 mt-4 overflow-hidden rounded-[1.5rem] border border-border @[34rem]:mx-5" role="region" aria-label={`${offer.airline} journey`}>
+    <div className="mx-4 mt-4 overflow-hidden rounded-3xl border border-border @[34rem]:mx-5" role="region" aria-label={`${offer.airline} journey`}>
       <div className="flex flex-col @[44rem]:flex-row">
         <div className="flex min-w-0 flex-1 flex-col gap-3 p-4 @[34rem]:p-5">
           <div className="flex flex-wrap gap-2">

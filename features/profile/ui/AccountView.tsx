@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { BadgeCheck, Camera, Check, Copy, Download, Eye, Link2, Loader2, MapPin, Plane, Compass, Trash2 } from "lucide-react";
-import { Reveal, Sheet, Tactile, WordReveal } from "@/components/motion-primitives";
+import { Reveal, Sheet, Tactile, WordReveal, motionTokens } from "@/components/motion-primitives";
 import { StandaloneTopBar } from "@/components/StandaloneTopBar";
 import { useIsDarkMode } from "@/lib/use-dark-mode";
 import { DestinationCombobox } from "@/components/DestinationCombobox";
@@ -234,6 +234,7 @@ export function AccountView({
       if (frame) cancelAnimationFrame(frame);
     };
   }, []);
+  const reduce = useReducedMotion();
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -969,12 +970,12 @@ export function AccountView({
           </div>
           <input value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} placeholder="DELETE" className="input-field" />
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={() => setDeleteOpen(false)} className="rounded-full border border-border px-4 py-2 text-sm">Keep my account</button>
+            <button type="button" onClick={() => setDeleteOpen(false)} className="rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-secondary active:scale-[0.98]">Keep my account</button>
             <button
               type="button"
               onClick={() => void deleteAccount()}
               disabled={deleteConfirm !== "DELETE" || deleting}
-              className="inline-flex items-center gap-2 rounded-full bg-destructive px-4 py-2 text-sm text-destructive-foreground disabled:opacity-50"
+              className="btn-destructive"
             >
               {deleting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               Delete my account
@@ -986,7 +987,7 @@ export function AccountView({
       {/* Save bar */}
       <AnimatePresence>
         {dirty && (
-          <motion.div initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }} transition={{ type: "spring", stiffness: 320, damping: 30 }} className="fixed inset-x-0 bottom-0 z-40 px-5 pb-5 sm:px-8">
+          <motion.div initial={reduce ? false : { y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={reduce ? undefined : { y: 80, opacity: 0 }} transition={reduce ? { duration: 0 } : motionTokens.panelSpring} className="fixed inset-x-0 bottom-0 z-40 px-5 pb-5 sm:px-8">
             <div className="mx-auto flex max-w-2xl items-center justify-between gap-4 rounded-full border border-border bg-background/90 px-5 py-3 shadow-lift backdrop-blur-md">
               <p className="text-sm text-ink-soft">You have unsaved changes.</p>
               <div className="flex items-center gap-3">
@@ -1004,10 +1005,10 @@ export function AccountView({
       <AnimatePresence>
         {saved && (
           <motion.div
-            initial={{ y: 20, opacity: 0 }}
+            initial={reduce ? false : { y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
+            exit={reduce ? undefined : { opacity: 0 }}
+            transition={reduce ? { duration: 0 } : { duration: 0.3 }}
             onAnimationComplete={() => setTimeout(() => setSaved(false), 1600)}
             className="fixed inset-x-0 bottom-6 z-40 flex justify-center"
           >
