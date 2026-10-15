@@ -250,7 +250,7 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
             </p>
           </div>
           <div className="shrink-0 text-right">
-            <p className="font-display text-2xl font-semibold leading-none tabular-nums tracking-[-0.03em] sm:text-3xl">
+            <p className="font-display text-2xl font-light leading-none tabular-nums tracking-[-0.03em] sm:text-3xl">
               {flight.listedCurrency && <span className="mr-1 text-xl font-normal text-muted-foreground">≈</span>}
               {money(flight.price, flight.currency, true)}
             </p>
@@ -275,7 +275,7 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
         <div className="relative grid grid-cols-[auto_minmax(0,1fr)_auto] gap-x-4 px-6 pt-6">
           <div>
             <p className={eyebrow}>Departs</p>
-            <p className="mt-2 font-display text-4xl font-semibold leading-none tracking-[-0.04em] sm:text-5xl">{from}</p>
+            <p className="mt-2 font-display text-4xl font-light leading-none tracking-[-0.04em] sm:text-5xl">{from}</p>
             <p className={cn(type.meta, "mt-2 truncate")}>{city(route.origin)}</p>
           </div>
           <div className="flex min-w-0 flex-col items-center pt-[1.6rem]">
@@ -305,7 +305,7 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
           </div>
           <div className="text-right">
             <p className={eyebrow}>Arrives</p>
-            <p className="mt-2 font-display text-4xl font-semibold leading-none tracking-[-0.04em] sm:text-5xl">{to}</p>
+            <p className="mt-2 font-display text-4xl font-light leading-none tracking-[-0.04em] sm:text-5xl">{to}</p>
             <p className={cn(type.meta, "mt-2 truncate")}>{city(route.destination)}</p>
           </div>
         </div>

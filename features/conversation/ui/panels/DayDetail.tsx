@@ -7,7 +7,7 @@ import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type ItineraryBlock } from "@/components/TripPanelProvider";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { addStopsToItinerary, dayIndexFromLabel } from "@/features/conversation/application/addPlanToItinerary";
-import { ContentSwap } from "@/components/motion-primitives";
+import { ContentSwap, Reveal } from "@/components/motion-primitives";
 import { SlidingTabs } from "@/features/conversation/ui/blocks/SlidingTabs";
 import { DayStops } from "./DayStops";
 import { PanelHeader } from "./PanelHeader";
@@ -92,7 +92,7 @@ export function DayDetail({ block, dayIndex, tripId }: { block: ItineraryBlock; 
       )}
 
       <ContentSwap swapKey={String(active)} className="space-y-5">
-      <header className="rounded-3xl bg-card p-5 shadow-float ring-1 ring-black/[0.06] sm:p-6">
+      <Reveal delay={0} y={10}><header className="rounded-3xl bg-card p-5 shadow-float ring-1 ring-black/[0.06] sm:p-6">
         <PanelHeader eyebrow={[day.label, ...(minutes.length === 0 ? [] : [eyebrow])]} sub={day.open ? "Open day" : `${day.stops.length} stop${day.stops.length === 1 ? "" : "s"}`}>
           <h2 className="max-w-[16ch] font-display text-4xl font-light leading-[1.04] tracking-[-0.035em] text-balance">{day.subtitle ?? day.label}</h2>
         </PanelHeader>
@@ -115,9 +115,9 @@ export function DayDetail({ block, dayIndex, tripId }: { block: ItineraryBlock; 
         )}
         {ctx && dayPoints.length > 0 && <MapButton className="h-12 rounded-full px-5 text-sm max-sm:w-12 max-sm:px-0" onClick={() => ctx.openPanel({ kind: "map", title: `${day.label} on the map`, points: dayPoints })}><span className="max-sm:sr-only">Map</span></MapButton>}
         </div>
-      </header>
+      </header></Reveal>
 
-      <DayStops stops={day.stops} onOpenPlace={ctx ? (stop) => ctx.openPanel({ kind: "place", placeId: stop.placeId!, name: stop.title }) : undefined} />
+      <Reveal delay={0.1} y={10}><DayStops stops={day.stops} onOpenPlace={ctx ? (stop) => ctx.openPanel({ kind: "place", placeId: stop.placeId!, name: stop.title }) : undefined} /></Reveal>
       </ContentSwap>
     </div>
   );

@@ -9,7 +9,7 @@ import { pointsFromRoute } from "@/features/conversation/ui/blocks/mapPoints";
 import { PlanStops, type PlanStop } from "@/features/conversation/ui/blocks/PlanStops";
 import { parseRouteStep, routeLines, splitRouteEnds } from "@/features/conversation/ui/blocks/routeText";
 import { Skeleton } from "@/components/Skeleton";
-import { ContentSwap, motionTokens } from "@/components/motion-primitives";
+import { ContentSwap, Reveal, motionTokens } from "@/components/motion-primitives";
 import { BigFigure, PanelHeader } from "./PanelHeader";
 import { SlidingTabs } from "@/features/conversation/ui/blocks/SlidingTabs";
 import { Badge, Notice, controlSecondary, money, surface, type } from "@/features/conversation/ui/blocks/ui";
@@ -229,6 +229,8 @@ export function RouteDetail({ tripId, routes, active: initial, onAsk }: { tripId
   const options = (
     <div className="space-y-6">
       {/* The chosen way, as a headline: what it is, how long, between where. */}
+      <Reveal delay={0} y={10}>
+      <div className="space-y-6">
       <PanelHeader
         eyebrow={[route.durationSeconds === fastest ? "Fastest" : heroTag ? TAG_TEXT[heroTag] : "Your route", MODE[mode].label]}
         sub={<>{ends.from} <span aria-hidden className="mx-1 text-coral">→</span> {ends.to}{ends.where ? ` · ${ends.where}` : ""}</>}
@@ -257,7 +259,10 @@ export function RouteDetail({ tripId, routes, active: initial, onAsk }: { tripId
           })}
         />
       )}
+      </div>
+      </Reveal>
 
+      <Reveal delay={0.08} y={10}>
       <ContentSwap swapKey={mode}>
       <section className="space-y-2" aria-label={`${MODE[mode].label} options`}>
         {group.options.length > 1 && <h3 className={type.meta}>{group.options.length} ways by {MODE[mode].label.toLowerCase()}</h3>}
@@ -268,13 +273,19 @@ export function RouteDetail({ tripId, routes, active: initial, onAsk }: { tripId
         </div>
       </section>
       </ContentSwap>
+      </Reveal>
 
+      <Reveal delay={0.16} y={10}>
+      <div className="space-y-3">
       <a href={maps} target="_blank" rel="noreferrer noopener" className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-[filter,transform] hover:brightness-110 active:scale-[0.98]">
         {route.mode === "transit" ? "See live departures in Google Maps" : "Open in Google Maps"} <ArrowUpRight className="size-4" aria-hidden />
       </a>
       {route.mode === "transit" && <Notice>These are typical journeys. Departures and delays change, so check them live before you leave.</Notice>}
+      </div>
+      </Reveal>
 
       {onAsk && (
+        <Reveal delay={0.22} y={10}>
         <section aria-label="Ask Roam" className="space-y-2.5">
           <h3 className={type.meta}>Ask Roam</h3>
           <div className="grid gap-2 sm:grid-cols-2">
@@ -288,6 +299,7 @@ export function RouteDetail({ tripId, routes, active: initial, onAsk }: { tripId
             ))}
           </div>
         </section>
+        </Reveal>
       )}
     </div>
   );
