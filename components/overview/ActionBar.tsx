@@ -30,12 +30,14 @@ export function ActionBar({ tripId, name }: { tripId: string; name: string }) {
     <>
       <div ref={sentinel} aria-hidden className="h-px" />
       <div className={cn("z-20 transition-[box-shadow,background-color,border-color] duration-300 lg:sticky lg:top-0", "border-b border-transparent", stuck && "lg:border-border lg:bg-background/95 lg:shadow-[0_12px_28px_-20px_oklch(0.2_0.012_65/0.45)]")}>
-        <div className="mx-auto flex max-w-6xl items-center gap-4 px-5 py-4 sm:px-8">
+        {/* On a short screen the row gives up its breathing room rather than let the shortcuts sit under the
+            phone's fixed tab bar — the hero above has already shrunk as far as its own content allows. */}
+        <div className="mx-auto flex max-w-6xl items-center gap-4 px-5 py-4 [@media(max-height:700px)]:py-2 sm:px-8">
           <p aria-hidden={!stuck} className={cn("hidden min-w-0 flex-1 truncate font-display text-lg tracking-[-0.01em] transition-[opacity,transform] duration-300 lg:block", stuck ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-1 opacity-0")}>
             {name}
           </p>
           {/* The main action, then the two shortcuts: on a phone the action is full width with the shortcuts side by side; from sm up all three sit in a row. */}
-          <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto sm:flex-wrap lg:shrink-0 lg:flex-nowrap">
+          <div className="grid w-full grid-cols-2 gap-3 [@media(max-height:700px)]:gap-2 sm:flex sm:w-auto sm:flex-wrap lg:shrink-0 lg:flex-nowrap">
             <Link href={`/trips/${tripId}/chat`} className="btn-primary col-span-2 h-11 rounded-full px-6 sm:col-span-1">
               <RoamMark state="settled" size={30} /> Continue planning
             </Link>

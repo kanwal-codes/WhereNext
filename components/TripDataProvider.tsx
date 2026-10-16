@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
+import { subscribeWorkspaceChanges, type WorkspaceChange } from "@/lib/application/workspace-events";
 import { useTripRealtime, type PresencePeer } from "@/lib/client/trip-realtime";
 import { primeTrip } from "@/lib/client/offline-store";
 import type { TripWorkspaceData } from "@/features/workspace/application/loadTripWorkspace";
@@ -17,6 +17,9 @@ type TripDataValue = {
 };
 
 const TripDataContext = createContext<TripDataValue | null>(null);
+
+/** The change types that alter what the trip layout renders on the server (the workspace snapshot). */
+const SERVER_RENDERED = new Set<WorkspaceChange>(["trip", "preferences", "decision", "itinerary", "places", "essentials"]);
 // Presence (who's viewing right now) changes far more often than the trip data itself — its own
 // context so a collaborator's presence ping doesn't re-render every consumer of `useTripData()`
 // (the map, Roam, the trip panel, the itinerary, Discover...), only the one component that
@@ -72,7 +75,11 @@ export function TripDataProvider({
       last = Date.now();
       void router.refresh();
     };
-    const unsubscribe = subscribeWorkspaceChanges(() => {
+    const unsubscribe = subscribeWorkspaceChanges((changes) => {
+      // Only what the server renders is worth a server render. A group message, a member, an expense: each
+      // screen showing one fetches it on its own signal, and the busiest of them (every message a friend
+      // sends) was re-rendering the whole trip for nothing.
+      if (!changes.some((change) => SERVER_RENDERED.has(change))) return;
       const since = Date.now() - last;
       if (since >= 1500) run();
       else if (!trailing) trailing = setTimeout(() => { trailing = null; run(); }, 1500 - since);

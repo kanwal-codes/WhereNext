@@ -32,7 +32,7 @@ import { isWeatherRelevantPlace } from "@/packages/reco/vibes";
 import { usePlaceDetails } from "@/features/places/application/usePlaceDetails";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { amenityChips, askAssistantHref, businessStatusLabel, categoryLabel, cityFrom, detailsToPlace, photoProxyUrl, prettyWebsite, withPhotoWidth, priceLabel, secondaryTypes, type GoogleReview } from "@/lib/places-ui";
-import { Badge, textAction } from "@/features/conversation/ui/blocks/ui";
+import { Badge, compactCount, textAction } from "@/features/conversation/ui/blocks/ui";
 import { cn } from "@/lib/utils";
 
 function ReviewFigure({ r }: { r: GoogleReview }) {
@@ -324,7 +324,9 @@ export function PlaceDetailView({
         fallbackImage="/design/place-neighbourhood.jpg"
         alt={name}
         plain
+        kenBurns={!panel}
         surface={panel}
+        ratingBadge={typeof details.rating === "number" ? <><Star className="size-3.5 fill-current text-coral-soft" aria-hidden /> {details.rating.toFixed(1)}{details.userRatingCount ? <span className="opacity-70"> {compactCount(details.userRatingCount)}</span> : null}</> : undefined}
         className={cn(panel ? PANEL_HERO : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")}
       >
         {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className="absolute top-4 left-4" />}

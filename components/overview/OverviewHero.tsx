@@ -51,7 +51,13 @@ export function OverviewHero({
         vtName="trip-cover"
         width={1600}
         imageClassName="hero-drift"
-        className="flex min-h-[34rem] flex-col justify-end sm:min-h-[40rem] lg:min-h-[44rem]"
+        // Tall, but never so tall that the row under it (Continue planning, Itinerary, Discover) opens up
+        // underneath the phone's fixed tab bar: on a short window the whole primary action sat behind it
+        // (51px of a 44px button on a 667px-tall phone) and only scrolling revealed it existed. Below `lg`
+        // the hero gives up height before it gives up that row; where there is room it keeps its full size.
+        // The reserve differs because the row does: below `sm` it stacks (the action across the top, the two
+        // shortcuts under it), above `sm` all three sit on one line.
+        className="flex min-h-[min(34rem,calc(100dvh-var(--topbar)-var(--tabbar)-9.5rem))] flex-col justify-end sm:min-h-[min(40rem,calc(100dvh-var(--topbar)-var(--tabbar)-6.5rem))] lg:min-h-[44rem]"
       >
         {({ photo }) => (
           <>

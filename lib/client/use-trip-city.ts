@@ -13,7 +13,11 @@ const CHANGE = "wn:city-change";
  */
 export function useTripCity(trip: TripLike): { stops: TripStop[]; estimated: boolean; stop: TripStop | null; city: string; setCity: (city: string) => void; hasChoice: boolean } {
   const tripId = trip?.id ?? "";
-  const { stops, estimated } = useMemo(() => effectiveStops(trip), [trip]);
+  // Keyed on what the stops are built from, not the trip object: every workspace refresh hands over a new
+  // object with the same content, and a new `stop` re-ran every search downstream of it (Discover's whole feed, three times a load).
+  const stopsKey = JSON.stringify([trip?.destination ?? null, trip?.start_date ?? null, trip?.end_date ?? null, trip?.stops ?? null]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- stopsKey stands in for the trip fields read here
+  const { stops, estimated } = useMemo(() => effectiveStops(trip), [stopsKey]);
   const [picked, setPicked] = useState<string | null>(null);
 
   useEffect(() => {

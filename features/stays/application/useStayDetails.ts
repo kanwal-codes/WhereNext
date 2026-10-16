@@ -32,6 +32,51 @@ type Body = {
   website?: string | null;
 };
 
+type StayDates = { checkin?: string; checkout?: string; adults?: number; rooms?: number };
+const TTL = 5 * 60_000;
+const inflight = new Map<string, Promise<Body>>();
+
+function stayRequest(tripId: string, hotelId: string, dates: StayDates) {
+  const qs = new URLSearchParams();
+  if (dates.checkin) qs.set("checkin", dates.checkin);
+  if (dates.checkout) qs.set("checkout", dates.checkout);
+  if (dates.adults) qs.set("adults", String(dates.adults));
+  if (dates.rooms) qs.set("rooms", String(dates.rooms));
+  // One fetch per hotel+dates per session — re-opening the same stay (or bouncing between the
+  // panel and the full page) shouldn't re-pull hotel/rooms/reviews. Same 5-minute TTL as the
+  // stay search caches (StaySurface, NearbyStays) — rates refresh server-side on that cadence.
+  return {
+    cacheKey: `stay-details:${tripId}:${hotelId}:${qs.toString()}`,
+    url: `/api/trips/${tripId}/stays/${encodeURIComponent(hotelId)}${qs.toString() ? `?${qs}` : ""}`,
+  };
+}
+
+/** One request per hotel+dates at a time: a hover's prefetch and the panel it opens share it. Not abortable, so closing the panel can't cancel a load another caller is waiting on. */
+function loadStayDetails(tripId: string, hotelId: string, dates: StayDates): Promise<Body> {
+  const { cacheKey, url } = stayRequest(tripId, hotelId, dates);
+  const pending = inflight.get(cacheKey);
+  if (pending) return pending;
+  const request = fetch(url)
+    .then(async (r) => {
+      if (!r.ok) throw new Error("details");
+      const next = (await r.json()) as Body;
+      writeSessionCache(cacheKey, next);
+      return next;
+    })
+    .finally(() => inflight.delete(cacheKey));
+  inflight.set(cacheKey, request);
+  return request;
+}
+
+/**
+ * Starts the details load the moment someone points at a stay card: the provider takes 0.6–1.7 s, most of
+ * which is now spent before the click instead of behind a skeleton after it.
+ */
+export function prefetchStayDetails(tripId: string, hotelId: string, dates: StayDates = {}) {
+  if (readSessionCache<Body>(stayRequest(tripId, hotelId, dates).cacheKey, TTL)) return;
+  void loadStayDetails(tripId, hotelId, dates).catch(() => undefined);
+}
+
 /**
  * Hotel content + dated room rates for one LiteAPI hotel, plus "lock this room"
  * which records the trip's stay decision. Shared by `StayPanel` (chat rail) and
@@ -53,39 +98,28 @@ export function useStayDetails(
   const lockedStay = locked ?? readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
 
   useEffect(() => {
-    const controller = new AbortController();
-    const qs = new URLSearchParams();
-    if (dates.checkin) qs.set("checkin", dates.checkin);
-    if (dates.checkout) qs.set("checkout", dates.checkout);
-    if (dates.adults) qs.set("adults", String(dates.adults));
-    if (dates.rooms) qs.set("rooms", String(dates.rooms));
-    // One fetch per hotel+dates per session — re-opening the same stay (or bouncing between the
-    // panel and the full page) shouldn't re-pull hotel/rooms/reviews. Same 5-minute TTL as the
-    // stay search caches (StaySurface, NearbyStays) — rates refresh server-side on that cadence.
-    const cacheKey = `stay-details:${tripId}:${hotelId}:${qs.toString()}`;
-    const cachedBody = readSessionCache<Body>(cacheKey, 5 * 60_000);
+    const request = { checkin: dates.checkin, checkout: dates.checkout, adults: dates.adults, rooms: dates.rooms };
+    const cachedBody = readSessionCache<Body>(stayRequest(tripId, hotelId, request).cacheKey, TTL);
     if (cachedBody) {
       setBody(cachedBody);
       setState(cachedBody.hotel || cachedBody.rooms ? "ready" : "error");
-      return () => controller.abort();
+      return;
     }
+    let cancelled = false;
     setState("loading");
     setBody(null);
-    fetch(`/api/trips/${tripId}/stays/${encodeURIComponent(hotelId)}${qs.toString() ? `?${qs}` : ""}`, { signal: controller.signal })
-      .then(async (r) => {
-        if (!r.ok) throw new Error("details");
-        return r.json() as Promise<Body>;
-      })
+    loadStayDetails(tripId, hotelId, request)
       .then((next) => {
-        writeSessionCache(cacheKey, next);
+        if (cancelled) return;
         setBody(next);
         setState(next.hotel || next.rooms ? "ready" : "error");
       })
-      .catch((err) => {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setState("error");
+      .catch(() => {
+        if (!cancelled) setState("error");
       });
-    return () => controller.abort();
+    return () => {
+      cancelled = true;
+    };
   }, [tripId, hotelId, dates.checkin, dates.checkout, dates.adults, dates.rooms, attempt]);
 
   async function lockRoom(room: StayRoom) {

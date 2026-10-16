@@ -35,20 +35,22 @@ export function FactStrip({ facts, className, variant = "default" }: { facts: Ar
     );
   }
   return (
-    <dl className={cn("daisy-stats w-full auto-cols-fr rounded-2xl border border-border bg-card shadow-soft", className)}>
+    <dl className={cn("daisy-stats w-full auto-cols-fr items-start rounded-2xl border border-border bg-card shadow-soft", className)}>
       {shown.map((fact) => (
         <div key={fact.label} className="daisy-stat min-w-0 place-items-start content-start gap-y-0.5 border-b-0 border-solid border-border px-4 py-3">
           <dt className="daisy-stat-title text-xs text-muted-foreground">{fact.label}</dt>
           <dd
             className={cn(
-              "daisy-stat-value flex min-w-0 items-center gap-1 font-display text-lg font-semibold leading-tight tracking-[-0.01em] break-words whitespace-normal text-balance",
+              "daisy-stat-value flex min-w-0 items-start gap-1 font-display text-lg font-semibold leading-tight tracking-[-0.01em]",
               fact.tone === "positive" && "text-positive",
               fact.tone === "caution" && "text-caution",
             )}
           >
-            {fact.value}
+            {/* Clamped, not just wrapped: an unbounded venue name or address used to stretch its whole
+                row to match, leaving short siblings (a date, a price) floating in a tall half-empty cell. */}
+            <span className="line-clamp-2 min-w-0 text-balance">{fact.value}</span>
           </dd>
-          {fact.note && <dd className="daisy-stat-desc text-xs leading-snug break-words whitespace-normal text-muted-foreground opacity-100">{fact.note}</dd>}
+          {fact.note && <dd className="daisy-stat-desc line-clamp-1 min-w-0 whitespace-normal text-xs leading-snug text-muted-foreground opacity-100">{fact.note}</dd>}
         </div>
       ))}
     </dl>

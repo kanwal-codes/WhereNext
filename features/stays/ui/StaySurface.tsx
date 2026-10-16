@@ -23,6 +23,7 @@ import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache"
 import { cn } from "@/lib/utils";
 import { fmtDay } from "@/lib/trip-dates";
 import { cachedGet } from "@/lib/client/cached-get";
+import { prefetchStayDetails } from "@/features/stays/application/useStayDetails";
 
 type Result = {
   location: string;
@@ -373,7 +374,12 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
             {result.options.slice(0, visible).map((o, index) => {
               const comparing = Boolean(panelCtx?.compareMode);
               return (
-                <li key={o.hotelId} className={cn("min-w-0", index >= first && "settle-in")}>
+                <li
+                  key={o.hotelId}
+                  className={cn("min-w-0", index >= first && "settle-in")}
+                  onPointerEnter={() => prefetchStayDetails(tripId, o.hotelId, { checkin: result?.checkin ?? checkin, checkout: result?.checkout ?? checkout })}
+                  onFocusCapture={() => prefetchStayDetails(tripId, o.hotelId, { checkin: result?.checkin ?? checkin, checkout: result?.checkout ?? checkout })}
+                >
                   <StayResultCard
                     phoneRow
                     stay={{ ...o, reviewCount: o.reviewCount, boardName: o.boardName }}

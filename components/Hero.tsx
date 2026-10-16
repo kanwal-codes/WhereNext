@@ -19,6 +19,7 @@ export function Hero({
   alt,
   className,
   plain = false,
+  kenBurns = true,
   surface = false,
   ratingBadge,
   coverImages = [],
@@ -34,6 +35,9 @@ export function Hero({
   alt: string;
   className?: string;
   plain?: boolean;
+  /** false holds the photo still — no Ken Burns zoom — for a hero reached from a chat card that was
+   *  itself static, where the sudden drift read as motion the card never promised. Default true. */
+  kenBurns?: boolean;
   /** Dissolve into `surface` instead of `background` — for a hero sitting on a card/sheet/panel
    *  whose fill is the surface token, where fading to background would leave a visible seam. */
   surface?: boolean;
@@ -77,29 +81,24 @@ export function Hero({
   return (
     <div ref={ref} className={cn("relative isolate overflow-hidden", className)}>
       <motion.div style={{ y }} className="absolute inset-0 -z-10">
-        {/* The fade/scale-in is rAF-driven — only mount the animated img once the
-            document is live and visible, so a background-tab load never leaves the
-            hero stuck at opacity 0. Until then, render it plain and visible. */}
-        {animateIn ? (
-          <motion.img
-            src={baseImage}
-            alt={alt}
-            width={1600}
-            height={900}
-            fetchPriority="high"
-            onError={() => setFailedImage(image)}
-            className="h-full w-full object-cover object-center"
-            initial={{ scale: 1.1, opacity: 0 }}
-            animate={{ scale: reduce ? 1.02 : 1.06, opacity: 1 }}
-            transition={{
-              opacity: { duration: 1, ease: [0.22, 1, 0.36, 1] },
-              scale: { duration: reduce ? 0 : 18, ease: "linear" },
-            }}
-          />
-        ) : (
-          // eslint-disable-next-line @next/next/no-img-element -- filmic hero, arbitrary sources
-          <img src={baseImage} alt={alt} width={1600} height={900} fetchPriority="high" onError={() => setFailedImage(image)} className="h-full w-full object-cover object-center" />
-        )}
+        {/* The fade/scale-in is rAF-driven, so it only plays when the document is live and visible
+            (`animateIn`); otherwise the photo starts settled. One element either way: swapping a plain
+            img for this one rebuilt the image (and re-decoded it) right after it mounted. */}
+        <motion.img
+          src={baseImage}
+          alt={alt}
+          width={1600}
+          height={900}
+          fetchPriority="high"
+          onError={() => setFailedImage(image)}
+          className="h-full w-full object-cover object-center"
+          initial={animateIn ? { scale: kenBurns ? 1.1 : 1, opacity: 0 } : false}
+          animate={{ scale: !kenBurns ? 1 : reduce ? 1.02 : 1.06, opacity: 1 }}
+          transition={{
+            opacity: { duration: 1, ease: [0.22, 1, 0.36, 1] },
+            scale: { duration: !kenBurns || reduce ? 0 : 18, ease: "linear" },
+          }}
+        />
         {coverSrc && (
           <motion.img
             key={coverSrc}

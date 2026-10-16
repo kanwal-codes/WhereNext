@@ -164,8 +164,8 @@ export function DiscoverySurface({
   const [eventsBusy, setEventsBusy] = useState(false);
 
   const fetchPlaces = useCallback(
-    async (q: string, signal?: AbortSignal): Promise<Place[]> => {
-      const r = await cachedGet(`/api/trips/${tripId}/places?query=${encodeURIComponent(scope(q))}`, { signal });
+    async (q: string, signal?: AbortSignal, limit?: number): Promise<Place[]> => {
+      const r = await cachedGet(`/api/trips/${tripId}/places?query=${encodeURIComponent(scope(q))}${limit ? `&limit=${limit}` : ""}`, { signal });
       const body = await r.json().catch(() => ({}));
       return r.ok ? (body.places ?? []) : [];
     },
@@ -255,11 +255,13 @@ export function DiscoverySurface({
     } catch { /* ignore */ }
     setLoading(true);
     setMessage("");
+    // A band shows six and "See all" opens the category with its own full search, so one page (20) each:
+    // 60 was three sequential Google pages and ~300 KB per band, four bands per load.
     const [forYou, sights, eat, tours, ev, st] = await Promise.allSettled([
-      fetchPlaces(interests.length ? interests.join(", ") : "highly rated things to do", controller.signal),
-      fetchPlaces("top sights and landmarks", controller.signal),
-      fetchPlaces("restaurants and cafes", controller.signal),
-      fetchPlaces("guided tours", controller.signal),
+      fetchPlaces(interests.length ? interests.join(", ") : "highly rated things to do", controller.signal, 20),
+      fetchPlaces("top sights and landmarks", controller.signal, 20),
+      fetchPlaces("restaurants and cafes", controller.signal, 20),
+      fetchPlaces("guided tours", controller.signal, 20),
       fetchEvents("", 0, controller.signal),
       fetchStays(controller.signal),
     ]);

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { GroupMessage, GroupMessageReaction, GroupMessageKind } from "../domain/message";
-import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 import { resolvePolls } from "@/lib/server/poll";
+import { slimMessageMetadata } from "@/lib/slim-message-metadata";
 
 type GroupMessageRow = {
   id: string;
@@ -20,7 +20,7 @@ const toMessage = (row: GroupMessageRow, reactions: GroupMessageReaction[]): Gro
   role: row.role,
   kind: row.kind,
   content: row.content,
-  metadata: row.metadata ?? {},
+  metadata: slimMessageMetadata(row.metadata),
   created_at: row.created_at,
   reactions,
   // Only a member's own send key ("user:<key>"); Roam's reserved reply keys are not exposed.
@@ -133,7 +133,7 @@ export function createGroupChatRepository(supabase: SupabaseClient) {
         ? await supabase.from("group_messages").upsert(row, { onConflict: "trip_id,idempotency_key" }).select(COLUMNS).single()
         : await supabase.from("group_messages").insert(row).select(COLUMNS).single();
       if (result.error) throw result.error;
-      invalidateWorkspace(tripId);
+      // No workspace bust: the trip-wide snapshot carries no group chat (the chat screens read it themselves).
       return toMessage(result.data as GroupMessageRow, []);
     },
     /** Look up one message by id regardless of the recent-history window `list()` is bounded to

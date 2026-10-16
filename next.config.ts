@@ -109,6 +109,16 @@ const withSerwist = withSerwistInit({
   swDest: "public/sw.js",
   // No SW in `next dev` — keeps Playwright and hot-reload unaffected.
   disable: process.env.NODE_ENV === "development",
+  // What the worker precaches on a first visit, beyond the build's own JS and CSS. Setting this REPLACES
+  // the default, which is every file in /public ("**/*") — 16.9 MB of photographs, all 30 hero frames and
+  // every design image, downloaded in the background before anyone had asked to see one, and again
+  // whenever any of them changed. A picture is cached the moment it is actually shown, by the
+  // `static-image-assets` rule in `defaultCache` (app/sw.ts).
+  // What does belong here is the offline page: the fallback in app/sw.ts answers with
+  // `matchPrecache("/~offline")`, and a manifest of static files never includes a route's HTML, so the
+  // fallback was dead — losing the network anywhere unvisited showed the browser's own error page.
+  // Revisioned per build, since that page's HTML names that build's own chunks.
+  additionalPrecacheEntries: [{ url: "/~offline", revision: process.env.VERCEL_DEPLOYMENT_ID ?? Date.now().toString(36) }],
   // Not reloadOnOnline: it force-reloads the whole page the instant connectivity returns, with
   // no regard for unsaved input (a mid-typed message, an open form) — common on mobile where
   // connectivity flaps. App-shell freshness is already covered by `skipWaiting`/`clientsClaim`

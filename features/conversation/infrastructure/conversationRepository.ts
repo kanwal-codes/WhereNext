@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MessageInput } from "../domain/message";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
+import { slimMessageMetadata } from "@/lib/slim-message-metadata";
 
 type ConversationRow = {
   id: string;
@@ -65,7 +66,7 @@ export function createConversationRepository(supabase: SupabaseClient, writer: S
         newestFirst.push(...page);
         if (page.length < remaining) break;
       }
-      return newestFirst.reverse();
+      return newestFirst.reverse().map((row) => ({ ...row, metadata: slimMessageMetadata(row.metadata) }));
     },
     async append(tripId: string, userId: string, input: MessageInput & { metadata?: Record<string, unknown> }) {
       const id = await getThreadId(tripId, userId);

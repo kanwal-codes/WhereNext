@@ -1,21 +1,44 @@
-import { GROUP_HISTORY_LIMIT } from "@/features/group-chat/domain/message";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { RESERVATION_COLUMNS, toReservation } from "@/packages/contracts/reservation";
 import type { Trip } from "@/features/trip/domain/trip";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
-import { createGroupChatRepository } from "@/features/group-chat/infrastructure/groupChatRepository";
 
-export type TripWorkspaceData = { trip: Trip; preferences: Record<string, unknown>; decisions: Array<Record<string, unknown>>; itinerary: Array<Record<string, unknown>>; savedPlaces: Array<Record<string, unknown>>; rejectedPlaceIds: string[]; conversation: Array<Record<string, unknown>>; groupChat: Array<Record<string, unknown>>; essentials: string[]; reservations: Array<Record<string, unknown>> };
+/**
+ * Everything every trip page reads. Sent with each page and again after every change anywhere on the trip
+ * (the refresh a mutation triggers), so it carries no chat history: that was ~60% of a 274 KB refresh on
+ * pages that never show a message. Both chat surfaces load their own history from their own API route
+ * (ConversationSurface reconciles against a session cache, GroupChatSurface refetches on mount), so
+ * serving it from here only ever duplicated a request they make anyway.
+ */
+export type TripWorkspaceData = {
+  trip: Trip;
+  preferences: Record<string, unknown>;
+  decisions: Array<Record<string, unknown>>;
+  itinerary: Array<Record<string, unknown>>;
+  savedPlaces: Array<Record<string, unknown>>;
+  rejectedPlaceIds: string[];
+  /** The text of Roam's latest replies, newest first: the Overview's notes. */
+  recentNotes: string[];
+  essentials: string[];
+  reservations: Array<Record<string, unknown>>;
+};
+
+async function threadId(supabase: SupabaseClient, tripId: string, userId: string): Promise<string | null> {
+  const thread = await supabase.from("conversation_threads").select("id").eq("trip_id", tripId).eq("user_id", userId).maybeSingle();
+  if (thread.error) throw thread.error;
+  return (thread.data?.id as string | undefined) ?? null;
+}
 
 export async function loadTripWorkspace(supabase: SupabaseClient, tripId: string, userId: string): Promise<TripWorkspaceData | null> {
-  const conversation = (async () => { const thread = await supabase.from("conversation_threads").select("id").eq("trip_id", tripId).eq("user_id", userId).maybeSingle(); if (thread.error) throw thread.error; if (!thread.data) return []; const messages = await supabase.from("conversation_messages").select("id,role,content,created_at,metadata").eq("thread_id", thread.data.id).order("created_at", { ascending: false }).limit(200); if (messages.error) throw messages.error; return (messages.data ?? []).reverse(); })();
-  // Server-rendered alongside everything else so GroupChatSurface opens with its history already
-  // in hand — matching the personal conversation thread's own treatment above. Without this, the
-  // group chat had no equivalent to `conversation`, so every mount (including crossing back from
-  // a different route group, like /group/details) started from an empty list and a visible fetch.
-  const groupChat = createGroupChatRepository(supabase).list(tripId, userId, { limit: GROUP_HISTORY_LIMIT });
-  // Nothing below depends on the trip row, so it joins the same fan-out (8 wide, one round-trip).
-  const [trip, preferences, decisions, itinerary, savedPlaces, rejectedPlaces, essentials, reservations, conversationData, groupChatData] = await Promise.all([
+  const recentNotes = (async () => {
+    const id = await threadId(supabase, tripId, userId);
+    if (!id) return [];
+    const rows = await supabase.from("conversation_messages").select("content").eq("thread_id", id).eq("role", "assistant").order("created_at", { ascending: false }).limit(3);
+    if (rows.error) throw rows.error;
+    return (rows.data ?? []).map((row) => String(row.content ?? ""));
+  })();
+  // Nothing below depends on the trip row, so it joins the same fan-out (one round-trip).
+  const [trip, preferences, decisions, itinerary, savedPlaces, rejectedPlaces, essentials, reservations, notes] = await Promise.all([
     createTripRepository(supabase).get(tripId),
     supabase.from("trip_preferences").select("data").eq("trip_id", tripId).maybeSingle(),
     supabase.from("trip_decisions").select("id,kind,value,source,created_at").eq("trip_id", tripId).order("created_at", { ascending: false }),
@@ -25,8 +48,7 @@ export async function loadTripWorkspace(supabase: SupabaseClient, tripId: string
     supabase.from("trip_essentials").select("completed").eq("trip_id", tripId).maybeSingle(),
     // Booked things travel with the workspace snapshot, so the Today view can show them (offline too).
     supabase.from("trip_reservations").select(RESERVATION_COLUMNS).eq("trip_id", tripId).order("starts_on", { ascending: true, nullsFirst: false }).limit(200),
-    conversation,
-    groupChat,
+    recentNotes,
   ]);
   if (!trip) return null;
   const error = preferences.error ?? decisions.error ?? itinerary.error ?? savedPlaces.error ?? rejectedPlaces.error ?? essentials.error ?? reservations.error;
@@ -34,5 +56,5 @@ export async function loadTripWorkspace(supabase: SupabaseClient, tripId: string
   const rejectedPlaceIds = ((rejectedPlaces.data ?? []) as Array<{ places?: { provider_id?: string } | null }>)
     .map((row) => row.places?.provider_id)
     .filter((id): id is string => Boolean(id));
-  return { trip, preferences: preferences.data?.data ?? {}, decisions: decisions.data ?? [], itinerary: itinerary.data ?? [], savedPlaces: savedPlaces.data ?? [], rejectedPlaceIds, conversation: conversationData, groupChat: groupChatData, essentials: essentials.data?.completed ?? [], reservations: (reservations.data ?? []).map(toReservation) as unknown as Array<Record<string, unknown>> };
+  return { trip, preferences: preferences.data?.data ?? {}, decisions: decisions.data ?? [], itinerary: itinerary.data ?? [], savedPlaces: savedPlaces.data ?? [], rejectedPlaceIds, recentNotes: notes, essentials: essentials.data?.completed ?? [], reservations: (reservations.data ?? []).map(toReservation) as unknown as Array<Record<string, unknown>> };
 }

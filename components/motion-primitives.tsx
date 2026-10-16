@@ -13,6 +13,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -43,34 +44,32 @@ export const motionTokens = {
 /** @deprecated prefer `motionTokens.standard` — kept so existing imports keep working. */
 export const spring = motionTokens.standard;
 
+const subscribeVisibility = (onChange: () => void) => {
+  document.addEventListener("visibilitychange", onChange);
+  return () => document.removeEventListener("visibilitychange", onChange);
+};
+
 /**
- * Entrance animations are JS/RAF-driven — a tab that loads in the background would
- * otherwise leave `initial` (opacity 0) content stuck invisible until focus, and
- * SSR would ship a hidden first paint. So: render content plain and visible on the
- * server and first client paint, then upgrade to the motion entrance once we know
- * we're in a live, visible document.
+ * Whether an entrance should play. Entrances are JS/RAF-driven, so a tab loading in the background would
+ * leave `initial` (opacity 0) content stuck invisible, and SSR must not ship a hidden first paint: false on
+ * the server, through hydration, and in a hidden tab, so that content just appears in place.
+ *
+ * Read synchronously on a client mount. It used to start false everywhere and flip in an effect, and every
+ * wrapper below swapped a `div` for a `motion.div` when it flipped: React rebuilt the whole subtree right
+ * after it mounted, which doubled the render work as a panel or page opened and ran every effect inside it
+ * (fetches included) twice, in production.
  */
 export function useAnimateIn(): boolean {
   const reduce = useReducedMotion();
-  const [on, setOn] = useState(false);
-  useEffect(() => {
-    if (reduce || typeof document === "undefined") return;
-    if (!document.hidden) {
-      setOn(true);
-      return;
-    }
-    const onVis = () => {
-      if (!document.hidden) {
-        setOn(true);
-        document.removeEventListener("visibilitychange", onVis);
-      }
-    };
-    document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
-  }, [reduce]);
-  return on;
+  const visible = useSyncExternalStore(subscribeVisibility, () => !document.hidden, () => false);
+  return visible && !reduce;
 }
 
+/**
+ * The wrappers keep one element type whatever `useAnimateIn` says, so their subtree never remounts. `initial`
+ * is read only on mount: content that mounted while it was false (hydration, a hidden tab) stays settled
+ * instead of replaying an entrance later.
+ */
 export function Reveal({
   children,
   delay = 0,
@@ -83,11 +82,10 @@ export function Reveal({
   className?: string;
 }) {
   const on = useAnimateIn();
-  if (!on) return <div className={className}>{children}</div>;
   return (
     <motion.div
       className={className}
-      initial={{ opacity: 0, y }}
+      initial={on ? { opacity: 0, y } : false}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease, delay }}
     >
@@ -108,11 +106,10 @@ export function Stagger({
   gap?: number;
 }) {
   const on = useAnimateIn();
-  if (!on) return <div className={className}>{children}</div>;
   return (
     <motion.div
       className={className}
-      initial="hidden"
+      initial={on ? "hidden" : false}
       animate="shown"
       variants={{
         hidden: {},
@@ -132,8 +129,7 @@ export function StaggerItem({
   className,
   ...rest
 }: { children: ReactNode; className?: string } & HTMLMotionProps<"div">) {
-  const on = useAnimateIn();
-  if (!on) return <div className={className}>{children}</div>;
+  // No `initial` of its own: a parent `Stagger` whose `initial` is false settles its items too.
   return (
     <motion.div
       className={className}

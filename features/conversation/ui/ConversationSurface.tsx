@@ -184,6 +184,10 @@ const THINKING_STATES = [
 const TYPING_MARK = ["thinking", "searching", "planning", "answering"] as const;
 /** Ways into an empty conversation: three things nearly every trip starts with. */
 const STARTERS = ["Plan my first day", "Where should we stay?", "What will this cost?"] as const;
+
+/** Turns rendered when the chat opens, and added each time "Show earlier messages" is pressed. The
+ *  thread itself is loaded whole (it is small); this is only how much of it is laid out at once. */
+const VISIBLE_TURNS = 30;
 /** How much of the remaining distance the follow-scroll covers each frame (lower = softer). */
 const FOLLOW_EASE = 0.09;
 const STAGE_PHASE: Record<"resolve" | "retrieve" | "compose", number> = { resolve: 0, retrieve: 1, compose: 2 };
@@ -270,7 +274,6 @@ function withoutChips(blocks: AssistantBlock[] | undefined) {
 
 export function ConversationSurface({
   tripId,
-  initialMessages,
   onSurfaceSelect,
   onOpenPlace,
   onOpenStay,
@@ -282,7 +285,6 @@ export function ConversationSurface({
   onLogScroll,
 }: {
   tripId: string;
-  initialMessages?: Array<Record<string, unknown>>;
   onSurfaceSelect?: (surface: string) => void;
   onOpenPlace?: (place: PlaceCard) => void;
   /** `ask` hands Roam a question straight from the stay panel: the surface's own submit, so the panel never needs its own send path. */
@@ -301,14 +303,17 @@ export function ConversationSurface({
    *  at the wrong moment. The parent passes this only when this surface is the active tab. */
   onLogScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
 }) {
-  const [messages, setMessages] = useState<Message[]>((initialMessages ?? []) as Message[]);
+  // The thread is this surface's own to load: from the session cache if it's warm, from
+  // /api/trips/[tripId]/conversation otherwise. It used to also arrive as a prop on every trip
+  // page's server render, which only ever duplicated the request made here a moment later.
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   // The id of the message the server has not confirmed yet: "Sending…" belongs to it alone, and ends the moment the server has it, not when the whole reply is done.
   const [undelivered, setUndelivered] = useState<string | null>(null);
   // Set synchronously: two quick taps on a chip (or Enter twice) can both arrive before `sending` has re-rendered, and each used to send its own copy of the message.
   const sendingRef = useRef(false);
-  const [loaded, setLoaded] = useState(Boolean(initialMessages));
+  const [loaded, setLoaded] = useState(false);
   // The thread's own load from the server has finished (or was not needed). The landing page's first message waits for it:
   // sent earlier, the load's rows are merged in while Roam's reply is streaming.
   const [synced, setSynced] = useState(false);
@@ -337,6 +342,11 @@ export function ConversationSurface({
   // text (no tools planned, or none the label map recognizes).
   const [progressLabel, setProgressLabel] = useState<string | undefined>(undefined);
   const [cacheReady, setCacheReady] = useState(false);
+  // How many of the newest turns the log renders; "Show earlier messages" adds another page of them.
+  const [windowSize, setWindowSize] = useState(VISIBLE_TURNS);
+  // Where the reading position was when that button was pressed, so revealing earlier turns above
+  // doesn't shove the one you were reading off the screen.
+  const olderAnchorRef = useRef<{ height: number; top: number } | null>(null);
   const requestRef = useRef<AbortController | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
   useKeepScrollGap(logRef);
@@ -345,19 +355,11 @@ export function ConversationSurface({
   // When this state was last confirmed against the server — distinct from "now", so a local
   // edit (optimistic send, settled stream) doesn't silently re-arm the cache's freshness TTL.
   const verifiedAtRef = useRef(0);
-  // Message ids treated as already-settled — restored history (SSR props, cache, a background
-  // merge) must appear in place, not replay its whole entrance animation every time the log
-  // mounts. Seeded with whatever came from the server so the very first paint doesn't animate.
+  // Message ids treated as already-settled — restored history (the cache, a background merge)
+  // must appear in place, not replay its whole entrance animation every time the log mounts.
   const [queued, setQueued] = useState<string | null>(null);
   const liveMessageIdsRef = useRef<Set<string>>(new Set());
-  const seenMessageIdsRef = useRef<Set<string>>(new Set((initialMessages ?? []).map((m) => String(m.id))));
-  // `data.conversation` (this component's `initialMessages` prop) is a fresh array reference on
-  // every server render — TripDataProvider's router.refresh() fires for ANY workspace change,
-  // not just a conversation one, and this component's own submit() triggers exactly that after
-  // every send. Reading it via a ref keeps the reconciliation effect below from treating that
-  // reference churn as new data to reconcile against on every single turn.
-  const initialMessagesRef = useRef(initialMessages);
-  initialMessagesRef.current = initialMessages;
+  const seenMessageIdsRef = useRef<Set<string>>(new Set());
 
   // Dictation: transcript is appended after whatever was already typed when the mic started.
   const speech = useSpeechInput({
@@ -392,8 +394,7 @@ export function ConversationSurface({
   // background. This keeps tab changes instant without turning the client cache into truth.
   useEffect(() => {
     const cached = readConversationCache(tripId);
-    const initialLatest = Math.max(0, ...(initialMessagesRef.current ?? []).map((message) => Date.parse(String(message.created_at ?? "")) || 0));
-    if (cached && cached.savedAt >= initialLatest) {
+    if (cached) {
       setMessages(cached.messages);
       setLoaded(true);
       // Preserve the cache's real verification time — restoring it must not look like a fresh check.
@@ -425,13 +426,11 @@ export function ConversationSurface({
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        if (!cached && !initialMessagesRef.current) notifyToast("Couldn’t load the conversation — reload to try again.", "error");
+        if (!cached) notifyToast("Couldn’t load the conversation — reload to try again.", "error");
         setLoaded(true);
         setSynced(true);
       });
     return () => controller.abort();
-    // Deliberately not depending on initialMessages — see initialMessagesRef above. This effect
-    // is a one-time-per-trip reconciliation, not a continuous sync with the parent's data prop.
   }, [tripId]);
 
   useEffect(() => {
@@ -722,9 +721,9 @@ export function ConversationSurface({
   // then abort the send (the unmount cleanup above aborts any in-flight request).
   useEffect(() => {
     // A fresh thread already holds Roam's greeting, so "empty" means no message from the visitor yet.
-    // A chat opened with its messages already in the page (the landing hand-off: a brand-new, empty thread) has nothing
-    // to wait for; only one that has to fetch its thread first waits for it (see `synced`).
-    if (!loaded || (!synced && !initialMessagesRef.current) || sending || messages.some((m) => m.role === "user")) return;
+    // The thread has to be loaded first (see `synced`), or the sentence is sent against a thread whose
+    // own rows arrive after it — the 4 s timer above keeps a slow load from holding it forever.
+    if (!loaded || !synced || sending || messages.some((m) => m.role === "user")) return;
     const timer = setTimeout(() => {
       const key = `wn:first-message:${tripId}`;
       const first = window.sessionStorage.getItem(key);
@@ -745,6 +744,16 @@ export function ConversationSurface({
   useLayoutEffect(() => {
     latest.current = { submit, onOpenPlace, onOpenStay, onOpenEvent, onOpenCollection, onOpenPanel };
   });
+  // Earlier turns appear above what you were reading, so hold that line in place rather than letting the
+  // log grow upward under the viewport (the same anchor the group chat uses when it pages in history).
+  useLayoutEffect(() => {
+    const anchor = olderAnchorRef.current;
+    const log = logRef.current;
+    if (!anchor || !log) return;
+    log.scrollTop = anchor.top + (log.scrollHeight - anchor.height);
+    olderAnchorRef.current = null;
+  }, [windowSize]);
+
   const [hasPlace, hasStay, hasEvent, hasCollection, hasPanel] = [onOpenPlace, onOpenStay, onOpenEvent, onOpenCollection, onOpenPanel].map(Boolean);
   const handlers = useMemo<BlockHandlers>(() => ({
     tripId,
@@ -777,6 +786,18 @@ export function ConversationSurface({
     loaded && !sending && !queued && lastMessage?.role === "user" && !String(lastMessage.id).startsWith("local-") && typeof lastMessage.idempotency_key === "string" && lastMessage.idempotency_key.startsWith("user:") && Date.now() - new Date(lastMessage.created_at).getTime() > 45_000
       ? lastMessage
       : null;
+
+  // What the log actually renders. The whole thread is in memory either way — this is about the main
+  // thread: laying out a 128-turn history (every card, map and table in it) blocked a mid-range phone for
+  // ~650 ms, half a second of nothing when the chat opens. Earlier turns render on request, like the
+  // group chat's own "Show earlier messages".
+  const hiddenCount = Math.max(0, messages.length - windowSize);
+  const visible = hiddenCount > 0 ? messages.slice(hiddenCount) : messages;
+  const showEarlier = () => {
+    const log = logRef.current;
+    if (log) olderAnchorRef.current = { height: log.scrollHeight, top: log.scrollTop };
+    setWindowSize((n) => n + VISIBLE_TURNS);
+  };
 
   const pendingBubble = pendingFirst !== null && !messages.some((m) => m.role === "user");
   const showHero = loaded && messages.length === 0 && !rail && !pendingBubble;
@@ -850,9 +871,15 @@ export function ConversationSurface({
             </div>
           )}
 
-          {messages.map((message, index) => {
+          {hiddenCount > 0 && (
+            <div className="flex justify-center pb-2">
+              <button type="button" onClick={showEarlier} className="btn-chip h-9 px-4 text-xs">Show earlier messages</button>
+            </div>
+          )}
+
+          {visible.map((message, index) => {
             const meta = message.metadata as AssistantTurnMeta | undefined;
-            const streaming = message.role === "assistant" && sending && index === messages.length - 1;
+            const streaming = message.role === "assistant" && sending && index === visible.length - 1;
             const dir =
               message.role === "assistant" && meta?.language && RTL.has(meta.language.slice(0, 2)) ? "rtl" : undefined;
             // Only a message appearing for the first time in this mount gets the entrance

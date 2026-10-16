@@ -8,7 +8,8 @@
  * the upper half or the sides. The order alternates warm and cool, calm and energetic, nature and city.
  *   place  - the caption shown bottom-left. Names a place only when the photograph is of a known one.
  *   focus  - CSS object-position, to keep the subject inside that strip.
- * To add a scene: a wide (>= 1.7:1) WebP in /public/hero, tested at that strip, then listed here.
+ * To add a scene: a wide (>= 1.7:1) WebP in /public/hero, tested at that strip, then listed here, then
+ * `bun run scripts/resize-hero-scenes.ts` for the smaller widths HeroCarousel offers beside the master.
  */
 export type HeroScene = { src: string; alt: string; place: string; focus?: string; /** object-position below 640px, where the crop is nearly square. */ focusSm?: string; /** Multiplies the hero scrim for a photograph with bright light behind the headline. */ shade?: number };
 

@@ -11,7 +11,6 @@ import { useGuest } from "@/features/identity/ui/GuestProvider";
 import type { Trip } from "@/features/trip/domain/trip";
 import { cn } from "@/lib/utils";
 import { certaintyFor, decisionSummary, isDisplayableDecision } from "@/lib/decisions-ui";
-import { CertaintyBadge } from "@/components/CertaintyBadge";
 import { DestinationCombobox } from "@/components/DestinationCombobox";
 import { DateRangeField } from "@/components/DateRangeField";
 import { notifyToast } from "@/lib/application/toast";
@@ -392,16 +391,16 @@ export function TripContextSurface({
     const rowIcon = ROW_ICON[row.id] ?? FALLBACK_ICON;
     const flashId = row.tripField ?? (row.suggestionKey ? `sugg-${row.suggestionKey}` : row.editKey ?? row.id);
     const wide = isEditing || lone || isWideRow(row);
+    // Inside "Needs your call" every row already reads as coral (the card's border, wash and
+    // eyebrow all say so) — the category tint underneath competed with that instead of
+    // reinforcing it, so a transport suggestion sat in a blue chip inside a coral card.
     const chip = (
-      <span aria-hidden className={cn("grid shrink-0 place-items-center rounded-xl", tile && !wide ? "size-9" : "size-10", rowIcon.tint)}>
+      <span aria-hidden className={cn("grid shrink-0 place-items-center rounded-xl", tile && !wide ? "size-9" : "size-10", row.certainty === "suggested" ? "bg-coral-soft text-coral" : rowIcon.tint)}>
         <rowIcon.icon className="size-[1.0625rem]" strokeWidth={1.8} />
       </span>
     );
     const label = (
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="min-w-0 text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">{row.label}</p>
-        {row.certainty === "suggested" && <CertaintyBadge certainty={row.certainty} />}
-      </div>
+      <p className="min-w-0 text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">{row.label}</p>
     );
     return (
       <div
@@ -505,8 +504,11 @@ export function TripContextSurface({
                   </div>
                 </div>
               ) : (
-                <div className="mt-1 flex items-center justify-between gap-2">
-                  <p className={cn("min-w-0 truncate text-sm", !row.value && "text-muted-foreground")}>
+                <div className="mt-1 flex items-start justify-between gap-2">
+                  {/* A suggestion's value is often "X to Y" or a full name — truncating it lost the
+                      half that made it legible ("Driving between Niagara Falls an…"). Everything
+                      else stays single-line; only a suggestion gets room to wrap. */}
+                  <p className={cn("min-w-0 text-sm", row.suggestionKey ? "line-clamp-2" : "truncate", !row.value && "text-muted-foreground")}>
                     {row.value || (row.editKey || row.editable || row.tripField ? "Not set" : "Not decided")}
                   </p>
                   {(row.editKey || row.editable || row.tripField) && !row.suggestionKey && (
@@ -621,7 +623,7 @@ export function TripContextSurface({
             <i aria-hidden className="size-1.5 rounded-full bg-coral" />
             Needs your call
           </p>
-          <div className="divide-y divide-coral/15 overflow-hidden rounded-2xl border-[1.5px] border-coral/40 bg-gradient-to-br from-card to-coral-soft/60 shadow-[0_26px_44px_-30px_color-mix(in_oklab,var(--color-coral)_65%,transparent)]">
+          <div className="divide-y divide-coral/15 overflow-hidden rounded-2xl border border-coral/35 bg-gradient-to-br from-card to-coral-soft/35 shadow-soft">
             {suggestedRows.map((row) => renderRow(row))}
           </div>
         </section>

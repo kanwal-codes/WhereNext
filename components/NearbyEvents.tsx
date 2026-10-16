@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useNearView } from "@/lib/use-near-view";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { EventCard, type NearbyEvent } from "@/components/EventCard";
 import { Reveal } from "@/components/motion-primitives";
@@ -14,13 +15,17 @@ export function NearbyEvents({ tripId, location, query = "" }: { tripId: string;
   const [expanded, setExpanded] = useState(false);
   // A trip-search lookup, closed to guests (Roam only): the strip simply isn't shown.
   const { guest } = useGuest();
+  // Below the fold in every detail view: fetch once someone scrolls toward it, not on open.
+  const [nearRef, near] = useNearView<HTMLDivElement>();
 
   useEffect(() => {
     if (!location || guest) {
       setLoading(false);
       return;
     }
+    if (!near) return;
     let cancelled = false;
+    const controller = new AbortController();
     const qs = new URLSearchParams({ location });
     if (query) qs.set("query", query);
     // One events pull per city+query per session — this strip renders on every
@@ -35,7 +40,7 @@ export function NearbyEvents({ tripId, location, query = "" }: { tripId: string;
       }
     } catch { /* ignore */ }
     setLoading(true);
-    fetch(`/api/trips/${tripId}/events?${qs}`)
+    fetch(`/api/trips/${tripId}/events?${qs}`, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : { events: [] }))
       .then((body) => {
         if (!cancelled) {
@@ -52,12 +57,13 @@ export function NearbyEvents({ tripId, location, query = "" }: { tripId: string;
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [tripId, location, query, guest]);
+  }, [tripId, location, query, guest, near]);
 
   if (loading) {
     return (
-      <div aria-busy="true" aria-label={`Loading events near ${location}`} className="space-y-3">
+      <div ref={nearRef} aria-busy="true" aria-label={`Loading events near ${location}`} className="space-y-3">
         <div className="h-6 w-40 skeleton rounded-md" />
         <div className="grid grid-cols-3 gap-3">
           <Skeleton className="aspect-[4/5]" />

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { userMessageInput } from "@/features/conversation/domain/message";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { fail, jsonRevalidated } from "@/lib/server/with-route";
 import { createConversationRepository } from "@/features/conversation/infrastructure/conversationRepository";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -14,16 +14,17 @@ function threadWriter() {
   }
 }
 
-// Matches the cap `loadTripWorkspace` already uses for this same thread's initial server-rendered
-// seed — this route re-fetches in the background for reconciliation (see ConversationSurface),
-// and had no limit at all, unlike every other caller of this repository's `list()`.
+// How far back the chat opens. This is the only reader of the thread now (the trip's server-rendered
+// workspace used to carry the same messages for every page, chat or not), and it had no limit at all,
+// unlike every other caller of this repository's `list()`.
 const HISTORY_LIMIT = 200;
 
-export async function GET(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
   try {
     const { tripId } = await params;
     const { supabase, user } = await requireTripMember(tripId);
-    return NextResponse.json({ messages: await createConversationRepository(supabase, threadWriter()).list(tripId, user.id, { limit: HISTORY_LIMIT }) });
+    const messages = await createConversationRepository(supabase, threadWriter()).list(tripId, user.id, { limit: HISTORY_LIMIT });
+    return jsonRevalidated(request, { messages });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Conversation unavailable");
   }

@@ -21,7 +21,11 @@ import { controlGhost } from "@/features/conversation/ui/blocks/ui";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 
 const spring = motionTokens.fast;
-const LAYOUT_MOTION = "420ms cubic-bezier(0.22, 1, 0.36, 1)";
+// Same curve as `motionTokens.swap` (the panel's own crossfade), derived rather than copied so
+// the two can't drift apart again — they used to both run 420ms; shortening the crossfade alone
+// left the column width still resizing for 180ms after the content had already finished fading
+// in, which is what read as a stutter instead of one glide.
+const LAYOUT_MOTION = `${motionTokens.swap.duration * 1000}ms cubic-bezier(${motionTokens.swap.ease.join(", ")})`;
 
 /** Same visual as DiscoverTabs (features/places/ui/DiscoverySurface.tsx) — a route change
  *  instead of local state, since Roam and Group chat need to stay independently deep-linkable.
@@ -218,7 +222,6 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
             >
               {(warm || optimisticTab === "roam") && <ConversationSurface
                 tripId={tripId}
-                initialMessages={data?.conversation}
                 onOpenPlace={openPlace}
                 onOpenStay={openStay}
                 onOpenEvent={openEvent}
@@ -237,7 +240,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
               animate={{ opacity: optimisticTab === "group" ? 1 : 0 }}
               transition={reduceMotion ? { duration: 0 } : motionTokens.swap}
             >
-              {!guest && (warm || optimisticTab === "group") && <GroupChatSurface tripId={tripId} initialMessages={data?.groupChat} onLogScroll={onLogScroll} rail={desktop && Boolean(panel)} active={optimisticTab === "group"} />}
+              {!guest && (warm || optimisticTab === "group") && <GroupChatSurface tripId={tripId} onLogScroll={onLogScroll} rail={desktop && Boolean(panel)} active={optimisticTab === "group"} />}
             </motion.div>
           </div>
         </div>
@@ -255,7 +258,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
                   initial={reduceMotion ? false : { opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={reduceMotion ? undefined : { opacity: 0, pointerEvents: "none" }}
-                  transition={reduceMotion ? { duration: 0 } : { duration: 0.42, ease: motionTokens.swap.ease }}
+                  transition={reduceMotion ? { duration: 0 } : motionTokens.swap}
                   className="absolute inset-0"
                 >
                   <TripPanel layout="inline" />

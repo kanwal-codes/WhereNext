@@ -107,7 +107,8 @@ export function selectBlocks(params: {
         provider: place.provider, providerId: place.providerId, name: place.name, category: place.category,
         latitude: place.latitude, longitude: place.longitude, address: place.address,
         rating: place.rating, userRatingCount: place.userRatingCount, priceLevel: place.priceLevel,
-        sourceUrl: place.sourceUrl, photoNames: place.photoNames,
+        // One photo: every card, panel and save reads only the first, and history kept all ten (~2 KB a place).
+        sourceUrl: place.sourceUrl, photoNames: place.photoNames?.slice(0, 1),
         photoUrl: place.photoNames?.[0] ? photoUrl(place.photoNames[0]) : undefined,
         distanceToLocked: placeDistance(place),
         trust: "sourced",

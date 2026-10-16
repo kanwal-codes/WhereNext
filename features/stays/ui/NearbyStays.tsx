@@ -3,6 +3,7 @@
 import { HotelPhoto } from "@/components/HotelPhoto";
 import { useEffect, useMemo, useState } from "react";
 import { useShowMore } from "@/lib/use-show-more";
+import { useNearView } from "@/lib/use-near-view";
 import { ShowMoreButton } from "@/components/ShowMoreButton";
 import { ArrowUpRight, BedDouble, ChevronRight, MapPin, Star } from "lucide-react";
 import { useTripPanelMaybe } from "@/components/TripPanelProvider";
@@ -63,12 +64,16 @@ export function NearbyStays({
   const [order, setOrder] = useState<Order>(initialOrder === "nearby" && !anchor ? "rating" : initialOrder);
   const [kind, setKind] = useState<Kind | "All">(initialKind);
   const [loading, setLoading] = useState(true);
+  // The preview sits at the foot of a stay panel: search once someone scrolls toward it. The full list is the page itself.
+  const [nearRef, near] = useNearView<HTMLElement>();
+  const waiting = mode === "preview" && !near;
 
   useEffect(() => {
     if (!location.trim()) {
       setLoading(false);
       return;
     }
+    if (waiting) return;
     const qs = new URLSearchParams({ location, adults: String(adults), rooms: "1", sort: "price" });
     if (checkin) qs.set("checkin", checkin);
     if (checkout) qs.set("checkout", checkout);
@@ -96,7 +101,7 @@ export function NearbyStays({
     };
     void load();
     return () => { controller.abort(); };
-  }, [tripId, location, checkin, checkout, adults]);
+  }, [tripId, location, checkin, checkout, adults, waiting]);
 
   const matched = useMemo(() => {
     const next = options
@@ -127,7 +132,7 @@ export function NearbyStays({
   if (mode === "preview") {
     const shown = alternatives;
     return (
-      <section className="border-t border-border/70 pt-8">
+      <section ref={nearRef} className="border-t border-border/70 pt-8">
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="font-display text-xl">Other places to stay</h2>
           {!loading && matched.length > shown.length && (

@@ -24,7 +24,9 @@ export const TABLE_TO_CHANGE: Record<string, WorkspaceChange> = {
   trip_essentials: "essentials",
   // A reservation added by another member reaches the Bookings page the same way a booking does.
   trip_reservations: "decision",
-  conversation_messages: "conversation",
+  // conversation_messages is NOT listed: a Roam message only ever appears in ConversationSurface, which owns its own
+  // list and reconciles it against /api/trips/[tripId]/conversation — nothing else on the trip re-renders for one.
+  // Subscribed, every reply echoed its entire row (metadata, blocks and all) back over the socket for no listener.
   group_messages: "groupChat",
   // group_message_reactions is NOT listed: it has no trip_id column to filter on, and a filter on a missing column makes
   // Realtime reject the whole channel (live-caught: with it here, a friend's message only arrived on the 30 s refresh).

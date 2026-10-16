@@ -51,6 +51,7 @@ import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { addStopsToItinerary, dayIndexFromLabel, itineraryTitle } from "@/features/conversation/application/addPlanToItinerary";
 import { categoryLabel, eventDayParts, photoProxyUrl, priceLabel } from "@/lib/places-ui";
 import { CINE_ORB, CINE_ORB_WHITE, CINE_PILL_ACTION, CineAddress, CineCard, CineDate, CinePill, CineRating, PlaceFloatingPills } from "./CineCard";
+import { prefetchStayDetails } from "@/features/stays/application/useStayDetails";
 import { RouteMap, type RouteMapRequest } from "./RouteMap";
 import { MODE_COLOR } from "@/lib/application/mode-visuals";
 import { HandoffContext, LiveReplyContext, RoamIcon } from "@/features/roam/ui/RoamIcon";
@@ -1560,6 +1561,9 @@ function StaysBlockView({ block, tripId, preview, onOpenStay, onOpenCollection, 
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, ease, delay: live && search.searched ? Math.min(hotelIndex, 6) * 0.05 : 0 }}
                     className={preview ? cn(CARD_W, "shrink-0 snap-start") : undefined}
+                    // Same dates the panel will ask for, so its load is already under way (or done) by the click.
+                    onPointerEnter={onOpenStay && hotel.hotelId ? () => prefetchStayDetails(tripId, hotel.hotelId, { checkin: dates.checkin, checkout: dates.checkout, adults: dates.adults }) : undefined}
+                    onFocusCapture={onOpenStay && hotel.hotelId ? () => prefetchStayDetails(tripId, hotel.hotelId, { checkin: dates.checkin, checkout: dates.checkout, adults: dates.adults }) : undefined}
                   >
                     <StayCardView hotel={hotel} onOpen={onOpenStay && hotel.hotelId ? () => onOpenStay(hotel, dates) : undefined} />
                   </motion.div>

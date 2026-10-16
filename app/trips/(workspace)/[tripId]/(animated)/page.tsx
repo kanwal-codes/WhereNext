@@ -52,8 +52,7 @@ export default function TripOverviewPage() {
   const stay = readStayDecision(decisions);
   // The stay card already shows the stay and review bookkeeping is internal, so the list is everything else.
   const displayableDecisions = decisions.filter((d) => isDisplayableDecision(d.kind));
-  const conversation = (data?.conversation ?? []) as Array<{ role: string; content: string }>;
-  const notes = conversation.filter((m) => m.role === "assistant").slice(-3).reverse().map((m) => m.content.replace(/[*_#`>]+/g, "").replace(/\s+/g, " ").trim().slice(0, 220));
+  const notes = (data?.recentNotes ?? []).map((content) => content.replace(/[*_#`>]+/g, "").replace(/\s+/g, " ").trim().slice(0, 220));
 
   const destination = trip?.destination ?? "your destination";
   const route = effectiveStops(trip);

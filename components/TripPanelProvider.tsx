@@ -206,7 +206,17 @@ export function TripPanelProvider({ tripId, children }: { tripId: string; childr
       browserEntryRef.current = true;
     } else if (!open && browserEntryRef.current) {
       browserEntryRef.current = false;
-      if ((window.history.state as { __tripPanel?: boolean } | null)?.__tripPanel) window.history.back();
+      if ((window.history.state as { __tripPanel?: boolean } | null)?.__tripPanel) {
+        // `history.back()` is a real browser navigation — the router pass it triggers competes
+        // with the exit animation's own rAF loop for the main thread for the rest of its run,
+        // which is what read as choppy on close. Pushed past the idle window (or, lacking that,
+        // past every panel's exit duration) so the navigation work lands after the animation's
+        // frames are already painted instead of fighting them for it.
+        const run = () => window.history.back();
+        const idle = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
+        if (idle) idle(run, { timeout: 500 });
+        else window.setTimeout(run, 420);
+      }
     }
   }, [panel]);
   useEffect(() => {

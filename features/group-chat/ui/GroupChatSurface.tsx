@@ -36,6 +36,9 @@ const COMMON_EMOJI = ["👍", "❤️", "😂", "🎉", "😍", "🤔"];
 // Same sender, close enough in time to read as one turn — collapses the repeated avatar/name.
 const GROUP_WINDOW_MS = 5 * 60_000;
 const LONG_PRESS_MS = 450;
+/** Messages laid out when the chat opens, and revealed per press of "Show earlier messages" — the page
+ *  the server sends (GROUP_HISTORY_LIMIT) is larger, so the first press costs no request at all. */
+const VISIBLE_MESSAGES = 20;
 // Within this distance of the bottom you are "reading the latest", so a new message follows you down.
 const NEAR_BOTTOM_PX = 160;
 
@@ -85,16 +88,11 @@ async function postJson<T>(url: string, body: unknown, timeoutMs?: number): Prom
 
 export function GroupChatSurface({
   tripId,
-  initialMessages,
   onLogScroll,
   rail = false,
   active = true,
 }: {
   tripId: string;
-  /** Server-rendered history (`data.groupChat` from `loadTripWorkspace`) — lets this open already
-   *  populated instead of a fetch-then-flash on every mount, same as `ConversationSurface`'s own
-   *  `initialMessages`. */
-  initialMessages?: Array<Record<string, unknown>>;
   /** Wired directly to this surface's own scrollable log — see the identical prop's doc comment
    *  on `ConversationSurface` for why an ancestor capture listener sniffing scroll events isn't
    *  reliable here (a horizontal card carousel, or this surface's own background auto-scroll
@@ -120,9 +118,11 @@ export function GroupChatSurface({
     router.replace(`/trips/${tripId}/group`, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once for the param that brought us here, not on every searchParams identity change
   }, []);
-  const [messages, setMessages] = useState<GroupMessage[]>((initialMessages ?? []) as GroupMessage[]);
+  // `refresh()` below reads the newest page on mount either way, so the history was never worth
+  // server-rendering into every trip page as well: that payload only duplicated this request.
+  const [messages, setMessages] = useState<GroupMessage[]>([]);
   const { members, loaded: membersLoaded } = useTripMembers(tripId);
-  const [loaded, setLoaded] = useState(Boolean(initialMessages));
+  const [loaded, setLoaded] = useState(false);
   const [input, setInput] = useState("");
   // Messages you have sent that the server has not confirmed: they show at once, as "Sending…", and stay with a Retry if they fail.
   const [outbox, setOutbox] = useState<Outgoing[]>([]);
@@ -145,7 +145,11 @@ export function GroupChatSurface({
   const submitLockRef = useRef(false);
   // Pages of history older than the newest window, loaded on request and kept apart from it (a refresh replaces only the newest).
   const [older, setOlder] = useState<GroupMessage[]>([]);
-  const [hasOlder, setHasOlder] = useState((initialMessages?.length ?? 0) >= GROUP_HISTORY_LIMIT);
+  const [hasOlder, setHasOlder] = useState(false);
+  // How many of the newest page are laid out. The page itself is loaded whole; this is main-thread work —
+  // forty messages of cards, polls and reaction rows took ~550 ms to lay out on a mid-range phone, which is
+  // the chat sitting frozen as it opens. "Show earlier messages" reveals the rest before it asks the server.
+  const [windowSize, setWindowSize] = useState(VISIBLE_MESSAGES);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const olderAnchorRef = useRef<{ height: number; top: number } | null>(null);
   const olderLoadedRef = useRef(false);
@@ -187,10 +191,10 @@ export function GroupChatSurface({
   const plusMenuRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const speechBaseRef = useRef("");
-  // Seeded from server-rendered history so it doesn't all play the "new message" entrance
-  // animation on every mount — only a message that arrives after this surface is already up
-  // (a live reply, someone else's send) should ever be treated as new.
-  const seenIdsRef = useRef<Set<string>>(new Set((initialMessages ?? []).map((m) => String(m.id))));
+  // Only a message that arrives after this surface's own first read (a live reply, someone else's
+  // send) plays the "new message" entrance animation; the history it opens with appears in place.
+  const seenIdsRef = useRef<Set<string>>(new Set());
+  const firstReadRef = useRef(true);
   // Guards against the server-side toggle race: a delete-then-insert isn't atomic, so two
   // near-simultaneous taps on the same (message, emoji) can both see "not reacted yet" and
   // both insert, or the second can re-add what the first just removed. Blocking a second
@@ -226,6 +230,12 @@ export function GroupChatSurface({
       if (mine !== refreshIdRef.current) return undefined;
       setLoadFailed(false);
       const fresh = (body.messages ?? []) as GroupMessage[];
+      // The page the chat opens with is history, not news: marked seen before it is ever rendered, so
+      // forty bubbles don't cascade their entrance animation the moment the log appears.
+      if (firstReadRef.current) {
+        firstReadRef.current = false;
+        for (const m of fresh) seenIdsRef.current.add(m.id);
+      }
       // Keep the same array when nothing changed, so the poll below doesn't re-render the whole log.
       setMessages((prev) => (JSON.stringify(prev) === JSON.stringify(fresh) ? prev : fresh));
       if (!olderLoadedRef.current) setHasOlder(fresh.length >= GROUP_HISTORY_LIMIT);
@@ -325,12 +335,18 @@ export function GroupChatSurface({
     if (!anchor || !log) return;
     log.scrollTop = anchor.top + (log.scrollHeight - anchor.height);
     olderAnchorRef.current = null;
-  }, [older]);
+  }, [older, windowSize]);
 
   async function loadOlder() {
     const oldest = older[0] ?? messages[0];
     const log = logRef.current;
     if (!oldest || loadingOlder || !log) return;
+    // The page already in hand comes first — the server is only asked once all of it is on screen.
+    if (messages.length > windowSize) {
+      olderAnchorRef.current = { height: log.scrollHeight, top: log.scrollTop };
+      setWindowSize((n) => n + VISIBLE_MESSAGES);
+      return;
+    }
     setLoadingOlder(true);
     try {
       const body = await fetch(`/api/trips/${tripId}/group-chat?before=${encodeURIComponent(oldest.created_at)}`).then((r) => (r.ok ? r.json() : Promise.reject(new Error("load"))));
@@ -346,6 +362,29 @@ export function GroupChatSurface({
       setLoadingOlder(false);
     }
   }
+
+  // Scrolling up into history pages it in by itself; the button stays for keyboards and a short log.
+  const olderSentinelRef = useRef<HTMLDivElement>(null);
+  const loadOlderRef = useRef(loadOlder);
+  useEffect(() => {
+    loadOlderRef.current = loadOlder;
+  });
+  useEffect(() => {
+    const el = olderSentinelRef.current;
+    const log = logRef.current;
+    if (!el || !log || !loaded || (!hasOlder && messages.length <= windowSize) || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        // Before the log has settled on the newest message the top is in view too: only paging someone scrolled up toward.
+        if (log.scrollHeight - log.scrollTop - log.clientHeight < 80) return;
+        void loadOlderRef.current();
+      },
+      { root: log, rootMargin: "600px 0px 0px 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [loaded, hasOlder, messages.length, windowSize]);
 
   function onLogScrollInner(event: React.UIEvent<HTMLDivElement>) {
     const el = event.currentTarget;
@@ -683,7 +722,7 @@ export function GroupChatSurface({
   // One quiet line above the composer for whatever is making the chat unreliable right now, most important first.
   const notice: { text: string; action?: { label: string; run: () => void } } | null = !online
     ? { text: "You’re offline. Messages wait here and send when you’re back." }
-    : loadFailed && (messages.length > 0 || initialMessages)
+    : loadFailed && messages.length > 0
       ? { text: "Couldn’t refresh the chat. What you see may be out of date.", action: { label: "Retry", run: () => void refresh() } }
       : liveDown
         ? { text: "Live updates are paused. New messages may take up to 30 seconds." }
@@ -697,7 +736,7 @@ export function GroupChatSurface({
     // Your unsent messages sit after everything confirmed, shaped like any other so they group, divide and align the same way.
     const delivered = new Set(messages.map((m) => m.clientKey).filter(Boolean));
     const pending = outbox.filter((o) => !delivered.has(o.key)).map((o): GroupMessage & { local: Outgoing } => ({ id: `out-${o.key}`, userId: me?.userId ?? null, role: "user", kind: "text", content: o.content, metadata: {}, created_at: o.created_at, reactions: [], local: o }));
-    const all: Array<GroupMessage & { local?: Outgoing }> = [...older, ...messages, ...pending];
+    const all: Array<GroupMessage & { local?: Outgoing }> = [...older, ...messages.slice(Math.max(0, messages.length - windowSize)), ...pending];
     return all.map((message, index) => {
       const previous = all[index - 1];
       const showDateDivider = !previous || dayLabel(previous.created_at) !== dayLabel(message.created_at);
@@ -710,7 +749,7 @@ export function GroupChatSurface({
         Date.parse(message.created_at) - Date.parse(previous.created_at) < GROUP_WINDOW_MS;
       return { message, showDateDivider, isFirstInGroup: !sameSenderAsPrevious || showDateDivider };
     });
-  }, [older, messages, outbox, me?.userId]);
+  }, [older, messages, outbox, windowSize, me?.userId]);
 
   // Inline ghost-text autocomplete for "@Roam" — replaces the old suggestion pill. Matches a
   // partial mention token at the very end of the input ("@", "@r", "@ro", ... "@roam", any
@@ -875,20 +914,20 @@ export function GroupChatSurface({
             </div>
           )}
 
-          {loaded && hasOlder && (
-            <div className="flex justify-center pb-2">
+          {loaded && (hasOlder || messages.length > windowSize) && (
+            <div ref={olderSentinelRef} className="flex justify-center pb-2">
               <button type="button" onClick={() => void loadOlder()} disabled={loadingOlder} className="btn-chip h-9 px-4 text-xs">{loadingOlder ? "Loading…" : "Show earlier messages"}</button>
             </div>
           )}
 
-          {loaded && loadFailed && !initialMessages && messages.length === 0 && older.length === 0 && (
+          {loaded && loadFailed && messages.length === 0 && older.length === 0 && (
             <div role="alert" className="flex flex-col items-center gap-3 pt-8 text-center">
               <p className="text-body text-ink-soft">Couldn’t load the chat.</p>
               <button type="button" onClick={() => void refresh()} className="btn-chip h-9 px-4 text-sm">Try again</button>
             </div>
           )}
 
-          {loaded && !(loadFailed && !initialMessages) && messages.length === 0 && older.length === 0 && outbox.length === 0 && (
+          {loaded && !loadFailed && messages.length === 0 && older.length === 0 && outbox.length === 0 && (
             <div className="flex flex-col items-center pt-0 text-center sm:pt-8">
               {/* The opening shot: a lit icon, the line, the explanation, then a few ways to break the ice. */}
               <Reveal y={8}>

@@ -44,7 +44,6 @@ describe("TABLE_TO_CHANGE", () => {
       trip_preferences: "preferences",
       trip_decisions: "decision",
       trip_essentials: "essentials",
-      conversation_messages: "conversation",
       bookings: "decision",
       trip_members: "members",
       trip_polls: "groupChat",

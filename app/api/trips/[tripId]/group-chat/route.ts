@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { GROUP_HISTORY_LIMIT, groupMessageInput } from "@/features/group-chat/domain/message";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { fail, jsonRevalidated } from "@/lib/server/with-route";
 import { createGroupChatRepository } from "@/features/group-chat/infrastructure/groupChatRepository";
-import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 // The newest GROUP_HISTORY_LIMIT messages, or with `?before=<ISO time>` the page of history just older than that.
 export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
@@ -12,7 +11,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     const { supabase, user } = await requireTripMember(tripId);
     const before = new URL(request.url).searchParams.get("before");
     if (before && Number.isNaN(Date.parse(before))) return NextResponse.json({ error: "Invalid cursor" }, { status: 400 });
-    return NextResponse.json({ messages: await createGroupChatRepository(supabase).list(tripId, user.id, { limit: GROUP_HISTORY_LIMIT, before: before ?? undefined }) });
+    const messages = await createGroupChatRepository(supabase).list(tripId, user.id, { limit: GROUP_HISTORY_LIMIT, before: before ?? undefined });
+    return jsonRevalidated(request, { messages });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Group chat unavailable");
   }
@@ -35,7 +35,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
       metadata: parsed.data.shareCard ? { shareCard: parsed.data.shareCard } : {},
       idempotencyKey: parsed.data.idempotencyKey,
     });
-    invalidateWorkspace(tripId);
     return NextResponse.json({ message }, { status: 201 });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Group chat unavailable");

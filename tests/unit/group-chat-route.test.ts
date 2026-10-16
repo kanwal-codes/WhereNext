@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { GROUP_HISTORY_LIMIT } from "@/features/group-chat/domain/message";
 
 const TRIP = "11111111-1111-4111-8111-111111111111";
 
@@ -47,7 +48,7 @@ describe("GET /api/trips/:tripId/group-chat", () => {
     const res = await GET();
     expect(res.status).toBe(200);
     expect((await res.json()).messages).toHaveLength(1);
-    expect(listMock).toHaveBeenCalledWith(TRIP, "u1", { limit: 200 });
+    expect(listMock).toHaveBeenCalledWith(TRIP, "u1", { limit: GROUP_HISTORY_LIMIT });
   });
 
   it("maps an auth error to its status", async () => {

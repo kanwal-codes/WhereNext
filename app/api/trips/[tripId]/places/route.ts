@@ -25,8 +25,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     // stop at the first 20. No cache here — `.search()` itself already caches by (query,
     // maxResults); a second cache layer on top of it, under a different key and a different TTL,
     // could never be invalidated in step with the one underneath it.
+    // `limit` lets a caller that shows a handful (a detail view's "around here" lane) stop at one
+    // page instead of paying for three sequential ones.
+    const limit = Math.min(60, Math.max(1, Math.floor(Number(url.searchParams.get("limit")) || 60)));
     const retrievedAt = new Date().toISOString();
-    const places = await new GooglePlacesProvider().search(query, request.signal, 60, locationBias);
+    const places = await new GooglePlacesProvider().search(query, request.signal, limit, locationBias);
     return NextResponse.json({ places, freshness: { provider: "google-places", retrievedAt, cacheTtlSeconds: 60 } });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Place search unavailable");

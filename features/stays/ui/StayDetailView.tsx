@@ -363,7 +363,9 @@ export function StayDetailView({
         coverAlt={name}
         alt=""
         plain
+        kenBurns={!panel}
         surface={panel}
+        ratingBadge={typeof hotel?.rating === "number" ? <><Star className="size-3.5 fill-current text-coral-soft" aria-hidden /> {hotel.rating.toFixed(1)}<span className="opacity-70">/10</span></> : undefined}
         className={cn(panel ? PANEL_HERO : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")}
       >
         {!panel && <BackLink fallback={`/trips/${tripId}/stay`} label="Back" className="absolute left-4 top-4 border-white/30 bg-black/30 text-white hover:bg-black/50" />}

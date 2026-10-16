@@ -8,11 +8,23 @@ import { cn } from "@/lib/utils";
 /** How long a photograph is held before the next one dissolves in. */
 const HOLD_MS = 7000;
 
+/** Each photograph at three widths (see scripts/resize-hero-scenes.ts) — the browser takes the
+ *  smallest that covers the band, which on a laptop or a half-width window is not the master. */
+const srcSetFor = (src: string) => {
+  const base = src.replace(/\.webp$/, "");
+  return `${base}-900.webp 900w, ${base}-1300.webp 1300w, ${src} 1600w`;
+};
+// What the band actually draws, which is not its width: `object-cover` on a 480px-tall strip scales a
+// 16:9 photograph to about 854px across before a phone's 390px viewport ever enters into it. Above that
+// breakpoint the band is wider than it is tall, so its width is the measure again.
+const SIZES = "(max-width: 767px) 860px, 100vw";
+
 /**
  * The trips home hero: a slow cinematic carousel of places, activities and cities. Each photograph
  * pushes in gently, dissolves into the next, and carries its caption; the set is the same for every
  * account. Only the current photograph and its neighbours are mounted, so the carousel costs three
- * images, not the whole set. It pauses while the tab is hidden and holds still under reduced motion.
+ * images, not the whole set — and each is offered at three widths, so those three are the ones the
+ * screen needs. It pauses while the tab is hidden and holds still under reduced motion.
  */
 export function HeroCarousel({ className, children }: { className?: string; children?: ReactNode }) {
   const reduce = useReducedMotion();
@@ -49,10 +61,10 @@ export function HeroCarousel({ className, children }: { className?: string; chil
           <img
             key={s.src}
             src={s.src}
+            srcSet={srcSetFor(s.src)}
+            sizes={SIZES}
             alt={i === index ? s.alt : ""}
             aria-hidden={i !== index}
-            width={1600}
-            height={700}
             fetchPriority={i === 0 ? "high" : "auto"}
             decoding="async"
             style={{ "--focus": s.focus ?? "50% 50%", "--focus-sm": s.focusSm ?? s.focus ?? "50% 50%" } as React.CSSProperties}

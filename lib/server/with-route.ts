@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { runWithContext, setContext } from "@/lib/server/request-context";
 import { logger } from "@/lib/server/logger";
@@ -77,6 +78,21 @@ export function withRoute<P extends RouteParams = RouteParams>(handler: RouteHan
 export function fail(error: unknown, message: string, status = 503): NextResponse {
   logger.error({ err: error }, message);
   return NextResponse.json({ error: message }, { status });
+}
+
+/**
+ * JSON with a fingerprint of itself, for a route the client re-reads often and that usually hasn't changed
+ * (each chat's history: refetched on every mount, and every 30 s while the group chat is open as a safety
+ * net for a dropped realtime socket). The browser revalidates with `if-none-match` and gets an empty 304
+ * instead of the whole history again — ~120 KB a poll, ~14 MB an hour with the chat open.
+ * Private: this is one member's view of the trip, never a shared cache's to hold.
+ */
+export function jsonRevalidated(request: Request, data: unknown): Response {
+  const body = JSON.stringify(data);
+  const etag = `W/"${createHash("sha1").update(body).digest("base64url")}"`;
+  const headers = { etag, "cache-control": "private, no-cache" };
+  if (request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers });
+  return new Response(body, { headers: { ...headers, "content-type": "application/json" } });
 }
 
 /** Attach identity to the live request context once auth resolves (called from requireTripMember paths as needed). */

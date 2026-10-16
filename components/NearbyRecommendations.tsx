@@ -1,7 +1,8 @@
 "use client";
 
 import { SaveHeart } from "@/features/trip/ui/SaveHeart";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNearView } from "@/lib/use-near-view";
 import { useRouter } from "next/navigation";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { Loader2 } from "lucide-react";
@@ -89,7 +90,9 @@ async function fetchLane(tripId: string, lane: Lane, anchor: LaneAnchor, signal:
     // Bias toward the anchor's own coordinates when known — the query text naming a city isn't
     // enough on its own for Google to reliably stay in that city (see LocationBias's doc comment
     // in packages/providers/google-places/client.ts for the live-found bug this fixes).
-    const qs = new URLSearchParams({ query: q });
+    // One page (20): a lane shows four cards, and every page past the first is another sequential
+    // Google round trip — 60 cost ~2.7 s and ~300 KB per lane, four lanes per panel.
+    const qs = new URLSearchParams({ query: q, limit: "20" });
     if (Number.isFinite(anchor.lat) && Number.isFinite(anchor.lng)) {
       qs.set("lat", String(anchor.lat));
       qs.set("lng", String(anchor.lng));
@@ -242,12 +245,25 @@ export function NearbyRecommendations({
     };
   }, [prefs, savedPlaces, rejectedPlaceIds, stayLat, stayLng]);
   const accessibilityNeeds = useMemo(() => asList(prefs?.accessibilityNeeds), [prefs]);
+  // Ranking inputs come from trip data, which refreshes on every workspace change: read the latest at
+  // shaping time instead of re-running the whole fan-out (four searches) each time it does.
+  const shapeInputs = useRef({ rankCtx, rejectedPlaceIds, accessibilityNeeds });
+  useEffect(() => {
+    shapeInputs.current = { rankCtx, rejectedPlaceIds, accessibilityNeeds };
+  });
+  // Callers pass `types` inline. Keyed by value, so a plain re-render (closing the panel, say) can't
+  // abort the fan-out in flight and start it over.
+  const typesKey = (types ?? []).join("|");
+  // The section sits at the foot of a long detail view; its searches wait until someone scrolls toward it.
+  const [nearRef, near] = useNearView<HTMLDivElement>();
 
   useEffect(() => {
     if (guest) {
       setLoading(false);
       return;
     }
+    if (!near) return;
+    const typesList = typesKey ? typesKey.split("|") : undefined;
     const anchor: LaneAnchor = { name: anchorName, city: cityHint, lat, lng, genre };
     const controller = new AbortController();
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(9_000)]);
@@ -275,7 +291,7 @@ export function NearbyRecommendations({
     } catch { /* unavailable or malformed cache */ }
 
     (async () => {
-      const { vibe, secondary } = await classify(tripId, kind, { name: anchorName, primaryType, types, id: excludeId, genre }, signal);
+      const { vibe, secondary } = await classify(tripId, kind, { name: anchorName, primaryType, types: typesList, id: excludeId, genre }, signal);
       if (cancelled) return;
       const lanes = lanesFor(vibe, secondary);
       const laneResults = await Promise.all(lanes.map((lane) => fetchLane(tripId, lane, anchor, signal)));
@@ -284,18 +300,19 @@ export function NearbyRecommendations({
       const anchorPoint = Number.isFinite(lat) && Number.isFinite(lng) ? { latitude: lat!, longitude: lng! } : null;
       // Richer anchor for the "more like this" embedding — the bare primaryType is often
       // generic ("tourist_attraction") for exactly the places that reached the embedding path.
-      const anchorText = [anchorName, primaryType, genre, ...(types ?? []).slice(0, 6)]
+      const anchorText = [anchorName, primaryType, genre, ...(typesList ?? []).slice(0, 6)]
         .filter(Boolean)
         .join(" ")
         .slice(0, 400)
         .trim();
 
+      const latest = shapeInputs.current;
       const shaped = await shapeLanes(laneResults, {
-        seenPlaceIds: new Set<string>([excludeId, ...(rejectedPlaceIds ?? [])]),
+        seenPlaceIds: new Set<string>([excludeId, ...(latest.rejectedPlaceIds ?? [])]),
         seenEventUrls: new Set<string>(kind === "event" ? [excludeId] : []),
         anchorPoint,
-        rankCtx,
-        accessibilityNeeds,
+        rankCtx: latest.rankCtx,
+        accessibilityNeeds: latest.accessibilityNeeds,
         score: (_lane, candidates) => semanticScores(tripId, anchorText, candidates, signal),
       });
 
@@ -315,11 +332,11 @@ export function NearbyRecommendations({
       cancelled = true;
       controller.abort();
     };
-  }, [tripId, excludeId, anchorName, cityHint, kind, primaryType, types, genre, lat, lng, rankCtx, rejectedPlaceIds, accessibilityNeeds, guest]);
+  }, [near, tripId, excludeId, anchorName, cityHint, kind, primaryType, typesKey, genre, lat, lng, guest]);
 
   if (loading) {
     return (
-      <div className="mt-10 flex items-center gap-2 text-sm text-muted-foreground">
+      <div ref={nearRef} className="mt-10 flex items-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" /> Finding what&rsquo;s around {anchorName}…
       </div>
     );

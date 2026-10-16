@@ -36,8 +36,12 @@ export function mentionsRoam(content: string): boolean {
   return ROAM_MENTION.test(content);
 }
 
-/** How many messages the chat opens with. Anything older is fetched a page at a time ("Show earlier messages"). */
-export const GROUP_HISTORY_LIMIT = 200;
+/**
+ * How many messages the chat opens with; anything older loads a page at a time as you scroll up. Also the
+ * size of the history every trip page's server payload carries (the workspace snapshot), refetched after every
+ * change anywhere in the trip: 200 made that ~240 KB of chat on pages that never show it.
+ */
+export const GROUP_HISTORY_LIMIT = 40;
 
 /** "@Roam" with nothing after it asks nothing: only a real question is worth sending. */
 export const hasAsk = (text: string) => text.replace(/(^|\s)@roam\b/gi, " ").trim().length > 0;
