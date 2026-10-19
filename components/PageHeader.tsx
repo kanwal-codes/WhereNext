@@ -54,11 +54,15 @@ export function PageHeader({
         <div className={cn("mt-3 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end", !back && !switcher && "max-sm:mt-0")}>
           <div className="min-w-0">
             <Reveal delay={0.07} y={12}>
-              <h1 className="font-display text-4xl leading-[1.04] font-medium tracking-[-0.03em] text-balance sm:text-5xl">{title}</h1>
+              {/* Full size from `sm` up (tablet and desktop) is unchanged — the big, tight, single-breath
+                  headline the brand wants. Under it, every one of these titles wrapped to two lines at that
+                  size and ran the whole page into a landing-page-style block before any real content showed;
+                  a phone gets a genuinely smaller, looser-set size instead of a shrunk copy of the same one. */}
+              <h1 className="font-display text-2xl leading-[1.2] font-medium tracking-[-0.015em] text-balance sm:text-5xl sm:leading-[1.04] sm:tracking-[-0.03em]">{title}</h1>
             </Reveal>
             {description && (
               <Reveal delay={0.14} y={10}>
-                <p className="mt-3 max-w-2xl text-base leading-relaxed text-ink-soft text-pretty">
+                <p className="mt-2 max-w-2xl text-sm leading-snug text-ink-soft text-pretty sm:mt-3 sm:text-base sm:leading-relaxed">
                   {description}
                 </p>
               </Reveal>

@@ -8,6 +8,8 @@ import { HeroCarousel } from "@/components/HeroCarousel";
 import { Reveal, Sheet, Stagger, StaggerItem, WordReveal } from "@/components/motion-primitives";
 import { FeaturedTrip } from "@/components/trips/FeaturedTrip";
 import { TripCard } from "@/components/trips/TripCard";
+import { PhoneTripRow } from "@/components/trips/PhoneTripRow";
+import { PHONE_V2 } from "@/lib/phone-v2";
 import type { TripSummary } from "@/components/trips/types";
 import { RoamMark } from "@/features/roam/ui/RoamMark";
 import { notifyToast } from "@/lib/application/toast";
@@ -111,7 +113,7 @@ export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]
 
   return (
     <div className="min-h-screen">
-      <HeroCarousel className="h-[480px] rounded-b-3xl sm:h-[420px]">
+      <HeroCarousel className={cn("h-[480px] rounded-b-3xl sm:h-[420px]", PHONE_V2 && "max-lg:h-[26rem]")}>
         <div className="absolute inset-x-0 top-0">
           <Reveal>
             <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 pt-6 sm:px-8">
@@ -218,13 +220,13 @@ export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]
 
       <div className="mx-auto max-w-6xl px-5 pt-12 pb-20 sm:px-8">
         <Reveal delay={0.55}>
-          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+          <div className={cn("flex flex-wrap items-center justify-between gap-x-6 gap-y-4", PHONE_V2 && "max-lg:flex-nowrap max-lg:gap-x-3")}>
             <div className="flex min-w-0 items-center gap-3">
-              <h2 className="font-display text-3xl tracking-tight">{list.length > 0 ? "Your trips" : "No trips yet"}</h2>
+              <h2 className={cn("font-display text-3xl tracking-tight", PHONE_V2 && "max-lg:text-2xl")}>{list.length > 0 ? "Your trips" : "No trips yet"}</h2>
               {list.length > 0 && <span className="daisy-badge daisy-badge-ghost tabular-nums">{list.length}</span>}
             </div>
             <Link href="/trips/new" className="btn-primary w-fit shrink-0">
-              <Plus className="h-4 w-4" /> Create new trip
+              <Plus className="h-4 w-4" /> {PHONE_V2 ? <span><span className="max-lg:hidden">Create </span><span className="lg:hidden">New </span>trip</span> : "Create new trip"}
             </Link>
           </div>
           {showTabs && (
@@ -274,6 +276,16 @@ export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]
           </Reveal>
         ) : (
           <div key={activeFilter}>
+            {PHONE_V2 && (
+              <ul className="mt-6 space-y-3 lg:hidden">
+                {visible.map((trip) => (
+                  <li key={trip.id}>
+                    <PhoneTripRow trip={trip} status={tripStatus(trip, now)} deleting={deleting === trip.id} onDelete={() => setPendingDelete(trip)} />
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className={cn(PHONE_V2 && "max-lg:hidden")}>
             {featured && (
               <Reveal delay={0.1}>
                 <div className="mt-8">
@@ -298,6 +310,7 @@ export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]
                 ))}
               </Stagger>
             )}
+            </div>
           </div>
         )}
       </div>
