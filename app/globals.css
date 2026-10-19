@@ -83,6 +83,15 @@
   --text-4xl: 2.25rem;
   --text-4xl--line-height: 2.5rem;
   --text-4xl--letter-spacing: -0.028em;
+  /* Phone redesign (see docs/design/phone-redesign-plan.md): the title inside a Roam widget, and the title of a
+     detail sheet. Outfit, tight, so a price or a place name reads as the headline of the card. */
+  --text-widget: 1.375rem;
+  --text-widget--line-height: 1.625rem;
+  --text-widget--letter-spacing: -0.03em;
+  --text-sheet: 1.75rem;
+  --text-sheet--line-height: 2rem;
+  --text-sheet--letter-spacing: -0.035em;
+  --color-glass: var(--glass);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -203,6 +212,11 @@
   --topbar: 3.5rem;
   /* The phone's bottom tab bar (components/TripShell.tsx), safe area included. */
   --tabbar: calc(3.5rem + env(safe-area-inset-bottom));
+  /* Phone redesign. The room under the last thing on a phone page: only the home-indicator inset, once the tab
+     bar is gone. Until the redesign ships (lib/phone-v2.ts) nothing reads it. */
+  --phone-bottom: env(safe-area-inset-bottom);
+  /* Frosted bars and buttons that sit over a photograph or a scrolling sheet. */
+  --glass: oklch(1 0 0 / 0.78);
 
   /* 3-step ground: page (white) -> surface (sidebar, sunken wells) -> card (white, lifted by
      hairline + shadow). */
@@ -333,6 +347,7 @@
 
 .dark {
   color-scheme: dark;
+  --glass: oklch(0.2 0.005 260 / 0.72);
   --background: oklch(0.15 0.005 260);
   --foreground: oklch(0.97 0.002 260);
   --surface: oklch(0.185 0.005 260);
@@ -1779,3 +1794,11 @@
 /* Names would pile on top of each other at phone width, where the pins sit close; the numbers and the list carry it. */
 @media (max-width: 639.98px) { .trip-pin-label { display: none; } }
 @media (prefers-reduced-motion: reduce) { .trip-pin-drop, .trip-rider::after, .trip-pill, .trip-node { animation: none; } }
+
+/* Phone redesign: one icon weight. Lucide draws at 2px; widgets and the phone chrome use 1.6px, rounded, so
+   icons sit with the type instead of shouting over it. Scope a surface with `icons-fine`; nothing else changes. */
+.icons-fine svg { stroke-width: 1.6; }
+.icons-fine svg[data-solid] { stroke-width: 0; }
+
+/* Photographs under text (widget cards, sheet heroes): a soft bottom gradient so white type is always readable. */
+.photo-scrim::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, oklch(0.16 0.012 60 / 0.18), oklch(0.16 0.012 60 / 0) 30%, oklch(0.16 0.012 60 / 0.72) 100%); }
