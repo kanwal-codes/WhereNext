@@ -16,7 +16,7 @@ export function MicButton({ listening, disabled, onToggle, hasText }: { listenin
       aria-pressed={listening}
       disabled={disabled}
       className={cn(
-        "pointer-events-auto grid size-10 shrink-0 place-items-center rounded-full transition-[background-color,color,transform] duration-200 ease-out active:scale-90 disabled:opacity-40",
+        "pointer-events-auto grid size-10 shrink-0 place-items-center rounded-full transition-[background-color,color,transform] duration-200 ease-out max-lg:size-11 active:scale-90 disabled:opacity-40",
         listening ? "bg-destructive/10 text-destructive" : "text-muted-foreground enabled:hover:bg-muted enabled:hover:text-foreground",
         PHONE_V2 && hasText && !listening && "max-lg:hidden",
         PHONE_V2 && !listening && "max-lg:bg-coral-fill max-lg:text-white max-lg:enabled:hover:bg-coral-fill/90 max-lg:enabled:hover:text-white",
@@ -40,7 +40,7 @@ export function SendButton({ canSend, stopping, onStop, stopLabel = "Stop replyi
       title={stopping ? stopLabel : undefined}
       disabled={!stopping && !canSend}
       className={cn(
-        "group/send pointer-events-auto relative grid size-10 shrink-0 place-items-center rounded-full transition-[background-color,color,transform,box-shadow] duration-200 ease-out active:scale-90",
+        "group/send pointer-events-auto relative grid size-10 max-lg:size-11 shrink-0 place-items-center rounded-full transition-[background-color,color,transform,box-shadow] duration-200 ease-out active:scale-90",
         filled ? "bg-primary text-primary-foreground shadow-soft enabled:hover:bg-primary/85" : "bg-muted text-muted-foreground/60",
         PHONE_V2 && filled && !stopping && "max-lg:bg-coral-fill max-lg:text-white max-lg:enabled:hover:bg-coral-fill/90",
         PHONE_V2 && !filled && micShown && "max-lg:hidden",

@@ -971,7 +971,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
                               <a href={source.url} target="_blank" rel="noreferrer noopener" className="underline-offset-2 transition-colors hover:text-foreground hover:underline">
                                 {source.title}
                               </a>
-                              <span className="ml-1.5 opacity-70">{hostOf(source.url)}</span>
+                              <span className="ml-1.5 opacity-85">{hostOf(source.url)}</span>
                             </li>
                           ))}
                         </ul>

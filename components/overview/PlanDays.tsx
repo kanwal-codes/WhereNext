@@ -21,7 +21,7 @@ export function PlanDays({ tripId, days }: { tripId: string; days: PlanDay[] }) 
       {days.map((day) => (
         <StaggerItem key={day.day}>
           <article className="relative h-full overflow-hidden rounded-3xl border border-border/70 bg-card p-6 shadow-soft">
-            <span aria-hidden className="pointer-events-none absolute -top-2 right-4 font-display text-[7.5rem] leading-none tabular-nums text-foreground/[0.055] select-none">
+            <span aria-hidden className="pointer-events-none absolute -top-2 right-4 font-display text-[7.5rem] max-lg:text-[5rem] leading-none tabular-nums text-foreground/[0.055] select-none">
               {String(day.day).padStart(2, "0")}
             </span>
             <p className="text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">Day {day.day}</p>

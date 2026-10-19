@@ -1808,3 +1808,16 @@
 @media (max-width: 63.9375rem) {
   [data-phone-v2] { --tabbar: var(--phone-bottom); --topbar: calc(3.5rem + env(safe-area-inset-top)); }
 }
+
+/* Phone ergonomics (flag on, below lg): built for a thumb, not a pointer.
+   - Captions stop at 12px (the 11px floor is for desktop), and every field is 16px so iOS never zooms the page on focus.
+   - Controls are at least 40px tall; the zero-specificity :where() lets any component ask for more (or less) itself.
+   - No double-tap-to-zoom delay on anything you can press, and no grey flash: pressed states do the talking. */
+@media (max-width: 63.9375rem) {
+  html[data-phone-v2] { -webkit-tap-highlight-color: transparent; }
+  /* The theme is `@theme inline`, so the 2xs step is a literal in each utility: re-state it here. */
+  html[data-phone-v2] :is(.text-2xs, .eyebrow, .max-lg\:eyebrow) { font-size: 0.75rem; line-height: 1.0625rem; }
+  html[data-phone-v2] :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"]), select, textarea) { font-size: 16px; }
+  :where(html[data-phone-v2]) :is(a, button, summary, select, label, input, textarea, [role="button"], [role="tab"]) { touch-action: manipulation; }
+  :where(html[data-phone-v2]) :is(button, [role="tab"], summary, select) { min-height: 2.5rem; }
+}

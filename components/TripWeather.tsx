@@ -67,7 +67,7 @@ export function TripWeather({ tripId, location, className, card = false, loading
       <span className={cn("text-sm text-muted-foreground", className)}>{loadingText}</span>
     ) : null;
   }
-  if (!data || data.kind === "none" || !data.summary) return loadingText ? <span className={cn("text-sm text-muted-foreground", className)}>No outlook for these dates yet.</span> : null;
+  if (!data || data.kind === "none" || !data.summary) return loadingText ? <span className={cn("text-sm text-muted-foreground", className)}>No outlook yet.</span> : null;
 
   const label = data.kind === "seasonal" ? `Typical weather${data.month ? ` · ${data.month}` : ""}` : "During your trip";
 

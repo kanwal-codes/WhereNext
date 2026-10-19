@@ -45,7 +45,7 @@ export function RemoveControl({ label, onConfirm, className }: { label: string; 
             <button type="button" disabled={busy} onClick={() => setArmed(false)} className="inline-flex h-7 items-center rounded-full px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">Keep</button>
           </motion.div>
         ) : (
-          <motion.button key="trigger" type="button" aria-label={`Remove ${label}`} initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.94 }} transition={t} onClick={() => setArmed(true)} className="photo-chip size-9 justify-center p-0 transition-colors hover:text-destructive">
+          <motion.button key="trigger" type="button" aria-label={`Remove ${label}`} initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.94 }} transition={t} onClick={() => setArmed(true)} className="photo-chip size-9 max-lg:size-11 justify-center p-0 transition-colors hover:text-destructive">
             <Trash2 className="size-4" aria-hidden />
           </motion.button>
         )}

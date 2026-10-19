@@ -834,7 +834,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
         onClick={() => setPlusMenuOpen((current) => !current)}
         disabled={!loaded}
         className={cn(
-          "grid size-10 shrink-0 place-items-center rounded-full transition-colors disabled:opacity-40",
+          "grid size-10 max-lg:size-11 shrink-0 place-items-center rounded-full transition-colors disabled:opacity-40",
           plusMenuOpen ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground",
         )}
       >

@@ -88,7 +88,7 @@ export function PlaceFloatingPills({ place, extra }: { place: { openNow?: boolea
 export function CineDate({ month, day }: { month: string; day: string }) {
   return (
     <span className="inline-flex w-[3.25rem] flex-col items-center rounded-2xl border border-white/25 bg-white/14 py-1.5 backdrop-blur-md backdrop-saturate-150" aria-hidden>
-      <span className="text-[0.625rem] leading-3 font-semibold tracking-[0.14em] text-coral-soft uppercase">{month}</span>
+      <span className="text-[0.625rem] max-lg:text-xs leading-3 font-semibold tracking-[0.14em] text-coral-soft uppercase">{month}</span>
       <span className="font-display text-2xl leading-6 font-medium tabular-nums">{day}</span>
     </span>
   );
@@ -142,7 +142,7 @@ function CineRow({ label, onOpen, href, src, alt, glyph: Glyph, eyebrow, title, 
         )}
       </div>
       <div className="pointer-events-none relative z-[1] flex min-w-0 flex-1 flex-col justify-center py-0.5">
-        {eyebrow && <p className="truncate text-[0.625rem] font-medium tracking-[0.22em] text-muted-foreground uppercase">{eyebrow}</p>}
+        {eyebrow && <p className="truncate text-[0.625rem] max-lg:text-xs font-medium tracking-[0.22em] text-muted-foreground uppercase">{eyebrow}</p>}
         <h4 className="mt-1 line-clamp-2 font-display text-[1.1875rem] leading-[1.15] font-medium tracking-[-0.02em] text-balance">{title}</h4>
         <span aria-hidden className="my-2 h-px w-8 bg-gradient-to-r from-coral/80 to-transparent" />
         {row.meta && <div className="truncate text-[0.8125rem] text-muted-foreground tabular-nums">{row.meta}</div>}

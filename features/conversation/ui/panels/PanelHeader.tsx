@@ -20,7 +20,7 @@ export function BigFigure({ text, className }: { text: string; className?: strin
 export function PanelHeader({ eyebrow, children, sub }: { eyebrow: string[]; children: React.ReactNode; sub?: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[0.6875rem] font-medium tracking-[0.26em] text-muted-foreground uppercase">
+      <p className="text-[0.6875rem] max-lg:text-xs font-medium tracking-[0.26em] text-muted-foreground uppercase">
         {eyebrow.map((part, i) => <React.Fragment key={i}>{i > 0 && <span aria-hidden className="mx-1.5 text-coral">·</span>}{part}</React.Fragment>)}
       </p>
       <div className="mt-3">{children}</div>

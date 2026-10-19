@@ -14,7 +14,7 @@ describe("buildTripSummary", () => {
   it("collects the saved facts", () => {
     const s = buildTripSummary(ctx())!;
     expect(s.title).toBe("Your trip to Montreal, Canada");
-    expect(s.facts).toEqual([{ label: "Dates", value: "2026-11-26 to 2026-12-10", note: "15 days" }, { label: "Travellers", value: "3" }, { label: "Budget", value: "80 CAD per person a day" }]);
+    expect(s.facts).toEqual([{ label: "Dates", value: "2026-11-26 to 2026-12-10", note: "15 days" }, { label: "Travellers", value: "3" }, { label: "Budget", value: "80 CAD", note: "per person a day" }]);
     expect(s.rows).toContainEqual({ label: "Plan", value: "3 stops over 2 days" });
     expect(s.rows).toContainEqual({ label: "Staying at", value: "Not chosen yet" });
     expect(s.rows).toContainEqual({ label: "Dietary", value: "vegetarian" });

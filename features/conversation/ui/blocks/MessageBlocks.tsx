@@ -1381,7 +1381,7 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel, onFollowup }: { fr
                   <>{minutes(g.routes[0])}<span className="@max-[34rem]:hidden"> · {distance(g.routes[0].distanceMeters / 1000)}</span></>
                 )}</span>
               </span>
-              {g.routes[0] === fastest ? <WidgetPill tone="sage" className="ml-auto h-5 text-[0.6875rem] @max-[34rem]:hidden">Fastest</WidgetPill> : minutes(g.routes[0]) === minutes(fastest) ? <WidgetPill className="ml-auto h-5 text-[0.6875rem] @max-[34rem]:hidden">Same time</WidgetPill> : null}
+              {g.routes[0] === fastest ? <WidgetPill tone="sage" className="ml-auto h-5 text-[0.6875rem] max-lg:text-xs @max-[34rem]:hidden">Fastest</WidgetPill> : minutes(g.routes[0]) === minutes(fastest) ? <WidgetPill className="ml-auto h-5 text-[0.6875rem] max-lg:text-xs @max-[34rem]:hidden">Same time</WidgetPill> : null}
             </button>
           );
         })}
@@ -1393,7 +1393,7 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel, onFollowup }: { fr
             onClick={() => setPick(i)}
             label={`${ROUTE_MODE_LABEL[route.mode] ?? route.mode}, ${minutes(route)}: show on the map`}
             lead={<span className={cn("grid size-9 shrink-0 place-items-center rounded-xl", route === chosen ? "bg-lagoon text-white" : "bg-lagoon-soft text-lagoon")} aria-hidden>{React.createElement(routeModeIcon(route.mode, route.steps), { className: "size-[1.125rem]" })}</span>}
-            title={<span className="inline-flex items-center gap-1.5">{(route.mode === "transit" && route.steps.length > 0 ? routeLines(route.steps) : null) || ROUTE_MODE_LABEL[route.mode] || route.mode}{group.routes.length > 1 && i === 0 ? <WidgetPill tone="sage" className="h-5 text-[0.6875rem]">Quickest</WidgetPill> : null}</span>}
+            title={<span className="inline-flex items-center gap-1.5">{(route.mode === "transit" && route.steps.length > 0 ? routeLines(route.steps) : null) || ROUTE_MODE_LABEL[route.mode] || route.mode}{group.routes.length > 1 && i === 0 ? <WidgetPill tone="sage" className="h-5 text-[0.6875rem] max-lg:text-xs">Quickest</WidgetPill> : null}</span>}
             detail={[clockOf(route.departureTime) ? `leaves ${clockOf(route.departureTime)}` : null, route.fare ? money(route.fare.amount, route.fare.currency) : null, distance(route.distanceMeters / 1000)].filter(Boolean).join(" · ")}
             mid={<RowBar frac={route.durationSeconds / slowest} color={route === fastest ? "var(--positive)" : "var(--lagoon)"} />}
             value={<RowValue>{minutes(route)}</RowValue>}

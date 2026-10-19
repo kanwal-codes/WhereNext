@@ -336,14 +336,14 @@ export function ItinerarySurface({
               key={d}
               href={`#day-${d}`}
               suppressHydrationWarning
-              className="daisy-btn daisy-btn-sm h-9 shrink-0 snap-start rounded-full border-border bg-card px-4 font-medium shadow-none hover:border-foreground/30 hover:bg-accent"
+              className="daisy-btn daisy-btn-sm h-9 max-lg:h-10 shrink-0 snap-start rounded-full border-border bg-card px-4 font-medium shadow-none hover:border-foreground/30 hover:bg-accent"
             >
               <span className="font-display tabular-nums">{String(d).padStart(2, "0")}</span>
               <span className="text-muted-foreground">{dayDate(startDate, d)?.split(",")[1]?.trim() ?? `Day ${d}`}</span>
             </a>
           ))}
         </nav>
-        <a href={`/trips/${tripId}/today`} className="group inline-flex items-center gap-1 text-sm font-medium text-foreground/80 transition-colors hover:text-foreground max-sm:py-2">
+        <a href={`/trips/${tripId}/today`} className="group inline-flex items-center gap-1 text-sm font-medium text-foreground/80 transition-colors hover:text-foreground max-sm:py-2 max-lg:py-3">
           Today view <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
         </a>
       </div>
@@ -515,7 +515,7 @@ export function ItinerarySurface({
                       dropHint === `${d}:end` ? "border-coral bg-coral-soft/40" : "border-border",
                     )}
                   >
-                    Nothing planned. Use Add here, or drag an item here.
+                    Nothing planned. Use Add here<span className="max-lg:hidden">, or drag an item here</span>.
                   </motion.p>
                 )}
                 {dayItems.map((item, itemIndex) => {
@@ -628,7 +628,7 @@ export function ItinerarySurface({
                           onClick={() => setOpenTools((current) => (current === item.id ? null : item.id))}
                           aria-expanded={openTools === item.id}
                           aria-label={`Options for ${item.title}`}
-                          className="grid size-9 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent sm:hidden"
+                          className="grid size-9 max-sm:size-11 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent sm:hidden"
                         >
                           <MoreHorizontal className="size-4" />
                         </button>

@@ -12,7 +12,8 @@ export function buildTripSummary(ctx: TripContext): TripSummary | null {
   const trip = ctx.trip;
   if (!trip) return null;
   const prefs = ctx.preferences;
-  const budget = typeof prefs.budget === "number" && prefs.budget > 0 ? `${prefs.budget}${text(prefs.currency) ? ` ${text(prefs.currency)}` : ""} per person a day` : text(prefs.budget);
+  const dailyBudget = typeof prefs.budget === "number" && prefs.budget > 0;
+  const budget = dailyBudget ? `${prefs.budget}${text(prefs.currency) ? ` ${text(prefs.currency)}` : ""}` : text(prefs.budget);
   const dates = trip.start_date && trip.end_date ? `${trip.start_date} to ${trip.end_date}` : null;
   const stops = ctx.itinerary.length;
   const planDays = new Set(ctx.itinerary.map((item) => item.day_index)).size;
@@ -28,7 +29,7 @@ export function buildTripSummary(ctx: TripContext): TripSummary | null {
   const facts: TripSummary["facts"] = [
     { label: "Dates", value: dates ?? "Not set", ...(trip.duration_days ? { note: plural(trip.duration_days, "day") } : {}) },
     { label: "Travellers", value: trip.travelers ? String(trip.travelers) : "Not set" },
-    { label: "Budget", value: budget || "Not set" },
+    { label: "Budget", value: budget || "Not set", ...(dailyBudget ? { note: "per person a day" } : {}) },
   ];
   const rows: TripSummary["rows"] = [
     trip.origin ? { label: "From", value: trip.origin } : null,

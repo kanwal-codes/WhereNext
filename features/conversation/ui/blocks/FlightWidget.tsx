@@ -200,7 +200,7 @@ function Node({ time, code, name, note, end, plus }: { time: string; code?: stri
   return (
     <div className="flex items-baseline gap-4">
       <span className="flex w-3.5 shrink-0 justify-center self-start pt-2" aria-hidden><span className={cn("size-3.5 rounded-full", end ? "border-[3px] border-foreground bg-background" : "bg-foreground")} /></span>
-      <p className="w-[6.5rem] shrink-0 font-display text-2xl leading-tight font-medium tracking-[-0.02em] tabular-nums">{time}{plus ? <sup className="ml-0.5 text-[0.6875rem] text-coral">+{plus}</sup> : null}</p>
+      <p className="w-[6.5rem] shrink-0 font-display text-2xl leading-tight font-medium tracking-[-0.02em] tabular-nums">{time}{plus ? <sup className="ml-0.5 text-[0.6875rem] max-lg:text-xs text-coral">+{plus}</sup> : null}</p>
       <div className="min-w-0">
         <p className="truncate text-[0.9375rem] font-semibold">{code}{name && <span className="font-normal text-muted-foreground"> · {name}</span>}</p>
         {note && <p className={cn(type.meta)}>{note}</p>}
@@ -307,7 +307,7 @@ export function FlightRowBody({ offer, roundTrip, cheapest, selected, onDetails 
       <AirlineMark offer={offer} className="size-9 shrink-0" />
       <div className="min-w-0 flex-1 @[34rem]:w-[7.25rem] @[34rem]:flex-none">
         <p className="line-clamp-2 text-[0.9375rem] leading-[1.2] font-medium">{offer.airline}</p>
-        {cheapest ? <WidgetPill tone="sage" className="mt-0.5 h-5 text-[0.6875rem]">Cheapest</WidgetPill> : <p className={cn(type.meta, "truncate")}>{[offer.cabinClass, offer.flightNumbers?.slice(0, 2).join(" · ")].filter(Boolean).join(" · ") || offer.originAirport}</p>}
+        {cheapest ? <WidgetPill tone="sage" className="mt-0.5 h-5 text-[0.6875rem] max-lg:text-xs">Cheapest</WidgetPill> : <p className={cn(type.meta, "truncate")}>{[offer.cabinClass, offer.flightNumbers?.slice(0, 2).join(" · ")].filter(Boolean).join(" · ") || offer.originAirport}</p>}
       </div>
       <div className="order-last flex w-full min-w-0 items-center gap-3 @[34rem]:order-none @[34rem]:w-auto @[34rem]:flex-1">
         <p className="font-display text-base font-medium tabular-nums whitespace-nowrap">{clockOf(offer.departAt)}</p>
@@ -320,11 +320,11 @@ export function FlightRowBody({ offer, roundTrip, cheapest, selected, onDetails 
             <span className="absolute top-px right-0 size-2 rounded-full border-2 border-foreground bg-background" />
           </div>
         </div>
-        <p className="font-display text-base font-medium tabular-nums whitespace-nowrap">{clockOf(offer.arriveAt)}{plus > 0 && <sup className="ml-0.5 text-[0.625rem] text-coral">+{plus}</sup>}</p>
+        <p className="font-display text-base font-medium tabular-nums whitespace-nowrap">{clockOf(offer.arriveAt)}{plus > 0 && <sup className="ml-0.5 text-[0.625rem] max-lg:text-xs text-coral">+{plus}</sup>}</p>
       </div>
       <div className="ml-auto flex shrink-0 flex-col items-end">
         <p className="font-display text-xl leading-tight font-medium tracking-[-0.015em] tabular-nums whitespace-nowrap">{offer.listedCurrency && <span className="mr-0.5 text-muted-foreground" title={`Converted from ${money(offer.listedPrice ?? "", offer.listedCurrency, true)} at today’s rate`}>≈</span>}{money(offer.price, offer.currency, true)}</p>
-        <p className="text-[0.71875rem] text-muted-foreground">{roundTrip ? "round trip" : "per person"}</p>
+        <p className="text-[0.71875rem] max-lg:text-xs text-muted-foreground">{roundTrip ? "round trip" : "per person"}</p>
         {onDetails && <span className="mt-1 inline-flex items-center gap-0.5 text-xs font-medium text-ink-soft" aria-hidden>{selected ? "Shown above" : "Details"}<ChevronRight className="size-3.5" /></span>}
       </div>
     </div>

@@ -19,7 +19,7 @@ const clock = (iso: string) => {
 const dayOf = (iso: string) => prettyDate(iso.slice(0, 10)) ?? "";
 const hm = (mins: number) => (mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h ${mins % 60}m`);
 const stopsLabel = (o: FlightOffer) => (o.stops === 0 ? "Nonstop" : `${o.stops} stop${o.stops > 1 ? "s" : ""}`);
-const eyebrow = "text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground";
+const eyebrow = "text-[11px] max-lg:text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground";
 const sameFlight = (a: FlightOffer, b: FlightOffer) => (a.id && b.id ? a.id === b.id : a.airline === b.airline && a.departAt === b.departAt);
 /** A fare rule that says "not" is a restriction; anything else is a permission. */
 const isRestriction = (rule: string) => /\bnot\b|non-?refundable|no (?:changes|refunds?)/i.test(rule);
@@ -287,7 +287,7 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
               {stops.map((code, i) => (
                 <span key={code + i} className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ left: stopAt(i) }}>
                   <span className="block size-2.5 rounded-full border-2 border-coral bg-card" />
-                  <span className="absolute left-1/2 top-4 -translate-x-1/2 text-[11px] font-medium tracking-wide text-muted-foreground">{code}</span>
+                  <span className="absolute left-1/2 top-4 -translate-x-1/2 text-[11px] max-lg:text-xs font-medium tracking-wide text-muted-foreground">{code}</span>
                 </span>
               ))}
               <motion.span

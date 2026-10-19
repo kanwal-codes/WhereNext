@@ -92,7 +92,7 @@ function Row({ item, onOpenBooking, onEdit, onRemove }: { item: TimelineItem; on
       ) : (
         <div className={cls}>{body}</div>
       )}
-      {item.removal && onRemove && <RemoveControl label={item.title} onConfirm={() => onRemove(item)} className="right-12 bottom-3.5" />}
+      {item.removal && onRemove && <RemoveControl label={item.title} onConfirm={() => onRemove(item)} className="right-12 bottom-3.5 max-lg:right-2.5 max-lg:bottom-auto max-lg:top-1/2 max-lg:-mt-[22px]" />}
       {item.href && item.bookingId && (
         <button type="button" onClick={() => onOpenBooking(item.bookingId!)} className="mt-1.5 ml-4 text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
           Booking details

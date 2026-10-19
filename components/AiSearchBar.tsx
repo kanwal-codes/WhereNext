@@ -102,7 +102,7 @@ export function AiSearchBar({
                 onClick={speech.toggle}
                 aria-label={speech.listening ? "Stop dictation" : "Dictate"}
                 aria-pressed={speech.listening}
-                className={cn("grid size-9 shrink-0 place-items-center rounded-full transition-colors", speech.listening ? "bg-destructive/10 text-destructive" : "text-muted-foreground hover:bg-accent hover:text-foreground")}
+                className={cn("grid size-9 max-lg:size-11 shrink-0 place-items-center rounded-full transition-colors", speech.listening ? "bg-destructive/10 text-destructive" : "text-muted-foreground hover:bg-accent hover:text-foreground")}
               >
                 <Mic className={cn("size-4", speech.listening && "animate-pulse")} />
               </button>
@@ -154,7 +154,7 @@ export function AiSearchBar({
             aria-label={speech.listening ? "Stop dictation" : "Dictate"}
             aria-pressed={speech.listening}
             className={cn(
-              "grid h-7 w-7 shrink-0 place-items-center rounded-full border transition-colors",
+              "grid h-7 w-7 max-lg:h-10 max-lg:w-10 shrink-0 place-items-center rounded-full border transition-colors",
               speech.listening ? "border-destructive/50 bg-destructive/10 text-destructive" : "border-border text-muted-foreground hover:text-foreground",
             )}
           >

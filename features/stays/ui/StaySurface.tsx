@@ -45,7 +45,7 @@ const fmtLong = (iso: string) => {
   return Number.isNaN(d.getTime()) ? "" : new Intl.DateTimeFormat("en", { weekday: "short", month: "short", day: "numeric" }).format(d);
 };
 
-const cellLabel = "block text-[0.625rem] font-medium tracking-[0.22em] text-muted-foreground uppercase";
+const cellLabel = "block text-[0.625rem] max-lg:text-xs font-medium tracking-[0.22em] text-muted-foreground uppercase";
 
 function Stepper({ label, value, set, min, max }: { label: string; value: number; set: (n: number) => void; min: number; max: number }) {
   const btn = "grid size-9 place-items-center rounded-full border border-border bg-background text-foreground transition-[background-color,border-color,transform] hover:border-foreground/30 hover:bg-accent active:scale-90 disabled:opacity-30 disabled:hover:bg-background";

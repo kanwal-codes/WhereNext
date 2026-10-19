@@ -590,7 +590,7 @@ export function DiscoverySurface({
         )}
       </AnimatePresence>
 
-      {message && <p className="mt-3 text-xs text-muted-foreground">{message}</p>}
+      {message && <p className="mt-3 text-xs text-muted-foreground max-lg:hidden">{message}</p>}
 
       {/* Feed: each state (skeleton, grid, digest) crossfades into the next. */}
       <div className="relative">

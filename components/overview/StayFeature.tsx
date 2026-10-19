@@ -24,8 +24,8 @@ export function StayFeature({ tripId, stay, compact = false, booked = [] }: { tr
         <p className="eyebrow">Where you&rsquo;re staying</p>
         <ul className="mt-4 divide-y divide-border">
           {liveBooked.map((item) => (
-            <li key={item.id} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3">
-              <span className="min-w-0 font-display text-xl tracking-tight">{item.title}</span>
+            <li key={item.id} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3 max-lg:flex-col max-lg:items-start">
+              <span className="min-w-0 font-display text-xl tracking-tight max-lg:text-lg max-lg:leading-snug">{item.title}</span>
               <span suppressHydrationWarning className="text-sm text-muted-foreground tabular-nums">
                 {item.date ? fmtDay(item.date) : "dates not set"}
                 {item.endDate ? ` to ${fmtDay(item.endDate)}` : ""}
@@ -33,7 +33,7 @@ export function StayFeature({ tripId, stay, compact = false, booked = [] }: { tr
             </li>
           ))}
         </ul>
-        <Link href={`/trips/${tripId}/stay`} className="mt-4 inline-block text-sm font-medium underline underline-offset-4">Find another stay</Link>
+        <Link href={`/trips/${tripId}/stay`} className="mt-4 inline-flex items-center text-sm font-medium underline underline-offset-4 max-lg:min-h-11">Find another stay</Link>
       </section>
     );
   }

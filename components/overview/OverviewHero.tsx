@@ -84,7 +84,7 @@ export function OverviewHero({
                   onClick={rename.start}
                   aria-label="Rename trip"
                   title="Rename trip"
-                  className={cn("daisy-btn daisy-btn-circle daisy-btn-sm border-border/60 bg-background/88 text-foreground shadow-none hover:bg-background", PHONE_V2 && "max-lg:size-10")}
+                  className={cn("daisy-btn daisy-btn-circle daisy-btn-sm border-border/60 bg-background/88 text-foreground shadow-none hover:bg-background", PHONE_V2 && "max-lg:size-11")}
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </button>

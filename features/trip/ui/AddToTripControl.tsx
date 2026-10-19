@@ -282,7 +282,7 @@ export function AddToTripControl({
           className={cn(
             "grid shrink-0 place-items-center rounded-full border transition-[background-color,border-color,color,transform] duration-200 ease-out active:scale-90 disabled:opacity-70",
             ring,
-            sm ? "size-8" : size === "lg" ? "size-12" : "size-10",
+            sm ? "size-8 max-lg:size-10" : size === "lg" ? "size-12" : "size-10 max-lg:size-11",
             saved
               ? "border-coral/35 bg-coral-soft text-coral-ink hover:bg-coral-soft"
               : "border-border bg-background text-muted-foreground hover:border-ink/30 hover:text-ink",

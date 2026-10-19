@@ -1,3 +1,4 @@
+import { PHONE_V2 } from "@/lib/phone-v2";
 import { KeyboardAssist } from "@/components/KeyboardAssist";
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
@@ -56,7 +57,7 @@ export const viewport: Viewport = {
 // the wrong ancestor and drifts off-screen instead of staying pinned.
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${outfit.variable} ${figtree.variable} overflow-x-hidden`} suppressHydrationWarning>
+    <html lang="en" className={`${outfit.variable} ${figtree.variable} overflow-x-hidden`} data-phone-v2={PHONE_V2 ? "" : undefined} suppressHydrationWarning>
       <body>
         {/* beforeInteractive: Next.js injects this into <head> and runs it before hydration,
             so the `dark` class lands before first paint — no light-then-dark flash. */}

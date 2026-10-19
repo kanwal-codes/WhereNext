@@ -168,7 +168,7 @@ export function RowValue({ children, sub }: { children: ReactNode; sub?: ReactNo
   return (
     <>
       <p className="font-display text-lg leading-tight font-medium tabular-nums">{children}</p>
-      {sub && <p className="text-[0.71875rem] leading-tight text-muted-foreground tabular-nums">{sub}</p>}
+      {sub && <p className="text-[0.71875rem] max-lg:text-xs leading-tight text-muted-foreground tabular-nums">{sub}</p>}
     </>
   );
 }

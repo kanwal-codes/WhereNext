@@ -4,7 +4,7 @@ import { safeHref } from "@/lib/utils";
 /** Colours the "@Roam" token and turns web addresses into links, so a pasted listing or reservation page opens in one tap. */
 export function renderRich(content: string) {
   return content.split(/(@roam\b|https?:\/\/[^\s<]+)/gi).map((part, index) => {
-    if (/^@roam$/i.test(part)) return <span key={index} className="font-semibold text-coral">{part}</span>;
+    if (/^@roam$/i.test(part)) return <span key={index} className="font-semibold text-coral-ink">{part}</span>;
     if (/^https?:\/\//i.test(part)) {
       // A closing bracket or full stop at the end belongs to the sentence, not the address.
       const url = part.replace(/[.,;:!?)\]]+$/, "");
