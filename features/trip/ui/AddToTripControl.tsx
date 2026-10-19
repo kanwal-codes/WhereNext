@@ -47,6 +47,7 @@ export function AddToTripControl({
   initialPlacement,
   size = "md",
   variant = "default",
+  noSave = false,
   block = false,
   onPlacementChange,
   className,
@@ -57,6 +58,8 @@ export function AddToTripControl({
   size?: "sm" | "md" | "lg";
   /** "orb": one round coral button for a photo card (a plus; "Day 3" once planned), with no separate save button. */
   variant?: "default" | "orb";
+  /** Leave the bookmark button out (the heart on the photo already saves it). */
+  noSave?: boolean;
   /** Stretch to fill the container (detail aside) instead of hugging its content. */
   block?: boolean;
   onPlacementChange?: (placement: Placement) => void;
@@ -273,7 +276,7 @@ export function AddToTripControl({
             </AnimatePresence>}
           </button>
         </div>
-        {!orb && <button
+        {!orb && !noSave && <button
           type="button"
           disabled={busy}
           onClick={() => (guest ? openGate("save places") : void toggleBookmark())}

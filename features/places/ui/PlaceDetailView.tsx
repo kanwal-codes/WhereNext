@@ -34,6 +34,8 @@ import { useDocumentTitle } from "@/lib/use-document-title";
 import { amenityChips, askAssistantHref, businessStatusLabel, categoryLabel, cityFrom, detailsToPlace, photoProxyUrl, prettyWebsite, withPhotoWidth, priceLabel, secondaryTypes, type GoogleReview } from "@/lib/places-ui";
 import { Badge, compactCount, textAction } from "@/features/conversation/ui/blocks/ui";
 import { cn } from "@/lib/utils";
+import { PHONE_V2 } from "@/lib/phone-v2";
+import { SaveHeart } from "@/features/trip/ui/SaveHeart";
 
 function ReviewFigure({ r }: { r: GoogleReview }) {
   const [open, setOpen] = useState(false);
@@ -129,7 +131,7 @@ export function PlaceDetailView({
   // into a very long, thin bar spanning nearly the whole page. Capping it keeps it looking like
   // a button at every width instead of a banner at in-between ones.
   const asideAction = place ? (
-    <div className={panel ? "max-w-md" : "max-w-sm"}>
+    <div className={cn(panel ? "max-w-md" : "max-w-sm", PHONE_V2 && "max-lg:hidden")}>
       <AddToTripControl tripId={tripId} place={place} size="lg" block />
     </div>
   ) : (
@@ -202,7 +204,7 @@ export function PlaceDetailView({
 
   const body = (
     <div className="min-w-0 space-y-8">
-      <Reveal delay={0.04}>
+      <Reveal delay={0.04} className={cn(PHONE_V2 && "max-lg:hidden")}>
         <div className="space-y-4">
           <FactStrip
             variant="hero"
@@ -319,6 +321,16 @@ export function PlaceDetailView({
   return (
     <div>
       {titleTag}
+      {PHONE_V2 && (
+        <div className="px-5 pt-3 lg:hidden">
+          <div className="relative aspect-[16/10] overflow-hidden rounded-3xl bg-muted">
+            {/* eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin proxy */}
+            <img src={photo ? withPhotoWidth(photo, 960) : "/design/place-neighbourhood.jpg"} alt={name} className="photo-grade absolute inset-0 h-full w-full object-cover" />
+            {place && <div className="absolute top-2 right-2"><SaveHeart tripId={tripId} place={place} /></div>}
+          </div>
+        </div>
+      )}
+      <div className={cn(PHONE_V2 && "max-lg:hidden")}>
       <Hero
         image={photo ?? "/design/place-neighbourhood.jpg"}
         fallbackImage="/design/place-neighbourhood.jpg"
@@ -331,6 +343,7 @@ export function PlaceDetailView({
       >
         {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className="absolute top-4 left-4" />}
       </Hero>
+      </div>
 
       <div className={pad}>
         <Reveal>
@@ -343,16 +356,40 @@ export function PlaceDetailView({
                 separate, already-visible placement (a narrow drawer has no "beside" to offer). */}
             <div className={cn(!panel && "sm:flex sm:items-start sm:justify-between sm:gap-6")}>
               <div className="min-w-0">
-                <p className="text-sm text-muted-foreground">{categoryLabel(details.primaryType)}</p>
+                <p className={cn("text-sm text-muted-foreground", PHONE_V2 && "max-lg:hidden")}>{categoryLabel(details.primaryType)}</p>
                 {panel ? (
-                  <h1 className="mt-1 font-display text-2xl font-semibold leading-tight">{name}</h1>
+                  <h1 className="mt-1 font-display text-2xl font-semibold leading-tight max-lg:text-[1.75rem] max-lg:font-medium max-lg:tracking-[-0.03em]">{name}</h1>
                 ) : (
-                  <WordReveal text={name} delay={0.18} className="mt-1 font-display text-4xl leading-tight" />
+                  <WordReveal text={name} delay={0.18} className="mt-1 font-display text-4xl leading-tight max-lg:text-[1.75rem] max-lg:tracking-[-0.03em]" />
                 )}
               </div>
               {!panel && <div className="mt-4 max-w-sm shrink-0 sm:mt-2 sm:w-64">{asideAction}</div>}
             </div>
-            <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+            {PHONE_V2 && (
+              <div className="mt-2 lg:hidden">
+                <p className="flex flex-wrap items-center gap-x-2 text-[0.9375rem] text-ink-soft">
+                  {typeof details.rating === "number" && (
+                    <span className="inline-flex items-center gap-1 font-semibold text-foreground tabular-nums">
+                      <Star className="size-4 fill-coral text-coral" aria-hidden />
+                      {details.rating.toFixed(1)}
+                      {details.userRatingCount ? <span className="font-normal text-muted-foreground">({compactCount(details.userRatingCount)})</span> : null}
+                    </span>
+                  )}
+                  <span>{[categoryLabel(details.primaryType), city, price].filter(Boolean).join(" · ")}</span>
+                </p>
+                {(typeof openNow === "boolean" || todayHours) && (
+                  <p className="mt-3 flex flex-wrap gap-2">
+                    {typeof openNow === "boolean" && (
+                      <span className={cn("inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium ring-1 ring-inset", openNow ? "bg-positive-soft text-positive ring-positive/20" : "bg-muted text-ink-soft ring-border")}>
+                        <Clock className="size-4" aria-hidden />
+                        {openNow ? `Open${todayHours?.includes("–") ? ` until ${todayHours.split("–").pop()?.trim()}` : " now"}` : "Closed now"}
+                      </span>
+                    )}
+                  </p>
+                )}
+              </div>
+            )}
+            <p className={cn("mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground", PHONE_V2 && "max-lg:hidden")}>
               {details.formattedAddress && (
                 <span className="inline-flex items-center gap-1.5">
                   <MapPin className="h-3.5 w-3.5" /> {details.formattedAddress}
@@ -391,6 +428,14 @@ export function PlaceDetailView({
           lat={details.location?.latitude}
           lng={details.location?.longitude}
         />
+        {PHONE_V2 && place && (
+          <div className="sticky bottom-0 z-10 -mx-5 mt-6 flex items-center gap-2.5 border-t border-border/70 bg-background/95 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md lg:hidden">
+            <div className="min-w-0 flex-1"><AddToTripControl tripId={tripId} place={place} size="lg" block noSave /></div>
+            <a href={directionsHref} target="_blank" rel="noreferrer noopener" className="inline-flex h-12 shrink-0 items-center gap-2 rounded-full border border-input bg-background px-5 text-[0.9375rem] font-semibold transition-transform active:scale-[0.97]">
+              <Navigation className="size-[1.125rem]" aria-hidden /> Directions
+            </a>
+          </div>
+        )}
       </div>
 
       <PhotoLightbox photos={morePhotos} index={lightbox.index} onIndexChange={lightbox.open} onClose={lightbox.close} alt={name} />
