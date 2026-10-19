@@ -49,7 +49,7 @@ export function backTarget(pathname: string, base: string): { href: string | nul
   return undefined;
 }
 
-const ROUND = "grid size-11 shrink-0 place-items-center rounded-full border border-border bg-background text-foreground shadow-hairline transition-transform duration-200 ease-out active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+export const PHONE_ROUND = "grid size-11 shrink-0 place-items-center rounded-full border border-border bg-background text-foreground shadow-hairline transition-transform duration-200 ease-out active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 export function PhoneHeader({ pathname, tripId, tripName, onMenu, menuDot }: { pathname: string; tripId: string; tripName: string; onMenu: () => void; menuDot?: boolean }) {
   const router = useRouter();
@@ -68,17 +68,18 @@ export function PhoneHeader({ pathname, tripId, tripName, onMenu, menuDot }: { p
     >
       {back ? (
         back.href ? (
-          <Link href={back.href} aria-label="Back" className={ROUND}><ArrowLeft className="size-[1.2rem]" /></Link>
+          <Link href={back.href} aria-label="Back" className={PHONE_ROUND}><ArrowLeft className="size-[1.2rem]" /></Link>
         ) : (
-          <button type="button" onClick={() => router.back()} aria-label="Back" className={ROUND}><ArrowLeft className="size-[1.2rem]" /></button>
+          <button type="button" onClick={() => router.back()} aria-label="Back" className={PHONE_ROUND}><ArrowLeft className="size-[1.2rem]" /></button>
         )
       ) : (
-        <button type="button" onClick={onMenu} aria-label="Open trip menu" className={cn(ROUND, "relative")}>
+        <button type="button" onClick={onMenu} aria-label="Open trip menu" className={cn(PHONE_ROUND, "relative")}>
           <AlignLeft className="size-[1.2rem]" />
           {menuDot && <span aria-hidden className="absolute top-2 right-2 size-2.5 rounded-full bg-coral ring-2 ring-background" />}
         </button>
       )}
-      <h1 className="min-w-0 flex-1 truncate text-center font-display text-base font-semibold tracking-[-0.01em]">{title}</h1>
+      {/* A <p>, not a heading: every page already has its own h1, and a second one would be read out first on every screen. */}
+      <p className="min-w-0 flex-1 truncate text-center font-display text-base font-semibold tracking-[-0.01em]">{title}</p>
       <div className="flex min-w-11 shrink-0 justify-end">{override.trailing}</div>
     </header>
   );

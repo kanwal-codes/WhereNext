@@ -27,6 +27,7 @@ import { NAV as nav } from "@/components/shell/trip-nav";
 import { PhoneDrawer } from "@/components/shell/PhoneDrawer";
 import { PhoneHeader, PhoneHeaderProvider } from "@/components/shell/PhoneHeader";
 import { PHONE_V2 } from "@/lib/phone-v2";
+import { useGroupUnread } from "@/lib/client/use-group-unread";
 import { Sheet, motionTokens } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
@@ -172,6 +173,8 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
   const homeHref = guest ? `/trips/${tripId}/chat` : `/trips/${tripId}`;
   const allTripsHref = guest ? "/" : "/trips";
   const [open, setOpen] = useState(false);
+  // Phone redesign: unread group messages show as a number on the menu's Group chat row and a dot on the menu button.
+  const unread = useGroupUnread(tripId, PHONE_V2 && !guest);
   const [collapsed, setCollapsed] = useState(false);
   // With a side panel open, the page beside the sidebar is a long conversation and a detail view. Sliding the sidebar's
   // column re-wraps every line of both on every frame, which reads as shaking however fast it runs. So then the
@@ -283,7 +286,7 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
 
       {/* Mobile top bar */}
       {PHONE_V2 ? (
-        <PhoneHeader pathname={pathname} tripId={tripId} tripName={trip.name} onMenu={() => setOpen(true)} />
+        <PhoneHeader pathname={pathname} tripId={tripId} tripName={trip.name} onMenu={() => setOpen(true)} menuDot={unread > 0 && !/\/group$/.test(pathname)} />
       ) : (
         <div data-trip-topbar className="sticky top-0 z-30 grid h-[var(--topbar)] grid-cols-[minmax(0,1fr)] items-center gap-3 border-b border-border bg-background/95 px-4 lg:hidden">
           <Link href={homeHref} className="flex h-full min-w-0 items-center gap-3 transition-[opacity,transform] duration-200 hover:opacity-80 active:scale-[0.98]" aria-label={trip.name}>
@@ -297,7 +300,7 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
 
       {/* Mobile navigation sheet */}
       {PHONE_V2 ? (
-        <PhoneDrawer open={open} onClose={() => setOpen(false)} tripId={tripId} pathname={pathname} trip={trip} />
+        <PhoneDrawer open={open} onClose={() => setOpen(false)} tripId={tripId} pathname={pathname} trip={trip} unread={unread} />
       ) : (
         <Sheet open={open} onClose={() => setOpen(false)} side="left" ariaLabel="Trip navigation" className="max-w-[300px] bg-sidebar px-4 py-6">
           <div className="mb-5 flex items-start gap-3">

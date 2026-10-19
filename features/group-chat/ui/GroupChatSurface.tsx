@@ -8,6 +8,8 @@ import { AnimatePresence, motion } from "motion/react";
 import { memberTint } from "@/lib/member-tint";
 import { ArrowDown, CalendarRange, ListChecks, Plus, SmilePlus, X } from "lucide-react";
 import { MicButton, SendButton } from "@/components/ComposerButtons";
+import { PHONE_V2 } from "@/lib/phone-v2";
+import { markGroupRead } from "@/lib/client/use-group-unread";
 import { Sheet, Pressable, Reveal, Stagger, StaggerItem } from "@/components/motion-primitives";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { useKeepScrollGap } from "@/lib/use-keep-scroll-gap";
@@ -280,6 +282,14 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
     }, POLL_MS);
     return () => clearInterval(id);
   }, [active, refresh]);
+
+  // Phone redesign: having the chat open is what reads it. Mark it read when it comes to the front and as new messages
+  // arrive while it is in front, so the menu badge never counts what is already on screen.
+  const lastMessageId = messages[messages.length - 1]?.id;
+  useEffect(() => {
+    if (!PHONE_V2 || !active) return;
+    void markGroupRead(tripId);
+  }, [active, tripId, lastMessageId]);
 
   const scrollToEnd = useCallback(() => {
     const log = logRef.current;
@@ -833,8 +843,9 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
     </div>
   );
 
-  const micButton = speech.supported && <MicButton listening={speech.listening} disabled={!loaded} onToggle={speech.toggle} />;
-  const sendButton = <SendButton canSend={loaded && hasAsk(input)} />;
+  const canSend = loaded && hasAsk(input);
+  const micButton = speech.supported && <MicButton listening={speech.listening} disabled={!loaded} onToggle={speech.toggle} hasText={input.trim().length > 0} />;
+  const sendButton = <SendButton canSend={canSend} micShown={speech.supported} />;
 
   // The single-line layout's reserved space for the overlaid plus/mic/send — used two ways
   // below: as the visible textarea's own padding while that overlay is showing, and permanently
@@ -915,7 +926,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
       <div ref={logRef} onScroll={onLogScrollInner} role="log" aria-label="Group chat messages" aria-live="polite" aria-relevant="additions" className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim">
         {/* The controls above float over the log: messages fade out beneath them instead of running into them. */}
         <div aria-hidden className="pointer-events-none sticky top-0 z-[1] -mb-14 h-14 w-full bg-gradient-to-b from-background via-background/85 to-transparent" />
-        <div className={cn("mx-auto w-full space-y-1 pt-3 pb-28 max-lg:pt-16", rail ? RAIL_MEASURE : "max-w-2xl")}>
+        <div className={cn("mx-auto w-full space-y-1 pt-3 pb-28", PHONE_V2 ? "max-lg:pt-3" : "max-lg:pt-16", rail ? RAIL_MEASURE : "max-w-2xl")}>
           {!loaded && (
             <div aria-hidden className="space-y-5">
               <div className="h-9 w-40 skeleton rounded-2xl rounded-br-lg" />

@@ -4,6 +4,7 @@ import React, { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, use
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowDown, ChevronRight, Copy, Info } from "lucide-react";
 import { MicButton, SendButton } from "@/components/ComposerButtons";
+import { PHONE_V2 } from "@/lib/phone-v2";
 import { Reveal, Stagger, StaggerItem, ease, motionTokens } from "@/components/motion-primitives";
 import type { AssistantBlock, AssistantTurnMeta, PlaceCard, ProposedCommand, StayCardItem } from "@/packages/contracts/assistant";
 import type { EventSeed } from "@/components/TripPanelProvider";
@@ -809,9 +810,9 @@ export const ConversationSurface = React.memo(function ConversationSurface({
   const showHero = loaded && messages.length === 0 && !rail && !pendingBubble;
   const waiting = (sending && messages[messages.length - 1]?.content.trim() === "") || pendingBubble;
 
-  const micButton = speech.supported && <MicButton listening={speech.listening} disabled={!loaded || sending} onToggle={speech.toggle} />;
   const canSend = loaded && Boolean(input.trim());
-  const sendOrStopButton = <SendButton canSend={canSend} stopping={sending} onStop={stop} />;
+  const micButton = speech.supported && <MicButton listening={speech.listening} disabled={!loaded || sending} onToggle={speech.toggle} hasText={canSend} />;
+  const sendOrStopButton = <SendButton canSend={canSend} stopping={sending} onStop={stop} micShown={speech.supported} />;
 
   return (
     <div className="relative flex h-full min-h-0 w-full max-w-full flex-col overflow-x-hidden">
@@ -833,7 +834,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
           log — the rubber-band should feel self-contained here, the same way a native app's
           message list never drags the rest of the screen along with it. */}
       <div ref={logRef} onScroll={handleLogScroll} data-scrolled={scroll.scrolled} role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions" className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim scroll-fade-t">
-        <div className={cn("mx-auto w-full space-y-6 pt-2 pb-28 max-lg:pt-16", rail ? RAIL_MEASURE : "max-w-2xl")}>
+        <div className={cn("mx-auto w-full space-y-6 pt-2 pb-28", PHONE_V2 ? "max-lg:pt-3" : "max-lg:pt-16", rail ? RAIL_MEASURE : "max-w-2xl")}>
           {!loaded && messages.length === 0 && !pendingBubble && (
             <div aria-hidden className="space-y-6">
               <div className="flex justify-end">
@@ -1113,6 +1114,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
             }}
             className={cn(
               "flex w-full min-w-0 max-w-full flex-col gap-1 rounded-3xl border border-input bg-card py-1.5 pl-4 pr-1.5 shadow-lift transition-[border-color,box-shadow] duration-200 ease-out",
+              PHONE_V2 && "max-lg:pr-1.5 max-lg:pl-5",
               "focus-within:border-ink/30 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_6%,transparent),var(--shadow-lift)]",
               sending && "composer-live",
             )}

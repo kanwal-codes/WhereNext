@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, Pencil, X } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
 import { Sheet } from "@/components/motion-primitives";
+import { shortTripTitle } from "@/components/shell/trip-title";
 import { DateStamp } from "@/components/shell/DateStamp";
 import { NavRow } from "@/components/shell/NavRow";
 import { NAV, PHONE_LABEL, PHONE_NAV_GROUPS } from "@/components/shell/trip-nav";
@@ -49,7 +50,7 @@ export function PhoneDrawer({ open, onClose, tripId, pathname, trip, unread = 0 
         <Link href="/trips" onClick={onClose} className="mt-4 flex items-center gap-3 rounded-[1.25rem] border border-border bg-surface p-2.5 pr-3 transition-transform active:scale-[0.99]" aria-label={`${trip.name}. All trips`}>
           <DateStamp start={live?.start_date} />
           <span className="min-w-0 flex-1">
-            <span className="block truncate font-display text-base leading-tight font-medium tracking-[-0.015em]">{trip.name}</span>
+            <span className="block truncate font-display text-base leading-tight font-medium tracking-[-0.015em]">{shortTripTitle(trip.name)}</span>
             {sub && <span className="mt-0.5 block truncate text-xs text-muted-foreground">{sub}</span>}
             {status && <span suppressHydrationWarning className="mt-0.5 block text-xs font-semibold text-coral-ink">{status}</span>}
           </span>

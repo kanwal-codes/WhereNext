@@ -1,9 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { PHONE_ROUND, useSetPhoneHeader } from "@/components/shell/PhoneHeader";
+import { PHONE_V2 } from "@/lib/phone-v2";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { PanelRight, PanelRightClose, PanelRightOpen, X } from "lucide-react";
+import { Ellipsis, PanelRight, PanelRightClose, PanelRightOpen, Users, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanel, panelSubjectKey, panelTitle, type EventSeed } from "@/components/TripPanelProvider";
 import { TripPanel } from "@/components/TripPanel";
@@ -88,7 +91,22 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
     else if (t.run < -14) setScrolledAway(false);
   }, []);
   useEffect(() => setScrolledAway(false), [optimisticTab]);
-  const chromeHidden = !desktop && (keyboardOpen || scrolledAway);
+  // Phone redesign: no floating Roam | Chat row. Roam and Group chat are two screens, each with its own title in the page header
+  // (the title follows the pane the instant it is tapped, not when the URL catches up) and one round button at its right edge.
+  const phoneV2 = PHONE_V2 && !desktop;
+  const chromeHidden = !desktop && !phoneV2 && (keyboardOpen || scrolledAway);
+  const headerTrailing = useMemo(() => {
+    if (!phoneV2) return undefined;
+    if (optimisticTab === "group") {
+      return guest ? undefined : (
+        <Link href={`/trips/${tripId}/group/details`} aria-label="Group members and invite" className={PHONE_ROUND}><Users className="size-[1.2rem]" /></Link>
+      );
+    }
+    return (
+      <button type="button" onClick={() => setMobileContextOpen(true)} aria-label="Trip context" className={PHONE_ROUND}><Ellipsis className="size-[1.2rem]" /></button>
+    );
+  }, [phoneV2, optimisticTab, guest, tripId]);
+  useSetPhoneHeader({ title: phoneV2 ? (optimisticTab === "group" ? "Group chat" : "Roam") : undefined, trailing: headerTrailing });
   // Both panes stay mounted so switching tabs is instant, but the one you are not on does not need to be built
   // while the page is still arriving (the Roam thread alone is hundreds of controls): it is mounted once the
   // browser is idle, or at once if you switch to it first.
@@ -170,8 +188,8 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
         style={{ gridTemplateColumns: columns, transition: `grid-template-columns ${reduceMotion || !modeChanged ? 0 : LAYOUT_MOTION}` }}
         className="grid h-full min-h-0 w-full min-w-0 max-w-full"
       >
-        <div className="relative flex min-w-0 max-w-full flex-col overflow-hidden px-4 py-4 sm:px-6 lg:border-r lg:border-border lg:py-5">
-          <div
+        <div className={cn("relative flex min-w-0 max-w-full flex-col overflow-hidden px-4 py-4 sm:px-6 lg:border-r lg:border-border lg:py-5", PHONE_V2 && "max-lg:pt-1")}>
+          {!phoneV2 && <div
             // Phone: floats over the log (soft fade behind it so messages passing underneath stay legible) and slides up out of view.
             className={cn(
               "lg:overflow-hidden max-lg:absolute max-lg:inset-x-4 max-lg:top-4 max-lg:z-20 max-lg:transition-[transform,opacity] max-lg:duration-300 max-lg:ease-[cubic-bezier(0.22,1,0.36,1)]",
@@ -204,7 +222,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
                   </div>
                 </div>
               </Reveal>
-          </div>
+          </div>}
           {/* Both surfaces stay mounted permanently — switching tabs then costs nothing (no
               refetch, no lost scroll position). Each pane is absolutely stacked inside this one
               relative slot and crossfades on `optimisticTab` (a plain opacity toggle would have
