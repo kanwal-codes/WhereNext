@@ -6,7 +6,7 @@ import { motionTokens } from "@/components/motion-primitives";
 import { PHONE_V2 } from "@/lib/phone-v2";
 import { cn } from "@/lib/utils";
 import { type, controlSecondary } from "./ui";
-import { Widget, WidgetHero, WidgetPill } from "./Widget";
+import { Widget, WidgetAction, WidgetHero, WidgetPill } from "./Widget";
 
 type Groups = Array<{ title: string; items: Array<{ text: string; why?: string }> }>;
 
@@ -17,10 +17,10 @@ export function checklistKey(tripId: string, groups: Groups): string {
   return `roam-checklist:${tripId}:${(hash >>> 0).toString(36)}`;
 }
 
-const itemId = (group: number, text: string) => `${group}:${text}`;
+export const itemId = (group: number, text: string) => `${group}:${text}`;
 
 /** Ticks kept on this device (per-viewer, like a paper list); a failing or full store just means they reset. */
-function useTicks(key: string) {
+export function useTicks(key: string) {
   const [ticked, setTicked] = useState<Set<string>>(new Set());
   useEffect(() => {
     try {
@@ -41,7 +41,7 @@ function useTicks(key: string) {
 }
 
 /** A readiness list you can tick off, with a running "3 of 11". */
-export function ChecklistBlock({ groups: given, tripId }: { groups: Groups; tripId: string }) {
+export function ChecklistBlock({ groups: given, tripId, onOpen }: { groups: Groups; tripId: string; /** Phone redesign: opens the whole list as a sheet. */ onOpen?: () => void }) {
   // A group with nothing in it is not drawn.
   const groups = given.filter((group) => group.items.length > 0);
   const { ticked, toggle } = useTicks(checklistKey(tripId, groups));
@@ -83,6 +83,7 @@ export function ChecklistBlock({ groups: given, tripId }: { groups: Groups; trip
         </WidgetHero>
       }
       foot="Your ticks stay on this device"
+      action={onOpen ? <span className="lg:hidden"><WidgetAction quiet arrow={false} onClick={onOpen}>Open list</WidgetAction></span> : undefined}
     >
       <div className="mt-2 divide-y divide-border">
         {visible.map((group, gi) => {

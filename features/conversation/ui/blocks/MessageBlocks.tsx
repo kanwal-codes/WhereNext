@@ -65,6 +65,7 @@ import { SkeletonPhotoCard } from "@/components/Skeleton";
 import { AnimatePresence, motion } from "motion/react";
 import { ContentSwap, Enter, ease, motionTokens } from "@/components/motion-primitives";
 import { ChecklistBlock } from "./ChecklistBlock";
+import { PHONE_V2 } from "@/lib/phone-v2";
 import { parseRouteStep, routeGlyph, routeLines, splitRouteEnds } from "./routeText";
 import { comparisonView } from "@/features/conversation/domain/comparisonView";
 import { pointsFromItinerary, pointsFromPlaces, pointsFromStays } from "./mapPoints";
@@ -454,7 +455,9 @@ function PackRow({ items }: { items: string[] }) {
   );
 }
 
-function WeatherBlockView({ block }: { block: WeatherBlockData }) {
+function WeatherBlockView({ block, onOpenPanel }: { block: WeatherBlockData } & Pick<BlockHandlers, "onOpenPanel">) {
+  // Phone redesign: the card opens its week as a sheet (flag on, below lg).
+  const seeWeek = PHONE_V2 && onOpenPanel ? <WidgetAction quiet arrow={false} onClick={() => onOpenPanel({ kind: "weather", block })}>See the week</WidgetAction> : undefined;
   if (block.mode === "forecast" && block.days.length > 0) {
     const days = block.days.slice(0, 7);
     const dry = days.filter((d) => !d.wet).map((d) => d.label);
@@ -475,6 +478,7 @@ function WeatherBlockView({ block }: { block: WeatherBlockData }) {
           </WidgetHero>
         }
         foot={dry.length > 0 && wet > 0 ? <>Driest days: {dry.slice(0, 4).join(", ")}</> : <>Forecast for the next {days.length} days</>}
+        action={seeWeek ? <span className="lg:hidden">{seeWeek}</span> : undefined}
       >
         <ul className="no-scrollbar grid gap-1 overflow-x-auto px-3 pt-3.5" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(${days.length > 6 ? "3.5rem" : "0px"}, 1fr))` }}>
           {days.map((day, i) => (
@@ -527,6 +531,7 @@ function WeatherBlockView({ block }: { block: WeatherBlockData }) {
         ) : undefined
       }
       foot={block.mode === "forecast" ? "No forecast yet, so this is the typical month. A real forecast arrives about a week before the trip." : "Typical values from past years, not a forecast"}
+      action={seeWeek ? <span className="lg:hidden">{seeWeek}</span> : undefined}
     >
       <PackRow items={block.packing} />
     </Widget>
@@ -1898,7 +1903,7 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
         }
 
         if (block.type === "weather") {
-          return <div key={index}><WeatherBlockView block={block} /></div>;
+          return <div key={index}><WeatherBlockView block={block} onOpenPanel={onOpenPanel} /></div>;
         }
 
         if (block.type === "itinerary") {
@@ -1934,7 +1939,7 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
         }
 
         if (block.type === "checklist") {
-          return <div key={index}><ChecklistBlock groups={block.groups} tripId={tripId} /></div>;
+          return <div key={index}><ChecklistBlock groups={block.groups} tripId={tripId} onOpen={PHONE_V2 && onOpenPanel ? () => onOpenPanel({ kind: "checklist", block }) : undefined} /></div>;
         }
 
         return null;

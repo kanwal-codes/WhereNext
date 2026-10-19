@@ -127,7 +127,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   // its Ctx) — that's what makes switching tabs here also close whatever panel was open on the
   // previous one, with no extra code needed. If that internal behavior is ever removed, this
   // shell's tab switch will start leaking a stale panel across tabs.
-  const { panel, openPanel } = useTripPanel();
+  const { panel, openPanel, closePanel } = useTripPanel();
   const panelOpen = Boolean(panel);
 
   const showContext = desktop && !panel && !contextCollapsed;
@@ -339,6 +339,11 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
       {!desktop && (
         <>
           <AnimatePresence initial={false}>
+            {panel && PHONE_V2 && (
+              // Phone redesign: a sheet over the conversation, not a screen that replaces it. The chat stays behind the scrim,
+              // so closing the sheet puts you back exactly where you were reading.
+              <motion.div key="panel-scrim" initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reduceMotion ? undefined : { opacity: 0 }} transition={reduceMotion ? { duration: 0 } : motionTokens.fast} onClick={closePanel} className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]" />
+            )}
             {panel && (
               <motion.div
                 key="panel"
@@ -346,7 +351,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
                 animate={{ y: 0 }}
                 exit={reduceMotion ? undefined : { y: "100%" }}
                 transition={reduceMotion ? { duration: 0 } : motionTokens.panelSpring}
-                className="fixed inset-0 top-[var(--topbar)] z-40 bg-surface"
+                className={PHONE_V2 ? "fixed inset-x-0 top-[max(3.25rem,calc(env(safe-area-inset-top)+2.5rem))] bottom-0 z-40 overflow-hidden rounded-t-[1.75rem] bg-surface shadow-float" : "fixed inset-0 top-[var(--topbar)] z-40 bg-surface"}
               >
                 <TripPanel layout="inline" />
               </motion.div>

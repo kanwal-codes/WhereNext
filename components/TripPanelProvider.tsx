@@ -49,6 +49,8 @@ export type PanelState =
   | { kind: "budget"; block: BudgetBlock }
   | { kind: "route"; routes: RouteBlock[]; active: number; onAsk?: (prompt: string) => void }
   | { kind: "area"; optionKind: "area" | "daytrip"; items: OptionItem[]; active: number; estimated?: boolean; onAsk?: (prompt: string) => void }
+  | { kind: "weather"; block: WeatherBlock }
+  | { kind: "checklist"; block: ChecklistListBlock }
   | { kind: "map"; title: string; points: MapPoint[]; path?: Array<[number, number]>; mode?: string; connect?: boolean }
   | { kind: "compare" }; // the multi-kind selection bucket → CompareGrid + scratch chat
 
@@ -61,11 +63,13 @@ export type FlightRoute = Pick<FlightsBlock, "origin" | "destination" | "dateNot
 export type ItineraryBlock = Extract<AssistantBlock, { type: "itinerary" }>;
 export type BudgetBlock = Extract<AssistantBlock, { type: "budget" }>;
 export type RouteBlock = Extract<AssistantBlock, { type: "route_summary" }>;
+export type WeatherBlock = Extract<AssistantBlock, { type: "weather" }>;
+export type ChecklistListBlock = Extract<AssistantBlock, { type: "checklist" }>;
 /** One neighbourhood or day trip from an "options" card. */
 export type OptionItem = Extract<AssistantBlock, { type: "options" }>["items"][number];
 
 /** The panels a chat card opens with its own data (no fetch), as opposed to the ones that load by id. */
-export type CardPanel = Extract<PanelState, { kind: "flight" | "day" | "budget" | "map" | "route" | "area" }>;
+export type CardPanel = Extract<PanelState, { kind: "flight" | "day" | "budget" | "map" | "route" | "area" | "weather" | "checklist" }>;
 
 /** What the panel is called: its header, its accessible name, and what Roam is told is open beside the chat. */
 export function panelTitle(panel: PanelState): string {
@@ -83,6 +87,10 @@ export function panelTitle(panel: PanelState): string {
       return `${panel.block.days[panel.dayIndex]?.label ?? "Day plan"}${panel.block.title ? ` · ${panel.block.title}` : ""}`;
     case "budget":
       return "Daily budget";
+    case "weather":
+      return panel.block.location ? `Weather · ${panel.block.location}` : "Weather";
+    case "checklist":
+      return "Checklist";
     case "area":
       return panel.items[panel.active]?.name ?? (panel.optionKind === "area" ? "Area" : "Day trip");
     case "map":
@@ -127,7 +135,11 @@ export function panelSubjectKey(panel: PanelState | null, compareIds: string[] =
             ? `flight:${panel.flight.id ?? `${panel.flight.airline}:${panel.flight.departAt}`}`
             : panel.kind === "day"
               ? `day:${panel.block.title ?? ""}:${panel.block.days[0]?.stops[0]?.title ?? ""}:${panel.dayIndex}`
-              : panel.kind === "budget"
+              : panel.kind === "weather"
+                ? `weather:${panel.block.location ?? ""}:${panel.block.headline}`
+                : panel.kind === "checklist"
+                ? `checklist:${panel.block.groups.map((g) => g.title).join("|")}`
+                : panel.kind === "budget"
                 ? `budget:${panel.block.currency}:${panel.block.dailyTotal.typical}`
                 : panel.kind === "area"
                   ? `area:${panel.optionKind}:${panel.items[panel.active]?.name ?? ""}`
