@@ -78,7 +78,7 @@ import { resolveCurrency } from "@/lib/currency";
 import { HoldHeight, ScrollX, ViewControls } from "./ListControls";
 import { DEFAULT_EVENT_VIEW, DEFAULT_STAY_VIEW, applyEventView, applyStayView, eventControls, stayControls, type EventView, type StayView } from "./listViews";
 import { factGlyph, placeGlyph } from "./glyphs";
-import { Badge, segmentTab, CARD_W, CardOpenOverlay, Meta, Notice, SectionHeader, SeeAllButton, compactCount, controlSecondary, grid, money, prettyDate, prettyDates, rail, surface, textAction, type, MapButton } from "./ui";
+import { Badge, segmentTab, CARD_W, cardWidth, CardOpenOverlay, Meta, Notice, SectionHeader, SeeAllButton, compactCount, controlSecondary, grid, money, prettyDate, prettyDates, rail, surface, textAction, type, MapButton } from "./ui";
 
 export type BlockHandlers = {
   /** The trip these blocks belong to — card actions write against it. */
@@ -1464,7 +1464,7 @@ function EventsBlockView({ block, tripId, preview, onOpenEvent, onOpenCollection
         {featured.length > 0 && (
           <div className={rail}>
             {featured.map((group, groupIndex) => (
-              <div key={`${group.base.title}-${groupIndex}`} className={cn(CARD_W, "shrink-0 snap-start")}>
+              <div key={`${group.base.title}-${groupIndex}`} className={cn(cardWidth(featured.length), "shrink-0 snap-start")}>
                 <FeaturedEventCard group={group} onOpen={onOpenEvent} />
               </div>
             ))}
@@ -1565,7 +1565,7 @@ function StaysBlockView({ block, tripId, preview, onOpenStay, onOpenCollection, 
                     initial={live && search.searched ? { opacity: 0, y: 12 } : false}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, ease, delay: live && search.searched ? Math.min(hotelIndex, 6) * 0.05 : 0 }}
-                    className={preview ? cn(CARD_W, "shrink-0 snap-start") : undefined}
+                    className={preview ? cn(cardWidth(visible.length), "shrink-0 snap-start") : undefined}
                     // Same dates the panel will ask for, so its load is already under way (or done) by the click.
                     onPointerEnter={onOpenStay && hotel.hotelId ? () => prefetchStayDetails(tripId, hotel.hotelId, { checkin: dates.checkin, checkout: dates.checkout, adults: dates.adults }) : undefined}
                     onFocusCapture={onOpenStay && hotel.hotelId ? () => prefetchStayDetails(tripId, hotel.hotelId, { checkin: dates.checkin, checkout: dates.checkout, adults: dates.adults }) : undefined}
@@ -1820,7 +1820,7 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
               />
               <div className={preview ? rail : grid}>
                 {visible.map((place) => (
-                  <div key={place.providerId} className={preview ? cn(CARD_W, "shrink-0 snap-start") : undefined}>
+                  <div key={place.providerId} className={preview ? cn(cardWidth(visible.length), "shrink-0 snap-start") : undefined}>
                     <PlaceCardView place={place} tripId={tripId} onOpenPlace={onOpenPlace} />
                   </div>
                 ))}

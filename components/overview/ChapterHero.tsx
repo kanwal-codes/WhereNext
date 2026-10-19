@@ -44,10 +44,10 @@ export function ChapterHero({
   const line = PHONE_V2 && stats.length > 0 ? (
     <p suppressHydrationWarning className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm text-muted-foreground tabular-nums lg:hidden">
       {stats.map((stat, i) => (
-        <span key={stat.label}>
-          {i > 0 && <span aria-hidden className="mr-2 text-coral">·</span>}
+        <span key={stat.label} className="whitespace-nowrap">
           <span className="font-display text-base font-medium text-foreground">{stat.value}</span>
           {stat.desc && stat.label === stats[0].label ? ` ${stat.desc}` : ""} {stat.label.toLowerCase()}
+          {i < stats.length - 1 && <span aria-hidden className="ml-2 text-coral">·</span>}
         </span>
       ))}
     </p>

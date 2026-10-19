@@ -1806,5 +1806,5 @@
 /* Phone redesign: with the tab bar gone, everything that measured itself against it (page heights, the overview
    hero, the ask dock) lands on the home-indicator inset instead. Below `lg` only; desktop never used --tabbar. */
 @media (max-width: 63.9375rem) {
-  [data-phone-v2] { --tabbar: var(--phone-bottom); }
+  [data-phone-v2] { --tabbar: var(--phone-bottom); --topbar: calc(3.5rem + env(safe-area-inset-top)); }
 }

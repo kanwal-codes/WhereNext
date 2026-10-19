@@ -28,6 +28,8 @@ export const type = {
 export const surface = "rounded-2xl border border-border bg-card shadow-soft";
 /** Carousel card width — every card kind shares it so rows line up. */
 export const CARD_W = "w-[16.25rem]";
+/** Phone redesign: a rail of one is not a rail. A lone card takes the width of the message (up to 26rem) instead of leaving a third of it empty. */
+export const cardWidth = (count: number) => (PHONE_V2 && count === 1 ? "w-[16.25rem] max-lg:w-full max-lg:max-w-[26rem]" : CARD_W);
 /** Horizontal card rail: the peeking next card is the affordance. */
 /** A card row. An overflow-x scroller also clips vertically, which sliced off the cards' long shadows and
  *  their 3px hover lift as a hard line. The padding below gives that shadow room to fall; the matching negative

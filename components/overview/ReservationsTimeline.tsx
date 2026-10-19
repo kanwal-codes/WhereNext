@@ -9,6 +9,7 @@ import { KIND_META } from "@/components/overview/ReservationSheet";
 import { RemoveControl } from "@/components/overview/RemoveControl";
 import { TripArt, hashString } from "@/components/trips/TripArt";
 import { CATEGORY_LABEL, clockLabel, countByCategory, filterByCategory, groupByDate, type Category, type TimelineItem } from "@/lib/trip-reservations";
+import { PHONE_V2 } from "@/lib/phone-v2";
 import { cn } from "@/lib/utils";
 import type { Booking } from "@/packages/contracts/booking";
 
@@ -31,7 +32,7 @@ function Thumb({ item }: { item: TimelineItem }) {
   const [failed, setFailed] = useState(false);
   const Icon = KIND_META[item.kind].icon;
   return (
-    <TripArt seed={hashString(item.id)} className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl">
+    <TripArt seed={hashString(item.id)} className={cn("grid h-20 w-20 shrink-0 place-items-center rounded-2xl", PHONE_V2 && "max-lg:h-14 max-lg:w-14 max-lg:rounded-xl")}>
       {item.thumbnail && !failed ? (
         // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
         <img src={hotelPhotoSrc(item.thumbnail)} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />
@@ -53,7 +54,7 @@ function Row({ item, onOpenBooking, onEdit, onRemove }: { item: TimelineItem; on
           <span className="text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">{KIND_META[item.kind].label}</span>
           {item.status && <span className={cn("daisy-badge h-5 px-2 text-2xs capitalize", STATUS[item.status])}>{item.status}</span>}
         </span>
-        <span className={cn("mt-0.5 block truncate font-display text-xl tracking-tight", dim && "line-through decoration-muted-foreground/50")}>{item.title}</span>
+        <span className={cn("mt-0.5 block truncate font-display text-xl tracking-tight", PHONE_V2 && "max-lg:line-clamp-2 max-lg:text-lg max-lg:leading-snug max-lg:whitespace-normal", dim && "line-through decoration-muted-foreground/50")}>{item.title}</span>
         {item.subtitle && <span className="block truncate text-sm text-muted-foreground">{item.subtitle}</span>}
         <span suppressHydrationWarning className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           {item.time && <span className="tabular-nums">{clockLabel(item.time)}</span>}

@@ -64,7 +64,7 @@ export function PhoneHeader({ pathname, tripId, tripName, onMenu, menuDot }: { p
   return (
     <header
       data-trip-topbar
-      className={cn("icons-fine sticky top-0 z-30 flex h-[var(--topbar)] items-center gap-3 px-3 lg:hidden", overlay ? "bg-transparent" : "bg-background/95 backdrop-blur-sm")}
+      className={cn("icons-fine sticky top-0 z-30 flex h-[var(--topbar)] items-center gap-3 px-3 pt-[env(safe-area-inset-top)] lg:hidden", overlay ? "bg-transparent" : "bg-background/95 backdrop-blur-sm")}
     >
       {back ? (
         back.href ? (

@@ -74,7 +74,7 @@ export function NextUpCard({ item, onOpenBooking, onEdit, onRemove }: { item: Ti
           <div
             suppressHydrationWarning
             className={cn(
-              "daisy-stats w-full rounded-2xl border sm:w-fit [&_.daisy-stat-value]:leading-tight [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3",
+              "daisy-stats w-full rounded-2xl border max-sm:grid max-sm:grid-flow-row max-sm:grid-cols-2 max-sm:[&>.daisy-stat:last-child:nth-child(odd)]:col-span-2 sm:w-fit [&_.daisy-stat-value]:leading-tight [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3",
               photo
                 ? "glass-photo [&_.daisy-stat-desc]:text-white/70 [&_.daisy-stat-title]:text-white/70 [&>.daisy-stat]:border-white/20"
                 : "border-border/60 bg-background/82 [&>.daisy-stat]:border-border/70",
