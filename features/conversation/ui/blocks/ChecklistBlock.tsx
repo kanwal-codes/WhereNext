@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { motionTokens } from "@/components/motion-primitives";
+import { PHONE_V2 } from "@/lib/phone-v2";
 import { cn } from "@/lib/utils";
 import { type, controlSecondary } from "./ui";
 import { Widget, WidgetHero, WidgetPill } from "./Widget";
@@ -99,7 +100,7 @@ export function ChecklistBlock({ groups: given, tripId }: { groups: Groups; trip
                   return (
                     <li key={id}>
                       <label className="flex min-h-11 cursor-pointer items-start gap-3 py-2.5">
-                        <input type="checkbox" checked={on} onChange={() => toggle(id)} className="daisy-checkbox daisy-checkbox-success daisy-checkbox-sm mt-0.5 shrink-0 rounded-md" />
+                        <input type="checkbox" checked={on} onChange={() => toggle(id)} className={cn("daisy-checkbox daisy-checkbox-success daisy-checkbox-sm mt-0.5 shrink-0 rounded-md", PHONE_V2 && "max-lg:size-6 max-lg:rounded-full max-lg:border-input max-lg:[--chkbg:var(--foreground)] max-lg:[--chkfg:var(--background)] max-lg:[--input-color:var(--foreground)]")} />
                         <span className={cn(type.body, "min-w-0 transition-colors", on ? "text-muted-foreground" : "text-ink-soft")}>
                           <span className={cn(on && "line-through decoration-muted-foreground/40")}>{item.text}</span>
                           {item.why ? <span className={cn(type.meta, "block")}>{item.why}</span> : null}

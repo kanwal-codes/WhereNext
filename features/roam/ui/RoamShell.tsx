@@ -182,7 +182,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   );
 
   return (
-    <div data-roam-shell className="flex h-[calc(100dvh-var(--topbar)-var(--tabbar))] min-h-0 w-full max-w-full flex-col overflow-x-hidden lg:h-[100dvh]">
+    <div data-roam-shell className={cn(PHONE_V2 && "icons-fine", "flex h-[calc(100dvh-var(--topbar)-var(--tabbar))] min-h-0 w-full max-w-full flex-col overflow-x-hidden lg:h-[100dvh]")}>
       <div
         // A CSS transition on pixel tracks (they interpolate natively), only for the moment the layout mode changes.
         style={{ gridTemplateColumns: columns, transition: `grid-template-columns ${reduceMotion || !modeChanged ? 0 : LAYOUT_MOTION}` }}

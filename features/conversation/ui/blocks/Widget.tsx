@@ -4,6 +4,7 @@ import React, { type ReactNode } from "react";
 import { ArrowUpRight, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RoamIcon, type RoamIconName } from "@/features/roam/ui/RoamIcon";
+import { PHONE_V2 } from "@/lib/phone-v2";
 
 /**
  * The frame every Roam widget (flights, route, budget, weather, plan, checklist, ...) is built from, so they
@@ -77,19 +78,27 @@ export function Widget({
   children?: ReactNode;
   label?: string;
 }) {
+  // Phone redesign (below lg, flag on): no tinted icon chip. The kind of widget is a small coral eyebrow with its icon, the title is
+  // the answer in 22px Outfit, and the corners are 28px. Everything else about the frame is unchanged.
+  const eyebrowIcon = glyph ? <RoamIcon name={glyph} size={16} /> : Icon ? <Icon className="size-3.5" /> : null;
   return (
-    <section aria-label={label} className={cn("roam-widget @container relative overflow-hidden rounded-3xl border border-border bg-card shadow-widget", className)}>
-      <header className="flex items-center gap-3 px-4 pt-4 @[34rem]:px-[1.125rem]">
-        <span className={cn("grid size-10 shrink-0 place-items-center rounded-[0.8125rem]", CHIP[tone])} aria-hidden>
+    <section aria-label={label} className={cn("roam-widget @container relative overflow-hidden rounded-3xl border border-border bg-card shadow-widget", PHONE_V2 && "max-lg:rounded-4xl", className)}>
+      <header className={cn("flex items-center gap-3 px-4 pt-4 @[34rem]:px-[1.125rem]", PHONE_V2 && "max-lg:px-[1.125rem] max-lg:pt-[1.125rem]")}>
+        <span className={cn("grid size-10 shrink-0 place-items-center rounded-[0.8125rem]", CHIP[tone], PHONE_V2 && "max-lg:hidden")} aria-hidden>
           {glyph ? <RoamIcon name={glyph} size={26} /> : Icon ? <Icon className="size-5" /> : null}
         </span>
         <div className="min-w-0 flex-1">
-          {eyebrow && <p className="eyebrow truncate">{eyebrow}</p>}
-          <h3 className="font-display text-[1.1875rem] leading-6 font-medium tracking-[-0.012em] text-balance">{title}</h3>
+          {eyebrow && (
+            <p className={cn("eyebrow truncate", PHONE_V2 && "max-lg:flex max-lg:items-center max-lg:gap-1.5 max-lg:text-coral-ink")}>
+              {PHONE_V2 && eyebrowIcon && <span className="hidden shrink-0 max-lg:inline-flex" aria-hidden>{eyebrowIcon}</span>}
+              <span className={cn(PHONE_V2 && "max-lg:truncate")}>{eyebrow}</span>
+            </p>
+          )}
+          <h3 className={cn("font-display text-[1.1875rem] leading-6 font-medium tracking-[-0.012em] text-balance", PHONE_V2 && "max-lg:mt-0.5 max-lg:text-widget")}>{title}</h3>
         </div>
         {status && <div className="flex shrink-0 items-center gap-2 @max-[34rem]:hidden">{status}</div>}
       </header>
-      {status && <div className="flex flex-wrap items-center gap-2 px-4 pt-2.5 @[34rem]:hidden">{status}</div>}
+      {status && <div className={cn("flex flex-wrap items-center gap-2 px-4 pt-2.5 @[34rem]:hidden", PHONE_V2 && "max-lg:px-[1.125rem]")}>{status}</div>}
       {hero}
       {children}
       {(foot || action) && <WidgetFoot foot={foot} action={action} />}
@@ -100,7 +109,7 @@ export function Widget({
 /** The foot of a widget: a one-line caveat on the left, the one next step on the right. */
 export function WidgetFoot({ foot, action }: { foot?: ReactNode; action?: ReactNode }) {
   return (
-    <footer className="mt-1 flex items-center justify-between gap-4 border-t border-border bg-surface px-4 py-3 @[34rem]:px-[1.125rem]">
+    <footer className={cn("mt-1 flex items-center justify-between gap-4 border-t border-border bg-surface px-4 py-3 @[34rem]:px-[1.125rem]", PHONE_V2 && "max-lg:bg-transparent max-lg:px-[1.125rem] max-lg:py-3.5")}>
       <div className="flex min-w-0 flex-1 items-start gap-1.5 text-[0.78125rem] leading-[1.35] text-muted-foreground">{foot}</div>
       {action && <div className="shrink-0">{action}</div>}
     </footer>
@@ -108,8 +117,20 @@ export function WidgetFoot({ foot, action }: { foot?: ReactNode; action?: ReactN
 }
 
 /** The tinted band that holds the widget's single figure or visual. */
-export function WidgetHero({ tone = "coral", className, children }: { tone?: WidgetTone; className?: string; children: ReactNode }) {
-  return <div className={cn("mx-4 mt-3.5 rounded-xl p-4 @[34rem]:mx-[1.125rem] @[34rem]:px-[1.375rem] @[34rem]:py-[1.125rem]", HERO[tone], className)}>{children}</div>;
+export function WidgetHero({ tone = "coral", tinted = false, className, children }: { tone?: WidgetTone; /** Phone redesign: the band keeps its colour only where the colour says something (weather's sky, a budget's state). Otherwise it is a quiet well. */ tinted?: boolean; className?: string; children: ReactNode }) {
+  return (
+    <div
+      className={cn(
+        "mx-4 mt-3.5 rounded-xl p-4 @[34rem]:mx-[1.125rem] @[34rem]:px-[1.375rem] @[34rem]:py-[1.125rem]",
+        HERO[tone],
+        PHONE_V2 && "max-lg:mx-[1.125rem] max-lg:rounded-[1.25rem]",
+        PHONE_V2 && !tinted && "max-lg:border max-lg:border-border max-lg:bg-surface max-lg:bg-none",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
 }
 
 /** The big number: a price, a temperature, a duration. */
@@ -165,7 +186,7 @@ export function RowBar({ frac, color = "var(--coral)", className }: { frac: numb
 const ACTION = "inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.16),0_1px_2px_oklch(0.2_0.012_65/0.3)] transition-[transform,filter] duration-200 ease-out hover:brightness-110 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 const ACTION_QUIET = "inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-background px-4 text-sm font-semibold text-ink transition-[transform,border-color] duration-200 ease-out hover:border-ink/30 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 export function WidgetAction({ children, onClick, href, quiet = false, arrow = true, label }: { children: ReactNode; onClick?: () => void; href?: string; quiet?: boolean; arrow?: boolean; label?: string }) {
-  const cls = quiet ? ACTION_QUIET : ACTION;
+  const cls = cn(quiet ? ACTION_QUIET : ACTION, PHONE_V2 && "max-lg:h-11");
   const inner = (<>{children}{arrow && <ArrowUpRight className="size-4" aria-hidden />}</>);
   return href ? (
     <a href={href} target="_blank" rel="noreferrer noopener" aria-label={label} className={cls}>{inner}</a>

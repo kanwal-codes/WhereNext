@@ -468,7 +468,7 @@ function WeatherBlockView({ block }: { block: WeatherBlockData }) {
         title={block.headline}
         status={wet > 0 ? <WidgetPill tone="lagoon" icon={Droplets}>{wet} wet day{wet === 1 ? "" : "s"}</WidgetPill> : <WidgetPill tone="sage" icon={Check}>All dry</WidgetPill>}
         hero={
-          <WidgetHero tone="lagoon" className="relative overflow-hidden pb-2">
+          <WidgetHero tone="lagoon" tinted className="relative overflow-hidden pb-2">
             <Icon className="absolute top-3 right-4 size-16 text-caution/80 @max-[34rem]:hidden" strokeWidth={1.2} aria-hidden />
             <WidgetFigure unit={days[0]?.label ? `high ${days[0].label.toLowerCase() === "today" ? "today" : `on ${days[0].label}`}` : undefined}>{degrees(days[0]?.max ?? 0)}</WidgetFigure>
             <TempCurve days={days} />
@@ -502,7 +502,7 @@ function WeatherBlockView({ block }: { block: WeatherBlockData }) {
       status={block.estimated ? <WidgetPill>Estimated</WidgetPill> : undefined}
       hero={
         (typeof block.highC === "number" || typeof block.lowC === "number" || rainy > 0) ? (
-          <WidgetHero tone="lagoon" className="flex flex-wrap items-center gap-x-8 gap-y-4">
+          <WidgetHero tone="lagoon" tinted className="flex flex-wrap items-center gap-x-8 gap-y-4">
             {(typeof block.highC === "number" || typeof block.lowC === "number") && (
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-baseline gap-x-2">
@@ -800,7 +800,7 @@ function BudgetBlockView({ block, onOpenPanel }: { block: BudgetBlockData } & Pi
       title={hasBudget ? (gap === 0 ? <>Right on your {money(Math.round(block.setBudget as number), cur)} a day</> : <>{under ? "Fits your" : "Over your"} {money(Math.round(block.setBudget as number), cur)} a day</>) : "Your typical day"}
       status={block.estimated ? <WidgetPill>Estimated</WidgetPill> : undefined}
       hero={
-        <WidgetHero tone={hasBudget && !under ? "saffron" : "sage"} className="flex items-center gap-6">
+        <WidgetHero tone={hasBudget && !under ? "saffron" : "sage"} tinted className="flex items-center gap-6">
           <div className="min-w-0 flex-1">
             <p className="eyebrow mb-1">Typical day</p>
             <WidgetFigure>{money(Math.round(block.dailyTotal.typical), cur)}</WidgetFigure>
