@@ -17,6 +17,7 @@ export function PageHeader({
   switcher,
   back,
   phoneQuietTitle,
+  phoneTitle,
 }: {
   /** The section name: the browser tab title. It is not printed on the page. */
   eyebrow: string;
@@ -30,8 +31,11 @@ export function PageHeader({
   back?: { href: string; label: string };
   /** Phone redesign: below lg the title is for screen readers only (the page opens on its controls, not a heading). */
   phoneQuietTitle?: boolean;
+  /** Phone redesign: below lg the page opens on this one short word, then its switch, instead of the editorial title and line. */
+  phoneTitle?: string;
 }) {
   const quiet = PHONE_V2 && phoneQuietTitle;
+  const short = PHONE_V2 && phoneTitle ? phoneTitle : null;
   // The section name is the browser tab title only; the page itself carries just the editorial title.
   const titleTag = useDocumentTitle(eyebrow);
   return (
@@ -40,8 +44,8 @@ export function PageHeader({
       {/* A title sequence: the rail, then the title, then the line under it, each a beat after the last.
           The rail is one fixed 40px row on every page (way back left, switch centred) — the same row Roam's own
           header uses — so the title starts at the same height wherever you are and the pill never jumps. */}
-      <header className={cn("border-b border-border pb-5 sm:pb-7", quiet && "max-lg:border-b-0 max-lg:pb-0")}>
-        <Reveal y={8}>
+      <header className={cn("border-b border-border pb-5 sm:pb-7", (quiet || short) && "max-lg:border-b-0 max-lg:pb-0", short && "max-lg:flex max-lg:flex-col")}>
+        <Reveal y={8} className={cn(short && "max-lg:order-2 max-lg:mt-4")}>
           {/* On a phone a page with nothing for the rail (no way back, no switch) has no rail at all: its title sits right under the top bar. */}
           <div className={cn("grid min-h-10 items-center gap-x-3 gap-y-3 sm:grid-cols-[1fr_auto_1fr]", !back && !switcher && "max-sm:hidden")}>
             {back ? (
@@ -52,12 +56,13 @@ export function PageHeader({
               // No section label: the pill (or the title) is the page's heading. The empty first column keeps a pill centred.
               <span aria-hidden className="max-sm:hidden" />
             )}
-            {switcher ? <div className="justify-self-center">{switcher}</div> : <span className="max-sm:hidden" />}
+            {switcher ? <div className={cn("justify-self-center", short && "max-lg:justify-self-start")}>{switcher}</div> : <span className="max-sm:hidden" />}
             <span className="max-sm:hidden" />
           </div>
         </Reveal>
-        <div className={cn("mt-3 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end", !back && !switcher && "max-sm:mt-0")}>
-          <div className={cn("min-w-0", quiet && "max-lg:sr-only")}>
+        <div className={cn("mt-3 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end", !back && !switcher && "max-sm:mt-0", short && "max-lg:order-1 max-lg:mt-0")}>
+          {short && <p aria-hidden className="font-display text-[2rem] leading-[1.1] font-medium tracking-[-0.025em] lg:hidden">{short}</p>}
+          <div className={cn("min-w-0", (quiet || short) && "max-lg:sr-only")}>
             <Reveal delay={0.07} y={12}>
               {/* Full size from `sm` up (tablet and desktop) is unchanged — the big, tight, single-breath
                   headline the brand wants. Under it, every one of these titles wrapped to two lines at that

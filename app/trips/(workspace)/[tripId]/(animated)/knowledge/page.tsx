@@ -45,8 +45,8 @@ export default function KnowledgePage() {
       />
 
       {/* "What we know" (locked in, still to decide) lives beside the conversation, where it is edited as you talk; repeating it here only meant two copies to keep in step. */}
-      <div className="mx-auto grid max-w-6xl items-start gap-6 px-5 pt-8 sm:px-8 lg:grid-cols-2">
-        <div className="min-w-0 space-y-6">
+      <div className="mx-auto grid max-w-6xl items-start gap-6 px-5 pt-8 sm:px-8 max-lg:gap-8 lg:grid-cols-2">
+        <div className="min-w-0 space-y-6 max-lg:space-y-8">
           <Reveal>
             <BudgetSurface
               tripId={tripId}
@@ -60,7 +60,7 @@ export default function KnowledgePage() {
             <SavedPlacesList tripId={tripId} places={saved} />
           </Reveal>
         </div>
-        <div className="min-w-0 space-y-6">
+        <div className="min-w-0 space-y-6 max-lg:space-y-8">
           <Reveal delay={0.1}>
             <ConstraintsPanel taste={taste} />
           </Reveal>

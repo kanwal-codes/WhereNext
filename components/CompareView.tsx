@@ -10,7 +10,8 @@ import { Skeleton } from "@/components/Skeleton";
 import { ExternalLink } from "@/components/ExternalLink";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
-import { categoryLabel, detailsToPlace, priceLabel, priceRank, type GooglePlaceDetails } from "@/lib/places-ui";
+import { categoryLabel, detailsToPlace, photoProxyUrl, priceLabel, priceRank, type GooglePlaceDetails } from "@/lib/places-ui";
+import { PHONE_V2 } from "@/lib/phone-v2";
 import { nearest } from "@/lib/application/geo";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { cn } from "@/lib/utils";
@@ -223,8 +224,92 @@ export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids:
     }
   };
 
+  const columns = { gridTemplateColumns: `repeat(${present.length}, minmax(0, 1fr))` };
+  const win = (on: boolean) => on && present.length > 1;
+  const dot = (on: boolean) => win(on) ? (
+    <><span aria-hidden className="ml-1.5 inline-block size-1.5 rounded-full bg-leaf align-middle" /><span className="sr-only"> (best)</span></>
+  ) : null;
+  const phoneCell = (d: GooglePlaceDetails, key: RowKey) => {
+    const tone = (on: boolean) => cn("tabular-nums", win(on) && "text-leaf");
+    switch (key) {
+      case "category":
+        return categoryLabel(d.primaryType);
+      case "rating":
+        return typeof d.rating === "number" ? (
+          <span className={cn("inline-flex items-center gap-1.5", tone(d.rating === bestRating))}><Star className="size-4 fill-coral text-coral" aria-hidden />{d.rating.toFixed(1)}{dot(d.rating === bestRating)}</span>
+        ) : "—";
+      case "reviews":
+        return typeof d.userRatingCount === "number" ? <span className={tone(d.userRatingCount === mostReviews && mostReviews > 0)}>{d.userRatingCount.toLocaleString()}{dot(d.userRatingCount === mostReviews && mostReviews > 0)}</span> : "—";
+      case "price":
+        return priceLabel(d.priceLevel) ? <span className={tone(priceRank(d.priceLevel) === bestPrice)}>{priceLabel(d.priceLevel)}{dot(priceRank(d.priceLevel) === bestPrice)}</span> : "—";
+      case "distance": {
+        const km = distanceKm(d);
+        return km === null ? "—" : <span className={tone(km === closestKm)}>{distance(km)}{dot(km === closestKm)}</span>;
+      }
+      case "hours":
+        return <span className="text-sm">{(d.regularOpeningHours?.weekdayDescriptions?.[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1] ?? "See listing").replace(/^[^:]+:\s*/, "").replace(/\s(AM|PM)/g, "\u00a0$1")}</span>;
+      case "source":
+        return d.googleMapsUri ? <ExternalLink href={d.googleMapsUri} className="text-sm">Google Maps</ExternalLink> : <span className="text-sm">Google Maps</span>;
+    }
+  };
+  const names = present.map(([, d]) => d!.displayName?.text ?? "Place");
+
+  // Phone redesign: the picks side by side as photos, then one row per fact, the best one marked with a small dot.
+  const phoneView = PHONE_V2 ? (
+    <div className="lg:hidden">
+      <h2 className="font-display text-[1.75rem] leading-[1.15] font-medium tracking-[-0.02em] text-balance">
+        {names.length === 2 ? `${names[0]} or ${names[1]}?` : `Comparing ${names.length} places`}
+      </h2>
+      <div className="mt-5 grid gap-3" style={columns}>
+        {present.map(([id, d]) => {
+          const photo = photoProxyUrl(tripId, d!.photos?.[0]?.name, 480);
+          return (
+            <div key={id} className="flex min-w-0 flex-col">
+              <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-muted">
+                <Link href={`/trips/${tripId}/place/${encodeURIComponent(id)}`} aria-label={`Open ${d!.displayName?.text ?? "place"}`} className="absolute inset-0 z-[1]" />
+                {photo ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin proxy
+                  <img src={photo} alt="" loading="lazy" decoding="async" className="photo-grade absolute inset-0 h-full w-full object-cover" />
+                ) : (
+                  <span aria-hidden className="absolute inset-0 grid place-items-center text-muted-foreground/60"><MapPin className="size-6" /></span>
+                )}
+                {onIdsChange && ids.length > 2 && (
+                  <button type="button" onClick={() => onIdsChange(ids.filter((x) => x !== id))} aria-label={`Remove ${d!.displayName?.text ?? "place"} from comparison`} className="photo-chip absolute top-2 right-2 z-[2] size-10 justify-center p-0">
+                    <X className="size-4" aria-hidden />
+                  </button>
+                )}
+              </div>
+              <h3 className="mt-2.5 font-display text-base leading-tight font-medium text-balance">{d!.displayName?.text ?? "Place"}</h3>
+              {d!.formattedAddress && <p className="mt-0.5 mb-3 truncate text-xs text-muted-foreground">{d!.formattedAddress}</p>}
+              <button
+                type="button"
+                onClick={() => void choose(id, d!)}
+                disabled={savedIds.has(id)}
+                className={cn("mt-auto flex h-11 w-full items-center justify-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-[background-color,transform] active:scale-[0.98]", savedIds.has(id) ? "border-leaf/40 bg-leaf-soft text-leaf" : "border-primary bg-primary text-primary-foreground")}
+              >
+                {savedIds.has(id) ? <><Check className="size-4" aria-hidden /> On the trip</> : "Choose this"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      <dl className="mt-6">
+        {ROWS.map((row) => (
+          <div key={row.key} className="border-t border-border py-4">
+            <dt className="eyebrow">{row.label}</dt>
+            <dd className="mt-2 grid items-start gap-3 font-display text-lg leading-snug" style={columns}>
+              {present.map(([id, d]) => <span key={id + row.key} className="min-w-0">{phoneCell(d!, row.key)}</span>)}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  ) : null;
+
   return (
-    <div className="overflow-x-auto overscroll-x-contain scrollbar-slim">
+    <>
+    {phoneView}
+    <div className={cn("overflow-x-auto overscroll-x-contain scrollbar-slim", PHONE_V2 && "max-lg:hidden")}>
       <div className="grid min-w-[560px] gap-x-4" style={{ gridTemplateColumns: `120px repeat(${present.length}, minmax(170px, 1fr))` }}>
         <div className="sticky left-0 z-10 bg-background" />
         <AnimatePresence initial={false}>
@@ -284,5 +369,6 @@ export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids:
         ))}
       </div>
     </div>
+    </>
   );
 }

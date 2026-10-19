@@ -8,6 +8,8 @@ import { notifyToast } from "@/lib/application/toast";
 import { cachedGet } from "@/lib/client/cached-get";
 import { DEFAULT_CURRENCY, formatMoney } from "@/lib/currency";
 import { Skeleton } from "@/components/Skeleton";
+import { PHONE_V2 } from "@/lib/phone-v2";
+import { cn } from "@/lib/utils";
 
 type Committed = {
   currency: string;
@@ -117,9 +119,9 @@ export function BudgetSurface({
   const wholeTrip = touched && days ? daily * days : null;
 
   return (
-    <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-soft">
+    <section className={cn("rounded-3xl border border-border/70 bg-card p-6 shadow-soft", PHONE_V2 && "max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent max-lg:p-0 max-lg:shadow-none")}>
       <div className="flex items-baseline justify-between gap-2">
-        <h2 className="font-display text-lg">Budget</h2>
+        <h2 className={cn("font-display text-lg", PHONE_V2 && "max-lg:eyebrow max-lg:font-sans")}>Budget</h2>
         <AnimatePresence>
           {saved && (
             <motion.span
@@ -135,9 +137,15 @@ export function BudgetSurface({
           )}
         </AnimatePresence>
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">An assumption you set — Roam uses it to weigh options.</p>
+      <p className={cn("mt-1 text-xs text-muted-foreground", PHONE_V2 && "max-lg:hidden")}>An assumption you set — Roam uses it to weigh options.</p>
 
-      <div className="mt-4 flex items-center gap-3">
+      {PHONE_V2 && (
+        <p aria-hidden className="mt-3 flex flex-wrap items-baseline gap-x-2 lg:hidden">
+          <span className={cn("font-display text-[2.5rem] leading-none font-medium tracking-[-0.03em] tabular-nums", !touched && "text-muted-foreground")}>{money(daily)}</span>
+          <span className="text-sm text-muted-foreground">{touched ? "per person, per day" : "per person, per day · drag to set"}</span>
+        </p>
+      )}
+      <div className="mt-4 flex items-center gap-3 max-lg:mt-2">
         <input
           type="range"
           min={20}
@@ -155,13 +163,13 @@ export function BudgetSurface({
           min={20}
           value={daily}
           onChange={(e) => update(Number(e.target.value))}
-          className="w-20 rounded-xl border border-input bg-background px-2.5 py-1.5 text-sm tabular-nums max-lg:h-11 max-lg:w-24"
+          className={cn("w-20 rounded-xl border border-input bg-background px-2.5 py-1.5 text-sm tabular-nums max-lg:h-11 max-lg:w-24", PHONE_V2 && "max-lg:hidden")}
         />
       </div>
 
       <dl className="mt-4 divide-y divide-border text-sm">
-        {rows.map(([label, value]) => (
-          <div key={label} className="flex items-center justify-between gap-3 py-2">
+        {rows.map(([label, value], i) => (
+          <div key={label} className={cn("flex items-center justify-between gap-3 py-2", PHONE_V2 && touched && i === 0 && "max-lg:hidden")}>
             <dt className="text-muted-foreground">{label}</dt>
             <dd className="font-medium tabular-nums">{value}</dd>
           </div>
@@ -169,7 +177,18 @@ export function BudgetSurface({
       </dl>
 
       <div className="mt-4 border-t border-border pt-4">
-        <p className="text-xs text-muted-foreground">Booked so far: every booking with a price, entered by hand or chosen here, flights included. Cancelled ones are left out. Shown in {currency} at today&rsquo;s rates.</p>
+        {PHONE_V2 && committed && committed !== "loading" && committed.perPerson != null && wholeTrip ? (
+          <div className="mb-4 lg:hidden">
+            <div role="progressbar" aria-label="Booked against the whole-trip budget" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.round((committed.perPerson / wholeTrip) * 100))} className="h-2 overflow-hidden rounded-full bg-muted">
+              <div className="h-full rounded-full bg-primary transition-[width] duration-700 ease-out" style={{ width: `${Math.min(100, (committed.perPerson / wholeTrip) * 100)}%` }} />
+            </div>
+            <p className="mt-2 flex items-baseline justify-between gap-3 text-sm text-muted-foreground">
+              <span>{money(committed.convertedTotal)} booked so far</span>
+              <span className="font-display text-base text-foreground tabular-nums">{Math.round((committed.perPerson / wholeTrip) * 100)}%</span>
+            </p>
+          </div>
+        ) : null}
+        <p className={cn("text-xs text-muted-foreground", PHONE_V2 && "max-lg:hidden")}>Booked so far: every booking with a price, entered by hand or chosen here, flights included. Cancelled ones are left out. Shown in {currency} at today&rsquo;s rates.</p>
         {committed === "loading" ? (
           <dl className="mt-2 space-y-2" aria-label="Adding up what you’ve booked…" aria-live="polite" aria-busy="true">
             {[0, 1].map((i) => (
@@ -183,7 +202,7 @@ export function BudgetSurface({
           <p className="mt-2 text-sm text-muted-foreground">Nothing with a price yet. Add bookings on the Bookings page.</p>
         ) : (
           <>
-            <dl className="mt-2 space-y-1 text-sm">
+            <dl className={cn("mt-2 space-y-1 text-sm", PHONE_V2 && "max-lg:hidden")}>
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-muted-foreground">Everyone</dt>
                 <dd className="font-medium tabular-nums">{money(committed.convertedTotal)}</dd>
@@ -201,9 +220,15 @@ export function BudgetSurface({
                 </div>
               ) : null}
             </dl>
-            {committed.perPerson != null && wholeTrip ? <p className="mt-1.5 text-xs text-muted-foreground">Count that against the budget only if it is meant to cover flights and stays too.</p> : null}
+            {committed.perPerson != null && wholeTrip ? <p className={cn("mt-1.5 text-xs text-muted-foreground", PHONE_V2 && "max-lg:hidden")}>Count that against the budget only if it is meant to cover flights and stays too.</p> : null}
             <details className="mt-2 text-xs text-muted-foreground">
-              <summary className="cursor-pointer select-none max-lg:py-3">By currency</summary>
+              <summary className="cursor-pointer select-none max-lg:py-3">{PHONE_V2 ? <><span className="lg:hidden">How this adds up</span><span className="max-lg:hidden">By currency</span></> : "By currency"}</summary>
+              {PHONE_V2 && (
+                <div className="mt-1.5 space-y-1.5 lg:hidden">
+                  <p>Every booking with a price, entered by hand or chosen here, flights included. Cancelled ones are left out. Shown in {currency} at today&rsquo;s rates.</p>
+                  {committed.perPerson != null && <p>That is {money(committed.perPerson)} per person. Count it against the whole-trip budget only if it is meant to cover flights and stays too.</p>}
+                </div>
+              )}
               <dl className="mt-1.5 space-y-1">
                 {committed.lines.map((line) => (
                   <div key={line.currency} className="flex items-center justify-between gap-3">

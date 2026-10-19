@@ -7,9 +7,14 @@ import { photoProxyUrl } from "@/lib/places-ui";
 import { categoryLabel, type TastePicture } from "@/lib/trip-overview";
 import { TripArt, hashString } from "@/components/trips/TripArt";
 import { cn } from "@/lib/utils";
+import { PHONE_V2 } from "@/lib/phone-v2";
 import type { MosaicPlace } from "@/components/overview/PlacesMosaic";
 
-const panel = "rounded-3xl border border-border/70 bg-card p-6 shadow-soft";
+const panel = cn(
+  "rounded-3xl border border-border/70 bg-card p-6 shadow-soft",
+  // Phone redesign: sections on the page, divided by a hairline, not cards stacked in cards.
+  PHONE_V2 && "max-lg:rounded-none max-lg:border-0 max-lg:border-t max-lg:bg-transparent max-lg:px-0 max-lg:pt-6 max-lg:pb-0 max-lg:shadow-none",
+);
 
 function Thumb({ tripId, place }: { tripId: string; place: MosaicPlace }) {
   const [failed, setFailed] = useState(false);
@@ -31,7 +36,7 @@ export function SavedPlacesList({ tripId, places }: { tripId: string; places: Mo
   return (
     <section className={panel}>
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="font-display text-2xl tracking-tight">Saved places</h2>
+        <h2 className="font-display text-2xl tracking-tight max-lg:text-xl">Saved places</h2>
         <span className="text-sm tabular-nums text-muted-foreground">{places.length}</span>
       </div>
       {places.length > 0 ? (
@@ -61,7 +66,7 @@ export function ConstraintsPanel({ taste }: { taste: TastePicture }) {
   const any = taste.avoids.length + taste.dietary.length > 0;
   return (
     <section className={panel}>
-      <h2 className="font-display text-2xl tracking-tight">Constraints</h2>
+      <h2 className="font-display text-2xl tracking-tight max-lg:text-xl">Constraints</h2>
       <p className="mt-1 text-sm text-muted-foreground">Hard edges the plan has to respect.</p>
       {any ? (
         <div className="mt-4 space-y-4">
@@ -96,14 +101,14 @@ export function ConstraintsPanel({ taste }: { taste: TastePicture }) {
 /** What has not been decided, each as a pill; nothing shown as a problem. */
 export function UndecidedPanel({ items, tripId }: { items: string[]; tripId: string }) {
   return (
-    <section className={cn(panel, "border-dashed bg-transparent shadow-none")}>
-      <h2 className="font-display text-2xl tracking-tight">Still undecided</h2>
+    <section className={cn(panel, "border-dashed bg-transparent shadow-none", PHONE_V2 && "max-lg:border-solid")}>
+      <h2 className="font-display text-2xl tracking-tight max-lg:text-xl">Still undecided</h2>
       <p className="mt-1 text-sm text-muted-foreground">Raised only when they start to matter.</p>
       {items.length > 0 ? (
         <>
           <div className="mt-4 flex flex-wrap gap-2">
             {items.map((item) => (
-              <span key={item} className="daisy-badge h-7 border-border bg-background px-3 text-sm">
+              <span key={item} className="daisy-badge h-7 border-border bg-background px-3 text-sm max-lg:h-9 max-lg:px-4">
                 <span aria-hidden className="mr-1 h-1.5 w-1.5 rounded-full bg-coral" />
                 {item}
               </span>

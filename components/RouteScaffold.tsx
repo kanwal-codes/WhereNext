@@ -10,6 +10,7 @@ export function RouteScaffold({
   action,
   tabs,
   phoneQuietTitle,
+  phoneTitle,
   children,
 }: {
   eyebrow: string;
@@ -18,6 +19,7 @@ export function RouteScaffold({
   action?: ReactNode;
   tabs?: ReactNode;
   phoneQuietTitle?: boolean;
+  phoneTitle?: string;
   children: ReactNode;
 }) {
   return (
@@ -29,6 +31,7 @@ export function RouteScaffold({
         action={action}
         switcher={tabs}
         phoneQuietTitle={phoneQuietTitle}
+        phoneTitle={phoneTitle}
       />
       <Reveal delay={0.08}>
         <div className="mt-6 sm:mt-8">{children}</div>

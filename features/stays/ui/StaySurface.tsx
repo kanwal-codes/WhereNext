@@ -21,6 +21,7 @@ import { useShowMore } from "@/lib/use-show-more";
 import { ShowMoreButton } from "@/components/ShowMoreButton";
 import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache";
 import { cn } from "@/lib/utils";
+import { PHONE_V2 } from "@/lib/phone-v2";
 import { fmtDay } from "@/lib/trip-dates";
 import { cachedGet } from "@/lib/client/cached-get";
 import { prefetchStayDetails } from "@/features/stays/application/useStayDetails";
@@ -218,7 +219,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       <CityChips stops={cities.stops} current={cities.city} onPick={cities.setCity} estimated={cities.estimated} className="-mb-2" />
       {alreadyBooked && (
         <p role="status" className="rounded-2xl border border-leaf/30 bg-leaf/5 px-4 py-3 text-sm">
-          You already have <span className="font-medium">{alreadyBooked.title}</span> booked{alreadyBooked.date ? ` (${fmtDay(alreadyBooked.date)}${alreadyBooked.endDate ? ` → ${fmtDay(alreadyBooked.endDate)}` : ""})` : ""} for some of these nights.{" "}
+          You already have <span className="font-medium">{alreadyBooked.title}</span> booked<span className={cn(PHONE_V2 && "max-lg:hidden")}>{alreadyBooked.date ? ` (${fmtDay(alreadyBooked.date)}${alreadyBooked.endDate ? ` → ${fmtDay(alreadyBooked.endDate)}` : ""})` : ""}</span> for some of these nights.{" "}
           <a href={`/trips/${tripId}/bookings`} className="underline underline-offset-2">See your bookings</a>
         </p>
       )}
@@ -233,13 +234,13 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       )}
 
       {/* The booking bar: four cells divided by hairlines (the gap shows the border colour through), then filters and sort. */}
-      <div className="overflow-hidden rounded-[1.75rem] bg-card shadow-float ring-1 ring-black/[0.05]">
+      <div className={cn("overflow-hidden rounded-[1.75rem] bg-card shadow-float ring-1 ring-black/[0.05]", PHONE_V2 && "max-lg:overflow-visible max-lg:rounded-none max-lg:bg-transparent max-lg:shadow-none max-lg:ring-0")}>
         {/* On a phone the four fields fold into one line (dates, guests, rooms) that opens them: the list starts a screen sooner. */}
         <button
           type="button"
           onClick={() => setBarOpen((v) => !v)}
           aria-expanded={barOpen}
-          className="flex w-full items-center gap-3 px-4 py-3.5 text-left sm:hidden"
+          className={cn("flex w-full items-center gap-3 px-4 py-3.5 text-left sm:hidden", PHONE_V2 && "max-lg:px-0 max-lg:pt-1 max-lg:pb-3")}
         >
           <span className="min-w-0 flex-1">
             <span className="block truncate font-display text-[1.0625rem] leading-tight font-medium tracking-[-0.015em] tabular-nums">
@@ -249,25 +250,25 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
               {nightsLabel ? `${nightsLabel} · ` : ""}{adults} guest{adults === 1 ? "" : "s"} · {rooms} room{rooms === 1 ? "" : "s"}
             </span>
           </span>
-          <span className={cn("inline-flex h-8 items-center gap-1 rounded-full px-3.5 text-xs font-medium transition-colors", barOpen ? "bg-primary text-primary-foreground" : "border border-border bg-background text-foreground")}>
+          <span className={cn("inline-flex h-8 items-center gap-1 rounded-full px-3.5 text-xs font-medium transition-colors", barOpen ? "bg-primary text-primary-foreground" : "border border-border bg-background text-foreground", PHONE_V2 && "max-lg:h-10 max-lg:px-4 max-lg:text-sm")}>
             {barOpen ? "Done" : "Edit"} <ChevronDown className={cn("size-3.5 transition-transform duration-300", barOpen && "rotate-180")} aria-hidden />
           </span>
         </button>
-        <div className={cn("grid grid-cols-2 gap-px overflow-hidden bg-border max-sm:border-t max-sm:border-border lg:grid-cols-4", !barOpen && "max-sm:hidden")}>
+        <div className={cn("grid grid-cols-2 gap-px overflow-hidden bg-border max-sm:border-t max-sm:border-border lg:grid-cols-4", !barOpen && "max-sm:hidden", PHONE_V2 && "max-lg:mb-3 max-lg:rounded-2xl max-lg:border max-lg:border-border")}>
           <DateCell label="Check-in" value={checkin} onChange={setCheckin} />
           <DateCell label="Check-out" value={checkout} onChange={setCheckout} min={checkin || undefined} />
           <Stepper label="Guests" value={adults} set={setAdults} min={1} max={16} />
           <Stepper label="Rooms" value={rooms} set={setRooms} min={1} max={8} />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 border-t border-border bg-card px-4 py-3">
-          <button type="button" onClick={() => setShowFilters((v) => !v)} aria-pressed={showFilters} className="btn-chip">
+        <div className={cn("flex flex-wrap items-center gap-3 border-t border-border bg-card px-4 py-3", PHONE_V2 && "max-lg:-mx-5 sm:max-lg:-mx-8 max-lg:flex-nowrap max-lg:gap-2 max-lg:overflow-x-auto max-lg:border-t-0 max-lg:bg-transparent max-lg:px-5 sm:max-lg:px-8 max-lg:py-0 max-lg:[-ms-overflow-style:none] max-lg:[scrollbar-width:none] max-lg:[&::-webkit-scrollbar]:hidden")}>
+          <button type="button" onClick={() => setShowFilters((v) => !v)} aria-pressed={showFilters} className="btn-chip shrink-0 max-lg:h-10 max-lg:text-sm">
             <SlidersHorizontal className="size-3.5" aria-hidden /> Filters{activeFilters ? ` · ${activeFilters}` : ""}
           </button>
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <label className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
             Sort
             <span className="relative">
-              <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="h-8 max-lg:h-10 cursor-pointer appearance-none rounded-full border border-border bg-background pr-8 pl-3.5 text-xs font-medium text-ink-soft transition-colors hover:border-ink/30 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+              <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="h-8 max-lg:h-10 max-lg:text-sm cursor-pointer appearance-none rounded-full border border-border bg-background pr-8 pl-3.5 text-xs font-medium text-ink-soft transition-colors hover:border-ink/30 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
                 <option value="price">Price</option>
                 <option value="rating">Guest rating</option>
                 <option value="stars">Stars</option>
@@ -275,11 +276,17 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
               <ChevronDown aria-hidden className="pointer-events-none absolute top-1/2 right-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
             </span>
           </label>
-          {status && <p role="status" className="ml-auto text-xs text-muted-foreground">{status}</p>}
+          {PHONE_V2 && (
+            <button type="button" onClick={() => setRefundable((v) => !v)} aria-pressed={refundable} className="btn-chip shrink-0 max-lg:h-10 max-lg:text-sm lg:hidden">
+              Free cancellation
+            </button>
+          )}
+          {status && <p role="status" className={cn("ml-auto text-xs text-muted-foreground", PHONE_V2 && "max-lg:hidden")}>{status}</p>}
         </div>
+        {PHONE_V2 && status && <p role="status" className="mt-3 text-sm text-muted-foreground lg:hidden">{status}</p>}
 
         {showFilters && facets && (
-          <div className="space-y-4 border-t border-border px-4 py-4">
+          <div className={cn("space-y-4 border-t border-border px-4 py-4", PHONE_V2 && "max-lg:mt-3 max-lg:rounded-2xl max-lg:border max-lg:bg-card")}>
             {facets.priceMax > facets.priceMin && (
               <div>
                 <div className="flex items-center justify-between text-sm">
@@ -370,7 +377,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       ) : result && result.options.length > 0 ? (
         <>
           {result.assumedDates && <p className="text-xs text-caution">Example dates, set yours above for accurate prices.</p>}
-          <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <ul className={cn("grid gap-4 sm:grid-cols-2 xl:grid-cols-3", PHONE_V2 && "max-lg:gap-x-5 max-lg:gap-y-7")}>
             {result.options.slice(0, visible).map((o, index) => {
               const comparing = Boolean(panelCtx?.compareMode);
               return (

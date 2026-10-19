@@ -34,6 +34,7 @@ export default function ComparePage() {
   return (
     <RouteScaffold
       eyebrow="Compare"
+      phoneQuietTitle
       title="Side by side, so you can decide"
       description="Two to four places, aligned on rating, price, hours and where the data came from. You usually get here from Discover or by asking Roam to compare."
     >
