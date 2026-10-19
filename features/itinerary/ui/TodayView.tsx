@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { BedDouble, CalendarX, CloudOff, Compass } from "lucide-react";
+import { ArrowUpRight, BedDouble, CalendarX, Check, ChevronRight, CloudOff, Compass, Navigation } from "lucide-react";
+import { stopGlyph } from "@/features/conversation/ui/blocks/glyphs";
+import { useMediaQuery } from "@/lib/use-media-query";
+import { cn } from "@/lib/utils";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion-primitives";
 import { EmptyState } from "@/components/EmptyState";
@@ -18,7 +21,9 @@ import { effectiveStops, stopForDate } from "@/lib/trip-stops";
 import type { Reservation } from "@/packages/contracts/reservation";
 import type { TripWorkspaceData } from "@/features/workspace/application/loadTripWorkspace";
 
-type ItineraryRow = { id: string; title: string; day_index: number; position?: number };
+type ItineraryRow = { id: string; title: string; day_index: number; position?: number; metadata?: { time?: unknown; latitude?: unknown; longitude?: unknown } | null };
+const timeOf = (r: ItineraryRow) => (typeof r.metadata?.time === "string" ? r.metadata.time : "");
+const minutesOf = (t: string) => { const [h, m] = t.split(":").map(Number); return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null; };
 
 export function TodayView({ tripId }: { tripId: string }) {
   const live = useTripDataMaybe()?.data ?? null;
@@ -28,6 +33,18 @@ export function TodayView({ tripId }: { tripId: string }) {
     if (live) return;
     void readTrip(tripId).then(setOffline);
   }, [live, tripId]);
+
+  // Phone redesign: the approved Today (a map of the day, one "Next up" card, then what is left).
+  const narrow = useMediaQuery("(max-width: 1023.98px)");
+  const phone = PHONE_V2 && narrow;
+  const [savedOffline, setSavedOffline] = useState(false);
+  useEffect(() => {
+    if (!phone) return;
+    void readTrip(tripId).then((r) => setSavedOffline(Boolean(r)));
+  }, [phone, tripId]);
+  const [mapFailed, setMapFailed] = useState(false);
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => { setNow(new Date().getHours() * 60 + new Date().getMinutes()); }, []);
 
   const data = live ?? offline?.data ?? null;
   const isOffline = !live && !!offline;
@@ -63,6 +80,140 @@ export function TodayView({ tripId }: { tripId: string }) {
 
   if (!data) {
     return <p className="mx-auto max-w-lg px-5 py-16 text-center text-sm text-muted-foreground">Nothing saved for offline yet. Open this trip while online first.</p>;
+  }
+
+  if (phone) {
+    // Before the trip starts: the first day that has stops, so the screen shows what it will be like.
+    const firstPlanned = ((data.itinerary ?? []) as ItineraryRow[]).reduce((m, r) => Math.min(m, r.day_index), Infinity);
+    const viewDay = dayIndex ?? (Number.isFinite(firstPlanned) ? firstPlanned : 1);
+    const rows = ((data.itinerary ?? []) as ItineraryRow[])
+      .filter((r) => r.day_index === viewDay)
+      .sort((a, b) => (timeOf(a) || "99:99").localeCompare(timeOf(b) || "99:99") || (a.position ?? 0) - (b.position ?? 0));
+    const running = dayIndex != null;
+    const viewDate = data.trip.start_date ? new Date(Date.parse(`${data.trip.start_date}T00:00:00Z`) + (viewDay - 1) * 86_400_000).toISOString().slice(0, 10) : null;
+    const viewCity = stopForDate(effectiveStops(data.trip).stops, viewDate)?.city ?? city;
+    const upcoming = running && now != null ? rows.filter((r) => { const t = minutesOf(timeOf(r)); return t == null || t >= now - 30; }) : rows;
+    const next = upcoming[0];
+    const later = upcoming.slice(1);
+    const nextMinutes = next ? minutesOf(timeOf(next)) : null;
+    const until = running && now != null && nextMinutes != null ? nextMinutes - now : null;
+    const untilLabel = until == null ? null : until <= 0 ? "Now" : until < 60 ? `In ${until} min` : `In ${Math.floor(until / 60)}h${until % 60 ? ` ${until % 60}m` : ""}`;
+    const startLine = (() => {
+      const start = data.trip.start_date;
+      if (!start || !/^\d{4}-\d{2}-\d{2}$/.test(start)) return null;
+      return new Date(`${start}T12:00:00`).toLocaleDateString(undefined, { month: "long", day: "numeric" });
+    })();
+    const markers = rows
+      .map((r) => [Number(r.metadata?.longitude), Number(r.metadata?.latitude)] as const)
+      .filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat) && (lng !== 0 || lat !== 0))
+      .map(([lng, lat]) => `${lng},${lat}`);
+    const isBookedStop = (title: string) => bookedToday.some((b) => b.reservation.title.trim().toLowerCase() === title.trim().toLowerCase());
+    const nextLat = Number(next?.metadata?.latitude);
+    const nextLng = Number(next?.metadata?.longitude);
+    const navHref = Number.isFinite(nextLat) && Number.isFinite(nextLng) && (nextLat !== 0 || nextLng !== 0) ? `https://www.google.com/maps/dir/?api=1&destination=${nextLat},${nextLng}` : null;
+    const Glyph = next ? stopGlyph(undefined, next.title) : null;
+    return (
+      <div className="px-5 pt-2 pb-16">
+        <div className="flex items-center justify-between gap-3">
+          <p className="eyebrow">{running ? (dateLine ?? "Today") : startLine ? `Trip starts ${startLine}` : "Your trip"}</p>
+          {(savedOffline || isOffline) && <p className="inline-flex items-center gap-1 text-xs font-semibold text-positive"><Check className="size-3.5" aria-hidden />Saved offline</p>}
+        </div>
+        {isOffline && <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground"><CloudOff className="size-3.5" /> Showing your last saved copy</p>}
+        <h1 className="mt-1 font-display text-[2.5rem] leading-[1.05] font-medium tracking-[-0.04em]">{running ? "Today" : `Day ${viewDay}`}</h1>
+        {viewCity && <TripWeather tripId={tripId} location={viewCity} className="mt-2" />}
+
+        {markers.length > 0 && !mapFailed && (
+          <Link href={`/trips/${tripId}/map?day=${viewDay}`} aria-label="Open the day on the map" className="relative mt-4 block aspect-[16/7] overflow-hidden rounded-3xl bg-muted ring-1 ring-black/[0.05]">
+            {/* eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin map image */}
+            <img src={`/api/trips/${tripId}/map/static?markers=${encodeURIComponent(markers.join("|"))}&w=720&h=315`} alt="" onError={() => setMapFailed(true)} className="absolute inset-0 h-full w-full object-cover" />
+            <span className="absolute top-2.5 right-2.5 grid size-9 place-items-center rounded-full bg-white/94 text-[#2a2623]"><ArrowUpRight className="size-[1.125rem]" aria-hidden /></span>
+          </Link>
+        )}
+
+        {next ? (
+          <section aria-label="Next up" className="mt-4 rounded-3xl bg-surface p-4 ring-1 ring-border/70">
+            <div className="flex items-center justify-between gap-3">
+              <p className="eyebrow">{running ? "Next up" : "First up"}</p>
+              {untilLabel && <span className="rounded-full bg-coral-fill px-3 py-1 text-xs font-semibold text-white">{untilLabel}</span>}
+            </div>
+            <h2 className="mt-2 font-display text-[1.625rem] leading-[1.12] font-medium tracking-[-0.03em] text-balance">{next.title}</h2>
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.9375rem] text-ink-soft">
+              <span suppressHydrationWarning>{[viewCity, timeOf(next) ? clockLabel(timeOf(next)) : null].filter(Boolean).join(" · ")}</span>
+              {isBookedStop(next.title) && <span className="inline-flex items-center gap-1 rounded-full bg-positive-soft px-2.5 py-1 text-xs font-semibold text-positive"><Check className="size-3.5" aria-hidden />Tickets booked</span>}
+            </p>
+            {navHref ? (
+              <a href={navHref} target="_blank" rel="noreferrer noopener" className="btn-primary mt-4 h-12 w-full rounded-full"><Navigation className="size-4" aria-hidden /> Navigate</a>
+            ) : (
+              <Link href={`/trips/${tripId}/map?day=${viewDay}`} className="btn-primary mt-4 h-12 w-full rounded-full"><Navigation className="size-4" aria-hidden /> See it on the map</Link>
+            )}
+          </section>
+        ) : (
+          <div className="mt-6">
+            <EmptyState
+              icon={CalendarX}
+              action={<Link href={`/trips/${tripId}/chat`} className="btn-primary-sm">Ask Roam for ideas</Link>}
+            >
+              {running && rows.length > 0 ? "That is everything planned for today." : "Nothing is planned for this day yet. A free day is a good day to wander, or let Roam suggest something."}
+            </EmptyState>
+          </div>
+        )}
+
+        {later.length > 0 && (
+          <section aria-label="Later today" className="mt-7">
+            <h2 className="font-display text-xl font-medium tracking-[-0.02em]">{running ? "Later today" : "Then"}</h2>
+            <ul className="mt-1">
+              {later.map((it) => {
+                const g = stopGlyph(undefined, it.title);
+                return (
+                  <li key={it.id}>
+                    <Link href={`/trips/${tripId}/itinerary`} className="flex min-h-16 items-center gap-3.5 py-2">
+                      <span aria-hidden className="grid size-[3.25rem] shrink-0 place-items-center rounded-2xl bg-coral-soft text-coral-ink"><g.icon className="size-[1.375rem]" /></span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-display text-base leading-snug font-medium tracking-[-0.01em] text-balance">{it.title}</span>
+                        <span suppressHydrationWarning className="mt-0.5 block text-sm text-muted-foreground">{[timeOf(it) ? clockLabel(timeOf(it)) : null, g.label].filter(Boolean).join(" · ")}</span>
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+        <Link href={`/trips/${tripId}/itinerary`} className="mt-2 flex min-h-14 items-center justify-between border-t border-border text-[0.9375rem] font-medium text-ink-soft">
+          See the whole day <ChevronRight className="size-5" aria-hidden />
+        </Link>
+
+        {bookedToday.length > 0 && (
+          <ul aria-label="Booked today" className="mt-6 space-y-2">
+            {bookedToday.map(({ reservation, note }) => {
+              const Icon = KIND_META[reservation.kind].icon;
+              const time = note === "Arrives" || note === "Check-out" ? reservation.endTime : reservation.startTime;
+              return (
+                <li key={`${reservation.id}-${note ?? "on"}`} className="flex min-h-14 items-center gap-3 rounded-2xl border border-leaf/30 bg-leaf/5 px-4 py-3">
+                  <Icon className="size-5 shrink-0 text-leaf" aria-hidden />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{reservation.title}</p>
+                    <p className="truncate text-sm text-muted-foreground">{[note, time ? clockLabel(time) : null, reservation.place].filter(Boolean).join(" · ")}</p>
+                  </div>
+                  {reservation.attachments[0] && (
+                    <a href={`/api/trips/${tripId}/reservations/${reservation.id}/files?path=${encodeURIComponent(reservation.attachments[0].path)}`} target="_blank" rel="noopener noreferrer" className="btn-chip shrink-0">Ticket</a>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {(stay || bookedStay) && (
+          <div className="mt-4 flex items-center gap-3.5 rounded-2xl border border-border bg-card p-4 shadow-soft">
+            <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-positive-soft text-positive shadow-hairline"><BedDouble className="size-5" aria-hidden /></span>
+            <div className="min-w-0">
+              <p className="eyebrow text-positive">Where you&rsquo;re sleeping</p>
+              <p className="mt-0.5 truncate font-display text-lg leading-snug font-medium">{stay ? stay.hotelName : bookedStay?.title}</p>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (

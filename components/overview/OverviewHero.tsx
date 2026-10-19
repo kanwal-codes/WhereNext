@@ -140,11 +140,21 @@ export function OverviewHero({
                 </>
               )}
 
+              {PHONE_V2 && (
+                // The approved Overview: one quiet line under the title instead of a box of facts.
+                <p suppressHydrationWarning className={cn("mt-3 text-[0.9375rem] leading-snug lg:hidden", photo ? "text-white/90 [text-shadow:0_1px_12px_rgba(0,0,0,0.5)]" : "text-ink-soft")}>
+                  {facts
+                    .filter((f) => f.label !== "From" && f.value)
+                    .map((f) => (f.label === "Travellers" ? `${f.value} ${f.value === "1" ? "traveller" : "travellers"}` : String(f.value)))
+                    .join(" · ")}
+                </p>
+              )}
               <Reveal delay={0.55}>
                 <div
                   suppressHydrationWarning
                   className={cn(
                     "daisy-stats mt-8 w-full rounded-2xl border transition-colors duration-1000 max-sm:grid max-sm:grid-flow-row max-sm:grid-cols-2 sm:w-auto",
+                    PHONE_V2 && "max-lg:hidden!",
                     PHONE_V2 && "max-lg:mt-5 max-sm:grid-cols-3 max-sm:[&>.daisy-stat]:px-3 max-sm:[&>.daisy-stat]:py-2.5",
                     " [&_.daisy-stat-value]:overflow-visible [&_.daisy-stat-value]:leading-tight [&_.daisy-stat-value]:whitespace-normal [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3.5",
                     photo

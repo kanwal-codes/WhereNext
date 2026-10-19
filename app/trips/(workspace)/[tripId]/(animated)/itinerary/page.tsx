@@ -1,6 +1,8 @@
 "use client";
 
 import { useTripData } from "@/components/TripDataProvider";
+import { PHONE_V2 } from "@/lib/phone-v2";
+import { cn } from "@/lib/utils";
 import { ChapterHero } from "@/components/overview/ChapterHero";
 import { Reveal } from "@/components/motion-primitives";
 import { ItinerarySurface } from "@/features/itinerary/ui/ItinerarySurface";
@@ -18,6 +20,7 @@ export default function ItineraryPage() {
 
   return (
     <div className="min-h-full pb-16">
+      <div className={cn(PHONE_V2 && "max-lg:hidden")}>
       <ChapterHero
         eyebrow="Itinerary"
         title="The plan, day by day"
@@ -28,8 +31,9 @@ export default function ItineraryPage() {
           { label: "Locked", value: String(locked), desc: "fixed in place" },
         ]}
       />
+      </div>
       <Reveal>
-        <div className="mx-auto w-full min-w-0 max-w-6xl px-5 pt-8 sm:px-8">
+        <div className={cn("mx-auto w-full min-w-0 max-w-6xl px-5 pt-8 sm:px-8", PHONE_V2 && "max-lg:pt-2")}>
           <ItinerarySurface tripId={tripId} initialItems={data?.itinerary} startDate={trip?.start_date ?? null} lockedStay={lockedStay} destination={trip?.destination ?? null} trip={trip} plannedDays={length ?? 0} />
         </div>
       </Reveal>

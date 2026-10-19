@@ -16,6 +16,9 @@ import { PlanDays } from "@/components/overview/PlanDays";
 import { PlacesMosaic } from "@/components/overview/PlacesMosaic";
 import { NextStepCard } from "@/components/overview/NextStepCard";
 import { PHONE_V2 } from "@/lib/phone-v2";
+import { PhoneOverview } from "@/components/overview/PhoneOverview";
+import { useMediaQuery } from "@/lib/use-media-query";
+import type { Reservation } from "@/packages/contracts/reservation";
 import { SectionHeading } from "@/components/overview/SectionHeading";
 import { StayFeature } from "@/components/overview/StayFeature";
 import type { TripSummary } from "@/components/trips/types";
@@ -42,6 +45,8 @@ export default function TripOverviewPage() {
   const { tripId, data } = useTripData();
   const titleTag = useDocumentTitle((data?.trip as { name?: string } | undefined)?.name ?? "Overview");
   const router = useRouter();
+  const narrow = useMediaQuery("(max-width: 1023.98px)");
+  const phone = PHONE_V2 && narrow;
   const trip = data?.trip;
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
@@ -159,7 +164,15 @@ export default function TripOverviewPage() {
           )}
         </div>
       )}
-      <ActionBar tripId={tripId} name={trip?.name || destination} />
+      {PHONE_V2 && trip && (
+        <PhoneOverview
+          tripId={tripId}
+          trip={trip}
+          reservations={(data?.reservations ?? []) as unknown as Reservation[]}
+          stays={staysBooked.items.filter((i) => i.status !== "cancelled" && i.status !== "failed").map((i) => ({ startsOn: i.date, endsOn: i.endDate }))}
+        />
+      )}
+      <div className={cn(PHONE_V2 && "max-lg:hidden")}><ActionBar tripId={tripId} name={trip?.name || destination} /></div>
 
       <div className={cn("mx-auto max-w-6xl space-y-16 px-5 pt-4 sm:px-8 sm:pt-6", PHONE_V2 && "max-lg:space-y-12")}>
         <Reveal>
@@ -170,12 +183,14 @@ export default function TripOverviewPage() {
           <SettleUpNotice tripId={tripId} />
         </Reveal>
 
-        {route.stops.length > 1 && trip && (
+        {!phone && route.stops.length > 1 && trip && (
           <Reveal>
             <RoutePanel tripId={tripId} trip={trip} stays={staysBooked.items.filter((i) => i.status !== "cancelled" && i.status !== "failed").map((i) => ({ startsOn: i.date, endsOn: i.endDate }))} />
           </Reveal>
         )}
 
+        {!phone && (
+          <>
         <Reveal>
           <StayFeature tripId={tripId} stay={stay} booked={staysBooked.items} />
         </Reveal>
@@ -199,6 +214,8 @@ export default function TripOverviewPage() {
           weather={trip?.destination ? <TripRouteWeather tripId={tripId} trip={trip} /> : null}
           share={<ShareTrip tripId={tripId} />}
         />
+          </>
+        )}
       </div>
     </div>
   );
