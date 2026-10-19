@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, BedDouble, CalendarX, Check, ChevronRight, CloudOff, Compass, Navigation } from "lucide-react";
+import { ArrowUpRight, BedDouble, CalendarX, Check, CloudOff, Compass, Navigation } from "lucide-react";
 import { stopGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
@@ -37,11 +37,6 @@ export function TodayView({ tripId }: { tripId: string }) {
   // Phone redesign: the approved Today (a map of the day, one "Next up" card, then what is left).
   const narrow = useMediaQuery("(max-width: 1023.98px)");
   const phone = PHONE_V2 && narrow;
-  const [savedOffline, setSavedOffline] = useState(false);
-  useEffect(() => {
-    if (!phone) return;
-    void readTrip(tripId).then((r) => setSavedOffline(Boolean(r)));
-  }, [phone, tripId]);
   const [mapFailed, setMapFailed] = useState(false);
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => { setNow(new Date().getHours() * 60 + new Date().getMinutes()); }, []);
@@ -116,11 +111,10 @@ export function TodayView({ tripId }: { tripId: string }) {
       <div className="px-5 pt-2 pb-16">
         <div className="flex items-center justify-between gap-3">
           <p className="eyebrow">{running ? (dateLine ?? "Today") : startLine ? `Trip starts ${startLine}` : "Your trip"}</p>
-          {(savedOffline || isOffline) && <p className="inline-flex items-center gap-1 text-xs font-semibold text-positive"><Check className="size-3.5" aria-hidden />Saved offline</p>}
+          {viewCity && <TripWeather tripId={tripId} location={viewCity} />}
         </div>
         {isOffline && <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground"><CloudOff className="size-3.5" /> Showing your last saved copy</p>}
         <h1 className="mt-1 font-display text-[2.5rem] leading-[1.05] font-medium tracking-[-0.04em]">{running ? "Today" : `Day ${viewDay}`}</h1>
-        {viewCity && <TripWeather tripId={tripId} location={viewCity} className="mt-2" />}
 
         {markers.length > 0 && !mapFailed && (
           <Link href={`/trips/${tripId}/map?day=${viewDay}`} aria-label="Open the day on the map" className="relative mt-4 block aspect-[16/7] overflow-hidden rounded-3xl bg-muted ring-1 ring-black/[0.05]">
@@ -142,7 +136,7 @@ export function TodayView({ tripId }: { tripId: string }) {
               {isBookedStop(next.title) && <span className="inline-flex items-center gap-1 rounded-full bg-positive-soft px-2.5 py-1 text-xs font-semibold text-positive"><Check className="size-3.5" aria-hidden />Tickets booked</span>}
             </p>
             {navHref ? (
-              <a href={navHref} target="_blank" rel="noreferrer noopener" className="btn-primary mt-4 h-12 w-full rounded-full"><Navigation className="size-4" aria-hidden /> Navigate</a>
+              <a href={navHref} target="_blank" rel="noreferrer noopener" className="btn-primary mt-4 h-12 w-full rounded-full"><Navigation className="size-4" aria-hidden /> Directions</a>
             ) : (
               <Link href={`/trips/${tripId}/map?day=${viewDay}`} className="btn-primary mt-4 h-12 w-full rounded-full"><Navigation className="size-4" aria-hidden /> See it on the map</Link>
             )}
@@ -179,9 +173,6 @@ export function TodayView({ tripId }: { tripId: string }) {
             </ul>
           </section>
         )}
-        <Link href={`/trips/${tripId}/itinerary`} className="mt-2 flex min-h-14 items-center justify-between border-t border-border text-[0.9375rem] font-medium text-ink-soft">
-          See the whole day <ChevronRight className="size-5" aria-hidden />
-        </Link>
 
         {bookedToday.length > 0 && (
           <ul aria-label="Booked today" className="mt-6 space-y-2">
@@ -204,10 +195,10 @@ export function TodayView({ tripId }: { tripId: string }) {
           </ul>
         )}
         {(stay || bookedStay) && (
-          <div className="mt-4 flex items-center gap-3.5 rounded-2xl border border-border bg-card p-4 shadow-soft">
-            <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-positive-soft text-positive shadow-hairline"><BedDouble className="size-5" aria-hidden /></span>
+          <div className="mt-6 flex items-center gap-3.5">
+            <span className="grid size-16 shrink-0 place-items-center rounded-[1.125rem] bg-positive-soft text-positive"><BedDouble className="size-6" aria-hidden /></span>
             <div className="min-w-0">
-              <p className="eyebrow text-positive">Where you&rsquo;re sleeping</p>
+              <p className="eyebrow text-positive">{running ? "Tonight you sleep at" : "Where you’ll sleep"}</p>
               <p className="mt-0.5 truncate font-display text-lg leading-snug font-medium">{stay ? stay.hotelName : bookedStay?.title}</p>
             </div>
           </div>

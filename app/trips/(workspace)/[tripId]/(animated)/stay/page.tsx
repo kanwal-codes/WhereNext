@@ -39,7 +39,8 @@ export default function StayPage() {
   return (
     <RouteScaffold
       eyebrow="Stay"
-      phoneTitle={view === "mine" ? "My stays" : "Stays"}
+      phoneTitle={view === "mine" ? "My stays" : undefined}
+      phoneQuietTitle={view !== "mine"}
       phoneHideSwitcher
       title="Where you’ll come back to each night"
       description="Hotels near your destination. Lock a room and the rest of the plan measures from it."

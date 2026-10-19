@@ -169,7 +169,7 @@ export function BudgetSurface({
 
       <dl className="mt-4 divide-y divide-border text-sm">
         {rows.map(([label, value], i) => (
-          <div key={label} className={cn("flex items-center justify-between gap-3 py-2", PHONE_V2 && touched && i === 0 && "max-lg:hidden")}>
+          <div key={label} className={cn("flex items-center justify-between gap-3 py-2", PHONE_V2 && i === 0 && "max-lg:hidden")}>
             <dt className="text-muted-foreground">{label}</dt>
             <dd className="font-medium tabular-nums">{value}</dd>
           </div>

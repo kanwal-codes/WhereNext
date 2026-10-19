@@ -417,7 +417,7 @@ export function ItinerarySurface({
           </p>
         ))}
 
-        <ol className="relative mt-4 before:pointer-events-none before:absolute before:top-8 before:bottom-8 before:left-[4.8125rem] before:border-l-[1.5px] before:border-dashed before:border-input">
+        <ol className="relative mt-4 before:pointer-events-none before:absolute before:top-8 before:bottom-8 before:left-[0.3125rem] before:border-l-[1.5px] before:border-dashed before:border-input">
           {dayItems.map((item) => {
             const locked = item.metadata?.locked === true;
             const time = typeof item.metadata?.time === "string" ? item.metadata.time : "";
@@ -426,15 +426,15 @@ export function ItinerarySurface({
             const isBooked = booked.some((b) => norm(b.reservation.title) === norm(item.title));
             return (
               <li key={item.id} className="relative flex items-center gap-3 py-2">
-                <span suppressHydrationWarning className="w-[3.75rem] shrink-0 text-xs leading-tight whitespace-nowrap text-muted-foreground tabular-nums">{time ? clockLabel(time) : ""}</span>
                 <span aria-hidden className={cn("relative z-[1] size-2.5 shrink-0 rounded-full ring-4 ring-background", locked ? "bg-leaf" : "bg-coral")} />
                 <button type="button" onClick={() => void openPlace(item, providerId)} disabled={resolvingTitle === item.title} className="flex min-h-14 min-w-0 flex-1 items-center gap-3 text-left disabled:opacity-60">
-                  <span aria-hidden className={cn("grid size-[3.25rem] shrink-0 place-items-center rounded-2xl", locked ? "bg-positive-soft text-positive" : "bg-coral-soft text-coral-ink")}>
+                  <span aria-hidden className={cn("grid size-12 shrink-0 place-items-center rounded-2xl", locked ? "bg-positive-soft text-positive" : "bg-coral-soft text-coral-ink")}>
                     <Glyph.icon className="size-[1.375rem]" />
                   </span>
                   <span className="min-w-0">
                     <span className="block font-display text-base leading-snug font-medium tracking-[-0.01em] text-balance">{item.title}</span>
                     <span className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
+                      {time && <span suppressHydrationWarning className="font-medium text-ink-soft tabular-nums">{clockLabel(time)}</span>}
                       <span>{Glyph.label}</span>
                       {isBooked && <span className="inline-flex items-center gap-1 font-semibold text-positive"><Check className="size-3.5" aria-hidden />Booked</span>}
                       {locked && !isBooked && <span className="inline-flex items-center gap-1"><Lock className="size-3" aria-hidden />Locked</span>}

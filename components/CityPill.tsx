@@ -22,7 +22,7 @@ export function CityPill({ stops, city, onPick }: { stops: TripStop[]; city: str
       {choice && <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
     </>
   );
-  const cls = "inline-flex h-11 max-w-full items-center gap-1.5 rounded-full border-[1.5px] border-foreground bg-background px-4 font-display text-[0.9375rem] font-semibold tracking-[-0.01em]";
+  const cls = "inline-flex h-11 max-w-full items-center gap-1.5 rounded-full bg-secondary px-4 font-display text-[0.9375rem] font-semibold tracking-[-0.01em]";
   if (!choice) return <span className={cls}>{body}</span>;
   return (
     <>

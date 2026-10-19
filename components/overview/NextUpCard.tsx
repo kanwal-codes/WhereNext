@@ -9,6 +9,7 @@ import { KIND_META } from "@/components/overview/ReservationSheet";
 import { RemoveControl } from "@/components/overview/RemoveControl";
 import { TripArt, hashString } from "@/components/trips/TripArt";
 import { clockLabel, dayHeading, isTransit, whenLabel, type TimelineItem } from "@/lib/trip-reservations";
+import { PHONE_V2 } from "@/lib/phone-v2";
 import { cn } from "@/lib/utils";
 
 const badge = "photo-chip";
@@ -40,7 +41,7 @@ export function NextUpCard({ item, onOpenBooking, onEdit, onRemove }: { item: Ti
   const facts = factsFor(item);
 
   const inner: ReactNode = (
-    <TripArt seed={hashString(item.id)} grain className="flex min-h-[22rem] flex-col justify-between rounded-3xl border border-border/70 p-6 shadow-soft sm:min-h-[26rem] sm:p-9">
+    <TripArt seed={hashString(item.id)} grain className={cn("flex min-h-[22rem] flex-col justify-between rounded-3xl border border-border/70 p-6 shadow-soft sm:min-h-[26rem] sm:p-9", PHONE_V2 && "max-lg:min-h-[12.25rem] max-lg:rounded-[1.75rem] max-lg:p-[1.125rem]")}>
       {photo ? (
         // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
         <img src={hotelPhotoSrc(item.thumbnail!)} alt="" loading="lazy" decoding="async" onError={() => setImageFailed(true)} className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1400ms] ease-out group-hover:scale-[1.05]" />
@@ -59,10 +60,15 @@ export function NextUpCard({ item, onOpenBooking, onEdit, onRemove }: { item: Ti
         {item.fileCount > 0 && <span className={badge}>{item.fileCount} {item.fileCount === 1 ? "file" : "files"}</span>}
       </div>
 
-      <div className={cn("relative flex flex-col gap-6 pt-24", photo ? "text-white" : "text-foreground")}>
+      <div className={cn("relative flex flex-col gap-6 pt-24", PHONE_V2 && "max-lg:gap-0 max-lg:pt-10", photo ? "text-white" : "text-foreground")}>
         <div className="min-w-0 max-w-2xl">
-          <h3 className={cn("font-display text-4xl leading-[1.05] tracking-tight text-balance sm:text-6xl", photo && "[text-shadow:0_2px_24px_rgba(0,0,0,0.5)]")}>{item.title}</h3>
-          {item.subtitle && <p className={cn("mt-2 text-base", photo ? "text-white/85" : "text-muted-foreground")}>{item.subtitle}</p>}
+          <h3 className={cn("font-display text-4xl leading-[1.05] tracking-tight text-balance sm:text-6xl", PHONE_V2 && "max-lg:text-[2rem] max-lg:tracking-[-0.04em]", photo && "[text-shadow:0_2px_24px_rgba(0,0,0,0.5)]")}>{item.title}</h3>
+          {PHONE_V2 && facts.length > 0 && (
+            <p suppressHydrationWarning className={cn("mt-1 text-[0.9375rem] lg:hidden", photo ? "text-white/85" : "text-ink-soft")}>
+              {[facts[0].value, facts[0].desc, facts.find((f) => f.title === "Price")?.value].filter(Boolean).join(" · ")}
+            </p>
+          )}
+          {item.subtitle && <p className={cn("mt-2 text-base", PHONE_V2 && "max-lg:mt-0.5 max-lg:text-[0.9375rem]", photo ? "text-white/85" : "text-muted-foreground")}>{item.subtitle}</p>}
           {item.place && (
             <p className={cn("mt-1 flex items-center gap-1.5 text-sm", photo ? "text-white/75" : "text-muted-foreground")}>
               <MapPin className="h-3.5 w-3.5 shrink-0" />
@@ -74,6 +80,7 @@ export function NextUpCard({ item, onOpenBooking, onEdit, onRemove }: { item: Ti
           <div
             suppressHydrationWarning
             className={cn(
+              PHONE_V2 && "max-lg:hidden!",
               "daisy-stats w-full rounded-2xl border max-sm:grid max-sm:grid-flow-row max-sm:grid-cols-2 max-sm:[&>.daisy-stat:last-child:nth-child(odd)]:col-span-2 sm:w-fit [&_.daisy-stat-value]:leading-tight [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3",
               photo
                 ? "glass-photo [&_.daisy-stat-desc]:text-white/70 [&_.daisy-stat-title]:text-white/70 [&>.daisy-stat]:border-white/20"

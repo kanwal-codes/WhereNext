@@ -62,7 +62,7 @@ export function backTarget(pathname: string, base: string): { href: string | nul
   return undefined;
 }
 
-export const PHONE_ROUND = "grid size-11 shrink-0 place-items-center rounded-full border border-border bg-background text-foreground shadow-hairline transition-transform duration-200 ease-out active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+export const PHONE_ROUND = "grid size-11 shrink-0 place-items-center rounded-full bg-secondary text-foreground transition-transform duration-200 ease-out active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 export function PhoneHeader({ pathname, tripId, tripName, onMenu, menuDot }: { pathname: string; tripId: string; tripName: string; onMenu: () => void; menuDot?: boolean }) {
   const router = useRouter();

@@ -249,18 +249,18 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
           type="button"
           onClick={() => setBarOpen((v) => !v)}
           aria-expanded={barOpen}
-          className={cn("flex w-full items-center gap-3 px-4 py-3.5 text-left sm:hidden", PHONE_V2 && "max-lg:px-0 max-lg:pt-1 max-lg:pb-3")}
+          className={cn("flex w-full items-center gap-3 px-4 py-3.5 text-left sm:hidden", PHONE_V2 && "max-lg:mb-3 max-lg:min-h-[3.25rem] max-lg:rounded-full max-lg:border max-lg:border-hairline max-lg:bg-card max-lg:px-4 max-lg:py-2")}
         >
           <span className="min-w-0 flex-1">
             <span className="block truncate font-display text-[1.0625rem] leading-tight font-medium tracking-[-0.015em] tabular-nums">
-              {checkin && checkout ? <>{fmtDay(checkin)} <span aria-hidden className="mx-0.5 text-coral">→</span> {fmtDay(checkout)}</> : "Choose your dates"}
+              {checkin && checkout ? <>{fmtDay(checkin)} <span aria-hidden className={cn("mx-0.5 text-coral", PHONE_V2 && "max-lg:text-foreground")}>{PHONE_V2 ? "–" : "→"}</span> {fmtDay(checkout)}</> : "Choose your dates"}
             </span>
             <span className="mt-0.5 block truncate text-xs text-muted-foreground">
               {nightsLabel ? `${nightsLabel} · ` : ""}{adults} guest{adults === 1 ? "" : "s"} · {rooms} room{rooms === 1 ? "" : "s"}
             </span>
           </span>
-          <span className={cn("inline-flex h-8 items-center gap-1 rounded-full px-3.5 text-xs font-medium transition-colors", barOpen ? "bg-primary text-primary-foreground" : "border border-border bg-background text-foreground", PHONE_V2 && "max-lg:h-10 max-lg:px-4 max-lg:text-sm")}>
-            {barOpen ? "Done" : "Edit"} <ChevronDown className={cn("size-3.5 transition-transform duration-300", barOpen && "rotate-180")} aria-hidden />
+          <span className={cn("inline-flex h-8 items-center gap-1 rounded-full px-3.5 text-xs font-medium transition-colors", barOpen ? "bg-primary text-primary-foreground" : "border border-border bg-background text-foreground", PHONE_V2 && "max-lg:h-auto max-lg:border-0 max-lg:bg-transparent max-lg:px-0 max-lg:text-muted-foreground max-lg:[&>span]:hidden")}>
+            <span>{barOpen ? "Done" : "Edit"}</span> <ChevronDown className={cn("size-3.5 transition-transform duration-300", barOpen && "rotate-180", PHONE_V2 && "max-lg:size-[1.125rem]")} aria-hidden />
           </span>
         </button>
         <div className={cn("grid grid-cols-2 gap-px overflow-hidden bg-border max-sm:border-t max-sm:border-border lg:grid-cols-4", !barOpen && "max-sm:hidden", PHONE_V2 && "max-lg:mb-3 max-lg:rounded-2xl max-lg:border max-lg:border-border")}>
@@ -274,7 +274,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
           <button type="button" onClick={() => setShowFilters((v) => !v)} aria-pressed={showFilters} className="btn-chip shrink-0 max-lg:h-10 max-lg:text-sm">
             <SlidersHorizontal className="size-3.5" aria-hidden /> Filters{activeFilters ? ` · ${activeFilters}` : ""}
           </button>
-          <label className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+          <label className={cn("flex shrink-0 items-center gap-2 text-xs text-muted-foreground", PHONE_V2 && "max-lg:hidden")}>
             Sort
             <span className="relative">
               <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="h-8 max-lg:h-10 max-lg:text-sm cursor-pointer appearance-none rounded-full border border-border bg-background pr-8 pl-3.5 text-xs font-medium text-ink-soft transition-colors hover:border-ink/30 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
@@ -292,10 +292,19 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
           )}
           {status && <p role="status" className={cn("ml-auto text-xs text-muted-foreground", PHONE_V2 && "max-lg:hidden")}>{status}</p>}
         </div>
-        {PHONE_V2 && status && <p role="status" className="mt-3 text-sm text-muted-foreground lg:hidden">{status}</p>}
 
         {showFilters && facets && (
           <div className={cn("space-y-4 border-t border-border px-4 py-4", PHONE_V2 && "max-lg:mt-3 max-lg:rounded-2xl max-lg:border max-lg:bg-card")}>
+            {PHONE_V2 && (
+              <div className="lg:hidden">
+                <span className="text-sm font-medium">Sort by</span>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {([["price", "Price"], ["rating", "Guest rating"], ["stars", "Stars"]] as const).map(([key, label]) => (
+                    <button key={key} type="button" onClick={() => setSort(key)} aria-pressed={sort === key} className="btn-chip">{label}</button>
+                  ))}
+                </div>
+              </div>
+            )}
             {facets.priceMax > facets.priceMin && (
               <div>
                 <div className="flex items-center justify-between text-sm">
@@ -417,7 +426,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
         </>
       ) : (
         !loading && (
-          <EmptyState icon={BedDouble}>{status || "No stays to show yet."}</EmptyState>
+          <EmptyState icon={BedDouble} action={status.startsWith("We couldn't") ? <button type="button" onClick={() => void search()} className="btn-primary h-11 rounded-full px-6">Try again</button> : undefined}>{status || "No stays to show yet."}</EmptyState>
         )
       )}
         </SwapView>
@@ -428,7 +437,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
         variant="dock"
         tripId={tripId}
         scope="stays"
-        placeholder={`Ask — “near ${destination ? destination.split(",")[0] : "the old town"} station, under 250 a night, free cancellation”`}
+        placeholder={phone ? "Ask Roam about stays" : `Ask — “near ${destination ? destination.split(",")[0] : "the old town"} station, under 250 a night, free cancellation”`}
         onDirective={applyDirective}
       />
     </div>

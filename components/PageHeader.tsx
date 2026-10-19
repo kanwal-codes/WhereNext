@@ -48,7 +48,7 @@ export function PageHeader({
           The rail is one fixed 40px row on every page (way back left, switch centred) — the same row Roam's own
           header uses — so the title starts at the same height wherever you are and the pill never jumps. */}
       <header className={cn("border-b border-border pb-5 sm:pb-7", (quiet || short) && "max-lg:border-b-0 max-lg:pb-0", short && "max-lg:flex max-lg:flex-col")}>
-        <Reveal y={8} className={cn(short && "max-lg:order-2 max-lg:mt-4")}>
+        <Reveal y={8} className={cn(short && "max-lg:order-2", short && (back || (switcher && !phoneHideSwitcher) ? "max-lg:mt-4" : "max-lg:mt-0"))}>
           {/* On a phone a page with nothing for the rail (no way back, no switch) has no rail at all: its title sits right under the top bar. */}
           <div className={cn("grid min-h-10 items-center gap-x-3 gap-y-3 sm:grid-cols-[1fr_auto_1fr]", !back && !switcher && "max-sm:hidden", PHONE_V2 && (!switcher || phoneHideSwitcher) && "max-lg:hidden")}>
             {back ? (
@@ -63,7 +63,7 @@ export function PageHeader({
             <span className="max-sm:hidden" />
           </div>
         </Reveal>
-        <div className={cn("mt-3 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end", (!back || PHONE_V2) && (!switcher || (PHONE_V2 && phoneHideSwitcher)) && "max-sm:mt-0", short && "max-lg:order-1 max-lg:mt-0")}>
+        <div className={cn("mt-3 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end", (!back || PHONE_V2) && (!switcher || (PHONE_V2 && phoneHideSwitcher)) && "max-sm:mt-0", short && "max-lg:order-1 max-lg:mt-0 max-lg:gap-0")}>
           {short && <p aria-hidden className="font-display text-[2rem] leading-[1.1] font-medium tracking-[-0.025em] lg:hidden">{short}</p>}
           <div className={cn("min-w-0", (quiet || short) && "max-lg:sr-only")}>
             <Reveal delay={0.07} y={12}>

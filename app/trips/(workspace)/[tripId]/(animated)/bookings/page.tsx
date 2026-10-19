@@ -28,6 +28,9 @@ import type { Booking } from "@/packages/contracts/booking";
 import { useRemoveTripItem } from "@/features/bookings/application/useRemoveTripItem";
 import type { TimelineItem } from "@/lib/trip-reservations";
 import { ExpensesPanel } from "@/features/expenses/ui/ExpensesPanel";
+import { Sheet } from "@/components/motion-primitives";
+import { PHONE_V2 } from "@/lib/phone-v2";
+import { cn } from "@/lib/utils";
 
 /** Saved places that are somewhere to eat, by Google's place type ("restaurant", "cafe", "brunch_restaurant"...). */
 const FOOD_PLACE = /restaurant|cafe|coffee|bakery|bar$|^bar|food|pizza|bistro|diner|meal|steak|sushi|ramen|brunch/i;
@@ -44,6 +47,7 @@ export default function BookingsPage() {
   const [editing, setEditing] = useState<Reservation | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [tableOpen, setTableOpen] = useState(false);
+  const [checklistOpen, setChecklistOpen] = useState(false);
   useEffect(() => {
     // Until the reservations table exists (or if the request fails) the page still shows
     // bookings, the stay and the flight: an empty list, not an error.
@@ -115,6 +119,8 @@ export default function BookingsPage() {
         eyebrow="Bookings & essentials"
         title="Before you go"
         description="Every stay, ticket and reservation in one place, and the practical checklist."
+        phoneTitle="Bookings"
+        phoneLine={`${timeline.length} reserved · ${confirmed} confirmed`}
         stats={[
           { label: "Reserved", value: String(timeline.length), desc: timeline.length === 1 ? "thing on the trip" : "things on the trip" },
           { label: "Confirmed", value: String(confirmed), desc: "with a booking reference" },
@@ -124,13 +130,13 @@ export default function BookingsPage() {
 
       <div className="mx-auto max-w-6xl space-y-12 px-5 pt-6 sm:space-y-16 sm:px-8 sm:pt-8">
         <section>
-          <SectionHeading title="Your bookings" count={timeline.length} />
+          <div className={cn(PHONE_V2 && "max-lg:hidden")}><SectionHeading title="Your bookings" count={timeline.length} /></div>
           {!loading && (
-            <div className="mt-6 empty:hidden">
+            <div className="mt-6 empty:hidden max-lg:mt-3">
               <BookingNotices tripId={tripId} reservations={reservations ?? []} startDate={data?.trip?.start_date} endDate={data?.trip?.end_date} />
             </div>
           )}
-          <div className="mt-6">
+          <div className="mt-6 max-lg:mt-4">
             {loading ? (
               <div className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft">
                 <SkeletonLines lines={3} />
@@ -166,7 +172,20 @@ export default function BookingsPage() {
         </section>
 
         <div className="grid gap-x-10 gap-y-16 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-          <section className="min-w-0">
+          {PHONE_V2 && (
+            <button type="button" onClick={() => setChecklistOpen(true)} aria-haspopup="dialog" className="-mt-4 flex min-h-[4.25rem] w-full items-center gap-3.5 border-t border-hairline py-2 text-left lg:hidden">
+              <svg viewBox="0 0 48 48" className="size-12 shrink-0" aria-hidden>
+                <circle cx="24" cy="24" r="19" fill="none" className="stroke-hairline" strokeWidth="5" />
+                <circle cx="24" cy="24" r="19" fill="none" className="stroke-coral" strokeWidth="5" strokeLinecap="round" strokeDasharray={`${(119.4 * done) / ESSENTIALS_TOTAL} 119.4`} transform="rotate(-90 24 24)" />
+              </svg>
+              <span className="min-w-0 flex-1">
+                <b className="block font-display text-base font-medium leading-tight">Before you go</b>
+                <span className="text-sm text-ink-soft tabular-nums">{done} of {ESSENTIALS_TOTAL} checked off</span>
+              </span>
+              <ArrowRight className="size-[1.125rem] shrink-0 text-muted-foreground" aria-hidden />
+            </button>
+          )}
+          <section className={cn("min-w-0", PHONE_V2 && "max-lg:hidden")}>
             <SectionHeading title="Checklist" />
             <div className="mt-6">
               <EssentialsSurface tripId={tripId} initialCompleted={data?.essentials} />
@@ -206,6 +225,13 @@ export default function BookingsPage() {
           </div>
         </section>
       </div>
+
+      {PHONE_V2 && (
+        <Sheet open={checklistOpen} onClose={() => setChecklistOpen(false)} side="bottom" ariaLabel="Before you go checklist" className="rounded-t-[1.75rem] bg-background px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          <p className="pb-3 font-display text-xl font-medium tracking-[-0.02em]">Before you go</p>
+          <div className="min-h-0 flex-1 overflow-y-auto"><EssentialsSurface tripId={tripId} initialCompleted={data?.essentials} /></div>
+        </Sheet>
+      )}
 
       <TableSheet
         tripId={tripId}

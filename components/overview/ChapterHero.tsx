@@ -20,12 +20,18 @@ export function ChapterHero({
   description,
   stats = [],
   action,
+  phoneTitle,
+  phoneLine,
 }: {
   eyebrow: string;
   title: string;
   description?: string;
   stats?: ChapterStat[];
   action?: ReactNode;
+  /** Phone redesign: below lg the page opens on this one short title, with the editorial title and line kept for screen readers. */
+  phoneTitle?: string;
+  /** Phone redesign: the one quiet line under the phone title, replacing the stats line. An empty string means no line. */
+  phoneLine?: string;
 }) {
   const strip =
     stats.length > 0 ? (
@@ -41,7 +47,9 @@ export function ChapterHero({
     ) : null;
 
   // Phone redesign: the numbers are one quiet line under the title, not a bordered box before the page begins.
-  const line = PHONE_V2 && stats.length > 0 ? (
+  const line = PHONE_V2 && phoneLine !== undefined ? (
+    phoneLine ? <p suppressHydrationWarning className="mt-1 text-[0.9375rem] text-ink-soft tabular-nums lg:hidden">{phoneLine}</p> : null
+  ) : PHONE_V2 && stats.length > 0 ? (
     <p suppressHydrationWarning className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm text-muted-foreground tabular-nums lg:hidden">
       {stats.map((stat, i) => (
         <span key={stat.label} className="whitespace-nowrap">
@@ -59,6 +67,7 @@ export function ChapterHero({
         eyebrow={eyebrow}
         title={title}
         description={description}
+        phoneTitle={phoneTitle}
         action={
           strip || action ? (
             <Reveal delay={0.25}>
