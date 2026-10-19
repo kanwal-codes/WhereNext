@@ -8,7 +8,7 @@ import { BrandMark } from "@/components/BrandMark";
 import { Sheet } from "@/components/motion-primitives";
 import { DateStamp } from "@/components/shell/DateStamp";
 import { NavRow } from "@/components/shell/NavRow";
-import { NAV, PHONE_NAV_GROUPS } from "@/components/shell/trip-nav";
+import { NAV, PHONE_LABEL, PHONE_NAV_GROUPS } from "@/components/shell/trip-nav";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { daysUntilTrip } from "@/lib/trip-dates";
@@ -72,13 +72,13 @@ export function PhoneDrawer({ open, onClose, tripId, pathname, trip, unread = 0 
                 <NavRow
                   key={item.label}
                   href={href}
-                  label={item.label}
+                  label={PHONE_LABEL[seg] ?? item.label}
                   icon={item.icon}
                   active={active}
                   pillId={pillId}
                   onNavigate={onClose}
                   onPrefetch={() => router.prefetch(href)}
-                  onLocked={locked ? () => { onClose(); openGate(`open ${item.label.toLowerCase()}`); } : undefined}
+                  onLocked={locked ? () => { onClose(); openGate(`open ${(PHONE_LABEL[seg] ?? item.label).toLowerCase()}`); } : undefined}
                   badge={seg === "group" && unread > 0 ? (
                     <span className="ml-auto grid h-[1.375rem] min-w-[1.375rem] place-items-center rounded-full bg-coral-fill px-1.5 text-xs font-semibold text-white tabular-nums" aria-label={`${unread} unread`}>{unread > 9 ? "9+" : unread}</span>
                   ) : undefined}
