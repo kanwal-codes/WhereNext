@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarCheck, ChevronDown, Info, Loader2, Ticket } from "lucide-react";
+import { CalendarCheck, CalendarDays, ChevronDown, Info, Loader2, MapPin, Ticket } from "lucide-react";
+import { PHONE_V2 } from "@/lib/phone-v2";
 import type { EventDetail } from "@/packages/contracts/event";
 import { Hero } from "@/components/Hero";
 import { DetailSectionHeading } from "@/components/DetailSectionHeading";
@@ -65,11 +66,26 @@ function Section({
   );
 }
 
+/** Phone: one fact as an icon, a line and a quieter note, instead of a bordered strip of stats. */
+function PhoneFact({ icon: Icon, title, note }: { icon: typeof Ticket; title: string; note?: string }) {
+  return (
+    <li className="flex items-center gap-4 py-4">
+      <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-2xl bg-muted text-foreground"><Icon className="size-[1.125rem]" /></span>
+      <span className="min-w-0">
+        <span className="block font-display text-base leading-snug font-medium text-balance">{title}</span>
+        {note && <span className="mt-0.5 block text-sm text-muted-foreground">{note}</span>}
+      </span>
+    </li>
+  );
+}
+
 /** Adds this event to the itinerary as a timed stop — day and time both derived from the
  * event's real schedule (Ticketmaster's embedded time, or the trip's start date), not guessed. */
-function AddEventButton({ tripId, title, rawDate, showTime, latitude, longitude }: {
+function AddEventButton({ tripId, title, rawDate, showTime, latitude, longitude, block = false }: {
   tripId: string; title: string; rawDate: string | null; showTime?: string | null;
   latitude?: number | null; longitude?: number | null;
+  /** Phone dock: a full-height pill that shares the row with the tickets button. */
+  block?: boolean;
 }) {
   const data = useTripDataMaybe()?.data ?? null;
   const itinerary = (data?.itinerary ?? []) as Array<{ title?: string }>;
@@ -105,12 +121,12 @@ function AddEventButton({ tripId, title, rawDate, showTime, latitude, longitude 
   }
 
   return (
-    <Tactile lift={2} className="inline-flex">
+    <Tactile lift={2} className={cn("inline-flex", block && "flex-1")}>
       <button
         type="button"
         disabled={busy || alreadyAdded}
         onClick={() => void add()}
-        className={cn("btn-secondary inline-flex items-center gap-2", alreadyAdded && "!border-coral/35 !bg-coral-soft !text-coral-ink disabled:opacity-100")}
+        className={cn("btn-secondary inline-flex items-center gap-2", block && "h-12 w-full justify-center rounded-full", alreadyAdded && "!border-coral/35 !bg-coral-soft !text-coral-ink disabled:opacity-100")}
       >
         {busy ? <Loader2 className="size-4 animate-spin" /> : <CalendarCheck className="size-4" />}
         {alreadyAdded ? (existing?.day_index ? `On Day ${existing.day_index}` : "On your trip") : "Add to trip"}
@@ -156,7 +172,8 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
     return () => controller.abort();
   }, [tripId, seed.name, seed.url, seed.source, seed.imageUrl, seed.date, seed.venue, attempt]);
 
-  const pad = panel ? PANEL_PAD : "mx-auto max-w-3xl px-5 pb-14 sm:px-8";
+  const dock = PHONE_V2 && !panel;
+  const pad = panel ? PANEL_PAD : cn("mx-auto max-w-3xl px-5 pb-14 sm:px-8", dock && "max-lg:pb-32");
   const d = detail;
 
   if (state === "loading") {
@@ -207,7 +224,8 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
       {titleTag}
       <Hero image={image || fallbackImage} fallbackImage={fallbackImage} alt={title} plain surface={panel} className={cn(panel ? PANEL_HERO : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]")}>
         <div className={cn("absolute inset-x-0 bottom-0", pad, "pb-6")}>
-          {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className="shadow-soft" />}
+          {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className={cn("shadow-soft", PHONE_V2 && "max-lg:hidden")} />}
+          {PHONE_V2 && !panel && d?.genre && <p className="eyebrow text-ink-soft! lg:hidden">{d.genre}</p>}
           {panel ? (
             <h1 className="mt-3 font-display text-[1.7rem] leading-[1.1] [text-wrap:balance] drop-shadow-sm">{title}</h1>
           ) : (
@@ -236,6 +254,14 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
             {(dt || venueName || d?.priceRange) && (
               <Reveal>
                 <div className="space-y-3">
+                  {PHONE_V2 && (
+                    <ul className="divide-y divide-border border-b border-border lg:hidden">
+                      {dt && <PhoneFact icon={CalendarDays} title={[dt.day, dt.time].filter(Boolean).join(" · ")} note={d?.doorsTime && displayClockTime(d.doorsTime) !== dt.time ? `Doors ${displayClockTime(d.doorsTime)}` : undefined} />}
+                      {venueName && <PhoneFact icon={MapPin} title={venueName} note={[d?.venueAddress ? cityFrom(d.venueAddress) : null, d?.city].find((n) => n && n.trim().toLowerCase() !== venueName.trim().toLowerCase()) || undefined} />}
+                      {d?.priceRange && <PhoneFact icon={Ticket} title={d.priceRange} note={ticketSeller ? `Tickets via ${ticketSeller}` : "Ticket prices"} />}
+                    </ul>
+                  )}
+                  <div className={cn(PHONE_V2 && "max-lg:hidden")}>
                   <FactStrip
                     facts={[
                       dt && { label: "When", value: dt.day, note: [dt.time, d?.doorsTime && displayClockTime(d.doorsTime) !== dt.time && `doors ${displayClockTime(d.doorsTime)}`].filter(Boolean).join(" · ") || undefined },
@@ -243,7 +269,8 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                       d?.priceRange && { label: "From", value: d.priceRange },
                     ]}
                   />
-                  {d?.genre && <div className="flex"><Badge>{d.genre}</Badge></div>}
+                  </div>
+                  {d?.genre && <div className={cn("flex", PHONE_V2 && !panel && "max-lg:hidden")}><Badge>{d.genre}</Badge></div>}
                 </div>
               </Reveal>
             )}
@@ -261,7 +288,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-3">
                       {ticketUrl && (
-                        <Tactile lift={2} className="inline-flex">
+                        <Tactile lift={2} className={cn("inline-flex", dock && "max-lg:hidden")}>
                           <a
                             href={safeHref(ticketUrl)}
                             target="_blank"
@@ -307,7 +334,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                 same fix as PlaceDetailView's "Add to trip" moving up from its own former sidebar
                 spot below Photos/Reviews/Hours. */}
             <Reveal delay={0.05}>
-              <div className="flex flex-wrap items-center gap-3">
+              <div className={cn("flex flex-wrap items-center gap-3", dock && "max-lg:hidden")}>
                 <AddEventButton tripId={tripId} title={title} rawDate={rawDate} showTime={d?.showTime} latitude={d?.latitude} longitude={d?.longitude} />
                 {!panel && (
                   <Tactile lift={2} className="inline-flex">
@@ -407,6 +434,17 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                   </ul>
                 </details>
               </Reveal>
+            )}
+
+            {dock && (
+              <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-3 border-t border-border/70 bg-background/92 px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-md lg:hidden">
+                <AddEventButton block tripId={tripId} title={title} rawDate={rawDate} showTime={d?.showTime} latitude={d?.latitude} longitude={d?.longitude} />
+                {ticketUrl && (
+                  <a href={safeHref(ticketUrl)} target="_blank" rel="noreferrer noopener" className="btn-primary h-12 flex-1 justify-center rounded-full">
+                    <Ticket className="size-4" aria-hidden /> Tickets
+                  </a>
+                )}
+              </div>
             )}
 
             {cityHint && (
