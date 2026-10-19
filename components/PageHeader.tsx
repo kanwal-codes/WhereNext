@@ -7,6 +7,7 @@ import { ArrowLeft } from "lucide-react";
 import { Reveal } from "./motion-primitives";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { cn } from "@/lib/utils";
+import { PHONE_V2 } from "@/lib/phone-v2";
 
 export function PageHeader({
   eyebrow,
@@ -15,6 +16,7 @@ export function PageHeader({
   action,
   switcher,
   back,
+  phoneQuietTitle,
 }: {
   /** The section name: the browser tab title. It is not printed on the page. */
   eyebrow: string;
@@ -26,7 +28,10 @@ export function PageHeader({
   switcher?: ReactNode;
   /** A sub-page: the way back sits at the left of the rail. */
   back?: { href: string; label: string };
+  /** Phone redesign: below lg the title is for screen readers only (the page opens on its controls, not a heading). */
+  phoneQuietTitle?: boolean;
 }) {
+  const quiet = PHONE_V2 && phoneQuietTitle;
   // The section name is the browser tab title only; the page itself carries just the editorial title.
   const titleTag = useDocumentTitle(eyebrow);
   return (
@@ -35,7 +40,7 @@ export function PageHeader({
       {/* A title sequence: the rail, then the title, then the line under it, each a beat after the last.
           The rail is one fixed 40px row on every page (way back left, switch centred) — the same row Roam's own
           header uses — so the title starts at the same height wherever you are and the pill never jumps. */}
-      <header className="border-b border-border pb-5 sm:pb-7">
+      <header className={cn("border-b border-border pb-5 sm:pb-7", quiet && "max-lg:border-b-0 max-lg:pb-0")}>
         <Reveal y={8}>
           {/* On a phone a page with nothing for the rail (no way back, no switch) has no rail at all: its title sits right under the top bar. */}
           <div className={cn("grid min-h-10 items-center gap-x-3 gap-y-3 sm:grid-cols-[1fr_auto_1fr]", !back && !switcher && "max-sm:hidden")}>
@@ -52,7 +57,7 @@ export function PageHeader({
           </div>
         </Reveal>
         <div className={cn("mt-3 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end", !back && !switcher && "max-sm:mt-0")}>
-          <div className="min-w-0">
+          <div className={cn("min-w-0", quiet && "max-lg:sr-only")}>
             <Reveal delay={0.07} y={12}>
               {/* Full size from `sm` up (tablet and desktop) is unchanged — the big, tight, single-breath
                   headline the brand wants. Under it, every one of these titles wrapped to two lines at that

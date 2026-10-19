@@ -14,6 +14,8 @@ import { ActionBar } from "@/components/overview/ActionBar";
 import { OverviewHero, type HeroFact } from "@/components/overview/OverviewHero";
 import { PlanDays } from "@/components/overview/PlanDays";
 import { PlacesMosaic } from "@/components/overview/PlacesMosaic";
+import { NextStepCard } from "@/components/overview/NextStepCard";
+import { PHONE_V2 } from "@/lib/phone-v2";
 import { SectionHeading } from "@/components/overview/SectionHeading";
 import { StayFeature } from "@/components/overview/StayFeature";
 import type { TripSummary } from "@/components/trips/types";
@@ -145,9 +147,21 @@ export default function TripOverviewPage() {
         <div aria-hidden="true" className="skeleton min-h-[34rem] sm:min-h-[40rem]" />
       )}
 
+      {PHONE_V2 && (
+        <div className="px-5 pt-4 sm:px-8 lg:hidden">
+          {PHONE_V2 && (
+            <NextStepCard
+              tripId={tripId}
+              plannedDays={new Set(itinerary.map((row) => row.day_index)).size}
+              totalDays={durationDays ?? null}
+              firstOpenDay={(() => { const planned = new Set(itinerary.map((row) => row.day_index)); for (let d = 1; d <= (durationDays ?? 0); d++) if (!planned.has(d)) return d; return null; })()}
+            />
+          )}
+        </div>
+      )}
       <ActionBar tripId={tripId} name={trip?.name || destination} />
 
-      <div className="mx-auto max-w-6xl space-y-16 px-5 pt-4 sm:px-8 sm:pt-6">
+      <div className={cn("mx-auto max-w-6xl space-y-16 px-5 pt-4 sm:px-8 sm:pt-6", PHONE_V2 && "max-lg:space-y-12")}>
         <Reveal>
           <TripReviewPanel tripId={tripId} />
         </Reveal>

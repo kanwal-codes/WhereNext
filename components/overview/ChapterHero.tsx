@@ -3,6 +3,8 @@
 import type { ReactNode } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Reveal } from "@/components/motion-primitives";
+import { PHONE_V2 } from "@/lib/phone-v2";
+import { cn } from "@/lib/utils";
 
 export type ChapterStat = { label: string; value: string; desc?: string };
 
@@ -27,7 +29,7 @@ export function ChapterHero({
 }) {
   const strip =
     stats.length > 0 ? (
-      <div suppressHydrationWarning className="daisy-stats w-full rounded-2xl border border-border bg-card shadow-none sm:w-auto [&_.daisy-stat-value]:leading-tight [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:border-border [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3 max-sm:[&>.daisy-stat]:px-3">
+      <div suppressHydrationWarning className={cn(PHONE_V2 && "max-lg:hidden", "daisy-stats w-full rounded-2xl border border-border bg-card shadow-none sm:w-auto [&_.daisy-stat-value]:leading-tight [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:border-border [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3 max-sm:[&>.daisy-stat]:px-3")}>
         {stats.map((stat) => (
           <div key={stat.label} className="daisy-stat">
             <div className="daisy-stat-title text-2xs tracking-[0.1em] whitespace-normal uppercase">{stat.label}</div>
@@ -37,6 +39,19 @@ export function ChapterHero({
         ))}
       </div>
     ) : null;
+
+  // Phone redesign: the numbers are one quiet line under the title, not a bordered box before the page begins.
+  const line = PHONE_V2 && stats.length > 0 ? (
+    <p suppressHydrationWarning className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm text-muted-foreground tabular-nums lg:hidden">
+      {stats.map((stat, i) => (
+        <span key={stat.label}>
+          {i > 0 && <span aria-hidden className="mr-2 text-coral">·</span>}
+          <span className="font-display text-base font-medium text-foreground">{stat.value}</span>
+          {stat.desc && stat.label === stats[0].label ? ` ${stat.desc}` : ""} {stat.label.toLowerCase()}
+        </span>
+      ))}
+    </p>
+  ) : null;
 
   return (
     <div className="mx-auto w-full max-w-6xl px-5 pt-5 sm:px-8">
@@ -55,6 +70,7 @@ export function ChapterHero({
           ) : undefined
         }
       />
+      {line}
     </div>
   );
 }

@@ -7,6 +7,8 @@ import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion-primitives";
 import { EmptyState } from "@/components/EmptyState";
 import { readTrip } from "@/lib/client/offline-store";
+import { PHONE_V2 } from "@/lib/phone-v2";
+import { shortTripTitle } from "@/components/shell/trip-title";
 import { tripDayIndex } from "@/lib/trip-dates";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { TripWeather } from "@/components/TripWeather";
@@ -81,7 +83,7 @@ export function TodayView({ tripId }: { tripId: string }) {
       </Reveal>
       <Reveal delay={0.07} y={12}>
         <h1 className="mt-2.5 font-display text-4xl leading-[1.04] font-medium tracking-[-0.03em] text-balance sm:text-5xl">
-          {dayIndex == null ? data.trip.name : dateLine ?? "Today"}
+          {dayIndex == null ? (PHONE_V2 ? shortTripTitle(data.trip.name) : data.trip.name) : dateLine ?? "Today"}
         </h1>
       </Reveal>
 

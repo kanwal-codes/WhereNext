@@ -39,6 +39,7 @@ export default function DiscoverPage() {
     <RouteScaffold
       eyebrow="Discover"
       title="Everything to do in one place"
+      phoneQuietTitle
       tabs={<DiscoverTabs view={view} onChange={setView} savedCount={savedCount} />}
     >
       <Suspense fallback={<SkeletonBand count={6} className="mt-5" />}>
