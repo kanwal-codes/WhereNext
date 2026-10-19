@@ -90,7 +90,7 @@ function HScrollFade({ className, children }: { className?: string; children: Re
             type="button"
             aria-label="Show earlier days"
             onClick={() => page(-1)}
-            className="pointer-events-auto grid h-6 w-6 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
+            className="pointer-events-auto grid h-6 w-6 shrink-0 place-items-center rounded-full max-lg:h-10 max-lg:w-10 text-muted-foreground transition-colors hover:text-foreground"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -102,7 +102,7 @@ function HScrollFade({ className, children }: { className?: string; children: Re
             type="button"
             aria-label="Show more days"
             onClick={() => page(1)}
-            className="pointer-events-auto grid h-6 w-6 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
+            className="pointer-events-auto grid h-6 w-6 shrink-0 place-items-center rounded-full max-lg:h-10 max-lg:w-10 text-muted-foreground transition-colors hover:text-foreground"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -217,7 +217,7 @@ function MapPanel({ collapsedLabel, onInset, children }: { collapsedLabel?: stri
         aria-label={expanded ? "Collapse to see the map" : "Expand for trip details"}
         onPointerDown={(e) => dragControls.start(e)}
         onClick={() => snapTo(!expanded)}
-        className="flex shrink-0 cursor-grab touch-none justify-center pb-2 pt-3 active:cursor-grabbing"
+        className="flex shrink-0 cursor-grab touch-none justify-center pb-2 pt-3 max-lg:py-[17px] active:cursor-grabbing"
       >
         <span className="h-1.5 w-10 rounded-full bg-input" />
       </button>

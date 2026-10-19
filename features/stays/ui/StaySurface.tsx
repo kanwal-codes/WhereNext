@@ -267,7 +267,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             Sort
             <span className="relative">
-              <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="h-8 cursor-pointer appearance-none rounded-full border border-border bg-background pr-8 pl-3.5 text-xs font-medium text-ink-soft transition-colors hover:border-ink/30 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+              <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="h-8 max-lg:h-10 cursor-pointer appearance-none rounded-full border border-border bg-background pr-8 pl-3.5 text-xs font-medium text-ink-soft transition-colors hover:border-ink/30 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
                 <option value="price">Price</option>
                 <option value="rating">Guest rating</option>
                 <option value="stars">Stars</option>

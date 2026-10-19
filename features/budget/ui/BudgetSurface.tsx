@@ -146,7 +146,7 @@ export function BudgetSurface({
           value={daily}
           onChange={(e) => update(Number(e.target.value))}
           aria-label="Daily budget per person"
-          className="flex-1 accent-[var(--coral)]"
+          className="flex-1 accent-[var(--coral)] max-lg:h-10"
         />
         <input
           type="number"
@@ -155,7 +155,7 @@ export function BudgetSurface({
           min={20}
           value={daily}
           onChange={(e) => update(Number(e.target.value))}
-          className="w-20 rounded-xl border border-input bg-background px-2.5 py-1.5 text-sm tabular-nums"
+          className="w-20 rounded-xl border border-input bg-background px-2.5 py-1.5 text-sm tabular-nums max-lg:h-11 max-lg:w-24"
         />
       </div>
 
@@ -203,7 +203,7 @@ export function BudgetSurface({
             </dl>
             {committed.perPerson != null && wholeTrip ? <p className="mt-1.5 text-xs text-muted-foreground">Count that against the budget only if it is meant to cover flights and stays too.</p> : null}
             <details className="mt-2 text-xs text-muted-foreground">
-              <summary className="cursor-pointer select-none">By currency</summary>
+              <summary className="cursor-pointer select-none max-lg:py-3">By currency</summary>
               <dl className="mt-1.5 space-y-1">
                 {committed.lines.map((line) => (
                   <div key={line.currency} className="flex items-center justify-between gap-3">

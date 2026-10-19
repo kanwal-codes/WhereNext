@@ -1068,7 +1068,6 @@ function TripUpdateBlockView({ block, onFollowup }: { block: TripUpdateBlockData
       tone="sage"
       eyebrow="Trip updated"
       title={count === 1 ? (showChange(block.changes[0].field, block.changes[0].to) === "Not set" && block.changes[0].from ? `${block.changes[0].label} cleared` : `${block.changes[0].label} updated`) : `${count} changes saved`}
-      status={<WidgetPill tone="sage">{count} change{count === 1 ? "" : "s"}</WidgetPill>}
     >
       <ul aria-label="Trip changes" className="mt-3 divide-y divide-border border-t border-border">
         {block.changes.map((change, i) => {
