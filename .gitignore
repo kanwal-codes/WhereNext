@@ -39,3 +39,4 @@ pw3000.tmp.config.ts
 .github/hooks/
 .github/skills/
 phone-shots/
+.next-build-phone/

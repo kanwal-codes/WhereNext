@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useId, type ReactNode } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { cn } from "@/lib/utils";
+import { PHONE_V2 } from "@/lib/phone-v2";
 
 export type SwitchOption<K extends string> = {
   key: K;
@@ -46,6 +47,7 @@ export function SegmentedSwitch<K extends string>({
         const active = o.key === value && !o.locked;
         const cls = cn(
           "relative inline-flex h-8 items-center justify-center gap-1.5 rounded-full px-5 font-medium whitespace-nowrap transition-colors",
+          PHONE_V2 && "max-lg:h-10",
           active ? (floating ? "text-foreground" : "text-primary-foreground") : "text-muted-foreground hover:text-foreground",
         );
         const inner = (

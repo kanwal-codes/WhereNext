@@ -13,6 +13,7 @@ import React, { useState, type ReactNode } from "react";
 import { ArrowRight, ArrowUpRight, Check, Copy, Info, Map as MapIcon, Star, type LucideIcon } from "lucide-react";
 import { BlurImage } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
+import { PHONE_V2 } from "@/lib/phone-v2";
 
 export const type = {
   title: "font-display text-base font-semibold leading-snug tracking-[-0.01em]",
@@ -61,7 +62,7 @@ export function CopyButton({ text, label = "reply", tabbable = true }: { text: s
         setDone(true);
         setTimeout(() => setDone(false), 1600);
       }}
-      className={controlGhost}
+      className={cn(controlGhost, PHONE_V2 && "max-lg:size-10")}
     >
       {done ? <Check key="done" className="settle-in size-4 text-positive" aria-hidden /> : <Copy className="size-4" aria-hidden />}
     </button>
