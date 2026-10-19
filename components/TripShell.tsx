@@ -22,6 +22,11 @@ import {
   X,
 } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
+import { NavRow, RoamIcon, SIDEBAR_MOTION } from "@/components/shell/NavRow";
+import { NAV as nav } from "@/components/shell/trip-nav";
+import { PhoneDrawer } from "@/components/shell/PhoneDrawer";
+import { PhoneHeader, PhoneHeaderProvider } from "@/components/shell/PhoneHeader";
+import { PHONE_V2 } from "@/lib/phone-v2";
 import { Sheet, motionTokens } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
@@ -36,115 +41,6 @@ export type ShellTrip = {
   dates: string;
   travellers: string;
 };
-
-/** Roam's route as a nav icon: same 16px slot as the other icons, the 2:1 mark centred in it. */
-function RoamIcon({ className }: { className?: string }) {
-  return <RoamMark state="settled" size={22} className={className} />;
-}
-
-const nav = [
-  { seg: "", label: "Overview", icon: LayoutGrid, exact: true },
-  { seg: "chat", label: "Roam", icon: RoamIcon },
-  { seg: "group", label: "Group chat", icon: Users },
-  { seg: "discover", label: "Discover", icon: Compass },
-  { seg: "map", label: "Getting around", icon: Map },
-  { seg: "stay", label: "Stay", icon: BedDouble },
-  { seg: "itinerary", label: "Itinerary", icon: CalendarDays },
-  { seg: "knowledge", label: "Trip knowledge", icon: Notebook },
-  { seg: "bookings", label: "Bookings & essentials", icon: Ticket },
-] as const;
-
-/** One clock for everything that moves when the sidebar collapses (the column, labels, markers), the
- *  same 420ms ease-out as the Roam panel's column, so nothing finishes before the rest. */
-const SIDEBAR_MOTION = "duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)]";
-
-/** Icon + label row. The label stays mounted and collapses to zero width so it slides, not pops. */
-function NavRow({
-  href,
-  label,
-  icon: Icon,
-  active,
-  collapsed,
-  onNavigate,
-  onPrefetch,
-  onLocked,
-  pillId,
-}: {
-  href: string;
-  label: string;
-  icon: ComponentType<{ className?: string }>;
-  active: boolean;
-  /** Shared by every row of one list: the active highlight glides between rows instead of snapping. */
-  pillId?: string;
-  collapsed?: boolean;
-  onNavigate?: () => void;
-  onPrefetch?: () => void;
-  /** Set for a guest: the row is shown but closed, and asks for an account instead of navigating. */
-  onLocked?: () => void;
-}) {
-  // Desktop rows keep one left inset in both states, so each icon stays put (and sits centred in the
-  // 76px rail) while the label clips away; the drawer keeps its own tighter padding.
-  const padX = onNavigate ? "px-3" : "px-[1.125rem]";
-  const reduce = useReducedMotion();
-  if (onLocked) {
-    return (
-      <button
-        type="button"
-        onClick={onLocked}
-        title={collapsed ? `${label} (needs an account)` : undefined}
-        aria-label={`${label}, needs an account`}
-        className={cn(
-          "group relative flex w-full items-center rounded-xl py-2 text-left text-sm text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-          padX,
-        )}
-      >
-        <Icon className="h-4 w-4 shrink-0 opacity-60" />
-        <span className={cn("truncate transition-[max-width,margin,opacity]", SIDEBAR_MOTION, collapsed ? "ml-0 max-w-0 opacity-0" : "ml-2.5 max-w-[12rem] flex-1 opacity-100")}>{label}</span>
-      </button>
-    );
-  }
-  return (
-    <Link
-      href={href}
-      onMouseEnter={onPrefetch}
-      onClick={onNavigate}
-      title={collapsed ? label : undefined}
-      aria-current={active ? "page" : undefined}
-      className={cn(
-        "group relative flex items-center rounded-xl py-2 text-sm transition-colors",
-        active ? "text-sidebar-accent-foreground font-medium" : "text-sidebar-foreground/80 hover:text-sidebar-accent-foreground",
-        !active && "hover:bg-sidebar-accent/60",
-        padX,
-      )}
-    >
-      {active && (
-        <>
-          {/* The highlight and its coral tick are one shared element: on navigation they travel to the new row. */}
-          <motion.span
-            layoutId={pillId ? `${pillId}-pill` : undefined}
-            transition={reduce ? { duration: 0 } : motionTokens.panelSpring}
-            className="absolute inset-0 -z-10 rounded-xl bg-sidebar-accent shadow-hairline"
-          />
-          <motion.span
-            layoutId={pillId ? `${pillId}-tick` : undefined}
-            transition={reduce ? { duration: 0 } : motionTokens.panelSpring}
-            className={cn("absolute top-1/2 left-0 h-4 w-[3px] -translate-y-1/2 rounded-full bg-coral transition-opacity", SIDEBAR_MOTION, collapsed && "opacity-0")}
-          />
-        </>
-      )}
-      <Icon className={cn("h-4 w-4 shrink-0 transition-[opacity,transform] duration-200 ease-out group-hover:scale-110", active ? "opacity-100" : "opacity-70 group-hover:opacity-100")} />
-      <span
-        className={cn(
-          "truncate transition-[max-width,margin,opacity]",
-          SIDEBAR_MOTION,
-          collapsed ? "ml-0 max-w-0 opacity-0" : "ml-2.5 max-w-[12rem] opacity-100",
-        )}
-      >
-        {label}
-      </span>
-    </Link>
-  );
-}
 
 function NavList({
   tripId,
@@ -309,7 +205,7 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
     </div>
   );
 
-  return (
+  const shell = (
     <div
       // No overflow-x-hidden here — <html> already owns that (see the comment in app/layout.tsx),
       // and adding it again on `<aside>`'s own parent would re-trigger the same sticky-breaking
@@ -318,6 +214,7 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
       // the label/marker transitions inside (see SIDEBAR_MOTION), exactly like the Roam panel's column.
       // Always animated: with the panel sized from the screen and the chat text at a fixed measure (RoamShell, RAIL_MEASURE),
       // nothing inside re-wraps while the column slides, so the content simply glides.
+      data-phone-v2={PHONE_V2 ? "" : undefined}
       className={cn("min-h-screen w-full min-w-0 max-w-full lg:grid lg:transition-[grid-template-columns]", SIDEBAR_MOTION)}
       style={{ gridTemplateColumns: collapsed ? "76px minmax(0,1fr)" : "264px minmax(0,1fr)" }}
     >
@@ -385,29 +282,39 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
       </aside>
 
       {/* Mobile top bar */}
-      <div data-trip-topbar className="sticky top-0 z-30 grid h-[var(--topbar)] grid-cols-[minmax(0,1fr)] items-center gap-3 border-b border-border bg-background/95 px-4 lg:hidden">
-        <Link href={homeHref} className="flex h-full min-w-0 items-center gap-3 transition-[opacity,transform] duration-200 hover:opacity-80 active:scale-[0.98]" aria-label={trip.name}>
-          <BrandMark variant="compact" className="h-6 w-6 shrink-0 text-2xs" />
-          <h2 className="truncate font-display text-sm leading-tight">{trip.name}</h2>
-        </Link>
+      {PHONE_V2 ? (
+        <PhoneHeader pathname={pathname} tripId={tripId} tripName={trip.name} onMenu={() => setOpen(true)} />
+      ) : (
+        <div data-trip-topbar className="sticky top-0 z-30 grid h-[var(--topbar)] grid-cols-[minmax(0,1fr)] items-center gap-3 border-b border-border bg-background/95 px-4 lg:hidden">
+          <Link href={homeHref} className="flex h-full min-w-0 items-center gap-3 transition-[opacity,transform] duration-200 hover:opacity-80 active:scale-[0.98]" aria-label={trip.name}>
+            <BrandMark variant="compact" className="h-6 w-6 shrink-0 text-2xs" />
+            <h2 className="truncate font-display text-sm leading-tight">{trip.name}</h2>
+          </Link>
 
-      </div>
+        </div>
+
+      )}
 
       {/* Mobile navigation sheet */}
-      <Sheet open={open} onClose={() => setOpen(false)} side="left" ariaLabel="Trip navigation" className="max-w-[300px] bg-sidebar px-4 py-6">
-        <div className="mb-5 flex items-start gap-3">
-          <BrandMark variant="compact" className="mt-0.5 h-7 w-7 shrink-0 text-2xs" />
-          <TripIdentity trip={trip} tripId={tripId} />
-          <button onClick={() => setOpen(false)} aria-label="Close navigation" className="-mr-1 -mt-1 shrink-0 rounded-full p-1.5 text-muted-foreground hover:text-foreground active:scale-95">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-slim">
-          <NavList tripId={tripId} pathname={pathname} onNavigate={() => setOpen(false)} />
-        </div>
-        <div className="hairline my-3 shrink-0" />
-        {utility(() => setOpen(false))}
-      </Sheet>
+      {PHONE_V2 ? (
+        <PhoneDrawer open={open} onClose={() => setOpen(false)} tripId={tripId} pathname={pathname} trip={trip} />
+      ) : (
+        <Sheet open={open} onClose={() => setOpen(false)} side="left" ariaLabel="Trip navigation" className="max-w-[300px] bg-sidebar px-4 py-6">
+          <div className="mb-5 flex items-start gap-3">
+            <BrandMark variant="compact" className="mt-0.5 h-7 w-7 shrink-0 text-2xs" />
+            <TripIdentity trip={trip} tripId={tripId} />
+            <button onClick={() => setOpen(false)} aria-label="Close navigation" className="-mr-1 -mt-1 shrink-0 rounded-full p-1.5 text-muted-foreground hover:text-foreground active:scale-95">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-slim">
+            <NavList tripId={tripId} pathname={pathname} onNavigate={() => setOpen(false)} />
+          </div>
+          <div className="hairline my-3 shrink-0" />
+          {utility(() => setOpen(false))}
+        </Sheet>
+
+      )}
 
       {/* No overflow-x-hidden here — <html> already owns that (see app/layout.tsx). Per the CSS
           spec, an element with overflow-x set but not overflow-y has its overflow-y computed as
@@ -415,7 +322,8 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
           descendant (the Getting Around map, in Browse and My trip) then sticks relative to this
           box instead of the real viewport and just scrolls away with the page. */}
       <main className={cn("w-full min-w-0 max-w-full", !/\/(chat|group)$/.test(pathname) && "max-lg:pb-[var(--tabbar)]")}>{children}</main>
-      <TabBar tripId={tripId} pathname={pathname} onMore={() => setOpen(true)} />
+      {!PHONE_V2 && <TabBar tripId={tripId} pathname={pathname} onMore={() => setOpen(true)} />}
     </div>
   );
+  return PHONE_V2 ? <PhoneHeaderProvider>{shell}</PhoneHeaderProvider> : shell;
 }

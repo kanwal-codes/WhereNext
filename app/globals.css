@@ -1802,3 +1802,9 @@
 
 /* Photographs under text (widget cards, sheet heroes): a soft bottom gradient so white type is always readable. */
 .photo-scrim::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, oklch(0.16 0.012 60 / 0.18), oklch(0.16 0.012 60 / 0) 30%, oklch(0.16 0.012 60 / 0.72) 100%); }
+
+/* Phone redesign: with the tab bar gone, everything that measured itself against it (page heights, the overview
+   hero, the ask dock) lands on the home-indicator inset instead. Below `lg` only; desktop never used --tabbar. */
+@media (max-width: 63.9375rem) {
+  [data-phone-v2] { --tabbar: var(--phone-bottom); }
+}
