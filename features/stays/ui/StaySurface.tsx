@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { CityChips } from "@/components/CityChips";
 import { useTripCity } from "@/lib/client/use-trip-city";
 import { stayWindow } from "@/lib/trip-stops";
@@ -22,6 +22,9 @@ import { ShowMoreButton } from "@/components/ShowMoreButton";
 import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache";
 import { cn } from "@/lib/utils";
 import { PHONE_V2 } from "@/lib/phone-v2";
+import { CityPill } from "@/components/CityPill";
+import { useSetPhoneHeader } from "@/components/shell/PhoneHeader";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { fmtDay } from "@/lib/trip-dates";
 import { cachedGet } from "@/lib/client/cached-get";
 import { prefetchStayDetails } from "@/features/stays/application/useStayDetails";
@@ -83,6 +86,12 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   const trip = data?.trip as { id?: string; destination?: string | null; start_date?: string | null; end_date?: string | null; travelers?: number | null; stops?: unknown } | undefined;
   // A multi-city trip is searched one city at a time, for the nights spent there; a one-city trip keeps its whole stay.
   const cities = useTripCity(trip);
+  // Phone redesign: the city is the pill in the middle of the header, as on Discover.
+  const narrow = useMediaQuery("(max-width: 1023.98px)");
+  const phone = PHONE_V2 && narrow;
+  const pillCity = (cities.hasChoice ? cities.city : destination).split(",")[0].trim();
+  const headerTitle = useMemo(() => (phone && pillCity ? <CityPill stops={cities.stops} city={pillCity} onPick={cities.setCity} /> : undefined), [phone, pillCity, cities.stops, cities.setCity]);
+  useSetPhoneHeader({ titleNode: headerTitle });
   const cityWindow = cities.hasChoice && cities.stop ? stayWindow(cities.stop) : null;
   const booked = useTripStays(tripId);
 
@@ -216,7 +225,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
 
   return (
     <div className="flex min-h-[calc(100dvh-13rem)] flex-col gap-5">
-      <CityChips stops={cities.stops} current={cities.city} onPick={cities.setCity} estimated={cities.estimated} className="-mb-2" />
+      <CityChips stops={cities.stops} current={cities.city} onPick={cities.setCity} estimated={cities.estimated} className={cn("-mb-2", PHONE_V2 && "max-lg:hidden")} />
       {alreadyBooked && (
         <p role="status" className="rounded-2xl border border-leaf/30 bg-leaf/5 px-4 py-3 text-sm">
           You already have <span className="font-medium">{alreadyBooked.title}</span> booked<span className={cn(PHONE_V2 && "max-lg:hidden")}>{alreadyBooked.date ? ` (${fmtDay(alreadyBooked.date)}${alreadyBooked.endDate ? ` → ${fmtDay(alreadyBooked.endDate)}` : ""})` : ""}</span> for some of these nights.{" "}

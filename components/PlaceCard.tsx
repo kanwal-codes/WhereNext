@@ -10,6 +10,7 @@ import { CineAddress, CinePill, CineCard, CineRating, PlaceFloatingPills } from 
 import { placeGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
+import { DiscoverTile } from "@/features/places/ui/DiscoverTile";
 import { categoryLabel, isFoodPlace, photoProxyUrl, priceLabel, priceRank } from "@/lib/places-ui";
 
 const norm = (s: string) => s.trim().toLowerCase();
@@ -19,7 +20,7 @@ const norm = (s: string) => s.trim().toLowerCase();
  * never looks like two different things depending on which screen it is on. Only the container differs (a rail
  * in chat, a grid here).
  */
-export function PlaceCard({ tripId, place, why, phoneRow = false }: { tripId: string; place: Place; why?: string; /** A horizontal card on a phone (a long list), keeping Add to trip. */ phoneRow?: boolean }) {
+export function PlaceCard({ tripId, place, why, phoneRow = false, phoneTile }: { tripId: string; place: Place; why?: string; /** A horizontal card on a phone (a long list), keeping Add to trip. */ phoneRow?: boolean; /** Phone redesign: the Discover tile ("feature" is the wide one at the top). */ phoneTile?: "feature" | "grid" }) {
   const router = useRouter();
   const photo = photoProxyUrl(tripId, place.photoNames?.[0], 640);
   const category = place.category ? categoryLabel(place.category) : undefined;
@@ -42,6 +43,28 @@ export function PlaceCard({ tripId, place, why, phoneRow = false }: { tripId: st
   const comparing = Boolean(panelCtx?.compareMode);
   const selected = comparing && Boolean(panelCtx?.compareHas(place.providerId));
   const glyph = placeGlyph(place.category, place.name).icon;
+
+  if (phoneTile) {
+    const feature = phoneTile === "feature";
+    return (
+      <DiscoverTile
+        label={`Open ${place.name}`}
+        onOpen={open}
+        href={href}
+        src={photo}
+        icon={glyph}
+        title={place.name}
+        meta={[category, isFoodPlace(place.category) ? priceLabel(place.priceLevel) : null].filter(Boolean).join(" · ") || undefined}
+        rating={place.rating}
+        feature={feature}
+        pick={feature && why && why !== "Top-rated" ? "Roam’s pick" : undefined}
+        selected={selected}
+        save={feature && !comparing ? <SaveHeart tripId={tripId} place={place} /> : undefined}
+        add={!feature && !comparing ? <AddToTripControl tripId={tripId} place={place} variant="orb" size="sm" /> : undefined}
+        overlay={comparing ? <CompareMark selected={selected} /> : undefined}
+      />
+    );
+  }
 
   return (
     <CineCard

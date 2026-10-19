@@ -6,7 +6,7 @@ import { StayResultCard } from "@/features/stays/ui/StayResultCard";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Compass, X } from "lucide-react";
+import { BedDouble, Compass, Heart, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
 import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { useTripData } from "@/components/TripDataProvider";
@@ -30,6 +30,14 @@ import { Stagger, StaggerItem } from "@/components/motion-primitives";
 import { CATEGORIES, CATEGORY_BY_KEY, type DiscoverCategory } from "./discoverTaxonomy";
 import { cn } from "@/lib/utils";
 import { cachedGet } from "@/lib/client/cached-get";
+import { DiscoverTile } from "@/features/places/ui/DiscoverTile";
+import { CompareMark } from "@/features/conversation/ui/blocks/ui";
+import { formatMoney } from "@/lib/currency";
+import { CityPill } from "@/components/CityPill";
+import { PHONE_ROUND, useSetPhoneHeader } from "@/components/shell/PhoneHeader";
+import { useMediaQuery } from "@/lib/use-media-query";
+import { PHONE_V2 } from "@/lib/phone-v2";
+import Link from "next/link";
 
 
 /**
@@ -102,9 +110,15 @@ export function DiscoverySurface({
 }) {
   const { data } = useTripData();
   const panelCtx = useTripPanelMaybe();
+  const narrow = useMediaQuery("(max-width: 1023.98px)");
+  const phone = PHONE_V2 && narrow;
+  const [filtersOpen, setFiltersOpen] = useState(false);
   // A multi-city trip shows one city at a time (the one the group is in, or the one picked); a one-city trip is just its destination.
   const cities = useTripCity(data?.trip);
   const destination = cities.hasChoice ? cities.city : (data?.trip.destination?.trim() ?? "");
+  // Phone redesign: the city is the pill in the middle of the header, and Saved is the heart at its right edge (no Discover | Saved switch).
+  const cityLabel = (cities.hasChoice ? cities.city : destination).split(",")[0].trim();
+  const headerTitle = useMemo(() => (phone && cityLabel ? <CityPill stops={cities.stops} city={cityLabel} onPick={cities.setCity} /> : undefined), [phone, cityLabel, cities.stops, cities.setCity]);
   const prefs = (data?.preferences ?? {}) as Record<string, unknown>;
   const interestsKey = [...asList(prefs.interests), ...asList(prefs.likes)].join(",").toLowerCase();
   const interests = useMemo(
@@ -142,6 +156,23 @@ export function DiscoverySurface({
   useEffect(() => {
     onSavedCountChange?.(saved.length);
   }, [saved.length, onSavedCountChange]);
+
+  const headerHeart = useMemo(
+    () => phone ? (
+      <button
+        type="button"
+        onClick={() => onViewChange(view === "saved" ? "results" : "saved")}
+        aria-pressed={view === "saved"}
+        aria-label={view === "saved" ? "Back to ideas" : `Saved places${saved.length ? `, ${saved.length}` : ""}`}
+        className={cn(PHONE_ROUND, "relative", view === "saved" && "border-foreground bg-foreground text-background")}
+      >
+        <Heart className={cn("size-[1.2rem]", view === "saved" && "fill-current")} />
+        {view !== "saved" && saved.length > 0 && <span aria-hidden className="absolute top-2 right-2 size-2.5 rounded-full bg-coral ring-2 ring-background" />}
+      </button>
+    ) : undefined,
+    [phone, view, saved.length, onViewChange],
+  );
+  useSetPhoneHeader({ titleNode: headerTitle, trailing: headerHeart });
 
   // --- filter + feed state ------------------------------------------
   const [catKey, setCatKey] = useState<string | null>(null); // null = "All"
@@ -492,14 +523,94 @@ export function DiscoverySurface({
     );
   };
 
+  // ---- Phone redesign: ask field, one chip row with a filter button, a wide first result, then two to a row. ----
+  const phoneFlat = useMemo(() => {
+    const seen = new Set<string>();
+    const out: Item[] = [];
+    for (const band of bands ?? []) for (const it of band.items.slice(0, 6)) { const id = idOf(it); if (!seen.has(id)) { seen.add(id); out.push(it); } }
+    return out;
+  }, [bands]);
+  const phoneItems = view === "saved" ? savedItems : gridView ? items : phoneFlat;
+  const phoneShown = view === "saved" || gridView ? phoneItems.slice(0, gridMore.visible) : phoneItems;
+  const phoneTile = (item: Item, mode: "feature" | "grid") =>
+    item.kind === "place" ? <PlaceCard key={`p:${item.place.providerId}`} tripId={tripId} place={item.place} why={item.why ?? undefined} phoneTile={mode} />
+    : item.kind === "event" ? <EventCard key={`e:${item.event.url}|${item.event.date ?? ""}`} tripId={tripId} event={item.event} phoneTile={mode} />
+    : <StayMiniCard key={`s:${item.stay.hotelId}`} tripId={tripId} stay={item.stay} phoneTile={mode} />;
+  const askQuery = searchLabel || activeCat?.label || "";
+  const filterCount = subs.length + (panelCtx?.compareMode ? 1 : 0);
+
   // Columns follow the width of this area, not the window, so an open side panel does not squeeze the cards.
   const grid = "grid gap-4 sm:grid-cols-2 @[46rem]:grid-cols-3";
 
   return (
     <div className="@container flex min-h-[calc(100dvh-13rem)] flex-col">
-      {view === "results" && <CityChips stops={cities.stops} current={cities.city} onPick={cities.setCity} estimated={cities.estimated} className="mt-3 -mb-1" />}
+      {view === "results" && !phone && <CityChips stops={cities.stops} current={cities.city} onPick={cities.setCity} estimated={cities.estimated} className="mt-3 -mb-1" />}
+      {phone && view === "results" && (
+        <div className="flex flex-col gap-3 pt-1">
+          <AiSearchBar
+            variant="card"
+            tripId={tripId}
+            scope="discover"
+            placeholder="Ask — “rooftop bars nearby”"
+            onDirective={applyDirective}
+          />
+          <div className="flex items-center gap-2">
+            <div className="-mr-1 flex min-w-0 flex-1 items-center gap-2 overflow-x-auto overscroll-x-contain pr-6 no-scrollbar [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
+              {searchMode && searchLabel ? (
+                <button type="button" onClick={() => { setSearchMode(false); setSearchLabel(""); pickCategory(null); }} aria-label={`Clear search: ${searchLabel}`} className="btn-chip max-w-[16rem] shrink-0">
+                  <span className="truncate">{searchLabel}</span> <X className="size-3.5 shrink-0" aria-hidden />
+                </button>
+              ) : (
+                <>
+                  <button type="button" onClick={() => pickCategory(null)} aria-pressed={catKey === null} className="btn-chip shrink-0">All</button>
+                  {CATEGORIES.map((c) => {
+                    const on = catKey === c.key;
+                    return (
+                      <button key={c.key} type="button" onClick={() => pickCategory(on ? null : c.key)} aria-pressed={on} className="btn-chip shrink-0">
+                        {c.label}
+                      </button>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((v) => !v)}
+              aria-pressed={filtersOpen}
+              aria-label={filterCount ? `Filters, ${filterCount} on` : "Filters"}
+              className={cn("relative grid size-11 shrink-0 place-items-center rounded-full border border-input bg-background transition-colors", filtersOpen && "border-foreground bg-foreground text-background")}
+            >
+              <SlidersHorizontal className="size-[1.125rem]" aria-hidden />
+              {filterCount > 0 && !filtersOpen && <span aria-hidden className="absolute top-2 right-2 size-2.5 rounded-full bg-coral ring-2 ring-background" />}
+            </button>
+          </div>
+          <AnimatePresence initial={false}>
+            {filtersOpen && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} className="overflow-hidden">
+                <div className="flex flex-wrap gap-2 pb-1">
+                  {panelCtx && (
+                    <button type="button" onClick={() => { panelCtx.setCompareMode(!panelCtx.compareMode); panelCtx.compareClear(); }} aria-pressed={panelCtx.compareMode} className="btn-chip">
+                      {panelCtx.compareMode ? `Comparing · ${panelCtx.compareList.length}` : "Compare places"}
+                    </button>
+                  )}
+                  {activeCat?.subs.map((s) => (
+                    <button key={s.label} type="button" onClick={() => toggleSub(s.label)} aria-pressed={subs.includes(s.label)} className="btn-chip">{s.label}</button>
+                  ))}
+                  {!activeCat && <p className="w-full px-1 py-1 text-sm text-muted-foreground">Pick a category to narrow it down.</p>}
+                  {subs.length > 0 && <button type="button" onClick={() => setSubs([])} className="px-2 text-sm text-muted-foreground">Clear</button>}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+      {phone && view === "saved" && (
+        <h2 className="pt-2 font-display text-[1.75rem] leading-tight font-medium tracking-[-0.03em]">Saved places <span className="ml-1 text-lg text-muted-foreground tabular-nums">{saved.length}</span></h2>
+      )}
+
       {/* Tier 1 — Compare + broad categories (Discover/Saved lives in the page header now). One row, scrolls sideways. */}
-      {view === "results" && (!searchMode || panelCtx || searchLabel) && (
+      {view === "results" && !phone && (!searchMode || panelCtx || searchLabel) && (
         <div className="mt-4 flex items-center gap-2 overflow-x-auto overscroll-x-contain scrollbar-slim px-1 py-1">
             {panelCtx && (
               <button
@@ -560,7 +671,7 @@ export function DiscoverySurface({
       )}
       {/* Tier 2 — sub-types for the active category. One row, scrolls sideways. */}
       <AnimatePresence initial={false}>
-        {view === "results" && activeCat && activeCat.subs.length > 0 && (
+        {view === "results" && !phone && activeCat && activeCat.subs.length > 0 && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
@@ -595,7 +706,37 @@ export function DiscoverySurface({
       {/* Feed: each state (skeleton, grid, digest) crossfades into the next. */}
       <div className="relative">
         <SwapView id={loading && gridItems.length === 0 && (bands === null || gridView) ? "skeleton" : gridView ? "grid" : loading && !bands ? "digest-loading" : "digest"}>
-      {loading && gridItems.length === 0 && (bands === null || gridView) ? (
+      {phone && !(loading && phoneItems.length === 0) ? (
+        phoneShown.length > 0 ? (
+          <div className="mt-5 flex flex-col gap-5">
+            {phoneTile(phoneShown[0], "feature")}
+            {phoneShown.length > 1 && <div className="grid grid-cols-2 gap-x-3 gap-y-6">{phoneShown.slice(1).map((it) => phoneTile(it, "grid"))}</div>}
+            {(view === "saved" || gridView) && gridMore.remaining > 0 && <ShowMoreButton next={gridMore.next} visible={gridMore.visible} total={phoneItems.length} onClick={gridMore.showMore} noun="results" />}
+          </div>
+        ) : (
+          <div className="mt-12 flex flex-col items-center px-3 text-center">
+            <span aria-hidden className="grid size-16 place-items-center rounded-full bg-coral-soft text-coral-ink">{view === "saved" ? <Heart className="size-7" /> : <Compass className="size-7" />}</span>
+            <h2 className="mt-5 font-display text-2xl font-medium tracking-[-0.03em]">{view === "saved" ? "Nothing saved yet" : "Nothing matched that"}</h2>
+            <p className="mt-2 text-[0.9375rem] leading-relaxed text-ink-soft text-pretty">
+              {view === "saved"
+                ? "Tap the heart on a place and it lands here. Roam can suggest a few to start."
+                : destination
+                  ? `${askQuery ? `No ${askQuery.toLowerCase()}` : "Nothing"} for these dates. Try a wider area, or let Roam look.`
+                  : "Set a destination for this trip to see ideas here."}
+            </p>
+            {view !== "saved" && destination && (
+              <div className="mt-5 flex flex-wrap justify-center gap-2">
+                {CATEGORIES.slice(0, 2).map((c) => (
+                  <button key={c.key} type="button" onClick={() => pickCategory(c.key)} className="btn-chip">{c.label}</button>
+                ))}
+              </div>
+            )}
+            <Link href={`/trips/${tripId}/chat${askQuery ? `?ask=${encodeURIComponent(askQuery)}` : ""}`} className="btn-primary mt-5 h-12 rounded-full px-6">
+              <Sparkles className="size-4" aria-hidden /> {view === "saved" ? "Ask Roam for ideas" : "Ask Roam instead"}
+            </Link>
+          </div>
+        )
+      ) : loading && gridItems.length === 0 && (bands === null || gridView) ? (
         gridView ? <SkeletonList count={6} className="mt-5 @[46rem]:grid-cols-3" /> : <SkeletonBand count={6} className="mt-5" />
       ) : gridView ? (
         gridItems.length > 0 ? (
@@ -658,20 +799,20 @@ export function DiscoverySurface({
         </SwapView>
       </div>
 
-      {/* Last in the column so it can rest on the bottom edge of the page (see `.ask-dock`). */}
-      <AiSearchBar
+      {/* Last in the column so it can rest on the bottom edge of the page (see `.ask-dock`). On a phone the ask field is at the top instead. */}
+      {!phone && <AiSearchBar
         variant="dock"
         tripId={tripId}
         scope="discover"
         placeholder={destination ? `Ask — “rooftop bars near ${destination.split(",")[0].trim()}”, “kid-friendly museums”, “ramen”` : "Ask for places for this trip"}
         onDirective={applyDirective}
-      />
+      />}
     </div>
   );
 }
 
 /** A stay, as Discover shows it: the same `EntityCard` Roam uses (4-star, guest score, "£230 / night"). */
-export function StayMiniCard({ tripId, stay, phoneRow = false }: { tripId: string; stay: StayItem; phoneRow?: boolean }) {
+export function StayMiniCard({ tripId, stay, phoneRow = false, phoneTile }: { tripId: string; stay: StayItem; phoneRow?: boolean; phoneTile?: "feature" | "grid" }) {
   const router = useRouter();
   const panelCtx = useTripPanelMaybe();
   const href = `/trips/${tripId}/stay/${encodeURIComponent(stay.hotelId)}`;
@@ -683,5 +824,22 @@ export function StayMiniCard({ tripId, stay, phoneRow = false }: { tripId: strin
   };
   const comparing = Boolean(panelCtx?.compareMode);
   const selected = comparing && Boolean(panelCtx?.compareHas(stay.hotelId));
+  if (phoneTile) {
+    return (
+      <DiscoverTile
+        label={`Open ${stay.name}`}
+        onOpen={open}
+        href={href}
+        src={stay.thumbnail}
+        icon={BedDouble}
+        title={stay.name}
+        meta={stay.nightlyAmount > 0 ? `${formatMoney(stay.nightlyAmount, stay.currency)} / night` : "Stay"}
+        rating={stay.rating}
+        feature={phoneTile === "feature"}
+        selected={selected}
+        overlay={comparing ? <CompareMark selected={selected} /> : undefined}
+      />
+    );
+  }
   return <StayResultCard stay={stay} href={href} onOpen={open} comparing={comparing} selected={selected} phoneRow={phoneRow} />;
 }

@@ -40,6 +40,7 @@ export default function DiscoverPage() {
       eyebrow="Discover"
       title="Everything to do in one place"
       phoneQuietTitle
+      phoneHideSwitcher
       tabs={<DiscoverTabs view={view} onChange={setView} savedCount={savedCount} />}
     >
       <Suspense fallback={<SkeletonBand count={6} className="mt-5" />}>

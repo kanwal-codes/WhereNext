@@ -18,6 +18,7 @@ export function PageHeader({
   back,
   phoneQuietTitle,
   phoneTitle,
+  phoneHideSwitcher,
 }: {
   /** The section name: the browser tab title. It is not printed on the page. */
   eyebrow: string;
@@ -33,6 +34,8 @@ export function PageHeader({
   phoneQuietTitle?: boolean;
   /** Phone redesign: below lg the page opens on this one short word, then its switch, instead of the editorial title and line. */
   phoneTitle?: string;
+  /** Phone redesign: no switch on a phone; the page offers the other view some other way (a header button). */
+  phoneHideSwitcher?: boolean;
 }) {
   const quiet = PHONE_V2 && phoneQuietTitle;
   const short = PHONE_V2 && phoneTitle ? phoneTitle : null;
@@ -47,7 +50,7 @@ export function PageHeader({
       <header className={cn("border-b border-border pb-5 sm:pb-7", (quiet || short) && "max-lg:border-b-0 max-lg:pb-0", short && "max-lg:flex max-lg:flex-col")}>
         <Reveal y={8} className={cn(short && "max-lg:order-2 max-lg:mt-4")}>
           {/* On a phone a page with nothing for the rail (no way back, no switch) has no rail at all: its title sits right under the top bar. */}
-          <div className={cn("grid min-h-10 items-center gap-x-3 gap-y-3 sm:grid-cols-[1fr_auto_1fr]", !back && !switcher && "max-sm:hidden", PHONE_V2 && !switcher && "max-lg:hidden")}>
+          <div className={cn("grid min-h-10 items-center gap-x-3 gap-y-3 sm:grid-cols-[1fr_auto_1fr]", !back && !switcher && "max-sm:hidden", PHONE_V2 && (!switcher || phoneHideSwitcher) && "max-lg:hidden")}>
             {back ? (
               <Link href={back.href} className={cn("group inline-flex items-center gap-1.5 justify-self-start py-2.5 text-xs max-lg:py-3 max-lg:text-sm text-muted-foreground transition-colors hover:text-foreground", PHONE_V2 && "max-lg:hidden")}>
                 <ArrowLeft className="h-3.5 w-3.5 transition-transform duration-[220ms] ease-out group-hover:-translate-x-0.5" /> {back.label}
@@ -60,7 +63,7 @@ export function PageHeader({
             <span className="max-sm:hidden" />
           </div>
         </Reveal>
-        <div className={cn("mt-3 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end", (!back || PHONE_V2) && !switcher && "max-sm:mt-0", short && "max-lg:order-1 max-lg:mt-0")}>
+        <div className={cn("mt-3 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end", (!back || PHONE_V2) && (!switcher || (PHONE_V2 && phoneHideSwitcher)) && "max-sm:mt-0", short && "max-lg:order-1 max-lg:mt-0")}>
           {short && <p aria-hidden className="font-display text-[2rem] leading-[1.1] font-medium tracking-[-0.025em] lg:hidden">{short}</p>}
           <div className={cn("min-w-0", (quiet || short) && "max-lg:sr-only")}>
             <Reveal delay={0.07} y={12}>

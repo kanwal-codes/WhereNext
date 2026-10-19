@@ -6,6 +6,7 @@ import { SafeImage } from "@/components/SafeImage";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import { ArrowUpRight, CalendarDays, Ticket } from "lucide-react";
 import { CompareMark } from "@/features/conversation/ui/blocks/ui";
+import { DiscoverTile } from "@/features/places/ui/DiscoverTile";
 import { CINE_PILL_ACTION, CineCard, CineDate, CinePill } from "@/features/conversation/ui/blocks/CineCard";
 import { eventDayParts, eventDetailHref, formatEventWhen } from "@/lib/places-ui";
 import { cn, safeHref } from "@/lib/utils";
@@ -18,7 +19,7 @@ export type NearbyEvent = { title: string; url: string; date?: string; venue?: s
  * uses for a place or a stay (full photo, title, frosted pills, the action at the bottom right). Opens the
  * shared trip panel, and falls back to the detail route when there is no panel.
  */
-export function EventCard({ tripId, event, className, onSelect, compact = false, phoneRow = false, tile = false }: { tripId: string; event: NearbyEvent; className?: string; onSelect?: () => void; /** The narrow lane version: photo, title, one meta line. */ compact?: boolean; /** A horizontal card on a phone (a long list): the whole card opens. */ phoneRow?: boolean; /** A bare photo tile (photo, when, title, venue) for a short row of suggestions inside a detail view. */ tile?: boolean }) {
+export function EventCard({ tripId, event, className, onSelect, compact = false, phoneRow = false, tile = false, phoneTile }: { tripId: string; event: NearbyEvent; className?: string; onSelect?: () => void; /** The narrow lane version: photo, title, one meta line. */ compact?: boolean; /** A horizontal card on a phone (a long list): the whole card opens. */ phoneRow?: boolean; /** A bare photo tile (photo, when, title, venue) for a short row of suggestions inside a detail view. */ tile?: boolean; /** Phone redesign: the Discover tile. */ phoneTile?: "feature" | "grid" }) {
   const router = useRouter();
   const href = eventDetailHref(tripId, event);
   const seller = ticketSellerLabel(event.source, event.url);
@@ -32,6 +33,28 @@ export function EventCard({ tripId, event, className, onSelect, compact = false,
   };
   const comparing = Boolean(panelCtx?.compareMode);
   const selected = comparing && Boolean(panelCtx?.compareHas(event.url));
+  if (phoneTile) {
+    const whenLine = formatEventWhen(event.date);
+    return (
+      <DiscoverTile
+        label={`Open ${event.title}`}
+        onOpen={open}
+        href={href}
+        src={event.imageUrl}
+        icon={CalendarDays}
+        title={event.title}
+        meta={[whenLine, event.venue].filter(Boolean).join(" · ") || "Date to be announced"}
+        feature={phoneTile === "feature"}
+        selected={selected}
+        add={!comparing && phoneTile === "grid" ? (
+          <a href={safeHref(event.url)} target="_blank" rel="noreferrer noopener" aria-label={`Tickets: ${event.title}`} className="grid size-11 place-items-center rounded-full bg-white/94 text-[#2a2623] shadow-soft transition-transform active:scale-95">
+            <Ticket className="size-[1.125rem]" aria-hidden />
+          </a>
+        ) : undefined}
+        overlay={comparing ? <CompareMark selected={selected} /> : undefined}
+      />
+    );
+  }
   if (tile) {
     return (
       <button type="button" onClick={open} aria-label={`Open ${event.title}`} className={cn("group block w-full text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring", className)}>

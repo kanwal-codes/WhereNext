@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlignLeft, ArrowLeft } from "lucide-react";
@@ -14,13 +14,15 @@ import { shortTripTitle } from "@/components/shell/trip-title";
  */
 export type PhoneHeaderOverride = {
   title?: string;
+  /** Replaces the title with something to press (Discover's city picker). Keep it memoised. */
+  titleNode?: ReactNode;
   /** What sits at the right edge: a round button or a pill. Keep it to one thing. */
   trailing?: ReactNode;
   /** `overlay`: no background, for a page that opens on a photograph (the overview hero). */
   variant?: "solid" | "overlay";
 };
 
-type Ctx = { override: PhoneHeaderOverride; set: (o: PhoneHeaderOverride) => void };
+type Ctx = { override: PhoneHeaderOverride; set: Dispatch<SetStateAction<PhoneHeaderOverride>> };
 const PhoneHeaderContext = createContext<Ctx | null>(null);
 
 export function PhoneHeaderProvider({ children }: { children: ReactNode }) {
@@ -33,11 +35,22 @@ export function PhoneHeaderProvider({ children }: { children: ReactNode }) {
 export function useSetPhoneHeader(next: PhoneHeaderOverride) {
   const ctx = useContext(PhoneHeaderContext);
   const set = ctx?.set;
-  const { title, trailing, variant } = next;
+  const { title, titleNode, trailing, variant } = next;
+  // Several parts of a page can each set their own piece (the page sets the right-hand button, its surface sets the title):
+  // a call only touches the fields it gives, and takes only those back when it goes.
   useEffect(() => {
-    set?.({ title, trailing, variant });
-    return () => set?.({});
-  }, [set, title, trailing, variant]);
+    const mine: PhoneHeaderOverride = {};
+    if (title !== undefined) mine.title = title;
+    if (titleNode !== undefined) mine.titleNode = titleNode;
+    if (trailing !== undefined) mine.trailing = trailing;
+    if (variant !== undefined) mine.variant = variant;
+    set?.((prev) => ({ ...prev, ...mine }));
+    return () => set?.((prev) => {
+      const next = { ...prev };
+      for (const key of Object.keys(mine) as Array<keyof PhoneHeaderOverride>) delete next[key];
+      return next;
+    });
+  }, [set, title, titleNode, trailing, variant]);
 }
 
 /** Where "back" goes from a nested page. `null` means the browser's own history (the page was reached from several places). */
@@ -79,7 +92,11 @@ export function PhoneHeader({ pathname, tripId, tripName, onMenu, menuDot }: { p
         </button>
       )}
       {/* A <p>, not a heading: every page already has its own h1, and a second one would be read out first on every screen. */}
-      <p className="min-w-0 flex-1 truncate text-center font-display text-base font-semibold tracking-[-0.01em]">{title}</p>
+      {override.titleNode ? (
+        <div className="flex min-w-0 flex-1 justify-center">{override.titleNode}</div>
+      ) : (
+        <p className="min-w-0 flex-1 truncate text-center font-display text-base font-semibold tracking-[-0.01em]">{title}</p>
+      )}
       <div className="flex min-w-11 shrink-0 justify-end">{override.trailing}</div>
     </header>
   );

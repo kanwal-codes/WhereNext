@@ -5,7 +5,9 @@ import { CATEGORY_HEX } from "@/lib/map-colors";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { animate as animateValue, motion, useDragControls, useMotionValue, useReducedMotion } from "motion/react";
-import { Car, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
+import { Car, ChevronLeft, ChevronRight, MapPin, Route as RouteIcon, Search } from "lucide-react";
+import { PHONE_V2 } from "@/lib/phone-v2";
+import { PHONE_ROUND, useSetPhoneHeader } from "@/components/shell/PhoneHeader";
 import { useTripData } from "@/components/TripDataProvider";
 import { coarseKind } from "@/features/places/ui/discoverTaxonomy";
 import { readStayDecision } from "@/packages/contracts/stay";
@@ -265,6 +267,19 @@ export function GettingAroundTabs({ tab, onChange, floating = false }: { tab: "t
 
 /** The whole screen is the map: a quiet shade at the top, a vignette at the edges, and the controls float over it. */
 function MapStage({ tab, onTab, children }: { tab: "trip" | "browse"; onTab: (t: "trip" | "browse") => void; children: ReactNode }) {
+  // Phone redesign: no Browse | My trip switch floating on the map. One round button at the right of the header goes to the other view.
+  const narrow = useMediaQuery("(max-width: 1023.98px)");
+  const phone = PHONE_V2 && narrow;
+  const headerSwitch = useMemo(() => {
+    if (!phone) return undefined;
+    const toBrowse = tab === "trip";
+    return (
+      <button type="button" onClick={() => onTab(toBrowse ? "browse" : "trip")} aria-label={toBrowse ? "Browse the map" : "Back to my trip"} className={PHONE_ROUND}>
+        {toBrowse ? <Search className="size-[1.2rem]" /> : <RouteIcon className="size-[1.2rem]" />}
+      </button>
+    );
+  }, [phone, tab, onTab]);
+  useSetPhoneHeader({ trailing: headerSwitch });
   return (
     <section aria-label="Getting around" className="relative isolate h-[calc(100dvh-var(--topbar)-var(--tabbar))] min-h-[520px] w-full overflow-hidden bg-surface lg:h-[100dvh]">
       <h1 className="sr-only">Getting around</h1>
@@ -273,7 +288,7 @@ function MapStage({ tab, onTab, children }: { tab: "trip" | "browse"; onTab: (t:
       <div aria-hidden className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(70%_55%_at_94%_0%,oklch(0.64_0.175_36/0.08),transparent)]" />
       <div aria-hidden className="grain pointer-events-none absolute inset-0 z-[1]" />
       <div aria-hidden className="scrim-t pointer-events-none absolute inset-x-0 top-0 z-[1] h-28 [--scrim:0.14]" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center p-4">
+      <div className={cn("pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center p-4", PHONE_V2 && "max-lg:hidden")}>
         <div className="pointer-events-auto">
           <GettingAroundTabs tab={tab} onChange={onTab} floating />
         </div>
