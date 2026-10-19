@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowDown, ChevronRight, Copy, Info } from "lucide-react";
 import { MicButton, SendButton } from "@/components/ComposerButtons";
@@ -272,7 +272,13 @@ function withoutChips(blocks: AssistantBlock[] | undefined) {
   return kept;
 }
 
-export function ConversationSurface({
+/**
+ * Memoized: the Roam shell re-renders on every tab switch (and every panel open), and rebuilding a
+ * long thread of cards, maps and tables for a change that touches neither cost ~180 ms of blocked
+ * main thread on a mid-range phone. Every prop the shell passes is stable there, so this simply
+ * does not re-render unless its own state does.
+ */
+export const ConversationSurface = React.memo(function ConversationSurface({
   tripId,
   onSurfaceSelect,
   onOpenPlace,
@@ -1161,4 +1167,4 @@ export function ConversationSurface({
       </div>
     </div>
   );
-}
+});

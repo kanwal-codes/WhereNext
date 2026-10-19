@@ -1,7 +1,7 @@
 "use client";
 
 import { RAIL_MEASURE } from "@/features/conversation/ui/ConversationSurface";
-import { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import React, { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
@@ -39,6 +39,8 @@ const LONG_PRESS_MS = 450;
 /** Messages laid out when the chat opens, and revealed per press of "Show earlier messages" — the page
  *  the server sends (GROUP_HISTORY_LIMIT) is larger, so the first press costs no request at all. */
 const VISIBLE_MESSAGES = 20;
+/** How often an open chat re-reads the log as a safety net, and how stale it may be before a tab switch re-reads it. */
+const POLL_MS = 30_000;
 // Within this distance of the bottom you are "reading the latest", so a new message follows you down.
 const NEAR_BOTTOM_PX = 160;
 
@@ -86,7 +88,8 @@ async function postJson<T>(url: string, body: unknown, timeoutMs?: number): Prom
   }
 }
 
-export function GroupChatSurface({
+/** Memoized for the same reason as `ConversationSurface`: a tab switch must not rebuild the whole log. */
+export const GroupChatSurface = React.memo(function GroupChatSurface({
   tripId,
   onLogScroll,
   rail = false,
@@ -203,6 +206,8 @@ export function GroupChatSurface({
   // upsert-toggle (ponytail: revisit with a stored procedure if that's ever actually seen).
   const pendingReactionsRef = useRef<Set<string>>(new Set());
   const refreshIdRef = useRef(0);
+  /** When the log last came back from the server, so returning to this tab doesn't re-read it for nothing. */
+  const refreshedAtRef = useRef(0);
   const bubbleRefs = useRef<Map<string, HTMLElement>>(new Map());
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Which Roam replies have already been considered for the auto-continue prefill below —
@@ -245,12 +250,16 @@ export function GroupChatSurface({
       if (mine === refreshIdRef.current) setLoadFailed(true);
       return undefined;
     } finally {
-      if (mine === refreshIdRef.current) setLoaded(true);
+      if (mine === refreshIdRef.current) { refreshedAtRef.current = Date.now(); setLoaded(true); }
     }
   }, [tripId]);
 
   useEffect(() => {
-    if (active) void refresh();
+    if (!active) return;
+    // Switching back to a tab that was read moments ago costs nothing: a message that arrived meanwhile
+    // came in over realtime, and the poll below covers a socket that died. Only a stale log is re-read.
+    if (Date.now() - refreshedAtRef.current < POLL_MS) return;
+    void refresh();
   }, [active, tripId, refresh]);
 
   // Only a real group-chat change (a message, a reaction) should pay for this refetch — the
@@ -268,7 +277,7 @@ export function GroupChatSurface({
     if (!active) return;
     const id = setInterval(() => {
       if (document.visibilityState === "visible") void refresh();
-    }, 30_000);
+    }, POLL_MS);
     return () => clearInterval(id);
   }, [active, refresh]);
 
@@ -1421,4 +1430,4 @@ export function GroupChatSurface({
       </div>
     </div>
   );
-}
+});

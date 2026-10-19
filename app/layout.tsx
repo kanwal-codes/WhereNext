@@ -28,6 +28,11 @@ export const metadata: Metadata = {
   description: "A calm travel workspace: talk through your trip, then explore, compare and build the itinerary in one place.",
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: "Where next?", statusBarStyle: "default" },
+  // Next only emits the modern unprefixed `mobile-web-app-capable` for `appleWebApp.capable` (Safari
+  // 16.4+ / iOS 16.4+). An iPhone on an older iOS only launches a home-screen-added site full-screen
+  // (no address bar, no bottom toolbar — the whole reason "feels like an app" vs "feels like a website")
+  // if the legacy apple-prefixed tag is present too. Costs nothing on anything that ignores it.
+  other: { "apple-mobile-web-app-capable": "yes" },
 };
 
 export const viewport: Viewport = {

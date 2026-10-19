@@ -1,7 +1,7 @@
 "use client";
 
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { PanelRight, PanelRightClose, PanelRightOpen, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
@@ -73,7 +73,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   const keyboardOpen = useKeyboardFit(!desktop);
   const [scrolledAway, setScrolledAway] = useState(false);
   const scrollTrack = useRef(new WeakMap<Element, { top: number; run: number }>());
-  const onLogScroll = (e: React.UIEvent<HTMLDivElement>) => {
+  const onLogScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
     const top = el.scrollTop;
     const max = el.scrollHeight - el.clientHeight;
@@ -86,7 +86,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
     if (top < 32) setScrolledAway(false);
     else if (t.run > 28) setScrolledAway(true);
     else if (t.run < -14) setScrolledAway(false);
-  };
+  }, []);
   useEffect(() => setScrolledAway(false), [optimisticTab]);
   const chromeHidden = !desktop && (keyboardOpen || scrolledAway);
   // Both panes stay mounted so switching tabs is instant, but the one you are not on does not need to be built
@@ -138,18 +138,21 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
     lastLayoutMode.current = layoutMode;
   });
 
-  function openPlace(place: PlaceCard) {
+  // Stable for the life of the shell. Both chat surfaces are memoized, and a tab switch re-renders this
+  // shell: handed new function identities they would both re-render in full — two long message logs,
+  // every card in them — for a change that only moves a pill and crossfades two layers.
+  const openPlace = useCallback((place: PlaceCard) => {
     openPanel({ kind: "place", placeId: place.providerId, name: place.name });
-  }
-  function openStay(stay: StayCardItem, dates: { checkin: string; checkout: string; adults?: number }, ask: (prompt: string) => void) {
+  }, [openPanel]);
+  const openStay = useCallback((stay: StayCardItem, dates: { checkin: string; checkout: string; adults?: number }, ask: (prompt: string) => void) => {
     openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name, checkin: dates.checkin, checkout: dates.checkout, adults: dates.adults, onAsk: ask });
-  }
-  function openEvent(seed: EventSeed) {
+  }, [openPanel]);
+  const openEvent = useCallback((seed: EventSeed) => {
     openPanel({ kind: "event", seed });
-  }
-  function openCollection(title: string, block: AssistantBlock) {
+  }, [openPanel]);
+  const openCollection = useCallback((title: string, block: AssistantBlock) => {
     openPanel({ kind: "collection", title, block });
-  }
+  }, [openPanel]);
 
   const contextRail = (
     <TripContextSurface

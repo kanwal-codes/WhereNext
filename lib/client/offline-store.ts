@@ -25,26 +25,19 @@ function db(): Promise<IDBPDatabase> {
   return dbPromise;
 }
 
-/** Mirror the workspace the page already holds (no second download of it), and warm the imagery cache. Safe to call opportunistically. */
+/**
+ * Mirror the workspace the page already holds (no second download of it). Safe to call opportunistically.
+ *
+ * It used to warm an imagery cache too — the static map and one full-size photo per saved place — "for the
+ * Today view". The Today view renders no images at all, and those photos were fetched at the proxy's default
+ * width, which is not a width any card asks for, so nothing on screen could reuse them either: a few hundred
+ * KB per saved place, downloaded in the background, for nothing. A picture is cached when it is shown.
+ */
 export async function primeTrip(tripId: string, data: TripWorkspaceData): Promise<void> {
   if (!tripId || tripId === "rebuild-preview") return;
   try {
     const store = (await db()).transaction(STORE, "readwrite").objectStore(STORE);
     await store.put({ tripId, data, savedAt: Date.now() } satisfies StoredTrip);
-
-    // Best-effort: cache the static map + place photos the Today view will show.
-    if (typeof caches !== "undefined") {
-      const cache = await caches.open("trip-imagery");
-      const urls = new Set<string>([`/api/trips/${tripId}/map/static`]);
-      for (const row of (data.savedPlaces ?? []) as Array<{ places?: { metadata?: { photoNames?: string[] } } }>) {
-        const photo = row.places?.metadata?.photoNames?.[0];
-        if (photo) urls.add(`/api/trips/${tripId}/places/google/photo?name=${encodeURIComponent(photo)}`);
-      }
-      // cache.add always goes to the network; a place photo's name never changes, and the static map is requested with no
-      // markers (the same image every time), so only fetch what is not mirrored yet.
-      const fresh = await Promise.all([...urls].map(async (u) => ((await cache.match(u)) ? null : u)));
-      await Promise.allSettled(fresh.filter((u): u is string => u !== null).map((u) => cache.add(u)));
-    }
   } catch {
     // offline or storage unavailable — nothing to mirror
   }
