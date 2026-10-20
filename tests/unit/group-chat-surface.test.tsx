@@ -15,7 +15,13 @@ const FRIEND = "u-friend";
 
 const toast = vi.fn();
 vi.mock("@/lib/application/toast", () => ({ notifyToast: (...a: unknown[]) => toast(...a) }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), push: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
+const replaceSpy = vi.fn();
+let searchParams = new URLSearchParams();
+let phoneV2 = false;
+const markRead = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: replaceSpy, push: vi.fn() }), useSearchParams: () => searchParams }));
+vi.mock("@/lib/phone-v2", () => ({ get PHONE_V2() { return phoneV2; } }));
+vi.mock("@/lib/client/use-group-unread", () => ({ markGroupRead: (...a: unknown[]) => markRead(...a) }));
 vi.mock("@/components/TripDataProvider", () => ({ useTripData: () => ({ me: { userId: ME }, data: { trip: { name: "Lisbon" } } }) }));
 vi.mock("@/components/TripPanelProvider", () => ({ useTripPanel: () => ({ openPanel: vi.fn() }) }));
 vi.mock("@/lib/client/trip-realtime", () => ({ useChatLive: () => true }));
@@ -25,7 +31,7 @@ vi.mock("@/lib/client/use-trip-members", () => ({
 }));
 vi.mock("@/features/conversation/ui/ConversationSurface", () => ({ RAIL_MEASURE: "max-w-2xl" }));
 vi.mock("@/features/conversation/ui/AssistantMessage", () => ({ AssistantMessage: ({ content }: { content: string }) => <div>{content}</div> }));
-vi.mock("@/features/conversation/ui/blocks/MessageBlocks", () => ({ MessageBlocks: () => null }));
+vi.mock("@/features/conversation/ui/blocks/MessageBlocks", () => ({ MessageBlocks: ({ blocks }: { blocks: Array<{ type: string }> }) => <div data-testid="blocks">{blocks.map((b) => b.type).join(",")}</div> }));
 vi.mock("../../features/group-chat/ui/GroupInviteCard", () => ({ GroupInviteCard: () => <div>INVITE CARD</div> }));
 
 import { GroupChatSurface } from "../../features/group-chat/ui/GroupChatSurface";
@@ -34,7 +40,7 @@ const at = (n: number) => new Date(Date.UTC(2026, 9, 10, 10, n)).toISOString();
 const msg = (id: string, over: Partial<GroupMessage> = {}): GroupMessage => ({ id, userId: FRIEND, role: "user", kind: "text", content: `text ${id}`, metadata: {}, created_at: at(0), reactions: [], ...over });
 
 type Call = { method: string; url: string; body?: Record<string, unknown> };
-type Handler = (call: Call) => { status?: number; json?: unknown } | Promise<{ status?: number; json?: unknown }> | undefined;
+type Handler = (call: Call) => { status?: number; json?: unknown } | undefined | Promise<{ status?: number; json?: unknown } | undefined>;
 
 let calls: Call[];
 let handlers: Handler[];
@@ -68,6 +74,7 @@ const box = () => screen.getByLabelText("Message the group") as HTMLTextAreaElem
 beforeEach(() => {
   sessionStorage.clear();
   toast.mockClear();
+  replaceSpy.mockClear(); markRead.mockClear(); searchParams = new URLSearchParams(); phoneV2 = false;
   history = [msg("1", { userId: FRIEND, content: "Who is up for tapas?", created_at: at(0) }), msg("2", { userId: ME, content: "Me!", created_at: at(1) })];
   handlers = [];
   installFetch();
@@ -216,6 +223,19 @@ describe("GroupChatSurface: reacting and voting", () => {
     expect(posts("/group-chat/1/reactions")[0].body).toEqual({ emoji: "👍" });
   });
 
+  it("sends one request for a double tap on the same reaction", async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((r) => { release = r; });
+    handlers.push(async (c) => { if (c.url.endsWith("/reactions")) { await gate; return { json: {} }; } return undefined; });
+    history = [msg("1", { reactions: [{ emoji: "🎉", count: 1, mine: false }] })];
+    const { user } = await open();
+    const chip = screen.getByRole("button", { name: "🎉 1" });
+    await user.click(chip);
+    await user.click(screen.getByRole("button", { name: /🎉 2, you reacted/ }));
+    release();
+    await waitFor(() => expect(posts("/group-chat/1/reactions")).toHaveLength(1));
+  });
+
   it("takes a reaction back when you tap your own chip", async () => {
     history = [msg("1", { reactions: [{ emoji: "🎉", count: 1, mine: true }] })];
     const { user } = await open();
@@ -234,6 +254,30 @@ describe("GroupChatSurface: reacting and voting", () => {
     await waitFor(() => expect(screen.getByText("1 · 100%")).toBeTruthy());
     expect(screen.getByText("0 · 0%")).toBeTruthy();
     expect(posts("/polls/poll-1/vote")[0].body).toEqual({ optionKey: "b" });
+  });
+
+  it("ignores a second tap on a poll while the first vote is still being saved", async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((r) => { release = r; });
+    handlers.push(async (c) => { if (c.url.endsWith("/vote")) { await gate; return { json: {} }; } return undefined; });
+    history = [poll()];
+    const { user } = await open();
+    await user.click(screen.getByRole("button", { name: /Baixa/ }));
+    await user.click(screen.getByRole("button", { name: /Alfama/ }));
+    release();
+    await waitFor(() => expect(posts("/polls/poll-1/vote")).toHaveLength(1));
+  });
+
+  it("tells you when a poll could not be started", async () => {
+    handlers.push((c) => (c.method === "POST" && c.url.endsWith("/polls") ? { status: 500 } : undefined));
+    const { user } = await open();
+    await user.click(screen.getByRole("button", { name: "Add to the chat" }));
+    await user.click(await screen.findByRole("menuitem", { name: /Poll/ }));
+    fireEvent.change(await screen.findByLabelText("Poll question"), { target: { value: "Where to stay?" } });
+    fireEvent.change(screen.getByLabelText("Poll option 1"), { target: { value: "Alfama" } });
+    fireEvent.change(screen.getByLabelText("Poll option 2"), { target: { value: "Baixa" } });
+    await user.click(screen.getByRole("button", { name: "Start poll" }));
+    await waitFor(() => expect(toast).toHaveBeenCalledWith("Couldn’t start that poll.", "error"));
   });
 
   it("puts the vote back to what the server says, and tells you, when it does not save", async () => {
@@ -414,5 +458,216 @@ describe("GroupChatSurface: connection", () => {
   it("shows nothing about Roam typing until an @Roam ask is waiting for a reply", async () => {
     await open();
     expect(screen.queryByText("Roam is typing")).toBeNull();
+  });
+});
+
+
+describe("GroupChatSurface: threads, notices and the day", () => {
+  it("quotes the message a reply answers, and jumps to it when the quote is tapped", async () => {
+    history = [msg("1", { content: "Who is up for tapas?" }), msg("3", { userId: null, role: "assistant", content: "Try Taberna.", metadata: { replyToMessageId: "1" } })];
+    const { user } = await open();
+    const quote = screen.getByRole("button", { name: /Priya.*Who is up for tapas\?/ });
+    await user.click(quote);
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({ block: "center", behavior: "smooth" });
+    await waitFor(() => expect(document.querySelectorAll("[class*='duration-700']")[0]?.className).toContain("bg-coral-soft/60"));
+  });
+
+  it("shows a system line as a quiet pill", async () => {
+    history = [msg("1", { kind: "system", userId: null, content: "Priya joined the trip" })];
+    await open();
+    const line = screen.getByText("Priya joined the trip");
+    expect(line.tagName).toBe("P");
+    expect(line.className).toContain("rounded-full");
+    expect(screen.queryByText("Priya", { selector: "span" })).toBeNull(); // no sender name or bubble around it
+  });
+
+  it("keeps Roam's follow-up chips for its latest message only", async () => {
+    const blocks = [{ type: "place_list", places: [] }, { type: "actions", items: [] }, { type: "clarifying_question", question: "?", chips: [] }];
+    history = [
+      msg("3", { userId: null, role: "assistant", content: "Older answer", metadata: { blocks } }),
+      msg("4", { userId: FRIEND, content: "thanks" }),
+      msg("5", { userId: null, role: "assistant", content: "Latest answer", metadata: { blocks } }),
+    ];
+    await open();
+    expect(screen.getAllByTestId("blocks").map((b) => b.textContent)).toEqual(["place_list", "place_list,actions,clarifying_question"]);
+  });
+
+  it("stops highlighting a message after a moment", async () => {
+    history = [msg("1", { content: "Who is up for tapas?" }), msg("3", { userId: null, role: "assistant", content: "Try Taberna.", metadata: { replyToMessageId: "1" } })];
+    const { user } = await open();
+    await user.click(screen.getByRole("button", { name: /Priya.*Who is up for tapas\?/ }));
+    await waitFor(() => expect(document.querySelectorAll("[class*='duration-700']")[0]?.className).toContain("bg-coral-soft/60"));
+    await waitFor(() => expect(document.querySelectorAll("[class*='duration-700']")[0]?.className).not.toContain("bg-coral-soft/60"), { timeout: 3000 });
+  });
+
+  it("puts a date between messages from different days", async () => {
+    history = [msg("1", { created_at: new Date(Date.UTC(2026, 9, 10, 10, 0)).toISOString() }), msg("2", { created_at: new Date(Date.UTC(2026, 9, 12, 10, 0)).toISOString() })];
+    await open();
+    expect(document.querySelectorAll("span.uppercase")).toHaveLength(2);
+  });
+
+  it("says Roam answered from the trip details only, and lets whoever asked try again", async () => {
+    history = [msg("2", { userId: ME, content: "@Roam where to eat?" }), msg("3", { userId: null, role: "assistant", content: "Somewhere.", metadata: { replyToMessageId: "2", degraded: true } })];
+    const { user } = await open();
+    expect(screen.getByText(/Answered from the trip details only/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(posts("/group-chat/roam")).toHaveLength(1));
+    expect(posts("/group-chat/roam")[0].body).toMatchObject({ messageId: "2" });
+  });
+
+  it("does not offer the retry to someone who did not ask", async () => {
+    history = [msg("2", { userId: FRIEND, content: "@Roam where to eat?" }), msg("3", { userId: null, role: "assistant", content: "Somewhere.", metadata: { replyToMessageId: "2", degraded: true } })];
+    await open();
+    expect(screen.getByText(/Answered from the trip details only/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+  });
+
+  it("says nothing of joining when nobody has just joined", async () => {
+    await open();
+    expect(toast).not.toHaveBeenCalled();
+    expect(replaceSpy).not.toHaveBeenCalled();
+  });
+
+  it("holds a new message from a friend behind a pill when reading higher up, and brings it on tap", async () => {
+    const { user } = await open();
+    const log = screen.getByRole("log");
+    Object.defineProperty(log, "scrollHeight", { value: 3000, configurable: true });
+    Object.defineProperty(log, "clientHeight", { value: 500, configurable: true });
+    Object.defineProperty(log, "scrollTop", { value: 100, configurable: true });
+    fireEvent.scroll(log);
+    history = [...history, msg("3", { content: "New from Priya", created_at: at(9) })];
+    const { announceWorkspaceChange } = await import("../../lib/application/workspace-events");
+    await act(async () => { announceWorkspaceChange("groupChat"); });
+    await screen.findByText("New from Priya");
+    const pill = await screen.findByRole("button", { name: /New messages/ });
+    (Element.prototype.scrollTo as ReturnType<typeof vi.fn>).mockClear();
+    await user.click(pill);
+    expect(Element.prototype.scrollTo).toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /New messages/ })).toBeNull();
+  });
+
+  it("welcomes someone who has just joined, once, and clears the flag", async () => {
+    searchParams = new URLSearchParams("joined=1");
+    await open();
+    expect(toast).toHaveBeenCalledWith("You're in — welcome to Lisbon!", "success");
+    expect(replaceSpy).toHaveBeenCalledWith(`/trips/${TRIP}/group`, { scroll: false });
+  });
+
+  it("offers a way back to the latest message when scrolled far from it", async () => {
+    const { user } = await open();
+    const log = screen.getByRole("log");
+    Object.defineProperty(log, "scrollHeight", { value: 3000, configurable: true });
+    Object.defineProperty(log, "clientHeight", { value: 500, configurable: true });
+    Object.defineProperty(log, "scrollTop", { value: 0, configurable: true });
+    fireEvent.scroll(log);
+    const jump = await screen.findByRole("button", { name: "Jump to latest message" });
+    await user.click(jump);
+    expect(Element.prototype.scrollTo).toHaveBeenCalled();
+  });
+
+  it("passes the log's scroll on to its parent", async () => {
+    const onLogScroll = vi.fn();
+    await open({ onLogScroll });
+    fireEvent.scroll(screen.getByRole("log"));
+    expect(onLogScroll).toHaveBeenCalled();
+  });
+});
+
+describe("GroupChatSurface: the box", () => {
+  it("finishes '@Roam' from a few letters with Tab", async () => {
+    const { user } = await open();
+    await user.type(box(), "@ro");
+    expect(document.body.textContent).toContain("am");
+    await user.keyboard("{Tab}");
+    expect(box().value).toBe("@Roam ");
+  });
+
+  it("sends on Enter but not on Shift+Enter", async () => {
+    const { user } = await open();
+    await user.type(box(), "hello{Shift>}{Enter}{/Shift}there");
+    expect(box().value).toBe("hello\nthere");
+    expect(posts("/group-chat")).toHaveLength(0);
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(posts("/group-chat")).toHaveLength(1));
+  });
+
+  it("leaves Enter as a new line where the keyboard is a touch one", async () => {
+    window.matchMedia = ((q: string) => ({ matches: q.includes("coarse"), media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, onchange: null, dispatchEvent: () => false })) as never;
+    const { user } = await open();
+    await user.type(box(), "hello{Enter}");
+    expect(posts("/group-chat")).toHaveLength(0);
+    expect(box().value).toBe("hello\n");
+  });
+
+  it("closes the + menu with Escape or a tap outside it", async () => {
+    const { user } = await open();
+    await user.click(screen.getByRole("button", { name: "Add to the chat" }));
+    expect(await screen.findByRole("menu")).toBeTruthy();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+    await user.click(screen.getByRole("button", { name: "Add to the chat" }));
+    expect(await screen.findByRole("menu")).toBeTruthy();
+    fireEvent.pointerDown(document.body);
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+  });
+
+  it("has an @ button on the phone that asks Roam, and is gone once Roam is mentioned", async () => {
+    phoneV2 = true;
+    const { user } = await open();
+    await user.click(screen.getByRole("button", { name: "Ask Roam in the chat" }));
+    expect(box().value).toBe("@Roam ");
+    expect(screen.queryByRole("button", { name: "Ask Roam in the chat" })).toBeNull();
+  });
+
+  it("marks the chat read when it comes to the front on the phone, unless the latest message is yours", async () => {
+    phoneV2 = true;
+    history = [msg("1", { userId: FRIEND })];
+    await open();
+    await waitFor(() => expect(markRead).toHaveBeenCalledWith(TRIP));
+    cleanup();
+    sessionStorage.clear();
+    markRead.mockClear();
+    history = [msg("1", { userId: ME })];
+    await open();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(markRead).toHaveBeenCalledTimes(1); // opening reads it once; your own newest message adds none
+  });
+
+  it("does not mark anything read off the phone", async () => {
+    await open();
+    expect(markRead).not.toHaveBeenCalled();
+  });
+});
+
+describe("GroupChatSurface: holding a message", () => {
+  const bubbleOf = (text: string) => screen.getByText(text).closest("[title]") as HTMLElement;
+
+  it("opens the reactions where a finger holds a message, and picks one", async () => {
+    const { user } = await open();
+    fireEvent.pointerDown(bubbleOf("Who is up for tapas?"), { pointerType: "touch" });
+    const react = await screen.findByRole("button", { name: "React ❤️" }, { timeout: 2000 });
+    await user.click(react);
+    expect(posts("/group-chat/1/reactions")[0].body).toEqual({ emoji: "❤️" });
+  });
+
+  it("does nothing if the finger moves or lifts first, or for a mouse", async () => {
+    await open();
+    const bubble = bubbleOf("Who is up for tapas?");
+    fireEvent.pointerDown(bubble, { pointerType: "touch" });
+    fireEvent.pointerMove(bubble, { pointerType: "touch" });
+    fireEvent.pointerDown(bubble, { pointerType: "touch" });
+    fireEvent.pointerUp(bubble, { pointerType: "touch" });
+    fireEvent.pointerDown(bubble, { pointerType: "mouse" });
+    await new Promise((r) => setTimeout(r, 600));
+    expect(screen.queryByRole("button", { name: "React 👍" })).toBeNull();
+  });
+
+  it("closes the reaction bar when something else is tapped", async () => {
+    const { user } = await open();
+    expect(screen.getAllByRole("button", { name: "Add reaction" })).toHaveLength(2);
+    await user.click(screen.getAllByRole("button", { name: "Add reaction" })[0]);
+    expect(screen.getAllByRole("button", { name: "Add reaction" })).toHaveLength(1); // the open message trades its trigger for the bar
+    fireEvent.pointerDown(document.body);
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Add reaction" })).toHaveLength(2));
   });
 });
