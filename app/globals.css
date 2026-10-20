@@ -877,15 +877,6 @@
 ::selection { background: color-mix(in oklab, var(--coral) 32%, transparent); color: inherit; }
 :where(input, textarea) { caret-color: var(--coral); }
 
-/* Blinking cursor — only the landing page's scripted demo still uses it. */
-.chat-streaming > .chat-prose > :last-child::after {
-  content: "▍";
-  margin-left: 2px;
-  animation: chat-blink 1s steps(1) infinite;
-}
-@keyframes chat-blink { 50% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .chat-streaming > .chat-prose > :last-child::after { animation: none; } }
-
 /* Roam's reply, as it is written (StreamedText.tsx). Each new word resolves out of a soft blur —
    fading up while it rises into its line — and each new block (paragraph, bullet, heading) lifts
    into place a beat ahead of its words. The long expo-out ease is what makes it feel poured
