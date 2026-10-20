@@ -271,6 +271,87 @@ describe("GroupChatSurface: reacting and voting", () => {
   });
 });
 
+describe("GroupChatSurface: asking Roam", () => {
+  const roamAsk = () => msg("ask", { userId: ME, content: "@Roam where to eat?", created_at: new Date().toISOString() });
+  const roamReply = (replyTo: string) => msg("reply", { userId: null, role: "assistant", content: "Try Time Out Market.", created_at: new Date().toISOString(), metadata: { replyToMessageId: replyTo } });
+
+  /** A server that keeps what it is sent: the ask is in the thread from then on. */
+  const acceptAsk: Handler = (c) => {
+    if (c.method !== "POST" || !c.url.endsWith("/group-chat")) return undefined;
+    history = [...history, roamAsk()];
+    return { json: { message: roamAsk() } };
+  };
+
+  const sendAsk = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.type(box(), "@Roam where to eat?");
+    await user.keyboard("{Enter}");
+  };
+
+  it("shows Roam typing while the ask is in flight, then stops", async () => {
+    let release!: (v: { json: unknown }) => void;
+    handlers.push(acceptAsk);
+    handlers.push((c) => (c.method === "POST" && c.url.endsWith("/group-chat/roam") ? new Promise((r) => { release = r; }) : undefined));
+    const { user } = await open();
+    await sendAsk(user);
+    expect(await screen.findByText("Roam is typing")).toBeTruthy();
+    history = [...history, roamReply("ask")];
+    await act(async () => release({ json: {} }));
+    await waitFor(() => expect(screen.queryByText("Roam is typing")).toBeNull());
+    expect(await screen.findByText("Try Time Out Market.")).toBeTruthy();
+  });
+
+  it("says Roam didn't reply, with a Retry that asks again, when the call fails and no answer exists", async () => {
+    let roamCalls = 0;
+    handlers.push(acceptAsk);
+    handlers.push((c) => {
+      if (c.method === "POST" && c.url.endsWith("/group-chat/roam")) { roamCalls += 1; return { status: 500 }; }
+    });
+    const { user } = await open();
+    await sendAsk(user);
+    expect(await screen.findByText(/Roam didn’t reply/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(roamCalls).toBe(2));
+  });
+
+  it("does not report a failure when the call dropped but the reply is already in the thread", async () => {
+    handlers.push(acceptAsk);
+    handlers.push((c) => {
+      if (c.method === "POST" && c.url.endsWith("/group-chat/roam")) { history = [...history, roamReply("ask")]; return { status: 502 }; }
+    });
+    const { user } = await open();
+    await sendAsk(user);
+    expect(await screen.findByText("Try Time Out Market.")).toBeTruthy();
+    expect(screen.queryByText(/Roam didn’t reply/)).toBeNull();
+  });
+
+  it("shows Roam typing to everyone while somebody else's fresh @Roam ask is unanswered", async () => {
+    history = [msg("f1", { userId: FRIEND, content: "@Roam any ideas?", created_at: new Date().toISOString() })];
+    await open();
+    expect(await screen.findByText("Roam is typing")).toBeTruthy();
+  });
+
+  it("opens the box on '@Roam ' when Roam answers something you said, but never over a draft", async () => {
+    history = [msg("mine", { userId: ME, content: "@Roam hi", created_at: at(0) })];
+    await open();
+    expect(box().value).toBe("");
+    history = [...history, roamReply("mine")];
+    const { announceWorkspaceChange } = await import("../../lib/application/workspace-events");
+    await act(async () => { announceWorkspaceChange("groupChat"); });
+    await waitFor(() => expect(box().value).toBe("@Roam "));
+  });
+
+  it("leaves a half-typed draft alone when Roam answers", async () => {
+    history = [msg("mine", { userId: ME, content: "@Roam hi", created_at: at(0) })];
+    const { user } = await open();
+    await user.type(box(), "wait, also");
+    history = [...history, roamReply("mine")];
+    const { announceWorkspaceChange } = await import("../../lib/application/workspace-events");
+    await act(async () => { announceWorkspaceChange("groupChat"); });
+    await screen.findByText("Try Time Out Market.");
+    expect(box().value).toBe("wait, also");
+  });
+});
+
 describe("GroupChatSurface: connection", () => {
   it("says it is offline, and reads the chat again when it comes back", async () => {
     await open();

@@ -1,5 +1,4 @@
 import { memberLabel, type TripMember } from "@/lib/client/use-trip-members";
-import { HttpError } from "../domain/outbox";
 
 /** Roam, You, a friend's name, or an empty string while the member list is still loading (never a flash of "Someone"). */
 export function displayName(userId: string | null, members: TripMember[], meId: string | undefined, membersLoaded: boolean): string {
@@ -26,16 +25,4 @@ export function dayLabel(iso: string): string {
   if (sameDay(date, today)) return "Today";
   if (sameDay(date, yesterday)) return "Yesterday";
   return (date.getFullYear() === today.getFullYear() ? dayFormat : dayYearFormat).format(date);
-}
-
-export async function postJson<T>(url: string, body: unknown, timeoutMs?: number): Promise<T> {
-  const controller = timeoutMs != null ? new AbortController() : undefined;
-  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
-  try {
-    const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: controller?.signal });
-    if (!response.ok) throw new HttpError(response.status);
-    return response.json();
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
 }

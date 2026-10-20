@@ -18,19 +18,20 @@ import { useSpeechInput } from "@/lib/use-speech-input";
 import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanel, type EventSeed } from "@/components/TripPanelProvider";
 import { notifyToast } from "@/lib/application/toast";
-import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
 import type { AssistantBlock, AssistantTurnMeta, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { Poll } from "@/packages/contracts/poll";
+import { useRoamAsks } from "../application/useRoamAsks";
 import { useGroupChatLog } from "../application/useGroupChatLog";
 import { applyReactionToggle, applyVote, buildRows, chatNotice, lastRoamMessageId, roamMentionGhost } from "../domain/chat-state";
-import { MAX_MESSAGE_LENGTH, completeRoamMention, hasAsk, mentionsRoam, unansweredRoamAsks, type GroupMessage } from "../domain/message";
+import { MAX_MESSAGE_LENGTH, completeRoamMention, hasAsk, mentionsRoam, type GroupMessage } from "../domain/message";
 import { SEND_TIMEOUT_MS, restoreOutbox, sendFailure, serializeOutbox, type Outgoing } from "../domain/outbox";
 import { useChatLive } from "@/lib/client/trip-realtime";
 import { useTripMembers } from "@/lib/client/use-trip-members";
 import { renderRich } from "./rich-text";
 import { Avatar, ChatEmptyState, PollCard, PollSheet, TypingBubble } from "./GroupChatParts";
-import { dayLabel, displayName, fullTime, postJson, timeLabel } from "./chat-format";
+import { dayLabel, displayName, fullTime, timeLabel } from "./chat-format";
+import { postJson } from "../application/postJson";
 import { cn } from "@/lib/utils";
 import { MessageBlocks } from "@/features/conversation/ui/blocks/MessageBlocks";
 import { textAction } from "@/features/conversation/ui/blocks/ui";
@@ -98,21 +99,12 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
   const [unseen, setUnseen] = useState(false);
   // Far above the newest message: offer a way straight back (same pill as the Roam chat).
   const [away, setAway] = useState(false);
-  // Roam asks (anyone's) that are still waiting for a reply.
-  const [waitingIds, setWaitingIds] = useState<string[]>([]);
-  // @Roam asks that got no reply: the call failed just now, or two minutes passed with nothing (also after a reload, and for other members' asks).
-  const [missedIds, setMissedIds] = useState<string[]>([]);
-  const [failedRoamIds, setFailedRoamIds] = useState<string[]>([]);
   const [expandedReactionFor, setExpandedReactionFor] = useState<string | null>(null);
   const [pressingId, setPressingId] = useState<string | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [pollSheetOpen, setPollSheetOpen] = useState(false);
   const [pendingVoteFor, setPendingVoteFor] = useState<string | null>(null);
-  // Which @Roam asks are currently in flight — the buffered (non-streamed) reply can take a
-  // while, and until now nothing at all told the user a reply was coming. Keyed by messageId so
-  // several concurrent asks (different members, or a retry) each get their own indicator.
-  const [pendingRoamIds, setPendingRoamIds] = useState<Set<string>>(new Set());
   const [menuPos, setMenuPos] = useState<{ left: number; bottom: number } | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
   useKeepScrollGap(logRef);
@@ -131,11 +123,6 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
   const pendingReactionsRef = useRef<Set<string>>(new Set());
   const bubbleRefs = useRef<Map<string, HTMLElement>>(new Map());
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Which Roam replies have already been considered for the auto-continue prefill below —
-  // seeded with every id already in history on first load, so opening the chat doesn't refill
-  // the composer for something Roam answered days ago.
-  const seenReplyIdsRef = useRef<Set<string>>(new Set());
-  const seenReplyBaselineRef = useRef(false);
   // Long-press-to-react: one shared timer is enough since only one bubble can be held at a time.
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pressMoved = useRef(false);
@@ -152,6 +139,17 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
     wasActive.current = true;
     if (opening || !lastIsMine) void markGroupRead(tripId);
   }, [active, tripId, lastMessageId, lastIsMine]);
+
+  const { askRoam, pendingRoamIds, failedRoamIds, waitingIds, missedIds } = useRoamAsks({
+    tripId,
+    messages,
+    loaded,
+    skewRef,
+    meUserId: me?.userId,
+    refresh,
+    // Once Roam answers something you said, the box opens on "@Roam " so the next line picks the thread back up (never over a draft).
+    onContinueThread: () => setInput((current) => (current.trim() ? current : "@Roam ")),
+  });
 
   const scrollToEnd = useCallback(() => {
     const log = logRef.current;
@@ -195,20 +193,6 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
     if (waitingIds.length > 0 && nearBottomRef.current) scrollToEnd();
   }, [waitingIds.length, scrollToEnd]);
 
-  // Anyone's @Roam ask with no answer yet shows the typing bubble to the whole group, not just to whoever asked.
-  useEffect(() => {
-    const same = (a: string[], b: string[]) => a.length === b.length && a.every((id, i) => id === b[i]);
-    const compute = () => {
-      const { waiting, missed } = unansweredRoamAsks(messages, Date.now() + skewRef.current);
-      setWaitingIds((current) => (same(current, waiting) ? current : waiting));
-      setMissedIds((current) => (same(current, missed) ? current : missed));
-      return waiting.length;
-    };
-    if (compute() === 0) return;
-    const timer = setInterval(compute, 5000);
-    return () => clearInterval(timer);
-  }, [messages, skewRef]);
-
   function onLogScrollInner(event: React.UIEvent<HTMLDivElement>) {
     const el = event.currentTarget;
     const near = el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX;
@@ -235,29 +219,6 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
     return () => ids.forEach((id) => { clearTimeout(id); cancelAnimationFrame(id); });
   }, [loaded]);
 
-  // Keeps a continuing exchange with Roam going without re-typing the mention every turn: once
-  // a fresh reply lands answering something *you* said, pre-fill "@Roam " so your next message
-  // picks the thread back up — only when the composer is empty, so it never clobbers a draft.
-  useEffect(() => {
-    if (!loaded) return;
-    if (!seenReplyBaselineRef.current) {
-      for (const m of messages) seenReplyIdsRef.current.add(m.id);
-      seenReplyBaselineRef.current = true;
-      return;
-    }
-    for (const m of messages) {
-      if (m.role !== "assistant" || seenReplyIdsRef.current.has(m.id)) continue;
-      seenReplyIdsRef.current.add(m.id);
-      // Roam changed the trip (dates, destination, travellers): "What we know" beside the chat re-reads it now, not after a reload.
-      if ((m.metadata as Partial<AssistantTurnMeta> | undefined)?.blocks?.some((block) => block.type === "trip_update")) announceWorkspaceChange("preferences");
-      const replyToId = (m.metadata as { replyToMessageId?: string } | undefined)?.replyToMessageId;
-      const source = replyToId ? messages.find((s) => s.id === replyToId) : undefined;
-      if (source?.userId && source.userId === me?.userId) {
-        setInput((current) => (current.trim() ? current : "@Roam "));
-      }
-    }
-  }, [messages, loaded, me?.userId]);
-
   // Tap anywhere outside an expanded inline emoji bar to close it.
   useEffect(() => {
     if (!expandedReactionFor) return;
@@ -267,48 +228,6 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
     document.addEventListener("pointerdown", onDocPointerDown);
     return () => document.removeEventListener("pointerdown", onDocPointerDown);
   }, [expandedReactionFor]);
-
-  // Fire-and-forget from the caller's perspective — a failed reply shouldn't block the rest of
-  // the chat — but never silent: the idempotency key on the server means retrying is always safe
-  // (it upserts onto the same reply row rather than composing a second one).
-  // `explicit` is the "Ask Roam about this" message action (long-press / inline-expand, same
-  // surface as reactions) — it works on any member's message, not just one that says "@Roam".
-  function askRoam(messageId: string, options: { explicit?: boolean } = {}) {
-    setPendingRoamIds((current) => new Set(current).add(messageId));
-    setFailedRoamIds((current) => current.filter((id) => id !== messageId));
-    // The generous ceiling (well above the server's own worst-case RESOLVE+RETRIEVE+COMPOSE
-    // budget — see AI_DEADLINE_MS in packages/ai/model-policy.ts, whose slowest chain tops out
-    // well under this) is deliberate: aborting from here cancels the request the server is still
-    // working on (it's wired to the same signal), so firing early would cause exactly the missed
-    // reply this whole handler exists to recover from. This is a backstop for a truly dead
-    // connection, not a normal-operation timeout — the "thinking" indicator should never hang
-    // forever with nothing to show for it.
-    void postJson(`/api/trips/${tripId}/group-chat/roam`, { messageId, ...options }, 150_000)
-      .then(() => {
-        void refresh();
-        // The planner may also have stored trip facts or suggestions during this turn.
-        announceWorkspaceChange("preferences");
-      })
-      .catch(async () => {
-        // A failure here doesn't necessarily mean the turn itself failed — this reply is a
-        // buffered, potentially slow round trip, and a dropped connection or a proxy timeout can
-        // lose the RESPONSE after the server has already finished and persisted it. Check before
-        // reporting an error: live-caught without this, the toast said "didn't reply" (or nothing
-        // at all, if it was missed while the tab was backgrounded) right as the real reply sat
-        // fully written in the database — only surfacing once some unrelated later refresh swept
-        // it in, alongside whatever was asked at that point.
-        const fresh = await refresh();
-        const alreadyAnswered = fresh?.some((m) => (m.metadata as { replyToMessageId?: string } | null)?.replyToMessageId === messageId);
-        // Shown right under the message (with its Retry), not as a toast that disappears.
-        if (!alreadyAnswered) setFailedRoamIds((current) => (current.includes(messageId) ? current : [...current, messageId]));
-      })
-      .finally(() => setPendingRoamIds((current) => {
-        if (!current.has(messageId)) return current;
-        const next = new Set(current);
-        next.delete(messageId);
-        return next;
-      }));
-  }
 
   // Optimistic: the message appears at once as "Sending…", and keeps its idempotency key through a Retry, so a reply
   // lost on the way back never posts the same words twice.
