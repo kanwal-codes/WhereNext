@@ -3,7 +3,7 @@ import { MAX_MESSAGE_LENGTH, type GroupMessage } from "./message";
 import type { Outgoing } from "./outbox";
 
 /** Same sender, close enough in time to read as one turn: collapses the repeated avatar and name. */
-export const GROUP_WINDOW_MS = 5 * 60_000;
+const GROUP_WINDOW_MS = 5 * 60_000;
 
 /** This member's vote, applied to the list at once (the server's realtime change confirms or corrects it a moment later).
  *  Picking another option moves the vote; picking your current one changes nothing; a first vote adds one to the total. */
