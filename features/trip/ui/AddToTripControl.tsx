@@ -230,7 +230,7 @@ export function AddToTripControl({
             type="button"
             disabled={busy}
             onClick={() => (guest ? openGate("add places to a trip") : setOpen((o) => !o))}
-            aria-label={`Choose an itinerary day for ${place.name}`}
+            aria-label={open ? `Close the day menu for ${place.name}` : `Choose an itinerary day for ${place.name}`}
             aria-haspopup="menu"
             aria-expanded={open}
             className={cn(
@@ -241,7 +241,10 @@ export function AddToTripControl({
                     day
                       // Over a photo the planned state is a white pill; in a list row (the small orb) the card is already white.
                       ? (sm ? "bg-coral-soft px-3.5 text-coral-ink" : "bg-white px-4 text-ink shadow-[0_6px_16px_oklch(0_0_0/0.35)]")
-                      : "bg-coral-fill text-coral-fill-foreground shadow-[0_10px_26px_oklch(0.64_0.175_36/0.5),inset_0_1px_0_oklch(1_0_0/0.35)]",
+                      : sm
+                        ? "bg-coral-fill text-coral-fill-foreground shadow-[0_10px_26px_oklch(0.64_0.175_36/0.5),inset_0_1px_0_oklch(1_0_0/0.35)]"
+                        // Over a photo the add button is a white disc with an orange plus, like the heart and Tickets beside it.
+                        : "bg-white text-coral shadow-[0_6px_16px_oklch(0_0_0/0.35)]",
                     // Phone: the small "+" is a soft white circle, not a glowing coral orb.
                     PHONE_V2 && sm && !day && "max-lg:bg-secondary max-lg:text-ink max-lg:shadow-[0_2px_10px_oklch(0_0_0/0.18)]",
                   )
@@ -262,9 +265,9 @@ export function AddToTripControl({
             ) : day ? (
               <CalendarCheck className={cn(sm ? "size-3.5" : "size-4")} />
             ) : orb ? (
-              <Plus className={sm ? "size-5" : "size-6"} strokeWidth={2} />
+              <Plus className={cn(sm ? "size-5" : "size-6", "transition-transform duration-200 ease-out", open && "rotate-45")} strokeWidth={2} />
             ) : sm ? (
-              <Plus className="size-3.5" strokeWidth={2.25} />
+              <Plus className={cn("size-3.5 transition-transform duration-200 ease-out", open && "rotate-45")} strokeWidth={2.25} />
             ) : null}
             {orb && !day ? null : <AnimatePresence mode="wait" initial={false}>
               <motion.span

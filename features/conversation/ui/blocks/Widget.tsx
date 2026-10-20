@@ -112,8 +112,8 @@ export function Widget({
 export function WidgetFoot({ foot, action }: { foot?: ReactNode; action?: ReactNode }) {
   return (
     <footer className={cn("mt-1 flex items-center justify-between gap-4 border-t border-border bg-surface px-4 py-3 @[34rem]:px-[1.125rem]", PHONE_V2 && "max-lg:bg-transparent max-lg:px-[1.125rem] max-lg:py-3.5")}>
-      <div className="flex min-w-0 flex-1 items-start gap-1.5 text-xs leading-[1.35] text-muted-foreground">{foot}</div>
-      {action && <div className="shrink-0">{action}</div>}
+      {foot && <div className="flex min-w-0 flex-1 items-start gap-1.5 text-xs leading-[1.35] text-muted-foreground">{foot}</div>}
+      {action && <div className="shrink-0 has-[[data-wide]]:w-full">{action}</div>}
     </footer>
   );
 }
@@ -187,12 +187,12 @@ export function RowBar({ frac, color = "var(--coral)", className }: { frac: numb
 /** The widget's one next step: an ink pill. A link when it goes off the page. */
 const ACTION = "inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.16),0_1px_2px_oklch(0.2_0.012_65/0.3)] transition-[transform,filter] duration-200 ease-out hover:brightness-110 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 const ACTION_QUIET = "inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-background px-4 text-sm font-semibold text-ink transition-[transform,border-color] duration-200 ease-out hover:border-ink/30 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
-export function WidgetAction({ children, onClick, href, quiet = false, arrow = true, label }: { children: ReactNode; onClick?: () => void; href?: string; quiet?: boolean; arrow?: boolean; label?: string }) {
-  const cls = cn(quiet ? ACTION_QUIET : ACTION, PHONE_V2 && "max-lg:h-11");
+export function WidgetAction({ children, onClick, href, quiet = false, arrow = true, label, wide = false }: { children: ReactNode; onClick?: () => void; href?: string; quiet?: boolean; arrow?: boolean; label?: string; /** The one step of the widget, stretched across its foot. */ wide?: boolean }) {
+  const cls = cn(quiet ? ACTION_QUIET : ACTION, PHONE_V2 && "max-lg:h-11", wide && "w-full");
   const inner = (<>{children}{arrow && <ArrowUpRight className="size-4" aria-hidden />}</>);
   return href ? (
-    <a href={href} target="_blank" rel="noreferrer noopener" aria-label={label} className={cls}>{inner}</a>
+    <a href={href} target="_blank" rel="noreferrer noopener" aria-label={label} data-wide={wide || undefined} className={cls}>{inner}</a>
   ) : (
-    <button type="button" onClick={onClick} aria-label={label} className={cls}>{inner}</button>
+    <button type="button" onClick={onClick} aria-label={label} data-wide={wide || undefined} className={cls}>{inner}</button>
   );
 }

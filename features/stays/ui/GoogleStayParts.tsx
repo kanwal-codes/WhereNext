@@ -164,16 +164,17 @@ export function WhereToBook({ s, hotelId }: { s: Details; hotelId: string }) {
 export function StayThemes({ themes }: { themes: StayTheme[] }) {
   if (themes.length === 0) return null;
   return (
-    <ul className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+    <ul className="grid grid-cols-2 gap-x-5 gap-y-3.5 sm:gap-x-8">
       {themes.map((t) => {
         const pct = (n: number) => `${(n / t.total) * 100}%`;
+        const liked = Math.round((t.positive / t.total) * 100);
         return (
-          <li key={t.name}>
-            <div className="flex items-baseline justify-between gap-3 text-sm">
-              <span className="font-medium">{t.name}</span>
-              <span className={cn(T.meta, "tabular-nums")}><span className="font-medium text-foreground">{t.positive}</span> of {t.total} liked</span>
+          <li key={t.name} title={`${t.positive} of ${t.total} liked`}>
+            <div className="flex items-baseline justify-between gap-2 text-sm">
+              <span className="min-w-0 truncate font-medium">{t.name}</span>
+              <span className="shrink-0 text-sm font-semibold tabular-nums">{liked}<span className="text-xs font-normal text-muted-foreground">%</span></span>
             </div>
-            <div className="mt-1.5 flex h-1 gap-px overflow-hidden rounded-full bg-muted" role="img" aria-label={`${t.name}: ${t.positive} positive, ${t.neutral} neutral, ${t.negative} negative`}>
+            <div className="mt-1.5 flex h-1 gap-px overflow-hidden rounded-full bg-muted" role="img" aria-label={`${t.name}: ${t.positive} of ${t.total} liked (${t.neutral} neutral, ${t.negative} negative)`}>
               <span className="bg-positive" style={{ width: pct(t.positive) }} />
               <span className="bg-muted-foreground/30" style={{ width: pct(t.neutral) }} />
               <span className="bg-caution" style={{ width: pct(t.negative) }} />

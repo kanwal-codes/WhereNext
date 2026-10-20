@@ -7,6 +7,12 @@ describe("splitDestinations", () => {
     expect(splitDestinations("Trinidad and Tobago")).toEqual(["Trinidad and Tobago"]);
     expect(splitDestinations("Rome, rome, Paris")).toEqual(["Rome", "Paris"]);
     expect(splitDestinations(null)).toEqual([]);
+    // One place written the way maps write it is one stop.
+    expect(splitDestinations("Niagara Falls, Ontario, Canada")).toEqual(["Niagara Falls"]);
+    expect(splitDestinations("Niagara Falls, ON, Canada")).toEqual(["Niagara Falls"]);
+    expect(splitDestinations("Montreal, Canada")).toEqual(["Montreal"]);
+    expect(splitDestinations("Rome, Paris, France")).toEqual(["Rome", "Paris"]);
+    expect(splitDestinations("France, Italy")).toEqual(["France"]);
   });
 });
 

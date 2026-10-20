@@ -3,11 +3,11 @@
 import { hotelPhotoSrc } from "@/lib/hotel-photo";
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronDown, Globe, MapPin, MessageCircle, Navigation, Phone, Star, Users } from "lucide-react";
+import { Check, ChevronDown, Globe, LogIn, LogOut, MapPin, MessageCircle, Navigation, Phone, Star, Users } from "lucide-react";
 import { Hero } from "@/components/Hero";
 import { useTripPanelMaybe } from "@/components/TripPanelProvider";
 import { DetailSectionHeading } from "@/components/DetailSectionHeading";
-import { FactStrip, QuickActions, ShowMore } from "@/components/DetailKit";
+import { QuickActions, ShowMore } from "@/components/DetailKit";
 import { BackLink } from "@/components/BackLink";
 import { NearbyEvents } from "@/components/NearbyEvents";
 import { NearbyStays } from "@/features/stays/ui/NearbyStays";
@@ -23,6 +23,7 @@ import { askAssistantHref } from "@/lib/places-ui";
 import { relativeDate } from "@/lib/relative-time";
 import { cn, safeHref } from "@/lib/utils";
 import { displayClockTime } from "@/lib/application/clock-time";
+import { PHONE_V2 } from "@/lib/phone-v2";
 
 // Stable reference so the memos below don't see a "new" empty array (and recompute for
 // nothing) on every render for a hotel with no facilities yet.
@@ -115,6 +116,16 @@ const prettyCountry = (c?: string | null) => {
 const facilityKey = (f: string) => f.toLowerCase().replace(/\b(?:free|available|complimentary)\b/g, "").replace(/[^a-z0-9]/g, "");
 const dedupeFacilities = (list: string[]) => list.filter((f, i) => list.findIndex((g) => facilityKey(g) === facilityKey(f)) === i);
 
+/** One of the two arrival boxes on a stay: what it is, and the time. */
+function StayTime({ icon: Icon, label, note, time }: { icon: React.ComponentType<{ className?: string }>; label: string; note: string; time: string }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card px-4 py-3.5 shadow-soft">
+      <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><Icon className="size-3.5" aria-hidden />{label}</p>
+      <p className="mt-1.5 flex items-baseline gap-1.5"><span className="text-xs text-muted-foreground">{note}</span><span className="font-display text-xl leading-none font-medium tracking-[-0.02em] tabular-nums">{time}</span></p>
+    </div>
+  );
+}
+
 export function StayDetailView({
   tripId,
   hotelId,
@@ -199,13 +210,13 @@ export function StayDetailView({
     <div className="min-w-0 space-y-10">
       <Reveal delay={0.02}>
         <div className="space-y-3">
-          <FactStrip
-            facts={[
-              typeof hotel?.rating === "number" && { label: "Guests", value: <><Star className="size-4 fill-current text-coral" aria-hidden /> {hotel.rating}</>, note: "out of 10" },
-              typeof hotel?.stars === "number" && { label: "Class", value: `${hotel.stars}-star`, note: "hotel" },
-              hotel?.checkinFrom && { label: "Check-in", value: displayClockTime(hotel.checkinFrom), note: hotel.checkout ? `Out by ${displayClockTime(hotel.checkout)}` : undefined },
-            ]}
-          />
+          {/* The guest score is on the photo already; what the page adds is when you can arrive and when you leave. */}
+          {(hotel?.checkinFrom || hotel?.checkout) && (
+            <div className="grid grid-cols-2 gap-3">
+              {hotel?.checkinFrom && <StayTime icon={LogIn} label="Check-in" note="from" time={displayClockTime(hotel.checkinFrom)} />}
+              {hotel?.checkout && <StayTime icon={LogOut} label="Check-out" note="by" time={displayClockTime(hotel.checkout)} />}
+            </div>
+          )}
           <QuickActions actions={[
             { icon: Navigation, label: "Directions", href: directionsHref, external: true },
             s.phone && { icon: Phone, label: "Call", href: `tel:${s.phone.replace(/\s/g, "")}`, hint: s.phone },
@@ -295,7 +306,7 @@ export function StayDetailView({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
                   {reviewScore !== null && (
                     <div className="flex shrink-0 items-center gap-3">
-                      <span className="font-display text-5xl leading-none tabular-nums tracking-[-0.03em]">{reviewScore.toFixed(1)}</span>
+                      <span className="font-display text-4xl leading-none tabular-nums tracking-[-0.03em]">{reviewScore.toFixed(1)}</span>
                       <span className="text-xs leading-snug text-muted-foreground">out of 10<br />from {ratedReviews.length} recent review{ratedReviews.length === 1 ? "" : "s"}</span>
                     </div>
                   )}
@@ -303,15 +314,37 @@ export function StayDetailView({
                 </div>
               )}
               {s.themes.length > 0 && (
-                <div className={cn((reviewScore !== null || s.sentiment) && "mt-4 border-t border-border pt-4")}>
-                  <p className="eyebrow mb-3">Guests mention</p>
+                <div className={cn((reviewScore !== null || s.sentiment) && "mt-3.5 border-t border-border pt-3.5")}>
+                  <p className="eyebrow mb-2.5">Guests mention · % who liked it</p>
                   <StayThemes themes={s.themes} />
                 </div>
               )}
             </div>
             {readable.length > 0 && (
               <>
-              <div className="mt-3 divide-y divide-border rounded-2xl border border-border bg-card px-4">
+              {PHONE_V2 && (
+                // On a phone the reviews are a row of short cards to swipe through, not a long stack to scroll past.
+                <div className="-mx-4 mt-3 flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto overscroll-x-contain px-4 pb-1 no-scrollbar scroll-px-4 lg:hidden">
+                  {readable.slice(0, 8).map((r, i) => {
+                    const who = [prettyTraveller(r.travellerType), prettyCountry(r.country), s.google ? r.name : null].filter(Boolean).join(" · ");
+                    const body = r.positives || r.negatives || r.text;
+                    return (
+                      <figure key={i} className="flex w-[16.5rem] shrink-0 snap-start flex-col rounded-2xl border border-border bg-card p-3.5">
+                        <div className="flex items-center justify-between gap-3">
+                          {typeof r.rating === "number" ? (
+                            <span className="inline-flex h-6 items-center gap-1 rounded-full bg-secondary px-2.5 text-xs font-semibold tabular-nums"><Star className="size-3 fill-current text-coral" aria-hidden />{r.rating.toFixed(1)}</span>
+                          ) : <span className="text-xs font-semibold">Guest note</span>}
+                          {r.date && <span className="text-xs text-muted-foreground">{relativeDate(r.date)}</span>}
+                        </div>
+                        {r.headline && <p className="mt-2.5 line-clamp-1 text-sm font-medium leading-5">{r.headline}</p>}
+                        {body && <p className={cn("text-sm leading-5 text-ink-soft", r.headline ? "mt-1 line-clamp-2" : "mt-2.5 line-clamp-3")}>{body}</p>}
+                        {who && <figcaption className="mt-auto truncate pt-2.5 text-xs text-muted-foreground">{who}</figcaption>}
+                      </figure>
+                    );
+                  })}
+                </div>
+              )}
+              <div className={cn("mt-3 divide-y divide-border rounded-2xl border border-border bg-card px-4", PHONE_V2 && "max-lg:hidden")}>
                 {(reviewsOpen ? readable : readable.slice(0, 3)).map((r, i) => (
                   <figure key={i} className="py-3.5 first:pt-3 last:pb-3">
                     <div className="flex items-center justify-between gap-3">
@@ -326,7 +359,7 @@ export function StayDetailView({
                   </figure>
                 ))}
               </div>
-              {readable.length > 3 && <div className="mt-3"><ShowMore open={reviewsOpen} onToggle={() => setReviewsOpen((v) => !v)} more={`Show all ${readable.length} reviews`} less="Show fewer reviews" /></div>}
+              {readable.length > 3 && <div className={cn("mt-3", PHONE_V2 && "max-lg:hidden")}><ShowMore open={reviewsOpen} onToggle={() => setReviewsOpen((v) => !v)} more={`Show all ${readable.length} reviews`} less="Show fewer reviews" /></div>}
               </>
             )}
           </section>
@@ -374,7 +407,7 @@ export function StayDetailView({
       <div className={pad}>
         <Reveal>
           <div className="pt-6">
-            <p className="text-sm text-muted-foreground">Hotel</p>
+            <p className="text-sm text-muted-foreground">{typeof hotel?.stars === "number" ? `Hotel · ${hotel.stars}-star` : "Hotel"}</p>
             {panel ? (
               <h1 className="mt-2 max-w-2xl font-display text-2xl font-semibold leading-tight">{name}</h1>
             ) : (

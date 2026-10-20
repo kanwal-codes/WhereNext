@@ -9,7 +9,7 @@ import { edgeScenes, FIXTURE_ORIGIN, scenes } from "./fixtures";
 
 const noop = () => undefined;
 const localize = (blocks: AssistantBlock[] | undefined, origin: string) => (blocks ? (JSON.parse(JSON.stringify(blocks).replaceAll(FIXTURE_ORIGIN, origin)) as AssistantBlock[]) : undefined);
-const handlers = { tripId: "00000000-0000-0000-0000-000000000000", onFollowup: noop, onOpenPlace: noop, onOpenStay: noop, onOpenEvent: noop, onOpenCollection: noop };
+const handlers = { tripId: "00000000-0000-0000-0000-000000000000", onFollowup: noop, onOpenPlace: noop, onOpenStay: noop, onOpenEvent: noop, onOpenCollection: noop, onOpenPanel: noop };
 
 export function AuditClient({ theme, scene, edge }: { theme: "light" | "dark"; scene?: string; edge: boolean }) {
   // The fixture pictures need this page's own origin, which the server render does not have: draw after mount.

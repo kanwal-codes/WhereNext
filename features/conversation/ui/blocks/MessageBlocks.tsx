@@ -59,6 +59,7 @@ import { HandoffContext, LiveReplyContext, RoamIcon } from "@/features/roam/ui/R
 import { FlightHero, FlightJourney, FlightPicks, FlightPicksSkeleton, FlightRowBody, offerKey, pickFares } from "./FlightWidget";
 import { RowBar, RowValue, Widget, WidgetAction, WidgetFigure, WidgetFoot, WidgetHero, WidgetPill, WidgetRow, WidgetRows } from "./Widget";
 import { portableProxyPhotoUrl } from "../portable-photo-url";
+import { DiscoverTile } from "@/features/places/ui/DiscoverTile";
 import type { CardPanel } from "@/components/TripPanelProvider";
 import { PlanStops } from "./PlanStops";
 import { FactStrip } from "@/components/DetailKit";
@@ -363,9 +364,16 @@ function FeaturedEventCard({ group, onOpen }: { group: EventGroup; onOpen?: (see
         </>
       }
       action={
-        <a href={safeHref(active.url)} target="_blank" rel="noreferrer noopener" aria-label={`Tickets: ${event.title}`} className={CINE_PILL_ACTION}>
-          Tickets <ArrowUpRight className="size-4" aria-hidden />
-        </a>
+        // The details page has the tickets link; where it cannot open (no handler), the card still goes straight to tickets.
+        onOpen ? (
+          <button type="button" onClick={open} aria-label={`Details: ${event.title}`} className={CINE_PILL_ACTION}>
+            Details <ArrowUpRight className="size-4" aria-hidden />
+          </button>
+        ) : (
+          <a href={safeHref(active.url)} target="_blank" rel="noreferrer noopener" aria-label={`Tickets: ${event.title}`} className={CINE_PILL_ACTION}>
+            Tickets <ArrowUpRight className="size-4" aria-hidden />
+          </a>
+        )
       }
     />
   );
@@ -1293,8 +1301,7 @@ function RouteSummaryCard({ route, onOpenPanel, onFollowup }: { route: RouteSumm
           </WidgetHero>
         </div>
       )}
-      foot={nearby ? undefined : leaves && arrives ? <>Leaves {leaves}, arrives {arrives}</> : "Times are estimates and can change with traffic and service"}
-      action={onOpenPanel && !nearby ? <WidgetAction onClick={() => onOpenPanel({ kind: "route", routes: [route], active: 0, onAsk: onFollowup })}>{route.path ? "Map" : "Steps"}</WidgetAction> : undefined}
+      action={onOpenPanel && !nearby ? <WidgetAction wide onClick={() => onOpenPanel({ kind: "route", routes: [route], active: 0, onAsk: onFollowup })}>Directions</WidgetAction> : undefined}
     >
       {steps.length > 0 && !nearby && (
         <WidgetRows>
@@ -1353,8 +1360,8 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel, onFollowup }: { fr
       eyebrow={`${compared ? "Ways to get there" : ROUTE_MODE_LABEL[group.mode] ?? group.mode}${ends.where ? ` · ${ends.where}` : ""}`}
       title={<RouteEnds from={ends.from} to={ends.to} />}
       status={compared ? <WidgetPill tone="lagoon" icon={Check}>{ROUTE_MODE_LABEL[fastest.mode] ?? fastest.mode} is fastest</WidgetPill> : undefined}
-      foot={onOpenPanel ? "Tap a way to open it on the map" : "Times are estimates"}
-      action={onOpenPanel ? <WidgetAction onClick={() => onOpenPanel({ kind: "route", routes: sorted, active: sorted.indexOf(chosen), onAsk: onFollowup })}>{chosen.path ? "Map" : "Steps"}</WidgetAction> : undefined}
+      foot={onOpenPanel ? undefined : "Times are estimates"}
+      action={onOpenPanel ? <WidgetAction wide onClick={() => onOpenPanel({ kind: "route", routes: sorted, active: sorted.indexOf(chosen), onAsk: onFollowup })}>Directions</WidgetAction> : undefined}
       hero={mapRequest && (
         <div className="relative mx-4 mt-3.5 aspect-[640/260] overflow-hidden rounded-xl bg-lagoon-soft @[34rem]:mx-[1.125rem]">
           <RouteMap request={mapRequest} label={`The ${ROUTE_MODE_LABEL[chosen.mode] ?? chosen.mode} route from ${from} to ${to}`} fallback={<RouteSketch route={chosen} />} />
@@ -1714,9 +1721,14 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
         }
       />
       </div>
-      {loading && fares.items.length === 0 ? <FlightPicksSkeleton /> : ready && picks.length > 0 && <FlightPicks picks={picks} selected={chosenPick ? offerKey(chosenPick.offer) : null} onSelect={setChosen} roundTrip={roundTrip} />}
-      <div className={cn(PHONE_V2 && !searchOpen && "max-lg:hidden")}>
-        <FlightSearchBar search={searchForBar} tripId={tripId} trip={tripDates} routeOpen={routeOpen} onRouteDone={() => setRouteOpen(false)} />
+      {/* While the search is being edited on a phone, the form comes first and the fares it will change sit beneath it. */}
+      <div className="flex flex-col">
+        <div className={cn(PHONE_V2 && searchOpen && "max-lg:order-2 max-lg:pb-1")}>
+          {loading && fares.items.length === 0 ? <FlightPicksSkeleton /> : ready && picks.length > 0 && <FlightPicks picks={picks} selected={chosenPick ? offerKey(chosenPick.offer) : null} onSelect={setChosen} roundTrip={roundTrip} />}
+        </div>
+        <div className={cn(PHONE_V2 && !searchOpen && "max-lg:hidden")}>
+          <FlightSearchBar search={searchForBar} tripId={tripId} trip={tripDates} routeOpen={routeOpen} onRouteDone={() => setRouteOpen(false)} />
+        </div>
       </div>
       {ready && fares.assumed && (
         <div role="note" className="mx-4 mb-1 flex items-center gap-2.5 rounded-2xl bg-secondary px-3.5 py-3 text-sm text-foreground [&_svg]:text-caution @[34rem]:mx-5">
@@ -1847,7 +1859,28 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
                 onSeeAll={preview && block.places.length > MAX_CHAT_CARDS && onOpenCollection ? () => onOpenCollection(title ?? "All places", block) : undefined}
                 onMap={preview && onOpenPanel && pointsFromPlaces(block.places).length > 0 ? () => onOpenPanel({ kind: "map", title: title ? `${title} on the map` : "Places on the map", points: pointsFromPlaces(block.places), connect: false }) : undefined}
               />
-              <div className={preview ? rail : grid}>
+              {PHONE_V2 && !preview && (
+                // "See all" on a phone is the same two-to-a-row tiles Discover uses, not one tall card per place.
+                <div className="grid grid-cols-2 gap-x-3 gap-y-6 lg:hidden">
+                  {visible.map((place) => {
+                    const category = place.category ? categoryLabel(place.category) : undefined;
+                    return (
+                      <DiscoverTile
+                        key={place.providerId}
+                        label={`Open ${place.name}`}
+                        onOpen={() => onOpenPlace?.(place)}
+                        src={portableProxyPhotoUrl(place.photoUrl)}
+                        icon={placeGlyph(place.category, place.name).icon}
+                        title={place.name}
+                        meta={category}
+                        rating={place.rating}
+                        add={<AddToTripControl tripId={tripId} place={toPlace(place)} variant="orb" size="sm" />}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+              <div className={cn(preview ? rail : grid, PHONE_V2 && !preview && "max-lg:hidden")}>
                 {visible.map((place) => (
                   <div key={place.providerId} className={preview ? cn(cardWidth(visible.length), "shrink-0 snap-start") : undefined}>
                     <PlaceCardView place={place} tripId={tripId} onOpenPlace={onOpenPlace} />

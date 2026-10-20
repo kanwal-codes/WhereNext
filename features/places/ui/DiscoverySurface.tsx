@@ -531,7 +531,10 @@ export function DiscoverySurface({
     return out;
   }, [bands]);
   const phoneItems = view === "saved" ? savedItems : gridView ? items : phoneFlat;
-  const phoneShown = view === "saved" || gridView ? phoneItems.slice(0, gridMore.visible) : phoneItems;
+  // The "All" feed pages too: a first screenful of everything, then "Show more", like each category does.
+  const flatMore = useShowMore(phoneFlat.length, phoneFlat, { first: 9, step: 9 });
+  const phoneMore = view === "saved" || gridView ? gridMore : flatMore;
+  const phoneShown = phoneItems.slice(0, phoneMore.visible);
   const phoneTile = (item: Item, mode: "feature" | "grid") =>
     item.kind === "place" ? <PlaceCard key={`p:${item.place.providerId}`} tripId={tripId} place={item.place} why={item.why ?? undefined} phoneTile={mode} />
     : item.kind === "event" ? <EventCard key={`e:${item.event.url}|${item.event.date ?? ""}`} tripId={tripId} event={item.event} phoneTile={mode} />
@@ -543,7 +546,7 @@ export function DiscoverySurface({
   const grid = "grid gap-4 sm:grid-cols-2 @[46rem]:grid-cols-3";
 
   return (
-    <div className="@container flex min-h-[calc(100dvh-13rem)] flex-col">
+    <div className={cn("@container flex min-h-[calc(100dvh-13rem)] flex-col", PHONE_V2 && "max-lg:pb-24")}>
       {view === "results" && !phone && <CityChips stops={cities.stops} current={cities.city} onPick={cities.setCity} estimated={cities.estimated} className="mt-3 -mb-1" />}
       {phone && view === "results" && (
         <div className="flex flex-col gap-3 pt-1">
@@ -572,7 +575,7 @@ export function DiscoverySurface({
               onClick={() => setFiltersOpen((v) => !v)}
               aria-pressed={filtersOpen}
               aria-label={filterCount ? `Filters, ${filterCount} on` : "Filters"}
-              className={cn("relative grid size-11 shrink-0 place-items-center rounded-full border border-input bg-background transition-colors", PHONE_V2 && "max-lg:border-0 max-lg:bg-secondary", filtersOpen && "border-foreground bg-foreground text-background")}
+              className={cn("relative grid size-11 shrink-0 place-items-center rounded-full border border-input bg-background transition-colors", PHONE_V2 && "max-lg:border-0 max-lg:bg-secondary", filtersOpen && "border-foreground bg-foreground text-background", PHONE_V2 && filtersOpen && "max-lg:bg-foreground")}
             >
               <SlidersHorizontal className="size-[1.125rem]" aria-hidden />
               {filterCount > 0 && !filtersOpen && <span aria-hidden className="absolute top-2 right-2 size-2.5 rounded-full bg-coral ring-2 ring-background" />}
@@ -590,7 +593,6 @@ export function DiscoverySurface({
                   {activeCat?.subs.map((s) => (
                     <button key={s.label} type="button" onClick={() => toggleSub(s.label)} aria-pressed={subs.includes(s.label)} className="btn-chip">{s.label}</button>
                   ))}
-                  {!activeCat && <p className="w-full px-1 py-1 text-sm text-muted-foreground">Pick a category to narrow it down.</p>}
                   {subs.length > 0 && <button type="button" onClick={() => setSubs([])} className="px-2 text-sm text-muted-foreground">Clear</button>}
                 </div>
               </motion.div>
@@ -704,7 +706,7 @@ export function DiscoverySurface({
           <div className="mt-5 flex flex-col gap-5">
             {phoneTile(phoneShown[0], "feature")}
             {phoneShown.length > 1 && <div className="grid grid-cols-2 gap-x-3 gap-y-6">{phoneShown.slice(1).map((it) => phoneTile(it, "grid"))}</div>}
-            {(view === "saved" || gridView) && gridMore.remaining > 0 && <ShowMoreButton next={gridMore.next} visible={gridMore.visible} total={phoneItems.length} onClick={gridMore.showMore} noun="results" />}
+            {phoneMore.remaining > 0 && <ShowMoreButton next={phoneMore.next} visible={phoneMore.visible} total={phoneItems.length} onClick={phoneMore.showMore} noun="results" />}
           </div>
         ) : (
           <div className="mt-12 flex flex-col items-center px-3 text-center">

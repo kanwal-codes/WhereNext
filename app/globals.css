@@ -1055,6 +1055,13 @@
   pointer-events: none;
 }
 @media (min-width: 1024px) { .ask-dock { bottom: 1.25rem; margin-bottom: -1.25rem; } }
+/* Phone: the bar belongs to the screen, not to the end of the page. Sticky inside a short page (a feed still loading) left it hanging
+   mid-screen, so on a phone it is pinned to the bottom the whole time and a little narrower than the page, with room reserved under the content. */
+@media (max-width: 1023.98px) {
+  html[data-phone-v2] .ask-dock { position: fixed; inset-inline: 0; bottom: calc(var(--tabbar) + 0.75rem); margin: 0; padding: 0 1.25rem; }
+  html[data-phone-v2] .ask-dock::before { inset: -2rem 0 -1.5rem; }
+  html[data-phone-v2] .ask-dock-form:not([data-compact]) { width: min(42rem, calc(100% - 1rem)); }
+}
 .ask-dock::before {
   content: "";
   position: absolute;

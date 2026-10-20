@@ -458,7 +458,8 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
 
   // The ask box floats over the bottom of the panel (a soft fade behind it, no rule), like the main chat's message box. The panel's own
   // content gets bottom padding as tall as it is, measured, so the last of it can always be scrolled clear.
-  const composer = layout === "drawer" && panel && (
+  // A "See all" list is just being browsed: no question bar over it.
+  const composer = layout === "drawer" && panel && panel.kind !== "collection" && (
     <div ref={composerBox} className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-surface from-60% to-transparent px-3 pt-8 pb-3">
     <div className="pointer-events-auto flex flex-col gap-2">
       {chat.filter((m) => m !== verdictMsg && !(m.role === "user" && m.content === COMPARE_VERDICT_PROMPT)).length > 0 && (
@@ -521,7 +522,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
     return shown ? (
       <div ref={panelRef} role="complementary" aria-label={shown ? panelTitle(shown) : "Details"} tabIndex={-1} className="flex h-full min-h-0 flex-col outline-none">
         {header}
-        <div ref={scrollRef} className="min-h-0 flex-1 overscroll-contain overflow-y-auto scrollbar-slim">{animatedBody}</div>
+        <div ref={scrollRef} className="min-h-0 flex-1 overscroll-contain overflow-x-hidden overflow-y-auto scrollbar-slim">{animatedBody}</div>
       </div>
     ) : null;
   }
@@ -555,7 +556,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
       >
         {header}
         <div className="relative flex min-h-0 flex-1 flex-col">
-          <div ref={scrollRef} style={composer ? { paddingBottom: composerHeight } : undefined} className="min-h-0 flex-1 overscroll-contain overflow-y-auto scrollbar-slim">{animatedBody}</div>
+          <div ref={scrollRef} style={composer ? { paddingBottom: composerHeight } : undefined} className="min-h-0 flex-1 overscroll-contain overflow-x-hidden overflow-y-auto scrollbar-slim">{animatedBody}</div>
           {composer}
         </div>
       </Sheet>

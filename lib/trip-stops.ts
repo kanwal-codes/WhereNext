@@ -45,7 +45,39 @@ export function splitDestinations(destination: string | null | undefined): strin
     .map((p) => p.trim())
     .filter(Boolean);
   const seen = new Set<string>();
-  return parts.filter((p) => (seen.has(p.toLowerCase()) ? false : (seen.add(p.toLowerCase()), true))).slice(0, MAX_STOPS);
+  return withoutPlaceSuffix(parts.filter((p) => (seen.has(p.toLowerCase()) ? false : (seen.add(p.toLowerCase()), true)))).slice(0, MAX_STOPS);
+}
+
+const COUNTRY_ALIASES = ["usa", "us", "uk", "united states", "united states of america", "united kingdom", "england", "scotland", "wales", "turkey", "uae"];
+const REGIONS = new Set([
+  "alabama", "alaska", "arizona", "arkansas", "california", "colorado", "connecticut", "delaware", "florida", "georgia", "hawaii", "idaho", "illinois", "indiana", "iowa", "kansas", "kentucky", "louisiana", "maine", "maryland", "massachusetts", "michigan", "minnesota", "mississippi", "missouri", "montana", "nebraska", "nevada", "new hampshire", "new jersey", "new mexico", "new york state", "north carolina", "north dakota", "ohio", "oklahoma", "oregon", "pennsylvania", "rhode island", "south carolina", "south dakota", "tennessee", "texas", "utah", "vermont", "virginia", "washington state", "west virginia", "wisconsin", "wyoming", "district of columbia",
+  "ontario", "quebec", "québec", "british columbia", "alberta", "manitoba", "saskatchewan", "nova scotia", "new brunswick", "newfoundland and labrador", "prince edward island", "yukon", "nunavut", "northwest territories",
+]);
+let countryNames: Set<string> | null = null;
+const isCountry = (name: string): boolean => {
+  if (!countryNames) {
+    countryNames = new Set(COUNTRY_ALIASES);
+    try {
+      const names = new Intl.DisplayNames(["en"], { type: "region" });
+      for (let a = 65; a <= 90; a++) for (let b = 65; b <= 90; b++) {
+        const label = names.of(String.fromCharCode(a, b));
+        if (label && label !== String.fromCharCode(a, b)) countryNames.add(label.toLowerCase());
+      }
+    } catch { /* no Intl.DisplayNames: only the aliases are known */ }
+  }
+  return countryNames.has(name.toLowerCase());
+};
+const isRegion = (name: string): boolean => /^[A-Z]{2}$/.test(name) || REGIONS.has(name.toLowerCase());
+
+/**
+ * "Niagara Falls, Ontario, Canada" is one place written the way maps write it, not three cities. A trailing country, then a trailing
+ * province or state, is dropped (one of each, and never down to nothing), so a real list like "Rome, Paris, France" still reads as Rome and Paris.
+ */
+function withoutPlaceSuffix(parts: string[]): string[] {
+  let out = parts;
+  if (out.length > 1 && isCountry(out[out.length - 1]!)) out = out.slice(0, -1);
+  if (out.length > 1 && isRegion(out[out.length - 1]!)) out = out.slice(0, -1);
+  return out;
 }
 
 /** Cities in order with the trip's days shared out evenly (earlier cities take the remainder). Without trip dates the cities carry no dates. */

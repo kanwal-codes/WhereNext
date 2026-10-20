@@ -407,6 +407,15 @@ export function PlaceDetailView({
           </div>
         </Reveal>
 
+        {PHONE_V2 && place && (
+          // The two things you do with a place sit under its name, in the page, not as a bar pinned over the content.
+          <div className="mt-5 flex items-center gap-2.5 lg:hidden">
+            <div className="min-w-0 flex-1"><AddToTripControl tripId={tripId} place={place} size="lg" block noSave /></div>
+            <a href={directionsHref} target="_blank" rel="noreferrer noopener" className="inline-flex h-12 shrink-0 items-center gap-2 rounded-full border border-input bg-background px-5 text-[0.9375rem] font-semibold transition-transform active:scale-[0.97]">
+              <Navigation className="size-[1.125rem]" aria-hidden /> Directions
+            </a>
+          </div>
+        )}
         {panel ? (
           <div className="mt-6 space-y-8">
             <Reveal delay={0.08}>{asideAction}</Reveal>
@@ -432,14 +441,6 @@ export function PlaceDetailView({
           lat={details.location?.latitude}
           lng={details.location?.longitude}
         />
-        {PHONE_V2 && place && (
-          <div className="sticky bottom-0 z-10 -mx-5 mt-6 flex items-center gap-2.5 border-t border-border/70 bg-background/95 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md lg:hidden">
-            <div className="min-w-0 flex-1"><AddToTripControl tripId={tripId} place={place} size="lg" block noSave /></div>
-            <a href={directionsHref} target="_blank" rel="noreferrer noopener" className="inline-flex h-12 shrink-0 items-center gap-2 rounded-full border border-input bg-background px-5 text-[0.9375rem] font-semibold transition-transform active:scale-[0.97]">
-              <Navigation className="size-[1.125rem]" aria-hidden /> Directions
-            </a>
-          </div>
-        )}
       </div>
 
       <PhotoLightbox photos={morePhotos} index={lightbox.index} onIndexChange={lightbox.open} onClose={lightbox.close} alt={name} />

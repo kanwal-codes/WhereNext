@@ -371,8 +371,8 @@ export function BlockHeader({ icon: Icon, title, meta, actions }: { icon: Lucide
   );
 }
 
-/** A segmented-control tab: the selected one is a solid fill (matching the selected filter chips), the rest quiet text. */
+/** A segmented-control tab: the selected one is the white pill (as on the trips home filter), the rest quiet text. Separate chips and cards use the ink fill instead. */
 export const segmentTab = (selected: boolean) =>
   selected
-    ? "daisy-tab-active bg-primary text-primary-foreground shadow-sm hover:text-primary-foreground"
+    ? "daisy-tab-active bg-card text-foreground shadow-soft"
     : "text-muted-foreground hover:text-foreground";
