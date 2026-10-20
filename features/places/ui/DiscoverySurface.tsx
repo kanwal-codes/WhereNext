@@ -546,7 +546,7 @@ export function DiscoverySurface({
   const grid = "grid gap-4 sm:grid-cols-2 @[46rem]:grid-cols-3";
 
   return (
-    <div className={cn("@container flex min-h-[calc(100dvh-13rem)] flex-col", PHONE_V2 && "max-lg:pb-24")}>
+    <div className={cn("@container flex min-h-[calc(100svh-13rem)] flex-col", PHONE_V2 && "max-lg:pb-24")}>
       {view === "results" && !phone && <CityChips stops={cities.stops} current={cities.city} onPick={cities.setCity} estimated={cities.estimated} className="mt-3 -mb-1" />}
       {phone && view === "results" && (
         <div className="flex flex-col gap-3 pt-1">

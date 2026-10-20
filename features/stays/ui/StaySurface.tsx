@@ -224,7 +224,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   const alreadyBooked = booked.items.find((item) => item.date && checkin && checkout && item.date < checkout && (item.endDate ?? item.date) > checkin && item.status !== "cancelled");
 
   return (
-    <div className="flex min-h-[calc(100dvh-13rem)] flex-col gap-5">
+    <div className="flex min-h-[calc(100svh-13rem)] flex-col gap-5">
       <CityChips stops={cities.stops} current={cities.city} onPick={cities.setCity} estimated={cities.estimated} className={cn("-mb-2", PHONE_V2 && "max-lg:hidden")} />
       {alreadyBooked && (
         <p role="status" className="rounded-2xl bg-secondary px-4 py-3 text-sm">
