@@ -10,7 +10,7 @@ export const stop = (title: string, day: number, position: number, metadata: Rec
 });
 
 export const booking = (over: Partial<Reservation> = {}): Reservation => ({
-  id: "r1", kind: "tour", title: "Food tour", startsOn: "2026-10-10", endsOn: null, startTime: "10:00", endTime: null, place: null, toPlace: null,
+  id: "r1", kind: "activity", title: "Food tour", startsOn: "2026-10-10", endsOn: null, startTime: "10:00", endTime: null, place: null, toPlace: null,
   confirmationCode: null, amount: null, currency: null, amountBasis: "total", travellers: null, status: "confirmed", notes: null, attachments: [], createdAt: "2026-09-01T00:00:00Z", ...over,
 });
 
