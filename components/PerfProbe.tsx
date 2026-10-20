@@ -119,6 +119,65 @@ export function PerfProbe() {
   };
 
   const [text, setText] = useState("");
+  const sampler = useRef<{ stop: () => Promise<unknown> } | null>(null);
+  const [sampling, setSampling] = useState(false);
+  /** Samples which functions are running (Chrome's JS self-profiling): start it, do the slow thing, stop it, and the report lists where the time went. */
+  const startSampling = () => {
+    try {
+      const P = (window as unknown as { Profiler?: new (o: { sampleInterval: number; maxBufferSize: number }) => { stop: () => Promise<unknown> } }).Profiler;
+      if (!P) {
+        setText("This browser can't sample functions (needs Chrome and a page loaded fresh after the update).");
+        return;
+      }
+      sampler.current = new P({ sampleInterval: 10, maxBufferSize: 40000 });
+      setSampling(true);
+      setText("Sampling… do the slow thing now, then tap Stop.");
+    } catch (e) {
+      setText(`Could not start sampling: ${String(e)}`);
+    }
+  };
+  const stopSampling = async () => {
+    const s = sampler.current;
+    sampler.current = null;
+    setSampling(false);
+    if (!s) return;
+    type Frame = { name?: string; resourceId?: number; line?: number; column?: number };
+    type Trace = { resources: string[]; frames: Frame[]; stacks: Array<{ parentId?: number; frameId: number }>; samples: Array<{ timestamp: number; stackId?: number }> };
+    const trace = (await s.stop()) as Trace;
+    const incl = new Map<number, number>();
+    const self = new Map<number, number>();
+    let busy = 0;
+    for (let i = 0; i < trace.samples.length; i++) {
+      const sm = trace.samples[i];
+      const dt = i > 0 ? Math.min(40, sm.timestamp - trace.samples[i - 1].timestamp) : 10;
+      if (sm.stackId == null) continue;
+      busy += dt;
+      const seen = new Set<number>();
+      let sid: number | undefined = sm.stackId;
+      let first = true;
+      while (sid != null) {
+        const st: { parentId?: number; frameId: number } | undefined = trace.stacks[sid];
+        if (!st) break;
+        if (first) {
+          self.set(st.frameId, (self.get(st.frameId) ?? 0) + dt);
+          first = false;
+        }
+        if (!seen.has(st.frameId)) {
+          seen.add(st.frameId);
+          incl.set(st.frameId, (incl.get(st.frameId) ?? 0) + dt);
+        }
+        sid = st.parentId;
+      }
+    }
+    const label = (id: number) => {
+      const f = trace.frames[id];
+      const url = f?.resourceId != null ? trace.resources[f.resourceId] ?? "" : "";
+      return `${short(url) || "(native)"}:${f?.line ?? "?"}:${f?.column ?? "?"} ${f?.name || "(anon)"}`;
+    };
+    const top = (m: Map<number, number>, n: number) => [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(([id, ms]) => `${Math.round(ms)}ms ${label(id)}`);
+    setText(["SAMPLES (" + trace.samples.length + ", " + Math.round(busy) + "ms with JS running)", "-- by time spent in the function and what it called:", ...top(incl, 40), "-- by time in the function itself:", ...top(self, 25)].join("\n"));
+    setOpen(true);
+  };
   const show = () => {
     setText(report());
     setOpen(true);
@@ -126,7 +185,7 @@ export function PerfProbe() {
   };
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(report());
+      await navigator.clipboard.writeText(text.startsWith("SAMPLES") ? text : report());
     } catch {
       /* the text on screen can be selected instead */
     }
@@ -155,6 +214,7 @@ export function PerfProbe() {
             <button type="button" onClick={copy} style={{ background: "#fff", color: "#000", border: 0, borderRadius: 8, padding: "6px 10px" }}>Copy report</button>
             <button type="button" onClick={show} style={{ background: "#444", color: "#fff", border: 0, borderRadius: 8, padding: "6px 10px" }}>Refresh</button>
             <button type="button" onClick={clear} style={{ background: "#444", color: "#fff", border: 0, borderRadius: 8, padding: "6px 10px" }}>Clear</button>
+            <button type="button" onClick={() => (sampling ? void stopSampling() : startSampling())} style={{ background: sampling ? "#b3261e" : "#2f6f4f", color: "#fff", border: 0, borderRadius: 8, padding: "6px 10px" }}>{sampling ? "Stop" : "Sample"}</button>
           </div>
           <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0, userSelect: "text" }}>{text}</pre>
         </div>

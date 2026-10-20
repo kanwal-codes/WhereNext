@@ -70,9 +70,13 @@ const securityHeaders = [
   { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=(self), payment=(), usb=(), interest-cohort=()" },
   ...(isDev ? [] : [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" }]),
   { key: "X-DNS-Prefetch-Control", value: "on" },
+  // Lets the opt-in speed probe (?perf=1) sample which functions are running on a phone. Without the probe nothing uses it.
+  { key: "Document-Policy", value: "js-profiling" },
 ];
 
 const nextConfig: NextConfig = {
+  // Only for reading a profile taken on a phone: `WN_SOURCEMAPS=1 next build` writes the maps beside the chunks. Never on in a normal deploy.
+  productionBrowserSourceMaps: process.env.WN_SOURCEMAPS === "1",
   // Keep development output separate from production builds. Running `next build`
   // beside `next dev` must never remove chunks from the live development server.
   distDir: process.env.NEXT_DIST_DIR ?? (isDev ? ".next-dev" : ".next"),
