@@ -1,27 +1,28 @@
 "use client";
 
-import Link from "next/link";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { PHONE_ROUND, useSetPhoneHeader } from "@/components/shell/PhoneHeader";
 import { PHONE_V2 } from "@/lib/phone-v2";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { BookOpen, ChevronRight, Ellipsis, PanelRight, PanelRightClose, PanelRightOpen, Users, X } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
+import { Ellipsis, PanelRight } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanel, panelTitle, type EventSeed } from "@/components/TripPanelProvider";
-import { TripPanel } from "@/components/TripPanel";
 import { GroupMembersBadge } from "@/components/GroupMembersBadge";
-import { Reveal, Sheet, motionTokens } from "@/components/motion-primitives";
+import { Reveal, motionTokens } from "@/components/motion-primitives";
 import { ConversationSurface } from "@/features/conversation/ui/ConversationSurface";
 import { GroupChatSurface } from "@/features/group-chat/ui/GroupChatSurface";
 import { TripContextSurface } from "@/features/workspace/ui/TripContextSurface";
 import { useMediaQuery } from "@/lib/use-media-query";
-import { useKeyboardFit } from "@/lib/use-keyboard-fit";
+import { SidePane } from "./SidePane";
+import { PhoneOverlays } from "./PhoneOverlays";
+import { layoutModeOf, shellColumns } from "../domain/shell-layout";
+import { useChromeScroll } from "../application/useChromeScroll";
+import { useIdleWarm } from "../application/useIdleWarm";
 import { usePanelStyle } from "@/lib/use-panel-style";
 import type { AssistantBlock, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { Trip } from "@/features/trip/domain/trip";
 import { cn } from "@/lib/utils";
-import { controlGhost } from "@/features/conversation/ui/blocks/ui";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 // Same curve as `motionTokens.swap` (the panel's own crossfade), derived rather than copied so
 // the two can't drift apart again — they used to both run 420ms; shortening the crossfade alone
@@ -74,24 +75,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   // back the moment you scroll up (or reach the top, or switch tabs). It is an overlay, so showing and hiding it moves
   // nothing in the log (the log keeps its own top padding): the old version resized the log on every toggle and shook
   // the page. It also steps out of the way while the keyboard is up, to leave the room to the conversation.
-  const keyboardOpen = useKeyboardFit(!desktop);
-  const [scrolledAway, setScrolledAway] = useState(false);
-  const scrollTrack = useRef(new WeakMap<Element, { top: number; run: number }>());
-  const onLogScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    const el = e.currentTarget;
-    const top = el.scrollTop;
-    const max = el.scrollHeight - el.clientHeight;
-    const t = scrollTrack.current.get(el) ?? { top, run: 0 };
-    const delta = top - t.top;
-    t.top = top;
-    // Rubber-banding past either end reports movement that is not the reader's.
-    if (top > 0 && top < max) t.run = Math.sign(delta) === Math.sign(t.run) ? t.run + delta : delta;
-    scrollTrack.current.set(el, t);
-    if (top < 32) setScrolledAway(false);
-    else if (t.run > 28) setScrolledAway(true);
-    else if (t.run < -14) setScrolledAway(false);
-  }, []);
-  useEffect(() => setScrolledAway(false), [optimisticTab]);
+  const { keyboardOpen, scrolledAway, onLogScroll } = useChromeScroll({ desktop, resetOn: optimisticTab });
   // Phone redesign: no floating Roam | Chat row. Roam and Group chat are two screens, each with its own title in the page header
   // (the title follows the pane the instant it is tapped, not when the URL catches up) and one round button at its right edge.
   const phoneV2 = PHONE_V2 && !desktop;
@@ -108,22 +92,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
     );
   }, [phoneV2, optimisticTab, guest]);
   useSetPhoneHeader({ title: phoneV2 ? (optimisticTab === "group" ? "Group chat" : "Roam") : undefined, trailing: headerTrailing });
-  // Both panes stay mounted so switching tabs is instant, but the one you are not on does not need to be built
-  // while the page is still arriving (the Roam thread alone is hundreds of controls): it is mounted once the
-  // browser is idle, or at once if you switch to it first.
-  const [warm, setWarm] = useState(false);
-  useEffect(() => {
-    let idleId = 0;
-    const timer = window.setTimeout(() => {
-      const w = window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
-      if (w.requestIdleCallback) idleId = w.requestIdleCallback(() => setWarm(true), { timeout: 1500 });
-      else setWarm(true);
-    }, 1500);
-    return () => {
-      window.clearTimeout(timer);
-      if (idleId) (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(idleId);
-    };
-  }, []);
+  const warm = useIdleWarm();
   // TripPanelProvider closes `panel` on every pathname change (internal effect, not exposed on
   // its Ctx) — that's what makes switching tabs here also close whatever panel was open on the
   // previous one, with no extra code needed. If that internal behavior is ever removed, this
@@ -131,25 +100,9 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   const { panel, openPanel, closePanel } = useTripPanel();
 
   const showContext = desktop && !panel && !contextCollapsed;
-  // Collapsed context doesn't drop to 0 — it stays a slim rail (mirrors TripShell's sidebar
-  // collapse) so the re-expand toggle always has somewhere to live, inside the panel it controls.
-  const RAIL_WIDTH = 48;
-  // Length tracks, not `minmax(…, 1fr)` strings: a track list that mixes `fr` and `px` cannot be interpolated, so
-  // the old resize snapped at the end of its animation. Every track is a CSS length the browser resolves itself, in
-  // the same frame as the width it depends on. That matters while the trip sidebar slides: the panel's tracks used to
-  // be pixels measured from the shell by a ResizeObserver, which reports one frame late, so with a panel open the
-  // chat and the panel shook for the whole 420 ms. Now nothing is measured.
-  const CHAT_WHEN_PANEL = 512; // 32rem
-  // The panel takes what the chat leaves, up to 720 px: a detail view stretched across 940 px reads worse, and the chat gets the rest on a wide screen.
-  const PANEL_MAX = 720;
-  // Sized from the SCREEN, as if the trip sidebar were open (264 px), not from the room beside it. The sidebar collapsing then
-  // hands its 188 px to the chat column and never to the panel, so nothing inside the panel re-wraps while it slides.
-  const SIDEBAR_OPEN = 264;
-  const panelTrack = `min(${PANEL_MAX}px, max(0px, calc(100vw - ${SIDEBAR_OPEN + CHAT_WHEN_PANEL}px)))`;
-  const sideTrack = panel ? panelTrack : `${showContext ? 340 : RAIL_WIDTH}px`;
-  const columns = !desktop ? "minmax(0, 1fr) 0px" : `calc(100% - ${sideTrack}) ${sideTrack}`;
+  const columns = shellColumns({ desktop, hasPanel: Boolean(panel), showContext });
   // Animate only when the layout mode changes (panel opens or closes, rail expands); a window resize follows instantly.
-  const layoutMode = panel ? "panel" : showContext ? "context" : "rail";
+  const layoutMode = layoutModeOf({ hasPanel: Boolean(panel), showContext });
   const lastLayoutMode = useRef(layoutMode);
   const modeChanged = lastLayoutMode.current !== layoutMode;
   useEffect(() => {
@@ -266,130 +219,10 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
           </div>
         </div>
 
-        {desktop && (
-          <div className="relative h-full min-h-0 overflow-hidden border-l border-border bg-surface">
-            {/* Crossfade in place: the panel, the context rail and its collapsed strip stack in one box, so one
-                leaving while another arrives never leaves a blank beat. The panel keeps ONE key across subjects:
-                TripPanel's own surface stays put and only its content swaps (a per-subject key used to slide the
-                whole panel out and back for every change, on top of that swap). */}
-            <AnimatePresence initial={false}>
-              {panel ? (
-                <motion.div
-                  key="panel"
-                  initial={reduceMotion ? false : { opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={reduceMotion ? undefined : { opacity: 0, pointerEvents: "none" }}
-                  transition={reduceMotion ? { duration: 0 } : motionTokens.swap}
-                  className="absolute inset-0"
-                >
-                  <TripPanel layout="inline" />
-                </motion.div>
-              ) : showContext ? (
-                <motion.div
-                  key="trip-context"
-                  // Opacity-only: an `x` slide here leaves a lingering `transform` on the
-                  // scrollable div's ancestor, which forces GPU compositing on this whole panel and makes a
-                  // slow scroll inside it visibly juddery — live-caught on the trip-context rail.
-                  // min-w = the settled column width, so while the column animates open the text stays put
-                  // behind the clip instead of wrapping a letter per line.
-                  initial={reduceMotion ? false : { opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={reduceMotion ? undefined : { opacity: 0, pointerEvents: "none" }}
-                  transition={reduceMotion ? { duration: 0 } : motionTokens.swap}
-                  className="absolute inset-0 flex min-w-[340px] flex-col overflow-hidden"
-                >
-                  <div className="flex shrink-0 justify-start px-2 pt-3">
-                    <button
-                      type="button"
-                      onClick={() => setContextCollapsed(true)}
-                      aria-label="Hide trip context"
-                      title="Hide trip context"
-                      className="grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-[background-color,color,transform] hover:bg-muted hover:text-foreground active:scale-95"
-                    >
-                      <PanelRightClose className="size-4" />
-                    </button>
-                  </div>
-                  <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-slim px-4 pb-5">{contextRail}</div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="trip-context-rail"
-                  initial={reduceMotion ? false : { opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={reduceMotion ? undefined : { opacity: 0, pointerEvents: "none" }}
-                  transition={reduceMotion ? { duration: 0 } : motionTokens.swap}
-                  className="absolute inset-0 flex flex-col items-center pt-3"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setContextCollapsed(false)}
-                    aria-label="Show trip context"
-                    title="Show trip context"
-                    className="grid size-8 shrink-0 place-items-center rounded-full border border-border bg-background/60 text-muted-foreground transition-colors hover:text-foreground active:scale-95"
-                  >
-                    <PanelRightOpen className="h-4 w-4" />
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
+        {desktop && <SidePane panel={Boolean(panel)} showContext={showContext} setContextCollapsed={setContextCollapsed} contextRail={contextRail} />}
       </div>
 
-      {!desktop && (
-        <>
-          <AnimatePresence initial={false}>
-            {panel && PHONE_V2 && sheetPanel && (
-              // Phone redesign: a sheet over the conversation, not a screen that replaces it. The chat stays behind the scrim,
-              // so closing the sheet puts you back exactly where you were reading.
-              <motion.div key="panel-scrim" initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reduceMotion ? undefined : { opacity: 0 }} transition={reduceMotion ? { duration: 0 } : motionTokens.fast} onClick={closePanel} className="fixed inset-0 z-40 bg-black/40" />
-            )}
-            {panel && (
-              <motion.div
-                key="panel"
-                // `transform` as a whole (not x / y): the browser runs it on the compositor, so the slide keeps its pace while the page works.
-                initial={reduceMotion ? false : { transform: "translateY(100%)" }}
-                animate={{ transform: "translateY(0%)" }}
-                exit={reduceMotion ? undefined : { transform: "translateY(100%)" }}
-                transition={reduceMotion ? { duration: 0 } : { duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-                className={PHONE_V2 && sheetPanel ? "fixed inset-x-0 top-[max(3.25rem,calc(env(safe-area-inset-top)+2.5rem))] bottom-0 z-40 overflow-hidden rounded-t-4xl bg-surface shadow-float" : "fixed inset-0 top-[var(--topbar)] z-40 bg-surface"}
-              >
-                <TripPanel layout="inline" />
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* The group chat's one round button opens two places: the group itself, or what Roam knows about the trip. */}
-          <Sheet open={groupMenuOpen} onClose={() => setGroupMenuOpen(false)} side="bottom" ariaLabel="Group options" className="icons-fine rounded-t-4xl bg-background px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-            <ul>
-              <li>
-                <Link href={`/trips/${tripId}/group/details`} onClick={() => setGroupMenuOpen(false)} className="flex min-h-16 items-center gap-3.5 rounded-2xl px-3 transition-colors active:bg-muted">
-                  <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-secondary" aria-hidden><Users className="size-5" /></span>
-                  <span className="min-w-0 flex-1"><span className="block font-display text-base font-medium">Group settings</span><span className="block text-sm text-muted-foreground">Members and the invite link</span></span>
-                  <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden />
-                </Link>
-              </li>
-              <li>
-                <button type="button" onClick={() => { setGroupMenuOpen(false); setMobileContextOpen(true); }} className="flex min-h-16 w-full items-center gap-3.5 rounded-2xl px-3 text-left transition-colors active:bg-muted">
-                  <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-secondary" aria-hidden><BookOpen className="size-5" /></span>
-                  <span className="min-w-0 flex-1"><span className="block font-display text-base font-medium">Trip context</span><span className="block text-sm text-muted-foreground">What Roam knows about this trip</span></span>
-                  <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden />
-                </button>
-              </li>
-            </ul>
-          </Sheet>
-
-          <Sheet open={mobileContextOpen} onClose={() => setMobileContextOpen(false)} side="bottom" ariaLabel="Trip context" className="max-h-[85vh] px-4 pt-4 pb-8">
-            <div className="mb-3 flex shrink-0 items-center justify-between">
-              <p className="eyebrow">Trip context</p>
-              <button type="button" onClick={() => setMobileContextOpen(false)} aria-label="Close" className={controlGhost}>
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-slim">{contextRail}</div>
-          </Sheet>
-        </>
-      )}
+      {!desktop && <PhoneOverlays tripId={tripId} panel={Boolean(panel)} sheetPanel={sheetPanel} closePanel={closePanel} groupMenuOpen={groupMenuOpen} setGroupMenuOpen={setGroupMenuOpen} mobileContextOpen={mobileContextOpen} setMobileContextOpen={setMobileContextOpen} contextRail={contextRail} />}
     </div>
   );
 }
