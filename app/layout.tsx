@@ -13,7 +13,6 @@ import { ThemeSync } from "@/components/ThemeSync";
 import { MotionProvider } from "@/components/MotionProvider";
 import { NavProgress } from "@/components/NavProgress";
 import { ViewTransitionGate } from "@/components/ViewTransitionGate";
-import { PerfProbeGate } from "@/components/PerfProbeGate";
 import { DARK_MODE_ENABLED } from "@/lib/theme-config";
 
 // Runs before hydration so dark mode never flashes light-then-dark. An explicit choice
@@ -66,7 +65,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <MotionProvider>
           <NavProgress />
           <ViewTransitionGate />
-          <PerfProbeGate />
           {children}
           <ToastHost />
           <KeyboardAssist />
