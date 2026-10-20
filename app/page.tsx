@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { LandingNext } from "@/components/landing/LandingNext";
 import { TripsHome } from "@/components/TripsHome";
@@ -34,7 +33,9 @@ export default async function HomePage() {
   } catch {
     /* Supabase unavailable — show the public landing. */
   }
-  if (!data) return <LandingNext homeCode={homeAirportFromHeaders(await headers())} />;
-  if (data.trips.length === 0) redirect("/trips/new");
+  // A guest (anonymous session) with no trip has nothing to list, and the guest rules send /trips/new straight back here: show the landing, not a redirect loop.
+  if (!data || (data.isAnonymous && data.trips.length === 0)) return <LandingNext homeCode={homeAirportFromHeaders(await headers())} />;
+  // No trips yet still opens the home (TripsHome has its own "No trips yet" state and the Create button). It used to bounce to /trips/new:
+  // a second page load, and the home was unreachable for anyone who had not made a trip.
   return <TripsHome trips={data.trips} displayName={data.displayName} userId={data.userId} />;
 }

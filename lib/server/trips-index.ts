@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { TripSummary } from "@/components/TripsHome";
 import { firstSavedPhotoByTrip } from "@/lib/trip-cover";
 
-export type TripsIndexData = { userId: string; displayName: string; trips: TripSummary[] };
+export type TripsIndexData = { userId: string; displayName: string; isAnonymous: boolean; trips: TripSummary[] };
 
 /**
  * The auth check + trip list `/trips` needs. Shared with `/` (the root page) so a signed-in
@@ -41,5 +41,5 @@ export async function loadTripsIndex(supabase: SupabaseClient): Promise<TripsInd
       for (const trip of trips) trip.saved_photo_name = photos.get(trip.id) ?? null;
     }
   }
-  return { userId: user.id, displayName, trips };
+  return { userId: user.id, displayName, isAnonymous: user.is_anonymous === true, trips };
 }
