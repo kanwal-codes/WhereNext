@@ -1736,7 +1736,7 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
           <span>No travel date set, so these are example prices. Pick your date above.</span>
         </div>
       )}
-      {fares.insights && ready && fares.currency && <PriceInsight insights={fares.insights} currency={fares.currency} />}
+      {fares.insights && ready && fares.currency && <div className={cn(PHONE_V2 && "max-lg:hidden")}><PriceInsight insights={fares.insights} currency={fares.currency} /></div>}
       {ready && chosenPick && <div className={cn(PHONE_V2 && "max-lg:hidden")}><FlightJourney offer={chosenPick.offer} labels={chosenPick.labels} roundTrip={roundTrip} onDetails={onOpenPanel ? () => onOpenPanel(panelFor(chosenPick.offer)) : undefined} tripCurrency={tripCurrency} /></div>}
       {fares.items.length > 0 && fares.status !== "error" && (
         <div className={cn("mt-4 transition-opacity duration-200", loading && "pointer-events-none opacity-50", PHONE_V2 && !showAll && "max-lg:hidden")} aria-busy={loading}>
