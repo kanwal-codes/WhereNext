@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { cloneElement, isValidElement, useId, useState, type ReactNode } from "react";
 import { motion } from "motion/react";
 import { ChevronRight } from "lucide-react";
 import { Reveal, Sheet } from "@/components/motion-primitives";
@@ -85,14 +85,19 @@ export function ReadRow({ label, value, note, level }: { label: string; value: s
   );
 }
 
+/** A labelled form field. The label is linked to a plain input, select or textarea inside, so a screen reader announces it. */
 export function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
+  const id = useId();
+  const native = isValidElement<{ id?: string }>(children) && typeof children.type === "string" && ["input", "select", "textarea"].includes(children.type);
+  const control = native ? cloneElement(children, { id: children.props.id ?? id }) : children;
+  const forId = native ? (children.props.id ?? id) : undefined;
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <label className="text-xs font-medium tracking-wide text-ink-soft">{label}</label>
+        <label htmlFor={forId} className="text-xs font-medium tracking-wide text-ink-soft">{label}</label>
         {hint}
       </div>
-      {children}
+      {control}
     </div>
   );
 }

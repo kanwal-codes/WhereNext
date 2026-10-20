@@ -104,8 +104,8 @@ describe("AccountView: the page", () => {
     expect(screen.queryAllByText("Verified")).toHaveLength(0);
   });
 
-  // KNOWN BUG, fixed in a later commit: Field's <label> is neither wrapping nor linked to its input, so these fields have no accessible name.
-  it.fails("names each field by its label for screen readers", () => {
+  // Regression: Field's <label> was neither wrapping nor linked to its input, so these fields had no accessible name.
+  it("names each field by its label for screen readers", () => {
     show();
     expect(screen.getByLabelText("Full name")).toBeTruthy();
     expect(screen.getByLabelText("Email")).toBeTruthy();

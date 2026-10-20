@@ -16,6 +16,7 @@ import { LANGUAGES, countriesByName, countryFromPlace, displayName, fromBrowserL
 import { updateName, updateEmail, updatePassword, disconnectGoogle, signInWithGoogle, signOut as signOutUser, uploadAvatar } from "@/features/identity/application/authClient";
 import type { TravelerProfile } from "@/packages/contracts/profile";
 import { memberInitials } from "@/lib/member-initials";
+import { airportCode, avatarProblem, canChangePassword, formPatch, passwordsMatch, pickedAirport, readAirportInput, shareUrl, styleSummary, stylePatch, toggled } from "../domain/account";
 import { AVATAR_TYPES, BUDGET, COMPANIONS, DIETARY, INTERESTS, PACE, SECTIONS, STAY_TYPES, UNSET_NOTE } from "./account-options";
 import { Chip, Field, Pill, ReadRow, Segmented, SettingSection, ToggleRow, asDietaryArray, strengthOf } from "./AccountParts";
 
@@ -94,8 +95,8 @@ export function AccountView({
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    if (!AVATAR_TYPES.includes(file.type)) { notifyToast("Choose a JPEG, PNG, WebP, GIF or HEIC photo.", "error"); return; }
-    if (file.size > 5 * 1024 * 1024) { notifyToast("Keep it under 5MB.", "error"); return; }
+    const problem = avatarProblem(file, AVATAR_TYPES);
+    if (problem) { notifyToast(problem, "error"); return; }
     setUploadingAvatar(true);
     const { error, url } = await uploadAvatar(userId, file);
     setUploadingAvatar(false);
@@ -142,12 +143,6 @@ export function AccountView({
     if (named && !countryChosen.current) setCountry(named);
     touch();
   };
-  /** The three-letter code in what was typed or picked: "YYZ", or "Toronto Pearson International Airport (YYZ)". */
-  const airportCode = (text: string): string | null => {
-    const v = text.trim();
-    if (/^[A-Za-z]{3}$/.test(v)) return v.toUpperCase();
-    return /\(([A-Za-z]{3})\)\s*$/.exec(v)?.[1]?.toUpperCase() ?? null;
-  };
   const [detected, setDetected] = useState<{ language?: string; country?: string }>({});
   useEffect(() => setDetected(fromBrowserLocale(navigator.language)), []);
   // A home city saved without a country: the city already says which, so fill it in and keep it.
@@ -186,7 +181,7 @@ export function AccountView({
   const [savingStyle, setSavingStyle] = useState(false);
   async function finishStyleEdit() {
     setSavingStyle(true);
-    const ok = await saveProfile({ interests, dietaryNeeds: dietary, dietaryNote: dietNote || undefined, pace: PACE[pace]?.label ?? null, budget: BUDGET[budget]?.label ?? null, stayType: stay, groupType: companions || null } as Partial<TravelerProfile>); // null clears one that was set
+    const ok = await saveProfile(stylePatch({ interests, dietary, dietNote, pace: PACE[pace]?.label, budget: BUDGET[budget]?.label, stay, companions })); // null clears one that was set
     setSavingStyle(false);
     if (ok) { setStyleSaved(true); setEditingStyle(false); }
   }
@@ -196,7 +191,7 @@ export function AccountView({
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
 
-  const toggleChip = (list: string[], set: (v: string[]) => void, v: string) => { touch(); set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]); };
+  const toggleChip = (list: string[], set: (v: string[]) => void, v: string) => { touch(); set(toggled(list, v)); };
 
   async function saveProfile(patch: Partial<TravelerProfile>): Promise<boolean> {
     try {
@@ -255,7 +250,7 @@ export function AccountView({
         if (error) throw new Error("email");
         notifyToast("Check your inbox to confirm the new email.", "success");
       }
-      const ok = await saveProfile({ homeAirport: airport || undefined, homeCity: city || undefined, language: language || undefined, country: country || undefined, bio: bio || undefined, notifications: notif });
+      const ok = await saveProfile(formPatch({ airport, city, language, country, bio, notifications: notif }));
       if (!ok) throw new Error("profile");
       setDirty(false);
       setSaved(true);
@@ -268,7 +263,7 @@ export function AccountView({
   }
 
   async function changePassword() {
-    if (newPw.length < 8 || newPw !== confirmPw || savingPw) return;
+    if (!canChangePassword(newPw, confirmPw) || savingPw) return;
     setSavingPw(true);
     const { error } = await updatePassword(newPw);
     setSavingPw(false);
@@ -291,7 +286,7 @@ export function AccountView({
   }
 
   async function copyShareLink(slug: string) {
-    const url = `${window.location.origin}/s/${slug}`;
+    const url = shareUrl(window.location.origin, slug);
     try { await navigator.clipboard.writeText(url); notifyToast("Link copied", "success"); } catch { notifyToast("Couldn’t copy the link.", "error"); }
   }
 
@@ -313,19 +308,10 @@ export function AccountView({
     window.location.assign("/sign-in");
   }
 
-  const summary = useMemo(() => {
-    const top = interests.slice(0, 3).join(", ").toLowerCase() || "whatever looks good";
-    // Only what was actually chosen: a pace, budget or company left unset is not assumed.
-    const parts = [
-      PACE[pace] && `at a ${PACE[pace]!.label.toLowerCase()} pace`,
-      BUDGET[budget] && `on a ${BUDGET[budget]!.label.toLowerCase()} budget`,
-      companions && `usually travelling ${companions.toLowerCase() === "solo" ? "solo" : `with ${companions.toLowerCase()}`}`,
-    ].filter(Boolean);
-    return `New trips will lean towards ${top}${parts.length ? `, ${parts.join(", ")}` : ""}.`;
-  }, [interests, pace, budget, companions]);
+  const summary = useMemo(() => styleSummary({ interests, pace: PACE[pace]?.label, budget: BUDGET[budget]?.label, companions }), [interests, pace, budget, companions]);
 
   const pwScore = strengthOf(newPw);
-  const confirmMatches = confirmPw.length === 0 || confirmPw === newPw;
+  const confirmMatches = passwordsMatch(newPw, confirmPw);
 
   return (
     <div className="min-h-screen pb-32">
@@ -512,15 +498,15 @@ export function AccountView({
                       endpoint="/api/account/airports"
                       value={airportText}
                       onChange={(text) => {
-                        const code = airportCode(text);
-                        setAirportText(/^[A-Za-z]{3}$/.test(text.trim()) ? text.trim().toUpperCase() : text);
-                        if (!text.trim()) setAirport("");
-                        else if (code) setAirport(code);
+                        const { shown, airport: next } = readAirportInput(text);
+                        setAirportText(shown);
+                        if (next !== null) setAirport(next);
                         touch();
                       }}
                       onPick={(s) => {
-                        setAirport(s.placeId);
-                        setAirportText(s.text.includes(`(${s.placeId})`) ? s.text : `${s.text} (${s.placeId})`);
+                        const picked = pickedAirport(s);
+                        setAirport(picked.airport);
+                        setAirportText(picked.shown);
                         touch();
                       }}
                       onSelect={() => undefined}
@@ -596,7 +582,7 @@ export function AccountView({
                         <button
                           type="button"
                           onClick={() => void changePassword()}
-                          disabled={newPw.length < 8 || newPw !== confirmPw || savingPw}
+                          disabled={!canChangePassword(newPw, confirmPw) || savingPw}
                           className="inline-flex items-center gap-2 rounded-full bg-coral px-4 py-2 text-sm text-background transition-opacity hover:opacity-90 disabled:opacity-50"
                         >
                           {savingPw && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
