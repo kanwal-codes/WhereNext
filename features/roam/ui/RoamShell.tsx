@@ -17,6 +17,7 @@ import { GroupChatSurface } from "@/features/group-chat/ui/GroupChatSurface";
 import { TripContextSurface } from "@/features/workspace/ui/TripContextSurface";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { useKeyboardFit } from "@/lib/use-keyboard-fit";
+import { usePanelStyle } from "@/lib/use-panel-style";
 import type { AssistantBlock, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { Trip } from "@/features/trip/domain/trip";
 import { cn } from "@/lib/utils";
@@ -58,6 +59,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   const [contextCollapsed, setContextCollapsed] = useState(false);
   const [mobileContextOpen, setMobileContextOpen] = useState(false);
   const [groupMenuOpen, setGroupMenuOpen] = useState(false);
+  const sheetPanel = usePanelStyle() === "sheet";
   // `activeTab` is derived one layer up from `usePathname()`, which only updates once Next's
   // router finishes the /chat<->/group navigation — a real network round trip for that route's
   // RSC payload, since `router.refresh()` (called from `TripDataProvider` on every realtime
@@ -340,7 +342,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
       {!desktop && (
         <>
           <AnimatePresence initial={false}>
-            {panel && PHONE_V2 && (
+            {panel && PHONE_V2 && sheetPanel && (
               // Phone redesign: a sheet over the conversation, not a screen that replaces it. The chat stays behind the scrim,
               // so closing the sheet puts you back exactly where you were reading.
               <motion.div key="panel-scrim" initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reduceMotion ? undefined : { opacity: 0 }} transition={reduceMotion ? { duration: 0 } : motionTokens.fast} onClick={closePanel} className="fixed inset-0 z-40 bg-black/40" />
@@ -353,7 +355,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
                 animate={{ transform: "translateY(0%)" }}
                 exit={reduceMotion ? undefined : { transform: "translateY(100%)" }}
                 transition={reduceMotion ? { duration: 0 } : { duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-                className={PHONE_V2 ? "fixed inset-x-0 top-[max(3.25rem,calc(env(safe-area-inset-top)+2.5rem))] bottom-0 z-40 overflow-hidden rounded-t-4xl bg-surface shadow-float" : "fixed inset-0 top-[var(--topbar)] z-40 bg-surface"}
+                className={PHONE_V2 && sheetPanel ? "fixed inset-x-0 top-[max(3.25rem,calc(env(safe-area-inset-top)+2.5rem))] bottom-0 z-40 overflow-hidden rounded-t-4xl bg-surface shadow-float" : "fixed inset-0 top-[var(--topbar)] z-40 bg-surface"}
               >
                 <TripPanel layout="inline" />
               </motion.div>
