@@ -7,8 +7,6 @@ import { useRouter } from "next/navigation";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { Loader2 } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
-import type { NearbyEvent } from "@/lib/application/nearby-events";
-import type { AssistantBlock } from "@/packages/contracts/assistant";
 import { EventCard } from "@/components/EventCard";
 import { CompareMark } from "@/features/conversation/ui/blocks/ui";
 import { CineCard } from "@/features/conversation/ui/blocks/CineCard";
@@ -19,14 +17,11 @@ import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import { photoProxyUrl } from "@/lib/places-ui";
 import { readStayDecision } from "@/packages/contracts/stay";
-import { type RankContext } from "@/lib/application/rank-places";
-import { classifyEventVibe, classifyPlaceVibe, lanesFor, type Lane, type LaneAnchor, type Vibe } from "@/packages/reco/vibes";
-import { shapeLanes, type LaneInput, type LaneOutput } from "@/packages/reco/shape-lanes";
+import { lanesFor, type LaneAnchor, type Vibe } from "@/packages/reco/vibes";
+import { shapeLanes } from "@/packages/reco/shape-lanes";
+import { classify, fetchLane, logReco, semanticScores } from "@/features/places/application/nearbyReco";
+import { INITIAL_LANES, asList, collectionBlockFor, impressionRows, rankContextFrom, type ShapedLane } from "@/features/places/domain/nearby-reco";
 
-type RawLane = LaneInput<NearbyEvent>;
-type ShapedLane = LaneOutput<NearbyEvent>;
-
-const asList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((s): s is string => typeof s === "string") : []);
 const norm = (s: string) => s.trim().toLowerCase();
 
 function MiniCard({ tripId, place, why, onSelect }: { tripId: string; place: Place; why?: string | null; onSelect?: () => void }) {
@@ -65,119 +60,6 @@ function MiniCard({ tripId, place, why, onSelect }: { tripId: string; place: Pla
   );
 }
 
-function queryFor(lane: Lane, anchor: LaneAnchor): string {
-  const base = (typeof lane.query === "function" ? lane.query(anchor) : lane.query).trim();
-  if (lane.source === "events") {
-    // "More concerts" from a Rock gig should surface rock gigs, not worship concerts —
-    // fold the anchor's genre into the keyword when we have it.
-    const g = (anchor.genre ?? "").split(/\s*·\s*/).slice(1).join(" ").trim();
-    return g && base ? `${base} ${g}` : base;
-  }
-  // A radius lane is filtered client-side, so keep its query city-wide; others lean on the anchor.
-  return lane.radiusKm ? `${base} in ${anchor.city}`.trim() : `${base} near ${anchor.name} ${anchor.city}`.trim();
-}
-
-async function fetchLane(tripId: string, lane: Lane, anchor: LaneAnchor, signal: AbortSignal): Promise<RawLane> {
-  const q = queryFor(lane, anchor);
-  try {
-    if (lane.source === "events") {
-      if (!anchor.city) return { lane, places: [], events: [] };
-      const qs = new URLSearchParams({ location: anchor.city });
-      if (q) qs.set("query", q);
-      const body = await fetch(`/api/trips/${tripId}/events?${qs}`, { signal }).then((r) => (r.ok ? r.json() : { events: [] }));
-      return { lane, places: [], events: (body.events ?? []) as NearbyEvent[] };
-    }
-    // Bias toward the anchor's own coordinates when known — the query text naming a city isn't
-    // enough on its own for Google to reliably stay in that city (see LocationBias's doc comment
-    // in packages/providers/google-places/client.ts for the live-found bug this fixes).
-    // One page (20): a lane shows four cards, and every page past the first is another sequential
-    // Google round trip — 60 cost ~2.7 s and ~300 KB per lane, four lanes per panel.
-    const qs = new URLSearchParams({ query: q, limit: "20" });
-    if (Number.isFinite(anchor.lat) && Number.isFinite(anchor.lng)) {
-      qs.set("lat", String(anchor.lat));
-      qs.set("lng", String(anchor.lng));
-    }
-    const body = await fetch(`/api/trips/${tripId}/places?${qs}`, { signal }).then((r) => (r.ok ? r.json() : { places: [] }));
-    return { lane, places: (body.places ?? []) as Place[], events: [] };
-  } catch {
-    return { lane, places: [], events: [] };
-  }
-}
-
-/** Cosine of each candidate against the anchor, from the server embedding endpoint. `{}` on any failure. */
-async function semanticScores(tripId: string, anchorText: string, candidates: Place[], signal: AbortSignal): Promise<Record<string, number>> {
-  try {
-    const body = await fetch(`/api/trips/${tripId}/reco`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      signal,
-      body: JSON.stringify({
-        op: "rank",
-        anchor: anchorText,
-        candidates: candidates.slice(0, 24).map((p) => ({ id: p.providerId, text: `${p.name} ${(p.category ?? "").replaceAll("_", " ")}`.trim() })),
-      }),
-    }).then((r) => (r.ok ? r.json() : { scores: {} }));
-    return (body.scores ?? {}) as Record<string, number>;
-  } catch {
-    return {};
-  }
-}
-
-type LogRow = { laneId: string; action: "impression" | "click"; itemKind: "place" | "event"; itemId: string; position?: number };
-
-/** Fire-and-forget impression / click beacon. `keepalive` so a click survives the navigation. */
-function logReco(tripId: string, anchorKind: "place" | "event", anchorId: string, vibe: string, events: LogRow[]): void {
-  if (events.length === 0) return;
-  try {
-    void fetch(`/api/trips/${tripId}/reco`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      keepalive: true,
-      body: JSON.stringify({ op: "log", anchorKind, anchorId, vibe, events }),
-    }).catch(() => undefined);
-  } catch {
-    /* analytics must never throw */
-  }
-}
-
-/** Sync classifier, upgraded by the server embedding fallback when a place lands on "default". */
-async function classify(
-  tripId: string,
-  kind: "place" | "event",
-  anchor: { name: string; primaryType?: string | null; types?: string[] | null; id: string; genre?: string | null },
-  signal: AbortSignal,
-): Promise<{ vibe: Vibe; secondary?: Vibe }> {
-  if (kind === "event") {
-    return { vibe: classifyEventVibe({ tmSegment: (anchor.genre ?? "").split(/\s*·\s*/)[0] || null, title: anchor.name }) };
-  }
-  const sync = classifyPlaceVibe({ primaryType: anchor.primaryType, types: anchor.types, name: anchor.name });
-  if (sync.vibe !== "default") return sync;
-  try {
-    const body = await fetch(`/api/trips/${tripId}/reco`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      signal,
-      body: JSON.stringify({ op: "classify", id: anchor.id, name: anchor.name, primaryType: anchor.primaryType, types: anchor.types }),
-    }).then((r) => (r.ok ? r.json() : sync));
-    return (body?.vibe ? body : sync) as { vibe: Vibe; secondary?: Vibe };
-  } catch {
-    return sync;
-  }
-}
-
-/** Lanes shown before "More nearby": the first two carry the point; the rest are there for whoever wants them. */
-const INITIAL_LANES = 2;
-
-/** Only the cards actually rendered (the same `slice(0, 4)` the JSX applies) count as an "impression". */
-const impressionRows = (lanes: ShapedLane[]): LogRow[] =>
-  lanes.flatMap(({ lane, places, events }) => {
-    const shownPlaces = places.slice(0, 4);
-    const shownEvents = events.slice(0, Math.max(0, 4 - shownPlaces.length));
-    return [
-      ...shownPlaces.map((r, idx): LogRow => ({ laneId: lane.id, action: "impression", itemKind: "place", itemId: r.place.providerId, position: idx })),
-      ...shownEvents.map((e, idx): LogRow => ({ laneId: lane.id, action: "impression", itemKind: "event", itemId: e.url, position: idx })),
-    ];
-  });
 
 /**
  * Situational "around here" recommendations. The anchor (place or event) is classified into
@@ -228,22 +110,10 @@ export function NearbyRecommendations({
   const lockedStay = readStayDecision((trip?.data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
   const stayLat = lockedStay?.latitude ?? null;
   const stayLng = lockedStay?.longitude ?? null;
-  const rankCtx = useMemo<Omit<RankContext, "anchor">>(() => {
-    const savedIds = (savedPlaces ?? [])
-      .map((row) => {
-        const rec = row as { places?: { provider_id?: string }; provider_id?: string };
-        return rec.places?.provider_id ?? rec.provider_id;
-      })
-      .filter((id): id is string => Boolean(id));
-    return {
-      interests: asList(prefs?.interests),
-      likes: asList(prefs?.likes),
-      dislikes: asList(prefs?.dislikes),
-      savedIds,
-      rejectedIds: rejectedPlaceIds ?? [],
-      stayAnchor: stayLat != null && stayLng != null ? { latitude: stayLat, longitude: stayLng } : null,
-    };
-  }, [prefs, savedPlaces, rejectedPlaceIds, stayLat, stayLng]);
+  const rankCtx = useMemo(
+    () => rankContextFrom({ prefs, savedPlaces, rejectedPlaceIds, stayLat, stayLng }),
+    [prefs, savedPlaces, rejectedPlaceIds, stayLat, stayLng],
+  );
   const accessibilityNeeds = useMemo(() => asList(prefs?.accessibilityNeeds), [prefs]);
   // Ranking inputs come from trip data, which refreshes on every workspace change: read the latest at
   // shaping time instead of re-running the whole fan-out (four searches) each time it does.
@@ -353,20 +223,7 @@ export function NearbyRecommendations({
         const shownPlaces = places.slice(0, 4);
         const shownEvents = events.slice(0, Math.max(0, 4 - shownPlaces.length));
         const hasMore = places.length > shownPlaces.length || events.length > shownEvents.length;
-        const collectionBlock: AssistantBlock = events.length > 0
-          ? ({
-              type: "events",
-              retrievedAt: new Date().toISOString(),
-              items: events,
-            } as AssistantBlock)
-          : ({
-              type: "place_list",
-              title: lane.title,
-              // The collection panel's PlaceCardView reads `photoUrl` (a resolved proxy URL), not
-              // the raw `photoNames` this Place carries — without this every card falls back to
-              // the pin-icon placeholder.
-              places: places.map((result) => ({ ...result.place, photoUrl: photoProxyUrl(tripId, result.place.photoNames?.[0], 480) })),
-            } as AssistantBlock);
+        const collectionBlock = collectionBlockFor(tripId, lane, places, events);
         return (
           <Reveal key={lane.id} delay={0.05 * i}>
             <section>
