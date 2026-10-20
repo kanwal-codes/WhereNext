@@ -153,7 +153,7 @@ describe("GET /api/cron/guest-cleanup", () => {
     return Object.assign(deleteUser, { clearRateLimits });
   }
   const call = async (auth?: string) =>
-    (await import("@/app/api/cron/guest-cleanup/route")).GET(new Request("http://x/api/cron/guest-cleanup", { headers: auth ? { authorization: auth } : {} }));
+    (await import("@/app/api/cron/guest-cleanup/route")).GET(new Request("http://x/api/cron/guest-cleanup", { headers: auth ? { authorization: auth } : {} }), { params: Promise.resolve({}) });
 
   it("refuses without the cron secret", async () => {
     vi.stubEnv("CRON_SECRET", "s3cret");

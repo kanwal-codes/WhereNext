@@ -7,9 +7,10 @@ vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: () => ({}) }
 const sendEmailMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/server/email", () => ({ sendEmail: sendEmailMock }));
 
-import { GET } from "../../app/api/cron/fallback-rate/route";
+import { GET as ROUTE_GET } from "../../app/api/cron/fallback-rate/route";
 
 const AUTH = { headers: { authorization: "Bearer test-secret" } };
+const GET = (request: Request) => ROUTE_GET(request, { params: Promise.resolve({}) });
 const req = (init: Partial<RequestInit> = {}) => new Request("http://localhost/api/cron/fallback-rate", { ...AUTH, ...init });
 
 describe("GET /api/cron/fallback-rate", () => {
