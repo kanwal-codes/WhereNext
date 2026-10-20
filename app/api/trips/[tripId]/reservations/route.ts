@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { findDuplicateReservation } from "@/lib/server/reservation-duplicate";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 import { RESERVATION_COLUMNS, reservationInput, toReservation, toReservationRow } from "@/packages/contracts/reservation";
 
-export async function GET(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (_: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId);
@@ -20,9 +20,9 @@ export async function GET(_: Request, { params }: { params: Promise<{ tripId: st
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Reservations are unavailable right now");
   }
-}
+});
 
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase, user } = await requireTripMember(tripId, { role: "editor" });
@@ -41,4 +41,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "That reservation couldn't be saved");
   }
-}
+});

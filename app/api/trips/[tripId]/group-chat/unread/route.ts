@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 
 // How many group messages from other people the viewer has not seen (group_chat_reads, migration 0049).
-export async function GET(_request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (_request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { registered: true });
@@ -13,10 +13,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tri
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Unread count unavailable");
   }
-}
+});
 
 // The viewer has the group chat open: everything up to now is read.
-export async function POST(_request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const POST = withRoute(async (_request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase, user } = await requireTripMember(tripId, { registered: true });
@@ -28,4 +28,4 @@ export async function POST(_request: Request, { params }: { params: Promise<{ tr
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Could not mark the chat as read");
   }
-}
+});

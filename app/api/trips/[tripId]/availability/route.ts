@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { availabilityInput } from "@/features/availability/domain/availability";
 import { computeOverlaps } from "@/features/availability/domain/overlap";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 type Row = { id: string; user_id: string; start_date: string; end_date: string };
 
-export async function GET(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (_: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId);
@@ -20,13 +20,13 @@ export async function GET(_: Request, { params }: { params: Promise<{ tripId: st
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Availability unavailable");
   }
-}
+});
 
 // Replaces the caller's own set of ranges — a full re-submit, not an incremental add, same
 // "new ordering wholesale" semantics as the itinerary reorder endpoint. Only ever touches the
 // caller's own rows; RLS also enforces this, but scoping the delete explicitly keeps the
 // intent obvious here.
-export async function PUT(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const PUT = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase, user } = await requireTripMember(tripId);
@@ -44,4 +44,4 @@ export async function PUT(request: Request, { params }: { params: Promise<{ trip
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Availability unavailable");
   }
-}
+});

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { userMessageInput } from "@/features/conversation/domain/message";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail, jsonRevalidated } from "@/lib/server/with-route";
+import { withRoute, fail, jsonRevalidated } from "@/lib/server/with-route";
 import { createConversationRepository } from "@/features/conversation/infrastructure/conversationRepository";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -19,7 +19,7 @@ function threadWriter() {
 // unlike every other caller of this repository's `list()`.
 const HISTORY_LIMIT = 200;
 
-export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase, user } = await requireTripMember(tripId);
@@ -28,9 +28,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Conversation unavailable");
   }
-}
+});
 
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase, user } = await requireTripMember(tripId);
@@ -40,4 +40,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Conversation unavailable");
   }
-}
+});

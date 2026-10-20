@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { LIMITS } from "@/lib/server/limits";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { serpConfigured } from "@/packages/providers/serpapi/client";
 import { searchReturnOffers } from "@/lib/server/flight-search";
 import { toFlightItem } from "@/lib/application/flight-items";
@@ -20,7 +20,7 @@ const bodySchema = z.object({
 });
 
 /** The return flights that pair with one outbound of a round trip, each priced as the whole round trip. */
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase, user } = await requireTripMember(tripId, { limit: LIMITS.provider });
@@ -42,4 +42,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "Return flights are unavailable right now");
   }
-}
+});

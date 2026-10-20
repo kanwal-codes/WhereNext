@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { RouteDay, RouteLeg, RoutePlan } from "@/packages/contracts/route-plan";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { LIMITS } from "@/lib/server/limits";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { destinationBias } from "@/lib/server/geocode-stop";
 import { planLeg, type Stop } from "@/lib/server/plan-leg";
@@ -33,7 +33,7 @@ async function coordsFor(title: string, anchor: string, meta: Record<string, unk
  *  item cap, so bound what a single request will plan (a real trip is well under this). */
 const MAX_PLANNED_ITEMS = 80;
 
-export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { limit: LIMITS.routes });
@@ -135,4 +135,4 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Route plan is unavailable right now");
   }
-}
+});

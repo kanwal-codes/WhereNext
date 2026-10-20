@@ -13,7 +13,7 @@ vi.mock("@/lib/supabase/server", () => ({
 
 import { PUT } from "@/app/api/profile/route";
 
-const put = (body: unknown) => PUT(new Request("http://t/api/profile", { method: "PUT", body: JSON.stringify(body) }));
+const put = (body: unknown) => PUT(new Request("http://t/api/profile", { method: "PUT", body: JSON.stringify(body) }), { params: Promise.resolve({}) });
 
 describe("profile PUT", () => {
   beforeEach(() => { store.data = { pace: "Slow", budget: "Lean", groupType: "Solo", interests: ["Hiking"] }; });

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { cancelOrder } from "@/packages/providers/duffel/client";
 import { cancelBooking } from "@/packages/providers/liteapi/client";
 import { toBooking } from "@/packages/contracts/booking";
@@ -13,7 +13,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 // live and must not be recorded as cancelled.
 const ALREADY_CANCELLED = /already[\s_-]*cancel|cancel[\s_-]*already|order_already/i;
 
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string; bookingId: string }> }) {
+export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string; bookingId: string }> }) => {
   try {
     const { tripId, bookingId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor", registered: true });
@@ -81,4 +81,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Cancellation failed — try again in a moment");
   }
-}
+});

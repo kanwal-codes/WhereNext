@@ -6,6 +6,7 @@ import { generateText } from "@/packages/ai/model-policy";
 import { haversineKm } from "@/lib/application/geo";
 import { dislikesInstruction } from "@/packages/contracts/assistant";
 import { finalizeAssistantText } from "@/lib/application/evaluator";
+import { withRoute } from "@/lib/server/with-route";
 
 /**
  * A throwaway comparison conversation. It has the full trip context (so it can reason
@@ -28,7 +29,7 @@ const bodySchema = z.object({
   messages: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().trim().min(1).max(4000) })).min(1).max(20),
 });
 
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { limit: LIMITS.llm });
@@ -90,4 +91,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     if (error instanceof z.ZodError) return new Response(JSON.stringify({ error: "Invalid compare request" }), { status: 400, headers: { "content-type": "application/json" } });
     return tripAuthResponse(error) ?? new Response(JSON.stringify({ error: "The comparison assistant is unavailable right now" }), { status: 503, headers: { "content-type": "application/json" } });
   }
-}
+});

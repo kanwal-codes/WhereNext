@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { isUuid, requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { findDuplicateReservation } from "@/lib/server/reservation-duplicate";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 import { RESERVATION_FILES_BUCKET } from "@/lib/reservation-files";
 import { RESERVATION_COLUMNS, readAttachments, reservationInput, toReservation, toReservationRow } from "@/packages/contracts/reservation";
 
 type Ctx = { params: Promise<{ tripId: string; reservationId: string }> };
 
-export async function PATCH(request: Request, { params }: Ctx) {
+export const PATCH = withRoute(async (request: Request, { params }: Ctx) => {
   try {
     const { tripId, reservationId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
@@ -31,9 +31,9 @@ export async function PATCH(request: Request, { params }: Ctx) {
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "That reservation couldn't be saved");
   }
-}
+});
 
-export async function DELETE(_: Request, { params }: Ctx) {
+export const DELETE = withRoute(async (_: Request, { params }: Ctx) => {
   try {
     const { tripId, reservationId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
@@ -49,4 +49,4 @@ export async function DELETE(_: Request, { params }: Ctx) {
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "That reservation couldn't be removed");
   }
-}
+});

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 const reactionInput = z.object({ emoji: z.string().trim().min(1).max(8) });
@@ -9,7 +9,7 @@ const reactionInput = z.object({ emoji: z.string().trim().min(1).max(8) });
 // Toggle: react if the caller hasn't on this message with this emoji yet, un-react if they
 // have. RLS also enforces `user_id = auth.uid()` on group_message_reactions, but checking
 // membership here first gives a clean 404/403 instead of a silent RLS-denied write.
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string; messageId: string }> }) {
+export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string; messageId: string }> }) => {
   try {
     const { tripId, messageId } = await params;
     const { supabase, user } = await requireTripMember(tripId);
@@ -43,4 +43,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Reaction unavailable");
   }
-}
+});

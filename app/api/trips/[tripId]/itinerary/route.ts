@@ -2,13 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { canChangeLockedItem, itineraryItemSchema, itineraryReorderSchema, nextVisitTitle } from "@/features/itinerary/domain/item";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { geocodeStop } from "@/lib/server/geocode-stop";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 const SELECT = "id,title,day_index,position,metadata,created_at";
 
-export async function GET(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (_: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId);
@@ -25,9 +25,9 @@ export async function GET(_: Request, { params }: { params: Promise<{ tripId: st
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Itinerary unavailable");
   }
-}
+});
 
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
@@ -105,9 +105,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid itinerary item" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "Itinerary unavailable");
   }
-}
+});
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const PATCH = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
@@ -156,9 +156,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ tr
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid itinerary item" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "Itinerary unavailable");
   }
-}
+});
 
-export async function DELETE(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const DELETE = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
@@ -175,4 +175,4 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ t
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid itinerary item" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "Itinerary unavailable");
   }
-}
+});

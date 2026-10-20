@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { LIMITS } from "@/lib/server/limits";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { transit } from "@/packages/providers/google-places/transit";
 import { cached } from "@/lib/server/ttl-cache";
 import { localToUtc } from "@/lib/server/timezone";
@@ -14,7 +14,7 @@ const inputSchema = z
   .object({ origin: place, destination: place, departureTime: z.string().datetime().optional(), arrivalTime: z.string().datetime().optional(), when: when.optional() })
   .refine((value) => !(value.departureTime && value.arrivalTime));
 
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     await requireTripMember((await params).tripId, { limit: LIMITS.provider });
     if (!process.env.GOOGLE_MAPS_API_KEY) return NextResponse.json({ error: "Transit search is not configured" }, { status: 503 });
@@ -34,4 +34,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid transit request" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "Transit is unavailable right now");
   }
-}
+});

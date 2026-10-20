@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/server/logger";
 import { withinRateLimit } from "@/lib/server/rate-limit";
 import { clientKey } from "@/lib/server/guest";
+import { withRoute } from "@/lib/server/with-route";
 
 const MAX_BYTES = 6 * 1024 * 1024;
 const ACCEPT = { accept: "image/avif,image/webp,image/*", "user-agent": "Mozilla/5.0 (compatible; WhereNext/1.0)" };
@@ -36,7 +37,7 @@ async function fetchGoogleImage(url: string, signal: AbortSignal): Promise<Respo
   throw new UnsafeUrlError("too many redirects");
 }
 
-export async function GET(request: Request) {
+export const GET = withRoute(async (request: Request) => {
   // Unauthenticated for Google image hosts, so bound it per client: every request is one upstream
   // fetch and up to 6 MiB through a function. Fails open (availability over strict enforcement).
   if (!(await withinRateLimit(`hotel-photo:${clientKey(request)}`, 1200, 60 * 60_000))) {
@@ -74,4 +75,4 @@ export async function GET(request: Request) {
     if (error instanceof UnsafeUrlError) return new Response("Not an image we serve", { status: 400 });
     return unavailable(error instanceof Error ? error.message : "fetch failed", host);
   }
-}
+});

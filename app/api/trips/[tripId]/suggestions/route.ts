@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { mergePreferences, preferencesSchema } from "@/packages/contracts/preferences";
 import { suggestionActionSchema, suggestionValueSchema, type SuggestionKey } from "@/packages/contracts/suggestion";
 import { tripDurationDays } from "@/features/trip/domain/trip";
@@ -21,7 +21,7 @@ const PREF_FIELD: Partial<Record<SuggestionKey, keyof z.infer<typeof preferences
   getting_around: "transport",
 };
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const PATCH = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
@@ -94,4 +94,4 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ tr
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid suggestion" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "Could not update that suggestion");
   }
-}
+});

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { LIMITS } from "@/lib/server/limits";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { cached } from "@/lib/server/ttl-cache";
 import { research } from "@/packages/providers/tavily/client";
@@ -30,7 +30,7 @@ async function webSnippets(placeId: string, name: string, city: string, signal?:
  * Its own route so the page shows the place at once and the blurb arrives after; kept a day, since what a place is
  * known for barely changes.
  */
-export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     await requireTripMember(tripId, { limit: LIMITS.llm });
@@ -46,4 +46,4 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Place details unavailable");
   }
-}
+});

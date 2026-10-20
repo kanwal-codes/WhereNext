@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { GROUP_HISTORY_LIMIT, groupMessageInput } from "@/features/group-chat/domain/message";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail, jsonRevalidated } from "@/lib/server/with-route";
+import { withRoute, fail, jsonRevalidated } from "@/lib/server/with-route";
 import { createGroupChatRepository } from "@/features/group-chat/infrastructure/groupChatRepository";
 
 // The newest GROUP_HISTORY_LIMIT messages, or with `?before=<ISO time>` the page of history just older than that.
-export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase, user } = await requireTripMember(tripId);
@@ -16,12 +16,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Group chat unavailable");
   }
-}
+});
 
 // Persist-only, like the personal conversation route — an @Roam reply is a separate call
 // the client makes after this one succeeds (see group-chat/roam/route.ts), so Roam never
 // speaks from this handler.
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase, user } = await requireTripMember(tripId);
@@ -39,4 +39,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Group chat unavailable");
   }
-}
+});

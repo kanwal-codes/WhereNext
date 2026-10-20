@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { invalidate } from "@/lib/server/ttl-cache";
 
 const patchSchema = z.object({ role: z.enum(["owner", "editor", "viewer"]) });
@@ -19,7 +19,7 @@ function ownerGuardResponse(error: { message: string }): NextResponse | null {
  *  row lock on the trip's membership for the transaction's duration closes the race a
  *  read-then-write here couldn't: two concurrent demotions of different owners can no longer
  *  both pass a check before either write lands. */
-export async function PATCH(request: Request, { params }: { params: Promise<{ tripId: string; userId: string }> }) {
+export const PATCH = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string; userId: string }> }) => {
   try {
     const { tripId, userId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "owner", registered: true });
@@ -38,11 +38,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ tr
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "That change couldn’t be saved.");
   }
-}
+});
 
 /** Remove a member. Owner removes anyone; a member can remove themselves (leave). Never the
  *  last owner — same atomic guard as PATCH above, via remove_trip_member (0028). */
-export async function DELETE(_: Request, { params }: { params: Promise<{ tripId: string; userId: string }> }) {
+export const DELETE = withRoute(async (_: Request, { params }: { params: Promise<{ tripId: string; userId: string }> }) => {
   try {
     const { tripId, userId } = await params;
     const { supabase, user, role } = await requireTripMember(tripId);
@@ -61,4 +61,4 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ tripId:
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "That member couldn’t be removed.");
   }
-}
+});

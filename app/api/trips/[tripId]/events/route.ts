@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { LIMITS } from "@/lib/server/limits";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { events as ticketmasterEvents } from "@/packages/providers/ticketmaster/client";
 import { localEvents } from "@/packages/providers/eventbrite/client";
@@ -9,7 +9,7 @@ import { cached } from "@/lib/server/ttl-cache";
 import { mergeEventSources, presentEvent } from "@/lib/application/nearby-events";
 
 /** Ticketmaster + Eventbrite events near a place, for the detail-page "what's on" section. */
-export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     await requireTripMember((await params).tripId, { limit: LIMITS.provider });
     const search = new URL(request.url).searchParams;
@@ -60,4 +60,4 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Events are unavailable right now");
   }
-}
+});

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { createExpenseInput, type TripExpense, type LocalBalance, type ExpenseMember } from "@/packages/contracts/expense";
 import { localDebts, totalsByCurrency } from "@/lib/expense-split";
 import { tripMemberIdentities } from "@/lib/server/trip-member-identities";
@@ -44,7 +44,7 @@ async function insertExpense(supabase: SupabaseClient, tripId: string, row: Reco
  *  before this app's own ledger was the only path — those stay visible and un-deletable here
  *  (the real debt they describe lives on Splitwise's side now, untouched) but no longer affect
  *  anything this route computes. */
-export async function GET(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (_: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase, user, role } = await requireTripMember(tripId);
@@ -69,11 +69,11 @@ export async function GET(_: Request, { params }: { params: Promise<{ tripId: st
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Expenses are unavailable right now");
   }
-}
+});
 
 /** Log an expense, split equally among everyone on the trip or just the people named. Editor
  *  role, like every other trip-mutating action. */
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase, user } = await requireTripMember(tripId, { role: "editor", registered: true });
@@ -100,4 +100,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid expense" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "The expense couldn’t be logged.");
   }
-}
+});

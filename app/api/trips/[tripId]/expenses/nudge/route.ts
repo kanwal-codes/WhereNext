@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { localDebts } from "@/lib/expense-split";
 import { tripMemberIdentities } from "@/lib/server/trip-member-identities";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -18,7 +18,7 @@ const bodySchema = z.object({ debtorUserId: z.string().uuid(), currency: z.strin
  * recomputed here from the trip's own expenses, the same way the GET route does, so a stale or
  * tampered balance can't trigger an email for money nobody actually owes any more.
  */
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase, user, role } = await requireTripMember(tripId, { registered: true });
@@ -101,4 +101,4 @@ ${emailStat("Open balance", amount)}
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid reminder" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "The reminder couldn’t be sent.");
   }
-}
+});

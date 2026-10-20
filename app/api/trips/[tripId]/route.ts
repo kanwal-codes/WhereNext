@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isoDate, tripDurationDays } from "@/features/trip/domain/trip";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { purgeTripFiles } from "@/lib/server/storage-cleanup";
@@ -10,7 +10,7 @@ import { parseStops, shiftStops } from "@/lib/trip-stops";
 import { countBookingsOutside } from "@/lib/server/bookings-outside-dates";
 
 /** Delete a whole trip. Owner only; the DB cascades places, itinerary, conversation, decisions. */
-export async function DELETE(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const DELETE = withRoute(async (_: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "owner" });
@@ -31,7 +31,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ tripId:
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Trip could not be deleted");
   }
-}
+});
 
 const patchSchema = z
   .object({
@@ -52,7 +52,7 @@ const patchSchema = z
   .refine((v) => Object.keys(v).length > 0, { message: "nothing to update" });
 
 /** Edit trip identity after creation — used by the trip-context panel and the conversation's date confirm. */
-export async function PATCH(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const PATCH = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
@@ -96,4 +96,4 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ tr
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid trip update" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "Trip could not be updated");
   }
-}
+});

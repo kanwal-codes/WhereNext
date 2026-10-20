@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { LIMITS } from "@/lib/server/limits";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { serpConfigured } from "@/packages/providers/serpapi/client";
 import { flightPlaces } from "@/lib/server/flight-search";
 
 /** Cities and airports to fly from or to, as `?query=Tor`. Same shape as the other place pickers, so the same combobox reads it. */
-export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     await requireTripMember(tripId, { limit: LIMITS.provider });
@@ -23,4 +23,4 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Place search unavailable");
   }
-}
+});

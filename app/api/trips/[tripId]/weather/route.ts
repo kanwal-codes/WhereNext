@@ -9,6 +9,7 @@ import { research as tavilyResearch } from "@/packages/providers/tavily/client";
 import { research as exaResearch } from "@/packages/providers/exa/client";
 import { generateText } from "@/packages/ai/model-policy";
 import { cached } from "@/lib/server/ttl-cache";
+import { withRoute } from "@/lib/server/with-route";
 
 // Phase 5 (docs/overhaul/roadmap/phase-5-optional-improvements.md) — same opt-in pilot gating as
 // the RETRIEVE handlers (weather.ts, research-web.ts): this route hits both providers directly
@@ -74,7 +75,7 @@ async function seasonalSummary(place: string, month: string, signal?: AbortSigna
  *  - trip is further out / only a month is known -> the TYPICAL weather for that month
  *  - no dates and no month -> nothing (kind "none")
  */
-export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase, user } = await requireTripMember(tripId, { limit: LIMITS.provider });
@@ -125,4 +126,4 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
   } catch (error) {
     return tripAuthResponse(error) ?? NextResponse.json({ kind: "none" });
   }
-}
+});

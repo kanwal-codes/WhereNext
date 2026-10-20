@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { isUuid, requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 /**
  * Take back an expense kept in this app: the person who logged it, or the trip's owner. One that was also sent to
  * Splitwise stays (removing it here would leave the real debt behind on Splitwise); delete it there.
  */
-export async function DELETE(_: Request, { params }: { params: Promise<{ tripId: string; expenseId: string }> }) {
+export const DELETE = withRoute(async (_: Request, { params }: { params: Promise<{ tripId: string; expenseId: string }> }) => {
   try {
     const { tripId, expenseId } = await params;
     const { supabase, user, role } = await requireTripMember(tripId, { role: "editor" });
@@ -24,4 +24,4 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ tripId:
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "That expense couldn’t be removed.");
   }
-}
+});

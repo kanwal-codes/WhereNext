@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { escapeHtml, sendEmail } from "@/lib/server/email";
 import { emailShell, EMAIL_MUTED } from "@/lib/server/email-template";
 import { withinRateLimit } from "@/lib/server/rate-limit";
@@ -16,7 +16,7 @@ const bodySchema = z.object({ email: z.string().email().optional() });
 /** Outstanding (unaccepted, unexpired) invite links. Owners and editors — RLS enforces this too
  *  (migration 0047): a demoted viewer must not be able to read or mint a credential that
  *  `accept_trip_invite` would turn back into editor access. */
-export async function GET(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (_: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
@@ -33,14 +33,14 @@ export async function GET(_: Request, { params }: { params: Promise<{ tripId: st
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Pending invites are unavailable right now.");
   }
-}
+});
 
 /**
  * Mint a shareable invite link. Owners and editors (every invitee joins as an editor, so a
  * viewer minting one would just upgrade themselves). If `email` is given and email is configured, also sends the link;
  * either way the link is returned so it can be shared by hand.
  */
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase, user } = await requireTripMember(tripId, { role: "editor", registered: true });
@@ -83,4 +83,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid invite" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "The invite couldn’t be created.");
   }
-}
+});

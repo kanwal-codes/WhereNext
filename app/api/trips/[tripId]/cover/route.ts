@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { LIMITS } from "@/lib/server/limits";
 
 /** The cover photograph for a trip's destination: `{ photoName }`, or null when nothing suitable exists. */
-export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     await requireTripMember(tripId, { limit: LIMITS.photo });
@@ -15,4 +15,4 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Cover photo unavailable");
   }
-}
+});

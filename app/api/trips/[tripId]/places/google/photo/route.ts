@@ -1,9 +1,9 @@
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { LIMITS } from "@/lib/server/limits";
 import { placePhotoResponse } from "@/lib/server/place-photo";
 
-export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     await requireTripMember(tripId, { limit: LIMITS.photo });
@@ -13,4 +13,4 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Place photo is unavailable");
   }
-}
+});

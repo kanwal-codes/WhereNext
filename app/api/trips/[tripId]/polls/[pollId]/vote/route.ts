@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { castVoteInput } from "@/packages/contracts/poll";
 import { resolvePolls } from "@/lib/server/poll";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 /** Cast or change a vote — single-choice, so this upserts onto the same (poll, member) row
  *  rather than adding a second one; the primary key on trip_poll_votes already guarantees that. */
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string; pollId: string }> }) {
+export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string; pollId: string }> }) => {
   try {
     const { tripId, pollId } = await params;
     const { supabase, user } = await requireTripMember(tripId);
@@ -32,4 +32,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid vote" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "Your vote couldn’t be saved.");
   }
-}
+});

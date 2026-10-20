@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { LIMITS } from "@/lib/server/limits";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { cached } from "@/lib/server/ttl-cache";
 import { classifyPlaceVibe } from "@/packages/reco/vibes";
 import { classifyByEmbedding } from "@/packages/reco/classify-embed";
@@ -62,7 +62,7 @@ const bodySchema = z.discriminatedUnion("op", [
   }),
 ]);
 
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { limit: LIMITS.provider });
@@ -122,4 +122,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "Recommendations unavailable");
   }
-}
+});

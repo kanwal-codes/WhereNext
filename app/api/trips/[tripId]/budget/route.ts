@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { committedTotals } from "@/lib/server/committed";
 import { resolveCurrency } from "@/lib/currency";
 import { readStayDecision } from "@/packages/contracts/stay";
@@ -11,7 +11,7 @@ import { RESERVATION_COLUMNS, toReservation } from "@/packages/contracts/reserva
  * bookings can be in any currency (a Rome hotel in euros, a London one in pounds): converted at the
  * day's reference rate, with whatever cannot be converted listed as it was priced.
  */
-export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId);
@@ -29,4 +29,4 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "The budget is unavailable right now.");
   }
-}
+});

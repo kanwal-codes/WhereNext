@@ -7,7 +7,7 @@ import { research } from "@/packages/providers/tavily/client";
 import { generateStructured } from "@/packages/ai/model-policy";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { LIMITS } from "@/lib/server/limits";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { cached } from "@/lib/server/ttl-cache";
 import { ticketSellerLabel } from "@/lib/ticket-provider";
 
@@ -137,7 +137,7 @@ function safeImageHint(value: string | null): string | null {
  * on-sale window, doors, seat map); two targeted web searches fill in what it
  * doesn't return, and one AI pass turns the pile of notes into clean prose.
  */
-export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     await requireTripMember(tripId, { limit: LIMITS.enrich });
@@ -237,4 +237,4 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Bad request" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "Event details are unavailable right now");
   }
-}
+});

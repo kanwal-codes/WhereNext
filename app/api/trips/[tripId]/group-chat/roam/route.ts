@@ -2,7 +2,7 @@ import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { generateText, stepCountIs } from "ai";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { loadTripContext, formatTripMemory, describeMembers, formatExpenses } from "@/lib/application/trip-context";
 import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 import { runAssistantTurn, finalizeAssistantBlocks } from "@/lib/application/orchestrate/run-turn";
@@ -73,7 +73,7 @@ async function memberNames(tripId: string): Promise<Map<string, string>> {
  * the identical tools/stopWhen/providerOptions shape, so nothing about tool-calling requires
  * streaming specifically.
  */
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   const tEnter = performance.now();
   try {
     const { tripId } = await params;
@@ -337,4 +337,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     if (request.signal.aborted) return new NextResponse(null, { status: 499 });
     return tripAuthResponse(error) ?? fail(error, "Roam is unavailable right now");
   }
-}
+});

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
@@ -28,7 +28,7 @@ Return ONLY a JSON object:
   notes: [string]            — short planning tips the page makes that are not tied to one place (max 20)
 Rules: only include what the page actually says. Never invent a place or a date. If there is no clear destination, set destination to "".`;
 
-export async function POST(request: Request) {
+export const POST = withRoute(async (request: Request) => {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Paste a valid link." }, { status: 400 });
 
@@ -109,4 +109,4 @@ export async function POST(request: Request) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Couldn’t read that page." }, { status: 422 });
     return tripAuthResponse(error) ?? fail(error, "That link couldn’t be imported. Try again in a moment.");
   }
-}
+});
