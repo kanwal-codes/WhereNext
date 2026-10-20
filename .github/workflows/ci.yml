@@ -28,7 +28,9 @@ jobs:
       # Dead files, unused exports and unused dependencies (config in knip.jsonc).
       - run: bun run knip
       - run: bun run test:coverage
-      - run: bun run build
+      # One retry: next/font fetches Google Fonts at build time, and that request occasionally fails on a runner ("Cannot read properties of
+      # null (reading '1')") for reasons that have nothing to do with the change being built.
+      - run: bun run build || (sleep 10 && bun run build)
         env:
           # Build needs a value for the publicly-inlined vars; not real credentials.
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
