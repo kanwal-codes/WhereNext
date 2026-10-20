@@ -24,6 +24,7 @@ export default async function StayAlternativesPage({
         title={`Places to stay around ${location || "your destination"}.`}
         description="Compare nearby hotels, motels, hostels, and apartment-style stays by what matters to you."
         back={{ href: `/trips/${tripId}/stay`, label: "Back to stays" }}
+        phoneTitle="Places to stay"
       />
       <Reveal delay={0.08}>
         <div className="mt-8">

@@ -1819,5 +1819,5 @@
   html[data-phone-v2] :is(.text-2xs, .eyebrow, .max-lg\:eyebrow) { font-size: 0.75rem; line-height: 1.0625rem; }
   html[data-phone-v2] :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"]), select, textarea) { font-size: 16px; }
   :where(html[data-phone-v2]) :is(a, button, summary, select, label, input, textarea, [role="button"], [role="tab"]) { touch-action: manipulation; }
-  :where(html[data-phone-v2]) :is(button, [role="tab"], summary, select) { min-height: 2.5rem; }
+  :where(html[data-phone-v2]) :is(button:not([role="switch"]), [role="tab"], summary, select) { min-height: 2.5rem; }
 }

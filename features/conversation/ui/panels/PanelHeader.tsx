@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 export function BigFigure({ text, className }: { text: string; className?: string }) {
   return (
     <p aria-label={text} className={cn("flex flex-wrap items-baseline gap-x-1.5 font-display leading-none tracking-[-0.045em] tabular-nums", className)}>
-      {text.split(/(\d[\d,.]*)/).map((part, i) => {
+      {text.split(/(\d[\d,.]*°?)/).map((part, i) => {
         const bit = part.trim();
         if (!bit) return null;
         return /^\d/.test(bit)

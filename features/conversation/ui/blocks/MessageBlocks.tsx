@@ -387,12 +387,12 @@ function EventRow({ group, onOpen }: { group: EventGroup; onOpen?: (seed: EventS
           <span className="shrink-0">{formatEventDates(group.dates)}</span>
           {event.venue && <><span aria-hidden className="opacity-50">·</span><span className="truncate">{event.venue}</span></>}
         </p>
-        {rel && <Badge tone={event.relToTrip === "in" ? "positive" : "neutral"}>{rel}</Badge>}
+        {rel && <Badge tone={event.relToTrip === "in" ? "positive" : "neutral"} className={cn(PHONE_V2 && event.relToTrip === "in" && "max-lg:hidden")}>{rel}</Badge>}
       </div>
       <div className="relative z-10 flex shrink-0 flex-col items-end gap-3">
         <Ticket href={active.url} label={`Tickets: ${event.title}`} />
         {onOpen && (
-          <button type="button" onClick={open} className={cn(textAction, "text-muted-foreground")}>
+          <button type="button" onClick={open} className={cn(textAction, "text-muted-foreground", PHONE_V2 && "max-lg:hidden")}>
             Details
           </button>
         )}
@@ -508,8 +508,8 @@ function WeatherBlockView({ block, onOpenPanel }: { block: WeatherBlockData } & 
         (typeof block.highC === "number" || typeof block.lowC === "number" || rainy > 0) ? (
           <WidgetHero tone="lagoon" tinted className="flex flex-wrap items-center gap-x-8 gap-y-4">
             {(typeof block.highC === "number" || typeof block.lowC === "number") && (
-              <div className="min-w-0 flex-1">
-                <p className="flex flex-wrap items-baseline gap-x-2">
+              <div className="shrink-0 grow">
+                <p className="flex items-baseline gap-x-2 whitespace-nowrap">
                   {typeof block.highC === "number" && <span className="font-display text-[3.5rem] leading-none font-medium tracking-[-0.04em] tabular-nums">{degrees(block.highC)}</span>}
                   {typeof block.lowC === "number" && <span className="text-base text-ink-soft tabular-nums">/ {degrees(block.lowC)}</span>}
                 </p>

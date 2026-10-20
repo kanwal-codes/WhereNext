@@ -275,7 +275,7 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
         <div className="relative grid grid-cols-[auto_minmax(0,1fr)_auto] gap-x-4 px-6 pt-6">
           <div>
             <p className={eyebrow}>Departs</p>
-            <p className="mt-2 font-display text-4xl font-light leading-none tracking-[-0.04em] sm:text-5xl">{from}</p>
+            <p className="mt-2 font-display text-[2rem] font-light leading-none tracking-[-0.04em] sm:text-5xl">{from}</p>
             <p className={cn(type.meta, "mt-2 truncate")}>{city(route.origin)}</p>
           </div>
           <div className="flex min-w-0 flex-col items-center pt-[1.6rem]">
@@ -300,12 +300,12 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
                 <Plane className="size-5 rotate-45 text-coral" strokeWidth={1.75} />
               </motion.span>
             </div>
-            <p className="mt-1 text-sm font-medium tabular-nums">{hm(flight.durationMinutes)}</p>
-            <p className={cn(type.meta, "tabular-nums")}>{stopsLabel(flight)}</p>
+            <p className="mt-1 text-sm font-medium whitespace-nowrap tabular-nums">{hm(flight.durationMinutes)}</p>
+            <p className={cn(type.meta, "whitespace-nowrap tabular-nums")}>{stopsLabel(flight)}</p>
           </div>
           <div className="text-right">
             <p className={eyebrow}>Arrives</p>
-            <p className="mt-2 font-display text-4xl font-light leading-none tracking-[-0.04em] sm:text-5xl">{to}</p>
+            <p className="mt-2 font-display text-[2rem] font-light leading-none tracking-[-0.04em] sm:text-5xl">{to}</p>
             <p className={cn(type.meta, "mt-2 truncate")}>{city(route.destination)}</p>
           </div>
         </div>
