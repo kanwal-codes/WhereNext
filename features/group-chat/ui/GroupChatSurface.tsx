@@ -933,7 +933,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
         <div className="pointer-events-none absolute inset-0 flex items-center justify-between">
           <div className="pointer-events-auto">{plusButton}</div>
           <div className="pointer-events-auto flex items-center gap-1">
-            {PHONE_V2 && (
+            {PHONE_V2 && !mentionsRoam(input) && (
               <button type="button" onClick={() => { setInput((cur) => (/@r?o?a?m?$/i.test(cur) ? cur.replace(/@r?o?a?m?$/i, "@Roam ") : `${cur}${cur && !/\s$/.test(cur) ? " " : ""}@Roam `)); textareaRef.current?.focus(); }} disabled={!loaded} aria-label="Ask Roam in the chat" className="grid size-11 shrink-0 place-items-center rounded-full font-display text-widget leading-none text-muted-foreground transition-colors active:bg-muted disabled:opacity-40 lg:hidden">@</button>
             )}
             {micButton}
