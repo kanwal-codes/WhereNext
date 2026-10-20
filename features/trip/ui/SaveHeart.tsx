@@ -71,11 +71,11 @@ export function SaveHeart({ tripId, place, compact = false, light = false }: { t
       aria-pressed={on}
       aria-label={on ? `Remove ${place.name} from saved places` : `Save ${place.name}`}
       className={cn(
-        "pointer-events-auto relative z-10 grid shrink-0 place-items-center rounded-full border backdrop-blur-md backdrop-saturate-150 transition-[transform,background-color,color] duration-200 ease-out active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
+        "pointer-events-auto relative z-10 grid shrink-0 place-items-center rounded-full border transition-[transform,background-color,color] duration-200 ease-out active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
         compact ? "size-8 max-lg:size-10" : "size-10 max-lg:size-11",
         light
           ? (on ? "border-transparent bg-transparent text-coral" : "border-transparent bg-transparent text-muted-foreground hover:text-foreground")
-          : (on ? "border-transparent bg-white text-coral" : "border-white/25 bg-white/14 text-white hover:bg-white/25"),
+          : (on ? "border-transparent bg-white text-coral" : "border-transparent bg-white text-ink shadow-[0_1px_3px_oklch(0.2_0.012_65/0.25)] hover:bg-white"),
       )}
     >
       <Heart className={cn(compact ? "size-4" : "size-[18px]", "transition-transform duration-200", on && "scale-110 fill-current")} aria-hidden />

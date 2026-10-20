@@ -13,7 +13,12 @@ import type { MyStay } from "@/features/stays/application/my-stay";
 export function StayPhoto({ src, alt, className }: { src?: string | null; alt: string; className?: string }) {
   const [failed, setFailed] = useState(false);
   if (!src || failed) return <MediaFallback icon={BedDouble} className={className} />;
-  return <BlurImage src={src} alt={alt} onError={() => setFailed(true)} className={className} />;
+  return (
+    <>
+      <MediaFallback icon={BedDouble} className={className} />
+      <BlurImage src={src} alt={alt} onError={() => setFailed(true)} className={className} />
+    </>
+  );
 }
 
 const day = (iso: string | null) => (iso ? new Date(`${iso}T00:00:00`).toLocaleDateString("en", { weekday: "short", month: "short", day: "numeric" }) : "To be added");

@@ -170,7 +170,6 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
   // @Roam asks that got no reply: the call failed just now, or two minutes passed with nothing (also after a reload, and for other members' asks).
   const [missedIds, setMissedIds] = useState<string[]>([]);
   const [failedRoamIds, setFailedRoamIds] = useState<string[]>([]);
-  const [reactingTo, setReactingTo] = useState<string | null>(null);
   const [expandedReactionFor, setExpandedReactionFor] = useState<string | null>(null);
   const [pressingId, setPressingId] = useState<string | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
@@ -672,7 +671,6 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
     const key = `${messageId}:${emoji}`;
     if (pendingReactionsRef.current.has(key)) return;
     pendingReactionsRef.current.add(key);
-    setReactingTo(null);
     setExpandedReactionFor(null);
     // Optimistic flip so the tap feels instant; refresh() reconciles shortly after via the
     // realtime-driven workspace-change bus.
@@ -697,8 +695,8 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
     }
   }
 
-  // Touch-only: holding a bubble opens the full-size emoji sheet — mouse users get the inline
-  // expanding bar instead (see the trigger button below), so this never fires for a click.
+  // Touch-only: holding a bubble opens the same inline emoji bar the mouse gets from its trigger button (below),
+  // so this never fires for a click.
   function onBubblePressStart(event: ReactPointerEvent, messageId: string) {
     if (event.pointerType !== "touch") return;
     pressMoved.current = false;
@@ -712,7 +710,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
         } catch {
           /* no-op */
         }
-        setReactingTo(messageId);
+        setExpandedReactionFor(messageId);
       }
       setPressingId(null);
     }, LONG_PRESS_MS);
@@ -1175,6 +1173,9 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
                             className={cn(
                               "pointer-events-auto absolute top-1/2 z-10 flex -translate-y-1/2 items-center gap-0.5 overflow-hidden rounded-full border border-border bg-card py-1 pr-1 pl-1 shadow-lift",
                               mine ? "-left-2" : "-right-2",
+                              // On a phone the bar floats just above the message, anchored to its near edge, so it never runs off the screen.
+                              PHONE_V2 && "max-lg:top-auto max-lg:bottom-full max-lg:mb-2 max-lg:translate-y-0 max-lg:border-0 max-lg:p-1.5 max-lg:shadow-[0_8px_28px_-8px_oklch(0.2_0.012_65/0.4),0_0_0_1px_var(--color-hairline)]",
+                              PHONE_V2 && (mine ? "max-lg:right-0 max-lg:left-auto" : "max-lg:left-0 max-lg:right-auto"),
                             )}
                           >
                             {COMMON_EMOJI.map((emoji) => (
@@ -1183,7 +1184,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
                                 type="button"
                                 aria-label={`React ${emoji}`}
                                 onClick={() => void toggleReaction(message.id, emoji)}
-                                className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-base transition-transform hover:scale-125 active:scale-95"
+                                className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-full text-base transition-transform hover:scale-125 active:scale-95", PHONE_V2 && "max-lg:size-11 max-lg:text-2xl")}
                               >
                                 {emoji}
                               </button>
@@ -1276,26 +1277,6 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
 
         <div className="pointer-events-none sticky bottom-0 left-0 -mt-10 h-10 w-full bg-gradient-to-t from-background to-transparent" />
       </div>
-
-      <Sheet open={reactingTo !== null} onClose={() => setReactingTo(null)} ariaLabel="Add reaction" side="bottom">
-        <div className="px-5 pt-1 pb-6">
-          <p className="mb-3 text-center text-2xs font-medium tracking-[0.1em] text-muted-foreground uppercase">Quick react</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {COMMON_EMOJI.map((emoji) => (
-              <Pressable key={emoji}>
-                <button
-                  type="button"
-                  aria-label={`React ${emoji}`}
-                  onClick={() => reactingTo && void toggleReaction(reactingTo, emoji)}
-                  className="grid h-11 w-11 place-items-center rounded-full border border-border text-xl transition-colors hover:bg-accent"
-                >
-                  {emoji}
-                </button>
-              </Pressable>
-            ))}
-          </div>
-        </div>
-      </Sheet>
 
       <Sheet open={pollSheetOpen} onClose={() => (pollSaving ? undefined : setPollSheetOpen(false))} ariaLabel="Start a poll" side={desktop ? "center" : "bottom"}>
         <div className="px-5 pt-1 pb-6">

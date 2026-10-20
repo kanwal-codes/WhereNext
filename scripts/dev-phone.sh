@@ -15,4 +15,14 @@ export NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$(node -p "require('$PHONE_KEYS_FILE
 export SUPABASE_SERVICE_ROLE_KEY=$(node -p "require('$PHONE_KEYS_FILE').service")
 export NEXT_PUBLIC_SITE_URL=http://localhost:4000
 export NEXT_PUBLIC_PHONE_V2=1
+# Optional: let named provider keys through from .env.local (PHONE_PROVIDER_KEYS="GOOGLE_MAPS_API_KEY MAPBOX_ACCESS_TOKEN ..."), so
+# Discover, stays, the map and weather show real data. Everything else stays blank, and every provider answer is cached on disk
+# (scripts/api-cache.cjs) so a screen is paid for once, not on every reload.
+if [ -n "${PHONE_PROVIDER_KEYS:-}" ]; then
+  for name in ${=PHONE_PROVIDER_KEYS}; do
+    value=$(sed -n "s/^${name}=//p" .env.local | head -1 | sed -e 's/^"//' -e 's/"$//')
+    [ -n "$value" ] && export "$name=$value"
+  done
+  export NODE_OPTIONS="--require ./scripts/api-cache.cjs ${NODE_OPTIONS:-}"
+fi
 NEXT_DIST_DIR=.next-dev-4000 exec npx next dev -p 4000

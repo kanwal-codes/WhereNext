@@ -19,7 +19,7 @@ export function StandaloneTopBar({ photo = false, className }: { photo?: boolean
         href="/trips"
         className={cn(
           "inline-flex h-9 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-[background-color,border-color,transform] duration-200 active:scale-[0.97]",
-          photo ? "border-white/25 bg-black/30 text-white backdrop-blur hover:bg-black/50" : "border-border bg-card text-foreground hover:border-foreground/30 hover:bg-accent",
+          photo ? "border-transparent bg-white text-ink hover:bg-white" : "border-border bg-card text-foreground hover:border-foreground/30 hover:bg-accent",
         )}
       >
         <ArrowLeft className="size-4" aria-hidden /> All trips

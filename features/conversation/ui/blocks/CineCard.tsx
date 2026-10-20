@@ -87,9 +87,9 @@ export function PlaceFloatingPills({ place, extra }: { place: { openNow?: boolea
 /** A small calendar tile for an event's day. */
 export function CineDate({ month, day }: { month: string; day: string }) {
   return (
-    <span className="inline-flex w-[3.25rem] flex-col items-center rounded-2xl border border-white/25 bg-white/14 py-1.5 backdrop-blur-md backdrop-saturate-150" aria-hidden>
-      <span className="text-[0.625rem] max-lg:text-xs leading-3 font-semibold tracking-[0.14em] text-coral-soft uppercase">{month}</span>
-      <span className="font-display text-2xl leading-6 font-medium tabular-nums">{day}</span>
+    <span className="inline-flex w-[3.25rem] flex-col items-center rounded-2xl bg-white py-1.5 shadow-[0_1px_3px_oklch(0.2_0.012_65/0.25)]" aria-hidden>
+      <span className="text-[0.625rem] max-lg:text-xs leading-3 font-semibold tracking-[0.14em] text-coral-ink uppercase">{month}</span>
+      <span className="font-display text-2xl leading-6 font-medium text-ink tabular-nums">{day}</span>
     </span>
   );
 }

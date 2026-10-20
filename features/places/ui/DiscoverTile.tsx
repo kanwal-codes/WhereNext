@@ -10,7 +10,13 @@ import { cn } from "@/lib/utils";
 function TilePhoto({ src, icon, className }: { src?: string | null; icon: LucideIcon; className?: string }) {
   const [failed, setFailed] = useState(false);
   if (!src || failed) return <MediaFallback icon={icon} className={className} />;
-  return <BlurImage src={src} alt="" onError={() => setFailed(true)} className={className} />;
+  // The stand-in sits underneath while the photograph loads, so a tile is never a blank grey box.
+  return (
+    <>
+      <MediaFallback icon={icon} className={className} />
+      <BlurImage src={src} alt="" onError={() => setFailed(true)} className={className} />
+    </>
+  );
 }
 
 /**

@@ -419,7 +419,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   const header = shown && (
     <header className={cn("flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2.5", PHONE_V2 && "icons-fine max-lg:flex-wrap max-lg:border-b-0 max-lg:px-4 max-lg:pt-1.5 max-lg:pb-2")}>
       {PHONE_V2 && layout === "inline" && <div aria-hidden className="hidden basis-full justify-center py-1 max-lg:flex"><i className="block h-1 w-9 rounded-full bg-input" /></div>}
-      <div className="flex min-w-0 items-center gap-1.5">
+      <div className={cn("flex min-w-0 items-center gap-1.5", PHONE_V2 && "max-lg:flex-1 max-lg:basis-0")}>
         {canGoBack && (
           <button type="button" onClick={goBack} aria-label="Back to previous item" className={controlGhost}>
             <ArrowLeft className="size-4" aria-hidden />

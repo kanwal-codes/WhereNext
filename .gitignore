@@ -40,3 +40,6 @@ pw3000.tmp.config.ts
 .github/skills/
 phone-shots/
 .next-build-phone/
+
+# Cached provider answers for local phone testing (scripts/api-cache.cjs)
+.api-cache/

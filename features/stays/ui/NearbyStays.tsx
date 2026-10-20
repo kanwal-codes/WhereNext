@@ -150,7 +150,7 @@ export function NearbyStays({
                   <span className="relative block aspect-[4/3] overflow-hidden rounded-2xl bg-muted">
                     <HotelPhoto src={option.thumbnail} className="size-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]" fallback={<span className="grid size-full place-items-center"><BedDouble className="size-5 text-muted-foreground" /></span>} />
                     {typeof option.rating === "number" && (
-                      <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-card/90 px-2 py-0.5 text-xs font-medium tabular-nums shadow-soft backdrop-blur"><Star className="size-3 fill-current" aria-hidden />{option.rating.toFixed(1)}</span>
+                      <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-xs font-semibold tabular-nums text-ink shadow-soft"><Star className="size-3 fill-current text-coral" aria-hidden />{option.rating.toFixed(1)}</span>
                     )}
                   </span>
                   <span className="mt-2.5 block truncate text-sm font-medium">{option.name}</span>
