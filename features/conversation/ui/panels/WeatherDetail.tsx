@@ -28,9 +28,9 @@ export function WeatherDetail({ block }: { block: WeatherBlock }) {
           </PanelHeader>
           <div className="flex flex-wrap items-center gap-2">
             {block.estimated && <Badge>Estimated</Badge>}
-            {days.length > 0 && (wet > 0 ? <Badge icon={Droplets} className="bg-lagoon-soft text-lagoon">{wet} wet day{wet === 1 ? "" : "s"}</Badge> : <Badge tone="positive">All dry</Badge>)}
+            {days.length > 0 && (wet > 0 ? <Badge icon={Droplets} className="[&_svg]:text-lagoon">{wet} wet day{wet === 1 ? "" : "s"}</Badge> : <Badge tone="positive">All dry</Badge>)}
             {days.length === 0 && typeof block.lowC === "number" && <Badge>Low {deg(block.lowC)}</Badge>}
-            {days.length === 0 && typeof block.rainyDays === "number" && block.rainyDays > 0 && <Badge icon={Droplets} className="bg-lagoon-soft text-lagoon">About {Math.round(block.rainyDays)} rainy days</Badge>}
+            {days.length === 0 && typeof block.rainyDays === "number" && block.rainyDays > 0 && <Badge icon={Droplets} className="[&_svg]:text-lagoon">About {Math.round(block.rainyDays)} rainy days</Badge>}
           </div>
         </section>
       </Reveal>

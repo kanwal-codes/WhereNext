@@ -400,7 +400,7 @@ export function ItinerarySurface({
               const Icon = KIND_META[reservation.kind].icon;
               return (
                 <li key={`${reservation.id}-${note ?? "on"}`}>
-                  <a href={`/trips/${tripId}/bookings`} className="flex min-h-12 items-center gap-3 rounded-2xl border border-leaf/30 bg-leaf/5 px-4 py-2.5 text-sm">
+                  <a href={`/trips/${tripId}/bookings`} className="flex min-h-12 items-center gap-3 rounded-2xl bg-secondary px-4 py-2.5 text-sm">
                     <Icon className="size-[1.125rem] shrink-0 text-leaf" aria-hidden />
                     <span className="min-w-0 flex-1 truncate font-medium">{reservation.title}</span>
                     <span suppressHydrationWarning className="shrink-0 text-xs text-muted-foreground tabular-nums">{bookedLabel(reservation, note)}</span>
@@ -411,7 +411,7 @@ export function ItinerarySurface({
           </ul>
         )}
         {(conflictsByDay.get(d) ?? []).map((c) => (
-          <p key={`${c.a}-${c.b}`} className="mt-2 flex items-center gap-3 rounded-2xl bg-caution-soft/50 px-4 py-3 text-sm">
+          <p key={`${c.a}-${c.b}`} className="mt-2 flex items-center gap-3 rounded-2xl bg-secondary px-4 py-3 text-sm">
             <AlertTriangle className="size-4 shrink-0 text-caution" aria-hidden />
             <span><span className="font-medium">{c.a}</span> and <span className="font-medium">{c.b}</span> are close together, around {clockLabel(c.at)}.</span>
           </p>
@@ -699,7 +699,7 @@ export function ItinerarySurface({
             {(conflictsByDay.get(d) ?? []).length > 0 && (
               <ul aria-label={`Scheduling clashes on day ${d}`} className="mb-4 space-y-2">
                 {(conflictsByDay.get(d) ?? []).map((c) => (
-                  <li key={`${c.a}-${c.b}`} className="flex items-center gap-3 rounded-2xl border border-caution/30 bg-caution-soft/40 px-4 py-2.5 text-sm">
+                  <li key={`${c.a}-${c.b}`} className="flex items-center gap-3 rounded-2xl bg-secondary px-4 py-2.5 text-sm">
                     <AlertTriangle className="h-4 w-4 shrink-0 text-caution" />
                     <span className="min-w-0 flex-1">
                       <span className="font-medium">{c.a}</span> and <span className="font-medium">{c.b}</span> are close together, around {clockLabel(c.at)}.
@@ -714,7 +714,7 @@ export function ItinerarySurface({
                   const Icon = KIND_META[reservation.kind].icon;
                   return (
                     <li key={`${reservation.id}-${note ?? "on"}`}>
-                      <a href={`/trips/${tripId}/bookings`} className="flex items-center gap-3 rounded-2xl border border-leaf/30 bg-leaf/5 px-4 py-2.5 text-sm transition-colors hover:bg-leaf/10">
+                      <a href={`/trips/${tripId}/bookings`} className="flex items-center gap-3 rounded-2xl bg-secondary px-4 py-2.5 text-sm transition-colors hover:bg-accent">
                         <Icon className="h-4 w-4 shrink-0 text-leaf" />
                         <span className="min-w-0 flex-1 truncate font-medium">{reservation.title}</span>
                         <span suppressHydrationWarning className="shrink-0 text-xs text-muted-foreground tabular-nums">
@@ -773,7 +773,7 @@ export function ItinerarySurface({
                       <div
                         className={cn(
                           "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-3xl border bg-card px-3 py-4 shadow-soft max-sm:grid-cols-[minmax(0,1fr)_auto] max-sm:pl-4 transition-[border-color,box-shadow] duration-300 hover:shadow-lift",
-                          hint ? "border-coral" : locked ? "border-leaf/30" : "border-border/70",
+                          hint ? "border-coral" : locked ? "border-border" : "border-border/70",
                         )}
                       >
                         <button

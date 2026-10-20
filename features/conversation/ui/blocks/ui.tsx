@@ -73,10 +73,10 @@ export function CopyButton({ text, label = "reply", tabbable = true }: { text: s
 
 type Tone = "neutral" | "positive" | "caution" | "brand";
 const TONE: Record<Tone, string> = {
-  neutral: "bg-muted text-muted-foreground",
-  positive: "bg-positive-soft text-positive",
-  caution: "bg-caution-soft text-caution",
-  brand: "bg-coral-soft text-coral-ink",
+  neutral: "bg-secondary text-ink-soft",
+  positive: "bg-secondary text-foreground status-dot status-ok",
+  caution: "bg-secondary text-foreground status-dot status-warn",
+  brand: "bg-secondary text-foreground status-dot status-brand",
 };
 
 /** A small status or fit marker. daisyUI supplies the structure; the app's tokens supply the colour. */

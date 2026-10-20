@@ -86,7 +86,7 @@ function BookedList({ booked, className }: { booked: NonNullable<RouteDay["booke
   return (
     <ul aria-label="Booked" className={cn("space-y-1.5", className)}>
       {booked.map((b, i) => (
-        <li key={`${b.title}-${i}`} className="flex flex-wrap items-baseline justify-between gap-x-3 rounded-2xl border border-leaf/30 bg-leaf/5 px-3.5 py-2 text-sm">
+        <li key={`${b.title}-${i}`} className="flex flex-wrap items-baseline justify-between gap-x-3 rounded-2xl bg-secondary px-3.5 py-2 text-sm">
           <span className="min-w-0 truncate font-medium">{b.title}</span>
           {b.detail && <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{b.detail}</span>}
         </li>

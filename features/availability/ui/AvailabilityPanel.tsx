@@ -169,7 +169,7 @@ export function AvailabilityPanel({ tripId }: { tripId: string }) {
                     <span
                       className={cn(
                         "mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-2xs font-medium uppercase tracking-[0.1em]",
-                        full ? "bg-leaf-soft text-leaf border-leaf/30" : "bg-water-soft text-water border-water/30",
+                        full ? "border-transparent bg-secondary text-foreground status-dot status-ok" : "border-transparent bg-secondary text-foreground status-dot status-info",
                       )}
                     >
                       {overlap.userIds.length}/{memberCount} available

@@ -215,7 +215,7 @@ export function TableSheet({
                             <span className="block truncate text-sm font-medium">{r.name}</span>
                             {r.address && <span className="block truncate text-xs text-muted-foreground">{r.address}</span>}
                           </span>
-                          <span className="daisy-badge h-5 shrink-0 border-leaf/30 bg-leaf/10 px-2 text-2xs">Saved</span>
+                          <span className="daisy-badge status-dot status-ok h-5 shrink-0 gap-1.5 border-transparent bg-secondary px-2 text-2xs font-semibold text-foreground">Saved</span>
                         </button>
                       </li>
                     ))}
@@ -306,7 +306,7 @@ export function TableSheet({
           )}
 
           {opened && (
-            <div className="space-y-3 rounded-3xl border border-leaf/30 bg-leaf/5 p-4">
+            <div className="space-y-3 rounded-3xl bg-secondary p-4">
               <p className="font-medium">Booked it?</p>
               <p className="-mt-2 text-sm text-muted-foreground">Add your confirmation number and we will keep it with the trip. You can leave it blank.</p>
               <input value={code} onChange={(e) => setCode(e.target.value)} maxLength={80} placeholder="Confirmation number" className={cn(input, "font-mono text-sm")} />

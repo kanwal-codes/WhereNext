@@ -34,7 +34,7 @@ function Cell({ label, value, note, className }: { label: string; value: string;
  */
 export function MyStayCard({ stay, onRemove }: { stay: MyStay; onRemove?: () => Promise<boolean> }) {
   return (
-    <article className="card-host card-lift group relative isolate flex flex-col overflow-hidden rounded-3xl border border-leaf/25 bg-card shadow-soft has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring/50 sm:flex-row">
+    <article className="card-host card-lift group relative isolate flex flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-soft has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring/50 sm:flex-row">
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(90%_130%_at_0%_0%,color-mix(in_oklab,var(--leaf)_11%,transparent),transparent_62%)]" />
 
       <div className="relative aspect-[16/9] shrink-0 overflow-hidden sm:aspect-auto sm:w-64 lg:w-72">

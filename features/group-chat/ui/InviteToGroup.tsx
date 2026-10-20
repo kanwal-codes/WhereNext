@@ -144,7 +144,7 @@ export function InviteToGroup({ tripId }: { tripId: string }) {
   return (
     <div>
       {linkError ? (
-        <div className="flex items-center justify-between gap-2 rounded-xl border border-dashed border-destructive/30 bg-destructive/5 px-3 py-2">
+        <div className="flex items-center justify-between gap-2 rounded-xl bg-secondary px-3 py-2">
           <p className="text-xs text-destructive">Couldn’t create an invite link.</p>
           <button type="button" onClick={() => { setLinkError(false); setPreparingLink(true); void loadInvites(); }} className="shrink-0 text-xs font-medium text-destructive underline decoration-destructive/40 underline-offset-2 transition-[opacity,transform] hover:opacity-70 active:scale-95">
             Retry

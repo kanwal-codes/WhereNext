@@ -187,7 +187,7 @@ export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]
                 </label>
               </form>
               {promptError ? (
-                <p role="alert" className="mx-auto mt-2 max-w-xl rounded-lg border border-destructive/30 bg-background/90 px-3 py-1.5 text-xs text-destructive backdrop-blur">
+                <p role="alert" className="mx-auto mt-2 max-w-xl rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium text-destructive">
                   {promptError}
                 </p>
               ) : (

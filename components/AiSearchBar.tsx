@@ -156,7 +156,7 @@ export function AiSearchBar({
             aria-pressed={speech.listening}
             className={cn(
               "grid h-7 w-7 max-lg:h-10 max-lg:w-10 shrink-0 place-items-center rounded-full border transition-colors",
-              speech.listening ? "border-destructive/50 bg-destructive/10 text-destructive" : "border-border text-muted-foreground hover:text-foreground",
+              speech.listening ? "border-transparent bg-secondary text-destructive" : "border-border text-muted-foreground hover:text-foreground",
             )}
           >
             <Mic className={cn("h-3.5 w-3.5", speech.listening && "animate-pulse")} />

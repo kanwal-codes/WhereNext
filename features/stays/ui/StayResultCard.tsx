@@ -1,5 +1,6 @@
 "use client";
 
+import { FitText } from "@/components/FitText";
 import { ArrowUpRight, BedDouble, Check, Star } from "lucide-react";
 import { CardOpenOverlay, CompareMark, compactCount, money } from "@/features/conversation/ui/blocks/ui";
 import { StayPhoto } from "@/features/stays/ui/MyStayCard";
@@ -56,7 +57,7 @@ function PhoneStayCard({ stay, href, onOpen, locked, comparing, selected }: { st
         </div>
         {stay.nightlyAmount > 0 ? (
           <p className="shrink-0 text-right">
-            <span className="block font-display text-lg leading-snug font-medium tabular-nums">{money(stay.nightlyAmount, stay.currency)}</span>
+            <span className="block font-display text-lg leading-snug font-medium whitespace-nowrap tabular-nums">{money(stay.nightlyAmount, stay.currency)}</span>
             <span className="block text-xs text-muted-foreground tabular-nums">{stay.totalAmount ? `${money(stay.totalAmount, stay.currency)} total` : "/ night"}</span>
           </p>
         ) : (
@@ -104,7 +105,7 @@ export function StayResultCard({ stay, href, onOpen, locked = false, comparing =
       }
       foot={stay.nightlyAmount > 0 ? (
         <p className="flex flex-wrap items-baseline gap-x-1.5">
-          <span className="font-display text-[1.75rem] leading-none font-medium tracking-[-0.025em] tabular-nums">{money(stay.nightlyAmount, stay.currency)}</span>
+          <FitText className="max-w-full font-display text-[1.75rem] leading-none font-medium tracking-[-0.025em] tabular-nums">{money(stay.nightlyAmount, stay.currency)}</FitText>
           <span className="text-[0.8125rem] text-white/70">/ night</span>
           {stay.totalAmount ? <span className="w-full pt-0.5 text-xs text-white/60 tabular-nums">{money(stay.totalAmount, stay.currency)} total</span> : null}
         </p>

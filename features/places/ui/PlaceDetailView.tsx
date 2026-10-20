@@ -384,8 +384,8 @@ export function PlaceDetailView({
                 {(typeof openNow === "boolean" || todayHours) && (
                   <p className="mt-3 flex flex-wrap gap-2">
                     {typeof openNow === "boolean" && (
-                      <span className={cn("inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium ring-1 ring-inset", openNow ? "bg-positive-soft text-positive ring-positive/20" : "bg-muted text-ink-soft ring-border")}>
-                        <Clock className="size-4" aria-hidden />
+                      <span className={cn("inline-flex h-9 items-center gap-1.5 rounded-full bg-secondary px-3.5 text-sm font-medium", openNow ? "text-foreground" : "text-ink-soft")}>
+                        <Clock className={cn("size-4", openNow ? "text-positive" : "text-muted-foreground")} aria-hidden />
                         {openNow ? `Open${todayHours?.includes("–") ? ` until ${todayHours.split("–").pop()?.trim()}` : " now"}` : "Closed now"}
                       </span>
                     )}

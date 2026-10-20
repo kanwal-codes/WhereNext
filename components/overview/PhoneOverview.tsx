@@ -22,7 +22,7 @@ function TripRow({ href, icon: Icon, title, note, tone = "quiet", dot = false, o
 }) {
   const body = (
     <>
-      <span aria-hidden className={cn("relative grid size-11 shrink-0 place-items-center rounded-2xl ring-1", tone === "attention" ? "bg-caution-soft text-caution ring-caution/20" : "bg-surface text-ink-soft ring-border/70")}>
+      <span aria-hidden className={cn("relative grid size-11 shrink-0 place-items-center rounded-2xl ring-1", tone === "attention" ? "bg-secondary text-caution ring-border/70" : "bg-surface text-ink-soft ring-border/70")}>
         <Icon className="size-5" />
         {dot && <span className="absolute -top-0.5 -right-0.5 size-3 rounded-full bg-coral ring-[3px] ring-background" />}
       </span>

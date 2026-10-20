@@ -981,7 +981,7 @@ export function AccountView({
                 <button type="button" onClick={() => void exportData()} className="rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-secondary active:scale-[0.985]">Export</button>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 px-5 py-5">
+              <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-secondary px-5 py-5">
                 <Trash2 className="h-4 w-4 text-destructive" />
                 <div className="mr-auto">
                   <p className="text-sm font-medium text-destructive">Delete account</p>

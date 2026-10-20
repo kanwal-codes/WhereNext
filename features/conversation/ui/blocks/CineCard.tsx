@@ -21,10 +21,10 @@ import { CardOpenOverlay } from "./ui";
 const SCRIM =
   "linear-gradient(to top, rgb(20 15 12 / 0.94) 0%, rgb(20 15 12 / 0.62) 36%, rgb(20 15 12 / 0) 64%), linear-gradient(to bottom, rgb(20 15 12 / 0.4) 0%, rgb(20 15 12 / 0) 24%)";
 
-const pillBase = "inline-flex h-6 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-xs font-medium tabular-nums backdrop-blur-md backdrop-saturate-150";
+const pillBase = "inline-flex h-6 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-xs font-semibold tabular-nums";
 const PILL_TONE = {
-  glass: "border border-white/20 bg-white/14 text-white",
-  positive: "border border-white/20 bg-[oklch(0.5_0.1_158/0.5)] text-white",
+  glass: "bg-white/95 text-ink shadow-[0_1px_2px_oklch(0.2_0.012_65/0.18)]",
+  positive: "bg-white/95 text-ink shadow-[0_1px_2px_oklch(0.2_0.012_65/0.18)]",
   solid: "bg-white text-ink",
 } as const;
 
@@ -32,7 +32,7 @@ const PILL_TONE = {
 export function CinePill({ icon: Icon, iconClassName, tone = "glass", children, className }: { icon?: LucideIcon; iconClassName?: string; tone?: keyof typeof PILL_TONE; children: ReactNode; className?: string }) {
   return (
     <span className={cn(pillBase, PILL_TONE[tone], className)}>
-      {Icon && <Icon className={cn("size-3.5 shrink-0", iconClassName)} aria-hidden />}
+      {Icon && <Icon className={cn("size-3.5 shrink-0", tone === "positive" && "text-positive", iconClassName)} aria-hidden />}
       <span className="min-w-0 truncate">{children}</span>
     </span>
   );
@@ -42,7 +42,7 @@ export function CinePill({ icon: Icon, iconClassName, tone = "glass", children, 
 export function CineRating({ rating, count, outOf }: { rating: number; count?: string | null; outOf?: string }) {
   // The star is the pill's own icon (centred beside the text), not a glyph inside it, which sat a pixel low on the baseline.
   return (
-    <CinePill icon={Star} iconClassName="fill-current text-coral-soft" className="gap-1 pl-2">
+    <CinePill icon={Star} iconClassName="fill-current text-coral" className="gap-1 pl-2">
       {rating.toFixed(1)}
       {outOf && <span className="opacity-70">{outOf}</span>}
       {count ? <span className="opacity-70"> {count}</span> : null}
@@ -74,7 +74,7 @@ export function PlaceFloatingPills({ place, extra }: { place: { openNow?: boolea
     <div className="flex flex-col items-end gap-1.5">
       {hours && (
         <CinePill tone={hours.open ? "positive" : "glass"}>
-          <span aria-hidden className={cn("mr-0.5 inline-block size-1.5 rounded-full", hours.open ? "bg-[oklch(0.85_0.17_150)]" : "bg-white/50")} />
+          <span aria-hidden className={cn("mr-0.5 inline-block size-1.5 rounded-full", hours.open ? "bg-positive" : "bg-muted-foreground/50")} />
           {hours.label}
         </CinePill>
       )}

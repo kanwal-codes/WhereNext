@@ -573,7 +573,7 @@ function ComparisonBlockView({ block }: { block: ComparisonBlockData }) {
       title={block.title}
       foot={best ? undefined : `${view.options.length} options compared`}
       hero={best ? (
-        <div className="mx-4 mt-3.5 flex items-start gap-3 rounded-2xl bg-positive-soft px-4 py-3.5 @[34rem]:mx-[1.125rem]">
+        <div className="mx-4 mt-3.5 flex items-start gap-3 rounded-2xl bg-secondary px-4 py-3.5 @[34rem]:mx-[1.125rem]">
           <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-positive text-white" aria-hidden><Check className="size-4" strokeWidth={2.5} /></span>
           <div className="min-w-0">
             <p className="eyebrow text-positive">Best for you</p>
@@ -602,7 +602,7 @@ function ComparisonBlockView({ block }: { block: ComparisonBlockData }) {
               {options.map((option, i) => {
                 const value = attribute.values[i];
                 return (
-                  <dd key={option.label} className={cn("flex min-w-0 items-start gap-2.5 @[34rem]:block @[34rem]:rounded-xl @[34rem]:-mx-2.5 @[34rem]:px-2.5 @[34rem]:py-1.5", option.best && "@[34rem]:bg-positive-soft/60")}>
+                  <dd key={option.label} className={cn("flex min-w-0 items-start gap-2.5 @[34rem]:block @[34rem]:rounded-xl @[34rem]:-mx-2.5 @[34rem]:px-2.5 @[34rem]:py-1.5", option.best && "@[34rem]:bg-secondary")}>
                     <span aria-hidden className="mt-[0.4rem] size-2.5 shrink-0 rounded-full @[34rem]:hidden" style={{ background: OPTION_DOT[i] }} />
                     <span className="min-w-0">
                       <span className={cn("block text-xs font-medium @[34rem]:sr-only", option.best ? "text-positive" : "text-muted-foreground")}>{option.label}</span>
@@ -653,7 +653,7 @@ function StructuredAnswerBlockView({ block }: { block: StructuredAnswerBlockData
               {tiles ? (
                 <dl className="grid grid-cols-2 gap-2.5 pt-1">
                   {section.bullets.map((bullet, j) => (
-                    <div key={j} className="rounded-2xl bg-lagoon-soft px-3.5 py-3">
+                    <div key={j} className="rounded-2xl bg-secondary px-3.5 py-3">
                       <dt className="eyebrow">{bullet.text}</dt>
                       <dd className="mt-1 font-display text-[1.625rem] leading-none font-medium tracking-[-0.025em] tabular-nums">{bullet.detail}</dd>
                     </div>
@@ -962,7 +962,7 @@ function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPan
             type="button"
             onClick={() => void addAll()}
             disabled={status !== "idle" || totalStops === 0}
-            className={cn(controlSecondary, status === "added" && "border-positive/40 bg-positive-soft text-positive")}
+            className={cn(controlSecondary, status === "added" && "border-transparent bg-secondary text-foreground")}
           >
             {status === "adding" ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : status === "added" ? <Check className="size-3.5" aria-hidden /> : <CalendarPlus className="size-3.5" aria-hidden />}
             {status === "added" ? "Added to itinerary" : "Add whole plan"}
@@ -1719,7 +1719,7 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
         <FlightSearchBar search={searchForBar} tripId={tripId} trip={tripDates} routeOpen={routeOpen} onRouteDone={() => setRouteOpen(false)} />
       </div>
       {ready && fares.assumed && (
-        <div role="note" className="mx-4 mb-1 flex items-center gap-2.5 rounded-2xl bg-caution-soft px-3.5 py-3 text-[0.84375rem] text-caution @[34rem]:mx-5">
+        <div role="note" className="mx-4 mb-1 flex items-center gap-2.5 rounded-2xl bg-secondary px-3.5 py-3 text-[0.84375rem] text-foreground [&_svg]:text-caution @[34rem]:mx-5">
           <Info className="size-4 shrink-0" aria-hidden />
           <span>No travel date set, so these are example prices. Pick your date above.</span>
         </div>

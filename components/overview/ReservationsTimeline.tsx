@@ -14,10 +14,10 @@ import { cn } from "@/lib/utils";
 import type { Booking } from "@/packages/contracts/booking";
 
 const STATUS: Record<Booking["status"], string> = {
-  confirmed: "border-leaf/30 bg-leaf/10 text-foreground",
-  pending: "border-border bg-muted text-muted-foreground",
-  failed: "border-destructive/30 bg-destructive/10 text-destructive",
-  cancelled: "border-destructive/30 bg-destructive/10 text-destructive",
+  confirmed: "status-dot status-ok border-transparent bg-secondary text-foreground",
+  pending: "status-dot border-transparent bg-secondary text-foreground",
+  failed: "status-dot status-bad border-transparent bg-secondary text-foreground",
+  cancelled: "status-dot status-bad border-transparent bg-secondary text-foreground",
 };
 
 const FILTERS: Array<Category | "all"> = ["all", "stay", "travel", "do"];
@@ -78,7 +78,7 @@ function Row({ item, onOpenBooking, onEdit, onRemove }: { item: TimelineItem; on
         <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform duration-300 group-hover:translate-x-0.5" />
       </span>
       {PHONE_V2 && item.status && (
-        <span className={cn("inline-flex h-6 shrink-0 items-center self-center rounded-full px-2.5 text-xs font-semibold capitalize lg:hidden", item.status === "confirmed" ? "bg-positive-soft text-positive" : "bg-muted text-ink-soft")}>{item.status === "pending" ? "Reserved" : item.status}</span>
+        <span className={cn("status-chip shrink-0 self-center capitalize lg:hidden", item.status === "confirmed" && "status-ok", (item.status === "failed" || item.status === "cancelled") && "status-bad")}>{item.status === "pending" ? "Reserved" : item.status}</span>
       )}
     </>
   );

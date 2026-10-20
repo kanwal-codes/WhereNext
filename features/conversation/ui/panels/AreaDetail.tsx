@@ -205,7 +205,7 @@ export function AreaDetail({ tripId, panel }: { tripId: string; panel: AreaPanel
 
       {isArea && (
         <Reveal delay={0.1} y={10}>
-          <section aria-label="Make this your base" className={cn("flex flex-wrap items-center gap-x-3.5 gap-y-3 rounded-2xl border p-3.5 transition-colors", isBase ? "border-positive/30 bg-positive/10" : "border-border bg-card")}>
+          <section aria-label="Make this your base" className={cn("flex flex-wrap items-center gap-x-3.5 gap-y-3 rounded-2xl border p-3.5 transition-colors", isBase ? "border-transparent bg-secondary" : "border-border bg-card")}>
             <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl", isBase ? "bg-positive/15 text-positive" : "bg-coral-soft text-coral-ink")} aria-hidden>
               {isBase ? <Check className="size-5" /> : <Home className="size-5" />}
             </span>

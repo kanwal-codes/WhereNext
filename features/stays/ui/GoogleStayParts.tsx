@@ -1,5 +1,6 @@
 "use client";
 
+import { FitText } from "@/components/FitText";
 import { hotelPhotoSrc } from "@/lib/hotel-photo";
 import React from "react";
 import { motion, useReducedMotion } from "motion/react";
@@ -89,7 +90,7 @@ export function WhereToBook({ s, hotelId }: { s: Details; hotelId: string }) {
                 </p>
               </div>
               <div className="shrink-0 text-right">
-                <p className="font-display text-3xl font-semibold leading-none tabular-nums tracking-[-0.03em]">{money(best.nightly, s.currency, true)}</p>
+                <FitText className="font-display text-3xl font-semibold leading-none tabular-nums tracking-[-0.03em]">{money(best.nightly, s.currency, true)}</FitText>
                 <p className={cn(T.meta, "mt-1")}>a night</p>
               </div>
             </div>

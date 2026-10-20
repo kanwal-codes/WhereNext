@@ -10,10 +10,10 @@ import { cn } from "@/lib/utils";
 import type { Booking } from "@/packages/contracts/booking";
 
 const STATUS_STYLE: Record<Booking["status"], string> = {
-  confirmed: "bg-leaf-soft text-leaf",
-  pending: "bg-muted text-muted-foreground",
-  failed: "bg-destructive/10 text-destructive",
-  cancelled: "bg-destructive/10 text-destructive",
+  confirmed: "status-dot status-ok bg-secondary text-foreground",
+  pending: "status-dot bg-secondary text-foreground",
+  failed: "status-dot status-bad bg-secondary text-foreground",
+  cancelled: "status-dot status-bad bg-secondary text-foreground",
 };
 
 /** Read+cancel view for a booking already on the trip — the Bookings page's detail pop-up. */
@@ -97,7 +97,7 @@ export function BookingDetailSheet({
               {(booking.status === "confirmed" || booking.status === "pending") && (
                 <div className="mt-6 w-full">
                   {confirmingCancel ? (
-                    <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-left">
+                    <div className="rounded-2xl bg-secondary p-4 text-left">
                       <p className="text-sm font-medium text-destructive">Cancel this booking?</p>
                       <p className="mt-1 text-xs text-muted-foreground">This can’t be undone in the sandbox.</p>
                       <div className="mt-3 flex gap-2">

@@ -103,7 +103,7 @@ export function GroupInviteCard({ tripId, tripName }: { tripId: string; tripName
           disabled={!link}
           className={cn(
             "relative inline-flex h-10 shrink-0 items-center gap-1.5 overflow-hidden rounded-xl px-4 text-sm font-medium transition-[background-color,color,transform] active:scale-[0.97] disabled:opacity-50",
-            copied ? "bg-positive-soft text-positive" : "bg-primary text-primary-foreground hover:opacity-90",
+            copied ? "bg-secondary text-foreground" : "bg-primary text-primary-foreground hover:opacity-90",
           )}
         >
           <AnimatePresence mode="wait" initial={false}>

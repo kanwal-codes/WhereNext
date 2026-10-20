@@ -742,7 +742,7 @@ export function TransportSurface({
                 <button type="button" onClick={() => choose(i)} aria-expanded={open} className="block w-full rounded-2xl p-4 text-left">
                   <span className="flex items-center justify-between gap-3">
                     {tag ? (
-                      <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", tag === "fastest" ? "bg-positive-soft text-positive" : "bg-muted text-ink-soft")}>{TAG_TEXT[tag]}</span>
+                      <span className={cn("status-chip", tag === "fastest" && "status-ok")}>{TAG_TEXT[tag]}</span>
                     ) : (
                       <span className="text-xs tabular-nums text-muted-foreground">{distance(route.distanceMeters / 1000)}</span>
                     )}

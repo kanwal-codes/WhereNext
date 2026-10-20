@@ -68,7 +68,7 @@ function LegCard({ leg }: { leg: Leg }) {
             <li key={label} className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs text-ink-soft"><Icon className="size-3.5 text-coral" aria-hidden />{label}</li>
           ))}
           {leg.legroom && <li className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs text-ink-soft"><Armchair className="size-3.5 text-coral" aria-hidden />{leg.legroom} legroom</li>}
-          {leg.oftenDelayed && <li className="inline-flex items-center gap-1.5 rounded-full bg-caution-soft px-2.5 py-1 text-xs font-medium text-caution"><Clock className="size-3.5" aria-hidden />Often over 30 min late</li>}
+          {leg.oftenDelayed && <li className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-foreground"><Clock className="size-3.5 text-caution" aria-hidden />Often over 30 min late</li>}
         </ul>
       )}
     </div>

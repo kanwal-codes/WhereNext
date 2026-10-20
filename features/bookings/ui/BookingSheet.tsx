@@ -235,7 +235,7 @@ function SuccessStage({ subject, flow, onClose }: { subject: BookingSubject; flo
         <p className="mt-1.5 text-sm text-muted-foreground">{subject.kind === "flight" ? subject.offer.airline : subject.hotelName}</p>
       </Reveal>
       <Reveal delay={0.14}>
-        <div className="mt-5 w-full rounded-2xl border border-dashed border-leaf/40 bg-leaf-soft/30 p-5">
+        <div className="mt-5 w-full rounded-2xl bg-secondary p-5">
           <p className="eyebrow text-leaf">Confirmation code</p>
           <p className="mt-1 font-display text-2xl tracking-wide">{booking.confirmationCode ?? booking.providerReference}</p>
         </div>

@@ -438,7 +438,7 @@ export function ReservationSheet({
           </div>
 
           {error && (
-            <p role="alert" className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+            <p role="alert" className="rounded-2xl bg-secondary px-4 py-2.5 text-sm font-medium text-destructive">
               {error}
             </p>
           )}

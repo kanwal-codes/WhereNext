@@ -201,7 +201,7 @@ export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids:
           <span className="inline-flex items-center gap-2">
             {priceLabel(d.priceLevel) ?? "—"}
             {priceLabel(d.priceLevel) && priceRank(d.priceLevel) === bestPrice && (
-              <span className="rounded-full bg-leaf-soft px-2 py-0.5 text-xs font-medium text-leaf">Lowest</span>
+              <span className="status-chip status-ok">Lowest</span>
             )}
           </span>
         );
@@ -285,7 +285,7 @@ export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids:
                 type="button"
                 onClick={() => void choose(id, d!)}
                 disabled={savedIds.has(id)}
-                className={cn("mt-auto flex h-11 w-full items-center justify-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-[background-color,transform] active:scale-[0.985]", savedIds.has(id) ? "border-leaf/40 bg-leaf-soft text-leaf" : "border-primary bg-primary text-primary-foreground")}
+                className={cn("mt-auto flex h-11 w-full items-center justify-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-[background-color,transform] active:scale-[0.985]", savedIds.has(id) ? "border-transparent bg-secondary text-foreground" : "border-primary bg-primary text-primary-foreground")}
               >
                 {savedIds.has(id) ? <><Check className="size-4" aria-hidden /> On the trip</> : "Choose this"}
               </button>
@@ -342,7 +342,7 @@ export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids:
                 disabled={savedIds.has(id)}
                 className={cn(
                   "mt-2 flex w-full items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                  savedIds.has(id) ? "border-leaf/40 bg-leaf-soft text-leaf" : "border-border hover:bg-accent",
+                  savedIds.has(id) ? "border-transparent bg-secondary text-foreground" : "border-border hover:bg-accent",
                 )}
               >
                 {savedIds.has(id) ? (

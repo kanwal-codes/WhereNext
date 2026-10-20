@@ -94,7 +94,7 @@ export function RoutePanel({ tripId, trip, stays = [] }: { tripId: string; trip:
                   <span className="sr-only">Leave</span>
                   <DateField value={row.endDate ?? ""} min={row.startDate ?? undefined} onChange={(v) => set(i, { endDate: v || null })} placeholder="Leave" ariaLabel="Leave" />
                 </label>
-                <button type="button" onClick={() => setDraft((rows) => rows.filter((_, j) => j !== i))} aria-label={`Remove ${row.city || "this stop"}`} disabled={draft.length <= 1} className="grid size-9 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive disabled:opacity-40">
+                <button type="button" onClick={() => setDraft((rows) => rows.filter((_, j) => j !== i))} aria-label={`Remove ${row.city || "this stop"}`} disabled={draft.length <= 1} className="grid size-9 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-secondary hover:text-destructive disabled:opacity-40">
                   <X className="size-4" />
                 </button>
               </div>

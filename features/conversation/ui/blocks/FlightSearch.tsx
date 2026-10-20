@@ -220,7 +220,7 @@ export function FlightSearchBar({ search, tripId, trip, routeOpen, onRouteDone }
 
 /** Google's read on whether these dates are a good time to buy: low, typical or high for the route. */
 export function PriceInsight({ insights, currency }: { insights: Insights; currency: string }) {
-  const tone = { low: { Icon: TrendingDown, text: "Prices are low for these dates", cls: "bg-positive-soft text-positive" }, typical: { Icon: Minus, text: "Prices are typical for these dates", cls: "bg-muted text-ink-soft" }, high: { Icon: TrendingUp, text: "Prices are higher than usual for these dates", cls: "bg-caution-soft text-caution" } }[insights.level];
+  const tone = { low: { Icon: TrendingDown, text: "Prices are low for these dates", cls: "bg-secondary text-foreground [&_svg]:text-positive" }, typical: { Icon: Minus, text: "Prices are typical for these dates", cls: "bg-secondary text-ink-soft" }, high: { Icon: TrendingUp, text: "Prices are higher than usual for these dates", cls: "bg-secondary text-foreground [&_svg]:text-caution" } }[insights.level];
   const usual = insights.typicalLow && insights.typicalHigh ? `Usually ${money(insights.typicalLow, currency, true)} to ${money(insights.typicalHigh, currency, true)}` : null;
   return (
     <div className={cn("flex items-center gap-2.5 border-b border-border px-4 py-2.5 text-sm", tone.cls)} role="note">

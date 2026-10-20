@@ -55,7 +55,7 @@ export function NewTripForm() {
           <p className="mt-2 text-xs text-muted-foreground">We&rsquo;ll pull the useful places into a new conversation.</p>
         </div>
       </div>
-      {error && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p>}
+      {error && <p role="alert" className="rounded-xl bg-secondary px-4 py-3 text-sm font-medium text-destructive">{error}</p>}
     </div>
   );
 }

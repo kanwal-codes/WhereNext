@@ -1,5 +1,6 @@
 "use client";
 
+import { FitText } from "@/components/FitText";
 import React, { type ReactNode } from "react";
 import { ArrowUpRight, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,17 +32,18 @@ const CHIP: Record<WidgetTone, string> = {
 const HERO: Record<WidgetTone, string> = {
   coral: "bg-[linear-gradient(135deg,var(--coral-soft),oklch(0.99_0.006_60))]",
   lagoon: "bg-[linear-gradient(160deg,var(--lagoon-soft),oklch(0.99_0.004_220))]",
-  sage: "bg-[linear-gradient(135deg,var(--positive-soft),oklch(0.99_0.006_160))]",
-  plum: "bg-[linear-gradient(135deg,var(--plum-soft),oklch(0.99_0.004_305))]",
-  saffron: "bg-[linear-gradient(135deg,var(--caution-soft),oklch(0.99_0.01_90))]",
+  // Money and caution are shown by the pill and the bar, not by tinting the whole band.
+  sage: "bg-secondary",
+  plum: "bg-secondary",
+  saffron: "bg-secondary",
 };
 const PILL: Record<WidgetTone | "neutral", string> = {
-  neutral: "border border-border bg-surface text-ink-soft",
-  coral: "bg-coral-soft text-coral-ink",
-  lagoon: "bg-lagoon-soft text-lagoon",
-  sage: "bg-positive-soft text-positive",
-  plum: "bg-plum-soft text-plum",
-  saffron: "bg-caution-soft text-caution",
+  neutral: "bg-secondary text-ink-soft",
+  coral: "bg-secondary text-foreground status-dot status-brand",
+  lagoon: "bg-secondary text-foreground status-dot status-info",
+  sage: "bg-secondary text-foreground status-dot status-ok",
+  plum: "bg-secondary text-foreground status-dot status-brand",
+  saffron: "bg-secondary text-foreground status-dot status-warn",
 };
 
 /** A small status pill ("Fits your budget", "Fastest", "Over by 50"). */
@@ -136,8 +138,8 @@ export function WidgetHero({ tone = "coral", tinted = false, className, children
 /** The big number: a price, a temperature, a duration. */
 export function WidgetFigure({ children, unit, className }: { children: ReactNode; unit?: ReactNode; className?: string }) {
   return (
-    <span className={cn("inline-flex items-baseline gap-1.5", className)}>
-      <span className="font-display text-[3rem] leading-[1] font-medium tracking-[-0.04em] tabular-nums @[34rem]:text-[3.5rem]">{children}</span>
+    <span className={cn("inline-flex max-w-full items-baseline gap-1.5", className)}>
+      <FitText className="font-display text-[3rem] leading-[1] font-medium tracking-[-0.04em] tabular-nums @[34rem]:text-[3.5rem]">{children}</FitText>
       {unit && <span className="text-base text-ink-soft">{unit}</span>}
     </span>
   );

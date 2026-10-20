@@ -118,7 +118,7 @@ export function FlightDetails({ flight, travellers }: { flight: FlightOffer; tra
           {flight.fareConditions.map((rule) => {
             const no = isRestriction(rule);
             return (
-              <li key={rule} className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium", no ? "bg-muted text-ink-soft" : "bg-positive-soft text-positive")}>
+              <li key={rule} className={cn("inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium", no ? "text-ink-soft" : "text-foreground [&_svg]:text-positive")}>
                 {no ? <X className="size-3.5" aria-hidden="true" /> : <Check className="size-3.5" aria-hidden="true" />}
                 {rule}
               </li>

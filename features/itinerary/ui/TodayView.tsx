@@ -133,7 +133,7 @@ export function TodayView({ tripId }: { tripId: string }) {
             <h2 className="mt-2 font-display text-[1.625rem] leading-[1.12] font-medium tracking-[-0.03em] text-balance">{next.title}</h2>
             <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.9375rem] text-ink-soft">
               <span suppressHydrationWarning>{[viewCity, timeOf(next) ? clockLabel(timeOf(next)) : null].filter(Boolean).join(" · ")}</span>
-              {isBookedStop(next.title) && <span className="inline-flex items-center gap-1 rounded-full bg-positive-soft px-2.5 py-1 text-xs font-semibold text-positive"><Check className="size-3.5" aria-hidden />Tickets booked</span>}
+              {isBookedStop(next.title) && <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground"><Check className="size-3.5 text-positive" aria-hidden />Tickets booked</span>}
             </p>
             {navHref ? (
               <a href={navHref} target="_blank" rel="noreferrer noopener" className="btn-primary mt-4 h-12 w-full rounded-full"><Navigation className="size-4" aria-hidden /> Directions</a>
@@ -180,7 +180,7 @@ export function TodayView({ tripId }: { tripId: string }) {
               const Icon = KIND_META[reservation.kind].icon;
               const time = note === "Arrives" || note === "Check-out" ? reservation.endTime : reservation.startTime;
               return (
-                <li key={`${reservation.id}-${note ?? "on"}`} className="flex min-h-14 items-center gap-3 rounded-2xl border border-leaf/30 bg-leaf/5 px-4 py-3">
+                <li key={`${reservation.id}-${note ?? "on"}`} className="flex min-h-14 items-center gap-3 rounded-2xl bg-secondary px-4 py-3">
                   <Icon className="size-5 shrink-0 text-leaf" aria-hidden />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{reservation.title}</p>
@@ -243,7 +243,7 @@ export function TodayView({ tripId }: { tripId: string }) {
               const Icon = KIND_META[reservation.kind].icon;
               const time = note === "Arrives" || note === "Check-out" ? reservation.endTime : reservation.startTime;
               return (
-                <li key={`${reservation.id}-${note ?? "on"}`} className="flex items-center gap-3.5 rounded-2xl border border-leaf/30 bg-leaf/5 p-4">
+                <li key={`${reservation.id}-${note ?? "on"}`} className="flex items-center gap-3.5 rounded-2xl bg-secondary p-4">
                   <Icon className="size-5 shrink-0 text-leaf" aria-hidden />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{reservation.title}</p>

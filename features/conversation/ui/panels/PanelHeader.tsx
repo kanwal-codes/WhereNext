@@ -9,7 +9,7 @@ export function BigFigure({ text, className }: { text: string; className?: strin
         const bit = part.trim();
         if (!bit) return null;
         return /^\d/.test(bit)
-          ? <span key={i} className="text-[3.25rem] font-light text-foreground">{bit}</span>
+          ? <span key={i} className="text-[3.25rem] font-light whitespace-nowrap text-foreground">{bit}</span>
           : <span key={i} className="mr-1.5 text-base font-normal tracking-normal text-muted-foreground">{bit}</span>;
       })}
     </p>

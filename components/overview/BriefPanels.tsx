@@ -10,7 +10,7 @@ const panel = "rounded-3xl border border-border/70 bg-card p-6 shadow-soft";
 
 function Chip({ children, tone }: { children: string; tone: "like" | "avoid" | "diet" | "fact" }) {
   const toneClass = {
-    like: "border-leaf/30 bg-leaf/10 text-foreground",
+    like: "border-transparent bg-secondary text-foreground",
     avoid: "border-border bg-muted text-muted-foreground line-through decoration-muted-foreground/50",
     diet: "border-coral/30 bg-coral/10 text-foreground",
     fact: "border-border bg-background text-foreground",

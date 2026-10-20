@@ -1,5 +1,6 @@
 "use client";
 
+import { FitText } from "@/components/FitText";
 import React, { type ReactNode } from "react";
 import { AlertTriangle, ArrowUpRight, BedDouble, Briefcase, Check, ChevronRight, Clock, Leaf, Moon, Plug, Shield, Tv, Wifi, Armchair } from "lucide-react";
 import type { FlightOffer } from "@/components/TripPanelProvider";
@@ -117,7 +118,7 @@ export function FlightPicks({ picks, selected, onSelect, roundTrip }: { picks: F
             <p className="eyebrow text-coral-ink!">The only option</p>
             <p className={cn(type.meta, "truncate")}>{o.airline} · {o.stops === 0 ? "nonstop" : `${o.stops} stop${o.stops > 1 ? "s" : ""}`} · {hoursMinutes(o.durationMinutes)}</p>
           </div>
-          <p className="font-display text-2xl font-medium tracking-[-0.025em] tabular-nums">{money(o.price, o.currency, true)}</p>
+          <FitText className="font-display text-2xl font-medium tracking-[-0.025em] tabular-nums">{money(o.price, o.currency, true)}</FitText>
         </div>
       </div>
     );
@@ -139,11 +140,9 @@ export function FlightPicks({ picks, selected, onSelect, roundTrip }: { picks: F
               <span className={cn("eyebrow truncate", on && "text-coral-ink!")}>{pick.labels.join(" · ")}</span>
               <AirlineMark offer={pick.offer} className="size-6" />
             </span>
-            <span className="mt-1.5 flex items-center justify-between gap-2 font-display text-[1.375rem] leading-tight font-medium tracking-[-0.025em] tabular-nums">
-              {money(pick.offer.price, pick.offer.currency, true)}
-              {PHONE_V2 && on ? <span aria-hidden className="grid size-[1.125rem] shrink-0 place-items-center rounded-full bg-coral text-white lg:hidden"><Check className="size-3" strokeWidth={3.5} /></span> : null}
-            </span>
-            <span className={cn(type.meta, "block truncate")}>{hoursMinutes(pick.offer.durationMinutes)} · {pick.offer.stops === 0 ? "nonstop" : `${pick.offer.stops} stop${pick.offer.stops > 1 ? "s" : ""}`}{roundTrip ? " · round trip" : ""}</span>
+            <FitText className="mt-1.5 font-display text-[1.375rem] leading-tight font-medium tracking-[-0.025em] tabular-nums">{money(pick.offer.price, pick.offer.currency, true)}</FitText>
+            {PHONE_V2 && on ? <span aria-hidden className="absolute right-3 bottom-3 grid size-[1.125rem] place-items-center rounded-full bg-coral text-white lg:hidden"><Check className="size-3" strokeWidth={3.5} /></span> : null}
+            <span className={cn(type.meta, "block truncate", PHONE_V2 && on && "max-lg:pr-6")}>{hoursMinutes(pick.offer.durationMinutes)} · {pick.offer.stops === 0 ? "nonstop" : `${pick.offer.stops} stop${pick.offer.stops > 1 ? "s" : ""}`}{roundTrip ? " · round trip" : ""}</span>
           </button>
         );
       })}
@@ -213,7 +212,7 @@ function Node({ time, code, name, note, end, plus }: { time: string; code?: stri
   );
 }
 
-const WAIT_TONE = { neutral: "bg-surface text-ink-soft border border-border", night: "bg-lagoon-soft text-lagoon", caution: "bg-caution-soft text-caution" } as const;
+const WAIT_TONE = { neutral: "bg-secondary text-ink-soft", night: "bg-secondary text-foreground [&_svg]:text-lagoon", caution: "bg-secondary text-foreground [&_svg]:text-caution" } as const;
 
 /**
  * One fare opened out: the whole journey in order (each flight, each wait between them), then the price, the fare's
@@ -273,7 +272,7 @@ export function FlightJourney({ offer, labels, roundTrip, onDetails, tripCurrenc
           <div className="min-w-0 space-y-3.5 @[34rem]:flex-1 @[44rem]:flex-none">
             <div>
               <p className="eyebrow">{roundTrip ? "Round trip · per person" : "Per person"}</p>
-              <p className="mt-1.5 font-display text-[2.25rem] leading-none font-medium tracking-[-0.035em] tabular-nums">{converted && <span className="mr-1 text-xl text-muted-foreground" title={`Converted from ${money(offer.listedPrice ?? "", offer.listedCurrency ?? "", true)} at today’s rate`}>≈</span>}{money(offer.price, offer.currency, true)}</p>
+              <FitText className="mt-1.5 font-display text-[2.25rem] leading-none font-medium tracking-[-0.035em] tabular-nums">{converted && <span className="mr-1 text-xl text-muted-foreground" title={`Converted from ${money(offer.listedPrice ?? "", offer.listedCurrency ?? "", true)} at today’s rate`}>≈</span>}{money(offer.price, offer.currency, true)}</FitText>
               {converted && <p className={cn(type.meta, "mt-1")}>from {money(offer.listedPrice ?? "", offer.listedCurrency ?? "", true)}{tripCurrency ? ` · shown in ${tripCurrency}` : ""}</p>}
             </div>
             {terms.length > 0 ? (

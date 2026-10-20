@@ -227,7 +227,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
     <div className="flex min-h-[calc(100dvh-13rem)] flex-col gap-5">
       <CityChips stops={cities.stops} current={cities.city} onPick={cities.setCity} estimated={cities.estimated} className={cn("-mb-2", PHONE_V2 && "max-lg:hidden")} />
       {alreadyBooked && (
-        <p role="status" className="rounded-2xl border border-leaf/30 bg-leaf/5 px-4 py-3 text-sm">
+        <p role="status" className="rounded-2xl bg-secondary px-4 py-3 text-sm">
           You already have <span className="font-medium">{alreadyBooked.title}</span> booked<span className={cn(PHONE_V2 && "max-lg:hidden")}>{alreadyBooked.date ? ` (${fmtDay(alreadyBooked.date)}${alreadyBooked.endDate ? ` → ${fmtDay(alreadyBooked.endDate)}` : ""})` : ""}</span> for some of these nights.{" "}
           <a href={`/trips/${tripId}/bookings`} className="underline underline-offset-2">See your bookings</a>
         </p>
