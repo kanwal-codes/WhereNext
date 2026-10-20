@@ -54,8 +54,8 @@ export default function UpdatePasswordPage() {
         <Field label="Confirm password">
           <input type="password" name="password-confirmation" autoComplete="new-password" required minLength={8} value={confirmation} onChange={(e) => setConfirmation(e.target.value)} className={inputClass} />
         </Field>
-        {error && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">{error}</p>}
-        {message && <p role="status" className="rounded-xl border border-leaf/30 bg-leaf-soft/50 px-3 py-2 text-xs text-leaf">{message}</p>}
+        {error && <p role="alert" className="rounded-xl bg-secondary px-3 py-2 text-xs font-medium text-destructive">{error}</p>}
+        {message && <p role="status" className="rounded-xl bg-secondary px-3 py-2 text-xs font-medium text-foreground">{message}</p>}
         <SubmitButton loading={loading} type="submit">
           Update password {loading ? null : <ArrowRight className="h-4 w-4" />}
         </SubmitButton>

@@ -1171,7 +1171,8 @@ export const ConversationSurface = React.memo(function ConversationSurface({
                 onKeyDown={(event) => {
                   // isComposing (and the legacy keyCode 229) is true for the Enter that CONFIRMS an
                   // IME candidate (Japanese/Chinese/Korean input) — that keystroke must not also submit.
-                  if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) {
+                  // On a phone Return makes a new line and the arrow sends, exactly as in the group chat; with a keyboard it sends.
+                  if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229 && !window.matchMedia("(pointer: coarse)").matches) {
                     event.preventDefault();
                     void submit(input);
                   }

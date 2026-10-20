@@ -23,7 +23,7 @@ export const PHONE_NAV_GROUPS: Array<{ title: string; segs: string[] }> = [
   { title: "Keep", segs: ["knowledge", "bookings"] },
 ];
 
-/** The phone drawer calls the itinerary "Plan"; the desktop sidebar keeps "Itinerary". */
-export const PHONE_LABEL: Record<string, string> = { itinerary: "Plan" };
+/** On a phone the drawer uses the names the pages themselves carry ("Plan", "What Roam remembers", "Bookings"); the desktop sidebar keeps its longer labels. */
+export const PHONE_LABEL: Record<string, string> = { itinerary: "Plan", knowledge: "What Roam remembers", bookings: "Bookings" };
 
 export type NavIcon = ComponentType<{ className?: string }>;

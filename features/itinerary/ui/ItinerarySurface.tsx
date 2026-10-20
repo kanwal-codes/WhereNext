@@ -1,5 +1,6 @@
 "use client";
 
+import { TimeField } from "@/components/DateTimeField";
 import { HotelPhoto } from "@/components/HotelPhoto";
 import { TripRouteWeather } from "@/components/TripWeather";
 import { BookingNotices } from "@/components/overview/BookingNotices";
@@ -362,7 +363,7 @@ export function ItinerarySurface({
       <div className="min-w-0 pb-24">
         <p className="eyebrow">Day {d} of {days.length}</p>
         <div className="mt-1 flex items-center justify-between gap-3">
-          <h2 suppressHydrationWarning className="min-w-0 font-display text-[2.375rem] leading-[1.05] font-medium tracking-[-0.04em]">{dayDate(startDate, d) ?? `Day ${d}`}</h2>
+          <h2 suppressHydrationWarning className="min-w-0 font-display text-[2.5rem] leading-[1.05] font-medium tracking-[-0.04em]">{dayDate(startDate, d) ?? `Day ${d}`}</h2>
           <button type="button" onClick={() => setPickerOpen(true)} aria-label="Choose a day" aria-haspopup="dialog" className="grid size-11 shrink-0 place-items-center rounded-full bg-muted text-foreground transition-transform active:scale-95">
             <ChevronDown className="size-5" aria-hidden />
           </button>
@@ -461,7 +462,7 @@ export function ItinerarySurface({
         </div>
 
         {removed && (
-          <p role="status" className="mt-4 rounded-2xl border border-border bg-card px-4 py-3 text-sm">
+          <p role="status" className="mt-4 rounded-2xl bg-secondary px-4 py-3 text-sm">
             {removed.title} removed.{" "}
             <button type="button" onClick={() => void restore()} className="min-h-11 font-medium underline underline-offset-4">Undo</button>
           </p>
@@ -507,7 +508,7 @@ export function ItinerarySurface({
                 <p className="truncate px-2 font-display text-xl font-medium tracking-[-0.02em]">{item.title}</p>
                 <label className="mt-2 flex min-h-14 items-center justify-between gap-3 rounded-2xl px-3">
                   <span className="flex items-center gap-3 text-[0.9375rem] font-medium"><Clock className="size-5 text-muted-foreground" aria-hidden /> Time</span>
-                  <input type="time" value={time} disabled={locked} onChange={(e) => setTime(item, e.target.value || null)} aria-label={`Target time for ${item.title}`} className="h-11 rounded-xl border border-input bg-background px-3 disabled:opacity-50" />
+                  <TimeField value={time} disabled={locked} onChange={(v) => setTime(item, v || null)} ariaLabel={`Target time for ${item.title}`} placeholder="Add time" className="w-40" />
                 </label>
                 <button type="button" className={row} disabled={locked || Boolean(time) || at <= 0} onClick={run(() => moveWithinDay(item, -1))}><ChevronUp className="size-5 text-muted-foreground" aria-hidden /> Earlier in the day</button>
                 <button type="button" className={row} disabled={locked || Boolean(time) || at < 0 || at >= list.length - 1} onClick={run(() => moveWithinDay(item, 1))}><ChevronDown className="size-5 text-muted-foreground" aria-hidden /> Later in the day</button>

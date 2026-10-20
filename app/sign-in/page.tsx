@@ -103,7 +103,7 @@ export default function SignInPage() {
           </div>
         </Field>
 
-        {error && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">{error}</p>}
+        {error && <p role="alert" className="rounded-xl bg-secondary px-3 py-2 text-xs font-medium text-destructive">{error}</p>}
 
         <SubmitButton loading={loading} type="submit">
           Sign in {loading ? null : <ArrowRight className="h-4 w-4" />}
