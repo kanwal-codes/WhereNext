@@ -30,7 +30,6 @@ import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { PanelLoading } from "@/components/PanelStates";
 import { readPlaceSeed } from "@/features/places/application/placeDetailsCache";
 import { PHONE_V2 } from "@/lib/phone-v2";
-import { usePanelStyle } from "@/lib/use-panel-style";
 import { Badge, controlGhost, textAction } from "@/features/conversation/ui/blocks/ui";
 
 const KIND_LABEL: Record<CompareEntry["kind"], string> = { place: "Place", stay: "Stay", event: "Event", route: "Route" };
@@ -191,8 +190,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   // On a phone the panel is a sheet that slides up. Mounting its (heavy) content while it moves competes with the slide for the same
   // thread, and on a mid-range Android that is the stutter: the sheet arrives with the card's own title and photo first, and the body
   // is built a moment later, once it has stopped.
-  const sheet = usePanelStyle() === "sheet";
-  const deferBody = layout === "inline" && !desktop && PHONE_V2 && sheet;
+  const deferBody = layout === "inline" && !desktop && PHONE_V2;
   const [slid, setSlid] = useState(!deferBody);
   useEffect(() => {
     if (!deferBody) { setSlid(true); return; }
