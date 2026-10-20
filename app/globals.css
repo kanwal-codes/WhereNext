@@ -1841,8 +1841,6 @@
   html[data-phone-v2] :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"]), select, textarea) { font-size: 16px; }
   :where(html[data-phone-v2]) :is(a, button, summary, select, label, input, textarea, [role="button"], [role="tab"]) { touch-action: manipulation; }
   :where(html[data-phone-v2]) :is(button:not([role="switch"]), [role="tab"], summary, select) { min-height: 2.5rem; }
-  /* One "chosen" look on a phone for every filter chip: the soft peach fill the chosen flight has, never an ink fill. */
-  html[data-phone-v2] .btn-chip:is([aria-pressed="true"], [data-active="true"]), html[data-phone-v2] .btn-chip:is([aria-pressed="true"], [data-active="true"]):hover { background-color: var(--color-coral-soft); border-color: transparent; color: var(--color-foreground); }
   /* The secondary button is a soft pill like the round header buttons: a fill, not an outline. */
   html[data-phone-v2] .btn-secondary { border-color: transparent; background-color: var(--color-secondary); border-radius: 9999px; }
   html[data-phone-v2] .btn-secondary:hover:not(:disabled) { background-color: var(--color-accent); border-color: transparent; }

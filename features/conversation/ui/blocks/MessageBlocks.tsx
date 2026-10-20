@@ -66,7 +66,7 @@ import { SkeletonPhotoCard } from "@/components/Skeleton";
 import { AnimatePresence, motion } from "motion/react";
 import { ContentSwap, Enter, ease, motionTokens } from "@/components/motion-primitives";
 import { ChecklistBlock } from "./ChecklistBlock";
-import { PHONE_V2, PICK_OFF, PICK_ON } from "@/lib/phone-v2";
+import { PHONE_V2 } from "@/lib/phone-v2";
 import { parseRouteStep, routeGlyph, routeLines, splitRouteEnds } from "./routeText";
 import { comparisonView } from "@/features/conversation/domain/comparisonView";
 import { pointsFromItinerary, pointsFromPlaces, pointsFromStays } from "./mapPoints";
@@ -1002,11 +1002,11 @@ function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPan
               onClick={() => setActive(i)}
               className={cn(
                 "min-w-[6.5rem] flex-1 rounded-xl border px-3.5 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                i === active ? cn("border-primary bg-primary text-primary-foreground", PICK_ON) : cn("border-border bg-surface text-foreground hover:border-ink/25", PICK_OFF),
+                i === active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-surface text-foreground hover:border-ink/25",
               )}
             >
               <span className="block font-display text-base leading-tight font-medium">{d.label}</span>
-              <span className={cn("mt-0.5 block truncate text-xs", i === active ? "text-primary-foreground/70 max-lg:text-ink-soft" : "text-muted-foreground")}>{d.subtitle ?? (d.open ? "Open" : `${d.stops.length} stop${d.stops.length === 1 ? "" : "s"}`)}</span>
+              <span className={cn("mt-0.5 block truncate text-xs", i === active ? "text-primary-foreground/70" : "text-muted-foreground")}>{d.subtitle ?? (d.open ? "Open" : `${d.stops.length} stop${d.stops.length === 1 ? "" : "s"}`)}</span>
             </button>
           ))}
         </div>
@@ -1373,7 +1373,7 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel, onFollowup }: { fr
               role="tab"
               aria-selected={on}
               onClick={() => { setMode(g.mode); setPick(0); }}
-              className={cn("flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl border px-3 py-2 text-left transition-colors", on ? cn("border-ink bg-card ring-1 ring-ink", PICK_ON) : cn("border-border bg-card hover:border-ink/30", PICK_OFF))}
+              className={cn("flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl border px-3 py-2 text-left transition-colors", on ? "border-ink bg-card ring-1 ring-ink" : "border-border bg-card hover:border-ink/30")}
             >
               <Icon className="size-5 shrink-0 @max-[27rem]:hidden" aria-hidden />
               <span className="min-w-0">

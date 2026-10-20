@@ -4,12 +4,11 @@ import React from "react";
 import { SlidingTabs } from "./SlidingTabs";
 import { controlSecondary, type } from "./ui";
 import { cn } from "@/lib/utils";
-import { PICK_ON } from "@/lib/phone-v2";
 
 export type SortDef = { id: string; label: string };
 export type FilterDef = { id: string; label: string; active: boolean; onToggle: () => void };
 
-const chip = (on: boolean) => cn(controlSecondary, "h-8", on && cn("border-primary bg-primary text-primary-foreground hover:border-primary hover:text-primary-foreground", PICK_ON));
+const chip = (on: boolean) => cn(controlSecondary, "h-8", on && "border-primary bg-primary text-primary-foreground hover:border-primary hover:text-primary-foreground");
 
 /**
  * Sort and filter for any list card: a segmented "Sort by" control, filter chips, "Clear", and a live count.
