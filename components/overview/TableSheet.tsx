@@ -14,7 +14,7 @@ import type { Reservation } from "@/packages/contracts/reservation";
 
 export type RestaurantChoice = { providerId: string; name: string; address: string | null; mapsUrl: string | null };
 
-const input = "w-full rounded-2xl border border-border bg-background px-4 py-2.5 text-body outline-none transition-colors placeholder:text-muted-foreground focus:border-coral/40 focus:bg-coral-soft focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-coral)_14%,transparent)]";
+const input = "w-full rounded-2xl border border-border bg-background px-4 py-2.5 text-body outline-none transition-colors placeholder:text-muted-foreground focus:border-ink/25 focus:bg-card focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_5%,transparent),0_10px_24px_-14px_color-mix(in_oklab,var(--color-ink)_30%,transparent)]";
 const linkBtn = "daisy-btn daisy-btn-outline h-auto min-h-11 flex-1 gap-2 rounded-full border-border bg-card px-4 py-2 font-medium shadow-none hover:border-foreground/30 hover:bg-accent";
 
 function Field({ label, children, className }: { label: string; children: ReactNode; className?: string }) {

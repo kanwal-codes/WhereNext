@@ -66,6 +66,7 @@ export default function GroupDetailsPage() {
       <PageHeader
         eyebrow="Group details"
         title="Group details"
+        phoneQuietTitle
         back={{ href: `/trips/${tripId}/group`, label: "Back to group chat" }}
         action={
           <button type="button" onClick={() => setAvailabilityOpen(true)} className="btn-chip shrink-0 gap-1.5">

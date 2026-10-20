@@ -22,6 +22,7 @@ export function ChapterHero({
   action,
   phoneTitle,
   phoneLine,
+  phoneQuiet,
 }: {
   eyebrow: string;
   title: string;
@@ -32,6 +33,8 @@ export function ChapterHero({
   phoneTitle?: string;
   /** Phone redesign: the one quiet line under the phone title, replacing the stats line. An empty string means no line. */
   phoneLine?: string;
+  /** Phone redesign: the header bar already names this page, so the page keeps no big title of its own. */
+  phoneQuiet?: boolean;
 }) {
   const strip =
     stats.length > 0 ? (
@@ -68,6 +71,7 @@ export function ChapterHero({
         title={title}
         description={description}
         phoneTitle={phoneTitle}
+        phoneQuietTitle={phoneQuiet}
         action={
           strip || action ? (
             <Reveal delay={0.25}>

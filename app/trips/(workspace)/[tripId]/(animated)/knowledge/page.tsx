@@ -68,7 +68,7 @@ export default function KnowledgePage() {
         eyebrow="What Roam remembers"
         title="What Roam remembers"
         description="All of it is editable. If something here is wrong, the plan built on top of it is wrong too."
-        phoneTitle="What Roam remembers"
+        phoneQuiet
         phoneLine=""
         stats={[
           { label: "Saved", value: String(saved.length), desc: saved.length === 1 ? "place" : "places" },

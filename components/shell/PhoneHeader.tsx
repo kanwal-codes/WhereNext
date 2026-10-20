@@ -62,6 +62,21 @@ export function backTarget(pathname: string, base: string): { href: string | nul
   return undefined;
 }
 
+const PAGE_TITLES: Record<string, string> = {
+  "/chat": "Roam",
+  "/group": "Group chat",
+  "/group/details": "Group details",
+  "/itinerary": "Plan",
+  "/today": "Today",
+  "/map": "Getting around",
+  "/transport": "Getting around",
+  "/bookings": "Bookings",
+  "/knowledge": "What Roam remembers",
+  "/budget": "What Roam remembers",
+  "/compare": "Compare",
+  "/event": "Event",
+};
+
 export const PHONE_ROUND = "grid size-11 shrink-0 place-items-center rounded-full bg-secondary text-foreground transition-transform duration-200 ease-out active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 export function PhoneHeader({ pathname, tripId, tripName, onMenu, menuDot }: { pathname: string; tripId: string; tripName: string; onMenu: () => void; menuDot?: boolean }) {
@@ -70,7 +85,8 @@ export function PhoneHeader({ pathname, tripId, tripName, onMenu, menuDot }: { p
   const override = ctx?.override ?? {};
   const base = `/trips/${tripId}`;
   const rest = pathname.startsWith(base) ? pathname.slice(base.length).replace(/\/$/, "") : "";
-  const defaultTitle = rest === "/chat" ? "Roam" : rest === "/group" ? "Group chat" : shortTripTitle(tripName);
+  // One rule: the bar names the page you are on. Only the trip's own home page carries the trip name; Discover and Stay put their city picker here instead.
+  const defaultTitle = PAGE_TITLES[rest] ?? (/^\/stay\/alternatives/.test(rest) ? "Places to stay" : /^\/stay\/./.test(rest) ? "Stay" : /^\/place\//.test(rest) ? "Place" : shortTripTitle(tripName));
   const title = override.title ?? defaultTitle;
   const back = backTarget(pathname, base);
   const overlay = override.variant === "overlay";

@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
  */
 type Common = { value: string; onChange: (value: string) => void; disabled?: boolean; required?: boolean; placeholder?: string; className?: string; ariaLabel?: string };
 
-const shell = "relative flex min-h-11 w-full items-center justify-between gap-2 rounded-2xl border border-border bg-background px-4 py-2.5 text-body transition-[background-color,border-color,box-shadow] focus-within:border-coral/40 focus-within:bg-coral-soft focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-coral)_14%,transparent)] has-[:disabled]:bg-muted has-[:disabled]:text-muted-foreground";
+const shell = "relative flex min-h-11 w-full items-center justify-between gap-2 rounded-2xl border border-border bg-background px-4 py-2.5 text-body transition-[background-color,border-color,box-shadow] focus-within:border-ink/25 focus-within:bg-card focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_5%,transparent),0_10px_24px_-14px_color-mix(in_oklab,var(--color-ink)_30%,transparent)] has-[:disabled]:bg-muted has-[:disabled]:text-muted-foreground";
 
 function Shell({ shown, empty, icon: Icon, className, children }: { shown: string; empty: boolean; icon: typeof Clock; className?: string; children: React.ReactNode }) {
   return (

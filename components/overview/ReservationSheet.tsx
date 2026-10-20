@@ -45,7 +45,7 @@ const fromReservation = (r: Reservation, currency: string): Draft => ({
   notes: r.notes ?? "",
 });
 
-const input = "w-full rounded-2xl border border-border bg-background px-4 py-2.5 text-body outline-none transition-colors placeholder:text-muted-foreground focus:border-coral/40 focus:bg-coral-soft focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-coral)_14%,transparent)]";
+const input = "w-full rounded-2xl border border-border bg-background px-4 py-2.5 text-body outline-none transition-colors placeholder:text-muted-foreground focus:border-ink/25 focus:bg-card focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_5%,transparent),0_10px_24px_-14px_color-mix(in_oklab,var(--color-ink)_30%,transparent)]";
 
 function Field({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
   return (

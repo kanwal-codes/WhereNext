@@ -118,7 +118,7 @@ export default function BookingsPage() {
         eyebrow="Bookings"
         title="Before you go"
         description="Every stay, ticket and reservation in one place, and the practical checklist."
-        phoneTitle="Bookings"
+        phoneQuiet
         phoneLine={`${timeline.length} reserved · ${confirmed} confirmed`}
         stats={[
           { label: "Reserved", value: String(timeline.length), desc: timeline.length === 1 ? "thing on the trip" : "things on the trip" },

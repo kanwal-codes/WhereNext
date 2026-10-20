@@ -617,8 +617,8 @@
   @apply mt-1.5 w-full rounded-xl border border-input bg-card px-4 py-[0.6875rem] text-sm text-foreground outline-none placeholder:text-muted-foreground/70;
   transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-base) var(--ease-out);
   &:hover:not(:focus):not(:disabled) { border-color: color-mix(in oklab, var(--color-ink) 28%, var(--color-input)); }
-  /* Active = lit, not outlined: a pale peach ground and a soft coral halo, no dark border. */
-  &:focus { border-color: color-mix(in oklab, var(--color-coral) 38%, var(--color-input)); background-color: var(--color-coral-soft); box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-coral) 14%, transparent); }
+  /* Active = lifted, not coloured: the field keeps its white, its edge firms up to a warm grey and a soft neutral halo and shadow lift it off the page. No hue, no dark border. */
+  &:focus { border-color: color-mix(in oklab, var(--color-ink) 24%, var(--color-input)); background-color: var(--color-card); box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-ink) 5%, transparent), 0 10px 24px -14px color-mix(in oklab, var(--color-ink) 30%, transparent); }
   &:disabled { background: var(--color-muted); color: var(--color-muted-foreground); }
 }
 
