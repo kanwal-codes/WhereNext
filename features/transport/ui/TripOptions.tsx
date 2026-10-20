@@ -1,5 +1,6 @@
 "use client";
 
+import { DateField, TimeField } from "@/components/DateTimeField";
 import { useId, useState } from "react";
 import { CalendarClock, ChevronDown, Minus, Plus, Users } from "lucide-react";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
@@ -67,11 +68,11 @@ export function TripOptions({
             <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-2">
               <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
                 Day
-                <input type="date" min={today} value={when?.date ?? ""} onChange={(e) => setDate(e.target.value)} className={field} />
+                <DateField min={today} value={when?.date ?? ""} onChange={setDate} placeholder="Today" />
               </label>
               <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
                 Time
-                <input type="time" value={when?.time ?? ""} disabled={!when} onChange={(e) => when && e.target.value && onWhen({ ...when, time: e.target.value })} className={cn(field, "disabled:opacity-50")} />
+                <TimeField value={when?.time ?? ""} disabled={!when} onChange={(v) => when && v && onWhen({ ...when, time: v })} placeholder="Now" />
               </label>
             </div>
 
@@ -114,7 +115,7 @@ export function TripOptions({
 
             <label className="block space-y-1.5 text-xs font-medium text-muted-foreground">
               Return day <span className="font-normal">(flights, optional)</span>
-              <input type="date" min={when?.date ?? today} value={returnDate} onChange={(e) => onReturnDate(e.target.value)} className={field} />
+              <DateField min={when?.date ?? today} value={returnDate} onChange={onReturnDate} placeholder="Add a return day" />
             </label>
           </div>
         </div>

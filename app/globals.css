@@ -1826,4 +1826,5 @@
   html[data-phone-v2] .btn-secondary { border-color: transparent; background-color: var(--color-secondary); border-radius: 9999px; }
   html[data-phone-v2] .btn-secondary:hover:not(:disabled) { background-color: var(--color-accent); border-color: transparent; }
   html[data-phone-v2] .daisy-btn-outline { border-color: transparent; background-color: var(--color-secondary); color: var(--color-foreground); }
+  html[data-phone-v2] .daisy-btn:disabled, html[data-phone-v2] .daisy-btn[disabled] { background-color: var(--color-muted); border-color: transparent; color: var(--color-muted-foreground); box-shadow: none; opacity: 1; }
 }

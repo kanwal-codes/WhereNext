@@ -1,5 +1,6 @@
 "use client";
 
+import { DateField } from "@/components/DateTimeField";
 import { useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { SectionHeading } from "@/components/overview/SectionHeading";
@@ -87,11 +88,11 @@ export function RoutePanel({ tripId, trip, stays = [] }: { tripId: string; trip:
                 </label>
                 <label className="block">
                   <span className="sr-only">Arrive</span>
-                  <input type="date" value={row.startDate ?? ""} onChange={(e) => set(i, { startDate: e.target.value || null })} className={field} />
+                  <DateField value={row.startDate ?? ""} onChange={(v) => set(i, { startDate: v || null })} placeholder="Arrive" ariaLabel="Arrive" />
                 </label>
                 <label className="block">
                   <span className="sr-only">Leave</span>
-                  <input type="date" value={row.endDate ?? ""} min={row.startDate ?? undefined} onChange={(e) => set(i, { endDate: e.target.value || null })} className={field} />
+                  <DateField value={row.endDate ?? ""} min={row.startDate ?? undefined} onChange={(v) => set(i, { endDate: v || null })} placeholder="Leave" ariaLabel="Leave" />
                 </label>
                 <button type="button" onClick={() => setDraft((rows) => rows.filter((_, j) => j !== i))} aria-label={`Remove ${row.city || "this stop"}`} disabled={draft.length <= 1} className="grid size-9 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive disabled:opacity-40">
                   <X className="size-4" />

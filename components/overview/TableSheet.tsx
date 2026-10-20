@@ -1,5 +1,6 @@
 "use client";
 
+import { DateField, TimeField } from "@/components/DateTimeField";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ExternalLink, Globe, Loader2, MapPin, Phone, Search, UtensilsCrossed, X } from "lucide-react";
 import { Sheet } from "@/components/motion-primitives";
@@ -13,7 +14,7 @@ import type { Reservation } from "@/packages/contracts/reservation";
 
 export type RestaurantChoice = { providerId: string; name: string; address: string | null; mapsUrl: string | null };
 
-const input = "w-full rounded-2xl border border-border bg-background px-4 py-2.5 text-body outline-none transition-colors placeholder:text-muted-foreground focus:border-foreground/40";
+const input = "w-full rounded-2xl border border-border bg-background px-4 py-2.5 text-body outline-none transition-colors placeholder:text-muted-foreground focus:border-coral/40 focus:bg-coral-soft focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-coral)_14%,transparent)]";
 const linkBtn = "daisy-btn daisy-btn-outline h-auto min-h-11 flex-1 gap-2 rounded-full border-border bg-card px-4 py-2 font-medium shadow-none hover:border-foreground/30 hover:bg-accent";
 
 function Field({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
@@ -237,10 +238,10 @@ export function TableSheet({
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Date">
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={input} />
+              <DateField value={date} onChange={setDate} />
             </Field>
             <Field label="Time">
-              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={input} />
+              <TimeField value={time} onChange={setTime} />
             </Field>
           </div>
 

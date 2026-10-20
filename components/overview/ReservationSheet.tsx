@@ -1,8 +1,9 @@
 "use client";
 
+import { DateField, TimeField } from "@/components/DateTimeField";
 import { DestinationCombobox } from "@/components/DestinationCombobox";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { BedDouble, ClipboardPaste, FileText, ImageIcon, Loader2, Paperclip, Plane, Ticket, TrainFront, UtensilsCrossed, X, Sparkles } from "lucide-react";
+import { BedDouble, ChevronDown, ClipboardPaste, FileText, ImageIcon, Loader2, Paperclip, Plane, Ticket, TrainFront, UtensilsCrossed, X, Sparkles } from "lucide-react";
 import { Sheet } from "@/components/motion-primitives";
 import { notifyToast } from "@/lib/application/toast";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
@@ -44,7 +45,7 @@ const fromReservation = (r: Reservation, currency: string): Draft => ({
   notes: r.notes ?? "",
 });
 
-const input = "w-full rounded-2xl border border-border bg-background px-4 py-2.5 text-body outline-none transition-colors placeholder:text-muted-foreground focus:border-foreground/40";
+const input = "w-full rounded-2xl border border-border bg-background px-4 py-2.5 text-body outline-none transition-colors placeholder:text-muted-foreground focus:border-coral/40 focus:bg-coral-soft focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-coral)_14%,transparent)]";
 
 function Field({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
   return (
@@ -87,6 +88,9 @@ export function ReservationSheet({
   const picker = useRef<HTMLInputElement>(null);
   // Paste a confirmation and let Roam read it into the form. It only fills the fields: the traveller reviews and saves.
   const [pasteOpen, setPasteOpen] = useState(false);
+  // The essentials (kind, name, when) are always there; the rest (price, place, notes, tickets) opens on request, or at once when editing.
+  const [more, setMore] = useState(Boolean(editing));
+  useEffect(() => { if (editing) setMore(true); }, [editing]);
   const [pasted, setPasted] = useState("");
   const [reading, setReading] = useState(false);
   const [readNote, setReadNote] = useState<string | null>(null);
@@ -142,6 +146,7 @@ export function ReservationSheet({
       setDraft((current) => ({ ...current, ...Object.fromEntries(Object.entries(found).filter(([, value]) => value !== "")) }) as Draft);
       setPasteOpen(false);
       setReturnLeg((body.returnDraft as Draft | null) ?? null);
+      setMore(true);
       setReadNote(body.returnDraft ? "Filled in from your confirmation. It has a return leg too, which opens next. Check each field before you add it." : "Filled in from your confirmation. Check each field before you add it.");
     } catch (e) {
       setReadNote(e instanceof Error ? e.message : "Couldn't read that. You can still fill it in by hand.");
@@ -318,20 +323,20 @@ export function ReservationSheet({
 
           <div className="grid grid-cols-2 gap-3">
             <Field label={draft.kind === "stay" ? "Check-in" : "Date"}>
-              <input type="date" value={draft.startsOn} onChange={(e) => set("startsOn", e.target.value)} className={input} />
+              <DateField value={draft.startsOn} onChange={(v) => set("startsOn", v)} placeholder="Add date" />
             </Field>
             <Field label={draft.kind === "stay" ? "Check-out" : transit ? "Arrives on (if another day)" : "Until (optional)"}>
-              <input type="date" value={draft.endsOn} min={draft.startsOn || undefined} onChange={(e) => set("endsOn", e.target.value)} className={input} />
+              <DateField value={draft.endsOn} min={draft.startsOn || undefined} onChange={(v) => set("endsOn", v)} placeholder="Optional" />
             </Field>
           </div>
 
           <div className={cn("grid gap-3", transit || draft.kind === "stay" ? "grid-cols-2" : "grid-cols-2")}>
             <Field label={transit ? "Departs" : draft.kind === "stay" ? "Check-in time" : "Time (optional)"}>
-              <input type="time" value={draft.startTime} onChange={(e) => set("startTime", e.target.value)} className={input} />
+              <TimeField value={draft.startTime} onChange={(v) => set("startTime", v)} placeholder="Optional" />
             </Field>
             {(transit || draft.kind === "stay") ? (
               <Field label={transit ? "Arrives" : "Check-out time"}>
-                <input type="time" value={draft.endTime} onChange={(e) => set("endTime", e.target.value)} className={input} />
+                <TimeField value={draft.endTime} onChange={(v) => set("endTime", v)} placeholder="Optional" />
               </Field>
             ) : (
               <Field label="Confirmation">
@@ -340,6 +345,12 @@ export function ReservationSheet({
             )}
           </div>
 
+          <button type="button" onClick={() => setMore((v) => !v)} aria-expanded={more} className="flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl bg-secondary px-4 text-left text-sm font-medium transition-colors active:bg-accent">
+            <span>{more ? "Fewer details" : "More details"} <span className="font-normal text-muted-foreground">{more ? "" : "· price, place, notes, tickets"}</span></span>
+            <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-200", more && "rotate-180")} aria-hidden />
+          </button>
+
+          <div className={cn("space-y-5", !more && "hidden")}>
           {(transit || draft.kind === "stay") && (
             <Field label="Confirmation">
               <input value={draft.confirmationCode} onChange={(e) => set("confirmationCode", e.target.value)} maxLength={80} placeholder="Booking reference" className={cn(input, "font-mono text-sm")} />
@@ -422,6 +433,8 @@ export function ReservationSheet({
               </ul>
             )}
             {fileError && <p role="alert" className="mt-2 text-sm text-destructive">{fileError}</p>}
+          </div>
+
           </div>
 
           {error && (

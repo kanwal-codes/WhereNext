@@ -1,5 +1,6 @@
 "use client";
 
+import { DateField } from "@/components/DateTimeField";
 import { noticeBookingsOutside } from "@/lib/application/bookings-outside-notice";
 import { useEffect, useRef, useState } from "react";
 import { Trash2, Plus } from "lucide-react";
@@ -134,9 +135,9 @@ export function AvailabilityPanel({ tripId }: { tripId: string }) {
         <div className="mt-3 space-y-2">
           {myRanges.map((range, index) => (
             <div key={range.id} className="flex items-center gap-2">
-              <input type="date" value={range.startDate} onChange={(e) => updateRange(index, "startDate", e.target.value)} className="input-field flex-1 text-sm" aria-label="Start date" />
+              <DateField value={range.startDate} onChange={(v) => updateRange(index, "startDate", v)} className="mt-0 flex-1 text-sm" ariaLabel="Start date" />
               <span className="text-muted-foreground">–</span>
-              <input type="date" value={range.endDate} onChange={(e) => updateRange(index, "endDate", e.target.value)} className="input-field flex-1 text-sm" aria-label="End date" />
+              <DateField value={range.endDate} onChange={(v) => updateRange(index, "endDate", v)} className="mt-0 flex-1 text-sm" ariaLabel="End date" />
               {myRanges.length > 1 && (
                 <button type="button" onClick={() => removeRange(index)} aria-label="Remove range" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:text-destructive">
                   <Trash2 className="h-3.5 w-3.5" />
