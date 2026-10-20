@@ -85,7 +85,7 @@ export function weekParts(startDate: string | null | undefined, d: number): { do
   return { dow: date.toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" }), num: String(date.getUTCDate()) };
 }
 
-export type OrderEntry = { title: string; dayIndex: number; position: number };
+type OrderEntry = { title: string; dayIndex: number; position: number };
 /** A change to the plan: what to send to the server, and how the list looks with it applied (shown at once, before the server answers). */
 export type PlanChange = { order: OrderEntry[]; apply: (list: ItineraryItem[]) => ItineraryItem[] };
 
