@@ -4,7 +4,7 @@ import { createReasoningGate } from "@/lib/ai/strip-reasoning";
 import { aiRequestSchema, compactAiMessages } from "@/packages/contracts/ai-request";
 import type { AssistantTurnMeta } from "@/packages/contracts/assistant";
 import { composeModelChain } from "@/packages/ai/compose-model";
-import { AI_DEADLINE_MS, COMPOSE_MAX_STEPS, DAILY_TRIP_TURN_LIMIT, DAILY_TURN_LIMIT, withDeadline } from "@/packages/ai/model-policy";
+import { AI_DEADLINE_MS, COMPOSE_MAX_STEPS, withDeadline } from "@/packages/ai/model-policy";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail, withRoute } from "@/lib/server/with-route";
@@ -14,6 +14,9 @@ import { loadTripContext, formatTripMemory, describeMembers, formatExpenses, typ
 import { tripMemberIdentities } from "@/lib/server/trip-member-identities";
 import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 import { runAssistantTurn, finalizeAssistantBlocks, type AssistantTurnResult } from "@/lib/application/orchestrate/run-turn";
+import { lastSuggestedFollowups, modelHistory, surfacedEarlierFrom } from "@/lib/application/orchestrate/thread-history";
+import { SSE_HEADERS, doneFrame, isAbortError, progressFrame, textFrame, toolProgressLabel, truncatedFrame } from "@/lib/server/ai-stream-frames";
+import { turnLimitRefusal } from "@/lib/server/ai-turn-limits";
 import { refreshThreadSummary } from "@/lib/application/thread-summary";
 import { persistedAssistantStream } from "@/features/conversation/application/persistedAssistantStream";
 import { createConversationRepository } from "@/features/conversation/infrastructure/conversationRepository";
@@ -22,8 +25,6 @@ import { finalizeAssistantText } from "@/lib/application/evaluator";
 import { withTripAiStream } from "@/lib/server/trip-ai-queue";
 import { recordAiTurn } from "@/lib/server/ai-turn-trace";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { withinRateLimit } from "@/lib/server/rate-limit";
-import { GUEST_IP_TURN_LIMIT, GUEST_TURN_LIMIT, GUEST_WINDOW_MS, clientKey, guestDeviceId, guestKey } from "@/lib/server/guest";
 
 /** Service-role writer used to create a brand-new trip's thread row and to append turn traces
  *  (ai_turn_traces is server-write-only since migration 0047); undefined if unavailable (same
@@ -35,46 +36,6 @@ function threadWriter() {
     return undefined;
   }
 }
-
-const SSE_HEADERS = { "content-type": "text/event-stream", "cache-control": "no-cache, no-transform", "x-accel-buffering": "no" };
-
-const encoder = new TextEncoder();
-const doneFrame = encoder.encode("data: [DONE]\n\n");
-const textFrame = (content: string) => encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`);
-/** Phase 2.6.2 (docs/overhaul/roadmap/phase-2-speed.md): a real, backend-driven milestone the
- *  client can show progress for, instead of the fixed-timer guess the UI used before this. Not
- *  RESOLVE's field-level partial JSON (that's `onPartial` in `turn-resolver.ts`/`gateway.ts`,
- *  built but not wired to the wire format here) — three coarse, always-true stages are enough to
- *  turn "blank for up to ~15s" into "labeled, updates as the turn actually progresses." */
-/** What Roam says it is doing for each tool RESOLVE can plan, so the "retrieve" progress frame says
- *  what is actually being looked up. Voice: a travel companion thinking out loud. Lower-case present
- *  participles, concrete, no jargon ("sources", "live data"), and no repeated verb when two are joined
- *  ("finding places and looking at stays"). The client capitalises it and adds the ellipsis. */
-const TOOL_PROGRESS_LABEL: Record<string, string> = {
-  search_places: "finding places",
-  research_web: "reading up on it",
-  weather: "checking the forecast",
-  events: "seeing what's on",
-  flights: "comparing flights",
-  directions: "plotting the route",
-  stays: "looking at stays",
-};
-/** At most 2 named activities — RESOLVE can plan up to `MAX_TOOL_CALLS`, but "checking places,
- *  checking hotels, getting directions and checking the weather…" reads as noise, not progress.
- *  `undefined` (no tools, or none with a label) leaves the client's own generic text in place. */
-function toolProgressLabel(tools: string[]): string | undefined {
-  const labels = [...new Set(tools.map((t) => TOOL_PROGRESS_LABEL[t]).filter((l): l is string => Boolean(l)))].slice(0, 2);
-  if (labels.length === 0) return undefined;
-  return labels.length === 1 ? labels[0] : `${labels[0]} and ${labels[1]}`;
-}
-const progressFrame = (stage: "resolve" | "retrieve" | "compose", label?: string) =>
-  encoder.encode(`data: ${JSON.stringify(label ? { progress: stage, label } : { progress: stage })}\n\n`);
-// An ordinary client disconnect now actively aborts RESOLVE/RETRIEVE and every in-flight COMPOSE
-// attempt (see `combinedAbort` below) — without this check, every routine tab-close would log as
-// an error. `streamText`'s own thrown/reported errors aren't always a `DOMException`, so check
-// `.name` too (matches the same lenient pattern `packages/ai/gateway.ts`'s `isAbort` uses).
-const isAbortError = (error: unknown) =>
-  error instanceof DOMException ? error.name === "AbortError" : (error as { name?: string })?.name === "AbortError";
 
 export const POST = withRoute(async function POST(request: Request) {
   const parsed = aiRequestSchema.safeParse(await request.json().catch(() => null));
@@ -90,44 +51,8 @@ export const POST = withRoute(async function POST(request: Request) {
     return tripAuthResponse(error) ?? fail(error, "Assistant unavailable");
   }
 
-  // Every limit is checked at once (each is a round trip to the rate limiter), then the first one that failed, in the
-  // order they used to be checked, decides the answer. The message that hits a limit is still never saved.
-  const device = guest ? guestDeviceId(request) : null;
-  const checks: Array<{ pass: Promise<boolean>; refuse: () => NextResponse }> = [
-    {
-      pass: withinRateLimit(`ai-turn:${userId}`, DAILY_TURN_LIMIT, 24 * 60 * 60_000),
-      refuse: () => NextResponse.json({ error: "You've hit today's limit for assistant messages. Try again tomorrow." }, { status: 429 }),
-    },
-    // Per-user limits don't add up to a per-trip ceiling — a group trip's members each get their
-    // own budget above, so nothing bounded the trip's total cost until now.
-    {
-      pass: withinRateLimit(`ai-turn-trip:${tripId}`, DAILY_TRIP_TURN_LIMIT, 24 * 60 * 60_000),
-      refuse: () => NextResponse.json({ error: "This trip has hit today's shared assistant limit. Try again tomorrow." }, { status: 429 }),
-    },
-  ];
-  // Guests (anonymous sessions) get a handful of free messages, enforced here — never only in
-  // the browser. All three counters fail closed: this is the one unauthenticated door to paid model/tool calls.
-  if (guest) {
-    checks.push({
-      pass: withinRateLimit(`guest-ip-turns:${clientKey(request)}`, GUEST_IP_TURN_LIMIT, GUEST_WINDOW_MS, { failClosed: true }),
-      refuse: () => NextResponse.json({ error: "Roam is busy right now. Save your trip and pick it up from your account.", code: "guest_busy" }, { status: 429 }),
-    });
-    // The free messages belong to the browser, not the session: a reload deletes the guest user (and its counter), and
-    // this one outlives that.
-    if (device) {
-      checks.push({
-        pass: withinRateLimit(guestKey.deviceTurns(device), GUEST_TURN_LIMIT, GUEST_WINDOW_MS, { failClosed: true }),
-        refuse: () => NextResponse.json({ error: "Save your trip to keep planning with Roam.", code: "guest_limit" }, { status: 403 }),
-      });
-    }
-    checks.push({
-      pass: withinRateLimit(guestKey.turns(userId), GUEST_TURN_LIMIT, GUEST_WINDOW_MS, { failClosed: true }),
-      refuse: () => NextResponse.json({ error: "Save your trip to keep planning with Roam.", code: "guest_limit" }, { status: 403 }),
-    });
-  }
-  const passed = await Promise.all(checks.map((check) => check.pass));
-  const refused = checks.find((_, index) => !passed[index]);
-  if (refused) return refused.refuse();
+  const refusal = await turnLimitRefusal({ request, userId, tripId, guest });
+  if (refusal) return refusal;
 
   const prompt = parsed.data.messages.at(-1)?.content ?? "";
 
@@ -183,47 +108,8 @@ export const POST = withRoute(async function POST(request: Request) {
     // client can deterministically predict the stored key from the same raw value it generated.
     const idempotencyKey = parsed.data.messageIdempotencyKey;
 
-    // A short, referential reply ("book it", "do that one") only makes sense in light of
-    // whatever the assistant itself just suggested — but `suggestedFollowups` lives in message
-    // metadata, which this history otherwise drops entirely down to bare {role, content}. Found
-    // live (2026-09-16): "book it", sent right after a "Book the tour in advance?" suggestion,
-    // resolved to a generic "activities" intent that built an unrelated fresh itinerary instead
-    // of recognizing what "it" referred to. Annotating the most recent assistant turn with its
-    // own suggestions (label + the fuller natural-language prompt behind it) gives RESOLVE a
-    // chance to actually match the reference, without touching the narrowly-scoped `clarify`
-    // mechanism (reserved for a genuinely missing fact, not this).
-    // A short, referential reply ("book it", "do that one") only makes sense in light of
-    // whatever the assistant itself just suggested — but `suggestedFollowups` lives in message
-    // metadata, which this history otherwise drops entirely down to bare {role, content}. Found
-    // live (2026-09-16): "book it", sent right after a "Book the tour in advance?" suggestion,
-    // resolved to a generic "activities" intent that built an unrelated fresh itinerary instead
-    // of recognizing what "it" referred to. Annotating the most recent assistant turn with its
-    // own suggestions (label + the fuller natural-language prompt behind it) gives RESOLVE a
-    // chance to actually match the reference, without touching the narrowly-scoped `clarify`
-    // mechanism (reserved for a genuinely missing fact, not this).
-    const lastAssistantMessage = [...storedMessages].reverse().find((message) => message.role === "assistant");
-    const modelMessages = storedMessages
-      .filter((message) => message.role === "user" || message.role === "assistant")
-      .map((message) => {
-        const followups = message === lastAssistantMessage
-          ? (message.metadata as { suggestedFollowups?: Array<{ label: string; prompt: string }> } | null)?.suggestedFollowups
-          : undefined;
-        const content = followups?.length
-          ? `${message.content.slice(0, 8_000)}\n\n[Suggested next steps shown to the user just now: ${followups.map((f) => `"${f.label}" (${f.prompt})`).join("; ")}]`
-          : message.content.slice(0, 8_000);
-        return { role: message.role as "user" | "assistant", content };
-      });
-
-    // Places (and hotels) already shown as cards earlier in this thread — so COMPOSE doesn't
-    // re-list them turn after turn. Derived from the persisted block metadata; no extra query.
-    const surfacedEarlier = new Set<string>();
-    for (const message of storedMessages) {
-      const blocks = (message.metadata as { blocks?: AssistantTurnMeta["blocks"] } | null)?.blocks;
-      for (const block of blocks ?? []) {
-        if (block.type === "place_list") for (const place of block.places) surfacedEarlier.add(place.name);
-        else if (block.type === "stays") for (const hotel of block.items) surfacedEarlier.add(hotel.name);
-      }
-    }
+    const modelMessages = modelHistory(storedMessages);
+    const surfacedEarlier = surfacedEarlierFrom(storedMessages);
 
     // Per-turn trace timing + token accounting (COMPOSE usage arrives late, via the stream sniffer).
     const t0 = performance.now();
@@ -422,7 +308,7 @@ export const POST = withRoute(async function POST(request: Request) {
                   if (!isAbortError(error)) logger.error({ err: error }, "compose stream ended early");
                   // Signal this to persistedAssistantStream so the partial text gets flagged
                   // rather than persisted and replayed as if it were a genuinely complete answer.
-                  innerController.enqueue(encoder.encode(`data: ${JSON.stringify({ truncated: true })}\n\n`));
+                  innerController.enqueue(truncatedFrame());
                 }
                 innerController.close();
               },
@@ -473,7 +359,7 @@ export const POST = withRoute(async function POST(request: Request) {
           logger.error({ err: error }, "assistant turn failed after the stream had already opened");
           finalMeta = finalMeta ?? result?.meta ?? { language: "en", locationFocus: null, surface: "chat", blocks: [], sources: [], suggestedFollowups: [], unavailableProviders: [] };
           safeEnqueue(textFrame("Roam is unavailable right now. Try again in a moment."));
-          safeEnqueue(encoder.encode(`data: ${JSON.stringify({ truncated: true })}\n\n`));
+          safeEnqueue(truncatedFrame());
           safeEnqueue(doneFrame);
           safeClose();
         }
@@ -529,7 +415,7 @@ export const POST = withRoute(async function POST(request: Request) {
           // rarely adds real latency; it only ever blocks the rare turn where side-builders
           // finish first, and even then by at most the evaluator's own deadline.
           const replyText = await evaluatorSettled;
-          const previous = (lastAssistantMessage?.metadata as { suggestedFollowups?: Array<{ label: string; prompt: string }> } | null)?.suggestedFollowups;
+          const previous = lastSuggestedFollowups(storedMessages);
           const pruned = finalMeta && typeof replyText === "string" ? withPrunedFollowups(finalMeta, replyText, previous) : finalMeta;
           return pruned && unverified ? { ...pruned, unverified: true } : pruned;
         },
