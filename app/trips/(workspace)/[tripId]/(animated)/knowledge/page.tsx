@@ -30,7 +30,7 @@ function MemoryRow({ icon: Icon, tone, title, detail, last, bare, children }: { 
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} side="bottom" ariaLabel={title} className="rounded-t-[1.75rem] bg-background px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         {!bare && <p className="pb-3 font-display text-xl font-medium tracking-[-0.02em]">{title}</p>}
-        <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto [&_h2:first-of-type]:sr-only">{children}</div>
       </Sheet>
     </>
   );

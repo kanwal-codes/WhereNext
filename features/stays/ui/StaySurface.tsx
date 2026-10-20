@@ -51,9 +51,9 @@ const fmtLong = (iso: string) => {
 const cellLabel = "block text-[0.625rem] max-lg:text-xs font-medium tracking-[0.22em] text-muted-foreground uppercase";
 
 function Stepper({ label, value, set, min, max }: { label: string; value: number; set: (n: number) => void; min: number; max: number }) {
-  const btn = "grid size-9 place-items-center rounded-full border border-border bg-background text-foreground transition-[background-color,border-color,transform] hover:border-foreground/30 hover:bg-accent active:scale-95 disabled:opacity-30 disabled:hover:bg-background";
+  const btn = "grid size-9 place-items-center rounded-full border border-border bg-background text-foreground max-lg:border-0 transition-[background-color,border-color,transform] hover:border-foreground/30 hover:bg-accent active:scale-95 disabled:opacity-30 disabled:hover:bg-background";
   return (
-    <div className="bg-card px-4 py-3.5">
+    <div className={cn("bg-card px-4 py-3.5", PHONE_V2 && "max-lg:rounded-2xl max-lg:bg-secondary")}>
       <span className={cellLabel}>{label}</span>
       <div className="mt-2 flex items-center justify-between gap-2">
         <button type="button" onClick={() => set(Math.max(min, value - 1))} disabled={value <= min} aria-label={`Fewer ${label}`} className={btn}>
@@ -71,7 +71,7 @@ function Stepper({ label, value, set, min, max }: { label: string; value: number
 /** A date cell: the date large in the display face, the label above it; the real date input sits invisibly over it, so a tap opens the native picker. */
 function DateCell({ label, value, onChange, min }: { label: string; value: string; onChange: (v: string) => void; min?: string }) {
   return (
-    <label className="relative block cursor-pointer bg-card px-4 py-3.5 transition-colors focus-within:bg-accent/50 hover:bg-accent/40">
+    <label className={cn("relative block cursor-pointer bg-card px-4 py-3.5 transition-colors focus-within:bg-accent/50 hover:bg-accent/40", PHONE_V2 && "max-lg:rounded-2xl max-lg:bg-secondary max-lg:focus-within:bg-coral-soft")}>
       <span className={cellLabel}>{label}</span>
       <span className={cn("mt-2 block font-display text-xl leading-none font-medium tracking-[-0.02em] tabular-nums", !value && "text-muted-foreground")}>{value ? fmtLong(value) : "Add date"}</span>
       <input type="date" value={value} min={min} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 size-full cursor-pointer opacity-0" />
@@ -263,7 +263,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
             <span>{barOpen ? "Done" : "Edit"}</span> <ChevronDown className={cn("size-3.5 transition-transform duration-300", barOpen && "rotate-180", PHONE_V2 && "max-lg:size-[1.125rem]")} aria-hidden />
           </span>
         </button>
-        <div className={cn("grid grid-cols-2 gap-px overflow-hidden bg-border max-sm:border-t max-sm:border-border lg:grid-cols-4", !barOpen && "max-sm:hidden", PHONE_V2 && "max-lg:mb-3 max-lg:rounded-2xl max-lg:border max-lg:border-border")}>
+        <div className={cn("grid grid-cols-2 gap-px overflow-hidden bg-border max-sm:border-t max-sm:border-border lg:grid-cols-4", !barOpen && "max-sm:hidden", PHONE_V2 && "max-lg:mb-3 max-lg:gap-2 max-lg:overflow-visible max-lg:border-0 max-lg:bg-transparent")}>
           <DateCell label="Check-in" value={checkin} onChange={setCheckin} />
           <DateCell label="Check-out" value={checkout} onChange={setCheckout} min={checkin || undefined} />
           <Stepper label="Guests" value={adults} set={setAdults} min={1} max={16} />
