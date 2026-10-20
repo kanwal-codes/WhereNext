@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { memberTint } from "@/lib/member-tint";
-import { ArrowDown, CalendarRange, ListChecks, Plus, SmilePlus, X } from "lucide-react";
+import { ArrowDown, CalendarRange, ListChecks, Loader2, Plus, SmilePlus, X } from "lucide-react";
 import { MicButton, SendButton } from "@/components/ComposerButtons";
 import { PHONE_V2 } from "@/lib/phone-v2";
 import { haptic } from "@/lib/haptics";
@@ -945,8 +945,13 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
           )}
 
           {loaded && (hasOlder || messages.length > windowSize) && (
-            <div ref={olderSentinelRef} className="flex justify-center pb-2">
-              <button type="button" onClick={() => void loadOlder()} disabled={loadingOlder} className={cn("btn-chip h-9 px-4 text-xs", PHONE_V2 && "max-lg:h-10 max-lg:border-0 max-lg:bg-secondary max-lg:text-sm max-lg:font-semibold max-lg:text-ink-soft")}>{loadingOlder ? "Loading…" : "Show earlier messages"}</button>
+            <div ref={olderSentinelRef} className="flex justify-center pt-4 pb-2">
+              {loadingOlder ? (
+                // A plain status, not a greyed-out button, and clear of the fade at the top of the log.
+                <span role="status" className="inline-flex h-10 items-center gap-2 rounded-full bg-secondary px-4 text-sm font-semibold text-ink-soft"><Loader2 className="size-4 animate-spin" aria-hidden />Loading earlier messages</span>
+              ) : (
+                <button type="button" onClick={() => void loadOlder()} className={cn("btn-chip h-9 px-4 text-xs", PHONE_V2 && "max-lg:h-10 max-lg:border-0 max-lg:bg-secondary max-lg:text-sm max-lg:font-semibold max-lg:text-ink-soft")}>Show earlier messages</button>
+              )}
             </div>
           )}
 
