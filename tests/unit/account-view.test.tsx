@@ -471,3 +471,68 @@ describe("AccountView: shared links, avatar and deleting", () => {
     expect(auth.signOut).toHaveBeenCalled();
   });
 });
+
+
+describe("AccountView: the rest of the page", () => {
+  it("says Saved after a save", async () => {
+    const user = u();
+    show();
+    await user.type(input("Full name"), "!");
+    await user.click(await screen.findByRole("button", { name: /^Save/ }));
+    expect(await screen.findByText("Saved")).toBeTruthy();
+  });
+
+  it("exports the data", async () => {
+    const user = u();
+    show();
+    await user.click(screen.getByRole("button", { name: "Export" }));
+    expect((globalThis.location as unknown as { href: string }).href).toBe("/api/account/export");
+  });
+
+  it("marks the section you click in the rail", async () => {
+    const user = u();
+    show();
+    const link = screen.getByRole("link", { name: "Travel style" });
+    expect(link.querySelector("span.absolute")).toBeNull();
+    await user.click(link);
+    expect(link.querySelector("span.absolute")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Profile & account" }).querySelector("span.absolute")).toBeNull();
+  });
+
+  it("invites you to add a dream destination, or shows the one you have, and opens the picker from either", async () => {
+    const user = u();
+    show();
+    await user.click(screen.getByRole("button", { name: /Add your dream destination/ }));
+    expect(await screen.findByText("Where would you go tomorrow?")).toBeTruthy();
+    cleanup();
+    show({ profile: profile({ dreamDestination: "Kyoto, Japan" }) });
+    await user.click(screen.getByRole("button", { name: /Dreaming of Kyoto, Japan/ }));
+    expect(await screen.findByText("Where would you go tomorrow?")).toBeTruthy();
+  });
+
+  it("offers to use the browser's language and country when neither is set", async () => {
+    Object.defineProperty(navigator, "language", { value: "fr-CA", configurable: true });
+    const user = u();
+    show({ profile: profile({ language: "", country: "", homeCity: "" }) });
+    const button = await screen.findByRole("button", { name: /Use what your browser says/ });
+    await user.click(button);
+    expect(selects()[0].value).toBe("fr");
+    expect(selects()[1].value).toBe("CA");
+    expect(screen.queryByRole("button", { name: /Use what your browser says/ })).toBeNull();
+  });
+
+  it("shows the new photo once it is uploaded", async () => {
+    show();
+    const chooser = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(chooser, { target: { files: [new File([new Uint8Array(10)], "ok.png", { type: "image/png" })] } });
+    await waitFor(() => expect(document.querySelector('img[src="https://img/avatar.png"]')).toBeTruthy());
+  });
+
+  it("shows the home airport and city under the name, and 'Not set' without an airport", () => {
+    show();
+    expect(screen.getByText("Toronto, Canada", { selector: "span" })).toBeTruthy();
+    cleanup();
+    show({ profile: profile({ homeAirport: "" }) });
+    expect(screen.getByText("Not set", { selector: "div" })).toBeTruthy();
+  });
+});
