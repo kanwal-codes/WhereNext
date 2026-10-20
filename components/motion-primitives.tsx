@@ -430,7 +430,7 @@ export function Sheet({
       {open && (
         <motion.div
           className={cn(
-            "fixed inset-0 z-50 flex bg-black/40",
+            "fixed inset-0 z-50 flex bg-black/40 will-change-[opacity]",
             side === "center" ? "items-center justify-center p-4" : side === "bottom" ? "items-end" : side === "right" ? "justify-end" : "justify-start",
           )}
           initial={{ opacity: 0, pointerEvents: "none" }}
@@ -451,7 +451,8 @@ export function Sheet({
             aria-label={ariaLabel}
             tabIndex={-1}
             className={cn(
-              "relative flex min-h-0 flex-col bg-surface shadow-lift outline-none",
+              // will-change: the slide is a JS-driven transform, which the browser would otherwise repaint (shadow, rounded corners, every row) on each frame instead of moving one cached layer.
+              "relative flex min-h-0 flex-col bg-surface shadow-lift outline-none will-change-transform",
               side === "center" ? "w-full max-w-sm rounded-3xl" : side === "bottom" ? "max-h-[92dvh] w-full rounded-t-3xl" : "h-full w-full max-w-xl",
               className,
             )}
