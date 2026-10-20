@@ -20,7 +20,7 @@ const openGate = vi.fn();
 const mutate = vi.fn();
 const toast = vi.fn();
 let hero: Any = {};
-let recs: Any = null;
+let recs: Any | null = null;
 
 vi.mock("@/lib/phone-v2", () => ({ get PHONE_V2() { return phoneV2; } }));
 vi.mock("@/components/TripDataProvider", () => ({ useTripDataMaybe: () => (tripData ? { data: tripData } : null) }));
@@ -291,6 +291,12 @@ describe("EventDetailView: sections", () => {
     page();
     await screen.findByRole("heading", { name: "Jazz Night" });
     expect(screen.queryByRole("heading", { name: "Line-up" })).toBeNull();
+  });
+
+  it("shows a line-up note when the bill lists no acts at all", async () => {
+    detailBody = detail({ performers: [], lineupNote: "Special guests to be announced." });
+    page();
+    expect(await screen.findByText("Special guests to be announced.")).toBeTruthy();
   });
 
   it("drops a line-up note that only repeats the acts already listed", async () => {
