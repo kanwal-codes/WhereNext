@@ -437,7 +437,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
             )}
 
             {dock && (
-              <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-3 border-t border-border/70 bg-background/92 px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-md lg:hidden">
+              <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-3 border-t border-border/70 bg-background/97 px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] lg:hidden">
                 <AddEventButton block tripId={tripId} title={title} rawDate={rawDate} showTime={d?.showTime} latitude={d?.latitude} longitude={d?.longitude} />
                 {ticketUrl && (
                   <a href={safeHref(ticketUrl)} target="_blank" rel="noreferrer noopener" className="btn-primary h-12 flex-1 justify-center rounded-full">

@@ -701,6 +701,9 @@
   mask-image: linear-gradient(to bottom, transparent, #000 var(--fade-t));
   transition: --fade-t var(--duration-base) var(--ease-out);
   &[data-scrolled="true"] { --fade-t: 20px; }
+  /* A mask over a whole scrolling log makes the browser paint it into an offscreen layer and redo that on every scroll frame: smooth on a
+     laptop, a stutter on a mid-range Android. On a phone the same edge is a small gradient laid over the top instead (ConversationSurface). */
+  @media (max-width: 1023.98px) { mask-image: none; transition: none; }
 }
 
 @utility scrollbar-slim {
@@ -1165,6 +1168,9 @@
 /* One grade for every destination photograph, so a snapshot from one traveller and a frame from another read as shots from the same film: a touch less saturated, a touch more contrast. Constant, so it costs nothing per frame. */
 @utility photo-grade {
   filter: saturate(0.88) contrast(1.05) brightness(0.97);
+  /* On a touch phone every filtered photo becomes its own offscreen surface to composite while you scroll: with dozens in a long chat that is
+     what a mid-range Android feels as stutter. The grade is subtle enough to go there; the photographs stay as they are. */
+  @media (max-width: 1023.98px) and (pointer: coarse) { filter: none; }
 }
 
 /* One status language for the whole app: a quiet neutral chip (soft fill, ink text, no border) and colour only in a small
@@ -1312,7 +1318,7 @@
 .landing-cinematic-scope ::selection { background: var(--coral-soft); color: var(--ink); }
 .landing-cinematic-scope :is(input, textarea) { caret-color: var(--coral); }
 .landing-cinematic-scope { accent-color: var(--coral); }
-:root:has(.landing-cinematic-scope) { scrollbar-color: #c4c4ca transparent; scrollbar-width: thin; }
+html[data-landing] { scrollbar-color: #c4c4ca transparent; scrollbar-width: thin; }
 
 /* ---- The first screen: a boarding pass made out to the visitor. Spec: "Boarding Pass Hero". ---- */
 /* One page width for the whole landing page: content is at most 81rem wide and centred, with a gutter that grows from 16px on a phone to 72px. The nav, the first screen, the two-column scenes and the last pass all use it, so their left and right edges line up at every window size. */

@@ -325,9 +325,14 @@ export function useFocusReturn(
     const scrollY = window.scrollY;
     const body = document.body.style;
     const prev = { position: body.position, top: body.top, width: body.width, overflow: body.overflow };
-    body.position = "fixed";
-    body.top = `-${scrollY}px`;
-    body.width = "100%";
+    // Pinning the body (position: fixed) re-lays-out the whole page on open and again on close, which is what Safari needs and what
+    // Android Chrome does not: there `overflow: hidden` is enough, and the page stays put.
+    const pin = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+    if (pin) {
+      body.position = "fixed";
+      body.top = `-${scrollY}px`;
+      body.width = "100%";
+    }
     body.overflow = "hidden";
 
     const focusables = () =>
@@ -371,7 +376,7 @@ export function useFocusReturn(
       body.top = prev.top;
       body.width = prev.width;
       body.overflow = prev.overflow;
-      window.scrollTo(0, scrollY);
+      if (pin) window.scrollTo(0, scrollY);
       document.removeEventListener("keydown", onKey);
       trigger?.focus();
     };
@@ -416,7 +421,7 @@ export function Sheet({
       {open && (
         <motion.div
           className={cn(
-            "fixed inset-0 z-50 flex bg-black/40 backdrop-blur-[2px]",
+            "fixed inset-0 z-50 flex bg-black/40",
             side === "center" ? "items-center justify-center p-4" : side === "bottom" ? "items-end" : side === "right" ? "justify-end" : "justify-start",
           )}
           initial={{ opacity: 0, pointerEvents: "none" }}

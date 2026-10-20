@@ -233,14 +233,14 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
               relevant while active. */}
           <div className="relative min-h-0 flex-1">
             <motion.div
-              className={cn("absolute inset-0 min-h-0", optimisticTab !== "roam" && "pointer-events-none")}
+              className={cn("absolute inset-0 min-h-0", optimisticTab !== "roam" && "pointer-events-none", PHONE_V2 && optimisticTab !== "roam" && "max-lg:[content-visibility:hidden]")}
               aria-hidden={optimisticTab !== "roam"}
               // `inert`, not just aria-hidden: a hidden pane's message box and buttons must also leave the tab order.
               inert={optimisticTab !== "roam"}
               // `initial={false}`: without it the inactive pane starts at full opacity and fades out, so its text ghosts over the other pane on first paint.
               initial={false}
               animate={{ opacity: optimisticTab === "roam" ? 1 : 0 }}
-              transition={reduceMotion ? { duration: 0 } : motionTokens.swap}
+              transition={reduceMotion || phoneV2 ? { duration: 0 } : motionTokens.swap}
             >
               {(warm || optimisticTab === "roam") && <ConversationSurface
                 tripId={tripId}
@@ -255,12 +255,12 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
                               />}
             </motion.div>
             <motion.div
-              className={cn("absolute inset-0 min-h-0", optimisticTab !== "group" && "pointer-events-none")}
+              className={cn("absolute inset-0 min-h-0", optimisticTab !== "group" && "pointer-events-none", PHONE_V2 && optimisticTab !== "group" && "max-lg:[content-visibility:hidden]")}
               aria-hidden={optimisticTab !== "group"}
               inert={optimisticTab !== "group"}
               initial={false}
               animate={{ opacity: optimisticTab === "group" ? 1 : 0 }}
-              transition={reduceMotion ? { duration: 0 } : motionTokens.swap}
+              transition={reduceMotion || phoneV2 ? { duration: 0 } : motionTokens.swap}
             >
               {!guest && (warm || optimisticTab === "group") && <GroupChatSurface tripId={tripId} onLogScroll={onLogScroll} rail={desktop && Boolean(panel)} active={optimisticTab === "group"} />}
             </motion.div>
@@ -343,7 +343,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
             {panel && PHONE_V2 && (
               // Phone redesign: a sheet over the conversation, not a screen that replaces it. The chat stays behind the scrim,
               // so closing the sheet puts you back exactly where you were reading.
-              <motion.div key="panel-scrim" initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reduceMotion ? undefined : { opacity: 0 }} transition={reduceMotion ? { duration: 0 } : motionTokens.fast} onClick={closePanel} className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]" />
+              <motion.div key="panel-scrim" initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reduceMotion ? undefined : { opacity: 0 }} transition={reduceMotion ? { duration: 0 } : motionTokens.fast} onClick={closePanel} className="fixed inset-0 z-40 bg-black/40" />
             )}
             {panel && (
               <motion.div

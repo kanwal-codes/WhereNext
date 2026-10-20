@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { HomeAirportProvider } from "@/components/landing/pass/HomeAirport";
 import { ScrollExperienceProvider } from "@/components/landing/ScrollExperienceProvider";
 import { Nav } from "@/components/landing/Nav";
@@ -15,6 +16,12 @@ import { FinaleScene } from "@/components/landing/scenes/FinaleScene";
  * showcase, the promise, the way back to the shore). Only the first screen is scroll-driven.
  */
 export function LandingNext({ homeCode = null }: { homeCode?: string | null }) {
+  // The page's own scrollbar colour is set on the root. It used to be `:root:has(.landing-cinematic-scope)`, which made the browser
+  // re-check the whole document against that selector after every DOM change on every page of the app, not just here.
+  useEffect(() => {
+    document.documentElement.dataset.landing = "";
+    return () => { delete document.documentElement.dataset.landing; };
+  }, []);
   return (
     <HomeAirportProvider value={homeCode}>
     <ScrollExperienceProvider>

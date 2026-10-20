@@ -836,6 +836,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
           lets the gesture "chain" into bouncing the whole page instead of staying inside this
           log — the rubber-band should feel self-contained here, the same way a native app's
           message list never drags the rest of the screen along with it. */}
+      <div aria-hidden className={cn("pointer-events-none absolute inset-x-0 top-0 z-[1] h-5 bg-gradient-to-b from-background to-transparent transition-opacity duration-200 lg:hidden", scroll.scrolled ? "opacity-100" : "opacity-0")} />
       <div ref={logRef} onScroll={handleLogScroll} data-scrolled={scroll.scrolled} role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions" className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim scroll-fade-t">
         <div className={cn("mx-auto w-full space-y-6 pt-2 pb-28", PHONE_V2 ? "max-lg:pt-3" : "max-lg:pt-16", rail ? RAIL_MEASURE : "max-w-2xl")}>
           {!loaded && messages.length === 0 && !pendingBubble && (
