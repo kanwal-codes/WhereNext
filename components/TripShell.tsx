@@ -4,6 +4,7 @@ import { RoamMark } from "@/features/roam/ui/RoamMark";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useId, useState, type ComponentType, type ReactNode } from "react";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { useTripPanelMaybe } from "@/components/TripPanelProvider";
 import { motion, useReducedMotion } from "motion/react";
 import {
@@ -87,7 +88,7 @@ function NavList({
 
 /** The trip as an identity: its cover photograph in a small tile, the name set in display type, where it is, and how
  *  far off it is. Renaming the trip lives on the Overview page's hero, so this is a pure display. */
-function TripIdentity({ trip, tripId, compact, titleAction }: { trip: ShellTrip; tripId: string; compact?: boolean; titleAction?: ReactNode }) {
+function TripIdentity({ trip, tripId, compact, titleAction, photo = true }: { trip: ShellTrip; tripId: string; compact?: boolean; titleAction?: ReactNode; photo?: boolean }) {
   const live = useTripDataMaybe()?.data?.trip;
   const cover: TripSummary | null = live
     ? { id: tripId, name: live.name, destination: live.destination ?? null, origin: live.origin ?? null, duration_days: live.duration_days ?? null, start_date: live.start_date ?? null, end_date: live.end_date ?? null, travelers: live.travelers ?? null, hero_photo_name: live.hero_photo_name ?? null, saved_photo_name: null }
@@ -97,7 +98,7 @@ function TripIdentity({ trip, tripId, compact, titleAction }: { trip: ShellTrip;
   const sub = [trip.destination, trip.dates].filter(Boolean).join(" · ");
   return (
     <div className="flex min-w-0 items-center gap-3">
-      {!compact && cover && (
+      {!compact && cover && photo && (
         <TripCover trip={cover} typeLed={false} width={240} className="size-12 shrink-0 rounded-2xl shadow-soft" />
       )}
       <div className="min-w-0 flex-1">
@@ -173,6 +174,8 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
   const homeHref = guest ? `/trips/${tripId}/chat` : `/trips/${tripId}`;
   const allTripsHref = guest ? "/" : "/trips";
   const [open, setOpen] = useState(false);
+  // The desktop sidebar stays in the DOM (hidden) on a phone; its cover photo must not be fetched there (two requests, and a paid photo lookup, on every page).
+  const wide = useMediaQuery("(min-width: 1024px)");
   // Phone redesign: unread group messages show as a number on the menu's Group chat row and a dot on the menu button.
   const unread = useGroupUnread(tripId, PHONE_V2 && !guest);
   const [collapsed, setCollapsed] = useState(false);
@@ -238,6 +241,7 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
             <TripIdentity
               trip={trip}
               tripId={tripId}
+              photo={wide}
               titleAction={
                 <button
                   type="button"

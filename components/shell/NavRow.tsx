@@ -28,6 +28,7 @@ export function NavRow({
   onLocked,
   pillId,
   badge,
+  prefetch,
 }: {
   href: string;
   label: string;
@@ -42,6 +43,8 @@ export function NavRow({
   onLocked?: () => void;
   /** Phone drawer: a count or dot at the row's right edge (unread group messages). */
   badge?: ReactNode;
+  /** `false`: the caller prefetches on its own schedule (the phone drawer waits for its slide to finish). */
+  prefetch?: boolean;
 }) {
   // Desktop rows keep one left inset in both states, so each icon stays put (and sits centred in the
   // 76px rail) while the label clips away; the drawer keeps its own tighter padding.
@@ -67,6 +70,7 @@ export function NavRow({
   return (
     <Link
       href={href}
+      prefetch={prefetch}
       onMouseEnter={onPrefetch}
       onClick={onNavigate}
       title={collapsed ? label : undefined}

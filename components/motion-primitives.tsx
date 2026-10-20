@@ -334,6 +334,13 @@ export function useFocusReturn(
       body.width = "100%";
     }
     body.overflow = "hidden";
+    // <html> carries overflow-x: hidden (app/layout.tsx), which stops `body`'s overflow from reaching the viewport, so on its own the
+    // line above locks nothing: the page behind a sheet scrolled under the finger. Lock the root too, keeping a classic scrollbar's width.
+    const root = document.documentElement.style;
+    const rootPrev = { overflow: root.overflow, paddingRight: root.paddingRight };
+    const bar = window.innerWidth - document.documentElement.clientWidth;
+    root.overflow = "hidden";
+    if (bar > 0) root.paddingRight = `${bar}px`;
 
     const focusables = () =>
       Array.from(
@@ -376,9 +383,11 @@ export function useFocusReturn(
       body.top = prev.top;
       body.width = prev.width;
       body.overflow = prev.overflow;
+      root.overflow = rootPrev.overflow;
+      root.paddingRight = rootPrev.paddingRight;
       if (pin) window.scrollTo(0, scrollY);
       document.removeEventListener("keydown", onKey);
-      trigger?.focus();
+      trigger?.focus({ preventScroll: true });
     };
   }, [active, container, initialFocus]);
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useEffect, useId } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Luggage, X } from "lucide-react";
@@ -36,6 +36,18 @@ export function PhoneDrawer({ open, onClose, tripId, pathname, trip, unread = 0 
   const sub = [trip.travellers, rangeLabel(live?.start_date, live?.end_date)].filter(Boolean).join(" · ");
   const me = data?.me?.name;
 
+  // Every row is a link, and a link prefetches the moment it is on screen: opening the menu fired nine server requests in the middle of
+  // its own slide-in. They wait for the slide to finish (still ready before a tap lands), and a row already prefetched costs nothing.
+  const hrefs = PHONE_NAV_GROUPS.flatMap((g) => g.segs).map((seg) => (seg ? `${base}/${seg}` : base));
+  useEffect(() => {
+    if (!open) return;
+    const timer = window.setTimeout(() => {
+      for (const href of guest ? [`${base}/chat`] : [...hrefs, "/trips"]) router.prefetch(href);
+    }, 700);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hrefs follows base
+  }, [open, base, guest, router]);
+
   return (
     <Sheet open={open} onClose={onClose} side="left" ariaLabel="Trip menu" className="icons-fine max-w-[19.5rem] rounded-r-4xl bg-background px-3.5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))]">
       <div className="flex items-center gap-2.5 px-1.5">
@@ -47,7 +59,7 @@ export function PhoneDrawer({ open, onClose, tripId, pathname, trip, unread = 0 
       </div>
 
       {!guest && (
-        <Link href="/trips" onClick={onClose} className="mt-4 flex items-center gap-3 rounded-2xl border border-border bg-surface p-2.5 pr-3 transition-transform active:scale-[0.985]" aria-label={`${trip.name}. All trips`}>
+        <Link href="/trips" prefetch={false} onClick={onClose} className="mt-4 flex items-center gap-3 rounded-2xl border border-border bg-surface p-2.5 pr-3 transition-transform active:scale-[0.985]" aria-label={`${trip.name}. All trips`}>
           <DateStamp start={live?.start_date} />
           <span className="min-w-0 flex-1">
             <span className="block truncate font-display text-base leading-tight font-medium tracking-[-0.015em]">{shortTripTitle(trip.name)}</span>
@@ -76,6 +88,7 @@ export function PhoneDrawer({ open, onClose, tripId, pathname, trip, unread = 0 
                   icon={item.icon}
                   active={active}
                   pillId={pillId}
+                  prefetch={false}
                   onNavigate={onClose}
                   onPrefetch={() => router.prefetch(href)}
                   onLocked={locked ? () => { onClose(); openGate(`open ${(PHONE_LABEL[seg] ?? item.label).toLowerCase()}`); } : undefined}
@@ -92,7 +105,7 @@ export function PhoneDrawer({ open, onClose, tripId, pathname, trip, unread = 0 
       {!guest && (
         <div className="mt-2 pt-1">
           {/* Where the other trips live: a soft row, the same icon-then-label shape as the pages above it. */}
-          <Link href="/trips" onClick={onClose} className="flex min-h-12 items-center gap-3 rounded-2xl bg-secondary px-4 text-[0.9375rem] font-medium text-foreground transition-transform active:scale-[0.985]">
+          <Link href="/trips" prefetch={false} onClick={onClose} className="flex min-h-12 items-center gap-3 rounded-2xl bg-secondary px-4 text-[0.9375rem] font-medium text-foreground transition-transform active:scale-[0.985]">
             <Luggage className="size-5 text-ink-soft" aria-hidden />
             All trips
           </Link>
