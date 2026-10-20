@@ -43,3 +43,20 @@ export function describeProposal(proposal: ProposedCommand): Array<[string, stri
       return [];
   }
 }
+
+/** The question the confirm card asks, in the words of what it would do. `rows` is `describeProposal(proposal)`. */
+export function proposalQuestion(proposal: ProposedCommand, rows: Array<[string, string]>): string {
+  if (proposal.type === "update_preferences") {
+    if (typeof proposal.preferences.budget === "number" && Object.keys(proposal.preferences).length === 1) return `Set the daily budget to ${proposal.preferences.budget} per person?`;
+    return `Save ${rows.length === 1 ? "this preference" : "these preferences"}: ${rows.map(([k]) => k.toLowerCase()).join(", ")}?`;
+  }
+  if (proposal.type === "record_decision") return `Record this ${proposal.kind.replaceAll("_", " ")} decision?`;
+  if (proposal.type === "add_itinerary_item") return `Add “${proposal.title}” to day ${proposal.dayIndex}?`;
+  if (proposal.type === "save_place") return `Save “${proposal.place.name}” to the trip?`;
+  return "Apply this proposed trip change?";
+}
+
+/** Which part of the workspace a saved command changed, so the screens beside the chat re-read it. */
+export function changeKindFor(command: ProposedCommand): "preferences" | "decision" | "places" | "itinerary" {
+  return command.type === "update_preferences" ? "preferences" : command.type === "record_decision" ? "decision" : command.type === "save_place" ? "places" : "itinerary";
+}

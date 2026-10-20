@@ -16,6 +16,9 @@ import { haptic } from "@/lib/haptics";
 import { useAutoGrowTextarea } from "@/lib/use-autogrow-textarea";
 import { useKeepScrollGap } from "@/lib/use-keep-scroll-gap";
 import { AssistantMessage, type BlockHandlers } from "./AssistantMessage";
+import { changeKindFor, proposalQuestion } from "../domain/proposal";
+import { replyNotes } from "../domain/replyNotes";
+import { sendFailureToast, unansweredMessage } from "../domain/sendOutcome";
 import type { CardPanel } from "@/components/TripPanelProvider";
 import { CopyButton, controlSecondary, textAction } from "./blocks/ui";
 import { AssistantRequestError } from "../application/streamAssistantResponse";
@@ -25,10 +28,10 @@ import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { GUEST_TURN_LIMIT } from "@/lib/guest-limits";
 import { cn } from "@/lib/utils";
 import { RoamMark } from "@/features/roam/ui/RoamMark";
-import { CONVERSATION_CACHE_TTL_MS, readConversationCache, writeConversationCache } from "./../application/conversationCache";
-import { mergeConversationMessages } from "./../domain/mergeMessages";
-import { describeProposal } from "./../domain/proposal";
-import { hostOf, unavailableLabels } from "./../domain/replyNotes";
+import { CONVERSATION_CACHE_TTL_MS, readConversationCache, writeConversationCache } from "../application/conversationCache";
+import { mergeConversationMessages } from "../domain/mergeMessages";
+import { describeProposal } from "../domain/proposal";
+import { hostOf } from "../domain/replyNotes";
 
 const RTL = new Set(["ar", "he", "fa", "ur", "ps", "sd"]);
 
@@ -442,15 +445,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
       const body = await response.json().catch(() => ({}));
       setProposal(null);
       notifyToast(typeof body.changeImpact === "string" && body.changeImpact ? body.changeImpact : "Change saved.", "success");
-      announceWorkspaceChange(
-        command.type === "update_preferences"
-          ? "preferences"
-          : command.type === "record_decision"
-            ? "decision"
-            : command.type === "save_place"
-              ? "places"
-              : "itinerary",
-      );
+      announceWorkspaceChange(changeKindFor(command));
     } catch {
       notifyToast("That change couldn’t be saved.", "error");
     } finally {
@@ -547,12 +542,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
       setMessages(userSaved ? next : previous);
       // Not saved: the text would otherwise exist only inside the toast's Retry. Put it back in the box (unless they have already started something new).
       if (!userSaved) setInput((current) => current || content);
-      const aiError = err instanceof AssistantRequestError;
-      const message = userSaved
-        ? aiError && err.status === 429
-          ? "Roam is busy right now — your message is saved."
-          : "Roam couldn’t reply — your message is saved."
-        : "Your message didn’t send.";
+      const message = sendFailureToast({ userSaved, aiError: err instanceof AssistantRequestError, status: err instanceof AssistantRequestError ? err.status : undefined });
       notifyToast(message, "error", { label: "Retry", onClick: () => void submit(content, messageIdempotencyKey) });
     } finally {
       requestRef.current = null;
@@ -640,26 +630,11 @@ export const ConversationSurface = React.memo(function ConversationSurface({
   }), [tripId, hasPlace, hasStay, hasEvent, hasCollection, hasPanel]);
 
   const proposalRows = proposal ? describeProposal(proposal) : [];
-  const proposalText =
-    proposal?.type === "update_preferences" && typeof proposal.preferences.budget === "number" && Object.keys(proposal.preferences).length === 1
-      ? `Set the daily budget to ${proposal.preferences.budget} per person?`
-      : proposal?.type === "update_preferences"
-        ? `Save ${proposalRows.length === 1 ? "this preference" : "these preferences"}: ${proposalRows.map(([k]) => k.toLowerCase()).join(", ")}?`
-        : proposal?.type === "record_decision"
-          ? `Record this ${proposal.kind.replaceAll("_", " ")} decision?`
-          : proposal?.type === "add_itinerary_item"
-            ? `Add “${proposal.title}” to day ${proposal.dayIndex}?`
-            : proposal?.type === "save_place"
-              ? `Save “${proposal.place.name}” to the trip?`
-              : "Apply this proposed trip change?";
+  const proposalText = proposal ? proposalQuestion(proposal, proposalRows) : "";
 
   // A message Roam never answered: the connection dropped before the reply was saved (tab closed, phone locked).
   // Re-sending under the same key is safe: the server upserts the user's message, so it is not duplicated.
-  const lastMessage = messages[messages.length - 1];
-  const unanswered =
-    loaded && !sending && !queued && lastMessage?.role === "user" && !String(lastMessage.id).startsWith("local-") && typeof lastMessage.idempotency_key === "string" && lastMessage.idempotency_key.startsWith("user:") && Date.now() - new Date(lastMessage.created_at).getTime() > 45_000
-      ? lastMessage
-      : null;
+  const unanswered = unansweredMessage({ messages, loaded, sending, queued: Boolean(queued), now: Date.now() });
 
   // What the log actually renders. The whole thread is in memory either way — this is about the main
   // thread: laying out a 128-turn history (every card, map and table in it) blocked a mid-range phone for
@@ -788,17 +763,11 @@ export const ConversationSurface = React.memo(function ConversationSurface({
               );
             }
 
-            const unavailable = streaming ? [] : unavailableLabels(meta?.unavailableProviders);
             const sources = streaming ? [] : (meta?.sources ?? []);
             // Chips answer the reply they came with; once the conversation moves on they are stale.
             const isLatest = index === messages.length - 1;
             const blocks = isLatest ? meta?.blocks : withoutChips(meta?.blocks);
-            // One quiet note instead of a stack of separate grey lines.
-            const notes: Array<{ text: string; tone: "neutral" | "caution" | "destructive" }> = [];
-            if (!streaming && meta?.degraded) notes.push({ text: "Answered from your trip details — the planner had trouble reading that one. Rephrasing may help.", tone: "neutral" });
-            if (!streaming && meta?.persistFailed) notes.push({ text: "This reply wasn’t saved — it may be gone if you reload.", tone: "destructive" });
-            if (!streaming && meta?.truncated) notes.push({ text: "This answer may have been cut off — ask again if it looks incomplete.", tone: "neutral" });
-            if (unavailable.length > 0) notes.push({ text: `Couldn’t check ${unavailable.join(", ")} just now — this is from your trip so far.`, tone: "neutral" });
+            const notes = replyNotes(meta, streaming);
 
             return (
               <motion.div
