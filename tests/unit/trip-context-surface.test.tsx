@@ -114,9 +114,8 @@ describe("TripContextSurface: what it shows", () => {
     expect(tileFor("Budget").textContent).toMatch(/€\s?120/);
   });
 
-  // KNOWN BUG, fixed in a later commit: the row carries the note "per person, a day" but only suggestions render their note, so a bare
-  // number never says what it is per.
-  it.fails("says what a plain budget number is per", () => {
+  // Regression: the row carried the note "per person, a day" but only suggestions rendered their note, so a bare number never said what it was per.
+  it("says what a plain budget number is per", () => {
     show({ initialMemory: { budget: 120, currency: "EUR" } });
     expect(tileFor("Budget").textContent).toContain("per person, a day");
   });
