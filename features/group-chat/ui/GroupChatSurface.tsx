@@ -6,13 +6,12 @@ import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { memberTint } from "@/lib/member-tint";
-import { ArrowDown, CalendarRange, ListChecks, Loader2, Plus, SmilePlus, X } from "lucide-react";
+import { ArrowDown, ListChecks, Loader2, Plus, SmilePlus } from "lucide-react";
 import { MicButton, SendButton } from "@/components/ComposerButtons";
 import { PHONE_V2 } from "@/lib/phone-v2";
 import { haptic } from "@/lib/haptics";
 import { markGroupRead } from "@/lib/client/use-group-unread";
-import { Sheet, Pressable, Reveal, Stagger, StaggerItem } from "@/components/motion-primitives";
-import { useMediaQuery } from "@/lib/use-media-query";
+import { Pressable } from "@/components/motion-primitives";
 import { useKeepScrollGap } from "@/lib/use-keep-scroll-gap";
 import { useAutoGrowTextarea } from "@/lib/use-autogrow-textarea";
 import { useSpeechInput } from "@/lib/use-speech-input";
@@ -25,12 +24,12 @@ import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
 import type { AssistantBlock, AssistantTurnMeta, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { Poll } from "@/packages/contracts/poll";
 import { GROUP_HISTORY_LIMIT, MAX_MESSAGE_LENGTH, completeRoamMention, hasAsk, mentionsRoam, unansweredRoamAsks, type GroupMessage } from "../domain/message";
-import { HttpError, SEND_TIMEOUT_MS, clockSkewMs, restoreOutbox, sendFailure, serializeOutbox, type Outgoing } from "../domain/outbox";
+import { SEND_TIMEOUT_MS, clockSkewMs, restoreOutbox, sendFailure, serializeOutbox, type Outgoing } from "../domain/outbox";
 import { useChatLive } from "@/lib/client/trip-realtime";
-import { memberInitials } from "@/lib/member-initials";
-import { memberLabel, useTripMembers, type TripMember } from "@/lib/client/use-trip-members";
-import { GroupInviteCard } from "./GroupInviteCard";
+import { useTripMembers } from "@/lib/client/use-trip-members";
 import { renderRich } from "./rich-text";
+import { Avatar, ChatEmptyState, PollCard, PollSheet, TypingBubble } from "./GroupChatParts";
+import { dayLabel, displayName, fullTime, postJson, timeLabel } from "./chat-format";
 import { cn } from "@/lib/utils";
 import { MessageBlocks } from "@/features/conversation/ui/blocks/MessageBlocks";
 import { textAction } from "@/features/conversation/ui/blocks/ui";
@@ -47,54 +46,6 @@ const POLL_MS = 30_000;
 // Within this distance of the bottom you are "reading the latest", so a new message follows you down.
 const NEAR_BOTTOM_PX = 160;
 
-
-/** Roam, You, a friend's name, or an empty string while the member list is still loading (never a flash of "Someone"). */
-function displayName(userId: string | null, members: TripMember[], meId: string | undefined, membersLoaded: boolean): string {
-  if (!userId) return "Roam";
-  if (userId === meId) return "You";
-  if (!membersLoaded) return "";
-  return memberLabel(members.find((m) => m.userId === userId));
-}
-
-// Built once: a long chat formats a time per message per render, and `toLocale*String(options)` builds a formatter on every call.
-const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
-const fullTimeFormat = new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-const dayFormat = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
-const dayYearFormat = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" });
-const timeLabel = (iso: string) => timeFormat.format(new Date(iso));
-const fullTime = (iso: string) => fullTimeFormat.format(new Date(iso));
-
-/** Every member gets the same avatar — Roam included. In this chat Roam is just the fifth friend. */
-function Avatar({ name }: { name: string }) {
-  return (
-    <span aria-hidden style={memberTint(name)} className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-2xs font-semibold shadow-hairline">
-      {memberInitials(name)}
-    </span>
-  );
-}
-
-function dayLabel(iso: string): string {
-  const date = new Date(iso);
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
-  if (sameDay(date, today)) return "Today";
-  if (sameDay(date, yesterday)) return "Yesterday";
-  return (date.getFullYear() === today.getFullYear() ? dayFormat : dayYearFormat).format(date);
-}
-
-async function postJson<T>(url: string, body: unknown, timeoutMs?: number): Promise<T> {
-  const controller = timeoutMs != null ? new AbortController() : undefined;
-  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
-  try {
-    const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: controller?.signal });
-    if (!response.ok) throw new HttpError(response.status);
-    return response.json();
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-}
 
 /** Memoized for the same reason as `ConversationSurface`: a tab switch must not rebuild the whole log. */
 export const GroupChatSurface = React.memo(function GroupChatSurface({
@@ -179,16 +130,8 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
   const [expandedReactionFor, setExpandedReactionFor] = useState<string | null>(null);
   const [pressingId, setPressingId] = useState<string | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
-  // md breakpoint (tablet and up) — a full-screen-width bottom sheet reads fine on a phone but
-  // looks disconnected from the small "+" trigger on a wider screen, where a compact, centered
-  // dialog box (Sheet's own "center" mode — already used for TripsHome's delete-trip confirm)
-  // is the better fit.
-  const desktop = useMediaQuery("(min-width: 768px)");
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [pollSheetOpen, setPollSheetOpen] = useState(false);
-  const [pollQuestion, setPollQuestion] = useState("");
-  const [pollOptions, setPollOptions] = useState(["", ""]);
-  const [pollSaving, setPollSaving] = useState(false);
   const [pendingVoteFor, setPendingVoteFor] = useState<string | null>(null);
   // Which @Roam asks are currently in flight — the buffered (non-streamed) reply can take a
   // while, and until now nothing at all told the user a reply was coming. Keyed by messageId so
@@ -646,21 +589,14 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
     void submit(mentionsRoam(prompt) ? prompt : `@Roam ${prompt}`);
   }
 
-  async function createPoll() {
-    const question = pollQuestion.trim();
-    const options = pollOptions.map((o) => o.trim()).filter(Boolean);
-    if (!question || options.length < 2 || pollSaving) return;
-    setPollSaving(true);
+  async function createPoll(question: string, options: string[]): Promise<boolean> {
     try {
       const { message } = await postJson<{ message: GroupMessage }>(`/api/trips/${tripId}/polls`, { question, options });
       setMessages((current) => [...current, message]);
-      setPollSheetOpen(false);
-      setPollQuestion("");
-      setPollOptions(["", ""]);
+      return true;
     } catch {
       notifyToast("Couldn’t start that poll.", "error");
-    } finally {
-      setPollSaving(false);
+      return false;
     }
   }
 
@@ -984,35 +920,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
           )}
 
           {loaded && !loadFailed && messages.length === 0 && older.length === 0 && outbox.length === 0 && (
-            <div className="flex flex-col items-center pt-0 text-center sm:pt-8">
-              {/* The opening shot: a lit icon, the line, the explanation, then a few ways to break the ice. */}
-              <Reveal y={8}>
-                <span className="relative grid size-12 place-items-center rounded-2xl bg-coral-soft text-coral-ink shadow-hairline sm:size-14 sm:rounded-3xl">
-                  <CalendarRange className="size-6" />
-                </span>
-              </Reveal>
-              <Reveal delay={0.1} y={12}>
-                <h2 className="mt-4 font-display text-3xl font-medium tracking-[-0.03em] text-balance sm:mt-5">Plan it together</h2>
-              </Reveal>
-              <Reveal delay={0.18} y={10}>
-                <p className="mx-auto mt-3 max-w-sm text-body leading-relaxed text-ink-soft text-pretty">
-                  This is the whole group&rsquo;s chat — everyone on the trip, plus Roam. Tag <span className="font-medium text-foreground">@Roam</span> to ask it something here.
-                </p>
-              </Reveal>
-              <Stagger delay={0.3} gap={0.07} className="mt-5 flex flex-wrap justify-center gap-2 sm:mt-6">
-                {["@Roam what should we do first?", "@Roam where should we eat tonight?"].map((starter) => (
-                  <StaggerItem key={starter}>
-                    <button type="button" onClick={() => setInput(starter)} className="btn-chip h-9 px-4 text-sm">{starter}</button>
-                  </StaggerItem>
-                ))}
-              </Stagger>
-              {/* Nobody else has joined: the invite link, here, rather than a chat that talks to itself. */}
-              {membersLoaded && members.length <= 1 && (
-                <Reveal delay={0.45} y={12} className="w-full">
-                  <GroupInviteCard tripId={tripId} />
-                </Reveal>
-              )}
-            </div>
+            <ChatEmptyState tripId={tripId} showInvite={membersLoaded && members.length <= 1} onStarter={setInput} />
           )}
 
           {rows.map(({ message, showDateDivider, isFirstInGroup }) => {
@@ -1046,44 +954,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
               return (
                 <div key={message.id}>
                   {divider}
-                  {/* Same template language as Roam's own structured blocks (Budget's per-category
-                      rows especially): a bordered header, divide-y rows inside one continuous
-                      card, and a thin rounded-full track+fill bar per row — not a separate pill
-                      per option, which was this card's own invented pattern before. */}
-                  <div className="mx-auto w-full max-w-sm overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
-                    <p className="flex flex-wrap items-center gap-1.5 border-b border-border/60 px-4 pt-3.5 pb-2.5 font-display text-sm">
-                      <ListChecks className="h-3.5 w-3.5 shrink-0 text-coral" />
-                      <span className="min-w-0">{message.content}</span>
-                      <span className="ml-auto shrink-0 rounded-full bg-muted px-2 py-0.5 text-2xs font-medium text-muted-foreground">{name}</span>
-                    </p>
-                    {poll && (
-                      <>
-                        <div className="divide-y divide-border/60">
-                          {poll.options.map((option) => {
-                            const pct = poll.totalVotes > 0 ? Math.round((option.count / poll.totalVotes) * 100) : 0;
-                            return (
-                              <button
-                                key={option.key}
-                                type="button"
-                                disabled={pendingVoteFor === poll.id}
-                                onClick={() => void castVote(message.id, poll.id, option.key)}
-                                className="block w-full px-4 py-2.5 text-left transition-colors hover:bg-accent disabled:opacity-70"
-                              >
-                                <div className="flex items-baseline justify-between gap-3">
-                                  <span className={cn("truncate text-sm", option.mine ? "font-semibold text-primary" : "font-medium")}>{option.label}</span>
-                                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{option.count} · {pct}%</span>
-                                </div>
-                                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
-                                  <div className={cn("h-full rounded-full transition-[width] duration-500 ease-out", option.mine ? "bg-primary" : "bg-primary/40")} style={{ width: `${pct}%` }} />
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <p className="border-t border-border/60 px-4 py-2 text-2xs text-muted-foreground">{poll.totalVotes} vote{poll.totalVotes === 1 ? "" : "s"}</p>
-                      </>
-                    )}
-                  </div>
+                  <PollCard content={message.content} name={name} poll={poll} pendingVoteFor={pendingVoteFor} onVote={(pollId, optionKey) => void castVote(message.id, pollId, optionKey)} />
                 </div>
               );
             }
@@ -1284,87 +1155,14 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
           })}
           {(pendingRoamIds.size > 0 || waitingIds.length > 0) && (
             // The same "typing…" bubble any friend would show while they write back.
-            <motion.div initial={{ opacity: 0, y: 10, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ type: "spring", stiffness: 380, damping: 30 }} style={{ transformOrigin: "0% 100%" }} className="mt-3 flex items-start gap-2">
-              <div className="w-7 shrink-0">
-                <Avatar name="Roam" />
-              </div>
-              <div role="status" className="flex items-center gap-1 rounded-2xl rounded-tl-lg bg-muted px-4 py-3.5 shadow-sm">
-                <span className="sr-only">Roam is typing</span>
-                {[0, 1, 2].map((i) => (
-                  <motion.span
-                    key={i}
-                    className="h-1.5 w-1.5 rounded-full bg-coral/70"
-                    animate={{ opacity: [0.35, 1, 0.35], y: [0, -3, 0], scale: [1, 1.15, 1] }}
-                    transition={{ duration: 1.1, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }}
-                  />
-                ))}
-              </div>
-            </motion.div>
+            <TypingBubble />
           )}
         </div>
 
         <div className="pointer-events-none sticky bottom-0 left-0 -mt-10 h-10 w-full bg-gradient-to-t from-background to-transparent" />
       </div>
 
-      <Sheet open={pollSheetOpen} onClose={() => (pollSaving ? undefined : setPollSheetOpen(false))} ariaLabel="Start a poll" side={desktop ? "center" : "bottom"}>
-        <div className="px-5 pt-1 pb-6">
-          <p className="mb-3 text-sm font-medium">Start a poll</p>
-          <input
-            value={pollQuestion}
-            onChange={(e) => setPollQuestion(e.target.value)}
-            placeholder="Which hotel?"
-            aria-label="Poll question"
-            maxLength={200}
-            className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/25"
-          />
-          <div className="mt-2.5 space-y-2">
-            {pollOptions.map((option, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <input
-                  value={option}
-                  onChange={(e) => setPollOptions((current) => current.map((o, idx) => (idx === i ? e.target.value : o)))}
-                  placeholder={`Option ${i + 1}`}
-                  aria-label={`Poll option ${i + 1}`}
-                  maxLength={80}
-                  className="min-w-0 flex-1 rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/25"
-                />
-                {pollOptions.length > 2 && (
-                  <button
-                    type="button"
-                    onClick={() => setPollOptions((current) => current.filter((_, idx) => idx !== i))}
-                    aria-label={`Remove option ${i + 1}`}
-                    className="shrink-0 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-          {pollOptions.length < 6 && (
-            <button
-              type="button"
-              onClick={() => setPollOptions((current) => [...current, ""])}
-              className="mt-2 text-xs font-medium text-primary hover:underline"
-            >
-              + Add option
-            </button>
-          )}
-          <div className="mt-4 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void createPoll()}
-              disabled={pollSaving || !pollQuestion.trim() || pollOptions.filter((o) => o.trim()).length < 2}
-              className="btn-primary-sm"
-            >
-              {pollSaving ? "Starting…" : "Start poll"}
-            </button>
-            <button type="button" onClick={() => setPollSheetOpen(false)} disabled={pollSaving} className="btn-chip">
-              Cancel
-            </button>
-          </div>
-        </div>
-      </Sheet>
+      <PollSheet open={pollSheetOpen} onClose={() => setPollSheetOpen(false)} onCreate={createPoll} />
 
       {unseen && (
         <button
