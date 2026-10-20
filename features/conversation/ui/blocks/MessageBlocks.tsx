@@ -977,8 +977,8 @@ function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPan
           </button>
         </>
       }
-      foot={day.open ? "This day is open: yours to wander" : timedStops > 1 ? `${timedStops} stops · hold and drag to reorder` : `${timedStops} stop`}
-      action={onOpenPanel && !day.open ? <WidgetAction onClick={() => onOpenPanel({ kind: "day", block, dayIndex })}>Open {day.label}</WidgetAction> : undefined}
+      foot={day.open ? "This day is open: yours to wander" : undefined}
+      action={onOpenPanel && !day.open ? <WidgetAction wide onClick={() => onOpenPanel({ kind: "day", block, dayIndex })}>Open {day.label}</WidgetAction> : undefined}
     >
       {openLabels.length > 0 && <div className="mt-3"><OpenDaysNotice labels={openLabels} onFollowup={onFollowup} /></div>}
       {multi && block.days.length > 12 && (

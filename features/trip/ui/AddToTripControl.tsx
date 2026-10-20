@@ -243,8 +243,8 @@ export function AddToTripControl({
                       ? (sm ? "bg-coral-soft px-3.5 text-coral-ink" : "bg-white px-4 text-ink shadow-[0_6px_16px_oklch(0_0_0/0.35)]")
                       : sm
                         ? "bg-coral-fill text-coral-fill-foreground shadow-[0_10px_26px_oklch(0.64_0.175_36/0.5),inset_0_1px_0_oklch(1_0_0/0.35)]"
-                        // Over a photo the add button is a white disc with an orange plus, like the heart and Tickets beside it.
-                        : "bg-white text-coral shadow-[0_6px_16px_oklch(0_0_0/0.35)]",
+                        // Over a photo the add button is a white disc with a black plus, like the heart and Tickets beside it.
+                        : "bg-white text-ink shadow-[0_6px_16px_oklch(0_0_0/0.35)]",
                     // Phone: the small "+" is a soft white circle, not a glowing coral orb.
                     PHONE_V2 && sm && !day && "max-lg:bg-secondary max-lg:text-ink max-lg:shadow-[0_2px_10px_oklch(0_0_0/0.18)]",
                   )

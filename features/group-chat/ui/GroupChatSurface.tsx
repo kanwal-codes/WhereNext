@@ -1213,9 +1213,6 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
                         )}
                       </p>
                     )}
-                    {isRoam && (message.metadata as Partial<AssistantTurnMeta> | undefined)?.unverified && (
-                      <p className="px-1 text-2xs text-muted-foreground">A figure or detail above is an estimate and hasn’t been independently verified.</p>
-                    )}
                     {/* Only the person who asked sees that Roam didn't answer, with the Retry; the rest of the group just sees the thread. */}
                     {mine && !local && !pendingRoamIds.has(message.id) && (failedRoamIds.includes(message.id) || missedIds.includes(message.id)) && (
                       <p role="alert" className="flex items-center gap-2 px-1 text-2xs text-destructive">

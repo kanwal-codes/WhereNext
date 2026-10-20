@@ -933,7 +933,6 @@ export const ConversationSurface = React.memo(function ConversationSurface({
             if (!streaming && meta?.degraded) notes.push({ text: "Answered from your trip details — the planner had trouble reading that one. Rephrasing may help.", tone: "neutral" });
             if (!streaming && meta?.persistFailed) notes.push({ text: "This reply wasn’t saved — it may be gone if you reload.", tone: "destructive" });
             if (!streaming && meta?.truncated) notes.push({ text: "This answer may have been cut off — ask again if it looks incomplete.", tone: "neutral" });
-            if (!streaming && meta?.unverified) notes.push({ text: "A figure or detail above is an estimate and hasn’t been independently verified.", tone: "neutral" });
             if (unavailable.length > 0) notes.push({ text: `Couldn’t check ${unavailable.join(", ")} just now — this is from your trip so far.`, tone: "neutral" });
 
             return (
