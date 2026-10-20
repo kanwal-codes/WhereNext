@@ -39,6 +39,7 @@ vi.mock("@/components/PanelStates", () => ({
 }));
 vi.mock("@/components/motion-primitives", () => ({
   Reveal: ({ children }: Any) => <div>{children}</div>, WordReveal: ({ text }: Any) => <h1>{text}</h1>,
+  // eslint-disable-next-line @next/next/no-img-element -- a stand-in for the real image component
   BlurImage: ({ src, alt }: Any) => <img src={src} alt={alt} />,
 }));
 vi.mock("@/components/PhotoLightbox", () => ({
