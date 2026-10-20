@@ -581,9 +581,17 @@ export function DiscoverySurface({
               {filterCount > 0 && !filtersOpen && <span aria-hidden className="absolute top-2 right-2 size-2.5 rounded-full bg-coral ring-2 ring-background" />}
             </button>
           </div>
+          {/* On a phone the filter chips float over the feed instead of pushing it down and pulling it back up: opening and closing move nothing underneath, so there is nothing to jitter. */}
+          <div className={cn(PHONE_V2 && phone && "relative h-0")}>
           <AnimatePresence initial={false}>
             {filtersOpen && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} className="overflow-hidden">
+              <motion.div
+                initial={PHONE_V2 && phone ? { opacity: 0, y: -6, scale: 0.98 } : { opacity: 0, height: 0 }}
+                animate={PHONE_V2 && phone ? { opacity: 1, y: 0, scale: 1 } : { opacity: 1, height: "auto" }}
+                exit={PHONE_V2 && phone ? { opacity: 0, y: -6, scale: 0.98 } : { opacity: 0, height: 0 }}
+                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                className={cn(PHONE_V2 && phone ? "absolute inset-x-0 top-1 z-30 origin-top rounded-2xl border border-border bg-card p-3 shadow-lift" : "overflow-hidden")}
+              >
                 <div className="flex flex-wrap gap-2 pb-1">
                   {panelCtx && (
                     <button type="button" onClick={() => { panelCtx.setCompareMode(!panelCtx.compareMode); panelCtx.compareClear(); }} aria-pressed={panelCtx.compareMode} className="btn-chip">
@@ -598,6 +606,7 @@ export function DiscoverySurface({
               </motion.div>
             )}
           </AnimatePresence>
+          </div>
         </div>
       )}
       {phone && view === "saved" && (
