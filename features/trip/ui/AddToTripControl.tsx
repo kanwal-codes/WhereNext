@@ -7,31 +7,14 @@ import { Bookmark, CalendarCheck, Check, Loader2, Plus, Trash2 } from "lucide-re
 import type { Place } from "@/packages/contracts/place";
 import { type Placement, placementDay } from "@/packages/contracts/placement";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
-import { mutate } from "@/lib/client/mutation-queue";
-import { notifyToast } from "@/lib/application/toast";
 import { PHONE_V2 } from "@/lib/phone-v2";
 import { cn } from "@/lib/utils";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
+import { usePlacementControl } from "@/features/trip/application/usePlacementControl";
+import { derivePlacement, dayRowCount, isSaved, menuPlacement, type ItineraryRow, type SavedRow } from "@/features/trip/domain/placement-control";
 
 /** How many day rows the menu will ever show (a trip longer than this still works — the extra days just aren't offered here). */
 const MAX_DAY_ROWS = 30;
-
-const same = (a: Placement, b: Placement) => JSON.stringify(a) === JSON.stringify(b);
-const norm = (s: string) => s.trim().toLowerCase();
-
-function isSaved(
-  savedPlaces: Array<{ places?: { provider_id?: string } | null; provider_id?: string; providerId?: string }>,
-  providerId: string,
-) {
-  return savedPlaces.some((s) => (s.places?.provider_id ?? s.provider_id ?? s.providerId) === providerId);
-}
-
-function toast(name: string, placement: Placement): string {
-  const day = placementDay(placement);
-  if (day) return `${name} added to Day ${day}.`;
-  if (placement === "shortlist") return `${name} shortlisted.`;
-  return `Removed ${name} from the trip.`;
-}
 
 /**
  * One control for a place's whole relationship to the trip: not in it →
@@ -72,64 +55,32 @@ export function AddToTripControl({
   const reduce = useReducedMotion();
   const menuId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
-  const busyRef = useRef(false);
 
-  const itinerary = (data?.itinerary ?? []) as Array<{ title?: string; day_index?: number }>;
-  const savedPlaces = (data?.savedPlaces ?? []) as Array<{ places?: { provider_id?: string } | null; provider_id?: string; providerId?: string }>;
+  const itinerary = (data?.itinerary ?? []) as ItineraryRow[];
+  const savedPlaces = (data?.savedPlaces ?? []) as SavedRow[];
 
   const tripDays = Number((data?.trip as { duration_days?: number } | null | undefined)?.duration_days) || 0;
-  const maxItinDay = itinerary.reduce((m, i) => Math.max(m, Number(i.day_index) || 0), 0);
-  const dayCount = Math.min(Math.max(tripDays, maxItinDay), MAX_DAY_ROWS);
+  const dayCount = dayRowCount(tripDays, itinerary);
 
-  const derived: Placement =
-    initialPlacement ??
-    (() => {
-      const item = itinerary.find((i) => i.title && norm(i.title) === norm(place.name));
-      if (item) return { dayIndex: Number(item.day_index) || 1 };
-      const shortlisted = savedPlaces.some((s) => {
-        const id = s.places?.provider_id ?? s.provider_id ?? s.providerId;
-        return id === place.providerId;
-      });
-      return shortlisted ? "shortlist" : "none";
-    })();
+  const derived = derivePlacement({ initialPlacement, itinerary, savedPlaces, place });
+  const savedDerived = isSaved(savedPlaces, place.providerId);
 
   const shellRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const savedDerived = isSaved(savedPlaces, place.providerId);
-  const [placement, setPlacement] = useState<Placement>(derived);
-  // The last placement the server confirmed (what a failed write falls back to), the writes still on their way, and when the last one landed.
-  const confirmed = useRef<Placement>(derived);
-  const pending = useRef(0);
-  const lastWrite = useRef(0);
-  const chain = useRef<Promise<void>>(Promise.resolve());
-  const [saved, setSaved] = useState(savedDerived);
-  const [busy, setBusy] = useState(false);
+  const { placement, saved, busy, apply: applyPlacement, toggleBookmark } = usePlacementControl({ tripId, place, derived, savedDerived, onPlacementChange });
   const [open, setOpen] = useState(false);
   // The menu is portalled to <body> so a card's overflow/stacking can't clip it.
   const [menuPos, setMenuPos] = useState<{ top: number; left: number; up: boolean } | null>(null);
+  const apply = (next: Placement) => {
+    setOpen(false);
+    applyPlacement(next);
+  };
 
   const place_menu = () => {
     const r = shellRef.current?.getBoundingClientRect();
     if (!r) return;
-    const W = 240;
-    const up = r.bottom > window.innerHeight - 300;
-    setMenuPos({
-      top: up ? Math.max(8, r.top - 6) : r.bottom + 6,
-      left: Math.min(Math.max(8, r.right - W), window.innerWidth - W - 8),
-      up,
-    });
+    setMenuPos(menuPlacement(r, { width: window.innerWidth, height: window.innerHeight }));
   };
-
-  // Re-sync from the snapshot when it refreshes and we're not mid-write.
-  const derivedKey = JSON.stringify(derived);
-  useEffect(() => {
-    // Not while a write of ours is on its way, nor for a few seconds after: a refresh rendered between two quick changes can arrive late.
-    if (!busyRef.current && Date.now() - lastWrite.current > 4000) {
-      confirmed.current = JSON.parse(derivedKey) as Placement;
-      setPlacement(confirmed.current);
-      setSaved(savedDerived);
-    }
-  }, [derivedKey, savedDerived]);
 
   useLayoutEffect(() => {
     if (open) place_menu();
@@ -154,61 +105,6 @@ export function AddToTripControl({
       window.removeEventListener("resize", reposition);
     };
   }, [open]);
-
-  function apply(next: Placement) {
-    setOpen(false);
-    if (same(next, placement)) return;
-    const confirmedBefore = confirmed.current;
-    // The label answers at once and the write follows; a second change while one is in flight queues behind it, in order.
-    setPlacement(next);
-    pending.current += 1;
-    busyRef.current = true;
-    chain.current = chain.current.then(async () => {
-      try {
-        const res = await mutate(`/api/trips/${tripId}/places/placement`, {
-          method: "PUT",
-          body: { place, placement: next },
-          announce: ["places", "itinerary"],
-        });
-        if (!res.ok) throw new Error();
-        confirmed.current = next;
-        onPlacementChange?.(next);
-        notifyToast(res.queued ? `${place.name} — saved, will sync when you're back online.` : toast(place.name, next), res.queued ? "info" : "success");
-      } catch {
-        // Fall back to the last answer the server gave, unless a newer change of ours is already queued behind this one.
-        if (pending.current === 1) setPlacement(confirmed.current ?? confirmedBefore);
-        notifyToast(`Couldn’t update ${place.name}. Try again.`, "error");
-      } finally {
-        pending.current -= 1;
-        if (pending.current === 0) busyRef.current = false;
-        lastWrite.current = Date.now();
-      }
-    });
-  }
-
-  async function toggleBookmark() {
-    if (busy) return;
-    const previous = saved;
-    const next = !previous;
-    setSaved(next);
-    setBusy(true);
-    busyRef.current = true;
-    try {
-      const res = await mutate(`/api/trips/${tripId}/places/bookmark`, {
-        method: "PUT",
-        body: { place, saved: next },
-        announce: ["places"],
-      });
-      if (!res.ok) throw new Error();
-      notifyToast(!previous ? `${place.name} saved.` : `${place.name} removed from saved places.`, "success");
-    } catch {
-      setSaved(previous);
-      notifyToast(`Couldn’t update ${place.name}. Try again.`, "error");
-    } finally {
-      setBusy(false);
-      busyRef.current = false;
-    }
-  }
 
   const day = placementDay(placement);
   const state: "none" | "day" = day ? "day" : "none";
