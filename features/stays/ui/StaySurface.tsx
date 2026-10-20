@@ -278,7 +278,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
           </button>
         )}
         </div>
-        <div className={cn("grid grid-cols-2 gap-px overflow-hidden bg-border max-sm:border-t max-sm:border-border lg:grid-cols-4", !barOpen && "max-sm:hidden", PHONE_V2 && "max-lg:mb-3 max-lg:gap-2 max-lg:overflow-visible max-lg:border-0 max-lg:bg-transparent")}>
+        <div className={cn("grid grid-cols-2 gap-px overflow-hidden bg-border lg:grid-cols-4", !PHONE_V2 && "max-sm:border-t max-sm:border-border", !barOpen && "max-sm:hidden", PHONE_V2 && "max-lg:mb-3 max-lg:gap-2 max-lg:overflow-visible max-lg:border-0 max-lg:bg-transparent")}>
           <DateCell label="Check-in" value={checkin} onChange={setCheckin} />
           <DateCell label="Check-out" value={checkout} onChange={setCheckout} min={checkin || undefined} />
           <Stepper label="Guests" value={adults} set={setAdults} min={1} max={16} />
@@ -308,7 +308,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
           {status && <p role="status" className={cn("ml-auto text-xs text-muted-foreground", PHONE_V2 && "max-lg:hidden")}>{status}</p>}
         </div>
 
-        {showFilters && facets && (
+        {showFilters && (
           <div className={cn("space-y-4 border-t border-border px-4 py-4", PHONE_V2 && "max-lg:mt-3 max-lg:rounded-2xl max-lg:border max-lg:bg-card")}>
             {PHONE_V2 && (
               <div className="lg:hidden">
@@ -320,7 +320,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                 </div>
               </div>
             )}
-            {facets.priceMax > facets.priceMin && (
+            {facets && facets.priceMax > facets.priceMin && (
               <div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium">Max price / night</span>
@@ -336,7 +336,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                 />
               </div>
             )}
-            {facets.propertyTypes.length > 1 && (
+            {facets && facets.propertyTypes.length > 1 && (
               <div>
                 <span className="text-sm font-medium">Type of place</span>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -354,7 +354,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                 </div>
               </div>
             )}
-            {facets.stars.length > 0 && (
+            {facets && facets.stars.length > 0 && (
               <div>
                 <span className="text-sm font-medium">Star rating</span>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -372,7 +372,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                 </div>
               </div>
             )}
-            {facets.boards.length > 0 && (
+            {facets && facets.boards.length > 0 && (
               <div>
                 <span className="text-sm font-medium">Board</span>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
