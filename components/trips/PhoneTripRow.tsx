@@ -18,7 +18,7 @@ export function PhoneTripRow({ trip, status, deleting, onDelete }: { trip: TripS
   const title = shortTripTitle(trip.name);
   const travellers = trip.travelers ? `${trip.travelers} ${trip.travelers === 1 ? "traveller" : "travellers"}` : null;
   return (
-    <div className={cn("relative transition-transform duration-200 active:scale-[0.99]", deleting && "opacity-60")}>
+    <div className={cn("relative transition-transform duration-200 active:scale-[0.985]", deleting && "opacity-60")}>
       <Link href={`/trips/${trip.id}`} className="block rounded-[1.75rem] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" aria-label={`${trip.name}. ${status.badge}`}>
         <TripCover trip={trip} className="h-44 rounded-[1.75rem]">
           {() => (

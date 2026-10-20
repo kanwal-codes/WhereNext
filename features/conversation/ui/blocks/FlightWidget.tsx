@@ -133,7 +133,7 @@ export function FlightPicks({ picks, selected, onSelect, roundTrip }: { picks: F
             type="button"
             onClick={() => onSelect(key)}
             aria-pressed={on}
-            className={cn("relative min-w-0 flex-1 rounded-2xl px-3.5 py-3 text-left backdrop-blur-md transition-[box-shadow,background-color,transform] duration-200 ease-out active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", on ? "border-2 border-coral bg-card shadow-lift" : "border border-white/80 bg-card/75 shadow-soft hover:bg-card/90", PHONE_V2 && "max-lg:backdrop-blur-none max-lg:shadow-none", PHONE_V2 && (on ? "max-lg:border max-lg:border-transparent max-lg:bg-coral-soft" : "max-lg:border max-lg:border-hairline max-lg:bg-card"))}
+            className={cn("relative min-w-0 flex-1 rounded-2xl px-3.5 py-3 text-left backdrop-blur-md transition-[box-shadow,background-color,transform] duration-200 ease-out active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", on ? "border-2 border-coral bg-card shadow-lift" : "border border-white/80 bg-card/75 shadow-soft hover:bg-card/90", PHONE_V2 && "max-lg:backdrop-blur-none max-lg:shadow-none", PHONE_V2 && (on ? "max-lg:border max-lg:border-transparent max-lg:bg-coral-soft" : "max-lg:border max-lg:border-hairline max-lg:bg-card"))}
           >
             <span className="flex items-center justify-between gap-1.5">
               <span className={cn("eyebrow truncate", on && "text-coral-ink!")}>{pick.labels.join(" · ")}</span>

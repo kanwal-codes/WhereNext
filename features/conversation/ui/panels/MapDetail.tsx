@@ -120,7 +120,7 @@ export function MapDetail({ tripId, panel }: { tripId: string; panel: Extract<Pa
         <LazyTripMap className="h-[46vh] min-h-[280px]" pins={pins} legs={real?.legs.length ? real.legs : pathLegs} overlay={real?.overlay} fitControl scaleBar activeDay={active} connect={connect} />
       )}
       {savedDay !== null && (
-        <a href={`/trips/${tripId}/map?day=${savedDay}`} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-card px-5 text-sm font-medium transition-[background-color,transform] hover:bg-accent/40 active:scale-[0.98]">
+        <a href={`/trips/${tripId}/map?day=${savedDay}`} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-card px-5 text-sm font-medium transition-[background-color,transform] hover:bg-accent/40 active:scale-[0.985]">
           <Expand className="size-4" aria-hidden /> Open Day {savedDay} on the full map
         </a>
       )}

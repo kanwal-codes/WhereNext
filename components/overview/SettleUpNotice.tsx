@@ -34,7 +34,7 @@ export function SettleUpNotice({ tripId }: { tripId: string }) {
   return (
     <Link
       href={`/trips/${tripId}/bookings`}
-      className="group flex items-center gap-3 rounded-2xl border border-lagoon/30 bg-lagoon-soft/40 px-4 py-3 text-sm shadow-hairline transition-[background-color,box-shadow,transform] duration-[var(--duration-base)] ease-[var(--ease-out)] hover:bg-lagoon-soft/60 hover:shadow-soft active:scale-[0.99]"
+      className="group flex items-center gap-3 rounded-2xl border border-lagoon/30 bg-lagoon-soft/40 px-4 py-3 text-sm shadow-hairline transition-[background-color,box-shadow,transform] duration-[var(--duration-base)] ease-[var(--ease-out)] hover:bg-lagoon-soft/60 hover:shadow-soft active:scale-[0.985]"
     >
       <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-card text-lagoon shadow-hairline">
         <Wallet className="size-4" aria-hidden />

@@ -105,7 +105,7 @@ export function WhereToBook({ s, hotelId }: { s: Details; hotelId: string }) {
                 href={bestHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="relative mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground shadow-lift transition-[opacity,transform] hover:opacity-90 active:scale-[0.98]"
+                className="relative mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground shadow-lift transition-[opacity,transform] hover:opacity-90 active:scale-[0.985]"
               >
                 Book on {best.source} <ArrowUpRight className="size-4" aria-hidden />
               </a>

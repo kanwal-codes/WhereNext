@@ -81,7 +81,7 @@ export function FareCard({ offer, onPick, delta, badges, selected, priceNote }: 
       aria-pressed={selected}
       onClick={() => onPick(offer)}
       className={cn(
-        "group relative block w-full rounded-2xl border bg-card p-4 text-left shadow-soft transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-[0.99]",
+        "group relative block w-full rounded-2xl border bg-card p-4 text-left shadow-soft transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-[0.985]",
         selected ? "border-coral ring-1 ring-coral/40" : "border-border hover:border-foreground/25",
       )}
     >

@@ -59,7 +59,7 @@ export function DayStops({ stops, onOpenPlace }: { stops: PlanStop[]; onOpenPlac
             </div>
             <div className={cn("min-w-0 flex-1", !last && "pb-3")}>
               {open ? (
-                <button type="button" onClick={open} className="group flex w-full items-start gap-3 rounded-2xl border border-border bg-card p-4 text-left shadow-soft transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.995] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+                <button type="button" onClick={open} className="group flex w-full items-start gap-3 rounded-2xl border border-border bg-card p-4 text-left shadow-soft transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
                   {body}
                 </button>
               ) : (

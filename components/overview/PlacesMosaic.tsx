@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Compass } from "lucide-react";
 import { InviteCard } from "@/components/overview/InviteCard";
 import { placeGlyph } from "@/features/conversation/ui/blocks/glyphs";
-import { Stagger, StaggerItem } from "@/components/motion-primitives";
+import { BlurImage, Stagger, StaggerItem } from "@/components/motion-primitives";
 import { TripArt, hashString } from "@/components/trips/TripArt";
 import { photoProxyUrl } from "@/lib/places-ui";
 import { categoryLabel } from "@/lib/trip-overview";
@@ -37,8 +37,7 @@ function Tile({ tripId, place, large, more }: { tripId: string; place: MosaicPla
         })()}
       </TripArt>
       {src && (
-        // eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin proxy
-        <img src={src} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1100ms] ease-out group-hover:scale-[1.06]" />
+        <BlurImage src={src} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover group-hover:scale-[1.06]" />
       )}
       {src && <div aria-hidden className="absolute inset-0 scrim-b" />}
       <div className={cn("absolute inset-x-0 bottom-0 p-4", src ? "text-white" : "text-foreground")}>

@@ -47,7 +47,9 @@ export function ToastHost() {
               role={toast.tone === "error" ? "alert" : "status"}
               initial={reduceMotion ? false : { opacity: 0, y: -16, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={reduceMotion ? undefined : { opacity: 0, y: -10, scale: 0.98 }}
+              // A toast that is leaving goes quickly and straight; the others slide up to close the gap (`layout`) instead of jumping.
+              exit={reduceMotion ? undefined : { opacity: 0, y: -10, scale: 0.98, transition: { duration: 0.18, ease: [0.4, 0, 1, 1] } }}
+              layout={!reduceMotion}
               transition={reduceMotion ? { duration: 0 } : motionTokens.standard}
               className="pointer-events-auto flex w-[min(26rem,calc(100vw-2rem))] items-center gap-3 rounded-2xl border border-border bg-card/95 py-2.5 pr-2.5 pl-3 text-sm shadow-lift backdrop-blur-xl"
             >

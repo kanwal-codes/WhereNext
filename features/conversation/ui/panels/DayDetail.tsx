@@ -107,7 +107,7 @@ export function DayDetail({ block, dayIndex, tripId }: { block: ItineraryBlock; 
             type="button"
             onClick={() => void addDay()}
             disabled={status === "adding"}
-            className="inline-flex h-12 min-w-0 flex-1 whitespace-nowrap items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-[opacity,transform] hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
+            className="inline-flex h-12 min-w-0 flex-1 whitespace-nowrap items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-[opacity,transform] hover:opacity-90 active:scale-[0.985] disabled:opacity-60"
           >
             {status === "adding" ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <CalendarPlus className="size-4" aria-hidden />}
             {missing.length < day.stops.length ? `Add the other ${missing.length} stop${missing.length === 1 ? "" : "s"}` : `Add ${day.label} to itinerary`}

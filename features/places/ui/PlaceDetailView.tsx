@@ -337,8 +337,7 @@ export function PlaceDetailView({
       )}
       <div className={cn(PHONE_V2 && "max-lg:hidden")}>
       <Hero
-        image={photo ?? "/design/place-neighbourhood.jpg"}
-        fallbackImage="/design/place-neighbourhood.jpg"
+        image={photo ?? null}
         alt={name}
         plain
         kenBurns={!panel}

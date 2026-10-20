@@ -51,7 +51,7 @@ const fmtLong = (iso: string) => {
 const cellLabel = "block text-[0.625rem] max-lg:text-xs font-medium tracking-[0.22em] text-muted-foreground uppercase";
 
 function Stepper({ label, value, set, min, max }: { label: string; value: number; set: (n: number) => void; min: number; max: number }) {
-  const btn = "grid size-9 place-items-center rounded-full border border-border bg-background text-foreground transition-[background-color,border-color,transform] hover:border-foreground/30 hover:bg-accent active:scale-90 disabled:opacity-30 disabled:hover:bg-background";
+  const btn = "grid size-9 place-items-center rounded-full border border-border bg-background text-foreground transition-[background-color,border-color,transform] hover:border-foreground/30 hover:bg-accent active:scale-95 disabled:opacity-30 disabled:hover:bg-background";
   return (
     <div className="bg-card px-4 py-3.5">
       <span className={cellLabel}>{label}</span>

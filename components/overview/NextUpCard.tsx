@@ -4,7 +4,7 @@ import { hotelPhotoSrc } from "@/lib/hotel-photo";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { MapPin } from "lucide-react";
-import { Tactile } from "@/components/motion-primitives";
+import { BlurImage, Tactile } from "@/components/motion-primitives";
 import { KIND_META } from "@/components/overview/ReservationSheet";
 import { RemoveControl } from "@/components/overview/RemoveControl";
 import { TripArt, hashString } from "@/components/trips/TripArt";
@@ -43,8 +43,7 @@ export function NextUpCard({ item, onOpenBooking, onEdit, onRemove }: { item: Ti
   const inner: ReactNode = (
     <TripArt seed={hashString(item.id)} grain className={cn("flex min-h-[22rem] flex-col justify-between rounded-3xl border border-border/70 p-6 shadow-soft sm:min-h-[26rem] sm:p-9", PHONE_V2 && "max-lg:min-h-[12.25rem] max-lg:rounded-[1.75rem] max-lg:p-[1.125rem]")}>
       {photo ? (
-        // eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI
-        <img src={hotelPhotoSrc(item.thumbnail!)} alt="" loading="lazy" decoding="async" onError={() => setImageFailed(true)} className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1400ms] ease-out group-hover:scale-[1.05]" />
+        <BlurImage src={hotelPhotoSrc(item.thumbnail!)} alt="" onError={() => setImageFailed(true)} className="absolute inset-0 h-full w-full object-cover group-hover:scale-[1.05]" />
       ) : (
         <Icon aria-hidden className="pointer-events-none absolute -right-6 -bottom-8 h-72 w-72 text-foreground/[0.06]" strokeWidth={1} />
       )}

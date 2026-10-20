@@ -178,7 +178,7 @@ export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]
                     title="Start planning"
                     disabled={!canSend}
                     className={cn(
-                      "daisy-btn daisy-btn-circle h-10 w-10 max-lg:h-11 max-lg:w-11 shrink-0 border-0 shadow-none transition-[background-color,color,transform] active:scale-[0.94]",
+                      "daisy-btn daisy-btn-circle h-10 w-10 max-lg:h-11 max-lg:w-11 shrink-0 border-0 shadow-none transition-[background-color,color,transform] active:scale-95",
                       canSend ? "bg-coral text-background" : "bg-foreground/8 text-muted-foreground",
                     )}
                   >
@@ -334,7 +334,7 @@ export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]
             <button
               type="button"
               onClick={() => setPendingDelete(null)}
-              className="rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-accent active:scale-[0.98]"
+              className="rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-accent active:scale-[0.985]"
             >
               Keep trip
             </button>

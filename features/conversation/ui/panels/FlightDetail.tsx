@@ -397,7 +397,7 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
           href={searchUrl}
           target="_blank"
           rel="noreferrer noopener"
-          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground shadow-lift transition-[opacity,transform] hover:opacity-90 active:scale-[0.98]"
+          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground shadow-lift transition-[opacity,transform] hover:opacity-90 active:scale-[0.985]"
         >
           See this route on Google Flights <ArrowUpRight className="size-4" aria-hidden />
         </a>

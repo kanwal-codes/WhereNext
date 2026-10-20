@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { BlurImage } from "@/components/motion-primitives";
 import { ArrowRight } from "lucide-react";
 import { photoProxyUrl } from "@/lib/places-ui";
 import { categoryLabel, type TastePicture } from "@/lib/trip-overview";
@@ -22,8 +23,7 @@ function Thumb({ tripId, place }: { tripId: string; place: MosaicPlace }) {
   return (
     <TripArt seed={hashString(place.name)} className="h-12 w-12 shrink-0 rounded-xl">
       {src ? (
-        // eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin proxy
-        <img src={src} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />
+        <BlurImage src={src} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />
       ) : (
         <span aria-hidden className="absolute inset-0 grid place-items-center font-display text-xl text-foreground/40">{place.name.charAt(0)}</span>
       )}

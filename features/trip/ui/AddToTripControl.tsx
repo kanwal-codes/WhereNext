@@ -245,7 +245,7 @@ export function AddToTripControl({
                     // Phone: the small "+" is a soft white circle, not a glowing coral orb.
                     PHONE_V2 && sm && !day && "max-lg:bg-secondary max-lg:text-ink max-lg:shadow-[0_2px_10px_oklch(0_0_0/0.18)]",
                   )
-                : "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full border font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out active:scale-[0.98] disabled:opacity-70",
+                : "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full border font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out active:scale-[0.985] disabled:opacity-70",
               !orb && ring,
               !orb && block && "w-full",
               !orb && (sm ? "h-8 px-3 text-xs" : size === "lg" ? "h-12 px-6 text-[0.9375rem]" : "h-10 px-5 text-sm"),
@@ -286,7 +286,7 @@ export function AddToTripControl({
           aria-label={saved ? `Remove ${place.name} from saved places` : `Save ${place.name}`}
           aria-pressed={saved}
           className={cn(
-            "grid shrink-0 place-items-center rounded-full border transition-[background-color,border-color,color,transform] duration-200 ease-out active:scale-90 disabled:opacity-70",
+            "grid shrink-0 place-items-center rounded-full border transition-[background-color,border-color,color,transform] duration-200 ease-out active:scale-95 disabled:opacity-70",
             ring,
             sm ? "size-8 max-lg:size-10" : size === "lg" ? "size-12" : "size-10 max-lg:size-11",
             saved

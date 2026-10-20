@@ -166,7 +166,7 @@ export function FlightSearchBar({ search, tripId, trip, routeOpen, onRouteDone }
                 }}
                 disabled={busy}
                 aria-label="Swap from and to"
-                className="absolute z-10 grid size-9 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-soft transition-[color,border-color,transform] hover:border-foreground/25 hover:text-foreground active:scale-90 disabled:pointer-events-none disabled:opacity-50 @max-[34rem]:right-4 @max-[34rem]:top-1/2 @max-[34rem]:-translate-y-1/2 @[34rem]:left-1/2 @[34rem]:top-1/2 @[34rem]:-translate-x-1/2 @[34rem]:-translate-y-1/2"
+                className="absolute z-10 grid size-9 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-soft transition-[color,border-color,transform] hover:border-foreground/25 hover:text-foreground active:scale-95 disabled:pointer-events-none disabled:opacity-50 @max-[34rem]:right-4 @max-[34rem]:top-1/2 @max-[34rem]:-translate-y-1/2 @[34rem]:left-1/2 @[34rem]:top-1/2 @[34rem]:-translate-x-1/2 @[34rem]:-translate-y-1/2"
               >
                 <motion.span animate={{ rotate: turn * 180 }} transition={{ duration: reduce ? 0 : 0.4, ease }} className="grid place-items-center @max-[34rem]:rotate-90">
                   <ArrowLeftRight className="size-4" aria-hidden />

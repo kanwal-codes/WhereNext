@@ -53,7 +53,7 @@ export function BookingNotices({ tripId, reservations, startDate, endDate }: { t
   return (
     <>
       <div className="max-lg:hidden">{list}</div>
-      <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" className="flex min-h-12 w-full items-center gap-2.5 rounded-2xl bg-muted px-4 text-left text-[0.9375rem] transition-transform active:scale-[0.99] lg:hidden">
+      <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" className="flex min-h-12 w-full items-center gap-2.5 rounded-2xl bg-muted px-4 text-left text-[0.9375rem] transition-transform active:scale-[0.985] lg:hidden">
         <span aria-hidden className="size-2 shrink-0 rounded-full bg-coral" />
         <span className="min-w-0 flex-1 truncate" suppressHydrationWarning>
           <b className="font-semibold">{count === 1 ? "1 thing to check" : `${count} things to check`}</b>

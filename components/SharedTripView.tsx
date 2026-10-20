@@ -163,7 +163,7 @@ export function SharedTripView({ trip, slug }: { trip: PublicTrip; slug: string 
           <div className="relative">
             <h2 className="font-display text-3xl leading-tight font-medium tracking-[-0.03em] text-balance sm:text-4xl">Planning a trip of your own?</h2>
             <p className="mx-auto mt-3 max-w-sm text-base text-primary-foreground/75 text-pretty">Tell Roam where you’re thinking of going. The plan builds itself as you talk.</p>
-            <Link href="/trips/new" className="mt-7 inline-flex items-center gap-2 rounded-full bg-background px-6 py-3 text-sm font-medium text-foreground shadow-soft transition-transform duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.98]">
+            <Link href="/trips/new" className="mt-7 inline-flex items-center gap-2 rounded-full bg-background px-6 py-3 text-sm font-medium text-foreground shadow-soft transition-transform duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.985]">
               Plan your own <ArrowRight className="size-4" />
             </Link>
           </div>

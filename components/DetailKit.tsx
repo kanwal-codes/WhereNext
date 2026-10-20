@@ -58,7 +58,7 @@ export function FactStrip({ facts, className, variant = "default" }: { facts: Ar
 }
 
 const ring = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
-const press = "transition-[background-color,box-shadow,transform] duration-200 ease-out active:scale-[0.96]";
+const press = "transition-[background-color,box-shadow,transform] duration-200 ease-out active:scale-95";
 /** The first action is the thing to do (a wide ink pill); each of the rest takes its own shape and tint, so a row of three reads as three different things and not three copies of one button. */
 const MAIN = cn("h-12 min-w-0 flex-1 gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.14),0_6px_14px_-8px_oklch(0.2_0.012_65/0.55)] hover:bg-primary/88", press, ring);
 const OTHERS = [

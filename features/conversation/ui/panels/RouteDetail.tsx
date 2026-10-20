@@ -277,7 +277,7 @@ export function RouteDetail({ tripId, routes, active: initial, onAsk }: { tripId
 
       <Reveal delay={0.16} y={10}>
       <div className="space-y-3">
-      <a href={maps} target="_blank" rel="noreferrer noopener" className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-[filter,transform] hover:brightness-110 active:scale-[0.98]">
+      <a href={maps} target="_blank" rel="noreferrer noopener" className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-[filter,transform] hover:brightness-110 active:scale-[0.985]">
         {route.mode === "transit" ? "See live departures in Google Maps" : "Open in Google Maps"} <ArrowUpRight className="size-4" aria-hidden />
       </a>
       {route.mode === "transit" && <Notice>These are typical journeys. Departures and delays change, so check them live before you leave.</Notice>}

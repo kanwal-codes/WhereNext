@@ -540,7 +540,7 @@ export function AccountView({
                     type="button"
                     onClick={() => avatarInputRef.current?.click()}
                     aria-label="Change photo"
-                    className="group relative block h-24 w-24 overflow-hidden rounded-3xl bg-primary transition-[box-shadow,transform] duration-200 hover:shadow-lift active:scale-[0.98] sm:h-32 sm:w-32"
+                    className="group relative block h-24 w-24 overflow-hidden rounded-3xl bg-primary transition-[box-shadow,transform] duration-200 hover:shadow-lift active:scale-[0.985] sm:h-32 sm:w-32"
                   >
                     {avatarUrl && !avatarError ? (
                       // eslint-disable-next-line @next/next/no-img-element -- external/user-uploaded, not a static asset
@@ -969,7 +969,7 @@ export function AccountView({
                   <p className="text-sm font-medium">Sign out</p>
                   <p className="text-sm text-ink-soft">Ends this session on this device.</p>
                 </div>
-                <button type="button" onClick={() => void signOutUser().then(() => window.location.assign("/sign-in"))} className="rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-secondary active:scale-[0.98]">Sign out</button>
+                <button type="button" onClick={() => void signOutUser().then(() => window.location.assign("/sign-in"))} className="rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-secondary active:scale-[0.985]">Sign out</button>
               </div>
 
               <div className="flex flex-wrap items-center gap-3 border-b border-border pb-6">
@@ -978,7 +978,7 @@ export function AccountView({
                   <p className="text-sm font-medium">Export my data</p>
                   <p className="text-sm text-ink-soft">Every trip, itinerary item and saved place as a single file.</p>
                 </div>
-                <button type="button" onClick={() => void exportData()} className="rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-secondary active:scale-[0.98]">Export</button>
+                <button type="button" onClick={() => void exportData()} className="rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-secondary active:scale-[0.985]">Export</button>
               </div>
 
               <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 px-5 py-5">
@@ -1002,7 +1002,7 @@ export function AccountView({
           </div>
           <input value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} placeholder="DELETE" className="input-field" />
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={() => setDeleteOpen(false)} className="rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-secondary active:scale-[0.98]">Keep my account</button>
+            <button type="button" onClick={() => setDeleteOpen(false)} className="rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-secondary active:scale-[0.985]">Keep my account</button>
             <button
               type="button"
               onClick={() => void deleteAccount()}

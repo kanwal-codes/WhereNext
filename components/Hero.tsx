@@ -29,7 +29,8 @@ export function Hero({
   dissolve = true,
   children,
 }: {
-  image: string;
+  /** The photo. Leave it out (or let it fail with no fallback) and the hero shows the app's own warm wash instead of nothing. */
+  image?: string | null;
   /** Shown instead of `image` if that photo fails to load (a dead or blocked link), so the hero is never blank. */
   fallbackImage?: string;
   alt: string;
@@ -60,8 +61,9 @@ export function Hero({
   children?: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [failedImage, setFailedImage] = useState<string | null>(null);
-  const baseImage = failedImage === image && fallbackImage ? fallbackImage : image;
+  // The first of the photo and its fallback that has not failed; none left (or none given) means the app's own warm wash.
+  const [failedImages, setFailedImages] = useState<string[]>([]);
+  const baseImage = [image, fallbackImage].find((url): url is string => Boolean(url) && !failedImages.includes(url as string)) ?? null;
   const [coverLoaded, setCoverLoaded] = useState<string | null>(null);
   const [coverFailed, setCoverFailed] = useState<string[]>([]);
   const coverSrc = coverImages.find((url) => !coverFailed.includes(url)) ?? null;
@@ -84,13 +86,20 @@ export function Hero({
         {/* The fade/scale-in is rAF-driven, so it only plays when the document is live and visible
             (`animateIn`); otherwise the photo starts settled. One element either way: swapping a plain
             img for this one rebuilt the image (and re-decoded it) right after it mounted. */}
+        {baseImage === null ? (
+          <div
+            aria-hidden
+            className="size-full bg-surface"
+            style={{ backgroundImage: "radial-gradient(90% 85% at 18% 12%, color-mix(in oklab, var(--coral) 17%, transparent), transparent 66%), radial-gradient(80% 70% at 88% 100%, color-mix(in oklab, var(--lagoon) 10%, transparent), transparent 70%)" }}
+          />
+        ) : (
         <motion.img
           src={baseImage}
           alt={alt}
           width={1600}
           height={900}
           fetchPriority="high"
-          onError={() => setFailedImage(image)}
+          onError={() => setFailedImages((current) => [...current, baseImage])}
           className="h-full w-full object-cover object-center"
           initial={animateIn ? { scale: kenBurns ? 1.1 : 1, opacity: 0 } : false}
           animate={{ scale: !kenBurns ? 1 : reduce ? 1.02 : 1.06, opacity: 1 }}
@@ -99,6 +108,7 @@ export function Hero({
             scale: { duration: !kenBurns || reduce ? 0 : 18, ease: "linear" },
           }}
         />
+        )}
         {coverSrc && (
           <motion.img
             key={coverSrc}
