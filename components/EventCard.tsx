@@ -1,5 +1,6 @@
 "use client";
 
+import type { NearbyEvent } from "@/lib/application/nearby-events";
 import { useRouter } from "next/navigation";
 import { EventPoster } from "@/components/EventPoster";
 import { SafeImage } from "@/components/SafeImage";
@@ -12,7 +13,6 @@ import { eventDayParts, eventDetailHref, formatEventWhen } from "@/lib/places-ui
 import { cn, safeHref } from "@/lib/utils";
 import { ticketSellerLabel } from "@/lib/ticket-provider";
 
-export type NearbyEvent = { title: string; url: string; date?: string; venue?: string; source: string; imageUrl?: string };
 
 /**
  * An event, as Discover and the nearby lists show it: the shared cinematic `CineCard`, the same anatomy Roam

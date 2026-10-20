@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { Loader2 } from "lucide-react";
 import type { Place } from "@/packages/contracts/place";
-import type { NearbyEvent } from "@/components/EventCard";
+import type { NearbyEvent } from "@/lib/application/nearby-events";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 import { EventCard } from "@/components/EventCard";
 import { CompareMark } from "@/features/conversation/ui/blocks/ui";
