@@ -21,6 +21,7 @@ import { replyNotes } from "../domain/replyNotes";
 import { sendFailureToast, unansweredMessage } from "../domain/sendOutcome";
 import type { CardPanel } from "@/components/TripPanelProvider";
 import { CopyButton, controlSecondary, textAction } from "./blocks/ui";
+import { useConversationThread } from "../application/useConversationThread";
 import { AssistantRequestError } from "../application/streamAssistantResponse";
 import { sendConversationMessage } from "../application/sendConversationMessage";
 import { GuestSavePrompt } from "@/features/identity/ui/GuestSavePrompt";
@@ -28,8 +29,6 @@ import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { GUEST_TURN_LIMIT } from "@/lib/guest-limits";
 import { cn } from "@/lib/utils";
 import { RoamMark } from "@/features/roam/ui/RoamMark";
-import { CONVERSATION_CACHE_TTL_MS, readConversationCache, writeConversationCache } from "../application/conversationCache";
-import { mergeConversationMessages } from "../domain/mergeMessages";
 import { describeProposal } from "../domain/proposal";
 import { hostOf } from "../domain/replyNotes";
 
@@ -179,20 +178,13 @@ export const ConversationSurface = React.memo(function ConversationSurface({
    *  at the wrong moment. The parent passes this only when this surface is the active tab. */
   onLogScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
 }) {
-  // The thread is this surface's own to load: from the session cache if it's warm, from
-  // /api/trips/[tripId]/conversation otherwise. It used to also arrive as a prop on every trip
-  // page's server render, which only ever duplicated the request made here a moment later.
-  const [messages, setMessages] = useState<Message[]>([]);
+  const { messages, setMessages, loaded, synced, seenMessageIdsRef } = useConversationThread(tripId);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   // The id of the message the server has not confirmed yet: "Sending…" belongs to it alone, and ends the moment the server has it, not when the whole reply is done.
   const [undelivered, setUndelivered] = useState<string | null>(null);
   // Set synchronously: two quick taps on a chip (or Enter twice) can both arrive before `sending` has re-rendered, and each used to send its own copy of the message.
   const sendingRef = useRef(false);
-  const [loaded, setLoaded] = useState(false);
-  // The thread's own load from the server has finished (or was not needed). The landing page's first message waits for it:
-  // sent earlier, the load's rows are merged in while Roam's reply is streaming.
-  const [synced, setSynced] = useState(false);
   // The sentence the landing page handed over, shown the moment the chat opens (before the thread has loaded and before
   // it is sent) so the visitor never sees an empty chat between the landing page and their own message.
   const [pendingFirst, setPendingFirst] = useState<{ text: string; key: string } | null>(null);
@@ -217,7 +209,6 @@ export const ConversationSurface = React.memo(function ConversationSurface({
   // during "retrieve" instead of Typing's generic label — undefined falls back to that generic
   // text (no tools planned, or none the label map recognizes).
   const [progressLabel, setProgressLabel] = useState<string | undefined>(undefined);
-  const [cacheReady, setCacheReady] = useState(false);
   // How many of the newest turns the log renders; "Show earlier messages" adds another page of them.
   const [windowSize, setWindowSize] = useState(VISIBLE_TURNS);
   // Where the reading position was when that button was pressed, so revealing earlier turns above
@@ -228,14 +219,10 @@ export const ConversationSurface = React.memo(function ConversationSurface({
   useKeepScrollGap(logRef);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const speechBaseRef = useRef("");
-  // When this state was last confirmed against the server — distinct from "now", so a local
-  // edit (optimistic send, settled stream) doesn't silently re-arm the cache's freshness TTL.
-  const verifiedAtRef = useRef(0);
   // Message ids treated as already-settled — restored history (the cache, a background merge)
   // must appear in place, not replay its whole entrance animation every time the log mounts.
   const [queued, setQueued] = useState<string | null>(null);
   const liveMessageIdsRef = useRef<Set<string>>(new Set());
-  const seenMessageIdsRef = useRef<Set<string>>(new Set());
 
   // Dictation: transcript is appended after whatever was already typed when the mic started.
   const speech = useSpeechInput({
@@ -265,53 +252,6 @@ export const ConversationSurface = React.memo(function ConversationSurface({
     window.history.replaceState({}, "", window.location.pathname);
     requestAnimationFrame(() => textareaRef.current?.focus());
   }, []);
-
-  // Restore the last visible conversation immediately, then reconcile with the server in the
-  // background. This keeps tab changes instant without turning the client cache into truth.
-  useEffect(() => {
-    const cached = readConversationCache(tripId);
-    if (cached) {
-      setMessages(cached.messages);
-      setLoaded(true);
-      // Preserve the cache's real verification time — restoring it must not look like a fresh check.
-      verifiedAtRef.current = cached.savedAt;
-      for (const m of cached.messages) seenMessageIdsRef.current.add(m.id);
-    }
-    setCacheReady(true);
-    // A quick tab round-trip should not hit the conversation API again. A new device has no
-    // session cache, so it still loads the durable server thread immediately.
-    if (cached && Date.now() - cached.savedAt < CONVERSATION_CACHE_TTL_MS) {
-      setSynced(true);
-      return;
-    }
-    const controller = new AbortController();
-    fetch(`/api/trips/${tripId}/conversation`, { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("load");
-        return response.json();
-      })
-      .then((body) => {
-        if (!controller.signal.aborted) {
-          verifiedAtRef.current = Date.now();
-          const fresh = (body.messages ?? []) as Message[];
-          for (const m of fresh) seenMessageIdsRef.current.add(m.id);
-          setMessages((current) => mergeConversationMessages(current, fresh));
-          setLoaded(true);
-          setSynced(true);
-        }
-      })
-      .catch((err) => {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        if (!cached) notifyToast("Couldn’t load the conversation — reload to try again.", "error");
-        setLoaded(true);
-        setSynced(true);
-      });
-    return () => controller.abort();
-  }, [tripId]);
-
-  useEffect(() => {
-    if (cacheReady) writeConversationCache(tripId, messages, verifiedAtRef.current);
-  }, [cacheReady, messages, tripId]);
 
   // Every message in THIS log is the direct result of the viewer's own action — typing and
   // pressing send, or tapping a follow-up/suggestion chip on an older message further up the
@@ -571,13 +511,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
     // Its bubble is already on screen, so the real one that replaces it does not rise in again.
     seenMessageIdsRef.current.add(`local-${key}`);
     setPendingFirst({ text: text.trim(), key });
-  }, [tripId]);
-
-  // A slow load must not hold the visitor's first message forever: after a few seconds it goes anyway (the merge keeps the order).
-  useEffect(() => {
-    const timer = setTimeout(() => setSynced(true), 4000);
-    return () => clearTimeout(timer);
-  }, []);
+  }, [tripId, seenMessageIdsRef]);
 
   // The landing page's prompt box creates the trip and drops its sentence here: it becomes the
   // first message, sent once the (empty) thread has loaded — the visitor lands mid-conversation.
