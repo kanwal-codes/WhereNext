@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { withinRateLimit } from "@/lib/server/rate-limit";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 
@@ -9,7 +9,7 @@ import { GooglePlacesProvider } from "@/packages/providers/google-places/client"
  * Google Maps) and whether Google lists it as taking reservations. A small answer on purpose; the full
  * place details route also runs a web search, which this never needs.
  */
-export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { user } = await requireTripMember(tripId);
@@ -32,4 +32,4 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "That restaurant's details are unavailable right now");
   }
-}
+});

@@ -1,6 +1,6 @@
 /** A day-by-day travel plan for an itinerary: how you actually get from each stop to the next. */
 
-export type LegMode = "walk" | "bus" | "subway" | "tram" | "train" | "ferry" | "transit" | "drive" | "flight" | "unknown";
+type LegMode = "walk" | "bus" | "subway" | "tram" | "train" | "ferry" | "transit" | "drive" | "flight" | "unknown";
 
 export type RouteLegStep = {
   mode: string;

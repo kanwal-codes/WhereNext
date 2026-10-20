@@ -16,10 +16,10 @@ type Leg = NonNullable<FlightOffer["legs"]>[number];
 export const offerKey = (o: FlightOffer) => o.id ?? `${o.airline}|${o.departAt}|${o.price}`;
 
 /** "7h 11m" from minutes. */
-export const hoursMinutes = (minutes: number) => (minutes < 60 ? `${Math.round(minutes)}m` : `${Math.floor(minutes / 60)}h ${String(Math.round(minutes % 60)).padStart(2, "0")}m`);
+const hoursMinutes = (minutes: number) => (minutes < 60 ? `${Math.round(minutes)}m` : `${Math.floor(minutes / 60)}h ${String(Math.round(minutes % 60)).padStart(2, "0")}m`);
 
 /** The clock time of an ISO moment ("6:20 PM"); a dash when it can't be read, never blank space. */
-export function clockOf(iso?: string | null): string {
+function clockOf(iso?: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" });

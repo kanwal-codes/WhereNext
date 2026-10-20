@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { LIMITS } from "@/lib/server/limits";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
 import { hotelDetails, liteApiConfigured, stayReviews, stayRooms } from "@/packages/providers/liteapi/client";
 import { googleHotelDetails, isGoogleStayId } from "@/packages/providers/serpapi/hotels";
@@ -47,7 +47,7 @@ async function guestSentiment(name: string, city: string | null, signal?: AbortS
 }
 
 /** Hotel content + dated room rates + guest reviews + a web sentiment read. Each part degrades to null. */
-export async function GET(request: Request, { params }: { params: Promise<{ tripId: string; hotelId: string }> }) {
+export const GET = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string; hotelId: string }> }) => {
   try {
     const { tripId, hotelId } = await params;
     const { supabase, user } = await requireTripMember(tripId, { limit: LIMITS.enrich });
@@ -140,4 +140,4 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Hotel details are unavailable right now");
   }
-}
+});

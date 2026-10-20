@@ -3,12 +3,12 @@ import { z } from "zod";
 import { placeSchema } from "@/packages/contracts/place";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createPlaceRepository } from "@/features/places/infrastructure/placeRepository";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
-export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId);
@@ -34,9 +34,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Place search unavailable");
   }
-}
+});
 
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
@@ -48,7 +48,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid place" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "Place could not be saved");
   }
-}
+});
 
 async function placeAction(request: Request, tripId: string, status: "rejected" | "removed") {
   const { supabase } = await requireTripMember(tripId, { role: "editor" });
@@ -67,20 +67,20 @@ async function placeAction(request: Request, tripId: string, status: "rejected" 
   return NextResponse.json({ [status]: true });
 }
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const PATCH = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     return await placeAction(request, (await params).tripId, "rejected");
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid place" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "Place could not be rejected");
   }
-}
+});
 
-export async function DELETE(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const DELETE = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     return await placeAction(request, (await params).tripId, "removed");
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid place" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "Place could not be removed");
   }
-}
+});

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyEventVibe, classifyPlaceVibe, lanesFor, type Vibe } from "@/packages/reco/vibes";
+import { classifyEventVibe, classifyPlaceVibe, type Vibe } from "@/packages/reco/vibes";
 
 // ── classifyPlaceVibe: every TYPE_MAP entry resolves to its vibe ───────────────
 const TYPE_EXPECT: Record<string, Vibe> = {

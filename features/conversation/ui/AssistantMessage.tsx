@@ -6,7 +6,7 @@ import remarkGfm from "remark-gfm";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 import { MessageBlocks, type BlockHandlers } from "./blocks/MessageBlocks";
 import { StreamedText } from "./StreamedText";
-import { isProxyPhotoUrl, portableProxyPhotoUrl } from "./portable-photo-url";
+import { portableProxyPhotoUrl } from "./portable-photo-url";
 
 export type { BlockHandlers };
 export { isProxyPhotoUrl, portableProxyPhotoUrl } from "./portable-photo-url";

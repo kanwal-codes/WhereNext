@@ -10,7 +10,7 @@ vi.mock("node:dns/promises", () => ({ lookup: async (host: string) => (host === 
 import { GET } from "@/app/api/hotel-photo/route";
 import { hotelPhotoSrc, googlePhotoSrc } from "@/lib/hotel-photo";
 
-const call = (u: string) => GET(new Request(`https://app.test/api/hotel-photo?u=${encodeURIComponent(u)}`));
+const call = (u: string) => GET(new Request(`https://app.test/api/hotel-photo?u=${encodeURIComponent(u)}`), { params: Promise.resolve({}) });
 const image = (bytes = 100) => new Response(new Uint8Array(bytes), { status: 200, headers: { "content-type": "image/jpeg" } });
 
 describe("hotel photo proxy", () => {

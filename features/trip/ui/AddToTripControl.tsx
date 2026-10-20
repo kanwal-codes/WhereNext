@@ -211,7 +211,6 @@ export function AddToTripControl({
   }
 
   const day = placementDay(placement);
-  const bookmarked = saved;
   const state: "none" | "day" = day ? "day" : "none";
   // On a card ("sm") the room is tight and a place card already says what it is: "Add". The full phrase on the detail view.
   const label = state === "day" ? `Day ${day}` : size === "sm" ? "Add" : "Add to trip";

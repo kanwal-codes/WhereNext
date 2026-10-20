@@ -17,7 +17,7 @@ export const FIELD_EMPTY = [
 ] as const;
 
 /** The big code. Each letter turns over in turn as the pass is printed. */
-export function Code({ value }: { value: string }) {
+function Code({ value }: { value: string }) {
   return (
     <div className="bp-code" role="img" aria-label={`From ${value}`}>
       {[...value].map((ch, i) => (

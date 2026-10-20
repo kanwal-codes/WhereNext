@@ -95,7 +95,7 @@ export type RouteResult = {
   fare?: { amount: number; currency: string };
 };
 
-export type RouteLegPart = { mode: string; minutes: number; from?: string; to?: string; line?: string; color?: string; traffic?: string; path: Array<[number, number]> };
+type RouteLegPart = { mode: string; minutes: number; from?: string; to?: string; line?: string; color?: string; traffic?: string; path: Array<[number, number]> };
 
 export type RetrievedEvidence = {
   places: Place[];

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { cached } from "@/lib/server/ttl-cache";
 import { tripMemberIdentities } from "@/lib/server/trip-member-identities";
 
@@ -11,7 +11,7 @@ type RoleRow = { user_id: string; role: string; created_at: string };
  * `isYou` depends on the caller, so it's computed after the cached lookup rather than
  * baked into the cached rows — otherwise the first caller's identity would leak into
  * every other member's view of "isYou" for the rest of the TTL. */
-export async function GET(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (_: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase, user } = await requireTripMember(tripId);
@@ -43,4 +43,4 @@ export async function GET(_: Request, { params }: { params: Promise<{ tripId: st
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Trip members are unavailable right now.");
   }
-}
+});

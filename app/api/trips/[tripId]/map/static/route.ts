@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { staticMapUrl } from "@/packages/providers/mapbox/client";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { LIMITS } from "@/lib/server/limits";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 
 /** Parse `?markers=lng,lat|lng,lat` into validated [lng,lat] pairs. */
 function parseMarkers(raw: string): Array<[number, number]> {
@@ -12,7 +12,7 @@ function parseMarkers(raw: string): Array<[number, number]> {
     .filter((p): p is [number, number] => p.length === 2 && Number.isFinite(p[0]) && Number.isFinite(p[1]) && Math.abs(p[0]) <= 180 && Math.abs(p[1]) <= 90);
 }
 
-export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     await requireTripMember((await params).tripId, { limit: LIMITS.provider });
     if (!process.env.MAPBOX_ACCESS_TOKEN) return NextResponse.json({ error: "Map imagery is not configured" }, { status: 503 });
@@ -29,4 +29,4 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Map image is unavailable");
   }
-}
+});

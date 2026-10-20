@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { placeSchema } from "@/packages/contracts/place";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createPlaceRepository } from "@/features/places/infrastructure/placeRepository";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
@@ -10,7 +10,7 @@ import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 const requestSchema = z.object({ place: placeSchema, saved: z.boolean() });
 
 /** Toggle the saved/bookmarked relationship without changing itinerary placement. */
-export async function PUT(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const PUT = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
@@ -38,4 +38,4 @@ export async function PUT(request: Request, { params }: { params: Promise<{ trip
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid bookmark request" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "Bookmark could not be updated");
   }
-}
+});

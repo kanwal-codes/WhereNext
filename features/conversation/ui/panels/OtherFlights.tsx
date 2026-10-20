@@ -8,14 +8,14 @@ import { arrivalDayOffset } from "@/features/conversation/ui/blocks/FlightFilter
 import { Badge, money, type } from "@/features/conversation/ui/blocks/ui";
 import { cn } from "@/lib/utils";
 
-export const clock = (iso: string) => {
+const clock = (iso: string) => {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" });
 };
-export const hm = (mins: number) => `${Math.floor(mins / 60)}h ${mins % 60}m`;
+const hm = (mins: number) => `${Math.floor(mins / 60)}h ${mins % 60}m`;
 /** "British Airways" → "BA", "Iberia" → "I": a monogram stands in when the airline's own logo is not there. */
 const monogram = (airline: string) => airline.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("");
-export const stopsText = (o: FlightOffer) => (o.stops === 0 ? "Nonstop" : `${o.stops} stop${o.stops > 1 ? "s" : ""}${o.layoverAirports?.length ? ` via ${o.layoverAirports.join(", ")}` : ""}`);
+const stopsText = (o: FlightOffer) => (o.stops === 0 ? "Nonstop" : `${o.stops} stop${o.stops > 1 ? "s" : ""}${o.layoverAirports?.length ? ` via ${o.layoverAirports.join(", ")}` : ""}`);
 
 /** One airline's mark: its logo when Google supplies one, else its initials, in the same round frame. */
 function Mark({ airline, logo, className, stacked }: { airline: string; logo?: string; className?: string; stacked?: boolean }) {

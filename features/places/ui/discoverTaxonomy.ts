@@ -1,7 +1,7 @@
 import { BedDouble, Landmark, ShoppingBag, Ticket, TreePine, Utensils, Waves, Wine, type LucideIcon } from "lucide-react";
 
-export type DiscoverKind = "place" | "event" | "stay";
-export type SubChip = { label: string; q: string };
+type DiscoverKind = "place" | "event" | "stay";
+type SubChip = { label: string; q: string };
 export type DiscoverCategory = {
   key: string;
   label: string;

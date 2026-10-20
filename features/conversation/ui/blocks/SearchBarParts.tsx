@@ -19,7 +19,7 @@ export const shiftIso = (iso: string, days: number) => {
   return isoOf(d);
 };
 export const daysBetween = (a: string, b: string) => Math.round((Date.parse(`${b}T12:00:00`) - Date.parse(`${a}T12:00:00`)) / 864e5);
-export const longDate = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("en", { weekday: "short", month: "short", day: "numeric" });
+const longDate = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("en", { weekday: "short", month: "short", day: "numeric" });
 
 
 /** One end of the flight: shows the place; a tap turns it into a search box for another. */
@@ -94,7 +94,7 @@ export function PlaceField({ caption, Icon, label, code, endpoint, busy, onPick,
 
 
 /** A pill that shows the day and opens the browser's own date picker: the real input sits invisibly over it, so a phone gets its native wheel. */
-export function DatePill({ date, min, onPick, busy, label }: { date: string | null; min: string; onPick: (iso: string) => void; busy: boolean; label: string }) {
+function DatePill({ date, min, onPick, busy, label }: { date: string | null; min: string; onPick: (iso: string) => void; busy: boolean; label: string }) {
   const reduce = useReducedMotion();
   const text = date ? longDate(date) : "Pick a date";
   return (
@@ -126,7 +126,7 @@ export function DatePill({ date, min, onPick, busy, label }: { date: string | nu
   );
 }
 
-export const stepper = "grid size-9 @max-[34rem]:hidden place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-35";
+const stepper = "grid size-9 @max-[34rem]:hidden place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-35";
 
 /** A day with a caption, a step either way, and the picker. */
 export function DayControl({ caption, date, min, busy, onPick, prevLabel, nextLabel, dateLabel }: { caption: string; date: string | null; min: string; busy: boolean; onPick: (iso: string) => void; prevLabel: string; nextLabel: string; dateLabel: string }) {

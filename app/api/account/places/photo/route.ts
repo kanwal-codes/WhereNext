@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { placePhotoResponse } from "@/lib/server/place-photo";
 import { withinRateLimit } from "@/lib/server/rate-limit";
 import { LIMITS } from "@/lib/server/limits";
 
 /** A Google place photo for the account page (no trip involved): any signed-in user. */
-export async function GET(request: Request) {
+export const GET = withRoute(async (request: Request) => {
   try {
     const supabase = await createSupabaseServerClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -19,4 +19,4 @@ export async function GET(request: Request) {
   } catch (error) {
     return fail(error, "Place photo is unavailable");
   }
-}
+});

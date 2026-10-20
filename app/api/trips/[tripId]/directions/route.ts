@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { LIMITS } from "@/lib/server/limits";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { route } from "@/packages/providers/mapbox/client";
 import { cached } from "@/lib/server/ttl-cache";
 import { fxRate } from "@/lib/server/fx";
@@ -10,7 +10,7 @@ import { fxRate } from "@/lib/server/fx";
 const coordinate = z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]);
 const inputSchema = z.object({ origin: coordinate, destination: coordinate, profile: z.enum(["driving", "walking", "cycling"]).default("walking"), traffic: z.boolean().optional(), /** Leave at this local time at the start, "2026-10-06T09:00" (driving with traffic). */ departAt: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/).optional(), /** The traveller's currency: the reply says what a US dollar is worth in it, so a rideshare estimate can be shown in it. */ currency: z.string().regex(/^[A-Za-z]{3}$/).optional() });
 
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     await requireTripMember((await params).tripId, { limit: LIMITS.provider });
     if (!process.env.MAPBOX_ACCESS_TOKEN) return NextResponse.json({ error: "Directions are not configured" }, { status: 503 });
@@ -35,4 +35,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid directions request" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "Directions are unavailable right now");
   }
-}
+});

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { googlePhotoSrc, hotelPhotoSrc, isGoogleImageUrl } from "@/lib/hotel-photo";
+import { googlePhotoSrc, isGoogleImageUrl } from "@/lib/hotel-photo";
 
 describe("googlePhotoSrc", () => {
   it("routes Google's image hosts through our own origin, and nothing else", () => {

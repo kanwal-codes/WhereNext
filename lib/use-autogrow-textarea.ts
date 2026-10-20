@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
  *  text-sm/leading-relaxed), then stays put — the textarea scrolls internally instead of
  *  pushing the rest of the page around for a long paste. Shared so every composer's cap
  *  (and the point where it switches to scrolling) stays the same. */
-export const COMPOSER_TEXTAREA_MAX_HEIGHT = 88;
+const COMPOSER_TEXTAREA_MAX_HEIGHT = 88;
 
 /** Auto-grows `ref`'s textarea to fit `value`, capped at `maxHeightPx`. Re-measures on every
  *  value change and whenever the textarea's own width changes (a side panel opening/closing,

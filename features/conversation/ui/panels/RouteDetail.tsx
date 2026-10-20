@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { useDistance } from "@/lib/use-distance";
+import { useDistance } from "@/components/use-distance";
 import { AnimatePresence, animate as animateValue, motion, useDragControls, useMotionValue, useReducedMotion } from "motion/react";
 import { ArrowRight, ArrowUpRight, Car, PersonStanding, TrainFront } from "lucide-react";
 import { useTripPanelMaybe, type RouteBlock } from "@/components/TripPanelProvider";
@@ -25,7 +25,6 @@ const MODE = {
   walking: { label: "Walk", icon: PersonStanding, travelmode: "walking" },
   transit: { label: "Transit", icon: TrainFront, travelmode: "transit" },
 } as const;
-const modeOf = (route: RouteBlock) => MODE[route.mode as keyof typeof MODE] ?? MODE.transit;
 
 const TAG_TEXT: Record<RouteTag, string> = { fastest: "Fastest", "fewer-changes": "Fewer changes", "least-walking": "Least walking" };
 const clock = (iso?: string) => (iso ? new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null);

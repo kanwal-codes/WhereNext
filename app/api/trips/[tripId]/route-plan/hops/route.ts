@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { LIMITS } from "@/lib/server/limits";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { planLeg } from "@/lib/server/plan-leg";
 import type { RouteLeg } from "@/packages/contracts/route-plan";
 
@@ -10,7 +10,7 @@ const stop = z.object({ id: z.string().max(80), name: z.string().max(160), lat: 
 const inputSchema = z.object({ stops: z.array(stop).min(2).max(10) });
 
 /** How to get from each place to the next, for a list of places that may not be saved to the itinerary (a day Roam is proposing in chat). Same planner as the saved-itinerary route plan, without any saved choices. */
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     await requireTripMember((await params).tripId, { limit: LIMITS.routes });
     const { stops } = inputSchema.parse(await request.json());
@@ -20,4 +20,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid stops" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "Routes between these places are unavailable right now");
   }
-}
+});

@@ -1,13 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, CalendarDays, Compass, MapPin, Users, Wallet } from "lucide-react";
+import { CalendarDays, MapPin, Users, Wallet } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { Reveal } from "@/components/motion-primitives";
-import { RoamMark } from "@/features/roam/ui/RoamMark";
 import { TripRouteWeather } from "@/components/TripWeather";
 import { BriefPanels } from "@/components/overview/BriefPanels";
 import { ActionBar } from "@/components/overview/ActionBar";
@@ -21,7 +19,7 @@ import { useHydrated, useMediaQuery } from "@/lib/use-media-query";
 import type { Reservation } from "@/packages/contracts/reservation";
 import { SectionHeading } from "@/components/overview/SectionHeading";
 import { StayFeature } from "@/components/overview/StayFeature";
-import type { TripSummary } from "@/components/trips/types";
+import type { TripSummary } from "@/packages/contracts/trip-summary";
 import { tripDurationDays } from "@/features/trip/domain/trip";
 import { ShareTrip } from "@/features/trip/ui/ShareTrip";
 import { TripReviewPanel } from "@/features/workspace/ui/TripReviewPanel";

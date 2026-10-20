@@ -18,7 +18,7 @@ export const GUEST_IP_START_LIMIT = ipLimit("GUEST_IP_START_LIMIT", 1);
 export const GUEST_TRIP_LIMIT = ipLimit("GUEST_TRIP_LIMIT", 1);
 /** Trip-API requests one guest can make per hour (opening a trip fans out to many routes). */
 export const GUEST_API_LIMIT = 600;
-export const DAY_MS = 24 * 60 * 60_000;
+const DAY_MS = 24 * 60 * 60_000;
 export const GUEST_WINDOW_MS = 30 * DAY_MS;
 
 /** The rate-limit keys that belong to ONE guest (as opposed to their IP, whose counters must
@@ -64,7 +64,7 @@ export function clientKey(request: Request) {
 
 /** A random id kept in a long-lived cookie, outside the Supabase session. Resetting a guest (a reload deletes the anonymous
  *  user) must not reset what that browser has already used; clearing cookies still does, which is what the per-IP ceilings are for. */
-export const GUEST_DEVICE_COOKIE = "wn_guest_device";
+const GUEST_DEVICE_COOKIE = "wn_guest_device";
 const DEVICE_ID = /^[A-Za-z0-9-]{16,64}$/;
 export function guestDeviceId(request: Request): string | null {
   const value = request.headers.get("cookie")?.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${GUEST_DEVICE_COOKIE}=`))?.slice(GUEST_DEVICE_COOKIE.length + 1);

@@ -7,12 +7,6 @@ test("preview trip renders the routed workspace shell and every surface route", 
   await page.goto("/trips/rebuild-preview");
   await expect(page.getByRole("heading", { name: "What we know", exact: true })).toBeVisible();
 
-  const snapshot = await page.evaluate(async () => {
-    const response = await fetch("/api/trips/rebuild-preview/workspace");
-    return response.status;
-  });
-  expect([401, 503]).toContain(snapshot);
-
   const sidebar = page.locator("aside");
   const routes: Array<[string, RegExp]> = [
     ["Roam", /\/trips\/rebuild-preview\/chat$/],

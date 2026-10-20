@@ -24,13 +24,12 @@ export const preferencesSchema = z.object({
    *  — a hard constraint for place/venue filtering, not just a preference to mention in prose. */
   accessibilityNeeds: z.union([z.array(z.string().trim().max(80)).max(20), z.string().trim().max(240)]).optional(),
 }).partial();
-export type Preferences = z.infer<typeof preferencesSchema>;
 
 const listPreferenceFieldSchema = z.enum(["interests", "likes", "dislikes", "dietaryNeeds", "accessibilityNeeds"]);
 // A plain z.union, not z.discriminatedUnion — see the same fix + comment in turn-resolver.ts's
 // toolCallSchema: a discriminated union compiles to JSON Schema's "oneOf", which model providers'
 // structured-output modes reject; a plain union compiles to "anyOf", which they accept.
-export const preferenceOperationSchema = z.union([
+const preferenceOperationSchema = z.union([
   z.object({ action: z.literal("add"), field: listPreferenceFieldSchema, values: z.array(z.string().trim().min(1).max(80)).min(1).max(30) }),
   z.object({ action: z.literal("remove"), field: listPreferenceFieldSchema, values: z.array(z.string().trim().min(1).max(80)).min(1).max(30) }),
   z.object({ action: z.literal("replace"), field: listPreferenceFieldSchema, values: z.array(z.string().trim().min(1).max(80)).max(30) }),
@@ -44,7 +43,7 @@ export const preferenceUpdateSchema = preferencesSchema.extend({
   // even gets past; truncating after the fact keeps the same cap without touching the schema.
   operations: z.array(preferenceOperationSchema).transform((list) => list.slice(0, 20)).optional(),
 });
-export type PreferenceUpdate = z.infer<typeof preferenceUpdateSchema>;
+type PreferenceUpdate = z.infer<typeof preferenceUpdateSchema>;
 
 const uniqueStrings = (...lists: unknown[]): string[] =>
   Array.from(new Set(lists.flatMap((list) => (Array.isArray(list) ? list : [])).filter((value): value is string => typeof value === "string" && value.trim().length > 0))).slice(0, 30);

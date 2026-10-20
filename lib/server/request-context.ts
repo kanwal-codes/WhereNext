@@ -22,9 +22,3 @@ export function runWithContext<T>(seed: RequestContext, fn: () => T): T {
 export function getContext(): RequestContext | undefined {
   return storage.getStore();
 }
-
-/** Mutate the live context object (e.g. attach `tripId`/`userId` once auth resolves). */
-export function setContext(partial: Partial<RequestContext>): void {
-  const current = storage.getStore();
-  if (current) Object.assign(current, partial);
-}

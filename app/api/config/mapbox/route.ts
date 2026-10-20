@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /** The public (`pk.`) Mapbox token for the in-browser map. Signed-in users only, kept out of the JS bundle. */
-export async function GET() {
+export const GET = withRoute(async () => {
   try {
     const { data: { user } } = await (await createSupabaseServerClient()).auth.getUser();
     if (!user) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
@@ -13,4 +13,4 @@ export async function GET() {
   } catch (error) {
     return fail(error, "The map isn’t available right now.");
   }
-}
+});

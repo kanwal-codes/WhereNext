@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 
 /** Revoke a not-yet-accepted invite link. Any member. */
-export async function DELETE(_: Request, { params }: { params: Promise<{ tripId: string; inviteId: string }> }) {
+export const DELETE = withRoute(async (_: Request, { params }: { params: Promise<{ tripId: string; inviteId: string }> }) => {
   try {
     const { tripId, inviteId } = await params;
     const { supabase } = await requireTripMember(tripId);
@@ -17,4 +17,4 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ tripId:
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "The invite couldn’t be revoked.");
   }
-}
+});

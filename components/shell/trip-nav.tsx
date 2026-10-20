@@ -1,5 +1,4 @@
 import { BedDouble, CalendarDays, Compass, LayoutGrid, Map, Notebook, Ticket, Users } from "lucide-react";
-import type { ComponentType } from "react";
 import { RoamIcon } from "@/components/shell/NavRow";
 
 export const NAV = [
@@ -14,8 +13,6 @@ export const NAV = [
   { seg: "bookings", label: "Bookings", icon: Ticket },
 ] as const;
 
-export type NavItem = (typeof NAV)[number];
-
 /** The phone drawer's grouping (docs/design/phone-redesign-plan.md, decision 10): the trip itself, then planning, then what to keep. */
 export const PHONE_NAV_GROUPS: Array<{ title: string; segs: string[] }> = [
   { title: "Trip", segs: ["", "chat", "group"] },
@@ -25,5 +22,3 @@ export const PHONE_NAV_GROUPS: Array<{ title: string; segs: string[] }> = [
 
 /** Kept for the drawer's call site: the phone and the desktop sidebar now share one set of names. */
 export const PHONE_LABEL: Record<string, string> = {};
-
-export type NavIcon = ComponentType<{ className?: string }>;

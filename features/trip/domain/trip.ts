@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { preferencesSchema } from "@/packages/contracts/preferences";
 
-export const tripPreferences = preferencesSchema.extend({ interests: z.array(z.string()).default([]) });
+const tripPreferences = preferencesSchema.extend({ interests: z.array(z.string()).default([]) });
 
 /** A calendar day, `YYYY-MM-DD`. */
 export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "expected YYYY-MM-DD");

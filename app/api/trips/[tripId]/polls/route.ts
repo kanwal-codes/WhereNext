@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { createPollInput } from "@/packages/contracts/poll";
 import { createGroupChatRepository } from "@/features/group-chat/infrastructure/groupChatRepository";
 import { resolvePolls } from "@/lib/server/poll";
@@ -10,7 +10,7 @@ import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 /** Starts a poll — any member, same as sending a group message (a poll IS a message, just a
  *  structured one). Announced as its own group_messages row (kind "poll", metadata: {pollId})
  *  so it appears inline where the group is actually deciding, not on a separate page. */
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase, user } = await requireTripMember(tripId);
@@ -39,4 +39,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid poll" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "The poll couldn’t be created.");
   }
-}
+});

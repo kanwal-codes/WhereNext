@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { purgeUserFiles } from "@/lib/server/storage-cleanup";
 
-export async function DELETE() {
+export const DELETE = withRoute(async () => {
   try {
     const supabase = await createSupabaseServerClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -23,4 +23,4 @@ export async function DELETE() {
   } catch (error) {
     return fail(error, "Your account couldn’t be deleted. Try again in a moment.");
   }
-}
+});

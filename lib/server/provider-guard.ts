@@ -88,10 +88,6 @@ export function guardedFetch(provider: string, input: Parameters<typeof fetch>[0
     return response;
   });
 }
-
-export function providerGuardStats() {
-  return Object.fromEntries([...states].map(([p, s]) => [p, { failures: s.failures, open: s.openUntil > Date.now() }]));
-}
 export function resetProviderGuards() {
   states.clear();
 }

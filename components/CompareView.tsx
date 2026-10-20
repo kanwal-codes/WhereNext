@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useDistance } from "@/lib/use-distance";
+import { useDistance } from "@/components/use-distance";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { Check, MapPin, Star, X } from "lucide-react";

@@ -4,7 +4,7 @@ import { proposedCommandSchema } from "@/packages/contracts/assistant";
 import { mergePreferences, preferenceUpdateSchema } from "@/packages/contracts/preferences";
 import { stayDecisionSchema } from "@/packages/contracts/stay";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createPlaceRepository } from "@/features/places/infrastructure/placeRepository";
 import { geocodeStop } from "@/lib/server/geocode-stop";
@@ -18,7 +18,7 @@ const DECISION_IMPACT: Record<string, string> = {
   transport: "This changes daily travel time and your transport budget.",
 };
 
-export async function POST(request: Request) {
+export const POST = withRoute(async (request: Request) => {
   try {
     const parsed = proposedCommandSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: "Invalid command" }, { status: 400 });
@@ -97,4 +97,4 @@ export async function POST(request: Request) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid command data" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "Command failed");
   }
-}
+});

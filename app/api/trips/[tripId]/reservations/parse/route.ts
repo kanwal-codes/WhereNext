@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { withinRateLimit } from "@/lib/server/rate-limit";
 import { generateStructured } from "@/packages/ai/model-policy";
 import { resolveCurrency } from "@/lib/currency";
@@ -11,7 +11,7 @@ import { MAX_CONFIRMATION_CHARS, extractedReservationSchema, extractionPrompt, t
  * Reads a pasted confirmation and returns a DRAFT reservation for the form. It saves nothing and
  * the traveller reviews every field before anything is stored.
  */
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase, user } = await requireTripMember(tripId, { role: "editor" });
@@ -39,4 +39,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Couldn't read that confirmation. You can still fill it in by hand.");
   }
-}
+});

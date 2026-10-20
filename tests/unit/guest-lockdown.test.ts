@@ -24,7 +24,6 @@ describe("guest policy: Roam only", () => {
     ["POST", "/api/ai"],
     ["GET", "/api/profile"],
     ["GET", `/api/trips/${TRIP}/conversation`],
-    ["GET", `/api/trips/${TRIP}/workspace`],
     ["GET", `/api/trips/${TRIP}/memory`],
     ["GET", `/api/trips/${TRIP}/places/google`],
     ["GET", `/api/trips/${TRIP}/places/google/photo`],
@@ -33,7 +32,6 @@ describe("guest policy: Roam only", () => {
     ["GET", `/api/trips/${TRIP}/events/detail`],
     ["GET", "/api/hotel-photo"],
     ["GET", "/api/config/mapbox"],
-    ["GET", "/api/brand-icon/ticketmaster"],
     ["GET", `/api/trips/${TRIP}/cover`],
     ["GET", `/api/trips/${TRIP}/places/google/about`],
     ["GET", `/api/trips/${TRIP}/places/google/autocomplete`],
@@ -65,8 +63,6 @@ describe("guest policy: Roam only", () => {
     ["POST", `/api/trips/${TRIP}/share`],
     ["POST", `/api/trips/${TRIP}/expenses`],
     ["POST", `/api/trips/${TRIP}/bookings`],
-    ["POST", `/api/trips/${TRIP}/flights/book`],
-    ["POST", `/api/trips/${TRIP}/stays/abc123/book`],
     ["POST", `/api/trips/${TRIP}/stays`],
     ["POST", "/api/hotel-photo"],
     ["POST", "/api/config/mapbox"],
@@ -85,7 +81,6 @@ describe("guest policy: Roam only", () => {
     ["POST", "/api/ai/other"],
     ["GET", "/api/anything-new-added-later"],
     // Reads that look allowed but use a write verb.
-    ["PUT", `/api/trips/${TRIP}/workspace`],
     ["DELETE", `/api/trips/${TRIP}/conversation`],
   ];
   it.each(closedApi)("refuses a guest %s %s", (method, path) => {
@@ -158,7 +153,7 @@ describe("GET /api/cron/guest-cleanup", () => {
     return Object.assign(deleteUser, { clearRateLimits });
   }
   const call = async (auth?: string) =>
-    (await import("@/app/api/cron/guest-cleanup/route")).GET(new Request("http://x/api/cron/guest-cleanup", { headers: auth ? { authorization: auth } : {} }));
+    (await import("@/app/api/cron/guest-cleanup/route")).GET(new Request("http://x/api/cron/guest-cleanup", { headers: auth ? { authorization: auth } : {} }), { params: Promise.resolve({}) });
 
   it("refuses without the cron secret", async () => {
     vi.stubEnv("CRON_SECRET", "s3cret");

@@ -7,13 +7,13 @@ import { MapPin, Users } from "lucide-react";
 import { Tactile } from "@/components/motion-primitives";
 import { TripCover } from "@/components/trips/TripCover";
 import { TripMenu } from "@/components/trips/TripMenu";
-import type { TripSummary } from "@/components/trips/types";
+import type { TripSummary } from "@/packages/contracts/trip-summary";
 import { tripWhen } from "@/lib/trip-dates";
 import type { TripStatus } from "@/lib/trip-status";
 import { cn } from "@/lib/utils";
 
 /** "In 12 days", "Underway", "Past", "Planning". The dot only appears for a trip that is happening now. */
-export function StatusBadge({ status, className }: { status: TripStatus; className?: string }) {
+function StatusBadge({ status, className }: { status: TripStatus; className?: string }) {
   return (
     // The wording depends on today's date in the viewer's timezone, so it can differ from the server render.
     <span suppressHydrationWarning className={cn("photo-chip", className)}>

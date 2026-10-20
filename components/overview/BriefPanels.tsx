@@ -19,7 +19,7 @@ function Chip({ children, tone }: { children: string; tone: "like" | "avoid" | "
 }
 
 /** What the trip knows about the group, as chips, and what is still undecided, with the next step. */
-export function TasteAndQuestions({ taste, questions }: { tripId?: string; taste: TastePicture; questions: string[] }) {
+function TasteAndQuestions({ taste, questions }: { tripId?: string; taste: TastePicture; questions: string[] }) {
   return (
     <section className={panel}>
       <h2 className="font-display text-2xl tracking-tight">What we know</h2>
@@ -74,7 +74,7 @@ export function TasteAndQuestions({ taste, questions }: { tripId?: string; taste
   );
 }
 
-export function DecisionsPanel({ decisions }: { decisions: Array<{ id: string; kind: string; value: Record<string, unknown>; source?: string }> }) {
+function DecisionsPanel({ decisions }: { decisions: Array<{ id: string; kind: string; value: Record<string, unknown>; source?: string }> }) {
   if (decisions.length === 0) return null;
   return (
     <section className={panel}>
@@ -94,7 +94,7 @@ export function DecisionsPanel({ decisions }: { decisions: Array<{ id: string; k
   );
 }
 
-export function RoamNotes({ notes }: { notes: string[] }) {
+function RoamNotes({ notes }: { notes: string[] }) {
   if (notes.length === 0) return null;
   return (
     <section className="rounded-3xl border border-dashed border-border p-6">

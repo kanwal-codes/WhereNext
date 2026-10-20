@@ -320,7 +320,7 @@ export const POST = withRoute(async function POST(request: Request) {
           }
 
           // --- COMPOSE (bounded tool-calling loop) -----------------------------
-          const { system, composeSkipLine, composeTools, allowedUrls, cardPlaceProviderIds, sideBuilders } = result;
+          const { system, composeSkipLine, composeTools } = result;
           safeEnqueue(progressFrame("compose"));
           if (composeSkipLine) {
             // Side-builders still ran (they start before COMPOSE regardless of composeSkipLine) —

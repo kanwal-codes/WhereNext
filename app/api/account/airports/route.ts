@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { cached } from "@/lib/server/ttl-cache";
 import { withinRateLimit } from "@/lib/server/rate-limit";
 import { flightPlaces } from "@/lib/server/flight-search";
@@ -10,7 +10,7 @@ import { GooglePlacesProvider } from "@/packages/providers/google-places/client"
 type Suggestion = { placeId: string; text: string; secondaryText: string | null; fullText: string; types: string[] };
 
 /** Airports to pick a home airport from, as `?query=pear`. `placeId` is the airport's three-letter code. */
-export async function GET(request: Request) {
+export const GET = withRoute(async (request: Request) => {
   try {
     const supabase = await createSupabaseServerClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -40,4 +40,4 @@ export async function GET(request: Request) {
   } catch (error) {
     return fail(error, "Airport search unavailable");
   }
-}
+});

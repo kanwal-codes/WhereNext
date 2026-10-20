@@ -9,7 +9,7 @@ import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
 import { cachedGet } from "@/lib/client/cached-get";
 import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache";
 import { ESSENTIALS_TOTAL, EssentialsSurface, essentialsDone } from "@/features/essentials/ui/EssentialsSurface";
-import { Reveal, Stagger, StaggerItem, Tactile } from "@/components/motion-primitives";
+import { Reveal, Tactile } from "@/components/motion-primitives";
 import { BookingDetailSheet } from "@/features/bookings/ui/BookingDetailSheet";
 import { GetYourGuideCard } from "@/components/GetYourGuideCard";
 import { ChapterHero } from "@/components/overview/ChapterHero";
@@ -77,7 +77,7 @@ export default function BookingsPage() {
         })
         .catch(() => setBookings((current) => current ?? []));
     void load();
-    // A booking announces "decision" once it settles (useBookingFlow) and a realtime write to
+    // A booking announces "decision" once it settles and a realtime write to
     // the bookings table maps to the same type (trip-realtime.ts) — without this, neither this
     // tab's own just-completed booking nor a collaborator's booked-on-another-device one ever
     // showed up here without a manual reload.

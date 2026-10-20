@@ -5,7 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Reveal } from "@/components/motion-primitives";
 import { ArrowUpRight, Armchair, Check, ChevronDown, Clock, Luggage, Plane, Plug, Ticket, Tv, Wifi, X, type LucideIcon } from "lucide-react";
 import { useTripPanelMaybe, type FlightOffer, type FlightRoute } from "@/components/TripPanelProvider";
-import { Badge, Notice, money, prettyDate, surface, type } from "@/features/conversation/ui/blocks/ui";
+import { Badge, Notice, money, prettyDate, type } from "@/features/conversation/ui/blocks/ui";
 import { arrivalDayOffset } from "@/features/conversation/ui/blocks/FlightFilters";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { AirlineMark, OtherFlights } from "./OtherFlights";

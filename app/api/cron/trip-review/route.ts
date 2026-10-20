@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { hasBearer } from "@/lib/server/bearer";
-import { fail } from "@/lib/server/with-route";
+import { fail, withRoute } from "@/lib/server/with-route";
 import { logger } from "@/lib/server/logger";
 import { escapeHtml, sendEmail } from "@/lib/server/email";
 import { emailShell } from "@/lib/server/email-template";
@@ -103,5 +103,5 @@ async function run(request: Request): Promise<Response> {
   }
 }
 
-export const GET = run;
-export const POST = run;
+export const GET = withRoute(run);
+export const POST = withRoute(run);

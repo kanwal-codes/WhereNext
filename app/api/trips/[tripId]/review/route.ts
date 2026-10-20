@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { cached } from "@/lib/server/ttl-cache";
 import { loadTripContext } from "@/lib/application/trip-context";
 import { reviewTrip } from "@/lib/application/trip-review";
 
-export async function GET(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (_: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId);
@@ -22,4 +22,4 @@ export async function GET(_: Request, { params }: { params: Promise<{ tripId: st
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "The trip review is unavailable right now.");
   }
-}
+});

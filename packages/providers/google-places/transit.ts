@@ -40,7 +40,7 @@ const responseSchema = z.object({
 const seconds = (value?: string) => (value ? Number.parseFloat(value.replace("s", "")) || 0 : 0);
 
 /** Decode a Google/OSRM encoded polyline to [lng, lat] pairs (precision 5). */
-export function decodePolyline(str: string): Array<[number, number]> {
+function decodePolyline(str: string): Array<[number, number]> {
   const out: Array<[number, number]> = [];
   let index = 0, lat = 0, lng = 0;
   while (index < str.length) {
@@ -56,7 +56,7 @@ export function decodePolyline(str: string): Array<[number, number]> {
 }
 
 /** Coarse vehicle bucket from Google's transit vehicle type. */
-export function transitMode(vehicleType?: string, travelMode?: string): "walk" | "bus" | "subway" | "tram" | "train" | "ferry" | "transit" {
+function transitMode(vehicleType?: string, travelMode?: string): "walk" | "bus" | "subway" | "tram" | "train" | "ferry" | "transit" {
   if (travelMode === "WALK") return "walk";
   const t = (vehicleType ?? "").toUpperCase();
   if (t.includes("SUBWAY") || t.includes("METRO_RAIL")) return "subway";
@@ -67,7 +67,7 @@ export function transitMode(vehicleType?: string, travelMode?: string): "walk" |
   return "transit";
 }
 
-export type TransitStep = {
+type TransitStep = {
   mode: ReturnType<typeof transitMode>;
   durationSeconds: number;
   line?: string;

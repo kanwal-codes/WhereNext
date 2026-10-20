@@ -49,7 +49,7 @@ const segmentKm = (a: LngLat, b: LngLat) => {
   return Math.hypot(dx, dy);
 };
 
-export type CongestionLevel = "low" | "moderate" | "heavy" | "severe" | "unknown";
+type CongestionLevel = "low" | "moderate" | "heavy" | "severe" | "unknown";
 export type TrafficRun = { level: CongestionLevel; polyline: LngLat[]; km: number };
 
 /** Mapbox gives one congestion level per segment between coordinates; this joins neighbours with the same level into runs. */

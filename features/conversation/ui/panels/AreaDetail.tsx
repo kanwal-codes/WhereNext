@@ -7,7 +7,7 @@ import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanelMaybe } from "@/components/TripPanelProvider";
 import type { PanelState } from "@/components/TripPanelProvider";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
-import { PlaceCardView } from "@/features/conversation/ui/blocks/MessageBlocks";
+import { PlaceCardView } from "@/features/conversation/ui/blocks/PlaceBlocks";
 import { RouteMap, type RouteMapRequest } from "@/features/conversation/ui/blocks/RouteMap";
 import { Badge, Meta, controlSecondary, type as typeScale } from "@/features/conversation/ui/blocks/ui";
 import { areaCentre, feelTags, nearOnly, placeTabs, ringPoints, searchName, withoutArea } from "@/features/conversation/domain/areaPlaces";

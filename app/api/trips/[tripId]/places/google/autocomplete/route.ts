@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { cached } from "@/lib/server/ttl-cache";
 import { withinRateLimit } from "@/lib/server/rate-limit";
 
 /** Typeahead for a place field, e.g. `?query=Lisb`. Cities and regions by default; `scope=areas` adds neighbourhoods; `scope=places` is any place (stations, airports, parks, addresses). Both rank toward `near=lat,lng`. */
-export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { user } = await requireTripMember(tripId);
@@ -32,4 +32,4 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Destination search unavailable");
   }
-}
+});

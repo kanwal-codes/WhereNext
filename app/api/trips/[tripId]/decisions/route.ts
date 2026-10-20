@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { decisionInput } from "@/features/trip/domain/decision";
 import { stayDecisionSchema } from "@/packages/contracts/stay";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 const SELECT = "id,kind,value,source,created_at";
 
-export async function GET(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (_: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId);
@@ -17,9 +17,9 @@ export async function GET(_: Request, { params }: { params: Promise<{ tripId: st
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Decisions unavailable");
   }
-}
+});
 
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
@@ -40,10 +40,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Decision could not be saved");
   }
-}
+});
 
 /** Take back a locked stay or flight. Decisions only ever append and the newest of a kind wins, so removing means clearing every row of that kind. */
-export async function DELETE(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const DELETE = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
@@ -58,4 +58,4 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ t
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Couldn’t remove that");
   }
-}
+});

@@ -10,7 +10,6 @@ export const createExpenseInput = z.object({
   /** Who shares it (equally); defaults to everyone on the trip. */
   splitAmong: z.array(z.string().uuid()).min(1).max(24).optional(),
 });
-export type CreateExpenseInput = z.infer<typeof createExpenseInput>;
 
 export type TripExpense = {
   id: string;

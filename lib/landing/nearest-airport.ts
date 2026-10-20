@@ -26,7 +26,7 @@ const AIRPORTS: ReadonlyArray<readonly [string, number, number]> = [
 ];
 
 /** Farther than this from every airport in the list and the guess is not worth showing. */
-export const MAX_AIRPORT_KM = 600;
+const MAX_AIRPORT_KM = 600;
 
 /** The nearest listed airport to a point, or null when none is within `MAX_AIRPORT_KM`. */
 export function nearestAirport(latitude: number, longitude: number): string | null {

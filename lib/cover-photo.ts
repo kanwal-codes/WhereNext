@@ -4,7 +4,7 @@
  * needs a view: so this ranks scenic spots, sights and parks by how many people rated them, and from the
  * winner takes the first photograph that is wide, landscape and large enough to fill a hero.
  */
-export type CoverPhoto = { name: string; widthPx?: number; heightPx?: number };
+type CoverPhoto = { name: string; widthPx?: number; heightPx?: number };
 export type CoverCandidate = { displayName?: { text?: string }; primaryType?: string; userRatingCount?: number; photos?: CoverPhoto[] };
 
 const WEIGHT: Record<string, number> = {

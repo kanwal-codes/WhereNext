@@ -3,7 +3,7 @@ import { z } from "zod";
 import { placementRequestSchema } from "@/packages/contracts/placement";
 import { canChangeLockedItem } from "@/features/itinerary/domain/item";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createPlaceRepository } from "@/features/places/infrastructure/placeRepository";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
@@ -13,7 +13,7 @@ import { invalidateWorkspace } from "@/lib/server/workspace-cache";
  * by the bookmark endpoint. The itinerary row is keyed by title (= place name),
  * like every other itinerary write in the app.
  */
-export async function PUT(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const PUT = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
@@ -54,4 +54,4 @@ export async function PUT(request: Request, { params }: { params: Promise<{ trip
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid placement" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "Placement could not be saved");
   }
-}
+});

@@ -816,7 +816,7 @@ export function DiscoverySurface({
 }
 
 /** A stay, as Discover shows it: the same `EntityCard` Roam uses (4-star, guest score, "£230 / night"). */
-export function StayMiniCard({ tripId, stay, phoneRow = false, phoneTile }: { tripId: string; stay: StayItem; phoneRow?: boolean; phoneTile?: "feature" | "grid" }) {
+function StayMiniCard({ tripId, stay, phoneRow = false, phoneTile }: { tripId: string; stay: StayItem; phoneRow?: boolean; phoneTile?: "feature" | "grid" }) {
   const router = useRouter();
   const panelCtx = useTripPanelMaybe();
   const href = `/trips/${tripId}/stay/${encodeURIComponent(stay.hotelId)}`;

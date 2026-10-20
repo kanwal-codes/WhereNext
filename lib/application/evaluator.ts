@@ -12,8 +12,7 @@ import { logger } from "@/lib/server/logger";
  * wrong claim of any kind (a wrong neighborhood, a wrong opening day) — not just an unverified
  * price, which is all `sanitizeAssistantContent`'s regex can catch.
  *
- * Proven in isolation first (`evaluateGrounding` against `scripts/smoke-test-evaluator.ts`'s
- * hand-built live test set, per the roadmap's Phase 3.1 gate) before `finalizeAssistantText`
+ * Proven in isolation first (`evaluateGrounding` against a hand-built live test set, per the roadmap's Phase 3.1 gate) before `finalizeAssistantText`
  * below wired it into both `app/api/ai/route.ts` and the group-chat @Roam route (Phase 3.2).
  */
 

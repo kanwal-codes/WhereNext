@@ -10,8 +10,7 @@
  * Status colour is `positive` / `caution` only where meaning matters; coral stays the one accent.
  */
 import React, { useState, type ReactNode } from "react";
-import { ArrowRight, ArrowUpRight, Check, Copy, Info, Map as MapIcon, Star, type LucideIcon } from "lucide-react";
-import { BlurImage } from "@/components/motion-primitives";
+import { ArrowRight, Check, Copy, Info, Map as MapIcon, Star, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PHONE_V2 } from "@/lib/phone-v2";
 
@@ -269,28 +268,6 @@ export const CompareMark = ({ selected }: { selected: boolean }) => (
   </span>
 );
 
-/** The "open this in the side panel" control every card kind uses. */
-export const DetailsButton = ({ onClick, children = "Details", label, className }: { onClick: () => void; children?: ReactNode; /** What the details are of, so ten "Details" buttons in a thread are told apart. */ label?: string; className?: string }) => (
-  <button type="button" data-details="" className={cn(controlSecondary, className)} onClick={onClick} aria-label={label}>
-    {children} <ArrowUpRight className="size-3.5" aria-hidden />
-  </button>
-);
-
-/** Card photo: 16:10, resolves out of a blur, and falls back to the kind's own stand-in if it is missing or fails to load. */
-/** `row`: on a phone the photo is the left block of a horizontal card (it fills the card's height) instead of a banner on top. */
-export const MEDIA_ROW = "max-sm:aspect-auto max-sm:h-full max-sm:min-h-[7.5rem] max-sm:rounded-l-2xl max-sm:rounded-tr-none";
-export function CardMedia({ src, alt, fallback, row = false }: { src?: string | null; alt: string; fallback: ReactNode; row?: boolean }) {
-  const [failed, setFailed] = useState(false);
-  if (!src || failed) return <>{fallback}</>;
-  // The tinted well shows while the photo is on its way (photos come through our proxy and can take a second);
-  // without it the top of every card was blank white until the picture faded in.
-  return (
-    <div className={cn("aspect-[16/10] w-full overflow-hidden rounded-t-2xl bg-muted", row && MEDIA_ROW)}>
-      <BlurImage src={src} alt={alt} width={416} height={260} onError={() => setFailed(true)} className="size-full object-cover" />
-    </div>
-  );
-}
-
 /**
  * The anatomy every entity card shares (place, stay, event, and whatever comes next):
  * photo · title · one meta line · optional key fact · badges · extra · actions pinned to the foot.
@@ -358,24 +335,3 @@ export function EntityCard({ label, onOpen, href, className, media, glyph: Glyph
     </article>
   );
 }
-
-/** The header of a list-like block (flights, budget, itinerary, comparison): icon · title · meta … actions. */
-export function BlockHeader({ icon: Icon, title, meta, actions }: { icon: LucideIcon; title: ReactNode; meta?: ReactNode; actions?: ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-3">
-      <div className="flex min-w-0 flex-1 basis-40 flex-wrap items-start gap-x-2 gap-y-0.5">
-        <Icon className="mt-[3px] size-4 shrink-0 text-coral" aria-hidden />
-        <h3 className={cn(type.title, "flex min-w-0 flex-wrap items-center gap-x-1.5")}>{title}</h3>
-        {/* On a phone the note goes under the title instead of squeezing it onto two lines. */}
-        {meta && <span className={cn(type.meta, "mt-[3px] max-sm:order-last max-sm:mt-0 max-sm:basis-full max-sm:pl-6")}>{meta}</span>}
-      </div>
-      {actions && <div className="ml-auto flex shrink-0 items-center gap-2">{actions}</div>}
-    </div>
-  );
-}
-
-/** A segmented-control tab: the selected one is the white pill (as on the trips home filter), the rest quiet text. Separate chips and cards use the ink fill instead. */
-export const segmentTab = (selected: boolean) =>
-  selected
-    ? "daisy-tab-active bg-card text-foreground shadow-soft"
-    : "text-muted-foreground hover:text-foreground";

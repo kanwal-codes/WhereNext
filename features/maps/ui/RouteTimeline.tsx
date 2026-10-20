@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "motion/react";
-import { useDistance } from "@/lib/use-distance";
+import { useDistance } from "@/components/use-distance";
 import { ChevronDown, TriangleAlert } from "lucide-react";
 import type { RouteDay, RouteLegStep } from "@/packages/contracts/route-plan";
 import { MODE_ICON, MODE_LABEL } from "@/lib/application/mode-visuals";

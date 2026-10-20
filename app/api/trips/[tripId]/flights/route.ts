@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { LIMITS } from "@/lib/server/limits";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
 import { serpConfigured } from "@/packages/providers/serpapi/client";
 import { searchFlightOffers } from "@/lib/server/flight-search";
@@ -23,7 +23,7 @@ const bodySchema = z.object({
   provider: z.enum(["serpapi", "duffel"]).optional(),
 });
 
-export async function POST(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase, user } = await requireTripMember(tripId, { limit: LIMITS.provider });
@@ -70,4 +70,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid flight request" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "Flight search is unavailable right now");
   }
-}
+});

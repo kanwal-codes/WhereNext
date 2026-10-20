@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { MAX_FILES_PER_RESERVATION, RESERVATION_FILES_BUCKET, fileProblem, isOwnFile, reservationFolder, safeFileName } from "@/lib/reservation-files";
 import { RESERVATION_COLUMNS, readAttachments, toReservation } from "@/packages/contracts/reservation";
 
@@ -18,7 +18,7 @@ async function load(supabase: Awaited<ReturnType<typeof requireTripMember>>["sup
 }
 
 /** A short-lived link to open one attached file (the bucket is private). */
-export async function GET(request: Request, { params }: Ctx) {
+export const GET = withRoute(async (request: Request, { params }: Ctx) => {
   try {
     const { tripId, reservationId } = await params;
     const { supabase } = await requireTripMember(tripId);
@@ -30,10 +30,10 @@ export async function GET(request: Request, { params }: Ctx) {
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "That file is unavailable right now");
   }
-}
+});
 
 /** Step 1 of an upload: check the file, then hand back a one-time upload link so the browser sends the bytes straight to storage. */
-export async function POST(request: Request, { params }: Ctx) {
+export const POST = withRoute(async (request: Request, { params }: Ctx) => {
   try {
     const { tripId, reservationId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
@@ -50,10 +50,10 @@ export async function POST(request: Request, { params }: Ctx) {
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "That file couldn't be uploaded");
   }
-}
+});
 
 /** Step 2: the browser finished uploading; confirm the object is really there, then record it on the reservation. */
-export async function PUT(request: Request, { params }: Ctx) {
+export const PUT = withRoute(async (request: Request, { params }: Ctx) => {
   try {
     const { tripId, reservationId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
@@ -83,9 +83,9 @@ export async function PUT(request: Request, { params }: Ctx) {
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "That file couldn't be saved");
   }
-}
+});
 
-export async function DELETE(request: Request, { params }: Ctx) {
+export const DELETE = withRoute(async (request: Request, { params }: Ctx) => {
   try {
     const { tripId, reservationId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
@@ -102,4 +102,4 @@ export async function DELETE(request: Request, { params }: Ctx) {
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "That file couldn't be removed");
   }
-}
+});

@@ -2,7 +2,7 @@
 
 import React, { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowDown, ChevronRight, Copy, Info } from "lucide-react";
+import { ArrowDown, ChevronRight, Info } from "lucide-react";
 import { MicButton, SendButton } from "@/components/ComposerButtons";
 import { PHONE_V2 } from "@/lib/phone-v2";
 import { Reveal, Stagger, StaggerItem, ease, motionTokens } from "@/components/motion-primitives";

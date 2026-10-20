@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { cached } from "@/lib/server/ttl-cache";
 import { withinRateLimit } from "@/lib/server/rate-limit";
 
 /** Rental car locations near a point — name, address, phone, website. Directory only, no pricing/booking. */
-export async function GET(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { user } = await requireTripMember((await params).tripId, { registered: true });
     if (!process.env.GOOGLE_MAPS_API_KEY) return NextResponse.json({ error: "Car rental search is not configured" }, { status: 503 });
@@ -38,4 +38,4 @@ export async function GET(request: Request, { params }: { params: Promise<{ trip
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     return tripAuthResponse(error) ?? fail(error, "Car rental search is unavailable right now");
   }
-}
+});

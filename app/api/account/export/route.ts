@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /** Every trip you own, plus its itinerary and locked-in decisions, as one JSON file. */
-export async function GET() {
+export const GET = withRoute(async () => {
   try {
     const supabase = await createSupabaseServerClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -33,4 +33,4 @@ export async function GET() {
   } catch (error) {
     return fail(error, "Your data couldn’t be exported right now.");
   }
-}
+});

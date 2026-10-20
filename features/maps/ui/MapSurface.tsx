@@ -1,7 +1,6 @@
 "use client";
 
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
-import { CATEGORY_HEX } from "@/lib/map-colors";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { animate as animateValue, motion, useDragControls, useMotionValue, useReducedMotion } from "motion/react";
@@ -249,7 +248,7 @@ function MapLegend({ modes, panelOpen }: { modes: string[]; panelOpen: boolean }
   );
 }
 
-export function GettingAroundTabs({ tab, onChange, floating = false }: { tab: "trip" | "browse"; onChange: (t: "trip" | "browse") => void; floating?: boolean }) {
+function GettingAroundTabs({ tab, onChange, floating = false }: { tab: "trip" | "browse"; onChange: (t: "trip" | "browse") => void; floating?: boolean }) {
   return (
     <SegmentedSwitch
       label="Map view"

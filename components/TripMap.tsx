@@ -157,7 +157,6 @@ export function TripMap({
   const scaleRef = useRef(scaleBar);
   scaleRef.current = scaleBar;
   const cinematicRef = useRef(cinematic);
-  const [hasRoute, setHasRoute] = useState(false);
   cinematicRef.current = cinematic;
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -373,7 +372,6 @@ export function TripMap({
       pulseMarker.current = null;
       cancelAnimationFrame(raf.current);
       const { legs: pieces, totalKm } = legLines(legList);
-      setHasRoute(pieces.length > 0);
       if (pieces.length === 0) {
         (m.getSource("legs") as mapboxgl.GeoJSONSource | undefined)?.setData({ type: "FeatureCollection", features: [] });
         return;

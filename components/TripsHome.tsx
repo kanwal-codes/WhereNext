@@ -10,7 +10,7 @@ import { FeaturedTrip } from "@/components/trips/FeaturedTrip";
 import { TripCard } from "@/components/trips/TripCard";
 import { PhoneTripRow } from "@/components/trips/PhoneTripRow";
 import { PHONE_V2 } from "@/lib/phone-v2";
-import type { TripSummary } from "@/components/trips/types";
+import type { TripSummary } from "@/packages/contracts/trip-summary";
 import { RoamMark } from "@/features/roam/ui/RoamMark";
 import { notifyToast } from "@/lib/application/toast";
 import { matchesFilter, pickFeatured, sortForHome, tripCounts, tripStatus, type TripFilter } from "@/lib/trip-status";

@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { cached } from "@/lib/server/ttl-cache";
 import { withinRateLimit } from "@/lib/server/rate-limit";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 
 /** City/region typeahead for the profile's dream destination, e.g. `?query=Kyo`. */
-export async function GET(request: Request) {
+export const GET = withRoute(async (request: Request) => {
   try {
     const supabase = await createSupabaseServerClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -21,4 +21,4 @@ export async function GET(request: Request) {
   } catch (error) {
     return fail(error, "Destination search unavailable");
   }
-}
+});

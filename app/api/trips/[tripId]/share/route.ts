@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 import { invalidate } from "@/lib/server/ttl-cache";
 
 /** Current share state — lets the UI show an existing link instead of defaulting to "off". */
-export async function GET(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const GET = withRoute(async (_: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId);
@@ -16,10 +16,10 @@ export async function GET(_: Request, { params }: { params: Promise<{ tripId: st
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Share status unavailable");
   }
-}
+});
 
 /** Enable a public link for the trip. Owner only. Idempotent — keeps an existing slug. */
-export async function POST(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const POST = withRoute(async (_: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "owner", registered: true });
@@ -44,10 +44,10 @@ export async function POST(_: Request, { params }: { params: Promise<{ tripId: s
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "The share link couldn’t be updated.");
   }
-}
+});
 
 /** Turn the public link off. Owner only. The slug is cleared so a new one is minted next time. */
-export async function DELETE(_: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const DELETE = withRoute(async (_: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "owner", registered: true });
@@ -63,4 +63,4 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ tripId:
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "The share link couldn’t be updated.");
   }
-}
+});

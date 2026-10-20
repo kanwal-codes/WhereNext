@@ -41,9 +41,6 @@ export const motionTokens = {
   lift: { type: "spring" as const, stiffness: 420, damping: 34 },
 };
 
-/** @deprecated prefer `motionTokens.standard` — kept so existing imports keep working. */
-export const spring = motionTokens.standard;
-
 const subscribeVisibility = (onChange: () => void) => {
   document.addEventListener("visibilitychange", onChange);
   return () => document.removeEventListener("visibilitychange", onChange);
@@ -120,9 +117,6 @@ export function Stagger({
     </motion.div>
   );
 }
-
-/** Alias — the semantic name for `Stagger` when it wraps a group of `StaggerItem`s. */
-export const StaggerGroup = Stagger;
 
 export function StaggerItem({
   children,
@@ -301,7 +295,7 @@ export function ContentSwap({
  * dialog on open, `Escape` closes it, the page scroll locks, focus returns to whatever
  * opened it on close, and Tab is kept inside the container.
  */
-export function useFocusReturn(
+function useFocusReturn(
   active: boolean,
   onEscape?: () => void,
   container?: RefObject<HTMLElement | null>,
@@ -504,15 +498,6 @@ export function Sheet({
       )}
     </AnimatePresence>
   );
-}
-
-/**
- * Consistent page-entry wrapper — a thin component over the `route-enter` CSS utility
- * (opacity + de-blur, ~0.34s) so pages don't hand-apply the class. CSS-only, so it
- * respects `prefers-reduced-motion` via the global clamp.
- */
-export function RouteTransition({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cn("route-enter", className)}>{children}</div>;
 }
 
 /** Image that resolves out of a soft blur instead of popping in. */

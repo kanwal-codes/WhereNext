@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
-import { runWithContext, setContext } from "@/lib/server/request-context";
+import { runWithContext } from "@/lib/server/request-context";
 import { logger } from "@/lib/server/logger";
 
 type RouteParams = Record<string, string | string[] | undefined>;
@@ -50,7 +50,7 @@ export function withRoute<P extends RouteParams = RouteParams>(handler: RouteHan
     return runWithContext({ requestId, route: pathname, method: request.method, tripId }, async () => {
       const started = performance.now();
       try {
-        const response = await polishError(await handler(request, forwardedCtx));
+        let response = await polishError(await handler(request, forwardedCtx));
         const durationMs = Math.round(performance.now() - started);
         if (!QUIET_ROUTES.has(pathname)) {
           const line = { status: response.status, durationMs };
@@ -58,7 +58,14 @@ export function withRoute<P extends RouteParams = RouteParams>(handler: RouteHan
           else if (response.status >= 400) logger.warn(line, "route 4xx");
           else logger.info(line, "route ok");
         }
-        response.headers.set("x-request-id", requestId);
+        try {
+          response.headers.set("x-request-id", requestId);
+        } catch {
+          // A response relayed from `fetch()` (a photo proxy) or `Response.redirect()` has immutable headers: copy it.
+          const headers = new Headers(response.headers);
+          headers.set("x-request-id", requestId);
+          response = new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+        }
         return response;
       } catch (err) {
         const durationMs = Math.round(performance.now() - started);
@@ -93,9 +100,4 @@ export function jsonRevalidated(request: Request, data: unknown): Response {
   const headers = { etag, "cache-control": "private, no-cache" };
   if (request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers });
   return new Response(body, { headers: { ...headers, "content-type": "application/json" } });
-}
-
-/** Attach identity to the live request context once auth resolves (called from requireTripMember paths as needed). */
-export function tagContext(partial: { tripId?: string; userId?: string }): void {
-  setContext(partial);
 }

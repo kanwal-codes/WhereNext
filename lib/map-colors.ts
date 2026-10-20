@@ -11,8 +11,3 @@ export const CATEGORY_HEX = {
   event: "#8656b7",
   saved: "#847f78",
 } as const;
-
-export type CategoryKind = keyof typeof CATEGORY_HEX;
-
-/** Default route line when a provider gives none: a deep lagoon blue, readable on any basemap. */
-export const ROUTE_LINE_HEX = "#1666aa";

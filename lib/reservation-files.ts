@@ -1,9 +1,9 @@
 /** Rules for files attached to a reservation. Shared by the API (which enforces them) and the sheet (which checks first). */
 
 export const RESERVATION_FILES_BUCKET = "reservation-files";
-export const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
 export const MAX_FILES_PER_RESERVATION = 10;
-export const ALLOWED_FILE_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"] as const;
+const ALLOWED_FILE_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"] as const;
 
 export type ReservationFile = { path: string; name: string; size: number; type: string };
 

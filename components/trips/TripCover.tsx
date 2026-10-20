@@ -3,7 +3,7 @@
 import { useLayoutEffect, useState, type ReactNode } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { TripArt, hashString } from "@/components/trips/TripArt";
-import type { TripSummary } from "@/components/trips/types";
+import type { TripSummary } from "@/packages/contracts/trip-summary";
 import { useDestinationPhoto } from "@/features/places/application/useDestinationPhoto";
 import { cityScale, coverText, stampParts } from "@/lib/trip-cover";
 import { photoProxyUrl } from "@/lib/places-ui";
@@ -39,7 +39,7 @@ function BoardingPass({ trip, size }: { trip: TripSummary; size: "card" | "featu
  * Empty while the destination lookup is still running (so a saved-place photo is never shown and
  * then swapped for the destination one a moment later) and for a null trip.
  */
-export function useTripPhotoCandidates(trip: TripSummary | null, width?: number): string[] {
+function useTripPhotoCandidates(trip: TripSummary | null, width?: number): string[] {
   const destination = useDestinationPhoto(trip?.id ?? "", trip?.destination ?? undefined, trip?.hero_photo_name);
   const saved = trip?.saved_photo_name ? (photoProxyUrl(trip.id, trip.saved_photo_name, width) ?? null) : null;
   if (!trip || destination === undefined) return [];

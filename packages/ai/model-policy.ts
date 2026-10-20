@@ -99,7 +99,7 @@ export const AI_DEADLINE_MS = {
    *  COMPOSE's own text has already finished (and, on the streaming path, already been shown to
    *  the user live) but BEFORE the meta frame carrying the structured blocks/cards is sent — so a
    *  slow evaluator call directly delays the cards, not just internal bookkeeping. Isolated live
-   *  testing (`scripts/smoke-test-evaluator.ts`, `smoke-test-evaluator-e2e.ts`) showed 230-950ms on
+   *  testing (one-off scripts, since removed) showed 230-950ms on
    *  the bulk chain's Cerebras-pinned lead, but repeatedly 2.5-10s on the (real, not rare) case it
    *  falls back past Cerebras — a first attempt at bounding this with only `AbortSignal.timeout`
    *  still measured 8-10s wall-clock in practice (the AI SDK's own internal retry/backoff on a
@@ -151,7 +151,7 @@ export function withDeadline(signal: AbortSignal | undefined, ms: number): Abort
  * hangs forever specifically when `streamObject` is invoked from inside this app's actual
  * Next.js dev-server route context, deterministically reproduced with a fresh server and a
  * single isolated request — while the exact same call succeeds in ~1-2s as a standalone script
- * (`scripts/smoke-test-resolve.ts`) and while `generateObject` (below) succeeds fine from
+ * and while `generateObject` (below) succeeds fine from
  * within the very same route. Not a caching or provider-pinning interaction — reproduced
  * identically with both stripped out. Root cause not chased further (likely a Next.js dev-mode
  * fetch-patching / streaming-body interaction, not this app's own logic) — reverted to
@@ -168,8 +168,7 @@ export async function generateStructured<T>(
   onUsage?: (entry: UsageEntry) => void,
 ): Promise<T> {
   // RESOLVE's system prompt (~16KB) is identical on every turn — ask the Gateway to cache it
-  // (Phase 2.4, docs/overhaul/roadmap/phase-2-speed.md). Measured (scripts/measure-resolve-
-  // caching.ts) to be a no-op today: every provider actually in RESOLVE's chain (Cerebras-hosted
+  // (Phase 2.4, docs/overhaul/roadmap/phase-2-speed.md). Measured (one-off script, since removed) to be a no-op today: every provider actually in RESOLVE's chain (Cerebras-hosted
   // OpenAI model, Gemini, OpenAI-mini fallbacks) already caches implicitly with zero code change
   // — `cacheReadTokens` showed up on a repeat call with no flag set at all. Set anyway, harmlessly,
   // so this keeps working the day an explicit-caching provider (Anthropic/MiniMax/Alibaba) joins

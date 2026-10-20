@@ -19,7 +19,7 @@ import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import { photoProxyUrl } from "@/lib/places-ui";
 import { readStayDecision } from "@/packages/contracts/stay";
-import { type RankContext, type RankedPlace } from "@/lib/application/rank-places";
+import { type RankContext } from "@/lib/application/rank-places";
 import { classifyEventVibe, classifyPlaceVibe, lanesFor, type Lane, type LaneAnchor, type Vibe } from "@/packages/reco/vibes";
 import { shapeLanes, type LaneInput, type LaneOutput } from "@/packages/reco/shape-lanes";
 

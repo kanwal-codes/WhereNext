@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { lockDatesInput } from "@/features/availability/domain/availability";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
-import { fail } from "@/lib/server/with-route";
+import { withRoute, fail } from "@/lib/server/with-route";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 import { countBookingsOutside } from "@/lib/server/bookings-outside-dates";
 import { parseStops, shiftStops } from "@/lib/trip-stops";
@@ -11,7 +11,7 @@ import { parseStops, shiftStops } from "@/lib/trip-stops";
 // nullable columns) — locking dates here is just a direct, deliberate version of that same
 // write, not a new concept. No trip_decisions row: unlike the stay-lock precedent, dates
 // already have first-class columns on trips.
-export async function PATCH(request: Request, { params }: { params: Promise<{ tripId: string }> }) {
+export const PATCH = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
@@ -34,4 +34,4 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ tr
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Couldn’t lock these dates");
   }
-}
+});
