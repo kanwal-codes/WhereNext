@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeProposal } from "@/features/conversation/ui/ConversationSurface";
+import { describeProposal } from "@/features/conversation/domain/proposal";
 import type { ProposedCommand } from "@/packages/contracts/assistant";
 
 const TRIP_ID = "11111111-1111-1111-1111-111111111111";

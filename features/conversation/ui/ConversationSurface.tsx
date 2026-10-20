@@ -1,167 +1,36 @@
 "use client";
 
-import React, { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowDown, ChevronRight, Info } from "lucide-react";
 import { MicButton, SendButton } from "@/components/ComposerButtons";
 import { PHONE_V2 } from "@/lib/phone-v2";
 import { Reveal, Stagger, StaggerItem, ease, motionTokens } from "@/components/motion-primitives";
-import type { AssistantBlock, AssistantTurnMeta, PlaceCard, ProposedCommand, StayCardItem } from "@/packages/contracts/assistant";
+import type { AssistantBlock, AssistantTurnMeta, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { EventSeed } from "@/components/TripPanelProvider";
-import type { Message } from "../domain/message";
-import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
 import { useSpeechInput } from "@/lib/use-speech-input";
-import { haptic } from "@/lib/haptics";
 import { useAutoGrowTextarea } from "@/lib/use-autogrow-textarea";
 import { useKeepScrollGap } from "@/lib/use-keep-scroll-gap";
 import { AssistantMessage, type BlockHandlers } from "./AssistantMessage";
+import { proposalQuestion } from "../domain/proposal";
+import { replyNotes } from "../domain/replyNotes";
+import { unansweredMessage } from "../domain/sendOutcome";
 import type { CardPanel } from "@/components/TripPanelProvider";
 import { CopyButton, controlSecondary, textAction } from "./blocks/ui";
-import { AssistantRequestError } from "../application/streamAssistantResponse";
-import { sendConversationMessage } from "../application/sendConversationMessage";
+import { useSendMessage } from "../application/useSendMessage";
+import { useLogScroll } from "../application/useLogScroll";
+import { useProposal } from "../application/useProposal";
+import { useConversationThread } from "../application/useConversationThread";
 import { GuestSavePrompt } from "@/features/identity/ui/GuestSavePrompt";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { GUEST_TURN_LIMIT } from "@/lib/guest-limits";
 import { cn } from "@/lib/utils";
 import { RoamMark } from "@/features/roam/ui/RoamMark";
+import { describeProposal } from "../domain/proposal";
+import { hostOf } from "../domain/replyNotes";
 
 const RTL = new Set(["ar", "he", "fa", "ur", "ps", "sd"]);
-
-/** Human names for the providers RETRIEVE may report as unavailable. */
-const PROVIDER_LABEL: Record<string, string> = {
-  liteapi: "hotel rates",
-  duffel: "flight fares",
-  ticketmaster: "events",
-  eventbrite: "events",
-  "google-routes": "transit",
-  "transit-app": "transit",
-  mapbox: "directions",
-  openweather: "the weather",
-  tavily: "the web",
-  "google-places": "places",
-};
-const unavailableLabels = (names?: string[]) => Array.from(new Set((names ?? []).map((name) => PROVIDER_LABEL[name] ?? name)));
-
-const conversationCacheKey = (tripId: string) => `where-next:conversation:${tripId}`;
-type ConversationCache = { savedAt: number; messages: Message[] };
-const CONVERSATION_CACHE_TTL_MS = 60_000;
-
-function readConversationCache(tripId: string): ConversationCache | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const parsed = JSON.parse(window.sessionStorage.getItem(conversationCacheKey(tripId)) ?? "null") as Partial<ConversationCache> | null;
-    if (!parsed || !Array.isArray(parsed.messages)) return null;
-    const messages = parsed.messages.filter((message): message is Message => Boolean(message && typeof message === "object" && (message as Message).role && typeof (message as Message).content === "string"));
-    return messages.length > 0 ? { savedAt: typeof parsed.savedAt === "number" ? parsed.savedAt : 0, messages } : null;
-  } catch {
-    return null;
-  }
-}
-
-/** `verifiedAt` is when this content was last confirmed against the server — NOT "now". Passing
- *  the real verification time (rather than always stamping the write) is what makes the 60s TTL
- *  below mean anything: otherwise every local edit (an optimistic send, a settled stream) would
- *  re-arm the freshness window and a revisit could skip server reconciliation indefinitely. */
-function writeConversationCache(tripId: string, messages: Message[], verifiedAt: number) {
-  if (typeof window === "undefined" || messages.length === 0) return;
-  try {
-    window.sessionStorage.setItem(conversationCacheKey(tripId), JSON.stringify({ savedAt: verifiedAt, messages } satisfies ConversationCache));
-  } catch {
-    // Session storage can be unavailable or full; the server remains the source of truth.
-  }
-}
-
-export function mergeConversationMessages(current: Message[], fresh: Message[]): Message[] {
-  const byId = new Map(fresh.map((message) => [message.id, message]));
-  // `current` is in the order the messages were sent. A local message carries the BROWSER's clock and a server row the
-  // SERVER's, so sorting them together by time can put Roam's streaming reply above the question that caused it
-  // whenever the two clocks differ by a second or two (a first message sent while the thread's load is still finishing
-  // merges in exactly that state). So a message with no server row keeps its place after the one before it.
-  let previous = -Infinity;
-  for (let message of current) {
-    const served = byId.get(message.id);
-    if (served) {
-      previous = Date.parse(served.created_at);
-      continue;
-    }
-    // A locally-streamed message keeps its client-generated id, so it never matches the server
-    // row by id. Both roles' local ids are deterministic from the turn's own send idempotency
-    // key (`local-${key}` for the user's own echo, `local-assistant-${key}` for the reply
-    // placeholder — see sendConversationMessage.ts), and the server row carries that same key
-    // back (`user:${key}` / `assistant:${key}`, see scopedMessageIdempotencyKey) — matching on
-    // that instead of content+timing means two genuinely identical messages/replies sent
-    // moments apart each match their own row, rather than the second one matching the first's
-    // already-confirmed twin and vanishing (or, under a slow/backed-up queue, surviving past
-    // the old fixed 5-minute window as a visible duplicate).
-    const userLocalKey = message.role === "user" && message.id.startsWith("local-") ? message.id.slice("local-".length) : null;
-    const assistantLocalKey = message.role === "assistant" && message.id.startsWith("local-assistant-") ? message.id.slice("local-assistant-".length) : null;
-    const twin = userLocalKey
-      ? fresh.find((c) => c.role === "user" && c.idempotency_key === `user:${userLocalKey}`)
-      : assistantLocalKey
-        ? fresh.find((c) => c.role === "assistant" && c.idempotency_key === `assistant:${assistantLocalKey}`)
-        : message.role === "user"
-          ? fresh.find((c) => c.role === "user" && c.content === message.content && Math.abs(Date.parse(c.created_at) - Date.parse(message.created_at)) < 60_000)
-          : message.content.trim().length > 0
-            ? fresh.find((c) => c.role === "assistant" && c.content.trim() === message.content.trim() && Math.abs(Date.parse(c.created_at) - Date.parse(message.created_at)) < 5 * 60_000)
-            : undefined;
-    if (twin) {
-      previous = Date.parse(twin.created_at);
-      continue;
-    }
-    let at = Date.parse(message.created_at);
-    if (!(at > previous)) {
-      at = previous + 1;
-      message = { ...message, created_at: new Date(at).toISOString() };
-    }
-    previous = at;
-    byId.set(message.id, message);
-  }
-  return [...byId.values()].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
-}
-
-const humanKey = (key: string) => key.replace(/[_-]+/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
-const humanValue = (value: unknown): string => {
-  if (Array.isArray(value)) return value.map(humanValue).join(", ") || "—";
-  if (value && typeof value === "object") return JSON.stringify(value);
-  if (value === "" || value == null) return "—";
-  return String(value);
-};
-
-/** The exact fields a proposed change will write — shown behind an expander so the user can check before confirming.
- *  Exported for `tests/unit/describe-proposal.test.ts` — a pure function, no need to mount the component to test it. */
-export function describeProposal(proposal: ProposedCommand): Array<[string, string]> {
-  switch (proposal.type) {
-    case "update_preferences":
-      // `operations` (add/remove/replace/clear on a list field) is the update's own control
-      // structure, not a preference — showing it as a raw "Operations: —" row is meaningless to a
-      // user, and worse, misleading when the model includes an empty `operations: []` alongside a
-      // real field (seen live: a single-field update rendered a phantom "Operations" row). Expand
-      // each operation into a proper labeled row instead of hiding it outright, so a pure
-      // list-edit (e.g. "remove museums from dislikes") still shows what's actually changing.
-      return Object.entries(proposal.preferences).flatMap(([key, value]) => {
-        if (key !== "operations") return [[humanKey(key), humanValue(value)] as [string, string]];
-        const ops = value as Array<{ action: string; field: string; values?: string[] }> | undefined;
-        if (!ops || ops.length === 0) return [];
-        return ops.map((op) => [
-          humanKey(op.field),
-          op.action === "clear" ? "clear" : `${op.action}: ${humanValue(op.values)}`,
-        ] as [string, string]);
-      });
-    case "record_decision":
-      return [["Type", proposal.kind.replaceAll("_", " ")], ...Object.entries(proposal.value).map(([key, value]) => [humanKey(key), humanValue(value)] as [string, string])];
-    case "add_itinerary_item":
-      return [["Title", proposal.title], ["Day", String(proposal.dayIndex)]];
-    case "save_place":
-      return [
-        ["Name", proposal.place.name],
-        ["Category", humanValue(proposal.place.category)],
-        ["Address", humanValue(proposal.place.address)],
-      ];
-    default:
-      return [];
-  }
-}
 
 // Phase 2.6.2 (docs/overhaul/roadmap/phase-2-speed.md): the first three labels now track real
 // backend milestones (RESOLVE started / RETRIEVE started / COMPOSE started — see `progressStage`,
@@ -183,25 +52,13 @@ const THINKING_STATES = [
   "Still on it…",
   "This one’s taking a little longer…",
 ];
+
 const TYPING_MARK = ["thinking", "searching", "planning", "answering"] as const;
+
 /** Ways into an empty conversation: three things nearly every trip starts with. */
 const STARTERS = ["Plan my first day", "Where should we stay?", "What will this cost?"] as const;
 
-/** Turns rendered when the chat opens, and added each time "Show earlier messages" is pressed. The
- *  thread itself is loaded whole (it is small); this is only how much of it is laid out at once. */
-const VISIBLE_TURNS = 30;
-/** How much of the remaining distance the follow-scroll covers each frame (lower = softer). */
-const FOLLOW_EASE = 0.09;
 const STAGE_PHASE: Record<"resolve" | "retrieve" | "compose", number> = { resolve: 0, retrieve: 1, compose: 2 };
-
-/** "www.example.com/path" → "example.com": which site a source is, at a glance. */
-const hostOf = (url: string) => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
-};
 
 function Typing({ stage, label }: { stage?: "resolve" | "retrieve" | "compose"; label?: string }) {
   const [timerPhase, setTimerPhase] = useState(0);
@@ -267,6 +124,7 @@ export const RAIL_MEASURE = "max-w-[28.5rem]";
 
 /** An older reply's blocks without its follow-up chips. Cached per source array so the result keeps its identity (a fresh array each render would defeat the memoised AssistantMessage). */
 const settledBlocks = new WeakMap<AssistantBlock[], AssistantBlock[]>();
+
 function withoutChips(blocks: AssistantBlock[] | undefined) {
   if (!blocks) return blocks;
   let kept = settledBlocks.get(blocks);
@@ -311,63 +169,33 @@ export const ConversationSurface = React.memo(function ConversationSurface({
    *  at the wrong moment. The parent passes this only when this surface is the active tab. */
   onLogScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
 }) {
-  // The thread is this surface's own to load: from the session cache if it's warm, from
-  // /api/trips/[tripId]/conversation otherwise. It used to also arrive as a prop on every trip
-  // page's server render, which only ever duplicated the request made here a moment later.
-  const [messages, setMessages] = useState<Message[]>([]);
+  const { messages, setMessages, loaded, synced, seenMessageIdsRef } = useConversationThread(tripId);
   const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
-  // The id of the message the server has not confirmed yet: "Sending…" belongs to it alone, and ends the moment the server has it, not when the whole reply is done.
-  const [undelivered, setUndelivered] = useState<string | null>(null);
-  // Set synchronously: two quick taps on a chip (or Enter twice) can both arrive before `sending` has re-rendered, and each used to send its own copy of the message.
-  const sendingRef = useRef(false);
-  const [loaded, setLoaded] = useState(false);
-  // The thread's own load from the server has finished (or was not needed). The landing page's first message waits for it:
-  // sent earlier, the load's rows are merged in while Roam's reply is streaming.
-  const [synced, setSynced] = useState(false);
-  // The sentence the landing page handed over, shown the moment the chat opens (before the thread has loaded and before
-  // it is sent) so the visitor never sees an empty chat between the landing page and their own message.
-  const [pendingFirst, setPendingFirst] = useState<{ text: string; key: string } | null>(null);
-  const [confirming, setConfirming] = useState(false);
-  // A guest who has used their free messages (the server said so) — the composer closes and the
-  // save card opens. `saveOpen` is the softer version: they asked to save before running out.
-  const [guestGate, setGuestGate] = useState(false);
+  // `saveOpen`: a guest asked to save before running out of free messages (the hard stop, `guestGate`, comes from the sender).
   const [saveOpen, setSaveOpen] = useState(false);
   const { guest, openGate } = useGuest();
-  const [proposal, setProposal] = useState<ProposedCommand | null>(null);
-  // Phase 2.6.2 (docs/overhaul/roadmap/phase-2-speed.md): the real backend milestone for the
-  // in-flight turn, driving Typing's label — replaces a purely time-based guess.
-  // A failed turn, shown with Roam's mark for a moment. (A successful one just ends with its text.)
-  const [outcome, setOutcome] = useState<{ kind: "error"; at: number } | null>(null);
-  useEffect(() => {
-    if (!outcome) return;
-    const timer = setTimeout(() => setOutcome(null), 4000);
-    return () => clearTimeout(timer);
-  }, [outcome]);
-  const [progressStage, setProgressStage] = useState<"resolve" | "retrieve" | "compose" | undefined>(undefined);
-  // What RESOLVE actually planned to look up ("checking places", "getting directions"), shown
-  // during "retrieve" instead of Typing's generic label — undefined falls back to that generic
-  // text (no tools planned, or none the label map recognizes).
-  const [progressLabel, setProgressLabel] = useState<string | undefined>(undefined);
-  const [cacheReady, setCacheReady] = useState(false);
-  // How many of the newest turns the log renders; "Show earlier messages" adds another page of them.
-  const [windowSize, setWindowSize] = useState(VISIBLE_TURNS);
-  // Where the reading position was when that button was pressed, so revealing earlier turns above
-  // doesn't shove the one you were reading off the screen.
-  const olderAnchorRef = useRef<{ height: number; top: number } | null>(null);
-  const requestRef = useRef<AbortController | null>(null);
+  const { proposal, setProposal, confirming, confirmProposal } = useProposal({ guest, openGate });
+  const { sending, undelivered, outcome, progressStage, progressLabel, queued, setQueued, guestGate, pendingFirst, submit, stop } = useSendMessage({
+    tripId,
+    viewContext,
+    messages,
+    setMessages,
+    loaded,
+    synced,
+    guest,
+    onSurfaceSelect,
+    setProposal,
+    setInput,
+    stopListening: () => { if (speech.listening) speech.stop(); },
+    seenMessageIdsRef,
+  });
   const logRef = useRef<HTMLDivElement>(null);
   useKeepScrollGap(logRef);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const speechBaseRef = useRef("");
-  // When this state was last confirmed against the server — distinct from "now", so a local
-  // edit (optimistic send, settled stream) doesn't silently re-arm the cache's freshness TTL.
-  const verifiedAtRef = useRef(0);
   // Message ids treated as already-settled — restored history (the cache, a background merge)
   // must appear in place, not replay its whole entrance animation every time the log mounts.
-  const [queued, setQueued] = useState<string | null>(null);
   const liveMessageIdsRef = useRef<Set<string>>(new Set());
-  const seenMessageIdsRef = useRef<Set<string>>(new Set());
 
   // Dictation: transcript is appended after whatever was already typed when the mic started.
   const speech = useSpeechInput({
@@ -378,17 +206,6 @@ export const ConversationSurface = React.memo(function ConversationSurface({
     onError: (message) => notifyToast(message, "error"),
   });
 
-  useEffect(() => () => requestRef.current?.abort(), []);
-
-  // A message typed while a reply was finishing goes out as soon as the reply is done.
-  useEffect(() => {
-    if (sending || queued === null) return;
-    const next = queued;
-    setQueued(null);
-    void submit(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sending, queued]);
-
   // A `?ask=` param (from a detail page's "ask the assistant" link) pre-fills the composer once.
   useEffect(() => {
     const ask = new URLSearchParams(window.location.search).get("ask");
@@ -398,352 +215,9 @@ export const ConversationSurface = React.memo(function ConversationSurface({
     requestAnimationFrame(() => textareaRef.current?.focus());
   }, []);
 
-  // Restore the last visible conversation immediately, then reconcile with the server in the
-  // background. This keeps tab changes instant without turning the client cache into truth.
-  useEffect(() => {
-    const cached = readConversationCache(tripId);
-    if (cached) {
-      setMessages(cached.messages);
-      setLoaded(true);
-      // Preserve the cache's real verification time — restoring it must not look like a fresh check.
-      verifiedAtRef.current = cached.savedAt;
-      for (const m of cached.messages) seenMessageIdsRef.current.add(m.id);
-    }
-    setCacheReady(true);
-    // A quick tab round-trip should not hit the conversation API again. A new device has no
-    // session cache, so it still loads the durable server thread immediately.
-    if (cached && Date.now() - cached.savedAt < CONVERSATION_CACHE_TTL_MS) {
-      setSynced(true);
-      return;
-    }
-    const controller = new AbortController();
-    fetch(`/api/trips/${tripId}/conversation`, { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("load");
-        return response.json();
-      })
-      .then((body) => {
-        if (!controller.signal.aborted) {
-          verifiedAtRef.current = Date.now();
-          const fresh = (body.messages ?? []) as Message[];
-          for (const m of fresh) seenMessageIdsRef.current.add(m.id);
-          setMessages((current) => mergeConversationMessages(current, fresh));
-          setLoaded(true);
-          setSynced(true);
-        }
-      })
-      .catch((err) => {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        if (!cached) notifyToast("Couldn’t load the conversation — reload to try again.", "error");
-        setLoaded(true);
-        setSynced(true);
-      });
-    return () => controller.abort();
-  }, [tripId]);
-
-  useEffect(() => {
-    if (cacheReady) writeConversationCache(tripId, messages, verifiedAtRef.current);
-  }, [cacheReady, messages, tripId]);
-
-  // Every message in THIS log is the direct result of the viewer's own action — typing and
-  // pressing send, or tapping a follow-up/suggestion chip on an older message further up the
-  // log (unlike group chat, personal chat has no other party whose message could land here
-  // passively) — so a new one is always worth revealing, regardless of where the viewer is
-  // currently scrolled. Live-caught: tapping "Tell me more →" on a card from earlier in the
-  // conversation silently sent a new question with zero visual feedback, because this used to
-  // only scroll when already within 160px of the bottom — correct for not yanking someone away
-  // from content they're passively reading, wrong for an action they just deliberately took and
-  // are waiting to see the result of. This scrolls unconditionally on that one event and then
-  // stops — it does NOT keep chasing the reply as it streams in afterwards (see
-  // `onAssistantDelta` below): reveal that a new exchange has started, then let the viewer read
-  // at their own pace, exactly the balance asked for.
-  const scrollToLatestMessage = useCallback(() => {
-    const log = logRef.current;
-    if (!log) return;
-    // Scroll the log itself to its true max, not `endRef.scrollIntoView({block:"end"})` — that
-    // aligned `endRef`'s position (right after the last message/followup chips, BEFORE the
-    // `pb-28` clearance below it) with the container's bottom edge, so the reserved 112px gap
-    // sat scrolled past, off-screen, doing nothing — the last message/card/suggestion landed
-    // flush with the container's bottom edge instead, exactly where the floating composer
-    // overlay sits on top of it. Live-caught: a fresh reply's follow-up chips ended up hidden
-    // behind the composer both on initial load and right after sending. Scrolling the container
-    // to `scrollHeight` instead lands on the true bottom, which correctly includes the `pb-28`
-    // padding as visible trailing space above the composer.
-    log.scrollTo({ top: log.scrollHeight, behavior: "smooth" });
-  }, []);
-
-  // First landing: jump straight to the latest message, instantly. `scrollbar-slim` (the log's
-  // own class) deliberately carries no `scroll-behavior: smooth` — see its definition in
-  // app/globals.css for why — so a plain `scrollTop` assignment is already an instant jump,
-  // no save/restore dance needed. Re-run once after layout in case card images reflow the height.
-  useEffect(() => {
-    const log = logRef.current;
-    if (!log) return;
-    const jump = () => { log.scrollTop = log.scrollHeight; };
-    jump();
-    // Card images / blocks reflow the log taller just after mount — keep it pinned
-    // to the bottom for a beat (no smoothing) so we don't land mid-conversation.
-    const ids = [60, 200, 500].map((ms) => window.setTimeout(jump, ms));
-    ids.push(requestAnimationFrame(jump));
-    return () => ids.forEach((id) => { clearTimeout(id); cancelAnimationFrame(id); });
-  }, [loaded]);
-
-  useEffect(() => {
-    scrollToLatestMessage();
-    // A new message can carry place/event card images that finish loading a moment after this
-    // fires, growing the log taller than what `scrollToLatestMessage` just measured — one call
-    // can still fall short (live-caught: the last card partly behind the composer). Retry
-    // shortly after to catch that late reflow. Scoped to this per-new-message effect (fires once
-    // per real message, not per streamed token) rather than baked into `scrollToLatestMessage`
-    // itself — see that function's own comment for why doing it there caused the page to
-    // visibly bounce while a reply was actively streaming in.
-    const t1 = setTimeout(scrollToLatestMessage, 200);
-    const t2 = setTimeout(scrollToLatestMessage, 600);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [messages.length, scrollToLatestMessage]);
-
-  // Follow the reply as it is written. The log eases down with the growing text — a damped
-  // glide, never a jump — so the edge being written stays in view instead of running off under
-  // the composer. It only starts once words are actually appearing, and the moment the viewer
-  // scrolls or touches the log themselves it lets go for the rest of that turn, so it can never
-  // fight someone who is reading back up.
-  // `tail` keeps the glide going for a moment after the stream ends: the last words are still
-  // being revealed then.
-  const [tail, setTail] = useState(false);
-  const wasSending = useRef(false);
-  useEffect(() => {
-    if (sending) {
-      wasSending.current = true;
-      setTail(false);
-      return;
-    }
-    if (!wasSending.current) return;
-    wasSending.current = false;
-    setTail(true);
-    const timer = setTimeout(() => setTail(false), 1600);
-    return () => clearTimeout(timer);
-  }, [sending]);
-  const follow = sending || tail;
-  useEffect(() => {
-    const log = logRef.current;
-    if (!follow || !log) return;
-    let released = false;
-    const release = () => { released = true; };
-    const events = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
-    events.forEach((name) => log.addEventListener(name, release, { passive: true }));
-    let frame = 0;
-    const tick = () => {
-      const reply = log.querySelector<HTMLElement>("[data-latest-reply]");
-      if (!released && reply?.textContent?.trim()) {
-        const gap = log.scrollHeight - log.clientHeight - log.scrollTop;
-        if (gap > 0.5) log.scrollTop += Math.max(gap * FOLLOW_EASE, 0.6);
-      }
-      frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => {
-      cancelAnimationFrame(frame);
-      events.forEach((name) => log.removeEventListener(name, release));
-    };
-  }, [follow]);
-
-  // Scrolled off the top (fade the edge) / far above the latest message (offer a way back).
-  const [scroll, setScroll] = useState({ scrolled: false, away: false });
-  const handleLogScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const n = e.currentTarget;
-    const scrolled = n.scrollTop > 4;
-    const away = n.scrollHeight - n.clientHeight - n.scrollTop > n.clientHeight * 1.2;
-    setScroll((s) => (s.scrolled === scrolled && s.away === away ? s : { scrolled, away }));
-    onLogScroll?.(e);
-  };
+  const { scroll, handleLogScroll, scrollToLatestMessage, windowSize, showEarlier } = useLogScroll({ logRef, sending, loaded, messageCount: messages.length, onLogScroll });
 
   const isMultiline = useAutoGrowTextarea(textareaRef, input);
-
-
-  async function confirmProposal() {
-    if (!proposal || confirming) return;
-    if (guest) return openGate("save changes to your trip");
-    setConfirming(true);
-    try {
-      const command =
-        proposal.type === "record_decision"
-          ? { ...proposal, idempotencyKey: proposal.idempotencyKey ?? crypto.randomUUID() }
-          : proposal;
-      const response = await fetch("/api/commands", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(command),
-      });
-      if (!response.ok) throw new Error("command");
-      const body = await response.json().catch(() => ({}));
-      setProposal(null);
-      notifyToast(typeof body.changeImpact === "string" && body.changeImpact ? body.changeImpact : "Change saved.", "success");
-      announceWorkspaceChange(
-        command.type === "update_preferences"
-          ? "preferences"
-          : command.type === "record_decision"
-            ? "decision"
-            : command.type === "save_place"
-              ? "places"
-              : "itinerary",
-      );
-    } catch {
-      notifyToast("That change couldn’t be saved.", "error");
-    } finally {
-      setConfirming(false);
-    }
-  }
-
-  async function submit(rawContent: string, retryKey?: string) {
-    const content = rawContent.trim();
-    if (!content || !loaded || guestGate) return;
-    // Enter while a reply is still finishing used to do nothing and leave the text in the box. Keep it, say so, and send it after.
-    if (sending || sendingRef.current) {
-      setQueued(content);
-      setInput("");
-      return;
-    }
-    if (speech.listening) speech.stop();
-    haptic("tap");
-    sendingRef.current = true;
-    setSending(true);
-    setOutcome(null);
-    setInput("");
-    const previous = messages;
-    // Stable across every retry of THIS send (never a fresh crypto.randomUUID() per attempt) —
-    // the server upserts on (thread, idempotency_key), so reusing it lets a retry collapse into
-    // the original row instead of silently duplicating a message that actually saved fine the
-    // first time but whose response the client never saw (a dropped connection, a timeout).
-    const messageIdempotencyKey = retryKey ?? crypto.randomUUID();
-    const userMessage: Message = { id: `local-${messageIdempotencyKey}`, role: "user", content, created_at: new Date().toISOString() };
-    // Same id across retries too — don't stack a second bubble for a message already showing.
-    const next = previous.some((m) => m.id === userMessage.id) ? previous : [...previous, userMessage];
-    setMessages(next);
-    setUndelivered(userMessage.id);
-    let userSaved = false;
-    try {
-      const controller = new AbortController();
-      requestRef.current = controller;
-      let assistantId = "";
-      setProgressStage(undefined);
-      setProgressLabel(undefined);
-      const result = await sendConversationMessage({
-        tripId,
-        content,
-        viewContext,
-        idempotencyKey: messageIdempotencyKey,
-        onSurfaceSelect,
-        // A guest can't save changes, so Roam's "save this preference?" proposals are not offered.
-        onProposal: (next) => { if (!guest) setProposal(next); },
-        onUserSaved: () => {
-          userSaved = true;
-          setUndelivered(null);
-        },
-        onAssistantStart: (responseId) => {
-          assistantId = responseId;
-          setMessages((current) => [
-            ...current,
-            { id: assistantId, role: "assistant", content: "", created_at: new Date().toISOString() },
-          ]);
-        },
-        onAssistantDelta: (assistant) => {
-          setMessages((current) => current.map((m) => (m.id === assistantId ? { ...m, content: assistant } : m)));
-          // No auto-scroll here (deliberately — see `scrollToLatestMessage`'s comment). The
-          // reveal already happened once, when this message was added; the user reads down into
-          // it at their own pace rather than being dragged along as it keeps growing.
-        },
-        onProgress: (stage, label) => {
-          setProgressStage(stage);
-          setProgressLabel(label);
-        },
-        signal: controller.signal,
-      });
-      // Settle the streamed bubble in place: sanitized text + the structured blocks from the
-      // meta frame. No refetch, so ids stay stable and nothing re-mounts.
-      setMessages((current) =>
-        current.map((m) =>
-          m.id === assistantId
-            ? { ...m, content: result.content || m.content, metadata: result.meta ? (result.meta as unknown as Record<string, unknown>) : m.metadata }
-            : m,
-        ),
-      );
-      // The resolver may have persisted core trip facts or pending suggestions during this turn.
-      // Refresh server-rendered workspace surfaces so “What we know” reflects the same response.
-      announceWorkspaceChange("preferences");
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      if (err instanceof AssistantRequestError && (err.code === "guest_limit" || err.code === "guest_busy")) {
-        // Not saved, so nothing to retry: hand the text back and ask them to save the trip.
-        setMessages(previous);
-        setInput(content);
-        setGuestGate(true);
-        return;
-      }
-      if (userSaved) setOutcome({ kind: "error", at: Date.now() });
-      setMessages(userSaved ? next : previous);
-      // Not saved: the text would otherwise exist only inside the toast's Retry. Put it back in the box (unless they have already started something new).
-      if (!userSaved) setInput((current) => current || content);
-      const aiError = err instanceof AssistantRequestError;
-      const message = userSaved
-        ? aiError && err.status === 429
-          ? "Roam is busy right now — your message is saved."
-          : "Roam couldn’t reply — your message is saved."
-        : "Your message didn’t send.";
-      notifyToast(message, "error", { label: "Retry", onClick: () => void submit(content, messageIdempotencyKey) });
-    } finally {
-      requestRef.current = null;
-      sendingRef.current = false;
-      setSending(false);
-      setUndelivered(null);
-    }
-  }
-
-  function stop() {
-    requestRef.current?.abort();
-    sendingRef.current = false;
-    setSending(false);
-    setMessages((current) => current.filter((m) => !(m.role === "assistant" && !m.content.trim())));
-  }
-
-  useLayoutEffect(() => {
-    let text: string | null = null;
-    try {
-      text = window.sessionStorage.getItem(`wn:first-message:${tripId}`);
-    } catch {
-      /* storage blocked: no hand-off */
-    }
-    if (!text?.trim()) return;
-    const key = crypto.randomUUID();
-    // Its bubble is already on screen, so the real one that replaces it does not rise in again.
-    seenMessageIdsRef.current.add(`local-${key}`);
-    setPendingFirst({ text: text.trim(), key });
-  }, [tripId]);
-
-  // A slow load must not hold the visitor's first message forever: after a few seconds it goes anyway (the merge keeps the order).
-  useEffect(() => {
-    const timer = setTimeout(() => setSynced(true), 4000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // The landing page's prompt box creates the trip and drops its sentence here: it becomes the
-  // first message, sent once the (empty) thread has loaded — the visitor lands mid-conversation.
-  // Deferred a tick so React's dev-only mount/unmount/mount pass can't consume the sentence and
-  // then abort the send (the unmount cleanup above aborts any in-flight request).
-  useEffect(() => {
-    // A fresh thread already holds Roam's greeting, so "empty" means no message from the visitor yet.
-    // The thread has to be loaded first (see `synced`), or the sentence is sent against a thread whose
-    // own rows arrive after it — the 4 s timer above keeps a slow load from holding it forever.
-    if (!loaded || !synced || sending || messages.some((m) => m.role === "user")) return;
-    const timer = setTimeout(() => {
-      const key = `wn:first-message:${tripId}`;
-      const first = window.sessionStorage.getItem(key);
-      if (!first) return;
-      window.sessionStorage.removeItem(key);
-      void submit(first, pendingFirst?.text === first.trim() ? pendingFirst.key : undefined);
-    }, 0);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the thread has loaded empty
-  }, [loaded, synced, pendingFirst]);
 
   const userTurns = messages.filter((m) => m.role === "user").length;
   const turnsLeft = Math.max(0, GUEST_TURN_LIMIT - userTurns);
@@ -754,16 +228,6 @@ export const ConversationSurface = React.memo(function ConversationSurface({
   useLayoutEffect(() => {
     latest.current = { submit, onOpenPlace, onOpenStay, onOpenEvent, onOpenCollection, onOpenPanel };
   });
-  // Earlier turns appear above what you were reading, so hold that line in place rather than letting the
-  // log grow upward under the viewport (the same anchor the group chat uses when it pages in history).
-  useLayoutEffect(() => {
-    const anchor = olderAnchorRef.current;
-    const log = logRef.current;
-    if (!anchor || !log) return;
-    log.scrollTop = anchor.top + (log.scrollHeight - anchor.height);
-    olderAnchorRef.current = null;
-  }, [windowSize]);
-
   const [hasPlace, hasStay, hasEvent, hasCollection, hasPanel] = [onOpenPlace, onOpenStay, onOpenEvent, onOpenCollection, onOpenPanel].map(Boolean);
   const handlers = useMemo<BlockHandlers>(() => ({
     tripId,
@@ -776,26 +240,11 @@ export const ConversationSurface = React.memo(function ConversationSurface({
   }), [tripId, hasPlace, hasStay, hasEvent, hasCollection, hasPanel]);
 
   const proposalRows = proposal ? describeProposal(proposal) : [];
-  const proposalText =
-    proposal?.type === "update_preferences" && typeof proposal.preferences.budget === "number" && Object.keys(proposal.preferences).length === 1
-      ? `Set the daily budget to ${proposal.preferences.budget} per person?`
-      : proposal?.type === "update_preferences"
-        ? `Save ${proposalRows.length === 1 ? "this preference" : "these preferences"}: ${proposalRows.map(([k]) => k.toLowerCase()).join(", ")}?`
-        : proposal?.type === "record_decision"
-          ? `Record this ${proposal.kind.replaceAll("_", " ")} decision?`
-          : proposal?.type === "add_itinerary_item"
-            ? `Add “${proposal.title}” to day ${proposal.dayIndex}?`
-            : proposal?.type === "save_place"
-              ? `Save “${proposal.place.name}” to the trip?`
-              : "Apply this proposed trip change?";
+  const proposalText = proposal ? proposalQuestion(proposal, proposalRows) : "";
 
   // A message Roam never answered: the connection dropped before the reply was saved (tab closed, phone locked).
   // Re-sending under the same key is safe: the server upserts the user's message, so it is not duplicated.
-  const lastMessage = messages[messages.length - 1];
-  const unanswered =
-    loaded && !sending && !queued && lastMessage?.role === "user" && !String(lastMessage.id).startsWith("local-") && typeof lastMessage.idempotency_key === "string" && lastMessage.idempotency_key.startsWith("user:") && Date.now() - new Date(lastMessage.created_at).getTime() > 45_000
-      ? lastMessage
-      : null;
+  const unanswered = unansweredMessage({ messages, loaded, sending, queued: Boolean(queued), now: Date.now() });
 
   // What the log actually renders. The whole thread is in memory either way — this is about the main
   // thread: laying out a 128-turn history (every card, map and table in it) blocked a mid-range phone for
@@ -803,12 +252,6 @@ export const ConversationSurface = React.memo(function ConversationSurface({
   // group chat's own "Show earlier messages".
   const hiddenCount = Math.max(0, messages.length - windowSize);
   const visible = hiddenCount > 0 ? messages.slice(hiddenCount) : messages;
-  const showEarlier = () => {
-    const log = logRef.current;
-    if (log) olderAnchorRef.current = { height: log.scrollHeight, top: log.scrollTop };
-    setWindowSize((n) => n + VISIBLE_TURNS);
-  };
-
   const pendingBubble = pendingFirst !== null && !messages.some((m) => m.role === "user");
   const showHero = loaded && messages.length === 0 && !rail && !pendingBubble;
   const waiting = (sending && messages[messages.length - 1]?.content.trim() === "") || pendingBubble;
@@ -924,17 +367,11 @@ export const ConversationSurface = React.memo(function ConversationSurface({
               );
             }
 
-            const unavailable = streaming ? [] : unavailableLabels(meta?.unavailableProviders);
             const sources = streaming ? [] : (meta?.sources ?? []);
             // Chips answer the reply they came with; once the conversation moves on they are stale.
             const isLatest = index === messages.length - 1;
             const blocks = isLatest ? meta?.blocks : withoutChips(meta?.blocks);
-            // One quiet note instead of a stack of separate grey lines.
-            const notes: Array<{ text: string; tone: "neutral" | "caution" | "destructive" }> = [];
-            if (!streaming && meta?.degraded) notes.push({ text: "Answered from your trip details — the planner had trouble reading that one. Rephrasing may help.", tone: "neutral" });
-            if (!streaming && meta?.persistFailed) notes.push({ text: "This reply wasn’t saved — it may be gone if you reload.", tone: "destructive" });
-            if (!streaming && meta?.truncated) notes.push({ text: "This answer may have been cut off — ask again if it looks incomplete.", tone: "neutral" });
-            if (unavailable.length > 0) notes.push({ text: `Couldn’t check ${unavailable.join(", ")} just now — this is from your trip so far.`, tone: "neutral" });
+            const notes = replyNotes(meta, streaming);
 
             return (
               <motion.div
