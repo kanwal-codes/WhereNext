@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { NextResponse } from "next/server";
 import { withRoute } from "../../lib/server/with-route";
 
-const ctx = (params: Record<string, string> = {}) => ({ params: Promise.resolve(params) });
+const ctx = <P extends Record<string, string>>(params: P = {} as P) => ({ params: Promise.resolve(params) });
 const req = (url = "http://app.test/api/x") => new Request(url);
 
 describe("withRoute", () => {
