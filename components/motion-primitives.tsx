@@ -452,7 +452,9 @@ export function Sheet({
             tabIndex={-1}
             className={cn(
               // will-change: the slide is a JS-driven transform, which the browser would otherwise repaint (shadow, rounded corners, every row) on each frame instead of moving one cached layer.
-              "relative flex min-h-0 flex-col bg-surface shadow-lift outline-none will-change-transform",
+              // Not for "center": it scales in, and a layer promoted at 0.96 keeps that raster scale, leaving its text soft.
+              "relative flex min-h-0 flex-col bg-surface shadow-lift outline-none",
+              side !== "center" && "will-change-transform",
               side === "center" ? "w-full max-w-sm rounded-3xl" : side === "bottom" ? "max-h-[92dvh] w-full rounded-t-3xl" : "h-full w-full max-w-xl",
               className,
             )}
