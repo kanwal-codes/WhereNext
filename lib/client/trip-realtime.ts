@@ -19,7 +19,7 @@ export const TABLE_TO_CHANGE: Record<string, WorkspaceChange> = {
   trip_decisions: "decision",
   // A flight/stay booking made by one member (or on another device) otherwise never reaches
   // anyone else watching the trip — reuses "decision" (rather than a new WorkspaceChange
-  // variant) since that's already what a successful booking announces same-tab, in useBookingFlow.
+  // variant) since that's already what a successful booking announces same-tab.
   bookings: "decision",
   trip_essentials: "essentials",
   // A reservation added by another member reaches the Bookings page the same way a booking does.

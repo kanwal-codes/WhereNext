@@ -77,7 +77,7 @@ export default function BookingsPage() {
         })
         .catch(() => setBookings((current) => current ?? []));
     void load();
-    // A booking announces "decision" once it settles (useBookingFlow) and a realtime write to
+    // A booking announces "decision" once it settles and a realtime write to
     // the bookings table maps to the same type (trip-realtime.ts) — without this, neither this
     // tab's own just-completed booking nor a collaborator's booked-on-another-device one ever
     // showed up here without a manual reload.
