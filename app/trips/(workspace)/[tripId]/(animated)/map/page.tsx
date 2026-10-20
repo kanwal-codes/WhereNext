@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTripData } from "@/components/TripDataProvider";
 import { MapSurface } from "@/features/maps/ui/MapSurface";
-import type { TransportPreset } from "@/features/transport/ui/TransportSurface";
+import type { TransportPreset } from "@/features/transport/application/useTransportSearch";
 import { useDocumentTitle } from "@/lib/use-document-title";
 
 type Start = { preset?: TransportPreset; day?: number };
