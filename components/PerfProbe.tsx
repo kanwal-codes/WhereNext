@@ -106,6 +106,15 @@ export function PerfProbe() {
       `PERF ${location.pathname}  ${new Date().toISOString()}`,
       `device: cores ${navigator.hardwareConcurrency} mem ${(navigator as unknown as { deviceMemory?: number }).deviceMemory ?? "?"}GB dpr ${devicePixelRatio} viewport ${innerWidth}x${innerHeight} net ${conn?.effectiveType ?? "?"}${conn?.saveData ? " saveData" : ""}`,
       `ua: ${navigator.userAgent}`,
+      `gpu: ${(() => {
+        try {
+          const gl = document.createElement("canvas").getContext("webgl");
+          const ext = gl?.getExtension("WEBGL_debug_renderer_info");
+          return gl && ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : "unknown";
+        } catch {
+          return "unknown";
+        }
+      })()}`,
       `dom nodes ${document.getElementsByTagName("*").length}  sw controller ${navigator.serviceWorker?.controller ? "yes" : "no"}  nav ttfb ${nav ? Math.round(nav.responseStart) : "?"}ms dcl ${nav ? Math.round(nav.domContentLoadedEventEnd) : "?"}ms`,
       `frames ${d.length}: p50 ${q(0.5)}ms p95 ${q(0.95)}ms p99 ${q(0.99)}ms, over 33ms: ${slow} (${d.length ? Math.round((100 * slow) / d.length) : 0}%)`,
       `long tasks ${t.length}, blocking ${t.reduce((a, x) => a + Math.max(0, x.dur - 50), 0)}ms, worst ${Math.max(0, ...t.map((x) => x.dur))}ms`,

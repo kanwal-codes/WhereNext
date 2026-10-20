@@ -15,7 +15,7 @@ import { PHONE_V2 } from "@/lib/phone-v2";
 import { haptic } from "@/lib/haptics";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
-import { COUNTRIES, LANGUAGES, countryFromPlace, displayName, fromBrowserLocale } from "@/lib/locales";
+import { COUNTRIES, LANGUAGES, countriesByName, countryFromPlace, displayName, fromBrowserLocale } from "@/lib/locales";
 import { updateName, updateEmail, updatePassword, disconnectGoogle, signInWithGoogle, signOut as signOutUser, uploadAvatar } from "@/features/identity/application/authClient";
 import type { TravelerProfile } from "@/packages/contracts/profile";
 import { memberInitials } from "@/lib/member-initials";
@@ -747,7 +747,7 @@ export function AccountView({
                 <Field label="Home country">
                   <select value={country} onChange={(e) => { countryChosen.current = true; setCountry(e.target.value); touch(); }} className="input-field">
                     <option value="">Not set</option>
-                    {clientReady && [...COUNTRIES].sort((a, b) => displayName("region", a).localeCompare(displayName("region", b))).map((code) => <option key={code} value={code}>{displayName("region", code)}</option>)}
+                    {clientReady && countriesByName().map((code) => <option key={code} value={code}>{displayName("region", code)}</option>)}
                   </select>
                 </Field>
                 <p className="-mt-2 text-xs text-ink-soft sm:col-span-2">Roam replies in your language when a message doesn’t show one, and uses your country for passport, plug and currency tips.</p>
