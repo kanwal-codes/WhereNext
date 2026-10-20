@@ -6,6 +6,7 @@ import { useScrollCompact } from "@/lib/use-scroll-compact";
 import { useSpeechInput } from "@/lib/use-speech-input";
 import type { AiSearchDirective, AiSearchScope } from "@/lib/application/ai-search";
 import { notifyToast } from "@/lib/application/toast";
+import { PHONE_V2 } from "@/lib/phone-v2";
 import { cn } from "@/lib/utils";
 
 /**
@@ -102,12 +103,12 @@ export function AiSearchBar({
                 onClick={speech.toggle}
                 aria-label={speech.listening ? "Stop dictation" : "Dictate"}
                 aria-pressed={speech.listening}
-                className={cn("grid size-9 max-lg:size-11 shrink-0 place-items-center rounded-full transition-colors", speech.listening ? "bg-destructive/10 text-destructive" : "text-muted-foreground hover:bg-accent hover:text-foreground")}
+                className={cn("grid size-9 max-lg:size-11 shrink-0 place-items-center rounded-full transition-colors", speech.listening ? "bg-destructive/10 text-destructive" : "text-muted-foreground hover:bg-accent hover:text-foreground", PHONE_V2 && !speech.listening && "max-lg:bg-secondary max-lg:text-ink-soft")}
               >
                 <Mic className={cn("size-4", speech.listening && "animate-pulse")} />
               </button>
             )}
-            <button type="submit" disabled={busy || !text.trim()} className="btn-primary-sm h-10 shrink-0 rounded-full px-5">
+            <button type="submit" disabled={busy || !text.trim()} className={cn("btn-primary-sm h-10 shrink-0 rounded-full px-5", PHONE_V2 && !text.trim() && !busy && "max-lg:hidden")}>
               {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Ask"}
             </button>
           </div>

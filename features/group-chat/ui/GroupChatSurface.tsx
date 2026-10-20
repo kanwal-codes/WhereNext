@@ -939,7 +939,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
 
           {loaded && (hasOlder || messages.length > windowSize) && (
             <div ref={olderSentinelRef} className="flex justify-center pb-2">
-              <button type="button" onClick={() => void loadOlder()} disabled={loadingOlder} className="btn-chip h-9 px-4 text-xs">{loadingOlder ? "Loading…" : "Show earlier messages"}</button>
+              <button type="button" onClick={() => void loadOlder()} disabled={loadingOlder} className={cn("btn-chip h-9 px-4 text-xs", PHONE_V2 && "max-lg:h-10 max-lg:border-0 max-lg:bg-secondary max-lg:text-sm max-lg:font-semibold max-lg:text-ink-soft")}>{loadingOlder ? "Loading…" : "Show earlier messages"}</button>
             </div>
           )}
 
@@ -993,7 +993,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
 
             const divider = showDateDivider && (
               <div className="flex items-center justify-center py-3">
-                <span className="rounded-full bg-muted px-3 py-1 text-2xs font-medium tracking-[0.1em] text-muted-foreground uppercase">{dayLabel(message.created_at)}</span>
+                <span className={cn("rounded-full bg-muted px-3 py-1 text-2xs font-medium tracking-[0.1em] text-muted-foreground uppercase", PHONE_V2 && "max-lg:bg-transparent max-lg:px-0 max-lg:text-xs max-lg:font-semibold max-lg:tracking-normal max-lg:normal-case")}>{dayLabel(message.created_at)}</span>
               </div>
             );
 
@@ -1076,8 +1076,10 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
             );
             const bubbleClass = cn(
               "min-w-0 max-w-full rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words shadow-sm",
+              PHONE_V2 && "max-lg:text-base max-lg:leading-snug max-lg:shadow-none",
               roamBlocks && roamBlocks.length > 0 && "max-w-[92%]",
               mine ? "rounded-br-lg bg-gradient-to-br from-primary to-primary/90 text-primary-foreground" : "rounded-tl-lg bg-muted text-foreground",
+              PHONE_V2 && mine && "max-lg:bg-none max-lg:bg-primary",
             );
             const bubble = isRoam ? (
               <div className={cn(bubbleClass, "[&_.chat-prose]:text-sm [&_.chat-prose]:leading-relaxed")}>
@@ -1378,10 +1380,10 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
                 exit={{ opacity: 0, y: 6, scale: 0.97 }}
                 transition={{ duration: 0.2 }}
                 whileTap={{ scale: 0.97 }}
-                className="absolute inset-x-0 bottom-full mx-auto mb-2 flex w-fit items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-ink-soft shadow-lift transition-colors hover:text-ink"
+                className={cn("absolute inset-x-0 bottom-full mx-auto mb-2 flex w-fit items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-ink-soft shadow-lift transition-colors hover:text-ink", PHONE_V2 && "max-lg:inset-x-auto max-lg:right-1 max-lg:mx-0 max-lg:size-10 max-lg:justify-center max-lg:border-0 max-lg:p-0 max-lg:shadow-[0_6px_18px_-6px_rgb(29_26_23/0.35),0_0_0_1px_var(--color-hairline)]")}
               >
-                <ArrowDown className="size-3.5" aria-hidden />
-                Latest
+                <ArrowDown className="size-3.5 max-lg:size-[1.125rem]" aria-hidden />
+                <span className={cn(PHONE_V2 && "max-lg:sr-only")}>Latest</span>
               </motion.button>
             )}
           </AnimatePresence>
@@ -1393,6 +1395,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
             className={cn(
               "flex w-full flex-col gap-1 overflow-hidden rounded-3xl border border-input bg-card p-1.5 shadow-lift transition-[border-color,box-shadow] duration-200 ease-out",
               "focus-within:border-ink/30 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_6%,transparent),var(--shadow-lift)]",
+              PHONE_V2 && "max-lg:border-transparent max-lg:bg-secondary max-lg:shadow-none max-lg:focus-within:border-transparent max-lg:focus-within:bg-coral-soft max-lg:focus-within:shadow-none",
             )}
           >
             {/* `messageTextarea` (defined above, alongside the buttons it conditionally overlays)

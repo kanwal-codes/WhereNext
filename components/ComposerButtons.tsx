@@ -19,7 +19,7 @@ export function MicButton({ listening, disabled, onToggle, hasText }: { listenin
         "pointer-events-auto grid size-10 shrink-0 place-items-center rounded-full transition-[background-color,color,transform] duration-200 ease-out max-lg:size-11 active:scale-90 disabled:opacity-40",
         listening ? "bg-destructive/10 text-destructive" : "text-muted-foreground enabled:hover:bg-muted enabled:hover:text-foreground",
         PHONE_V2 && hasText && !listening && "max-lg:hidden",
-        PHONE_V2 && !listening && "max-lg:bg-coral-fill max-lg:text-white max-lg:enabled:hover:bg-coral-fill/90 max-lg:enabled:hover:text-white",
+        PHONE_V2 && !listening && "max-lg:bg-border/70 max-lg:text-ink-soft",
       )}
     >
       <Mic className={cn("size-[18px]", listening && "animate-pulse")} />

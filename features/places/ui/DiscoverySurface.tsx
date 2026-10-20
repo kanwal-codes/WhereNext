@@ -547,13 +547,6 @@ export function DiscoverySurface({
       {view === "results" && !phone && <CityChips stops={cities.stops} current={cities.city} onPick={cities.setCity} estimated={cities.estimated} className="mt-3 -mb-1" />}
       {phone && view === "results" && (
         <div className="flex flex-col gap-3 pt-1">
-          <AiSearchBar
-            variant="card"
-            tripId={tripId}
-            scope="discover"
-            placeholder="Ask — “rooftop bars nearby”"
-            onDirective={applyDirective}
-          />
           <div className="flex items-center gap-2">
             <div className="-mr-1 flex min-w-0 flex-1 items-center gap-2 overflow-x-auto overscroll-x-contain pr-6 no-scrollbar [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
               {searchMode && searchLabel ? (
@@ -579,7 +572,7 @@ export function DiscoverySurface({
               onClick={() => setFiltersOpen((v) => !v)}
               aria-pressed={filtersOpen}
               aria-label={filterCount ? `Filters, ${filterCount} on` : "Filters"}
-              className={cn("relative grid size-11 shrink-0 place-items-center rounded-full border border-input bg-background transition-colors", filtersOpen && "border-foreground bg-foreground text-background")}
+              className={cn("relative grid size-11 shrink-0 place-items-center rounded-full border border-input bg-background transition-colors", PHONE_V2 && "max-lg:border-0 max-lg:bg-secondary", filtersOpen && "border-foreground bg-foreground text-background")}
             >
               <SlidersHorizontal className="size-[1.125rem]" aria-hidden />
               {filterCount > 0 && !filtersOpen && <span aria-hidden className="absolute top-2 right-2 size-2.5 rounded-full bg-coral ring-2 ring-background" />}
@@ -799,12 +792,12 @@ export function DiscoverySurface({
         </SwapView>
       </div>
 
-      {/* Last in the column so it can rest on the bottom edge of the page (see `.ask-dock`). On a phone the ask field is at the top instead. */}
-      {!phone && <AiSearchBar
+      {/* Last in the column so it can rest on the bottom edge of the page (see `.ask-dock`). On a phone it is the same floating bar, with a shorter prompt. */}
+      {(!phone || view === "results") && <AiSearchBar
         variant="dock"
         tripId={tripId}
         scope="discover"
-        placeholder={destination ? `Ask — “rooftop bars near ${destination.split(",")[0].trim()}”, “kid-friendly museums”, “ramen”` : "Ask for places for this trip"}
+        placeholder={phone ? "Ask Roam about places" : destination ? `Ask — “rooftop bars near ${destination.split(",")[0].trim()}”, “kid-friendly museums”, “ramen”` : "Ask for places for this trip"}
         onDirective={applyDirective}
       />}
     </div>

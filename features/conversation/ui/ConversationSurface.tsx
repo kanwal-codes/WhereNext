@@ -12,6 +12,7 @@ import type { Message } from "../domain/message";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
 import { useSpeechInput } from "@/lib/use-speech-input";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { useAutoGrowTextarea } from "@/lib/use-autogrow-textarea";
 import { useKeepScrollGap } from "@/lib/use-keep-scroll-gap";
 import { AssistantMessage, type BlockHandlers } from "./AssistantMessage";
@@ -558,6 +559,22 @@ export const ConversationSurface = React.memo(function ConversationSurface({
 
   const isMultiline = useAutoGrowTextarea(textareaRef, input);
 
+  // Phone redesign: the latest reply's follow-up chips sit in one scrolling row above the composer instead of inside the message.
+  const narrow = useMediaQuery("(max-width: 1023.98px)");
+  const phone = PHONE_V2 && narrow;
+  const quickReplies = useMemo(() => {
+    if (!phone || sending) return [];
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant") return [];
+    const out: Array<{ label: string; prompt: string }> = [];
+    for (const block of (last.metadata as AssistantTurnMeta | undefined)?.blocks ?? []) {
+      if (block.type === "actions") out.push(...block.items);
+      else if (block.type === "clarifying_question") out.push(...block.chips.map((chip) => ({ label: chip, prompt: chip })));
+    }
+    return out.slice(0, 6);
+  }, [phone, sending, messages]);
+  const showQuickReplies = quickReplies.length > 0 && !input.trim();
+
   async function confirmProposal() {
     if (!proposal || confirming) return;
     if (guest) return openGate("save changes to your trip");
@@ -834,7 +851,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
           log — the rubber-band should feel self-contained here, the same way a native app's
           message list never drags the rest of the screen along with it. */}
       <div ref={logRef} onScroll={handleLogScroll} data-scrolled={scroll.scrolled} role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions" className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim scroll-fade-t">
-        <div className={cn("mx-auto w-full space-y-6 pt-2 pb-28", PHONE_V2 ? "max-lg:pt-3" : "max-lg:pt-16", rail ? RAIL_MEASURE : "max-w-2xl")}>
+        <div className={cn("mx-auto w-full space-y-6 pt-2 pb-28", PHONE_V2 ? "max-lg:pt-3" : "max-lg:pt-16", showQuickReplies && "max-lg:pb-40", rail ? RAIL_MEASURE : "max-w-2xl")}>
           {!loaded && messages.length === 0 && !pendingBubble && (
             <div aria-hidden className="space-y-6">
               <div className="flex justify-end">
@@ -880,7 +897,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
 
           {hiddenCount > 0 && (
             <div className="flex justify-center pb-2">
-              <button type="button" onClick={showEarlier} className="btn-chip h-9 px-4 text-xs">Show earlier messages</button>
+              <button type="button" onClick={showEarlier} className={cn("btn-chip h-9 px-4 text-xs", PHONE_V2 && "max-lg:h-10 max-lg:border-0 max-lg:bg-secondary max-lg:text-sm max-lg:font-semibold max-lg:text-ink-soft")}>Show earlier messages</button>
             </div>
           )}
 
@@ -924,7 +941,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
             const sources = streaming ? [] : (meta?.sources ?? []);
             // Chips answer the reply they came with; once the conversation moves on they are stale.
             const isLatest = index === messages.length - 1;
-            const blocks = isLatest ? meta?.blocks : withoutChips(meta?.blocks);
+            const blocks = isLatest && !phone ? meta?.blocks : withoutChips(meta?.blocks);
             // One quiet note instead of a stack of separate grey lines.
             const notes: Array<{ text: string; tone: "neutral" | "caution" | "destructive" }> = [];
             if (!streaming && meta?.degraded) notes.push({ text: "Answered from your trip details — the planner had trouble reading that one. Rephrasing may help.", tone: "neutral" });
@@ -1082,13 +1099,22 @@ export const ConversationSurface = React.memo(function ConversationSurface({
                 exit={{ opacity: 0, y: 6, scale: 0.97 }}
                 transition={motionTokens.swap}
                 whileTap={{ scale: 0.97 }}
-                className="absolute inset-x-0 bottom-full mx-auto mb-2 flex w-fit items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-ink-soft shadow-lift transition-colors hover:text-ink"
+                className={cn("absolute inset-x-0 bottom-full mx-auto mb-2 flex w-fit items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-ink-soft shadow-lift transition-colors hover:text-ink", PHONE_V2 && "max-lg:inset-x-auto max-lg:right-1 max-lg:mx-0 max-lg:size-10 max-lg:justify-center max-lg:border-0 max-lg:p-0 max-lg:shadow-[0_6px_18px_-6px_rgb(29_26_23/0.35),0_0_0_1px_var(--color-hairline)]", showQuickReplies && "max-lg:mb-14")}
               >
-                <ArrowDown className="size-3.5" aria-hidden />
-                Latest
+                <ArrowDown className="size-3.5 max-lg:size-[1.125rem]" aria-hidden />
+                <span className={cn(PHONE_V2 && "max-lg:sr-only")}>Latest</span>
               </motion.button>
             )}
           </AnimatePresence>
+          {showQuickReplies && (
+            <div role="group" aria-label="Quick replies" className="-mx-3 mb-2.5 flex gap-2 overflow-x-auto overscroll-x-contain px-3 no-scrollbar lg:hidden [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
+              {quickReplies.map((reply) => (
+                <button key={reply.label} type="button" onClick={() => void submit(reply.prompt)} className="h-10 shrink-0 rounded-full border border-hairline bg-card px-4 text-sm font-medium whitespace-nowrap text-ink-soft transition-transform active:scale-[0.97]">
+                  {reply.label}
+                </button>
+              ))}
+            </div>
+          )}
           <AnimatePresence initial={false}>
           {queued !== null && (
             <motion.div
@@ -1116,6 +1142,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
               "flex w-full min-w-0 max-w-full flex-col gap-1 rounded-3xl border border-input bg-card py-1.5 pl-4 pr-1.5 shadow-lift transition-[border-color,box-shadow] duration-200 ease-out",
               PHONE_V2 && "max-lg:pr-1.5 max-lg:pl-5",
               "focus-within:border-ink/30 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_6%,transparent),var(--shadow-lift)]",
+              PHONE_V2 && "max-lg:border-transparent max-lg:bg-secondary max-lg:shadow-none max-lg:focus-within:border-transparent max-lg:focus-within:bg-coral-soft max-lg:focus-within:shadow-none",
               sending && "composer-live",
             )}
           >
