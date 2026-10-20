@@ -1070,7 +1070,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
         </div>
       </div>
 
-      <div className={"pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-background from-55% to-transparent px-3 pt-8 pb-3"}>
+      <div className={cn("pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-background from-55% to-transparent px-3 pt-8 pb-3", PHONE_V2 && "max-lg:bg-none max-lg:pt-0")}>
         <div className={cn("pointer-events-auto relative mx-auto w-full min-w-0", rail ? RAIL_MEASURE : "max-w-2xl")}>
           <AnimatePresence>
             {scroll.away && (
