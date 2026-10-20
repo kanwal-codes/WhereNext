@@ -48,7 +48,7 @@ export function SegmentedSwitch<K extends string>({
         const cls = cn(
           "relative inline-flex h-8 items-center justify-center gap-1.5 rounded-full px-5 font-medium whitespace-nowrap transition-colors",
           PHONE_V2 && "max-lg:h-10",
-          active ? (floating ? "text-foreground" : "text-primary-foreground") : "text-muted-foreground hover:text-foreground",
+          active ? (floating ? "text-foreground" : cn("text-primary-foreground", PHONE_V2 && "max-lg:text-foreground")) : "text-muted-foreground hover:text-foreground",
         );
         const inner = (
           <>
@@ -56,7 +56,7 @@ export function SegmentedSwitch<K extends string>({
               <motion.span
                 layoutId={thumbId}
                 aria-hidden
-                className={cn("absolute inset-0 rounded-full shadow-soft", floating ? "bg-white/70 ring-1 ring-white/60 backdrop-blur-md" : "bg-primary")}
+                className={cn("absolute inset-0 rounded-full shadow-soft", floating ? "bg-white/70 ring-1 ring-white/60 backdrop-blur-md" : cn("bg-primary", PHONE_V2 && "max-lg:bg-coral-soft max-lg:shadow-none"))}
                 transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 36 }}
               />
             )}

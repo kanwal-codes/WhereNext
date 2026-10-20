@@ -14,6 +14,7 @@ import { formatMoney } from "@/lib/currency";
 import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache";
 import { haversineKm } from "@/lib/application/geo";
 import { cn } from "@/lib/utils";
+import { PICK_ON } from "@/lib/phone-v2";
 import { cachedGet } from "@/lib/client/cached-get";
 
 type Order = "nearby" | "price" | "rating";
@@ -189,14 +190,14 @@ export function NearbyStays({
       <div className="mt-4 flex flex-wrap items-center gap-2" aria-label="Alternative stay sorting">
         <span className="text-xs text-muted-foreground">Sort</span>
         {((anchor ? ["nearby", "price", "rating"] : ["price", "rating"]) as Order[]).map((value) => (
-          <button key={value} type="button" onClick={() => setOrder(value)} className={cn("rounded-full border px-3 py-1.5 text-xs transition-colors", order === value ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:text-foreground")}>
+          <button key={value} type="button" onClick={() => setOrder(value)} className={cn("rounded-full border px-3 py-1.5 text-xs transition-colors", order === value ? cn("border-primary bg-primary text-primary-foreground", PICK_ON) : "border-border bg-background text-muted-foreground hover:text-foreground")}>
             {value === "nearby" ? "Nearest to this hotel" : value === "price" ? "Best price" : "Guest score"}
           </button>
         ))}
         <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden="true" />
         <span className="text-xs text-muted-foreground">Type</span>
         {(["All", ...availableKinds] as Array<Kind | "All">).map((value) => (
-          <button key={value} type="button" onClick={() => setKind(value)} className={cn("rounded-full border px-3 py-1.5 text-xs transition-colors", kind === value ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:text-foreground")}>
+          <button key={value} type="button" onClick={() => setKind(value)} className={cn("rounded-full border px-3 py-1.5 text-xs transition-colors", kind === value ? cn("border-primary bg-primary text-primary-foreground", PICK_ON) : "border-border bg-background text-muted-foreground hover:text-foreground")}>
             {value}
           </button>
         ))}

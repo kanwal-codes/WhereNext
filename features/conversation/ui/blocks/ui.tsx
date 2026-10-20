@@ -13,7 +13,7 @@ import React, { useState, type ReactNode } from "react";
 import { ArrowRight, ArrowUpRight, Check, Copy, Info, Map as MapIcon, Star, type LucideIcon } from "lucide-react";
 import { BlurImage } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
-import { PHONE_V2 } from "@/lib/phone-v2";
+import { PHONE_V2, PICK_OFF, PICK_ON } from "@/lib/phone-v2";
 
 export const type = {
   title: "font-display text-base font-semibold leading-snug tracking-[-0.01em]",
@@ -374,5 +374,5 @@ export function BlockHeader({ icon: Icon, title, meta, actions }: { icon: Lucide
 /** A segmented-control tab: the selected one is a solid fill (matching the selected filter chips), the rest quiet text. */
 export const segmentTab = (selected: boolean) =>
   selected
-    ? "daisy-tab-active bg-primary text-primary-foreground shadow-sm hover:text-primary-foreground"
+    ? cn("daisy-tab-active bg-primary text-primary-foreground shadow-sm hover:text-primary-foreground", PICK_ON, PHONE_V2 && "max-lg:shadow-none")
     : "text-muted-foreground hover:text-foreground";
