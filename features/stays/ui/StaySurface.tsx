@@ -28,6 +28,7 @@ import { useMediaQuery } from "@/lib/use-media-query";
 import { fmtDay } from "@/lib/trip-dates";
 import { cachedGet } from "@/lib/client/cached-get";
 import { prefetchStayDetails } from "@/features/stays/application/useStayDetails";
+import { dateFormat } from "@/lib/format-cache";
 
 type Result = {
   location: string;
@@ -45,7 +46,7 @@ type Result = {
 /** "Tue, Oct 27", for the big date in a booking cell. */
 const fmtLong = (iso: string) => {
   const d = new Date(`${iso}T00:00:00`);
-  return Number.isNaN(d.getTime()) ? "" : new Intl.DateTimeFormat("en", { weekday: "short", month: "short", day: "numeric" }).format(d);
+  return Number.isNaN(d.getTime()) ? "" : dateFormat("en", { weekday: "short", month: "short", day: "numeric" }).format(d);
 };
 
 const cellLabel = "block text-[0.625rem] max-lg:text-xs font-medium tracking-[0.22em] text-muted-foreground uppercase";

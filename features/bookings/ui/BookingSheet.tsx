@@ -8,15 +8,16 @@ import { formatMoney } from "@/lib/currency";
 import { formatDuration } from "@/lib/utils";
 import { useBookingFlow, type BookingSubject } from "@/features/bookings/application/useBookingFlow";
 import type { Booking } from "@/packages/contracts/booking";
+import { dateFormat, numberFormat } from "@/lib/format-cache";
 
 const fmtDay = (iso: string) => {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString([], { month: "short", day: "numeric" });
 };
-const fmtDateTime = (iso: string) => new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+const fmtDateTime = (iso: string) => dateFormat([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 const flightPrice = (amount: string, currency: string) => {
   try {
-    return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(Number(amount));
+    return numberFormat(undefined, { style: "currency", currency }).format(Number(amount));
   } catch {
     return `${amount} ${currency}`;
   }

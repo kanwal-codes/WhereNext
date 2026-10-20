@@ -64,10 +64,9 @@ function HScrollFade({ className, children }: { className?: string; children: Re
     const el = ref.current;
     if (!el) return;
     const check = () => {
-      setMore({
-        left: el.scrollLeft > 4,
-        right: el.scrollWidth - el.scrollLeft - el.clientWidth > 4,
-      });
+      const left = el.scrollLeft > 4;
+      const right = el.scrollWidth - el.scrollLeft - el.clientWidth > 4;
+      setMore((prev) => (prev.left === left && prev.right === right ? prev : { left, right }));
     };
     check();
     el.addEventListener("scroll", check, { passive: true });

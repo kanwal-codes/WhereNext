@@ -56,8 +56,13 @@ function displayName(userId: string | null, members: TripMember[], meId: string 
   return memberLabel(members.find((m) => m.userId === userId));
 }
 
-const timeLabel = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-const fullTime = (iso: string) => new Date(iso).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+// Built once: a long chat formats a time per message per render, and `toLocale*String(options)` builds a formatter on every call.
+const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
+const fullTimeFormat = new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+const dayFormat = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+const dayYearFormat = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" });
+const timeLabel = (iso: string) => timeFormat.format(new Date(iso));
+const fullTime = (iso: string) => fullTimeFormat.format(new Date(iso));
 
 /** Every member gets the same avatar — Roam included. In this chat Roam is just the fifth friend. */
 function Avatar({ name }: { name: string }) {
@@ -76,7 +81,7 @@ function dayLabel(iso: string): string {
   const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
   if (sameDay(date, today)) return "Today";
   if (sameDay(date, yesterday)) return "Yesterday";
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: date.getFullYear() === today.getFullYear() ? undefined : "numeric" });
+  return (date.getFullYear() === today.getFullYear() ? dayFormat : dayYearFormat).format(date);
 }
 
 async function postJson<T>(url: string, body: unknown, timeoutMs?: number): Promise<T> {

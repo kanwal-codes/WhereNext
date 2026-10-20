@@ -118,7 +118,9 @@ export function ScrollWindow({ children, frozen, resetKey, label, rows = 3, peek
   const updateEdges = React.useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    setEdges({ top: el.scrollTop > 2, bottom: el.scrollTop + el.clientHeight < el.scrollHeight - 2 });
+    const top = el.scrollTop > 2;
+    const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 2;
+    setEdges((prev) => (prev.top === top && prev.bottom === bottom ? prev : { top, bottom }));
   }, []);
   React.useEffect(updateEdges, [height, children, updateEdges]);
   React.useEffect(() => {
@@ -142,7 +144,10 @@ export function ScrollX({ children, label, className }: { children: React.ReactN
   const [edges, setEdges] = React.useState({ left: false, right: false });
   const update = React.useCallback(() => {
     const el = ref.current;
-    if (el) setEdges({ left: el.scrollLeft > 2, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 2 });
+    if (!el) return;
+    const left = el.scrollLeft > 2;
+    const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+    setEdges((prev) => (prev.left === left && prev.right === right ? prev : { left, right }));
   }, []);
   React.useEffect(() => {
     update();

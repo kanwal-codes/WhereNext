@@ -23,6 +23,7 @@ import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { resolveCurrency } from "@/lib/currency";
 import { MODE_LABEL, TRAFFIC_HEX } from "@/lib/application/mode-visuals";
 import { ModeTile, Ribbon, colorOf, railStyle } from "@/features/maps/ui/modeParts";
+import { dateFormat, numberFormat } from "@/lib/format-cache";
 
 const hexColor = (c?: string) => (c ? `#${c.replace(/^#/, "")}` : undefined);
 
@@ -66,7 +67,7 @@ export type TransportPreset = { from?: string; to?: string; modes?: string[]; no
 const clock = (iso?: string, timeZone?: string) => {
   if (!iso) return null;
   try {
-    return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", ...(timeZone ? { timeZone } : {}) });
+    return dateFormat([], { hour: "2-digit", minute: "2-digit", ...(timeZone ? { timeZone } : {}) }).format(new Date(iso));
   } catch {
     return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }
@@ -74,7 +75,7 @@ const clock = (iso?: string, timeZone?: string) => {
 const money = (f?: Route["fare"]) => {
   if (!f) return null;
   try {
-    return new Intl.NumberFormat(undefined, { style: "currency", currency: f.currency }).format(f.amount);
+    return numberFormat(undefined, { style: "currency", currency: f.currency }).format(f.amount);
   } catch {
     return `${f.amount.toFixed(2)} ${f.currency}`;
   }
@@ -445,7 +446,7 @@ export function TransportSurface({
   const flightFrom = cheapest
     ? (() => {
         try {
-          return new Intl.NumberFormat(undefined, { style: "currency", currency: cheapest.priceCurrency, maximumFractionDigits: 0 }).format(Number(cheapest.priceAmount));
+          return numberFormat(undefined, { style: "currency", currency: cheapest.priceCurrency, maximumFractionDigits: 0 }).format(Number(cheapest.priceAmount));
         } catch {
           return null;
         }
@@ -670,7 +671,7 @@ export function TransportSurface({
           {shownFlights.map((f, i) => {
             const price = (() => {
               try {
-                return new Intl.NumberFormat(undefined, { style: "currency", currency: f.priceCurrency }).format(Number(f.priceAmount));
+                return numberFormat(undefined, { style: "currency", currency: f.priceCurrency }).format(Number(f.priceAmount));
               } catch {
                 return `${f.priceAmount} ${f.priceCurrency}`;
               }
@@ -679,7 +680,7 @@ export function TransportSurface({
             const open = openFlight === id;
             const when = (iso: string) => {
               const d = new Date(iso);
-              return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+              return Number.isNaN(d.getTime()) ? "" : dateFormat([], { hour: "numeric", minute: "2-digit" }).format(d);
             };
             const via = f.layoverAirports?.length ? ` via ${f.layoverAirports.join(", ")}` : "";
             return (
