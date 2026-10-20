@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { BadgeCheck, Camera, Check, Copy, Download, Eye, Link2, Loader2, MapPin, Plane, Compass, Trash2 } from "lucide-react";
@@ -8,17 +8,22 @@ import { Reveal, Sheet, Tactile, WordReveal, motionTokens } from "@/components/m
 import { StandaloneTopBar } from "@/components/StandaloneTopBar";
 import { useIsDarkMode } from "@/lib/use-dark-mode";
 import { DestinationCombobox } from "@/components/DestinationCombobox";
-import { accountPhotoUrl } from "@/lib/places-ui";
 import { notifyToast } from "@/lib/application/toast";
 import { PHONE_V2 } from "@/lib/phone-v2";
 import { cn } from "@/lib/utils";
 import { LANGUAGES, countriesByName, countryFromPlace, displayName, fromBrowserLocale } from "@/lib/locales";
-import { updateName, updateEmail, updatePassword, disconnectGoogle, signInWithGoogle, signOut as signOutUser, uploadAvatar } from "@/features/identity/application/authClient";
+import { updateName, updateEmail, signOut as signOutUser, uploadAvatar } from "@/features/identity/application/authClient";
 import type { TravelerProfile } from "@/packages/contracts/profile";
 import { memberInitials } from "@/lib/member-initials";
-import { airportCode, avatarProblem, canChangePassword, formPatch, passwordsMatch, pickedAirport, readAirportInput, shareUrl, styleSummary, stylePatch, toggled } from "../domain/account";
+import { saveProfile } from "../application/saveProfile";
+import { useAccountActions } from "../application/useAccountActions";
+import { useDreamDestination } from "../application/useDreamDestination";
+import { useGoogleConnection } from "../application/useGoogleConnection";
+import { usePasswordChange } from "../application/usePasswordChange";
+import { useStyleEditor } from "../application/useStyleEditor";
+import { airportCode, avatarProblem, canChangePassword, formPatch, pickedAirport, readAirportInput, toggled } from "../domain/account";
 import { AVATAR_TYPES, BUDGET, COMPANIONS, DIETARY, INTERESTS, PACE, SECTIONS, STAY_TYPES, UNSET_NOTE } from "./account-options";
-import { Chip, Field, Pill, ReadRow, Segmented, SettingSection, ToggleRow, asDietaryArray, strengthOf } from "./AccountParts";
+import { Chip, Field, Pill, ReadRow, Segmented, SettingSection, ToggleRow } from "./AccountParts";
 
 /* ---------------------------------- page --------------------------------- */
 
@@ -79,7 +84,6 @@ export function AccountView({
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [styleSaved, setStyleSaved] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
   const [avatarError, setAvatarError] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -107,25 +111,7 @@ export function AccountView({
   }
   const touch = () => { setDirty(true); setSaved(false); };
 
-  // The dream destination: its photo is the profile picture and the backdrop of this page.
-  const [dreamText, setDreamText] = useState(profile.dreamDestination ?? "");
-  const [dreamDraft, setDreamDraft] = useState(profile.dreamDestination ?? "");
-  const [dreamPhoto, setDreamPhoto] = useState<string | null>(profile.dreamPhotoName ?? null);
-  const [savingDream, setSavingDream] = useState(false);
-  // The picker stays out of the way until asked for: from the profile header's "Add your dream destination" or the one set already.
-  const [dreamOpen, setDreamOpen] = useState(false);
-  // overflow-hidden is only needed while the card's height is animating open/closed — left on permanently,
-  // it also clips the destination combobox's dropdown, which has to float past the card's bottom edge.
-  const [dreamSettled, setDreamSettled] = useState(false);
-  useEffect(() => { if (!dreamOpen) setDreamSettled(false); }, [dreamOpen]);
-  const openDream = () => {
-    setActive("profile");
-    setDreamOpen(true);
-    window.setTimeout(() => document.getElementById("dream")?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
-  };
-  const [heroFailed, setHeroFailed] = useState(false);
-  const dreamHero = dreamPhoto && !heroFailed ? accountPhotoUrl(dreamPhoto, 1600) : undefined;
-
+  const { dreamText, dreamDraft, setDreamDraft, savingDream, dreamOpen, setDreamOpen, dreamSettled, setDreamSettled, openDream, setHeroFailed, dreamHero, chooseDream, clearDream } = useDreamDestination({ profile, onOpen: () => setActive("profile") });
   const [name, setName] = useState(initialName);
   const [emailDraft, setEmailDraft] = useState(email);
   const [airport, setAirport] = useState(profile.homeAirport ?? "");
@@ -154,88 +140,13 @@ export function AccountView({
       if (r.ok) notifyToast(`Home country set to ${displayName("region", named)}, from your home city.`, "success");
     });
   }, [profile.country, profile.homeCity]);
-  const [pwOpen, setPwOpen] = useState(false);
-  const [newPw, setNewPw] = useState("");
-  const [confirmPw, setConfirmPw] = useState("");
-  const [savingPw, setSavingPw] = useState(false);
-  const [hasGoogle, setHasGoogle] = useState(providers.includes("google"));
-  const [connectingGoogle, setConnectingGoogle] = useState(false);
-
-  const [interests, setInterests] = useState<string[]>(profile.interests ?? []);
-  const [dietary, setDietary] = useState<string[]>(asDietaryArray(profile.dietaryNeeds));
-  const [dietNote, setDietNote] = useState(profile.dietaryNote ?? "");
-  const [pace, setPace] = useState(() => PACE.findIndex((p) => p.label === profile.pace));
-  const [budget, setBudget] = useState(() => BUDGET.findIndex((b) => b.label === String(profile.budget ?? "")));
-  const [stay, setStay] = useState(profile.stayType ?? "Anything");
-  const [companions, setCompanions] = useState(profile.groupType ?? "");
-  const [editingStyle, setEditingStyle] = useState(false);
-  const styleSnapshot = useMemo(() => ({ interests, dietary, dietNote, pace, budget, stay, companions }), []); // eslint-disable-line react-hooks/exhaustive-deps
-  const [snapshot, setSnapshot] = useState(styleSnapshot);
-
-  const startStyleEdit = () => { setSnapshot({ interests, dietary, dietNote, pace, budget, stay, companions }); setStyleSaved(false); setEditingStyle(true); };
-  const cancelStyleEdit = () => {
-    setInterests(snapshot.interests); setDietary(snapshot.dietary); setDietNote(snapshot.dietNote);
-    setPace(snapshot.pace); setBudget(snapshot.budget); setStay(snapshot.stay); setCompanions(snapshot.companions);
-    setEditingStyle(false);
-  };
-  const [savingStyle, setSavingStyle] = useState(false);
-  async function finishStyleEdit() {
-    setSavingStyle(true);
-    const ok = await saveProfile(stylePatch({ interests, dietary, dietNote, pace: PACE[pace]?.label, budget: BUDGET[budget]?.label, stay, companions })); // null clears one that was set
-    setSavingStyle(false);
-    if (ok) { setStyleSaved(true); setEditingStyle(false); }
-  }
-
+  const { pwOpen, setPwOpen, newPw, setNewPw, confirmPw, setConfirmPw, savingPw, changePassword, pwScore, confirmMatches } = usePasswordChange();
+  const { hasGoogle, connectingGoogle, toggleGoogle } = useGoogleConnection(providers);
+  const { interests, setInterests, dietary, setDietary, dietNote, setDietNote, pace, setPace, budget, setBudget, stay, setStay, companions, setCompanions, editingStyle, startStyleEdit, cancelStyleEdit, savingStyle, finishStyleEdit, styleSaved, summary } = useStyleEditor({ profile, touch });
   const [notif, setNotif] = useState({ trips: true, prices: true, collab: true, weekly: false, product: false, ...profile.notifications });
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState("");
-  const [deleting, setDeleting] = useState(false);
+  const { deleteOpen, setDeleteOpen, deleteConfirm, setDeleteConfirm, deleting, copyShareLink, revokeShare, exportData, deleteAccount } = useAccountActions();
 
   const toggleChip = (list: string[], set: (v: string[]) => void, v: string) => { touch(); set(toggled(list, v)); };
-
-  async function saveProfile(patch: Partial<TravelerProfile>): Promise<boolean> {
-    try {
-      const response = await fetch("/api/profile", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(patch) });
-      if (!response.ok) throw new Error();
-      return true;
-    } catch {
-      notifyToast("That couldn’t be saved. Try again.", "error");
-      return false;
-    }
-  }
-
-  /** Pick the dream destination: look up its photo once, then save both so the page and profile picture update together. */
-  async function chooseDream(text: string) {
-    const place = text.trim();
-    if (!place || savingDream) return;
-    setSavingDream(true);
-    try {
-      const res = await fetch(`/api/account/places/destination-photo?query=${encodeURIComponent(place)}`);
-      const body = res.ok ? ((await res.json()) as { photoName?: string | null }) : { photoName: null };
-      const photoName = body.photoName ?? null;
-      const ok = await saveProfile({ dreamDestination: place, dreamPhotoName: photoName });
-      if (!ok) return;
-      setDreamText(place);
-      setDreamDraft(place);
-      setDreamPhoto(photoName);
-      setHeroFailed(false);
-      setDreamOpen(false);
-      notifyToast(photoName ? "Your dream destination is your backdrop now." : "Saved. We couldn’t find a photo for it, though.", photoName ? "success" : "info");
-    } finally {
-      setSavingDream(false);
-    }
-  }
-
-  async function clearDream() {
-    if (savingDream) return;
-    setSavingDream(true);
-    const ok = await saveProfile({ dreamDestination: null, dreamPhotoName: null });
-    setSavingDream(false);
-    if (!ok) return;
-    setDreamText("");
-    setDreamDraft("");
-    setDreamPhoto(null);
-  }
 
   async function saveAll() {
     if (saving) return;
@@ -261,57 +172,6 @@ export function AccountView({
       setSaving(false);
     }
   }
-
-  async function changePassword() {
-    if (!canChangePassword(newPw, confirmPw) || savingPw) return;
-    setSavingPw(true);
-    const { error } = await updatePassword(newPw);
-    setSavingPw(false);
-    if (error) { notifyToast("Your password couldn’t be changed.", "error"); return; }
-    notifyToast("Password changed", "success");
-    setNewPw(""); setConfirmPw(""); setPwOpen(false);
-  }
-
-  async function toggleGoogle() {
-    setConnectingGoogle(true);
-    if (hasGoogle) {
-      const { error } = await disconnectGoogle();
-      setConnectingGoogle(false);
-      if (error) { notifyToast("Couldn’t disconnect Google.", "error"); return; }
-      setHasGoogle(false);
-      notifyToast("Google disconnected", "success");
-    } else {
-      await signInWithGoogle(window.location.href);
-    }
-  }
-
-  async function copyShareLink(slug: string) {
-    const url = shareUrl(window.location.origin, slug);
-    try { await navigator.clipboard.writeText(url); notifyToast("Link copied", "success"); } catch { notifyToast("Couldn’t copy the link.", "error"); }
-  }
-
-  async function revokeShare(tripId: string) {
-    const response = await fetch(`/api/trips/${tripId}/share`, { method: "DELETE" });
-    if (!response.ok) { notifyToast("Couldn’t revoke that link.", "error"); return; }
-    notifyToast("Link revoked", "success");
-    router.refresh();
-  }
-
-  async function exportData() {
-    window.location.href = "/api/account/export";
-  }
-
-  async function deleteAccount() {
-    setDeleting(true);
-    const response = await fetch("/api/account", { method: "DELETE" });
-    if (!response.ok) { setDeleting(false); notifyToast("Account could not be deleted.", "error"); return; }
-    window.location.assign("/sign-in");
-  }
-
-  const summary = useMemo(() => styleSummary({ interests, pace: PACE[pace]?.label, budget: BUDGET[budget]?.label, companions }), [interests, pace, budget, companions]);
-
-  const pwScore = strengthOf(newPw);
-  const confirmMatches = passwordsMatch(newPw, confirmPw);
 
   return (
     <div className="min-h-screen pb-32">
