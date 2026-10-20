@@ -6,7 +6,7 @@ import { ArrowDown, ChevronRight, Info } from "lucide-react";
 import { MicButton, SendButton } from "@/components/ComposerButtons";
 import { PHONE_V2 } from "@/lib/phone-v2";
 import { Reveal, Stagger, StaggerItem, ease, motionTokens } from "@/components/motion-primitives";
-import type { AssistantBlock, AssistantTurnMeta, PlaceCard, ProposedCommand, StayCardItem } from "@/packages/contracts/assistant";
+import type { AssistantBlock, AssistantTurnMeta, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { EventSeed } from "@/components/TripPanelProvider";
 import type { Message } from "../domain/message";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
@@ -16,11 +16,12 @@ import { haptic } from "@/lib/haptics";
 import { useAutoGrowTextarea } from "@/lib/use-autogrow-textarea";
 import { useKeepScrollGap } from "@/lib/use-keep-scroll-gap";
 import { AssistantMessage, type BlockHandlers } from "./AssistantMessage";
-import { changeKindFor, proposalQuestion } from "../domain/proposal";
+import { proposalQuestion } from "../domain/proposal";
 import { replyNotes } from "../domain/replyNotes";
 import { sendFailureToast, unansweredMessage } from "../domain/sendOutcome";
 import type { CardPanel } from "@/components/TripPanelProvider";
 import { CopyButton, controlSecondary, textAction } from "./blocks/ui";
+import { useProposal } from "../application/useProposal";
 import { useConversationThread } from "../application/useConversationThread";
 import { AssistantRequestError } from "../application/streamAssistantResponse";
 import { sendConversationMessage } from "../application/sendConversationMessage";
@@ -188,13 +189,12 @@ export const ConversationSurface = React.memo(function ConversationSurface({
   // The sentence the landing page handed over, shown the moment the chat opens (before the thread has loaded and before
   // it is sent) so the visitor never sees an empty chat between the landing page and their own message.
   const [pendingFirst, setPendingFirst] = useState<{ text: string; key: string } | null>(null);
-  const [confirming, setConfirming] = useState(false);
   // A guest who has used their free messages (the server said so) — the composer closes and the
   // save card opens. `saveOpen` is the softer version: they asked to save before running out.
   const [guestGate, setGuestGate] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const { guest, openGate } = useGuest();
-  const [proposal, setProposal] = useState<ProposedCommand | null>(null);
+  const { proposal, setProposal, confirming, confirmProposal } = useProposal({ guest, openGate });
   // Phase 2.6.2 (docs/overhaul/roadmap/phase-2-speed.md): the real backend milestone for the
   // in-flight turn, driving Typing's label — replaces a purely time-based guess.
   // A failed turn, shown with Roam's mark for a moment. (A successful one just ends with its text.)
@@ -366,32 +366,6 @@ export const ConversationSurface = React.memo(function ConversationSurface({
   };
 
   const isMultiline = useAutoGrowTextarea(textareaRef, input);
-
-  async function confirmProposal() {
-    if (!proposal || confirming) return;
-    if (guest) return openGate("save changes to your trip");
-    setConfirming(true);
-    try {
-      const command =
-        proposal.type === "record_decision"
-          ? { ...proposal, idempotencyKey: proposal.idempotencyKey ?? crypto.randomUUID() }
-          : proposal;
-      const response = await fetch("/api/commands", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(command),
-      });
-      if (!response.ok) throw new Error("command");
-      const body = await response.json().catch(() => ({}));
-      setProposal(null);
-      notifyToast(typeof body.changeImpact === "string" && body.changeImpact ? body.changeImpact : "Change saved.", "success");
-      announceWorkspaceChange(changeKindFor(command));
-    } catch {
-      notifyToast("That change couldn’t be saved.", "error");
-    } finally {
-      setConfirming(false);
-    }
-  }
 
   async function submit(rawContent: string, retryKey?: string) {
     const content = rawContent.trim();
