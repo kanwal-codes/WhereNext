@@ -21,21 +21,19 @@ import { WeatherDetail } from "@/features/conversation/ui/panels/WeatherDetail";
 import { ChecklistDetail } from "@/features/conversation/ui/panels/ChecklistDetail";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { useMediaQuery } from "@/lib/use-media-query";
-import { cn, formatDuration } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { ContentSwap, Sheet } from "@/components/motion-primitives";
 import { MessageBlocks } from "@/features/conversation/ui/blocks/MessageBlocks";
 import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
-import { haversineKm } from "@/lib/application/geo";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { PanelLoading } from "@/components/PanelStates";
 import { readPlaceSeed } from "@/features/places/application/placeDetailsCache";
+import { COMPARE_VERDICT_PROMPT, useCompareChat } from "@/components/useCompareChat";
+import { distanceLabel, fullPageHref, type Anchor } from "@/components/tripPanelLogic";
 import { PHONE_V2 } from "@/lib/phone-v2";
 import { Badge, controlGhost, textAction } from "@/features/conversation/ui/blocks/ui";
 
 const KIND_LABEL: Record<CompareEntry["kind"], string> = { place: "Place", stay: "Stay", event: "Event", route: "Route" };
-/** The question auto-asked the moment a fresh comparison opens — never shown as a "user" bubble
- *  since the traveller didn't type it; only Roam's answer to it is worth displaying. */
-const COMPARE_VERDICT_PROMPT = "Which of these should I pick, and why? One short paragraph.";
 /** Routes that mount their own `layout="inline"` TripPanel (via RoamShell) — the layout-level
  *  drawer instance stands down on these so the two don't both try to show the same panel. */
 const SELF_HOSTED_INLINE_PANEL_ROUTES = ["/chat", "/group"];
@@ -45,57 +43,6 @@ const SELF_HOSTED_INLINE_PANEL_ROUTES = ["/chat", "/group"];
 let panelOpener: HTMLElement | null = null;
 
 const KIND_ICON = { area: MapPin, place: MapPin, stay: BedDouble, event: CalendarDays, collection: LayoutGrid, flight: Plane, day: CalendarRange, budget: Wallet, map: MapIcon, route: RouteIcon, compare: Scale, weather: CloudSun, checklist: ListChecks } as const;
-
-type Anchor = { name: string; lat: number; lng: number } | null;
-function distanceLabel(entry: CompareEntry, anchor: Anchor): string {
-  if (!anchor || entry.attrs.lat == null || entry.attrs.lng == null) return "—";
-  // Was a private re-implementation of `lib/application/geo.ts`'s `haversineKm` — missing that
-  // function's `Math.min(1, ...)` clamp before `Math.asin()`, which guards against floating-point
-  // rounding pushing the pre-asin value fractionally past 1 (asin of >1 is `NaN`) for two very
-  // close or near-antipodal points. Same bug, same fix as `route-plan/route.ts`'s copy.
-  const d = haversineKm({ latitude: anchor.lat, longitude: anchor.lng }, { latitude: entry.attrs.lat, longitude: entry.attrs.lng });
-  return d < 1 ? `${Math.round(d * 1000)} m` : `${d.toFixed(1)} km`;
-}
-/** The routed full-page equivalent of whatever the panel is showing. */
-function fullPageHref(panel: PanelState, tripId: string, compareIds: string[]): string {
-  const base = `/trips/${tripId}`;
-  switch (panel.kind) {
-    case "place":
-      return `${base}/place/${encodeURIComponent(panel.placeId)}`;
-    case "stay": {
-      const qs = new URLSearchParams();
-      if (panel.checkin) qs.set("checkin", panel.checkin);
-      if (panel.checkout) qs.set("checkout", panel.checkout);
-      return `${base}/stay/${encodeURIComponent(panel.hotelId)}${qs.toString() ? `?${qs}` : ""}`;
-    }
-    case "event": {
-      const { name, url, source, imageUrl, date, venue } = panel.seed;
-      const qs = new URLSearchParams({ name, url, source });
-      if (imageUrl) qs.set("img", imageUrl);
-      if (date) qs.set("date", date);
-      if (venue) qs.set("venue", venue);
-      return `${base}/event?${qs}`;
-    }
-    case "collection":
-    case "area":
-      return `${base}/discover`;
-    case "flight":
-      return `${base}/transport`;
-    case "day":
-      return `${base}/itinerary`;
-    case "budget":
-      return `${base}/budget`;
-    case "map":
-    case "route":
-      return `${base}/map`;
-    case "weather":
-      return base;
-    case "checklist":
-      return `${base}/bookings`;
-    default:
-      return `${base}/compare${compareIds.length ? `?ids=${compareIds.map(encodeURIComponent).join(",")}` : ""}`;
-  }
-}
 
 /** Icon inside the expand Link: becomes a spinner the moment it is pressed, until the full page arrives. */
 function ExpandIcon() {
@@ -182,9 +129,6 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   const { guest, openGate } = useGuest();
   const pathname = usePathname();
   const desktop = useMediaQuery("(min-width: 1024px)");
-  const [chat, setChat] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
-  const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   // On a phone the panel is a sheet that slides up. Mounting its (heavy) content while it moves competes with the slide for the same
@@ -221,27 +165,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   const shown = panel ?? lastPanelRef.current;
   const sk = panelSubjectKey(shown, compareList.map((e) => e.id));
 
-  // A scratch chat, scoped to whatever the panel currently shows. Cleared when the subject changes.
-  useEffect(() => {
-    setChat([]);
-  }, [sk]);
-  // A raw side-by-side table doesn't tell anyone which option to actually pick — kick off
-  // Roam's take the moment a fresh comparison (2+ items) opens, so there's always a plain-
-  // language verdict above the numbers, not just the numbers themselves. Aborted on cleanup
-  // so Strict Mode's dev-only double-invoke (mount → cleanup → mount) cancels the first,
-  // stale call instead of leaving two concurrent requests racing to write the same state.
-  //
-  // Depends on panel?.kind too, not just sk: compareList reaches its final 2+ items (and sk
-  // its final value) while the user is still picking cards, before the panel ever opens —
-  // clicking "Open" afterward flips panel.kind to "compare" without sk changing at all, so
-  // sk alone misses that transition and a second comparison in the same session never asks.
-  useEffect(() => {
-    if (panel?.kind !== "compare" || compareList.length < 2) return;
-    const controller = new AbortController();
-    void ask(COMPARE_VERDICT_PROMPT, [], controller.signal);
-    return () => controller.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sk, panel?.kind]);
+  const { chat, input, setInput, sending, ask, clear: clearChat, verdictMsg, verdictFailed, retryVerdict } = useCompareChat({ panel, shown, compareList, tripId, subjectKey: sk });
   // Inline (docked chat-rail) panel: Escape closes it, unless the key was meant for something on top
   // of it (an open menu or dialog). The drawer's modal focus / scroll-lock / return-focus is
   // handled by <Sheet> further down.
@@ -295,78 +219,6 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   const stay = readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
   const anchor: Anchor = stay && stay.latitude != null && stay.longitude != null ? { name: stay.hotelName, lat: stay.latitude, lng: stay.longitude } : null;
 
-  /** The options the scratch chat should reason about — the compare set, or just the one thing on screen. */
-  function itemsFor(p: PanelState) {
-    if (p.kind === "compare") {
-      return compareList.map((e) => ({
-        name: e.name,
-        detail: e.attrs.detail,
-        price: e.attrs.price,
-        rating: e.attrs.rating,
-        when: e.attrs.when,
-        address: e.attrs.address,
-        lat: e.attrs.lat,
-        lng: e.attrs.lng,
-      }));
-    }
-    if (p.kind === "collection") return [];
-    if (p.kind === "flight") return [{ name: panelTitle(p), detail: "Flight", price: `${p.flight.price} ${p.flight.currency}`, when: p.flight.departAt }];
-    if (p.kind === "day") return [{ name: panelTitle(p), detail: `Itinerary day: ${p.block.days[p.dayIndex]?.stops.map((stop) => stop.title).join(", ")}` }];
-    if (p.kind === "route") return [{ name: panelTitle(p), detail: `Ways to get there: ${p.routes.map((r) => `${r.mode} ${formatDuration(r.durationSeconds / 60)}`).join(", ")}` }];
-    if (p.kind === "map") return [{ name: panelTitle(p), detail: `Map of: ${p.points.map((point) => point.name).join(", ")}` }];
-    if (p.kind === "area") { const item = p.items[p.active]; return [{ name: panelTitle(p), detail: `${p.optionKind === "area" ? "Neighbourhood" : "Day trip"}: ${item?.blurb ?? ""} ${item?.tags.join(", ") ?? ""}`.trim() }]; }
-    if (p.kind === "weather") return [{ name: panelTitle(p), detail: p.block.headline }];
-    if (p.kind === "checklist") return [{ name: panelTitle(p), detail: `Checklist: ${p.block.groups.flatMap((g) => g.items.map((i) => i.text)).slice(0, 8).join(", ")}` }];
-    if (p.kind === "budget") return [{ name: panelTitle(p), detail: `About ${p.block.dailyTotal.typical} ${p.block.currency} a day, ${p.block.perPerson ? "per person" : "for the group"}` }];
-    return [{ name: panelTitle(p), detail: p.kind === "stay" ? "Hotel" : p.kind === "event" ? "Event" : "Place" }];
-  }
-
-  async function ask(raw: string, historyOverride?: Array<{ role: "user" | "assistant"; content: string }>, externalSignal?: AbortSignal) {
-    if (!panel) return;
-    // The side-chat is a second, uncounted door to the model; a guest's free messages are in the main chat.
-    if (guest) return openGate("ask Roam to compare options");
-    const q = raw.trim();
-    if (!q || sending) return;
-    setInput("");
-    const history = historyOverride ?? chat.filter((m) => m.content.trim());
-    setChat((c) => [...c, { role: "user", content: q }, { role: "assistant", content: "" }]);
-    setSending(true);
-    // The upstream call has its own connect-time deadline, but nothing bounds how long an
-    // already-open stream can go quiet mid-response — without this, a stall leaves the
-    // spinner running forever with no way out.
-    const timeout = AbortSignal.timeout(30_000);
-    const signal = externalSignal ? AbortSignal.any([timeout, externalSignal]) : timeout;
-    try {
-      const res = await fetch(`/api/trips/${tripId}/compare-chat`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ items: itemsFor(panel), messages: [...history, { role: "user", content: q }] }),
-        signal,
-      });
-      if (!res.ok || !res.body) throw new Error("compare-chat");
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let acc = "";
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        acc += decoder.decode(value, { stream: true });
-        setChat((c) => c.map((m, i) => (i === c.length - 1 ? { role: "assistant", content: acc } : m)));
-      }
-      if (!acc.trim()) throw new Error("empty");
-    } catch {
-      // Superseded by a newer call (React Strict Mode's double-invoke, or the comparison set
-      // changed again mid-flight) — that call owns the chat now; don't stomp its state.
-      if (externalSignal?.aborted) return;
-      setChat((c) => c.map((m, i) => (i === c.length - 1 ? { role: "assistant", content: "Roam couldn’t answer just now. Try again in a moment." } : m)));
-    } finally {
-      setSending(false);
-    }
-  }
-
-  // The auto-asked comparison verdict belongs above the numbers, not buried in the chat below them.
-  const verdictMsg = shown?.kind === "compare" && chat[0]?.content === COMPARE_VERDICT_PROMPT ? chat[1] : undefined;
-  const verdictFailed = Boolean(verdictMsg?.content.startsWith("Roam couldn’t answer"));
 
   const body: ReactNode = !shown ? null : shown.kind === "place" ? (
     <PlaceDetailView tripId={tripId} placeId={shown.placeId} variant="panel" />
@@ -414,7 +266,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
             <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden /> Comparing your options…</span>
           )}
           {verdictFailed && (
-            <button type="button" className={cn(textAction, "underline")} onClick={() => void ask(COMPARE_VERDICT_PROMPT, [])}>Try again</button>
+            <button type="button" className={cn(textAction, "underline")} onClick={retryVerdict}>Try again</button>
           )}
         </section>
       )}
@@ -442,7 +294,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
       </div>
       <div className="flex shrink-0 items-center gap-0.5">
         {chat.length > 0 && (
-          <button type="button" onClick={() => setChat([])} aria-label="Clear this chat" title="Clear this chat" className={controlGhost}>
+          <button type="button" onClick={clearChat} aria-label="Clear this chat" title="Clear this chat" className={controlGhost}>
             <Eraser className="size-4" aria-hidden />
           </button>
         )}
