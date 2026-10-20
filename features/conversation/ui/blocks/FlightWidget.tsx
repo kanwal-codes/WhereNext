@@ -112,11 +112,11 @@ export function FlightPicks({ picks, selected, onSelect, roundTrip }: { picks: F
     const o = picks[0].offer;
     return (
       <div className="relative z-[1] mx-4 -mt-10 @[34rem]:mx-5">
-        <div className="flex items-center gap-3 rounded-2xl border-2 border-coral bg-card px-4 py-3.5 shadow-lift">
+        <div className="flex items-center gap-3 rounded-2xl border-2 border-primary bg-primary px-4 py-3.5 text-primary-foreground shadow-lift">
           <AirlineMark offer={o} className="size-8" />
           <div className="min-w-0 flex-1">
-            <p className="eyebrow text-coral-ink!">The only option</p>
-            <p className={cn(type.meta, "truncate")}>{o.airline} · {o.stops === 0 ? "nonstop" : `${o.stops} stop${o.stops > 1 ? "s" : ""}`} · {hoursMinutes(o.durationMinutes)}</p>
+            <p className="eyebrow text-primary-foreground/70!">The only option</p>
+            <p className={cn(type.meta, "truncate text-primary-foreground/70!")}>{o.airline} · {o.stops === 0 ? "nonstop" : `${o.stops} stop${o.stops > 1 ? "s" : ""}`} · {hoursMinutes(o.durationMinutes)}</p>
           </div>
           <FitText className="font-display text-2xl font-medium tracking-[-0.025em] tabular-nums">{money(o.price, o.currency, true)}</FitText>
         </div>
@@ -134,15 +134,15 @@ export function FlightPicks({ picks, selected, onSelect, roundTrip }: { picks: F
             type="button"
             onClick={() => onSelect(key)}
             aria-pressed={on}
-            className={cn("relative min-w-0 flex-1 rounded-2xl px-3.5 py-3 text-left backdrop-blur-md transition-[box-shadow,background-color,transform] duration-200 ease-out active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", on ? "border-2 border-coral bg-card shadow-lift" : "border border-white/80 bg-card/75 shadow-soft hover:bg-card/90", PHONE_V2 && "max-lg:backdrop-blur-none max-lg:shadow-none", PHONE_V2 && (on ? "max-lg:border max-lg:border-transparent max-lg:bg-coral-soft" : "max-lg:border max-lg:border-hairline max-lg:bg-card"))}
+            className={cn("relative min-w-0 flex-1 rounded-2xl px-3.5 py-3 text-left backdrop-blur-md transition-[box-shadow,background-color,transform] duration-200 ease-out active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", on ? "border-2 border-primary bg-primary text-primary-foreground shadow-lift" : "border border-white/80 bg-card/75 shadow-soft hover:bg-card/90", PHONE_V2 && "max-lg:backdrop-blur-none max-lg:shadow-none", PHONE_V2 && (on ? "max-lg:border max-lg:border-primary" : "max-lg:border max-lg:border-hairline max-lg:bg-card"))}
           >
             <span className="flex items-center justify-between gap-1.5">
-              <span className={cn("eyebrow truncate", on && "text-coral-ink!")}>{pick.labels.join(" · ")}</span>
+              <span className={cn("eyebrow truncate", on && "text-primary-foreground/70!")}>{pick.labels.join(" · ")}</span>
               <AirlineMark offer={pick.offer} className="size-6" />
             </span>
             <FitText className="mt-1.5 font-display text-widget leading-tight font-medium tracking-[-0.025em] tabular-nums">{money(pick.offer.price, pick.offer.currency, true)}</FitText>
-            {PHONE_V2 && on ? <span aria-hidden className="absolute right-3 bottom-3 grid size-[1.125rem] place-items-center rounded-full bg-coral text-white lg:hidden"><Check className="size-3" strokeWidth={3.5} /></span> : null}
-            <span className={cn(type.meta, "block truncate", PHONE_V2 && on && "max-lg:pr-6")}>{hoursMinutes(pick.offer.durationMinutes)} · {pick.offer.stops === 0 ? "nonstop" : `${pick.offer.stops} stop${pick.offer.stops > 1 ? "s" : ""}`}{roundTrip ? " · round trip" : ""}</span>
+            {PHONE_V2 && on ? <span aria-hidden className="absolute right-3 bottom-3 grid size-[1.125rem] place-items-center rounded-full bg-white text-primary lg:hidden"><Check className="size-3" strokeWidth={3.5} /></span> : null}
+            <span className={cn(type.meta, "block truncate", on && "text-primary-foreground/70!", PHONE_V2 && on && "max-lg:pr-6")}>{hoursMinutes(pick.offer.durationMinutes)} · {pick.offer.stops === 0 ? "nonstop" : `${pick.offer.stops} stop${pick.offer.stops > 1 ? "s" : ""}`}{roundTrip ? " · round trip" : ""}</span>
           </button>
         );
       })}

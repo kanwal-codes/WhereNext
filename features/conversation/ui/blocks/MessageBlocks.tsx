@@ -1373,12 +1373,12 @@ function RouteComparisonCard({ from, to, routes, onOpenPanel, onFollowup }: { fr
               role="tab"
               aria-selected={on}
               onClick={() => { setMode(g.mode); setPick(0); }}
-              className={cn("flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl border px-3 py-2 text-left transition-colors", on ? "border-ink bg-card ring-1 ring-ink" : "border-border bg-card hover:border-ink/30")}
+              className={cn("flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl border px-3 py-2 text-left transition-colors", on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-ink/30")}
             >
               <Icon className="size-5 shrink-0 @max-[27rem]:hidden" aria-hidden />
               <span className="min-w-0">
                 <span className="block truncate text-[0.9375rem] leading-tight font-medium">{ROUTE_MODE_LABEL[g.mode] ?? g.mode}</span>
-                <span className="block truncate text-xs leading-tight text-muted-foreground tabular-nums">{g.routes.length > 1 ? `${g.routes.length} routes · ${minutes(g.routes[0])}` : (
+                <span className={cn("block truncate text-xs leading-tight tabular-nums", on ? "text-primary-foreground/70" : "text-muted-foreground")}>{g.routes.length > 1 ? `${g.routes.length} routes · ${minutes(g.routes[0])}` : (
                   <>{minutes(g.routes[0])}<span className="@max-[34rem]:hidden"> · {distance(g.routes[0].distanceMeters / 1000)}</span></>
                 )}</span>
               </span>
