@@ -248,8 +248,7 @@ describe("TripPanel: comparing", () => {
     expect(within(take).getByRole("button", { name: "Try again" })).toBeTruthy();
   });
 
-  // Known bug: Try again appends a second exchange, but the take above the numbers keeps showing the first (failed) answer.
-  it.fails("replaces a failed take with the answer from Try again", async () => {
+  it("replaces a failed take with the answer from Try again", async () => {
     answer = "fail";
     const user = u();
     compare([a, b]);
