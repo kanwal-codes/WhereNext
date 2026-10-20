@@ -19,7 +19,7 @@ const openGate = vi.fn();
 const onChange = vi.fn();
 
 vi.mock("motion/react", () => ({
-  motion: { div: React.forwardRef(({ children, initial, animate, exit, transition, ...rest }: Any, ref) => { void initial; void animate; void exit; void transition; return <div ref={ref as never} {...rest}>{children}</div>; }), span: ({ children }: Any) => <span>{children}</span> },
+  motion: { div: React.forwardRef(function MotionDiv({ children, initial, animate, exit, transition, ...rest }: Any, ref) { void initial; void animate; void exit; void transition; return <div ref={ref as never} {...rest}>{children}</div>; }), span: ({ children }: Any) => <span>{children}</span> },
   AnimatePresence: ({ children }: Any) => <>{children}</>,
   useReducedMotion: () => true,
 }));
