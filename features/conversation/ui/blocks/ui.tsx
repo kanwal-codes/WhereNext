@@ -218,7 +218,7 @@ export function prettyDates(raw?: string | null): string {
 }
 
 /** A whole-card click target under the card's own controls (which sit on `relative z-10`). Keeps markup un-nested. */
-export const CardOpenOverlay = ({ label, onOpen, href }: { label: string; onOpen: () => void; /** With a real destination the overlay is a link, so a modified click still opens a new tab. */ href?: string }) => {
+export const CardOpenOverlay = ({ label, onOpen, href, warm }: { label: string; onOpen: () => void; /** Called the moment a finger or mouse goes down on the card, before the tap finishes: start loading what the card opens. */ warm?: () => void; /** With a real destination the overlay is a link, so a modified click still opens a new tab. */ href?: string }) => {
   // A mouse-only target over the whole card: the card's own Details button is the keyboard and screen-reader path,
   // so this one stays out of the tab order and the accessibility tree (it used to be a second, duplicate tab stop).
   // No tint of its own: it sits above the card's unpositioned text and photo in paint order, so a hover fill here washed them out. The card's lift and shadow (`card-lift`) are its hover.
@@ -230,6 +230,7 @@ export const CardOpenOverlay = ({ label, onOpen, href }: { label: string; onOpen
         aria-label={label}
         tabIndex={-1}
         aria-hidden="true"
+        onPointerDown={warm}
         onClick={(event) => {
           if (event.metaKey || event.ctrlKey || event.shiftKey || event.button === 1) return;
           event.preventDefault();
@@ -239,7 +240,7 @@ export const CardOpenOverlay = ({ label, onOpen, href }: { label: string; onOpen
       />
     );
   }
-  return <button type="button" aria-label={label} tabIndex={-1} aria-hidden="true" onClick={onOpen} className={className} />;
+  return <button type="button" aria-label={label} tabIndex={-1} aria-hidden="true" onPointerDown={warm} onClick={onOpen} className={className} />;
 };
 
 /** The rating every place card shows: a coral star, the score, and a compact count. One shape on every screen. */

@@ -24,7 +24,7 @@ export const PANEL_HERO = "aspect-[2/1] w-full min-h-44 max-h-80";
  * of replacing a different layout. A skeleton that stays blank for many seconds reads as broken, so
  * after a moment it says what is happening, and after a longer one it says it is slow.
  */
-export function PanelLoading({ what, panel, heroClassName, children }: { what: string; panel: boolean; heroClassName?: string; children?: ReactNode }) {
+export function PanelLoading({ what, panel, heroClassName, children, seed }: { what: string; panel: boolean; heroClassName?: string; children?: ReactNode; /** What the card that opened this already knew: shown at once in place of the bars it stands for. */ seed?: { title: string; subtitle?: string | null; photo?: string | null; rating?: number | null } | null }) {
   const [phase, setPhase] = useState(0);
   useEffect(() => {
     const slow = setTimeout(() => setPhase(1), 2500);
@@ -37,11 +37,28 @@ export function PanelLoading({ what, panel, heroClassName, children }: { what: s
   const pad = panel ? PANEL_PAD : "mx-auto max-w-5xl px-5 pb-14 sm:px-8";
   return (
     <div aria-busy="true">
-      <Skeleton className={cn("rounded-none", heroClassName ?? (panel ? PANEL_HERO : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]"))} />
+      {seed?.photo ? (
+        // eslint-disable-next-line @next/next/no-img-element -- the card's own photo, already in the browser's cache
+        <img src={seed.photo} alt="" className={cn("w-full rounded-none bg-muted object-cover", heroClassName ?? (panel ? PANEL_HERO : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]"))} />
+      ) : (
+        <Skeleton className={cn("rounded-none", heroClassName ?? (panel ? PANEL_HERO : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]"))} />
+      )}
       <div className={cn(pad, "pt-6")}>
-        <Skeleton className="h-3.5 w-16 rounded-md" />
-        <Skeleton className="mt-3 h-8 w-2/3 rounded-lg" />
-        <Skeleton className="mt-3 h-4 w-1/2 rounded-md" />
+        {seed ? (
+          <>
+            <h1 className="font-display text-2xl leading-tight font-medium tracking-[-0.03em]">{seed.title}</h1>
+            <p className="mt-2 flex flex-wrap items-center gap-x-2 text-[0.9375rem] text-ink-soft">
+              {typeof seed.rating === "number" && <span className="font-semibold text-foreground tabular-nums">★ {seed.rating.toFixed(1)}</span>}
+              {seed.subtitle && <span>{seed.subtitle}</span>}
+            </p>
+          </>
+        ) : (
+          <>
+            <Skeleton className="h-3.5 w-16 rounded-md" />
+            <Skeleton className="mt-3 h-8 w-2/3 rounded-lg" />
+            <Skeleton className="mt-3 h-4 w-1/2 rounded-md" />
+          </>
+        )}
         <Skeleton className="mt-6 h-11 w-full max-w-md rounded-full" />
         <Skeleton className="mt-6 h-[5.25rem] w-full rounded-2xl" />
         <p role="status" className="mt-6 min-h-5 text-sm text-muted-foreground">

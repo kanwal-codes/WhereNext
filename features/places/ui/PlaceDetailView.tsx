@@ -31,6 +31,8 @@ import { placeGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { PhotoLightbox, usePhotoLightbox } from "@/components/PhotoLightbox";
 import { isWeatherRelevantPlace } from "@/packages/reco/vibes";
 import { usePlaceDetails } from "@/features/places/application/usePlaceDetails";
+import { useHydrated } from "@/lib/use-media-query";
+import { readPlaceSeed } from "@/features/places/application/placeDetailsCache";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { amenityChips, askAssistantHref, businessStatusLabel, categoryLabel, cityFrom, detailsToPlace, photoProxyUrl, prettyWebsite, withPhotoWidth, priceLabel, secondaryTypes, type GoogleReview } from "@/lib/places-ui";
 import { Badge, MediaFallback, compactCount, textAction } from "@/features/conversation/ui/blocks/ui";
@@ -89,13 +91,15 @@ export function PlaceDetailView({
 }) {
   const panel = variant === "panel";
   const { details, about, aboutLoading, state, retry } = usePlaceDetails(tripId, placeId);
+  // The remembered card is read only once on the client: the server never has one, and the two must agree while hydrating.
+  const hydrated = useHydrated();
   const titleTag = useDocumentTitle(panel ? null : details?.displayName?.text ?? "Place");
   const [reviewsOpen, setReviewsOpen] = useState(false);
   const lightbox = usePhotoLightbox();
 
   const pad = panel ? PANEL_PAD : "mx-auto max-w-5xl px-5 pb-14 sm:px-8";
 
-  if (state === "loading") return <PanelLoading what="this place" panel={panel} />;
+  if (state === "loading") return <PanelLoading what="this place" panel={panel} seed={hydrated ? readPlaceSeed(tripId, placeId) : null} />;
 
   if (state === "error" || !details) {
     return (

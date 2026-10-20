@@ -25,10 +25,12 @@ function TilePhoto({ src, icon, className }: { src?: string | null; icon: Lucide
  * opens the place; the corner button adds it. See the Discover render in the approved screens.
  */
 export function DiscoverTile({
-  label, onOpen, href, src, icon, title, meta, rating, feature = false, pick, save, add, overlay, selected = false,
+  label, onOpen, warm, href, src, icon, title, meta, rating, feature = false, pick, save, add, overlay, selected = false,
 }: {
   label: string;
   onOpen: () => void;
+  /** Start loading what the tile opens as soon as it is touched. */
+  warm?: () => void;
   href?: string;
   src?: string | null;
   icon: LucideIcon;
@@ -53,7 +55,7 @@ export function DiscoverTile({
   if (feature) {
     return (
       <article data-tappable className={cn("group relative isolate aspect-[16/11] overflow-hidden rounded-3xl bg-muted text-white", selected && "ring-2 ring-coral")}>
-        <CardOpenOverlay label={label} onOpen={onOpen} href={href} />
+        <CardOpenOverlay label={label} onOpen={onOpen} href={href} warm={warm} />
         <TilePhoto src={src} icon={icon} className="photo-grade absolute inset-0 h-full w-full object-cover" />
         <div aria-hidden className="photo-scrim pointer-events-none absolute inset-0" />
         {pick && <span className="pointer-events-none absolute top-3 left-3 z-[1] rounded-full bg-white/92 px-3 py-1.5 text-xs font-semibold text-coral-ink">{pick}</span>}
@@ -71,7 +73,7 @@ export function DiscoverTile({
   }
   return (
     <article data-tappable className="group relative isolate min-w-0">
-      <CardOpenOverlay label={label} onOpen={onOpen} href={href} />
+      <CardOpenOverlay label={label} onOpen={onOpen} href={href} warm={warm} />
       {/* The photo lets taps through to the open-card overlay beneath it; only the controls on it take their own. */}
       <div className={cn("pointer-events-none relative aspect-[4/3] overflow-hidden rounded-2xl bg-muted", selected && "ring-2 ring-coral")}>
         <TilePhoto src={src} icon={icon} className="photo-grade absolute inset-0 h-full w-full object-cover" />

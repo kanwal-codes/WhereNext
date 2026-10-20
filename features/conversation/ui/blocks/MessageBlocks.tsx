@@ -60,6 +60,7 @@ import { FlightHero, FlightJourney, FlightPicks, FlightPicksSkeleton, FlightRowB
 import { RowBar, RowValue, Widget, WidgetAction, WidgetFigure, WidgetFoot, WidgetHero, WidgetPill, WidgetRow, WidgetRows } from "./Widget";
 import { portableProxyPhotoUrl } from "../portable-photo-url";
 import { DiscoverTile } from "@/features/places/ui/DiscoverTile";
+import { warmPlace } from "@/features/places/application/placeDetailsCache";
 import type { CardPanel } from "@/components/TripPanelProvider";
 import { PlanStops } from "./PlanStops";
 import { FactStrip } from "@/components/DetailKit";
@@ -209,6 +210,7 @@ export function PlaceCardView({
     <CineCard
       label={`Open ${place.name}`}
       onOpen={onOpenPlace ? () => onOpenPlace(place) : undefined}
+      warm={onOpenPlace ? () => warmPlace(tripId, place.providerId, { title: place.name, subtitle: category, photo: portableProxyPhotoUrl(place.photoUrl), rating: place.rating }) : undefined}
       src={portableProxyPhotoUrl(place.photoUrl)}
       alt={place.name}
       glyph={placeGlyph(place.category, place.name).icon}
@@ -1869,6 +1871,7 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
                         key={place.providerId}
                         label={`Open ${place.name}`}
                         onOpen={() => onOpenPlace?.(place)}
+                        warm={() => warmPlace(tripId, place.providerId, { title: place.name, subtitle: category, photo: portableProxyPhotoUrl(place.photoUrl), rating: place.rating })}
                         src={portableProxyPhotoUrl(place.photoUrl)}
                         icon={placeGlyph(place.category, place.name).icon}
                         title={place.name}

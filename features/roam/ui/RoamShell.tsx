@@ -348,10 +348,11 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
             {panel && (
               <motion.div
                 key="panel"
-                initial={reduceMotion ? false : { y: "100%" }}
-                animate={{ y: 0 }}
-                exit={reduceMotion ? undefined : { y: "100%" }}
-                transition={reduceMotion ? { duration: 0 } : motionTokens.panelSpring}
+                // `transform` as a whole (not x / y): the browser runs it on the compositor, so the slide keeps its pace while the page works.
+                initial={reduceMotion ? false : { transform: "translateY(100%)" }}
+                animate={{ transform: "translateY(0%)" }}
+                exit={reduceMotion ? undefined : { transform: "translateY(100%)" }}
+                transition={reduceMotion ? { duration: 0 } : { duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
                 className={PHONE_V2 ? "fixed inset-x-0 top-[max(3.25rem,calc(env(safe-area-inset-top)+2.5rem))] bottom-0 z-40 overflow-hidden rounded-t-4xl bg-surface shadow-float" : "fixed inset-0 top-[var(--topbar)] z-40 bg-surface"}
               >
                 <TripPanel layout="inline" />

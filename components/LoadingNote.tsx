@@ -43,9 +43,9 @@ export function LoadingNote({ busy, messages, className }: { busy: boolean; mess
             <AnimatePresence mode="wait" initial={false}>
               <motion.p
                 key={text}
-                initial={reduce ? false : { opacity: 0, y: 4, filter: "blur(3px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={reduce ? undefined : { opacity: 0, y: -4, filter: "blur(3px)" }}
+                initial={reduce ? false : { opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduce ? undefined : { opacity: 0, y: -4 }}
                 transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                 className="shimmer-text text-xs"
               >

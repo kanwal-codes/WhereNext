@@ -11,6 +11,7 @@ import { placeGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import { DiscoverTile } from "@/features/places/ui/DiscoverTile";
+import { warmPlace } from "@/features/places/application/placeDetailsCache";
 import { categoryLabel, isFoodPlace, photoProxyUrl, priceLabel, priceRank } from "@/lib/places-ui";
 
 const norm = (s: string) => s.trim().toLowerCase();
@@ -50,6 +51,7 @@ export function PlaceCard({ tripId, place, why, phoneRow = false, phoneTile }: {
       <DiscoverTile
         label={`Open ${place.name}`}
         onOpen={open}
+        warm={() => warmPlace(tripId, place.providerId, { title: place.name, subtitle: category, photo, rating: place.rating })}
         href={href}
         src={photo}
         icon={glyph}
@@ -70,6 +72,7 @@ export function PlaceCard({ tripId, place, why, phoneRow = false, phoneTile }: {
     <CineCard
       label={`Open ${place.name}`}
       onOpen={open}
+      warm={() => warmPlace(tripId, place.providerId, { title: place.name, subtitle: category, photo, rating: place.rating })}
       href={href}
       wide={phoneRow}
       selected={selected}

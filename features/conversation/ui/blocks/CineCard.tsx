@@ -160,10 +160,12 @@ function CineRow({ label, onOpen, href, src, alt, glyph: Glyph, eyebrow, title, 
 }
 
 export function CineCard({
-  label, onOpen, href, className, src, alt, glyph, topLeft, topRight, save, eyebrow, title, meta, pills, why, foot, action, compact = false, wide = false, selected = false, overlay, row,
+  label, onOpen, warm, href, className, src, alt, glyph, topLeft, topRight, save, eyebrow, title, meta, pills, why, foot, action, compact = false, wide = false, selected = false, overlay, row,
 }: {
   label: string;
   onOpen?: () => void;
+  /** Start loading what the card opens as soon as it is touched. */
+  warm?: () => void;
   href?: string;
   className?: string;
   src?: string | null;
@@ -209,7 +211,7 @@ export function CineCard({
         className,
       )}
     >
-      {onOpen && <CardOpenOverlay label={label} onOpen={onOpen} href={href} />}
+      {onOpen && <CardOpenOverlay label={label} onOpen={onOpen} href={href} warm={warm} />}
       <Backdrop src={src} alt={alt} glyph={glyph} />
       <div aria-hidden className="pointer-events-none absolute inset-0" style={{ backgroundImage: SCRIM }} />
       <div className={cn("pointer-events-none relative z-[1] flex h-full min-h-0 flex-col justify-between", compact ? "p-2.5" : "p-3.5")}>

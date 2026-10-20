@@ -31,3 +31,30 @@ export function fetchPlaceDetails(tripId: string, placeId: string): Promise<Plac
   inFlight.set(key, request);
   return request;
 }
+
+/** What a card already knows about a place, kept for the instant its details page opens: the page paints the name and photo at once instead of a grey skeleton. */
+export type PlaceSeed = { title: string; subtitle?: string | null; photo?: string | null; rating?: number | null };
+const seeds = new Map<string, PlaceSeed>();
+const seedKey = (tripId: string, placeId: string) => `place-seed:${tripId}:${placeId}`;
+
+export function readPlaceSeed(tripId: string, placeId: string): PlaceSeed | null {
+  const hit = seeds.get(seedKey(tripId, placeId));
+  if (hit) return hit;
+  try {
+    const raw = sessionStorage.getItem(seedKey(tripId, placeId));
+    return raw ? (JSON.parse(raw) as PlaceSeed) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Called the moment a place card is touched (before the tap even finishes): starts the details request and keeps what the card showed,
+ * so by the time the page has slid in there is a title and a photograph on it and the details are already on their way.
+ */
+export function warmPlace(tripId: string, placeId: string, seed: PlaceSeed): void {
+  const key = seedKey(tripId, placeId);
+  seeds.set(key, seed);
+  try { sessionStorage.setItem(key, JSON.stringify(seed)); } catch { /* full or blocked */ }
+  void fetchPlaceDetails(tripId, placeId);
+}

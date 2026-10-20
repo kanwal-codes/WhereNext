@@ -27,6 +27,8 @@ import { MessageBlocks } from "@/features/conversation/ui/blocks/MessageBlocks";
 import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
 import { haversineKm } from "@/lib/application/geo";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
+import { PanelLoading } from "@/components/PanelStates";
+import { readPlaceSeed } from "@/features/places/application/placeDetailsCache";
 import { PHONE_V2 } from "@/lib/phone-v2";
 import { Badge, controlGhost, textAction } from "@/features/conversation/ui/blocks/ui";
 
@@ -185,6 +187,16 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  // On a phone the panel is a sheet that slides up. Mounting its (heavy) content while it moves competes with the slide for the same
+  // thread, and on a mid-range Android that is the stutter: the sheet arrives with the card's own title and photo first, and the body
+  // is built a moment later, once it has stopped.
+  const deferBody = layout === "inline" && !desktop && PHONE_V2;
+  const [slid, setSlid] = useState(!deferBody);
+  useEffect(() => {
+    if (!deferBody) { setSlid(true); return; }
+    const id = setTimeout(() => setSlid(true), 300);
+    return () => clearTimeout(id);
+  }, [deferBody]);
   const scrollMem = useRef(new Map<string, number>());
   // How tall the floating ask box (and the answers above it) is right now, so the panel's content can scroll clear of it.
   const [composerHeight, setComposerHeight] = useState(0);
@@ -522,7 +534,9 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
     return shown ? (
       <div ref={panelRef} role="complementary" aria-label={shown ? panelTitle(shown) : "Details"} tabIndex={-1} className="flex h-full min-h-0 flex-col outline-none">
         {header}
-        <div ref={scrollRef} className="min-h-0 flex-1 overscroll-contain overflow-x-hidden overflow-y-auto scrollbar-slim">{animatedBody}</div>
+        <div ref={scrollRef} className="min-h-0 flex-1 overscroll-contain overflow-x-hidden overflow-y-auto scrollbar-slim">
+          {slid ? animatedBody : <PanelLoading what="the details" panel seed={shown.kind === "place" ? readPlaceSeed(tripId, shown.placeId) : null} />}
+        </div>
       </div>
     ) : null;
   }

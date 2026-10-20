@@ -450,7 +450,7 @@ export function Sheet({
             animate={{ x: 0, y: 0, opacity: 1, scale: 1 }}
             // Arrives on a soft spring, leaves quicker and straight (ease-in): exits should not linger on the spring's long tail.
             exit={reduce ? undefined : { ...closed, transition: { duration: 0.24, ease: [0.4, 0, 1, 1] } }}
-            transition={reduce ? { duration: 0 } : motionTokens.panelSpring}
+            transition={reduce ? { duration: 0 } : { duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             onClick={(e) => e.stopPropagation()}
             {...(side === "bottom" && !reduce
               ? {
