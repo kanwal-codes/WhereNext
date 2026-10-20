@@ -33,7 +33,6 @@ describe("guest policy: Roam only", () => {
     ["GET", `/api/trips/${TRIP}/events/detail`],
     ["GET", "/api/hotel-photo"],
     ["GET", "/api/config/mapbox"],
-    ["GET", "/api/brand-icon/ticketmaster"],
     ["GET", `/api/trips/${TRIP}/cover`],
     ["GET", `/api/trips/${TRIP}/places/google/about`],
     ["GET", `/api/trips/${TRIP}/places/google/autocomplete`],
