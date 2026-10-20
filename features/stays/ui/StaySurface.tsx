@@ -245,14 +245,15 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       {/* The booking bar: four cells divided by hairlines (the gap shows the border colour through), then filters and sort. */}
       <div className={cn("overflow-hidden rounded-4xl bg-card shadow-float ring-1 ring-black/[0.05]", PHONE_V2 && "max-lg:overflow-visible max-lg:rounded-none max-lg:bg-transparent max-lg:shadow-none max-lg:ring-0")}>
         {/* On a phone the four fields fold into one line (dates, guests, rooms) that opens them: the list starts a screen sooner. */}
+        <div className={cn(PHONE_V2 && "flex items-center gap-2 max-sm:mb-3 sm:contents")}>
         <button
           type="button"
           onClick={() => setBarOpen((v) => !v)}
           aria-expanded={barOpen}
-          className={cn("flex w-full items-center gap-3 px-4 py-3.5 text-left sm:hidden", PHONE_V2 && "max-lg:mb-3 max-lg:min-h-[3.25rem] max-lg:rounded-full max-lg:border max-lg:border-hairline max-lg:bg-card max-lg:px-4 max-lg:py-2")}
+          className={cn("flex w-full items-center gap-3 px-4 py-3.5 text-left sm:hidden", PHONE_V2 && "max-lg:min-h-12 max-lg:min-w-0 max-lg:flex-1 max-lg:rounded-full max-lg:border max-lg:border-hairline max-lg:bg-card max-lg:px-4 max-lg:py-1.5")}
         >
           <span className="min-w-0 flex-1">
-            <span className="block truncate font-display text-lg leading-tight font-medium tracking-[-0.015em] tabular-nums">
+            <span className={cn("block truncate font-display text-lg leading-tight font-medium tracking-[-0.015em] tabular-nums", PHONE_V2 && "max-lg:text-[1.0625rem]")}>
               {checkin && checkout ? <>{fmtDay(checkin)} <span aria-hidden className={cn("mx-0.5 text-coral", PHONE_V2 && "max-lg:text-foreground")}>{PHONE_V2 ? "–" : "→"}</span> {fmtDay(checkout)}</> : "Choose your dates"}
             </span>
             <span className="mt-0.5 block truncate text-xs text-muted-foreground">
@@ -263,6 +264,20 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
             <span>{barOpen ? "Done" : "Edit"}</span> <ChevronDown className={cn("size-3.5 transition-transform duration-300", barOpen && "rotate-180", PHONE_V2 && "max-lg:size-[1.125rem]")} aria-hidden />
           </span>
         </button>
+        {PHONE_V2 && (
+          // Filters sit beside the dates as the same round button Discover has; the chip row it replaces is gone on a phone.
+          <button
+            type="button"
+            onClick={() => setShowFilters((v) => !v)}
+            aria-pressed={showFilters}
+            aria-label={activeFilters ? `Filters, ${activeFilters} on` : "Filters"}
+            className={cn("relative grid size-12 shrink-0 place-items-center rounded-full transition-colors sm:hidden", showFilters ? "bg-foreground text-background" : "bg-secondary text-foreground")}
+          >
+            <SlidersHorizontal className="size-[1.125rem]" aria-hidden />
+            {activeFilters > 0 && !showFilters && <span aria-hidden className="absolute top-2.5 right-2.5 size-2.5 rounded-full bg-coral ring-2 ring-secondary" />}
+          </button>
+        )}
+        </div>
         <div className={cn("grid grid-cols-2 gap-px overflow-hidden bg-border max-sm:border-t max-sm:border-border lg:grid-cols-4", !barOpen && "max-sm:hidden", PHONE_V2 && "max-lg:mb-3 max-lg:gap-2 max-lg:overflow-visible max-lg:border-0 max-lg:bg-transparent")}>
           <DateCell label="Check-in" value={checkin} onChange={setCheckin} />
           <DateCell label="Check-out" value={checkout} onChange={setCheckout} min={checkin || undefined} />
@@ -270,7 +285,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
           <Stepper label="Rooms" value={rooms} set={setRooms} min={1} max={8} />
         </div>
 
-        <div className={cn("flex flex-wrap items-center gap-3 border-t border-border bg-card px-4 py-3", PHONE_V2 && "max-lg:-mx-5 sm:max-lg:-mx-8 max-lg:flex-nowrap max-lg:gap-2 max-lg:overflow-x-auto max-lg:border-t-0 max-lg:bg-transparent max-lg:px-5 sm:max-lg:px-8 max-lg:py-0 max-lg:[-ms-overflow-style:none] max-lg:[scrollbar-width:none] max-lg:[&::-webkit-scrollbar]:hidden")}>
+        <div className={cn("flex flex-wrap items-center gap-3 border-t border-border bg-card px-4 py-3", PHONE_V2 && "max-lg:-mx-5 sm:max-lg:-mx-8 max-lg:flex-nowrap max-lg:gap-2 max-lg:overflow-x-auto max-lg:border-t-0 max-lg:bg-transparent max-lg:px-5 sm:max-lg:px-8 max-lg:py-0 max-lg:[-ms-overflow-style:none] max-lg:[scrollbar-width:none] max-lg:[&::-webkit-scrollbar]:hidden max-sm:hidden")}>
           <button type="button" onClick={() => setShowFilters((v) => !v)} aria-pressed={showFilters} className="btn-chip shrink-0 max-lg:h-10 max-lg:text-sm">
             <SlidersHorizontal className="size-3.5" aria-hidden /> Filters{activeFilters ? ` · ${activeFilters}` : ""}
           </button>
