@@ -248,7 +248,7 @@ export const resolvedTurnSchema = z.object({
 });
 export type ResolvedTurn = z.infer<typeof resolvedTurnSchema>;
 
-export const SYSTEM = `You plan how the assistant "Roam" should answer ONE traveller message. Return exactly one JSON object, no prose.
+const SYSTEM = `You plan how the assistant "Roam" should answer ONE traveller message. Return exactly one JSON object, no prose.
 
 Fields:
 - language: BCP-47 code of the user's latest message ("en", "fr", "hi", "es", "ar", ...) Judge the latest message ALONE: earlier turns in another language are irrelevant, and a short message with no words of another language ("thanks!", "somewhere nice") takes the traveller's "preferred language" from the trip profile below, or "en" if there is none. The follow-up chips (suggestedFollowups labels and prompts) must be written in this same language.

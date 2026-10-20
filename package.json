@@ -55,9 +55,6 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
-    "@pollyjs/adapter-fetch": "^6.0.7",
-    "@pollyjs/core": "^6.0.6",
-    "@pollyjs/persister-fs": "^6.0.6",
     "@types/autocannon": "^7.12.7",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
