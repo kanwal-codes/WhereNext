@@ -36,7 +36,7 @@ export default function OpeningTripLoading() {
           <Skeleton className="ml-auto size-10 rounded-full" />
         </div>
         <div aria-hidden>
-          <Skeleton className="h-[26rem] rounded-none rounded-b-[1.75rem] sm:h-[30rem] lg:rounded-none" />
+          <Skeleton className="h-[26rem] rounded-none rounded-b-4xl sm:h-[30rem] lg:rounded-none" />
           <div className="mx-auto max-w-6xl px-5 pt-8 sm:px-8">
             <div className="flex flex-wrap gap-3">
               <Skeleton className="h-11 w-44 rounded-full" />

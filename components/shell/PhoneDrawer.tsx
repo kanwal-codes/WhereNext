@@ -37,7 +37,7 @@ export function PhoneDrawer({ open, onClose, tripId, pathname, trip, unread = 0 
   const me = data?.me?.name;
 
   return (
-    <Sheet open={open} onClose={onClose} side="left" ariaLabel="Trip menu" className="icons-fine max-w-[19.5rem] rounded-r-[1.75rem] bg-background px-3.5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+    <Sheet open={open} onClose={onClose} side="left" ariaLabel="Trip menu" className="icons-fine max-w-[19.5rem] rounded-r-4xl bg-background px-3.5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))]">
       <div className="flex items-center gap-2.5 px-1.5">
         <BrandMark variant="compact" className="size-8 text-2xs" />
         <span className="font-display text-lg font-semibold tracking-[-0.02em]">Where Next</span>
@@ -47,7 +47,7 @@ export function PhoneDrawer({ open, onClose, tripId, pathname, trip, unread = 0 
       </div>
 
       {!guest && (
-        <Link href="/trips" onClick={onClose} className="mt-4 flex items-center gap-3 rounded-[1.25rem] border border-border bg-surface p-2.5 pr-3 transition-transform active:scale-[0.985]" aria-label={`${trip.name}. All trips`}>
+        <Link href="/trips" onClick={onClose} className="mt-4 flex items-center gap-3 rounded-2xl border border-border bg-surface p-2.5 pr-3 transition-transform active:scale-[0.985]" aria-label={`${trip.name}. All trips`}>
           <DateStamp start={live?.start_date} />
           <span className="min-w-0 flex-1">
             <span className="block truncate font-display text-base leading-tight font-medium tracking-[-0.015em]">{shortTripTitle(trip.name)}</span>

@@ -351,7 +351,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
                 animate={{ y: 0 }}
                 exit={reduceMotion ? undefined : { y: "100%" }}
                 transition={reduceMotion ? { duration: 0 } : motionTokens.panelSpring}
-                className={PHONE_V2 ? "fixed inset-x-0 top-[max(3.25rem,calc(env(safe-area-inset-top)+2.5rem))] bottom-0 z-40 overflow-hidden rounded-t-[1.75rem] bg-surface shadow-float" : "fixed inset-0 top-[var(--topbar)] z-40 bg-surface"}
+                className={PHONE_V2 ? "fixed inset-x-0 top-[max(3.25rem,calc(env(safe-area-inset-top)+2.5rem))] bottom-0 z-40 overflow-hidden rounded-t-4xl bg-surface shadow-float" : "fixed inset-0 top-[var(--topbar)] z-40 bg-surface"}
               >
                 <TripPanel layout="inline" />
               </motion.div>

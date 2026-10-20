@@ -599,7 +599,7 @@ export function DiscoverySurface({
         </div>
       )}
       {phone && view === "saved" && (
-        <h2 className="pt-2 font-display text-[1.75rem] leading-tight font-medium tracking-[-0.03em]">Saved places <span className="ml-1 text-lg text-muted-foreground tabular-nums">{saved.length}</span></h2>
+        <h2 className="pt-2 font-display text-title leading-tight font-medium tracking-[-0.03em]">Saved places <span className="ml-1 text-lg text-muted-foreground tabular-nums">{saved.length}</span></h2>
       )}
 
       {/* Tier 1 — Compare + broad categories (Discover/Saved lives in the page header now). One row, scrolls sideways. */}

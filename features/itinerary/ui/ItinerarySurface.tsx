@@ -472,7 +472,7 @@ export function ItinerarySurface({
           <MapIcon className="size-[1.125rem]" aria-hidden /> View on map
         </Link>
 
-        <Sheet open={pickerOpen} onClose={() => setPickerOpen(false)} side="bottom" ariaLabel="Choose a day" className="icons-fine max-h-[78dvh] rounded-t-[1.75rem] bg-background px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        <Sheet open={pickerOpen} onClose={() => setPickerOpen(false)} side="bottom" ariaLabel="Choose a day" className="icons-fine max-h-[78dvh] rounded-t-4xl bg-background px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           <p className="px-2 pb-1 font-display text-xl font-medium tracking-[-0.02em]">Go to a day</p>
           <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {days.map((n) => {
@@ -494,7 +494,7 @@ export function ItinerarySurface({
           </ul>
         </Sheet>
 
-        <Sheet open={toolsItem !== null} onClose={() => setToolsItem(null)} side="bottom" ariaLabel={toolsItem ? `Options for ${toolsItem.title}` : "Stop options"} className="icons-fine rounded-t-[1.75rem] bg-background px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        <Sheet open={toolsItem !== null} onClose={() => setToolsItem(null)} side="bottom" ariaLabel={toolsItem ? `Options for ${toolsItem.title}` : "Stop options"} className="icons-fine rounded-t-4xl bg-background px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           {toolsItem && (() => {
             const item = items.find((i) => i.id === toolsItem.id) ?? toolsItem;
             const list = itemsByDay.get(item.day_index) ?? [];
@@ -521,7 +521,7 @@ export function ItinerarySurface({
           })()}
         </Sheet>
 
-        <Sheet open={addOpen} onClose={() => setAddOpen(false)} side="bottom" ariaLabel="Add a stop" className="icons-fine rounded-t-[1.75rem] bg-background px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        <Sheet open={addOpen} onClose={() => setAddOpen(false)} side="bottom" ariaLabel="Add a stop" className="icons-fine rounded-t-4xl bg-background px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           <p className="px-2 font-display text-xl font-medium tracking-[-0.02em]">Add to {dayDate(startDate, day) ?? `day ${day}`}</p>
           <form onSubmit={(e) => { e.preventDefault(); void add(); }} className="mt-3 space-y-3">
             <div className="rounded-2xl border border-input px-3">

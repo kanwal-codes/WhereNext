@@ -63,7 +63,7 @@ function SettingSection({ id, title, blurb, action, inline = false, children }: 
           </span>
           <ChevronRight className="size-[1.125rem] shrink-0 text-muted-foreground" aria-hidden />
         </button>
-        <Sheet open={open} onClose={() => setOpen(false)} side="bottom" ariaLabel={title} className="rounded-t-[1.75rem] bg-background px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        <Sheet open={open} onClose={() => setOpen(false)} side="bottom" ariaLabel={title} className="rounded-t-4xl bg-background px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           <p className="pb-3 font-display text-xl font-medium tracking-[-0.02em]">{title}</p>
           <div className="min-h-0 flex-1 space-y-8 overflow-y-auto pb-2">{children}</div>
         </Sheet>

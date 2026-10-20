@@ -74,7 +74,7 @@ export function ChecklistBlock({ groups: given, tripId, onOpen }: { groups: Grou
               <circle cx="28" cy="28" r={r} fill="none" stroke="white" strokeOpacity="0.8" strokeWidth="7" />
               <motion.circle cx="28" cy="28" r={r} fill="none" stroke="var(--coral-fill)" strokeWidth="7" strokeLinecap="round" strokeDasharray={c} initial={false} animate={{ strokeDashoffset: c * (1 - frac) }} transition={reduce ? { duration: 0 } : motionTokens.standard} />
             </svg>
-            <span className="absolute inset-0 grid place-items-center font-display text-[0.8125rem] font-medium tabular-nums">{done}/{total}</span>
+            <span className="absolute inset-0 grid place-items-center font-display text-xs font-medium tabular-nums">{done}/{total}</span>
           </div>
           <div className="min-w-0">
             <p className="font-display text-xl leading-tight font-medium tracking-[-0.012em]">{left === 0 && total > 0 ? "Everything is ticked off" : left === total ? "Nothing ticked yet" : "Getting there"}</p>

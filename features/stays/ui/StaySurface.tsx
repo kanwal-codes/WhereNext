@@ -243,7 +243,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       )}
 
       {/* The booking bar: four cells divided by hairlines (the gap shows the border colour through), then filters and sort. */}
-      <div className={cn("overflow-hidden rounded-[1.75rem] bg-card shadow-float ring-1 ring-black/[0.05]", PHONE_V2 && "max-lg:overflow-visible max-lg:rounded-none max-lg:bg-transparent max-lg:shadow-none max-lg:ring-0")}>
+      <div className={cn("overflow-hidden rounded-4xl bg-card shadow-float ring-1 ring-black/[0.05]", PHONE_V2 && "max-lg:overflow-visible max-lg:rounded-none max-lg:bg-transparent max-lg:shadow-none max-lg:ring-0")}>
         {/* On a phone the four fields fold into one line (dates, guests, rooms) that opens them: the list starts a screen sooner. */}
         <button
           type="button"
@@ -252,7 +252,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
           className={cn("flex w-full items-center gap-3 px-4 py-3.5 text-left sm:hidden", PHONE_V2 && "max-lg:mb-3 max-lg:min-h-[3.25rem] max-lg:rounded-full max-lg:border max-lg:border-hairline max-lg:bg-card max-lg:px-4 max-lg:py-2")}
         >
           <span className="min-w-0 flex-1">
-            <span className="block truncate font-display text-[1.0625rem] leading-tight font-medium tracking-[-0.015em] tabular-nums">
+            <span className="block truncate font-display text-lg leading-tight font-medium tracking-[-0.015em] tabular-nums">
               {checkin && checkout ? <>{fmtDay(checkin)} <span aria-hidden className={cn("mx-0.5 text-coral", PHONE_V2 && "max-lg:text-foreground")}>{PHONE_V2 ? "–" : "→"}</span> {fmtDay(checkout)}</> : "Choose your dates"}
             </span>
             <span className="mt-0.5 block truncate text-xs text-muted-foreground">

@@ -75,8 +75,8 @@ const GRAIN = `url("data:image/svg+xml,${encodeURIComponent("<svg xmlns='http://
 export function FlightHero({ eyebrow, title, from, to, duration, dim = false, chip, right }: { eyebrow: ReactNode; title: ReactNode; from: { code: string; name: string }; to: { code: string; name: string }; duration: number; dim?: boolean; chip?: ReactNode; right?: ReactNode }) {
   const end = (e: { code: string; name: string }, align: "left" | "right") => (
     <div className={cn("absolute bottom-[3.5rem] min-w-0 max-w-[40%] text-white", align === "left" ? "left-5 @[34rem]:left-[1.625rem]" : "right-5 text-right @[34rem]:right-[1.625rem]")}>
-      <p className="font-display text-[2rem] leading-none font-light tracking-[-0.04em] @[34rem]:text-[2.75rem]">{e.code}</p>
-      <p className="mt-1.5 truncate text-[0.8125rem] text-white/70">{e.name}</p>
+      <p className="font-display text-[2rem] leading-none font-light tracking-[-0.04em] @[34rem]:text-[2.5rem]">{e.code}</p>
+      <p className="mt-1.5 truncate text-xs text-white/70">{e.name}</p>
     </div>
   );
   return (
@@ -92,7 +92,7 @@ export function FlightHero({ eyebrow, title, from, to, duration, dim = false, ch
       <div className="absolute inset-x-5 top-5 flex items-start justify-between gap-3 text-white @[34rem]:inset-x-[1.625rem]">
         <div className="min-w-0">
           <p className="eyebrow truncate text-white/70!">{eyebrow}</p>
-          <h3 className="mt-1 font-display text-[1.5rem] leading-[1.15] font-medium tracking-[-0.022em] text-balance @[34rem]:text-[1.75rem]">{title}</h3>
+          <h3 className="mt-1 font-display text-2xl leading-[1.15] font-medium tracking-[-0.022em] text-balance @[34rem]:text-title">{title}</h3>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
           {chip}
@@ -101,7 +101,7 @@ export function FlightHero({ eyebrow, title, from, to, duration, dim = false, ch
       </div>
       {end(from, "left")}
       {end(to, "right")}
-      {duration > 0 && <p className="absolute bottom-[5.25rem] left-1/2 -translate-x-1/2 text-center text-[0.8125rem] text-white/65 @max-[34rem]:hidden"><b className="font-display text-[1.0625rem] font-medium text-white">{hoursMinutes(duration)}</b> shortest</p>}
+      {duration > 0 && <p className="absolute bottom-[5.25rem] left-1/2 -translate-x-1/2 text-center text-xs text-white/65 @max-[34rem]:hidden"><b className="font-display text-lg font-medium text-white">{hoursMinutes(duration)}</b> shortest</p>}
     </div>
   );
 }
@@ -140,7 +140,7 @@ export function FlightPicks({ picks, selected, onSelect, roundTrip }: { picks: F
               <span className={cn("eyebrow truncate", on && "text-coral-ink!")}>{pick.labels.join(" · ")}</span>
               <AirlineMark offer={pick.offer} className="size-6" />
             </span>
-            <FitText className="mt-1.5 font-display text-[1.375rem] leading-tight font-medium tracking-[-0.025em] tabular-nums">{money(pick.offer.price, pick.offer.currency, true)}</FitText>
+            <FitText className="mt-1.5 font-display text-widget leading-tight font-medium tracking-[-0.025em] tabular-nums">{money(pick.offer.price, pick.offer.currency, true)}</FitText>
             {PHONE_V2 && on ? <span aria-hidden className="absolute right-3 bottom-3 grid size-[1.125rem] place-items-center rounded-full bg-coral text-white lg:hidden"><Check className="size-3" strokeWidth={3.5} /></span> : null}
             <span className={cn(type.meta, "block truncate", PHONE_V2 && on && "max-lg:pr-6")}>{hoursMinutes(pick.offer.durationMinutes)} · {pick.offer.stops === 0 ? "nonstop" : `${pick.offer.stops} stop${pick.offer.stops > 1 ? "s" : ""}`}{roundTrip ? " · round trip" : ""}</span>
           </button>
@@ -272,13 +272,13 @@ export function FlightJourney({ offer, labels, roundTrip, onDetails, tripCurrenc
           <div className="min-w-0 space-y-3.5 @[34rem]:flex-1 @[44rem]:flex-none">
             <div>
               <p className="eyebrow">{roundTrip ? "Round trip · per person" : "Per person"}</p>
-              <FitText className="mt-1.5 font-display text-[2.25rem] leading-none font-medium tracking-[-0.035em] tabular-nums">{converted && <span className="mr-1 text-xl text-muted-foreground" title={`Converted from ${money(offer.listedPrice ?? "", offer.listedCurrency ?? "", true)} at today’s rate`}>≈</span>}{money(offer.price, offer.currency, true)}</FitText>
+              <FitText className="mt-1.5 font-display text-4xl leading-none font-medium tracking-[-0.035em] tabular-nums">{converted && <span className="mr-1 text-xl text-muted-foreground" title={`Converted from ${money(offer.listedPrice ?? "", offer.listedCurrency ?? "", true)} at today’s rate`}>≈</span>}{money(offer.price, offer.currency, true)}</FitText>
               {converted && <p className={cn(type.meta, "mt-1")}>from {money(offer.listedPrice ?? "", offer.listedCurrency ?? "", true)}{tripCurrency ? ` · shown in ${tripCurrency}` : ""}</p>}
             </div>
             {terms.length > 0 ? (
               <ul className="space-y-2 border-t border-border pt-3.5">
                 {terms.map((t) => (
-                  <li key={t.text} className="flex items-start gap-2.5 text-[0.84375rem] leading-snug text-ink-soft">
+                  <li key={t.text} className="flex items-start gap-2.5 text-sm leading-snug text-ink-soft">
                     <t.icon className={cn("mt-0.5 size-4 shrink-0", t.muted ? "text-muted-foreground" : "text-positive")} aria-hidden />
                     <span>{t.text}</span>
                   </li>

@@ -51,13 +51,13 @@ function StopRow({ stop, last, panel, roomy = false, timed, band, onOpenPlace, r
   return (
     <>
       {panel && timed && (
-        <div className={cn(band, "flex shrink-0 justify-end self-start whitespace-nowrap font-medium tabular-nums", roomy ? cn("pt-1", /\d/.test(time ?? "") ? "w-[3.75rem] text-sm @[28rem]:w-[4.75rem] @[28rem]:text-lg font-display text-foreground" : "w-[4.5rem] text-[0.8125rem] font-semibold text-ink-soft") : "w-[4.5rem] items-center text-sm text-muted-foreground")}>{time}</div>
+        <div className={cn(band, "flex shrink-0 justify-end self-start whitespace-nowrap font-medium tabular-nums", roomy ? cn("pt-1", /\d/.test(time ?? "") ? "w-[3.75rem] text-sm @[28rem]:w-[4.75rem] @[28rem]:text-lg font-display text-foreground" : "w-[4.5rem] text-xs font-semibold text-ink-soft") : "w-[4.5rem] items-center text-sm text-muted-foreground")}>{time}</div>
       )}
       <div className="flex shrink-0 flex-col items-center">
         <span
           role="img"
           aria-label={glyph.label}
-          className={cn("grid shrink-0 place-items-center transition-shadow duration-200", roomy ? "size-12 rounded-2xl @[28rem]:size-14 @[28rem]:rounded-[1.25rem]" : "rounded-full", panel ? cn(roomy ? "" : "size-9", TINT[stop.kind ?? "activity"]) : "size-8 border border-border bg-card text-coral", dragging && "shadow-lift")}
+          className={cn("grid shrink-0 place-items-center transition-shadow duration-200", roomy ? "size-12 rounded-2xl @[28rem]:size-14 @[28rem]:rounded-2xl" : "rounded-full", panel ? cn(roomy ? "" : "size-9", TINT[stop.kind ?? "activity"]) : "size-8 border border-border bg-card text-coral", dragging && "shadow-lift")}
         >
           {roomy && !timed ? <span className="font-display text-lg font-medium tabular-nums" aria-hidden>{index + 1}</span> : <Icon className={roomy ? "size-6" : "size-4"} aria-hidden />}
         </span>
@@ -67,11 +67,11 @@ function StopRow({ stop, last, panel, roomy = false, timed, band, onOpenPlace, r
         <div className={cn(roomy ? "flex items-center gap-2" : cn(band, "flex items-center gap-2"))}>
           {!panel && time && <span className={cn(type.meta, "shrink-0 font-medium tabular-nums")}>{time}</span>}
           {open ? (
-            <button type="button" onClick={open} className={cn(textAction, "min-w-0 text-left", roomy ? "font-display text-[1.0625rem] font-medium leading-snug" : panel ? "font-display text-base font-semibold leading-snug" : "text-sm font-medium")}>
+            <button type="button" onClick={open} className={cn(textAction, "min-w-0 text-left", roomy ? "font-display text-lg font-medium leading-snug" : panel ? "font-display text-base font-semibold leading-snug" : "text-sm font-medium")}>
               {stop.title} <ArrowUpRight className={cn("text-muted-foreground", panel ? "size-4" : "size-3.5")} aria-hidden />
             </button>
           ) : (
-            <p className={cn("min-w-0", roomy ? "font-display text-[1.0625rem] font-medium leading-snug" : panel ? "font-display text-base font-semibold leading-snug" : cn(type.body, "font-medium"))}>{stop.title}</p>
+            <p className={cn("min-w-0", roomy ? "font-display text-lg font-medium leading-snug" : panel ? "font-display text-base font-semibold leading-snug" : cn(type.body, "font-medium"))}>{stop.title}</p>
           )}
           {stop.trailing && <span className={cn(type.meta, "ml-auto shrink-0 font-medium tabular-nums")}>{stop.trailing}</span>}
         </div>

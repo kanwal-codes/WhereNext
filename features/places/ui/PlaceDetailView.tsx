@@ -362,9 +362,9 @@ export function PlaceDetailView({
               <div className="min-w-0">
                 <p className={cn("text-sm text-muted-foreground", PHONE_V2 && "max-lg:hidden")}>{categoryLabel(details.primaryType)}</p>
                 {panel ? (
-                  <h1 className="mt-1 font-display text-2xl font-semibold leading-tight max-lg:text-[1.75rem] max-lg:font-medium max-lg:tracking-[-0.03em]">{name}</h1>
+                  <h1 className="mt-1 font-display text-2xl font-semibold leading-tight max-lg:text-title max-lg:font-medium max-lg:tracking-[-0.03em]">{name}</h1>
                 ) : (
-                  <WordReveal text={name} delay={0.18} className="mt-1 font-display text-4xl leading-tight max-lg:text-[1.75rem] max-lg:tracking-[-0.03em]" />
+                  <WordReveal text={name} delay={0.18} className="mt-1 font-display text-4xl leading-tight max-lg:text-title max-lg:tracking-[-0.03em]" />
                 )}
               </div>
               {!panel && <div className="mt-4 max-w-sm shrink-0 sm:mt-2 sm:w-64">{asideAction}</div>}

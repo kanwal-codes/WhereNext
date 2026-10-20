@@ -109,7 +109,7 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date }: { 
       <div>
         {day.booked?.length ? (
           <>
-            <h2 className="font-display text-[1.75rem] font-medium leading-none tracking-[-0.03em]">
+            <h2 className="font-display text-title font-medium leading-none tracking-[-0.03em]">
               Day {day.day}
               {date && <span className="ml-2.5 align-[2px] text-base font-normal tracking-[-0.01em] text-muted-foreground">{date}</span>}
             </h2>
@@ -125,7 +125,7 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date }: { 
 
   return (
     <div>
-      <h2 className="font-display text-[1.75rem] font-medium leading-none tracking-[-0.03em]">
+      <h2 className="font-display text-title font-medium leading-none tracking-[-0.03em]">
         Day {day.day}
         {date && <span className="ml-2.5 align-[2px] text-base font-normal tracking-[-0.01em] text-muted-foreground">{date}</span>}
       </h2>

@@ -191,7 +191,7 @@ export function AreaDetail({ tripId, panel }: { tripId: string; panel: AreaPanel
 
       <Reveal delay={0.05} y={10}>
         <section className="space-y-3">
-          <h2 className="font-display text-[1.75rem] leading-[1.1] font-medium tracking-[-0.025em] text-balance">{item.name}</h2>
+          <h2 className="font-display text-title leading-[1.1] font-medium tracking-[-0.025em] text-balance">{item.name}</h2>
           <Meta items={[item.meta]} />
           {item.bestFor && <div><Badge tone="positive" icon={Check}>Best for {item.bestFor}</Badge></div>}
           <p className="text-[0.9375rem] leading-relaxed text-ink-soft text-pretty">{item.blurb}</p>

@@ -130,7 +130,7 @@ export function TodayView({ tripId }: { tripId: string }) {
               <p className="eyebrow">{running ? "Next up" : "First up"}</p>
               {untilLabel && <span className="rounded-full bg-coral-fill px-3 py-1 text-xs font-semibold text-white">{untilLabel}</span>}
             </div>
-            <h2 className="mt-2 font-display text-[1.625rem] leading-[1.12] font-medium tracking-[-0.03em] text-balance">{next.title}</h2>
+            <h2 className="mt-2 font-display text-title leading-[1.12] font-medium tracking-[-0.03em] text-balance">{next.title}</h2>
             <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.9375rem] text-ink-soft">
               <span suppressHydrationWarning>{[viewCity, timeOf(next) ? clockLabel(timeOf(next)) : null].filter(Boolean).join(" · ")}</span>
               {isBookedStop(next.title) && <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground"><Check className="size-3.5 text-positive" aria-hidden />Tickets booked</span>}
@@ -196,7 +196,7 @@ export function TodayView({ tripId }: { tripId: string }) {
         )}
         {(stay || bookedStay) && (
           <div className="mt-6 flex items-center gap-3.5">
-            <span className="grid size-16 shrink-0 place-items-center rounded-[1.125rem] bg-positive-soft text-positive"><BedDouble className="size-6" aria-hidden /></span>
+            <span className="grid size-16 shrink-0 place-items-center rounded-2xl bg-positive-soft text-positive"><BedDouble className="size-6" aria-hidden /></span>
             <div className="min-w-0">
               <p className="eyebrow text-positive">{running ? "Tonight you sleep at" : "Where you’ll sleep"}</p>
               <p className="mt-0.5 truncate font-display text-lg leading-snug font-medium">{stay ? stay.hotelName : bookedStay?.title}</p>

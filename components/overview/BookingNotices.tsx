@@ -61,7 +61,7 @@ export function BookingNotices({ tripId, reservations, startDate, endDate }: { t
         </span>
         <ChevronRight className="size-[1.125rem] shrink-0 text-muted-foreground" aria-hidden />
       </button>
-      <Sheet open={open} onClose={() => setOpen(false)} side="bottom" ariaLabel="Things to check" className="rounded-t-[1.75rem] bg-background px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+      <Sheet open={open} onClose={() => setOpen(false)} side="bottom" ariaLabel="Things to check" className="rounded-t-4xl bg-background px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         <p className="pb-2 font-display text-xl font-medium tracking-[-0.02em]">Things to check</p>
         {list}
       </Sheet>

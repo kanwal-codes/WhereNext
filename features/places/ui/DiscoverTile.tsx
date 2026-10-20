@@ -54,7 +54,7 @@ export function DiscoverTile({
         {save && <div className="absolute top-2 right-2 z-[2]">{save}</div>}
         <div className="pointer-events-none absolute inset-x-4 bottom-4 z-[1] flex items-end justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="font-display text-[1.375rem] leading-[1.15] font-medium tracking-[-0.025em] text-balance">{title}</h3>
+            <h3 className="font-display text-widget leading-[1.15] font-medium tracking-[-0.025em] text-balance">{title}</h3>
             {meta && <p className="mt-0.5 truncate text-sm text-white/85">{meta}</p>}
           </div>
           {stars && <span className="pb-0.5 text-sm text-white">{stars}</span>}

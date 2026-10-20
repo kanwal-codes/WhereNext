@@ -105,12 +105,12 @@ export function StayResultCard({ stay, href, onOpen, locked = false, comparing =
       }
       foot={stay.nightlyAmount > 0 ? (
         <p className="flex flex-wrap items-baseline gap-x-1.5">
-          <FitText className="max-w-full font-display text-[1.75rem] leading-none font-medium tracking-[-0.025em] tabular-nums">{money(stay.nightlyAmount, stay.currency)}</FitText>
-          <span className="text-[0.8125rem] text-white/70">/ night</span>
+          <FitText className="max-w-full font-display text-title leading-none font-medium tracking-[-0.025em] tabular-nums">{money(stay.nightlyAmount, stay.currency)}</FitText>
+          <span className="text-xs text-white/70">/ night</span>
           {stay.totalAmount ? <span className="w-full pt-0.5 text-xs text-white/60 tabular-nums">{money(stay.totalAmount, stay.currency)} total</span> : null}
         </p>
       ) : (
-        <p className="text-[0.8125rem] text-white/75">Price unavailable for these dates</p>
+        <p className="text-xs text-white/75">Price unavailable for these dates</p>
       )}
       action={stay.nightlyAmount > 0 ? (
         <button type="button" onClick={onOpen} aria-label={`Rooms & details: ${stay.name}`} className={cn(CINE_ORB, CINE_ORB_WHITE)}>

@@ -752,7 +752,7 @@ export function TransportSurface({
                     </span>
                   </span>
                   <span className="mt-2.5 flex items-baseline justify-between gap-3">
-                    <span className="font-display text-[1.75rem] font-medium leading-none tabular-nums tracking-[-0.03em]">{durationFromSeconds(route.durationSeconds)}</span>
+                    <span className="font-display text-title font-medium leading-none tabular-nums tracking-[-0.03em]">{durationFromSeconds(route.durationSeconds)}</span>
                     {fare && <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold tabular-nums">{fare}</span>}
                   </span>
                   {steps.length > 0 && <Ribbon icons className="mt-4" parts={steps.map((st) => ({ mode: (st.mode ?? "transit").toLowerCase(), minutes: (st.durationSeconds ?? 0) / 60 }))} />}

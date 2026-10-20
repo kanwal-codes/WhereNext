@@ -43,7 +43,7 @@ export function AuthShell({
             <Reveal>
               <p className="eyebrow">{eyebrow}</p>
             </Reveal>
-            <WordReveal text={title} delay={0.08} className="mt-3 font-display text-4xl leading-[1.12] sm:text-[2.75rem]" />
+            <WordReveal text={title} delay={0.08} className="mt-3 font-display text-4xl leading-[1.12] sm:text-[2.5rem]" />
             <Reveal delay={0.22}>
               <p className="mt-3 text-sm leading-relaxed text-ink-soft">{subtitle}</p>
             </Reveal>

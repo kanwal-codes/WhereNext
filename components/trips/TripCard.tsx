@@ -52,7 +52,7 @@ export function TripCard({
           {() => <StatusBadge status={status} className="absolute top-4 left-4 z-10" />}
         </TripCover>
         <div className="daisy-card-body gap-0 p-5 pt-4">
-          <h3 className="daisy-card-title min-w-0 font-display text-[1.6rem] leading-tight tracking-tight">
+          <h3 className="daisy-card-title min-w-0 font-display text-title leading-tight tracking-tight">
             <span className="truncate">{trip.name}</span>
           </h3>
           <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">

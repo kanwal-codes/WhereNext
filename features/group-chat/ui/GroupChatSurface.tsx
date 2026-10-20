@@ -753,6 +753,8 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
 
   // Precompute date-divider and same-sender-run boundaries once per message list, rather than
   // re-deriving neighbour lookups inline for every row on every render.
+  // Roam's most recent message in the thread: the only one whose follow-up chips are still live.
+  const lastRoamId = useMemo(() => [...messages].reverse().find((m) => m.role === "assistant")?.id ?? null, [messages]);
   const rows = useMemo(() => {
     // Your unsent messages sit after everything confirmed, shaped like any other so they group, divide and align the same way.
     const delivered = new Set(messages.map((m) => m.clientKey).filter(Boolean));
@@ -913,7 +915,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
           <div className="pointer-events-auto">{plusButton}</div>
           <div className="pointer-events-auto flex items-center gap-1">
             {PHONE_V2 && (
-              <button type="button" onClick={() => { setInput((cur) => (/@r?o?a?m?$/i.test(cur) ? cur.replace(/@r?o?a?m?$/i, "@Roam ") : `${cur}${cur && !/\s$/.test(cur) ? " " : ""}@Roam `)); textareaRef.current?.focus(); }} disabled={!loaded} aria-label="Ask Roam in the chat" className="grid size-11 shrink-0 place-items-center rounded-full font-display text-[1.375rem] leading-none text-muted-foreground transition-colors active:bg-muted disabled:opacity-40 lg:hidden">@</button>
+              <button type="button" onClick={() => { setInput((cur) => (/@r?o?a?m?$/i.test(cur) ? cur.replace(/@r?o?a?m?$/i, "@Roam ") : `${cur}${cur && !/\s$/.test(cur) ? " " : ""}@Roam `)); textareaRef.current?.focus(); }} disabled={!loaded} aria-label="Ask Roam in the chat" className="grid size-11 shrink-0 place-items-center rounded-full font-display text-widget leading-none text-muted-foreground transition-colors active:bg-muted disabled:opacity-40 lg:hidden">@</button>
             )}
             {micButton}
             {sendButton}
@@ -985,6 +987,8 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
           )}
 
           {rows.map(({ message, showDateDivider, isFirstInGroup }) => {
+            // Follow-up chips answer Roam's latest message only; under an older one they are stale, as in the Roam tab.
+            const isLatestRoam = lastRoamId === message.id;
             const local = (message as { local?: Outgoing }).local;
             const isNew = !seenIdsRef.current.has(message.id);
             if (isNew) seenIdsRef.current.add(message.id);
@@ -1061,7 +1065,8 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
             const replyToId = (message.metadata as { replyToMessageId?: string } | undefined)?.replyToMessageId;
             const replySource = replyToId ? messagesById.get(replyToId) : undefined;
 
-            const roamBlocks = isRoam ? (message.metadata as Partial<AssistantTurnMeta> | undefined)?.blocks : undefined;
+            const rawRoamBlocks = isRoam ? (message.metadata as Partial<AssistantTurnMeta> | undefined)?.blocks : undefined;
+            const roamBlocks = rawRoamBlocks && !isLatestRoam ? rawRoamBlocks.filter((b) => b.type !== "actions" && b.type !== "clarifying_question") : rawRoamBlocks;
             // Roam is the fifth friend here: its message is an ordinary bubble, same as any other
             // member's, and arrives whole like a person's message would. (Its text can still be
             // formatted — lists, bold — and any cards it shares sit under the bubble like an

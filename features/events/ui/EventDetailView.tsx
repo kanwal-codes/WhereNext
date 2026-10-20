@@ -227,13 +227,13 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
           {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className={cn("shadow-soft", PHONE_V2 && "max-lg:hidden")} />}
           {PHONE_V2 && !panel && d?.genre && <p className="eyebrow text-ink-soft! lg:hidden">{d.genre}</p>}
           {panel ? (
-            <h1 className="mt-3 font-display text-[1.7rem] leading-[1.1] [text-wrap:balance] drop-shadow-sm">{title}</h1>
+            <h1 className="mt-3 font-display text-title leading-[1.1] [text-wrap:balance] drop-shadow-sm">{title}</h1>
           ) : (
           <WordReveal
               text={title}
               as="h1"
               delay={0.1}
-              className="mt-3 font-display text-[1.7rem] leading-[1.1] [text-wrap:balance] drop-shadow-sm sm:text-4xl"
+              className="mt-3 font-display text-title leading-[1.1] [text-wrap:balance] drop-shadow-sm sm:text-4xl"
             />
           )}
         </div>

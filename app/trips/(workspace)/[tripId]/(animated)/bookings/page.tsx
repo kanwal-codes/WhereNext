@@ -115,7 +115,7 @@ export default function BookingsPage() {
   return (
     <div className="min-h-full pb-16">
       <ChapterHero
-        eyebrow="Bookings & essentials"
+        eyebrow="Bookings"
         title="Before you go"
         description="Every stay, ticket and reservation in one place, and the practical checklist."
         phoneTitle="Bookings"
@@ -139,7 +139,7 @@ export default function BookingsPage() {
             {loading ? (
               // Shaped like what is coming (the next booking, then rows), so the page does not jump when the bookings arrive.
               <div aria-hidden className="space-y-8">
-                <div className="skeleton h-[12.25rem] rounded-[1.75rem] lg:h-[26rem] lg:rounded-3xl" />
+                <div className="skeleton h-[12.25rem] rounded-4xl lg:h-[26rem] lg:rounded-3xl" />
                 <div className="space-y-5">
                   {[0, 1, 2].map((i) => (
                     <div key={i} className="flex items-center gap-3.5">
@@ -238,7 +238,7 @@ export default function BookingsPage() {
       </div>
 
       {PHONE_V2 && (
-        <Sheet open={checklistOpen} onClose={() => setChecklistOpen(false)} side="bottom" ariaLabel="Before you go checklist" className="rounded-t-[1.75rem] bg-background px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        <Sheet open={checklistOpen} onClose={() => setChecklistOpen(false)} side="bottom" ariaLabel="Before you go checklist" className="rounded-t-4xl bg-background px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           <p className="pb-3 font-display text-xl font-medium tracking-[-0.02em]">Before you go</p>
           <div className="min-h-0 flex-1 overflow-y-auto"><EssentialsSurface tripId={tripId} initialCompleted={data?.essentials} /></div>
         </Sheet>

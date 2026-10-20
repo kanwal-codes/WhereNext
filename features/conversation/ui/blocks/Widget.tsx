@@ -86,7 +86,7 @@ export function Widget({
   return (
     <section aria-label={label} className={cn("roam-widget @container relative overflow-hidden rounded-3xl border border-border bg-card shadow-widget", PHONE_V2 && "max-lg:rounded-4xl", className)}>
       <header className={cn("flex items-center gap-3 px-4 pt-4 @[34rem]:px-[1.125rem]", PHONE_V2 && "max-lg:px-[1.125rem] max-lg:pt-[1.125rem]")}>
-        <span className={cn("grid size-10 shrink-0 place-items-center rounded-[0.8125rem]", CHIP[tone], PHONE_V2 && "max-lg:hidden")} aria-hidden>
+        <span className={cn("grid size-10 shrink-0 place-items-center rounded-lg", CHIP[tone], PHONE_V2 && "max-lg:hidden")} aria-hidden>
           {glyph ? <RoamIcon name={glyph} size={26} /> : Icon ? <Icon className="size-5" /> : null}
         </span>
         <div className="min-w-0 flex-1">
@@ -96,7 +96,7 @@ export function Widget({
               <span className={cn(PHONE_V2 && "max-lg:truncate")}>{eyebrow}</span>
             </p>
           )}
-          <h3 className={cn("font-display text-[1.1875rem] leading-6 font-medium tracking-[-0.012em] text-balance", PHONE_V2 && "max-lg:mt-0.5 max-lg:text-widget")}>{title}</h3>
+          <h3 className={cn("font-display text-xl leading-6 font-medium tracking-[-0.012em] text-balance", PHONE_V2 && "max-lg:mt-0.5 max-lg:text-widget")}>{title}</h3>
         </div>
         {status && <div className="flex shrink-0 items-center gap-2 @max-[34rem]:hidden">{status}</div>}
       </header>
@@ -112,7 +112,7 @@ export function Widget({
 export function WidgetFoot({ foot, action }: { foot?: ReactNode; action?: ReactNode }) {
   return (
     <footer className={cn("mt-1 flex items-center justify-between gap-4 border-t border-border bg-surface px-4 py-3 @[34rem]:px-[1.125rem]", PHONE_V2 && "max-lg:bg-transparent max-lg:px-[1.125rem] max-lg:py-3.5")}>
-      <div className="flex min-w-0 flex-1 items-start gap-1.5 text-[0.78125rem] leading-[1.35] text-muted-foreground">{foot}</div>
+      <div className="flex min-w-0 flex-1 items-start gap-1.5 text-xs leading-[1.35] text-muted-foreground">{foot}</div>
       {action && <div className="shrink-0">{action}</div>}
     </footer>
   );
@@ -125,7 +125,7 @@ export function WidgetHero({ tone = "coral", tinted = false, className, children
       className={cn(
         "mx-4 mt-3.5 rounded-xl p-4 @[34rem]:mx-[1.125rem] @[34rem]:px-[1.375rem] @[34rem]:py-[1.125rem]",
         HERO[tone],
-        PHONE_V2 && "max-lg:mx-[1.125rem] max-lg:rounded-[1.25rem]",
+        PHONE_V2 && "max-lg:mx-[1.125rem] max-lg:rounded-2xl",
         PHONE_V2 && !tinted && "max-lg:border max-lg:border-border max-lg:bg-surface max-lg:bg-none",
         className,
       )}

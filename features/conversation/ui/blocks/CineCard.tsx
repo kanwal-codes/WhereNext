@@ -53,7 +53,7 @@ export function CineRating({ rating, count, outOf }: { rating: number; count?: s
 /** Bottom left of a card that has no "why it fits" line: where it is, street and area, so the corner is never empty. */
 export function CineAddress({ address }: { address: string }) {
   return (
-    <p className="flex gap-1.5 text-[0.8125rem] leading-[1.35] text-white/80">
+    <p className="flex gap-1.5 text-xs leading-[1.35] text-white/80">
       <MapPin className="mt-px size-4 shrink-0 text-coral-soft" aria-hidden />
       <span className="line-clamp-2">{address.split(",").slice(0, 2).join(",").trim()}</span>
     </p>
@@ -132,7 +132,7 @@ export type CineRowContent = { meta?: ReactNode; sub?: ReactNode; save?: ReactNo
 function CineRow({ label, onOpen, href, src, alt, glyph: Glyph, eyebrow, title, row, selected, overlay }: { label: string; onOpen?: () => void; href?: string; src?: string | null; alt: string; glyph?: LucideIcon; eyebrow?: ReactNode; title: ReactNode; row: CineRowContent; selected: boolean; overlay?: ReactNode }) {
   const [failed, setFailed] = useState(false);
   return (
-    <article data-tappable={onOpen ? "" : undefined} className={cn("card-lift group relative isolate flex w-full items-center gap-4 overflow-hidden rounded-[1.75rem] bg-card p-3 pr-3.5 shadow-float ring-1 ring-black/[0.05]", selected && "ring-2 ring-coral")}>
+    <article data-tappable={onOpen ? "" : undefined} className={cn("card-lift group relative isolate flex w-full items-center gap-4 overflow-hidden rounded-4xl bg-card p-3 pr-3.5 shadow-float ring-1 ring-black/[0.05]", selected && "ring-2 ring-coral")}>
       {onOpen && <CardOpenOverlay label={label} onOpen={onOpen} href={href} />}
       <div className="pointer-events-none relative h-[7.5rem] w-24 shrink-0 overflow-hidden rounded-2xl bg-muted shadow-soft ring-1 ring-black/[0.06]">
         {src && !failed ? (
@@ -143,9 +143,9 @@ function CineRow({ label, onOpen, href, src, alt, glyph: Glyph, eyebrow, title, 
       </div>
       <div className="pointer-events-none relative z-[1] flex min-w-0 flex-1 flex-col justify-center py-0.5">
         {eyebrow && <p className="truncate text-[0.625rem] max-lg:text-xs font-medium tracking-[0.22em] text-muted-foreground uppercase">{eyebrow}</p>}
-        <h4 className="mt-1 line-clamp-2 font-display text-[1.1875rem] leading-[1.15] font-medium tracking-[-0.02em] text-balance">{title}</h4>
+        <h4 className="mt-1 line-clamp-2 font-display text-xl leading-[1.15] font-medium tracking-[-0.02em] text-balance">{title}</h4>
         <span aria-hidden className="my-2 h-px w-8 bg-gradient-to-r from-coral/80 to-transparent" />
-        {row.meta && <div className="truncate text-[0.8125rem] text-muted-foreground tabular-nums">{row.meta}</div>}
+        {row.meta && <div className="truncate text-xs text-muted-foreground tabular-nums">{row.meta}</div>}
         {row.sub && <div className="mt-0.5 truncate text-xs text-muted-foreground/80">{row.sub}</div>}
       </div>
       {(row.save || row.action) && (
@@ -229,7 +229,7 @@ export function CineCard({
               <div className="flex min-h-12 items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   {why ? (
-                    <p className="flex gap-1.5 text-[0.8125rem] leading-[1.35] text-white/85">
+                    <p className="flex gap-1.5 text-xs leading-[1.35] text-white/85">
                       <span className="mt-px shrink-0 text-coral-soft"><RoamIcon name="star" size={18} draw={false} /></span>
                       <span className="line-clamp-2">{why}</span>
                     </p>

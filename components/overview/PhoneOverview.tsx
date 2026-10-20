@@ -58,7 +58,7 @@ export function PhoneOverview({ tripId, trip, reservations, stays }: { tripId: s
       {stops.length > 1 && (
         <section aria-label="The route">
           <div className="flex items-baseline justify-between gap-3">
-            <h2 className="font-display text-[1.375rem] font-medium tracking-[-0.025em]">The route</h2>
+            <h2 className="font-display text-widget font-medium tracking-[-0.025em]">The route</h2>
             <span className="text-sm text-muted-foreground">{stops.length} cities</span>
           </div>
           <ol className="-mx-5 mt-3 flex snap-x gap-3 overflow-x-auto overscroll-x-contain px-5 pb-1 no-scrollbar scroll-px-5">
@@ -79,7 +79,7 @@ export function PhoneOverview({ tripId, trip, reservations, stays }: { tripId: s
       )}
 
       <section aria-label="The trip">
-        <h2 className="font-display text-[1.375rem] font-medium tracking-[-0.025em]">The trip</h2>
+        <h2 className="font-display text-widget font-medium tracking-[-0.025em]">The trip</h2>
         <div className="mt-2 border-b border-border">
           <TripRow href={`/trips/${tripId}/stay`} icon={BedDouble} title="Stay" tone={gapNights > 0 ? "attention" : "quiet"} note={gapNights > 0 ? `${gapNights} ${gapNights === 1 ? "night" : "nights"} to fill` : stayCount > 0 ? `${stayCount} booked` : "Not chosen yet"} />
           <TripRow href={`/trips/${tripId}/bookings`} icon={Ticket} title="Bookings" note={live.length > 0 ? `${live.length} saved` : "Nothing yet"} />

@@ -28,7 +28,7 @@ function MemoryRow({ icon: Icon, tone, title, detail, last, bare, children }: { 
         </span>
         <ChevronRight className="size-[1.125rem] shrink-0 text-muted-foreground" aria-hidden />
       </button>
-      <Sheet open={open} onClose={() => setOpen(false)} side="bottom" ariaLabel={title} className="rounded-t-[1.75rem] bg-background px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+      <Sheet open={open} onClose={() => setOpen(false)} side="bottom" ariaLabel={title} className="rounded-t-4xl bg-background px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         {!bare && <p className="pb-3 font-display text-xl font-medium tracking-[-0.02em]">{title}</p>}
         <div className="min-h-0 flex-1 overflow-y-auto [&_h2:first-of-type]:sr-only">{children}</div>
       </Sheet>
@@ -65,7 +65,7 @@ export default function KnowledgePage() {
   return (
     <div className="min-h-full pb-16">
       <ChapterHero
-        eyebrow="Trip knowledge"
+        eyebrow="What Roam remembers"
         title="What Roam remembers"
         description="All of it is editable. If something here is wrong, the plan built on top of it is wrong too."
         phoneTitle="What Roam remembers"

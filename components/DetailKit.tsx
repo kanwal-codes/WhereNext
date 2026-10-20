@@ -25,7 +25,7 @@ export function FactStrip({ facts, className, variant = "default" }: { facts: Ar
         {shown.map((fact) => (
           <div key={fact.label} className="relative min-w-0 px-3 py-4 before:absolute before:inset-y-4 before:left-0 before:w-px before:bg-border first:before:hidden sm:px-5">
             <dt className="eyebrow">{fact.label}</dt>
-            <dd className={cn("mt-2.5 flex min-w-0 items-center gap-1.5 font-display text-2xl leading-none font-medium tracking-[-0.03em] tabular-nums sm:text-[1.75rem]", fact.tone === "positive" && "text-positive", fact.tone === "caution" && "text-caution")}>
+            <dd className={cn("mt-2.5 flex min-w-0 items-center gap-1.5 font-display text-2xl leading-none font-medium tracking-[-0.03em] tabular-nums sm:text-title", fact.tone === "positive" && "text-positive", fact.tone === "caution" && "text-caution")}>
               {fact.value}
             </dd>
             {fact.note && <dd className="mt-2.5 text-xs leading-snug text-muted-foreground">{fact.note}</dd>}
@@ -64,7 +64,7 @@ const MAIN = cn("h-12 min-w-0 flex-1 gap-2 rounded-full bg-primary px-5 text-sm 
 const OTHERS = [
   cn("size-12 rounded-full bg-coral-soft text-coral-ink hover:shadow-soft", press, ring),
   cn("size-12 rounded-2xl bg-lagoon-soft text-lagoon hover:shadow-soft", press, ring),
-  cn("size-12 rounded-[1.15rem] bg-leaf-soft text-leaf hover:shadow-soft", press, ring),
+  cn("size-12 rounded-2xl bg-leaf-soft text-leaf hover:shadow-soft", press, ring),
 ] as const;
 
 const BAR_TINT = ["bg-coral-soft text-coral-ink", "bg-leaf-soft text-leaf", "bg-lagoon-soft text-lagoon"] as const;

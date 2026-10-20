@@ -22,7 +22,7 @@ export default function ItineraryPage() {
     <div className="min-h-full pb-16">
       <div className={cn(PHONE_V2 && "max-lg:hidden")}>
       <ChapterHero
-        eyebrow="Itinerary"
+        eyebrow="Plan"
         title="The plan, day by day"
         description="Lock what’s fixed; move the rest between days."
         stats={[

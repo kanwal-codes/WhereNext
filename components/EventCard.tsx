@@ -94,7 +94,7 @@ export function EventCard({ tripId, event, className, onSelect, compact = false,
         meta={[when, event.venue].filter(Boolean).join(" · ")}
         // A date is never invented: with none, the card says so.
         pills={<CinePill>{when ?? "Date to be announced"}</CinePill>}
-        foot={seller ? <p className="truncate text-[0.8125rem] text-white/70">via {seller}</p> : undefined}
+        foot={seller ? <p className="truncate text-xs text-white/70">via {seller}</p> : undefined}
         action={
           comparing ? undefined : (
             <a href={safeHref(event.url)} target="_blank" rel="noreferrer noopener" aria-label={`Tickets: ${event.title}`} className={CINE_PILL_ACTION}>

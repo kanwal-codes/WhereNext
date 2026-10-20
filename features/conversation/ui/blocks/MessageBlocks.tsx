@@ -322,12 +322,12 @@ function StayCardView({ hotel, onOpen }: { hotel: StayCardItem; onOpen?: () => v
       }
       foot={priced ? (
         <p className="flex flex-wrap items-baseline gap-x-1.5">
-          <span className="font-display text-[1.75rem] leading-none font-medium tracking-[-0.025em] tabular-nums">{money(hotel.nightlyPrice, hotel.currency)}</span>
-          <span className="text-[0.8125rem] text-white/70">/ night</span>
+          <span className="font-display text-title leading-none font-medium tracking-[-0.025em] tabular-nums">{money(hotel.nightlyPrice, hotel.currency)}</span>
+          <span className="text-xs text-white/70">/ night</span>
           <span className="w-full pt-0.5 text-xs text-white/60 tabular-nums">{money(hotel.totalPrice, hotel.currency)} total</span>
         </p>
       ) : (
-        <p className="text-[0.8125rem] text-white/70">Price unavailable for these dates</p>
+        <p className="text-xs text-white/70">Price unavailable for these dates</p>
       )}
       action={onOpen && priced ? (
         <button type="button" onClick={onOpen} aria-label={`Rooms & details: ${hotel.name}`} className={cn(CINE_ORB, CINE_ORB_WHITE)}>
@@ -577,7 +577,7 @@ function ComparisonBlockView({ block }: { block: ComparisonBlockData }) {
           <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-positive text-white" aria-hidden><Check className="size-4" strokeWidth={2.5} /></span>
           <div className="min-w-0">
             <p className="eyebrow text-positive">Best for you</p>
-            <p className="font-display text-[1.125rem] leading-snug font-medium">{best.label}</p>
+            <p className="font-display text-lg leading-snug font-medium">{best.label}</p>
             <p className={cn(type.body, "mt-0.5 text-ink-soft")}>{best.reason}</p>
           </div>
         </div>
@@ -655,7 +655,7 @@ function StructuredAnswerBlockView({ block }: { block: StructuredAnswerBlockData
                   {section.bullets.map((bullet, j) => (
                     <div key={j} className="rounded-2xl bg-secondary px-3.5 py-3">
                       <dt className="eyebrow">{bullet.text}</dt>
-                      <dd className="mt-1 font-display text-[1.625rem] leading-none font-medium tracking-[-0.025em] tabular-nums">{bullet.detail}</dd>
+                      <dd className="mt-1 font-display text-title leading-none font-medium tracking-[-0.025em] tabular-nums">{bullet.detail}</dd>
                     </div>
                   ))}
                 </dl>
@@ -722,7 +722,7 @@ function OptionsBlockView({ block, onFollowup, onOpenPanel }: { block: OptionsBl
               <Icon className="size-7" strokeWidth={1.5} />
             </span>
             <div className="min-w-0 flex-1 basis-48 space-y-1">
-              <h4 className="line-clamp-2 font-display text-[1.0625rem] leading-snug font-medium">
+              <h4 className="line-clamp-2 font-display text-lg leading-snug font-medium">
                 {onOpenPanel ? (
                   <button
                     type="button"
@@ -785,7 +785,7 @@ function BudgetRing({ block }: { block: BudgetBlockData }) {
         offset += len;
         return seg;
       })}
-      <text x="60" y="58" textAnchor="middle" className="fill-foreground font-display text-[20px] font-medium">{compactMoney(block.dailyTotal.typical, block.currency)}</text>
+      <text x="60" y="58" textAnchor="middle" className="fill-foreground font-display text-xl font-medium">{compactMoney(block.dailyTotal.typical, block.currency)}</text>
       <text x="60" y="75" textAnchor="middle" className="fill-ink-soft text-[10px]">per day</text>
     </svg>
   );
@@ -1719,7 +1719,7 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
         <FlightSearchBar search={searchForBar} tripId={tripId} trip={tripDates} routeOpen={routeOpen} onRouteDone={() => setRouteOpen(false)} />
       </div>
       {ready && fares.assumed && (
-        <div role="note" className="mx-4 mb-1 flex items-center gap-2.5 rounded-2xl bg-secondary px-3.5 py-3 text-[0.84375rem] text-foreground [&_svg]:text-caution @[34rem]:mx-5">
+        <div role="note" className="mx-4 mb-1 flex items-center gap-2.5 rounded-2xl bg-secondary px-3.5 py-3 text-sm text-foreground [&_svg]:text-caution @[34rem]:mx-5">
           <Info className="size-4 shrink-0" aria-hidden />
           <span>No travel date set, so these are example prices. Pick your date above.</span>
         </div>
@@ -1954,7 +1954,7 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
         if (block.type === "empty_result") {
           return (
             <div key={index} className={cn(surface, "flex items-start gap-3 border-dashed p-4")}>
-              <span className="grid size-10 shrink-0 place-items-center rounded-[0.8125rem] bg-caution-soft text-caution"><RoamIcon name="search" size={26} /></span>
+              <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-caution-soft text-caution"><RoamIcon name="search" size={26} /></span>
               <div className="min-w-0 space-y-0.5">
                 <p className={cn(type.body, "font-medium")}>Nothing found for {block.what}</p>
                 <p className={type.meta}>{block.hint}</p>

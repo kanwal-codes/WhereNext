@@ -27,7 +27,7 @@ export function CityPill({ stops, city, onPick }: { stops: TripStop[]; city: str
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-expanded={open} aria-label={`City: ${city}. Change city`} className={cn(cls, "transition-transform active:scale-[0.97]")}>{body}</button>
-      <Sheet open={open} onClose={() => setOpen(false)} side="bottom" ariaLabel="Choose a city" className="icons-fine rounded-t-[1.75rem] bg-background px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+      <Sheet open={open} onClose={() => setOpen(false)} side="bottom" ariaLabel="Choose a city" className="icons-fine rounded-t-4xl bg-background px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         <p className="px-2 pb-1 font-display text-xl font-medium tracking-[-0.02em]">Where in the trip?</p>
         <ul className="mt-1">
           {stops.map((s) => {

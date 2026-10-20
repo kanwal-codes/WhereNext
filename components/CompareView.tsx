@@ -257,7 +257,7 @@ export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids:
   // Phone redesign: the picks side by side as photos, then one row per fact, the best one marked with a small dot.
   const phoneView = PHONE_V2 ? (
     <div className="lg:hidden">
-      <h2 className="font-display text-[1.75rem] leading-[1.15] font-medium tracking-[-0.02em] text-balance">
+      <h2 className="font-display text-title leading-[1.15] font-medium tracking-[-0.02em] text-balance">
         {names.length === 2 ? `${names[0]} or ${names[1]}?` : `Comparing ${names.length} places`}
       </h2>
       <div className="mt-5 grid gap-3" style={columns}>
