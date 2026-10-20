@@ -4,7 +4,7 @@ import { guardedFetch } from "@/lib/server/provider-guard";
 import { stripTags } from "@/lib/server/html-text";
 import { stayReviewSchema, type StayDetails, type StayFacets, type StayOption, type StayReview, type StayRoom, type StaySearchResult } from "../../contracts/stay";
 
-export type { StayDetails, StayOption, StayRoom, StaySearchResult, StayReview };
+export type { StayDetails, StayRoom, StaySearchResult, StayReview };
 
 // LiteAPI (Nuitée) — live hotel inventory + nightly rates. Sandbox key is `sand_…`,
 // production `prod_…`. The user's key currently lives in CONNECT_API_KEY.

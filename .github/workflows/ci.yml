@@ -25,6 +25,8 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
       - run: bun run lint
+      # Dead files, unused exports and unused dependencies (config in knip.jsonc).
+      - run: bun run knip
       - run: bun run test:coverage
       - run: bun run build
         env:
