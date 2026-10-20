@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarCheck, CalendarDays, ChevronDown, Info, Loader2, MapPin, Ticket } from "lucide-react";
+import { CalendarDays, ChevronDown, Info, MapPin, Ticket } from "lucide-react";
 import { PHONE_V2 } from "@/lib/phone-v2";
-import type { EventDetail } from "@/packages/contracts/event";
 import { Hero } from "@/components/Hero";
 import { DetailSectionHeading } from "@/components/DetailSectionHeading";
 import { FactStrip } from "@/components/DetailKit";
@@ -21,27 +19,10 @@ import { Badge, prettyDate } from "@/features/conversation/ui/blocks/ui";
 import { cn, safeHref } from "@/lib/utils";
 import { ticketSellerLabel } from "@/lib/ticket-provider";
 import { eventFallbackImage } from "@/lib/event-imagery";
-import { useTripDataMaybe } from "@/components/TripDataProvider";
-import { mutate } from "@/lib/client/mutation-queue";
-import { useGuest } from "@/features/identity/ui/GuestProvider";
-import { notifyToast } from "@/lib/application/toast";
-import { extractEventDayIndex, extractEventTime } from "@/lib/application/event-schedule";
+import { AddEventButton } from "@/features/events/ui/AddEventButton";
+import { useEventDetail, type EventSeed } from "@/features/events/application/useEventDetail";
+import { goodToKnowRows, lineupNoteFor, readableDate, tidyAbout, venueMapsUrl } from "@/features/events/domain/event-view";
 
-type Seed = { name: string; url: string; source: string; imageUrl?: string; date?: string; venue?: string };
-
-/** Split a "YYYY-MM-DD HH:MM" or looser string into a friendly day + time. */
-function readableDate(raw: string | null): { day: string; time: string | null } | null {
-  if (!raw) return null;
-  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
-  if (!m) return { day: raw, time: null };
-  const [, y, mo, d, hh, mm] = m;
-  const date = new Date(Number(y), Number(mo) - 1, Number(d));
-  const day = date.toLocaleDateString(undefined, { weekday: "short", month: "long", day: "numeric" });
-  const time = hh
-    ? new Date(0, 0, 0, Number(hh), Number(mm)).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
-    : null;
-  return { day, time };
-}
 
 /** Section wrapper — title and consistent rhythm, the same plain heading every detail view
  *  uses (`DetailSectionHeading`). `boxed` gets a card surround. */
@@ -79,97 +60,11 @@ function PhoneFact({ icon: Icon, title, note }: { icon: typeof Ticket; title: st
   );
 }
 
-/** Adds this event to the itinerary as a timed stop — day and time both derived from the
- * event's real schedule (Ticketmaster's embedded time, or the trip's start date), not guessed. */
-function AddEventButton({ tripId, title, rawDate, showTime, latitude, longitude, block = false }: {
-  tripId: string; title: string; rawDate: string | null; showTime?: string | null;
-  latitude?: number | null; longitude?: number | null;
-  /** Phone dock: a full-height pill that shares the row with the tickets button. */
-  block?: boolean;
-}) {
-  const data = useTripDataMaybe()?.data ?? null;
-  const tripStartDate = (data?.trip as { start_date?: string | null } | null)?.start_date;
-  const existing = (data?.itinerary ?? []).find((i: { title?: string }) => i.title?.trim().toLowerCase() === title.trim().toLowerCase()) as { day_index?: number } | undefined;
-  const alreadyAdded = Boolean(existing);
-  const [busy, setBusy] = useState(false);
-  const { guest, openGate } = useGuest();
-
-  async function add() {
-    if (guest) return openGate("add events to your itinerary");
-    if (busy || alreadyAdded) return;
-    setBusy(true);
-    try {
-      const time = extractEventTime(rawDate, showTime);
-      const dayIndex = extractEventDayIndex(rawDate, tripStartDate) ?? 1;
-      const res = await mutate("/api/commands", {
-        method: "POST",
-        body: {
-          type: "add_itinerary_item", tripId, title, dayIndex,
-          ...(time ? { time } : {}),
-          ...(latitude != null && longitude != null ? { latitude, longitude } : {}),
-        },
-        announce: ["itinerary"],
-      });
-      if (!res.ok) throw new Error();
-      notifyToast(`Added to Day ${dayIndex}${time ? ` at ${new Date(`2000-01-01T${time}`).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}.`, "success");
-    } catch {
-      notifyToast(`Couldn't add ${title} to your trip. Try again.`, "error");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Tactile lift={2} className={cn("inline-flex", block && "flex-1")}>
-      <button
-        type="button"
-        disabled={busy || alreadyAdded}
-        onClick={() => void add()}
-        className={cn("btn-secondary inline-flex items-center gap-2", block && "h-12 w-full justify-center rounded-full", alreadyAdded && "!border-coral/35 !bg-coral-soft !text-coral-ink disabled:opacity-100")}
-      >
-        {busy ? <Loader2 className="size-4 animate-spin" /> : <CalendarCheck className="size-4" />}
-        {alreadyAdded ? (existing?.day_index ? `On Day ${existing.day_index}` : "On your trip") : "Add to trip"}
-      </button>
-    </Tactile>
-  );
-}
-
 /** Full detail for one event — same layout on the routed page and the chat side panel. */
-export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: string; seed: Seed; variant?: "page" | "panel" }) {
+export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: string; seed: EventSeed; variant?: "page" | "panel" }) {
   const panel = variant === "panel";
-  const [detail, setDetail] = useState<EventDetail | null>(null);
-  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
-  const [attempt, setAttempt] = useState(0);
+  const { detail, state, retry } = useEventDetail(tripId, seed);
   const titleTag = useDocumentTitle(panel ? null : detail?.title ?? seed.name);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const cacheKey = `event-detail:v4:${tripId}:${seed.url || seed.name}`;
-    try {
-      const hit = sessionStorage.getItem(cacheKey);
-      if (hit) {
-        const body = JSON.parse(hit);
-        if (body.detail) { setDetail(body.detail); setState("ready"); return () => controller.abort(); }
-      }
-    } catch { /* unavailable or malformed cache */ }
-    setState("loading");
-    const q = new URLSearchParams({ name: seed.name, url: seed.url, source: seed.source });
-    if (seed.imageUrl) q.set("img", seed.imageUrl);
-    if (seed.date) q.set("date", seed.date);
-    if (seed.venue) q.set("venue", seed.venue);
-    fetch(`/api/trips/${tripId}/events/detail?${q.toString()}`, { signal: controller.signal })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("detail"))))
-      .then((body) => {
-        try { sessionStorage.setItem(cacheKey, JSON.stringify(body)); } catch { /* ignore */ }
-        setDetail(body.detail ?? null);
-        setState(body.detail ? "ready" : "error");
-      })
-      .catch((err) => {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setState("error");
-      });
-    return () => controller.abort();
-  }, [tripId, seed.name, seed.url, seed.source, seed.imageUrl, seed.date, seed.venue, attempt]);
 
   const dock = PHONE_V2 && !panel;
   const pad = panel ? PANEL_PAD : cn("mx-auto max-w-3xl px-5 pb-14 sm:px-8", dock && "max-lg:pb-32");
@@ -186,37 +81,17 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
   const venueName = d?.venueName ?? seed.venue ?? null;
   const ticketUrl = d?.url ?? (ticketSellerLabel(seed.source, seed.url) ? seed.url : null);
   const ticketSeller = ticketSellerLabel(d?.source ?? seed.source, ticketUrl);
-  const mapsUrl =
-    d?.latitude && d?.longitude
-      ? `https://www.google.com/maps/search/?api=1&query=${d.latitude},${d.longitude}`
-      : venueName
-        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${venueName} ${d?.venueAddress ?? d?.city ?? ""}`.trim())}`
-        : null;
+  const mapsUrl = venueMapsUrl(d, venueName);
 
   const headliner = d?.performers?.[0];
   const support = d?.performers?.slice(1) ?? [];
-  // Drop a lineup note that just echoes acts already listed as pills.
-  const lineupNote =
-    d?.lineupNote && !d.performers.every((p) => d.lineupNote!.toLowerCase().includes(p.toLowerCase())) ? d.lineupNote : null;
+  const lineupNote = lineupNoteFor(d);
   const onSale = d?.onSale?.replace(/^on sale\s*/i, "") ?? null;
-  // The route already summarises `about`; here we only tidy stray markdown heading marks,
-  // a lone "Title:" prefix, and blank-line runs — no line-dropping.
-  const aboutText = (d?.about ?? "")
-    .split("\n")
-    .map((line) => line.replace(/^\s*#{1,6}\s*/, "").replace(/^\s*Title:\s*/i, "").trimEnd())
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  const aboutText = tidyAbout(d?.about);
   const fallbackImage = eventFallbackImage({ genre: d?.genre, title });
   const cityHint = cityFrom(d?.venueAddress) || d?.city || venueName || "";
 
-  const goodToKnow: Array<[string, string]> = [];
-  if (d?.doorsTime) goodToKnow.push(["Doors", displayClockTime(d.doorsTime)]);
-  if (d?.showTime) goodToKnow.push(["Show", displayClockTime(d.showTime)]);
-  if (d?.admission) goodToKnow.push(["Admission", d.admission]);
-  if (d?.ageInfo) goodToKnow.push(["Age", d.ageInfo]);
-  if (d?.promoter) goodToKnow.push(["Promoter", d.promoter]);
-  if (d?.status) goodToKnow.push(["Status", d.status]);
+  const goodToKnow = goodToKnowRows(d);
 
   return (
     <div>
@@ -240,7 +115,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
 
       <div className={cn(pad, "pt-6 space-y-8")}>
         {state === "error" && !d ? (
-          <PanelError what="the details for this event" panel={panel} onRetry={() => setAttempt((n) => n + 1)}>
+          <PanelError what="the details for this event" panel={panel} onRetry={retry}>
             {(ticketUrl || seed.url) && (
               <ExternalLink href={ticketUrl || seed.url} className="text-sm">
                 Open the event page
