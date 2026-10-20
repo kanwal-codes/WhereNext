@@ -250,6 +250,7 @@ describe("RoamShell: on a narrow screen", () => {
 
   it("brings the tab row back as soon as the log is near its top, even on a small nudge", () => {
     shell();
+    act(() => conv.onLogScroll(scroll(10)));
     act(() => conv.onLogScroll(scroll(40)));
     expect(document.querySelector("[class*='max-lg:absolute'][inert]")).toBeTruthy();
     act(() => conv.onLogScroll(scroll(31)));
