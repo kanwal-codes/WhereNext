@@ -2,6 +2,8 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  // Same automatic JSX runtime as `next build`, so a component file needs no `import React`.
+  esbuild: { jsx: "automatic" },
   resolve: { alias: { "@": fileURLToPath(new URL(".", import.meta.url)).replace(/\/$/, "") } },
   test: {
     include: ["tests/unit/**/*.test.{ts,tsx}", "tests/eval/**/*.test.{ts,tsx}"],
