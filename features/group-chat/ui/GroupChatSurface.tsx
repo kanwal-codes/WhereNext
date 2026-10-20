@@ -9,6 +9,7 @@ import { memberTint } from "@/lib/member-tint";
 import { ArrowDown, CalendarRange, ListChecks, Plus, SmilePlus, X } from "lucide-react";
 import { MicButton, SendButton } from "@/components/ComposerButtons";
 import { PHONE_V2 } from "@/lib/phone-v2";
+import { haptic } from "@/lib/haptics";
 import { markGroupRead } from "@/lib/client/use-group-unread";
 import { Sheet, Pressable, Reveal, Stagger, StaggerItem } from "@/components/motion-primitives";
 import { useMediaQuery } from "@/lib/use-media-query";
@@ -514,6 +515,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
     if (!content || !hasAsk(content) || (!retryKey && submitLockRef.current)) return;
     if (retryKey && inflightRef.current.has(retryKey)) return;
     if (speech.listening) speech.stop();
+    haptic("tap");
     if (!retryKey) {
       submitLockRef.current = true;
       requestAnimationFrame(() => { submitLockRef.current = false; });

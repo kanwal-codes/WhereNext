@@ -12,6 +12,7 @@ import { DestinationCombobox } from "@/components/DestinationCombobox";
 import { accountPhotoUrl } from "@/lib/places-ui";
 import { notifyToast } from "@/lib/application/toast";
 import { PHONE_V2 } from "@/lib/phone-v2";
+import { haptic } from "@/lib/haptics";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 import { COUNTRIES, LANGUAGES, countryFromPlace, displayName, fromBrowserLocale } from "@/lib/locales";
@@ -175,7 +176,7 @@ function ToggleSwitch({ checked, onChange, label }: { checked: boolean; onChange
       role="switch"
       aria-checked={checked}
       aria-label={label}
-      onClick={() => onChange(!checked)}
+      onClick={() => { haptic("select"); onChange(!checked); }}
       className={cn("relative mt-0.5 h-6 w-10 shrink-0 rounded-full transition-colors before:absolute before:-inset-2.5 before:content-['']", checked ? "bg-coral" : "bg-border")}
     >
       <motion.span

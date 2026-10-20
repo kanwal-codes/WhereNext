@@ -10,7 +10,6 @@ import { cachedGet } from "@/lib/client/cached-get";
 import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache";
 import { ESSENTIALS_TOTAL, EssentialsSurface, essentialsDone } from "@/features/essentials/ui/EssentialsSurface";
 import { Reveal, Stagger, StaggerItem, Tactile } from "@/components/motion-primitives";
-import { SkeletonLines } from "@/components/Skeleton";
 import { BookingDetailSheet } from "@/features/bookings/ui/BookingDetailSheet";
 import { GetYourGuideCard } from "@/components/GetYourGuideCard";
 import { ChapterHero } from "@/components/overview/ChapterHero";
@@ -138,8 +137,20 @@ export default function BookingsPage() {
           )}
           <div className="mt-6 max-lg:mt-4">
             {loading ? (
-              <div className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft">
-                <SkeletonLines lines={3} />
+              // Shaped like what is coming (the next booking, then rows), so the page does not jump when the bookings arrive.
+              <div aria-hidden className="space-y-8">
+                <div className="skeleton h-[12.25rem] rounded-[1.75rem] lg:h-[26rem] lg:rounded-3xl" />
+                <div className="space-y-5">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="flex items-center gap-3.5">
+                      <div className="skeleton size-12 shrink-0 rounded-2xl" />
+                      <div className="flex-1 space-y-2">
+                        <div className="skeleton h-4 w-2/3 rounded-md" />
+                        <div className="skeleton h-3 w-1/3 rounded-md" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : timeline.length === 0 ? (
               <div className="rounded-3xl border border-dashed border-border bg-card/50 p-8">

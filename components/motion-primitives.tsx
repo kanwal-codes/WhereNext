@@ -425,8 +425,9 @@ export function Sheet({
           // non-animatable value immediately, not interpolated) — an invisible backdrop
           // fading out, or ever stuck mid-exit for any reason, must never keep swallowing
           // clicks across the whole viewport while it's not actually open.
-          exit={{ opacity: 0, pointerEvents: "none" }}
-          transition={reduce ? { duration: 0 } : motionTokens.fast}
+          exit={{ opacity: 0, pointerEvents: "none", transition: reduce ? { duration: 0 } : { duration: 0.22, ease: "easeIn" } }}
+          // The scrim fades in as the panel starts to move, and out over the same stretch it leaves in (it used to be gone in 0.16s while the panel was still sliding).
+          transition={reduce ? { duration: 0 } : { duration: 0.26, ease }}
           onClick={onClose}
         >
           <motion.div
@@ -442,7 +443,8 @@ export function Sheet({
             )}
             initial={reduce ? false : closed}
             animate={{ x: 0, y: 0, opacity: 1, scale: 1 }}
-            exit={reduce ? undefined : closed}
+            // Arrives on a soft spring, leaves quicker and straight (ease-in): exits should not linger on the spring's long tail.
+            exit={reduce ? undefined : { ...closed, transition: { duration: 0.24, ease: [0.4, 0, 1, 1] } }}
             transition={reduce ? { duration: 0 } : motionTokens.panelSpring}
             onClick={(e) => e.stopPropagation()}
             {...(side === "bottom" && !reduce
@@ -454,6 +456,18 @@ export function Sheet({
                   dragElastic: { top: 0, bottom: 0.5 },
                   onDragEnd: (_: unknown, info: { offset: { y: number }; velocity: { y: number } }) => {
                     if (info.offset.y > 90 || info.velocity.y > 600) onClose();
+                  },
+                }
+              : {})}
+            {...(side === "left" && !reduce
+              ? {
+                  // The side menu is closed by pushing it back the way it came.
+                  drag: "x" as const,
+                  dragConstraints: { left: 0, right: 0 },
+                  dragElastic: { left: 0.5, right: 0 },
+                  dragDirectionLock: true,
+                  onDragEnd: (_: unknown, info: { offset: { x: number }; velocity: { x: number } }) => {
+                    if (info.offset.x < -70 || info.velocity.x < -500) onClose();
                   },
                 }
               : {})}

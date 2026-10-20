@@ -26,13 +26,14 @@ import { ExternalLink } from "@/components/ExternalLink";
 import { SourceCard } from "@/components/SourceCard";
 import { PanelError, PanelLoading, PANEL_PAD, PANEL_HERO } from "@/components/PanelStates";
 import { TripWeather } from "@/components/TripWeather";
-import { Reveal, WordReveal } from "@/components/motion-primitives";
+import { BlurImage, Reveal, WordReveal } from "@/components/motion-primitives";
+import { placeGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { PhotoLightbox, usePhotoLightbox } from "@/components/PhotoLightbox";
 import { isWeatherRelevantPlace } from "@/packages/reco/vibes";
 import { usePlaceDetails } from "@/features/places/application/usePlaceDetails";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { amenityChips, askAssistantHref, businessStatusLabel, categoryLabel, cityFrom, detailsToPlace, photoProxyUrl, prettyWebsite, withPhotoWidth, priceLabel, secondaryTypes, type GoogleReview } from "@/lib/places-ui";
-import { Badge, compactCount, textAction } from "@/features/conversation/ui/blocks/ui";
+import { Badge, MediaFallback, compactCount, textAction } from "@/features/conversation/ui/blocks/ui";
 import { cn } from "@/lib/utils";
 import { PHONE_V2 } from "@/lib/phone-v2";
 import { SaveHeart } from "@/features/trip/ui/SaveHeart";
@@ -324,8 +325,12 @@ export function PlaceDetailView({
       {PHONE_V2 && (
         <div className="px-5 pt-3 lg:hidden">
           <div className="relative aspect-[16/10] overflow-hidden rounded-3xl bg-muted">
-            {/* eslint-disable-next-line @next/next/no-img-element -- authenticated same-origin proxy */}
-            <img src={photo ? withPhotoWidth(photo, 960) : "/design/place-neighbourhood.jpg"} alt={name} className="photo-grade absolute inset-0 h-full w-full object-cover" />
+            {/* No photo: the app's own stand-in with the kind of place drawn on it, never someone else's stock picture. */}
+            {photo ? (
+              <BlurImage src={withPhotoWidth(photo, 960)} alt={name} className="photo-grade absolute inset-0 h-full w-full object-cover" />
+            ) : (
+              <MediaFallback icon={placeGlyph(place?.category, name).icon} className="absolute inset-0 size-full" />
+            )}
             {place && <div className="absolute top-2 right-2"><SaveHeart tripId={tripId} place={place} /></div>}
           </div>
         </div>

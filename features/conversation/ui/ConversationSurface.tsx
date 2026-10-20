@@ -13,6 +13,7 @@ import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
 import { useSpeechInput } from "@/lib/use-speech-input";
 import { useMediaQuery } from "@/lib/use-media-query";
+import { haptic } from "@/lib/haptics";
 import { useAutoGrowTextarea } from "@/lib/use-autogrow-textarea";
 import { useKeepScrollGap } from "@/lib/use-keep-scroll-gap";
 import { AssistantMessage, type BlockHandlers } from "./AssistantMessage";
@@ -619,6 +620,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
       return;
     }
     if (speech.listening) speech.stop();
+    haptic("tap");
     sendingRef.current = true;
     setSending(true);
     setOutcome(null);
