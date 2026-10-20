@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { CityChips } from "@/components/CityChips";
 import { useTripCity } from "@/lib/client/use-trip-city";
 import { stayWindow } from "@/lib/trip-stops";
@@ -12,35 +12,22 @@ import { BedDouble, ChevronDown, MapPin, Minus, Plus, SlidersHorizontal, Star, X
 import { useTripData } from "@/components/TripDataProvider";
 import { AiSearchBar } from "@/components/AiSearchBar";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
-import { readStayDecision, type StayFacets, type StayOption } from "@/packages/contracts/stay";
+import { readStayDecision, type StayOption } from "@/packages/contracts/stay";
 import { SkeletonList } from "@/components/Skeleton";
 import { EmptyState } from "@/components/EmptyState";
 import { formatMoney } from "@/lib/currency";
 import { useShowMore } from "@/lib/use-show-more";
 import { ShowMoreButton } from "@/components/ShowMoreButton";
-import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache";
 import { cn } from "@/lib/utils";
 import { PHONE_V2 } from "@/lib/phone-v2";
 import { CityPill } from "@/components/CityPill";
 import { useSetPhoneHeader } from "@/components/shell/PhoneHeader";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { fmtDay } from "@/lib/trip-dates";
-import { cachedGet } from "@/lib/client/cached-get";
 import { prefetchStayDetails } from "@/features/stays/application/useStayDetails";
 import { dateFormat } from "@/lib/format-cache";
-
-type Result = {
-  location: string;
-  checkin: string;
-  checkout: string;
-  assumedDates: boolean;
-  nights: number;
-  adults: number;
-  rooms: number;
-  currency: string;
-  options: StayOption[];
-  facets: StayFacets;
-};
+import { useStaySearch } from "@/features/stays/application/useStaySearch";
+import { activeFilterCount, nightsBetween, nightsText, overlappingStay, searchFailed, stayCompareEntry, toggled } from "@/features/stays/domain/stay-search";
 
 /** "Tue, Oct 27", for the big date in a booking cell. */
 const fmtLong = (iso: string) => {
@@ -95,127 +82,30 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   const cityWindow = cities.hasChoice && cities.stop ? stayWindow(cities.stop) : null;
   const booked = useTripStays(tripId);
 
-  const [checkin, setCheckin] = useState((cities.hasChoice ? cityWindow?.checkin : lockedStay?.checkin) ?? cityWindow?.checkin ?? trip?.start_date ?? "");
-  const [checkout, setCheckout] = useState((cities.hasChoice ? cityWindow?.checkout : lockedStay?.checkout) ?? cityWindow?.checkout ?? trip?.end_date ?? "");
-  const [adults, setAdults] = useState(Math.max(1, Math.min(trip?.travelers ?? 2, 24)));
-  const [rooms, setRooms] = useState(1);
+  const {
+    checkin, setCheckin, checkout, setCheckout, adults, setAdults, rooms, setRooms, stars, setStars, boards, setBoards, propertyTypes, setPropertyTypes,
+    refundable, setRefundable, priceMax, setPriceMax, sort, setSort, near, setNear, result, status, loading, search, applyDirective, clearFilters,
+  } = useStaySearch({
+    tripId,
+    start: { checkin: (cities.hasChoice ? cityWindow?.checkin : lockedStay?.checkin) ?? cityWindow?.checkin ?? trip?.start_date ?? "", checkout: (cities.hasChoice ? cityWindow?.checkout : lockedStay?.checkout) ?? cityWindow?.checkout ?? trip?.end_date ?? "" },
+    travelers: trip?.travelers, city: cities.city, hasChoice: cities.hasChoice, cityWindow,
+  });
   const [barOpen, setBarOpen] = useState(false);
-  const nightsCount = checkin && checkout ? Math.round((Date.parse(`${checkout}T00:00:00`) - Date.parse(`${checkin}T00:00:00`)) / 864e5) : 0;
-  const nightsLabel = nightsCount > 0 ? `${nightsCount} night${nightsCount === 1 ? "" : "s"}` : "";
-  const [stars, setStars] = useState<number[]>([]);
-  const [boards, setBoards] = useState<string[]>([]);
-  const [propertyTypes, setPropertyTypes] = useState<string[]>([]);
-  const [refundable, setRefundable] = useState(false);
-  const [priceMax, setPriceMax] = useState<number | null>(null);
-  const [sort, setSort] = useState<"price" | "rating" | "stars">("price");
+  const nightsLabel = nightsText(nightsBetween(checkin, checkout));
   const [showFilters, setShowFilters] = useState(false);
-  const [near, setNear] = useState(""); // AI "hotels near X" — overrides the destination anchor
-
-  const [result, setResult] = useState<Result | null>(null);
-  const [status, setStatus] = useState("");
-  const [loading, setLoading] = useState(true);
-  const reqId = useRef(0);
-  const abortRef = useRef<AbortController | null>(null);
-
-  // Picking another city moves the search to that city and the nights spent there.
-  const lastCity = useRef(cities.city);
-  useEffect(() => {
-    if (!cities.hasChoice || lastCity.current === cities.city) return;
-    lastCity.current = cities.city;
-    setNear("");
-    if (cityWindow) {
-      setCheckin(cityWindow.checkin);
-      setCheckout(cityWindow.checkout);
-    }
-  }, [cities.city, cities.hasChoice, cityWindow]);
-
-  const search = useCallback(async () => {
-    const mine = ++reqId.current;
-    // Cancel a still-in-flight prior search instead of just ignoring its response — otherwise
-    // rapid filter changes (stars, boards, dates) kept every earlier request running against the
-    // hotel provider for nothing, same fix DiscoverySurface already has for its own searches.
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setLoading(true);
-    setStatus("");
-    try {
-      const qs = new URLSearchParams({ adults: String(adults), rooms: String(rooms), sort });
-      if (near.trim()) qs.set("location", near.trim());
-      else if (cities.hasChoice && cities.city) qs.set("location", cities.city);
-      if (checkin) qs.set("checkin", checkin);
-      if (checkout) qs.set("checkout", checkout);
-      if (stars.length) qs.set("stars", stars.join(","));
-      if (boards.length) qs.set("boards", boards.join(","));
-      if (propertyTypes.length) qs.set("propertyTypes", propertyTypes.join(","));
-      if (refundable) qs.set("refundable", "1");
-      if (priceMax) qs.set("priceMax", String(priceMax));
-      const cacheKey = `stay-search:${tripId}:${qs.toString()}`;
-      const cachedResult = readSessionCache<Result>(cacheKey, 5 * 60_000);
-      if (cachedResult) {
-        if (mine !== reqId.current) return;
-        setResult(cachedResult);
-        setStatus(cachedResult.options.length === 0 ? "Nothing matched — loosen the filters or change the dates." : "");
-        return;
-      }
-
-      const response = await cachedGet(`/api/trips/${tripId}/stays?${qs}`, { signal: controller.signal });
-      const body = await response.json();
-      if (mine !== reqId.current) return;
-      if (!response.ok) {
-        setResult(null);
-        setStatus("We couldn't load hotels just now. Try again in a moment.");
-        return;
-      }
-      const next = body as Result;
-      writeSessionCache(cacheKey, next);
-      setResult(next);
-      setStatus((next.options ?? []).length === 0 ? "Nothing matched — loosen the filters or change the dates." : "");
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      if (mine === reqId.current) {
-        setResult(null);
-        setStatus("We couldn't load hotels just now. Try again in a moment.");
-      }
-    } finally {
-      if (mine === reqId.current) setLoading(false);
-    }
-  }, [tripId, adults, rooms, sort, checkin, checkout, stars, boards, propertyTypes, refundable, priceMax, near, cities.hasChoice, cities.city]);
-
-  useEffect(() => {
-    void search();
-  }, [search]);
 
   const { visible, remaining, next, showMore, first } = useShowMore(result?.options.length ?? 0, result);
-
-  function applyDirective(d: import("@/lib/application/ai-search").AiSearchDirective) {
-    if (d.location !== undefined) setNear(d.location);
-    if (d.priceMax !== undefined) setPriceMax(d.priceMax);
-    if (d.stars?.length) setStars(d.stars);
-    if (d.boards?.length) setBoards(d.boards);
-    if (d.propertyTypes?.length) setPropertyTypes(d.propertyTypes);
-    if (d.refundable !== undefined) setRefundable(d.refundable);
-    if (d.sort) setSort(d.sort);
-    if (d.adults) setAdults(Math.max(1, Math.min(d.adults, 16)));
-    if (d.rooms) setRooms(Math.max(1, Math.min(d.rooms, 8)));
-  }
 
   const detailHref = (hotelId: string) =>
     `/trips/${tripId}/stay/${encodeURIComponent(hotelId)}?checkin=${result?.checkin ?? checkin}&checkout=${result?.checkout ?? checkout}&adults=${adults}&rooms=${rooms}`;
   const panelCtx = useTripPanelMaybe();
-  const stayEntry = (o: StayOption): CompareEntry => ({
-    id: o.hotelId, kind: "stay", name: o.name, href: detailHref(o.hotelId),
-    subtitle: [o.stars ? `${o.stars}★` : null, o.boardName].filter(Boolean).join(" · ") || undefined,
-    attrs: { price: `${money(o.nightlyAmount)}/night`, priceValue: o.nightlyAmount, rating: typeof o.rating === "number" && o.rating > 0 ? `${o.rating.toFixed(1)}/10` : undefined, ratingValue: typeof o.rating === "number" && o.rating > 0 ? o.rating : undefined, lat: o.latitude ?? undefined, lng: o.longitude ?? undefined, detail: [o.stars ? `${o.stars}-star` : null, o.boardName, o.refundable ? "free cancellation" : null].filter(Boolean).join(", ") || "Hotel" },
-  });
+  const stayEntry = (o: StayOption): CompareEntry => stayCompareEntry(o, detailHref(o.hotelId), money);
   const money = (n: number) => formatMoney(n, result?.currency ?? "CAD");
   const facets = result?.facets;
-  const toggle = (list: string[], v: string, set: (l: string[]) => void) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
-  const toggleN = (list: number[], v: number, set: (l: number[]) => void) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
-  const activeFilters = stars.length + boards.length + propertyTypes.length + (refundable ? 1 : 0) + (priceMax ? 1 : 0);
+  const activeFilters = activeFilterCount({ stars, boards, propertyTypes, refundable, priceMax });
 
   // A stay already booked for (some of) these nights: said up front, so nobody pays for the same nights twice.
-  const alreadyBooked = booked.items.find((item) => item.date && checkin && checkout && item.date < checkout && (item.endDate ?? item.date) > checkin && item.status !== "cancelled");
+  const alreadyBooked = overlappingStay(booked.items, checkin, checkout);
 
   return (
     <div className="flex min-h-[calc(100svh-13rem)] flex-col gap-5">
@@ -338,7 +228,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                     <button
                       key={t}
                       type="button"
-                      onClick={() => toggle(propertyTypes, t, setPropertyTypes)}
+                      onClick={() => setPropertyTypes(toggled(propertyTypes, t))}
                       aria-pressed={propertyTypes.includes(t)}
                       className="btn-chip"
                     >
@@ -356,7 +246,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                     <button
                       key={s}
                       type="button"
-                      onClick={() => toggleN(stars, s, setStars)}
+                      onClick={() => setStars(toggled(stars, s))}
                       aria-pressed={stars.includes(s)}
                       className="btn-chip"
                     >
@@ -374,7 +264,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                     <button
                       key={b}
                       type="button"
-                      onClick={() => toggle(boards, b, setBoards)}
+                      onClick={() => setBoards(toggled(boards, b))}
                       aria-pressed={boards.includes(b)}
                       className="btn-chip"
                     >
@@ -389,7 +279,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
               Free cancellation only
             </label>
             {activeFilters > 0 && (
-              <button type="button" onClick={() => { setStars([]); setBoards([]); setPropertyTypes([]); setRefundable(false); setPriceMax(null); }} className="text-xs font-medium text-primary hover:underline">
+              <button type="button" onClick={clearFilters} className="text-xs font-medium text-primary hover:underline">
                 Clear filters
               </button>
             )}
@@ -435,7 +325,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
         </>
       ) : (
         !loading && (
-          <EmptyState icon={BedDouble} action={status.startsWith("We couldn't") ? <button type="button" onClick={() => void search()} className="btn-primary h-11 rounded-full px-6">Try again</button> : undefined}>{status || "No stays to show yet."}</EmptyState>
+          <EmptyState icon={BedDouble} action={searchFailed(status) ? <button type="button" onClick={() => void search()} className="btn-primary h-11 rounded-full px-6">Try again</button> : undefined}>{status || "No stays to show yet."}</EmptyState>
         )
       )}
         </SwapView>
