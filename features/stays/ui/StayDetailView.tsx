@@ -3,7 +3,7 @@
 import { hotelPhotoSrc } from "@/lib/hotel-photo";
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronDown, Globe, LogIn, LogOut, MapPin, MessageCircle, Navigation, Phone, Star, Users } from "lucide-react";
+import { ChevronDown, Globe, LogIn, LogOut, MapPin, MessageCircle, Navigation, Phone, Star } from "lucide-react";
 import { Hero } from "@/components/Hero";
 import { useTripPanelMaybe } from "@/components/TripPanelProvider";
 import { DetailSectionHeading } from "@/components/DetailSectionHeading";
@@ -13,10 +13,12 @@ import { NearbyEvents } from "@/components/NearbyEvents";
 import { NearbyStays } from "@/features/stays/ui/NearbyStays";
 import { NearbyRecommendations } from "@/components/NearbyRecommendations";
 import { PanelError, PanelLoading, PANEL_PAD, PANEL_HERO } from "@/components/PanelStates";
-import { Badge, Notice, money, prettyDate, type as T } from "@/features/conversation/ui/blocks/ui";
+import { Badge } from "@/features/conversation/ui/blocks/ui";
 import { Reveal, WordReveal } from "@/components/motion-primitives";
 import { PhotoLightbox, usePhotoLightbox } from "@/components/PhotoLightbox";
 import { useStayDetails } from "@/features/stays/application/useStayDetails";
+import { RoomsSection } from "@/features/stays/ui/StayRooms";
+import { dedupeFacilities, directionsUrl, groupFacilities, headlineFacilities, reviewDigest, reviewerLine } from "@/features/stays/domain/stay-view";
 import { StayNearby, StayThemes, WhereToBook } from "./GoogleStayParts";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { askAssistantHref } from "@/lib/places-ui";
@@ -29,93 +31,10 @@ import { PHONE_V2 } from "@/lib/phone-v2";
 // nothing) on every render for a hotel with no facilities yet.
 const NO_FACILITIES: string[] = [];
 
-const facilityGroup = (facility: string) => {
-  const value = facility.toLowerCase();
-  if (/restaurant|bar|breakfast|coffee|room service|menu|currency/.test(value)) return "Food & drink";
-  if (/accessible|lift|elevator|wheelchair|non-smoking|heating|air conditioning|wifi|wi-fi|internet|family/.test(value)) return "Comfort";
-  if (/front desk|concierge|housekeeping|luggage|laundry|tour|car hire|parking|transport|meeting|banquet|fax|photocopy/.test(value)) return "Services";
-  return "On site";
-};
-
-/** Rooms and rates for the dates: the price, the terms, and the one action a stay panel exists for. */
-function RoomsSection({ s, hotelId }: { s: ReturnType<typeof useStayDetails>; hotelId: string }) {
-  const [all, setAll] = useState(false);
-  const rooms = s.rooms ?? [];
-  const shown = all ? rooms : rooms.slice(0, 3);
-  const locked = s.lockedStay && s.lockedStay.hotelId === hotelId ? s.lockedStay : null;
-  const dates = s.checkin && s.checkout ? `${prettyDate(s.checkin)} – ${prettyDate(s.checkout)}` : null;
-  return (
-    <section aria-labelledby="stay-rooms" className="space-y-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <DetailSectionHeading id="stay-rooms">Rooms &amp; rates</DetailSectionHeading>
-        {dates && <p className={cn(T.meta, "tabular-nums")}>{dates}{s.nights ? ` · ${s.nights} night${s.nights === 1 ? "" : "s"}` : ""}</p>}
-      </div>
-      {s.assumedDates && <Notice tone="caution">These are example dates — set your real dates to see accurate rates.</Notice>}
-      {s.roomsUnavailable || rooms.length === 0 ? (
-        <Notice>No rates came back for these dates. The hotel may be full, or the rates provider didn’t answer — try different dates.</Notice>
-      ) : (
-        <>
-          <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
-            {shown.map((room, i) => {
-              const isLocked = Boolean(locked && (locked.rateId ? locked.rateId === room.rateId : locked.roomName === room.name));
-              return (
-                <li key={room.rateId ?? room.offerId ?? `${room.name}-${i}`} className="space-y-3 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 space-y-1.5">
-                      <p className={cn(T.body, "font-medium")}>{room.name}</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {room.boardName && <Badge>{room.boardName}</Badge>}
-                        {room.refundable ? (
-                          <Badge tone="positive" icon={Check}>{room.cancelBefore ? `Free cancellation until ${prettyDate(room.cancelBefore.slice(0, 10))}` : "Refundable"}</Badge>
-                        ) : (
-                          <Badge>Non-refundable</Badge>
-                        )}
-                        {room.maxOccupancy ? <Badge icon={Users}>{room.maxOccupancy} guest{room.maxOccupancy === 1 ? "" : "s"}</Badge> : null}
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="font-display text-lg font-semibold leading-tight tabular-nums">{money(room.nightlyAmount, room.currency)}<span className={cn(T.meta, "font-sans font-normal")}> / night</span></p>
-                      <p className={cn(T.meta, "tabular-nums")}>{money(room.totalAmount, room.currency)} total{room.taxesAndFees ? ` · incl. ${money(room.taxesAndFees, room.currency)} taxes` : ""}</p>
-                    </div>
-                  </div>
-                  <div className="flex justify-end">
-                    {isLocked ? (
-                      <Badge tone="positive" icon={Check}>Your stay</Badge>
-                    ) : (
-                      <button type="button" className="btn-primary-sm" disabled={s.busy} onClick={() => void s.lockRoom(room)}>
-                        {s.busy ? "Saving…" : "Choose this room"}
-                      </button>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-          {rooms.length > 3 && <ShowMore open={all} onToggle={() => setAll((v) => !v)} more={`Show all ${rooms.length} rooms`} less="Show fewer rooms" />}
-          <Notice>Taxes and fees can change at checkout — confirm the total with the hotel when you book.</Notice>
-        </>
-      )}
-    </section>
-  );
-}
-
 /**
  * The full hotel detail — same content and styling everywhere. `variant="page"`
  * is `/stay/[id]`; `variant="panel"` is the chat side rail (one column, no back-link).
  */
-/** "family_with_children" -> "Family with children". */
-const prettyTraveller = (t?: string | null) => (t ? t.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase()) : "");
-const regionNames = typeof Intl !== "undefined" && "DisplayNames" in Intl ? new Intl.DisplayNames(["en"], { type: "region" }) : null;
-/** "se" -> "Sweden"; anything that is not a two-letter code is left as it is. */
-const prettyCountry = (c?: string | null) => {
-  if (!c) return "";
-  if (!/^[a-z]{2}$/i.test(c)) return c;
-  try { return regionNames?.of(c.toUpperCase()) ?? c.toUpperCase(); } catch { return c.toUpperCase(); }
-};
-/** "WiFi available" and "Free WiFi" are one fact: keep the first of each. */
-const facilityKey = (f: string) => f.toLowerCase().replace(/\b(?:free|available|complimentary)\b/g, "").replace(/[^a-z0-9]/g, "");
-const dedupeFacilities = (list: string[]) => list.filter((f, i) => list.findIndex((g) => facilityKey(g) === facilityKey(f)) === i);
-
 /** One of the two arrival boxes on a stay: what it is, and the time. */
 function StayTime({ icon: Icon, label, note, time }: { icon: React.ComponentType<{ className?: string }>; label: string; note: string; time: string }) {
   return (
@@ -165,23 +84,10 @@ export function StayDetailView({
   // early returns below, so the hook order stays fixed) so toggling `amenityGroupOpen` or
   // `reviewsOpen` doesn't re-run the facility classification and review averaging on every render.
   const facilities = s.hotel?.facilities ?? NO_FACILITIES;
-  const groupedFacilities = useMemo(() => facilities.slice(0, 32).reduce<Record<string, string[]>>((groups, facility) => {
-    const group = facilityGroup(facility);
-    (groups[group] ??= []).push(facility);
-    return groups;
-  }, {}), [facilities]);
-  const importantFacilities = useMemo(
-    () => facilities.filter((facility) => /wifi|wi-fi|internet|air conditioning|heating|non-smoking|family|front desk|restaurant|room service|parking|breakfast/i.test(facility)).slice(0, 8),
-    [facilities],
-  );
+  const groupedFacilities = useMemo(() => groupFacilities(facilities), [facilities]);
+  const importantFacilities = useMemo(() => headlineFacilities(facilities), [facilities]);
   const importantSet = useMemo(() => new Set(importantFacilities), [importantFacilities]);
-  const ratedReviews = useMemo(() => s.reviews.filter((review) => typeof review.rating === "number"), [s.reviews]);
-  // A score with nothing written next to it tells the reader nothing.
-  const readable = s.reviews.filter((r) => r.headline || r.positives || r.negatives || r.text);
-  const reviewScore = useMemo(
-    () => (ratedReviews.length ? ratedReviews.reduce((total, review) => total + (review.rating ?? 0), 0) / ratedReviews.length : null),
-    [ratedReviews],
-  );
+  const { ratedCount, readable, score: reviewScore } = useMemo(() => reviewDigest(s.reviews), [s.reviews]);
 
   const pad = panel ? PANEL_PAD : "mx-auto max-w-5xl px-5 pb-14 sm:px-8";
 
@@ -202,9 +108,7 @@ export function StayDetailView({
   // dropped, so the strip never shows an empty frame and the lightbox never opens on one.
   const images = [...new Set((hotel?.images ?? []).map((src) => hotelPhotoSrc(src)))].filter((src) => !deadPhotos.includes(src));
 
-  const directionsHref = hotel?.latitude != null && hotel?.longitude != null
-    ? `https://www.google.com/maps/dir/?api=1&destination=${hotel.latitude},${hotel.longitude}`
-    : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent([name, hotel?.address, hotel?.city].filter(Boolean).join(", "))}`;
+  const directionsHref = directionsUrl(hotel, name);
 
   const body = (
     <div className="min-w-0 space-y-10">
@@ -307,7 +211,7 @@ export function StayDetailView({
                   {reviewScore !== null && (
                     <div className="flex shrink-0 items-center gap-3">
                       <span className="font-display text-4xl leading-none tabular-nums tracking-[-0.03em]">{reviewScore.toFixed(1)}</span>
-                      <span className="text-xs leading-snug text-muted-foreground">out of 10<br />from {ratedReviews.length} recent review{ratedReviews.length === 1 ? "" : "s"}</span>
+                      <span className="text-xs leading-snug text-muted-foreground">out of 10<br />from {ratedCount} recent review{ratedCount === 1 ? "" : "s"}</span>
                     </div>
                   )}
                   {s.sentiment && <p className={cn("text-sm leading-relaxed text-ink-soft text-pretty", reviewScore !== null && "sm:border-l sm:border-border sm:pl-6")}>{s.sentiment}</p>}
@@ -326,7 +230,7 @@ export function StayDetailView({
                 // On a phone the reviews are a row of short cards to swipe through, not a long stack to scroll past.
                 <div className="-mx-4 mt-3 flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto overscroll-x-contain px-4 pb-1 no-scrollbar scroll-px-4 lg:hidden">
                   {readable.slice(0, 8).map((r, i) => {
-                    const who = [prettyTraveller(r.travellerType), prettyCountry(r.country), s.google ? r.name : null].filter(Boolean).join(" · ");
+                    const who = reviewerLine(r, s.google);
                     const body = r.positives || r.negatives || r.text;
                     return (
                       <figure key={i} className="flex w-[16.5rem] shrink-0 snap-start flex-col rounded-2xl border border-border bg-card p-3.5">
@@ -355,7 +259,7 @@ export function StayDetailView({
                     {r.positives && <p className="mt-1.5 line-clamp-2 text-sm leading-5 text-ink-soft"><span className="font-medium text-positive">Liked </span>{r.positives}</p>}
                     {r.negatives && <p className="mt-1 line-clamp-2 text-sm leading-5 text-ink-soft"><span className="font-medium text-caution">Didn’t like </span>{r.negatives}</p>}
                     {!r.positives && !r.negatives && r.text && <p className="mt-1.5 line-clamp-3 text-sm leading-5 text-ink-soft">{r.text}</p>}
-                    {(r.travellerType || r.country || (s.google && r.name)) && <figcaption className="mt-3 text-xs text-muted-foreground">{[prettyTraveller(r.travellerType), prettyCountry(r.country), s.google ? r.name : null].filter(Boolean).join(" · ")}</figcaption>}
+                    {(r.travellerType || r.country || (s.google && r.name)) && <figcaption className="mt-3 text-xs text-muted-foreground">{reviewerLine(r, s.google)}</figcaption>}
                   </figure>
                 ))}
               </div>
