@@ -5,7 +5,7 @@ import { useDistance } from "@/components/use-distance";
 import Link from "next/link";
 import { ArrowDownUp, Car, ChevronDown, ExternalLink, Loader2, Plane, Search, TrainFront } from "lucide-react";
 import type { MapLeg } from "@/components/TripMap";
-import { congestionRuns, interchangeNodes, routeMetrics, tagRoutes, trafficSummary, type MapOverlay, type RouteTag } from "@/lib/application/route-overlay";
+import { congestionRuns, interchangeNodes, type MapOverlay, type RouteTag } from "@/lib/application/route-overlay";
 import { askAssistantHref } from "@/lib/places-ui";
 import { notifyToast } from "@/lib/application/toast";
 import { estimateRideshare } from "@/lib/application/rideshare-estimate";
@@ -15,114 +15,19 @@ import { textAction } from "@/features/conversation/ui/blocks/ui";
 import { DestinationCombobox } from "@/components/DestinationCombobox";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { TripOptions } from "./TripOptions";
+import { flightsStatusText, transitStatusText, cheapestFlight, clock, compareContext, driveSaveValue, driveTrafficOf, fastestIndex, flightClock, flightPrice, flightSaveValue, googleFlightsUrl, googleMapsTransitUrl, hexColor, legsFor, lyftHref, mergeWalks, money, pathOf, routeSummaries, stopsLabel, transitSaveValue, uberHref, type DriveRoute, type Flight, type Route, type Step } from "../domain/route-view";
 import { FlightDetails } from "./FlightDetails";
 import { AirlineMark } from "@/features/conversation/ui/panels/OtherFlights";
-import type { FlightOffer } from "@/packages/providers/duffel/client";
 import { arrangeFlights, departAtParam, fitsTime, todayLocal, whenLabel, type Sort, type When } from "@/lib/application/travel-time";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { resolveCurrency } from "@/lib/currency";
-import { MODE_LABEL, TRAFFIC_HEX } from "@/lib/application/mode-visuals";
+import { MODE_LABEL } from "@/lib/application/mode-visuals";
 import { ModeTile, Ribbon, colorOf, railStyle } from "@/features/maps/ui/modeParts";
-import { dateFormat, numberFormat } from "@/lib/format-cache";
-
-const hexColor = (c?: string) => (c ? `#${c.replace(/^#/, "")}` : undefined);
-
-type Step = {
-  mode?: string;
-  durationSeconds?: number;
-  line?: string;
-  vehicleName?: string;
-  agency?: string;
-  color?: string;
-  headsign?: string;
-  stopCount?: number;
-  departureStop?: string;
-  arrivalStop?: string;
-  polyline?: Array<[number, number]>;
-};
-type Route = {
-  durationSeconds: number;
-  distanceMeters: number;
-  steps?: Step[];
-  departureTime?: string;
-  timeZone?: string;
-  arrivalTime?: string;
-  fare?: { amount: number; currency: string };
-  polyline?: Array<[number, number]>;
-};
-export type Flight = FlightOffer;
-
-/** Where to buy it: Google Flights, on this flight's airports and day (these are Google's own fares; nothing is sold here). */
-const googleFlightsUrl = (f: Flight, returnDate: string) => {
-  const day = f.departAt?.slice(0, 10);
-  const query = `Flights from ${f.originAirport ?? ""} to ${f.destinationAirport ?? ""}${day ? ` on ${day}` : ""}${returnDate ? ` returning ${returnDate}` : ""}`;
-  return `https://www.google.com/travel/flights?q=${encodeURIComponent(query)}`;
-};
-type DriveRoute = { distanceMeters: number; durationSeconds: number; geometry: { coordinates: Array<[number, number]> }; congestion?: string[] };
 
 /** What the AI search bar (or a caller) can push in to run a search without the user retyping. */
 export type TransportPreset = { from?: string; to?: string; modes?: string[]; nonce: number };
 
-/** A time as the clocks read where the journey starts (`timeZone`), not where the reader is. */
-const clock = (iso?: string, timeZone?: string) => {
-  if (!iso) return null;
-  try {
-    return dateFormat([], { hour: "2-digit", minute: "2-digit", ...(timeZone ? { timeZone } : {}) }).format(new Date(iso));
-  } catch {
-    return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  }
-};
-const money = (f?: Route["fare"]) => {
-  if (!f) return null;
-  try {
-    return numberFormat(undefined, { style: "currency", currency: f.currency }).format(f.amount);
-  } catch {
-    return `${f.amount.toFixed(2)} ${f.currency}`;
-  }
-};
-
-/** The legs to paint on the map for a chosen route — real per-step shapes, else the whole line. */
-function legsFor(route: Route): MapLeg[] {
-  const geo = (route.steps ?? []).filter((s): s is Step & { polyline: Array<[number, number]> } => Boolean(s.polyline && s.polyline.length >= 2));
-  if (geo.length) return geo.map((s) => ({ polyline: s.polyline, mode: s.mode ?? "transit", color: hexColor(s.color) }));
-  if (route.polyline && route.polyline.length >= 2) return [{ polyline: route.polyline, mode: "transit" }];
-  return [];
-}
-
-/** The whole line of a route, for drawing it behind the chosen one and for putting its time on it. */
-function pathOf(route: Route): Array<[number, number]> {
-  if (route.polyline && route.polyline.length >= 2) return route.polyline;
-  return (route.steps ?? []).flatMap((s) => s.polyline ?? []);
-}
-
 const TAG_TEXT: Record<RouteTag, string> = { fastest: "Fastest", "fewer-changes": "Fewer changes", "least-walking": "Least walking" };
-
-/** A one-line summary of every route, handed to the assistant as on-screen context. */
-function describeRoutes(from: string, to: string, routes: Route[]): string {
-  const lines = routes.map((r, i) => {
-    const ride = (r.steps ?? [])
-      .filter((s) => (s.mode ?? "") !== "walk")
-      .map((s) => `${s.line ?? s.vehicleName ?? s.mode}${s.headsign ? ` toward ${s.headsign}` : ""}${s.stopCount ? ` (${s.stopCount} stops)` : ""}${s.agency ? ` — ${s.agency}` : ""}`)
-      .join("; ");
-    const dep = clock(r.departureTime, r.timeZone);
-    const arr = clock(r.arrivalTime, r.timeZone);
-    return `Option ${i + 1}: ${durationFromSeconds(r.durationSeconds)}, ${(r.distanceMeters / 1000).toFixed(1)} km${dep && arr ? `, leave ${dep} arrive ${arr}` : ""}${money(r.fare) ? `, fare ${money(r.fare)}` : ""}${ride ? ` — ${ride}` : ""}`;
-  });
-  return `Ways to get from ${from} to ${to}:\n${lines.join("\n")}`;
-}
-
-/** Back-to-back walking steps (a road crossing, a platform change) are one walk. */
-function mergeWalks(steps: Step[]): Step[] {
-  const out: Step[] = [];
-  for (const st of steps) {
-    const prev = out[out.length - 1];
-    const walking = (st.mode ?? "").toLowerCase() === "walk";
-    if (walking && prev && (prev.mode ?? "").toLowerCase() === "walk") {
-      out[out.length - 1] = { ...prev, durationSeconds: (prev.durationSeconds ?? 0) + (st.durationSeconds ?? 0), arrivalStop: st.arrivalStop ?? prev.arrivalStop, polyline: [...(prev.polyline ?? []), ...(st.polyline ?? [])] };
-    } else out.push(st);
-  }
-  return out;
-}
 
 function StepRow({ step, last }: { step: Step; last: boolean }) {
   const mode = (step.mode ?? "transit").toLowerCase();
@@ -257,13 +162,7 @@ export function TransportSurface({
       const offers = (body.offers ?? []) as Flight[];
       if (flightsKey.current !== key) return;
       setFlights(offers);
-      setFlightsStatus(
-        !res.ok
-          ? "We couldn’t load flights just now. Try again in a moment."
-          : offers.length === 0
-            ? "No flights came back for those two places. Flights run between airports, so try a city or an airport name."
-            : `${offers.length} flight${offers.length === 1 ? "" : "s"}${body.assumedDate ? " · example date — pick a day above for accurate prices" : ""}${travellers > 1 ? ` · prices for ${travellers} travellers` : ""}`,
-      );
+      setFlightsStatus(flightsStatusText({ ok: res.ok, count: offers.length, assumedDate: Boolean(body.assumedDate), travellers }));
     } catch {
       if (flightsKey.current === key) {
         flightsKey.current = "";
@@ -320,8 +219,8 @@ export function TransportSurface({
           const found = (body.routes ?? []) as Route[];
           setRoutes(found);
           if (body.timeIgnored) setTimeNote("We couldn’t use that time (it may have passed), so these are for now.");
-          setTransitStatus(!response.ok ? "We couldn’t load routes just now. Try again in a moment." : found.length === 0 ? "No public transit route between those two places." : `${found.length} route${found.length === 1 ? "" : "s"}${when && !body.timeIgnored ? ` · ${whenLabel(when)}` : ""}`);
-          if (response.ok && found.length) setSelected(found.reduce((best, r, i) => (r.durationSeconds < found[best].durationSeconds ? i : best), 0));
+          setTransitStatus(transitStatusText({ ok: response.ok, count: found.length, when, timeIgnored: Boolean(body.timeIgnored) }));
+          if (response.ok && found.length) setSelected(fastestIndex(found));
           return found.length;
         } catch (error) {
           if (aborted(error)) throw error;
@@ -424,34 +323,11 @@ export function TransportSurface({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preset?.nonce]);
 
-  const routeMeta = routes.map((r) => {
-    const parts = mergeWalks(r.steps ?? []).map((st) => ({ mode: (st.mode ?? "transit").toLowerCase(), minutes: (st.durationSeconds ?? 0) / 60 }));
-    return { minutes: r.durationSeconds / 60, ...routeMetrics(parts) };
-  });
-  const routeTags = tagRoutes(routeMeta);
-  const driveRuns = driveRoute ? congestionRuns(driveRoute.geometry.coordinates, driveRoute.congestion) : [];
-  const driveSummary = trafficSummary(driveRuns);
-  // For the bar, stretches Mapbox has no reading for count as flowing, and neighbours of one colour are one stretch.
-  const barColor = (level: string) => (level === "heavy" ? TRAFFIC_HEX.heavy : level === "severe" ? TRAFFIC_HEX.severe : level === "moderate" ? TRAFFIC_HEX.slow : "#2f8e60");
-  const driveBar = driveRuns.reduce<Array<{ color: string; km: number }>>((bar, run) => {
-    const color = barColor(run.level);
-    const prev = bar[bar.length - 1];
-    if (prev && prev.color === color) prev.km += run.km;
-    else bar.push({ color, km: run.km });
-    return bar;
-  }, []);
-  const driveTraffic = driveSummary ? { bar: driveBar, summary: driveSummary } : null;
+  const { meta: routeMeta, tags: routeTags } = routeSummaries(routes);
+  const { traffic: driveTraffic } = driveTrafficOf(driveRoute);
   const transitTime = routes.length ? durationFromSeconds(Math.min(...routes.map((r) => r.durationSeconds))) : "";
-  const cheapest = flights.length ? flights.reduce((best, f) => (Number(f.priceAmount) < Number(best.priceAmount) ? f : best)) : null;
-  const flightFrom = cheapest
-    ? (() => {
-        try {
-          return numberFormat(undefined, { style: "currency", currency: cheapest.priceCurrency, maximumFractionDigits: 0 }).format(Number(cheapest.priceAmount));
-        } catch {
-          return null;
-        }
-      })()
-    : null;
+  const cheapest = cheapestFlight(flights);
+  const flightFrom = cheapest?.from ?? null;
   const onTime = flights.filter((f) => anyTime || fitsTime(f, when));
   const shownFlights = arrangeFlights(onTime, sort, nonstopOnly);
   const field = "h-12 w-full min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground/70";
@@ -584,7 +460,7 @@ export function TransportSurface({
               </div>
               <button
                 type="button"
-                onClick={() => void saveChoice({ mode: "drive", minutes: Math.round(driveRoute.durationSeconds / 60), km: Math.round(driveRoute.distanceMeters / 100) / 10, name: `Drive, ${durationFromSeconds(driveRoute.durationSeconds)}` })}
+                onClick={() => void saveChoice(driveSaveValue(driveRoute))}
                 className="btn-chip"
               >
                 Save to my trip
@@ -607,10 +483,8 @@ export function TransportSurface({
 
           {(() => {
             const est = usdRate ? estimateRideshare(driveRoute.distanceMeters, driveRoute.durationSeconds, usdRate.currency, usdRate.rate) : estimateRideshare(driveRoute.distanceMeters, driveRoute.durationSeconds);
-            const uberHref = `uber://?action=setPickup&pickup[formatted_address]=${encodeURIComponent(from)}&dropoff[formatted_address]=${encodeURIComponent(to)}`;
-            const lyftHref = driveEnds
-              ? `lyft://ridetype?id=lyft&pickup[latitude]=${driveEnds.from[1]}&pickup[longitude]=${driveEnds.from[0]}&destination[latitude]=${driveEnds.to[1]}&destination[longitude]=${driveEnds.to[0]}`
-              : undefined;
+            const uber = uberHref(from, to);
+            const lyft = driveEnds ? lyftHref(driveEnds) : undefined;
             return (
               <section aria-label="Rideshare estimate">
                 <h3 className="font-display text-lg font-medium tracking-[-0.006em]">Rideshare, roughly</h3>
@@ -620,11 +494,11 @@ export function TransportSurface({
                 </p>
                 <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">An estimate from driving distance and time, not a live quote. Actual fares vary with demand.</p>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <a href={uberHref} target="_blank" rel="noreferrer noopener" className="btn-chip">
+                  <a href={uber} target="_blank" rel="noreferrer noopener" className="btn-chip">
                     Open in Uber <ExternalLink className="size-3.5" />
                   </a>
-                  {lyftHref && (
-                    <a href={lyftHref} target="_blank" rel="noreferrer noopener" className="btn-chip">
+                  {lyft && (
+                    <a href={lyft} target="_blank" rel="noreferrer noopener" className="btn-chip">
                       Open in Lyft <ExternalLink className="size-3.5" />
                     </a>
                   )}
@@ -669,19 +543,9 @@ export function TransportSurface({
       {tab === "flight" && !flightsLoading && shownFlights.length > 0 && (
         <ul className="space-y-3">
           {shownFlights.map((f, i) => {
-            const price = (() => {
-              try {
-                return numberFormat(undefined, { style: "currency", currency: f.priceCurrency }).format(Number(f.priceAmount));
-              } catch {
-                return `${f.priceAmount} ${f.priceCurrency}`;
-              }
-            })();
+            const price = flightPrice(f);
             const id = f.id || String(i);
             const open = openFlight === id;
-            const when = (iso: string) => {
-              const d = new Date(iso);
-              return Number.isNaN(d.getTime()) ? "" : dateFormat([], { hour: "numeric", minute: "2-digit" }).format(d);
-            };
             const via = f.layoverAirports?.length ? ` via ${f.layoverAirports.join(", ")}` : "";
             return (
               <li key={id} className={cn("rounded-2xl bg-card transition-shadow duration-200", open ? "shadow-lift ring-[1.5px] ring-ink" : "ring-1 ring-border hover:ring-input")}>
@@ -690,19 +554,19 @@ export function TransportSurface({
                     <AirlineMark offer={f} className="size-8" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-display text-base font-medium">{f.airline}</span>
-                      <span className="block text-xs text-muted-foreground tabular-nums">{formatDuration(f.durationMinutes)} · {f.stops === 0 ? "non-stop" : `${f.stops} stop${f.stops === 1 ? "" : "s"}${via}`}{f.returnLegs?.length || returnDate ? " · round-trip fare" : ""}</span>
+                      <span className="block text-xs text-muted-foreground tabular-nums">{formatDuration(f.durationMinutes)} · {f.stops === 0 ? "non-stop" : `${stopsLabel(f.stops)}${via}`}{f.returnLegs?.length || returnDate ? " · round-trip fare" : ""}</span>
                     </span>
                     <span className="font-display text-xl font-medium tabular-nums tracking-[-0.012em]">{price}</span>
                   </span>
                   {f.departAt && f.arriveAt && (
                     <span className="mt-3.5 flex items-center justify-between gap-3 text-sm tabular-nums">
                       <span>
-                        <span className="font-semibold">{when(f.departAt)}</span>
+                        <span className="font-semibold">{flightClock(f.departAt)}</span>
                         {f.originAirport && <span className="ml-1.5 text-muted-foreground">{f.originAirport}</span>}
                       </span>
                       <span aria-hidden="true" className="h-px flex-1 bg-border" />
                       <span className="text-right">
-                        <span className="font-semibold">{when(f.arriveAt)}</span>
+                        <span className="font-semibold">{flightClock(f.arriveAt)}</span>
                         {f.destinationAirport && <span className="ml-1.5 text-muted-foreground">{f.destinationAirport}</span>}
                       </span>
                       <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-300", open && "rotate-180")} aria-hidden="true" />
@@ -713,7 +577,7 @@ export function TransportSurface({
                 <div className="flex gap-2 px-4 pb-4 pt-1">
                   <button
                     type="button"
-                    onClick={() => void saveChoice({ mode: "flight", airline: f.airline, minutes: f.durationMinutes, fare: `${f.priceAmount} ${f.priceCurrency}`, stops: f.stops, departAt: f.departAt, arriveAt: f.arriveAt, summary: `${f.airline}, ${price}, ${formatDuration(f.durationMinutes)}, ${f.stops === 0 ? "non-stop" : `${f.stops} stop(s)`}` })}
+                    onClick={() => void saveChoice(flightSaveValue(f, price))}
                     className="btn-chip"
                   >
                     Save to my trip
@@ -788,7 +652,7 @@ export function TransportSurface({
                     </p>
                     <div className="mt-4 flex flex-wrap items-center gap-2">
                       <a
-                        href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(from)}&destination=${encodeURIComponent(to)}&travelmode=transit`}
+                        href={googleMapsTransitUrl(from, to)}
                         target="_blank"
                         rel="noreferrer noopener"
                         className="btn-primary-sm"
@@ -797,16 +661,7 @@ export function TransportSurface({
                       </a>
                     <button
                       type="button"
-                      onClick={() =>
-                        void saveChoice({
-                          mode: rides[0]?.mode ?? "transit",
-                          minutes: Math.round(route.durationSeconds / 60),
-                          fare: route.fare ? `${route.fare.amount} ${route.fare.currency}` : null,
-                          departAt: route.departureTime,
-                          arriveAt: route.arrivalTime,
-                          summary: describeRoutes(from, to, [route]).split("\n")[1] ?? "",
-                        })
-                      }
+                      onClick={() => void saveChoice(transitSaveValue(route, from, to))}
                       className="btn-chip"
                     >
                       Save to my trip
@@ -825,14 +680,7 @@ export function TransportSurface({
           href={askAssistantHref(tripId, {
             name: `${from} → ${to}`,
             question: `Compare these ways to get from ${from} to ${to} — which is fastest, cheapest, and simplest, and what would you pick?`,
-            context: [
-              `Travelling ${whenLabel(when).toLowerCase()}${returnDate ? `, returning ${returnDate}` : ""}, ${travellers} traveller${travellers === 1 ? "" : "s"}.`,
-              routes.length > 0 ? describeRoutes(from, to, routes) : "",
-              driveRoute ? `Driving: ${durationFromSeconds(driveRoute.durationSeconds)}, ${(driveRoute.distanceMeters / 1000).toFixed(1)} km.` : "",
-              flights.length > 0
-                ? `Flights from ${from} to ${to}:\n` + flights.map((f, i) => `Option ${i + 1}: ${f.airline}, ${f.priceAmount} ${f.priceCurrency}, ${formatDuration(f.durationMinutes)}, ${f.stops === 0 ? "non-stop" : `${f.stops} stop(s)`}`).join("\n")
-                : "",
-            ].filter(Boolean).join("\n\n"),
+            context: compareContext({ from, to, when, returnDate, travellers, routes, driveRoute, flights }),
           })}
           className="btn-secondary w-full"
         >
