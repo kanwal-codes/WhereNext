@@ -717,9 +717,9 @@ function OptionsBlockView({ block, onFollowup, onOpenPanel }: { block: OptionsBl
       <div className="mt-3.5 divide-y divide-border border-t border-border">
         {items.map((item) => (
           // The whole row opens the full view (the title's button stretches over it); the two actions sit above that and keep working.
-          <article key={item.name} className={cn("relative flex flex-wrap items-start gap-x-4 gap-y-3 px-4 py-4 @[34rem]:px-[1.125rem]", onOpenPanel && "transition-colors duration-200 hover:bg-surface/70")}>
-            <span className="grid size-[4.5rem] shrink-0 place-items-center rounded-2xl bg-coral-soft text-coral-ink" aria-hidden>
-              <Icon className="size-7" strokeWidth={1.5} />
+          <article key={item.name} className={cn("relative flex flex-wrap items-start gap-x-3 gap-y-3 px-4 py-4 @[34rem]:gap-x-4 @[34rem]:px-[1.125rem]", onOpenPanel && "transition-colors duration-200 hover:bg-surface/70")}>
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-coral-soft text-coral-ink @[34rem]:size-[4.5rem] @[34rem]:rounded-2xl" aria-hidden>
+              <Icon className="size-5 @[34rem]:size-7" strokeWidth={1.5} />
             </span>
             <div className="min-w-0 flex-1 basis-48 space-y-1">
               <h4 className="line-clamp-2 font-display text-lg leading-snug font-medium">
@@ -969,7 +969,7 @@ function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPan
           </button>
         </>
       }
-      foot={day.open ? "This day is open: yours to wander" : timedStops > 1 ? `${timedStops} stops · drag the grip to reorder` : `${timedStops} stop`}
+      foot={day.open ? "This day is open: yours to wander" : timedStops > 1 ? `${timedStops} stops · hold and drag to reorder` : `${timedStops} stop`}
       action={onOpenPanel && !day.open ? <WidgetAction onClick={() => onOpenPanel({ kind: "day", block, dayIndex })}>Open {day.label}</WidgetAction> : undefined}
     >
       {openLabels.length > 0 && <div className="mt-3"><OpenDaysNotice labels={openLabels} onFollowup={onFollowup} /></div>}

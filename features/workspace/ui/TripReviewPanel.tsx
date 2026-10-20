@@ -75,7 +75,7 @@ export function TripReviewPanel({ tripId }: { tripId: string }) {
                       </Link>
                     )}
                     {f.askAssistant && (
-                      <Link href={`/trips/${tripId}/chat?ask=${encodeURIComponent(f.askAssistant)}`} className="font-medium text-primary hover:underline">
+                      <Link href={`/trips/${tripId}/chat?ask=${encodeURIComponent(f.askAssistant)}`} prefetch={false} className="font-medium text-primary hover:underline">
                         Ask about this
                       </Link>
                     )}

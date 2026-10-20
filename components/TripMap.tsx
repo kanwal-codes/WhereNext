@@ -93,6 +93,16 @@ class FitControl implements mapboxgl.IControl {
 }
 
 /** Interactive trip map: numbered markers by type, the real route through them, and motion. */
+/** The Mapbox token is the same for every map in the session: ask once, and forget a failed answer so the next map can try again. */
+let tokenRequest: Promise<string> | null = null;
+function mapboxToken(): Promise<string> {
+  tokenRequest ??= fetch("/api/config/mapbox")
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error("no token"))))
+    .then((body: { token: string }) => body.token)
+    .catch((error) => { tokenRequest = null; throw error; });
+  return tokenRequest;
+}
+
 export function TripMap({
   pins,
   legs,
@@ -246,9 +256,8 @@ export function TripMap({
 
     let observer: MutationObserver | null = null;
 
-    fetch("/api/config/mapbox")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("no token"))))
-      .then(({ token }) => {
+    mapboxToken()
+      .then((token) => {
         if (cancelled || !holder.current || map.current) return;
         mapboxgl.accessToken = token;
         const start: [number, number] = pins[0] ? [pins[0].lng, pins[0].lat] : center ?? [0, 20];

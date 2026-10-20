@@ -16,6 +16,7 @@ import { nearest } from "@/lib/application/geo";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { cn } from "@/lib/utils";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
+import { fetchPlaceDetails } from "@/features/places/application/placeDetailsCache";
 
 const BASE_ROWS = [
   { key: "category", label: "Type" },
@@ -69,27 +70,8 @@ export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids:
     // to touch state; a superseded run's results still merge in (harmless, already-fetched data)
     // but its `finally` no longer fights over the loading flag.
     let cancelled = false;
-    // Share the per-session cache `usePlaceDetails` fills, so viewing a place and
-    // then comparing it (or vice versa) is one fetch, not two.
-    Promise.all(
-      missing.map((id) => {
-        const ck = `place-details:${tripId}:${id}`;
-        try {
-          const hit = sessionStorage.getItem(ck);
-          if (hit) {
-            const b = JSON.parse(hit);
-            if (b?.place) return Promise.resolve([id, b.place] as const);
-          }
-        } catch { /* ignore */ }
-        return fetch(`/api/trips/${tripId}/places/google?placeId=${encodeURIComponent(id)}`)
-          .then((r) => (r.ok ? r.json() : null))
-          .then((b) => {
-            if (b?.place) { try { sessionStorage.setItem(ck, JSON.stringify(b)); } catch { /* ignore */ } }
-            return [id, b?.place ?? null] as const;
-          })
-          .catch(() => [id, null] as const);
-      }),
-    )
+    // `fetchPlaceDetails` shares one request per place across every card on the page and the session cache.
+    Promise.all(missing.map((id) => fetchPlaceDetails(tripId, id).then((b) => [id, b?.place ?? null] as const)))
       .then((pairs) => setItems((cur) => ({ ...cur, ...Object.fromEntries(pairs) })))
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };

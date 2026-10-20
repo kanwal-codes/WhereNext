@@ -76,6 +76,8 @@ const nextConfig: NextConfig = {
   // Keep development output separate from production builds. Running `next build`
   // beside `next dev` must never remove chunks from the live development server.
   distDir: process.env.NEXT_DIST_DIR ?? (isDev ? ".next-dev" : ".next"),
+  // The round "N" dev badge floats over the bottom-left of every phone screen while developing; it adds nothing here.
+  devIndicators: false,
   experimental: {
     // Next's default (0s for dynamic segments) treats every trip layout as stale
     // immediately, so each in-app navigation re-runs requireTripMember's live

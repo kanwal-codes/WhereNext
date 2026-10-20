@@ -23,7 +23,7 @@ export function SettleUpNotice({ tripId }: { tripId: string }) {
         .then((body: { localBalances?: LocalBalance[] } | null) => setCount(body?.localBalances?.length ?? 0))
         .catch(() => undefined);
     void load();
-    const unsubscribe = subscribeWorkspaceChanges((changes) => { if (changes.includes("decision")) void load(); });
+    const unsubscribe = subscribeWorkspaceChanges((changes) => { if (changes.includes("expenses")) void load(); });
     return () => {
       unsubscribe();
       controller.abort();

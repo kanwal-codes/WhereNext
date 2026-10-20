@@ -18,6 +18,7 @@ import type { MapLeg, MapPin } from "@/components/TripMap";
 import { SlidingTabs } from "@/features/conversation/ui/blocks/SlidingTabs";
 import { Notice, surface, type } from "@/features/conversation/ui/blocks/ui";
 import { cn } from "@/lib/utils";
+import { fetchPlaceDetails } from "@/features/places/application/placeDetailsCache";
 
 type Coords = { lat: number; lng: number } | null;
 const lookups = new Map<string, Promise<Coords>>();
@@ -28,17 +29,9 @@ const coordsOf = (place: { location?: { latitude?: number; longitude?: number } 
 /** A place's coordinates: from the details the place panel already cached, else one request shared by every caller. */
 function lookUp(tripId: string, placeId: string): Promise<Coords> {
   const key = `${tripId}:${placeId}`;
-  const inFlight = lookups.get(key);
-  if (inFlight) return inFlight;
-  try {
-    const cached = sessionStorage.getItem(`place-details:${tripId}:${placeId}`);
-    const hit = cached ? coordsOf(JSON.parse(cached).place) : null;
-    if (hit) return Promise.resolve(hit);
-  } catch { /* storage unavailable or malformed */ }
-  const request = fetch(`/api/trips/${tripId}/places/google?placeId=${encodeURIComponent(placeId)}`)
-    .then((res) => (res.ok ? res.json() : null))
-    .then((body) => coordsOf(body?.place))
-    .catch(() => null);
+  const known = lookups.get(key);
+  if (known) return known;
+  const request = fetchPlaceDetails(tripId, placeId).then((body) => coordsOf(body?.place));
   lookups.set(key, request);
   return request;
 }

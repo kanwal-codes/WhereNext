@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { type GooglePlaceDetails } from "@/lib/places-ui";
+import { fetchPlaceDetails } from "@/features/places/application/placeDetailsCache";
 
 type State = "loading" | "ready" | "error";
 /** The written blurb for the About section; `source` is the web page it leaned on, when it did. */
@@ -21,38 +22,16 @@ export function usePlaceDetails(tripId: string, placeId: string) {
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    const controller = new AbortController();
-    const cacheKey = `place-details:${tripId}:${placeId}`;
-    try {
-      const cached = sessionStorage.getItem(cacheKey);
-      if (cached) {
-        const body = JSON.parse(cached);
-        if (body.place) {
-          setDetails(body.place);
-          setFreshness(body.freshness?.retrievedAt ? new Date(body.freshness.retrievedAt).toLocaleString() : "");
-          setState("ready");
-          return () => controller.abort();
-        }
-      }
-    } catch { /* unavailable or malformed cache */ }
+    let current = true;
     setState("loading");
     setDetails(null);
-    fetch(`/api/trips/${tripId}/places/google?placeId=${encodeURIComponent(placeId)}`, { signal: controller.signal })
-      .then(async (r) => {
-        if (!r.ok) throw new Error("details");
-        return r.json();
-      })
-      .then((body) => {
-        try { sessionStorage.setItem(cacheKey, JSON.stringify(body)); } catch { /* ignore */ }
-        setDetails(body.place ?? null);
-        setFreshness(body.freshness?.retrievedAt ? new Date(body.freshness.retrievedAt).toLocaleString() : "");
-        setState(body.place ? "ready" : "error");
-      })
-      .catch((err) => {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setState("error");
-      });
-    return () => controller.abort();
+    void fetchPlaceDetails(tripId, placeId).then((body) => {
+      if (!current) return;
+      setDetails(body?.place ?? null);
+      setFreshness(body?.freshness?.retrievedAt ? new Date(body.freshness.retrievedAt).toLocaleString() : "");
+      setState(body?.place ? "ready" : "error");
+    });
+    return () => { current = false; };
   }, [tripId, placeId, attempt]);
 
   // The blurb is written after the place is on screen: it takes a moment the page should not wait for.

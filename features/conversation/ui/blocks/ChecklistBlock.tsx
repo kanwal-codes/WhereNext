@@ -63,9 +63,12 @@ export function ChecklistBlock({ groups: given, tripId, onOpen }: { groups: Grou
       eyebrow="Checklist"
       title={left === 0 && total > 0 ? "All set" : left === 1 ? "One thing left" : "Before you go"}
       status={
-        <WidgetPill tone={left === 0 && total > 0 ? "sage" : "coral"}>
-          <span role="status" className="tabular-nums"><span className="font-semibold">{done}</span> of {total}</span>
-        </WidgetPill>
+        // On a phone the ring just below already says it.
+        <span className="@max-[28rem]:hidden">
+          <WidgetPill tone={left === 0 && total > 0 ? "sage" : "coral"}>
+            <span role="status" className="tabular-nums"><span className="font-semibold">{done}</span> of {total}</span>
+          </WidgetPill>
+        </span>
       }
       hero={
         <WidgetHero tone="coral" className="flex items-center gap-4">

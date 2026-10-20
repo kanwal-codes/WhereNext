@@ -117,7 +117,7 @@ export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]
         <div className="absolute inset-x-0 top-0">
           <Reveal>
             <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 pt-6 sm:px-8">
-              <Link href="/" className="inline-flex items-center gap-2 max-lg:min-h-11 transition-[opacity,transform] duration-200 hover:opacity-85 active:scale-[0.97]">
+              <Link href="/" prefetch={false} className="inline-flex items-center gap-2 max-lg:min-h-11 transition-[opacity,transform] duration-200 hover:opacity-85 active:scale-[0.97]">
                 <BrandMark variant="compact" className={cn("transition-shadow duration-700", onPhoto && "ring-1 ring-white/60")} />
                 <BrandMark variant="text" className={cn("hidden transition-colors duration-700 sm:inline", onPhoto && "text-white")} />
               </Link>

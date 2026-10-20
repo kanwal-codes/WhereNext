@@ -724,7 +724,7 @@ export function DiscoverySurface({
                 ))}
               </div>
             )}
-            <Link href={`/trips/${tripId}/chat${askQuery ? `?ask=${encodeURIComponent(askQuery)}` : ""}`} className="btn-primary mt-5 h-12 rounded-full px-6">
+            <Link prefetch={false} href={`/trips/${tripId}/chat${askQuery ? `?ask=${encodeURIComponent(askQuery)}` : ""}`} className="btn-primary mt-5 h-12 rounded-full px-6">
               <Sparkles className="size-4" aria-hidden /> {view === "saved" ? "Ask Roam for ideas" : "Ask Roam instead"}
             </Link>
           </div>

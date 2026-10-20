@@ -207,6 +207,7 @@ export default function BookingsPage() {
             <Reveal delay={0.05}>
               <Tactile lift={2} className="block">
                 <Link
+                  prefetch={false}
                   href={`/trips/${tripId}/chat?ask=${encodeURIComponent(`Build me a pre-trip essentials checklist for ${destination} — visas, SIM/eSIM, power plugs, currency, tipping, transit passes, safety, and anything else I should sort before I go.`)}`}
                   className="card-lift flex flex-col gap-4 rounded-3xl border border-border/70 bg-gradient-to-br from-card to-coral-soft/50 p-6 shadow-soft"
                 >

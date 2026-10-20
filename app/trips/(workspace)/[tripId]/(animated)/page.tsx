@@ -17,7 +17,7 @@ import { PlacesMosaic } from "@/components/overview/PlacesMosaic";
 import { NextStepCard } from "@/components/overview/NextStepCard";
 import { PHONE_V2 } from "@/lib/phone-v2";
 import { PhoneOverview } from "@/components/overview/PhoneOverview";
-import { useMediaQuery } from "@/lib/use-media-query";
+import { useHydrated, useMediaQuery } from "@/lib/use-media-query";
 import type { Reservation } from "@/packages/contracts/reservation";
 import { SectionHeading } from "@/components/overview/SectionHeading";
 import { StayFeature } from "@/components/overview/StayFeature";
@@ -47,6 +47,9 @@ export default function TripOverviewPage() {
   const router = useRouter();
   const narrow = useMediaQuery("(max-width: 1023.98px)");
   const phone = PHONE_V2 && narrow;
+  // The desktop sections wait for the media query to be known (a phone must not mount them, even for one render: their effects fetch).
+  const hydrated = useHydrated();
+  const desktopTree = !phone && (!PHONE_V2 || hydrated);
   const trip = data?.trip;
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
@@ -183,13 +186,13 @@ export default function TripOverviewPage() {
           <SettleUpNotice tripId={tripId} />
         </Reveal>
 
-        {!phone && route.stops.length > 1 && trip && (
+        {desktopTree && route.stops.length > 1 && trip && (
           <Reveal>
             <RoutePanel tripId={tripId} trip={trip} stays={staysBooked.items.filter((i) => i.status !== "cancelled" && i.status !== "failed").map((i) => ({ startsOn: i.date, endsOn: i.endDate }))} />
           </Reveal>
         )}
 
-        {!phone && (
+        {desktopTree && (
           <>
         <Reveal>
           <StayFeature tripId={tripId} stay={stay} booked={staysBooked.items} />

@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 export function StandaloneTopBar({ photo = false, className }: { photo?: boolean; className?: string }) {
   return (
     <div className={cn("flex items-center justify-between gap-3", className)}>
-      <Link href="/" className="inline-flex items-center gap-2 transition-[opacity,transform] duration-200 hover:opacity-85 active:scale-[0.97]">
+      <Link href="/" prefetch={false} className="inline-flex items-center gap-2 transition-[opacity,transform] duration-200 hover:opacity-85 active:scale-[0.97]">
         <BrandMark variant="compact" className={photo ? "bg-white text-black ring-1 ring-white/60" : undefined} />
         <BrandMark variant="text" className={cn("hidden sm:inline", photo && "text-white")} />
       </Link>

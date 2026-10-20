@@ -3,7 +3,7 @@
 import { useId } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Pencil, X } from "lucide-react";
+import { Pencil, X } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
 import { Sheet } from "@/components/motion-primitives";
 import { shortTripTitle } from "@/components/shell/trip-title";
@@ -54,7 +54,6 @@ export function PhoneDrawer({ open, onClose, tripId, pathname, trip, unread = 0 
             {sub && <span className="mt-0.5 block truncate text-xs text-muted-foreground">{sub}</span>}
             {status && <span suppressHydrationWarning className="mt-0.5 block text-xs font-semibold text-coral-ink">{status}</span>}
           </span>
-          <ChevronDown className="size-[1.125rem] shrink-0 text-muted-foreground" aria-hidden />
         </Link>
       )}
 

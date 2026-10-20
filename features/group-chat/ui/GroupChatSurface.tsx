@@ -286,10 +286,15 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
   // Phone redesign: having the chat open is what reads it. Mark it read when it comes to the front and as new messages
   // arrive while it is in front, so the menu badge never counts what is already on screen.
   const lastMessageId = messages[messages.length - 1]?.id;
+  // Your own message never counts as unread (the server skips it), so sending one needs no round trip.
+  const lastIsMine = !!me?.userId && messages[messages.length - 1]?.userId === me.userId;
+  const wasActive = useRef(false);
   useEffect(() => {
-    if (!PHONE_V2 || !active) return;
-    void markGroupRead(tripId);
-  }, [active, tripId, lastMessageId]);
+    if (!PHONE_V2 || !active) { wasActive.current = false; return; }
+    const opening = !wasActive.current;
+    wasActive.current = true;
+    if (opening || !lastIsMine) void markGroupRead(tripId);
+  }, [active, tripId, lastMessageId, lastIsMine]);
 
   const scrollToEnd = useCallback(() => {
     const log = logRef.current;

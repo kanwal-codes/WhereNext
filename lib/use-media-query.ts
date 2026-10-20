@@ -22,3 +22,12 @@ export function useMediaQuery(query: string): boolean {
     () => false,
   );
 }
+
+const noop = () => () => undefined;
+/**
+ * False on the server and during hydration, true after. Gate a desktop-only subtree on this plus `!useMediaQuery(phone)` so a phone
+ * never mounts it: `useMediaQuery` is false for that first render, and a tree that mounts for one tick runs its effects (fetches).
+ */
+export function useHydrated(): boolean {
+  return useSyncExternalStore(noop, () => true, () => false);
+}

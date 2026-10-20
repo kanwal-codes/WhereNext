@@ -1087,7 +1087,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
         </div>
       </div>
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-background from-55% to-transparent px-3 pt-8 pb-3">
+      <div className={cn("pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-background from-55% to-transparent px-3 pt-8 pb-3", showQuickReplies && "max-lg:bg-[linear-gradient(to_top,var(--color-background)_calc(100%-1.5rem),transparent)]")}>
         <div className={cn("pointer-events-auto relative mx-auto w-full min-w-0", rail ? RAIL_MEASURE : "max-w-2xl")}>
           <AnimatePresence>
             {scroll.away && (
@@ -1101,7 +1101,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
                 exit={{ opacity: 0, y: 6, scale: 0.97 }}
                 transition={motionTokens.swap}
                 whileTap={{ scale: 0.97 }}
-                className={cn("absolute inset-x-0 bottom-full mx-auto mb-2 flex w-fit items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-ink-soft shadow-lift transition-colors hover:text-ink", PHONE_V2 && "max-lg:inset-x-auto max-lg:right-1 max-lg:mx-0 max-lg:size-10 max-lg:justify-center max-lg:border-0 max-lg:p-0 max-lg:shadow-[0_6px_18px_-6px_rgb(29_26_23/0.35),0_0_0_1px_var(--color-hairline)]", showQuickReplies && "max-lg:mb-14")}
+                className={cn("absolute inset-x-0 bottom-full mx-auto mb-2 flex w-fit items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-ink-soft shadow-lift transition-colors hover:text-ink", PHONE_V2 && "max-lg:size-10 max-lg:justify-center max-lg:border-0 max-lg:p-0 max-lg:shadow-[0_6px_18px_-6px_rgb(29_26_23/0.35),0_0_0_1px_var(--color-hairline)]", showQuickReplies && "max-lg:mb-14")}
               >
                 <ArrowDown className="size-3.5 max-lg:size-[1.125rem]" aria-hidden />
                 <span className={cn(PHONE_V2 && "max-lg:sr-only")}>Latest</span>

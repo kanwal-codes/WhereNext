@@ -107,7 +107,7 @@ export function ExpensesPanel({ tripId, defaultCurrency }: { tripId: string; def
   useEffect(() => {
     void refresh();
     return subscribeWorkspaceChanges((changes) => {
-      if (changes.includes("decision")) void refresh();
+      if (changes.includes("expenses")) void refresh();
     });
   }, [refresh]);
 
@@ -150,8 +150,7 @@ export function ExpensesPanel({ tripId, defaultCurrency }: { tripId: string; def
       setAmount("");
       setSharedWith(null);
       notifyToast("Expense logged.", "success");
-      announceWorkspaceChange("decision");
-      void refresh();
+      announceWorkspaceChange("expenses"); // the listener below re-reads the ledger, and so does the Overview's settle-up notice
     } catch (error) {
       notifyToast(error instanceof Error ? error.message : "That didn’t save.", "error");
     } finally {
@@ -164,7 +163,7 @@ export function ExpensesPanel({ tripId, defaultCurrency }: { tripId: string; def
     const body = await response.json().catch(() => ({}));
     if (!response.ok) return notifyToast(body.error ?? "That couldn’t be removed.", "error");
     notifyToast(`${expense.description} removed.`, "success");
-    void refresh();
+    announceWorkspaceChange("expenses");
   }
 
   function toggleShared(id: string) {
