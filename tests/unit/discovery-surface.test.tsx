@@ -96,7 +96,8 @@ describe("Discover: the digest ('All')", () => {
     api = createApi({ places: { ...PLACES, "food, art, jazz": [place("f1", "Atelier Cafe")] }, events: [], stays: [] });
     show();
     await screen.findByText("Because you like food & art");
-    expect(api.placeQueries().some((q) => q.startsWith("food, art, jazz"))).toBe(true);
+    // The interest list is anchored to the destination (its commas are not a place name).
+    expect(api.placeQueries()).toContain("food, art, jazz in Paris, France");
   });
 
   it("drops a band that came back empty, and says so when everything did", async () => {
@@ -237,12 +238,13 @@ describe("Discover: searching", () => {
     expect(screen.queryByRole("button", { name: /Clear search/ })).toBeNull();
   });
 
-  // KNOWN BUG, fixed in the next commit: the default feed starts beside the search and its newer request discards the search's results.
-  it.fails("runs the query the page opened with, once", async () => {
+  // Regression: the default feed used to start beside this search, and its newer request discarded the search's results.
+  it("runs the query the page opened with, once, without starting the default feed", async () => {
     api = createApi({ places: { ramen: [place("r1", "Ramen House")] }, events: [], stays: [] });
     show({ initialQuery: "ramen" });
     await waitFor(() => expect(names("place")).toEqual(["Ramen House"]));
     expect(api.placeQueries().filter((q) => q.startsWith("ramen"))).toHaveLength(1);
+    expect(api.placeQueries()).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Clear search: ramen" })).toBeTruthy();
   });
 

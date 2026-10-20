@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useNearView } from "@/lib/use-near-view";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
-import { EventCard, type NearbyEvent } from "@/components/EventCard";
+import { EventCard } from "@/components/EventCard";
+import type { NearbyEvent } from "@/lib/application/nearby-events";
 import { Reveal } from "@/components/motion-primitives";
 import { Skeleton } from "@/components/Skeleton";
 import { cn } from "@/lib/utils";

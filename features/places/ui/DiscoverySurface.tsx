@@ -19,15 +19,16 @@ import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProv
 import { useShowMore } from "@/lib/use-show-more";
 import { ShowMoreButton } from "@/components/ShowMoreButton";
 import { PlaceCard } from "@/components/PlaceCard";
-import { rankPlaces, type RankAnchor } from "@/lib/application/rank-places";
-import { inDestination } from "@/lib/places-ui";
+import { rankPlaces } from "@/lib/application/rank-places";
 import { usesMiles } from "@/lib/application/geo";
 import { readStayDecision } from "@/packages/contracts/stay";
-import { EventCard, type NearbyEvent } from "@/components/EventCard";
+import { EventCard } from "@/components/EventCard";
+import type { NearbyEvent } from "@/lib/application/nearby-events";
 import { SkeletonBand, SkeletonList } from "@/components/Skeleton";
 import { EmptyState } from "@/components/EmptyState";
 import { Stagger, StaggerItem } from "@/components/motion-primitives";
 import { CATEGORIES, CATEGORY_BY_KEY, type DiscoverCategory } from "./discoverTaxonomy";
+import { appendEvents, digestBands, directiveAction, flatFeed, interestTerms, interestsKeyOf, rankContext, scopeQuery, searchResults, staysInBands, toStayItem, asList, num, type Band, type Item, type StayItem } from "../domain/discover";
 import { cn } from "@/lib/utils";
 import { cachedGet } from "@/lib/client/cached-get";
 import { DiscoverTile } from "@/features/places/ui/DiscoverTile";
@@ -46,38 +47,6 @@ import Link from "next/link";
  * *ranking* is re-applied on every read, so a fresh shortlist still reorders.
  */
 const categoryRawCache = new Map<string, Place[] | NearbyEvent[] | StayItem[]>();
-
-const asList = (v: unknown): string[] =>
-  Array.isArray(v) ? v.filter((x): x is string => typeof x === "string")
-  : typeof v === "string" ? v.split(",").map((s) => s.trim()).filter(Boolean)
-  : [];
-
-type StayItem = { hotelId: string; name: string; thumbnail: string | null; nightlyAmount: number; currency: string; stars: number | null; rating: number | null };
-type Item =
-  | { kind: "place"; place: Place; why?: string | null }
-  | { kind: "event"; event: NearbyEvent }
-  | { kind: "stay"; stay: StayItem };
-
-const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) && v !== 0 ? v : null);
-// A "guided tours" text search matches loosely — Google mixes in famous landmarks that merely
-// mention tours, not the tour operators themselves. Keep only actual tour/travel businesses.
-const isTourOperator = (place: Place) =>
-  place.category === "tour_agency" || place.category === "travel_agency" || /\btour(s)?\b/i.test(place.name);
-type Band = { key: string | null; label: string; items: Item[] };
-
-// Same URL + different date is a distinct showtime (recurring events often share one ticket
-// page across slots) — include the date so dedup doesn't collapse them into a single listing.
-const idOf = (item: Item) => (item.kind === "place" ? item.place.providerId : item.kind === "event" ? `${item.event.url}|${item.event.date ?? ""}` : item.stay.hotelId);
-const starBand = (stars: number | null) => (!stars ? 0 : stars >= 5 ? 4 : stars >= 4 ? 3 : stars >= 3 ? 2 : 1);
-const toStayItem = (o: Record<string, unknown>): StayItem => ({
-  hotelId: String(o.hotelId ?? ""),
-  name: String(o.name ?? "Stay"),
-  thumbnail: typeof o.thumbnail === "string" ? o.thumbnail : null,
-  nightlyAmount: Number(o.nightlyAmount) || 0,
-  currency: String(o.currency ?? ""),
-  stars: typeof o.stars === "number" ? o.stars : null,
-  rating: typeof o.rating === "number" ? o.rating : null,
-});
 
 export function DiscoverTabs({ view, onChange, savedCount }: { view: "results" | "saved"; onChange: (v: "results" | "saved") => void; savedCount: number }) {
   return (
@@ -120,22 +89,11 @@ export function DiscoverySurface({
   const cityLabel = (cities.hasChoice ? cities.city : destination).split(",")[0].trim();
   const headerTitle = useMemo(() => (phone && cityLabel ? <CityPill stops={cities.stops} city={cityLabel} onPick={cities.setCity} /> : undefined), [phone, cityLabel, cities.stops, cities.setCity]);
   const prefs = (data?.preferences ?? {}) as Record<string, unknown>;
-  const interestsKey = [...asList(prefs.interests), ...asList(prefs.likes)].join(",").toLowerCase();
-  const interests = useMemo(
-    () => Array.from(new Set(interestsKey.split(",").filter(Boolean))).slice(0, 4),
-    [interestsKey],
-  );
+  const interestsKey = interestsKeyOf(prefs);
+  const interests = useMemo(() => interestTerms(interestsKey), [interestsKey]);
 
-  /** Anchor a free-text query to the trip's destination unless it already names a place. */
-  const scope = useCallback(
-    (q: string) => {
-      const clean = q.trim();
-      if (!destination) return clean;
-      const head = destination.toLowerCase().split(",")[0].trim();
-      return clean.includes(",") || clean.toLowerCase().includes(head) ? clean : `${clean} in ${destination}`;
-    },
-    [destination],
-  );
+  /** Anchor a free-text query to the trip's destination unless it already names a place (`force`: it is a list of interests). */
+  const scope = useCallback((q: string, force = false) => scopeQuery(q, destination, { force }), [destination]);
 
   // --- saved shortlist (its own tab) ----------------------------------
   const seedSaved = (initialSaved ?? []).map((item) => (item.places ?? item) as unknown as Place).filter((p) => p?.providerId);
@@ -178,7 +136,8 @@ export function DiscoverySurface({
   const [catKey, setCatKey] = useState<string | null>(null); // null = "All"
   const [subs, setSubs] = useState<string[]>([]);
   const [searchLabel, setSearchLabel] = useState(""); // what the AI search resolved to, for the "Clear" chip
-  const [searchMode, setSearchMode] = useState(false);
+  // Arriving with a query (`?q=`) starts in search mode, so the default feed never starts beside that search and discards its results.
+  const [searchMode, setSearchMode] = useState(Boolean(initialQuery));
 
   const [bands, setBands] = useState<Band[] | null>(null);
   const [items, setItems] = useState<Item[]>([]);
@@ -195,8 +154,8 @@ export function DiscoverySurface({
   const [eventsBusy, setEventsBusy] = useState(false);
 
   const fetchPlaces = useCallback(
-    async (q: string, signal?: AbortSignal, limit?: number): Promise<Place[]> => {
-      const r = await cachedGet(`/api/trips/${tripId}/places?query=${encodeURIComponent(scope(q))}${limit ? `&limit=${limit}` : ""}`, { signal });
+    async (q: string, signal?: AbortSignal, limit?: number, force = false): Promise<Place[]> => {
+      const r = await cachedGet(`/api/trips/${tripId}/places?query=${encodeURIComponent(scope(q, force))}${limit ? `&limit=${limit}` : ""}`, { signal });
       const body = await r.json().catch(() => ({}));
       return r.ok ? (body.places ?? []) : [];
     },
@@ -241,25 +200,11 @@ export function DiscoverySurface({
   const lockedStay = readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
   const stayKey = lockedStay?.latitude != null && lockedStay?.longitude != null ? `${lockedStay.latitude},${lockedStay.longitude}` : "";
   const miles = usesMiles(prefs.country);
-  const rankCtx = useMemo(() => {
-    const pts = itinKey.split("|").map((s) => s.split(",")).filter((xy) => xy[0] && xy[1]).map(([a, b]) => ({ latitude: Number(a), longitude: Number(b) }));
-    const anchor: RankAnchor | null = pts.length
-      ? { latitude: pts.reduce((s, p) => s + p.latitude, 0) / pts.length, longitude: pts.reduce((s, p) => s + p.longitude, 0) / pts.length }
-      : null;
-    const [stayLat, stayLng] = stayKey.split(",");
-    const stayAnchor: RankAnchor | null = stayKey ? { latitude: Number(stayLat), longitude: Number(stayLng) } : null;
-    return {
-      interests: asList(prefs.interests),
-      likes: asList(prefs.likes),
-      dislikes: dislikesKey.split(",").filter(Boolean),
-      savedIds: savedKey.split(",").filter(Boolean),
-      rejectedIds: rejectedKey.split(",").filter(Boolean),
-      anchor,
-      stayAnchor,
-      miles,
-    };
+  const rankCtx = useMemo(
+    () => rankContext({ prefs, dislikesKey, savedKey, rejectedKey, itinKey, stayKey, miles }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- primitive keys stand in for the object deps
-  }, [interestsKey, dislikesKey, savedKey, rejectedKey, itinKey, stayKey, miles]);
+    [interestsKey, dislikesKey, savedKey, rejectedKey, itinKey, stayKey, miles],
+  );
   // `typed`: a search the reader wrote. The provider's order is the answer to it, so it is kept; browsing a category is still ranked by how well known and how close.
   const rankToItems = useCallback(
     (places: Place[], typed = false): Item[] => rankPlaces(places, { ...rankCtx, providerOrder: typed }).map((r) => ({ kind: "place", place: r.place, why: r.why })),
@@ -289,7 +234,8 @@ export function DiscoverySurface({
     // A band shows six and "See all" opens the category with its own full search, so one page (20) each:
     // 60 was three sequential Google pages and ~300 KB per band, four bands per load.
     const [forYou, sights, eat, tours, ev, st] = await Promise.allSettled([
-      fetchPlaces(interests.length ? interests.join(", ") : "highly rated things to do", controller.signal, 20),
+      // A list of interests ("food, art") is not a place name, so it is anchored to the destination like any other query.
+      fetchPlaces(interests.length ? interests.join(", ") : "highly rated things to do", controller.signal, 20, interests.length > 0),
       fetchPlaces("top sights and landmarks", controller.signal, 20),
       fetchPlaces("restaurants and cafes", controller.signal, 20),
       fetchPlaces("guided tours", controller.signal, 20),
@@ -298,21 +244,7 @@ export function DiscoverySurface({
     ]);
     if (mine !== reqId.current) return;
     const ok = <T,>(r: PromiseSettledResult<T[]>): T[] => (r.status === "fulfilled" ? r.value : []);
-    const next: Band[] = [
-      { key: "sights", label: "Top sights", items: rankToItems(ok(sights)) },
-      {
-        key: null,
-        label: interests.length ? `Because you like ${interests.slice(0, 2).join(" & ")}` : "Highly rated right now",
-        items: rankToItems(ok(forYou)),
-      },
-      { key: "eat", label: "Where to eat", items: rankToItems(ok(eat).filter((place) => inDestination(place, destination))) },
-      // Real, dynamic tour operators from Google Places — not GetYourGuide's own catalog (no API
-      // access there). Opening one still surfaces a "Book on GetYourGuide" link once configured,
-      // via PlaceDetailView's GetYourGuideCard.
-      { key: "activities", label: "Tours & activities", items: rankToItems(ok(tours).filter(isTourOperator)) },
-      { key: "events", label: "On while you’re there", items: ok(ev).map((e) => ({ kind: "event", event: e }) as Item) },
-      { key: "stays", label: "Places to stay", items: ok(st).slice(0, 6).map((s) => ({ kind: "stay", stay: s }) as Item) },
-    ].filter((b) => b.items.length);
+    const next = digestBands({ sights: ok(sights), forYou: ok(forYou), eat: ok(eat), tours: ok(tours), events: ok(ev), stays: ok(st), interests, destination, rank: rankToItems });
     setBands(next);
     // Live-caught: every provider call can transiently return nothing at once (a rate limit, a
     // blip) — caching THAT for 30 minutes meant one bad load left the page stuck showing "Nothing
@@ -367,9 +299,7 @@ export function DiscoverySurface({
             all = await fetchStays(controller.signal);
             categoryRawCache.set(cacheKey, all);
           }
-          const wanted = chosen.length ? new Set(chosen.map((l) => Number(subQ(l)))) : null;
-          const list = wanted ? all.filter((s) => wanted.has(starBand(s.stars))) : all;
-          next = list.map((s) => ({ kind: "stay", stay: s }));
+          next = staysInBands(all, chosen, (l) => Number(subQ(l))).map((s) => ({ kind: "stay", stay: s }));
         }
         if (mine !== reqId.current) return;
         setItems(next);
@@ -402,11 +332,7 @@ export function DiscoverySurface({
         const eventCategory = CATEGORY_BY_KEY.get("events");
         const eventIntent = eventCategory && q.toLowerCase().includes("concert");
         const found = eventIntent ? [] : await fetchPlaces(q, controller.signal);
-        // A search that was anchored to the trip's destination ("rooftop bars" became "rooftop bars in Niagara Falls") still comes back with the ones in
-        // Toronto and Buffalo. Keep the ones in the destination; if that leaves nothing, show what came back rather than an empty page.
-        const anchored = scope(q) !== q;
-        const here = anchored ? found.filter((place) => inDestination(place, destination)) : found;
-        const places = here.length > 0 ? here : found;
+        const places = searchResults(found, scope(q) !== q, destination);
         const events = eventIntent ? await fetchEvents(q, 0, controller.signal) : [];
         if (mine !== reqId.current) return;
         setItems(eventIntent ? events.map((event) => ({ kind: "event", event }) as Item) : rankToItems(places, true));
@@ -456,20 +382,15 @@ export function DiscoverySurface({
     setCatKey(key);
   }
 
-  const CAT_LABEL: Record<string, string> = { outdoors: "Nature & Outdoors", events: "Culture & Events" };
   function applyDirective(d: AiSearchDirective, raw: string) {
-    const core = (d.freeText ?? raw).trim();
-    // A specific ask ("rooftop bars") beats a coarse bucket ("nightlife").
-    const genericAsk = !d.freeText || d.freeText.length < 4;
-    const cat = (d.categories ?? []).map((k) => k.toLowerCase()).find((k) => CATEGORY_BY_KEY.has(k));
-    if (cat && genericAsk) {
-      pickCategory(cat);
-      if (d.subChips?.length) setSubs(d.subChips);
-      setSearchLabel(CAT_LABEL[cat] ?? cat);
-      return;
+    const action = directiveAction(d, raw, (k) => CATEGORY_BY_KEY.has(k));
+    if (action.kind === "category") {
+      pickCategory(action.category);
+      if (action.subs.length) setSubs(action.subs);
+    } else {
+      void runSearch(action.query);
     }
-    void runSearch(d.location ? `${core} near ${d.location}` : core);
-    setSearchLabel(d.location ? `${core} · near ${d.location}` : core);
+    setSearchLabel(action.label);
   }
   function toggleSub(label: string) {
     setSubs((cur) => (cur.includes(label) ? cur.filter((l) => l !== label) : [...cur, label]));
@@ -487,10 +408,7 @@ export function DiscoverySurface({
     try {
       const next = await fetchEvents(q, page + 1);
       eventPaging.current = { q, page: page + 1, more: next.length > 0 };
-      setItems((current) => {
-        const have = new Set(current.map(idOf));
-        return [...current, ...next.map((event) => ({ kind: "event", event }) as Item).filter((it) => !have.has(idOf(it)))];
-      });
+      setItems((current) => appendEvents(current, next));
     } finally {
       setEventsBusy(false);
     }
@@ -524,12 +442,7 @@ export function DiscoverySurface({
   };
 
   // ---- Phone redesign: ask field, one chip row with a filter button, a wide first result, then two to a row. ----
-  const phoneFlat = useMemo(() => {
-    const seen = new Set<string>();
-    const out: Item[] = [];
-    for (const band of bands ?? []) for (const it of band.items.slice(0, 6)) { const id = idOf(it); if (!seen.has(id)) { seen.add(id); out.push(it); } }
-    return out;
-  }, [bands]);
+  const phoneFlat = useMemo(() => flatFeed(bands), [bands]);
   const phoneItems = view === "saved" ? savedItems : gridView ? items : phoneFlat;
   // The "All" feed pages too: a first screenful of everything, then "Show more", like each category does.
   const flatMore = useShowMore(phoneFlat.length, phoneFlat, { first: 9, step: 9 });
