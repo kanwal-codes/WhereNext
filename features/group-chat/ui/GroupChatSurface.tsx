@@ -1,43 +1,33 @@
 "use client";
 
 import { RAIL_MEASURE } from "@/features/conversation/ui/ConversationSurface";
-import React, { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { createPortal } from "react-dom";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { memberTint } from "@/lib/member-tint";
-import { ArrowDown, ListChecks, Loader2, Plus, SmilePlus } from "lucide-react";
-import { MicButton, SendButton } from "@/components/ComposerButtons";
+import { ArrowDown, Loader2 } from "lucide-react";
 import { PHONE_V2 } from "@/lib/phone-v2";
 import { markGroupRead } from "@/lib/client/use-group-unread";
-import { Pressable } from "@/components/motion-primitives";
 import { useKeepScrollGap } from "@/lib/use-keep-scroll-gap";
-import { useAutoGrowTextarea } from "@/lib/use-autogrow-textarea";
 import { useSpeechInput } from "@/lib/use-speech-input";
 import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanel, type EventSeed } from "@/components/TripPanelProvider";
 import { notifyToast } from "@/lib/application/toast";
-import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
-import type { AssistantBlock, AssistantTurnMeta, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
-import type { Poll } from "@/packages/contracts/poll";
+import type { AssistantBlock, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import { useMessageSender } from "../application/useMessageSender";
 import { useRoamAsks } from "../application/useRoamAsks";
 import { useGroupChatLog } from "../application/useGroupChatLog";
-import { applyReactionToggle, applyVote, buildRows, chatNotice, lastRoamMessageId, roamMentionGhost } from "../domain/chat-state";
-import { MAX_MESSAGE_LENGTH, completeRoamMention, hasAsk, mentionsRoam, type GroupMessage } from "../domain/message";
-import { type Outgoing } from "../domain/outbox";
+import { useGroupInteractions } from "../application/useGroupInteractions";
+import { buildRows, chatNotice, lastRoamMessageId } from "../domain/chat-state";
+import { mentionsRoam } from "../domain/message";
 import { useChatLive } from "@/lib/client/trip-realtime";
 import { useTripMembers } from "@/lib/client/use-trip-members";
-import { renderRich } from "./rich-text";
-import { Avatar, ChatEmptyState, PollCard, PollSheet, TypingBubble } from "./GroupChatParts";
-import { dayLabel, displayName, fullTime, timeLabel } from "./chat-format";
-import { postJson } from "../application/postJson";
+import { ChatEmptyState, PollSheet, TypingBubble } from "./GroupChatParts";
+import { GroupMessageRow, type RowActions, type RowView } from "./GroupMessageRow";
+import { GroupComposer } from "./GroupComposer";
+import { dayLabel } from "./chat-format";
 import { cn } from "@/lib/utils";
-import { MessageBlocks } from "@/features/conversation/ui/blocks/MessageBlocks";
-import { textAction } from "@/features/conversation/ui/blocks/ui";
 
 const COMMON_EMOJI = ["👍", "❤️", "😂", "🎉", "😍", "🤔"];
-const LONG_PRESS_MS = 450;
 // Within this distance of the bottom you are "reading the latest", so a new message follows you down.
 const NEAR_BOTTOM_PX = 160;
 
@@ -86,33 +76,15 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
   const [unseen, setUnseen] = useState(false);
   // Far above the newest message: offer a way straight back (same pill as the Roam chat).
   const [away, setAway] = useState(false);
-  const [expandedReactionFor, setExpandedReactionFor] = useState<string | null>(null);
-  const [pressingId, setPressingId] = useState<string | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
-  const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [pollSheetOpen, setPollSheetOpen] = useState(false);
-  const [pendingVoteFor, setPendingVoteFor] = useState<string | null>(null);
-  const [menuPos, setMenuPos] = useState<{ left: number; bottom: number } | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
   useKeepScrollGap(logRef);
   const { messages, setMessages, older, hasOlder, windowSize, loadingOlder, loaded, loadFailed, refresh, loadOlder, olderSentinelRef, seenIdsRef, skewRef } = useGroupChatLog({ tripId, active, cacheKey, logRef });
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const mirrorRef = useRef<HTMLDivElement>(null);
-  const plusMenuRef = useRef<HTMLDivElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const { expandedReactionFor, setExpandedReactionFor, pressingId, pendingVoteFor, createPoll, castVote, toggleReaction, onBubblePressStart, onBubblePressEnd, onBubblePressMove } = useGroupInteractions({ tripId, setMessages, refresh });
   const speechBaseRef = useRef("");
-  // Guards against the server-side toggle race: a delete-then-insert isn't atomic, so two
-  // near-simultaneous taps on the same (message, emoji) can both see "not reacted yet" and
-  // both insert, or the second can re-add what the first just removed. Blocking a second
-  // request for the same key while one is in flight covers the common trigger (a fast
-  // double-tap); it doesn't cover two separate tabs racing, which would need a DB-side atomic
-  // upsert-toggle (ponytail: revisit with a stored procedure if that's ever actually seen).
-  const pendingReactionsRef = useRef<Set<string>>(new Set());
   const bubbleRefs = useRef<Map<string, HTMLElement>>(new Map());
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Long-press-to-react: one shared timer is enough since only one bubble can be held at a time.
-  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pressMoved = useRef(false);
 
   // Phone redesign: having the chat open is what reads it. Mark it read when it comes to the front and as new messages
   // arrive while it is in front, so the menu badge never counts what is already on screen.
@@ -219,16 +191,6 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
     return () => ids.forEach((id) => { clearTimeout(id); cancelAnimationFrame(id); });
   }, [loaded]);
 
-  // Tap anywhere outside an expanded inline emoji bar to close it.
-  useEffect(() => {
-    if (!expandedReactionFor) return;
-    function onDocPointerDown(event: PointerEvent) {
-      if (!(event.target as HTMLElement).closest("[data-reaction-expand]")) setExpandedReactionFor(null);
-    }
-    document.addEventListener("pointerdown", onDocPointerDown);
-    return () => document.removeEventListener("pointerdown", onDocPointerDown);
-  }, [expandedReactionFor]);
-
   // "Live updates paused" only after a few seconds without the live channel, so a normal reconnect does not flash it.
   useEffect(() => {
     if (chatLive) { setLiveDown(false); return; }
@@ -257,83 +219,6 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
     void submit(mentionsRoam(prompt) ? prompt : `@Roam ${prompt}`);
   }
 
-  async function createPoll(question: string, options: string[]): Promise<boolean> {
-    try {
-      const { message } = await postJson<{ message: GroupMessage }>(`/api/trips/${tripId}/polls`, { question, options });
-      setMessages((current) => [...current, message]);
-      return true;
-    } catch {
-      notifyToast("Couldn’t start that poll.", "error");
-      return false;
-    }
-  }
-
-  // Optimistic: flips this member's own selection immediately in the local list (the poll's
-  // realtime "groupChat" change confirms it — and corrects it — for every viewer shortly after).
-  async function castVote(messageId: string, pollId: string, optionKey: string) {
-    if (pendingVoteFor === pollId) return;
-    setPendingVoteFor(pollId);
-    setMessages((current) => applyVote(current, messageId, optionKey));
-    try {
-      await postJson(`/api/trips/${tripId}/polls/${pollId}/vote`, { optionKey });
-    } catch {
-      // Back to what the server says, not to an old snapshot of the whole chat (which would drop anything that arrived since).
-      void refresh();
-      notifyToast("Your vote didn’t save.", "error");
-    } finally {
-      setPendingVoteFor(null);
-    }
-  }
-
-  async function toggleReaction(messageId: string, emoji: string) {
-    const key = `${messageId}:${emoji}`;
-    if (pendingReactionsRef.current.has(key)) return;
-    pendingReactionsRef.current.add(key);
-    setExpandedReactionFor(null);
-    // Optimistic flip so the tap feels instant; refresh() reconciles shortly after via the
-    // realtime-driven workspace-change bus.
-    setMessages((current) => applyReactionToggle(current, messageId, emoji));
-    try {
-      await postJson(`/api/trips/${tripId}/group-chat/${messageId}/reactions`, { emoji });
-    } catch {
-      void refresh();
-    } finally {
-      pendingReactionsRef.current.delete(key);
-    }
-  }
-
-  // Touch-only: holding a bubble opens the same inline emoji bar the mouse gets from its trigger button (below),
-  // so this never fires for a click.
-  function onBubblePressStart(event: ReactPointerEvent, messageId: string) {
-    if (event.pointerType !== "touch") return;
-    pressMoved.current = false;
-    setPressingId(messageId);
-    pressTimer.current = setTimeout(() => {
-      if (!pressMoved.current) {
-        // Best-effort haptic — some browsers throw when it's called without a trusted user
-        // gesture, and that must never take the actual reaction trigger down with it.
-        try {
-          navigator.vibrate?.(10);
-        } catch {
-          /* no-op */
-        }
-        setExpandedReactionFor(messageId);
-      }
-      setPressingId(null);
-    }, LONG_PRESS_MS);
-  }
-  function onBubblePressEnd() {
-    if (pressTimer.current) {
-      clearTimeout(pressTimer.current);
-      pressTimer.current = null;
-    }
-    setPressingId(null);
-  }
-  function onBubblePressMove() {
-    pressMoved.current = true;
-    onBubblePressEnd();
-  }
-
   const messagesById = useMemo(() => new Map([...older, ...messages].map((m) => [m.id, m])), [older, messages]);
 
   // Jump to and briefly flash a message — used by a reply's quoted "replying to" strip so the
@@ -358,17 +243,6 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
     [older, messages, outbox, windowSize, me?.userId],
   );
 
-  // Inline ghost-text autocomplete for "@Roam" — replaces the old suggestion pill. Matches a
-  // partial mention token at the very end of the input ("@", "@r", "@ro", ... "@roam", any
-  // case) and, while it's a genuine prefix of "roam", offers Tab to complete it.
-  const { active: mentionActive, ghost: mentionGhost } = roamMentionGhost(input);
-
-  function insertRoamMention() {
-    setInput((current) => current.replace(/@r?o?a?m?$/i, "@Roam "));
-  }
-
-  const isMultiline = useAutoGrowTextarea(textareaRef, input, undefined, mirrorRef);
-
   // Dictation: transcript is appended after whatever was already typed when the mic started.
   const speech = useSpeechInput({
     onStart: () => {
@@ -378,132 +252,8 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
     onError: (message) => notifyToast(message, "error"),
   });
 
-  // The dropdown is portaled to <body> (below) so the pill's own `overflow-hidden` — needed for
-  // its rounded shape — can't clip it; position it from the button's own rect instead of relying
-  // on normal document flow. Opens upward, unconditionally: this composer only ever sits at the
-  // bottom of the screen, so there's never a "not enough room below" case to detect the way a
-  // floating menu elsewhere in the app has to.
-  useLayoutEffect(() => {
-    if (!plusMenuOpen) return;
-    const r = plusMenuRef.current?.getBoundingClientRect();
-    if (!r) return;
-    setMenuPos({ left: r.left, bottom: window.innerHeight - r.top + 8 });
-  }, [plusMenuOpen]);
-
-  useEffect(() => {
-    if (!plusMenuOpen) return;
-    const onDown = (e: PointerEvent) => {
-      const t = e.target as Node;
-      if (!plusMenuRef.current?.contains(t) && !dropdownRef.current?.contains(t)) setPlusMenuOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setPlusMenuOpen(false);
-    const onResize = () => setPlusMenuOpen(false);
-    document.addEventListener("pointerdown", onDown);
-    document.addEventListener("keydown", onKey);
-    window.addEventListener("resize", onResize);
-    return () => {
-      document.removeEventListener("pointerdown", onDown);
-      document.removeEventListener("keydown", onKey);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [plusMenuOpen]);
-
-  const plusButton = (
-    <div ref={plusMenuRef} className="shrink-0">
-      <button
-        type="button"
-        aria-label="Add to the chat"
-        aria-expanded={plusMenuOpen}
-        title="Add"
-        onClick={() => setPlusMenuOpen((current) => !current)}
-        disabled={!loaded}
-        className={cn(
-          "grid size-10 max-lg:size-11 shrink-0 place-items-center rounded-full transition-colors disabled:opacity-40",
-          plusMenuOpen ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground",
-        )}
-      >
-        <Plus className={cn("size-[18px] transition-transform", plusMenuOpen && "rotate-45")} />
-      </button>
-    </div>
-  );
-
-  const canSend = loaded && hasAsk(input);
-  const micButton = speech.supported && <MicButton listening={speech.listening} disabled={!loaded} onToggle={speech.toggle} hasText={input.trim().length > 0} />;
-  const sendButton = <SendButton canSend={canSend} micShown={speech.supported} />;
-
-  // The single-line layout's reserved space for the overlaid plus/mic/send — used two ways
-  // below: as the visible textarea's own padding while that overlay is showing, and permanently
-  // on the hidden mirror (next), which is what actually decides `isMultiline` so that padding
-  // can safely come OFF once the buttons move to their own row (see the mirror's own comment).
-  const SINGLE_LINE_INSET = "pl-12 pr-24";
-
-  const messageTextarea = (
-    <div className="relative w-full">
-      {/* Fixed at the single-line width forever, never painted (`invisible`, out of flow) — this
-          is what `isMultiline` is actually decided from (passed to `useAutoGrowTextarea` as
-          `mirrorRef`), instead of the real textarea below. Deciding it from the real textarea
-          would feed back on itself once its own padding starts changing with the mode (right
-          below): going multiline frees up the width the buttons used to occupy, which can let
-          the very same text re-fit on one line, flipping back, narrowing it again, wrapping
-          again — the infinite oscillation live-caught as "the box gets stuck and won't shrink
-          back down." A width that never changes can't feed back into the decision that changes it. */}
-      <div aria-hidden="true" className={cn("pointer-events-none invisible absolute inset-x-0 top-0 overflow-hidden break-words whitespace-pre-wrap py-2 text-base leading-normal", SINGLE_LINE_INSET)} ref={mirrorRef}>
-        {input}
-        {"​"}
-      </div>
-      {/* Ghost completion — sits behind the (transparent-background) textarea, so the real
-          typed text visually covers its invisible spacer span and only the suggested
-          remainder ("oam", "am", "m", ...) shows through in muted gray. */}
-      {mentionGhost && (
-        <div aria-hidden="true" className={cn("pointer-events-none absolute inset-0 overflow-hidden py-2 text-base leading-normal break-words whitespace-pre-wrap", isMultiline ? "px-2.5" : SINGLE_LINE_INSET)}>
-          <span className="invisible">{input}</span>
-          <span className="text-muted-foreground">{mentionGhost}</span>
-        </div>
-      )}
-      <textarea
-        ref={textareaRef}
-        aria-label="Message the group"
-        rows={1}
-        value={input}
-        onChange={(event) => setInput(completeRoamMention(input, event.target.value))}
-        onKeyDown={(event) => {
-          if (event.key === "Tab" && mentionActive) {
-            event.preventDefault();
-            insertRoamMention();
-            return;
-          }
-          // On a phone the keyboard's Return makes a new line (the arrow button sends); with a keyboard it sends, Shift+Return adds a line.
-          if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229 && !window.matchMedia("(pointer: coarse)").matches) {
-            event.preventDefault();
-            void submit(input);
-          }
-        }}
-        placeholder={!loaded ? "Loading…" : speech.listening ? "Listening…" : "Message the group"}
-        maxLength={MAX_MESSAGE_LENGTH}
-        disabled={!loaded}
-        className={cn(
-          "block max-h-[96px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent py-2 text-base leading-normal outline-none transition-[height] duration-150 ease-out placeholder:text-muted-foreground disabled:opacity-60",
-          isMultiline ? "px-2.5" : SINGLE_LINE_INSET,
-        )}
-      />
-      {/* Overlaid on the textarea's own reserved padding rather than laid out beside it as a
-          flex sibling. `pointer-events-none` on the strip, `-auto` only on the buttons
-          themselves, so clicking or selecting the visible text anywhere else still reaches the
-          textarea underneath. */}
-      {!isMultiline && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-between">
-          <div className="pointer-events-auto">{plusButton}</div>
-          <div className="pointer-events-auto flex items-center gap-1">
-            {PHONE_V2 && !mentionsRoam(input) && (
-              <button type="button" onClick={() => { setInput((cur) => (/@r?o?a?m?$/i.test(cur) ? cur.replace(/@r?o?a?m?$/i, "@Roam ") : `${cur}${cur && !/\s$/.test(cur) ? " " : ""}@Roam `)); textareaRef.current?.focus(); }} disabled={!loaded} aria-label="Ask Roam in the chat" className="grid size-11 shrink-0 place-items-center rounded-full font-display text-widget leading-none text-muted-foreground transition-colors active:bg-muted disabled:opacity-40 lg:hidden">@</button>
-            )}
-            {micButton}
-            {sendButton}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  const rowView: RowView = { tripId, meUserId: me?.userId, members, membersLoaded, messagesById, expandedReactionFor, pressingId, highlightedId, pendingVoteFor, pendingRoamIds, failedRoamIds, missedIds, bubbleRefs };
+  const rowActions: RowActions = { castVote, toggleReaction, setExpandedReactionFor, onBubblePressStart, onBubblePressEnd, onBubblePressMove, scrollToMessage, askRoam, submit, setOutbox, onFollowup, onOpenPlace, onOpenStay, onOpenEvent, onOpenCollection, openPanel };
 
   return (
     <div className="relative flex h-full min-h-0 w-full max-w-full flex-col overflow-x-hidden">
@@ -544,234 +294,9 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
           )}
 
           {rows.map(({ message, showDateDivider, isFirstInGroup }) => {
-            // Follow-up chips answer Roam's latest message only; under an older one they are stale, as in the Roam tab.
-            const isLatestRoam = lastRoamId === message.id;
-            const local = (message as { local?: Outgoing }).local;
             const isNew = !seenIdsRef.current.has(message.id);
             if (isNew) seenIdsRef.current.add(message.id);
-            const mine = local ? true : message.userId !== null && message.userId === me?.userId;
-            const isRoam = message.role === "assistant";
-            const name = displayName(message.userId, members, me?.userId, membersLoaded);
-            const expanded = expandedReactionFor === message.id;
-
-            const divider = showDateDivider && (
-              <div className="flex items-center justify-center py-3">
-                <span className={cn("rounded-full bg-muted px-3 py-1 text-2xs font-medium tracking-[0.1em] text-muted-foreground uppercase", PHONE_V2 && "max-lg:bg-transparent max-lg:px-0 max-lg:text-xs max-lg:font-semibold max-lg:tracking-normal max-lg:normal-case")}>{dayLabel(message.created_at)}</span>
-              </div>
-            );
-
-            if (message.kind === "system") {
-              return (
-                <div key={message.id}>
-                  {divider}
-                  <p className="mx-auto max-w-fit rounded-full bg-muted px-3 py-1 text-center text-2xs text-muted-foreground">{message.content}</p>
-                </div>
-              );
-            }
-
-            if (message.kind === "poll") {
-              const poll = (message.metadata as { poll?: Poll } | undefined)?.poll;
-              return (
-                <div key={message.id}>
-                  {divider}
-                  <PollCard content={message.content} name={name} poll={poll} pendingVoteFor={pendingVoteFor} onVote={(pollId, optionKey) => void castVote(message.id, pollId, optionKey)} />
-                </div>
-              );
-            }
-
-            // Threads a reply back to whatever it's actually answering — with several people
-            // texting at once, Roam's answer can land screens below the question by the time it
-            // composes, so a flat append-at-the-bottom list alone isn't enough context.
-            const replyToId = (message.metadata as { replyToMessageId?: string } | undefined)?.replyToMessageId;
-            const replySource = replyToId ? messagesById.get(replyToId) : undefined;
-
-            const rawRoamBlocks = isRoam ? (message.metadata as Partial<AssistantTurnMeta> | undefined)?.blocks : undefined;
-            const roamBlocks = rawRoamBlocks && !isLatestRoam ? rawRoamBlocks.filter((b) => b.type !== "actions" && b.type !== "clarifying_question") : rawRoamBlocks;
-            // Roam is the fifth friend here: its message is an ordinary bubble, same as any other
-            // member's, and arrives whole like a person's message would. (Its text can still be
-            // formatted — lists, bold — and any cards it shares sit under the bubble like an
-            // attachment.)
-            const quote = replySource && (
-              <button
-                type="button"
-                onClick={() => scrollToMessage(replySource.id)}
-                className="mb-1.5 flex max-w-full min-w-0 items-start gap-2 rounded-lg border-l-2 border-foreground/25 bg-foreground/5 px-2.5 py-1.5 text-left text-2xs transition-colors hover:bg-foreground/10"
-              >
-                <span className="shrink-0 font-medium text-foreground/80">{displayName(replySource.userId, members, me?.userId, membersLoaded)}</span>
-                <span className="min-w-0 truncate text-muted-foreground">{replySource.content}</span>
-              </button>
-            );
-            const bubbleClass = cn(
-              "min-w-0 max-w-full rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words shadow-sm",
-              PHONE_V2 && "max-lg:text-base max-lg:leading-snug max-lg:shadow-none",
-              roamBlocks && roamBlocks.length > 0 && "max-w-[92%]",
-              mine ? "rounded-br-lg bg-gradient-to-br from-primary to-primary/90 text-primary-foreground" : "rounded-tl-lg bg-muted text-foreground",
-              PHONE_V2 && mine && "max-lg:bg-none max-lg:bg-primary",
-            );
-            const bubble = isRoam ? (
-              <div className={cn(bubbleClass, "[&_.chat-prose]:text-sm [&_.chat-prose]:leading-relaxed")}>
-                {quote}
-                <AssistantMessage content={message.content} />
-              </div>
-            ) : (
-              <p className={cn(bubbleClass, local?.status === "sending" && "opacity-70")}>{renderRich(message.content)}</p>
-            );
-
-            return (
-              <div key={message.id}>
-                {divider}
-                <motion.div
-                  ref={(el) => {
-                    if (el) bubbleRefs.current.set(message.id, el);
-                    else bubbleRefs.current.delete(message.id);
-                  }}
-                  // Your own message rises from the composer corner; a friend's arrives from their avatar side.
-                  initial={isNew ? { opacity: 0, y: 14, scale: mine ? 0.92 : 0.96 } : false}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ type: "spring", stiffness: 380, damping: 30, opacity: { duration: 0.16 } }}
-                  style={{ transformOrigin: mine ? "100% 100%" : "0% 100%" }}
-                  className={cn(
-                    "flex min-w-0 items-start gap-2 rounded-2xl transition-colors duration-700",
-                    isFirstInGroup ? "mt-3" : "mt-0.5",
-                    mine ? "flex-row-reverse" : "flex-row",
-                    highlightedId === message.id && "bg-coral-soft/60",
-                  )}
-                >
-                  {!mine && <div className="w-7 shrink-0">{isFirstInGroup && <Avatar name={name} />}</div>}
-                  <div className={cn("flex min-w-0 max-w-[85%] flex-col gap-1.5", mine ? "items-end" : "items-start", roamBlocks && roamBlocks.length > 0 && "w-full max-w-full")}>
-                    {isFirstInGroup && (
-                      <p className={cn("flex items-baseline gap-1.5 px-1 text-2xs", mine && "justify-end")}>
-                        {!mine && <span style={{ color: memberTint(name).color }} className="font-semibold">{name}</span>}
-                        <time dateTime={message.created_at} title={fullTime(message.created_at)} className="text-muted-foreground tabular-nums">{timeLabel(message.created_at)}</time>
-                      </p>
-                    )}
-                    <motion.div
-                      animate={{ scale: pressingId === message.id ? 0.96 : 1 }}
-                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                      onPointerDown={(event) => onBubblePressStart(event, message.id)}
-                      onPointerUp={onBubblePressEnd}
-                      onPointerCancel={onBubblePressEnd}
-                      onPointerMove={onBubblePressMove}
-                      title={fullTime(message.created_at)}
-                      className="group relative min-w-0 max-w-full [touch-action:pan-y] [@media(pointer:coarse)]:select-none"
-                    >
-                      {bubble}
-                      {/* The reaction trigger sits in the gutter at the vertical middle of the bubble —
-                          left for your own messages, right for everyone else's. The expanded
-                          picker starts from the trigger's exact point (same `layoutId`, so
-                          Framer Motion morphs one into the other in place) but grows the other
-                          direction — inward, over the message — rather than further out into
-                          the empty gutter, which is too narrow for six emoji anyway. Reveal-on-
-                          hover; touch has no hover state, so this never shows there — long-press
-                          → the Sheet below is how touch reacts. */}
-                      {!expanded && !local && (
-                        <div
-                          className={cn(
-                            "pointer-events-none absolute top-1/2 z-10 flex -translate-y-1/2 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100",
-                            mine ? "right-full mr-2" : "left-full ml-2",
-                          )}
-                        >
-                          <motion.button
-                            layoutId={`reaction-picker-${message.id}`}
-                            type="button"
-                            onClick={() => setExpandedReactionFor(message.id)}
-                            aria-label="Add reaction"
-                            whileHover={{ scale: 1.15 }}
-                            whileTap={{ scale: 0.9 }}
-                            transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                            className="pointer-events-auto grid h-8 w-8 shrink-0 place-items-center rounded-full border border-border bg-card/95 text-muted-foreground shadow-lift backdrop-blur transition-colors hover:bg-accent hover:text-foreground"
-                          >
-                            <SmilePlus className="h-4 w-4" />
-                          </motion.button>
-                        </div>
-                      )}
-                      <AnimatePresence>
-                        {expanded && (
-                          <motion.div
-                            key="bar"
-                            layoutId={`reaction-picker-${message.id}`}
-                            data-reaction-expand
-                            transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                            className={cn(
-                              "pointer-events-auto absolute top-1/2 z-10 flex -translate-y-1/2 items-center gap-0.5 overflow-hidden rounded-full border border-border bg-card py-1 pr-1 pl-1 shadow-lift",
-                              mine ? "-left-2" : "-right-2",
-                              // On a phone the bar floats just above the message, anchored to its near edge, so it never runs off the screen.
-                              PHONE_V2 && "max-lg:top-auto max-lg:bottom-full max-lg:mb-2 max-lg:translate-y-0 max-lg:border-0 max-lg:p-1.5 max-lg:shadow-[0_8px_28px_-8px_oklch(0.2_0.012_65/0.4),0_0_0_1px_var(--color-hairline)]",
-                              PHONE_V2 && (mine ? "max-lg:right-0 max-lg:left-auto" : "max-lg:left-0 max-lg:right-auto"),
-                            )}
-                          >
-                            {COMMON_EMOJI.map((emoji) => (
-                              <button
-                                key={emoji}
-                                type="button"
-                                aria-label={`React ${emoji}`}
-                                onClick={() => void toggleReaction(message.id, emoji)}
-                                className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-full text-base transition-transform hover:scale-125 active:scale-95", PHONE_V2 && "max-lg:size-11 max-lg:text-2xl")}
-                              >
-                                {emoji}
-                              </button>
-                            ))}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </motion.div>
-                    {roamBlocks && roamBlocks.length > 0 && (
-                      // Cards use the whole row, as wide as in the Roam tab, not what is left after the avatar gutter and the 85% cap.
-                      <div className="-ml-9 w-[calc(100%+2.25rem)] min-w-0 max-w-none">
-                        <MessageBlocks blocks={roamBlocks} tripId={tripId} onFollowup={onFollowup} onOpenPlace={onOpenPlace} onOpenStay={onOpenStay} onOpenEvent={onOpenEvent} onOpenCollection={onOpenCollection} onOpenPanel={openPanel} replyText={message.content} />
-                      </div>
-                    )}
-                    {isRoam && (message.metadata as Partial<AssistantTurnMeta> | undefined)?.degraded && replyToId && (
-                      // Roam's planner failed for this one, so nothing was looked up (no cards): say so, and offer another go.
-                      <p className="flex flex-wrap items-center gap-x-2 px-1 text-2xs text-muted-foreground">
-                        Answered from the trip details only; Roam couldn’t look anything up.
-                        {replySource?.userId != null && replySource.userId === me?.userId && (
-                          <button type="button" onClick={() => askRoam(replyToId, { explicit: true })} className={cn(textAction, "text-2xs font-semibold underline")}>Try again</button>
-                        )}
-                      </p>
-                    )}
-                    {/* Only the person who asked sees that Roam didn't answer, with the Retry; the rest of the group just sees the thread. */}
-                    {mine && !local && !pendingRoamIds.has(message.id) && (failedRoamIds.includes(message.id) || missedIds.includes(message.id)) && (
-                      <p role="alert" className="flex items-center gap-2 px-1 text-2xs text-destructive">
-                        Roam didn’t reply
-                        <button type="button" onClick={() => askRoam(message.id)} className={cn(textAction, "text-2xs font-semibold underline")}>Retry</button>
-                      </p>
-                    )}
-                    {local && (
-                      <p role={local.status === "failed" ? "alert" : undefined} className={cn("flex items-center gap-2 px-1 text-2xs", local.status === "failed" ? "text-destructive" : "text-muted-foreground")}>
-                        {local.status === "sending" ? "Sending…" : (
-                          <>
-                            Not sent{local.reason ? ` · ${local.reason}` : ""}
-                            <button type="button" onClick={() => void submit(local.content, local.key)} className={cn(textAction, "text-2xs font-semibold underline")}>Retry</button>
-                            <button type="button" onClick={() => setOutbox((current) => current.filter((o) => o.key !== local.key))} className={cn(textAction, "text-2xs text-muted-foreground underline hover:text-destructive")}>Delete</button>
-                          </>
-                        )}
-                      </p>
-                    )}
-                    <div className="flex flex-wrap items-center gap-1.5 px-1">
-                      {message.reactions.map((r) => (
-                        <Pressable key={r.emoji}>
-                          <motion.button
-                            layout
-                            type="button"
-                            aria-pressed={r.mine}
-                            aria-label={`${r.emoji} ${r.count}${r.mine ? ", you reacted" : ""}`}
-                            onClick={() => void toggleReaction(message.id, r.emoji)}
-                            className={cn(
-                              "flex h-6 items-center gap-1 rounded-full border px-2 text-2xs transition-colors",
-                              r.mine ? "border-primary/30 bg-primary/10 text-primary" : "border-border bg-card text-muted-foreground hover:bg-accent",
-                            )}
-                          >
-                            <span>{r.emoji}</span>
-                            <span>{r.count}</span>
-                          </motion.button>
-                        </Pressable>
-                      ))}
-                    </div>
-                  </div>
-                </motion.div>
-              </div>
-            );
+            return <GroupMessageRow key={message.id} message={message} showDateDivider={showDateDivider} isFirstInGroup={isFirstInGroup} isLatestRoam={lastRoamId === message.id} isNew={isNew} view={rowView} actions={rowActions} />;
           })}
           {(pendingRoamIds.size > 0 || waitingIds.length > 0) && (
             // The same "typing…" bubble any friend would show while they write back.
@@ -821,62 +346,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
               </motion.button>
             )}
           </AnimatePresence>
-          <form
-            onSubmit={(event: FormEvent) => {
-              event.preventDefault();
-              void submit(input);
-            }}
-            className={cn(
-              "flex w-full flex-col gap-1 overflow-hidden rounded-3xl border border-input bg-card p-1.5 shadow-lift transition-[border-color,box-shadow] duration-200 ease-out",
-              "focus-within:border-ink/30 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_6%,transparent),var(--shadow-lift)]",
-              PHONE_V2 && "max-lg:border-transparent max-lg:bg-secondary max-lg:shadow-none max-lg:focus-within:border-transparent max-lg:focus-within:shadow-none",
-            )}
-          >
-            {/* `messageTextarea` (defined above, alongside the buttons it conditionally overlays)
-                is the ONLY thing that must never remount — the buttons moving between an overlay
-                and this row below are a plain conditional (harmless: a button holds no cursor or
-                typing state to lose), but the same conditional around the textarea itself was the
-                actual bug: switching which branch of a ternary rendered it gave React a different
-                tree position each time, so it tore down and rebuilt the DOM node on every single
-                line wrap — dropping focus and the cursor mid-keystroke. Live-caught as "the box
-                grows but I can't type on the new line until I press Enter again." */}
-            {messageTextarea}
-            {isMultiline && (
-              <div className="flex items-center justify-between gap-1">
-                {plusButton}
-                <div className="flex items-center gap-1">
-                  {micButton}
-                  {sendButton}
-                </div>
-              </div>
-            )}
-            {/* Portaled to <body> — the pill's own `overflow-hidden` (needed for its rounded
-                shape) would otherwise clip a dropdown positioned relative to a button inside it. */}
-            {typeof document !== "undefined" &&
-              createPortal(
-                plusMenuOpen && menuPos && (
-                  <div
-                    ref={dropdownRef}
-                    role="menu"
-                    style={{ position: "fixed", left: menuPos.left, bottom: menuPos.bottom }}
-                    className="z-20 w-44 overflow-hidden rounded-2xl border border-border bg-card py-1 shadow-lift"
-                  >
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setPlusMenuOpen(false);
-                        setPollSheetOpen(true);
-                      }}
-                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm transition-colors hover:bg-accent"
-                    >
-                      <ListChecks className="h-4 w-4 text-coral" /> Poll
-                    </button>
-                  </div>
-                ),
-                document.body,
-              )}
-          </form>
+          <GroupComposer input={input} setInput={setInput} loaded={loaded} submit={submit} speech={speech} onPoll={() => setPollSheetOpen(true)} />
         </div>
       </div>
     </div>
