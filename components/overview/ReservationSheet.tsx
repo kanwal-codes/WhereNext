@@ -8,10 +8,12 @@ import { Sheet } from "@/components/motion-primitives";
 import { notifyToast } from "@/lib/application/toast";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { useMediaQuery } from "@/lib/use-media-query";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { MAX_CONFIRMATION_CHARS, type ReservationDraft } from "@/lib/reservation-draft";
-import { RESERVATION_FILES_BUCKET, fileProblem, sizeLabel, type ReservationFile } from "@/lib/reservation-files";
+import { MAX_CONFIRMATION_CHARS } from "@/lib/reservation-draft";
+import { sizeLabel } from "@/lib/reservation-files";
 import { cn } from "@/lib/utils";
+import { useConfirmationReader } from "@/features/bookings/application/useConfirmationReader";
+import { useReservationFiles } from "@/features/bookings/application/useReservationFiles";
+import { blankDraft, draftFromReservation, mergeFound, reservationBody, type Draft } from "@/features/bookings/domain/reservation-form";
 import type { Reservation, ReservationKind } from "@/packages/contracts/reservation";
 
 export const KIND_META: Record<ReservationKind, { label: string; icon: typeof Plane; titleHint: string }> = {
@@ -23,27 +25,6 @@ export const KIND_META: Record<ReservationKind, { label: string; icon: typeof Pl
   other: { label: "Other", icon: Sparkles, titleHint: "What is it?" },
 };
 const KINDS = Object.keys(KIND_META) as ReservationKind[];
-
-type Draft = ReservationDraft;
-
-const blank = (currency: string, startsOn: string): Draft => ({ kind: "activity", title: "", startsOn, endsOn: "", startTime: "", endTime: "", place: "", toPlace: "", confirmationCode: "", amount: "", currency, amountBasis: "total", travellers: "", status: "confirmed", notes: "" });
-const fromReservation = (r: Reservation, currency: string): Draft => ({
-  kind: r.kind,
-  title: r.title,
-  startsOn: r.startsOn ?? "",
-  endsOn: r.endsOn ?? "",
-  startTime: r.startTime ?? "",
-  endTime: r.endTime ?? "",
-  place: r.place ?? "",
-  toPlace: r.toPlace ?? "",
-  confirmationCode: r.confirmationCode ?? "",
-  amount: r.amount == null ? "" : String(r.amount),
-  currency: r.currency ?? currency,
-  amountBasis: r.amountBasis,
-  travellers: r.travellers == null ? "" : String(r.travellers),
-  status: r.status,
-  notes: r.notes ?? "",
-});
 
 const input = "w-full rounded-2xl border border-border bg-background px-4 py-2.5 text-body outline-none transition-colors placeholder:text-muted-foreground focus:border-ink/25 focus:bg-card focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_5%,transparent),0_10px_24px_-14px_color-mix(in_oklab,var(--color-ink)_30%,transparent)]";
 
@@ -77,124 +58,39 @@ export function ReservationSheet({
   onDeleted: (id: string) => void;
 }) {
   const desktop = useMediaQuery("(min-width: 1024px)");
-  const [draft, setDraft] = useState<Draft>(() => blank(defaultCurrency, defaultDate));
+  const [draft, setDraft] = useState<Draft>(() => blankDraft(defaultCurrency, defaultDate));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Files already on the reservation, and (for a new one) files waiting for it to be created first.
-  const [files, setFiles] = useState<ReservationFile[]>([]);
-  const [staged, setStaged] = useState<File[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [fileError, setFileError] = useState<string | null>(null);
   const picker = useRef<HTMLInputElement>(null);
-  // Paste a confirmation and let Roam read it into the form. It only fills the fields: the traveller reviews and saves.
   const [pasteOpen, setPasteOpen] = useState(false);
   // The essentials (kind, name, when) are always there; the rest (price, place, notes, tickets) opens on request, or at once when editing.
   const [more, setMore] = useState(Boolean(editing));
   useEffect(() => { if (editing) setMore(true); }, [editing]);
-  const [pasted, setPasted] = useState("");
-  const [reading, setReading] = useState(false);
-  const [readNote, setReadNote] = useState<string | null>(null);
   // A round trip pasted as one confirmation: the second leg waits here and opens as its own reservation once the first is saved.
   const [returnLeg, setReturnLeg] = useState<Draft | null>(null);
+  const { files, staged, setStaged, uploading, fileError, uploadOne, pick, removeFile, reset: resetFiles } = useReservationFiles({ tripId, editing, onSaved });
+  const { pasted, setPasted, reading, readNote, setReadNote, read: readConfirmation, reset: resetReader } = useConfirmationReader({
+    tripId,
+    onFound: (found, leg) => {
+      setDraft((current) => mergeFound(current, found));
+      setPasteOpen(false);
+      setReturnLeg(leg);
+      setMore(true);
+    },
+  });
 
   useEffect(() => {
     if (!open) return;
-    setFiles(editing?.attachments ?? []);
-    setStaged([]);
-    setFileError(null);
+    resetFiles(editing?.attachments ?? []);
     setPasteOpen(false);
-    setPasted("");
-    setReadNote(null);
+    resetReader();
     setReturnLeg(null);
-    setDraft(editing ? fromReservation(editing, defaultCurrency) : blank(defaultCurrency, defaultDate));
+    setDraft(editing ? draftFromReservation(editing, defaultCurrency) : blankDraft(defaultCurrency, defaultDate));
     setError(null);
-  }, [open, editing, defaultCurrency, defaultDate]);
+  }, [open, editing, defaultCurrency, defaultDate, resetFiles, resetReader]);
 
   const transit = draft.kind === "flight" || draft.kind === "train";
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
-
-  /** Send one file straight to storage with a one-time link from the API, then record it on the reservation. */
-  async function uploadOne(reservationId: string, file: File): Promise<Reservation> {
-    const base = `/api/trips/${tripId}/reservations/${reservationId}/files`;
-    const init = await fetch(base, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: file.name, size: file.size, type: file.type }) });
-    const initBody = await init.json().catch(() => ({}));
-    if (!init.ok) throw new Error(initBody.error ?? "That file couldn't be uploaded.");
-    const sent = await createSupabaseBrowserClient().storage.from(RESERVATION_FILES_BUCKET).uploadToSignedUrl(initBody.path, initBody.token, file, { contentType: file.type });
-    if (sent.error) throw new Error("That file couldn't be uploaded.");
-    const done = await fetch(base, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ path: initBody.path, name: file.name, size: file.size, type: file.type }) });
-    const doneBody = await done.json().catch(() => ({}));
-    if (!done.ok) throw new Error(doneBody.error ?? "That file couldn't be saved.");
-    return doneBody.reservation as Reservation;
-  }
-
-  async function readConfirmation() {
-    const text = pasted.trim();
-    if (text.length < 10 || reading) return;
-    setReading(true);
-    setReadNote(null);
-    try {
-      const res = await fetch(`/api/trips/${tripId}/reservations/parse`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }) });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error ?? "Couldn't read that. You can still fill it in by hand.");
-      const found = body.draft as ReservationDraft;
-      // Text with no booking in it comes back as an empty draft: say so rather than claim it was filled in.
-      if (!found.title && !found.startsOn && !found.confirmationCode && !found.amount) {
-        setReadNote("That doesn’t look like a booking confirmation, so nothing was filled in. You can still add it by hand.");
-        return;
-      }
-      // Only fill what the confirmation actually said; keep whatever is already typed for the rest.
-      setDraft((current) => ({ ...current, ...Object.fromEntries(Object.entries(found).filter(([, value]) => value !== "")) }) as Draft);
-      setPasteOpen(false);
-      setReturnLeg((body.returnDraft as Draft | null) ?? null);
-      setMore(true);
-      setReadNote(body.returnDraft ? "Filled in from your confirmation. It has a return leg too, which opens next. Check each field before you add it." : "Filled in from your confirmation. Check each field before you add it.");
-    } catch (e) {
-      setReadNote(e instanceof Error ? e.message : "Couldn't read that. You can still fill it in by hand.");
-    } finally {
-      setReading(false);
-    }
-  }
-
-  async function pick(list: FileList | File[]) {
-    const chosen = Array.from(list);
-    if (chosen.length === 0) return;
-    setFileError(null);
-    let count = editing ? files.length : staged.length;
-    const ok: File[] = [];
-    for (const file of chosen) {
-      const problem = fileProblem(file, count);
-      if (problem) {
-        setFileError(`${file.name}: ${problem}`);
-        continue;
-      }
-      ok.push(file);
-      count += 1;
-    }
-    if (ok.length === 0) return;
-    if (!editing) return setStaged((current) => [...current, ...ok]);
-    setUploading(true);
-    try {
-      for (const file of ok) {
-        const updated = await uploadOne(editing.id, file);
-        setFiles(updated.attachments);
-        onSaved(updated);
-      }
-    } catch (e) {
-      setFileError(e instanceof Error ? e.message : "That file couldn't be uploaded.");
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function removeFile(file: ReservationFile) {
-    if (!editing) return;
-    setFileError(null);
-    const res = await fetch(`/api/trips/${tripId}/reservations/${editing.id}/files`, { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ path: file.path }) });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) return setFileError(body.error ?? "That file couldn't be removed.");
-    setFiles(body.reservation.attachments);
-    onSaved(body.reservation as Reservation);
-  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -205,7 +101,7 @@ export function ReservationSheet({
       const res = await fetch(`/api/trips/${tripId}/reservations${editing ? `/${editing.id}` : ""}`, {
         method: editing ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...draft, amount: draft.amount === "" ? null : Number(draft.amount), travellers: draft.travellers === "" ? null : Number(draft.travellers) }),
+        body: JSON.stringify(reservationBody(draft)),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error ?? "That didn't save. Try again.");
