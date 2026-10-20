@@ -352,6 +352,44 @@ describe("GroupChatSurface: asking Roam", () => {
   });
 });
 
+describe("GroupChatSurface: unsent messages survive a reload", () => {
+  const key = `wn-outbox:${TRIP}:${ME}`;
+
+  it("keeps a failed message in storage, then re-sends it under its original key when the chat opens again", async () => {
+    let failing = true;
+    handlers.push((c) => {
+      if (c.method === "POST" && c.url.endsWith("/group-chat")) return failing ? { status: 503, json: {} } : { json: { message: msg("later", { userId: ME, content: "After the reload", created_at: at(8) }) } };
+    });
+    const first = await open();
+    await first.user.type(box(), "After the reload");
+    await first.user.keyboard("{Enter}");
+    await screen.findByText(/Not sent/);
+    const firstKey = posts("/group-chat")[0].body!.idempotencyKey;
+    expect(JSON.parse(sessionStorage.getItem(key)!)[0]).toMatchObject({ key: firstKey, content: "After the reload" });
+    first.unmount();
+
+    failing = false;
+    await open();
+    await waitFor(() => expect(posts("/group-chat")).toHaveLength(2));
+    expect(posts("/group-chat")[1].body!.idempotencyKey).toBe(firstKey);
+    await waitFor(() => expect(sessionStorage.getItem(key)).toBeNull());
+  });
+
+  it("clears the unsent copy once the delivered message shows up in the thread under the same key", async () => {
+    handlers.push((c) => (c.method === "POST" && c.url.endsWith("/group-chat") ? { status: 503, json: {} } : undefined));
+    const { user } = await open();
+    await user.type(box(), "Arrived anyway");
+    await user.keyboard("{Enter}");
+    await screen.findByText(/Not sent/);
+    const sentKey = posts("/group-chat")[0].body!.idempotencyKey as string;
+    history = [...history, msg("real", { userId: ME, content: "Arrived anyway", clientKey: sentKey, created_at: at(9) })];
+    const { announceWorkspaceChange } = await import("../../lib/application/workspace-events");
+    await act(async () => { announceWorkspaceChange("groupChat"); });
+    await waitFor(() => expect(screen.queryByText(/Not sent/)).toBeNull());
+    expect(screen.getAllByText("Arrived anyway")).toHaveLength(1);
+  });
+});
+
 describe("GroupChatSurface: connection", () => {
   it("says it is offline, and reads the chat again when it comes back", async () => {
     await open();

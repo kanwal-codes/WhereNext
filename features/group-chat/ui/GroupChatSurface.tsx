@@ -9,7 +9,6 @@ import { memberTint } from "@/lib/member-tint";
 import { ArrowDown, ListChecks, Loader2, Plus, SmilePlus } from "lucide-react";
 import { MicButton, SendButton } from "@/components/ComposerButtons";
 import { PHONE_V2 } from "@/lib/phone-v2";
-import { haptic } from "@/lib/haptics";
 import { markGroupRead } from "@/lib/client/use-group-unread";
 import { Pressable } from "@/components/motion-primitives";
 import { useKeepScrollGap } from "@/lib/use-keep-scroll-gap";
@@ -21,11 +20,12 @@ import { notifyToast } from "@/lib/application/toast";
 import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
 import type { AssistantBlock, AssistantTurnMeta, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { Poll } from "@/packages/contracts/poll";
+import { useMessageSender } from "../application/useMessageSender";
 import { useRoamAsks } from "../application/useRoamAsks";
 import { useGroupChatLog } from "../application/useGroupChatLog";
 import { applyReactionToggle, applyVote, buildRows, chatNotice, lastRoamMessageId, roamMentionGhost } from "../domain/chat-state";
 import { MAX_MESSAGE_LENGTH, completeRoamMention, hasAsk, mentionsRoam, type GroupMessage } from "../domain/message";
-import { SEND_TIMEOUT_MS, restoreOutbox, sendFailure, serializeOutbox, type Outgoing } from "../domain/outbox";
+import { type Outgoing } from "../domain/outbox";
 import { useChatLive } from "@/lib/client/trip-realtime";
 import { useTripMembers } from "@/lib/client/use-trip-members";
 import { renderRich } from "./rich-text";
@@ -77,22 +77,9 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
   }, []);
   const { members, loaded: membersLoaded } = useTripMembers(tripId);
   const [input, setInput] = useState("");
-  // Messages you have sent that the server has not confirmed: they show at once, as "Sending…", and stay with a Retry if they fail.
-  const [outbox, setOutbox] = useState<Outgoing[]>([]);
-  // The unsent messages (and the half-typed one) survive a reload or a trip to another page: kept per trip, per tab.
-  const outboxKey = `wn-outbox:${tripId}:${me?.userId ?? "anon"}`;
-  const draftKey = `wn-draft:${tripId}:${me?.userId ?? "anon"}`;
   const cacheKey = `wn-group-cache:${tripId}:${me?.userId ?? "anon"}`;
-  const [restored, setRestored] = useState(false);
-  const outboxRef = useRef<Outgoing[]>([]);
-  outboxRef.current = outbox;
-  // Keys with a request in flight right now, so a retry (by hand or by the connection coming back) never doubles up.
-  const inflightRef = useRef<Set<string>>(new Set());
-  const [online, setOnline] = useState(true);
   const chatLive = useChatLive();
   const [liveDown, setLiveDown] = useState(false);
-  // A double Enter can arrive before the state has re-rendered and would post the message twice.
-  const submitLockRef = useRef(false);
   // Following the conversation: true while you are at the bottom. A message that arrives while you are reading higher up waits behind a pill.
   const nearBottomRef = useRef(true);
   const lastIdRef = useRef<string | null>(null);
@@ -149,6 +136,19 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
     refresh,
     // Once Roam answers something you said, the box opens on "@Roam " so the next line picks the thread back up (never over a draft).
     onContinueThread: () => setInput((current) => (current.trim() ? current : "@Roam ")),
+  });
+
+  const { outbox, setOutbox, submit, online } = useMessageSender({
+    tripId,
+    meUserId: me?.userId,
+    input,
+    setInput,
+    messages,
+    setMessages,
+    seenIdsRef,
+    refresh,
+    askRoam,
+    stopListening: () => { if (speech.listening) speech.stop(); },
   });
 
   const scrollToEnd = useCallback(() => {
@@ -228,92 +228,6 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
     document.addEventListener("pointerdown", onDocPointerDown);
     return () => document.removeEventListener("pointerdown", onDocPointerDown);
   }, [expandedReactionFor]);
-
-  // Optimistic: the message appears at once as "Sending…", and keeps its idempotency key through a Retry, so a reply
-  // lost on the way back never posts the same words twice.
-  async function submit(raw: string, retryKey?: string) {
-    const content = raw.trim();
-    // The double-Enter lock is for a fresh send; a retry is guarded by its own in-flight key instead (several can go out at once).
-    if (!content || !hasAsk(content) || (!retryKey && submitLockRef.current)) return;
-    if (retryKey && inflightRef.current.has(retryKey)) return;
-    if (speech.listening) speech.stop();
-    haptic("tap");
-    if (!retryKey) {
-      submitLockRef.current = true;
-      requestAnimationFrame(() => { submitLockRef.current = false; });
-    }
-    const key = retryKey ?? crypto.randomUUID();
-    inflightRef.current.add(key);
-    if (!retryKey) setInput("");
-    setOutbox((current) => (retryKey ? current.map((o) => (o.key === key ? { ...o, status: "sending", reason: undefined } : o)) : [...current, { key, content, status: "sending", created_at: new Date().toISOString() }]));
-    try {
-      const { message } = await postJson<{ message: GroupMessage }>(`/api/trips/${tripId}/group-chat`, { content, kind: "text", idempotencyKey: key }, SEND_TIMEOUT_MS);
-      seenIdsRef.current.add(message.id);
-      setMessages((current) => (current.some((m) => m.id === message.id) ? current : [...current, message]));
-      setOutbox((current) => current.filter((o) => o.key !== key));
-      if (mentionsRoam(content)) askRoam(message.id);
-    } catch (error) {
-      const failure = sendFailure(error);
-      setOutbox((current) => current.map((o) => (o.key === key ? { ...o, status: "failed", ...failure } : o)));
-    } finally {
-      inflightRef.current.delete(key);
-    }
-  }
-
-  // Back online: read the thread again, and send what was waiting (same keys, so nothing posts twice).
-  useEffect(() => {
-    setOnline(navigator.onLine);
-    const goOnline = () => {
-      setOnline(true);
-      void refresh();
-      for (const o of outboxRef.current) if (o.status === "failed" && o.retryable) void submit(o.content, o.key);
-    };
-    const goOffline = () => setOnline(false);
-    window.addEventListener("online", goOnline);
-    window.addEventListener("offline", goOffline);
-    return () => {
-      window.removeEventListener("online", goOnline);
-      window.removeEventListener("offline", goOffline);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- submit/refresh are read fresh through the closure each time the effect re-runs on trip change
-  }, [tripId]);
-
-  // On open: bring back what was unsent (and the half-typed message), and send the unsent once more if we are online.
-  useEffect(() => {
-    let saved: Outgoing[] = [];
-    try {
-      saved = restoreOutbox(sessionStorage.getItem(outboxKey));
-      const draft = sessionStorage.getItem(draftKey);
-      if (draft) setInput((current) => current || draft);
-    } catch { /* storage blocked: nothing to bring back */ }
-    if (saved.length > 0) setOutbox((current) => [...saved.filter((r) => !current.some((c) => c.key === r.key)), ...current]);
-    setRestored(true);
-    if (navigator.onLine) for (const o of saved) if (o.retryable) void submit(o.content, o.key);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per trip
-  }, [tripId]);
-  useEffect(() => {
-    if (!restored) return;
-    try {
-      if (outbox.length > 0) sessionStorage.setItem(outboxKey, serializeOutbox(outbox));
-      else sessionStorage.removeItem(outboxKey);
-    } catch { /* storage full or blocked */ }
-  }, [outbox, restored, outboxKey]);
-  useEffect(() => {
-    if (!restored) return;
-    try {
-      if (input) sessionStorage.setItem(draftKey, input);
-      else sessionStorage.removeItem(draftKey);
-    } catch { /* storage full or blocked */ }
-  }, [input, restored, draftKey]);
-
-  // A message that really arrived (it came back from the server under the key it was sent with) is no longer "unsent":
-  // this clears the unsent copy that would otherwise sit beside it when the reply to the send was lost, or when the
-  // live update beat the reply.
-  useEffect(() => {
-    const delivered = new Set(messages.map((m) => m.clientKey).filter(Boolean));
-    if (delivered.size === 0) return;
-    setOutbox((current) => (current.some((o) => delivered.has(o.key)) ? current.filter((o) => !delivered.has(o.key)) : current));
-  }, [messages]);
 
   // "Live updates paused" only after a few seconds without the live channel, so a normal reconnect does not flash it.
   useEffect(() => {
