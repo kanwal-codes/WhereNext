@@ -23,6 +23,7 @@ import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
 import type { AssistantBlock, AssistantTurnMeta, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { Poll } from "@/packages/contracts/poll";
+import { applyReactionToggle, applyVote, buildRows, chatNotice, lastRoamMessageId, roamMentionGhost } from "../domain/chat-state";
 import { GROUP_HISTORY_LIMIT, MAX_MESSAGE_LENGTH, completeRoamMention, hasAsk, mentionsRoam, unansweredRoamAsks, type GroupMessage } from "../domain/message";
 import { SEND_TIMEOUT_MS, clockSkewMs, restoreOutbox, sendFailure, serializeOutbox, type Outgoing } from "../domain/outbox";
 import { useChatLive } from "@/lib/client/trip-realtime";
@@ -35,8 +36,6 @@ import { MessageBlocks } from "@/features/conversation/ui/blocks/MessageBlocks";
 import { textAction } from "@/features/conversation/ui/blocks/ui";
 
 const COMMON_EMOJI = ["👍", "❤️", "😂", "🎉", "😍", "🤔"];
-// Same sender, close enough in time to read as one turn — collapses the repeated avatar/name.
-const GROUP_WINDOW_MS = 5 * 60_000;
 const LONG_PRESS_MS = 450;
 /** Messages laid out when the chat opens, and revealed per press of "Show earlier messages" — the page
  *  the server sends (GROUP_HISTORY_LIMIT) is larger, so the first press costs no request at all. */
@@ -605,19 +604,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
   async function castVote(messageId: string, pollId: string, optionKey: string) {
     if (pendingVoteFor === pollId) return;
     setPendingVoteFor(pollId);
-    setMessages((current) =>
-      current.map((m) => {
-        const poll = (m.metadata as { poll?: Poll } | undefined)?.poll;
-        if (m.id !== messageId || !poll) return m;
-        const already = poll.options.find((o) => o.mine);
-        const options = poll.options.map((o) => ({
-          ...o,
-          mine: o.key === optionKey,
-          count: o.key === optionKey ? o.count + (already?.key === optionKey ? 0 : 1) : o.key === already?.key ? o.count - 1 : o.count,
-        }));
-        return { ...m, metadata: { ...m.metadata, poll: { ...poll, options, totalVotes: already ? poll.totalVotes : poll.totalVotes + 1 } } };
-      }),
-    );
+    setMessages((current) => applyVote(current, messageId, optionKey));
     try {
       await postJson(`/api/trips/${tripId}/polls/${pollId}/vote`, { optionKey });
     } catch {
@@ -636,18 +623,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
     setExpandedReactionFor(null);
     // Optimistic flip so the tap feels instant; refresh() reconciles shortly after via the
     // realtime-driven workspace-change bus.
-    setMessages((current) =>
-      current.map((m) => {
-        if (m.id !== messageId) return m;
-        const existing = m.reactions.find((r) => r.emoji === emoji);
-        const reactions = existing
-          ? existing.mine
-            ? m.reactions.map((r) => (r.emoji === emoji ? { ...r, count: r.count - 1, mine: false } : r)).filter((r) => r.count > 0)
-            : m.reactions.map((r) => (r.emoji === emoji ? { ...r, count: r.count + 1, mine: true } : r))
-          : [...m.reactions, { emoji, count: 1, mine: true }];
-        return { ...m, reactions };
-      }),
-    );
+    setMessages((current) => applyReactionToggle(current, messageId, emoji));
     try {
       await postJson(`/api/trips/${tripId}/group-chat/${messageId}/reactions`, { emoji });
     } catch {
@@ -701,47 +677,22 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
   }
 
   // One quiet line above the composer for whatever is making the chat unreliable right now, most important first.
-  const notice: { text: string; action?: { label: string; run: () => void } } | null = !online
-    ? { text: "You’re offline. Messages wait here and send when you’re back." }
-    : loadFailed && messages.length > 0
-      ? { text: "Couldn’t refresh the chat. What you see may be out of date.", action: { label: "Retry", run: () => void refresh() } }
-      : liveDown
-        ? { text: "Live updates are paused. New messages may take up to 30 seconds." }
-        : input.length >= MAX_MESSAGE_LENGTH - 500
-          ? { text: `${input.length.toLocaleString()} of ${MAX_MESSAGE_LENGTH.toLocaleString()} characters` }
-          : null;
+  const rawNotice = chatNotice({ online, loadFailed, hasMessages: messages.length > 0, liveDown, inputLength: input.length });
+  const notice = rawNotice && { text: rawNotice.text, action: rawNotice.action === "retry" ? { label: "Retry", run: () => void refresh() } : undefined };
 
   // Precompute date-divider and same-sender-run boundaries once per message list, rather than
   // re-deriving neighbour lookups inline for every row on every render.
   // Roam's most recent message in the thread: the only one whose follow-up chips are still live.
-  const lastRoamId = useMemo(() => [...messages].reverse().find((m) => m.role === "assistant")?.id ?? null, [messages]);
-  const rows = useMemo(() => {
-    // Your unsent messages sit after everything confirmed, shaped like any other so they group, divide and align the same way.
-    const delivered = new Set(messages.map((m) => m.clientKey).filter(Boolean));
-    const pending = outbox.filter((o) => !delivered.has(o.key)).map((o): GroupMessage & { local: Outgoing } => ({ id: `out-${o.key}`, userId: me?.userId ?? null, role: "user", kind: "text", content: o.content, metadata: {}, created_at: o.created_at, reactions: [], local: o }));
-    const all: Array<GroupMessage & { local?: Outgoing }> = [...older, ...messages.slice(Math.max(0, messages.length - windowSize)), ...pending];
-    return all.map((message, index) => {
-      const previous = all[index - 1];
-      const showDateDivider = !previous || dayLabel(previous.created_at) !== dayLabel(message.created_at);
-      const sameSenderAsPrevious =
-        previous &&
-        previous.kind !== "system" &&
-        message.kind !== "system" &&
-        previous.userId === message.userId &&
-        previous.role === message.role &&
-        Date.parse(message.created_at) - Date.parse(previous.created_at) < GROUP_WINDOW_MS;
-      return { message, showDateDivider, isFirstInGroup: !sameSenderAsPrevious || showDateDivider };
-    });
-  }, [older, messages, outbox, windowSize, me?.userId]);
+  const lastRoamId = useMemo(() => lastRoamMessageId(messages), [messages]);
+  const rows = useMemo(
+    () => buildRows({ older, messages, outbox, windowSize, meUserId: me?.userId, dayKey: dayLabel }),
+    [older, messages, outbox, windowSize, me?.userId],
+  );
 
   // Inline ghost-text autocomplete for "@Roam" — replaces the old suggestion pill. Matches a
   // partial mention token at the very end of the input ("@", "@r", "@ro", ... "@roam", any
   // case) and, while it's a genuine prefix of "roam", offers Tab to complete it.
-  const mentionToken = input.match(/(^|\s)(@[a-zA-Z]{0,4})$/)?.[2];
-  const mentionActive = Boolean(mentionToken && "@roam".startsWith(mentionToken.toLowerCase()) && input.trim().length > 0);
-  // The remaining letters of "Roam" not yet typed — e.g. "@r" -> "oam", "@roam" -> "" (nothing
-  // left to suggest, though Tab still normalizes casing/adds the trailing space below).
-  const mentionGhost = mentionActive && mentionToken ? "Roam".slice(mentionToken.length - 1) : "";
+  const { active: mentionActive, ghost: mentionGhost } = roamMentionGhost(input);
 
   function insertRoamMention() {
     setInput((current) => current.replace(/@r?o?a?m?$/i, "@Roam "));
