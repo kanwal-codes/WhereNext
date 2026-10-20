@@ -1373,7 +1373,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
                 exit={{ opacity: 0, y: 6, scale: 0.97 }}
                 transition={{ duration: 0.2 }}
                 whileTap={{ scale: 0.97 }}
-                className={cn("absolute inset-x-0 bottom-full mx-auto mb-2 flex w-fit items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-ink-soft shadow-lift transition-colors hover:text-ink", PHONE_V2 && "max-lg:inset-x-auto max-lg:right-1 max-lg:mx-0 max-lg:size-10 max-lg:justify-center max-lg:border-0 max-lg:p-0 max-lg:shadow-[0_6px_18px_-6px_rgb(29_26_23/0.35),0_0_0_1px_var(--color-hairline)]")}
+                className={cn("absolute inset-x-0 bottom-full mx-auto mb-2 flex w-fit items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-ink-soft shadow-lift transition-colors hover:text-ink", PHONE_V2 && "max-lg:size-10 max-lg:justify-center max-lg:border-0 max-lg:p-0 max-lg:shadow-[0_6px_18px_-6px_rgb(29_26_23/0.35),0_0_0_1px_var(--color-hairline)]")}
               >
                 <ArrowDown className="size-3.5 max-lg:size-[1.125rem]" aria-hidden />
                 <span className={cn(PHONE_V2 && "max-lg:sr-only")}>Latest</span>

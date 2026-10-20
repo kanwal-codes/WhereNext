@@ -112,6 +112,7 @@ function ReorderableRow(props: Omit<RowProps, "dragging" | "controls" | "reorder
   const timer = useRef(0);
   const start = useRef<{ x: number; y: number } | null>(null);
   const held = useRef(false);
+  const dropped = useRef(false);
 
   // Once a row is picked up the page must not scroll under the finger. The listener goes on at the moment of the hold
   // (not at the first drag frame), because by then the browser has already taken the gesture for a scroll.
@@ -152,10 +153,18 @@ function ReorderableRow(props: Omit<RowProps, "dragging" | "controls" | "reorder
         onHold(false);
         held.current = false;
         unblock();
+        // Letting go of a held title must not also count as tapping it (which opens the place).
+        dropped.current = true;
+        window.setTimeout(() => { dropped.current = false; }, 120);
+      }}
+      onClickCapture={(event) => {
+        if (!dropped.current) return;
+        event.preventDefault();
+        event.stopPropagation();
       }}
       onPointerDown={(event) => {
         // Touch and hold on the row itself. A mouse uses the handle, so a click on the title still works.
-        if (event.pointerType === "mouse" || (event.target as HTMLElement).closest("button")) return;
+        if (event.pointerType === "mouse" || (event.target as HTMLElement).closest("button[aria-label^='Move']")) return;
         start.current = { x: event.clientX, y: event.clientY };
         const native = event.nativeEvent;
         window.clearTimeout(timer.current);
