@@ -18,11 +18,6 @@ export function currencyForCountry(country: string | undefined): string | undefi
   return EURO.has(region) ? "EUR" : REGION_CURRENCY[region];
 }
 
-/** Best-effort currency for a BCP-47 locale like "en-CA" — for a sensible default on trip creation. */
-export function currencyForLocale(locale: string | undefined): string {
-  return currencyForCountry(locale?.split("-")[1]) ?? DEFAULT_CURRENCY;
-}
-
 /** The currency to price a trip in: the trip's own, else the app default. */
 export function resolveCurrency(preferences: Record<string, unknown> | null | undefined): string {
   const c = preferences?.currency;

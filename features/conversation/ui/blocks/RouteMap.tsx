@@ -3,7 +3,7 @@
 import React, { useEffect, useState, type ReactNode } from "react";
 import { useNearView } from "@/lib/use-near-view";
 
-export type RouteMapLine = { points: Array<[number, number]>; color: string; width: number; opacity?: number };
+type RouteMapLine = { points: Array<[number, number]>; color: string; width: number; opacity?: number };
 export type RouteMapRequest = { lines: RouteMapLine[]; pins: Array<{ at: [number, number]; color: string }>; size: { width: number; height: number } };
 
 /** The route lines the map route accepts: at most this many points each (a long journey drawn leg by leg can run past it). */

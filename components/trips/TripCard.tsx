@@ -13,7 +13,7 @@ import type { TripStatus } from "@/lib/trip-status";
 import { cn } from "@/lib/utils";
 
 /** "In 12 days", "Underway", "Past", "Planning". The dot only appears for a trip that is happening now. */
-export function StatusBadge({ status, className }: { status: TripStatus; className?: string }) {
+function StatusBadge({ status, className }: { status: TripStatus; className?: string }) {
   return (
     // The wording depends on today's date in the viewer's timezone, so it can differ from the server render.
     <span suppressHydrationWarning className={cn("photo-chip", className)}>

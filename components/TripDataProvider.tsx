@@ -121,9 +121,3 @@ export function useTripData(): TripDataValue {
 export function useTripDataMaybe(): TripDataValue | null {
   return useContext(TripDataContext);
 }
-
-/** Collaborators currently viewing this trip (includes you) — split from `useTripData` so only
- *  the presence UI re-renders when someone joins or leaves. */
-export function useTripPresence(): PresencePeer[] {
-  return useContext(TripPresenceContext);
-}

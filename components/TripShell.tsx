@@ -3,23 +3,18 @@
 import { RoamMark } from "@/features/roam/ui/RoamMark";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useId, useState, type ComponentType, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { useTripPanelMaybe } from "@/components/TripPanelProvider";
 import { motion, useReducedMotion } from "motion/react";
 import {
-  BedDouble,
   CalendarDays,
   Compass,
   LayoutGrid,
-  Map,
-  Users,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
-  Notebook,
   House,
-  Ticket,
   X,
 } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";

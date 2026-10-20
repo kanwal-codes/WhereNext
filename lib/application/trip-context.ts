@@ -251,14 +251,14 @@ export function committedLine(c: CommittedTotals): string {
   return `Money already committed in bookings (flights included, cancelled ones left out, per-person prices multiplied by the people they cover): ${formatMoney(c.convertedTotal, c.currency)} for the whole group${c.perPerson != null ? `, ${formatMoney(c.perPerson, c.currency)} per person` : ""}, converted to ${c.currency} at today's bank reference rate. As priced: ${priced}.${unconverted} Quote these totals as they are; do not add up or convert amounts yourself.`;
 }
 
-export function describeReservation(r: ContextReservation): string {
+function describeReservation(r: ContextReservation): string {
   const route = r.place && r.toPlace ? `${r.place} → ${r.toPlace}` : r.place ?? "";
   const time = r.startTime ? ` ${r.startTime}${r.endTime ? `–${r.endTime}` : ""}` : "";
   return `${r.kind}: ${r.title}${route ? ` (${route})` : ""}, ${reservationDates(r)}${time}${reservationPrice(r) ? `, ${reservationPrice(r)}` : ""}`;
 }
 
 /** What is already booked, as prompt lines. Empty when nothing was entered. */
-export function formatBookings(reservations: ContextReservation[] | undefined, startDate?: string | null, endDate?: string | null, committed?: CommittedTotals | null): string[] {
+function formatBookings(reservations: ContextReservation[] | undefined, startDate?: string | null, endDate?: string | null, committed?: CommittedTotals | null): string[] {
   const live = (reservations ?? []).filter((r) => !r.cancelled);
   const cancelled = (reservations ?? []).filter((r) => r.cancelled);
   const lines: string[] = [];

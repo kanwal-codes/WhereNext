@@ -9,7 +9,7 @@ import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
 import { cachedGet } from "@/lib/client/cached-get";
 import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache";
 import { ESSENTIALS_TOTAL, EssentialsSurface, essentialsDone } from "@/features/essentials/ui/EssentialsSurface";
-import { Reveal, Stagger, StaggerItem, Tactile } from "@/components/motion-primitives";
+import { Reveal, Tactile } from "@/components/motion-primitives";
 import { BookingDetailSheet } from "@/features/bookings/ui/BookingDetailSheet";
 import { GetYourGuideCard } from "@/components/GetYourGuideCard";
 import { ChapterHero } from "@/components/overview/ChapterHero";

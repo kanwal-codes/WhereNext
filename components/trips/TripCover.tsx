@@ -39,7 +39,7 @@ function BoardingPass({ trip, size }: { trip: TripSummary; size: "card" | "featu
  * Empty while the destination lookup is still running (so a saved-place photo is never shown and
  * then swapped for the destination one a moment later) and for a null trip.
  */
-export function useTripPhotoCandidates(trip: TripSummary | null, width?: number): string[] {
+function useTripPhotoCandidates(trip: TripSummary | null, width?: number): string[] {
   const destination = useDestinationPhoto(trip?.id ?? "", trip?.destination ?? undefined, trip?.hero_photo_name);
   const saved = trip?.saved_photo_name ? (photoProxyUrl(trip.id, trip.saved_photo_name, width) ?? null) : null;
   if (!trip || destination === undefined) return [];

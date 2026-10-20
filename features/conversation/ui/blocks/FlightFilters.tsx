@@ -4,7 +4,7 @@ import React from "react";
 import type { FlightOffer } from "@/components/TripPanelProvider";
 import { ViewControls, type FilterDef } from "./ListControls";
 
-export type FlightSort = "price" | "duration" | "departure";
+type FlightSort = "price" | "duration" | "departure";
 export type FlightView = { sort: FlightSort; nonstop: boolean; changes: boolean; airport: string | null };
 /** Calendar days between take-off and landing as the clock shows them ("+1", "+2"), 0 for the same day. */
 export function arrivalDayOffset(departAt: string, arriveAt: string): number {

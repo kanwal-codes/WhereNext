@@ -23,22 +23,6 @@ export const SUGGESTION_KEYS = [
 ] as const;
 export type SuggestionKey = (typeof SUGGESTION_KEYS)[number];
 
-export const SUGGESTION_LABEL: Record<SuggestionKey, string> = {
-  dates: "Dates",
-  occasion: "Occasion",
-  base_area: "Base neighbourhood",
-  getting_around: "Getting around",
-  arrival: "Arrival",
-  budget: "Budget",
-  group: "Who's travelling",
-  pace: "Pace",
-  interests: "Interests",
-  dietary: "Dietary",
-  travelers: "Travellers",
-  destination: "Destination",
-  trip_length: "Trip length",
-};
-
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 export const suggestionValueSchema = z.object({

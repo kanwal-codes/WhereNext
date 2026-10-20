@@ -8,7 +8,7 @@ export const FIXTURE_ORIGIN = "https://fixtures.invalid";
 
 export type Scene = { label: string; user: string; text: string; blocks?: AssistantBlock[] };
 
-export const place = (i: number, name: string, category: string, photo?: string) => ({
+const place = (i: number, name: string, category: string, photo?: string) => ({
   provider: "google", providerId: `p${i}`, name, category, latitude: 51.5, longitude: -0.1, address: "London", sourceUrl: null,
   rating: 4.4 + (i % 5) / 10, userRatingCount: 1200 * (i + 1), photoUrl: photo, trust: "sourced" as const,
 });

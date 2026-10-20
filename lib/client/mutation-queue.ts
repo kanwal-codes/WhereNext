@@ -61,7 +61,7 @@ export async function mutate(url: string, init: { method: string; body: unknown;
 let flushing = false;
 
 /** Replay every queued mutation in order. Stops on the first network error (still offline). */
-export async function flushMutations(): Promise<void> {
+async function flushMutations(): Promise<void> {
   if (flushing || (typeof navigator !== "undefined" && !navigator.onLine)) return;
   flushing = true;
   try {

@@ -4,9 +4,7 @@ import { stayItemSchema, stayRoomSchema } from "./stay";
 import { preferenceUpdateSchema } from "./preferences";
 import { boundedRecord } from "./shared";
 export type { StayCardItem } from "./stay";
-export const assistantSurfaceSchema = z.enum(["chat","explore","transport","stay","map","days","budget","essentials"]);
-export const assistantIntentSchema = z.object({ reply: z.string().min(1).max(20000), surface: assistantSurfaceSchema, reason: z.string().max(240) });
-export type AssistantIntent = z.infer<typeof assistantIntentSchema>;
+const assistantSurfaceSchema = z.enum(["chat","explore","transport","stay","map","days","budget","essentials"]);
 export const proposedCommandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("update_preferences"), tripId: z.string().uuid(), preferences: preferenceUpdateSchema }),
   z.object({ type: z.literal("record_decision"), tripId: z.string().uuid(), kind: z.string().min(1).max(80), value: boundedRecord(), idempotencyKey: z.string().min(1).max(120).optional() }),
@@ -14,11 +12,10 @@ export const proposedCommandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("save_place"), tripId: z.string().uuid(), place: placeSchema }),
 ]);
 export type ProposedCommand = z.infer<typeof proposedCommandSchema>;
-export const assistantResultSchema = assistantIntentSchema.extend({ proposedCommand: proposedCommandSchema.optional(), requiresConfirmation: z.boolean().default(false) });
 
 // --- Structured turn (Phase 2) ---------------------------------------------
 
-export const trustLabelSchema = z.enum(["verified", "sourced", "estimated", "assumption", "unavailable"]);
+const trustLabelSchema = z.enum(["verified", "sourced", "estimated", "assumption", "unavailable"]);
 export type TrustLabel = z.infer<typeof trustLabelSchema>;
 
 const followupSchema = z.object({ label: z.string().trim().min(1).max(80), prompt: z.string().trim().min(1).max(400) });
@@ -305,7 +302,7 @@ export const assistantBlockSchema = z.discriminatedUnion("type", [
 ]);
 export type AssistantBlock = z.infer<typeof assistantBlockSchema>;
 
-export const assistantSourceSchema = z.object({
+const assistantSourceSchema = z.object({
   title: z.string().max(200),
   url: httpUrl,
   retrievedAt: z.string().optional(),
@@ -341,7 +338,7 @@ export const assistantTurnSchema = z.object({
    *  touching the prose. */
   unverified: z.boolean().optional(),
 });
-export type AssistantTurn = z.infer<typeof assistantTurnSchema>;
+type AssistantTurn = z.infer<typeof assistantTurnSchema>;
 /** The metadata frame persisted on a conversation_messages row and streamed as the final SSE event. */
 export type AssistantTurnMeta = Omit<AssistantTurn, "reply">;
 export const assistantSystemPrompt = `You are Roam, a trip-planning assistant that helps someone plan a personalized trip through conversation.

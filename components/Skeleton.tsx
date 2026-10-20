@@ -38,18 +38,8 @@ export function SkeletonCard({ className }: { className?: string }) {
   );
 }
 
-export function SkeletonCards({ count = 3, className, cardClassName }: { count?: number; className?: string; cardClassName?: string }) {
-  return (
-    <div className={cn("grid gap-3 sm:grid-cols-2 xl:grid-cols-3", className)}>
-      {Array.from({ length: count }).map((_, i) => (
-        <SkeletonCard key={i} className={cardClassName} />
-      ))}
-    </div>
-  );
-}
-
 /** A phone list row while it loads: the 96×120 photo, a label, a two-line name, the thin accent, a facts line and an address, and the two round controls. Same height as the real row (144px). */
-export function SkeletonRow({ className }: { className?: string }) {
+function SkeletonRow({ className }: { className?: string }) {
   return (
     <div aria-hidden="true" className={cn("flex gap-4 rounded-4xl bg-card p-3 pr-3.5 shadow-float ring-1 ring-black/[0.05]", className)}>
       <div className={cn(pulse, "h-[7.5rem] w-24 shrink-0 rounded-2xl")} />

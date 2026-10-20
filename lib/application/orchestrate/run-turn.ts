@@ -51,7 +51,7 @@ import { AI_DEADLINE_MS, withDeadline } from "@/packages/ai/model-policy";
  * ready — the buffered group-chat caller can just await them immediately after its own compose call.
  */
 
-export function surfaceForIntent(intent: ResolvedTurn["intent"]): AssistantTurnMeta["surface"] {
+function surfaceForIntent(intent: ResolvedTurn["intent"]): AssistantTurnMeta["surface"] {
   if (["discovery", "nightlife", "food", "activities", "history_culture", "compare"].includes(intent)) return "explore";
   if (intent === "stays") return "stay";
   if (intent === "transport") return "transport";

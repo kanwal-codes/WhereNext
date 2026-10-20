@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CityChips } from "@/components/CityChips";
 import { useTripCity } from "@/lib/client/use-trip-city";
 import { stayWindow } from "@/lib/trip-stops";
@@ -8,11 +8,10 @@ import { useTripStays } from "@/features/stays/application/useTripStays";
 import { useRouter } from "next/navigation";
 import { SwapView } from "@/components/SwapView";
 import { StayResultCard } from "@/features/stays/ui/StayResultCard";
-import { BedDouble, ChevronDown, Loader2, MapPin, Minus, Plus, SlidersHorizontal, Star, X } from "lucide-react";
+import { BedDouble, ChevronDown, MapPin, Minus, Plus, SlidersHorizontal, Star, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { AiSearchBar } from "@/components/AiSearchBar";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
-import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { readStayDecision, type StayFacets, type StayOption } from "@/packages/contracts/stay";
 import { SkeletonList } from "@/components/Skeleton";
 import { EmptyState } from "@/components/EmptyState";
@@ -209,12 +208,6 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
     subtitle: [o.stars ? `${o.stars}★` : null, o.boardName].filter(Boolean).join(" · ") || undefined,
     attrs: { price: `${money(o.nightlyAmount)}/night`, priceValue: o.nightlyAmount, rating: typeof o.rating === "number" && o.rating > 0 ? `${o.rating.toFixed(1)}/10` : undefined, ratingValue: typeof o.rating === "number" && o.rating > 0 ? o.rating : undefined, lat: o.latitude ?? undefined, lng: o.longitude ?? undefined, detail: [o.stars ? `${o.stars}-star` : null, o.boardName, o.refundable ? "free cancellation" : null].filter(Boolean).join(", ") || "Hotel" },
   });
-  const openStay = (o: StayOption) => (e: MouseEvent) => {
-    if (!panelCtx || e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
-    e.preventDefault();
-    if (panelCtx.compareMode) { panelCtx.compareToggle(stayEntry(o)); return; }
-    panelCtx.openPanel({ kind: "stay", hotelId: o.hotelId, name: o.name, checkin: result?.checkin ?? checkin, checkout: result?.checkout ?? checkout });
-  };
   const money = (n: number) => formatMoney(n, result?.currency ?? "CAD");
   const facets = result?.facets;
   const toggle = (list: string[], v: string, set: (l: string[]) => void) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);

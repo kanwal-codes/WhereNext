@@ -3,7 +3,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { loadTripWorkspace, type TripWorkspaceData } from "@/features/workspace/application/loadTripWorkspace";
 import { invalidate } from "@/lib/server/ttl-cache";
 
-export const workspaceTag = (tripId: string) => `trip-workspace:${tripId}`;
+const workspaceTag = (tripId: string) => `trip-workspace:${tripId}`;
 
 // The trip's workspace snapshot is identical for every member, so it's cached across requests
 // and busted by the `revalidateTag(workspaceTag(id))` mutation routes fire. Uses the service

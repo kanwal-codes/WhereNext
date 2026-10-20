@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { BookOpen, ChevronRight, Ellipsis, PanelRight, PanelRightClose, PanelRightOpen, Users, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
-import { useTripPanel, panelSubjectKey, panelTitle, type EventSeed } from "@/components/TripPanelProvider";
+import { useTripPanel, panelTitle, type EventSeed } from "@/components/TripPanelProvider";
 import { TripPanel } from "@/components/TripPanel";
 import { GroupMembersBadge } from "@/components/GroupMembersBadge";
 import { Reveal, Sheet, motionTokens } from "@/components/motion-primitives";
@@ -23,8 +23,6 @@ import type { Trip } from "@/features/trip/domain/trip";
 import { cn } from "@/lib/utils";
 import { controlGhost } from "@/features/conversation/ui/blocks/ui";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
-
-const spring = motionTokens.fast;
 // Same curve as `motionTokens.swap` (the panel's own crossfade), derived rather than copied so
 // the two can't drift apart again — they used to both run 420ms; shortening the crossfade alone
 // left the column width still resizing for 180ms after the content had already finished fading
@@ -131,7 +129,6 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   // previous one, with no extra code needed. If that internal behavior is ever removed, this
   // shell's tab switch will start leaking a stale panel across tabs.
   const { panel, openPanel, closePanel } = useTripPanel();
-  const panelOpen = Boolean(panel);
 
   const showContext = desktop && !panel && !contextCollapsed;
   // Collapsed context doesn't drop to 0 — it stays a slim rail (mirrors TripShell's sidebar

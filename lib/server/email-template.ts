@@ -6,9 +6,9 @@ import { escapeHtml } from "./email";
  * clients. Same category as lib/map-colors.ts's hex twins for Mapbox. Computed once from the
  * actual --foreground/--surface/--border/--muted-foreground oklch values, not eyeballed.
  */
-export const EMAIL_INK = "#1b1611";
-export const EMAIL_SURFACE = "#faf9f7";
-export const EMAIL_HAIRLINE = "#e8e6e2";
+const EMAIL_INK = "#1b1611";
+const EMAIL_SURFACE = "#faf9f7";
+const EMAIL_HAIRLINE = "#e8e6e2";
 export const EMAIL_MUTED = "#8f897f";
 const FONT_STACK = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 

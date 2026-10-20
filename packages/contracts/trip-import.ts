@@ -12,4 +12,3 @@ export const tripImportResultSchema = z.object({
   })).max(30).default([]),
   notes: z.array(z.string().trim().min(1).max(400)).max(20).default([]),
 });
-export type TripImportResult = z.infer<typeof tripImportResultSchema>;

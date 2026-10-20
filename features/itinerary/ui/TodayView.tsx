@@ -5,7 +5,6 @@ import Link from "next/link";
 import { ArrowUpRight, BedDouble, CalendarX, Check, CloudOff, Compass, Navigation } from "lucide-react";
 import { stopGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { useMediaQuery } from "@/lib/use-media-query";
-import { cn } from "@/lib/utils";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion-primitives";
 import { EmptyState } from "@/components/EmptyState";
@@ -106,7 +105,6 @@ export function TodayView({ tripId }: { tripId: string }) {
     const nextLat = Number(next?.metadata?.latitude);
     const nextLng = Number(next?.metadata?.longitude);
     const navHref = Number.isFinite(nextLat) && Number.isFinite(nextLng) && (nextLat !== 0 || nextLng !== 0) ? `https://www.google.com/maps/dir/?api=1&destination=${nextLat},${nextLng}` : null;
-    const Glyph = next ? stopGlyph(undefined, next.title) : null;
     return (
       <div className="px-5 pt-2 pb-16">
         <div className="flex items-center justify-between gap-3">

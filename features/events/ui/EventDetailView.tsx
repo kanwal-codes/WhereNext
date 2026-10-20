@@ -88,7 +88,6 @@ function AddEventButton({ tripId, title, rawDate, showTime, latitude, longitude,
   block?: boolean;
 }) {
   const data = useTripDataMaybe()?.data ?? null;
-  const itinerary = (data?.itinerary ?? []) as Array<{ title?: string }>;
   const tripStartDate = (data?.trip as { start_date?: string | null } | null)?.start_date;
   const existing = (data?.itinerary ?? []).find((i: { title?: string }) => i.title?.trim().toLowerCase() === title.trim().toLowerCase()) as { day_index?: number } | undefined;
   const alreadyAdded = Boolean(existing);

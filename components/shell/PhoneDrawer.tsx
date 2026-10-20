@@ -13,8 +13,6 @@ import { NAV, PHONE_LABEL, PHONE_NAV_GROUPS } from "@/components/shell/trip-nav"
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { daysUntilTrip } from "@/lib/trip-dates";
-import { memberInitials } from "@/lib/member-initials";
-import { cn } from "@/lib/utils";
 import type { ShellTrip } from "@/components/TripShell";
 
 function rangeLabel(start?: string | null, end?: string | null): string | null {
@@ -34,7 +32,6 @@ export function PhoneDrawer({ open, onClose, tripId, pathname, trip, unread = 0 
   const until = daysUntilTrip(live?.start_date);
   const status = until == null ? null : until > 1 ? `${until} days to go` : until === 1 ? "Tomorrow" : until === 0 ? "Starts today" : null;
   const sub = [trip.travellers, rangeLabel(live?.start_date, live?.end_date)].filter(Boolean).join(" · ");
-  const me = data?.me?.name;
 
   // Every row is a link, and a link prefetches the moment it is on screen: opening the menu fired nine server requests in the middle of
   // its own slide-in. They wait for the slide to finish (still ready before a tap lands), and a row already prefetched costs nothing.

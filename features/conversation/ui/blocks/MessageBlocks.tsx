@@ -13,7 +13,6 @@ import {
   CalendarPlus,
   Car,
   Check,
-  Clock,
   Cloud,
   CloudRain,
   CloudSnow,
@@ -29,7 +28,6 @@ import {
   MapPin,
   Shirt,
   Snowflake,
-  Star,
   Sun,
   TrainFront,
   Umbrella,
@@ -44,13 +42,11 @@ import type { EventSeed } from "@/components/TripPanelProvider";
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
 import { EventCard, type NearbyEvent } from "@/components/EventCard";
 import { CompareView } from "@/components/CompareView";
-import { BlurImage } from "@/components/motion-primitives";
 import { cn, safeHref } from "@/lib/utils";
 import { notifyToast } from "@/lib/application/toast";
-import { formatClockTime } from "@/lib/application/clock-time";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { addStopsToItinerary, dayIndexFromLabel, itineraryTitle } from "@/features/conversation/application/addPlanToItinerary";
-import { categoryLabel, eventDayParts, photoProxyUrl, priceLabel } from "@/lib/places-ui";
+import { categoryLabel, eventDayParts, photoProxyUrl } from "@/lib/places-ui";
 import { CINE_ORB, CINE_ORB_WHITE, CINE_PILL_ACTION, CineAddress, CineCard, CineDate, CinePill, CineRating, PlaceFloatingPills } from "./CineCard";
 import { prefetchStayDetails } from "@/features/stays/application/useStayDetails";
 import { RouteMap, type RouteMapRequest } from "./RouteMap";
@@ -78,10 +74,10 @@ import { shiftIso } from "./SearchBarParts";
 import { StayCardsSkeleton, StaySearchBar, useStaySearch } from "./StaySearch";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { resolveCurrency } from "@/lib/currency";
-import { HoldHeight, ScrollX, ViewControls } from "./ListControls";
+import { HoldHeight, ViewControls } from "./ListControls";
 import { DEFAULT_EVENT_VIEW, DEFAULT_STAY_VIEW, applyEventView, applyStayView, eventControls, stayControls, type EventView, type StayView } from "./listViews";
 import { factGlyph, placeGlyph } from "./glyphs";
-import { Badge, segmentTab, CARD_W, cardWidth, CardOpenOverlay, Meta, Notice, SectionHeader, SeeAllButton, compactCount, controlSecondary, grid, money, prettyDate, prettyDates, rail, surface, textAction, type, MapButton } from "./ui";
+import { Badge, CARD_W, cardWidth, CardOpenOverlay, Meta, Notice, SectionHeader, SeeAllButton, compactCount, controlSecondary, grid, money, prettyDate, prettyDates, rail, surface, textAction, type, MapButton } from "./ui";
 
 export type BlockHandlers = {
   /** The trip these blocks belong to — card actions write against it. */
@@ -958,7 +954,6 @@ function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, onOpenPan
 
   const dayIndex = Math.min(active, block.days.length - 1);
   const mapPoints = pointsFromItinerary(block);
-  const timedStops = day.stops.length;
   return (
     <Widget
       glyph="plan"

@@ -16,7 +16,7 @@ export function shiftWhen(when: When | null, minutes: number, now = new Date()):
 }
 
 /** "Mon, Oct 6 · 9:00 AM" */
-export function formatWhen(when: Pick<When, "date" | "time">, locale?: string): string {
+function formatWhen(when: Pick<When, "date" | "time">, locale?: string): string {
   const d = fromWhen(when);
   if (Number.isNaN(d.getTime())) return "";
   return `${d.toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" })} · ${d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" })}`;

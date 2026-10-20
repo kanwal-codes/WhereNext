@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
-import { runWithContext, setContext } from "@/lib/server/request-context";
+import { runWithContext } from "@/lib/server/request-context";
 import { logger } from "@/lib/server/logger";
 
 type RouteParams = Record<string, string | string[] | undefined>;
@@ -93,9 +93,4 @@ export function jsonRevalidated(request: Request, data: unknown): Response {
   const headers = { etag, "cache-control": "private, no-cache" };
   if (request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers });
   return new Response(body, { headers: { ...headers, "content-type": "application/json" } });
-}
-
-/** Attach identity to the live request context once auth resolves (called from requireTripMember paths as needed). */
-export function tagContext(partial: { tripId?: string; userId?: string }): void {
-  setContext(partial);
 }

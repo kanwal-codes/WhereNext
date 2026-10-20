@@ -6,8 +6,6 @@ import { CalendarClock, ChevronDown, Minus, Plus, Users } from "lucide-react";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { cn } from "@/lib/utils";
 import { shiftWhen, todayLocal, whenLabel, type When } from "@/lib/application/travel-time";
-
-const field = "h-11 w-full min-w-0 rounded-xl bg-card px-3 text-sm text-foreground ring-1 ring-border outline-none transition-shadow focus:ring-2 focus:ring-ink/80 [color-scheme:light]";
 const chip = "inline-flex h-9 items-center gap-1.5 rounded-full bg-card px-3.5 text-sm font-medium ring-1 ring-border transition-[background-color,transform] hover:bg-accent/40 active:scale-[0.97]";
 
 /**

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /** One Duffel passenger record — must match a passenger id from the searched offer. */
-export const passengerSchema = z.object({
+const passengerSchema = z.object({
   id: z.string().min(1).max(60),
   title: z.enum(["mr", "mrs", "ms", "miss", "dr"]),
   givenName: z.string().min(1).max(60),
@@ -11,16 +11,14 @@ export const passengerSchema = z.object({
   email: z.string().email().max(160),
   phoneNumber: z.string().min(1).max(30),
 });
-export type Passenger = z.infer<typeof passengerSchema>;
 
 /** One LiteAPI guest — occupancyNumber ties them to a specific room-occupancy slot. */
-export const guestSchema = z.object({
+const guestSchema = z.object({
   firstName: z.string().min(1).max(60),
   lastName: z.string().min(1).max(60),
   email: z.string().email().max(160),
   occupancyNumber: z.number().int().positive(),
 });
-export type Guest = z.infer<typeof guestSchema>;
 
 export const bookFlightInput = z.object({
   offerId: z.string().min(1).max(120),
@@ -29,7 +27,6 @@ export const bookFlightInput = z.object({
   // (so two distinct booking attempts on the same offer don't collide), plus headroom.
   idempotencyKey: z.string().min(1).max(200),
 });
-export type BookFlightInput = z.infer<typeof bookFlightInput>;
 
 export const bookStayInput = z.object({
   offerId: z.string().min(1).max(4000),
@@ -38,7 +35,6 @@ export const bookStayInput = z.object({
   // derived from one (`stay:${offerId}`), so this needs far more headroom than the flight key.
   idempotencyKey: z.string().min(1).max(4100),
 });
-export type BookStayInput = z.infer<typeof bookStayInput>;
 
 export type Booking = {
   id: string;

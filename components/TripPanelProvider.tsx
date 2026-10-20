@@ -2,12 +2,11 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 
-export const COMPARE_MAX = 4;
+const COMPARE_MAX = 4;
 
-export type CompareKind = "place" | "stay" | "event" | "route";
+type CompareKind = "place" | "stay" | "event" | "route";
 
 /** A snapshot of something to compare — captured at select time so the panel never re-fetches. */
 export type CompareEntry = {
@@ -66,7 +65,7 @@ export type RouteBlock = Extract<AssistantBlock, { type: "route_summary" }>;
 export type WeatherBlock = Extract<AssistantBlock, { type: "weather" }>;
 export type ChecklistListBlock = Extract<AssistantBlock, { type: "checklist" }>;
 /** One neighbourhood or day trip from an "options" card. */
-export type OptionItem = Extract<AssistantBlock, { type: "options" }>["items"][number];
+type OptionItem = Extract<AssistantBlock, { type: "options" }>["items"][number];
 
 /** The panels a chat card opens with its own data (no fetch), as opposed to the ones that load by id. */
 export type CardPanel = Extract<PanelState, { kind: "flight" | "day" | "budget" | "map" | "route" | "area" | "weather" | "checklist" }>;
@@ -276,33 +275,4 @@ export function useTripPanel(): Ctx {
   const ctx = useContext(TripPanelCtx);
   if (!ctx) throw new Error("useTripPanel must be used inside <TripPanelProvider>");
   return ctx;
-}
-
-/** Drop-in "add to comparison" toggle for any card. Renders nothing outside a TripPanelProvider. */
-export function CompareButton({ entry, className }: { entry: CompareEntry; className?: string }) {
-  const ctx = useTripPanelMaybe();
-  if (!ctx) return null;
-  const on = ctx.compareHas(entry.id);
-  const full = !on && ctx.compareList.length >= COMPARE_MAX;
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      disabled={full}
-      title={full ? `Comparing ${COMPARE_MAX} already` : on ? "Remove from compare" : "Add to compare"}
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        ctx.compareToggle(entry);
-      }}
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-medium transition-colors",
-        on ? "border-coral-ink bg-coral-soft text-coral-ink" : "border-border bg-background/90 text-muted-foreground hover:text-foreground",
-        full && "cursor-not-allowed opacity-40",
-        className,
-      )}
-    >
-      {on ? "Comparing" : "Compare"}
-    </button>
-  );
 }

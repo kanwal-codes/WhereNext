@@ -6,14 +6,12 @@ export const createPollInput = z.object({
   question: z.string().trim().min(1).max(200),
   options: z.array(z.string().trim().min(1).max(80)).min(2).max(6),
 });
-export type CreatePollInput = z.infer<typeof createPollInput>;
 
 export const castVoteInput = z.object({
   optionKey: z.string().trim().min(1).max(40),
 });
-export type CastVoteInput = z.infer<typeof castVoteInput>;
 
-export type PollOption = { key: string; label: string; count: number; mine: boolean };
+type PollOption = { key: string; label: string; count: number; mine: boolean };
 
 export type Poll = {
   id: string;

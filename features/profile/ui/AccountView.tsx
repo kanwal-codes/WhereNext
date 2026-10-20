@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type ReactNode } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { BadgeCheck, Camera, Check, ChevronRight, Copy, Download, Eye, Link2, Loader2, MapPin, Plane, Compass, Trash2 } from "lucide-react";
@@ -15,7 +14,7 @@ import { PHONE_V2 } from "@/lib/phone-v2";
 import { haptic } from "@/lib/haptics";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
-import { COUNTRIES, LANGUAGES, countriesByName, countryFromPlace, displayName, fromBrowserLocale } from "@/lib/locales";
+import { LANGUAGES, countriesByName, countryFromPlace, displayName, fromBrowserLocale } from "@/lib/locales";
 import { updateName, updateEmail, updatePassword, disconnectGoogle, signInWithGoogle, signOut as signOutUser, uploadAvatar } from "@/features/identity/application/authClient";
 import type { TravelerProfile } from "@/packages/contracts/profile";
 import { memberInitials } from "@/lib/member-initials";

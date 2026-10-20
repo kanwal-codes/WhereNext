@@ -33,7 +33,7 @@ export async function createTripViaForm(page: Page, t: TripFormInput): Promise<s
 export type ConvoMessage = { role: string; content: string; metadata?: Record<string, unknown> };
 
 /** Fetch the trip conversation from inside the browser (auth cookie in scope). */
-export async function conversation(page: Page, tripId: string): Promise<ConvoMessage[]> {
+async function conversation(page: Page, tripId: string): Promise<ConvoMessage[]> {
   const response = await page.request.get(`/api/trips/${tripId}/conversation`);
   return response.ok() ? ((await response.json()).messages ?? []) : [];
 }

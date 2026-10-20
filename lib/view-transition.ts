@@ -12,7 +12,7 @@
 type Router = { push: (href: string) => void };
 type Doc = Document & { startViewTransition?: (update: () => Promise<void>) => { finished: Promise<void> } };
 
-export const COVER_VT = "trip-cover";
+const COVER_VT = "trip-cover";
 // Keep the shared-element implementation available for a future pass, but do not make trip
 // navigation wait on the destination hero. A slow photo or route render must never delay opening a trip.
 const ENABLE_SHARED_ELEMENT_TRANSITION = false;

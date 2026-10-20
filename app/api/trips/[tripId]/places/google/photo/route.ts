@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail } from "@/lib/server/with-route";
 import { LIMITS } from "@/lib/server/limits";

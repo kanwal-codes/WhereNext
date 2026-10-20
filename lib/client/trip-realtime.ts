@@ -79,7 +79,7 @@ export function reconnectDelayMs(attempt: number): number {
 /** Tables whose changes drive the group chat (messages, polls, the member list). */
 export const CHAT_TABLES = ["group_messages", "trip_polls", "trip_poll_votes", "trip_members"] as const;
 
-export type RealtimeGroup = { topic: string; tables: string[]; presence: boolean };
+type RealtimeGroup = { topic: string; tables: string[]; presence: boolean };
 
 /**
  * The channels a trip subscribes to. They are split on purpose: Supabase validates every
@@ -88,7 +88,7 @@ export type RealtimeGroup = { topic: string; tables: string[]; presence: boolean
  * a single channel that took the group chat down with it — a collaborator's message only appeared after a
  * manual reload. The chat now has its own channel, so an unrelated table can no longer silence it.
  */
-export function realtimeGroups(tripId: string): RealtimeGroup[] {
+function realtimeGroups(tripId: string): RealtimeGroup[] {
   const chat = new Set<string>(CHAT_TABLES);
   return [
     { topic: `trip:${tripId}:chat`, tables: [...CHAT_TABLES], presence: false },

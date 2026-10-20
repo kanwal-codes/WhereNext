@@ -7,7 +7,7 @@ export type AiSearchScope = "stays" | "discover" | "getting-around";
 export const DISCOVER_CATEGORY_KEYS = ["eat", "nightlife", "sights", "outdoors", "activities", "events", "shopping", "stays"] as const;
 
 /** What the parser is allowed to emit — every field optional, bad values dropped. */
-export const aiSearchDirectiveSchema = z.object({
+const aiSearchDirectiveSchema = z.object({
   interpretation: z.string().max(200).optional().catch(undefined),
   location: z.string().max(120).optional().catch(undefined),
   from: z.string().max(120).optional().catch(undefined),

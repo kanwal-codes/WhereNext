@@ -225,7 +225,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tri
     }
 
     // --- COMPOSE (buffered, bounded tool-calling loop) ------------------------
-    const { composeSkipIsLeadIn, system, composeSkipLine, composeTools, toolEvidence, allowedUrls, toolPlan, evidenceUnavailableProviders, cardPlaceProviderIds, sideBuilders, resolved } = result;
+    const { composeSkipIsLeadIn, system, composeSkipLine, composeTools, toolEvidence, allowedUrls, toolPlan, evidenceUnavailableProviders, sideBuilders, resolved } = result;
     const tCompose = performance.now();
     let composedModel: string | undefined;
     let composeUsage: { inputTokens?: number; outputTokens?: number } | undefined;

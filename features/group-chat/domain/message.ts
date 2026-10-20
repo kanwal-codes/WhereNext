@@ -10,9 +10,8 @@ export const groupMessageInput = z.object({
   shareCard: boundedRecord().optional(),
   idempotencyKey: z.string().min(1).max(120).optional(),
 });
-export type GroupMessageInput = z.infer<typeof groupMessageInput>;
 
-export type GroupMessageRole = "user" | "assistant" | "system";
+type GroupMessageRole = "user" | "assistant" | "system";
 export type GroupMessageKind = "text" | "content_share" | "expense" | "system" | "poll";
 
 export type GroupMessageReaction = { emoji: string; count: number; mine: boolean };
@@ -31,7 +30,7 @@ export type GroupMessage = {
 };
 
 /** `@Roam` mentioned anywhere in the message — literal match, no NLP needed. */
-export const ROAM_MENTION = /(^|\s)@roam\b/i;
+const ROAM_MENTION = /(^|\s)@roam\b/i;
 export function mentionsRoam(content: string): boolean {
   return ROAM_MENTION.test(content);
 }
@@ -66,7 +65,7 @@ export function completeRoamMention(previous: string, next: string): string {
 }
 
 /** An @Roam ask with no reply yet counts as "being answered" for this long, then as one Roam did not answer. */
-export const ROAM_WAIT_MS = 120_000;
+const ROAM_WAIT_MS = 120_000;
 /** A missed ask keeps its "Retry" for this long; older ones are history. */
 const ROAM_RETRY_WINDOW_MS = 24 * 60 * 60_000;
 

@@ -9,7 +9,7 @@ import type { StayDetails, StayFacets, StayNearbyPlace, StayOption, StayPriceRea
  *
  * A hotel's id in this app is `g:` plus Google's property token, so the stay routes can tell these from LiteAPI's.
  */
-export const GOOGLE_STAY_PREFIX = "g:";
+const GOOGLE_STAY_PREFIX = "g:";
 export const isGoogleStayId = (id: string) => id.startsWith(GOOGLE_STAY_PREFIX);
 
 const API = "https://serpapi.com/search.json";
@@ -35,7 +35,7 @@ type RawProperty = {
 };
 type RawPrice = { source?: string; logo?: string; link?: string; rate_per_night?: Money; total_rate?: Money; free_cancellation?: boolean; free_cancellation_until_date?: string; official?: boolean };
 
-export const nightsBetween = (checkin: string, checkout: string) => Math.max(1, Math.round((Date.parse(checkout) - Date.parse(checkin)) / 864e5));
+const nightsBetween = (checkin: string, checkout: string) => Math.max(1, Math.round((Date.parse(checkout) - Date.parse(checkin)) / 864e5));
 const titleCase = (s: string) => s.replace(/\b\w/g, (c) => c.toUpperCase());
 const round1 = (n: number) => Math.round(n * 10) / 10;
 /** Google rates out of 5; stays everywhere else in the app (LiteAPI, the cards, the panel) read out of 10. */

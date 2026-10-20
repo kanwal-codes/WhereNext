@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const messageInput = z.object({
+const messageInput = z.object({
   role: z.enum(["user", "assistant"]),
   content: z.string().trim().min(1).max(8000),
   idempotencyKey: z.string().min(1).max(120).optional(),

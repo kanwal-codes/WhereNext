@@ -16,7 +16,7 @@ export function legsOfRoute(route: RouteBlock): MapLeg[] {
 }
 
 /** The whole line of a route, for drawing it quietly behind the chosen one and for putting its time on it. */
-export const pathOfRoute = (route: RouteBlock) => route.path ?? route.legs?.flatMap((l) => l.path) ?? [];
+const pathOfRoute = (route: RouteBlock) => route.path ?? route.legs?.flatMap((l) => l.path) ?? [];
 
 /** Changes and minutes on foot, when the reply carried the journey part by part. */
 export function metricsOf(route: RouteBlock): RouteMetrics | null {

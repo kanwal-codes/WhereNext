@@ -5,7 +5,7 @@ import Link, { useLinkStatus } from "next/link";
 import { SendButton } from "@/components/ComposerButtons";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowLeft, ArrowUpRight, BedDouble, CalendarDays, CalendarRange, Eraser, LayoutGrid, Loader2, Map as MapIcon, MapPin, Route as RouteIcon, Maximize2, Plane, Scale, Send, Wallet, X, CloudSun, ListChecks } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, BedDouble, CalendarDays, CalendarRange, Eraser, LayoutGrid, Loader2, Map as MapIcon, MapPin, Route as RouteIcon, Maximize2, Plane, Scale, Wallet, X, CloudSun, ListChecks } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, panelSubjectKey, panelTitle, type CompareEntry, type PanelState } from "@/components/TripPanelProvider";
 import { PlaceDetailView } from "@/features/places/ui/PlaceDetailView";
