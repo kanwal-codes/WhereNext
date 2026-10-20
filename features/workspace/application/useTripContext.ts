@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { noticeBookingsOutside } from "@/lib/application/bookings-outside-notice";
 import { notifyToast } from "@/lib/application/toast";
@@ -33,6 +33,14 @@ export function useTripContext({ tripId, trip, initialMemory, initialDecisions }
   const [savingKey, setSavingKey] = useState<PrefKey | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+  // The brief highlight on a saved row clears itself; leaving the panel (or a test finishing) must not leave that timer to fire later.
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
+  const flashRow = useCallback((key: string) => {
+    setFlash(key);
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setFlash(null), 1200);
+  }, []);
 
   const [tripDates, setTripDates] = useState({ start: trip?.start_date ?? "", end: trip?.end_date ?? "" });
   const [editingDates, setEditingDates] = useState(false);
@@ -81,8 +89,7 @@ export function useTripContext({ tripId, trip, initialMemory, initialDecisions }
         travelers: body.trip?.travelers ?? (field === "travelers" && value ? Number(value) : prev.travelers),
       }));
       setEditingField(null);
-      setFlash(field);
-      setTimeout(() => setFlash(null), 1200);
+      flashRow(field);
       announceWorkspaceChange("preferences");
     } catch {
       notifyToast("Only the trip owner can change this.", "error");
@@ -120,8 +127,7 @@ export function useTripContext({ tripId, trip, initialMemory, initialDecisions }
       if (!response.ok) throw new Error();
       setMemory((await response.json()).memory ?? {});
       setEditing(null);
-      setFlash(key);
-      setTimeout(() => setFlash(null), 1200);
+      flashRow(key);
       announceWorkspaceChange("preferences");
     } catch {
       notifyToast("Only the trip owner can change this.", "error");
@@ -147,8 +153,7 @@ export function useTripContext({ tripId, trip, initialMemory, initialDecisions }
       noticeBookingsOutside(await response.json().catch(() => null));
       setTripDates({ start: dStart, end: dEnd });
       setEditingDates(false);
-      setFlash("dates");
-      setTimeout(() => setFlash(null), 1200);
+      flashRow("dates");
       announceWorkspaceChange("preferences");
     } catch {
       notifyToast("Those dates didn’t save. Try again.", "error");
@@ -168,8 +173,7 @@ export function useTripContext({ tripId, trip, initialMemory, initialDecisions }
       });
       if (!response.ok) throw new Error();
       if (action === "confirm") {
-        setFlash(`sugg-${key}`);
-        setTimeout(() => setFlash(null), 1200);
+        flashRow(`sugg-${key}`);
         notifyToast("Locked in.", "success");
       }
       await refresh();
