@@ -34,46 +34,13 @@ import { usePlaceDetails } from "@/features/places/application/usePlaceDetails";
 import { useHydrated } from "@/lib/use-media-query";
 import { readPlaceSeed } from "@/features/places/application/placeDetailsCache";
 import { useDocumentTitle } from "@/lib/use-document-title";
-import { amenityChips, askAssistantHref, businessStatusLabel, categoryLabel, cityFrom, detailsToPlace, photoProxyUrl, prettyWebsite, withPhotoWidth, priceLabel, secondaryTypes, type GoogleReview } from "@/lib/places-ui";
-import { Badge, MediaFallback, compactCount, textAction } from "@/features/conversation/ui/blocks/ui";
+import { amenityChips, askAssistantHref, businessStatusLabel, categoryLabel, cityFrom, detailsToPlace, photoProxyUrl, prettyWebsite, withPhotoWidth, priceLabel, secondaryTypes } from "@/lib/places-ui";
+import { Badge, MediaFallback, compactCount } from "@/features/conversation/ui/blocks/ui";
 import { cn } from "@/lib/utils";
 import { PHONE_V2 } from "@/lib/phone-v2";
 import { SaveHeart } from "@/features/trip/ui/SaveHeart";
-
-function ReviewFigure({ r }: { r: GoogleReview }) {
-  const [open, setOpen] = useState(false);
-  const text = r.text?.text || r.originalText?.text || "";
-  const long = text.length > 260;
-  const author = r.authorAttribution?.displayName ?? "Google user";
-  return (
-    <figure className="rounded-2xl border border-border bg-card p-4">
-      <figcaption className="flex items-center gap-3">
-        <span className="daisy-avatar daisy-avatar-placeholder" aria-hidden>
-          <span className="grid size-9 place-items-center rounded-full bg-muted text-sm font-medium text-muted-foreground">{author.charAt(0).toUpperCase()}</span>
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium">{author}</span>
-          <span className="flex items-center gap-2 text-xs text-muted-foreground">
-            {typeof r.rating === "number" && (
-              <span className="inline-flex items-center gap-0.5" role="img" aria-label={`${Math.round(r.rating)} out of 5 stars`}>
-                {Array.from({ length: 5 }).map((_, s) => (
-                  <Star key={s} aria-hidden className={`size-3 ${s < Math.round(r.rating!) ? "fill-current text-coral" : "text-border"}`} />
-                ))}
-              </span>
-            )}
-            {r.relativePublishTimeDescription && <span>{r.relativePublishTimeDescription}</span>}
-          </span>
-        </span>
-      </figcaption>
-      <blockquote className={cn("mt-3 text-sm leading-relaxed text-ink-soft", !open && "line-clamp-5")}>{text}</blockquote>
-      {long && (
-        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className={cn(textAction, "mt-2 underline")}>
-          {open ? "Show less" : "Read more"}
-        </button>
-      )}
-    </figure>
-  );
-}
+import { ReviewFigure } from "@/features/places/ui/PlaceReview";
+import { openNowChip, placeDirectionsUrl, splitHoursLine, telHref, todayHoursOf, todayIndex, usableReviews, wheelchairAccessible } from "@/features/places/domain/place-view";
 
 /**
  * The full place detail — same content and styling everywhere. `variant="page"`
@@ -118,14 +85,13 @@ export function PlaceDetailView({
   const status = businessStatusLabel(details.businessStatus);
   const typeChips = secondaryTypes(details.primaryType, details.types);
   const a11y = details.accessibilityOptions;
-  const wheelchair = Boolean(a11y && (a11y.wheelchairAccessibleEntrance || a11y.wheelchairAccessibleParking || a11y.wheelchairAccessibleRestroom || a11y.wheelchairAccessibleSeating));
-  const reviews = (details.reviews ?? []).filter((r) => r.text?.text || r.originalText?.text).slice(0, 4);
+  const wheelchair = wheelchairAccessible(a11y);
+  const reviews = usableReviews(details.reviews);
   const city = cityFrom(details.formattedAddress);
   const amenities = amenityChips(details);
-  // Google lists Monday first.
-  const todayHours = hours.length ? (hours[(new Date().getDay() + 6) % 7] ?? hours[0]).replace(/^[^:]+:\s*/, "") : null;
+  const todayHours = todayHoursOf(hours);
   const openNow = details.regularOpeningHours?.openNow;
-  const directionsHref = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent([name, details.formattedAddress].filter(Boolean).join(", "))}&destination_place_id=${encodeURIComponent(placeId)}`;
+  const directionsHref = placeDirectionsUrl(name, details.formattedAddress, placeId);
 
   const place = detailsToPlace(details);
   // The one action, up top. No card wrapper — it's a button, not a module.
@@ -164,12 +130,12 @@ export function PlaceDetailView({
                   </summary>
                   <dl className="grid grid-cols-[6.5rem_1fr] gap-x-3 gap-y-1.5 pb-3 pl-7 text-sm text-muted-foreground">
                     {hours.map((h, i) => {
-                      const [day, ...rest] = h.split(": ");
-                      const today = i === (new Date().getDay() + 6) % 7;
+                      const [day, hoursText] = splitHoursLine(h);
+                      const today = i === todayIndex();
                       return (
                         <div key={h} className={cn("col-span-2 grid grid-cols-subgrid tabular-nums", today && "font-medium text-foreground")}>
                           <dt>{day}</dt>
-                          <dd>{rest.join(": ")}</dd>
+                          <dd>{hoursText}</dd>
                         </div>
                       );
                     })}
@@ -178,7 +144,7 @@ export function PlaceDetailView({
               </li>
             )}
             {details.nationalPhoneNumber && (
-              <InfoRow icon={Phone} href={`tel:${details.nationalPhoneNumber.replace(/\s/g, "")}`}>
+              <InfoRow icon={Phone} href={telHref(details.nationalPhoneNumber)}>
                 {details.nationalPhoneNumber}
               </InfoRow>
             )}
@@ -219,7 +185,7 @@ export function PlaceDetailView({
             variant="bar"
             actions={[
               { icon: Navigation, label: "Directions", href: directionsHref, external: true, hint: "Google Maps" },
-              details.nationalPhoneNumber && { icon: Phone, label: "Call", href: `tel:${details.nationalPhoneNumber.replace(/\s/g, "")}`, hint: details.nationalPhoneNumber },
+              details.nationalPhoneNumber && { icon: Phone, label: "Call", href: telHref(details.nationalPhoneNumber), hint: details.nationalPhoneNumber },
               details.websiteUri && { icon: Globe, label: "Website", href: details.websiteUri, external: true, hint: prettyWebsite(details.websiteUri).split("/")[0] },
             ]}
           />
@@ -390,7 +356,7 @@ export function PlaceDetailView({
                     {typeof openNow === "boolean" && (
                       <span className={cn("inline-flex h-9 items-center gap-1.5 rounded-full bg-secondary px-3.5 text-sm font-medium", openNow ? "text-foreground" : "text-ink-soft")}>
                         <Clock className={cn("size-4", openNow ? "text-positive" : "text-muted-foreground")} aria-hidden />
-                        {openNow ? `Open${todayHours?.includes("–") ? ` until ${todayHours.split("–").pop()?.trim()}` : " now"}` : "Closed now"}
+                        {openNowChip(openNow, todayHours)}
                       </span>
                     )}
                   </p>
