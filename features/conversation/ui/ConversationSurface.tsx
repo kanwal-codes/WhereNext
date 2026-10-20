@@ -1,23 +1,17 @@
 "use client";
 
-import React, { FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import { ArrowDown, ChevronRight, Info } from "lucide-react";
-import { MicButton, SendButton } from "@/components/ComposerButtons";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence } from "motion/react";
 import { PHONE_V2 } from "@/lib/phone-v2";
-import { Reveal, Stagger, StaggerItem, ease, motionTokens } from "@/components/motion-primitives";
 import type { AssistantBlock, AssistantTurnMeta, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { EventSeed } from "@/components/TripPanelProvider";
 import { notifyToast } from "@/lib/application/toast";
 import { useSpeechInput } from "@/lib/use-speech-input";
-import { useAutoGrowTextarea } from "@/lib/use-autogrow-textarea";
 import { useKeepScrollGap } from "@/lib/use-keep-scroll-gap";
-import { AssistantMessage, type BlockHandlers } from "./AssistantMessage";
+import { type BlockHandlers } from "./AssistantMessage";
 import { proposalQuestion } from "../domain/proposal";
-import { replyNotes } from "../domain/replyNotes";
 import { unansweredMessage } from "../domain/sendOutcome";
 import type { CardPanel } from "@/components/TripPanelProvider";
-import { CopyButton, controlSecondary, textAction } from "./blocks/ui";
 import { useSendMessage } from "../application/useSendMessage";
 import { useLogScroll } from "../application/useLogScroll";
 import { useProposal } from "../application/useProposal";
@@ -26,111 +20,18 @@ import { GuestSavePrompt } from "@/features/identity/ui/GuestSavePrompt";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { GUEST_TURN_LIMIT } from "@/lib/guest-limits";
 import { cn } from "@/lib/utils";
-import { RoamMark } from "@/features/roam/ui/RoamMark";
+import { Typing, TurnOutcome } from "./ConversationStatus";
+import { ConversationHero } from "./ConversationHero";
+import { ProposalCard } from "./ProposalCard";
+import { ReplyTurn, UserTurn } from "./ConversationTurns";
+import { RoamComposer } from "./RoamComposer";
 import { describeProposal } from "../domain/proposal";
-import { hostOf } from "../domain/replyNotes";
 
 const RTL = new Set(["ar", "he", "fa", "ur", "ps", "sd"]);
 
-// Phase 2.6.2 (docs/overhaul/roadmap/phase-2-speed.md): the first three labels now track real
-// backend milestones (RESOLVE started / RETRIEVE started / COMPOSE started — see `progressStage`,
-// driven by streamAssistantResponse's `onProgress`), not a fixed-timer guess. The last two stay
-// timer-driven: once COMPOSE starts there's no finer server-side signal until its first token
-// arrives, so these are a fallback ceiling for a turn that's still genuinely slow at that point —
-// `Math.max` in `Typing` below means they only ever ADVANCE the label past wherever the real
-// stage already put it, never regress it back to a stale-sounding one.
-// index 1 ("Looking into it…") is itself a fallback now — `Typing` swaps it for
-// `progressLabel` ("Finding places…", "Plotting the route…") whenever RESOLVE planned a tool
-// this session recognizes, so the wait names what's actually happening instead of staying generic.
-// Roam's voice while it works: a travel companion thinking out loud. Short, concrete, no jargon
-// ("live sources"), and never a promise it might not keep ("Almost there" on a slow turn is a small
-// lie). The long-wait line is honest instead of apologetic.
-const THINKING_STATES = [
-  "Thinking it through…",
-  "Looking into it…",
-  "Putting it together…",
-  "Still on it…",
-  "This one’s taking a little longer…",
-];
 
-const TYPING_MARK = ["thinking", "searching", "planning", "answering"] as const;
-
-/** Ways into an empty conversation: three things nearly every trip starts with. */
-const STARTERS = ["Plan my first day", "Where should we stay?", "What will this cost?"] as const;
-
-const STAGE_PHASE: Record<"resolve" | "retrieve" | "compose", number> = { resolve: 0, retrieve: 1, compose: 2 };
-
-function Typing({ stage, label }: { stage?: "resolve" | "retrieve" | "compose"; label?: string }) {
-  const [timerPhase, setTimerPhase] = useState(0);
-  useEffect(() => {
-    const timers = [
-      setTimeout(() => setTimerPhase(3), 11000),
-      setTimeout(() => setTimerPhase(4), 20000),
-    ];
-    return () => timers.forEach(clearTimeout);
-  }, []);
-  const phase = Math.max(stage ? STAGE_PHASE[stage] : 0, timerPhase);
-  // `label` names what RESOLVE actually planned ("checking places") — only meaningful while
-  // "retrieve" is still the current phase; once the timer or a later stage has moved past it,
-  // the phase-indexed generic text below takes back over rather than a now-stale activity name.
-  const text = label && phase === STAGE_PHASE.retrieve ? `${label[0]!.toUpperCase()}${label.slice(1)}…` : THINKING_STATES[phase];
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, transition: { duration: 0.2 } }}
-      transition={motionTokens.swap}
-      className="flex items-center gap-1.5 px-1 py-2"
-    >
-      {/* Roam's path mark mirrors the real stage: branching while it works out what you asked,
-          searching while it checks sources, folding routes into one while it composes. */}
-      <RoamMark state={TYPING_MARK[Math.min(phase, TYPING_MARK.length - 1)]} size={32} className="text-foreground" />
-      {/* The label follows the stage: the old one lifts away as the new one settles in. */}
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.span
-          key={text}
-          initial={{ opacity: 0, y: 5 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -5 }}
-          transition={{ duration: 0.22, ease }}
-          className="shimmer-text ml-1 text-xs"
-        >
-          {text}
-        </motion.span>
-      </AnimatePresence>
-    </motion.div>
-  );
-}
-
-/** Roam's mark when a turn fails: the route breaks. Shown briefly under the log, then cleared
- *  by `ConversationSurface`. */
-function TurnOutcome({ kind }: { kind: "error" }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0, transition: { duration: 0.4 } }}
-      className="flex items-center gap-1.5 px-1 py-2"
-    >
-      <RoamMark state={kind} size={32} className="text-foreground" />
-      <span className="ml-1 text-xs text-muted-foreground">Roam couldn’t reply</span>
-    </motion.div>
-  );
-}
-
-/** The width of the text beside an open detail panel: the narrowest the column ever is (512px less its padding), so the
- *  words never re-wrap when the column around them grows or shrinks (the sidebar collapsing, the window resizing). */
-export const RAIL_MEASURE = "max-w-[28.5rem]";
-
-/** An older reply's blocks without its follow-up chips. Cached per source array so the result keeps its identity (a fresh array each render would defeat the memoised AssistantMessage). */
-const settledBlocks = new WeakMap<AssistantBlock[], AssistantBlock[]>();
-
-function withoutChips(blocks: AssistantBlock[] | undefined) {
-  if (!blocks) return blocks;
-  let kept = settledBlocks.get(blocks);
-  if (!kept) settledBlocks.set(blocks, (kept = blocks.filter((b) => b.type !== "actions" && b.type !== "clarifying_question")));
-  return kept;
-}
+export { RAIL_MEASURE } from "./rail";
+import { RAIL_MEASURE } from "./rail";
 
 /**
  * Memoized: the Roam shell re-renders on every tab switch (and every panel open), and rebuilding a
@@ -217,8 +118,6 @@ export const ConversationSurface = React.memo(function ConversationSurface({
 
   const { scroll, handleLogScroll, scrollToLatestMessage, windowSize, showEarlier } = useLogScroll({ logRef, sending, loaded, messageCount: messages.length, onLogScroll });
 
-  const isMultiline = useAutoGrowTextarea(textareaRef, input);
-
   const userTurns = messages.filter((m) => m.role === "user").length;
   const turnsLeft = Math.max(0, GUEST_TURN_LIMIT - userTurns);
 
@@ -255,10 +154,6 @@ export const ConversationSurface = React.memo(function ConversationSurface({
   const pendingBubble = pendingFirst !== null && !messages.some((m) => m.role === "user");
   const showHero = loaded && messages.length === 0 && !rail && !pendingBubble;
   const waiting = (sending && messages[messages.length - 1]?.content.trim() === "") || pendingBubble;
-
-  const canSend = loaded && Boolean(input.trim());
-  const micButton = speech.supported && <MicButton listening={speech.listening} disabled={!loaded || sending} onToggle={speech.toggle} hasText={canSend} />;
-  const sendOrStopButton = <SendButton canSend={canSend} stopping={sending} onStop={stop} micShown={speech.supported} />;
 
   return (
     <div className="relative flex h-full min-h-0 w-full max-w-full flex-col overflow-x-hidden">
@@ -298,32 +193,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
             </div>
           )}
 
-          {showHero && (
-            <div className="pt-2 pb-2 text-center">
-              {/* The opening shot: the mark, the line, the explanation, then a few ways in, each a beat apart. */}
-              <Reveal y={8}>
-                <RoamMark state="idle" size={112} label="Roam" className="mx-auto block text-foreground" />
-              </Reveal>
-              <Reveal delay={0.12} y={12}>
-                <h2 className="mt-5 font-display text-3xl font-medium tracking-[-0.03em] text-balance">Where shall we begin?</h2>
-              </Reveal>
-              <Reveal delay={0.2} y={10}>
-                <p className="mx-auto mt-3 max-w-md text-body leading-relaxed text-ink-soft text-pretty">
-                  No forms. Tell me as much or as little as you like — I&rsquo;ll keep the trip details organised and open a
-                  proper view when something is easier to see than to describe.
-                </p>
-              </Reveal>
-              <Stagger delay={0.34} gap={0.07} className="mt-6 flex flex-wrap justify-center gap-2">
-                {STARTERS.map((starter) => (
-                  <StaggerItem key={starter}>
-                    <button type="button" disabled={guestGate} onClick={() => setInput(starter)} className="btn-chip h-9 px-4 text-sm disabled:opacity-50">
-                      {starter}
-                    </button>
-                  </StaggerItem>
-                ))}
-              </Stagger>
-            </div>
-          )}
+          {showHero && <ConversationHero disabled={guestGate} onStarter={setInput} />}
 
           {hiddenCount > 0 && (
             <div className="flex justify-center pb-2">
@@ -346,89 +216,8 @@ export const ConversationSurface = React.memo(function ConversationSurface({
             // `isNew` is only true on a message's first render; its cards arrive later, so the live flag is remembered.
             const live = liveMessageIdsRef.current.has(message.id);
 
-            if (message.role === "user") {
-              return (
-                <motion.div
-                  key={message.id}
-                  // The message leaves the composer: it rises from the bottom-right corner and settles.
-                  initial={isNew ? { opacity: 0, y: 18, scale: 0.9 } : false}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ type: "spring", stiffness: 380, damping: 30, opacity: { duration: 0.16 } }}
-                  style={{ transformOrigin: "100% 100%" }}
-                  className="flex flex-col items-end gap-1"
-                >
-                  <p className={cn("max-w-[85%] rounded-2xl rounded-br-lg bg-primary px-4 py-2.5 text-body leading-normal text-primary-foreground transition-opacity duration-300 dark:border dark:border-border dark:bg-surface-raised dark:text-foreground", undelivered === message.id && "opacity-70")}>
-                    <span className="sr-only">You: </span>
-                    {message.content}
-                  </p>
-                  {/* Until the server has the message it carries a local id: say so, rather than leaving "did that go?" */}
-                  {undelivered === message.id && <span role="status" className="pr-1 text-xs text-muted-foreground">Sending…</span>}
-                </motion.div>
-              );
-            }
-
-            const sources = streaming ? [] : (meta?.sources ?? []);
-            // Chips answer the reply they came with; once the conversation moves on they are stale.
-            const isLatest = index === messages.length - 1;
-            const blocks = isLatest ? meta?.blocks : withoutChips(meta?.blocks);
-            const notes = replyNotes(meta, streaming);
-
-            return (
-              <motion.div
-                key={message.id}
-                initial={isNew ? { opacity: 0, y: 10 } : false}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ type: "spring", stiffness: 240, damping: 26 }}
-                dir={dir}
-                data-latest-reply={index === messages.length - 1 ? "" : undefined}
-                aria-busy={streaming || undefined}
-                // The reply reveals itself word by word (AssistantMessage → StreamedText); the
-                // "answering" mark below the log only shows while Roam is still working out what to say.
-                className="turn space-y-3"
-              >
-                <span className="sr-only">Roam: </span>
-                <AssistantMessage content={message.content} blocks={blocks} handlers={handlers} streaming={streaming} live={live} />
-                {notes.length > 0 && (
-                  <div role="note" className="flex items-start gap-2 text-xs leading-snug text-muted-foreground">
-                    <Info className="mt-px size-3.5 shrink-0" aria-hidden />
-                    <div className="space-y-1">
-                      {notes.map((note) => (
-                        <p key={note.text} className={note.tone === "destructive" ? "text-destructive" : undefined}>{note.text}</p>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {(sources.length > 0 || (message.content.trim() && !streaming)) && (
-                  <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
-                    {sources.length > 0 ? (
-                      <details className="group min-w-0 flex-1 text-xs text-muted-foreground">
-                        <summary className="flex w-fit cursor-pointer list-none select-none items-center gap-1 py-1.5 transition-colors hover:text-foreground">
-                          <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" aria-hidden /> Sources ({sources.length})
-                        </summary>
-                        <ul className="mt-1 space-y-1.5 pl-5">
-                          {sources.map((source) => (
-                            <li key={source.url}>
-                              <a href={source.url} target="_blank" rel="noreferrer noopener" className="underline-offset-2 transition-colors hover:text-foreground hover:underline">
-                                {source.title}
-                              </a>
-                              <span className="ml-1.5 opacity-85">{hostOf(source.url)}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </details>
-                    ) : (
-                      <span />
-                    )}
-                    {/* Copy rests quietly: on a mouse it appears when the reply is under the pointer (the latest always shows it); on touch it is always there. */}
-                    {message.content.trim() && !streaming && (
-                      <span className={cn(!isLatest && "turn-action")}>
-                        <CopyButton text={message.content} tabbable={isLatest} />
-                      </span>
-                    )}
-                  </div>
-                )}
-              </motion.div>
-            );
+            if (message.role === "user") return <UserTurn key={message.id} message={message} isNew={isNew} undelivered={undelivered === message.id} />;
+            return <ReplyTurn key={message.id} message={message} isNew={isNew} streaming={streaming} live={live} isLatest={index === messages.length - 1} dir={dir} handlers={handlers} />;
           })}
 
           {pendingBubble && pendingFirst && (
@@ -460,41 +249,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
             </AnimatePresence>
           </div>
 
-          {proposal && (
-            <div role="region" aria-label="Confirm change" className="rounded-2xl border border-border bg-card p-4 shadow-soft">
-
-            <p className="text-sm leading-relaxed">{proposalText}</p>
-            {proposalRows.length > 0 && (
-              <details className="group mt-3">
-                <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
-                  <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
-                  See exactly what will be saved
-                </summary>
-                <dl className="mt-1.5 space-y-1 rounded-xl border border-border/60 bg-background/70 px-3 py-2 text-xs leading-relaxed">
-                  {proposalRows.map(([key, value]) => (
-                    <div key={key} className="flex gap-2">
-                      <dt className="w-24 shrink-0 font-medium text-muted-foreground">{key}</dt>
-                      <dd className="min-w-0 break-words">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </details>
-            )}
-            <div className="mt-4 flex items-center gap-2">
-              <button type="button" onClick={() => void confirmProposal()} disabled={confirming} className="btn-primary-sm">
-                {confirming ? "Saving…" : "Confirm"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setProposal(null)}
-                disabled={confirming}
-                className={controlSecondary}
-              >
-                Cancel
-              </button>
-            </div>
-            </div>
-          )}
+          {proposal && <ProposalCard text={proposalText} rows={proposalRows} confirming={confirming} onConfirm={() => void confirmProposal()} onCancel={() => setProposal(null)} />}
 
           {guest && !guestGate && !saveOpen && userTurns >= 2 && (
             <p className="text-center text-xs text-muted-foreground">
@@ -508,107 +263,23 @@ export const ConversationSurface = React.memo(function ConversationSurface({
         </div>
       </div>
 
-      <div className={cn("pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-background from-55% to-transparent px-3 pt-8 pb-3", PHONE_V2 && "max-lg:bg-none max-lg:pt-0")}>
-        <div className={cn("pointer-events-auto relative mx-auto w-full min-w-0", rail ? RAIL_MEASURE : "max-w-2xl")}>
-          <AnimatePresence>
-            {scroll.away && (
-              <motion.button
-                key="latest"
-                type="button"
-                onClick={scrollToLatestMessage}
-                aria-label="Jump to latest message"
-                initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 6, scale: 0.97 }}
-                transition={motionTokens.swap}
-                whileTap={{ scale: 0.97 }}
-                className={cn("absolute inset-x-0 bottom-full mx-auto mb-2 flex w-fit items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-ink-soft shadow-lift transition-colors hover:text-ink", PHONE_V2 && "max-lg:size-10 max-lg:justify-center max-lg:border-0 max-lg:p-0 max-lg:shadow-[0_6px_18px_-6px_rgb(29_26_23/0.35),0_0_0_1px_var(--color-hairline)]")}
-              >
-                <ArrowDown className="size-3.5 max-lg:size-[1.125rem]" aria-hidden />
-                <span className={cn(PHONE_V2 && "max-lg:sr-only")}>Latest</span>
-              </motion.button>
-            )}
-          </AnimatePresence>
-          <AnimatePresence initial={false}>
-          {queued !== null && (
-            <motion.div
-              key="queued"
-              initial={{ opacity: 0, y: 8, height: 0 }}
-              animate={{ opacity: 1, y: 0, height: "auto" }}
-              exit={{ opacity: 0, y: 4, height: 0 }}
-              transition={motionTokens.swap}
-              className="overflow-hidden"
-            >
-            <div role="status" className="mb-2 flex items-center gap-3 rounded-2xl border border-border bg-card px-3 py-2 text-xs text-muted-foreground shadow-soft">
-              <span className="min-w-0 flex-1 truncate">Next: “{queued}” · sends when Roam finishes</span>
-              <button type="button" onClick={() => { setInput(queued); setQueued(null); }} className={textAction}>Edit</button>
-              <button type="button" onClick={() => setQueued(null)} className={textAction}>Cancel</button>
-            </div>
-            </motion.div>
-          )}
-          </AnimatePresence>
-          <form
-            onSubmit={(event: FormEvent) => {
-              event.preventDefault();
-              void submit(input);
-            }}
-            className={cn(
-              "flex w-full min-w-0 max-w-full flex-col gap-1 rounded-3xl border border-input bg-card py-1.5 pl-4 pr-1.5 shadow-lift transition-[border-color,box-shadow] duration-200 ease-out",
-              PHONE_V2 && "max-lg:pr-1.5 max-lg:pl-5",
-              "focus-within:border-ink/30 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_6%,transparent),var(--shadow-lift)]",
-              PHONE_V2 && "max-lg:border-transparent max-lg:bg-secondary max-lg:shadow-none max-lg:focus-within:border-transparent max-lg:focus-within:shadow-none",
-              sending && "composer-live",
-            )}
-          >
-            {/* The buttons overlay this box (single line) or sit in their own row below it
-                (multiple lines) — see the matching comment on GroupChatSurface's identical
-                pattern for why: switching which JSX branch renders the TEXTAREA itself (not just
-                the buttons around it) used to tear the DOM node down and rebuild it on every line
-                wrap, dropping focus and the cursor mid-keystroke — live-caught as "the box grows
-                but I can't type on the new line until I press Enter again," and the padding
-                below is reserved unconditionally (not just while the overlay is showing) so the
-                text's own wrapping width never changes between the two layouts — letting it
-                change was a second bug, where text that wrapped to 2 lines at the narrower width
-                could fit back on 1 at the wider one, flipping the layout back, narrowing it
-                again, wrapping again — the "gets stuck and won't shrink back down" the box
-                never actually settled at. */}
-            <div className="relative w-full">
-              <textarea
-                ref={textareaRef}
-                id={`${tripId}-roam-composer`}
-                aria-label="Message"
-                rows={1}
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                onKeyDown={(event) => {
-                  // isComposing (and the legacy keyCode 229) is true for the Enter that CONFIRMS an
-                  // IME candidate (Japanese/Chinese/Korean input) — that keystroke must not also submit.
-                  // On a phone Return makes a new line and the arrow sends, exactly as in the group chat; with a keyboard it sends.
-                  if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229 && !window.matchMedia("(pointer: coarse)").matches) {
-                    event.preventDefault();
-                    void submit(input);
-                  }
-                }}
-                placeholder={!loaded ? "Loading…" : guestGate ? "Save your trip to keep chatting" : speech.listening ? "Listening…" : sending ? "Type your next message…" : "Ask about your trip…"}
-                disabled={!loaded || guestGate}
-                className="block max-h-[96px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent py-2 pr-24 text-base leading-normal outline-none transition-[height] duration-150 ease-out placeholder:text-muted-foreground disabled:opacity-60"
-              />
-              {!isMultiline && (
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center gap-1">
-                  {micButton}
-                  {sendOrStopButton}
-                </div>
-              )}
-            </div>
-            {isMultiline && (
-              <div className="flex items-center justify-end gap-1">
-                {micButton}
-                {sendOrStopButton}
-              </div>
-            )}
-          </form>
-        </div>
-      </div>
+      <RoamComposer
+        tripId={tripId}
+        rail={rail}
+        input={input}
+        setInput={setInput}
+        loaded={loaded}
+        guestGate={guestGate}
+        sending={sending}
+        speech={speech}
+        stop={stop}
+        submit={submit}
+        queued={queued}
+        setQueued={setQueued}
+        away={scroll.away}
+        scrollToLatestMessage={scrollToLatestMessage}
+        textareaRef={textareaRef}
+      />
     </div>
   );
 });

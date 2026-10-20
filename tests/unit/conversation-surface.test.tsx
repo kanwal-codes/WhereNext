@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Message } from "../../features/conversation/domain/message";
@@ -18,7 +18,7 @@ vi.mock("@/lib/application/toast", () => ({ notifyToast: (...a: unknown[]) => to
 vi.mock("@/features/identity/ui/GuestProvider", () => ({ useGuest: () => ({ guest: guestState.guest, openGate }) }));
 vi.mock("@/features/identity/ui/GuestSavePrompt", () => ({ GuestSavePrompt: ({ exhausted }: { exhausted: boolean }) => <div>SAVE PROMPT {exhausted ? "exhausted" : "early"}</div> }));
 vi.mock("../../features/conversation/ui/AssistantMessage", () => ({
-  AssistantMessage: ({ content, streaming }: { content: string; streaming?: boolean }) => <div data-testid="assistant" data-streaming={streaming ? "yes" : "no"}>{content}</div>,
+  AssistantMessage: ({ content, streaming, blocks }: { content: string; streaming?: boolean; blocks?: Array<{ type: string }> }) => <div data-testid="assistant" data-streaming={streaming ? "yes" : "no"} data-blocks={(blocks ?? []).map((b) => b.type).join(",")}>{content}</div>,
 }));
 
 import { ConversationSurface } from "../../features/conversation/ui/ConversationSurface";
@@ -320,6 +320,7 @@ describe("ConversationSurface: proposed changes", () => {
     await u.keyboard("{Enter}");
     const region = await screen.findByRole("region", { name: "Confirm change" });
     expect(region.textContent).toContain("Set the daily budget to 120 per person?");
+    expect(screen.getByText("See exactly what will be saved")).toBeTruthy();
     await u.click(screen.getByRole("button", { name: "Confirm" }));
     await waitFor(() => expect(toast).toHaveBeenCalledWith("Budget set to 120.", "success"));
     expect(calls.find((c) => c.url === "/api/commands")!.body).toMatchObject({ type: "update_preferences", preferences: { budget: 120 } });
@@ -414,3 +415,99 @@ describe("ConversationSurface: what a reply can carry", () => {
   });
 });
 
+
+
+describe("ConversationSurface: the box and the thread", () => {
+  it("sends on Enter, adds a line on Shift+Enter", async () => {
+    handlers.push(replyTo("Sure."));
+    const { u } = await open();
+    await u.type(box(), "one{Shift>}{Enter}{/Shift}two");
+    expect(box().value).toBe("one\ntwo");
+    expect(aiCalls()).toHaveLength(0);
+    await u.keyboard("{Enter}");
+    await waitFor(() => expect(aiCalls()).toHaveLength(1));
+  });
+
+  it("leaves Enter as a new line on a touch keyboard", async () => {
+    window.matchMedia = ((q: string) => ({ matches: q.includes("coarse"), media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, onchange: null, dispatchEvent: () => false })) as never;
+    const { u } = await open();
+    await u.type(box(), "hello{Enter}");
+    expect(aiCalls()).toHaveLength(0);
+    expect(box().value).toBe("hello\n");
+  });
+
+  it("does not send on the Enter that confirms an input-method candidate", async () => {
+    const { u } = await open();
+    await u.type(box(), "こんにちは");
+    fireEvent.keyDown(box(), { key: "Enter", isComposing: true, keyCode: 229 });
+    expect(aiCalls()).toHaveLength(0);
+  });
+
+  it("enables Send only when there is something to send", async () => {
+    const { u } = await open();
+    expect(screen.getByRole("button", { name: "Send" }).hasAttribute("disabled")).toBe(true);
+    await u.type(box(), "   ");
+    expect(screen.getByRole("button", { name: "Send" }).hasAttribute("disabled")).toBe(true);
+    await u.type(box(), "hi");
+    expect(screen.getByRole("button", { name: "Send" }).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("marks only the newest reply as the latest", async () => {
+    thread = [user("1", "Hi"), roam("2", "One."), user("3", "More"), roam("4", "Two.")];
+    await open();
+    const marked = document.querySelectorAll("[data-latest-reply]");
+    expect(marked).toHaveLength(1);
+    expect(marked[0].textContent).toContain("Two.");
+  });
+
+  it("shows no opening hero beside a detail panel", async () => {
+    thread = [];
+    await open({ rail: true });
+    expect(screen.queryByText("Where shall we begin?")).toBeNull();
+  });
+
+  it("has a way past a long thread to the box", async () => {
+    const { u } = await open();
+    await u.click(screen.getByText("Skip to message box"));
+    expect(document.activeElement).toBe(box());
+  });
+
+  it("keeps follow-up chips and questions only on the latest reply", async () => {
+    thread = [
+      user("1", "Hotels?"),
+      roam("2", "First answer.", { metadata: { blocks: [{ type: "place_list", places: [] }, { type: "actions", items: [] }, { type: "clarifying_question", question: "?", chips: [] }], suggestedFollowups: [] } }),
+      user("3", "Thanks"),
+      roam("4", "Second answer.", { metadata: { blocks: [{ type: "place_list", places: [] }, { type: "actions", items: [] }], suggestedFollowups: [] } }),
+    ];
+    await open();
+    const [older, latest] = screen.getAllByTestId("assistant");
+    expect(older.dataset.blocks).toBe("place_list");
+    expect(latest.dataset.blocks).toBe("place_list,actions");
+  });
+
+  it("reads a right-to-left reply right to left", async () => {
+    thread = [user("1", "مرحبا"), roam("2", "أهلا", { metadata: { language: "ar-EG", blocks: [], suggestedFollowups: [] } })];
+    await open();
+    expect(screen.getByTestId("assistant").closest("[dir]")?.getAttribute("dir")).toBe("rtl");
+  });
+
+  it("offers Copy on a reply with words, and not on an empty one", async () => {
+    thread = [user("1", "Hi"), roam("2", "Hello there."), user("3", "More"), roam("4", "   ")];
+    await open();
+    expect(screen.getAllByRole("button", { name: "Copy reply" })).toHaveLength(1);
+  });
+
+  it("offers a way back to the newest message from far up the thread", async () => {
+    thread = Array.from({ length: 10 }, (_, i) => (i % 2 === 0 ? user(`u${i}`, `q${i}`) : roam(`r${i}`, `a${i}`)));
+    const { u } = await open();
+    const log = screen.getByRole("log");
+    Object.defineProperty(log, "scrollHeight", { value: 4000, configurable: true });
+    Object.defineProperty(log, "clientHeight", { value: 500, configurable: true });
+    Object.defineProperty(log, "scrollTop", { value: 0, configurable: true, writable: true });
+    log.dispatchEvent(new Event("scroll", { bubbles: true }));
+    const jump = await screen.findByRole("button", { name: "Jump to latest message" });
+    (Element.prototype.scrollTo as ReturnType<typeof vi.fn>).mockClear();
+    await u.click(jump);
+    expect(Element.prototype.scrollTo).toHaveBeenCalled();
+  });
+});
