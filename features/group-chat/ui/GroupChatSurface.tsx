@@ -135,6 +135,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
   // The unsent messages (and the half-typed one) survive a reload or a trip to another page: kept per trip, per tab.
   const outboxKey = `wn-outbox:${tripId}:${me?.userId ?? "anon"}`;
   const draftKey = `wn-draft:${tripId}:${me?.userId ?? "anon"}`;
+  const cacheKey = `wn-group-cache:${tripId}:${me?.userId ?? "anon"}`;
   const [restored, setRestored] = useState(false);
   const outboxRef = useRef<Outgoing[]>([]);
   outboxRef.current = outbox;
@@ -221,6 +222,20 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pressMoved = useRef(false);
 
+  // Open on the last thing you saw instead of an empty log: the chat from the previous visit is on screen at once (marked seen, so
+  // nothing animates in) and the fetch below swaps in anything newer. Per tab, per person.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(cacheKey);
+      if (!raw) return;
+      const cached = JSON.parse(raw) as GroupMessage[];
+      if (!Array.isArray(cached) || cached.length === 0) return;
+      for (const m of cached) seenIdsRef.current.add(m.id);
+      setMessages((prev) => (prev.length === 0 ? cached : prev));
+      setLoaded(true);
+    } catch { /* storage blocked or malformed: the normal first load */ }
+  }, [cacheKey]);
+
   // Returns the freshly-fetched list (or undefined on failure/supersession) so a caller can
   // check whether something it was waiting on actually landed — see `askRoam`'s catch handler.
   const refresh = useCallback(async (): Promise<GroupMessage[] | undefined> => {
@@ -245,6 +260,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
       }
       // Keep the same array when nothing changed, so the poll below doesn't re-render the whole log.
       setMessages((prev) => (JSON.stringify(prev) === JSON.stringify(fresh) ? prev : fresh));
+      try { sessionStorage.setItem(cacheKey, JSON.stringify(fresh.slice(-40))); } catch { /* full or blocked */ }
       if (!olderLoadedRef.current) setHasOlder(fresh.length >= GROUP_HISTORY_LIMIT);
       return fresh;
     } catch {
@@ -254,7 +270,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
     } finally {
       if (mine === refreshIdRef.current) { refreshedAtRef.current = Date.now(); setLoaded(true); }
     }
-  }, [tripId]);
+  }, [tripId, cacheKey]);
 
   useEffect(() => {
     if (!active) return;

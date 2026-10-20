@@ -6,7 +6,7 @@ import { PHONE_ROUND, useSetPhoneHeader } from "@/components/shell/PhoneHeader";
 import { PHONE_V2 } from "@/lib/phone-v2";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Ellipsis, PanelRight, PanelRightClose, PanelRightOpen, Users, X } from "lucide-react";
+import { BookOpen, ChevronRight, Ellipsis, PanelRight, PanelRightClose, PanelRightOpen, Users, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanel, panelSubjectKey, panelTitle, type EventSeed } from "@/components/TripPanelProvider";
 import { TripPanel } from "@/components/TripPanel";
@@ -57,6 +57,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   const reduceMotion = useReducedMotion();
   const [contextCollapsed, setContextCollapsed] = useState(false);
   const [mobileContextOpen, setMobileContextOpen] = useState(false);
+  const [groupMenuOpen, setGroupMenuOpen] = useState(false);
   // `activeTab` is derived one layer up from `usePathname()`, which only updates once Next's
   // router finishes the /chat<->/group navigation — a real network round trip for that route's
   // RSC payload, since `router.refresh()` (called from `TripDataProvider` on every realtime
@@ -99,13 +100,13 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
     if (!phoneV2) return undefined;
     if (optimisticTab === "group") {
       return guest ? undefined : (
-        <Link href={`/trips/${tripId}/group/details`} aria-label="Group members and invite" className={PHONE_ROUND}><Users className="size-[1.2rem]" /></Link>
+        <button type="button" onClick={() => setGroupMenuOpen(true)} aria-label="Group options" aria-haspopup="dialog" className={PHONE_ROUND}><Ellipsis className="size-[1.2rem]" /></button>
       );
     }
     return (
       <button type="button" onClick={() => setMobileContextOpen(true)} aria-label="Trip context" className={PHONE_ROUND}><Ellipsis className="size-[1.2rem]" /></button>
     );
-  }, [phoneV2, optimisticTab, guest, tripId]);
+  }, [phoneV2, optimisticTab, guest]);
   useSetPhoneHeader({ title: phoneV2 ? (optimisticTab === "group" ? "Group chat" : "Roam") : undefined, trailing: headerTrailing });
   // Both panes stay mounted so switching tabs is instant, but the one you are not on does not need to be built
   // while the page is still arriving (the Roam thread alone is hundreds of controls): it is mounted once the
@@ -357,6 +358,26 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* The group chat's one round button opens two places: the group itself, or what Roam knows about the trip. */}
+          <Sheet open={groupMenuOpen} onClose={() => setGroupMenuOpen(false)} side="bottom" ariaLabel="Group options" className="icons-fine rounded-t-4xl bg-background px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+            <ul>
+              <li>
+                <Link href={`/trips/${tripId}/group/details`} onClick={() => setGroupMenuOpen(false)} className="flex min-h-16 items-center gap-3.5 rounded-2xl px-3 transition-colors active:bg-muted">
+                  <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-secondary" aria-hidden><Users className="size-5" /></span>
+                  <span className="min-w-0 flex-1"><span className="block font-display text-base font-medium">Group settings</span><span className="block text-sm text-muted-foreground">Members and the invite link</span></span>
+                  <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+                </Link>
+              </li>
+              <li>
+                <button type="button" onClick={() => { setGroupMenuOpen(false); setMobileContextOpen(true); }} className="flex min-h-16 w-full items-center gap-3.5 rounded-2xl px-3 text-left transition-colors active:bg-muted">
+                  <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-secondary" aria-hidden><BookOpen className="size-5" /></span>
+                  <span className="min-w-0 flex-1"><span className="block font-display text-base font-medium">Trip context</span><span className="block text-sm text-muted-foreground">What Roam knows about this trip</span></span>
+                  <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+                </button>
+              </li>
+            </ul>
+          </Sheet>
 
           <Sheet open={mobileContextOpen} onClose={() => setMobileContextOpen(false)} side="bottom" ariaLabel="Trip context" className="max-h-[85vh] px-4 pt-4 pb-8">
             <div className="mb-3 flex shrink-0 items-center justify-between">
