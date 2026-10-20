@@ -3,7 +3,7 @@
 import { useId } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Pencil, X } from "lucide-react";
+import { X } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
 import { Sheet } from "@/components/motion-primitives";
 import { shortTripTitle } from "@/components/shell/trip-title";
@@ -91,13 +91,7 @@ export function PhoneDrawer({ open, onClose, tripId, pathname, trip, unread = 0 
 
       {!guest && (
         <div className="mt-2 flex items-center gap-2.5 border-t border-border pt-3.5">
-          <Link href="/trips/new" onClick={onClose} className="inline-flex h-12 items-center gap-2 rounded-full bg-coral-fill px-5 text-[0.9375rem] font-semibold text-white shadow-[inset_0_1px_0_oklch(1_0_0/0.18)] transition-transform active:scale-[0.97]">
-            <Pencil className="size-[1.125rem]" aria-hidden /> New trip
-          </Link>
-          <Link href="/trips" onClick={onClose} className="ml-auto px-1 text-sm font-semibold text-ink-soft hover:text-foreground">All trips</Link>
-          <Link href="/account" onClick={onClose} aria-label="Your account" className={cn("grid size-11 shrink-0 place-items-center rounded-full bg-primary font-display text-sm font-medium text-primary-foreground", !me && "hidden")}>
-            {me ? memberInitials(me) : null}
-          </Link>
+          <Link href="/trips" onClick={onClose} className="flex min-h-11 items-center px-1 text-sm font-semibold text-ink-soft hover:text-foreground">All trips</Link>
         </div>
       )}
     </Sheet>
