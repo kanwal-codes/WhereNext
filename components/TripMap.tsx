@@ -9,10 +9,12 @@ import turfLength from "@turf/length";
 import lineSliceAlong from "@turf/line-slice-along";
 import { lineString } from "@turf/helpers";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { MODE_COLOR, MODE_ICON, TRAFFIC_HEX, STOP_CORAL } from "@/lib/application/mode-visuals";
+import { MODE_COLOR, MODE_ICON, STOP_CORAL } from "@/lib/application/mode-visuals";
 import type { MapOverlay } from "@/lib/application/route-overlay";
 import { easeOutQuad, legLines, routeKeyFor } from "@/lib/application/route-animation";
 import { cn } from "@/lib/utils";
+import { FitControl, addLegLayers, basemapPaints } from "@/components/tripMapStyle";
+import { framingPadding, labelSide, pinSvg, pinsShown } from "@/components/tripMapLogic";
 
 export type MapPin = {
   id: string;
@@ -35,62 +37,6 @@ const STOP_INK = "#1b1611";
 const DRAW_MS = 1200;
 /** How far the cinematic camera leans back when the whole route is in view. */
 const TILT = 40;
-
-/** Basemap, warmed toward the app's own neutrals: land is warm stone, water is the lagoon, parks are sage. */
-const BASE = { land: "#f7f5f2", water: "#ceecf7", waterway: "#b6e0ee", park: "#def5e8", building: "#efebe6", label: "#514c46", labelHalo: "#fdfcfa" } as const;
-
-/** Modes drawn as a solid ribbon; the others are dotted (on foot) or dashed (across water, by air). */
-const SOLID = ["subway", "tram", "train", "bus", "transit", "drive", "unknown"];
-const DASHED = ["ferry", "flight"];
-
-const modeIn = (...modes: string[]): mapboxgl.ExpressionSpecification => ["in", ["get", "mode"], ["literal", modes]];
-const byMode = (values: Record<string, number>, fallback: number): mapboxgl.ExpressionSpecification =>
-  ["match", ["get", "mode"], ...Object.entries(values).flatMap(([k, v]) => [k, v]), fallback] as unknown as mapboxgl.ExpressionSpecification;
-const dimmed = (full: number, dim: number): mapboxgl.ExpressionSpecification => ["case", ["get", "dim"], dim, full];
-/** A width that breathes with zoom: thin on a city overview, full weight when you lean in. */
-const widthAt = (expr: mapboxgl.ExpressionSpecification | number): mapboxgl.ExpressionSpecification =>
-  ["interpolate", ["linear"], ["zoom"], 9, ["*", 0.6, expr], 13, ["*", 1.15, expr], 17, ["*", 1.7, expr]] as unknown as mapboxgl.ExpressionSpecification;
-
-const RIBBON = { subway: 7, tram: 7, train: 7, drive: 7.5, bus: 6, transit: 6 };
-
-/** A map-pin teardrop whose tip is the exact coordinate (pair with `anchor: "bottom"`). */
-const BED = "M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20M6 8v9";
-function pinSvg(color: string, mark: number | string | null): string {
-  const head =
-    mark === "bed"
-      ? `<g transform="translate(-7 -42) scale(0.58)" fill="none" stroke="${color}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="${BED}"/></g>`
-      : mark === null
-        ? `<circle cx="0" cy="-35" r="4.5" fill="${color}"/>`
-        : `<text x="0" y="-30.5" text-anchor="middle" font-size="13" font-weight="700" font-family="Outfit, system-ui, sans-serif" fill="${color}">${mark}</text>`;
-  return `<svg width="32" height="46" viewBox="-19 -55 38 56" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible;filter:drop-shadow(0 7px 6px rgb(27 22 17 / 0.30))">
-    <path d="M0 0C-9-14-19-22-19-35A19 19 0 1 1 19-35C19-22 9-14 0 0Z" fill="${color}" stroke="white" stroke-width="3" paint-order="stroke"/>
-    <circle cx="0" cy="-35" r="10" fill="white"/>
-    ${head}
-  </svg>`;
-}
-
-/** The Mapbox control that frames the whole route again after the reader has wandered off. */
-class FitControl implements mapboxgl.IControl {
-  private box: HTMLDivElement | null = null;
-  constructor(private readonly onFit: () => void) {}
-  onAdd() {
-    const box = document.createElement("div");
-    box.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.title = "Fit the route";
-    btn.setAttribute("aria-label", "Fit the route");
-    btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin:auto"><circle cx="12" cy="12" r="3.4"/><path d="M12 2.5v3.2M12 18.3v3.2M2.5 12h3.2M18.3 12h3.2"/></svg>`;
-    btn.onclick = this.onFit;
-    box.appendChild(btn);
-    this.box = box;
-    return box;
-  }
-  onRemove() {
-    this.box?.remove();
-    this.box = null;
-  }
-}
 
 /** Interactive trip map: numbered markers by type, the real route through them, and motion. */
 /** The Mapbox token is the same for every map in the session: ask once, and forget a failed answer so the next map can try again. */
@@ -174,82 +120,12 @@ export function TripMap({
     let cancelled = false;
 
     const warm = (m: mapboxgl.Map, dark: boolean) => {
-      if (dark) return;
-      const set = (id: string, prop: string, value: unknown) => {
+      for (const [id, prop, value] of basemapPaints(m.getStyle()?.layers ?? [], dark)) {
         try { m.setPaintProperty(id, prop as "fill-color", value as string); } catch { /* this layer is not in this style version */ }
-      };
-      for (const layer of m.getStyle()?.layers ?? []) {
-        const { id, type } = layer;
-        if (type === "background") set(id, "background-color", BASE.land);
-        else if (id === "land") set(id, "background-color", BASE.land);
-        else if (type === "fill" && /^water$|^water-/.test(id)) set(id, "fill-color", BASE.water);
-        else if (type === "line" && /^waterway/.test(id)) set(id, "line-color", BASE.waterway);
-        else if (type === "fill" && /landcover|national-park|landuse|park/.test(id)) set(id, "fill-color", BASE.park);
-        else if (type === "fill" && id === "building") set(id, "fill-color", BASE.building);
-        else if (type === "symbol" && /settlement|road-label|natural-point|water/.test(id)) {
-          set(id, "text-color", BASE.label);
-          set(id, "text-halo-color", BASE.labelHalo);
-        } else if (type === "symbol" && /poi-label|transit-label/.test(id)) set(id, "text-opacity", 0.7);
       }
     };
 
-    // Custom sources/layers don't reliably survive `setStyle()` across a full basemap swap
-    // (dark-v11 <-> light-v11), so this re-adds them idempotently — called on the initial
-    // style load AND every subsequent one (a live theme-toggle triggers another `style.load`).
-    const addLayers = (m: mapboxgl.Map) => {
-      if (m.getSource("legs")) return;
-      m.addSource("legs", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-      const color: mapboxgl.ExpressionSpecification = ["get", "color"];
-      const round = { "line-cap": "round", "line-join": "round" } as const;
-      const butt = { "line-cap": "butt", "line-join": "round" } as const;
-
-      // Cinematic: buildings rise out of the map when the camera leans in, lit warm from the upper left.
-      if (cinematicRef.current && !m.getLayer("trip-3d")) {
-        try {
-          const firstLabel = m.getStyle()?.layers?.find((l) => l.type === "symbol")?.id;
-          m.addLayer({
-            id: "trip-3d",
-            type: "fill-extrusion",
-            source: "composite",
-            "source-layer": "building",
-            minzoom: 13.6,
-            filter: ["==", ["get", "extrude"], "true"],
-            paint: {
-              "fill-extrusion-color": "#e8e2da",
-              "fill-extrusion-height": ["get", "height"],
-              "fill-extrusion-base": ["get", "min_height"],
-              "fill-extrusion-opacity": ["interpolate", ["linear"], ["zoom"], 13.6, 0, 14.8, 0.86],
-              "fill-extrusion-vertical-gradient": true,
-            },
-          }, firstLabel);
-          m.setLight({ anchor: "viewport", color: "#fff3e4", intensity: 0.42, position: [1.25, 215, 38] });
-        } catch { /* a style without a building layer */ }
-      }
-
-      // Other ways to get there: a quiet line behind the chosen one, with a wide invisible stroke to make it easy to hit.
-      m.addSource("ghosts", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-      m.addLayer({ id: "ghost-casing", type: "line", source: "ghosts", layout: round, paint: { "line-color": "#ffffff", "line-width": widthAt(9.5), "line-opacity": 0.8 } });
-      m.addLayer({ id: "ghost-line", type: "line", source: "ghosts", layout: round, paint: { "line-color": "#bdb6ad", "line-width": widthAt(4.6), "line-opacity": 0.95 } });
-      m.addLayer({ id: "ghost-hit", type: "line", source: "ghosts", layout: round, paint: { "line-color": "#000000", "line-width": 22, "line-opacity": 0 } });
-
-      // A soft light under everything, so a route glows off the map instead of lying on it.
-      m.addLayer({ id: "legs-glow", type: "line", source: "legs", layout: round, paint: { "line-color": color, "line-width": widthAt(dimmed(16, 6) as mapboxgl.ExpressionSpecification), "line-opacity": dimmed(0.22, 0.08), "line-blur": 8 } });
-      // White casing: the edge that lifts a ribbon off roads of any colour.
-      m.addLayer({ id: "legs-casing", type: "line", source: "legs", filter: modeIn(...SOLID), layout: round, paint: { "line-color": "#ffffff", "line-width": widthAt(["*", ["+", byMode(RIBBON, 6), 5], dimmed(1, 0.55)] as unknown as mapboxgl.ExpressionSpecification), "line-opacity": dimmed(0.96, 0.5) } });
-      // Dots, dashes and dashes-across-water get a plain white halo so they stay readable over streets.
-      m.addLayer({ id: "legs-halo", type: "line", source: "legs", filter: ["!", modeIn(...SOLID)] as mapboxgl.ExpressionSpecification, layout: round, paint: { "line-color": "#ffffff", "line-width": widthAt(dimmed(9.5, 5)), "line-opacity": dimmed(0.88, 0.4) } });
-      m.addLayer({ id: "legs", type: "line", source: "legs", filter: modeIn(...SOLID), layout: round, paint: { "line-color": color, "line-width": widthAt(["*", byMode(RIBBON, 6), dimmed(1, 0.55)] as unknown as mapboxgl.ExpressionSpecification), "line-opacity": dimmed(1, 0.4) } });
-      // On foot: dots.
-      // Congestion: amber where it slows, red where it stops, painted inside the drive ribbon.
-      m.addLayer({ id: "legs-traffic", type: "line", source: "legs", filter: ["in", ["get", "traffic"], ["literal", ["moderate", "heavy", "severe"]]], layout: butt, paint: { "line-color": ["match", ["get", "traffic"], "moderate", TRAFFIC_HEX.slow, "heavy", TRAFFIC_HEX.heavy, "severe", TRAFFIC_HEX.severe, TRAFFIC_HEX.slow], "line-width": widthAt(dimmed(5.6, 3)), "line-opacity": dimmed(1, 0.4) } });
-      m.addLayer({ id: "legs-walk", type: "line", source: "legs", filter: modeIn("walk"), layout: round, paint: { "line-color": color, "line-width": widthAt(dimmed(4.6, 3)), "line-opacity": dimmed(1, 0.45), "line-dasharray": [0.01, 2.3] } });
-      // Over water or by air: dashes.
-      m.addLayer({ id: "legs-dashed", type: "line", source: "legs", filter: modeIn(...DASHED), layout: butt, paint: { "line-color": color, "line-width": widthAt(dimmed(5, 3)), "line-opacity": dimmed(1, 0.45), "line-dasharray": [2, 1.5] } });
-      // The texture inside the ribbon says which vehicle it is: rail ties, bus stops, tram rails.
-      m.addLayer({ id: "legs-ties", type: "line", source: "legs", filter: modeIn("train"), layout: butt, paint: { "line-color": "#ffffff", "line-width": widthAt(dimmed(2.4, 1.4)), "line-opacity": dimmed(0.95, 0.4), "line-dasharray": [1.3, 1.3] } });
-      m.addLayer({ id: "legs-stops", type: "line", source: "legs", filter: modeIn("bus", "transit"), layout: round, paint: { "line-color": "#ffffff", "line-width": widthAt(dimmed(2.8, 1.6)), "line-opacity": dimmed(0.95, 0.4), "line-dasharray": [0.01, 3.4] } });
-      m.addLayer({ id: "legs-rails", type: "line", source: "legs", filter: modeIn("tram"), layout: round, paint: { "line-color": "#ffffff", "line-width": widthAt(dimmed(2, 1.2)), "line-opacity": dimmed(0.95, 0.4) } });
-    };
+    const addLayers = (m: mapboxgl.Map) => addLegLayers(m, cinematicRef.current);
     const isDark = () => typeof document !== "undefined" && document.documentElement.classList.contains("dark");
     const styleFor = (dark: boolean) => (dark ? "mapbox://styles/mapbox/dark-v11" : "mapbox://styles/mapbox/light-v11");
 
@@ -337,21 +213,7 @@ export function TripMap({
 
     markers.current.forEach((mk) => mk.remove());
 
-    const padding = () => {
-      const i = insetRef.current;
-      const w = holder.current?.clientWidth ?? 1200;
-      const h = holder.current?.clientHeight ?? 800;
-      const left = (i?.left ?? 0) + 48;
-      // A stop's name chip hangs off the right of its pin: leave it room when there is room to give.
-      const free = w - left - (i?.right ?? 0);
-      const right = (i?.right ?? 0) + (free > 620 ? 150 : free > 420 ? 96 : 44);
-      const top = (i?.top ?? 0) + 84;
-      // Room under the route for the legend (beside a panel) or the sheet's own rounded top (over a sheet).
-      const bottom = (i?.bottom ?? 0) + (cinematicRef.current && (i?.left ?? 0) > 0 ? 84 : i?.bottom ? 104 : 64);
-      // Never ask for more room than the map has: Mapbox then gives up on framing at all.
-      const k = Math.min(1, (w * 0.82) / (left + right), (h * 0.82) / (top + bottom));
-      return { top: top * k, right: right * k, bottom: bottom * k, left: left * k };
-    };
+    const padding = () => framingPadding(insetRef.current, holder.current?.clientWidth ?? 1200, holder.current?.clientHeight ?? 800, cinematicRef.current);
     const pitch = cinematicRef.current ? TILT : 0;
     const frame = (b: mapboxgl.LngLatBounds, duration = 900) => {
       framed.current = b;
@@ -463,9 +325,7 @@ export function TripMap({
       return;
     }
 
-    const shown = pins
-      .filter((p) => activeDay === "all" || p.day === activeDay)
-      .sort((a, b) => (a.day ?? 0) - (b.day ?? 0));
+    const shown = pinsShown(pins, activeDay);
 
     // Browse mode with no route drawn yet: just sit on the destination.
     if (browse !== undefined && shown.length === 0) {
@@ -509,7 +369,7 @@ export function TripMap({
         const label = mk.getElement().querySelector<HTMLElement>(".trip-pin-label");
         if (!label) continue;
         const x = m.project(mk.getLngLat()).x;
-        label.dataset.side = x + 38 + label.offsetWidth > width - 64 ? "left" : "right";
+        label.dataset.side = labelSide(x, label.offsetWidth, width);
       }
     };
     placeLabels();
