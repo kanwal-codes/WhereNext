@@ -24,6 +24,7 @@ import {
   Info,
   Pencil,
   PersonStanding,
+  Plane,
   Loader2,
   MapPin,
   Shirt,
@@ -1522,7 +1523,7 @@ function StaysBlockView({ block, tripId, preview, onOpenStay, onOpenCollection, 
                 onSeeAll={seeAllOnSortRow ? undefined : seeAll}
                 onMap={preview && onOpenPanel && pointsFromStays(items).length > 0 ? () => onOpenPanel({ kind: "map", title: `Stays in ${where}`, points: pointsFromStays(items), connect: false }) : undefined}
               />
-              {live ? <StaySearchBar search={searchForBar} tripId={tripId} trip={tripDates} defaultOpen={search.assumed} /> : <Meta items={[`${block.nights} night${block.nights > 1 ? "s" : ""}`, `${prettyDate(block.checkin)} – ${prettyDate(block.checkout)}`]} />}
+              {live ? <StaySearchBar search={searchForBar} tripId={tripId} trip={tripDates} defaultOpen={search.assumed && !PHONE_V2} /> : <Meta items={[`${block.nights} night${block.nights > 1 ? "s" : ""}`, `${prettyDate(block.checkin)} – ${prettyDate(block.checkout)}`]} />}
               {live ? (search.assumed && <Notice tone="caution">Example dates, pick yours above for accurate prices.</Notice>) : block.dateNote && <Notice tone="caution">{block.dateNote.replace(/\d{4}-\d{2}-\d{2}/g, (m) => prettyDate(m) ?? m)}</Notice>}
               {search.status === "error" && live ? (
                 <div role="alert" className={cn(surface, "space-y-3 px-4 py-8 text-center")}>
@@ -1621,6 +1622,7 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
   const [routeOpen, setRouteOpen] = useState(false);
   const [chosen, setChosen] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const { query } = fares;
   const roundTrip = query.ret !== null;
   const offers = applyFlightView(fares.items, view);
@@ -1633,6 +1635,10 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
   // A long list shows its best rows and the rest on request; the card never grows without limit.
   const ROWS = 6;
   const shown = showAll || filtersOn ? offers : offers.slice(0, ROWS);
+  // Phone: the two picks above are the best and the cheapest; the list shows two others, and the rest on request.
+  const pickKeys = new Set(picks.map((p) => offerKey(p.offer)));
+  let phoneSeen = 0;
+  const phoneHide = shown.map((o) => (showAll ? false : pickKeys.has(offerKey(o)) ? true : ++phoneSeen > 2));
   // A new search starts with a clean view: an airport filter from the last one may not exist in this one.
   const resetView = () => {
     setView((v) => ({ ...v, airport: null }));
@@ -1666,6 +1672,22 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
   );
   return (
     <section aria-label="Flights" className="roam-widget @container relative overflow-hidden rounded-3xl border border-border bg-card shadow-widget">
+      {PHONE_V2 && (
+        <div className="px-[1.125rem] pt-[1.125rem] lg:hidden">
+          <p className="eyebrow flex items-center gap-1.5 text-coral-ink"><Plane className="size-4" aria-hidden />Flights · {roundTrip ? "round trip" : "one way"}{day ? ` · ${day}` : ""}</p>
+          <h3 className="mt-0.5 font-display text-widget leading-6 font-medium tracking-[-0.012em] text-balance">{fromName} to {toName}</h3>
+          <button
+            type="button"
+            onClick={() => { setSearchOpen((v) => !v); setRouteOpen(!searchOpen); }}
+            aria-expanded={searchOpen}
+            className="mt-3 flex min-h-10 w-full items-center gap-2 rounded-full bg-muted px-4 text-left text-sm"
+          >
+            <span className="min-w-0 flex-1 truncate"><b className="font-semibold">{day ?? "Pick a date"}</b>{fares.items[0] && ready ? ` · ${fromCode} to ${toCode}` : ""}</span>
+            <span className="shrink-0 font-semibold text-coral-ink">{searchOpen ? "Done" : "Edit search"}</span>
+          </button>
+        </div>
+      )}
+      <div className={cn(PHONE_V2 && "max-lg:hidden")}>
       <FlightHero
         eyebrow={`Flights · ${roundTrip ? "round trip" : "one way"}${day ? ` · ${day}` : ""}`}
         title={<>{fromName} to {toName}</>}
@@ -1691,8 +1713,11 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
           </button>
         }
       />
+      </div>
       {loading && fares.items.length === 0 ? <FlightPicksSkeleton /> : ready && picks.length > 0 && <FlightPicks picks={picks} selected={chosenPick ? offerKey(chosenPick.offer) : null} onSelect={setChosen} roundTrip={roundTrip} />}
-      <FlightSearchBar search={searchForBar} tripId={tripId} trip={tripDates} routeOpen={routeOpen} onRouteDone={() => setRouteOpen(false)} />
+      <div className={cn(PHONE_V2 && !searchOpen && "max-lg:hidden")}>
+        <FlightSearchBar search={searchForBar} tripId={tripId} trip={tripDates} routeOpen={routeOpen} onRouteDone={() => setRouteOpen(false)} />
+      </div>
       {ready && fares.assumed && (
         <div role="note" className="mx-4 mb-1 flex items-center gap-2.5 rounded-2xl bg-caution-soft px-3.5 py-3 text-[0.84375rem] text-caution @[34rem]:mx-5">
           <Info className="size-4 shrink-0" aria-hidden />
@@ -1700,9 +1725,9 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
         </div>
       )}
       {fares.insights && ready && fares.currency && <PriceInsight insights={fares.insights} currency={fares.currency} />}
-      {ready && chosenPick && <FlightJourney offer={chosenPick.offer} labels={chosenPick.labels} roundTrip={roundTrip} onDetails={onOpenPanel ? () => onOpenPanel(panelFor(chosenPick.offer)) : undefined} tripCurrency={tripCurrency} />}
+      {ready && chosenPick && <div className={cn(PHONE_V2 && "max-lg:hidden")}><FlightJourney offer={chosenPick.offer} labels={chosenPick.labels} roundTrip={roundTrip} onDetails={onOpenPanel ? () => onOpenPanel(panelFor(chosenPick.offer)) : undefined} tripCurrency={tripCurrency} /></div>}
       {fares.items.length > 0 && fares.status !== "error" && (
-        <div className={cn("mt-4 transition-opacity duration-200", loading && "pointer-events-none opacity-50")} aria-busy={loading}>
+        <div className={cn("mt-4 transition-opacity duration-200", loading && "pointer-events-none opacity-50", PHONE_V2 && !showAll && "max-lg:hidden")} aria-busy={loading}>
           <FlightControls items={fares.items} view={view} onChange={setView} shown={offers.length} />
         </div>
       )}
@@ -1759,7 +1784,7 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
               initial={fares.searched ? { opacity: 0, y: 10 } : false}
               animate={{ opacity: 1, y: 0 }}
               key={key + offerIndex}
-              className={cn("px-4 py-3.5 @[34rem]:px-[1.125rem]", onOpenPanel && "cursor-pointer transition-colors hover:bg-muted/35 focus-visible:bg-muted/45 focus-visible:outline-none")}
+              className={cn("px-4 py-3.5 @[34rem]:px-[1.125rem]", PHONE_V2 && phoneHide[offerIndex] && "max-lg:hidden", onOpenPanel && "cursor-pointer transition-colors hover:bg-muted/35 focus-visible:bg-muted/45 focus-visible:outline-none")}
               onClick={onOpenPanel ? () => openFlight() : undefined}
               onKeyDown={onOpenPanel ? (event) => {
                 if (event.target !== event.currentTarget) return;
@@ -1778,8 +1803,13 @@ function FlightsBlockView({ block, tripId, onOpenPanel }: { block: FlightsBlockD
         })}
       </ul>
       )}
+      {PHONE_V2 && ready && !showAll && offers.length > 2 + pickKeys.size && (
+        <div className="px-[1.125rem] pb-1 pt-2 lg:hidden">
+          <button type="button" onClick={() => setShowAll(true)} className="flex h-12 w-full items-center justify-center rounded-full border border-hairline text-[0.9375rem] font-semibold">See all {offers.length} flights</button>
+        </div>
+      )}
       {ready && !showAll && !filtersOn && offers.length > ROWS && (
-        <div className="border-t border-border px-4 py-3.5 text-center">
+        <div className={cn("border-t border-border px-4 py-3.5 text-center", PHONE_V2 && "max-lg:hidden")}>
           <button type="button" onClick={() => setShowAll(true)} className={controlSecondary}>Show {offers.length - ROWS} more <ChevronDown className="size-3.5" aria-hidden /></button>
         </div>
       )}

@@ -4,13 +4,15 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type Change
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
-import { BadgeCheck, Camera, Check, Copy, Download, Eye, Link2, Loader2, MapPin, Plane, Compass, Trash2 } from "lucide-react";
+import { BadgeCheck, Camera, Check, ChevronRight, Copy, Download, Eye, Link2, Loader2, MapPin, Plane, Compass, Trash2 } from "lucide-react";
 import { Reveal, Sheet, Tactile, WordReveal, motionTokens } from "@/components/motion-primitives";
 import { StandaloneTopBar } from "@/components/StandaloneTopBar";
 import { useIsDarkMode } from "@/lib/use-dark-mode";
 import { DestinationCombobox } from "@/components/DestinationCombobox";
 import { accountPhotoUrl } from "@/lib/places-ui";
 import { notifyToast } from "@/lib/application/toast";
+import { PHONE_V2 } from "@/lib/phone-v2";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 import { COUNTRIES, LANGUAGES, countryFromPlace, displayName, fromBrowserLocale } from "@/lib/locales";
 import { updateName, updateEmail, updatePassword, disconnectGoogle, signInWithGoogle, signOut as signOutUser, uploadAvatar } from "@/features/identity/application/authClient";
@@ -46,7 +48,36 @@ const UNSET_NOTE = "Not set. Roam won\u2019t assume one until you choose.";
 
 /* --------------------------------- pieces -------------------------------- */
 
-function SettingSection({ id, title, blurb, action, children }: { id: string; title: string; blurb: string; action?: ReactNode; children: ReactNode }) {
+function SettingSection({ id, title, blurb, action, inline = false, children }: { id: string; title: string; blurb: string; action?: ReactNode; /** Phone redesign: stays on the page (the notification switches) instead of opening in a sheet. */ inline?: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const narrow = useMediaQuery("(max-width: 1023.98px)");
+  const phone = PHONE_V2 && narrow;
+  if (phone && !inline) {
+    return (
+      <section id={id} className="scroll-mt-28">
+        <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" className="flex min-h-[4.25rem] w-full items-center gap-3.5 border-b border-hairline py-2 text-left">
+          <span className="min-w-0 flex-1">
+            <b className="block font-display text-base leading-tight font-medium tracking-[-0.01em]">{title}</b>
+            <span className="text-sm text-ink-soft">{blurb}</span>
+          </span>
+          <ChevronRight className="size-[1.125rem] shrink-0 text-muted-foreground" aria-hidden />
+        </button>
+        <Sheet open={open} onClose={() => setOpen(false)} side="bottom" ariaLabel={title} className="rounded-t-[1.75rem] bg-background px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          <p className="pb-3 font-display text-xl font-medium tracking-[-0.02em]">{title}</p>
+          <div className="min-h-0 flex-1 space-y-8 overflow-y-auto pb-2">{children}</div>
+        </Sheet>
+      </section>
+    );
+  }
+  if (phone && inline) {
+    return (
+      <section id={id} className="scroll-mt-28 pt-6">
+        <h2 className="font-display text-xl font-medium tracking-[-0.02em]">{title}</h2>
+        <p className="mt-1 text-sm text-ink-soft">{blurb}</p>
+        <div className="mt-2 space-y-6">{children}</div>
+      </section>
+    );
+  }
   return (
     <section id={id} className="scroll-mt-28">
       <Reveal y={18}>
@@ -563,7 +594,7 @@ export function AccountView({
             </div>
 
             <Reveal delay={0.3}>
-              <div className="daisy-stats w-full rounded-2xl border border-white/20 bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md lg:w-auto [&_.daisy-stat-desc]:text-white/70 [&_.daisy-stat-title]:text-white/70 [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:border-white/20 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3 max-sm:[&>.daisy-stat]:px-3 max-sm:[&_.daisy-stat-title]:tracking-[0.06em]">
+              <div className={cn(PHONE_V2 && "max-lg:hidden", "daisy-stats w-full rounded-2xl border border-white/20 bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md lg:w-auto [&_.daisy-stat-desc]:text-white/70 [&_.daisy-stat-title]:text-white/70 [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:border-white/20 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3 max-sm:[&>.daisy-stat]:px-3 max-sm:[&_.daisy-stat-title]:tracking-[0.06em]")}>
                 {[
                   { label: "Trips planned", value: String(tripCount) },
                   { label: "Places", value: String(destinationCount) },
@@ -584,7 +615,7 @@ export function AccountView({
 
         {/* Rail + body */}
         <div className="mt-10 gap-10 lg:grid lg:grid-cols-[200px_minmax(0,1fr)]">
-          <nav className="sticky top-0 z-20 -mx-5 mb-8 overflow-x-auto overscroll-x-contain border-b border-border bg-background/95 px-5 py-3 scrollbar-slim sm:-mx-8 sm:px-8 lg:top-10 lg:mx-0 lg:mb-0 lg:self-start lg:overflow-visible lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+          <nav className={cn(PHONE_V2 && "max-lg:hidden", "sticky top-0 z-20 -mx-5 mb-8 overflow-x-auto overscroll-x-contain border-b border-border bg-background/95 px-5 py-3 scrollbar-slim sm:-mx-8 sm:px-8 lg:top-10 lg:mx-0 lg:mb-0 lg:self-start lg:overflow-visible lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none")}>
             <ul className="flex gap-2 lg:flex-col lg:gap-1">
               {SECTIONS.map((s) => (
                 <li key={s.id} className="shrink-0">
@@ -893,7 +924,7 @@ export function AccountView({
             </SettingSection>
 
             {/* Notifications & sharing */}
-            <SettingSection id="notifications" title="Notifications & sharing" blurb="What we tell you about, and who can see a trip.">
+            <SettingSection id="notifications" inline title="Notifications & sharing" blurb="What we tell you about, and who can see a trip.">
               <div className="border-t border-border">
                 <ToggleRow title="Trip updates" note="When something you saved changes — hours, closures, a new review." checked={!!notif.trips} onChange={(v) => { setNotif({ ...notif, trips: v }); touch(); }} />
                 <ToggleRow title="Price & weather changes" note="Fare and forecast moves on the dates you're holding." checked={!!notif.prices} onChange={(v) => { setNotif({ ...notif, prices: v }); touch(); }} />

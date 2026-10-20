@@ -3,6 +3,7 @@
 import React, { type ReactNode } from "react";
 import { AlertTriangle, ArrowUpRight, BedDouble, Briefcase, Check, ChevronRight, Clock, Leaf, Moon, Plug, Shield, Tv, Wifi, Armchair } from "lucide-react";
 import type { FlightOffer } from "@/components/TripPanelProvider";
+import { PHONE_V2 } from "@/lib/phone-v2";
 import { cn } from "@/lib/utils";
 import { AirlineMark } from "../panels/OtherFlights";
 import { arrivalDayOffset } from "./FlightFilters";
@@ -122,7 +123,7 @@ export function FlightPicks({ picks, selected, onSelect, roundTrip }: { picks: F
     );
   }
   return (
-    <div className="relative z-[1] mx-4 -mt-10 flex gap-2.5 @[34rem]:mx-5">
+    <div className={cn("relative z-[1] mx-4 -mt-10 flex gap-2.5 @[34rem]:mx-5", PHONE_V2 && "max-lg:mx-[1.125rem] max-lg:mt-4")}>
       {picks.map((pick) => {
         const key = offerKey(pick.offer);
         const on = selected === key;
@@ -132,13 +133,16 @@ export function FlightPicks({ picks, selected, onSelect, roundTrip }: { picks: F
             type="button"
             onClick={() => onSelect(key)}
             aria-pressed={on}
-            className={cn("min-w-0 flex-1 rounded-2xl px-3.5 py-3 text-left backdrop-blur-md transition-[box-shadow,background-color,transform] duration-200 ease-out active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", on ? "border-2 border-coral bg-card shadow-lift" : "border border-white/80 bg-card/75 shadow-soft hover:bg-card/90")}
+            className={cn("relative min-w-0 flex-1 rounded-2xl px-3.5 py-3 text-left backdrop-blur-md transition-[box-shadow,background-color,transform] duration-200 ease-out active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", on ? "border-2 border-coral bg-card shadow-lift" : "border border-white/80 bg-card/75 shadow-soft hover:bg-card/90", PHONE_V2 && "max-lg:backdrop-blur-none max-lg:shadow-none", PHONE_V2 && (on ? "max-lg:border max-lg:border-transparent max-lg:bg-coral-soft" : "max-lg:border max-lg:border-hairline max-lg:bg-card"))}
           >
             <span className="flex items-center justify-between gap-1.5">
               <span className={cn("eyebrow truncate", on && "text-coral-ink!")}>{pick.labels.join(" · ")}</span>
               <AirlineMark offer={pick.offer} className="size-6" />
             </span>
-            <span className="mt-1.5 block font-display text-[1.375rem] leading-tight font-medium tracking-[-0.025em] tabular-nums">{money(pick.offer.price, pick.offer.currency, true)}</span>
+            <span className="mt-1.5 flex items-center justify-between gap-2 font-display text-[1.375rem] leading-tight font-medium tracking-[-0.025em] tabular-nums">
+              {money(pick.offer.price, pick.offer.currency, true)}
+              {PHONE_V2 && on ? <span aria-hidden className="grid size-[1.125rem] shrink-0 place-items-center rounded-full bg-coral text-white lg:hidden"><Check className="size-3" strokeWidth={3.5} /></span> : null}
+            </span>
             <span className={cn(type.meta, "block truncate")}>{hoursMinutes(pick.offer.durationMinutes)} · {pick.offer.stops === 0 ? "nonstop" : `${pick.offer.stops} stop${pick.offer.stops > 1 ? "s" : ""}`}{roundTrip ? " · round trip" : ""}</span>
           </button>
         );
