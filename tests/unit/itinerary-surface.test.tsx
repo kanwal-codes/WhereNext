@@ -333,3 +333,54 @@ describe("ItinerarySurface: opening a place", () => {
     expect(openPanel).not.toHaveBeenCalled();
   });
 });
+
+describe("ItinerarySurface: placing a moved stop where it was dropped", () => {
+  it("puts a stop moved to the next day last on that day, whatever position it had on its own day", async () => {
+    state.items = [stop("Louvre", 1, 0), stop("Lunch", 1, 1), stop("Orsay", 2, 0), stop("Rodin", 2, 1)];
+    const u = userEvent.setup({ pointerEventsCheck: 0 });
+    show({ initialItems: state.items as never });
+    await u.click(within(row("Louvre")).getByRole("button", { name: "Move to next day" }));
+    await waitFor(() => expect(patches()).toHaveLength(1));
+    expect(patches()[0].body!.order).toEqual([
+      { title: "Orsay", dayIndex: 2, position: 0 },
+      { title: "Rodin", dayIndex: 2, position: 1 },
+      { title: "Louvre", dayIndex: 2, position: 2 },
+      { title: "Lunch", dayIndex: 1, position: 0 },
+    ]);
+  });
+
+  it("reorders within a day by dragging a stop onto another", async () => {
+    show();
+    fireEvent.dragStart(within(row("Seine walk")).getByRole("button", { name: "Drag to reorder" }));
+    fireEvent.dragOver(row("Louvre"));
+    fireEvent.drop(row("Louvre"));
+    await waitFor(() => expect(patches()).toHaveLength(1));
+    expect(patches()[0].body!.order).toEqual([
+      { title: "Seine walk", dayIndex: 1, position: 0 },
+      { title: "Louvre", dayIndex: 1, position: 1 },
+      { title: "Lunch", dayIndex: 1, position: 2 },
+    ]);
+  });
+
+  it("drops a stop onto another day's stop to sit just before it, and into an empty day", async () => {
+    show();
+    fireEvent.dragStart(within(row("Louvre")).getByRole("button", { name: "Drag to reorder" }));
+    fireEvent.dragOver(row("Orsay"));
+    fireEvent.drop(row("Orsay"));
+    await waitFor(() => expect(patches()).toHaveLength(1));
+    expect((patches()[0].body!.order as unknown[]).slice(0, 2)).toEqual([{ title: "Louvre", dayIndex: 2, position: 0 }, { title: "Orsay", dayIndex: 2, position: 1 }]);
+
+    const day3 = document.getElementById("day-3")!;
+    fireEvent.dragStart(within(row("Orsay")).getByRole("button", { name: "Drag to reorder" }));
+    fireEvent.dragOver(day3);
+    fireEvent.drop(day3);
+    await waitFor(() => expect(patches()).toHaveLength(2));
+    expect(patches()[1].body!.order).toContainEqual({ title: "Orsay", dayIndex: 3, position: 0 });
+  });
+
+  it("will not drag a locked stop", () => {
+    state.items = [stop("Fixed", 1, 0, { locked: true }), stop("Free", 1, 1)];
+    show({ initialItems: state.items as never });
+    expect(within(row("Fixed")).getByRole("button", { name: "Drag to reorder" }).getAttribute("draggable")).toBe("false");
+  });
+});

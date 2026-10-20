@@ -23,21 +23,10 @@ import { cn } from "@/lib/utils";
 import { PHONE_V2 } from "@/lib/phone-v2";
 import { textAction } from "@/features/conversation/ui/blocks/ui";
 import { fmtDay } from "@/lib/trip-dates";
+import { bookedLabel, chronological, cityOfDay, dayAfterMove, dayDate, groupByDay, isoForDay, planCentre, planDays, reorderChange, swapWithinDay, todayDayNumber, weekParts, withAddedItem, withLock, withTime } from "../domain/plan";
 import { KIND_META } from "@/components/overview/ReservationSheet";
-import { clockLabel, findScheduleConflicts, isTransit, reservationsByDay } from "@/lib/trip-reservations";
+import { clockLabel, findScheduleConflicts, reservationsByDay } from "@/lib/trip-reservations";
 import type { Reservation } from "@/packages/contracts/reservation";
-
-/** The calendar date for day N (1-based) given the trip's start date, or null when there's no start date. */
-function dayDate(startDate: string | null | undefined, dayN: number): string | null {
-  if (!startDate) return null;
-  const d = new Date(`${startDate}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return null;
-  d.setDate(d.getDate() + (dayN - 1));
-  return d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
-}
-
-const byOrder = (a: ItineraryItem, b: ItineraryItem) =>
-  (a.position ?? 0) - (b.position ?? 0) || a.created_at.localeCompare(b.created_at);
 
 export function ItinerarySurface({
   tripId,
@@ -100,23 +89,8 @@ export function ItinerarySurface({
     return map;
   }, [items, reservations, startDate]);
 
-  /** Most itinerary items already carry a provider_id (added from a real place search) and open
-   * the panel directly; a few are typed straight into chat with no known place behind them yet
-   * — those get looked up by name on click instead of staying a dead label forever. */
-  /** The calendar date of a trip day (YYYY-MM-DD), or null when the trip has no start date. */
-  const isoForDay = (d: number): string | null => (startDate ? new Date(Date.parse(`${startDate}T00:00:00Z`) + (d - 1) * 86_400_000).toISOString().slice(0, 10) : null);
-  /** The city a day is spent in, on a multi-city trip. */
-  const cityOfDay = (d: number): string | null => {
-    if (!trip) return null;
-    const { stops } = effectiveStops(trip);
-    if (stops.length < 2) return null;
-    const iso = isoForDay(d);
-    const here = stopForDate(stops, iso);
-    const previous = here ? stops[stops.indexOf(here) - 1] : undefined;
-    // The day a new city starts, with a flight or train leaving on it, is the move between the two, not a day spent in the new one.
-    if (here && previous && here.startDate === iso && (bookedByDay.get(d) ?? []).some((b) => isTransit(b.reservation.kind) && b.note !== "Arrives")) return `${previous.city} → ${here.city}`;
-    return here?.city ?? null;
-  };
+  const isoFor = (d: number) => isoForDay(startDate, d);
+  const cityFor = (d: number) => cityOfDay(trip, startDate, d, bookedByDay);
 
   async function openPlace(item: ItineraryItem, providerId: string | null) {
     if (providerId) {
@@ -127,7 +101,7 @@ export function ItinerarySurface({
     setResolvingTitle(item.title);
     try {
       // A stop is looked up in the city of the day it sits on, not in the whole list of cities.
-      const where = (trip ? stopForDate(effectiveStops(trip).stops, isoForDay(item.day_index))?.city : null) ?? destination;
+      const where = (trip ? stopForDate(effectiveStops(trip).stops, isoFor(item.day_index))?.city : null) ?? destination;
       const query = where ? `${item.title}, ${where}` : item.title;
       const r = await fetch(`/api/trips/${tripId}/places?query=${encodeURIComponent(query)}`);
       const body = await r.json();
@@ -194,7 +168,7 @@ export function ItinerarySurface({
     const r = await fetch(`/api/trips/${tripId}/itinerary`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: value, dayIndex: day, providerId }) });
     if (r.ok) {
       const body = await r.json();
-      setItems((cur) => (cur.some((i) => i.title === body.item.title) ? cur.map((i) => (i.title === body.item.title ? body.item : i)) : [...cur, body.item]));
+      setItems((cur) => withAddedItem(cur, body.item));
       setAddOpen(false);
       announceWorkspaceChange("itinerary");
       if (body.moved && typeof body.fromDay === "number") {
@@ -212,7 +186,7 @@ export function ItinerarySurface({
 
   const move = (item: ItineraryItem, dir: -1 | 1) => {
     if (item.metadata?.locked) return notifyToast("Unlock the item first.", "error");
-    const next = Math.max(1, item.day_index + dir);
+    const next = dayAfterMove(item, dir);
     if (next === item.day_index) return;
     reorder(item.title, next, null);
   };
@@ -223,64 +197,31 @@ export function ItinerarySurface({
    * gives keyboard and screen-reader users the same "make this earlier/later today" action.
    */
   const moveWithinDay = (item: ItineraryItem, dir: -1 | 1) => {
-    if (item.metadata?.locked) return notifyToast("Unlock the item first.", "error");
-    const dayList = (itemsByDay.get(item.day_index) ?? []).slice();
-    const idx = dayList.findIndex((i) => i.title === item.title);
-    const swapIdx = idx + dir;
-    if (idx < 0 || swapIdx < 0 || swapIdx >= dayList.length) return;
-    if (dayList[swapIdx].metadata?.locked) return notifyToast("The item next to it is locked.", "error");
-    [dayList[idx], dayList[swapIdx]] = [dayList[swapIdx], dayList[idx]];
-    const renumbered = dayList.map((i, position) => ({ ...i, position }));
-    const byTitle = new Map(renumbered.map((i) => [i.title, i]));
-    void patch(
-      { order: renumbered.map((i) => ({ title: i.title, dayIndex: i.day_index, position: i.position ?? 0 })) },
-      (list) => list.map((i) => byTitle.get(i.title) ?? i),
-    );
+    const result = swapWithinDay(itemsByDay.get(item.day_index) ?? [], item, dir);
+    if (result.kind === "locked") return notifyToast("Unlock the item first.", "error");
+    if (result.kind === "neighbour-locked") return notifyToast("The item next to it is locked.", "error");
+    if (result.kind === "ok") void patch({ order: result.change.order }, result.change.apply);
   };
 
   const toggleLock = (item: ItineraryItem) => {
     const locked = !(item.metadata?.locked === true);
-    void patch({ title: item.title, locked }, (list) =>
-      list.map((c) => (c.id === item.id ? { ...c, metadata: { ...(c.metadata ?? {}), locked } } : c)),
-    );
+    void patch({ title: item.title, locked }, (list) => withLock(list, item, locked));
   };
 
   /** `time` is "HH:MM" to set it, or `null` to clear it. */
   const setTime = (item: ItineraryItem, time: string | null) => {
     if (item.metadata?.locked) return notifyToast("Unlock the item first.", "error");
-    void patch({ title: item.title, time }, (list) =>
-      list.map((c) => {
-        if (c.id !== item.id) return c;
-        const metadata = { ...(c.metadata ?? {}) };
-        if (time === null) delete metadata.time;
-        else metadata.time = time;
-        return { ...c, metadata };
-      }),
-    );
+    void patch({ title: item.title, time }, (list) => withTime(list, item, time));
   };
 
-  /** Move `dragTitle` to `toDay`, positioned before `beforeTitle` (or at the end). Renumbers the touched days and persists them in one request. */
+  /** Move a stop to `toDay`, positioned before `beforeTitle` (or at the end), and persist the touched days in one request. */
   function reorder(movedTitle: string, toDay: number, beforeTitle: string | null) {
-    const moved = items.find((i) => i.title === movedTitle);
-    if (!moved || moved.metadata?.locked === true) {
+    const change = reorderChange(items, movedTitle, toDay, beforeTitle);
+    if (!change) {
       notifyToast("Unlock the item first.", "error");
       return;
     }
-    const fromDay = moved.day_index;
-    const rest = items.filter((i) => i.title !== movedTitle);
-    const target = rest.filter((i) => i.day_index === toDay).sort(byOrder);
-    const at = beforeTitle ? target.findIndex((i) => i.title === beforeTitle) : -1;
-    target.splice(at < 0 ? target.length : at, 0, { ...moved, day_index: toDay });
-
-    const renumber = (list: ItineraryItem[], dayN: number) =>
-      list.filter((i) => i.day_index === dayN).sort(byOrder).map((i, idx) => ({ ...i, position: idx }));
-    const touched = [...renumber(target, toDay), ...(fromDay !== toDay ? renumber(rest, fromDay) : [])];
-    const touchedByTitle = new Map(touched.map((i) => [i.title, i]));
-
-    void patch(
-      { order: touched.map((i) => ({ title: i.title, dayIndex: i.day_index, position: i.position ?? 0 })) },
-      (list) => list.map((i) => touchedByTitle.get(i.title) ?? i),
-    );
+    void patch({ order: change.order }, change.apply);
   }
 
   async function remove(item: ItineraryItem) {
@@ -311,24 +252,9 @@ export function ItinerarySurface({
   // Both derived from `items` alone — memoized so typing in the "add" title input (or any other
   // state change that doesn't touch `items`) doesn't re-scan and re-sort the whole list.
   // Suggestions are ranked toward where the plan already is: the first stop that has a location.
-  const near = useMemo<[number, number] | undefined>(() => {
-    const at = items.find((i) => typeof i.metadata?.latitude === "number" && typeof i.metadata?.longitude === "number");
-    return at ? [at.metadata!.longitude as number, at.metadata!.latitude as number] : undefined;
-  }, [items]);
-  const days = useMemo(
-    () => Array.from(new Set([...items.map((i) => i.day_index), ...bookedByDay.keys(), ...Array.from({ length: Math.min(Math.max(plannedDays, 1), 60) }, (_, n) => n + 1)])).sort((a, b) => a - b),
-    [items, bookedByDay, plannedDays],
-  );
-  const itemsByDay = useMemo(() => {
-    const map = new Map<number, ItineraryItem[]>();
-    for (const item of items) {
-      const list = map.get(item.day_index);
-      if (list) list.push(item);
-      else map.set(item.day_index, [item]);
-    }
-    for (const list of map.values()) list.sort(byOrder);
-    return map;
-  }, [items]);
+  const near = useMemo(() => planCentre(items), [items]);
+  const days = useMemo(() => planDays(items, bookedByDay.keys(), plannedDays), [items, bookedByDay, plannedDays]);
+  const itemsByDay = useMemo(() => groupByDay(items), [items]);
 
   function onDropAt(toDay: number, beforeTitle: string | null) {
     setDropHint(null);
@@ -339,15 +265,10 @@ export function ItinerarySurface({
 
   // ---- Phone redesign (the approved Plan): "Day 2 of 20", the date, a week strip, and the day as a timeline. ----
   const today = new Date();
-  const todayDay = startDate ? Math.floor((Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) - Date.parse(`${startDate}T00:00:00Z`)) / 86_400_000) + 1 : null;
+  const todayDay = todayDayNumber(startDate, today);
   const selectedDay = phoneDay ?? (todayDay && days.includes(todayDay) ? todayDay : days[0] ?? 1);
   const norm = (s: string) => s.trim().toLowerCase();
-  const weekParts = (d: number) => {
-    const iso = isoForDay(d);
-    if (!iso) return { dow: "Day", num: String(d) };
-    const date = new Date(`${iso}T00:00:00Z`);
-    return { dow: date.toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" }), num: String(date.getUTCDate()) };
-  };
+  const weekPartsOf = (d: number) => weekParts(startDate, d);
   useEffect(() => {
     if (!phone) return;
     stripRef.current?.querySelector('[aria-current="date"]')?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
@@ -355,10 +276,9 @@ export function ItinerarySurface({
   const phoneView = phone ? (() => {
     const d = selectedDay;
     // Chronological: what has a time goes in time order, what has none follows in the order it was added.
-    const timeOf = (i: ItineraryItem) => (typeof i.metadata?.time === "string" ? i.metadata.time : "");
-    const dayItems = (itemsByDay.get(d) ?? []).slice().sort((a, b) => (timeOf(a) || "99:99").localeCompare(timeOf(b) || "99:99"));
+    const dayItems = chronological(itemsByDay.get(d) ?? []);
     const booked = bookedByDay.get(d) ?? [];
-    const city = cityOfDay(d);
+    const city = cityFor(d);
     return (
       <div className="min-w-0 pb-24">
         <p className="eyebrow">Day {d} of {days.length}</p>
@@ -375,7 +295,7 @@ export function ItinerarySurface({
 
         <div ref={stripRef} role="group" aria-label="Days" className="-mx-5 mt-4 flex snap-x gap-2 overflow-x-auto overscroll-x-contain px-5 py-1 no-scrollbar scroll-px-5">
           {days.map((n) => {
-            const parts = weekParts(n);
+            const parts = weekPartsOf(n);
             const on = n === d;
             const planned = (itemsByDay.get(n) ?? []).length > 0;
             return (
@@ -484,7 +404,7 @@ export function ItinerarySurface({
                     <span className="w-9 shrink-0 font-display text-lg tabular-nums text-muted-foreground">{String(n).padStart(2, "0")}</span>
                     <span className="min-w-0 flex-1">
                       <span suppressHydrationWarning className={cn("block font-display text-base", on ? "font-semibold" : "font-medium")}>{dayDate(startDate, n) ?? `Day ${n}`}</span>
-                      <span className="block truncate text-sm text-muted-foreground">{[cityOfDay(n), count ? `${count} ${count === 1 ? "stop" : "stops"}` : "Open day"].filter(Boolean).join(" · ")}</span>
+                      <span className="block truncate text-sm text-muted-foreground">{[cityFor(n), count ? `${count} ${count === 1 ? "stop" : "stops"}` : "Open day"].filter(Boolean).join(" · ")}</span>
                     </span>
                     {on && <Check className="size-5 text-coral" aria-hidden />}
                   </button>
@@ -625,7 +545,7 @@ export function ItinerarySurface({
                 <p aria-hidden className="font-display text-6xl leading-none tabular-nums text-foreground/15 sm:text-7xl">{String(d).padStart(2, "0")}</p>
                 <h3 suppressHydrationWarning className="mt-2 font-display text-2xl tracking-tight">{date ?? `Day ${d}`}</h3>
                 <p className="mt-0.5 text-sm text-muted-foreground">
-                  {cityOfDay(d) ? `${cityOfDay(d)} · ` : ""}
+                  {cityFor(d) ? `${cityFor(d)} · ` : ""}
                   {dayItems.length === 0 ? ((bookedByDay.get(d) ?? []).length > 0 ? "Booked only" : "Open day") : `${dayItems.length} ${dayItems.length === 1 ? "stop" : "stops"}`}
                 </p>
               </div>
@@ -909,11 +829,3 @@ export function ItinerarySurface({
     </div>
   );
 }
-
-/** The right-hand label of a booked row: the time, with "Departs" / "Arrives" / "Check-in" / "Check-out" when the booking spans days. */
-function bookedLabel(reservation: Reservation, note: string | null): string {
-  const time = note === "Arrives" || note === "Check-out" ? reservation.endTime : reservation.startTime;
-  if (note) return time ? `${note} ${clockLabel(time)}` : note;
-  return time ? clockLabel(time) : "Booked";
-}
-
