@@ -533,7 +533,7 @@ describe("GroupChatSurface: threads, notices and the day", () => {
     const log = screen.getByRole("log");
     Object.defineProperty(log, "scrollHeight", { value: 3000, configurable: true });
     Object.defineProperty(log, "clientHeight", { value: 500, configurable: true });
-    Object.defineProperty(log, "scrollTop", { value: 100, configurable: true });
+    Object.defineProperty(log, "scrollTop", { value: 100, configurable: true, writable: true });
     fireEvent.scroll(log);
     history = [...history, msg("3", { content: "New from Priya", created_at: at(9) })];
     const { announceWorkspaceChange } = await import("../../lib/application/workspace-events");
@@ -558,7 +558,7 @@ describe("GroupChatSurface: threads, notices and the day", () => {
     const log = screen.getByRole("log");
     Object.defineProperty(log, "scrollHeight", { value: 3000, configurable: true });
     Object.defineProperty(log, "clientHeight", { value: 500, configurable: true });
-    Object.defineProperty(log, "scrollTop", { value: 0, configurable: true });
+    Object.defineProperty(log, "scrollTop", { value: 0, configurable: true, writable: true });
     fireEvent.scroll(log);
     const jump = await screen.findByRole("button", { name: "Jump to latest message" });
     await user.click(jump);
