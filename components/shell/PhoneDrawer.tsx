@@ -3,7 +3,7 @@
 import { useId } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { X } from "lucide-react";
+import { Luggage, X } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
 import { Sheet } from "@/components/motion-primitives";
 import { shortTripTitle } from "@/components/shell/trip-title";
@@ -90,8 +90,12 @@ export function PhoneDrawer({ open, onClose, tripId, pathname, trip, unread = 0 
       </nav>
 
       {!guest && (
-        <div className="mt-2 flex items-center gap-2.5 border-t border-border pt-3.5">
-          <Link href="/trips" onClick={onClose} className="flex min-h-11 items-center px-1 text-sm font-semibold text-ink-soft hover:text-foreground">All trips</Link>
+        <div className="mt-2 pt-1">
+          {/* Where the other trips live: a soft row, the same icon-then-label shape as the pages above it. */}
+          <Link href="/trips" onClick={onClose} className="flex min-h-12 items-center gap-3 rounded-2xl bg-secondary px-4 text-[0.9375rem] font-medium text-foreground transition-transform active:scale-[0.985]">
+            <Luggage className="size-5 text-ink-soft" aria-hidden />
+            All trips
+          </Link>
         </div>
       )}
     </Sheet>
