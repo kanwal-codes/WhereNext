@@ -25,143 +25,12 @@ import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { GUEST_TURN_LIMIT } from "@/lib/guest-limits";
 import { cn } from "@/lib/utils";
 import { RoamMark } from "@/features/roam/ui/RoamMark";
+import { CONVERSATION_CACHE_TTL_MS, readConversationCache, writeConversationCache } from "./../application/conversationCache";
+import { mergeConversationMessages } from "./../domain/mergeMessages";
+import { describeProposal } from "./../domain/proposal";
+import { hostOf, unavailableLabels } from "./../domain/replyNotes";
 
 const RTL = new Set(["ar", "he", "fa", "ur", "ps", "sd"]);
-
-/** Human names for the providers RETRIEVE may report as unavailable. */
-const PROVIDER_LABEL: Record<string, string> = {
-  liteapi: "hotel rates",
-  duffel: "flight fares",
-  ticketmaster: "events",
-  eventbrite: "events",
-  "google-routes": "transit",
-  "transit-app": "transit",
-  mapbox: "directions",
-  openweather: "the weather",
-  tavily: "the web",
-  "google-places": "places",
-};
-const unavailableLabels = (names?: string[]) => Array.from(new Set((names ?? []).map((name) => PROVIDER_LABEL[name] ?? name)));
-
-const conversationCacheKey = (tripId: string) => `where-next:conversation:${tripId}`;
-type ConversationCache = { savedAt: number; messages: Message[] };
-const CONVERSATION_CACHE_TTL_MS = 60_000;
-
-function readConversationCache(tripId: string): ConversationCache | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const parsed = JSON.parse(window.sessionStorage.getItem(conversationCacheKey(tripId)) ?? "null") as Partial<ConversationCache> | null;
-    if (!parsed || !Array.isArray(parsed.messages)) return null;
-    const messages = parsed.messages.filter((message): message is Message => Boolean(message && typeof message === "object" && (message as Message).role && typeof (message as Message).content === "string"));
-    return messages.length > 0 ? { savedAt: typeof parsed.savedAt === "number" ? parsed.savedAt : 0, messages } : null;
-  } catch {
-    return null;
-  }
-}
-
-/** `verifiedAt` is when this content was last confirmed against the server — NOT "now". Passing
- *  the real verification time (rather than always stamping the write) is what makes the 60s TTL
- *  below mean anything: otherwise every local edit (an optimistic send, a settled stream) would
- *  re-arm the freshness window and a revisit could skip server reconciliation indefinitely. */
-function writeConversationCache(tripId: string, messages: Message[], verifiedAt: number) {
-  if (typeof window === "undefined" || messages.length === 0) return;
-  try {
-    window.sessionStorage.setItem(conversationCacheKey(tripId), JSON.stringify({ savedAt: verifiedAt, messages } satisfies ConversationCache));
-  } catch {
-    // Session storage can be unavailable or full; the server remains the source of truth.
-  }
-}
-
-export function mergeConversationMessages(current: Message[], fresh: Message[]): Message[] {
-  const byId = new Map(fresh.map((message) => [message.id, message]));
-  // `current` is in the order the messages were sent. A local message carries the BROWSER's clock and a server row the
-  // SERVER's, so sorting them together by time can put Roam's streaming reply above the question that caused it
-  // whenever the two clocks differ by a second or two (a first message sent while the thread's load is still finishing
-  // merges in exactly that state). So a message with no server row keeps its place after the one before it.
-  let previous = -Infinity;
-  for (let message of current) {
-    const served = byId.get(message.id);
-    if (served) {
-      previous = Date.parse(served.created_at);
-      continue;
-    }
-    // A locally-streamed message keeps its client-generated id, so it never matches the server
-    // row by id. Both roles' local ids are deterministic from the turn's own send idempotency
-    // key (`local-${key}` for the user's own echo, `local-assistant-${key}` for the reply
-    // placeholder — see sendConversationMessage.ts), and the server row carries that same key
-    // back (`user:${key}` / `assistant:${key}`, see scopedMessageIdempotencyKey) — matching on
-    // that instead of content+timing means two genuinely identical messages/replies sent
-    // moments apart each match their own row, rather than the second one matching the first's
-    // already-confirmed twin and vanishing (or, under a slow/backed-up queue, surviving past
-    // the old fixed 5-minute window as a visible duplicate).
-    const userLocalKey = message.role === "user" && message.id.startsWith("local-") ? message.id.slice("local-".length) : null;
-    const assistantLocalKey = message.role === "assistant" && message.id.startsWith("local-assistant-") ? message.id.slice("local-assistant-".length) : null;
-    const twin = userLocalKey
-      ? fresh.find((c) => c.role === "user" && c.idempotency_key === `user:${userLocalKey}`)
-      : assistantLocalKey
-        ? fresh.find((c) => c.role === "assistant" && c.idempotency_key === `assistant:${assistantLocalKey}`)
-        : message.role === "user"
-          ? fresh.find((c) => c.role === "user" && c.content === message.content && Math.abs(Date.parse(c.created_at) - Date.parse(message.created_at)) < 60_000)
-          : message.content.trim().length > 0
-            ? fresh.find((c) => c.role === "assistant" && c.content.trim() === message.content.trim() && Math.abs(Date.parse(c.created_at) - Date.parse(message.created_at)) < 5 * 60_000)
-            : undefined;
-    if (twin) {
-      previous = Date.parse(twin.created_at);
-      continue;
-    }
-    let at = Date.parse(message.created_at);
-    if (!(at > previous)) {
-      at = previous + 1;
-      message = { ...message, created_at: new Date(at).toISOString() };
-    }
-    previous = at;
-    byId.set(message.id, message);
-  }
-  return [...byId.values()].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
-}
-
-const humanKey = (key: string) => key.replace(/[_-]+/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
-const humanValue = (value: unknown): string => {
-  if (Array.isArray(value)) return value.map(humanValue).join(", ") || "—";
-  if (value && typeof value === "object") return JSON.stringify(value);
-  if (value === "" || value == null) return "—";
-  return String(value);
-};
-
-/** The exact fields a proposed change will write — shown behind an expander so the user can check before confirming.
- *  Exported for `tests/unit/describe-proposal.test.ts` — a pure function, no need to mount the component to test it. */
-export function describeProposal(proposal: ProposedCommand): Array<[string, string]> {
-  switch (proposal.type) {
-    case "update_preferences":
-      // `operations` (add/remove/replace/clear on a list field) is the update's own control
-      // structure, not a preference — showing it as a raw "Operations: —" row is meaningless to a
-      // user, and worse, misleading when the model includes an empty `operations: []` alongside a
-      // real field (seen live: a single-field update rendered a phantom "Operations" row). Expand
-      // each operation into a proper labeled row instead of hiding it outright, so a pure
-      // list-edit (e.g. "remove museums from dislikes") still shows what's actually changing.
-      return Object.entries(proposal.preferences).flatMap(([key, value]) => {
-        if (key !== "operations") return [[humanKey(key), humanValue(value)] as [string, string]];
-        const ops = value as Array<{ action: string; field: string; values?: string[] }> | undefined;
-        if (!ops || ops.length === 0) return [];
-        return ops.map((op) => [
-          humanKey(op.field),
-          op.action === "clear" ? "clear" : `${op.action}: ${humanValue(op.values)}`,
-        ] as [string, string]);
-      });
-    case "record_decision":
-      return [["Type", proposal.kind.replaceAll("_", " ")], ...Object.entries(proposal.value).map(([key, value]) => [humanKey(key), humanValue(value)] as [string, string])];
-    case "add_itinerary_item":
-      return [["Title", proposal.title], ["Day", String(proposal.dayIndex)]];
-    case "save_place":
-      return [
-        ["Name", proposal.place.name],
-        ["Category", humanValue(proposal.place.category)],
-        ["Address", humanValue(proposal.place.address)],
-      ];
-    default:
-      return [];
-  }
-}
 
 // Phase 2.6.2 (docs/overhaul/roadmap/phase-2-speed.md): the first three labels now track real
 // backend milestones (RESOLVE started / RETRIEVE started / COMPOSE started — see `progressStage`,
@@ -183,25 +52,20 @@ const THINKING_STATES = [
   "Still on it…",
   "This one’s taking a little longer…",
 ];
+
 const TYPING_MARK = ["thinking", "searching", "planning", "answering"] as const;
+
 /** Ways into an empty conversation: three things nearly every trip starts with. */
 const STARTERS = ["Plan my first day", "Where should we stay?", "What will this cost?"] as const;
 
 /** Turns rendered when the chat opens, and added each time "Show earlier messages" is pressed. The
  *  thread itself is loaded whole (it is small); this is only how much of it is laid out at once. */
 const VISIBLE_TURNS = 30;
+
 /** How much of the remaining distance the follow-scroll covers each frame (lower = softer). */
 const FOLLOW_EASE = 0.09;
-const STAGE_PHASE: Record<"resolve" | "retrieve" | "compose", number> = { resolve: 0, retrieve: 1, compose: 2 };
 
-/** "www.example.com/path" → "example.com": which site a source is, at a glance. */
-const hostOf = (url: string) => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
-};
+const STAGE_PHASE: Record<"resolve" | "retrieve" | "compose", number> = { resolve: 0, retrieve: 1, compose: 2 };
 
 function Typing({ stage, label }: { stage?: "resolve" | "retrieve" | "compose"; label?: string }) {
   const [timerPhase, setTimerPhase] = useState(0);
@@ -267,6 +131,7 @@ export const RAIL_MEASURE = "max-w-[28.5rem]";
 
 /** An older reply's blocks without its follow-up chips. Cached per source array so the result keeps its identity (a fresh array each render would defeat the memoised AssistantMessage). */
 const settledBlocks = new WeakMap<AssistantBlock[], AssistantBlock[]>();
+
 function withoutChips(blocks: AssistantBlock[] | undefined) {
   if (!blocks) return blocks;
   let kept = settledBlocks.get(blocks);
@@ -558,7 +423,6 @@ export const ConversationSurface = React.memo(function ConversationSurface({
   };
 
   const isMultiline = useAutoGrowTextarea(textareaRef, input);
-
 
   async function confirmProposal() {
     if (!proposal || confirming) return;

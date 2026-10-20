@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeConversationMessages } from "../../features/conversation/ui/ConversationSurface";
+import { mergeConversationMessages } from "../../features/conversation/domain/mergeMessages";
 import type { Message } from "../../features/conversation/domain/message";
 
 const msg = (over: Partial<Message>): Message => ({
