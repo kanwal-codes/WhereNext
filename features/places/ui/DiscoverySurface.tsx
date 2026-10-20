@@ -4,33 +4,26 @@ import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { SwapView } from "@/components/SwapView";
 import { StayResultCard } from "@/features/stays/ui/StayResultCard";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { BedDouble, Compass, Heart, SlidersHorizontal, Sparkles, X } from "lucide-react";
-import type { Place } from "@/packages/contracts/place";
-import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { useTripData } from "@/components/TripDataProvider";
 import { CityChips } from "@/components/CityChips";
 import { useTripCity } from "@/lib/client/use-trip-city";
-import { stayWindow } from "@/lib/trip-stops";
-import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
 import { AiSearchBar } from "@/components/AiSearchBar";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import { useShowMore } from "@/lib/use-show-more";
 import { ShowMoreButton } from "@/components/ShowMoreButton";
 import { PlaceCard } from "@/components/PlaceCard";
-import { rankPlaces } from "@/lib/application/rank-places";
-import { usesMiles } from "@/lib/application/geo";
-import { readStayDecision } from "@/packages/contracts/stay";
 import { EventCard } from "@/components/EventCard";
-import type { NearbyEvent } from "@/lib/application/nearby-events";
 import { SkeletonBand, SkeletonList } from "@/components/Skeleton";
 import { EmptyState } from "@/components/EmptyState";
 import { Stagger, StaggerItem } from "@/components/motion-primitives";
-import { CATEGORIES, CATEGORY_BY_KEY, type DiscoverCategory } from "./discoverTaxonomy";
-import { appendEvents, digestBands, directiveAction, flatFeed, interestTerms, interestsKeyOf, rankContext, scopeQuery, searchResults, staysInBands, toStayItem, asList, num, type Band, type Item, type StayItem } from "../domain/discover";
+import { CATEGORIES, CATEGORY_BY_KEY } from "./discoverTaxonomy";
+import { useDiscoverFeed } from "../application/useDiscoverFeed";
+import { useSavedPlaces } from "../application/useSavedPlaces";
+import { flatFeed, interestTerms, interestsKeyOf, type Item, type StayItem } from "../domain/discover";
 import { cn } from "@/lib/utils";
-import { cachedGet } from "@/lib/client/cached-get";
 import { DiscoverTile } from "@/features/places/ui/DiscoverTile";
 import { CompareMark } from "@/features/conversation/ui/blocks/ui";
 import { formatMoney } from "@/lib/currency";
@@ -40,13 +33,6 @@ import { useMediaQuery } from "@/lib/use-media-query";
 import { PHONE_V2 } from "@/lib/phone-v2";
 import Link from "next/link";
 
-
-/**
- * Raw category results, cached per session so tabbing Eat → Nightlife → Eat
- * doesn't re-hit the API each time. Keyed on trip + category + sub-filters; the
- * *ranking* is re-applied on every read, so a fresh shortlist still reorders.
- */
-const categoryRawCache = new Map<string, Place[] | NearbyEvent[] | StayItem[]>();
 
 export function DiscoverTabs({ view, onChange, savedCount }: { view: "results" | "saved"; onChange: (v: "results" | "saved") => void; savedCount: number }) {
   return (
@@ -92,29 +78,7 @@ export function DiscoverySurface({
   const interestsKey = interestsKeyOf(prefs);
   const interests = useMemo(() => interestTerms(interestsKey), [interestsKey]);
 
-  /** Anchor a free-text query to the trip's destination unless it already names a place (`force`: it is a list of interests). */
-  const scope = useCallback((q: string, force = false) => scopeQuery(q, destination, { force }), [destination]);
-
-  // --- saved shortlist (its own tab) ----------------------------------
-  const seedSaved = (initialSaved ?? []).map((item) => (item.places ?? item) as unknown as Place).filter((p) => p?.providerId);
-  const [saved, setSaved] = useState<Place[]>(seedSaved);
-  const refreshSaved = useCallback(() => {
-    fetch(`/api/trips/${tripId}/places`)
-      .then((r) => r.json())
-      .then((body) => setSaved((body.places ?? []).map((item: { places?: Place }) => item.places ?? item)))
-      .catch(() => undefined);
-  }, [tripId]);
-  useEffect(() => {
-    // The server already seeds `saved`; only fetch on mount when it didn't (preview route).
-    if (!initialSaved) refreshSaved();
-    return subscribeWorkspaceChanges((changes) => {
-      if (changes.includes("places")) refreshSaved();
-    });
-  }, [refreshSaved, initialSaved]);
-  useEffect(() => {
-    onSavedCountChange?.(saved.length);
-  }, [saved.length, onSavedCountChange]);
-
+  const { saved } = useSavedPlaces({ tripId, initialSaved, onSavedCountChange });
   const headerHeart = useMemo(
     () => phone ? (
       <button
@@ -132,288 +96,15 @@ export function DiscoverySurface({
   );
   useSetPhoneHeader({ titleNode: headerTitle, trailing: headerHeart });
 
-  // --- filter + feed state ------------------------------------------
-  const [catKey, setCatKey] = useState<string | null>(null); // null = "All"
-  const [subs, setSubs] = useState<string[]>([]);
-  const [searchLabel, setSearchLabel] = useState(""); // what the AI search resolved to, for the "Clear" chip
-  // Arriving with a query (`?q=`) starts in search mode, so the default feed never starts beside that search and discards its results.
-  const [searchMode, setSearchMode] = useState(Boolean(initialQuery));
-
-  const [bands, setBands] = useState<Band[] | null>(null);
-  const [items, setItems] = useState<Item[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
-  const reqId = useRef(0);
-  // Cancels the in-flight provider requests from whatever `loadAll`/`loadCategory` call this one
-  // supersedes — `reqId` already discards a stale *result*, but without this the superseded
-  // request keeps running server-side to completion regardless, burning provider quota and
-  // backend load on every fast category switch or re-search.
-  const abortRef = useRef<AbortController | null>(null);
-  // The provider pages events one request at a time. Only an events category asks for the next page, and only when the reader presses the button.
-  const eventPaging = useRef({ q: "", page: 0, more: false });
-  const [eventsBusy, setEventsBusy] = useState(false);
-
-  const fetchPlaces = useCallback(
-    async (q: string, signal?: AbortSignal, limit?: number, force = false): Promise<Place[]> => {
-      const r = await cachedGet(`/api/trips/${tripId}/places?query=${encodeURIComponent(scope(q, force))}${limit ? `&limit=${limit}` : ""}`, { signal });
-      const body = await r.json().catch(() => ({}));
-      return r.ok ? (body.places ?? []) : [];
-    },
-    [tripId, scope],
-  );
-  const fetchEvents = useCallback(
-    async (q: string, page = 0, signal?: AbortSignal): Promise<NearbyEvent[]> => {
-      if (!destination) return [];
-      const qs = new URLSearchParams({ location: destination });
-      if (q) qs.set("query", q);
-      if (page > 0) qs.set("page", String(page));
-      const r = await cachedGet(`/api/trips/${tripId}/events?${qs}`, { signal });
-      const body = await r.json().catch(() => ({}));
-      return r.ok ? (body.events ?? []) : [];
-    },
-    [tripId, destination],
-  );
-  const fetchStays = useCallback(async (signal?: AbortSignal): Promise<StayItem[]> => {
-    if (!destination) return [];
-    const window = cities.hasChoice && cities.stop ? stayWindow(cities.stop) : null;
-    const qs = new URLSearchParams(cities.hasChoice ? { location: destination } : {});
-    if (window) {
-      qs.set("checkin", window.checkin);
-      qs.set("checkout", window.checkout);
-    }
-    const r = await cachedGet(`/api/trips/${tripId}/stays${qs.size ? `?${qs}` : ""}`, { signal });
-    const body = await r.json().catch(() => ({}));
-    return r.ok ? ((body.options ?? []) as Array<Record<string, unknown>>).map(toStayItem).filter((s) => s.hotelId) : [];
-  }, [tripId, destination, cities.hasChoice, cities.stop]);
-
-  // Personalised ordering for every place list — same ranker the assistant's
-  // RETRIEVE uses, so Discover and chat stay coherent.
-  const dislikesKey = asList(prefs.dislikes).join(",").toLowerCase();
-  const savedKey = saved.map((p) => p.providerId).sort().join(",");
-  const rejectedKey = (data?.rejectedPlaceIds ?? []).slice().sort().join(",");
-  const itinKey = (data?.itinerary ?? [])
-    .map((i) => (i.metadata as { latitude?: number; longitude?: number } | null) ?? {})
-    .map((m) => `${num(m.latitude) ?? ""},${num(m.longitude) ?? ""}`)
-    .join("|");
-  // Distinct from the `anchor` centroid below: only ever a real, confirmed hotel, so the
-  // ranker's "why" label can honestly say "from your stay" (see rank-places.ts's stayAnchor doc).
-  const lockedStay = readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
-  const stayKey = lockedStay?.latitude != null && lockedStay?.longitude != null ? `${lockedStay.latitude},${lockedStay.longitude}` : "";
-  const miles = usesMiles(prefs.country);
-  const rankCtx = useMemo(
-    () => rankContext({ prefs, dislikesKey, savedKey, rejectedKey, itinKey, stayKey, miles }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- primitive keys stand in for the object deps
-    [interestsKey, dislikesKey, savedKey, rejectedKey, itinKey, stayKey, miles],
-  );
-  // `typed`: a search the reader wrote. The provider's order is the answer to it, so it is kept; browsing a category is still ranked by how well known and how close.
-  const rankToItems = useCallback(
-    (places: Place[], typed = false): Item[] => rankPlaces(places, { ...rankCtx, providerOrder: typed }).map((r) => ({ kind: "place", place: r.place, why: r.why })),
-    [rankCtx],
-  );
-
-  const loadAll = useCallback(async () => {
-    const mine = ++reqId.current;
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    // Not keyed on saved places: the digest's *membership* doesn't change when you
-    // shortlist something (only its ordering would), so tabbing away and back stays
-    // instant instead of re-hitting five providers. 30-min TTL keeps events fresh.
-    // dislikesKey is part of the key, not just the ranking, so a newly-stated dislike takes
-    // effect immediately instead of waiting out a cached digest that was built before it existed.
-    const cacheKey = `discover:${tripId}:${destination}:${interestsKey}:${dislikesKey}`;
-    try {
-      const raw = sessionStorage.getItem(cacheKey);
-      if (raw) {
-        const hit = JSON.parse(raw) as { t: number; bands: Band[] };
-        if (Date.now() - hit.t < 30 * 60_000) { setBands(hit.bands); setLoading(false); return; }
-      }
-    } catch { /* ignore */ }
-    setLoading(true);
-    setMessage("");
-    // A band shows six and "See all" opens the category with its own full search, so one page (20) each:
-    // 60 was three sequential Google pages and ~300 KB per band, four bands per load.
-    const [forYou, sights, eat, tours, ev, st] = await Promise.allSettled([
-      // A list of interests ("food, art") is not a place name, so it is anchored to the destination like any other query.
-      fetchPlaces(interests.length ? interests.join(", ") : "highly rated things to do", controller.signal, 20, interests.length > 0),
-      fetchPlaces("top sights and landmarks", controller.signal, 20),
-      fetchPlaces("restaurants and cafes", controller.signal, 20),
-      fetchPlaces("guided tours", controller.signal, 20),
-      fetchEvents("", 0, controller.signal),
-      fetchStays(controller.signal),
-    ]);
-    if (mine !== reqId.current) return;
-    const ok = <T,>(r: PromiseSettledResult<T[]>): T[] => (r.status === "fulfilled" ? r.value : []);
-    const next = digestBands({ sights: ok(sights), forYou: ok(forYou), eat: ok(eat), tours: ok(tours), events: ok(ev), stays: ok(st), interests, destination, rank: rankToItems });
-    setBands(next);
-    // Live-caught: every provider call can transiently return nothing at once (a rate limit, a
-    // blip) — caching THAT for 30 minutes meant one bad load left the page stuck showing "Nothing
-    // came back" with no way to recover short of waiting out the TTL, since a reload just replays
-    // the cached empty digest without ever re-fetching. A genuinely empty destination is not a
-    // real case these generic category queries ("top sights", "restaurants", ...) hit in
-    // practice, so only a non-empty digest is worth caching — an empty one leaves the cache alone
-    // and tries again fresh next visit.
-    if (next.length > 0) {
-      try { sessionStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), bands: next })); } catch { /* ignore */ }
-    }
-    setLoading(false);
-    setMessage(next.length ? "" : "Nothing came back just now. Try a search or a different category.");
-  }, [fetchPlaces, fetchEvents, fetchStays, interests, interestsKey, dislikesKey, destination, tripId, rankToItems]);
-
-  const loadCategory = useCallback(
-    async (cat: DiscoverCategory, chosen: string[]) => {
-      const mine = ++reqId.current;
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
-      setLoading(true);
-      setMessage("");
-      try {
-        const subQ = (label: string) => cat.subs.find((s) => s.label === label)?.q ?? label;
-        const cacheKey = `${tripId}:${destination}:${cat.key}:${cat.kind === "stay" ? "" : [...chosen].sort().join("|")}`;
-        const cachedRaw = categoryRawCache.get(cacheKey);
-        let next: Item[] = [];
-        if (cat.kind === "place") {
-          let places = cachedRaw as Place[] | undefined;
-          if (!places) {
-            const queries = chosen.length ? chosen.map(subQ) : [cat.q];
-            const lists = await Promise.all(queries.map((q) => fetchPlaces(q, controller.signal)));
-            const map = new Map<string, Place>();
-            for (const list of lists) for (const p of list) map.set(p.providerId, p);
-            places = [...map.values()];
-            categoryRawCache.set(cacheKey, places);
-          }
-          next = rankToItems(places);
-        } else if (cat.kind === "event") {
-          let events = cachedRaw as NearbyEvent[] | undefined;
-          const eventQuery = chosen.map(subQ).join(" ");
-          if (!events) {
-            events = await fetchEvents(eventQuery, 0, controller.signal);
-            categoryRawCache.set(cacheKey, events);
-          }
-          eventPaging.current = { q: eventQuery, page: 0, more: events.length > 0 };
-          next = events.map((e) => ({ kind: "event", event: e }));
-        } else {
-          let all = cachedRaw as StayItem[] | undefined;
-          if (!all) {
-            all = await fetchStays(controller.signal);
-            categoryRawCache.set(cacheKey, all);
-          }
-          next = staysInBands(all, chosen, (l) => Number(subQ(l))).map((s) => ({ kind: "stay", stay: s }));
-        }
-        if (mine !== reqId.current) return;
-        setItems(next);
-        setLoading(false);
-        setMessage(next.length ? "" : `Nothing came back for ${cat.label.toLowerCase()}${chosen.length ? " with those filters" : ""}.`);
-      } catch (error) {
-        if (mine !== reqId.current) return; // superseded — the newer call owns loading/message state now
-        if (error instanceof DOMException && error.name === "AbortError") return; // this call was the one cancelled
-        setLoading(false);
-        setMessage(`Nothing came back for ${cat.label.toLowerCase()}${chosen.length ? " with those filters" : ""}.`);
-      }
-    },
-    [tripId, destination, fetchPlaces, fetchEvents, fetchStays, rankToItems],
-  );
-
-  const runSearch = useCallback(
-    async (raw: string) => {
-      const q = raw.trim();
-      if (!q) return;
-      setSearchMode(true);
-      setCatKey(null);
-      setSubs([]);
-      setLoading(true);
-      setMessage("");
-      const mine = ++reqId.current;
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
-      try {
-        const eventCategory = CATEGORY_BY_KEY.get("events");
-        const eventIntent = eventCategory && q.toLowerCase().includes("concert");
-        const found = eventIntent ? [] : await fetchPlaces(q, controller.signal);
-        const places = searchResults(found, scope(q) !== q, destination);
-        const events = eventIntent ? await fetchEvents(q, 0, controller.signal) : [];
-        if (mine !== reqId.current) return;
-        setItems(eventIntent ? events.map((event) => ({ kind: "event", event }) as Item) : rankToItems(places, true));
-        setLoading(false);
-        const count = eventIntent ? events.length : places.length;
-        setMessage(count ? "" : "Nothing came back — try different words.");
-      } catch (error) {
-        if (mine !== reqId.current) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        setLoading(false);
-        setMessage("Nothing came back — try different words.");
-      }
-    },
-    [fetchPlaces, fetchEvents, rankToItems, scope, destination],
-  );
-
-  // Arriving from a "See more" elsewhere (a place's nearby recommendations) — run that
-  // lane's own query here instead of landing on the generic mixed feed.
-  const ranInitialQuery = useRef(false);
-  useEffect(() => {
-    if (!initialQuery || ranInitialQuery.current) return;
-    ranInitialQuery.current = true;
-    void runSearch(initialQuery);
-    setSearchLabel(initialQuery);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once for the query the page mounted with
-  }, [initialQuery]);
-
-  // Drive the feed from the active filter.
-  useEffect(() => {
-    if (view !== "results" || searchMode) return;
-    if (!destination) {
-      setLoading(false);
-      return;
-    }
-    if (catKey === null) {
-      void loadAll();
-      return;
-    }
-    const cat = CATEGORY_BY_KEY.get(catKey);
-    if (cat) void loadCategory(cat, subs);
-  }, [view, searchMode, destination, catKey, subs, loadAll, loadCategory]);
-
-  function pickCategory(key: string | null) {
-    setSearchMode(false);
-    setSearchLabel("");
-    setSubs([]);
-    setCatKey(key);
-  }
-
-  function applyDirective(d: AiSearchDirective, raw: string) {
-    const action = directiveAction(d, raw, (k) => CATEGORY_BY_KEY.has(k));
-    if (action.kind === "category") {
-      pickCategory(action.category);
-      if (action.subs.length) setSubs(action.subs);
-    } else {
-      void runSearch(action.query);
-    }
-    setSearchLabel(action.label);
-  }
-  function toggleSub(label: string) {
-    setSubs((cur) => (cur.includes(label) ? cur.filter((l) => l !== label) : [...cur, label]));
-  }
+  const { catKey, subs, setSubs, searchLabel, setSearchLabel, searchMode, setSearchMode, bands, items, loading, message, eventsBusy, moreEvents, pickCategory, applyDirective, toggleSub, loadMoreEvents } = useDiscoverFeed({
+    tripId, destination, cities, view, data, prefs, saved, interests, interestsKey, initialQuery,
+  });
   const activeCat = catKey ? CATEGORY_BY_KEY.get(catKey) ?? null : null;
   const gridView = view === "saved" || searchMode || catKey !== null;
   const savedItems: Item[] = saved.map((p) => ({ kind: "place", place: p }));
   const gridItems = view === "saved" ? savedItems : items;
   // Reset the reveal only when the list itself changes — not when `saved` re-fetches under us.
   const gridMore = useShowMore(gridItems.length, view === "saved" ? `saved:${saved.length}` : items);
-  async function loadMoreEvents() {
-    if (eventsBusy || !eventPaging.current.more) return;
-    setEventsBusy(true);
-    const { q, page } = eventPaging.current;
-    try {
-      const next = await fetchEvents(q, page + 1);
-      eventPaging.current = { q, page: page + 1, more: next.length > 0 };
-      setItems((current) => appendEvents(current, next));
-    } finally {
-      setEventsBusy(false);
-    }
-  }
-
   // In a band on a phone each card is a swipeable slide (the next one peeks in), not a half-width tile: two to a row cramped the buttons.
   const slide = "max-sm:w-[15.5rem] max-sm:shrink-0 max-sm:snap-start";
   // From sm up the cards are about 11:10, not 3:4: three across a wide screen made each one 350px wide and 470 tall. 11:10 is the height the
@@ -662,7 +353,7 @@ export function DiscoverySurface({
             {/* Rows already in hand come first (no request); an events list that has run out of them asks the provider for its next page. */}
             {gridMore.remaining > 0 ? (
               <div className="mt-6"><ShowMoreButton next={gridMore.next} visible={gridMore.visible} total={gridItems.length} onClick={gridMore.showMore} noun="results" /></div>
-            ) : view !== "saved" && activeCat?.kind === "event" && eventPaging.current.more ? (
+            ) : view !== "saved" && activeCat?.kind === "event" && moreEvents ? (
               <div className="mt-6"><ShowMoreButton force busy={eventsBusy} next={0} visible={gridItems.length} total={gridItems.length} onClick={() => void loadMoreEvents()} noun="events" /></div>
             ) : null}
           </>
