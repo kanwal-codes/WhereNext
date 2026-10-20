@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { TripCover } from "@/components/trips/TripCover";
-import type { TripSummary } from "@/components/trips/types";
+import type { TripSummary } from "@/packages/contracts/trip-summary";
 import { daysUntilTrip } from "@/lib/trip-dates";
 
 export type ShellTrip = {

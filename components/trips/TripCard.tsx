@@ -7,7 +7,7 @@ import { MapPin, Users } from "lucide-react";
 import { Tactile } from "@/components/motion-primitives";
 import { TripCover } from "@/components/trips/TripCover";
 import { TripMenu } from "@/components/trips/TripMenu";
-import type { TripSummary } from "@/components/trips/types";
+import type { TripSummary } from "@/packages/contracts/trip-summary";
 import { tripWhen } from "@/lib/trip-dates";
 import type { TripStatus } from "@/lib/trip-status";
 import { cn } from "@/lib/utils";

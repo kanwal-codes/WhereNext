@@ -3,7 +3,7 @@
 import { useLayoutEffect, useState, type ReactNode } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { TripArt, hashString } from "@/components/trips/TripArt";
-import type { TripSummary } from "@/components/trips/types";
+import type { TripSummary } from "@/packages/contracts/trip-summary";
 import { useDestinationPhoto } from "@/features/places/application/useDestinationPhoto";
 import { cityScale, coverText, stampParts } from "@/lib/trip-cover";
 import { photoProxyUrl } from "@/lib/places-ui";

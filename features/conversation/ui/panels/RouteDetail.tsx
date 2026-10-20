@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { useDistance } from "@/lib/use-distance";
+import { useDistance } from "@/components/use-distance";
 import { AnimatePresence, animate as animateValue, motion, useDragControls, useMotionValue, useReducedMotion } from "motion/react";
 import { ArrowRight, ArrowUpRight, Car, PersonStanding, TrainFront } from "lucide-react";
 import { useTripPanelMaybe, type RouteBlock } from "@/components/TripPanelProvider";

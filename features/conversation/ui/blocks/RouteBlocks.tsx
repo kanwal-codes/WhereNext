@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useDistance } from "@/lib/use-distance";
+import { useDistance } from "@/components/use-distance";
 import { formatDuration } from "@/lib/format-duration";
 import { ArrowRight, Car, Check, PersonStanding, TrainFront, ChevronDown } from "lucide-react";
 import type { AssistantBlock } from "@/packages/contracts/assistant";

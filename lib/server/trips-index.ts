@@ -1,6 +1,6 @@
 import { decodeCover } from "@/lib/cover-photo";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { TripSummary } from "@/components/TripsHome";
+import type { TripSummary } from "@/packages/contracts/trip-summary";
 import { firstSavedPhotoByTrip } from "@/lib/trip-cover";
 
 export type TripsIndexData = { userId: string; displayName: string; trips: TripSummary[] };

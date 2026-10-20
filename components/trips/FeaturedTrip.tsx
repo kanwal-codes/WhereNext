@@ -7,7 +7,7 @@ import { ArrowRight, MapPin } from "lucide-react";
 import { Tactile } from "@/components/motion-primitives";
 import { TripCover } from "@/components/trips/TripCover";
 import { TripMenu } from "@/components/trips/TripMenu";
-import type { TripSummary } from "@/components/trips/types";
+import type { TripSummary } from "@/packages/contracts/trip-summary";
 import { tripDurationDays } from "@/features/trip/domain/trip";
 import { tripDayIndex, tripWhen } from "@/lib/trip-dates";
 import { featuredLabel, type TripStatus } from "@/lib/trip-status";

@@ -19,7 +19,7 @@ import { useHydrated, useMediaQuery } from "@/lib/use-media-query";
 import type { Reservation } from "@/packages/contracts/reservation";
 import { SectionHeading } from "@/components/overview/SectionHeading";
 import { StayFeature } from "@/components/overview/StayFeature";
-import type { TripSummary } from "@/components/trips/types";
+import type { TripSummary } from "@/packages/contracts/trip-summary";
 import { tripDurationDays } from "@/features/trip/domain/trip";
 import { ShareTrip } from "@/features/trip/ui/ShareTrip";
 import { TripReviewPanel } from "@/features/workspace/ui/TripReviewPanel";

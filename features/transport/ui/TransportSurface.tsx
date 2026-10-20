@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useDistance } from "@/lib/use-distance";
+import { useDistance } from "@/components/use-distance";
 import Link from "next/link";
 import { ArrowDownUp, Car, ChevronDown, ExternalLink, Loader2, Plane, Search, TrainFront } from "lucide-react";
 import type { MapLeg } from "@/components/TripMap";

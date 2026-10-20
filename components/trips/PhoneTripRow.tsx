@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { TripCover } from "@/components/trips/TripCover";
 import { TripMenu } from "@/components/trips/TripMenu";
-import type { TripSummary } from "@/components/trips/types";
+import type { TripSummary } from "@/packages/contracts/trip-summary";
 import { shortTripTitle } from "@/components/shell/trip-title";
 import { tripWhen } from "@/lib/trip-dates";
 import type { TripStatus } from "@/lib/trip-status";

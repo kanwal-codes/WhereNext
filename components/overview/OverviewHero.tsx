@@ -4,7 +4,7 @@ import type { LucideIcon } from "lucide-react";
 import { Check, Loader2, MapPin, Pencil } from "lucide-react";
 import { Reveal, WordReveal } from "@/components/motion-primitives";
 import { TripCover } from "@/components/trips/TripCover";
-import type { TripSummary } from "@/components/trips/types";
+import type { TripSummary } from "@/packages/contracts/trip-summary";
 import { cn } from "@/lib/utils";
 import { coverText } from "@/lib/trip-cover";
 import { PHONE_V2 } from "@/lib/phone-v2";
