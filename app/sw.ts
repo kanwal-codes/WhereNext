@@ -9,7 +9,7 @@ declare global {
 }
 declare const self: ServiceWorkerGlobalScope;
 
-// Deliberately NOT cached by the service worker: `/api/trips/:tripId/workspace` returns
+// Deliberately NOT cached by the service worker: trip API responses (`/api/trips/:tripId/*`) return
 // per-member data (the personal conversation slice differs by viewer), but the Cache API keys
 // purely on URL — a shared/kiosk device signed in as a different member could be served the
 // previous member's cached trip content if a fetch ever fell back to cache. It's always fetched

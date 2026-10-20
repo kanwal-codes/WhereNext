@@ -6,8 +6,8 @@ import { route } from "../../packages/providers/mapbox/client";
 import { transit } from "../../packages/providers/google-places/transit";
 import { transitAppPlan } from "../../packages/providers/transit-app/client";
 import { legsOfSegments, searchFlights } from "../../packages/providers/duffel/client";
-import { bookStay, cancelBooking, hotelDetails, prebookRate, searchStays, stayRooms } from "../../packages/providers/liteapi/client";
-import { cancelOrder, createOrder } from "../../packages/providers/duffel/client";
+import { cancelBooking, hotelDetails, searchStays, stayRooms } from "../../packages/providers/liteapi/client";
+import { cancelOrder } from "../../packages/providers/duffel/client";
 import { localEvents } from "../../packages/providers/eventbrite/client";
 import { withProviderTimeout } from "../../packages/providers/request-signal";
 import { events } from "../../packages/providers/ticketmaster/client";
@@ -304,52 +304,6 @@ describe("provider adapters", () => {
 
   it("throws when no LiteAPI key is configured", async () => {
     await expect(searchStays({ city: "Lisbon", checkin: "2026-10-15", checkout: "2026-10-18" })).rejects.toThrow(/LITEAPI_KEY/);
-  });
-
-  it("prebooks a LiteAPI offer and books it with the sandbox no-card payment method", async () => {
-    process.env.LITEAPI_KEY = "sand_x";
-    const fetchMock = vi.fn().mockImplementation((input: unknown) => {
-      const url = String(input);
-      if (url.includes("/rates/prebook")) return Promise.resolve(new Response(JSON.stringify({ data: { prebookId: "pb_1" } }), { status: 200 }));
-      if (url.includes("/rates/book")) return Promise.resolve(new Response(JSON.stringify({ data: { bookingId: "bk_1", status: "CONFIRMED", hotelConfirmationCode: "test", price: 465.85, currency: "USD" } }), { status: 200 }));
-      return Promise.reject(new Error(`unexpected ${url}`));
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    const { prebookId } = await prebookRate("offer-abc");
-    expect(prebookId).toBe("pb_1");
-    const prebookBody = JSON.parse(String(fetchMock.mock.calls[0][1].body));
-    expect(prebookBody).toEqual({ offerId: "offer-abc", usePaymentSdk: false });
-
-    const booking = await bookStay(prebookId, [{ firstName: "Jane", lastName: "Doe", email: "jane@example.com", occupancyNumber: 1 }]);
-    expect(booking).toMatchObject({ bookingId: "bk_1", status: "CONFIRMED", confirmationCode: "test", totalAmount: 465.85, currency: "USD" });
-    const bookBody = JSON.parse(String(fetchMock.mock.calls[1][1].body));
-    expect(bookBody).toMatchObject({ prebookId: "pb_1", payment: { method: "ACC_CREDIT_CARD" }, guests: [{ firstName: "Jane", lastName: "Doe", email: "jane@example.com", occupancyNumber: 1 }] });
-  });
-
-  it("books a Duffel offer against its own re-fetched price, with a balance payment", async () => {
-    process.env.DUFFEL_API_KEY = "test-key";
-    const fetchMock = vi.fn().mockImplementation((input: unknown) => {
-      const url = String(input);
-      if (url.includes("/air/offers/off_1")) return Promise.resolve(new Response(JSON.stringify({ data: { total_amount: "162.48", total_currency: "USD" } }), { status: 200 }));
-      if (url.includes("/air/orders")) return Promise.resolve(new Response(JSON.stringify({ data: { id: "ord_1", booking_reference: "3HYAPM", total_amount: "162.48", total_currency: "USD", payment_status: { paid_at: "2026-09-07T02:39:14Z" } } }), { status: 201 }));
-      return Promise.reject(new Error(`unexpected ${url}`));
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    const passenger = { id: "pas_1", title: "mr", givenName: "Jane", familyName: "Doe", bornOn: "1990-01-01", gender: "f", email: "jane@example.com", phoneNumber: "+12025550123" };
-    const order = await createOrder("off_1", ["pas_1"], [passenger]);
-    expect(order).toMatchObject({ orderId: "ord_1", bookingReference: "3HYAPM", status: "confirmed", totalAmount: "162.48", totalCurrency: "USD" });
-
-    const orderBody = JSON.parse(String(fetchMock.mock.calls[1][1].body));
-    expect(orderBody.data).toMatchObject({ type: "instant", selected_offers: ["off_1"], payments: [{ type: "balance", amount: "162.48", currency: "USD" }] });
-    expect(orderBody.data.passengers[0]).toMatchObject({ id: "pas_1", given_name: "Jane", family_name: "Doe", born_on: "1990-01-01", phone_number: "+12025550123" });
-  });
-
-  it("createOrder rejects when a passenger's details weren't supplied", async () => {
-    process.env.DUFFEL_API_KEY = "test-key";
-    await expect(createOrder("off_1", ["pas_1", "pas_2"], [{ id: "pas_1", title: "mr", givenName: "Jane", familyName: "Doe", bornOn: "1990-01-01", gender: "f", email: "jane@example.com", phoneNumber: "+1" }]))
-      .rejects.toThrow(/pas_2/);
   });
 
   it("cancels a Duffel order via quote-then-confirm", async () => {

@@ -1,40 +1,3 @@
-import { z } from "zod";
-
-/** One Duffel passenger record — must match a passenger id from the searched offer. */
-const passengerSchema = z.object({
-  id: z.string().min(1).max(60),
-  title: z.enum(["mr", "mrs", "ms", "miss", "dr"]),
-  givenName: z.string().min(1).max(60),
-  familyName: z.string().min(1).max(60),
-  bornOn: z.string().max(10),
-  gender: z.enum(["m", "f"]),
-  email: z.string().email().max(160),
-  phoneNumber: z.string().min(1).max(30),
-});
-
-/** One LiteAPI guest — occupancyNumber ties them to a specific room-occupancy slot. */
-const guestSchema = z.object({
-  firstName: z.string().min(1).max(60),
-  lastName: z.string().min(1).max(60),
-  email: z.string().email().max(160),
-  occupancyNumber: z.number().int().positive(),
-});
-
-export const bookFlightInput = z.object({
-  offerId: z.string().min(1).max(120),
-  passengers: z.array(passengerSchema).min(1).max(9),
-  // `flight:${offerId}:${attemptNonce}` — offerId up to 120 chars plus a 36-char uuid nonce
-  // (so two distinct booking attempts on the same offer don't collide), plus headroom.
-  idempotencyKey: z.string().min(1).max(200),
-});
-
-export const bookStayInput = z.object({
-  offerId: z.string().min(1).max(4000),
-  guests: z.array(guestSchema).min(1).max(8),
-  // LiteAPI offerIds are opaque encoded blobs (1000+ chars) and the natural idempotency key is
-  // derived from one (`stay:${offerId}`), so this needs far more headroom than the flight key.
-  idempotencyKey: z.string().min(1).max(4100),
-});
 
 export type Booking = {
   id: string;
@@ -50,7 +13,7 @@ export type Booking = {
 
 type BookingRow = { id: string; kind: string; provider: string; status: string; provider_reference: string | null; confirmation_code: string | null; currency: string | null; total_amount: number | string | null; created_at: string };
 
-/** DB row (snake_case) → API shape (camelCase). Shared so both booking routes stay in sync. */
+/** DB row (snake_case) → API shape (camelCase). Shared by the booking routes. */
 export function toBooking(row: BookingRow): Booking {
   return {
     id: row.id,

@@ -38,10 +38,6 @@ test("authenticated user can create and reload a trip workspace", async ({ page 
     await expect(page.locator("main").getByRole("heading", { name: "Rebuild verification" })).toBeVisible();
     const memory = await page.evaluate(async (id) => (await fetch(`/api/trips/${id}/memory`)).json(), tripId);
     expect(memory.memory).toMatchObject({ vibe: "architecture" });
-    const snapshot = await page.evaluate(async (id) => { const response = await fetch(`/api/trips/${id}/workspace`); return { status: response.status, body: await response.json() }; }, tripId);
-    expect(snapshot.status).toBe(200);
-    expect(snapshot.body.trip).toMatchObject({ name: "Rebuild verification", destination: "Montreal" });
-    expect(snapshot.body.itinerary).toEqual([]);
     // Links, photos and sources live on the card blocks / metadata.sources — never in the prose.
     await page.goto(`/trips/${tripId}/chat`);
     let seen = await assistantCount(page, tripId);

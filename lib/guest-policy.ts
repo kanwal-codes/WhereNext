@@ -25,7 +25,7 @@ const API_ALLOW: readonly ApiRule[] = [
     // Reads only. `places/google` (+ `about`) + `stays/:id` + `events/detail` are the card "Details" lookups; `stays`, `flights/places` and `places/google/autocomplete` are the cards' own search bars; `cover` is the sidebar's destination photo. All rate-limited per user.
     methods: ["GET"],
     path: new RegExp(
-      `^/api/trips/${UUID}/(conversation|workspace|members|memory|decisions|map/static|cover|places/google|places/google/(about|photo|autocomplete)|events/detail|flights/places|stays|stays/[^/]+)$`,
+      `^/api/trips/${UUID}/(conversation|members|memory|decisions|map/static|cover|places/google|places/google/(about|photo|autocomplete)|events/detail|flights/places|stays|stays/[^/]+)$`,
       "i",
     ),
   },
