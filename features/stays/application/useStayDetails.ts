@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, startTransition } from "react";
 import { useTripData } from "@/components/TripDataProvider";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
@@ -111,8 +111,10 @@ export function useStayDetails(
     loadStayDetails(tripId, hotelId, request)
       .then((next) => {
         if (cancelled) return;
-        setBody(next);
-        setState(next.hotel || next.rooms ? "ready" : "error");
+        startTransition(() => {
+          setBody(next);
+          setState(next.hotel || next.rooms ? "ready" : "error");
+        });
       })
       .catch(() => {
         if (!cancelled) setState("error");

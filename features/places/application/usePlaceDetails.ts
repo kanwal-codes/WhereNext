@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { type GooglePlaceDetails } from "@/lib/places-ui";
 import { fetchPlaceDetails } from "@/features/places/application/placeDetailsCache";
 
@@ -27,9 +27,13 @@ export function usePlaceDetails(tripId: string, placeId: string) {
     setDetails(null);
     void fetchPlaceDetails(tripId, placeId).then((body) => {
       if (!current) return;
-      setDetails(body?.place ?? null);
-      setFreshness(body?.freshness?.retrievedAt ? new Date(body.freshness.retrievedAt).toLocaleString() : "");
-      setState(body?.place ? "ready" : "error");
+      // Building the whole details page is a big render: as a transition it is cut into slices, so a panel that is still settling or a
+      // finger that is already scrolling is not held up behind it.
+      startTransition(() => {
+        setDetails(body?.place ?? null);
+        setFreshness(body?.freshness?.retrievedAt ? new Date(body.freshness.retrievedAt).toLocaleString() : "");
+        setState(body?.place ? "ready" : "error");
+      });
     });
     return () => { current = false; };
   }, [tripId, placeId, attempt]);

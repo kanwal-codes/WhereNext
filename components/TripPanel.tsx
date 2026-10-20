@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { startTransition, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link, { useLinkStatus } from "next/link";
 import { SendButton } from "@/components/ComposerButtons";
 import { usePathname } from "next/navigation";
@@ -196,7 +196,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   const [slid, setSlid] = useState(!deferBody);
   useEffect(() => {
     if (!deferBody) { setSlid(true); return; }
-    const id = setTimeout(() => setSlid(true), 300);
+    const id = setTimeout(() => startTransition(() => setSlid(true)), 300);
     return () => clearTimeout(id);
   }, [deferBody]);
   const scrollMem = useRef(new Map<string, number>());

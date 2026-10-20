@@ -231,6 +231,8 @@ export const CardOpenOverlay = ({ label, onOpen, href, warm }: { label: string; 
         tabIndex={-1}
         aria-hidden="true"
         onPointerDown={warm}
+        // Opens a panel on this page instead of going anywhere: the top progress line must not start for it (it never finished).
+        data-no-progress=""
         onClick={(event) => {
           if (event.metaKey || event.ctrlKey || event.shiftKey || event.button === 1) return;
           event.preventDefault();
