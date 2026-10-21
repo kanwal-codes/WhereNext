@@ -7,35 +7,35 @@ test("preview trip renders the routed workspace shell and every surface route", 
   await page.goto("/trips/rebuild-preview");
   await expect(page.getByRole("heading", { name: "What we know", exact: true })).toBeVisible();
 
-  const sidebar = page.locator("aside");
+  const sidebar = page.locator("aside").getByRole("navigation");
   const routes: Array<[string, RegExp]> = [
     ["Roam", /\/trips\/rebuild-preview\/chat$/],
     ["Discover", /\/trips\/rebuild-preview\/discover$/],
     ["Getting around", /\/trips\/rebuild-preview\/map$/],
     ["Stay", /\/trips\/rebuild-preview\/stay$/],
-    ["Itinerary", /\/trips\/rebuild-preview\/itinerary$/],
-    ["Trip knowledge", /\/trips\/rebuild-preview\/knowledge$/],
-    ["Bookings & essentials", /\/trips\/rebuild-preview\/bookings$/],
+    ["Plan", /\/trips\/rebuild-preview\/itinerary$/],
+    ["What Roam remembers", /\/trips\/rebuild-preview\/knowledge$/],
+    ["Bookings", /\/trips\/rebuild-preview\/bookings$/],
   ];
 
   for (const [label, url] of routes) {
-    await sidebar.getByRole("link", { name: label }).click();
+    await sidebar.getByRole("link", { name: label, exact: true }).click();
     // Each route cold-compiles on first hit in `next dev` (Conversation pulls in the AI SDK,
     // the map route mapbox-gl) — the 5s default is not enough for the first paint.
     await expect(page).toHaveURL(url, { timeout: 20_000 });
     await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible({ timeout: 20_000 });
   }
 
-  await sidebar.getByRole("link", { name: "Overview" }).click();
+  await sidebar.getByRole("link", { name: "Overview", exact: true }).click();
   await expect(page).toHaveURL(/\/trips\/rebuild-preview$/, { timeout: 30_000 });
 
   // Transport merged into "Getting around", Budget into "Trip knowledge" — old routes still land.
   // Wait for the destination page's own heading before checking the client-set <title>: the map
   // route pulls in mapbox-gl and cold-compiles slowly in `next dev`, and the title is only set
-  // once RouteScaffold/PageHeader mount.
+  // once the map page mounts (its Browse / My trip switch is the first thing on it).
   await page.goto("/trips/rebuild-preview/transport");
   await expect(page).toHaveURL(/\/trips\/rebuild-preview\/map$/);
-  await expect(page.getByRole("heading", { name: "Your trip on a map" })).toBeVisible({ timeout: 40_000 });
+  await expect(page.getByText("My trip", { exact: true })).toBeVisible({ timeout: 40_000 });
   await expect(page).toHaveTitle(/Getting around/, { timeout: 10_000 });
   await page.goto("/trips/rebuild-preview/budget");
   await expect(page).toHaveURL(/\/trips\/rebuild-preview\/knowledge$/, { timeout: 20_000 });
