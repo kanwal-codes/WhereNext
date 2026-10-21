@@ -1,11 +1,11 @@
 {
     "schema_version": 2,
-    "commit": "3e0b8602cf8859bd60299a64baaada01307e55a8",
-    "indexed_at": "2026-10-21T19:27:09Z",
+    "commit": "451ed97d8f1822d1821ea1ab9651064ab3b241b4",
+    "indexed_at": "2026-10-21T19:36:18Z",
     "project": "Users-kanwal-Projects-Where-Next",
-    "nodes": 8365,
-    "edges": 25324,
-    "original_size": 25690112,
-    "compressed_size": 5322429,
+    "nodes": 0,
+    "edges": 0,
+    "original_size": 102400,
+    "compressed_size": 1468,
     "compression_level": 3
 }
