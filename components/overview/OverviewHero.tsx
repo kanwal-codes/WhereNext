@@ -7,7 +7,6 @@ import { TripCover } from "@/components/trips/TripCover";
 import type { TripSummary } from "@/packages/contracts/trip-summary";
 import { cn } from "@/lib/utils";
 import { coverText } from "@/lib/trip-cover";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { shortTripTitle } from "@/components/shell/trip-title";
 
 export type HeroFact = { icon: LucideIcon; label: string; value: string | null; desc?: string };
@@ -59,7 +58,7 @@ export function OverviewHero({
         // the hero gives up height before it gives up that row; where there is room it keeps its full size.
         // The reserve differs because the row does: below `sm` it stacks (the action across the top, the two
         // shortcuts under it), above `sm` all three sit on one line.
-        className={cn("flex min-h-[min(34rem,calc(100svh-var(--topbar)-var(--tabbar)-9.5rem))] flex-col justify-end sm:min-h-[min(40rem,calc(100dvh-var(--topbar)-var(--tabbar)-6.5rem))] lg:min-h-[44rem]", PHONE_V2 && "max-lg:min-h-[min(26rem,calc(100dvh-var(--topbar)-9rem))]")}
+        className={cn("flex min-h-[min(34rem,calc(100svh-var(--topbar)-var(--tabbar)-9.5rem))] flex-col justify-end sm:min-h-[min(40rem,calc(100dvh-var(--topbar)-var(--tabbar)-6.5rem))] lg:min-h-[44rem]", "max-lg:min-h-[min(26rem,calc(100dvh-var(--topbar)-9rem))]")}
       >
         {({ photo }) => (
           <>
@@ -84,14 +83,14 @@ export function OverviewHero({
                   onClick={rename.start}
                   aria-label="Rename trip"
                   title="Rename trip"
-                  className={cn("daisy-btn daisy-btn-circle daisy-btn-sm border-border/60 bg-background/88 text-foreground shadow-none hover:bg-background", PHONE_V2 && "max-lg:size-11")}
+                  className={cn("daisy-btn daisy-btn-circle daisy-btn-sm border-border/60 bg-background/88 text-foreground shadow-none hover:bg-background", "max-lg:size-11")}
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
               </Reveal>
             </div>
 
-            <div className={cn("relative z-10 mx-auto w-full max-w-6xl px-5 pt-40 pb-6 transition-colors duration-1000 sm:px-8 sm:pb-9", PHONE_V2 && "max-lg:pt-24", photo ? "text-white" : "text-foreground")}>
+            <div className={cn("relative z-10 mx-auto w-full max-w-6xl px-5 pt-40 pb-6 transition-colors duration-1000 sm:px-8 sm:pb-9", "max-lg:pt-24", photo ? "text-white" : "text-foreground")}>
               <Reveal delay={0.1}>
                 <p className={cn("flex items-center gap-1.5 text-sm font-medium tracking-[0.14em] uppercase transition-colors duration-1000", photo ? "text-white/85 [text-shadow:0_1px_12px_rgba(0,0,0,0.6)]" : "text-muted-foreground")}>
                   <MapPin className="h-3.5 w-3.5 shrink-0" />
@@ -128,34 +127,31 @@ export function OverviewHero({
                 </form>
               ) : (
                 <>
-                  {PHONE_V2 && shortTripTitle(trip.name || destination) !== (trip.name || destination) && (
+                  {shortTripTitle(trip.name || destination) !== (trip.name || destination) && (
                     // A trip named after its whole route is five lines of title on a phone: it reads "first → last" there, the route below says the rest.
                     <h2 aria-hidden className={cn("mt-3 font-display text-4xl leading-[1.02] tracking-tight text-balance lg:hidden", photo && "[text-shadow:0_2px_30px_rgba(0,0,0,0.5)]")}>{shortTripTitle(trip.name || destination)}</h2>
                   )}
                   <WordReveal
                     text={trip.name || destination}
                     delay={0.25}
-                    className={cn("mt-3 max-w-4xl font-display text-5xl leading-[0.96] tracking-tight text-balance sm:text-7xl lg:text-8xl", PHONE_V2 && shortTripTitle(trip.name || destination) !== (trip.name || destination) && "max-lg:sr-only", photo && "[text-shadow:0_2px_30px_rgba(0,0,0,0.5)]")}
+                    className={cn("mt-3 max-w-4xl font-display text-5xl leading-[0.96] tracking-tight text-balance sm:text-7xl lg:text-8xl", shortTripTitle(trip.name || destination) !== (trip.name || destination) && "max-lg:sr-only", photo && "[text-shadow:0_2px_30px_rgba(0,0,0,0.5)]")}
                   />
                 </>
               )}
 
-              {PHONE_V2 && (
-                // The approved Overview: one quiet line under the title instead of a box of facts.
-                <p suppressHydrationWarning className={cn("mt-3 text-[0.9375rem] leading-snug lg:hidden", photo ? "text-white/90 [text-shadow:0_1px_12px_rgba(0,0,0,0.5)]" : "text-ink-soft")}>
-                  {facts
-                    .filter((f) => f.label !== "From" && f.value)
-                    .map((f) => (f.label === "Travellers" ? `${f.value} ${f.value === "1" ? "traveller" : "travellers"}` : String(f.value)))
-                    .join(" · ")}
-                </p>
-              )}
+              <p suppressHydrationWarning className={cn("mt-3 text-[0.9375rem] leading-snug lg:hidden", photo ? "text-white/90 [text-shadow:0_1px_12px_rgba(0,0,0,0.5)]" : "text-ink-soft")}>
+                {facts
+                  .filter((f) => f.label !== "From" && f.value)
+                  .map((f) => (f.label === "Travellers" ? `${f.value} ${f.value === "1" ? "traveller" : "travellers"}` : String(f.value)))
+                  .join(" · ")}
+              </p>
               <Reveal delay={0.55}>
                 <div
                   suppressHydrationWarning
                   className={cn(
                     "daisy-stats mt-8 w-full rounded-2xl border transition-colors duration-1000 max-sm:grid max-sm:grid-flow-row max-sm:grid-cols-2 sm:w-auto",
-                    PHONE_V2 && "max-lg:hidden!",
-                    PHONE_V2 && "max-lg:mt-5 max-sm:grid-cols-3 max-sm:[&>.daisy-stat]:px-3 max-sm:[&>.daisy-stat]:py-2.5",
+                    "max-lg:hidden!",
+                    "max-lg:mt-5 max-sm:grid-cols-3 max-sm:[&>.daisy-stat]:px-3 max-sm:[&>.daisy-stat]:py-2.5",
                     " [&_.daisy-stat-value]:overflow-visible [&_.daisy-stat-value]:leading-tight [&_.daisy-stat-value]:whitespace-normal [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3.5",
                     photo
                       ? "glass-photo [&_.daisy-stat-desc]:text-white/70 [&_.daisy-stat-title]:text-white/70 [&>.daisy-stat]:border-white/20"
@@ -163,11 +159,11 @@ export function OverviewHero({
                   )}
                 >
                   {facts.map((fact) => (
-                    <div key={fact.label} className={cn("daisy-stat", PHONE_V2 && fact.label === "From" && "max-lg:hidden")}>
+                    <div key={fact.label} className={cn("daisy-stat", fact.label === "From" && "max-lg:hidden")}>
                       <div className="daisy-stat-title flex items-center gap-1.5 text-2xs tracking-[0.1em] uppercase">
                         <fact.icon className="h-3 w-3" /> {fact.label}
                       </div>
-                      <div className={cn("daisy-stat-value font-display text-xl tracking-tight tabular-nums max-sm:text-lg sm:text-2xl", PHONE_V2 && "max-sm:text-[0.9375rem]! max-sm:leading-snug!", fact.label === "Dates" && "max-sm:whitespace-nowrap!", !fact.value && "opacity-75")}>{fact.value ?? "Not set"}</div>
+                      <div className={cn("daisy-stat-value font-display text-xl tracking-tight tabular-nums max-sm:text-lg sm:text-2xl", "max-sm:text-[0.9375rem]! max-sm:leading-snug!", fact.label === "Dates" && "max-sm:whitespace-nowrap!", !fact.value && "opacity-75")}>{fact.value ?? "Not set"}</div>
                       {fact.desc && <div className="daisy-stat-desc">{fact.desc}</div>}
                     </div>
                   ))}

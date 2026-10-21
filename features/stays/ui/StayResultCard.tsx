@@ -4,7 +4,6 @@ import { FitText } from "@/components/FitText";
 import { ArrowUpRight, BedDouble, Check, Star } from "lucide-react";
 import { CardOpenOverlay, CompareMark, compactCount, money } from "@/features/conversation/ui/blocks/ui";
 import { StayPhoto } from "@/features/stays/ui/MyStayCard";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { CINE_ORB, CINE_ORB_WHITE, CineCard, CinePill, CineRating } from "@/features/conversation/ui/blocks/CineCard";
 import { cn } from "@/lib/utils";
 
@@ -129,7 +128,7 @@ export function StayResultCard({ stay, href, onOpen, locked = false, comparing =
       }}
     />
   );
-  if (!(PHONE_V2 && phoneRow)) return card;
+  if (!(phoneRow)) return card;
   return (
     <>
       <div className="lg:hidden"><PhoneStayCard stay={stay} href={href} onOpen={onOpen} locked={locked} comparing={comparing} selected={selected} /></div>

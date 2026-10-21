@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { SmilePlus } from "lucide-react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { memberTint } from "@/lib/member-tint";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { Pressable } from "@/components/motion-primitives";
 import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
 import { MessageBlocks } from "@/features/conversation/ui/blocks/MessageBlocks";
@@ -80,7 +79,7 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
 
   const divider = showDateDivider && (
     <div className="flex items-center justify-center py-3">
-      <span className={cn("rounded-full bg-muted px-3 py-1 text-2xs font-medium tracking-[0.1em] text-muted-foreground uppercase", PHONE_V2 && "max-lg:bg-transparent max-lg:px-0 max-lg:text-xs max-lg:font-semibold max-lg:tracking-normal max-lg:normal-case")}>{dayLabel(message.created_at)}</span>
+      <span className={cn("rounded-full bg-muted px-3 py-1 text-2xs font-medium tracking-[0.1em] text-muted-foreground uppercase", "max-lg:bg-transparent max-lg:px-0 max-lg:text-xs max-lg:font-semibold max-lg:tracking-normal max-lg:normal-case")}>{dayLabel(message.created_at)}</span>
     </div>
   );
 
@@ -127,10 +126,10 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
   );
   const bubbleClass = cn(
     "min-w-0 max-w-full rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words shadow-sm",
-    PHONE_V2 && "max-lg:text-base max-lg:leading-snug max-lg:shadow-none",
+    "max-lg:text-base max-lg:leading-snug max-lg:shadow-none",
     roamBlocks && roamBlocks.length > 0 && "max-w-[92%]",
     mine ? "rounded-br-lg bg-gradient-to-br from-primary to-primary/90 text-primary-foreground" : "rounded-tl-lg bg-muted text-foreground",
-    PHONE_V2 && mine && "max-lg:bg-none max-lg:bg-primary",
+    mine && "max-lg:bg-none max-lg:bg-primary",
   );
   const bubble = isRoam ? (
     <div className={cn(bubbleClass, "[&_.chat-prose]:text-sm [&_.chat-prose]:leading-relaxed")}>
@@ -220,8 +219,8 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
                     "pointer-events-auto absolute top-1/2 z-10 flex -translate-y-1/2 items-center gap-0.5 overflow-hidden rounded-full border border-border bg-card py-1 pr-1 pl-1 shadow-lift",
                     mine ? "-left-2" : "-right-2",
                     // On a phone the bar floats just above the message, anchored to its near edge, so it never runs off the screen.
-                    PHONE_V2 && "max-lg:top-auto max-lg:bottom-full max-lg:mb-2 max-lg:translate-y-0 max-lg:border-0 max-lg:p-1.5 max-lg:shadow-[0_8px_28px_-8px_oklch(0.2_0.012_65/0.4),0_0_0_1px_var(--color-hairline)]",
-                    PHONE_V2 && (mine ? "max-lg:right-0 max-lg:left-auto" : "max-lg:left-0 max-lg:right-auto"),
+                    "max-lg:top-auto max-lg:bottom-full max-lg:mb-2 max-lg:translate-y-0 max-lg:border-0 max-lg:p-1.5 max-lg:shadow-[0_8px_28px_-8px_oklch(0.2_0.012_65/0.4),0_0_0_1px_var(--color-hairline)]",
+                    (mine ? "max-lg:right-0 max-lg:left-auto" : "max-lg:left-0 max-lg:right-auto"),
                   )}
                 >
                   {COMMON_EMOJI.map((emoji) => (
@@ -230,7 +229,7 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
                       type="button"
                       aria-label={`React ${emoji}`}
                       onClick={() => void toggleReaction(message.id, emoji)}
-                      className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-full text-base transition-transform hover:scale-125 active:scale-95", PHONE_V2 && "max-lg:size-11 max-lg:text-2xl")}
+                      className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-full text-base transition-transform hover:scale-125 active:scale-95", "max-lg:size-11 max-lg:text-2xl")}
                     >
                       {emoji}
                     </button>

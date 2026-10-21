@@ -9,7 +9,6 @@ import { TRIP, booking, createApi, matchMedia, stop, stubBrowser } from "../supp
 /** Characterization tests for the itinerary on a phone (the redesign: one day at a time, a week strip, a sheet of actions per stop). */
 const toast = vi.fn();
 const openPanel = vi.fn();
-vi.mock("@/lib/phone-v2", () => ({ PHONE_V2: true }));
 vi.mock("@/lib/application/toast", () => ({ notifyToast: (...a: unknown[]) => toast(...a) }));
 vi.mock("@/components/TripPanelProvider", () => ({ useTripPanel: () => ({ openPanel }) }));
 vi.mock("@/components/DestinationCombobox", async () => ({ DestinationCombobox: (await import("../support/itinerary-harness")).mockChildren.DestinationCombobox }));

@@ -23,7 +23,6 @@ vi.mock("@/features/identity/ui/GuestProvider", () => ({ useGuest: () => ({ gues
 vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
 vi.mock("next/link", () => ({ __esModule: true, default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a>, useLinkStatus: () => ({ pending: false }) }));
 vi.mock("@/lib/use-media-query", () => ({ useMediaQuery: () => desktop }));
-vi.mock("@/lib/phone-v2", () => ({ PHONE_V2: false }));
 vi.mock("@/components/motion-primitives", () => ({
   ContentSwap: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Sheet: ({ open, children, ariaLabel }: { open: boolean; children: React.ReactNode; ariaLabel?: string }) => (open ? <div role="dialog" aria-label={ariaLabel}>{children}</div> : null),

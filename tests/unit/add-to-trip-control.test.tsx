@@ -26,7 +26,6 @@ vi.mock("motion/react", () => ({
 vi.mock("@/components/TripDataProvider", () => ({ useTripDataMaybe: () => (tripData ? { data: tripData } : null) }));
 vi.mock("@/features/identity/ui/GuestProvider", () => ({ useGuest: () => ({ guest, openGate }) }));
 vi.mock("@/lib/application/toast", () => ({ notifyToast: (...a: unknown[]) => toast(...a) }));
-vi.mock("@/lib/phone-v2", () => ({ PHONE_V2: false }));
 vi.mock("@/lib/client/mutation-queue", () => ({
   mutate: (url: string, init: Any) => {
     if (autoReply) return Promise.resolve(autoReply(url, init.body));

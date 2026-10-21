@@ -8,7 +8,6 @@ import { FlightHero, FlightJourney, FlightPicks, FlightPicksSkeleton, FlightRowB
 import { WidgetFoot } from "./Widget";
 import { AnimatePresence, motion } from "motion/react";
 import { motionTokens } from "@/components/motion-primitives";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { DEFAULT_FLIGHT_VIEW, FlightControls, applyFlightView, type FlightView } from "./FlightFilters";
 import { FlightRowsSkeleton, FlightSearchBar, PriceInsight, useFlightSearch } from "./FlightSearch";
 import { shiftIso } from "./SearchBarParts";
@@ -83,22 +82,20 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
   );
   return (
     <section aria-label="Flights" className="roam-widget @container relative overflow-hidden rounded-3xl border border-border bg-card shadow-widget">
-      {PHONE_V2 && (
-        <div className="px-[1.125rem] pt-[1.125rem] lg:hidden">
-          <p className="eyebrow flex items-center gap-1.5 text-coral-ink"><Plane className="size-4" aria-hidden />Flights · {roundTrip ? "round trip" : "one way"}{day ? ` · ${day}` : ""}</p>
-          <h3 className="mt-0.5 font-display text-widget leading-6 font-medium tracking-[-0.012em] text-balance">{fromName} to {toName}</h3>
-          <button
-            type="button"
-            onClick={() => { setSearchOpen((v) => !v); setRouteOpen(!searchOpen); }}
-            aria-expanded={searchOpen}
-            className="mt-3 flex min-h-10 w-full items-center gap-2 rounded-full bg-muted px-4 text-left text-sm"
-          >
-            <span className="min-w-0 flex-1 truncate"><b className="font-semibold">{day ?? "Pick a date"}</b>{fares.items[0] && ready ? ` · ${fromCode} to ${toCode}` : ""}</span>
-            <span className="shrink-0 font-semibold text-coral-ink">{searchOpen ? "Done" : "Edit search"}</span>
-          </button>
-        </div>
-      )}
-      <div className={cn(PHONE_V2 && "max-lg:hidden")}>
+      <div className="px-[1.125rem] pt-[1.125rem] lg:hidden">
+        <p className="eyebrow flex items-center gap-1.5 text-coral-ink"><Plane className="size-4" aria-hidden />Flights · {roundTrip ? "round trip" : "one way"}{day ? ` · ${day}` : ""}</p>
+        <h3 className="mt-0.5 font-display text-widget leading-6 font-medium tracking-[-0.012em] text-balance">{fromName} to {toName}</h3>
+        <button
+          type="button"
+          onClick={() => { setSearchOpen((v) => !v); setRouteOpen(!searchOpen); }}
+          aria-expanded={searchOpen}
+          className="mt-3 flex min-h-10 w-full items-center gap-2 rounded-full bg-muted px-4 text-left text-sm"
+        >
+          <span className="min-w-0 flex-1 truncate"><b className="font-semibold">{day ?? "Pick a date"}</b>{fares.items[0] && ready ? ` · ${fromCode} to ${toCode}` : ""}</span>
+          <span className="shrink-0 font-semibold text-coral-ink">{searchOpen ? "Done" : "Edit search"}</span>
+        </button>
+      </div>
+      <div className={cn("max-lg:hidden")}>
       <FlightHero
         eyebrow={`Flights · ${roundTrip ? "round trip" : "one way"}${day ? ` · ${day}` : ""}`}
         title={<>{fromName} to {toName}</>}
@@ -127,10 +124,10 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
       </div>
       {/* While the search is being edited on a phone, the form comes first and the fares it will change sit beneath it. */}
       <div className="flex flex-col">
-        <div className={cn(PHONE_V2 && searchOpen && "max-lg:order-2 max-lg:pb-1")}>
+        <div className={cn(searchOpen && "max-lg:order-2 max-lg:pb-1")}>
           {loading && fares.items.length === 0 ? <FlightPicksSkeleton /> : ready && picks.length > 0 && <FlightPicks picks={picks} selected={chosenPick ? offerKey(chosenPick.offer) : null} onSelect={setChosen} roundTrip={roundTrip} />}
         </div>
-        <div className={cn(PHONE_V2 && !searchOpen && "max-lg:hidden")}>
+        <div className={cn(!searchOpen && "max-lg:hidden")}>
           <FlightSearchBar search={searchForBar} tripId={tripId} trip={tripDates} routeOpen={routeOpen} onRouteDone={() => setRouteOpen(false)} />
         </div>
       </div>
@@ -140,10 +137,10 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
           <span>No travel date set, so these are example prices. Pick your date above.</span>
         </div>
       )}
-      {fares.insights && ready && fares.currency && <div className={cn(PHONE_V2 && "max-lg:hidden")}><PriceInsight insights={fares.insights} currency={fares.currency} /></div>}
-      {ready && chosenPick && <div className={cn(PHONE_V2 && "max-lg:hidden")}><FlightJourney offer={chosenPick.offer} labels={chosenPick.labels} roundTrip={roundTrip} onDetails={onOpenPanel ? () => onOpenPanel(panelFor(chosenPick.offer)) : undefined} tripCurrency={tripCurrency} /></div>}
+      {fares.insights && ready && fares.currency && <div className={cn("max-lg:hidden")}><PriceInsight insights={fares.insights} currency={fares.currency} /></div>}
+      {ready && chosenPick && <div className={cn("max-lg:hidden")}><FlightJourney offer={chosenPick.offer} labels={chosenPick.labels} roundTrip={roundTrip} onDetails={onOpenPanel ? () => onOpenPanel(panelFor(chosenPick.offer)) : undefined} tripCurrency={tripCurrency} /></div>}
       {fares.items.length > 0 && fares.status !== "error" && (
-        <div className={cn("mt-4 transition-opacity duration-200", loading && "pointer-events-none opacity-50", PHONE_V2 && !showAll && "max-lg:hidden")} aria-busy={loading}>
+        <div className={cn("mt-4 transition-opacity duration-200", loading && "pointer-events-none opacity-50", !showAll && "max-lg:hidden")} aria-busy={loading}>
           <FlightControls items={fares.items} view={view} onChange={setView} shown={offers.length} />
         </div>
       )}
@@ -200,7 +197,7 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
               initial={fares.searched ? { opacity: 0, y: 10 } : false}
               animate={{ opacity: 1, y: 0 }}
               key={key + offerIndex}
-              className={cn("px-4 py-3.5 @[34rem]:px-[1.125rem]", PHONE_V2 && phoneHide[offerIndex] && "max-lg:hidden", onOpenPanel && "cursor-pointer transition-colors hover:bg-muted/35 focus-visible:bg-muted/45 focus-visible:outline-none")}
+              className={cn("px-4 py-3.5 @[34rem]:px-[1.125rem]", phoneHide[offerIndex] && "max-lg:hidden", onOpenPanel && "cursor-pointer transition-colors hover:bg-muted/35 focus-visible:bg-muted/45 focus-visible:outline-none")}
               onClick={onOpenPanel ? () => openFlight() : undefined}
               onKeyDown={onOpenPanel ? (event) => {
                 if (event.target !== event.currentTarget) return;
@@ -219,13 +216,13 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
         })}
       </ul>
       )}
-      {PHONE_V2 && ready && !showAll && offers.length > 2 + pickKeys.size && (
+      {ready && !showAll && offers.length > 2 + pickKeys.size && (
         <div className="px-[1.125rem] pb-1 pt-2 lg:hidden">
           <button type="button" onClick={() => setShowAll(true)} className="flex h-12 w-full items-center justify-center rounded-full border border-hairline text-[0.9375rem] font-semibold">See all {offers.length} flights</button>
         </div>
       )}
       {ready && !showAll && !filtersOn && offers.length > ROWS && (
-        <div className={cn("border-t border-border px-4 py-3.5 text-center", PHONE_V2 && "max-lg:hidden")}>
+        <div className={cn("border-t border-border px-4 py-3.5 text-center", "max-lg:hidden")}>
           <button type="button" onClick={() => setShowAll(true)} className={controlSecondary}>Show {offers.length - ROWS} more <ChevronDown className="size-3.5" aria-hidden /></button>
         </div>
       )}

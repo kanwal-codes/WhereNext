@@ -11,7 +11,6 @@ import { TRIP, booking, createApi, matchMedia, stop, stubBrowser } from "../supp
  */
 const toast = vi.fn();
 const openPanel = vi.fn();
-vi.mock("@/lib/phone-v2", () => ({ PHONE_V2: true }));
 vi.mock("@/lib/application/toast", () => ({ notifyToast: (...a: unknown[]) => toast(...a) }));
 vi.mock("@/components/TripPanelProvider", () => ({ useTripPanel: () => ({ openPanel }) }));
 vi.mock("@/components/motion-primitives", () => ({ Sheet: ({ open, children, ariaLabel }: { open: boolean; children: React.ReactNode; ariaLabel?: string }) => (open ? <div role="dialog" aria-label={ariaLabel}>{children}</div> : null) }));

@@ -4,7 +4,6 @@ import { motion } from "motion/react";
 import { stopGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { ArrowDown, ArrowUp, ArrowUpRight, ChevronDown, ChevronUp, Clock, GripVertical, Loader2, Lock, LockOpen, MoreHorizontal, Trash2 } from "lucide-react";
 import type { ItineraryItem } from "@/features/itinerary/domain/item";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { cn } from "@/lib/utils";
 import type { DragState } from "./DaySection";
 import type { PlanActions } from "./PhoneDayView";
@@ -87,7 +86,7 @@ onDrop={(e) => {
         type="button"
         onClick={() => void openPlace(item, providerId)}
         disabled={resolvingTitle === item.title}
-        className={cn("text-left hover:text-coral hover:underline disabled:opacity-60 max-sm:py-1", PHONE_V2 && "max-lg:py-2 max-sm:py-2.5")}
+        className={cn("text-left hover:text-coral hover:underline disabled:opacity-60 max-sm:py-1", "max-lg:py-2 max-sm:py-2.5")}
       >
         {item.title}{" "}
         {resolvingTitle === item.title ? (
@@ -110,7 +109,7 @@ onDrop={(e) => {
             onChange={(e) => setTime(item, e.target.value || null)}
             className={cn(
               "rounded border-none bg-transparent p-0 text-xs outline-none transition-colors [color-scheme:auto] disabled:opacity-50 max-sm:py-2 [&::-webkit-calendar-picker-indicator]:hidden",
-              PHONE_V2 && "max-lg:py-2.5 max-sm:py-3",
+              "max-lg:py-2.5 max-sm:py-3",
               time ? "text-muted-foreground hover:text-foreground" : "text-transparent",
             )}
           />

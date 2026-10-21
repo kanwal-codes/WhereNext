@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,7 +12,6 @@ const TRIP = "11111111-1111-4111-8111-111111111111";
 type Any = Record<string, any>;
 let pathname = `/trips/${TRIP}/itinerary`;
 let guest = false;
-let phoneV2 = false;
 let wide = true;
 let panelOpen = false;
 let live: Any | null;
@@ -23,7 +22,6 @@ let cover: Any | null = null;
 
 vi.mock("next/navigation", () => ({ usePathname: () => pathname, useRouter: () => ({ prefetch }) }));
 vi.mock("next/link", () => ({ __esModule: true, default: ({ href, children, prefetch: _p, ...rest }: Any) => <a href={href} {...rest}>{children}</a> }));
-vi.mock("@/lib/phone-v2", () => ({ get PHONE_V2() { return phoneV2; } }));
 vi.mock("@/lib/use-media-query", () => ({ useMediaQuery: () => wide }));
 vi.mock("@/components/TripPanelProvider", () => ({ useTripPanelMaybe: () => (panelOpen ? { panel: { kind: "place" } } : null) }));
 vi.mock("@/features/identity/ui/GuestProvider", () => ({ useGuest: () => ({ guest, openGate }) }));
@@ -57,7 +55,7 @@ const u = () => userEvent.setup({ pointerEventsCheck: 0 });
 
 beforeEach(() => {
   pathname = `/trips/${TRIP}/itinerary`;
-  guest = false; phoneV2 = false; wide = true; panelOpen = false; unread = 0; cover = null;
+  guest = false; wide = true; panelOpen = false; unread = 0; cover = null;
   live = { name: "Lisbon long weekend", destination: "Lisbon", origin: null, duration_days: 4, start_date: null, end_date: null, travelers: 2, hero_photo_name: "places/x/photos/1" };
   openGate.mockClear(); prefetch.mockClear();
 });
@@ -241,11 +239,10 @@ describe("TripShell: a guest", () => {
     expect(openGate).toHaveBeenLastCalledWith("open what roam remembers");
   });
 
-  it("takes the brand mark to the landing page and the top bar home to the chat", () => {
+  it("takes the brand mark to the landing page", () => {
     guest = true;
     shell();
     expect(within(aside()).getByRole("link", { name: "Where next? — all trips" }).getAttribute("href")).toBe("/");
-    expect(screen.getByRole("link", { name: "Lisbon long weekend" }).getAttribute("href")).toBe(`/trips/${TRIP}/chat`);
   });
 });
 
@@ -270,75 +267,17 @@ describe("TripShell: the page area", () => {
     expect(document.querySelector("main")?.className).toContain("max-lg:pb-[var(--tabbar)]");
   });
 
-  it("marks the phone design on the frame", () => {
-    shell();
-    expect(aside().parentElement?.hasAttribute("data-phone-v2")).toBe(false);
-    cleanup();
-    phoneV2 = true;
+  it("marks the frame for the phone styles, inside the header provider", () => {
     shell();
     expect(aside().parentElement?.hasAttribute("data-phone-v2")).toBe(true);
     expect(screen.getByTestId("phone-provider")).toBeTruthy();
   });
 });
 
-describe("TripShell: the mobile top bar, menu sheet and tab bar", () => {
-  it("shows the trip's name in the top bar, linking home", () => {
-    shell();
-    const bar = document.querySelector("[data-trip-topbar]") as HTMLElement;
-    expect(within(bar).getByRole("link", { name: "Lisbon long weekend" }).getAttribute("href")).toBe(`/trips/${TRIP}`);
-  });
-
-  it("opens the navigation sheet from More, and closes it again", async () => {
-    const user = u();
-    shell();
-    expect(screen.queryByRole("dialog")).toBeNull();
-    await user.click(screen.getByRole("button", { name: "More: open trip navigation" }));
-    const sheet = screen.getByRole("dialog", { name: "Trip navigation" });
-    expect(within(sheet).getAllByRole("link").length).toBeGreaterThan(9);
-    await user.click(within(sheet).getByRole("button", { name: "Close navigation" }));
-    expect(screen.queryByRole("dialog")).toBeNull();
-  });
-
-  it("closes the sheet when a row in it is chosen", async () => {
-    const user = u();
-    shell();
-    await user.click(screen.getByRole("button", { name: "More: open trip navigation" }));
-    const sheet = screen.getByRole("dialog", { name: "Trip navigation" });
-    await user.click(within(sheet).getByRole("link", { name: "Discover" }));
-    expect(screen.queryByRole("dialog")).toBeNull();
-  });
-
-  it("puts five places in the tab bar, the active one marked", () => {
-    shell();
-    const bar = document.querySelector("[data-trip-tabbar]") as HTMLElement;
-    expect(within(bar).getAllByRole("listitem")).toHaveLength(5);
-    expect(within(bar).getAllByRole("link").map((a) => a.textContent)).toEqual(["Overview", "Roam", "Plan", "Discover"]);
-    expect(within(bar).getByRole("link", { name: "Plan" }).getAttribute("aria-current")).toBe("page");
-    expect(within(bar).getByRole("link", { name: "Overview" }).getAttribute("aria-current")).toBeNull();
-  });
-
-  it("warms a tab on press", () => {
-    shell();
-    const bar = document.querySelector("[data-trip-tabbar]") as HTMLElement;
-    fireEvent.click(within(bar).getByRole("link", { name: "Discover" }));
-    expect(prefetch).toHaveBeenCalledWith(`/trips/${TRIP}/discover`);
-  });
-
-  it("closes the tabs a guest cannot use", async () => {
-    guest = true;
-    const user = u();
-    shell();
-    const bar = document.querySelector("[data-trip-tabbar]") as HTMLElement;
-    expect(within(bar).getAllByRole("link").map((a) => a.textContent)).toEqual(["Roam"]);
-    await user.click(within(bar).getByRole("button", { name: "Plan, needs an account" }));
-    expect(openGate).toHaveBeenCalledWith("open plan");
-  });
-});
-
 describe("TripShell: the phone redesign", () => {
-  beforeEach(() => { phoneV2 = true; });
+  beforeEach(() => { });
 
-  it("swaps the old top bar and tab bar for its own header and drawer", async () => {
+  it("has the phone header and drawer, and no older top bar or tab bar", async () => {
     const user = u();
     shell();
     expect(document.querySelector("[data-trip-topbar]")).toBeNull();

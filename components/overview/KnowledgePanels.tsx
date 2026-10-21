@@ -8,13 +8,12 @@ import { photoProxyUrl } from "@/lib/places-ui";
 import { categoryLabel, type TastePicture } from "@/lib/trip-overview";
 import { TripArt, hashString } from "@/components/trips/TripArt";
 import { cn } from "@/lib/utils";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import type { MosaicPlace } from "@/components/overview/PlacesMosaic";
 
 const panel = cn(
   "rounded-3xl border border-border/70 bg-card p-6 shadow-soft",
   // Phone redesign: sections on the page, divided by a hairline, not cards stacked in cards.
-  PHONE_V2 && "max-lg:rounded-none max-lg:border-0 max-lg:border-t max-lg:bg-transparent max-lg:px-0 max-lg:pt-6 max-lg:pb-0 max-lg:shadow-none",
+  "max-lg:rounded-none max-lg:border-0 max-lg:border-t max-lg:bg-transparent max-lg:px-0 max-lg:pt-6 max-lg:pb-0 max-lg:shadow-none",
 );
 
 function Thumb({ tripId, place }: { tripId: string; place: MosaicPlace }) {
@@ -101,7 +100,7 @@ export function ConstraintsPanel({ taste }: { taste: TastePicture }) {
 /** What has not been decided, each as a pill; nothing shown as a problem. */
 export function UndecidedPanel({ items, tripId }: { items: string[]; tripId: string }) {
   return (
-    <section className={cn(panel, "border-dashed bg-transparent shadow-none", PHONE_V2 && "max-lg:border-solid")}>
+    <section className={cn(panel, "border-dashed bg-transparent shadow-none", "max-lg:border-solid")}>
       <h2 className="font-display text-2xl tracking-tight max-lg:text-xl">Still undecided</h2>
       <p className="mt-1 text-sm text-muted-foreground">Raised only when they start to matter.</p>
       {items.length > 0 ? (

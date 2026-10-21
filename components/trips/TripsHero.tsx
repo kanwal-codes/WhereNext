@@ -7,7 +7,6 @@ import { BrandMark } from "@/components/BrandMark";
 import { HeroCarousel } from "@/components/HeroCarousel";
 import { Reveal, WordReveal } from "@/components/motion-primitives";
 import { useStartTrip } from "@/components/trips/useStartTrip";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 
@@ -18,7 +17,7 @@ export function TripsHero({ displayName, start }: { displayName: string; start: 
   const { prompt, setPrompt, starting, promptError, promptInputRef, canSend, speech, startTrip } = start;
   const wide = useMediaQuery("(min-width: 640px)");
   return (
-    <HeroCarousel className={cn("h-[480px] rounded-b-3xl sm:h-[420px]", PHONE_V2 && "max-lg:h-[26rem]")}>
+    <HeroCarousel className={cn("h-[480px] rounded-b-3xl sm:h-[420px]", "max-lg:h-[26rem]")}>
       <div className="absolute inset-x-0 top-0">
         <Reveal>
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 pt-6 sm:px-8">

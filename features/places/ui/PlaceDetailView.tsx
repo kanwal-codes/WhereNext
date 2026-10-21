@@ -29,7 +29,6 @@ import { useDocumentTitle } from "@/lib/use-document-title";
 import { amenityChips, askAssistantHref, businessStatusLabel, categoryLabel, cityFrom, detailsToPlace, photoProxyUrl, prettyWebsite, priceLabel, secondaryTypes } from "@/lib/places-ui";
 import { Badge, compactCount } from "@/features/conversation/ui/blocks/ui";
 import { cn } from "@/lib/utils";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { PlaceAbout } from "@/features/places/ui/PlaceAbout";
 import { PlaceHoursContact } from "@/features/places/ui/PlaceHoursContact";
 import { PlacePhoneSummary, PlacePhonePhoto } from "@/features/places/ui/PlacePhoneParts";
@@ -96,7 +95,7 @@ export function PlaceDetailView({
   // into a very long, thin bar spanning nearly the whole page. Capping it keeps it looking like
   // a button at every width instead of a banner at in-between ones.
   const asideAction = place ? (
-    <div className={cn(panel ? "max-w-md" : "max-w-sm", PHONE_V2 && "max-lg:hidden")}>
+    <div className={cn(panel ? "max-w-md" : "max-w-sm", "max-lg:hidden")}>
       <AddToTripControl tripId={tripId} place={place} size="lg" block />
     </div>
   ) : (
@@ -124,7 +123,7 @@ export function PlaceDetailView({
 
   const body = (
     <div className="min-w-0 space-y-8">
-      <Reveal delay={0.04} className={cn(PHONE_V2 && "max-lg:hidden")}>
+      <Reveal delay={0.04} className={cn("max-lg:hidden")}>
         <div className="space-y-4">
           <FactStrip
             variant="hero"
@@ -171,8 +170,8 @@ export function PlaceDetailView({
   return (
     <div>
       {titleTag}
-      {PHONE_V2 && <PlacePhonePhoto tripId={tripId} photo={photo} name={name} place={place} />}
-      <div className={cn(PHONE_V2 && "max-lg:hidden")}>
+      <PlacePhonePhoto tripId={tripId} photo={photo} name={name} place={place} />
+      <div className={cn("max-lg:hidden")}>
       <Hero
         image={photo ?? null}
         alt={name}
@@ -197,7 +196,7 @@ export function PlaceDetailView({
                 separate, already-visible placement (a narrow drawer has no "beside" to offer). */}
             <div className={cn(!panel && "sm:flex sm:items-start sm:justify-between sm:gap-6")}>
               <div className="min-w-0">
-                <p className={cn("text-sm text-muted-foreground", PHONE_V2 && "max-lg:hidden")}>{categoryLabel(details.primaryType)}</p>
+                <p className={cn("text-sm text-muted-foreground", "max-lg:hidden")}>{categoryLabel(details.primaryType)}</p>
                 {panel ? (
                   <h1 className="mt-1 font-display text-2xl font-semibold leading-tight max-lg:text-title max-lg:font-medium max-lg:tracking-[-0.03em]">{name}</h1>
                 ) : (
@@ -206,8 +205,8 @@ export function PlaceDetailView({
               </div>
               {!panel && <div className="mt-4 max-w-sm shrink-0 sm:mt-2 sm:w-64">{asideAction}</div>}
             </div>
-            {PHONE_V2 && <PlacePhoneSummary details={details} city={city} price={price} openNow={openNow} todayHours={todayHours} />}
-            <p className={cn("mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground", PHONE_V2 && "max-lg:hidden")}>
+            <PlacePhoneSummary details={details} city={city} price={price} openNow={openNow} todayHours={todayHours} />
+            <p className={cn("mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground", "max-lg:hidden")}>
               {details.formattedAddress && (
                 <span className="inline-flex items-center gap-1.5">
                   <MapPin className="h-3.5 w-3.5" /> {details.formattedAddress}
@@ -221,7 +220,7 @@ export function PlaceDetailView({
           </div>
         </Reveal>
 
-        {PHONE_V2 && place && (
+        {place && (
           // The two things you do with a place sit under its name, in the page, not as a bar pinned over the content.
           <div className="mt-5 flex items-center gap-2.5 lg:hidden">
             <div className="min-w-0 flex-1"><AddToTripControl tripId={tripId} place={place} size="lg" block noSave /></div>

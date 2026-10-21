@@ -12,7 +12,6 @@ const TRIP = "11111111-1111-4111-8111-111111111111";
 type Any = Record<string, any>;
 let data: Any;
 let desktop = true;
-let phoneV2 = false;
 let mapProps: Any = {};
 let transportProps: Any = {};
 let timelineProps: Record<number, Any> = {};
@@ -23,7 +22,6 @@ let calls: string[];
 
 vi.mock("@/components/TripDataProvider", () => ({ useTripData: () => ({ tripId: TRIP, data }) }));
 vi.mock("@/lib/use-media-query", () => ({ useMediaQuery: (q: string) => (q.includes("min-width") ? desktop : !desktop) }));
-vi.mock("@/lib/phone-v2", () => ({ get PHONE_V2() { return phoneV2; } }));
 vi.mock("@/components/shell/PhoneHeader", () => ({ PHONE_ROUND: "round", useSetPhoneHeader: ({ trailing }: { trailing?: React.ReactNode }) => { headerTrailing = trailing ?? null; } }));
 vi.mock("@/components/SegmentedSwitch", () => ({
   SegmentedSwitch: ({ options, value, onChange, label }: { options: Array<{ key: string; label: string }>; value: string; onChange: (k: string) => void; label: string }) => (
@@ -75,7 +73,7 @@ function renderMap(props: Partial<React.ComponentProps<typeof MapSurface>> = {})
 beforeEach(() => {
   data = { trip: { origin: "Toronto", destination: "Paris", start_date: "2026-12-01" }, itinerary: [], savedPlaces: [], decisions: [] };
   desktop = true;
-  phoneV2 = false;
+  
   mapProps = {}; transportProps = {}; timelineProps = {}; headerTrailing = null;
   routePlan = null;
   geocode = { lng: 2.35, lat: 48.85 };
@@ -447,7 +445,7 @@ describe("MapSurface: tabs and the panel", () => {
   it("puts the other view behind a round header button on the phone", async () => {
     const user = u();
     desktop = false;
-    phoneV2 = true;
+    
     data.itinerary = [row("i1", "Louvre", 1, 48.86, 2.34)];
     const { onTab } = renderMap();
     await screen.findByTestId("trip-map");

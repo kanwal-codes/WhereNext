@@ -2,7 +2,6 @@
 
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { PHONE_ROUND, useSetPhoneHeader } from "@/components/shell/PhoneHeader";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { Ellipsis, PanelRight } from "lucide-react";
@@ -78,7 +77,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   const { keyboardOpen, scrolledAway, onLogScroll } = useChromeScroll({ desktop, resetOn: optimisticTab });
   // Phone redesign: no floating Roam | Chat row. Roam and Group chat are two screens, each with its own title in the page header
   // (the title follows the pane the instant it is tapped, not when the URL catches up) and one round button at its right edge.
-  const phoneV2 = PHONE_V2 && !desktop;
+  const phoneV2 = !desktop;
   const chromeHidden = !desktop && !phoneV2 && (keyboardOpen || scrolledAway);
   const headerTrailing = useMemo(() => {
     if (!phoneV2) return undefined;
@@ -135,13 +134,13 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   );
 
   return (
-    <div data-roam-shell className={cn(PHONE_V2 && "icons-fine", "flex h-[calc(100dvh-var(--topbar)-var(--tabbar))] min-h-0 w-full max-w-full flex-col overflow-x-hidden lg:h-[100dvh]")}>
+    <div data-roam-shell className={cn("icons-fine", "flex h-[calc(100dvh-var(--topbar)-var(--tabbar))] min-h-0 w-full max-w-full flex-col overflow-x-hidden lg:h-[100dvh]")}>
       <div
         // A CSS transition on pixel tracks (they interpolate natively), only for the moment the layout mode changes.
         style={{ gridTemplateColumns: columns, transition: `grid-template-columns ${reduceMotion || !modeChanged ? 0 : LAYOUT_MOTION}` }}
         className="grid h-full min-h-0 w-full min-w-0 max-w-full"
       >
-        <div className={cn("relative flex min-w-0 max-w-full flex-col overflow-hidden px-4 py-4 sm:px-6 lg:border-r lg:border-border lg:py-5", PHONE_V2 && "max-lg:pt-1")}>
+        <div className={cn("relative flex min-w-0 max-w-full flex-col overflow-hidden px-4 py-4 sm:px-6 lg:border-r lg:border-border lg:py-5", "max-lg:pt-1")}>
           {!phoneV2 && <div
             // Phone: floats over the log (soft fade behind it so messages passing underneath stay legible) and slides up out of view.
             className={cn(
@@ -185,7 +184,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
               relevant while active. */}
           <div className="relative min-h-0 flex-1">
             <motion.div
-              className={cn("absolute inset-0 min-h-0", optimisticTab !== "roam" && "pointer-events-none", PHONE_V2 && optimisticTab !== "roam" && "max-lg:[content-visibility:hidden]")}
+              className={cn("absolute inset-0 min-h-0", optimisticTab !== "roam" && "pointer-events-none", optimisticTab !== "roam" && "max-lg:[content-visibility:hidden]")}
               aria-hidden={optimisticTab !== "roam"}
               // `inert`, not just aria-hidden: a hidden pane's message box and buttons must also leave the tab order.
               inert={optimisticTab !== "roam"}
@@ -207,7 +206,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
                               />}
             </motion.div>
             <motion.div
-              className={cn("absolute inset-0 min-h-0", optimisticTab !== "group" && "pointer-events-none", PHONE_V2 && optimisticTab !== "group" && "max-lg:[content-visibility:hidden]")}
+              className={cn("absolute inset-0 min-h-0", optimisticTab !== "group" && "pointer-events-none", optimisticTab !== "group" && "max-lg:[content-visibility:hidden]")}
               aria-hidden={optimisticTab !== "group"}
               inert={optimisticTab !== "group"}
               initial={false}

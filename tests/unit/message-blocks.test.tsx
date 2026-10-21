@@ -355,12 +355,13 @@ describe("MessageBlocks", () => {
     expect(html.indexOf('aria-label="See all')).toBeGreaterThan(html.indexOf("Sort by"));
   });
 
-  it("stays block: when the days are a guess the full search opens straight away", () => {
+  it("stays block: even when the days are a guess the full search stays folded until asked for", () => {
     const hotel = { hotelId: "g:tok1", name: "Hotel Blue", nightlyPrice: "93", totalPrice: "279", currency: "CAD" };
     const html = render([{ type: "stays", retrievedAt: "t", location: "Zagreb, Croatia", checkin: "2026-11-15", checkout: "2026-11-18", nights: 3, adults: 3, dateNote: "Example dates 2026-11-15 → 2026-11-18 — set your real dates", items: [hotel] }]);
-    expect(html).toContain("Looking for stays in Zagreb, Croatia. Change");
-    expect(html).toContain('aria-label="Check-in date"');
-    expect(html).toContain('aria-label="Check-out date"');
+    expect(html).toContain("Zagreb, Croatia");
+    expect(html).toContain("Edit");
+    expect(html).not.toContain('aria-label="Check-in date"');
+    expect(html).not.toContain('aria-label="Check-out date"');
   });
 
   it("stays block: guesses at the days are called out, and the see-all list has no bar", () => {

@@ -11,7 +11,6 @@ import { PhoneTripRow } from "@/components/trips/PhoneTripRow";
 import { TripsHero } from "@/components/trips/TripsHero";
 import { useStartTrip } from "@/components/trips/useStartTrip";
 import { useTripList } from "@/components/trips/useTripList";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import type { TripSummary } from "@/packages/contracts/trip-summary";
 import { tripStatus } from "@/lib/trip-status";
 import { cn } from "@/lib/utils";
@@ -29,13 +28,13 @@ export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]
 
       <div className="mx-auto max-w-6xl px-5 pt-12 pb-20 sm:px-8">
         <Reveal delay={0.55}>
-          <div className={cn("flex flex-wrap items-center justify-between gap-x-6 gap-y-4", PHONE_V2 && "max-lg:flex-nowrap max-lg:gap-x-3")}>
+          <div className={cn("flex flex-wrap items-center justify-between gap-x-6 gap-y-4", "max-lg:flex-nowrap max-lg:gap-x-3")}>
             <div className="flex min-w-0 items-center gap-3">
-              <h2 className={cn("font-display text-3xl tracking-tight", PHONE_V2 && "max-lg:text-2xl")}>{list.length > 0 ? "Your trips" : "No trips yet"}</h2>
+              <h2 className={cn("font-display text-3xl tracking-tight", "max-lg:text-2xl")}>{list.length > 0 ? "Your trips" : "No trips yet"}</h2>
               {list.length > 0 && <span className="daisy-badge daisy-badge-ghost tabular-nums">{list.length}</span>}
             </div>
             <Link href="/trips/new" className="btn-primary w-fit shrink-0">
-              <Plus className="h-4 w-4" /> {PHONE_V2 ? <span><span className="max-lg:hidden">Create </span><span className="lg:hidden">New </span>trip</span> : "Create new trip"}
+              <Plus className="h-4 w-4" /> {<span><span className="max-lg:hidden">Create </span><span className="lg:hidden">New </span>trip</span>}
             </Link>
           </div>
           {showTabs && (
@@ -61,16 +60,14 @@ export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]
           <EmptyTrips />
         ) : (
           <div key={activeFilter}>
-            {PHONE_V2 && (
-              <ul className="mt-6 space-y-3 lg:hidden">
-                {visible.map((trip) => (
-                  <li key={trip.id}>
-                    <PhoneTripRow trip={trip} status={tripStatus(trip, now)} deleting={deleting === trip.id} onDelete={() => setPendingDelete(trip)} />
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className={cn(PHONE_V2 && "max-lg:hidden")}>
+            <ul className="mt-6 space-y-3 lg:hidden">
+              {visible.map((trip) => (
+                <li key={trip.id}>
+                  <PhoneTripRow trip={trip} status={tripStatus(trip, now)} deleting={deleting === trip.id} onDelete={() => setPendingDelete(trip)} />
+                </li>
+              ))}
+            </ul>
+            <div className={cn("max-lg:hidden")}>
             {featured && (
               <Reveal delay={0.1}>
                 <div className="mt-8">

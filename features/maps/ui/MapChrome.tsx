@@ -4,7 +4,6 @@ import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { animate as animateValue, motion, useDragControls, useMotionValue, useReducedMotion } from "motion/react";
 import { ChevronLeft, ChevronRight, Route as RouteIcon, Search } from "lucide-react";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { PHONE_ROUND, useSetPhoneHeader } from "@/components/shell/PhoneHeader";
 import { modeSwatch } from "@/features/maps/ui/modeParts";
 import { MODE_LABEL } from "@/lib/application/mode-visuals";
@@ -226,7 +225,7 @@ function GettingAroundTabs({ tab, onChange, floating = false }: { tab: "trip" | 
 export function MapStage({ tab, onTab, children }: { tab: "trip" | "browse"; onTab: (t: "trip" | "browse") => void; children: ReactNode }) {
   // Phone redesign: no Browse | My trip switch floating on the map. One round button at the right of the header goes to the other view.
   const narrow = useMediaQuery("(max-width: 1023.98px)");
-  const phone = PHONE_V2 && narrow;
+  const phone = narrow;
   const headerSwitch = useMemo(() => {
     if (!phone) return undefined;
     const toBrowse = tab === "trip";
@@ -245,7 +244,7 @@ export function MapStage({ tab, onTab, children }: { tab: "trip" | "browse"; onT
       <div aria-hidden className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(70%_55%_at_94%_0%,oklch(0.64_0.175_36/0.08),transparent)]" />
       <div aria-hidden className="grain pointer-events-none absolute inset-0 z-[1]" />
       <div aria-hidden className="scrim-t pointer-events-none absolute inset-x-0 top-0 z-[1] h-28 [--scrim:0.14]" />
-      <div className={cn("pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center p-4", PHONE_V2 && "max-lg:hidden")}>
+      <div className={cn("pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center p-4", "max-lg:hidden")}>
         <div className="pointer-events-auto">
           <GettingAroundTabs tab={tab} onChange={onTab} floating />
         </div>

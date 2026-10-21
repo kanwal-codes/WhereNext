@@ -9,5 +9,4 @@ export NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 export NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$(node -p "require('$PHONE_KEYS_FILE').anon")
 export SUPABASE_SERVICE_ROLE_KEY=$(node -p "require('$PHONE_KEYS_FILE').service")
 export NEXT_PUBLIC_SITE_URL=http://localhost:4000
-export NEXT_PUBLIC_PHONE_V2=${NEXT_PUBLIC_PHONE_V2:-1}
 NEXT_DIST_DIR=.next-build-phone exec npx next build

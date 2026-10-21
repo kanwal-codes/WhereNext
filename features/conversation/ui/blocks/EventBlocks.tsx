@@ -9,7 +9,6 @@ import type { NearbyEvent } from "@/lib/application/nearby-events";
 import { cn, safeHref } from "@/lib/utils";
 import { eventDayParts } from "@/lib/places-ui";
 import { CINE_PILL_ACTION, CineCard, CineDate, CinePill } from "./CineCard";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { HoldHeight, ViewControls } from "./ListControls";
 import { DEFAULT_EVENT_VIEW, applyEventView, eventControls, type EventView } from "./listViews";
 import { Badge, cardWidth, CardOpenOverlay, Notice, SectionHeader, grid, prettyDate, rail, surface, textAction, type } from "./ui";
@@ -154,12 +153,12 @@ function EventRow({ group, onOpen }: { group: EventGroup; onOpen?: (seed: EventS
           <span className="shrink-0">{formatEventDates(group.dates)}</span>
           {event.venue && <><span aria-hidden className="opacity-50">·</span><span className="truncate">{event.venue}</span></>}
         </p>
-        {rel && <Badge tone={event.relToTrip === "in" ? "positive" : "neutral"} className={cn(PHONE_V2 && event.relToTrip === "in" && "max-lg:hidden")}>{rel}</Badge>}
+        {rel && <Badge tone={event.relToTrip === "in" ? "positive" : "neutral"} className={cn(event.relToTrip === "in" && "max-lg:hidden")}>{rel}</Badge>}
       </div>
       <div className="relative z-10 flex shrink-0 flex-col items-end gap-3">
         <Ticket href={active.url} label={`Tickets: ${event.title}`} />
         {onOpen && (
-          <button type="button" onClick={open} className={cn(textAction, "text-muted-foreground", PHONE_V2 && "max-lg:hidden")}>
+          <button type="button" onClick={open} className={cn(textAction, "text-muted-foreground", "max-lg:hidden")}>
             Details
           </button>
         )}

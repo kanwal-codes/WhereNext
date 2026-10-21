@@ -8,7 +8,6 @@ import { CINE_ORB, CINE_ORB_WHITE, CineCard, CinePill, CineRating } from "./Cine
 import { prefetchStayDetails } from "@/features/stays/application/useStayDetails";
 import { motion } from "motion/react";
 import { ease } from "@/components/motion-primitives";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { pointsFromStays } from "./mapPoints";
 import { StayCardsSkeleton, StaySearchBar, useStaySearch } from "./StaySearch";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
@@ -92,7 +91,7 @@ export function StaysBlockView({ block, tripId, preview, onOpenStay, onOpenColle
                 onSeeAll={seeAllOnSortRow ? undefined : seeAll}
                 onMap={preview && onOpenPanel && pointsFromStays(items).length > 0 ? () => onOpenPanel({ kind: "map", title: `Stays in ${where}`, points: pointsFromStays(items), connect: false }) : undefined}
               />
-              {live ? <StaySearchBar search={searchForBar} tripId={tripId} trip={tripDates} defaultOpen={search.assumed && !PHONE_V2} /> : <Meta items={[`${block.nights} night${block.nights > 1 ? "s" : ""}`, `${prettyDate(block.checkin)} – ${prettyDate(block.checkout)}`]} />}
+              {live ? <StaySearchBar search={searchForBar} tripId={tripId} trip={tripDates} /> : <Meta items={[`${block.nights} night${block.nights > 1 ? "s" : ""}`, `${prettyDate(block.checkin)} – ${prettyDate(block.checkout)}`]} />}
               {live ? (search.assumed && <Notice tone="caution">Example dates, pick yours above for accurate prices.</Notice>) : block.dateNote && <Notice tone="caution">{block.dateNote.replace(/\d{4}-\d{2}-\d{2}/g, (m) => prettyDate(m) ?? m)}</Notice>}
               {search.status === "error" && live ? (
                 <div role="alert" className={cn(surface, "space-y-3 px-4 py-8 text-center")}>

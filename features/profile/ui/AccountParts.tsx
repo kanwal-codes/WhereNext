@@ -4,7 +4,6 @@ import { cloneElement, isValidElement, useId, useState, type ReactNode } from "r
 import { motion } from "motion/react";
 import { ChevronRight } from "lucide-react";
 import { Reveal, Sheet } from "@/components/motion-primitives";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { haptic } from "@/lib/haptics";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
@@ -14,7 +13,7 @@ import { cn } from "@/lib/utils";
 export function SettingSection({ id, title, blurb, action, inline = false, children }: { id: string; title: string; blurb: string; action?: ReactNode; /** Phone redesign: stays on the page (the notification switches) instead of opening in a sheet. */ inline?: boolean; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const narrow = useMediaQuery("(max-width: 1023.98px)");
-  const phone = PHONE_V2 && narrow;
+  const phone = narrow;
   if (phone && !inline) {
     return (
       <section id={id} className="scroll-mt-28">

@@ -2,7 +2,6 @@
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import type { AssistantBlock, AssistantTurnMeta, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { EventSeed } from "@/components/TripPanelProvider";
 import { notifyToast } from "@/lib/application/toast";
@@ -176,7 +175,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
           message list never drags the rest of the screen along with it. */}
       <div aria-hidden className={cn("pointer-events-none absolute inset-x-0 top-0 z-[1] h-5 bg-gradient-to-b from-background to-transparent transition-opacity duration-200 lg:hidden", scroll.scrolled ? "opacity-100" : "opacity-0")} />
       <div ref={logRef} onScroll={handleLogScroll} data-scrolled={scroll.scrolled} role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions" className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim scroll-fade-t">
-        <div className={cn("mx-auto w-full space-y-6 pt-2 pb-28", PHONE_V2 ? "max-lg:pt-3" : "max-lg:pt-16", rail ? RAIL_MEASURE : "max-w-2xl")}>
+        <div className={cn("mx-auto w-full space-y-6 pt-2 pb-28", "max-lg:pt-3", rail ? RAIL_MEASURE : "max-w-2xl")}>
           {!loaded && messages.length === 0 && !pendingBubble && (
             <div aria-hidden className="space-y-6">
               <div className="flex justify-end">
@@ -197,7 +196,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
 
           {hiddenCount > 0 && (
             <div className="flex justify-center pb-2">
-              <button type="button" onClick={showEarlier} className={cn("btn-chip h-9 px-4 text-xs", PHONE_V2 && "max-lg:h-10 max-lg:border-0 max-lg:bg-secondary max-lg:text-sm max-lg:font-semibold max-lg:text-ink-soft")}>Show earlier messages</button>
+              <button type="button" onClick={showEarlier} className={cn("btn-chip h-9 px-4 text-xs", "max-lg:h-10 max-lg:border-0 max-lg:bg-secondary max-lg:text-sm max-lg:font-semibold max-lg:text-ink-soft")}>Show earlier messages</button>
             </div>
           )}
 

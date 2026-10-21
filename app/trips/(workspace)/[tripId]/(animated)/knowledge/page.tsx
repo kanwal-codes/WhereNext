@@ -3,7 +3,6 @@
 import { useState, type ReactNode } from "react";
 import { ChevronRight, CircleHelp, DollarSign, ShieldCheck, type LucideIcon } from "lucide-react";
 import { Sheet } from "@/components/motion-primitives";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { formatMoney } from "@/lib/currency";
 import { useTripData } from "@/components/TripDataProvider";
@@ -58,7 +57,7 @@ export default function KnowledgePage() {
   ].filter(Boolean) as string[];
   const constraintCount = taste.avoids.length + taste.dietary.length;
   const narrow = useMediaQuery("(max-width: 1023.98px)");
-  const phone = PHONE_V2 && narrow;
+  const phone = narrow;
   const budget = typeof prefs.budget === "number" ? prefs.budget : null;
   const currency = resolveCurrency(prefs);
 

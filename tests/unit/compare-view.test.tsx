@@ -12,7 +12,6 @@ const TRIP = "11111111-1111-4111-8111-111111111111";
 type Any = Record<string, any>;
 let tripData: Any | null;
 let guest = false;
-let phoneV2 = false;
 let details: Record<string, Any | null>;
 const openGate = vi.fn();
 const announce = vi.fn();
@@ -24,7 +23,6 @@ let savedFetch: Any;
 
 vi.mock("@/components/TripDataProvider", () => ({ useTripData: () => ({ data: tripData }) }));
 vi.mock("@/features/identity/ui/GuestProvider", () => ({ useGuest: () => ({ guest, openGate }) }));
-vi.mock("@/lib/phone-v2", () => ({ get PHONE_V2() { return phoneV2; } }));
 vi.mock("@/components/use-distance", () => ({ useDistance: () => (km: number) => `${km.toFixed(1)} km` }));
 vi.mock("@/components/Skeleton", () => ({ Skeleton: () => <div data-testid="skeleton" /> }));
 vi.mock("@/components/ExternalLink", () => ({ ExternalLink: ({ href, children }: Any) => <a href={href}>{children}</a> }));
@@ -49,7 +47,7 @@ const rowOf = (label: string) => within(table()).getByText(label).parentElement 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-12-02T12:00:00")); // a Wednesday
-  guest = false; phoneV2 = false; postStatus = 200;
+  guest = false; postStatus = 200;
   tripData = { savedPlaces: [], decisions: [], itinerary: [] };
   details = { a: place("a", "Louvre"), b: place("b", "Orsay", { rating: 4.8, userRatingCount: 400, priceLevel: "PRICE_LEVEL_INEXPENSIVE", location: { latitude: 48.87, longitude: 2.33 } }), c: place("c", "Rodin", { rating: 4.2, userRatingCount: 2500, priceLevel: "PRICE_LEVEL_EXPENSIVE" }) };
   savedFetch = { places: [] };
@@ -266,7 +264,7 @@ describe("CompareView: removing a pick", () => {
     const user = u();
     view(["a", "b", "c"], onIdsChange);
     await screen.findAllByText("Louvre");
-    await user.click(screen.getByRole("button", { name: "Remove Orsay from comparison" }));
+    await user.click(within(table()).getByRole("button", { name: "Remove Orsay from comparison" }));
     expect(onIdsChange).toHaveBeenCalledWith(["a", "c"]);
   });
 });
@@ -340,7 +338,7 @@ describe("CompareView: choosing one", () => {
 });
 
 describe("CompareView: on the phone", () => {
-  beforeEach(() => { phoneV2 = true; });
+  beforeEach(() => { });
   const phone = () => document.querySelector(".lg\\:hidden") as HTMLElement;
 
   it("asks 'A or B?' for two, and counts more", async () => {
@@ -421,10 +419,4 @@ describe("CompareView: on the phone", () => {
     expect(table().parentElement?.className).toContain("max-lg:hidden");
   });
 
-  it("has no phone view off the phone design", async () => {
-    phoneV2 = false;
-    view(["a", "b"]);
-    await screen.findAllByText("Louvre");
-    expect(document.querySelector(".lg\\:hidden")).toBeNull();
-  });
 });

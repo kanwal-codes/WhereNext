@@ -11,7 +11,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const TRIP = "11111111-1111-4111-8111-111111111111";
 type Any = Record<string, any>;
 let desktop = true;
-let phoneV2 = false;
 let guest = false;
 let panel: Any | null;
 let keyboardOpen = false;
@@ -23,7 +22,6 @@ const openPanel = vi.fn();
 const closePanel = vi.fn();
 const openGate = vi.fn();
 
-vi.mock("@/lib/phone-v2", () => ({ get PHONE_V2() { return phoneV2; } }));
 vi.mock("@/lib/use-media-query", () => ({ useMediaQuery: () => desktop }));
 vi.mock("@/lib/use-keyboard-fit", () => ({ useKeyboardFit: () => keyboardOpen }));
 vi.mock("@/lib/use-panel-style", () => ({ usePanelStyle: () => (sheetPanel ? "sheet" : "page") }));
@@ -68,7 +66,7 @@ Object.defineProperty(log, "clientHeight", { value: 500, configurable: true });
 const scroll = (top: number) => { logTop = top; return { currentTarget: log } as never; };
 
 beforeEach(() => {
-  logTop = 0; desktop = true; phoneV2 = false; guest = false; panel = null; keyboardOpen = false; sheetPanel = false; header = {}; conv = {}; group = {};
+  logTop = 0; desktop = true; guest = false; panel = null; keyboardOpen = false; sheetPanel = false; header = {}; conv = {}; group = {};
   [openPanel, closePanel, openGate].forEach((m) => m.mockClear());
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
@@ -214,18 +212,6 @@ describe("RoamShell: on a wide screen", () => {
 describe("RoamShell: on a narrow screen", () => {
   beforeEach(() => { desktop = false; });
 
-  it("has no side column, and opens the trip context in a sheet from the tab row", async () => {
-    const user = u();
-    shell();
-    expect(grid().style.gridTemplateColumns).toBe("minmax(0, 1fr) 0px");
-    expect(screen.queryByTestId("context")).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Show trip context" }));
-    const dialog = screen.getByRole("dialog", { name: "Trip context" });
-    expect(within(dialog).getByTestId("context")).toBeTruthy();
-    await user.click(within(dialog).getByRole("button", { name: "Close" }));
-    expect(screen.queryByRole("dialog")).toBeNull();
-  });
-
   it("shows a detail panel over the conversation", () => {
     panel = { kind: "place" };
     shell();
@@ -233,42 +219,10 @@ describe("RoamShell: on a narrow screen", () => {
     expect(conv.rail).toBe(false);
   });
 
-  it("hides the tab row as you read down, brings it back on the way up, and when the keyboard is up", () => {
-    const view = shell();
-    const chrome = () => document.querySelector("[class*='max-lg:absolute'][inert]");
-    expect(chrome()).toBeNull();
-    act(() => conv.onLogScroll(scroll(100)));
-    act(() => conv.onLogScroll(scroll(200)));
-    expect(chrome()).toBeTruthy();
-    act(() => conv.onLogScroll(scroll(170)));
-    act(() => conv.onLogScroll(scroll(140)));
-    expect(chrome()).toBeNull();
-    keyboardOpen = true;
-    view.rerender(<RoamShell tripId={TRIP} activeTab="roam" />);
-    expect(chrome()).toBeTruthy();
-  });
-
-  it("brings the tab row back as soon as the log is near its top, even on a small nudge", () => {
-    shell();
-    act(() => conv.onLogScroll(scroll(10)));
-    act(() => conv.onLogScroll(scroll(40)));
-    expect(document.querySelector("[class*='max-lg:absolute'][inert]")).toBeTruthy();
-    act(() => conv.onLogScroll(scroll(31)));
-    expect(document.querySelector("[class*='max-lg:absolute'][inert]")).toBeNull();
-  });
-
-  it("brings the tab row back at the very top", () => {
-    shell();
-    act(() => conv.onLogScroll(scroll(100)));
-    act(() => conv.onLogScroll(scroll(200)));
-    expect(document.querySelector("[class*='max-lg:absolute'][inert]")).toBeTruthy();
-    act(() => conv.onLogScroll(scroll(10)));
-    expect(document.querySelector("[class*='max-lg:absolute'][inert]")).toBeNull();
-  });
 });
 
 describe("RoamShell: the phone's header", () => {
-  beforeEach(() => { desktop = false; phoneV2 = true; });
+  beforeEach(() => { desktop = false; });
 
   it("titles the page by the pane and has no floating tab row", async () => {
     const user = u();

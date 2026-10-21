@@ -20,7 +20,6 @@ import { DiscoverFeed } from "./DiscoverFeed";
 import { CityPill } from "@/components/CityPill";
 import { PHONE_ROUND, useSetPhoneHeader } from "@/components/shell/PhoneHeader";
 import { useMediaQuery } from "@/lib/use-media-query";
-import { PHONE_V2 } from "@/lib/phone-v2";
 
 
 export function DiscoverTabs({ view, onChange, savedCount }: { view: "results" | "saved"; onChange: (v: "results" | "saved") => void; savedCount: number }) {
@@ -55,7 +54,7 @@ export function DiscoverySurface({
   const { data } = useTripData();
   const panelCtx = useTripPanelMaybe();
   const narrow = useMediaQuery("(max-width: 1023.98px)");
-  const phone = PHONE_V2 && narrow;
+  const phone = narrow;
   const [filtersOpen, setFiltersOpen] = useState(false);
   // A multi-city trip shows one city at a time (the one the group is in, or the one picked); a one-city trip is just its destination.
   const cities = useTripCity(data?.trip);
@@ -107,7 +106,7 @@ export function DiscoverySurface({
 
 
   return (
-    <div className={cn("@container flex min-h-[calc(100svh-13rem)] flex-col", PHONE_V2 && "max-lg:pb-24")}>
+    <div className={cn("@container flex min-h-[calc(100svh-13rem)] flex-col", "max-lg:pb-24")}>
       {view === "results" && !phone && <CityChips stops={cities.stops} current={cities.city} onPick={cities.setCity} estimated={cities.estimated} className="mt-3 -mb-1" />}
       {phone && view === "results" && (
         <PhoneDiscoverBar feed={feed} panelCtx={panelCtx} activeCat={activeCat} filtersOpen={filtersOpen} setFiltersOpen={setFiltersOpen} filterCount={filterCount} phone={phone} />

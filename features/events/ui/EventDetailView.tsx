@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { CalendarDays, ChevronDown, Info, MapPin, Ticket } from "lucide-react";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { Hero } from "@/components/Hero";
 import { DetailSectionHeading } from "@/components/DetailSectionHeading";
 import { FactStrip } from "@/components/DetailKit";
@@ -66,7 +65,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
   const { detail, state, retry } = useEventDetail(tripId, seed);
   const titleTag = useDocumentTitle(panel ? null : detail?.title ?? seed.name);
 
-  const dock = PHONE_V2 && !panel;
+  const dock = !panel;
   const pad = panel ? PANEL_PAD : cn("mx-auto max-w-3xl px-5 pb-14 sm:px-8", dock && "max-lg:pb-32");
   const d = detail;
 
@@ -98,8 +97,8 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
       {titleTag}
       <Hero image={image || fallbackImage} fallbackImage={fallbackImage} alt={title} plain surface={panel} className={cn(panel ? PANEL_HERO : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]")}>
         <div className={cn("absolute inset-x-0 bottom-0", pad, "pb-6")}>
-          {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className={cn("shadow-soft", PHONE_V2 && "max-lg:hidden")} />}
-          {PHONE_V2 && !panel && d?.genre && <p className="eyebrow text-ink-soft! lg:hidden">{d.genre}</p>}
+          {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className={cn("shadow-soft", "max-lg:hidden")} />}
+          {!panel && d?.genre && <p className="eyebrow text-ink-soft! lg:hidden">{d.genre}</p>}
           {panel ? (
             <h1 className="mt-3 font-display text-title leading-[1.1] [text-wrap:balance] drop-shadow-sm">{title}</h1>
           ) : (
@@ -128,14 +127,12 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
             {(dt || venueName || d?.priceRange) && (
               <Reveal>
                 <div className="space-y-3">
-                  {PHONE_V2 && (
-                    <ul className="divide-y divide-border border-b border-border lg:hidden">
-                      {dt && <PhoneFact icon={CalendarDays} title={[dt.day, dt.time].filter(Boolean).join(" · ")} note={d?.doorsTime && displayClockTime(d.doorsTime) !== dt.time ? `Doors ${displayClockTime(d.doorsTime)}` : undefined} />}
-                      {venueName && <PhoneFact icon={MapPin} title={venueName} note={[d?.venueAddress ? cityFrom(d.venueAddress) : null, d?.city].find((n) => n && n.trim().toLowerCase() !== venueName.trim().toLowerCase()) || undefined} />}
-                      {d?.priceRange && <PhoneFact icon={Ticket} title={d.priceRange} note={ticketSeller ? `Tickets via ${ticketSeller}` : "Ticket prices"} />}
-                    </ul>
-                  )}
-                  <div className={cn(PHONE_V2 && "max-lg:hidden")}>
+                  <ul className="divide-y divide-border border-b border-border lg:hidden">
+                    {dt && <PhoneFact icon={CalendarDays} title={[dt.day, dt.time].filter(Boolean).join(" · ")} note={d?.doorsTime && displayClockTime(d.doorsTime) !== dt.time ? `Doors ${displayClockTime(d.doorsTime)}` : undefined} />}
+                    {venueName && <PhoneFact icon={MapPin} title={venueName} note={[d?.venueAddress ? cityFrom(d.venueAddress) : null, d?.city].find((n) => n && n.trim().toLowerCase() !== venueName.trim().toLowerCase()) || undefined} />}
+                    {d?.priceRange && <PhoneFact icon={Ticket} title={d.priceRange} note={ticketSeller ? `Tickets via ${ticketSeller}` : "Ticket prices"} />}
+                  </ul>
+                  <div className={cn("max-lg:hidden")}>
                   <FactStrip
                     facts={[
                       dt && { label: "When", value: dt.day, note: [dt.time, d?.doorsTime && displayClockTime(d.doorsTime) !== dt.time && `doors ${displayClockTime(d.doorsTime)}`].filter(Boolean).join(" · ") || undefined },
@@ -144,7 +141,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                     ]}
                   />
                   </div>
-                  {d?.genre && <div className={cn("flex", PHONE_V2 && !panel && "max-lg:hidden")}><Badge>{d.genre}</Badge></div>}
+                  {d?.genre && <div className={cn("flex", !panel && "max-lg:hidden")}><Badge>{d.genre}</Badge></div>}
                 </div>
               </Reveal>
             )}

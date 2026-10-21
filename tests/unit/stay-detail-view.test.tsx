@@ -12,7 +12,6 @@ const TRIP = "11111111-1111-4111-8111-111111111111";
 type Any = Record<string, any>;
 let s: Any;
 let panelCtx: Any | null;
-let phoneV2 = false;
 const lockRoom = vi.fn();
 const retry = vi.fn();
 let hero: Any = {};
@@ -20,7 +19,6 @@ let lightbox: Any = {};
 
 vi.mock("@/features/stays/application/useStayDetails", () => ({ useStayDetails: () => s }));
 vi.mock("@/components/TripPanelProvider", () => ({ useTripPanelMaybe: () => panelCtx }));
-vi.mock("@/lib/phone-v2", () => ({ get PHONE_V2() { return phoneV2; } }));
 vi.mock("@/lib/use-document-title", () => ({ useDocumentTitle: (t: string | null) => (t ? <title data-testid="doc-title">{t}</title> : null) }));
 vi.mock("@/components/Hero", () => ({ Hero: (p: Any) => { hero = p; return <div data-testid="hero">{p.ratingBadge}{p.children}<button type="button" onClick={() => p.onCoverError?.(p.coverImages[0])}>photo a failed</button></div>; } }));
 vi.mock("@/components/BackLink", () => ({ BackLink: ({ fallback }: Any) => <a href={fallback}>Back</a> }));
@@ -55,7 +53,7 @@ beforeEach(() => {
     state: "ready", hotel: hotel(), rooms: [room()], reviews: [], sentiment: null, roomsUnavailable: false, nights: 4, checkin: "2026-12-01", checkout: "2026-12-05", currency: "EUR",
     assumedDates: false, retry, lockedStay: null, busy: false, lockRoom, google: false, sources: [], priceRead: null, themes: [], ratingCounts: [], nearby: [], phone: null, website: null,
   };
-  panelCtx = null; phoneV2 = false; hero = {}; lightbox = { index: null, open: vi.fn(), close: vi.fn() };
+  panelCtx = null; hero = {}; lightbox = { index: null, open: vi.fn(), close: vi.fn() };
   lockRoom.mockClear(); retry.mockClear();
 });
 afterEach(cleanup);
@@ -342,17 +340,20 @@ describe("StayDetailView: photos, edges", () => {
   });
 });
 
+/** The stacked list a wide screen shows (the phone gets a row of swipeable cards instead; both are in the page). */
+const wideReviews = () => within(document.querySelector(".divide-y.max-lg\\:hidden") as HTMLElement);
+
 describe("StayDetailView: what guests say", () => {
   it("averages the ratings and shows the first three written reviews", () => {
     s.reviews = [review({ rating: 10 }), review({ rating: 8, headline: "Fine", positives: null, negatives: "Noisy" }), review({ rating: null, headline: "No score", positives: null, text: "Plain text" }), review({ headline: "Fourth" })];
     s.sentiment = "Guests love the staff.";
     page();
-    expect(screen.getByText("9.0")).toBeTruthy();
+    expect(document.querySelector(".font-display.text-4xl")?.textContent).toBe("9.0");
     expect(screen.getByText(/from 3 recent reviews/)).toBeTruthy();
     expect(screen.getByText("Guests love the staff.")).toBeTruthy();
-    expect(screen.getByText("Lovely", { exact: false })).toBeTruthy();
-    expect(screen.queryByText("Fourth")).toBeNull();
-    expect(screen.getByText("Guest note")).toBeTruthy();
+    expect(wideReviews().getByText("Lovely", { exact: false })).toBeTruthy();
+    expect(wideReviews().queryByText("Fourth")).toBeNull();
+    expect(wideReviews().getByText("Guest note")).toBeTruthy();
     expect(screen.getAllByText("Family with children · Sweden").length).toBeGreaterThan(0);
   });
 
@@ -360,9 +361,9 @@ describe("StayDetailView: what guests say", () => {
     s.reviews = Array.from({ length: 5 }, (_, i) => review({ headline: `Review ${i}` }));
     const user = u();
     page();
-    expect(screen.queryByText("Review 4")).toBeNull();
+    expect(wideReviews().queryByText("Review 4")).toBeNull();
     await user.click(screen.getByRole("button", { name: "Show all 5 reviews" }));
-    expect(screen.getByText("Review 4")).toBeTruthy();
+    expect(wideReviews().getByText("Review 4")).toBeTruthy();
   });
 
   it("leaves out reviews with nothing written, and the whole block when there is nothing to say", () => {
@@ -384,7 +385,7 @@ describe("StayDetailView: what guests say", () => {
     cleanup();
     s.google = true;
     page();
-    expect(screen.getByText(/Ann/)).toBeTruthy();
+    expect(wideReviews().getByText(/Ann/)).toBeTruthy();
   });
 
   it("shows the themes guests mention, and the nearby places", () => {
@@ -395,7 +396,7 @@ describe("StayDetailView: what guests say", () => {
   });
 
   it("lets the phone swipe through the reviews as cards", () => {
-    phoneV2 = true;
+    
     s.reviews = [review({ headline: "Swipe me" })];
     page();
     expect(screen.getAllByText("Swipe me").length).toBeGreaterThan(1);
@@ -426,11 +427,11 @@ describe("StayDetailView: what guests say, edges", () => {
     cleanup();
     s.google = true;
     page();
-    expect(screen.getByText("Ann")).toBeTruthy();
+    expect(wideReviews().getByText("Ann")).toBeTruthy();
   });
 
   it("swipes through at most eight cards on a phone", () => {
-    phoneV2 = true;
+    
     s.reviews = Array.from({ length: 10 }, (_, i) => review({ headline: `Review ${i}` }));
     page();
     const row = document.querySelector(".snap-x.lg\\:hidden") as HTMLElement;
@@ -438,7 +439,7 @@ describe("StayDetailView: what guests say, edges", () => {
   });
 
   it("gives a phone card without a headline more room for its text", () => {
-    phoneV2 = true;
+    
     s.reviews = [review({ headline: null, positives: "Very quiet at night" })];
     page();
     const row = document.querySelector(".snap-x.lg\\:hidden") as HTMLElement;

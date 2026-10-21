@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Reveal } from "@/components/motion-primitives";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { cn } from "@/lib/utils";
 
 /** The padded column + header every trip sub-route shares. One width, so every page's left edge lines up with the next. */
@@ -39,7 +38,7 @@ export function RouteScaffold({
         phoneHideSwitcher={phoneHideSwitcher}
       />
       <Reveal delay={0.08}>
-        <div className={cn("mt-6 sm:mt-8", PHONE_V2 && phoneHideSwitcher && "max-lg:mt-0")}>{children}</div>
+        <div className={cn("mt-6 sm:mt-8", phoneHideSwitcher && "max-lg:mt-0")}>{children}</div>
       </Reveal>
     </div>
   );

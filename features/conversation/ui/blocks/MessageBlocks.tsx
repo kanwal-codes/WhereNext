@@ -12,7 +12,6 @@ import { DiscoverTile } from "@/features/places/ui/DiscoverTile";
 import { warmPlace } from "@/features/places/application/placeDetailsCache";
 import { Enter } from "@/components/motion-primitives";
 import { ChecklistBlock } from "./ChecklistBlock";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { pointsFromPlaces } from "./mapPoints";
 import { placeGlyph } from "./glyphs";
 import { cardWidth, SectionHeader, grid, rail, surface, type } from "./ui";
@@ -55,7 +54,7 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
                 onSeeAll={preview && block.places.length > MAX_CHAT_CARDS && onOpenCollection ? () => onOpenCollection(title ?? "All places", block) : undefined}
                 onMap={preview && onOpenPanel && pointsFromPlaces(block.places).length > 0 ? () => onOpenPanel({ kind: "map", title: title ? `${title} on the map` : "Places on the map", points: pointsFromPlaces(block.places), connect: false }) : undefined}
               />
-              {PHONE_V2 && !preview && (
+              {!preview && (
                 // "See all" on a phone is the same two-to-a-row tiles Discover uses, not one tall card per place.
                 <div className="grid grid-cols-2 gap-x-3 gap-y-6 lg:hidden">
                   {visible.map((place) => {
@@ -77,7 +76,7 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
                   })}
                 </div>
               )}
-              <div className={cn(preview ? rail : grid, PHONE_V2 && !preview && "max-lg:hidden")}>
+              <div className={cn(preview ? rail : grid, !preview && "max-lg:hidden")}>
                 {visible.map((place) => (
                   <div key={place.providerId} className={preview ? cn(cardWidth(visible.length), "shrink-0 snap-start") : undefined}>
                     <PlaceCardView place={place} tripId={tripId} onOpenPlace={onOpenPlace} />
@@ -198,7 +197,7 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
         }
 
         if (block.type === "checklist") {
-          return <div key={index}><ChecklistBlock groups={block.groups} tripId={tripId} onOpen={PHONE_V2 && onOpenPanel ? () => onOpenPanel({ kind: "checklist", block }) : undefined} /></div>;
+          return <div key={index}><ChecklistBlock groups={block.groups} tripId={tripId} onOpen={onOpenPanel ? () => onOpenPanel({ kind: "checklist", block }) : undefined} /></div>;
         }
 
         return null;

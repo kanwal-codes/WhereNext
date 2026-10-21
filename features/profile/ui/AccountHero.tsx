@@ -3,7 +3,6 @@
 import { BadgeCheck, Camera, Compass, Loader2, Plane } from "lucide-react";
 import { Reveal, Tactile, WordReveal } from "@/components/motion-primitives";
 import { StandaloneTopBar } from "@/components/StandaloneTopBar";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { memberInitials } from "@/lib/member-initials";
 import { cn } from "@/lib/utils";
 import type { useAvatarUpload } from "../application/useAvatarUpload";
@@ -98,7 +97,7 @@ export function AccountHero({ avatar, dream, name, city, bio, airport, emailVeri
           </div>
 
           <Reveal delay={0.3}>
-            <div className={cn(PHONE_V2 && "max-lg:hidden", "daisy-stats w-full rounded-2xl border border-white/20 bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md lg:w-auto [&_.daisy-stat-desc]:text-white/70 [&_.daisy-stat-title]:text-white/70 [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:border-white/20 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3 max-sm:[&>.daisy-stat]:px-3 max-sm:[&_.daisy-stat-title]:tracking-[0.06em]")}>
+            <div className={cn("max-lg:hidden", "daisy-stats w-full rounded-2xl border border-white/20 bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md lg:w-auto [&_.daisy-stat-desc]:text-white/70 [&_.daisy-stat-title]:text-white/70 [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:border-white/20 [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3 max-sm:[&>.daisy-stat]:px-3 max-sm:[&_.daisy-stat-title]:tracking-[0.06em]")}>
               {[
                 { label: "Trips planned", value: String(tripCount) },
                 { label: "Places", value: String(destinationCount) },
