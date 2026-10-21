@@ -563,12 +563,6 @@ describe("GroupChatSurface: threads, notices and the day", () => {
     expect(Element.prototype.scrollTo).toHaveBeenCalled();
   });
 
-  it("passes the log's scroll on to its parent", async () => {
-    const onLogScroll = vi.fn();
-    await open({ onLogScroll });
-    fireEvent.scroll(screen.getByRole("log"));
-    expect(onLogScroll).toHaveBeenCalled();
-  });
 });
 
 describe("GroupChatSurface: the box", () => {

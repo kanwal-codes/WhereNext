@@ -79,7 +79,7 @@ export function CompareTable({ tripId, ids, onIdsChange, present, rows, stats, s
   };
 
   return (
-  <div className={cn("overflow-x-auto overscroll-x-contain scrollbar-slim", "max-lg:hidden")}>
+  <div className="overflow-x-auto overscroll-x-contain scrollbar-slim max-lg:hidden">
     <div className="grid min-w-[560px] gap-x-4" style={{ gridTemplateColumns: `120px repeat(${present.length}, minmax(170px, 1fr))` }}>
       <div className="sticky left-0 z-10 bg-background" />
       <AnimatePresence initial={false}>

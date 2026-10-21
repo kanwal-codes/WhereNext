@@ -37,7 +37,7 @@ export function ChapterHero({
 }) {
   const strip =
     stats.length > 0 ? (
-      <div suppressHydrationWarning className={cn("max-lg:hidden", "daisy-stats w-full rounded-2xl border border-border bg-card shadow-none sm:w-auto [&_.daisy-stat-value]:leading-tight [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:border-border [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3 max-sm:[&>.daisy-stat]:px-3")}>
+      <div suppressHydrationWarning className="max-lg:hidden daisy-stats w-full rounded-2xl border border-border bg-card shadow-none sm:w-auto [&_.daisy-stat-value]:leading-tight [&>.daisy-stat]:min-w-0 [&>.daisy-stat]:border-border [&>.daisy-stat]:px-5 [&>.daisy-stat]:py-3 max-sm:[&>.daisy-stat]:px-3">
         {stats.map((stat) => (
           <div key={stat.label} className="daisy-stat">
             <div className="daisy-stat-title text-2xs tracking-[0.1em] whitespace-normal uppercase">{stat.label}</div>

@@ -13,7 +13,7 @@ type Any = Record<string, any>;
 let desktop = true;
 let guest = false;
 let panel: Any | null;
-let keyboardOpen = false;
+const keyboardFit = vi.fn();
 let sheetPanel = false;
 let header: Any = {};
 let conv: Any = {};
@@ -23,7 +23,7 @@ const closePanel = vi.fn();
 const openGate = vi.fn();
 
 vi.mock("@/lib/use-media-query", () => ({ useMediaQuery: () => desktop }));
-vi.mock("@/lib/use-keyboard-fit", () => ({ useKeyboardFit: () => keyboardOpen }));
+vi.mock("@/lib/use-keyboard-fit", () => ({ useKeyboardFit: (enabled: boolean) => keyboardFit(enabled) }));
 vi.mock("@/lib/use-panel-style", () => ({ usePanelStyle: () => (sheetPanel ? "sheet" : "page") }));
 vi.mock("@/components/shell/PhoneHeader", () => ({ PHONE_ROUND: "round", useSetPhoneHeader: (h: Any) => { header = h; } }));
 vi.mock("@/components/TripDataProvider", () => ({ useTripData: () => ({ data: { trip: { id: TRIP }, preferences: {}, decisions: [] } }) }));
@@ -57,16 +57,8 @@ import { RoamShell } from "../../features/roam/ui/RoamShell";
 const u = () => userEvent.setup({ pointerEventsCheck: 0 });
 const shell = (tab: "roam" | "group" = "roam") => render(<RoamShell tripId={TRIP} activeTab={tab} />);
 const grid = () => document.querySelector<HTMLElement>("[data-roam-shell] > div")!;
-// One log element, scrolled to a new place each time: the shell tracks how far a reader has run in one direction.
-const log = document.createElement("div");
-let logTop = 0;
-Object.defineProperty(log, "scrollTop", { get: () => logTop, configurable: true });
-Object.defineProperty(log, "scrollHeight", { value: 1500, configurable: true });
-Object.defineProperty(log, "clientHeight", { value: 500, configurable: true });
-const scroll = (top: number) => { logTop = top; return { currentTarget: log } as never; };
-
 beforeEach(() => {
-  logTop = 0; desktop = true; guest = false; panel = null; keyboardOpen = false; sheetPanel = false; header = {}; conv = {}; group = {};
+  desktop = true; guest = false; panel = null; sheetPanel = false; keyboardFit.mockClear(); header = {}; conv = {}; group = {};
   [openPanel, closePanel, openGate].forEach((m) => m.mockClear());
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
@@ -219,6 +211,18 @@ describe("RoamShell: on a narrow screen", () => {
     expect(conv.rail).toBe(false);
   });
 
+});
+
+describe("RoamShell: the on-screen keyboard", () => {
+  it("fits the screen to the visible area on a phone only", () => {
+    desktop = false;
+    shell();
+    expect(keyboardFit).toHaveBeenLastCalledWith(true);
+    cleanup();
+    desktop = true;
+    shell();
+    expect(keyboardFit).toHaveBeenLastCalledWith(false);
+  });
 });
 
 describe("RoamShell: the phone's header", () => {

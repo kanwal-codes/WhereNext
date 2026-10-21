@@ -23,7 +23,7 @@ function Tile({ tripId, place, large, more }: { tripId: string; place: MosaicPla
   return (
     <Link
       href={`/trips/${tripId}/place/${place.id}`}
-      className={cn("group relative block h-full min-h-44 overflow-hidden rounded-3xl border border-border/70 shadow-soft focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none")}
+      className="group relative block h-full min-h-44 overflow-hidden rounded-3xl border border-border/70 shadow-soft focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
     >
       <TripArt seed={hashString(place.name)} className="absolute inset-0">
         {/* No photograph yet: the kind of place in a small lit tile, the way a card without a photo shows it elsewhere. */}

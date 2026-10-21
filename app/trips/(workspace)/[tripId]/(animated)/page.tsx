@@ -168,9 +168,9 @@ export default function TripOverviewPage() {
           stays={staysBooked.items.filter((i) => i.status !== "cancelled" && i.status !== "failed").map((i) => ({ startsOn: i.date, endsOn: i.endDate }))}
         />
       )}
-      <div className={cn("max-lg:hidden")}><ActionBar tripId={tripId} name={trip?.name || destination} /></div>
+      <div className="max-lg:hidden"><ActionBar tripId={tripId} name={trip?.name || destination} /></div>
 
-      <div className={cn("mx-auto max-w-6xl space-y-16 px-5 pt-4 sm:px-8 sm:pt-6", "max-lg:space-y-12")}>
+      <div className="mx-auto max-w-6xl space-y-16 px-5 pt-4 sm:px-8 sm:pt-6 max-lg:space-y-12">
         <Reveal>
           <TripReviewPanel tripId={tripId} />
         </Reveal>

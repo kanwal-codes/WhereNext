@@ -123,7 +123,7 @@ export function FlightPicks({ picks, selected, onSelect, roundTrip }: { picks: F
     );
   }
   return (
-    <div className={cn("relative z-[1] mx-4 -mt-10 flex gap-2.5 @[34rem]:mx-5", "max-lg:mx-[1.125rem] max-lg:mt-4")}>
+    <div className="relative z-[1] mx-4 -mt-10 flex gap-2.5 @[34rem]:mx-5 max-lg:mx-[1.125rem] max-lg:mt-4">
       {picks.map((pick) => {
         const key = offerKey(pick.offer);
         const on = selected === key;

@@ -106,7 +106,7 @@ export function DiscoverySurface({
 
 
   return (
-    <div className={cn("@container flex min-h-[calc(100svh-13rem)] flex-col", "max-lg:pb-24")}>
+    <div className="@container flex min-h-[calc(100svh-13rem)] flex-col max-lg:pb-24">
       {view === "results" && !phone && <CityChips stops={cities.stops} current={cities.city} onPick={cities.setCity} estimated={cities.estimated} className="mt-3 -mb-1" />}
       {phone && view === "results" && (
         <PhoneDiscoverBar feed={feed} panelCtx={panelCtx} activeCat={activeCat} filtersOpen={filtersOpen} setFiltersOpen={setFiltersOpen} filterCount={filterCount} phone={phone} />

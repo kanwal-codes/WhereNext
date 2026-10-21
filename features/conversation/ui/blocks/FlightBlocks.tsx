@@ -95,7 +95,7 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
           <span className="shrink-0 font-semibold text-coral-ink">{searchOpen ? "Done" : "Edit search"}</span>
         </button>
       </div>
-      <div className={cn("max-lg:hidden")}>
+      <div className="max-lg:hidden">
       <FlightHero
         eyebrow={`Flights · ${roundTrip ? "round trip" : "one way"}${day ? ` · ${day}` : ""}`}
         title={<>{fromName} to {toName}</>}
@@ -137,8 +137,8 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
           <span>No travel date set, so these are example prices. Pick your date above.</span>
         </div>
       )}
-      {fares.insights && ready && fares.currency && <div className={cn("max-lg:hidden")}><PriceInsight insights={fares.insights} currency={fares.currency} /></div>}
-      {ready && chosenPick && <div className={cn("max-lg:hidden")}><FlightJourney offer={chosenPick.offer} labels={chosenPick.labels} roundTrip={roundTrip} onDetails={onOpenPanel ? () => onOpenPanel(panelFor(chosenPick.offer)) : undefined} tripCurrency={tripCurrency} /></div>}
+      {fares.insights && ready && fares.currency && <div className="max-lg:hidden"><PriceInsight insights={fares.insights} currency={fares.currency} /></div>}
+      {ready && chosenPick && <div className="max-lg:hidden"><FlightJourney offer={chosenPick.offer} labels={chosenPick.labels} roundTrip={roundTrip} onDetails={onOpenPanel ? () => onOpenPanel(panelFor(chosenPick.offer)) : undefined} tripCurrency={tripCurrency} /></div>}
       {fares.items.length > 0 && fares.status !== "error" && (
         <div className={cn("mt-4 transition-opacity duration-200", loading && "pointer-events-none opacity-50", !showAll && "max-lg:hidden")} aria-busy={loading}>
           <FlightControls items={fares.items} view={view} onChange={setView} shown={offers.length} />
@@ -222,7 +222,7 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
         </div>
       )}
       {ready && !showAll && !filtersOn && offers.length > ROWS && (
-        <div className={cn("border-t border-border px-4 py-3.5 text-center", "max-lg:hidden")}>
+        <div className="border-t border-border px-4 py-3.5 text-center max-lg:hidden">
           <button type="button" onClick={() => setShowAll(true)} className={controlSecondary}>Show {offers.length - ROWS} more <ChevronDown className="size-3.5" aria-hidden /></button>
         </div>
       )}

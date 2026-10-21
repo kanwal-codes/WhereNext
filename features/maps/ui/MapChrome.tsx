@@ -244,7 +244,7 @@ export function MapStage({ tab, onTab, children }: { tab: "trip" | "browse"; onT
       <div aria-hidden className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(70%_55%_at_94%_0%,oklch(0.64_0.175_36/0.08),transparent)]" />
       <div aria-hidden className="grain pointer-events-none absolute inset-0 z-[1]" />
       <div aria-hidden className="scrim-t pointer-events-none absolute inset-x-0 top-0 z-[1] h-28 [--scrim:0.14]" />
-      <div className={cn("pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center p-4", "max-lg:hidden")}>
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center p-4 max-lg:hidden">
         <div className="pointer-events-auto">
           <GettingAroundTabs tab={tab} onChange={onTab} floating />
         </div>

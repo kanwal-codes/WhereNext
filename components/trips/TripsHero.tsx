@@ -17,7 +17,7 @@ export function TripsHero({ displayName, start }: { displayName: string; start: 
   const { prompt, setPrompt, starting, promptError, promptInputRef, canSend, speech, startTrip } = start;
   const wide = useMediaQuery("(min-width: 640px)");
   return (
-    <HeroCarousel className={cn("h-[480px] rounded-b-3xl sm:h-[420px]", "max-lg:h-[26rem]")}>
+    <HeroCarousel className="h-[480px] rounded-b-3xl sm:h-[420px] max-lg:h-[26rem]">
       <div className="absolute inset-x-0 top-0">
         <Reveal>
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 pt-6 sm:px-8">

@@ -79,7 +79,7 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
 
   const divider = showDateDivider && (
     <div className="flex items-center justify-center py-3">
-      <span className={cn("rounded-full bg-muted px-3 py-1 text-2xs font-medium tracking-[0.1em] text-muted-foreground uppercase", "max-lg:bg-transparent max-lg:px-0 max-lg:text-xs max-lg:font-semibold max-lg:tracking-normal max-lg:normal-case")}>{dayLabel(message.created_at)}</span>
+      <span className="rounded-full bg-muted px-3 py-1 text-2xs font-medium tracking-[0.1em] text-muted-foreground uppercase max-lg:bg-transparent max-lg:px-0 max-lg:text-xs max-lg:font-semibold max-lg:tracking-normal max-lg:normal-case">{dayLabel(message.created_at)}</span>
     </div>
   );
 
@@ -229,7 +229,7 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
                       type="button"
                       aria-label={`React ${emoji}`}
                       onClick={() => void toggleReaction(message.id, emoji)}
-                      className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-full text-base transition-transform hover:scale-125 active:scale-95", "max-lg:size-11 max-lg:text-2xl")}
+                      className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-base transition-transform hover:scale-125 active:scale-95 max-lg:size-11 max-lg:text-2xl"
                     >
                       {emoji}
                     </button>

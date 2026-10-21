@@ -123,7 +123,7 @@ export function PlaceDetailView({
 
   const body = (
     <div className="min-w-0 space-y-8">
-      <Reveal delay={0.04} className={cn("max-lg:hidden")}>
+      <Reveal delay={0.04} className="max-lg:hidden">
         <div className="space-y-4">
           <FactStrip
             variant="hero"
@@ -171,7 +171,7 @@ export function PlaceDetailView({
     <div>
       {titleTag}
       <PlacePhonePhoto tripId={tripId} photo={photo} name={name} place={place} />
-      <div className={cn("max-lg:hidden")}>
+      <div className="max-lg:hidden">
       <Hero
         image={photo ?? null}
         alt={name}
@@ -196,7 +196,7 @@ export function PlaceDetailView({
                 separate, already-visible placement (a narrow drawer has no "beside" to offer). */}
             <div className={cn(!panel && "sm:flex sm:items-start sm:justify-between sm:gap-6")}>
               <div className="min-w-0">
-                <p className={cn("text-sm text-muted-foreground", "max-lg:hidden")}>{categoryLabel(details.primaryType)}</p>
+                <p className="text-sm text-muted-foreground max-lg:hidden">{categoryLabel(details.primaryType)}</p>
                 {panel ? (
                   <h1 className="mt-1 font-display text-2xl font-semibold leading-tight max-lg:text-title max-lg:font-medium max-lg:tracking-[-0.03em]">{name}</h1>
                 ) : (
@@ -206,7 +206,7 @@ export function PlaceDetailView({
               {!panel && <div className="mt-4 max-w-sm shrink-0 sm:mt-2 sm:w-64">{asideAction}</div>}
             </div>
             <PlacePhoneSummary details={details} city={city} price={price} openNow={openNow} todayHours={todayHours} />
-            <p className={cn("mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground", "max-lg:hidden")}>
+            <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground max-lg:hidden">
               {details.formattedAddress && (
                 <span className="inline-flex items-center gap-1.5">
                   <MapPin className="h-3.5 w-3.5" /> {details.formattedAddress}

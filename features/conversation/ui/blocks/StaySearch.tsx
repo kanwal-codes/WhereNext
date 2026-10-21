@@ -137,7 +137,7 @@ export function StaySearchBar({ search, tripId, trip, defaultOpen = false }: { s
           <Counter value={query.adults} min={1} max={24} onChange={search.setAdults} noun="guest" disabled={busy} />
         </div>
         {showTrip && (
-          <button type="button" disabled={busy} onClick={() => search.setBoth(trip.start!, trip.end!)} className={cn("col-span-2 h-9 rounded-full px-3 text-sm font-medium text-coral-ink transition-colors hover:bg-coral-soft disabled:opacity-50 @max-[34rem]:-ml-3 @max-[34rem]:justify-self-start")}>
+          <button type="button" disabled={busy} onClick={() => search.setBoth(trip.start!, trip.end!)} className="col-span-2 h-9 rounded-full px-3 text-sm font-medium text-coral-ink transition-colors hover:bg-coral-soft disabled:opacity-50 @max-[34rem]:-ml-3 @max-[34rem]:justify-self-start">
             Trip dates · {prettyDate(trip.start)} – {prettyDate(trip.end)}
           </button>
         )}

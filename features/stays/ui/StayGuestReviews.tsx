@@ -64,7 +64,7 @@ export function StayGuestReviews({ s, digest }: { s: Stay; digest: ReturnType<ty
               );
             })}
           </div>
-          <div className={cn("mt-3 divide-y divide-border rounded-2xl border border-border bg-card px-4", "max-lg:hidden")}>
+          <div className="mt-3 divide-y divide-border rounded-2xl border border-border bg-card px-4 max-lg:hidden">
             {(reviewsOpen ? readable : readable.slice(0, 3)).map((r, i) => (
               <figure key={i} className="py-3.5 first:pt-3 last:pb-3">
                 <div className="flex items-center justify-between gap-3">
@@ -79,7 +79,7 @@ export function StayGuestReviews({ s, digest }: { s: Stay; digest: ReturnType<ty
               </figure>
             ))}
           </div>
-          {readable.length > 3 && <div className={cn("mt-3", "max-lg:hidden")}><ShowMore open={reviewsOpen} onToggle={() => setReviewsOpen((v) => !v)} more={`Show all ${readable.length} reviews`} less="Show fewer reviews" /></div>}
+          {readable.length > 3 && <div className="mt-3 max-lg:hidden"><ShowMore open={reviewsOpen} onToggle={() => setReviewsOpen((v) => !v)} more={`Show all ${readable.length} reviews`} less="Show fewer reviews" /></div>}
           </>
         )}
       </section>

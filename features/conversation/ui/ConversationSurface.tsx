@@ -48,7 +48,6 @@ export const ConversationSurface = React.memo(function ConversationSurface({
   onOpenPanel,
   viewContext,
   rail = false,
-  onLogScroll,
 }: {
   tripId: string;
   onSurfaceSelect?: (surface: string) => void;
@@ -61,13 +60,6 @@ export const ConversationSurface = React.memo(function ConversationSurface({
   /** Name of the place/stay the user has open beside the chat, for deictic references. */
   viewContext?: string;
   rail?: boolean;
-  /** Wired directly to this surface's own scrollable log — not sniffed via a capture listener
-   *  on some ancestor, which used to also pick up scroll events from horizontal card carousels
-   *  (their `scrollTop` is always 0) and, once both chat surfaces stayed permanently mounted,
-   *  from this surface's OWN background auto-scroll-to-bottom firing while the OTHER tab was the
-   *  one actually visible. Both produced bogus deltas that flipped a shared header's visibility
-   *  at the wrong moment. The parent passes this only when this surface is the active tab. */
-  onLogScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
 }) {
   const { messages, setMessages, loaded, synced, seenMessageIdsRef } = useConversationThread(tripId);
   const [input, setInput] = useState("");
@@ -115,7 +107,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
     requestAnimationFrame(() => textareaRef.current?.focus());
   }, []);
 
-  const { scroll, handleLogScroll, scrollToLatestMessage, windowSize, showEarlier } = useLogScroll({ logRef, sending, loaded, messageCount: messages.length, onLogScroll });
+  const { scroll, handleLogScroll, scrollToLatestMessage, windowSize, showEarlier } = useLogScroll({ logRef, sending, loaded, messageCount: messages.length });
 
   const userTurns = messages.filter((m) => m.role === "user").length;
   const turnsLeft = Math.max(0, GUEST_TURN_LIMIT - userTurns);
@@ -196,7 +188,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
 
           {hiddenCount > 0 && (
             <div className="flex justify-center pb-2">
-              <button type="button" onClick={showEarlier} className={cn("btn-chip h-9 px-4 text-xs", "max-lg:h-10 max-lg:border-0 max-lg:bg-secondary max-lg:text-sm max-lg:font-semibold max-lg:text-ink-soft")}>Show earlier messages</button>
+              <button type="button" onClick={showEarlier} className="btn-chip h-9 px-4 text-xs max-lg:h-10 max-lg:border-0 max-lg:bg-secondary max-lg:text-sm max-lg:font-semibold max-lg:text-ink-soft">Show earlier messages</button>
             </div>
           )}
 

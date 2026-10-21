@@ -4,7 +4,7 @@ import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { PHONE_ROUND, useSetPhoneHeader } from "@/components/shell/PhoneHeader";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { Ellipsis, PanelRight } from "lucide-react";
+import { Ellipsis } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanel, panelTitle, type EventSeed } from "@/components/TripPanelProvider";
 import { GroupMembersBadge } from "@/components/GroupMembersBadge";
@@ -13,10 +13,10 @@ import { ConversationSurface } from "@/features/conversation/ui/ConversationSurf
 import { GroupChatSurface } from "@/features/group-chat/ui/GroupChatSurface";
 import { TripContextSurface } from "@/features/workspace/ui/TripContextSurface";
 import { useMediaQuery } from "@/lib/use-media-query";
+import { useKeyboardFit } from "@/lib/use-keyboard-fit";
 import { SidePane } from "./SidePane";
 import { PhoneOverlays } from "./PhoneOverlays";
 import { layoutModeOf, shellColumns } from "../domain/shell-layout";
-import { useChromeScroll } from "../application/useChromeScroll";
 import { useIdleWarm } from "../application/useIdleWarm";
 import { usePanelStyle } from "@/lib/use-panel-style";
 import type { AssistantBlock, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
@@ -70,17 +70,13 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   // up (a moment later, or immediately via back/forward navigation).
   const [optimisticTab, setOptimisticTab] = useState(activeTab);
   useEffect(() => setOptimisticTab(activeTab), [activeTab]);
-  // On a phone the Roam / Chat row floats over the top of the conversation and slides away as you read down, and comes
-  // back the moment you scroll up (or reach the top, or switch tabs). It is an overlay, so showing and hiding it moves
-  // nothing in the log (the log keeps its own top padding): the old version resized the log on every toggle and shook
-  // the page. It also steps out of the way while the keyboard is up, to leave the room to the conversation.
-  const { keyboardOpen, scrolledAway, onLogScroll } = useChromeScroll({ desktop, resetOn: optimisticTab });
-  // Phone redesign: no floating Roam | Chat row. Roam and Group chat are two screens, each with its own title in the page header
+  // On a phone the on-screen keyboard shrinks only the visible part of the page: this keeps the screen fitted to what can be seen.
+  useKeyboardFit(!desktop);
+  // On a phone there is no Roam | Chat row: Roam and Group chat are two screens, each with its own title in the page header
   // (the title follows the pane the instant it is tapped, not when the URL catches up) and one round button at its right edge.
-  const phoneV2 = !desktop;
-  const chromeHidden = !desktop && !phoneV2 && (keyboardOpen || scrolledAway);
+  const phone = !desktop;
   const headerTrailing = useMemo(() => {
-    if (!phoneV2) return undefined;
+    if (!phone) return undefined;
     if (optimisticTab === "group") {
       return guest ? undefined : (
         <button type="button" onClick={() => setGroupMenuOpen(true)} aria-label="Group options" aria-haspopup="dialog" className={PHONE_ROUND}><Ellipsis className="size-[1.2rem]" /></button>
@@ -89,8 +85,8 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
     return (
       <button type="button" onClick={() => setMobileContextOpen(true)} aria-label="Trip context" className={PHONE_ROUND}><Ellipsis className="size-[1.2rem]" /></button>
     );
-  }, [phoneV2, optimisticTab, guest]);
-  useSetPhoneHeader({ title: phoneV2 ? (optimisticTab === "group" ? "Group chat" : "Roam") : undefined, trailing: headerTrailing });
+  }, [phone, optimisticTab, guest]);
+  useSetPhoneHeader({ title: phone ? (optimisticTab === "group" ? "Group chat" : "Roam") : undefined, trailing: headerTrailing });
   const warm = useIdleWarm();
   // TripPanelProvider closes `panel` on every pathname change (internal effect, not exposed on
   // its Ctx) — that's what makes switching tabs here also close whatever panel was open on the
@@ -134,44 +130,21 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   );
 
   return (
-    <div data-roam-shell className={cn("icons-fine", "flex h-[calc(100dvh-var(--topbar)-var(--tabbar))] min-h-0 w-full max-w-full flex-col overflow-x-hidden lg:h-[100dvh]")}>
+    <div data-roam-shell className="icons-fine flex h-[calc(100dvh-var(--topbar)-var(--tabbar))] min-h-0 w-full max-w-full flex-col overflow-x-hidden lg:h-[100dvh]">
       <div
         // A CSS transition on pixel tracks (they interpolate natively), only for the moment the layout mode changes.
         style={{ gridTemplateColumns: columns, transition: `grid-template-columns ${reduceMotion || !modeChanged ? 0 : LAYOUT_MOTION}` }}
         className="grid h-full min-h-0 w-full min-w-0 max-w-full"
       >
-        <div className={cn("relative flex min-w-0 max-w-full flex-col overflow-hidden px-4 py-4 sm:px-6 lg:border-r lg:border-border lg:py-5", "max-lg:pt-1")}>
-          {!phoneV2 && <div
-            // Phone: floats over the log (soft fade behind it so messages passing underneath stay legible) and slides up out of view.
-            className={cn(
-              "lg:overflow-hidden max-lg:absolute max-lg:inset-x-4 max-lg:top-4 max-lg:z-20 max-lg:transition-[transform,opacity] max-lg:duration-300 max-lg:ease-[cubic-bezier(0.22,1,0.36,1)]",
-              "max-lg:before:pointer-events-none max-lg:before:absolute max-lg:before:inset-x-[-1rem] max-lg:before:top-[-1rem] max-lg:before:bottom-[-1.6rem] max-lg:before:-z-10 max-lg:before:bg-gradient-to-b max-lg:before:from-background max-lg:before:from-55% max-lg:before:to-transparent",
-              chromeHidden && "max-lg:pointer-events-none max-lg:-translate-y-[calc(100%+1.25rem)] max-lg:opacity-0",
-            )}
-            inert={chromeHidden}
-            aria-hidden={chromeHidden || undefined}
-          >
+        <div className="relative flex min-w-0 max-w-full flex-col overflow-hidden px-4 py-4 sm:px-6 lg:border-r lg:border-border lg:py-5 max-lg:pt-1">
+          {desktop && <div className="overflow-hidden">
             <Reveal>
-                <div className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3 max-lg:mb-0">
+                <div className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                   <div className="justify-self-start">
                     {optimisticTab === "group" && <GroupMembersBadge tripId={tripId} />}
                   </div>
                   <RoamTabs tripId={tripId} activeTab={optimisticTab} onSelect={setOptimisticTab} onGuestLocked={guest ? () => openGate("chat with your group") : undefined} />
-                  <div className="justify-self-end">
-                    {/* Desktop's show/hide toggle now lives inside the right panel itself (like the
-                        trip sidebar's own collapse button) — mobile has no persistent rail to hold
-                        one, so it keeps its own trigger here to open the context Sheet. */}
-                    {!desktop && (
-                      <button
-                        type="button"
-                        onClick={() => setMobileContextOpen(true)}
-                        aria-label="Show trip context"
-                        className="grid size-10 shrink-0 place-items-center rounded-full border border-border bg-background/95 transition-colors hover:bg-accent"
-                      >
-                        <PanelRight className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
+                  <div className="justify-self-end" />
                 </div>
               </Reveal>
           </div>}
@@ -191,7 +164,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
               // `initial={false}`: without it the inactive pane starts at full opacity and fades out, so its text ghosts over the other pane on first paint.
               initial={false}
               animate={{ opacity: optimisticTab === "roam" ? 1 : 0 }}
-              transition={reduceMotion || phoneV2 ? { duration: 0 } : motionTokens.swap}
+              transition={reduceMotion || phone ? { duration: 0 } : motionTokens.swap}
             >
               {(warm || optimisticTab === "roam") && <ConversationSurface
                 tripId={tripId}
@@ -200,7 +173,6 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
                 onOpenEvent={openEvent}
                 onOpenCollection={openCollection}
                 onOpenPanel={openPanel}
-                onLogScroll={onLogScroll}
                 viewContext={panel && panel.kind !== "compare" ? panelTitle(panel) : undefined}
                 rail={desktop && Boolean(panel)}
                               />}
@@ -211,9 +183,9 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
               inert={optimisticTab !== "group"}
               initial={false}
               animate={{ opacity: optimisticTab === "group" ? 1 : 0 }}
-              transition={reduceMotion || phoneV2 ? { duration: 0 } : motionTokens.swap}
+              transition={reduceMotion || phone ? { duration: 0 } : motionTokens.swap}
             >
-              {!guest && (warm || optimisticTab === "group") && <GroupChatSurface tripId={tripId} onLogScroll={onLogScroll} rail={desktop && Boolean(panel)} active={optimisticTab === "group"} />}
+              {!guest && (warm || optimisticTab === "group") && <GroupChatSurface tripId={tripId} rail={desktop && Boolean(panel)} active={optimisticTab === "group"} />}
             </motion.div>
           </div>
         </div>
