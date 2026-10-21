@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import mapboxgl from "mapbox-gl";
 import { CATEGORY_HEX } from "@/lib/map-colors";
 import along from "@turf/along";
@@ -9,12 +8,13 @@ import turfLength from "@turf/length";
 import lineSliceAlong from "@turf/line-slice-along";
 import { lineString } from "@turf/helpers";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { MODE_COLOR, MODE_ICON, STOP_CORAL } from "@/lib/application/mode-visuals";
+import { MODE_COLOR, STOP_CORAL, STOP_INK } from "@/lib/application/mode-visuals";
 import type { MapOverlay } from "@/lib/application/route-overlay";
 import { easeOutQuad, legLines, routeKeyFor } from "@/lib/application/route-animation";
 import { cn } from "@/lib/utils";
 import { FitControl, addLegLayers, basemapPaints } from "@/components/tripMapStyle";
-import { framingPadding, labelSide, pinSvg, pinsShown } from "@/components/tripMapLogic";
+import { framingPadding, labelSide, pinsShown } from "@/components/tripMapLogic";
+import { endpointPin, nodeElement, pillElement, riderIconHtml, spreadPillSpots, stopPin } from "@/components/tripMapMarkers";
 
 export type MapPin = {
   id: string;
@@ -32,8 +32,6 @@ export type { MapOverlay, MapNode, MapPill, MapGhost } from "@/lib/application/r
 export type MapInset = { top?: number; right?: number; bottom?: number; left?: number };
 
 const KIND_COLOR: Record<MapPin["kind"], string> = CATEGORY_HEX;
-/** Stops on the itinerary: warm ink, so coral stays the colour of "where you sleep". */
-const STOP_INK = "#1b1611";
 const DRAW_MS = 1200;
 /** How far the cinematic camera leans back when the whole route is in view. */
 const TILT = 40;
@@ -271,8 +269,7 @@ export function TripMap({
             pulseMode.current = current.mode;
             el.style.background = MODE_COLOR[current.mode] ?? MODE_COLOR.unknown;
             el.style.setProperty("--rider", MODE_COLOR[current.mode] ?? MODE_COLOR.unknown);
-            const Icon = MODE_ICON[current.mode] ?? MODE_ICON.unknown;
-            el.innerHTML = renderToStaticMarkup(<Icon className="h-4 w-4" color="#fff" strokeWidth={2} />);
+            el.innerHTML = riderIconHtml(current.mode);
           }
 
           // One-time progressive reveal on a genuinely new route, then settle to the full line.
@@ -305,15 +302,7 @@ export function TripMap({
       markers.current = [];
       if (path.length) {
         for (const [label, coord, fill] of [["A", path[0], STOP_CORAL], ["B", path[path.length - 1], STOP_INK]] as const) {
-          // Mapbox positions the marker root with a transform, so the drop-in plays on a child.
-          const el = document.createElement("div");
-          const inner = document.createElement("span");
-          inner.className = "trip-pin-drop";
-          inner.style.cssText = "position:relative;display:block;";
-          inner.style.animationDelay = label === "A" ? "120ms" : "260ms";
-          inner.innerHTML = pinSvg(fill, label);
-          el.appendChild(inner);
-          markers.current.push(new mapboxgl.Marker({ element: el, anchor: "bottom" }).setLngLat(coord).addTo(m));
+          markers.current.push(new mapboxgl.Marker({ element: endpointPin(label, fill), anchor: "bottom" }).setLngLat(coord).addTo(m));
         }
       }
       if (path.length >= 2) {
@@ -340,27 +329,7 @@ export function TripMap({
 
     // Stops are numbered in visit order, whatever else (a stay, a saved place) is on the map; the Plan and the panel count the same way.
     let stopNumber = 0;
-    markers.current = shown.map((p, i) => {
-      const el = document.createElement("button");
-      // No `position` here: Mapbox positions the marker root absolutely, and a relative override stacks every pin below the last.
-      el.style.cssText = "display:block;border:0;background:transparent;padding:0;cursor:pointer;";
-      const inner = document.createElement("span");
-      inner.className = "trip-pin-drop";
-      inner.style.cssText = "position:relative;display:block;";
-      inner.style.animationDelay = `${120 + i * 80}ms`;
-      inner.innerHTML = p.day != null ? pinSvg(STOP_CORAL, ++stopNumber) : p.kind === "stay" ? pinSvg(STOP_INK, "bed") : pinSvg(KIND_COLOR[p.kind], null);
-      const label = document.createElement("span");
-      label.textContent = p.name;
-      // Absolutely positioned so it doesn't enlarge the marker's own box — Mapbox anchors
-      // ("bottom" below) against that box, and it must stay just the pin's own footprint for
-      // the tip to land exactly on the coordinate.
-      label.className = "trip-pin-label";
-      inner.appendChild(label);
-      el.appendChild(inner);
-      el.title = `${p.name}${p.day != null ? ` · Day ${p.day}` : ""}`;
-      if (p.href) el.onclick = () => { window.location.href = p.href!; };
-      return new mapboxgl.Marker({ element: el, anchor: "bottom" }).setLngLat([p.lng, p.lat]).addTo(m);
-    });
+    markers.current = shown.map((p, i) => new mapboxgl.Marker({ element: stopPin(p, i, p.day != null ? ++stopNumber : null, KIND_COLOR), anchor: "bottom" }).setLngLat([p.lng, p.lat]).addTo(m));
 
     // A pin's name goes on its right; where that would run off the map, it goes on the left instead.
     const placeLabels = () => {
@@ -412,17 +381,7 @@ export function TripMap({
     for (const [i, p] of (overlay?.pills ?? []).entries()) {
       if (p.polyline.length < 2) continue;
       const line = lineString(p.polyline);
-      const root = document.createElement("div");
-      const pill = document.createElement(p.onClick ? "button" : "span");
-      pill.className = cn("trip-pill", p.tone === "ghost" && "trip-pill--ghost");
-      pill.style.animationDelay = `${900 + i * 70}ms`;
-      pill.textContent = p.text;
-      if (p.onClick) {
-        pill.setAttribute("type", "button");
-        pill.setAttribute("aria-label", `Take the route that takes ${p.text}`);
-        pill.onclick = (e) => { e.stopPropagation(); p.onClick?.(); };
-      }
-      root.appendChild(pill);
+      const root = pillElement(p, i);
       const km = turfLength(line, { units: "kilometers" });
       const marker = new mapboxgl.Marker({ element: root, anchor: "center" }).setLngLat(along(line, km * (p.at ?? 0.5), { units: "kilometers" }).geometry.coordinates as [number, number]).addTo(m);
       extraMarkers.current.push(marker);
@@ -430,39 +389,15 @@ export function TripMap({
     }
     // Routes that share a road would stack their times on one spot: slide each pill along its own route to the nearest free place.
     const spreadPills = () => {
-      const taken: Array<{ x: number; y: number }> = [];
-      for (const pl of placed) {
-        let best: [number, number] | null = null;
-        for (const d of [0, 0.05, -0.05, 0.1, -0.1, 0.15, -0.15, 0.2, -0.2, 0.28, -0.28, 0.36, -0.36]) {
-          const f = Math.min(0.92, Math.max(0.08, pl.at + d));
-          const lngLat = along(pl.line, pl.km * f, { units: "kilometers" }).geometry.coordinates as [number, number];
-          const pt = m.project(lngLat);
-          best = lngLat;
-          if (taken.every((t) => Math.abs(t.x - pt.x) > 76 || Math.abs(t.y - pt.y) > 32)) break;
-        }
-        if (best) {
-          pl.marker.setLngLat(best);
-          const pt = m.project(best);
-          taken.push({ x: pt.x, y: pt.y });
-        }
-      }
+      const spots = spreadPillSpots(placed, (lngLat) => m.project(lngLat));
+      placed.forEach((pl, i) => pl.marker.setLngLat(spots[i]));
     };
     spreadPills();
     m.off("zoomend", pillsRef.current);
     pillsRef.current = spreadPills;
     m.on("zoomend", spreadPills);
     for (const n of overlay?.nodes ?? []) {
-      const root = document.createElement("div");
-      const dot = document.createElement("span");
-      dot.className = "trip-node";
-      dot.style.setProperty("--node", n.color);
-      root.appendChild(dot);
-      if (n.label) {
-        const label = document.createElement("span");
-        label.className = "trip-node-label";
-        label.textContent = n.label;
-        dot.appendChild(label);
-      }
+      const root = nodeElement(n);
       extraMarkers.current.push(new mapboxgl.Marker({ element: root, anchor: "center" }).setLngLat(n.at).addTo(m));
     }
     // Names of interchanges only once the map is close enough for them to have room.
