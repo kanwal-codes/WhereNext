@@ -4,7 +4,6 @@ import { FormEvent, type RefObject } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowDown } from "lucide-react";
 import { MicButton, SendButton } from "@/components/ComposerButtons";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { motionTokens } from "@/components/motion-primitives";
 import { useAutoGrowTextarea } from "@/lib/use-autogrow-textarea";
 import type { useSpeechInput } from "@/lib/use-speech-input";
@@ -37,7 +36,7 @@ export function RoamComposer({ tripId, rail, input, setInput, loaded, guestGate,
   const sendOrStopButton = <SendButton canSend={canSend} stopping={sending} onStop={stop} micShown={speech.supported} />;
 
   return (
-    <div className={cn("pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-background from-55% to-transparent px-3 pt-8 pb-3", PHONE_V2 && "max-lg:bg-none max-lg:pt-0")}>
+    <div className={cn("pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-background from-55% to-transparent px-3 pt-8 pb-3", "max-lg:bg-none max-lg:pt-0")}>
       <div className={cn("pointer-events-auto relative mx-auto w-full min-w-0", rail ? RAIL_MEASURE : "max-w-2xl")}>
         <AnimatePresence>
           {away && (
@@ -51,10 +50,10 @@ export function RoamComposer({ tripId, rail, input, setInput, loaded, guestGate,
               exit={{ opacity: 0, y: 6, scale: 0.97 }}
               transition={motionTokens.swap}
               whileTap={{ scale: 0.97 }}
-              className={cn("absolute inset-x-0 bottom-full mx-auto mb-2 flex w-fit items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-ink-soft shadow-lift transition-colors hover:text-ink", PHONE_V2 && "max-lg:size-10 max-lg:justify-center max-lg:border-0 max-lg:p-0 max-lg:shadow-[0_6px_18px_-6px_rgb(29_26_23/0.35),0_0_0_1px_var(--color-hairline)]")}
+              className={cn("absolute inset-x-0 bottom-full mx-auto mb-2 flex w-fit items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-ink-soft shadow-lift transition-colors hover:text-ink", "max-lg:size-10 max-lg:justify-center max-lg:border-0 max-lg:p-0 max-lg:shadow-[0_6px_18px_-6px_rgb(29_26_23/0.35),0_0_0_1px_var(--color-hairline)]")}
             >
               <ArrowDown className="size-3.5 max-lg:size-[1.125rem]" aria-hidden />
-              <span className={cn(PHONE_V2 && "max-lg:sr-only")}>Latest</span>
+              <span className={cn("max-lg:sr-only")}>Latest</span>
             </motion.button>
           )}
         </AnimatePresence>
@@ -83,9 +82,9 @@ export function RoamComposer({ tripId, rail, input, setInput, loaded, guestGate,
           }}
           className={cn(
             "flex w-full min-w-0 max-w-full flex-col gap-1 rounded-3xl border border-input bg-card py-1.5 pl-4 pr-1.5 shadow-lift transition-[border-color,box-shadow] duration-200 ease-out",
-            PHONE_V2 && "max-lg:pr-1.5 max-lg:pl-5",
+            "max-lg:pr-1.5 max-lg:pl-5",
             "focus-within:border-ink/30 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_6%,transparent),var(--shadow-lift)]",
-            PHONE_V2 && "max-lg:border-transparent max-lg:bg-secondary max-lg:shadow-none max-lg:focus-within:border-transparent max-lg:focus-within:shadow-none",
+            "max-lg:border-transparent max-lg:bg-secondary max-lg:shadow-none max-lg:focus-within:border-transparent max-lg:focus-within:shadow-none",
             sending && "composer-live",
           )}
         >

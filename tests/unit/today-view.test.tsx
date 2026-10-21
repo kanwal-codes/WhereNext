@@ -12,13 +12,11 @@ const TRIP = "11111111-1111-4111-8111-111111111111";
 type Any = Record<string, any>;
 let live: Any | null;
 let offline: { data: Any; savedAt: number } | null;
-let phoneV2 = false;
 let narrow = false;
 const readTrip = vi.fn(async () => offline);
 
 vi.mock("@/components/TripDataProvider", () => ({ useTripDataMaybe: () => (live ? { data: live } : null) }));
 vi.mock("@/lib/client/offline-store", () => ({ readTrip: (...a: unknown[]) => (readTrip as any)(...a) }));
-vi.mock("@/lib/phone-v2", () => ({ get PHONE_V2() { return phoneV2; } }));
 vi.mock("@/lib/use-media-query", () => ({ useMediaQuery: () => narrow }));
 vi.mock("next/link", () => ({ __esModule: true, default: ({ href, children, ...rest }: Any) => <a href={href} {...rest}>{children}</a> }));
 vi.mock("@/components/TripWeather", () => ({ TripWeather: ({ location }: Any) => <div data-testid="weather">{location}</div> }));
@@ -47,7 +45,7 @@ const view = () => render(<TodayView tripId={TRIP} />);
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   at(14, 0);
-  live = data(); offline = null; phoneV2 = false; narrow = false;
+  live = data(); offline = null; narrow = false;
   readTrip.mockClear();
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
@@ -74,7 +72,7 @@ describe("TodayView: without a connection", () => {
   });
 
   it("words the note shorter on the phone", async () => {
-    phoneV2 = true; narrow = true;
+    narrow = true;
     live = null;
     offline = { data: data(), savedAt: 1 };
     view();
@@ -119,12 +117,8 @@ describe("TodayView: the day, wide", () => {
     expect(screen.queryByTestId("weather")).toBeNull();
   });
 
-  it("shortens a long multi-stop trip name on the phone-sized design only", () => {
+  it("shortens a long multi-stop trip name to its two ends", () => {
     live = data({ trip: { ...data().trip, name: "Paris → Rome → Athens", start_date: null, end_date: null } });
-    view();
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Paris → Rome → Athens");
-    cleanup();
-    phoneV2 = true; // wide screen, phone design flag on
     view();
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Paris → Athens");
   });
@@ -211,7 +205,7 @@ describe("TodayView: the day, wide", () => {
 });
 
 describe("TodayView: on the phone", () => {
-  beforeEach(() => { phoneV2 = true; narrow = true; });
+  beforeEach(() => { narrow = true; });
   const withStops = (extra: Any = {}) => data({
     itinerary: [
       stop("a", "Breakfast at Pastéis", 1, 1, { time: "09:00" }),
@@ -364,14 +358,6 @@ describe("TodayView: on the phone", () => {
     view();
     // before the trip starts there is no "today", so no stay is shown
     expect(screen.queryByText("Where you’ll sleep")).toBeNull();
-  });
-
-  it("does not go to the phone layout on a narrow screen when the phone design is off", () => {
-    phoneV2 = false;
-    live = withStops();
-    view();
-    expect(screen.queryByRole("region", { name: "Next up" })).toBeNull();
-    expect(screen.getByText("Day 1 · Lisbon long weekend")).toBeTruthy();
   });
 
   it("sends a next stop at (0, 0) to the map, not to a pin in the ocean", async () => {

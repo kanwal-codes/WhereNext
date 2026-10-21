@@ -7,7 +7,6 @@ import type { ReactNode } from "react";
 import { TripPanel } from "@/components/TripPanel";
 import { Sheet, motionTokens } from "@/components/motion-primitives";
 import { controlGhost } from "@/features/conversation/ui/blocks/ui";
-import { PHONE_V2 } from "@/lib/phone-v2";
 
 /** On a narrow screen: the detail panel (a sheet over a scrim, or a full screen), the group options sheet and the trip context sheet. */
 export function PhoneOverlays({ tripId, panel, sheetPanel, closePanel, groupMenuOpen, setGroupMenuOpen, mobileContextOpen, setMobileContextOpen, contextRail }: {
@@ -25,7 +24,7 @@ export function PhoneOverlays({ tripId, panel, sheetPanel, closePanel, groupMenu
   return (
     <>
       <AnimatePresence initial={false}>
-        {panel && PHONE_V2 && sheetPanel && (
+        {panel && sheetPanel && (
           // Phone redesign: a sheet over the conversation, not a screen that replaces it. The chat stays behind the scrim,
           // so closing the sheet puts you back exactly where you were reading.
           <motion.div key="panel-scrim" initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reduceMotion ? undefined : { opacity: 0 }} transition={reduceMotion ? { duration: 0 } : motionTokens.fast} onClick={closePanel} className="fixed inset-0 z-40 bg-black/40" />
@@ -38,7 +37,7 @@ export function PhoneOverlays({ tripId, panel, sheetPanel, closePanel, groupMenu
             animate={{ transform: "translateY(0%)" }}
             exit={reduceMotion ? undefined : { transform: "translateY(100%)" }}
             transition={reduceMotion ? { duration: 0 } : { duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-            className={PHONE_V2 && sheetPanel ? "fixed inset-x-0 top-[max(3.25rem,calc(env(safe-area-inset-top)+2.5rem))] bottom-0 z-40 overflow-hidden rounded-t-4xl bg-surface shadow-float" : "fixed inset-0 top-[var(--topbar)] z-40 bg-surface"}
+            className={sheetPanel ? "fixed inset-x-0 top-[max(3.25rem,calc(env(safe-area-inset-top)+2.5rem))] bottom-0 z-40 overflow-hidden rounded-t-4xl bg-surface shadow-float" : "fixed inset-0 top-[var(--topbar)] z-40 bg-surface"}
           >
             <TripPanel layout="inline" />
           </motion.div>

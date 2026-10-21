@@ -40,10 +40,8 @@ vi.mock("@/features/stays/ui/StayResultCard", () => ({
     </div>
   ),
 }));
-let phoneV2 = false;
 let narrow = false;
 let headerTitle: React.ReactNode = null;
-vi.mock("@/lib/phone-v2", () => ({ get PHONE_V2() { return phoneV2; } }));
 vi.mock("@/components/shell/PhoneHeader", () => ({ useSetPhoneHeader: ({ titleNode }: Any) => { headerTitle = titleNode ?? null; } }));
 vi.mock("@/lib/use-media-query", () => ({ useMediaQuery: (q: string) => (q.includes("max-width") ? narrow : false) }));
 
@@ -71,7 +69,7 @@ beforeEach(() => {
   signals = [];
   hold = null;
   cities = { stops: [{ city: "Paris", startDate: "2026-12-01", endDate: "2026-12-05" }], estimated: false, stop: { city: "Paris", startDate: "2026-12-01", endDate: "2026-12-05" }, city: "Paris", setCity: vi.fn(), hasChoice: false };
-  phoneV2 = false; narrow = false; headerTitle = null;
+  narrow = false; headerTitle = null;
   push.mockClear(); prefetch.mockClear();
   try { sessionStorage.clear(); } catch { /* */ }
   vi.stubGlobal("fetch", vi.fn(async (input: string, init?: RequestInit) => {
@@ -252,7 +250,7 @@ describe("StaySurface: dates and party", () => {
 });
 
 describe("StaySurface: filters and sort", () => {
-  const openFilters = async (user: ReturnType<typeof u>) => { await screen.findByTestId("card-h1"); await user.click(screen.getByRole("button", { name: /^Filters/ })); };
+  const openFilters = async (user: ReturnType<typeof u>) => { await screen.findByTestId("card-h1"); await user.click(screen.getAllByRole("button", { name: /^Filters/ })[0]); };
 
   it("re-sorts from the sort menu", async () => {
     renderStay();
@@ -469,7 +467,7 @@ describe("StaySurface: bookings and cities", () => {
 });
 
 describe("StaySurface: on the phone", () => {
-  beforeEach(() => { phoneV2 = true; narrow = true; });
+  beforeEach(() => { narrow = true; });
 
   it("puts the city in the header, and drops the city chips", async () => {
     renderStay();

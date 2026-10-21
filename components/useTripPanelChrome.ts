@@ -2,7 +2,6 @@
 
 import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 import type { PanelState } from "@/components/TripPanelProvider";
-import { PHONE_V2 } from "@/lib/phone-v2";
 
 /** The control that opened the inline panel, so closing it can hand focus back. Module-level because the
  *  inline panel remounts on every subject change and would otherwise forget where the user started. */
@@ -23,7 +22,7 @@ export function useTripPanelChrome({ layout, desktop, panel, closePanel, subject
   // On a phone the panel is a sheet that slides up. Mounting its (heavy) content while it moves competes with the slide for the same
   // thread, and on a mid-range Android that is the stutter: the sheet arrives with the card's own title and photo first, and the body
   // is built a moment later, once it has stopped.
-  const deferBody = layout === "inline" && !desktop && PHONE_V2;
+  const deferBody = layout === "inline" && !desktop;
   const [slid, setSlid] = useState(!deferBody);
   useEffect(() => {
     if (!deferBody) { setSlid(true); return; }

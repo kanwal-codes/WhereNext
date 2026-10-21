@@ -10,14 +10,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 type Any = Record<string, any>;
 const NOW = new Date("2026-10-20T12:00:00");
-let phoneV2 = false;
 let wide = true;
 let speech: Any;
 let speechOpts: Any = {};
 const toast = vi.fn();
 const assign = vi.fn();
 
-vi.mock("@/lib/phone-v2", () => ({ get PHONE_V2() { return phoneV2; } }));
 vi.mock("@/lib/use-media-query", () => ({ useMediaQuery: () => wide }));
 vi.mock("@/lib/use-speech-input", () => ({ useSpeechInput: (opts: Any) => { speechOpts = opts; return speech; } }));
 vi.mock("@/lib/application/toast", () => ({ notifyToast: (...a: unknown[]) => toast(...a) }));
@@ -54,7 +52,7 @@ let respond: (url: string, init?: RequestInit) => Response | Promise<Response>;
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
-  phoneV2 = false; wide = true; speechOpts = {};
+  wide = true; speechOpts = {};
   speech = { supported: false, listening: false, toggle: vi.fn() };
   toast.mockClear(); assign.mockClear();
   fetchCalls = [];
@@ -89,7 +87,7 @@ describe("TripsHome: the page", () => {
     home([soon("a", "Lisbon"), old("b", "Rome")]);
     expect(screen.getByRole("heading", { name: "Your trips" })).toBeTruthy();
     expect(screen.getByText("2", { selector: ".daisy-badge" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Create new trip/ }).getAttribute("href")).toBe("/trips/new");
+    expect(document.querySelector('a[href="/trips/new"]')?.textContent).toMatch(/Create (new|New) trip/);
     expect(screen.queryByRole("heading", { name: /Start with a place/ })).toBeNull();
   });
 });
@@ -440,7 +438,6 @@ describe("TripsHome: dictation", () => {
 describe("TripsHome: on the phone", () => {
   it("lists every trip as a row, and keeps the cards for wider screens", async () => {
     vi.useRealTimers();
-    phoneV2 = true;
     home([now("n", "Oslo"), soon("s", "Lisbon"), old("p", "Rome")]);
     expect(screen.getAllByTestId("row").map((r) => r.textContent?.replace(/remove.*/, ""))).toEqual(["row Oslo", "row Lisbon", "row Rome"]);
     expect(document.querySelector('a[href="/trips/new"]')?.textContent?.trim()).toBe("Create New trip");
@@ -448,11 +445,5 @@ describe("TripsHome: on the phone", () => {
     await user.click(screen.getByRole("button", { name: "remove Lisbon" }));
     expect(screen.getByRole("dialog", { name: "Delete trip" })).toBeTruthy();
     expect(screen.getByTestId("featured").closest(".max-lg\\:hidden")).toBeTruthy();
-  });
-
-  it("has no rows off the phone", () => {
-    home([soon("s", "Lisbon")]);
-    expect(screen.queryAllByTestId("row")).toHaveLength(0);
-    expect(screen.getByRole("link", { name: "Create new trip" })).toBeTruthy();
   });
 });

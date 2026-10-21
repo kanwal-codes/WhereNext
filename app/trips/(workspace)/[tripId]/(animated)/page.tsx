@@ -13,7 +13,6 @@ import { OverviewHero, type HeroFact } from "@/components/overview/OverviewHero"
 import { PlanDays } from "@/components/overview/PlanDays";
 import { PlacesMosaic } from "@/components/overview/PlacesMosaic";
 import { NextStepCard } from "@/components/overview/NextStepCard";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { PhoneOverview } from "@/components/overview/PhoneOverview";
 import { useHydrated, useMediaQuery } from "@/lib/use-media-query";
 import type { Reservation } from "@/packages/contracts/reservation";
@@ -44,10 +43,10 @@ export default function TripOverviewPage() {
   const titleTag = useDocumentTitle((data?.trip as { name?: string } | undefined)?.name ?? "Overview");
   const router = useRouter();
   const narrow = useMediaQuery("(max-width: 1023.98px)");
-  const phone = PHONE_V2 && narrow;
+  const phone = narrow;
   // The desktop sections wait for the media query to be known (a phone must not mount them, even for one render: their effects fetch).
   const hydrated = useHydrated();
-  const desktopTree = !phone && (!PHONE_V2 || hydrated);
+  const desktopTree = !phone && hydrated;
   const trip = data?.trip;
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
@@ -153,19 +152,15 @@ export default function TripOverviewPage() {
         <div aria-hidden="true" className="skeleton min-h-[34rem] sm:min-h-[40rem]" />
       )}
 
-      {PHONE_V2 && (
-        <div className="px-5 pt-4 sm:px-8 lg:hidden">
-          {PHONE_V2 && (
-            <NextStepCard
-              tripId={tripId}
-              plannedDays={new Set(itinerary.map((row) => row.day_index)).size}
-              totalDays={durationDays ?? null}
-              firstOpenDay={(() => { const planned = new Set(itinerary.map((row) => row.day_index)); for (let d = 1; d <= (durationDays ?? 0); d++) if (!planned.has(d)) return d; return null; })()}
-            />
-          )}
-        </div>
-      )}
-      {PHONE_V2 && trip && (
+      <div className="px-5 pt-4 sm:px-8 lg:hidden">
+        <NextStepCard
+          tripId={tripId}
+          plannedDays={new Set(itinerary.map((row) => row.day_index)).size}
+          totalDays={durationDays ?? null}
+          firstOpenDay={(() => { const planned = new Set(itinerary.map((row) => row.day_index)); for (let d = 1; d <= (durationDays ?? 0); d++) if (!planned.has(d)) return d; return null; })()}
+        />
+      </div>
+      {trip && (
         <PhoneOverview
           tripId={tripId}
           trip={trip}
@@ -173,9 +168,9 @@ export default function TripOverviewPage() {
           stays={staysBooked.items.filter((i) => i.status !== "cancelled" && i.status !== "failed").map((i) => ({ startsOn: i.date, endsOn: i.endDate }))}
         />
       )}
-      <div className={cn(PHONE_V2 && "max-lg:hidden")}><ActionBar tripId={tripId} name={trip?.name || destination} /></div>
+      <div className={cn("max-lg:hidden")}><ActionBar tripId={tripId} name={trip?.name || destination} /></div>
 
-      <div className={cn("mx-auto max-w-6xl space-y-16 px-5 pt-4 sm:px-8 sm:pt-6", PHONE_V2 && "max-lg:space-y-12")}>
+      <div className={cn("mx-auto max-w-6xl space-y-16 px-5 pt-4 sm:px-8 sm:pt-6", "max-lg:space-y-12")}>
         <Reveal>
           <TripReviewPanel tripId={tripId} />
         </Reveal>

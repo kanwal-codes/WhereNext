@@ -10,7 +10,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 const TRIP = "11111111-1111-4111-8111-111111111111";
 type Any = Record<string, any>;
-let phoneV2 = false;
 let tripData: Any | null;
 let guest = false;
 let detailBody: Any | "fail" | "none";
@@ -22,7 +21,6 @@ const toast = vi.fn();
 let hero: Any = {};
 let recs: Any | null = null;
 
-vi.mock("@/lib/phone-v2", () => ({ get PHONE_V2() { return phoneV2; } }));
 vi.mock("@/components/TripDataProvider", () => ({ useTripDataMaybe: () => (tripData ? { data: tripData } : null) }));
 vi.mock("@/features/identity/ui/GuestProvider", () => ({ useGuest: () => ({ guest, openGate }) }));
 vi.mock("@/lib/client/mutation-queue", () => ({ mutate: (...a: unknown[]) => mutate(...a) }));
@@ -55,7 +53,7 @@ const u = () => userEvent.setup({ pointerEventsCheck: 0 });
 const page = (props: Any = {}) => render(<EventDetailView tripId={TRIP} seed={seed} {...props} />);
 
 beforeEach(() => {
-  phoneV2 = false; guest = false; tripData = { trip: { start_date: "2026-12-01" }, itinerary: [] };
+  guest = false; tripData = { trip: { start_date: "2026-12-01" }, itinerary: [] };
   detailBody = detail(); calls = []; signals = []; hero = {}; recs = null;
   openGate.mockClear(); mutate.mockReset(); mutate.mockResolvedValue({ ok: true }); toast.mockClear();
   try { sessionStorage.clear(); } catch { /* */ }
@@ -139,7 +137,7 @@ describe("EventDetailView: the top", () => {
     expect(within(facts as HTMLElement).getByText("Blue Note")).toBeTruthy();
     expect(within(facts as HTMLElement).getByText("$40 – $90")).toBeTruthy();
     expect(within(facts as HTMLElement).getByText(/doors 7:00 PM/)).toBeTruthy();
-    expect(screen.getByText("Jazz")).toBeTruthy();
+    expect(screen.getAllByText("Jazz").length).toBeGreaterThan(0);
   });
 
   it("shows a day with no time when the date has none", async () => {
@@ -210,7 +208,7 @@ describe("EventDetailView: adding it to the trip", () => {
   it("adds a timed stop on the right day, and says so", async () => {
     const user = u();
     page();
-    await user.click(await screen.findByRole("button", { name: "Add to trip" }));
+    await user.click((await screen.findAllByRole("button", { name: "Add to trip" }))[0]);
     expect(mutate).toHaveBeenCalledWith("/api/commands", { method: "POST", announce: ["itinerary"], body: { type: "add_itinerary_item", tripId: TRIP, title: "Jazz Night", dayIndex: 2, time: "20:00", latitude: 40.73, longitude: -74 } });
     await waitFor(() => expect(toast).toHaveBeenCalledWith("Added to Day 2 at 8:00 PM.", "success"));
   });
@@ -220,7 +218,7 @@ describe("EventDetailView: adding it to the trip", () => {
     tripData = { trip: { start_date: null }, itinerary: [] };
     const user = u();
     page({ seed: { ...seed, date: undefined } });
-    await user.click(await screen.findByRole("button", { name: "Add to trip" }));
+    await user.click((await screen.findAllByRole("button", { name: "Add to trip" }))[0]);
     expect(mutate.mock.calls[0][1].body).toEqual({ type: "add_itinerary_item", tripId: TRIP, title: "Jazz Night", dayIndex: 1 });
     await waitFor(() => expect(toast).toHaveBeenCalledWith("Added to Day 1.", "success"));
   });
@@ -229,27 +227,27 @@ describe("EventDetailView: adding it to the trip", () => {
     mutate.mockResolvedValue({ ok: false });
     const user = u();
     page();
-    await user.click(await screen.findByRole("button", { name: "Add to trip" }));
+    await user.click((await screen.findAllByRole("button", { name: "Add to trip" }))[0]);
     await waitFor(() => expect(toast).toHaveBeenCalledWith("Couldn't add Jazz Night to your trip. Try again.", "error"));
-    expect(screen.getByRole("button", { name: "Add to trip" }).hasAttribute("disabled")).toBe(false);
+    expect(screen.getAllByRole("button", { name: "Add to trip" })[0].hasAttribute("disabled")).toBe(false);
   });
 
   it("shows where it already is, case-insensitively, and does not add it twice", async () => {
     tripData = { trip: { start_date: "2026-12-01" }, itinerary: [{ title: "  jazz night ", day_index: 3 }] };
     page();
-    const button = await screen.findByRole("button", { name: "On Day 3" });
+    const button = (await screen.findAllByRole("button", { name: "On Day 3" }))[0];
     expect(button.hasAttribute("disabled")).toBe(true);
     cleanup();
     tripData = { trip: {}, itinerary: [{ title: "Jazz Night" }] };
     page();
-    expect(await screen.findByRole("button", { name: "On your trip" })).toBeTruthy();
+    expect((await screen.findAllByRole("button", { name: "On your trip" })).length).toBeGreaterThan(0);
   });
 
   it("asks a guest to save the trip first", async () => {
     guest = true;
     const user = u();
     page();
-    await user.click(await screen.findByRole("button", { name: "Add to trip" }));
+    await user.click((await screen.findAllByRole("button", { name: "Add to trip" }))[0]);
     expect(openGate).toHaveBeenCalledWith("add events to your itinerary");
     expect(mutate).not.toHaveBeenCalled();
   });
@@ -355,7 +353,7 @@ describe("EventDetailView: sections", () => {
 });
 
 describe("EventDetailView: on the phone", () => {
-  beforeEach(() => { phoneV2 = true; });
+  beforeEach(() => { });
 
   it("docks the add and tickets buttons at the bottom of the page", async () => {
     page();

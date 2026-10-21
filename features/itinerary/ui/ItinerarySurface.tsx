@@ -7,7 +7,6 @@ import { ArrowUpRight } from "lucide-react";
 import { useMediaQuery } from "@/lib/use-media-query";
 import type { StayDecision } from "@/packages/contracts/stay";
 import { cn } from "@/lib/utils";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { textAction } from "@/features/conversation/ui/blocks/ui";
 import { PhoneDayView } from "./PhoneDayView";
 import { BasedAtCard } from "./BasedAtCard";
@@ -39,7 +38,7 @@ export function ItinerarySurface({
 }) {
   // Phone redesign: one day at a time, with a week strip, a timeline and a sheet of actions per stop.
   const narrow = useMediaQuery("(max-width: 1023.98px)");
-  const phone = PHONE_V2 && narrow;
+  const phone = narrow;
   const { items, setItems, itemsByDay, removed, move, moveWithinDay, toggleLock, setTime, reorder, remove, restore } = useItineraryItems({ tripId, initialItems });
   const { title, setTitle, setPicked, day, setDay, addOpen, setAddOpen, add } = useAddStop({ tripId, setItems });
   const { bookedByDay, conflictsByDay, reservations } = useBookings({ tripId, startDate, items });

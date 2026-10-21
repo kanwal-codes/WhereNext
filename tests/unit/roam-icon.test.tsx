@@ -53,7 +53,11 @@ describe("the handoff in a reply", () => {
   ] as never;
   const render = (live: boolean) => renderToStaticMarkup(<MessageBlocks blocks={widgets} tripId="t" onFollowup={() => undefined} live={live} />);
   it("plays on the first widget of a live reply only", () => {
-    expect(render(true).match(/data-roam-state="handoff"/g)?.length).toBe(1);
+    // The first widget draws its mark once for the phone and once for a wide screen; the second adds none of its own.
+    const first = renderToStaticMarkup(<MessageBlocks blocks={[(widgets as unknown as unknown[])[0]] as never} tripId="t" onFollowup={() => undefined} live />);
+    const handoffs = (html: string) => html.match(/data-roam-state="handoff"/g)?.length ?? 0;
+    expect(handoffs(first)).toBeGreaterThan(0);
+    expect(handoffs(render(true))).toBe(handoffs(first));
   });
   it("never plays for restored history, but the icons are still there, already drawn", () => {
     const html = render(false);

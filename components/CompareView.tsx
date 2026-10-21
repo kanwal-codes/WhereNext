@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { Skeleton } from "@/components/Skeleton";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { compareAnchors, compareRows, compareStats } from "@/features/places/domain/compare-places";
 import { useComparePlaces } from "@/features/places/application/useComparePlaces";
 import { CompareTable } from "@/features/places/ui/CompareTable";
@@ -32,7 +31,7 @@ export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids:
 
   return (
     <>
-      {PHONE_V2 && <ComparePhone {...props} />}
+      <ComparePhone {...props} />
       <CompareTable {...props} />
     </>
   );

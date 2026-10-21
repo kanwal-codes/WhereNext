@@ -11,7 +11,6 @@ let data: Record<string, unknown>;
 let header: { titleNode?: React.ReactNode; trailing?: React.ReactNode } = {};
 let panel: null | { compareMode: boolean; setCompareMode: ReturnType<typeof vi.fn>; compareClear: ReturnType<typeof vi.fn>; compareList: unknown[]; compareToggle: ReturnType<typeof vi.fn>; compareHas: () => boolean; openPanel: ReturnType<typeof vi.fn> };
 
-vi.mock("@/lib/phone-v2", () => ({ PHONE_V2: true }));
 vi.mock("@/components/TripDataProvider", () => ({ useTripData: () => ({ data }) }));
 vi.mock("@/components/TripPanelProvider", () => ({ useTripPanelMaybe: () => panel }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));

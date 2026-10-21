@@ -17,10 +17,8 @@ const toast = vi.fn();
 vi.mock("@/lib/application/toast", () => ({ notifyToast: (...a: unknown[]) => toast(...a) }));
 const replaceSpy = vi.fn();
 let searchParams = new URLSearchParams();
-let phoneV2 = false;
 const markRead = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: replaceSpy, push: vi.fn() }), useSearchParams: () => searchParams }));
-vi.mock("@/lib/phone-v2", () => ({ get PHONE_V2() { return phoneV2; } }));
 vi.mock("@/lib/client/use-group-unread", () => ({ markGroupRead: (...a: unknown[]) => markRead(...a) }));
 vi.mock("@/components/TripDataProvider", () => ({ useTripData: () => ({ me: { userId: ME }, data: { trip: { name: "Lisbon" } } }) }));
 vi.mock("@/components/TripPanelProvider", () => ({ useTripPanel: () => ({ openPanel: vi.fn() }) }));
@@ -74,7 +72,7 @@ const box = () => screen.getByLabelText("Message the group") as HTMLTextAreaElem
 beforeEach(() => {
   sessionStorage.clear();
   toast.mockClear();
-  replaceSpy.mockClear(); markRead.mockClear(); searchParams = new URLSearchParams(); phoneV2 = false;
+  replaceSpy.mockClear(); markRead.mockClear(); searchParams = new URLSearchParams(); 
   history = [msg("1", { userId: FRIEND, content: "Who is up for tapas?", created_at: at(0) }), msg("2", { userId: ME, content: "Me!", created_at: at(1) })];
   handlers = [];
   installFetch();
@@ -612,7 +610,7 @@ describe("GroupChatSurface: the box", () => {
   });
 
   it("has an @ button on the phone that asks Roam, and is gone once Roam is mentioned", async () => {
-    phoneV2 = true;
+    
     const { user } = await open();
     await user.click(screen.getByRole("button", { name: "Ask Roam in the chat" }));
     expect(box().value).toBe("@Roam ");
@@ -620,7 +618,7 @@ describe("GroupChatSurface: the box", () => {
   });
 
   it("marks the chat read when it comes to the front on the phone, unless the latest message is yours", async () => {
-    phoneV2 = true;
+    
     history = [msg("1", { userId: FRIEND })];
     await open();
     await waitFor(() => expect(markRead).toHaveBeenCalledWith(TRIP));
@@ -633,10 +631,6 @@ describe("GroupChatSurface: the box", () => {
     expect(markRead).toHaveBeenCalledTimes(1); // opening reads it once; your own newest message adds none
   });
 
-  it("does not mark anything read off the phone", async () => {
-    await open();
-    expect(markRead).not.toHaveBeenCalled();
-  });
 });
 
 describe("GroupChatSurface: holding a message", () => {

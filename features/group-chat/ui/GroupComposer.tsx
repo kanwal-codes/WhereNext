@@ -4,7 +4,6 @@ import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "re
 import { createPortal } from "react-dom";
 import { ListChecks, Plus } from "lucide-react";
 import { MicButton, SendButton } from "@/components/ComposerButtons";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { useAutoGrowTextarea } from "@/lib/use-autogrow-textarea";
 import type { useSpeechInput } from "@/lib/use-speech-input";
 import { roamMentionGhost } from "../domain/chat-state";
@@ -155,7 +154,7 @@ export function GroupComposer({ input, setInput, loaded, submit, speech, onPoll 
         <div className="pointer-events-none absolute inset-0 flex items-center justify-between">
           <div className="pointer-events-auto">{plusButton}</div>
           <div className="pointer-events-auto flex items-center gap-1">
-            {PHONE_V2 && !mentionsRoam(input) && (
+            {!mentionsRoam(input) && (
               <button type="button" onClick={() => { setInput((cur) => (/@r?o?a?m?$/i.test(cur) ? cur.replace(/@r?o?a?m?$/i, "@Roam ") : `${cur}${cur && !/\s$/.test(cur) ? " " : ""}@Roam `)); textareaRef.current?.focus(); }} disabled={!loaded} aria-label="Ask Roam in the chat" className="grid size-11 shrink-0 place-items-center rounded-full font-display text-widget leading-none text-muted-foreground transition-colors active:bg-muted disabled:opacity-40 lg:hidden">@</button>
             )}
             {micButton}
@@ -175,7 +174,7 @@ export function GroupComposer({ input, setInput, loaded, submit, speech, onPoll 
     className={cn(
       "flex w-full flex-col gap-1 overflow-hidden rounded-3xl border border-input bg-card p-1.5 shadow-lift transition-[border-color,box-shadow] duration-200 ease-out",
       "focus-within:border-ink/30 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_6%,transparent),var(--shadow-lift)]",
-      PHONE_V2 && "max-lg:border-transparent max-lg:bg-secondary max-lg:shadow-none max-lg:focus-within:border-transparent max-lg:focus-within:shadow-none",
+      "max-lg:border-transparent max-lg:bg-secondary max-lg:shadow-none max-lg:focus-within:border-transparent max-lg:focus-within:shadow-none",
     )}
   >
     {/* `messageTextarea` (defined above, alongside the buttons it conditionally overlays)

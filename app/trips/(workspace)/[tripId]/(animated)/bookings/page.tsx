@@ -28,7 +28,6 @@ import { useRemoveTripItem } from "@/features/bookings/application/useRemoveTrip
 import type { TimelineItem } from "@/lib/trip-reservations";
 import { ExpensesPanel } from "@/features/expenses/ui/ExpensesPanel";
 import { Sheet } from "@/components/motion-primitives";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { cn } from "@/lib/utils";
 
 /** Saved places that are somewhere to eat, by Google's place type ("restaurant", "cafe", "brunch_restaurant"...). */
@@ -129,7 +128,7 @@ export default function BookingsPage() {
 
       <div className="mx-auto max-w-6xl space-y-12 px-5 pt-6 sm:space-y-16 sm:px-8 sm:pt-8">
         <section>
-          <div className={cn(PHONE_V2 && "max-lg:hidden")}><SectionHeading title="Your bookings" count={timeline.length} /></div>
+          <div className={cn("max-lg:hidden")}><SectionHeading title="Your bookings" count={timeline.length} /></div>
           {!loading && (
             <div className="mt-6 empty:hidden max-lg:mt-3">
               <BookingNotices tripId={tripId} reservations={reservations ?? []} startDate={data?.trip?.start_date} endDate={data?.trip?.end_date} />
@@ -183,20 +182,18 @@ export default function BookingsPage() {
         </section>
 
         <div className="grid gap-x-10 gap-y-16 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-          {PHONE_V2 && (
-            <button type="button" onClick={() => setChecklistOpen(true)} aria-haspopup="dialog" className="-mt-4 flex min-h-[4.25rem] w-full items-center gap-3.5 border-t border-hairline py-2 text-left lg:hidden">
-              <svg viewBox="0 0 48 48" className="size-12 shrink-0" aria-hidden>
-                <circle cx="24" cy="24" r="19" fill="none" className="stroke-hairline" strokeWidth="5" />
-                <circle cx="24" cy="24" r="19" fill="none" className="stroke-coral" strokeWidth="5" strokeLinecap="round" strokeDasharray={`${(119.4 * done) / ESSENTIALS_TOTAL} 119.4`} transform="rotate(-90 24 24)" />
-              </svg>
-              <span className="min-w-0 flex-1">
-                <b className="block font-display text-base font-medium leading-tight">Before you go</b>
-                <span className="text-sm text-ink-soft tabular-nums">{done} of {ESSENTIALS_TOTAL} checked off</span>
-              </span>
-              <ArrowRight className="size-[1.125rem] shrink-0 text-muted-foreground" aria-hidden />
-            </button>
-          )}
-          <section className={cn("min-w-0", PHONE_V2 && "max-lg:hidden")}>
+          <button type="button" onClick={() => setChecklistOpen(true)} aria-haspopup="dialog" className="-mt-4 flex min-h-[4.25rem] w-full items-center gap-3.5 border-t border-hairline py-2 text-left lg:hidden">
+            <svg viewBox="0 0 48 48" className="size-12 shrink-0" aria-hidden>
+              <circle cx="24" cy="24" r="19" fill="none" className="stroke-hairline" strokeWidth="5" />
+              <circle cx="24" cy="24" r="19" fill="none" className="stroke-coral" strokeWidth="5" strokeLinecap="round" strokeDasharray={`${(119.4 * done) / ESSENTIALS_TOTAL} 119.4`} transform="rotate(-90 24 24)" />
+            </svg>
+            <span className="min-w-0 flex-1">
+              <b className="block font-display text-base font-medium leading-tight">Before you go</b>
+              <span className="text-sm text-ink-soft tabular-nums">{done} of {ESSENTIALS_TOTAL} checked off</span>
+            </span>
+            <ArrowRight className="size-[1.125rem] shrink-0 text-muted-foreground" aria-hidden />
+          </button>
+          <section className={cn("min-w-0", "max-lg:hidden")}>
             <SectionHeading title="Checklist" />
             <div className="mt-6">
               <EssentialsSurface tripId={tripId} initialCompleted={data?.essentials} />
@@ -238,12 +235,10 @@ export default function BookingsPage() {
         </section>
       </div>
 
-      {PHONE_V2 && (
-        <Sheet open={checklistOpen} onClose={() => setChecklistOpen(false)} side="bottom" ariaLabel="Before you go checklist" className="rounded-t-4xl bg-background px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-          <p className="pb-3 font-display text-xl font-medium tracking-[-0.02em]">Before you go</p>
-          <div className="min-h-0 flex-1 overflow-y-auto"><EssentialsSurface tripId={tripId} initialCompleted={data?.essentials} /></div>
-        </Sheet>
-      )}
+      <Sheet open={checklistOpen} onClose={() => setChecklistOpen(false)} side="bottom" ariaLabel="Before you go checklist" className="rounded-t-4xl bg-background px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        <p className="pb-3 font-display text-xl font-medium tracking-[-0.02em]">Before you go</p>
+        <div className="min-h-0 flex-1 overflow-y-auto"><EssentialsSurface tripId={tripId} initialCompleted={data?.essentials} /></div>
+      </Sheet>
 
       <TableSheet
         tripId={tripId}

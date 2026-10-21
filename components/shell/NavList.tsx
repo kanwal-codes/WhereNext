@@ -9,12 +9,10 @@ import { useGuest } from "@/features/identity/ui/GuestProvider";
 export function NavList({
   tripId,
   pathname,
-  onNavigate,
   collapsed,
 }: {
   tripId: string;
   pathname: string;
-  onNavigate?: () => void;
   collapsed?: boolean;
 }) {
   const base = `/trips/${tripId}`;
@@ -32,14 +30,13 @@ export function NavList({
         return (
           <NavRow
             key={item.label}
-            onLocked={locked ? () => { onNavigate?.(); openGate(`open ${item.label.toLowerCase()}`); } : undefined}
+            onLocked={locked ? () => openGate(`open ${item.label.toLowerCase()}`) : undefined}
             href={href}
             label={item.label}
             icon={item.icon}
             active={isActive}
             collapsed={collapsed}
             pillId={pillId}
-            onNavigate={onNavigate}
             onPrefetch={() => router.prefetch(href)}
           />
         );

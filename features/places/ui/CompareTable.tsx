@@ -6,7 +6,6 @@ import { Check, MapPin, Star, X } from "lucide-react";
 import { useDistance } from "@/components/use-distance";
 import { ExternalLink } from "@/components/ExternalLink";
 import { categoryLabel, priceLabel, priceRank, type GooglePlaceDetails } from "@/lib/places-ui";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { cn } from "@/lib/utils";
 import { hoursToday, type CompareRow, type CompareRowKey, type CompareStats } from "@/features/places/domain/compare-places";
 
@@ -80,7 +79,7 @@ export function CompareTable({ tripId, ids, onIdsChange, present, rows, stats, s
   };
 
   return (
-  <div className={cn("overflow-x-auto overscroll-x-contain scrollbar-slim", PHONE_V2 && "max-lg:hidden")}>
+  <div className={cn("overflow-x-auto overscroll-x-contain scrollbar-slim", "max-lg:hidden")}>
     <div className="grid min-w-[560px] gap-x-4" style={{ gridTemplateColumns: `120px repeat(${present.length}, minmax(170px, 1fr))` }}>
       <div className="sticky left-0 z-10 bg-background" />
       <AnimatePresence initial={false}>

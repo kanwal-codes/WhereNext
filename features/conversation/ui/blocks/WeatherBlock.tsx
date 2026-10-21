@@ -4,7 +4,6 @@ import { Backpack, Check, Cloud, CloudRain, CloudSnow, CloudSun, Droplets, Footp
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 import { cn } from "@/lib/utils";
 import { Widget, WidgetAction, WidgetFigure, WidgetHero, WidgetPill } from "./Widget";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { Badge, type } from "./ui";
 import { BlockHandlers } from "./blockShared";
 
@@ -65,7 +64,7 @@ function PackRow({ items }: { items: string[] }) {
 
 export function WeatherBlockView({ block, onOpenPanel }: { block: WeatherBlockData } & Pick<BlockHandlers, "onOpenPanel">) {
   // Phone redesign: the card opens its week as a sheet (flag on, below lg).
-  const seeWeek = PHONE_V2 && onOpenPanel ? <WidgetAction quiet arrow={false} onClick={() => onOpenPanel({ kind: "weather", block })}>See the week</WidgetAction> : undefined;
+  const seeWeek = onOpenPanel ? <WidgetAction quiet arrow={false} onClick={() => onOpenPanel({ kind: "weather", block })}>See the week</WidgetAction> : undefined;
   if (block.mode === "forecast" && block.days.length > 0) {
     const days = block.days.slice(0, 7);
     const dry = days.filter((d) => !d.wet).map((d) => d.label);

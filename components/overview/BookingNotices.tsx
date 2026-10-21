@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useState } from "react";
 import { AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
 import { Sheet } from "@/components/motion-primitives";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { lodgingGaps, outsideTripDates } from "@/lib/trip-reservations";
 import type { Reservation } from "@/packages/contracts/reservation";
 
@@ -47,7 +46,6 @@ export function BookingNotices({ tripId, reservations, startDate, endDate }: { t
       )}
     </div>
   );
-  if (!PHONE_V2) return list;
   // Phone redesign: the two notices are one quiet row; the detail and "Find a stay" are in the sheet.
   const count = (gaps.length > 0 ? 1 : 0) + (stray.length > 0 ? 1 : 0);
   return (

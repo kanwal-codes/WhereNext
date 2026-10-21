@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Phone redesign dev server: the LOCAL Docker Supabase stack only, every provider key blank, the redesign flag on.
+# Phone redesign dev server: the LOCAL Docker Supabase stack only, every provider key blank.
 # Nothing here can reach the hosted project, production Redis, or a paid API. Usage:
 #   scripts/dev-phone.sh            # serves on :4000 with its own dist dir
 # Needs the local stack running (open -a Docker; the supabase_*_sb containers restart on their own) and a keys file
@@ -14,7 +14,6 @@ export NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 export NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$(node -p "require('$PHONE_KEYS_FILE').anon")
 export SUPABASE_SERVICE_ROLE_KEY=$(node -p "require('$PHONE_KEYS_FILE').service")
 export NEXT_PUBLIC_SITE_URL=http://localhost:4000
-export NEXT_PUBLIC_PHONE_V2=1
 # Optional: let named provider keys through from .env.local (PHONE_PROVIDER_KEYS="GOOGLE_MAPS_API_KEY MAPBOX_ACCESS_TOKEN ..."), so
 # Discover, stays, the map and weather show real data. Everything else stays blank, and every provider answer is cached on disk
 # (scripts/api-cache.cjs) so a screen is paid for once, not on every reload.

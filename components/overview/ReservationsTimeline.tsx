@@ -9,7 +9,6 @@ import { KIND_META } from "@/components/overview/ReservationSheet";
 import { RemoveControl } from "@/components/overview/RemoveControl";
 import { TripArt, hashString } from "@/components/trips/TripArt";
 import { CATEGORY_LABEL, clockLabel, countByCategory, filterByCategory, groupByDate, type Category, type TimelineItem } from "@/lib/trip-reservations";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { cn } from "@/lib/utils";
 import type { Booking } from "@/packages/contracts/booking";
 
@@ -32,7 +31,7 @@ function Thumb({ item }: { item: TimelineItem }) {
   const [failed, setFailed] = useState(false);
   const Icon = KIND_META[item.kind].icon;
   return (
-    <TripArt seed={hashString(item.id)} className={cn("grid h-20 w-20 shrink-0 place-items-center rounded-2xl", PHONE_V2 && "max-lg:h-12 max-lg:w-12 max-lg:rounded-2xl")}>
+    <TripArt seed={hashString(item.id)} className={cn("grid h-20 w-20 shrink-0 place-items-center rounded-2xl", "max-lg:h-12 max-lg:w-12 max-lg:rounded-2xl")}>
       {item.thumbnail && !failed ? (
         <BlurImage src={hotelPhotoSrc(item.thumbnail)} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />
       ) : (
@@ -50,16 +49,16 @@ function Row({ item, onOpenBooking, onEdit, onRemove }: { item: TimelineItem; on
       <Thumb item={item} />
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-2">
-          <span className={cn("text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase", PHONE_V2 && "max-lg:hidden")}>{KIND_META[item.kind].label}</span>
-          {item.status && <span className={cn("daisy-badge h-5 px-2 text-2xs capitalize", STATUS[item.status], PHONE_V2 && "max-lg:hidden")}>{item.status}</span>}
+          <span className={cn("text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase", "max-lg:hidden")}>{KIND_META[item.kind].label}</span>
+          {item.status && <span className={cn("daisy-badge h-5 px-2 text-2xs capitalize", STATUS[item.status], "max-lg:hidden")}>{item.status}</span>}
         </span>
-        <span className={cn("mt-0.5 block truncate font-display text-xl tracking-tight", PHONE_V2 && "max-lg:text-base max-lg:leading-tight", dim && "line-through decoration-muted-foreground/50")}>{item.title}</span>
-        {item.subtitle && <span className={cn("block truncate text-sm text-muted-foreground", PHONE_V2 && "max-lg:hidden")}>{item.subtitle}</span>}
+        <span className={cn("mt-0.5 block truncate font-display text-xl tracking-tight", "max-lg:text-base max-lg:leading-tight", dim && "line-through decoration-muted-foreground/50")}>{item.title}</span>
+        {item.subtitle && <span className={cn("block truncate text-sm text-muted-foreground", "max-lg:hidden")}>{item.subtitle}</span>}
         <span suppressHydrationWarning className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           {item.time && <span className="tabular-nums">{clockLabel(item.time)}</span>}
           {n && <span className="tabular-nums">{n} {n === 1 ? "night" : "nights"}</span>}
           {item.place && (
-            <span className={cn("flex min-w-0 items-center gap-1", PHONE_V2 && "max-lg:hidden")}>
+            <span className={cn("flex min-w-0 items-center gap-1", "max-lg:hidden")}>
               <MapPin className="h-3 w-3 shrink-0" />
               <span className="truncate">{item.place}</span>
             </span>
@@ -73,16 +72,16 @@ function Row({ item, onOpenBooking, onEdit, onRemove }: { item: TimelineItem; on
           )}
         </span>
       </span>
-      <span className={cn("flex shrink-0 flex-col items-end justify-between self-stretch", PHONE_V2 && "max-lg:hidden")}>
+      <span className={cn("flex shrink-0 flex-col items-end justify-between self-stretch", "max-lg:hidden")}>
         {item.amountLabel ? <span className="text-sm font-medium tabular-nums">{item.amountLabel}</span> : <span />}
         <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform duration-300 group-hover:translate-x-0.5" />
       </span>
-      {PHONE_V2 && item.status && (
+      {item.status && (
         <span className={cn("status-chip shrink-0 self-center capitalize lg:hidden", item.status === "confirmed" && "status-ok", (item.status === "failed" || item.status === "cancelled") && "status-bad")}>{item.status === "pending" ? "Reserved" : item.status}</span>
       )}
     </>
   );
-  const cls = cn("group flex w-full items-stretch gap-4 rounded-3xl border border-border/70 bg-card p-3.5 text-left shadow-soft transition-shadow hover:shadow-lift focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none", PHONE_V2 && "max-lg:min-h-[4.25rem] max-lg:items-center max-lg:gap-3.5 max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent max-lg:px-0 max-lg:py-2 max-lg:shadow-none");
+  const cls = cn("group flex w-full items-stretch gap-4 rounded-3xl border border-border/70 bg-card p-3.5 text-left shadow-soft transition-shadow hover:shadow-lift focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none", "max-lg:min-h-[4.25rem] max-lg:items-center max-lg:gap-3.5 max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent max-lg:px-0 max-lg:py-2 max-lg:shadow-none");
   return (
     <div className={cn("card-host relative", dim && "opacity-75")}>
       {item.href ? (
@@ -131,8 +130,8 @@ export function ReservationsTimeline({
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {hasNextUp && items.length > 0 && <h3 className="w-full font-display text-2xl tracking-tight">{PHONE_V2 ? <><span className="lg:hidden">All bookings</span><span className="max-lg:hidden">Then</span></> : "Then"}</h3>}
-        <div role="tablist" aria-label="Filter reservations" className={cn("flex flex-wrap gap-2", PHONE_V2 && "max-lg:hidden")}>
+        {hasNextUp && items.length > 0 && <h3 className="w-full font-display text-2xl tracking-tight">{<><span className="lg:hidden">All bookings</span><span className="max-lg:hidden">Then</span></>}</h3>}
+        <div role="tablist" aria-label="Filter reservations" className={cn("flex flex-wrap gap-2", "max-lg:hidden")}>
           {FILTERS.map((key) => {
             const on = filter === key;
             return (

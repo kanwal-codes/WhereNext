@@ -7,7 +7,6 @@ import { EmptyState } from "@/components/EmptyState";
 import { TripWeather } from "@/components/TripWeather";
 import { KIND_META } from "@/components/overview/ReservationSheet";
 import { shortTripTitle } from "@/components/shell/trip-title";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { clockLabel, isTransit } from "@/lib/trip-reservations";
 import type { TodayData } from "@/features/itinerary/application/useTodayData";
 
@@ -32,7 +31,7 @@ export function TodayWide({ tripId, today }: { tripId: string; today: TodayData 
       </Reveal>
       <Reveal delay={0.07} y={12}>
         <h1 className="mt-2.5 font-display text-4xl leading-[1.04] font-medium tracking-[-0.03em] text-balance sm:text-5xl">
-          {dayIndex == null ? (PHONE_V2 ? shortTripTitle(data.trip.name) : data.trip.name) : dateLine ?? "Today"}
+          {dayIndex == null ? (shortTripTitle(data.trip.name)) : dateLine ?? "Today"}
         </h1>
       </Reveal>
 

@@ -11,7 +11,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const TRIP = "11111111-1111-4111-8111-111111111111";
 type Any = Record<string, any>;
 let s: Any;
-let phoneV2 = false;
 let hydrated = true;
 let seedRead: Any | null;
 let hero: Any = {};
@@ -20,7 +19,6 @@ let recs: Any | null = null;
 const retry = vi.fn();
 
 vi.mock("@/features/places/application/usePlaceDetails", () => ({ usePlaceDetails: () => s }));
-vi.mock("@/lib/phone-v2", () => ({ get PHONE_V2() { return phoneV2; } }));
 vi.mock("@/lib/use-media-query", () => ({ useHydrated: () => hydrated }));
 vi.mock("@/features/places/application/placeDetailsCache", () => ({ readPlaceSeed: () => seedRead }));
 vi.mock("@/lib/use-document-title", () => ({ useDocumentTitle: () => null }));
@@ -66,7 +64,7 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-12-02T12:00:00")); // a Wednesday
   s = { details: base(), about: null, aboutLoading: false, state: "ready", retry };
-  phoneV2 = false; hydrated = true; seedRead = null; hero = {}; recs = null; lightbox = { index: null, open: vi.fn(), close: vi.fn() };
+  hydrated = true; seedRead = null; hero = {}; recs = null; lightbox = { index: null, open: vi.fn(), close: vi.fn() };
   retry.mockClear();
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
@@ -144,7 +142,7 @@ describe("PlaceDetailView: the top", () => {
 describe("PlaceDetailView: adding it", () => {
   it("offers to add it to the trip", () => {
     page();
-    expect(screen.getByRole("button", { name: "add Louvre Museum" })).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "add Louvre Museum" }).length).toBeGreaterThan(0);
   });
 
   it("explains when it cannot be added for want of a location", () => {
@@ -193,7 +191,7 @@ describe("PlaceDetailView: facts and actions", () => {
     page();
     expect(screen.queryByRole("link", { name: /Call/ })).toBeNull();
     expect(screen.queryByRole("link", { name: /Website/ })).toBeNull();
-    expect(screen.getAllByRole("link", { name: /Directions/ })).toHaveLength(1);
+    expect(screen.getAllByRole("link", { name: /Directions/ })).toHaveLength(2); // the desktop actions bar, and the one under the name on a phone
   });
 });
 
@@ -376,7 +374,7 @@ describe("PlaceDetailView: around it", () => {
 });
 
 describe("PlaceDetailView: on the phone", () => {
-  beforeEach(() => { phoneV2 = true; });
+  beforeEach(() => { });
 
   it("shows the photo, a save heart and a line about the place", () => {
     page();

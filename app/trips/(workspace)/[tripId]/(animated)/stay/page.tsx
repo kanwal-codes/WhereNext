@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { BedDouble, Search } from "lucide-react";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { PHONE_ROUND, useSetPhoneHeader } from "@/components/shell/PhoneHeader";
 import { cn } from "@/lib/utils";
@@ -19,7 +18,7 @@ export default function StayPage() {
   const stays = useTripStays(tripId);
   // Phone redesign: no Browse | My stays switch. A round button at the right of the header goes to the other view.
   const narrow = useMediaQuery("(max-width: 1023.98px)");
-  const phone = PHONE_V2 && narrow;
+  const phone = narrow;
   const headerSwitch = useMemo(
     () => phone ? (
       <button

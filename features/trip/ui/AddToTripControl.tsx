@@ -7,7 +7,6 @@ import { Bookmark, CalendarCheck, Check, Loader2, Plus, Trash2 } from "lucide-re
 import type { Place } from "@/packages/contracts/place";
 import { type Placement, placementDay } from "@/packages/contracts/placement";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { cn } from "@/lib/utils";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { usePlacementControl } from "@/features/trip/application/usePlacementControl";
@@ -141,7 +140,7 @@ export function AddToTripControl({
                         // Over a photo the add button is a white disc with a black plus, like the heart and Tickets beside it.
                         : "bg-white text-ink shadow-[0_6px_16px_oklch(0_0_0/0.35)]",
                     // Phone: the small "+" is a soft white circle, not a glowing coral orb.
-                    PHONE_V2 && sm && !day && "max-lg:bg-secondary max-lg:text-ink max-lg:shadow-[0_2px_10px_oklch(0_0_0/0.18)]",
+                    sm && !day && "max-lg:bg-secondary max-lg:text-ink max-lg:shadow-[0_2px_10px_oklch(0_0_0/0.18)]",
                   )
                 : "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full border font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out active:scale-[0.985] disabled:opacity-70",
               !orb && ring,

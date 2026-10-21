@@ -9,7 +9,6 @@ import type { useStayDetails } from "@/features/stays/application/useStayDetails
 import type { reviewDigest } from "@/features/stays/domain/stay-view";
 import { reviewerLine } from "@/features/stays/domain/stay-view";
 import { StayThemes } from "@/features/stays/ui/GoogleStayParts";
-import { PHONE_V2 } from "@/lib/phone-v2";
 import { relativeDate } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
 
@@ -46,29 +45,26 @@ export function StayGuestReviews({ s, digest }: { s: Stay; digest: ReturnType<ty
         </div>
         {readable.length > 0 && (
           <>
-          {PHONE_V2 && (
-            // On a phone the reviews are a row of short cards to swipe through, not a long stack to scroll past.
-            <div className="-mx-4 mt-3 flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto overscroll-x-contain px-4 pb-1 no-scrollbar scroll-px-4 lg:hidden">
-              {readable.slice(0, 8).map((r, i) => {
-                const who = reviewerLine(r, s.google);
-                const body = r.positives || r.negatives || r.text;
-                return (
-                  <figure key={i} className="flex w-[16.5rem] shrink-0 snap-start flex-col rounded-2xl border border-border bg-card p-3.5">
-                    <div className="flex items-center justify-between gap-3">
-                      {typeof r.rating === "number" ? (
-                        <span className="inline-flex h-6 items-center gap-1 rounded-full bg-secondary px-2.5 text-xs font-semibold tabular-nums"><Star className="size-3 fill-current text-coral" aria-hidden />{r.rating.toFixed(1)}</span>
-                      ) : <span className="text-xs font-semibold">Guest note</span>}
-                      {r.date && <span className="text-xs text-muted-foreground">{relativeDate(r.date)}</span>}
-                    </div>
-                    {r.headline && <p className="mt-2.5 line-clamp-1 text-sm font-medium leading-5">{r.headline}</p>}
-                    {body && <p className={cn("text-sm leading-5 text-ink-soft", r.headline ? "mt-1 line-clamp-2" : "mt-2.5 line-clamp-3")}>{body}</p>}
-                    {who && <figcaption className="mt-auto truncate pt-2.5 text-xs text-muted-foreground">{who}</figcaption>}
-                  </figure>
-                );
-              })}
-            </div>
-          )}
-          <div className={cn("mt-3 divide-y divide-border rounded-2xl border border-border bg-card px-4", PHONE_V2 && "max-lg:hidden")}>
+          <div className="-mx-4 mt-3 flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto overscroll-x-contain px-4 pb-1 no-scrollbar scroll-px-4 lg:hidden">
+            {readable.slice(0, 8).map((r, i) => {
+              const who = reviewerLine(r, s.google);
+              const body = r.positives || r.negatives || r.text;
+              return (
+                <figure key={i} className="flex w-[16.5rem] shrink-0 snap-start flex-col rounded-2xl border border-border bg-card p-3.5">
+                  <div className="flex items-center justify-between gap-3">
+                    {typeof r.rating === "number" ? (
+                      <span className="inline-flex h-6 items-center gap-1 rounded-full bg-secondary px-2.5 text-xs font-semibold tabular-nums"><Star className="size-3 fill-current text-coral" aria-hidden />{r.rating.toFixed(1)}</span>
+                    ) : <span className="text-xs font-semibold">Guest note</span>}
+                    {r.date && <span className="text-xs text-muted-foreground">{relativeDate(r.date)}</span>}
+                  </div>
+                  {r.headline && <p className="mt-2.5 line-clamp-1 text-sm font-medium leading-5">{r.headline}</p>}
+                  {body && <p className={cn("text-sm leading-5 text-ink-soft", r.headline ? "mt-1 line-clamp-2" : "mt-2.5 line-clamp-3")}>{body}</p>}
+                  {who && <figcaption className="mt-auto truncate pt-2.5 text-xs text-muted-foreground">{who}</figcaption>}
+                </figure>
+              );
+            })}
+          </div>
+          <div className={cn("mt-3 divide-y divide-border rounded-2xl border border-border bg-card px-4", "max-lg:hidden")}>
             {(reviewsOpen ? readable : readable.slice(0, 3)).map((r, i) => (
               <figure key={i} className="py-3.5 first:pt-3 last:pb-3">
                 <div className="flex items-center justify-between gap-3">
@@ -83,7 +79,7 @@ export function StayGuestReviews({ s, digest }: { s: Stay; digest: ReturnType<ty
               </figure>
             ))}
           </div>
-          {readable.length > 3 && <div className={cn("mt-3", PHONE_V2 && "max-lg:hidden")}><ShowMore open={reviewsOpen} onToggle={() => setReviewsOpen((v) => !v)} more={`Show all ${readable.length} reviews`} less="Show fewer reviews" /></div>}
+          {readable.length > 3 && <div className={cn("mt-3", "max-lg:hidden")}><ShowMore open={reviewsOpen} onToggle={() => setReviewsOpen((v) => !v)} more={`Show all ${readable.length} reviews`} less="Show fewer reviews" /></div>}
           </>
         )}
       </section>

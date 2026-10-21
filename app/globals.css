@@ -216,7 +216,7 @@
   /* The phone's bottom tab bar (components/TripShell.tsx), safe area included. */
   --tabbar: calc(3.5rem + env(safe-area-inset-bottom));
   /* Phone redesign. The room under the last thing on a phone page: only the home-indicator inset, once the tab
-     bar is gone. Until the redesign ships (lib/phone-v2.ts) nothing reads it. */
+     bar is gone. */
   --phone-bottom: env(safe-area-inset-bottom);
   /* Frosted bars and buttons that sit over a photograph or a scrolling sheet. */
   --glass: oklch(1 0 0 / 0.78);
