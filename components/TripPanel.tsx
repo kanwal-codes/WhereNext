@@ -12,7 +12,6 @@ import { TripPanelHeader } from "@/components/TripPanelHeader";
 import { useTripPanelChrome } from "@/components/useTripPanelChrome";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { useMediaQuery } from "@/lib/use-media-query";
-import { cn } from "@/lib/utils";
 import { ContentSwap, Sheet } from "@/components/motion-primitives";
 import { PanelLoading } from "@/components/PanelStates";
 import { readPlaceSeed } from "@/features/places/application/placeDetailsCache";
