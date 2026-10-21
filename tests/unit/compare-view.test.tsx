@@ -402,6 +402,19 @@ describe("CompareView: on the phone", () => {
     expect(within(phone()).queryByRole("button", { name: /Remove/ })).toBeNull();
   });
 
+  it("shows a dash for what a pick does not have, and marks one already on the trip", async () => {
+    tripData = { ...tripData, savedPlaces: [{ places: { provider_id: "a" } }] };
+    details.b = place("b", "Orsay", { rating: undefined, userRatingCount: undefined, priceLevel: undefined });
+    view(["a", "b"]);
+    await screen.findAllByText("Louvre");
+    expect(within(within(phone()).getByText("Rating").parentElement!).getByText("—")).toBeTruthy();
+    expect(within(within(phone()).getByText("Reviews").parentElement!).getByText("—")).toBeTruthy();
+    expect(within(within(phone()).getByText("Price").parentElement!).getByText("—")).toBeTruthy();
+    const onTrip = within(phone()).getByRole("button", { name: /On the trip/ }) as HTMLButtonElement;
+    expect(onTrip.disabled).toBe(true);
+    expect((within(phone()).getByRole("button", { name: "Choose this" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it("hides the desktop table on a phone", async () => {
     view(["a", "b"]);
     await screen.findAllByText("Louvre");
