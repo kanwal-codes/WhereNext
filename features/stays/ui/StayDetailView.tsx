@@ -3,29 +3,29 @@
 import { hotelPhotoSrc } from "@/lib/hotel-photo";
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, Globe, LogIn, LogOut, MapPin, MessageCircle, Navigation, Phone, Star } from "lucide-react";
+import { Globe, LogIn, LogOut, MapPin, MessageCircle, Navigation, Phone, Star } from "lucide-react";
 import { Hero } from "@/components/Hero";
 import { useTripPanelMaybe } from "@/components/TripPanelProvider";
 import { DetailSectionHeading } from "@/components/DetailSectionHeading";
-import { QuickActions, ShowMore } from "@/components/DetailKit";
+import { QuickActions } from "@/components/DetailKit";
 import { BackLink } from "@/components/BackLink";
 import { NearbyEvents } from "@/components/NearbyEvents";
 import { NearbyStays } from "@/features/stays/ui/NearbyStays";
 import { NearbyRecommendations } from "@/components/NearbyRecommendations";
 import { PanelError, PanelLoading, PANEL_PAD, PANEL_HERO } from "@/components/PanelStates";
-import { Badge } from "@/features/conversation/ui/blocks/ui";
 import { Reveal, WordReveal } from "@/components/motion-primitives";
 import { PhotoLightbox, usePhotoLightbox } from "@/components/PhotoLightbox";
 import { useStayDetails } from "@/features/stays/application/useStayDetails";
 import { RoomsSection } from "@/features/stays/ui/StayRooms";
-import { dedupeFacilities, directionsUrl, groupFacilities, headlineFacilities, reviewDigest, reviewerLine } from "@/features/stays/domain/stay-view";
-import { StayNearby, StayThemes, WhereToBook } from "./GoogleStayParts";
+import { StayAmenities } from "@/features/stays/ui/StayAmenities";
+import { StayGuestReviews } from "@/features/stays/ui/StayGuestReviews";
+import { StayPhotos } from "@/features/stays/ui/StayPhotos";
+import { directionsUrl, groupFacilities, headlineFacilities, reviewDigest } from "@/features/stays/domain/stay-view";
+import { StayNearby, WhereToBook } from "./GoogleStayParts";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { askAssistantHref } from "@/lib/places-ui";
-import { relativeDate } from "@/lib/relative-time";
 import { cn, safeHref } from "@/lib/utils";
 import { displayClockTime } from "@/lib/application/clock-time";
-import { PHONE_V2 } from "@/lib/phone-v2";
 
 // Stable reference so the memos below don't see a "new" empty array (and recompute for
 // nothing) on every render for a hotel with no facilities yet.
@@ -73,8 +73,6 @@ export function StayDetailView({
     onAsk?.(prompt);
     panelCtx?.closePanel();
   };
-  const [reviewsOpen, setReviewsOpen] = useState(false);
-  const [amenityGroupOpen, setAmenityGroupOpen] = useState<string | null>(null);
   const lightbox = usePhotoLightbox();
   const [deadPhotos, setDeadPhotos] = useState<string[]>([]);
   const s = useStayDetails(tripId, hotelId, { checkin, checkout, adults });
@@ -86,8 +84,7 @@ export function StayDetailView({
   const facilities = s.hotel?.facilities ?? NO_FACILITIES;
   const groupedFacilities = useMemo(() => groupFacilities(facilities), [facilities]);
   const importantFacilities = useMemo(() => headlineFacilities(facilities), [facilities]);
-  const importantSet = useMemo(() => new Set(importantFacilities), [importantFacilities]);
-  const { ratedCount, readable, score: reviewScore } = useMemo(() => reviewDigest(s.reviews), [s.reviews]);
+  const digest = useMemo(() => reviewDigest(s.reviews), [s.reviews]);
 
   const pad = panel ? PANEL_PAD : "mx-auto max-w-5xl px-5 pb-14 sm:px-8";
 
@@ -144,55 +141,9 @@ export function StayDetailView({
         </section>
       </Reveal>
 
-      {images.length > 1 && (
-        <Reveal delay={0.08}>
-          <section>
-            <DetailSectionHeading>Photos</DetailSectionHeading>
-            <div className={cn("mt-1 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain no-scrollbar pb-14 -mb-12 pt-2", panel ? "-mr-4 pr-4" : "-mx-5 px-5 sm:mx-0 sm:px-0")}>
-              {images.slice(1).map((src, i) => (
-                <button
-                  key={src}
-                  type="button"
-                  onClick={() => lightbox.open(i)}
-                  aria-label={`Expand photo ${i + 1} of ${name}`}
-                  className="shrink-0 snap-start rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element -- external hotel image from LiteAPI */}
-                  <img src={src} alt="" loading="lazy" width={288} height={192} onError={() => setDeadPhotos((current) => [...current, src])} className="h-44 w-72 rounded-2xl border border-border object-cover transition-opacity hover:opacity-90" />
-                </button>
-              ))}
-            </div>
-          </section>
-        </Reveal>
-      )}
+      <StayPhotos images={images} name={name} panel={panel} onOpen={lightbox.open} onDead={(src) => setDeadPhotos((current) => [...current, src])} />
 
-      {(hotel?.facilities.length ?? 0) > 0 && (
-        <Reveal delay={0.1}>
-          <section>
-            <DetailSectionHeading>What&rsquo;s included</DetailSectionHeading>
-            {importantFacilities.length > 0 ? (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {dedupeFacilities(importantFacilities).map((facility) => <Badge key={facility}>{facility}</Badge>)}
-              </div>
-            ) : <p className="mt-3 text-sm text-muted-foreground">Amenities will appear here when the hotel provides them.</p>}
-            <div className="mt-4 flex flex-wrap gap-2">
-              {Object.entries(groupedFacilities).map(([group, facilities]) => {
-                const remaining = dedupeFacilities(facilities.filter((facility) => !importantSet.has(facility)));
-                if (!remaining.length) return null;
-                const open = amenityGroupOpen === group;
-                return (
-                  <div key={group}>
-                    <button type="button" onClick={() => setAmenityGroupOpen(open ? null : group)} aria-expanded={open} className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors", open ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:text-foreground")}>
-                      {group} <span className="opacity-70">{remaining.length}</span><ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
-                    </button>
-                    {open && <div className="mt-2 flex flex-wrap gap-2 rounded-2xl bg-muted/35 p-3">{remaining.map((facility) => <Badge key={facility} className="bg-card">{facility}</Badge>)}</div>}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        </Reveal>
-      )}
+      <StayAmenities facilityCount={hotel?.facilities.length ?? 0} headline={importantFacilities} grouped={groupedFacilities} />
 
       {s.nearby.length > 0 && (
         <Reveal delay={0.12}>
@@ -200,75 +151,7 @@ export function StayDetailView({
         </Reveal>
       )}
 
-      {(s.sentiment || s.themes.length > 0 || s.reviews.length > 0) && (
-        <Reveal delay={0.14}>
-          <section>
-            <DetailSectionHeading>What guests say</DetailSectionHeading>
-            {/* One card: the score and the one-line verdict across the top, what guests mention beneath. */}
-            <div className="mt-3 rounded-2xl border border-border bg-card p-4 sm:p-5">
-              {(reviewScore !== null || s.sentiment) && (
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
-                  {reviewScore !== null && (
-                    <div className="flex shrink-0 items-center gap-3">
-                      <span className="font-display text-4xl leading-none tabular-nums tracking-[-0.03em]">{reviewScore.toFixed(1)}</span>
-                      <span className="text-xs leading-snug text-muted-foreground">out of 10<br />from {ratedCount} recent review{ratedCount === 1 ? "" : "s"}</span>
-                    </div>
-                  )}
-                  {s.sentiment && <p className={cn("text-sm leading-relaxed text-ink-soft text-pretty", reviewScore !== null && "sm:border-l sm:border-border sm:pl-6")}>{s.sentiment}</p>}
-                </div>
-              )}
-              {s.themes.length > 0 && (
-                <div className={cn((reviewScore !== null || s.sentiment) && "mt-3.5 border-t border-border pt-3.5")}>
-                  <p className="eyebrow mb-2.5">Guests mention · % who liked it</p>
-                  <StayThemes themes={s.themes} />
-                </div>
-              )}
-            </div>
-            {readable.length > 0 && (
-              <>
-              {PHONE_V2 && (
-                // On a phone the reviews are a row of short cards to swipe through, not a long stack to scroll past.
-                <div className="-mx-4 mt-3 flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto overscroll-x-contain px-4 pb-1 no-scrollbar scroll-px-4 lg:hidden">
-                  {readable.slice(0, 8).map((r, i) => {
-                    const who = reviewerLine(r, s.google);
-                    const body = r.positives || r.negatives || r.text;
-                    return (
-                      <figure key={i} className="flex w-[16.5rem] shrink-0 snap-start flex-col rounded-2xl border border-border bg-card p-3.5">
-                        <div className="flex items-center justify-between gap-3">
-                          {typeof r.rating === "number" ? (
-                            <span className="inline-flex h-6 items-center gap-1 rounded-full bg-secondary px-2.5 text-xs font-semibold tabular-nums"><Star className="size-3 fill-current text-coral" aria-hidden />{r.rating.toFixed(1)}</span>
-                          ) : <span className="text-xs font-semibold">Guest note</span>}
-                          {r.date && <span className="text-xs text-muted-foreground">{relativeDate(r.date)}</span>}
-                        </div>
-                        {r.headline && <p className="mt-2.5 line-clamp-1 text-sm font-medium leading-5">{r.headline}</p>}
-                        {body && <p className={cn("text-sm leading-5 text-ink-soft", r.headline ? "mt-1 line-clamp-2" : "mt-2.5 line-clamp-3")}>{body}</p>}
-                        {who && <figcaption className="mt-auto truncate pt-2.5 text-xs text-muted-foreground">{who}</figcaption>}
-                      </figure>
-                    );
-                  })}
-                </div>
-              )}
-              <div className={cn("mt-3 divide-y divide-border rounded-2xl border border-border bg-card px-4", PHONE_V2 && "max-lg:hidden")}>
-                {(reviewsOpen ? readable : readable.slice(0, 3)).map((r, i) => (
-                  <figure key={i} className="py-3.5 first:pt-3 last:pb-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm font-semibold tabular-nums">{typeof r.rating === "number" ? `${r.rating.toFixed(1)}/10` : "Guest note"}</span>
-                      {r.date && <span className="text-xs text-muted-foreground">{relativeDate(r.date)}</span>}
-                    </div>
-                    {r.headline && <p className="mt-2 text-sm font-medium leading-5">{r.headline}</p>}
-                    {r.positives && <p className="mt-1.5 line-clamp-2 text-sm leading-5 text-ink-soft"><span className="font-medium text-positive">Liked </span>{r.positives}</p>}
-                    {r.negatives && <p className="mt-1 line-clamp-2 text-sm leading-5 text-ink-soft"><span className="font-medium text-caution">Didn’t like </span>{r.negatives}</p>}
-                    {!r.positives && !r.negatives && r.text && <p className="mt-1.5 line-clamp-3 text-sm leading-5 text-ink-soft">{r.text}</p>}
-                    {(r.travellerType || r.country || (s.google && r.name)) && <figcaption className="mt-3 text-xs text-muted-foreground">{reviewerLine(r, s.google)}</figcaption>}
-                  </figure>
-                ))}
-              </div>
-              {readable.length > 3 && <div className={cn("mt-3", PHONE_V2 && "max-lg:hidden")}><ShowMore open={reviewsOpen} onToggle={() => setReviewsOpen((v) => !v)} more={`Show all ${readable.length} reviews`} less="Show fewer reviews" /></div>}
-              </>
-            )}
-          </section>
-        </Reveal>
-      )}
+      <StayGuestReviews s={s} digest={digest} />
     </div>
   );
 
