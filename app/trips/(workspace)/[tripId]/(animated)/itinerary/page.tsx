@@ -19,7 +19,7 @@ export default function ItineraryPage() {
 
   return (
     <div className="min-h-full pb-16">
-      <div className={cn("max-lg:hidden")}>
+      <div className="max-lg:hidden">
       <ChapterHero
         eyebrow="Plan"
         title="The plan, day by day"
@@ -32,7 +32,7 @@ export default function ItineraryPage() {
       />
       </div>
       <Reveal>
-        <div className={cn("mx-auto w-full min-w-0 max-w-6xl px-5 pt-8 sm:px-8", "max-lg:pt-2")}>
+        <div className="mx-auto w-full min-w-0 max-w-6xl px-5 pt-8 sm:px-8 max-lg:pt-2">
           <ItinerarySurface tripId={tripId} initialItems={data?.itinerary} startDate={trip?.start_date ?? null} lockedStay={lockedStay} destination={trip?.destination ?? null} trip={trip} plannedDays={length ?? 0} />
         </div>
       </Reveal>

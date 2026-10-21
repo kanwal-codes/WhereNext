@@ -10,11 +10,7 @@ import { TripArt, hashString } from "@/components/trips/TripArt";
 import { cn } from "@/lib/utils";
 import type { MosaicPlace } from "@/components/overview/PlacesMosaic";
 
-const panel = cn(
-  "rounded-3xl border border-border/70 bg-card p-6 shadow-soft",
-  // Phone redesign: sections on the page, divided by a hairline, not cards stacked in cards.
-  "max-lg:rounded-none max-lg:border-0 max-lg:border-t max-lg:bg-transparent max-lg:px-0 max-lg:pt-6 max-lg:pb-0 max-lg:shadow-none",
-);
+const panel = "rounded-3xl border border-border/70 bg-card p-6 shadow-soft max-lg:rounded-none max-lg:border-0 max-lg:border-t max-lg:bg-transparent max-lg:px-0 max-lg:pt-6 max-lg:pb-0 max-lg:shadow-none";
 
 function Thumb({ tripId, place }: { tripId: string; place: MosaicPlace }) {
   const [failed, setFailed] = useState(false);

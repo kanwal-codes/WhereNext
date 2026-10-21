@@ -39,7 +39,7 @@ const cellLabel = "block text-[0.625rem] max-lg:text-xs font-medium tracking-[0.
 function Stepper({ label, value, set, min, max }: { label: string; value: number; set: (n: number) => void; min: number; max: number }) {
   const btn = "grid size-9 place-items-center rounded-full border border-border bg-background text-foreground max-lg:border-0 transition-[background-color,border-color,transform] hover:border-foreground/30 hover:bg-accent active:scale-95 disabled:opacity-30 disabled:hover:bg-background";
   return (
-    <div className={cn("bg-card px-4 py-3.5", "max-lg:rounded-2xl max-lg:bg-secondary")}>
+    <div className="bg-card px-4 py-3.5 max-lg:rounded-2xl max-lg:bg-secondary">
       <span className={cellLabel}>{label}</span>
       <div className="mt-2 flex items-center justify-between gap-2">
         <button type="button" onClick={() => set(Math.max(min, value - 1))} disabled={value <= min} aria-label={`Fewer ${label}`} className={btn}>
@@ -57,7 +57,7 @@ function Stepper({ label, value, set, min, max }: { label: string; value: number
 /** A date cell: the date large in the display face, the label above it; the real date input sits invisibly over it, so a tap opens the native picker. */
 function DateCell({ label, value, onChange, min }: { label: string; value: string; onChange: (v: string) => void; min?: string }) {
   return (
-    <label className={cn("relative block cursor-pointer bg-card px-4 py-3.5 transition-colors focus-within:bg-accent/50 hover:bg-accent/40", "max-lg:rounded-2xl max-lg:bg-secondary max-lg:focus-within:bg-card max-lg:focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_5%,transparent),0_10px_24px_-14px_color-mix(in_oklab,var(--color-ink)_30%,transparent)]")}>
+    <label className="relative block cursor-pointer bg-card px-4 py-3.5 transition-colors focus-within:bg-accent/50 hover:bg-accent/40 max-lg:rounded-2xl max-lg:bg-secondary max-lg:focus-within:bg-card max-lg:focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_5%,transparent),0_10px_24px_-14px_color-mix(in_oklab,var(--color-ink)_30%,transparent)]">
       <span className={cellLabel}>{label}</span>
       <span className={cn("mt-2 block font-display text-xl leading-none font-medium tracking-[-0.02em] tabular-nums", !value && "text-muted-foreground")}>{value ? fmtLong(value) : "Add date"}</span>
       <input type="date" value={value} min={min} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 size-full cursor-pointer opacity-0" />
@@ -108,10 +108,10 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
 
   return (
     <div className="flex min-h-[calc(100svh-13rem)] flex-col gap-5">
-      <CityChips stops={cities.stops} current={cities.city} onPick={cities.setCity} estimated={cities.estimated} className={cn("-mb-2", "max-lg:hidden")} />
+      <CityChips stops={cities.stops} current={cities.city} onPick={cities.setCity} estimated={cities.estimated} className="-mb-2 max-lg:hidden" />
       {alreadyBooked && (
         <p role="status" className="rounded-2xl bg-secondary px-4 py-3 text-sm">
-          You already have <span className="font-medium">{alreadyBooked.title}</span> booked<span className={cn("max-lg:hidden")}>{alreadyBooked.date ? ` (${fmtDay(alreadyBooked.date)}${alreadyBooked.endDate ? ` → ${fmtDay(alreadyBooked.endDate)}` : ""})` : ""}</span> for some of these nights.{" "}
+          You already have <span className="font-medium">{alreadyBooked.title}</span> booked<span className="max-lg:hidden">{alreadyBooked.date ? ` (${fmtDay(alreadyBooked.date)}${alreadyBooked.endDate ? ` → ${fmtDay(alreadyBooked.endDate)}` : ""})` : ""}</span> for some of these nights.{" "}
           <a href={`/trips/${tripId}/bookings`} className="underline underline-offset-2">See your bookings</a>
         </p>
       )}
@@ -126,18 +126,18 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       )}
 
       {/* The booking bar: four cells divided by hairlines (the gap shows the border colour through), then filters and sort. */}
-      <div className={cn("overflow-hidden rounded-4xl bg-card shadow-float ring-1 ring-black/[0.05]", "max-lg:overflow-visible max-lg:rounded-none max-lg:bg-transparent max-lg:shadow-none max-lg:ring-0")}>
+      <div className="overflow-hidden rounded-4xl bg-card shadow-float ring-1 ring-black/[0.05] max-lg:overflow-visible max-lg:rounded-none max-lg:bg-transparent max-lg:shadow-none max-lg:ring-0">
         {/* On a phone the four fields fold into one line (dates, guests, rooms) that opens them: the list starts a screen sooner. */}
-        <div className={cn("flex items-center gap-2 max-sm:mb-3 sm:contents")}>
+        <div className="flex items-center gap-2 max-sm:mb-3 sm:contents">
         <button
           type="button"
           onClick={() => setBarOpen((v) => !v)}
           aria-expanded={barOpen}
-          className={cn("flex w-full items-center gap-3 px-4 py-3.5 text-left sm:hidden", "max-lg:min-h-12 max-lg:min-w-0 max-lg:flex-1 max-lg:rounded-full max-lg:border max-lg:border-hairline max-lg:bg-card max-lg:px-4 max-lg:py-1.5")}
+          className="flex w-full items-center gap-3 px-4 py-3.5 text-left sm:hidden max-lg:min-h-12 max-lg:min-w-0 max-lg:flex-1 max-lg:rounded-full max-lg:border max-lg:border-hairline max-lg:bg-card max-lg:px-4 max-lg:py-1.5"
         >
           <span className="min-w-0 flex-1">
-            <span className={cn("block truncate font-display text-lg leading-tight font-medium tracking-[-0.015em] tabular-nums", "max-lg:text-[1.0625rem]")}>
-              {checkin && checkout ? <>{fmtDay(checkin)} <span aria-hidden className={cn("mx-0.5 text-coral", "max-lg:text-foreground")}>{"–"}</span> {fmtDay(checkout)}</> : "Choose your dates"}
+            <span className="block truncate font-display text-lg leading-tight font-medium tracking-[-0.015em] tabular-nums max-lg:text-[1.0625rem]">
+              {checkin && checkout ? <>{fmtDay(checkin)} <span aria-hidden className="mx-0.5 text-coral max-lg:text-foreground">{"–"}</span> {fmtDay(checkout)}</> : "Choose your dates"}
             </span>
             <span className="mt-0.5 block truncate text-xs text-muted-foreground">
               {nightsLabel ? `${nightsLabel} · ` : ""}{adults} guest{adults === 1 ? "" : "s"} · {rooms} room{rooms === 1 ? "" : "s"}
@@ -165,11 +165,11 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
           <Stepper label="Rooms" value={rooms} set={setRooms} min={1} max={8} />
         </div>
 
-        <div className={cn("flex flex-wrap items-center gap-3 border-t border-border bg-card px-4 py-3", "max-lg:-mx-5 sm:max-lg:-mx-8 max-lg:flex-nowrap max-lg:gap-2 max-lg:overflow-x-auto max-lg:border-t-0 max-lg:bg-transparent max-lg:px-5 sm:max-lg:px-8 max-lg:py-0 max-lg:[-ms-overflow-style:none] max-lg:[scrollbar-width:none] max-lg:[&::-webkit-scrollbar]:hidden max-sm:hidden")}>
+        <div className="flex flex-wrap items-center gap-3 border-t border-border bg-card px-4 py-3 max-lg:-mx-5 sm:max-lg:-mx-8 max-lg:flex-nowrap max-lg:gap-2 max-lg:overflow-x-auto max-lg:border-t-0 max-lg:bg-transparent max-lg:px-5 sm:max-lg:px-8 max-lg:py-0 max-lg:[-ms-overflow-style:none] max-lg:[scrollbar-width:none] max-lg:[&::-webkit-scrollbar]:hidden max-sm:hidden">
           <button type="button" onClick={() => setShowFilters((v) => !v)} aria-pressed={showFilters} className="btn-chip shrink-0 max-lg:h-10 max-lg:text-sm">
             <SlidersHorizontal className="size-3.5" aria-hidden /> Filters{activeFilters ? ` · ${activeFilters}` : ""}
           </button>
-          <label className={cn("flex shrink-0 items-center gap-2 text-xs text-muted-foreground", "max-lg:hidden")}>
+          <label className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground max-lg:hidden">
             Sort
             <span className="relative">
               <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="h-8 max-lg:h-10 max-lg:text-sm cursor-pointer appearance-none rounded-full border border-border bg-background pr-8 pl-3.5 text-xs font-medium text-ink-soft transition-colors hover:border-ink/30 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
@@ -183,11 +183,11 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
           <button type="button" onClick={() => setRefundable((v) => !v)} aria-pressed={refundable} className="btn-chip shrink-0 max-lg:h-10 max-lg:text-sm lg:hidden">
             Free cancellation
           </button>
-          {status && <p role="status" className={cn("ml-auto text-xs text-muted-foreground", "max-lg:hidden")}>{status}</p>}
+          {status && <p role="status" className="ml-auto text-xs text-muted-foreground max-lg:hidden">{status}</p>}
         </div>
 
         {showFilters && (
-          <div className={cn("space-y-4 border-t border-border px-4 py-4", "max-lg:mt-3 max-lg:rounded-2xl max-lg:border max-lg:bg-card")}>
+          <div className="space-y-4 border-t border-border px-4 py-4 max-lg:mt-3 max-lg:rounded-2xl max-lg:border max-lg:bg-card">
             <div className="lg:hidden">
               <span className="text-sm font-medium">Sort by</span>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -286,7 +286,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       ) : result && result.options.length > 0 ? (
         <>
           {result.assumedDates && <p className="text-xs text-caution">Example dates, set yours above for accurate prices.</p>}
-          <ul className={cn("grid gap-4 sm:grid-cols-2 xl:grid-cols-3", "max-lg:gap-x-5 max-lg:gap-y-7")}>
+          <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 max-lg:gap-x-5 max-lg:gap-y-7">
             {result.options.slice(0, visible).map((o, index) => {
               const comparing = Boolean(panelCtx?.compareMode);
               return (

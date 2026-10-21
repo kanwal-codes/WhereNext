@@ -12,12 +12,11 @@ const FOLLOW_EASE = 0.09;
  * is written (and lets go the moment the reader scrolls), pages in earlier turns without shoving the reader's place, and
  * reports whether the log is scrolled off the top or far above the latest message.
  */
-export function useLogScroll({ logRef, sending, loaded, messageCount, onLogScroll }: {
+export function useLogScroll({ logRef, sending, loaded, messageCount }: {
   logRef: RefObject<HTMLDivElement | null>;
   sending: boolean;
   loaded: boolean;
   messageCount: number;
-  onLogScroll?: (e: UIEvent<HTMLDivElement>) => void;
 }) {
   // How many of the newest turns the log renders; "Show earlier messages" adds another page of them.
   const [windowSize, setWindowSize] = useState(VISIBLE_TURNS);
@@ -134,7 +133,6 @@ export function useLogScroll({ logRef, sending, loaded, messageCount, onLogScrol
     const scrolled = n.scrollTop > 4;
     const away = n.scrollHeight - n.clientHeight - n.scrollTop > n.clientHeight * 1.2;
     setScroll((s) => (s.scrolled === scrolled && s.away === away ? s : { scrolled, away }));
-    onLogScroll?.(e);
   };
 
   // Earlier turns appear above what you were reading, so hold that line in place rather than letting the

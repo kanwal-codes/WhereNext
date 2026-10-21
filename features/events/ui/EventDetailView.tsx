@@ -97,7 +97,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
       {titleTag}
       <Hero image={image || fallbackImage} fallbackImage={fallbackImage} alt={title} plain surface={panel} className={cn(panel ? PANEL_HERO : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]")}>
         <div className={cn("absolute inset-x-0 bottom-0", pad, "pb-6")}>
-          {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className={cn("shadow-soft", "max-lg:hidden")} />}
+          {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className="shadow-soft max-lg:hidden" />}
           {!panel && d?.genre && <p className="eyebrow text-ink-soft! lg:hidden">{d.genre}</p>}
           {panel ? (
             <h1 className="mt-3 font-display text-title leading-[1.1] [text-wrap:balance] drop-shadow-sm">{title}</h1>
@@ -132,7 +132,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                     {venueName && <PhoneFact icon={MapPin} title={venueName} note={[d?.venueAddress ? cityFrom(d.venueAddress) : null, d?.city].find((n) => n && n.trim().toLowerCase() !== venueName.trim().toLowerCase()) || undefined} />}
                     {d?.priceRange && <PhoneFact icon={Ticket} title={d.priceRange} note={ticketSeller ? `Tickets via ${ticketSeller}` : "Ticket prices"} />}
                   </ul>
-                  <div className={cn("max-lg:hidden")}>
+                  <div className="max-lg:hidden">
                   <FactStrip
                     facts={[
                       dt && { label: "When", value: dt.day, note: [dt.time, d?.doorsTime && displayClockTime(d.doorsTime) !== dt.time && `doors ${displayClockTime(d.doorsTime)}`].filter(Boolean).join(" · ") || undefined },

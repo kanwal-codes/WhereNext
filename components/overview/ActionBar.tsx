@@ -38,7 +38,7 @@ export function ActionBar({ tripId, name }: { tripId: string; name: string }) {
           </p>
           {/* The main action, then the two shortcuts: on a phone the action is full width with the shortcuts side by side; from sm up all three sit in a row. */}
           <div className="grid w-full grid-cols-2 gap-3 [@media(max-height:700px)]:gap-2 sm:flex sm:w-auto sm:flex-wrap lg:shrink-0 lg:flex-nowrap">
-            <Link href={`/trips/${tripId}/chat`} className={cn("btn-primary col-span-2 h-11 rounded-full px-6 sm:col-span-1", "max-lg:hidden")}>
+            <Link href={`/trips/${tripId}/chat`} className="btn-primary col-span-2 h-11 rounded-full px-6 sm:col-span-1 max-lg:hidden">
               <RoamMark state="settled" size={30} /> Continue planning
             </Link>
             <Link href={`/trips/${tripId}/itinerary`} className={secondary}>

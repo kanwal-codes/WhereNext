@@ -84,22 +84,22 @@ export function Widget({
   const eyebrowIcon = glyph ? <RoamIcon name={glyph} size={16} /> : Icon ? <Icon className="size-3.5" /> : null;
   return (
     <section aria-label={label} className={cn("roam-widget @container relative overflow-hidden rounded-3xl border border-border bg-card shadow-widget", "max-lg:rounded-4xl", className)}>
-      <header className={cn("flex items-center gap-3 px-4 pt-4 @[34rem]:px-[1.125rem]", "max-lg:px-[1.125rem] max-lg:pt-[1.125rem]")}>
+      <header className="flex items-center gap-3 px-4 pt-4 @[34rem]:px-[1.125rem] max-lg:px-[1.125rem] max-lg:pt-[1.125rem]">
         <span className={cn("grid size-10 shrink-0 place-items-center rounded-lg", CHIP[tone], "max-lg:hidden")} aria-hidden>
           {glyph ? <RoamIcon name={glyph} size={26} /> : Icon ? <Icon className="size-5" /> : null}
         </span>
         <div className="min-w-0 flex-1">
           {eyebrow && (
-            <p className={cn("eyebrow truncate", "max-lg:flex max-lg:items-center max-lg:gap-1.5 max-lg:text-coral-ink")}>
+            <p className="eyebrow truncate max-lg:flex max-lg:items-center max-lg:gap-1.5 max-lg:text-coral-ink">
               {eyebrowIcon && <span className="hidden shrink-0 max-lg:inline-flex" aria-hidden>{eyebrowIcon}</span>}
-              <span className={cn("max-lg:truncate")}>{eyebrow}</span>
+              <span className="max-lg:truncate">{eyebrow}</span>
             </p>
           )}
-          <h3 className={cn("font-display text-xl leading-6 font-medium tracking-[-0.012em] text-balance", "max-lg:mt-0.5 max-lg:text-widget")}>{title}</h3>
+          <h3 className="font-display text-xl leading-6 font-medium tracking-[-0.012em] text-balance max-lg:mt-0.5 max-lg:text-widget">{title}</h3>
         </div>
         {status && <div className="flex shrink-0 items-center gap-2 @max-[34rem]:hidden">{status}</div>}
       </header>
-      {status && <div className={cn("flex flex-wrap items-center gap-2 px-4 pt-2.5 @[34rem]:hidden", "max-lg:px-[1.125rem]")}>{status}</div>}
+      {status && <div className="flex flex-wrap items-center gap-2 px-4 pt-2.5 @[34rem]:hidden max-lg:px-[1.125rem]">{status}</div>}
       {hero}
       {children}
       {(foot || action) && <WidgetFoot foot={foot} action={action} />}
@@ -110,7 +110,7 @@ export function Widget({
 /** The foot of a widget: a one-line caveat on the left, the one next step on the right. */
 export function WidgetFoot({ foot, action }: { foot?: ReactNode; action?: ReactNode }) {
   return (
-    <footer className={cn("mt-1 flex items-center justify-between gap-4 border-t border-border bg-surface px-4 py-3 @[34rem]:px-[1.125rem]", "max-lg:bg-transparent max-lg:px-[1.125rem] max-lg:py-3.5")}>
+    <footer className="mt-1 flex items-center justify-between gap-4 border-t border-border bg-surface px-4 py-3 @[34rem]:px-[1.125rem] max-lg:bg-transparent max-lg:px-[1.125rem] max-lg:py-3.5">
       {foot && <div className="flex min-w-0 flex-1 items-start gap-1.5 text-xs leading-[1.35] text-muted-foreground">{foot}</div>}
       {action && <div className="shrink-0 has-[[data-wide]]:w-full">{action}</div>}
     </footer>

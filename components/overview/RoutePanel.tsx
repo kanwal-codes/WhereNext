@@ -104,7 +104,7 @@ export function RoutePanel({ tripId, trip, stays = [] }: { tripId: string; trip:
             </button>
             {problem && <p role="alert" className="text-sm text-destructive">{problem}</p>}
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              <button type="submit" disabled={saving || Boolean(problem)} className={cn("daisy-btn daisy-btn-neutral h-10 rounded-full border-0 px-6 shadow-none")}>{saving ? "Saving…" : "Save route"}</button>
+              <button type="submit" disabled={saving || Boolean(problem)} className="daisy-btn daisy-btn-neutral h-10 rounded-full border-0 px-6 shadow-none">{saving ? "Saving…" : "Save route"}</button>
               <button type="button" onClick={() => { setDraft(stops); setEditing(false); }} disabled={saving} className="btn-chip">Cancel</button>
               {!estimated && <button type="button" onClick={() => void save(null)} disabled={saving} className="ml-auto text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">Go back to an even split</button>}
             </div>

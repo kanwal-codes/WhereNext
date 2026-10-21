@@ -128,7 +128,7 @@ export default function BookingsPage() {
 
       <div className="mx-auto max-w-6xl space-y-12 px-5 pt-6 sm:space-y-16 sm:px-8 sm:pt-8">
         <section>
-          <div className={cn("max-lg:hidden")}><SectionHeading title="Your bookings" count={timeline.length} /></div>
+          <div className="max-lg:hidden"><SectionHeading title="Your bookings" count={timeline.length} /></div>
           {!loading && (
             <div className="mt-6 empty:hidden max-lg:mt-3">
               <BookingNotices tripId={tripId} reservations={reservations ?? []} startDate={data?.trip?.start_date} endDate={data?.trip?.end_date} />
@@ -193,7 +193,7 @@ export default function BookingsPage() {
             </span>
             <ArrowRight className="size-[1.125rem] shrink-0 text-muted-foreground" aria-hidden />
           </button>
-          <section className={cn("min-w-0", "max-lg:hidden")}>
+          <section className="min-w-0 max-lg:hidden">
             <SectionHeading title="Checklist" />
             <div className="mt-6">
               <EssentialsSurface tripId={tripId} initialCompleted={data?.essentials} />

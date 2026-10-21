@@ -40,7 +40,7 @@ export function NextUpCard({ item, onOpenBooking, onEdit, onRemove }: { item: Ti
   const facts = factsFor(item);
 
   const inner: ReactNode = (
-    <TripArt seed={hashString(item.id)} grain className={cn("flex min-h-[22rem] flex-col justify-between rounded-3xl border border-border/70 p-6 shadow-soft sm:min-h-[26rem] sm:p-9", "max-lg:min-h-[12.25rem] max-lg:rounded-4xl max-lg:p-[1.125rem]")}>
+    <TripArt seed={hashString(item.id)} grain className="flex min-h-[22rem] flex-col justify-between rounded-3xl border border-border/70 p-6 shadow-soft sm:min-h-[26rem] sm:p-9 max-lg:min-h-[12.25rem] max-lg:rounded-4xl max-lg:p-[1.125rem]">
       {photo ? (
         <BlurImage src={hotelPhotoSrc(item.thumbnail!)} alt="" onError={() => setImageFailed(true)} className="absolute inset-0 h-full w-full object-cover group-hover:scale-[1.05]" />
       ) : (

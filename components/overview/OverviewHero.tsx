@@ -58,7 +58,7 @@ export function OverviewHero({
         // the hero gives up height before it gives up that row; where there is room it keeps its full size.
         // The reserve differs because the row does: below `sm` it stacks (the action across the top, the two
         // shortcuts under it), above `sm` all three sit on one line.
-        className={cn("flex min-h-[min(34rem,calc(100svh-var(--topbar)-var(--tabbar)-9.5rem))] flex-col justify-end sm:min-h-[min(40rem,calc(100dvh-var(--topbar)-var(--tabbar)-6.5rem))] lg:min-h-[44rem]", "max-lg:min-h-[min(26rem,calc(100dvh-var(--topbar)-9rem))]")}
+        className="flex min-h-[min(34rem,calc(100svh-var(--topbar)-var(--tabbar)-9.5rem))] flex-col justify-end sm:min-h-[min(40rem,calc(100dvh-var(--topbar)-var(--tabbar)-6.5rem))] lg:min-h-[44rem] max-lg:min-h-[min(26rem,calc(100dvh-var(--topbar)-9rem))]"
       >
         {({ photo }) => (
           <>
@@ -83,7 +83,7 @@ export function OverviewHero({
                   onClick={rename.start}
                   aria-label="Rename trip"
                   title="Rename trip"
-                  className={cn("daisy-btn daisy-btn-circle daisy-btn-sm border-border/60 bg-background/88 text-foreground shadow-none hover:bg-background", "max-lg:size-11")}
+                  className="daisy-btn daisy-btn-circle daisy-btn-sm border-border/60 bg-background/88 text-foreground shadow-none hover:bg-background max-lg:size-11"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </button>

@@ -34,17 +34,10 @@ const NEAR_BOTTOM_PX = 160;
 /** Memoized for the same reason as `ConversationSurface`: a tab switch must not rebuild the whole log. */
 export const GroupChatSurface = React.memo(function GroupChatSurface({
   tripId,
-  onLogScroll,
   rail = false,
   active = true,
 }: {
   tripId: string;
-  /** Wired directly to this surface's own scrollable log — see the identical prop's doc comment
-   *  on `ConversationSurface` for why an ancestor capture listener sniffing scroll events isn't
-   *  reliable here (a horizontal card carousel, or this surface's own background auto-scroll
-   *  while the other tab is the visible one, both fire scroll events that aren't this log
-   *  actually being scrolled by the user). The parent passes this only while this tab is active. */
-  onLogScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
   /** A detail panel is open beside the chat: the text keeps one fixed measure (see RAIL_MEASURE). */
   rail?: boolean;
   /** This tab is the one on screen. The pane stays mounted behind the Roam tab so switching is instant, but a hidden chat reads the thread only when it is shown (and on a live change), never on a timer. */
@@ -164,14 +157,13 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
     if (waitingIds.length > 0 && nearBottomRef.current) scrollToEnd();
   }, [waitingIds.length, scrollToEnd]);
 
-  function onLogScrollInner(event: React.UIEvent<HTMLDivElement>) {
+  function onLogScroll(event: React.UIEvent<HTMLDivElement>) {
     const el = event.currentTarget;
     const near = el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX;
     nearBottomRef.current = near;
     if (near) setUnseen(false);
     const farAway = el.scrollHeight - el.clientHeight - el.scrollTop > el.clientHeight * 1.2;
     setAway((current) => (current === farAway ? current : farAway));
-    onLogScroll?.(event);
   }
 
   // First landing: jump straight to the latest message, instantly — not the smooth `scrollToEnd`
@@ -259,7 +251,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
       {/* `overscroll-contain` — see the identical comment in ConversationSurface.tsx: keeps the
           rubber-band bounce at the top/bottom confined to this log instead of chaining into the
           page. */}
-      <div ref={logRef} onScroll={onLogScrollInner} role="log" aria-label="Group chat messages" aria-live="polite" aria-relevant="additions" className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim">
+      <div ref={logRef} onScroll={onLogScroll} role="log" aria-label="Group chat messages" aria-live="polite" aria-relevant="additions" className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim">
         {/* The controls above float over the log: messages fade out beneath them instead of running into them. */}
         <div aria-hidden className="pointer-events-none sticky top-0 z-[1] -mb-14 h-14 w-full bg-gradient-to-b from-background via-background/85 to-transparent" />
         <div className={cn("mx-auto w-full space-y-1 pt-3 pb-28", "max-lg:pt-3", rail ? RAIL_MEASURE : "max-w-2xl")}>
@@ -276,7 +268,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
                 // A plain status, not a greyed-out button, and clear of the fade at the top of the log.
                 <span role="status" className="inline-flex h-10 items-center gap-2 rounded-full bg-secondary px-4 text-sm font-semibold text-ink-soft"><Loader2 className="size-4 animate-spin" aria-hidden />Loading earlier messages</span>
               ) : (
-                <button type="button" onClick={() => void loadOlder()} className={cn("btn-chip h-9 px-4 text-xs", "max-lg:h-10 max-lg:border-0 max-lg:bg-secondary max-lg:text-sm max-lg:font-semibold max-lg:text-ink-soft")}>Show earlier messages</button>
+                <button type="button" onClick={() => void loadOlder()} className="btn-chip h-9 px-4 text-xs max-lg:h-10 max-lg:border-0 max-lg:bg-secondary max-lg:text-sm max-lg:font-semibold max-lg:text-ink-soft">Show earlier messages</button>
               )}
             </div>
           )}
@@ -338,10 +330,10 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
                 exit={{ opacity: 0, y: 6, scale: 0.97 }}
                 transition={{ duration: 0.2 }}
                 whileTap={{ scale: 0.97 }}
-                className={cn("absolute inset-x-0 bottom-full mx-auto mb-2 flex w-fit items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-ink-soft shadow-lift transition-colors hover:text-ink", "max-lg:size-10 max-lg:justify-center max-lg:border-0 max-lg:p-0 max-lg:shadow-[0_6px_18px_-6px_rgb(29_26_23/0.35),0_0_0_1px_var(--color-hairline)]")}
+                className="absolute inset-x-0 bottom-full mx-auto mb-2 flex w-fit items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-ink-soft shadow-lift transition-colors hover:text-ink max-lg:size-10 max-lg:justify-center max-lg:border-0 max-lg:p-0 max-lg:shadow-[0_6px_18px_-6px_rgb(29_26_23/0.35),0_0_0_1px_var(--color-hairline)]"
               >
                 <ArrowDown className="size-3.5 max-lg:size-[1.125rem]" aria-hidden />
-                <span className={cn("max-lg:sr-only")}>Latest</span>
+                <span className="max-lg:sr-only">Latest</span>
               </motion.button>
             )}
           </AnimatePresence>

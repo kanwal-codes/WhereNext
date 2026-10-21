@@ -78,7 +78,7 @@ async function fetchJson<T>(url: string): Promise<T> {
 
 /** The app's one text/select field, without the label-offset margin `input-field` otherwise
  *  carries — these sit shoulder to shoulder in a single row. */
-const field = cn("input-field", "!mt-0");
+const field = "input-field !mt-0";
 
 /**
  * Shared expenses for the group. Anyone can log what they paid and who shares it; the panel works out who owes

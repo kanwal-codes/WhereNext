@@ -86,7 +86,7 @@ onDrop={(e) => {
         type="button"
         onClick={() => void openPlace(item, providerId)}
         disabled={resolvingTitle === item.title}
-        className={cn("text-left hover:text-coral hover:underline disabled:opacity-60 max-sm:py-1", "max-lg:py-2 max-sm:py-2.5")}
+        className="text-left hover:text-coral hover:underline disabled:opacity-60 max-lg:py-2 max-sm:py-2.5"
       >
         {item.title}{" "}
         {resolvingTitle === item.title ? (
