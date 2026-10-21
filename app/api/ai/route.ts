@@ -1,29 +1,26 @@
 import { NextResponse } from "next/server";
-import { streamText, stepCountIs } from "ai";
-import { createReasoningGate } from "@/lib/ai/strip-reasoning";
 import { aiRequestSchema, compactAiMessages } from "@/packages/contracts/ai-request";
 import type { AssistantTurnMeta } from "@/packages/contracts/assistant";
 import { composeModelChain } from "@/packages/ai/compose-model";
-import { AI_DEADLINE_MS, COMPOSE_MAX_STEPS, withDeadline } from "@/packages/ai/model-policy";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { fail, withRoute } from "@/lib/server/with-route";
 import { logger } from "@/lib/server/logger";
-import { estimateTokens, sumCostUsd, type UsageEntry } from "@/lib/ai/pricing";
+import type { UsageEntry } from "@/lib/ai/pricing";
 import { loadTripContext, formatTripMemory, describeMembers, formatExpenses, type TripContext } from "@/lib/application/trip-context";
 import { tripMemberIdentities } from "@/lib/server/trip-member-identities";
 import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 import { runAssistantTurn, finalizeAssistantBlocks, type AssistantTurnResult } from "@/lib/application/orchestrate/run-turn";
 import { lastSuggestedFollowups, modelHistory, surfacedEarlierFrom } from "@/lib/application/orchestrate/thread-history";
 import { SSE_HEADERS, doneFrame, isAbortError, progressFrame, textFrame, toolProgressLabel, truncatedFrame } from "@/lib/server/ai-stream-frames";
+import { openComposeStream } from "@/lib/server/compose-stream";
 import { turnLimitRefusal } from "@/lib/server/ai-turn-limits";
-import { refreshThreadSummary } from "@/lib/application/thread-summary";
 import { persistedAssistantStream } from "@/features/conversation/application/persistedAssistantStream";
 import { createConversationRepository } from "@/features/conversation/infrastructure/conversationRepository";
 import { withPrunedFollowups } from "@/lib/application/followups";
 import { finalizeAssistantText } from "@/lib/application/evaluator";
 import { withTripAiStream } from "@/lib/server/trip-ai-queue";
-import { recordAiTurn } from "@/lib/server/ai-turn-trace";
+import { recordComposedTurn, recordEarlyExitTurn } from "@/lib/server/ai-turn-accounting";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /** Service-role writer used to create a brand-new trip's thread row and to append turn traces
@@ -228,92 +225,17 @@ export const POST = withRoute(async function POST(request: Request) {
           // loop still has to run inside `task()` and return a stream, exactly as before; only
           // now that stream is a private inner one, forwarded chunk-by-chunk into the outer
           // `controller` below instead of being the Response body directly.
-          const queuedStream = await withTripAiStream(tripId, userId, async () => {
-            // Try the primary model, then each fallback, until one produces its first chunk.
-            let iterator: AsyncIterator<string> | undefined;
-            let firstChunk: IteratorResult<string> | undefined;
-            let lastError: unknown;
-            // A stalled provider must not hang the turn: cap time-to-first-token per attempt
-            // (move to the next model in the chain), and cap the whole stream well above any
-            // real answer length.
-            const withTtft = <T,>(promise: Promise<T>, ms: number): Promise<T> => {
-              let timer: ReturnType<typeof setTimeout> | undefined;
-              const deadline = new Promise<never>((_, reject) => {
-                timer = setTimeout(() => reject(new Error("compose time-to-first-token exceeded")), ms);
-              });
-              return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
-            };
-            for (let i = 0; i < composeChain.length; i += 1) {
-              const entry = composeChain[i];
-              // Own controller per attempt: a TTFT timeout below only rejects the local race, it
-              // doesn't touch the streamText call itself — without aborting here, a stalled
-              // provider that's merely slow (not actually down) keeps running its tool-calling
-              // loop against real paid APIs in the background after the route has already moved
-              // to the next provider, uncounted by the turn's rate limit or cost trace.
-              const attemptController = new AbortController();
-              const streamResult = streamText({
-                model: entry.model,
-                system,
-                messages: compactAiMessages(modelMessages, 12, 12_000),
-                tools: composeTools,
-                stopWhen: stepCountIs(COMPOSE_MAX_STEPS),
-                abortSignal: AbortSignal.any([attemptController.signal, withDeadline(combinedAbort, 60_000)]),
-                onError: ({ error }) => {
-                  if (isAbortError(error)) return; // ordinary disconnect/timeout, not a real failure
-                  logger.error({ err: error }, "compose stream error");
-                },
-                ...(entry.providerOptions ? { providerOptions: entry.providerOptions } : {}),
-              });
-              try {
-                const it = streamResult.textStream[Symbol.asyncIterator]();
-                // Earlier attempts still have a fallback to move to, so they get a shorter leash —
-                // only the last provider in the chain (nowhere left to fail over to) waits the
-                // full, generous timeout.
-                const ttft = i < composeChain.length - 1 ? AI_DEADLINE_MS.composeTtftFallback : AI_DEADLINE_MS.composeTtft;
-                firstChunk = await withTtft(it.next(), ttft);
-                iterator = it;
-                composedModel = entry.modelId;
-                void streamResult.totalUsage.then(
-                  (u) => { tokensIn += u.inputTokens ?? 0; tokensOut += u.outputTokens ?? 0; },
-                  () => undefined,
-                );
-                break;
-              } catch (error) {
-                if (isAbortError(error)) throw error;
-                lastError = error;
-                attemptController.abort();
-                logger.warn({ err: error, attempt: i }, "compose model failed, trying next in chain");
-              }
-            }
-            if (!iterator || !firstChunk) throw lastError ?? new Error("compose produced no model");
-
-            // Hold reasoning-model scratchpad (harmony analysis channel, <think> blocks) back
-            // from the live stream — it would otherwise flash on screen before the final settle
-            // strips it.
-            const gate = createReasoningGate();
-            return new ReadableStream<Uint8Array>({
-              async start(innerController) {
-                const emit = (raw: string) => {
-                  const clean = gate(raw);
-                  if (clean) innerController.enqueue(textFrame(clean));
-                };
-                try {
-                  if (!firstChunk!.done && firstChunk!.value) emit(firstChunk!.value);
-                  for (;;) {
-                    const chunk = await iterator!.next();
-                    if (chunk.done) break;
-                    if (chunk.value) emit(chunk.value);
-                  }
-                } catch (error) {
-                  if (!isAbortError(error)) logger.error({ err: error }, "compose stream ended early");
-                  // Signal this to persistedAssistantStream so the partial text gets flagged
-                  // rather than persisted and replayed as if it were a genuinely complete answer.
-                  innerController.enqueue(truncatedFrame());
-                }
-                innerController.close();
-              },
-            });
-          });
+          const queuedStream = await withTripAiStream(tripId, userId, () =>
+            openComposeStream({
+              chain: composeChain,
+              system,
+              messages: compactAiMessages(modelMessages, 12, 12_000),
+              tools: composeTools,
+              signal: combinedAbort,
+              onModel: (modelId) => { composedModel = modelId; },
+              onUsage: (inputTokens, outputTokens) => { tokensIn += inputTokens; tokensOut += outputTokens; },
+            }),
+          );
           // A disconnect must actively interrupt this loop, not just wait for it to notice on its
           // own — `queuedStream` is backed by a real provider call that may not stop producing
           // chunks for a while, and until *something* reads `queuedStream` to a `done`/cancelled
@@ -422,111 +344,15 @@ export const POST = withRoute(async function POST(request: Request) {
         async (finalText) => {
           if (!result) return;
           const totalMs = Math.round(performance.now() - t0);
+          const scope = { supabase, traceClient: threadWriter() ?? supabase, tripId, userId };
           if (result.kind !== "ready") {
-            // No COMPOSE call on this path (declined/clarify/ungrounded) — RESOLVE's own usage is
-            // already in result.usage; fall back to the old char/4 estimate only if RESOLVE itself
-            // never reported usage (e.g. both attempts failed and this is the degraded default).
-            const usage: UsageEntry[] = result.usage.length
-              ? result.usage
-              // RESOLVE's own env override, if any — never AI_MODEL (that's COMPOSE's), which
-              // would mislabel a fully-degraded RESOLVE with a model it never even attempted.
-              : [{ model: result.resolved.modelUsed ?? (process.env.RESOLVE_MODEL || undefined), promptTokens: estimateTokens(prompt), completionTokens: estimateTokens(finalText) }];
-            tokensIn = usage.reduce((sum, u) => sum + u.promptTokens, 0);
-            tokensOut = usage.reduce((sum, u) => sum + u.completionTokens, 0);
-            const cost = Number(sumCostUsd(usage).toFixed(5));
-            // Fire-and-forget, NOT `after()` — confirmed live (2026-09-16) that `after()`'s
-            // queued callback never actually runs for this route: its own internal
-            // `runCallbacksOnClose` waits for the platform's "response closed" signal, which
-            // never fires for this route's custom streaming `ReadableStream` Response (verified
-            // by comparing against `group-chat/roam/route.ts`'s buffered `NextResponse.json`
-            // response, whose identical `after(() => recordAiTurn(...))` call DOES write a row).
-            // Both callees already swallow their own errors (best-effort, never throws) — a bare
-            // call risks losing the write if the platform tears the process down instantly after
-            // the response finishes, the exact race `after()` was meant to avoid, but that's
-            // strictly better than the current 100%-guaranteed silent no-op.
-            void recordAiTurn(threadWriter() ?? supabase, tripId, {
-              intent: result!.resolved.intent,
-              tools: toolsForTrace,
-              providers_failed: providersFailedForTrace,
-              blocks: (finalMeta ?? result!.meta).blocks.map((block) => block.type),
-              tokens_in: tokensIn,
-              tokens_out: tokensOut,
-              cost_usd: cost,
-              resolve_ms: result!.timings.resolveMs,
-              retrieve_ms: result!.timings.retrieveMs,
-              total_ms: totalMs,
-              model_resolve: result!.resolved.modelUsed ?? (process.env.RESOLVE_MODEL || undefined),
-              degraded: Boolean(result!.resolved.degraded),
-            });
-            void refreshThreadSummary(supabase, tripId, userId);
+            // No COMPOSE call on this path (declined/clarify/ungrounded).
+            recordEarlyExitTurn(scope, { result, prompt, finalText, blocks: (finalMeta ?? result.meta).blocks, tools: toolsForTrace, providersFailed: providersFailedForTrace, totalMs });
             return;
           }
-
-          const { toolEvidence, toolPlan, evidenceUnavailableProviders, resolved } = result;
-          // Already computed (including the side-builder blocks) inside the stream above, before
-          // it closed — see `finalMeta`'s own doc comment for why that has to happen there.
-          const meta = finalMeta ?? result.meta;
-          // A local fake / Cerebras may not report usage — fall back to a char/4 estimate.
-          if (!tokensIn) tokensIn = estimateTokens(result.system);
-          if (!tokensOut) tokensOut = estimateTokens(finalText);
-          // Price the WHOLE turn, not just COMPOSE: RESOLVE and every bulk block-builder (itinerary,
-          // budget, comparison, checklist, ...) ran their own model call and is tracked in
-          // result.usage, tagged with whichever model actually answered it — summing per-entry cost
-          // (instead of pricing the turn off one blended `process.env.AI_MODEL` string) is what makes
-          // this number trustworthy when the fallback chain, or a bulk builder's own Gemini-first
-          // routing, didn't use the configured primary model.
-          const allUsage: UsageEntry[] = [...result.usage, { model: composedModel ?? (process.env.AI_MODEL || undefined), promptTokens: tokensIn, completionTokens: tokensOut }, ...(evaluatorUsage ? [evaluatorUsage] : [])];
-          const totalTokensIn = allUsage.reduce((sum, u) => sum + u.promptTokens, 0);
-          const totalTokensOut = allUsage.reduce((sum, u) => sum + u.completionTokens, 0);
-          const cost = Number(sumCostUsd(allUsage).toFixed(5));
-          // RESOLVE's seed plan plus any tool the model called during COMPOSE.
-          const toolsUsed = [...new Set([...toolPlan.map((t) => t.tool), ...toolEvidence.usedTools])];
-          const providersFailed = [...new Set([...evidenceUnavailableProviders, ...toolEvidence.unavailableProviders])];
-          logger.info(
-            {
-              ai: {
-                intent: resolved.intent,
-                toolPlan: toolsUsed,
-                providersFailed,
-                blocks: meta.blocks.map((b) => b.type),
-                tokensIn: totalTokensIn,
-                tokensOut: totalTokensOut,
-                costUsd: cost,
-                latencyMs: { resolve: result.timings.resolveMs, retrieve: result.timings.retrieveMs, compose: composeMs, total: totalMs },
-              },
-            },
-            "ai turn",
-          );
-          // Best-effort (already swallows its own errors) and genuinely not needed before
-          // responding — the final SSE frame carrying meta.blocks (place cards, itinerary/weather/
-          // budget blocks, clarify chips) waits on this callback's promise, so awaiting a trace
-          // write and a summary refresh + LLM call here delayed those cards behind work the user
-          // isn't waiting on. Fire-and-forget, NOT `after()` — confirmed live (2026-09-16) that
-          // `after()`'s queued callback never actually runs for this route: its own internal
-          // `runCallbacksOnClose` waits for the platform's "response closed" signal, which never
-          // fires for this route's custom streaming `ReadableStream` Response (verified by
-          // comparing against `group-chat/roam/route.ts`'s buffered `NextResponse.json` response,
-          // whose identical `after(() => recordAiTurn(...))` call DOES write a row). A bare call
-          // risks losing the write if the platform tears the process down instantly after the
-          // response finishes — the exact race `after()` was meant to avoid — but that's strictly
-          // better than the current 100%-guaranteed silent no-op.
-          void recordAiTurn(threadWriter() ?? supabase, tripId, {
-            intent: resolved.intent,
-            tools: toolsUsed,
-            providers_failed: providersFailed,
-            blocks: meta.blocks.map((b) => b.type),
-            tokens_in: totalTokensIn,
-            tokens_out: totalTokensOut,
-            cost_usd: cost,
-            resolve_ms: result!.timings.resolveMs,
-            retrieve_ms: result!.timings.retrieveMs,
-            compose_ms: composeMs,
-            total_ms: totalMs,
-            model_resolve: resolved.modelUsed ?? (process.env.RESOLVE_MODEL || undefined),
-            model_compose: composedModel,
-            degraded: Boolean(resolved.degraded),
-          });
-          void refreshThreadSummary(supabase, tripId, userId);
+          // `finalMeta` was already computed (including the side-builder blocks) inside the stream above, before
+          // it closed — see its own doc comment for why that has to happen there.
+          recordComposedTurn(scope, { result, meta: finalMeta ?? result.meta, finalText, tokensIn, tokensOut, composedModel, composeMs, evaluatorUsage, totalMs });
         },
       ),
       { headers: SSE_HEADERS },
