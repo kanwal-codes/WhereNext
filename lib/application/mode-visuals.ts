@@ -59,3 +59,5 @@ export const TRAFFIC_HEX = { slow: "#d79628", heavy: "#cc2631", severe: "#9c1b24
 
 /** Itinerary stops on the map and in their lists: the same coral as the dots on the Plan timeline. */
 export const STOP_CORAL = "#bc4527";
+/** Stops on the itinerary: warm ink, so coral stays the colour of "where you sleep". */
+export const STOP_INK = "#1b1611";
