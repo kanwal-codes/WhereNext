@@ -360,5 +360,24 @@ describe("TripPanel: docked beside the chat", () => {
     render(<TripPanel layout="inline" />);
     expect(document.activeElement).toBe(screen.getByRole("complementary"));
   });
+  it("lands at the top on a forward open, and back where it was left on the in-panel Back", async () => {
+    const scrollTo = vi.fn();
+    Element.prototype.scrollTo = scrollTo;
+    const louvre = { kind: "place", placeId: "p1", name: "Louvre" };
+    ctx = { ...base(), panel: louvre };
+    const { rerender } = render(<TripPanel layout="inline" />);
+    await waitFor(() => expect(scrollTo).toHaveBeenLastCalledWith({ top: 0 }));
+    const scroller = screen.getByText("PLACE p1").closest(".overflow-y-auto") as HTMLElement;
+    Object.defineProperty(scroller, "scrollTop", { value: 240, writable: true });
+
+    ctx = { ...base(), panel: { kind: "place", placeId: "p2", name: "Orsay" } };
+    rerender(<TripPanel layout="inline" />);
+    await waitFor(() => expect(screen.getByText("PLACE p2")).toBeTruthy());
+    await waitFor(() => expect(scrollTo).toHaveBeenLastCalledWith({ top: 0 }));
+
+    ctx = { ...base(), panel: louvre, navDirection: "back" };
+    rerender(<TripPanel layout="inline" />);
+    await waitFor(() => expect(scrollTo).toHaveBeenLastCalledWith({ top: 240 }));
+  });
 });
 

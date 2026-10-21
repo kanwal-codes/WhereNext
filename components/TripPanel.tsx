@@ -1,159 +1,34 @@
 "use client";
 
-import { startTransition, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import Link, { useLinkStatus } from "next/link";
-import { SendButton } from "@/components/ComposerButtons";
+import { useRef, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowLeft, ArrowUpRight, BedDouble, CalendarDays, CalendarRange, Eraser, LayoutGrid, Loader2, Map as MapIcon, MapPin, Route as RouteIcon, Maximize2, Plane, Scale, Wallet, X, CloudSun, ListChecks } from "lucide-react";
+import { X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
-import { useTripPanelMaybe, panelSubjectKey, panelTitle, type CompareEntry, type PanelState } from "@/components/TripPanelProvider";
-import { PlaceDetailView } from "@/features/places/ui/PlaceDetailView";
-import { StayDetailView } from "@/features/stays/ui/StayDetailView";
-import { EventDetailView } from "@/features/events/ui/EventDetailView";
-import { FlightDetail } from "@/features/conversation/ui/panels/FlightDetail";
-import { DayDetail } from "@/features/conversation/ui/panels/DayDetail";
-import { BudgetDetail } from "@/features/conversation/ui/panels/BudgetDetail";
-import { RouteDetail } from "@/features/conversation/ui/panels/RouteDetail";
-import { AreaDetail } from "@/features/conversation/ui/panels/AreaDetail";
-import { MapDetail } from "@/features/conversation/ui/panels/MapDetail";
-import { WeatherDetail } from "@/features/conversation/ui/panels/WeatherDetail";
-import { ChecklistDetail } from "@/features/conversation/ui/panels/ChecklistDetail";
+import { useTripPanelMaybe, panelSubjectKey, panelTitle, type PanelState } from "@/components/TripPanelProvider";
+import { TripPanelBody } from "@/components/TripPanelBody";
+import { TripPanelComposer } from "@/components/TripPanelComposer";
+import { TripPanelHeader } from "@/components/TripPanelHeader";
+import { useTripPanelChrome } from "@/components/useTripPanelChrome";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 import { ContentSwap, Sheet } from "@/components/motion-primitives";
-import { MessageBlocks } from "@/features/conversation/ui/blocks/MessageBlocks";
-import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
-import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { PanelLoading } from "@/components/PanelStates";
 import { readPlaceSeed } from "@/features/places/application/placeDetailsCache";
-import { COMPARE_VERDICT_PROMPT, useCompareChat } from "@/components/useCompareChat";
-import { distanceLabel, fullPageHref, type Anchor } from "@/components/tripPanelLogic";
-import { PHONE_V2 } from "@/lib/phone-v2";
-import { Badge, controlGhost, textAction } from "@/features/conversation/ui/blocks/ui";
+import { useCompareChat } from "@/components/useCompareChat";
+import type { Anchor } from "@/components/tripPanelLogic";
 
-const KIND_LABEL: Record<CompareEntry["kind"], string> = { place: "Place", stay: "Stay", event: "Event", route: "Route" };
 /** Routes that mount their own `layout="inline"` TripPanel (via RoamShell) — the layout-level
  *  drawer instance stands down on these so the two don't both try to show the same panel. */
 const SELF_HOSTED_INLINE_PANEL_ROUTES = ["/chat", "/group"];
-
-/** The control that opened the inline panel, so closing it can hand focus back. Module-level because the
- *  inline panel remounts on every subject change and would otherwise forget where the user started. */
-let panelOpener: HTMLElement | null = null;
-
-const KIND_ICON = { area: MapPin, place: MapPin, stay: BedDouble, event: CalendarDays, collection: LayoutGrid, flight: Plane, day: CalendarRange, budget: Wallet, map: MapIcon, route: RouteIcon, compare: Scale, weather: CloudSun, checklist: ListChecks } as const;
-
-/** Icon inside the expand Link: becomes a spinner the moment it is pressed, until the full page arrives. */
-function ExpandIcon() {
-  const { pending } = useLinkStatus();
-  return pending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Maximize2 className="size-4" aria-hidden />;
-}
-
-function CompareGrid({ list, anchor, onRemove }: { list: CompareEntry[]; anchor: Anchor; onRemove: (id: string) => void }) {
-  // "Lowest" / "Top" only make sense when every card is the same kind.
-  const uniform = list.every((e) => e.kind === list[0]?.kind);
-  const bestPrice = uniform ? Math.min(...list.map((e) => e.attrs.priceValue ?? Infinity)) : NaN;
-  const bestRating = uniform ? Math.max(...list.map((e) => e.attrs.ratingValue ?? -Infinity)) : NaN;
-
-  const ALL_ROWS: Array<{ label: string; has: (e: CompareEntry) => boolean; get: (e: CompareEntry) => ReactNode }> = [
-    { label: "Type", has: () => true, get: (e) => e.attrs.detail ?? KIND_LABEL[e.kind] },
-    {
-      label: "Price",
-      has: (e) => e.attrs.price != null,
-      get: (e) => (
-        <span className="inline-flex flex-wrap items-center gap-1.5">
-          {e.attrs.price ?? "—"}
-          {e.attrs.priceValue != null && e.attrs.priceValue === bestPrice && Number.isFinite(bestPrice) && <Badge tone="positive">Lowest</Badge>}
-        </span>
-      ),
-    },
-    {
-      label: "Rating",
-      has: (e) => e.attrs.rating != null,
-      get: (e) => (
-        <span className="inline-flex flex-wrap items-center gap-1.5">
-          {e.attrs.rating ?? "—"}
-          {e.attrs.ratingValue != null && e.attrs.ratingValue === bestRating && Number.isFinite(bestRating) && <Badge tone="brand">Top</Badge>}
-        </span>
-      ),
-    },
-    { label: "When", has: (e) => e.attrs.when != null, get: (e) => e.attrs.when ?? "—" },
-    { label: anchor ? `From ${anchor.name}` : "From your stay", has: (e) => Boolean(anchor) && e.attrs.lat != null && e.attrs.lng != null, get: (e) => distanceLabel(e, anchor) },
-    { label: "Address", has: (e) => e.attrs.address != null, get: (e) => e.attrs.address ?? "—" },
-  ];
-  // A row that is a dash for every option adds noise, not information.
-  const ROWS = ALL_ROWS.filter((row) => list.some(row.has));
-
-  if (list.length === 0) {
-    return <p className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">Pick a few cards to compare — the Compare button is on every place, stay and event.</p>;
-  }
-
-  return (
-    <div className="overflow-x-auto overscroll-x-contain scrollbar-slim">
-      <div className="grid gap-x-3" style={{ gridTemplateColumns: `5.5rem repeat(${list.length}, minmax(9.5rem, 1fr))` }}>
-        <div />
-        {list.map((e) => (
-          <div key={e.id} className="relative rounded-2xl border border-border bg-card p-3">
-            <button type="button" onClick={() => onRemove(e.id)} aria-label={`Remove ${e.name}`} className={cn(controlGhost, "absolute top-1 right-1 size-7")}>
-              <X className="size-3.5" />
-            </button>
-            <p className="pr-6 font-display text-base font-semibold leading-tight">{e.name}</p>
-            {e.subtitle && <p className="mt-1 text-xs text-muted-foreground">{e.subtitle}</p>}
-            {e.href && (
-              <Link href={e.href} className="relative mt-2 inline-flex items-center gap-1 text-xs font-medium text-foreground underline-offset-4 hover:underline after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']">
-                Open <ArrowUpRight className="size-3.5" aria-hidden />
-              </Link>
-            )}
-          </div>
-        ))}
-        {ROWS.map((row, i) => (
-          <div key={row.label} className="col-span-full grid grid-cols-subgrid">
-            <div className={cn("flex min-h-12 items-center border-t border-transparent pr-2 text-xs font-medium leading-5 text-muted-foreground", i === 0 && "mt-3")}>{row.label}</div>
-            {list.map((e) => (
-              <div key={e.id + row.label} className={cn("flex min-h-12 items-center border-t border-border text-sm leading-5", i === 0 && "mt-3")}>
-                {row.get(e)}
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 /** The one shared trip side panel: detail views, comparisons, and a composer wired to the trip chat. */
 export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" }) {
   const ctx = useTripPanelMaybe();
   const { tripId, data } = useTripData();
-  const { guest, openGate } = useGuest();
   const pathname = usePathname();
   const desktop = useMediaQuery("(min-width: 1024px)");
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
-  // On a phone the panel is a sheet that slides up. Mounting its (heavy) content while it moves competes with the slide for the same
-  // thread, and on a mid-range Android that is the stutter: the sheet arrives with the card's own title and photo first, and the body
-  // is built a moment later, once it has stopped.
-  const deferBody = layout === "inline" && !desktop && PHONE_V2;
-  const [slid, setSlid] = useState(!deferBody);
-  useEffect(() => {
-    if (!deferBody) { setSlid(true); return; }
-    const id = setTimeout(() => startTransition(() => setSlid(true)), 300);
-    return () => clearTimeout(id);
-  }, [deferBody]);
-  const scrollMem = useRef(new Map<string, number>());
-  // How tall the floating ask box (and the answers above it) is right now, so the panel's content can scroll clear of it.
-  const [composerHeight, setComposerHeight] = useState(0);
-  const composerWatch = useRef<ResizeObserver | null>(null);
-  const composerBox = useCallback((el: HTMLDivElement | null) => {
-    composerWatch.current?.disconnect();
-    composerWatch.current = null;
-    if (!el) { setComposerHeight(0); return; }
-    const measure = () => setComposerHeight(Math.ceil(el.getBoundingClientRect().height));
-    measure();
-    composerWatch.current = new ResizeObserver(measure);
-    composerWatch.current.observe(el);
-  }, []);
 
   const panel = ctx?.panel ?? null;
   const closePanel = ctx?.closePanel;
@@ -165,50 +40,8 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   const shown = panel ?? lastPanelRef.current;
   const sk = panelSubjectKey(shown, compareList.map((e) => e.id));
 
-  const { chat, input, setInput, sending, ask, clear: clearChat, verdictMsg, verdictFailed, retryVerdict } = useCompareChat({ panel, shown, compareList, tripId, subjectKey: sk });
-  // Inline (docked chat-rail) panel: Escape closes it, unless the key was meant for something on top
-  // of it (an open menu or dialog). The drawer's modal focus / scroll-lock / return-focus is
-  // handled by <Sheet> further down.
-  useEffect(() => {
-    if (layout !== "inline" || !panel || typeof document === "undefined") return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" || e.defaultPrevented) return;
-      if ((e.target as HTMLElement | null)?.closest?.('[role="dialog"],[role="menu"],[role="listbox"],[aria-modal="true"]')) return;
-      closePanel?.();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [layout, panel, closePanel]);
-  // Move focus into the inline panel when it opens (and to the new subject when it changes), and hand it
-  // back to the control that opened it when it closes — so keyboard and screen-reader users aren't left behind.
-  const panelRef = useRef<HTMLDivElement>(null);
-  const isOpen = Boolean(panel);
-  useEffect(() => {
-    if (layout !== "inline") return;
-    if (isOpen) {
-      const active = document.activeElement as HTMLElement | null;
-      if (!panelOpener && active && active !== document.body && !panelRef.current?.contains(active)) panelOpener = active;
-      panelRef.current?.focus({ preventScroll: true });
-    } else if (panelOpener) {
-      panelOpener.focus?.({ preventScroll: true });
-      panelOpener = null;
-    }
-  }, [layout, isOpen, sk]);
-  // Scroll memory: remember where each subject was left, restore it on the in-panel Back,
-  // land at the top on a forward open.
-  useEffect(() => {
-    const el = scrollRef.current;
-    const mem = scrollMem.current;
-    const key = sk;
-    return () => { if (el) mem.set(key, el.scrollTop); };
-  }, [sk]);
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el || sk === "none") return;
-    const target = navDirection === "back" ? scrollMem.current.get(sk) ?? 0 : 0;
-    const id = requestAnimationFrame(() => el.scrollTo({ top: target }));
-    return () => cancelAnimationFrame(id);
-  }, [sk, navDirection]);
+  const chat = useCompareChat({ panel, shown, compareList, tripId, subjectKey: sk });
+  const { scrollRef, panelRef, slid, composerHeight, composerBox } = useTripPanelChrome({ layout, desktop, panel, closePanel, subjectKey: sk, navDirection });
 
   // RoamShell (Roam + Group chat) renders its own <TripPanel layout="inline" />; the
   // layout-level drawer stands down on those routes. `endsWith` doesn't match "/group/details",
@@ -219,166 +52,20 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   const stay = readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
   const anchor: Anchor = stay && stay.latitude != null && stay.longitude != null ? { name: stay.hotelName, lat: stay.latitude, lng: stay.longitude } : null;
 
+  const body: ReactNode = shown && <TripPanelBody shown={shown} tripId={tripId} openPanel={ctx.openPanel} compareList={compareList} compareRemove={compareRemove} anchor={anchor} chat={chat} />;
 
-  const body: ReactNode = !shown ? null : shown.kind === "place" ? (
-    <PlaceDetailView tripId={tripId} placeId={shown.placeId} variant="panel" />
-  ) : shown.kind === "stay" ? (
-    <StayDetailView tripId={tripId} hotelId={shown.hotelId} checkin={shown.checkin} checkout={shown.checkout} adults={shown.adults} seedName={shown.name} variant="panel" onAsk={shown.onAsk} />
-  ) : shown.kind === "event" ? (
-    <EventDetailView tripId={tripId} seed={shown.seed} variant="panel" />
-  ) : shown.kind === "flight" ? (
-    <FlightDetail flight={shown.flight} route={shown.route} />
-  ) : shown.kind === "day" ? (
-    <DayDetail block={shown.block} dayIndex={shown.dayIndex} tripId={tripId} />
-  ) : shown.kind === "budget" ? (
-    <BudgetDetail block={shown.block} />
-  ) : shown.kind === "route" ? (
-    <RouteDetail tripId={tripId} routes={shown.routes} active={shown.active} onAsk={shown.onAsk} />
-  ) : shown.kind === "area" ? (
-    <AreaDetail tripId={tripId} panel={shown} />
-  ) : shown.kind === "weather" ? (
-    <WeatherDetail block={shown.block} />
-  ) : shown.kind === "checklist" ? (
-    <ChecklistDetail block={shown.block} tripId={tripId} />
-  ) : shown.kind === "map" ? (
-    <MapDetail tripId={tripId} panel={shown} />
-  ) : shown.kind === "collection" ? (
-    <div className="p-4">
-      <MessageBlocks
-        blocks={[shown.block]}
-        tripId={tripId}
-        preview={false}
-        onFollowup={() => undefined}
-        onOpenPlace={(place) => ctx.openPanel({ kind: "place", placeId: place.providerId, name: place.name })}
-        onOpenStay={(stay, dates) => ctx.openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name, ...dates })}
-        onOpenEvent={(seed) => ctx.openPanel({ kind: "event", seed })}
-        onOpenPanel={ctx.openPanel}
-      />
-    </div>
-  ) : (
-    <div className="space-y-4 p-4">
-      {verdictMsg && (
-        <section aria-label="Roam’s take" className="space-y-2 rounded-2xl border border-border bg-card p-4">
-          <h3 className="font-display text-base font-semibold">Roam’s take</h3>
-          {verdictMsg.content ? (
-            <AssistantMessage content={verdictMsg.content} />
-          ) : (
-            <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden /> Comparing your options…</span>
-          )}
-          {verdictFailed && (
-            <button type="button" className={cn(textAction, "underline")} onClick={retryVerdict}>Try again</button>
-          )}
-        </section>
-      )}
-      <CompareGrid list={compareList} anchor={anchor} onRemove={compareRemove} />
-    </div>
-  );
   // The surface (header + scroll frame) stays put; only this crossfades between subjects.
   // Flight, day, budget and route are cards and rows with no width of their own: on a wide panel or a tablet sheet they keep a 40rem reading column, like the detail views do.
   const narrow = shown ? ["flight", "day", "budget", "route", "area", "weather", "checklist"].includes(shown.kind) : false;
   // On a phone the route is a map with a sheet over it (see RouteDetail) and needs the panel's whole height, not a reading column.
   const fill = shown?.kind === "route" && !desktop;
   const animatedBody = <ContentSwap swapKey={sk} className={fill ? "h-full" : "min-h-full"}>{narrow && !fill ? <div className="mx-auto w-full max-w-[40rem]">{body}</div> : body}</ContentSwap>;
-  const KindIcon = shown ? KIND_ICON[shown.kind] : null;
   const header = shown && (
-    <header className={cn("flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2.5", PHONE_V2 && "icons-fine max-lg:flex-wrap max-lg:border-b-0 max-lg:px-4 max-lg:pt-1.5 max-lg:pb-2")}>
-      {PHONE_V2 && layout === "inline" && <div aria-hidden className="hidden basis-full justify-center py-1 max-lg:flex"><i className="block h-1 w-9 rounded-full bg-input" /></div>}
-      <div className={cn("flex min-w-0 items-center gap-1.5", PHONE_V2 && "max-lg:flex-1 max-lg:basis-0")}>
-        {canGoBack && (
-          <button type="button" onClick={goBack} aria-label="Back to previous item" className={controlGhost}>
-            <ArrowLeft className="size-4" aria-hidden />
-          </button>
-        )}
-        {KindIcon && <KindIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
-        <span className={cn("min-w-0 truncate font-display text-base font-semibold tracking-[-0.01em]", PHONE_V2 && "max-lg:text-xl max-lg:tracking-[-0.025em]")}>{panelTitle(shown)}</span>
-      </div>
-      <div className="flex shrink-0 items-center gap-0.5">
-        {chat.length > 0 && (
-          <button type="button" onClick={clearChat} aria-label="Clear this chat" title="Clear this chat" className={controlGhost}>
-            <Eraser className="size-4" aria-hidden />
-          </button>
-        )}
-        <Link
-          href={fullPageHref(shown, tripId, compareList.map((e) => e.id))}
-          // Do NOT close the panel here: closing pops the panel's browser-history entry with history.back(),
-          // which raced the link's own navigation and cancelled it ("expand does nothing"). The provider closes
-          // the panel by itself when the route changes; only a link to the page we are already on needs this.
-          onClick={(event) => {
-            const here = window.location.pathname;
-            if (new URL(event.currentTarget.href).pathname === here) closePanel?.();
-          }}
-          aria-label="Open as full page"
-          title="Open as full page"
-          className={cn(controlGhost, PHONE_V2 && "max-lg:hidden")}
-        >
-          <ExpandIcon />
-        </Link>
-        <button ref={closeButtonRef} type="button" onClick={closePanel} aria-label="Close panel" title="Close (Esc)" className={cn(controlGhost, PHONE_V2 && "max-lg:size-10 max-lg:bg-muted")}>
-          <X className="size-4" aria-hidden />
-        </button>
-      </div>
-    </header>
+    <TripPanelHeader shown={shown} layout={layout} tripId={tripId} compareIds={compareList.map((e) => e.id)} canGoBack={canGoBack} goBack={goBack} hasChat={chat.chat.length > 0} clearChat={chat.clear} closePanel={closePanel} />
   );
 
-  // The ask box floats over the bottom of the panel (a soft fade behind it, no rule), like the main chat's message box. The panel's own
-  // content gets bottom padding as tall as it is, measured, so the last of it can always be scrolled clear.
   // A "See all" list is just being browsed: no question bar over it.
-  const composer = layout === "drawer" && panel && panel.kind !== "collection" && (
-    <div ref={composerBox} className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-surface from-60% to-transparent px-3 pt-8 pb-3">
-    <div className="pointer-events-auto flex flex-col gap-2">
-      {chat.filter((m) => m !== verdictMsg && !(m.role === "user" && m.content === COMPARE_VERDICT_PROMPT)).length > 0 && (
-        <div className="max-h-[40dvh] shrink-0 space-y-3 overscroll-contain overflow-y-auto scrollbar-slim rounded-2xl border border-border bg-card px-4 py-3 shadow-lift">
-          {chat.map((m, i) => {
-            // The auto-verdict prompt is never something the traveller typed — show its answer, not the prompt.
-            if (m.role === "user" && m.content === COMPARE_VERDICT_PROMPT) return null;
-            if (verdictMsg && m === verdictMsg) return null;
-            const loading = sending && i === chat.length - 1;
-            if (m.role === "user") {
-              return (
-                <div key={i} className="flex justify-end">
-                  <p className="max-w-[85%] rounded-2xl rounded-br-lg bg-primary px-4 py-2.5 text-sm leading-relaxed text-primary-foreground">
-                    {m.content}
-                  </p>
-                </div>
-              );
-            }
-            return (
-              <div key={i} className="space-y-2">
-                {m.content ? (
-                  <AssistantMessage content={m.content} />
-                ) : loading ? (
-                  <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Thinking…
-                  </span>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-      )}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void ask(input);
-        }}
-        className="shrink-0"
-      >
-        {/* The same pill as the main chat's message box, so asking about a card feels like asking Roam. */}
-        <div className="flex items-center gap-1 rounded-full border border-input bg-card py-1.5 pl-4 pr-1.5 shadow-lift transition-[border-color,box-shadow] duration-200 focus-within:border-ink/30 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_6%,transparent),var(--shadow-lift)]">
-          <input
-            aria-label="Ask about this item"
-            name="panel-question"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={panel.kind === "compare" ? "Ask about these — value, location, what to pick…" : "Ask about this — does it fit my trip?"}
-            className="h-10 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
-          />
-          <SendButton canSend={!sending && Boolean(input.trim())} />
-        </div>
-      </form>
-    </div>
-    </div>
-  );
+  const composer = layout === "drawer" && panel && panel.kind !== "collection" && <TripPanelComposer boxRef={composerBox} chat={chat} isCompare={panel.kind === "compare"} />;
 
   // Chat route: render inline in its own column — no drawer chrome, no composer (the main chat serves).
   if (layout === "inline") {
