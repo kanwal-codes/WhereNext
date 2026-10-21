@@ -3,7 +3,7 @@ import { type AssistantBlock, type AssistantTurnMeta } from "@/packages/contract
 import { buildComposeTools } from "@/packages/ai/compose-tools";
 import { formatTripMemory, type TripContext } from "@/lib/application/trip-context";
 import { resolveTurn, resolvedTurnSchema, type ResolvedTurn } from "@/lib/application/turn-resolver";
-import { trivialTurnKind, type TrivialKind } from "@/lib/application/orchestrate/turn-complexity";
+import { trivialTurnKind } from "@/lib/application/orchestrate/turn-complexity";
 import { retrieveEvidence } from "@/lib/application/retrieve";
 import { formatConversion, parseConversionAsk } from "@/lib/application/currency-convert";
 import { fxRate } from "@/lib/server/fx";
@@ -15,11 +15,12 @@ import { buildBudgetBreakdown } from "@/lib/application/budget-plan";
 import { buildExploreOptions } from "@/lib/application/explore-options";
 import { buildStructuredAnswer } from "@/lib/application/structured-answer";
 import { weatherCardFromForecast, weatherCardFromSeasonal, type WeatherCard } from "@/lib/application/weather-card";
-import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 import { applyTripUpdate, buildProposedProfileCommand } from "@/lib/application/orchestrate/trip-update-handling";
 import { selectBlocks } from "@/lib/application/orchestrate/block-selection";
 import { ungroundedFallback } from "@/lib/application/orchestrate/fallback-reply";
 import { asksForOverview, buildTripSummary } from "@/lib/application/trip-summary";
+import { cannedMeta, clarifyMeta, declinedMeta, deflectionReply, mapCardsFor, readyMeta, trivialReply, ungroundedMeta } from "@/lib/application/orchestrate/turn-meta";
+import { persistSuggestedFacts } from "@/lib/application/orchestrate/suggested-facts";
 import { buildComposeSystemPrompt } from "@/lib/application/orchestrate/system-prompt-builder";
 import { askedForDatesRecently } from "@/lib/application/orchestrate/cadence";
 import { broadenedPlan, isGrounded, planRetrieval, readDislikes, readStrList, retrieveFiltersFor } from "@/lib/application/orchestrate/retrieve-plan";
@@ -49,66 +50,6 @@ import { AI_DEADLINE_MS, withDeadline } from "@/packages/ai/model-policy";
  * model's TTFT instead of adding to it. `finalizeAssistantBlocks` folds them in once a caller is
  * ready — the buffered group-chat caller can just await them immediately after its own compose call.
  */
-
-function surfaceForIntent(intent: ResolvedTurn["intent"]): AssistantTurnMeta["surface"] {
-  if (["discovery", "nightlife", "food", "activities", "history_culture", "compare"].includes(intent)) return "explore";
-  if (intent === "stays") return "stay";
-  if (intent === "transport") return "transport";
-  if (intent === "weather" || intent === "essentials") return "essentials";
-  return "chat";
-}
-
-
-/** True when this suggestion key already has a confirmed value on the trip. */
-function factAlreadyConfirmed(key: string, ctx: TripContext): boolean {
-  const p = ctx.preferences;
-  const hasList = (v: unknown) => Array.isArray(v) && v.length > 0;
-  switch (key) {
-    case "budget": return p.budget !== undefined && p.budget !== "";
-    case "group": return typeof p.groupType === "string" && p.groupType !== "";
-    case "pace": return typeof p.pace === "string" && p.pace !== "";
-    case "interests": return hasList(p.interests) || hasList(p.likes);
-    case "dietary": return hasList(p.dietaryNeeds);
-    case "occasion": return typeof p.occasion === "string" && p.occasion !== "";
-    case "dates": return Boolean(ctx.trip?.start_date && ctx.trip?.end_date) || (typeof p.dates === "string" && p.dates !== "");
-    case "arrival": return typeof p.arrival === "string" && p.arrival !== "";
-    case "getting_around": return (typeof p.transport === "string" && p.transport !== "") || ctx.decisions.some((d) => d.kind === "transport");
-    case "base_area": return ctx.decisions.some((d) => d.kind === "stay_area");
-    case "destination": return Boolean(ctx.trip?.destination);
-    case "travelers": return typeof ctx.trip?.travelers === "number" && ctx.trip.travelers > 0;
-    case "trip_length": return typeof ctx.trip?.duration_days === "number" && ctx.trip.duration_days > 0;
-    default: return false;
-  }
-}
-
-async function persistSuggestedFacts(
-  supabase: SupabaseClient,
-  tripId: string,
-  facts: ResolvedTurn["suggestedFacts"],
-  ctx: TripContext,
-): Promise<void> {
-  const rows = (facts ?? [])
-    .filter((fact) => !factAlreadyConfirmed(fact.key, ctx))
-    .map((fact) => ({
-      trip_id: tripId,
-      kind: "suggestion",
-      value: {
-        key: fact.key,
-        display: fact.display,
-        rationale: fact.rationale,
-        ...(fact.key === "dates" && fact.startDate && fact.endDate ? { startDate: fact.startDate, endDate: fact.endDate } : {}),
-      },
-      source: "assistant",
-      idempotency_key: `sugg:${fact.key}`,
-    }));
-  if (rows.length === 0) return;
-  try {
-    const result = await supabase.from("trip_decisions").upsert(rows, { onConflict: "trip_id,idempotency_key" });
-    if (!result.error) invalidateWorkspace(tripId);
-  } catch {
-    // A missed suggestion is not worth failing the turn (or a test with a partial supabase mock).
-  }
-}
 
 export type AssistantTurnDeps = { supabase: SupabaseClient; tripId: string };
 
@@ -182,23 +123,6 @@ export type AssistantTurnResult =
       };
     });
 
-/** Canned reply for a trivial turn, by phrase kind — no model call, so wording is fixed rather
- *  than reworded per request. Only ever reached for one of turn-complexity.ts's hand-curated
- *  English phrases, so a fixed English reply (no language-matching model call to do) is safe. */
-function trivialReply(kind: TrivialKind, destination?: string | null): string {
-  const trip = destination ? ` for your ${destination} trip` : " for your trip";
-  switch (kind) {
-    case "greeting":
-      return `Hey! Happy to help — what would you like to plan${trip} next?`;
-    case "thanks":
-      return `You're welcome! Let me know if there's anything else${trip}.`;
-    case "farewell":
-      return `Take care! Come back anytime to keep planning${trip}.`;
-    case "acknowledgment":
-      return `Got it — let me know what's next${trip}.`;
-  }
-}
-
 export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTurnRequest): Promise<AssistantTurnResult> {
   const { supabase, tripId } = deps;
   let tripCtx = req.tripCtx;
@@ -234,18 +158,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   // (the same safe-default pattern resolveTurn falls back to on total failure) so every consumer sees a normal shape.
   const cannedTurn = (line: string): AssistantTurnResult => {
     const cannedResolved = resolvedTurnSchema.parse({ intent: "chitchat" });
-    // Hand-built, not derived from a shared default — if `AssistantTurnMeta` grows a new
-    // OPTIONAL field later, TypeScript won't force this literal to set it (only a new REQUIRED
-    // field would). Check this stays reasonable whenever that type changes.
-    const meta: AssistantTurnMeta = {
-      language: cannedResolved.language,
-      locationFocus: null,
-      surface: "chat",
-      blocks: [],
-      sources: [],
-      suggestedFollowups: [],
-      unavailableProviders: [],
-    };
+    const meta = cannedMeta(cannedResolved.language);
     return {
       kind: "ready",
       resolved: cannedResolved,
@@ -298,33 +211,13 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   // No connection to travel or this trip. Decline in one line and stop — no retrieve, no
   // compose, so there's nothing to jailbreak into doing homework / coding / general chat.
   if (resolved.outOfScope) {
-    const meta: AssistantTurnMeta = {
-      language,
-      locationFocus: resolved.locationFocus,
-      surface: "chat",
-      blocks: tripUpdateReceipt ? [tripUpdateReceipt] : [],
-      sources: [],
-      suggestedFollowups: [],
-      unavailableProviders: [],
-    };
-    const deflection = `I can't help with that — I'm here to help plan and get the most out of your ${destination} trip. Ask me about places, food, getting around, what to book, or anything to do while you're there.`;
-    return { kind: "declined", resolved, content: deflection, meta, timings: { resolveMs }, usage: usageLog };
+    const meta = declinedMeta({ language, locationFocus: resolved.locationFocus, receipt: tripUpdateReceipt });
+    return { kind: "declined", resolved, content: deflectionReply(destination), meta, timings: { resolveMs }, usage: usageLog };
   }
 
   // --- CLARIFY -------------------------------------------------------------
   if (resolved.clarify) {
-    const meta: AssistantTurnMeta = {
-      language,
-      locationFocus: resolved.locationFocus,
-      surface: "chat",
-      blocks: [
-        ...(tripUpdateReceipt ? [tripUpdateReceipt] : []),
-        { type: "clarifying_question", question: resolved.clarify.question, chips: resolved.clarify.chips },
-      ],
-      sources: [],
-      suggestedFollowups: resolved.suggestedFollowups,
-      unavailableProviders: [],
-    };
+    const meta = clarifyMeta({ language, locationFocus: resolved.locationFocus, receipt: tripUpdateReceipt, clarify: resolved.clarify, suggestedFollowups: resolved.suggestedFollowups });
     return { kind: "clarify", resolved, content: resolved.clarify.question, meta, timings: { resolveMs }, usage: usageLog };
   }
 
@@ -357,7 +250,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
 
   if (needsGrounding && !hasGrounding) {
     const { content: fallback, actions } = ungroundedFallback(resolved.locationFocus, resolved.suggestedFollowups);
-    const meta: AssistantTurnMeta = { language, locationFocus: resolved.locationFocus, surface: "chat", blocks: [...(tripUpdateReceipt ? [tripUpdateReceipt] : []), ...(actions ? [actions] : [])], sources: [], suggestedFollowups: resolved.suggestedFollowups, unavailableProviders: evidence.unavailableProviders.slice(0, 12) };
+    const meta = ungroundedMeta({ language, locationFocus: resolved.locationFocus, receipt: tripUpdateReceipt, actions, suggestedFollowups: resolved.suggestedFollowups, unavailableProviders: evidence.unavailableProviders });
     return {
       kind: "ungrounded", resolved, content: fallback, meta, timings: { resolveMs, retrieveMs }, usage: usageLog,
       toolsUsed: toolPlan.map((call) => call.tool), providersFailed: evidence.unavailableProviders,
@@ -410,12 +303,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
     savedThisTurn: tripUpdateReceipt?.type === "trip_update" ? tripUpdateReceipt.changes.map((c) => `${c.label} ${c.from ?? "not set"} → ${c.to ?? "not set"}`).join("; ") : undefined,
     // Actual block presence, not just "was it requested" — see the param doc comment for why.
     showsItineraryBlock: itineraryBlock?.type === "itinerary",
-    mapCards: [
-      evidence.routes.length > 0 ? "the route card (tap an option on it, or its Map button, to see every way there step by step with the route on a map)" : "",
-      cardPlaces.some((place) => place.latitude || place.longitude) ? "the place cards" : "",
-      evidence.stays.some((search) => search.options?.some((option) => option.latitude != null)) ? "the hotel cards" : "",
-      itineraryBlock?.type === "itinerary" && itineraryBlock.days.some((day) => day.stops.some((stop) => stop.placeId)) ? "the itinerary" : "",
-    ].filter(Boolean),
+    mapCards: mapCardsFor({ evidence, cardPlaces, itineraryBlock }),
     showsBudgetBlock: budgetBlock?.type === "budget",
     exploreKind: optionsBlock?.type === "options" ? exploreKind : null,
     eventsGuidance,
@@ -471,22 +359,10 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   // no provider that failed, no trip change to report — and exactly one kind of card is shown (see `cardLeadIn`).
   const leadInLine = leadInLineFor({ composeSkipLine, resolved, prompt, language, hasGrounding, tripUpdateReceipt, sourceCount: compactSources.length, unavailableProviderCount: evidence.unavailableProviders.length, blocks, locationFocus });
 
-  const meta: AssistantTurnMeta = {
-    language,
-    locationFocus,
-    surface: surfaceForIntent(resolved.intent),
-    blocks,
-    sources: compactSources.map((source) => ({ title: source.title, url: source.url, retrievedAt: evidence.retrievedAt, trust: "sourced" as const })),
-    suggestedFollowups: resolved.suggestedFollowups,
-    proposedCommand,
-    // A far-future trip can't have a live forecast — if we answered the weather from seasonal
-    // web sources, don't also tell the user we "could not check weather".
-    unavailableProviders: ((resolved.intent === "weather" || resolved.intent === "essentials") && compactSources.length > 0
-      ? evidence.unavailableProviders.filter((provider) => provider !== "openweather")
-      : evidence.unavailableProviders
-    ).slice(0, 12),
-    ...(resolved.degraded ? { degraded: true } : {}),
-  };
+  const meta = readyMeta({
+    language, locationFocus, intent: resolved.intent, blocks, sources: compactSources, retrievedAt: evidence.retrievedAt,
+    suggestedFollowups: resolved.suggestedFollowups, proposedCommand, unavailableProviders: evidence.unavailableProviders, degraded: resolved.degraded,
+  });
 
   return {
     kind: "ready",
