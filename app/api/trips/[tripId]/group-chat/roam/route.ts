@@ -1,27 +1,28 @@
 import { NextResponse, after } from "next/server";
 import { z } from "zod";
-import { generateText, stepCountIs } from "ai";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { withRoute, fail } from "@/lib/server/with-route";
 import { loadTripContext, formatTripMemory, describeMembers, formatExpenses } from "@/lib/application/trip-context";
 import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 import { runAssistantTurn, finalizeAssistantBlocks } from "@/lib/application/orchestrate/run-turn";
 import { composeModelChain } from "@/packages/ai/compose-model";
-import { AI_DEADLINE_MS, COMPOSE_MAX_STEPS, DAILY_TRIP_TURN_LIMIT, DAILY_TURN_LIMIT, withDeadline } from "@/packages/ai/model-policy";
+import { DAILY_TRIP_TURN_LIMIT, DAILY_TURN_LIMIT } from "@/packages/ai/model-policy";
 import { withinRateLimit } from "@/lib/server/rate-limit";
 import { compactAiMessages } from "@/packages/contracts/ai-request";
 import { stripReasoning } from "@/lib/ai/strip-reasoning";
 import { finalizeAssistantText } from "@/lib/application/evaluator";
 import { withTripAiTask } from "@/lib/server/trip-ai-queue";
 import { recordAiTurn } from "@/lib/server/ai-turn-trace";
-import { estimateTokens, sumCostUsd, type UsageEntry } from "@/lib/ai/pricing";
+import type { UsageEntry } from "@/lib/ai/pricing";
 import { logger } from "@/lib/server/logger";
+import { composeBuffered, type BufferedCompose } from "@/lib/server/compose-buffered";
+import { surfacedEarlierFrom } from "@/lib/application/orchestrate/thread-history";
+import { composedTrace, earlyExitTrace } from "@/features/group-chat/application/roamTurnTrace";
 import { createGroupChatRepository } from "@/features/group-chat/infrastructure/groupChatRepository";
 import { historyThrough, mentionsRoam } from "@/features/group-chat/domain/message";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { tripMemberIdentities } from "@/lib/server/trip-member-identities";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
-import type { AssistantTurnMeta } from "@/packages/contracts/assistant";
 
 const HISTORY_LIMIT = 50;
 
@@ -153,14 +154,7 @@ export const POST = withRoute(async (request: Request, { params }: { params: Pro
     // as the personal /api/ai route (see its own `surfacedEarlier` comment), which this route
     // never had: without it, @Roam had no memory of its own prior group-chat replies and could
     // re-list the identical place list turn after turn in the same thread.
-    const surfacedEarlier = new Set<string>();
-    for (const message of history) {
-      const blocks = (message.metadata as { blocks?: AssistantTurnMeta["blocks"] } | null)?.blocks;
-      for (const block of blocks ?? []) {
-        if (block.type === "place_list") for (const place of block.places) surfacedEarlier.add(place.name);
-        else if (block.type === "stays") for (const hotel of block.items) surfacedEarlier.add(hotel.name);
-      }
-    }
+    const surfacedEarlier = surfacedEarlierFrom(history);
 
     // The trip's facts plus who is on it ("who are the travellers?" is answered from this).
     const identityEntries: Array<[string, { name: string }]> = [...names].map(([id, name]) => [id, { name }]);
@@ -197,74 +191,26 @@ export const POST = withRoute(async (request: Request, { params }: { params: Pro
       // montreal" coming back "couldn't verify anything") left zero record of what RESOLVE
       // planned or which providers failed, impossible to diagnose after the fact. Matches the
       // personal /api/ai route's identical handling of this same three-way outcome.
-      const declinedResult = result;
-      const usage: UsageEntry[] = declinedResult.usage.length
-        ? declinedResult.usage
-        : [{ model: declinedResult.resolved.modelUsed ?? (process.env.RESOLVE_MODEL || undefined), promptTokens: estimateTokens(target.content), completionTokens: estimateTokens(declinedResult.content) }];
-      const tokensIn = usage.reduce((sum, u) => sum + u.promptTokens, 0);
-      const tokensOut = usage.reduce((sum, u) => sum + u.completionTokens, 0);
-      const cost = Number(sumCostUsd(usage).toFixed(5));
-      after(() =>
-        recordAiTurn(adminClient, tripId, {
-          intent: declinedResult.resolved.intent,
-          tools: declinedResult.kind === "ungrounded" ? declinedResult.toolsUsed : [],
-          providers_failed: declinedResult.kind === "ungrounded" ? declinedResult.providersFailed : [],
-          blocks: declinedResult.meta.blocks.map((block) => block.type),
-          tokens_in: tokensIn,
-          tokens_out: tokensOut,
-          cost_usd: cost,
-          resolve_ms: declinedResult.timings.resolveMs,
-          retrieve_ms: declinedResult.timings.retrieveMs,
-          compose_ms: 0,
-          total_ms: Math.round(performance.now() - t0),
-          model_resolve: declinedResult.resolved.modelUsed ?? (process.env.RESOLVE_MODEL || undefined),
-          degraded: Boolean(declinedResult.resolved.degraded),
-        }),
-      );
+      const trace = earlyExitTrace(result, target.content, Math.round(performance.now() - t0));
+      after(() => recordAiTurn(adminClient, tripId, trace));
       return NextResponse.json({ message }, { status: 201 });
     }
 
     // --- COMPOSE (buffered, bounded tool-calling loop) ------------------------
-    const { composeSkipIsLeadIn, system, composeSkipLine, composeTools, toolEvidence, allowedUrls, toolPlan, evidenceUnavailableProviders, sideBuilders, resolved } = result;
+    const { composeSkipIsLeadIn, system, composeSkipLine, composeTools, allowedUrls, sideBuilders, resolved } = result;
     const tCompose = performance.now();
     let composedModel: string | undefined;
-    let composeUsage: { inputTokens?: number; outputTokens?: number } | undefined;
+    let composeUsage: BufferedCompose["usage"];
     let rawText: string;
     if (composeSkipLine) {
       rawText = composeSkipLine;
     } else {
-      const messages = compactAiMessages(turns, 12, 12_000);
-      const chain = composeModelChain();
-      rawText = await withTripAiTask(tripId, user.id, async () => {
-        let lastError: unknown;
-        for (let i = 0; i < chain.length; i += 1) {
-          const entry = chain[i];
-          try {
-            const generated = await generateText({
-              model: entry.model,
-              system,
-              messages,
-              tools: composeTools,
-              stopWhen: stepCountIs(COMPOSE_MAX_STEPS),
-              // Only the LAST provider in the chain (nowhere left to fail over to) gets the full
-              // buffered budget — an earlier attempt that's merely stalled (not actually down)
-              // used to cost the user the entire 60s before this route would even try the next
-              // model, worse than the streaming path's tiered time-to-first-token fallback.
-              abortSignal: withDeadline(request.signal, i < chain.length - 1 ? AI_DEADLINE_MS.composeBufferedFallback : AI_DEADLINE_MS.composeBuffered),
-              ...(entry.providerOptions ? { providerOptions: entry.providerOptions } : {}),
-            });
-            composedModel = entry.modelId;
-            composeUsage = generated.usage;
-            return generated.text;
-          } catch (error) {
-            // The caller hanging up (Next aborts with a plain Error named "ResponseAborted") is not a model failing: stop, do not try the next model.
-            if (request.signal.aborted || (error instanceof Error && (error.name === "AbortError" || error.name === "ResponseAborted"))) throw error;
-            lastError = error;
-            logger.warn({ err: error, attempt: i }, "group-chat compose model failed, trying next in chain");
-          }
-        }
-        throw lastError ?? new Error("compose produced no model");
-      });
+      const composed = await withTripAiTask(tripId, user.id, () =>
+        composeBuffered({ chain: composeModelChain(), system, messages: compactAiMessages(turns, 12, 12_000), tools: composeTools, signal: request.signal }),
+      );
+      rawText = composed.text;
+      composedModel = composed.modelId;
+      composeUsage = composed.usage;
     }
     const text = stripReasoning(rawText);
 
@@ -294,42 +240,11 @@ export const POST = withRoute(async (request: Request, { params }: { params: Pro
     });
     invalidateWorkspace(tripId);
 
-    const composeMs = Math.round(performance.now() - tCompose);
-    const totalMs = Math.round(performance.now() - t0);
-    // Same fix as the personal /api/ai route: price every stage (RESOLVE + bulk block-builders,
-    // tracked in result.usage) by the model that actually answered it, plus COMPOSE's own real
-    // usage when the provider reported one — falling back to a char/4 estimate priced off the
-    // model that actually composed (not the blindly-configured AI_MODEL) only when it didn't.
-    const composeEntry: UsageEntry = composeUsage
-      ? { model: composedModel, promptTokens: composeUsage.inputTokens ?? 0, completionTokens: composeUsage.outputTokens ?? 0 }
-      : { model: composedModel ?? (process.env.AI_MODEL || undefined), promptTokens: estimateTokens(system), completionTokens: estimateTokens(sanitized) };
-    const allUsage: UsageEntry[] = [...result.usage, composeEntry, ...(evaluatorUsage ? [evaluatorUsage] : [])];
-    const tokensIn = allUsage.reduce((sum, u) => sum + u.promptTokens, 0);
-    const tokensOut = allUsage.reduce((sum, u) => sum + u.completionTokens, 0);
-    const cost = Number(sumCostUsd(allUsage).toFixed(5));
-    const toolsUsed = [...new Set([...toolPlan.map((call) => call.tool), ...toolEvidence.usedTools])];
-    const providersFailed = [...new Set([...evidenceUnavailableProviders, ...toolEvidence.unavailableProviders])];
+    const trace = composedTrace(result, { meta, sanitized, composedModel, composeUsage, evaluatorUsage, composeMs: Math.round(performance.now() - tCompose), totalMs: Math.round(performance.now() - t0) });
     // Best-effort trace write (recordAiTurn already swallows its own errors) — via after(), not
     // a bare fire-and-forget, so the platform keeps this request alive long enough for the write
     // to actually land instead of racing a serverless teardown right after the reply is sent.
-    after(() =>
-      recordAiTurn(adminClient, tripId, {
-        intent: resolved.intent,
-        tools: toolsUsed,
-        providers_failed: providersFailed,
-        blocks: meta.blocks.map((block) => block.type),
-        tokens_in: tokensIn,
-        tokens_out: tokensOut,
-        cost_usd: cost,
-        resolve_ms: result.timings.resolveMs,
-        retrieve_ms: result.timings.retrieveMs,
-        compose_ms: composeMs,
-        total_ms: totalMs,
-        model_resolve: resolved.modelUsed ?? (process.env.RESOLVE_MODEL || undefined),
-        model_compose: composedModel,
-        degraded: Boolean(resolved.degraded),
-      }),
-    );
+    after(() => recordAiTurn(adminClient, tripId, trace));
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (error) {
