@@ -23,7 +23,7 @@ import { cannedMeta, clarifyMeta, declinedMeta, deflectionReply, mapCardsFor, re
 import { persistSuggestedFacts } from "@/lib/application/orchestrate/suggested-facts";
 import { buildComposeSystemPrompt } from "@/lib/application/orchestrate/system-prompt-builder";
 import { askedForDatesRecently } from "@/lib/application/orchestrate/cadence";
-import { broadenedPlan, isGrounded, planRetrieval, readDislikes, readStrList, retrieveFiltersFor } from "@/lib/application/orchestrate/retrieve-plan";
+import { broadenedPlan, isGrounded, isKnowledgeQuestion, planRetrieval, readDislikes, readStrList, retrieveFiltersFor } from "@/lib/application/orchestrate/retrieve-plan";
 import { compactEvidence } from "@/lib/application/orchestrate/evidence-compaction";
 import { weatherReadiness } from "@/lib/application/orchestrate/weather-readiness";
 import { composeSkipLineFor, leadInLineFor } from "@/lib/application/orchestrate/compose-skip";
@@ -248,7 +248,10 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   const retrieveMs = Math.round(performance.now() - tRetrieve);
   const hasGrounding = isGrounded(evidence);
 
-  if (needsGrounding && !hasGrounding) {
+  // A question about how things work can still be answered from general knowledge when the web lookup found nothing;
+  // one that needs places, prices or hours cannot.
+  const generalKnowledge = !hasGrounding && isKnowledgeQuestion(toolPlan);
+  if (needsGrounding && !hasGrounding && !generalKnowledge) {
     const { content: fallback, actions } = ungroundedFallback(resolved.locationFocus, resolved.suggestedFollowups);
     const meta = ungroundedMeta({ language, locationFocus: resolved.locationFocus, receipt: tripUpdateReceipt, actions, suggestedFollowups: resolved.suggestedFollowups, unavailableProviders: evidence.unavailableProviders });
     return {
@@ -298,7 +301,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   const composeSkipLine = composeSkipLineFor({ intent: resolved.intent, budgetBlock, optionsBlock, structuredAnswerBlock, weatherCard, itineraryBlock });
 
   const system = buildComposeSystemPrompt({
-    hasGrounding, locationFocus, viewContext, dislikes, accessibilityNeeds, surfacedEarlier, requestedImages,
+    hasGrounding, generalKnowledge, locationFocus, viewContext, dislikes, accessibilityNeeds, surfacedEarlier, requestedImages,
     tripCtx, intent: resolved.intent, evidence, compactSources, language,
     savedThisTurn: tripUpdateReceipt?.type === "trip_update" ? tripUpdateReceipt.changes.map((c) => `${c.label} ${c.from ?? "not set"} → ${c.to ?? "not set"}`).join("; ") : undefined,
     // Actual block presence, not just "was it requested" — see the param doc comment for why.

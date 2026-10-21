@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolvedTurnSchema } from "../../lib/application/turn-resolver";
-import { broadenedPlan, isGrounded, planRetrieval, readDislikes, readStrList, retrieveFiltersFor, type Evidence } from "../../lib/application/orchestrate/retrieve-plan";
+import { broadenedPlan, isGrounded, isKnowledgeQuestion, planRetrieval, readDislikes, readStrList, retrieveFiltersFor, type Evidence } from "../../lib/application/orchestrate/retrieve-plan";
 import { compactEvidence } from "../../lib/application/orchestrate/evidence-compaction";
 import { weatherReadiness } from "../../lib/application/orchestrate/weather-readiness";
 import { composeSkipLineFor, leadInLineFor } from "../../lib/application/orchestrate/compose-skip";
@@ -226,5 +226,21 @@ describe("compactEvidence", () => {
     expect(r.compactFlights[0].offers[0]).toMatchObject({ price: "500 CAD", hours: 7.5, airports: "YYZ → LIS" });
     expect(r.compactStays[0]).toMatchObject({ source: expect.stringContaining("Google Hotels, for 1 guest;"), rooms: null });
     expect(r.compactStays[0].hotels[0]).toMatchObject({ nightly: "100 EUR", freeCancellation: true });
+  });
+});
+
+describe("isKnowledgeQuestion", () => {
+  it("is a plan that only reads the web", () => {
+    expect(isKnowledgeQuestion([{ tool: "research_web", query: "how the metro works" }] as never)).toBe(true);
+    expect(isKnowledgeQuestion([{ tool: "research_web", query: "a" }, { tool: "research_web", query: "b" }] as never)).toBe(true);
+  });
+
+  it("is not once any lookup needs a provider's facts", () => {
+    expect(isKnowledgeQuestion([{ tool: "research_web", query: "a" }, { tool: "search_places", query: "x", location: "Lisbon" }] as never)).toBe(false);
+    expect(isKnowledgeQuestion([{ tool: "weather", location: "Lisbon" }] as never)).toBe(false);
+  });
+
+  it("is not for no lookups at all", () => {
+    expect(isKnowledgeQuestion([])).toBe(false);
   });
 });
