@@ -237,6 +237,12 @@ describe("PlaceDetailView: hours and contact", () => {
     expect(screen.getByRole("link", { name: "Google Maps" }).getAttribute("href")).toBe("https://maps.google.com/?cid=1");
   });
 
+  it("offers the whole week as soon as there is more than one day", () => {
+    s.details = base({ regularOpeningHours: { openNow: true, weekdayDescriptions: ["Monday: 9:00 AM – 6:00 PM", "Tuesday: Closed"] } });
+    page();
+    expect(screen.getByText("All days")).toBeTruthy();
+  });
+
   it("shows a single day of hours without an 'All days' control", () => {
     s.details = base({ regularOpeningHours: { weekdayDescriptions: ["Monday: 9:00 AM – 5:00 PM"] } });
     page();
@@ -391,6 +397,22 @@ describe("PlaceDetailView: on the phone", () => {
     s.details = base({ regularOpeningHours: { openNow: true, weekdayDescriptions: ["Monday: Open 24 hours", "Tuesday: x", "Wednesday: Open 24 hours"] } });
     page();
     expect(screen.getByText("Open now")).toBeTruthy();
+  });
+
+  it("mutes the open chip when it is closed", () => {
+    s.details = base({ regularOpeningHours: { openNow: false, weekdayDescriptions: ["Monday: x", "Tuesday: x", "Wednesday: Closed"] } });
+    page();
+    expect(screen.getByText("Closed now").className).toContain("text-ink-soft");
+    cleanup();
+    s.details = base();
+    page();
+    expect(screen.getByText("Open until 9:45 PM").className).not.toContain("text-ink-soft");
+  });
+
+  it("leaves out the city and price from the line when it has neither", () => {
+    s.details = base({ formattedAddress: undefined, priceLevel: undefined });
+    page();
+    expect(screen.getByText("Museum", { selector: "span" })).toBeTruthy();
   });
 
   it("puts add and directions under the name, without a second save control", () => {
