@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -273,6 +273,32 @@ describe("StayDetailView: facilities", () => {
   });
 });
 
+describe("StayDetailView: facilities, edges", () => {
+  it("leaves the headline facilities out of the group counts, and closes a group on a second press", async () => {
+    s.hotel = hotel({ facilities: ["Free WiFi", "Lift"] });
+    const user = u();
+    page();
+    const section = screen.getByRole("heading", { name: /What.s included/ }).closest("section")!;
+    const comfort = within(section).getByRole("button", { name: /Comfort/ });
+    expect(comfort.textContent).toContain("1");
+    await user.click(comfort);
+    expect(within(section).getAllByText("Lift").length).toBe(1);
+    expect(within(section).getAllByText("Free WiFi").length).toBe(1); // the badge above, not repeated in the group
+    await user.click(comfort);
+    expect(within(section).queryByText("Lift")).toBeNull();
+  });
+
+  it("offers no group whose facilities are all headline ones, and one headline fact is enough for the badges", () => {
+    s.hotel = hotel({ facilities: ["Free WiFi"] });
+    page();
+    const section = screen.getByRole("heading", { name: /What.s included/ }).closest("section")!;
+    expect(within(section).queryAllByRole("button")).toHaveLength(0);
+    expect(within(section).getByText("Free WiFi")).toBeTruthy();
+    expect(screen.queryByText("Amenities will appear here when the hotel provides them.")).toBeNull();
+  });
+});
+
+
 describe("StayDetailView: photos", () => {
   it("shows a strip of the photos after the cover, and opens one", async () => {
     const user = u();
@@ -295,6 +321,23 @@ describe("StayDetailView: photos", () => {
     page();
     expect(hero.coverImages).toHaveLength(3);
     await user.click(screen.getByRole("button", { name: "photo a failed" }));
+    expect(hero.coverImages).toHaveLength(2);
+  });
+});
+
+describe("StayDetailView: photos, edges", () => {
+  it("has a strip for two photos (the cover and one more)", () => {
+    s.hotel = hotel({ images: ["a", "b"] });
+    page();
+    expect(screen.getAllByRole("button", { name: /Expand photo/ })).toHaveLength(1);
+  });
+
+  it("drops a strip photo that fails to load, from the strip and the cover alike", () => {
+    page();
+    const imgs = document.querySelectorAll("section img");
+    expect(imgs).toHaveLength(2);
+    fireEvent.error(imgs[0]);
+    expect(screen.getAllByRole("button", { name: /Expand photo/ })).toHaveLength(1);
     expect(hero.coverImages).toHaveLength(2);
   });
 });
@@ -361,6 +404,60 @@ describe("StayDetailView: what guests say", () => {
     s.google = true;
     page();
     expect(screen.getAllByText(/Ann/).length).toBeGreaterThan(1);
+  });
+});
+
+describe("StayDetailView: what guests say, edges", () => {
+  it("offers the rest as soon as there are more than three", () => {
+    s.reviews = Array.from({ length: 4 }, (_, i) => review({ headline: `Review ${i}` }));
+    page();
+    expect(screen.getByRole("button", { name: "Show all 4 reviews" })).toBeTruthy();
+    cleanup();
+    s.reviews = Array.from({ length: 3 }, (_, i) => review({ headline: `Review ${i}` }));
+    page();
+    expect(screen.queryByRole("button", { name: /Show all/ })).toBeNull();
+  });
+
+  it("names a Google reviewer even when nothing else is known about them", () => {
+    s.reviews = [review({ travellerType: null, country: null })];
+    page();
+    expect(screen.queryByText("Ann")).toBeNull();
+    expect(document.querySelector("figcaption")).toBeNull();
+    cleanup();
+    s.google = true;
+    page();
+    expect(screen.getByText("Ann")).toBeTruthy();
+  });
+
+  it("swipes through at most eight cards on a phone", () => {
+    phoneV2 = true;
+    s.reviews = Array.from({ length: 10 }, (_, i) => review({ headline: `Review ${i}` }));
+    page();
+    const row = document.querySelector(".snap-x.lg\\:hidden") as HTMLElement;
+    expect(row.querySelectorAll("figure")).toHaveLength(8);
+  });
+
+  it("gives a phone card without a headline more room for its text", () => {
+    phoneV2 = true;
+    s.reviews = [review({ headline: null, positives: "Very quiet at night" })];
+    page();
+    const row = document.querySelector(".snap-x.lg\\:hidden") as HTMLElement;
+    expect(within(row).getByText("Very quiet at night").className).toContain("line-clamp-3");
+    cleanup();
+    s.reviews = [review({ positives: "Very quiet at night" })];
+    page();
+    const row2 = document.querySelector(".snap-x.lg\\:hidden") as HTMLElement;
+    expect(within(row2).getByText("Very quiet at night").className).toContain("line-clamp-2");
+  });
+
+  it("only draws the rule beside the verdict when there is a score", () => {
+    s.sentiment = "Guests love it.";
+    page();
+    expect(screen.getByText("Guests love it.").className).not.toContain("sm:border-l");
+    cleanup();
+    s.reviews = [review()];
+    page();
+    expect(screen.getByText("Guests love it.").className).toContain("sm:border-l");
   });
 });
 
