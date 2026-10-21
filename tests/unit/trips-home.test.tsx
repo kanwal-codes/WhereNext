@@ -315,6 +315,19 @@ describe("TripsHome: starting a trip", () => {
     await act(async () => { release(); });
   });
 
+  it("never makes two trips from a double submit", async () => {
+    const user = u();
+    respond = () => new Promise<Response>(() => {});
+    home([]);
+    await user.type(input(), "Oslo");
+    const form = input().closest("form")!;
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    await waitFor(() => expect(fetchCalls).toHaveLength(1));
+    fireEvent.submit(form);
+    expect(fetchCalls).toHaveLength(1);
+  });
+
   it("says so when it could not start, and lets the next try reuse the same attempt", async () => {
     const user = u();
     respond = () => new Response("{}", { status: 500 });
