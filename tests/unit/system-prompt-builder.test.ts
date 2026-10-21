@@ -125,3 +125,29 @@ describe("buildComposeSystemPrompt", () => {
     expect(notShown).not.toContain("A card list of");
   });
 });
+
+describe("buildComposeSystemPrompt: when nothing was found", () => {
+  it("with evidence, holds the reply to it", () => {
+    expect(buildComposeSystemPrompt({ ...baseParams, hasGrounding: true })).toContain("Use only the evidence below for facts");
+  });
+
+  it("with none, answers from the trip only and invents nothing", () => {
+    const prompt = buildComposeSystemPrompt({ ...baseParams, hasGrounding: false });
+    expect(prompt).toContain("You have no fresh provider evidence for this");
+    expect(prompt).not.toContain("general knowledge");
+  });
+
+  it("for a how-things-work question with none, allows general knowledge but not specifics", () => {
+    const prompt = buildComposeSystemPrompt({ ...baseParams, hasGrounding: false, generalKnowledge: true });
+    expect(prompt).toContain("well-established general knowledge");
+    expect(prompt).toContain("was not checked just now");
+    expect(prompt).toMatch(/Do not state specific prices, fares, hours, timetables/);
+    expect(prompt).not.toContain("You have no fresh provider evidence");
+  });
+
+  it("ignores that allowance when there is evidence", () => {
+    const prompt = buildComposeSystemPrompt({ ...baseParams, hasGrounding: true, generalKnowledge: true });
+    expect(prompt).toContain("Use only the evidence below for facts");
+    expect(prompt).not.toContain("well-established general knowledge");
+  });
+});

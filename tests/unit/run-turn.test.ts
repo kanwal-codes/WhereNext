@@ -145,3 +145,42 @@ describe("runAssistantTurn — meal-time itinerary anchor", () => {
     expect(toolPlan[0].location).not.toContain("Mount Royal Park");
   });
 });
+
+describe("runAssistantTurn — nothing came back from RETRIEVE", () => {
+  const empty = { places: [], placeGroups: [], sources: [], weather: null, weatherDays: [], routes: [], events: [], flights: [], stays: [], unavailableProviders: ["tavily"], retrievedAt: "2026-01-01T00:00:00Z" };
+  const resolve = (toolPlan: unknown[]) => resolveTurnMock.mockResolvedValue({
+    language: "en", locationFocus: "Lisbon", intent: "essentials", outOfScope: false, capabilities: [], toolPlan,
+    clarify: null, suggestedFollowups: [], proposedProfileUpdate: null, proposedTripUpdate: null, suggestedFacts: [],
+  });
+  beforeEach(() => retrieveEvidenceMock.mockResolvedValue(empty));
+
+  it("still answers a how-things-work question, from general knowledge, and says what could not be checked", async () => {
+    resolve([{ tool: "research_web", query: "Lisbon metro how it works" }]);
+    const result = await runAssistantTurn(deps, { tripCtx, prompt: "how does the metro work?", history: [], tripSummary: "" });
+    if (result.kind !== "ready") throw new Error(`expected kind "ready", got ${result.kind}`);
+    expect(result.composeSkipLine).toBeNull();
+    expect(result.system).toContain("well-established general knowledge");
+    expect(result.meta.unavailableProviders).toEqual(["tavily"]);
+  });
+
+  it("still gives up on a question that needs places, which a model cannot know", async () => {
+    resolve([{ tool: "search_places", query: "restaurants", location: "Lisbon" }]);
+    const result = await runAssistantTurn(deps, { tripCtx, prompt: "where should we eat?", history: [], tripSummary: "" });
+    expect(result.kind).toBe("ungrounded");
+  });
+
+  it("gives up when the plan mixes a web read with a places search", async () => {
+    resolve([{ tool: "research_web", query: "x" }, { tool: "search_places", query: "restaurants", location: "Lisbon" }]);
+    const result = await runAssistantTurn(deps, { tripCtx, prompt: "where should we eat?", history: [], tripSummary: "" });
+    expect(result.kind).toBe("ungrounded");
+  });
+
+  it("does not use the allowance when the web read did find something", async () => {
+    resolve([{ tool: "research_web", query: "Lisbon metro" }]);
+    retrieveEvidenceMock.mockResolvedValue({ ...empty, unavailableProviders: [], sources: [{ title: "T", url: "https://a.example", content: "The metro has four lines." }] });
+    const result = await runAssistantTurn(deps, { tripCtx, prompt: "how does the metro work?", history: [], tripSummary: "" });
+    if (result.kind !== "ready") throw new Error(`expected kind "ready", got ${result.kind}`);
+    expect(result.system).not.toContain("well-established general knowledge");
+    expect(result.system).toContain("Use only the evidence below");
+  });
+});

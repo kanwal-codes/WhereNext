@@ -81,6 +81,9 @@ export function retrieveFiltersFor(tripCtx: TripContext, dislikes: string[]) {
 export const isGrounded = (result: Evidence) =>
   result.places.length > 0 || result.sources.length > 0 || result.routes.length > 0 || result.events.length > 0 || result.flights.length > 0 || result.stays.length > 0 || Boolean(result.weather);
 
+/** A plan that only reads the web: how a metro works, tipping, what an area is known for. With nothing found, the reply can still lean on well-established general knowledge, unlike places, prices or hours, which must come from a provider. */
+export const isKnowledgeQuestion = (toolPlan: ResolvedTurn["toolPlan"]) => toolPlan.length > 0 && toolPlan.every((call) => call.tool === "research_web");
+
 /** The same plan with generic terms and the trip destination, for when an over-specific plan found nothing. */
 export function broadenedPlan(toolPlan: ResolvedTurn["toolPlan"], intent: ResolvedTurn["intent"], anchor: string | null | undefined) {
   const generic: Record<string, string> = { food: "restaurants", nightlife: "bars", activities: "things to do", history_culture: "landmarks and museums" };

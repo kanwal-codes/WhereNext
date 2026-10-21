@@ -12,6 +12,8 @@ import type { ItineraryAnchor } from "@/lib/application/itinerary-anchor";
  */
 export function buildComposeSystemPrompt(params: {
   hasGrounding: boolean;
+  /** Nothing came back, but the question is about how things work rather than about specific places, prices or hours. */
+  generalKnowledge?: boolean;
   locationFocus: string;
   viewContext?: string;
   dislikes: string[];
@@ -57,14 +59,16 @@ export function buildComposeSystemPrompt(params: {
   proposedChange?: string;
 }): string {
   const {
-    hasGrounding, locationFocus, viewContext, dislikes, accessibilityNeeds, surfacedEarlier, requestedImages,
+    hasGrounding, generalKnowledge, locationFocus, viewContext, dislikes, accessibilityNeeds, surfacedEarlier, requestedImages,
     tripCtx, intent, evidence, compactSources, showsItineraryBlock, mapCards = [], showsBudgetBlock, exploreKind, eventsGuidance, compactFlights, compactStays,
     tripSummary, context, compactPlaces, compactEvents, photoUrl, mealAnchor, language, savedThisTurn, datesAlreadyAsked, proposedChange,
   } = params;
 
   const groundingInstruction = hasGrounding
     ? "Use only the evidence below for facts. If a detail is not there, say it is unavailable — do not infer it. If the latest user message names a place different from the trip's stored destination, answer for the newly named place."
-    : "You have no fresh provider evidence for this. Answer from the trip context only, or say plainly what you cannot confirm. Do not invent places, prices, or hours.";
+    : generalKnowledge
+      ? "You could not look this up just now. Answer from well-established general knowledge about how things work (how a transit system or a custom works, what an area is known for) and say in one short line that it is from general knowledge and was not checked just now. Do not state specific prices, fares, hours, timetables, phone numbers or named places as fact: tell them to confirm those. Do not invent anything."
+      : "You have no fresh provider evidence for this. Answer from the trip context only, or say plainly what you cannot confirm. Do not invent places, prices, or hours.";
 
   return `${assistantSystemPrompt}
 
