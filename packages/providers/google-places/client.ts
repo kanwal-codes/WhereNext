@@ -4,6 +4,23 @@ import { guardedFetch } from "@/lib/server/provider-guard";
 import { cached } from "../../../lib/server/ttl-cache";
 import { pickCoverPhoto, type CoverCandidate } from "../../../lib/cover-photo";
 
+/**
+ * Where the Places API lives. A test run can point it at a local mock (`GOOGLE_PLACES_TEST_BASE_URL`), and only at a loopback
+ * address: any other value is ignored, so a stray setting can never send the API key somewhere else.
+ */
+function placesBase(): string {
+  const override = process.env.GOOGLE_PLACES_TEST_BASE_URL;
+  if (override) {
+    try {
+      const url = new URL(override);
+      if (url.protocol === "http:" && (url.hostname === "127.0.0.1" || url.hostname === "localhost")) return url.origin;
+    } catch {
+      /* not a URL: use Google */
+    }
+  }
+  return "https://places.googleapis.com";
+}
+
 type SearchPlace = { id: string; displayName?: { text?: string }; formattedAddress?: string; location?: { latitude: number; longitude: number }; primaryType?: string; googleMapsUri?: string; rating?: number; userRatingCount?: number; photos?: Array<{ name: string }> };
 type NearbyPlace = SearchPlace & { nationalPhoneNumber?: string; websiteUri?: string };
 
@@ -91,7 +108,7 @@ export class GooglePlacesProvider {
       : undefined;
     do {
       // Pagination requires resending the original query verbatim alongside pageToken, or Google 400s.
-      const response = await guardedFetch("google-places", "https://places.googleapis.com/v1/places:searchText", { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": this.key(), "x-goog-fieldmask": "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.googleMapsUri,places.rating,places.userRatingCount,places.photos.name,nextPageToken" }, body: JSON.stringify({ textQuery: broadenQuery(query), pageSize: GOOGLE_PAGE_SIZE, ...(bias ? { locationBias: bias } : {}), ...(pageToken ? { pageToken } : {}) }), signal: withProviderTimeout(signal) });
+      const response = await guardedFetch("google-places", `${placesBase()}/v1/places:searchText`, { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": this.key(), "x-goog-fieldmask": "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.googleMapsUri,places.rating,places.userRatingCount,places.photos.name,nextPageToken" }, body: JSON.stringify({ textQuery: broadenQuery(query), pageSize: GOOGLE_PAGE_SIZE, ...(bias ? { locationBias: bias } : {}), ...(pageToken ? { pageToken } : {}) }), signal: withProviderTimeout(signal) });
       if (!response.ok) {
         // Google's own error body (e.g. "API_KEY_HTTP_REFERRER_BLOCKED", "RESOURCE_EXHAUSTED")
         // is the one thing that actually distinguishes a key/IP restriction from a quota hit
@@ -109,7 +126,7 @@ export class GooglePlacesProvider {
   }
   /** Businesses of a Google place type (e.g. "car_rental") near a point, nearest first. */
   async nearby(type: string, center: { lat: number; lng: number }, radiusMeters = 15_000, signal?: AbortSignal): Promise<NearbyBusiness[]> {
-    const response = await guardedFetch("google-places", "https://places.googleapis.com/v1/places:searchNearby", {
+    const response = await guardedFetch("google-places", `${placesBase()}/v1/places:searchNearby`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -168,7 +185,7 @@ export class GooglePlacesProvider {
   }
 
   private async autocomplete(request: Record<string, unknown>, signal?: AbortSignal): Promise<AutocompleteSuggestion[]> {
-    const response = await guardedFetch("google-places", "https://places.googleapis.com/v1/places:autocomplete", {
+    const response = await guardedFetch("google-places", `${placesBase()}/v1/places:autocomplete`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-goog-api-key": this.key() },
       body: JSON.stringify(request),
@@ -218,24 +235,38 @@ export class GooglePlacesProvider {
     const fieldMask = fields === "light"
       ? "id,displayName,formattedAddress,location,primaryType,googleMapsUri,websiteUri,nationalPhoneNumber,businessStatus,priceLevel,rating,userRatingCount,editorialSummary,regularOpeningHours,accessibilityOptions"
       : "id,displayName,formattedAddress,location,primaryType,types,googleMapsUri,websiteUri,nationalPhoneNumber,businessStatus,priceLevel,rating,userRatingCount,editorialSummary,regularOpeningHours,accessibilityOptions,reviews,photos,outdoorSeating,liveMusic,servesCocktails,goodForGroups,goodForChildren,dineIn,takeout,delivery,reservable,allowsDogs";
-    const response = await guardedFetch("google-places", `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, { headers: { "x-goog-api-key": this.key(), "x-goog-fieldmask": fieldMask }, signal: withProviderTimeout(signal) });
+    const response = await guardedFetch("google-places", `${placesBase()}/v1/places/${encodeURIComponent(placeId)}`, { headers: { "x-goog-api-key": this.key(), "x-goog-fieldmask": fieldMask }, signal: withProviderTimeout(signal) });
     if (!response.ok) throw new Error(`Google Place details failed: ${response.status}`);
     return response.json();
   }
   /** Just what the "Reserve a table" sheet needs about one restaurant: how to reach it and whether Google lists it as taking reservations. Its own small mask (not `details`), so it never changes what that call, or its recorded test fixtures, ask for. */
   async tableDetails(placeId: string, signal?: AbortSignal) {
     const load = async (abort?: AbortSignal) => {
-      const response = await guardedFetch("google-places", `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, { headers: { "x-goog-api-key": this.key(), "x-goog-fieldmask": "id,displayName,formattedAddress,googleMapsUri,websiteUri,nationalPhoneNumber,internationalPhoneNumber,reservable" }, signal: withProviderTimeout(abort) });
+      const response = await guardedFetch("google-places", `${placesBase()}/v1/places/${encodeURIComponent(placeId)}`, { headers: { "x-goog-api-key": this.key(), "x-goog-fieldmask": "id,displayName,formattedAddress,googleMapsUri,websiteUri,nationalPhoneNumber,internationalPhoneNumber,reservable" }, signal: withProviderTimeout(abort) });
       if (!response.ok) throw new Error(`Google Place table details failed: ${response.status}`);
       return response.json();
     };
     if (process.env.NODE_ENV === "test") return load(signal);
     return cached(`google-place-table:${placeId}`, 15 * 60_000, () => load());
   }
+  /**
+   * A place's photographs as Google lists them now (resource names and sizes). A photo name only stays valid for a while, so this
+   * is the fresh source when one has been retired: the place id is inside the old name. Photos only, and kept for a few minutes.
+   */
+  async photos(placeId: string, signal?: AbortSignal): Promise<Array<{ name: string; widthPx?: number; heightPx?: number }>> {
+    const load = async (abort?: AbortSignal) => {
+      const response = await guardedFetch("google-places", `${placesBase()}/v1/places/${encodeURIComponent(placeId)}`, { headers: { "x-goog-api-key": this.key(), "x-goog-fieldmask": "photos" }, signal: withProviderTimeout(abort) });
+      if (!response.ok) throw new Error(`Google place photos failed: ${response.status}`);
+      const body = (await response.json()) as { photos?: Array<{ name: string; widthPx?: number; heightPx?: number }> };
+      return body.photos ?? [];
+    };
+    if (process.env.NODE_ENV === "test") return load(signal);
+    return cached(`google-place-photos:${placeId}`, 15 * 60_000, () => load());
+  }
   /** The photograph that stands for a destination (see lib/cover-photo.ts). Null when nothing suitable exists. */
   async coverPhoto(destination: string, signal?: AbortSignal): Promise<string | null> {
     const search = async (textQuery: string) => {
-      const response = await guardedFetch("google-places", "https://places.googleapis.com/v1/places:searchText", { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": this.key(), "x-goog-fieldmask": "places.displayName,places.primaryType,places.userRatingCount,places.photos" }, body: JSON.stringify({ textQuery, pageSize: 20 }), signal: withProviderTimeout(signal) });
+      const response = await guardedFetch("google-places", `${placesBase()}/v1/places:searchText`, { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": this.key(), "x-goog-fieldmask": "places.displayName,places.primaryType,places.userRatingCount,places.photos" }, body: JSON.stringify({ textQuery, pageSize: 20 }), signal: withProviderTimeout(signal) });
       if (!response.ok) throw new Error(`Google cover photo search failed: ${response.status}`);
       const body = (await response.json()) as { places?: CoverCandidate[] };
       return pickCoverPhoto(body.places ?? []);
@@ -247,5 +278,5 @@ export class GooglePlacesProvider {
     if (process.env.NODE_ENV === "test") return load();
     return cached(`google-cover:v3:${destination.trim().toLowerCase()}`, 24 * 60 * 60_000, load);
   }
-  photoUrl(photoName: string, widthPx = 800) { return `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=${widthPx}&key=${encodeURIComponent(this.key())}`; }
+  photoUrl(photoName: string, widthPx = 800) { return `${placesBase()}/v1/${photoName}/media?maxWidthPx=${widthPx}&key=${encodeURIComponent(this.key())}`; }
 }

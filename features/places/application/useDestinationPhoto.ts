@@ -29,7 +29,7 @@ export function useDestinationPhoto(tripId: string, destination: string | undefi
   const stored = decodeCover(heroPhotoName);
   const known = stored.known;
   // A replacement found earlier this session wins over the saved name the page was rendered with, which may still be the dead one.
-  const savedUrl = () => (key ? healed.get(key) : undefined) ?? (stored.name ? (photoProxyUrl(tripId, stored.name) ?? null) : null);
+  const savedUrl = () => (key ? healed.get(key) : undefined) ?? (stored.name ? (photoProxyUrl(tripId, stored.name, undefined, false) ?? null) : null);
   const [photo, setPhoto] = useState<string | null | undefined>(() => {
     if (known) return savedUrl();
     return key && cache.has(key) ? cache.get(key) : undefined;
@@ -67,6 +67,8 @@ export function useDestinationPhoto(tripId: string, destination: string | undefi
     return () => {
       cancelled = true;
     };
+    // savedUrl only reads tripId, key and stored.name, all listed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tripId, destination, key, known, stored.name]);
 
   return photo;
@@ -91,7 +93,7 @@ function lookup(tripId: string, destination: string, key: string): Promise<strin
           body: JSON.stringify({ heroPhotoName: encodeCover(name) }),
         }).catch(() => {});
       }
-      return photoProxyUrl(tripId, name) ?? null;
+      return photoProxyUrl(tripId, name, undefined, false) ?? null;
     })
     .catch(() => null)
     .then((url) => {

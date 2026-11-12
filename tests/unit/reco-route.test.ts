@@ -16,7 +16,7 @@ vi.mock("@/lib/server/trip-auth", () => ({
     (e as { status?: number })?.status ? new Response(JSON.stringify({ error: "auth" }), { status: (e as { status: number }).status }) : null,
 }));
 // cached() just runs the loader (and propagates its throw, like the real SWR helper on a cold key).
-vi.mock("@/lib/server/ttl-cache", () => ({ cached: (_k: string, _ttl: number, load: () => unknown) => load() }));
+vi.mock("@/lib/server/ttl-cache", () => ({ AI_TEXT_TTL_MS: 1, cached: (_k: string, _ttl: number, load: () => unknown) => load() }));
 vi.mock("@/packages/ai/embed", async (orig) => ({
   ...(await orig<typeof import("@/packages/ai/embed")>()),
   embed: embedMock,

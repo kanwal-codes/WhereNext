@@ -37,4 +37,10 @@ export async function clearLocalUserData(): Promise<void> {
   } catch {
     /* sessionStorage unavailable */
   }
+  try {
+    // Half-typed messages are kept across tabs in localStorage, keyed by trip and person: they are this person's words, not the next one's.
+    for (const key of Object.keys(localStorage)) if (key.startsWith("wn-draft:")) localStorage.removeItem(key);
+  } catch {
+    /* localStorage unavailable */
+  }
 }

@@ -241,7 +241,7 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
           {roamBlocks && roamBlocks.length > 0 && (
             // Cards use the whole row, as wide as in the Roam tab, not what is left after the avatar gutter and the 85% cap.
             <div className="-ml-9 w-[calc(100%+2.25rem)] min-w-0 max-w-none">
-              <MessageBlocks blocks={roamBlocks} tripId={tripId} onFollowup={onFollowup} onOpenPlace={onOpenPlace} onOpenStay={onOpenStay} onOpenEvent={onOpenEvent} onOpenCollection={onOpenCollection} onOpenPanel={openPanel} replyText={message.content} />
+              <MessageBlocks blocks={roamBlocks} tripId={tripId} onFollowup={onFollowup} onOpenPlace={onOpenPlace} onOpenStay={onOpenStay} onOpenEvent={onOpenEvent} onOpenCollection={onOpenCollection} onOpenPanel={openPanel} replyText={message.content} asOf={message.created_at} />
             </div>
           )}
           {isRoam && (message.metadata as Partial<AssistantTurnMeta> | undefined)?.degraded && replyToId && (

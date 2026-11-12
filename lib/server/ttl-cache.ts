@@ -172,3 +172,11 @@ export function clearMemoryCache() {
   inflight.clear();
   stats.hits = stats.misses = stats.staleServes = stats.refreshes = 0;
 }
+
+/**
+ * How long text the app WRITES (a place's About blurb, a hotel's description and guest-sentiment read, a place's vibe embedding) is kept
+ * before it is written again. It was a day, so every place anyone opened paid for a web search and a model call every day for a blurb
+ * that barely changes. A week is the cautious step up: the evidence includes provider listing text, so keeping it much longer, or in the
+ * database for good, waits on a read of those providers' terms (see docs/qa notes on what is stored).
+ */
+export const AI_TEXT_TTL_MS = 7 * 24 * 60 * 60_000;

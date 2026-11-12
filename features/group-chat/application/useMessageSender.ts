@@ -25,6 +25,8 @@ export function useMessageSender({ tripId, meUserId, input, setInput, messages, 
   const [outbox, setOutbox] = useState<Outgoing[]>([]);
   // The unsent messages (and the half-typed one) survive a reload or a trip to another page: kept per trip, per tab.
   const outboxKey = `wn-outbox:${tripId}:${meUserId ?? "anon"}`;
+  // The half-typed message is the person's own words, so it outlives the tab (localStorage, per trip and person; cleared on sign-out).
+  // The unsent OUTBOX stays per tab (sessionStorage): two tabs sharing one would each try to send the same message again.
   const draftKey = `wn-draft:${tripId}:${meUserId ?? "anon"}`;
   const [restored, setRestored] = useState(false);
   const outboxRef = useRef<Outgoing[]>([]);
@@ -89,7 +91,7 @@ export function useMessageSender({ tripId, meUserId, input, setInput, messages, 
     let saved: Outgoing[] = [];
     try {
       saved = restoreOutbox(sessionStorage.getItem(outboxKey));
-      const draft = sessionStorage.getItem(draftKey);
+      const draft = localStorage.getItem(draftKey);
       if (draft) setInput((current) => current || draft);
     } catch { /* storage blocked: nothing to bring back */ }
     if (saved.length > 0) setOutbox((current) => [...saved.filter((r) => !current.some((c) => c.key === r.key)), ...current]);
@@ -107,8 +109,8 @@ export function useMessageSender({ tripId, meUserId, input, setInput, messages, 
   useEffect(() => {
     if (!restored) return;
     try {
-      if (input) sessionStorage.setItem(draftKey, input);
-      else sessionStorage.removeItem(draftKey);
+      if (input) localStorage.setItem(draftKey, input);
+      else localStorage.removeItem(draftKey);
     } catch { /* storage full or blocked */ }
   }, [input, restored, draftKey]);
 

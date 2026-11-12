@@ -39,7 +39,7 @@ const components: Components = {
   },
 };
 
-export const AssistantMessage = React.memo(function AssistantMessage({ content, blocks, handlers, streaming, live }: { content: string; blocks?: AssistantBlock[]; handlers?: BlockHandlers; streaming?: boolean; live?: boolean }) {
+export const AssistantMessage = React.memo(function AssistantMessage({ content, blocks, handlers, streaming, live, asOf }: { content: string; blocks?: AssistantBlock[]; handlers?: BlockHandlers; streaming?: boolean; live?: boolean; /** When this answer was written (ISO), so an old one can say its prices and times are old. */ asOf?: string }) {
   // A reply that is being written is revealed by <StreamedText>, which keeps going after the
   // stream itself ends until the last word has landed, and only then hands over to the final
   // render below. History that loads already complete never enters this path.
@@ -74,7 +74,7 @@ export const AssistantMessage = React.memo(function AssistantMessage({ content, 
       </div>
       {blocks && blocks.length > 0 && handlers ? (
         <div className={wasRevealed.current ? "chat-blocks-in" : undefined}>
-          <MessageBlocks blocks={blocks} {...handlers} replyText={content} live={live} />
+          <MessageBlocks blocks={blocks} {...handlers} replyText={content} live={live} asOf={asOf} />
         </div>
       ) : null}
     </div>

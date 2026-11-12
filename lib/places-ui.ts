@@ -7,9 +7,13 @@ export function withPhotoWidth(url: string, width: number): string {
   return url.includes("/places/google/photo?") && !url.includes("&w=") ? `${url}&w=${width}` : url;
 }
 
-export function photoProxyUrl(tripId: string, photoName: string | undefined, width?: number): string | undefined {
+/**
+ * The same-origin address of a Google place photo. A retired photo name is replaced on the server by one of the place's current photos
+ * unless `heal` is false (the trip cover, which re-picks its photograph itself and saves the new name).
+ */
+export function photoProxyUrl(tripId: string, photoName: string | undefined, width?: number, heal = true): string | undefined {
   if (!photoName || !/^places\/[^/]+\/photos\/[^/]+$/.test(photoName)) return undefined;
-  return `/api/trips/${tripId}/places/google/photo?name=${encodeURIComponent(photoName)}${width ? `&w=${width}` : ""}`;
+  return `/api/trips/${tripId}/places/google/photo?name=${encodeURIComponent(photoName)}${heal ? "" : "&heal=0"}${width ? `&w=${width}` : ""}`;
 }
 
 /** Same idea for the account page, where there is no trip: any signed-in user. */

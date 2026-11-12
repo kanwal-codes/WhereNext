@@ -4,7 +4,7 @@ import { z } from "zod";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { LIMITS } from "@/lib/server/limits";
 import { withRoute, fail } from "@/lib/server/with-route";
-import { cached } from "@/lib/server/ttl-cache";
+import { AI_TEXT_TTL_MS, cached } from "@/lib/server/ttl-cache";
 import { classifyPlaceVibe } from "@/packages/reco/vibes";
 import { classifyByEmbedding } from "@/packages/reco/classify-embed";
 import { cosine, embed } from "@/packages/ai/embed";
@@ -96,7 +96,7 @@ export const POST = withRoute(async (request: Request, { params }: { params: Pro
       const text = [input.name, input.primaryType, (input.types ?? []).join(" "), input.summary].filter(Boolean).join(". ");
       // Only a real embedding result is cached — a transient outage throws, `cached()` drops
       // the key, and we return the sync default without poisoning the 24h slot.
-      const result = await cached(`reco:vibe:${input.id}:${digest(text)}`, 24 * 60 * 60_000, async () => {
+      const result = await cached(`reco:vibe:${input.id}:${digest(text)}`, AI_TEXT_TTL_MS, async () => {
         const embedded = await classifyByEmbedding(text);
         if (!embedded) throw new Error("embeddings unavailable");
         return embedded;

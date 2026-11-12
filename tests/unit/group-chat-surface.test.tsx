@@ -71,6 +71,7 @@ const box = () => screen.getByLabelText("Message the group") as HTMLTextAreaElem
 
 beforeEach(() => {
   sessionStorage.clear();
+  localStorage.clear(); // a half-typed draft now lives here and would leak into the next test
   toast.mockClear();
   replaceSpy.mockClear(); markRead.mockClear(); searchParams = new URLSearchParams(); 
   history = [msg("1", { userId: FRIEND, content: "Who is up for tapas?", created_at: at(0) }), msg("2", { userId: ME, content: "Me!", created_at: at(1) })];

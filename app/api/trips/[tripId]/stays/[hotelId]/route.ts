@@ -12,7 +12,7 @@ import { writeStayAbout } from "@/lib/application/stay-about";
 import { resolveStayDates } from "@/lib/application/stay-dates";
 import { resolveCurrency } from "@/lib/currency";
 import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
-import { cached } from "@/lib/server/ttl-cache";
+import { AI_TEXT_TTL_MS, cached } from "@/lib/server/ttl-cache";
 
 /** One clean paragraph on what guests actually say, from web results. Null if nothing usable. */
 async function guestSentiment(name: string, city: string | null, signal?: AbortSignal): Promise<string | null> {
@@ -76,7 +76,7 @@ export const GET = withRoute(async (request: Request, { params }: { params: Prom
         googleHotelDetails({ hotelId, location, checkin, checkout, adults, currency }),
       );
       // Written from the facts, not Google's marketing text; kept a day, since it does not depend on the dates.
-      const about = await cached(`stay:about:v2:${hotelId}`, 24 * 60 * 60_000, () => writeStayAbout({ hotel: { ...found.hotel, kind: found.kind, nearby: found.nearby }, signal: AbortSignal.timeout(8000) }));
+      const about = await cached(`stay:about:v2:${hotelId}`, AI_TEXT_TTL_MS, () => writeStayAbout({ hotel: { ...found.hotel, kind: found.kind, nearby: found.nearby }, signal: AbortSignal.timeout(8000) }));
       return NextResponse.json({
         provider: "serpapi",
         hotel: { ...found.hotel, description: about },
@@ -116,8 +116,8 @@ export const GET = withRoute(async (request: Request, { params }: { params: Prom
     let hotel = details.status === "fulfilled" ? details.value : null;
     const [sentiment, about] = hotel
       ? await Promise.all([
-          cached(`stay:sentiment:${hotelId}`, 24 * 60 * 60_000, () => guestSentiment(hotel!.name, hotel!.city, AbortSignal.timeout(15_000))),
-          cached(`stay:about:v2:${hotelId}`, 24 * 60 * 60_000, () => writeStayAbout({ hotel: hotel!, signal: AbortSignal.timeout(8000) })),
+          cached(`stay:sentiment:${hotelId}`, AI_TEXT_TTL_MS, () => guestSentiment(hotel!.name, hotel!.city, AbortSignal.timeout(15_000))),
+          cached(`stay:about:v2:${hotelId}`, AI_TEXT_TTL_MS, () => writeStayAbout({ hotel: hotel!, signal: AbortSignal.timeout(8000) })),
         ])
       : [null, null];
     if (hotel && about) hotel = { ...hotel, description: about };

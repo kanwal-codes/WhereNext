@@ -72,7 +72,7 @@ export function ReplyTurn({ message, isNew, streaming, live, isLatest, dir, hand
     className="turn space-y-3"
   >
     <span className="sr-only">Roam: </span>
-    <AssistantMessage content={message.content} blocks={blocks} handlers={handlers} streaming={streaming} live={live} />
+    <AssistantMessage content={message.content} blocks={blocks} handlers={handlers} streaming={streaming} live={live} asOf={message.created_at} />
     {notes.length > 0 && (
       <div role="note" className="flex items-start gap-2 text-xs leading-snug text-muted-foreground">
         <Info className="mt-px size-3.5 shrink-0" aria-hidden />

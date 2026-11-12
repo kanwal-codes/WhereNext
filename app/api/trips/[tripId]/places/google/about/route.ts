@@ -3,7 +3,7 @@ import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { LIMITS } from "@/lib/server/limits";
 import { withRoute, fail } from "@/lib/server/with-route";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
-import { cached } from "@/lib/server/ttl-cache";
+import { AI_TEXT_TTL_MS, cached } from "@/lib/server/ttl-cache";
 import { research } from "@/packages/providers/tavily/client";
 import { cityFrom, type GooglePlaceDetails } from "@/lib/places-ui";
 import { cleanExcerpt, isScrapeJunk } from "@/lib/server/place-excerpt";
@@ -27,7 +27,7 @@ async function webSnippets(placeId: string, name: string, city: string, signal?:
 
 /**
  * The "About" blurb for a place, written from the listing and the web rather than copied from it (see place-about.ts).
- * Its own route so the page shows the place at once and the blurb arrives after; kept a day, since what a place is
+ * Its own route so the page shows the place at once and the blurb arrives after; kept a week (AI_TEXT_TTL_MS), since what a place is
  * known for barely changes.
  */
 export const GET = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
@@ -36,7 +36,7 @@ export const GET = withRoute(async (request: Request, { params }: { params: Prom
     await requireTripMember(tripId, { limit: LIMITS.llm });
     const placeId = new URL(request.url).searchParams.get("placeId");
     if (!placeId) return NextResponse.json({ error: "Place ID required" }, { status: 400 });
-    const about = await cached<{ about: PlaceAbout | null }>(`places:about:v2:${placeId}`, 24 * 60 * 60_000, async () => {
+    const about = await cached<{ about: PlaceAbout | null }>(`places:about:v2:${placeId}`, AI_TEXT_TTL_MS, async () => {
       const place = (await new GooglePlacesProvider().details(placeId)) as GooglePlaceDetails | null;
       if (!place?.displayName?.text) return { about: null };
       const snippets = await webSnippets(placeId, place.displayName.text, cityFrom(place.formattedAddress));

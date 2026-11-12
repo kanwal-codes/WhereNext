@@ -28,10 +28,23 @@ import { BudgetBlockView } from "./BudgetBlock";
 export type { BlockHandlers } from "./blockShared";
 
 /** Blocks that open with a Roam line icon in their header (the first of them in a live reply plays the handoff). */
+/** Blocks whose content goes out of date on its own: an offer expires, a room sells out, a forecast moves. */
+const PERISHABLE = new Set(["flights", "stays", "events", "weather"]);
+/** Older than this, a card with perishable content says when it was written. */
+const PERISHABLE_AFTER_MS = 6 * 60 * 60_000;
+
+/** "Nov 11" when this answer holds perishable cards and was written more than a few hours ago, else null. */
+export function perishableSince(blocks: AssistantBlock[], asOf: string | undefined, now = Date.now()): string | null {
+  const at = asOf ? Date.parse(asOf) : NaN;
+  if (Number.isNaN(at) || now - at < PERISHABLE_AFTER_MS || !blocks.some((b) => PERISHABLE.has(b.type))) return null;
+  return new Date(at).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 const ICON_WIDGETS = new Set(["weather", "comparison", "structured_answer", "options", "budget", "itinerary", "trip_summary", "trip_update", "route_group", "checklist", "empty_result"]);
 
-export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenStay, onOpenEvent, onOpenCollection, onOpenPanel, preview = true, replyText, live = false }: { blocks: AssistantBlock[]; preview?: boolean; replyText?: string; /** A reply that just arrived: its blocks rise in one after another. Restored history stays still. */ live?: boolean } & BlockHandlers) {
+export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenStay, onOpenEvent, onOpenCollection, onOpenPanel, preview = true, replyText, live = false, asOf }: { blocks: AssistantBlock[]; preview?: boolean; replyText?: string; /** A reply that just arrived: its blocks rise in one after another. Restored history stays still. */ live?: boolean; /** When the answer was written (ISO): an old one with flights, stays, events or a forecast in it says so. */ asOf?: string } & BlockHandlers) {
   const grouped = groupRouteSummaries(blocks);
+  const staleSince = perishableSince(blocks, asOf);
   const firstWidget = grouped.findIndex((b) => ICON_WIDGETS.has(b.type));
   return (
     <LiveReplyContext.Provider value={live}>
@@ -204,6 +217,12 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
         })();
         return node ? <Enter key={`${block.type}-${occurrence}`} live={live} index={index}><HandoffContext.Provider value={index === firstWidget}>{node}</HandoffContext.Provider></Enter> : null;
       })}
+      {staleSince && (
+        // suppressHydrationWarning: whether an answer is "old" depends on the clock at render time.
+        <p suppressHydrationWarning role="note" className="-mt-3 text-xs leading-snug text-muted-foreground">
+          Prices, availability and forecasts here are from {staleSince}. They may have changed since.
+        </p>
+      )}
     </div>
     </LiveReplyContext.Provider>
   );
