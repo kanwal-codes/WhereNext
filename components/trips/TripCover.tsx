@@ -39,13 +39,14 @@ function BoardingPass({ trip, size }: { trip: TripSummary; size: "card" | "featu
  * Empty while the destination lookup is still running (so a saved-place photo is never shown and
  * then swapped for the destination one a moment later) and for a null trip.
  */
-function useTripPhotoCandidates(trip: TripSummary | null, width?: number): string[] {
-  const destination = useDestinationPhoto(trip?.id ?? "", trip?.destination ?? undefined, trip?.hero_photo_name);
+function useTripPhotoCandidates(trip: TripSummary | null, width?: number, destinationFailed = false): { candidates: string[]; destinationUrl: string | null } {
+  // `destinationFailed` makes the hook look the destination up again: the saved photo name may have expired.
+  const destination = useDestinationPhoto(trip?.id ?? "", trip?.destination ?? undefined, trip?.hero_photo_name, destinationFailed);
   const saved = trip?.saved_photo_name ? (photoProxyUrl(trip.id, trip.saved_photo_name, width) ?? null) : null;
-  if (!trip || destination === undefined) return [];
+  if (!trip || destination === undefined) return { candidates: [], destinationUrl: null };
   // The destination URL comes back from the hook at the default width; ask the proxy for a wider one if needed.
   const wide = destination && width ? `${destination}&w=${width}` : destination;
-  return [wide, saved].filter((url): url is string => Boolean(url));
+  return { candidates: [wide, saved].filter((url): url is string => Boolean(url)), destinationUrl: wide || null };
 }
 
 /**
@@ -85,10 +86,16 @@ export function TripCover({
   children?: (state: { photo: boolean }) => ReactNode;
 }) {
   const reduce = useReducedMotion();
-  const candidates = useTripPhotoCandidates(trip, width);
+  const [destinationFailed, setDestinationFailed] = useState(false);
+  const { candidates, destinationUrl } = useTripPhotoCandidates(trip, width, destinationFailed);
   const [loaded, setLoaded] = useState<string | null>(null);
   const [failed, setFailed] = useState<string[]>([]);
   const src = candidates.find((url) => !failed.includes(url)) ?? null;
+  const photoFailed = (url: string) => {
+    setFailed((current) => (current.includes(url) ? current : [...current, url]));
+    // The trip's own destination photo, not a saved place's: its saved name has probably expired, so find a fresh one.
+    if (url === destinationUrl) setDestinationFailed(true);
+  };
   // A hero asks for a wide photograph, but the card the visitor just clicked already holds the default-width one in
   // the browser's cache: show that at once and let the sharp one fade in over it, so opening a trip never starts on a
   // bare wash.
@@ -139,12 +146,15 @@ export function TripCover({
             loading="lazy"
             decoding="async"
             // A photo that finished loading before the page hydrated (cached, or already in view) never
-            // fires onLoad, so check for it here too.
+            // fires onLoad, so check for it here too. The same goes for one that FAILED before hydration (an expired
+            // photo name answers 404 while the server-rendered <img> is already loading): `complete` with no width is a broken image.
             ref={(el) => {
-              if (el?.complete && el.naturalWidth > 0) setLoaded(src);
+              if (!el?.complete) return;
+              if (el.naturalWidth > 0) setLoaded(src);
+              else photoFailed(src);
             }}
             onLoad={() => setLoaded(src)}
-            onError={() => setFailed((current) => [...current, src])}
+            onError={() => photoFailed(src)}
             className={cn("photo-grade h-full w-full object-cover", hasLow && "relative transition-opacity duration-700", hasLow && (loaded === src ? "opacity-100" : "opacity-0"), imageClassName ?? "transition-transform duration-[900ms] ease-out group-hover:scale-[1.04]")}
           />
           {/* Keeps the badge and menu legible on any photo, bright or dark. */}

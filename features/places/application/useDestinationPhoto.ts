@@ -7,6 +7,8 @@ import { decodeCover, encodeCover } from "@/lib/cover-photo";
 // One lookup per destination per session — belt-and-suspenders alongside the DB-persisted
 // answer below for a trip whose hero_photo_name hasn't loaded yet on this render.
 const cache = new Map<string, string | null>();
+/** Replacements for photos that stopped loading, by trip and destination: used for the rest of the session in place of the saved name. */
+const healed = new Map<string, string>();
 
 /**
  * A real photo of the trip's destination via Google Places (through the authenticated proxy).
@@ -16,19 +18,38 @@ const cache = new Map<string, string | null>();
  * found, so every later load — this session or a new device — reads it straight off the trip
  * instead of re-running the Places search. `heroPhotoName` is read through `decodeCover` (lib/cover-photo.ts): a value stored by the old picking rule counts as
  * "never looked" and is chosen again once.
+ *
+ * A saved name does not last: Google retires photo resource names after a while, and the proxy then answers 404, so a trip's cover
+ * silently went back to the type-only card weeks after it was first picked. `stale` is the caller saying "the photo I was given
+ * failed to load": the destination is looked up again (once), the new photograph replaces the dead one on screen, and its name is
+ * saved on the trip so the next visit starts from a working one.
  */
-export function useDestinationPhoto(tripId: string, destination: string | undefined, heroPhotoName?: string | null): string | null | undefined {
+export function useDestinationPhoto(tripId: string, destination: string | undefined, heroPhotoName?: string | null, stale = false): string | null | undefined {
   const key = destination ? `${tripId}:${destination}` : "";
   const stored = decodeCover(heroPhotoName);
   const known = stored.known;
+  // A replacement found earlier this session wins over the saved name the page was rendered with, which may still be the dead one.
+  const savedUrl = () => (key ? healed.get(key) : undefined) ?? (stored.name ? (photoProxyUrl(tripId, stored.name) ?? null) : null);
   const [photo, setPhoto] = useState<string | null | undefined>(() => {
-    if (known) return stored.name ? (photoProxyUrl(tripId, stored.name) ?? null) : null;
+    if (known) return savedUrl();
     return key && cache.has(key) ? cache.get(key) : undefined;
   });
 
   useEffect(() => {
+    if (!stale || !key || !destination) return;
+    let cancelled = false;
+    void lookup(tripId, destination, `${key}#heal`).then((url) => {
+      if (url) healed.set(key, url);
+      if (!cancelled && url) setPhoto(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [stale, tripId, destination, key]);
+
+  useEffect(() => {
     if (known) {
-      setPhoto(stored.name ? (photoProxyUrl(tripId, stored.name) ?? null) : null);
+      setPhoto(savedUrl());
       return;
     }
     if (!key) {
