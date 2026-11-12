@@ -22,7 +22,7 @@ function Scenes({ theme, scene, edge }: { theme: "light" | "dark"; scene?: strin
   const handlers = {
     tripId: TRIP, onFollowup: noop,
     onOpenPlace: useCallback((p: { providerId: string; name: string }) => openPanel({ kind: "place", placeId: p.providerId, name: p.name }), [openPanel]),
-    onOpenStay: useCallback((s: { hotelId: string; name: string; thumbnailUrl?: string }, d: { checkin: string; checkout: string; adults?: number }, ask: (p: string) => void) => openPanel({ kind: "stay", hotelId: s.hotelId, name: s.name, photo: s.thumbnailUrl, ...d, onAsk: ask }), [openPanel]),
+    onOpenStay: useCallback((s: { hotelId: string; name: string; thumbnailUrl?: string }, d: { checkin: string; checkout: string; adults?: number }, ask?: (p: string) => void) => openPanel({ kind: "stay", hotelId: s.hotelId, name: s.name, photo: s.thumbnailUrl, ...d, onAsk: ask }), [openPanel]),
     onOpenEvent: useCallback((seed: Parameters<typeof openPanel>[0] extends infer P ? (P extends { kind: "event"; seed: infer S } ? S : never) : never) => openPanel({ kind: "event", seed }), [openPanel]),
     onOpenCollection: useCallback((title: string, block: AssistantBlock) => openPanel({ kind: "collection", title, block }), [openPanel]),
     onOpenPanel: openPanel,
