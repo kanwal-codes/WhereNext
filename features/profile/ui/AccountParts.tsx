@@ -122,13 +122,13 @@ export function Chip({ active, onClick, children }: { active: boolean; onClick: 
 /** `clearable`: choosing the chosen one again unchooses it, so a preference can go back to "not set". */
 export function Segmented({ options, value, onChange, clearable }: { options: string[]; value: string; onChange: (v: string) => void; clearable?: boolean }) {
   return (
-    <div className="inline-flex flex-wrap gap-1 rounded-full border border-border bg-surface p-1">
+    <div className="inline-flex flex-wrap gap-1 rounded-full bg-muted p-1">
       {options.map((o) => (
-        <button key={o} type="button" onClick={() => onChange(clearable && value === o ? "" : o)} className="relative rounded-full px-3.5 py-1.5 text-sm transition-colors">
+        <button key={o} type="button" onClick={() => onChange(clearable && value === o ? "" : o)} className="relative rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors">
           {value === o && (
-            <motion.span layoutId={`seg-${options.join("")}`} className="absolute inset-0 rounded-full bg-primary" transition={{ type: "spring", stiffness: 380, damping: 30 }} />
+            <motion.span layoutId={`seg-${options.join("")}`} className="absolute inset-0 rounded-full bg-card shadow-soft" transition={{ type: "spring", stiffness: 380, damping: 30 }} />
           )}
-          <span className={cn("relative", value === o ? "text-primary-foreground" : "text-ink-soft")}>{o}</span>
+          <span className={cn("relative", value === o ? "text-foreground" : "text-muted-foreground")}>{o}</span>
         </button>
       ))}
     </div>

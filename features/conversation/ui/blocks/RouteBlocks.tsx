@@ -251,9 +251,16 @@ export function RouteComparisonCard({ from, to, routes, onOpenPanel, onFollowup 
       tone="lagoon"
       eyebrow={`${compared ? "Ways to get there" : ROUTE_MODE_LABEL[group.mode] ?? group.mode}${ends.where ? ` · ${ends.where}` : ""}`}
       title={<RouteEnds from={ends.from} to={ends.to} />}
-      status={compared ? <WidgetPill tone="lagoon" icon={Check}>{ROUTE_MODE_LABEL[fastest.mode] ?? fastest.mode} is fastest</WidgetPill> : undefined}
+      // On a desktop the header carries the Directions button where "X is fastest" was, and the foot is gone; a phone keeps the pill and the wide button below.
+      status={compared || onOpenPanel ? (
+        <>
+          {compared && <span className="lg:hidden"><WidgetPill tone="lagoon" icon={Check}>{ROUTE_MODE_LABEL[fastest.mode] ?? fastest.mode} is fastest</WidgetPill></span>}
+          {onOpenPanel && <span className="max-lg:hidden"><WidgetAction onClick={() => onOpenPanel({ kind: "route", routes: sorted, active: sorted.indexOf(chosen), onAsk: onFollowup })}>Directions</WidgetAction></span>}
+        </>
+      ) : undefined}
       foot={onOpenPanel ? undefined : "Times are estimates"}
       action={onOpenPanel ? <WidgetAction wide onClick={() => onOpenPanel({ kind: "route", routes: sorted, active: sorted.indexOf(chosen), onAsk: onFollowup })}>Directions</WidgetAction> : undefined}
+      actionPhoneOnly
       hero={mapRequest && (
         <div className="relative mx-4 mt-3.5 aspect-[640/260] overflow-hidden rounded-xl bg-lagoon-soft @[34rem]:mx-[1.125rem]">
           <RouteMap request={mapRequest} label={`The ${ROUTE_MODE_LABEL[chosen.mode] ?? chosen.mode} route from ${from} to ${to}`} fallback={<RouteSketch route={chosen} />} />
@@ -272,7 +279,7 @@ export function RouteComparisonCard({ from, to, routes, onOpenPanel, onFollowup 
               role="tab"
               aria-selected={on}
               onClick={() => { setMode(g.mode); setPick(0); }}
-              className={cn("flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl border px-3 py-2 text-left transition-colors", on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-ink/30")}
+              className={cn("flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl border px-3 py-2 text-left transition-colors", on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-surface hover:border-ink/30")}
             >
               <Icon className="size-5 shrink-0 @max-[27rem]:hidden" aria-hidden />
               <span className="min-w-0">
@@ -290,8 +297,9 @@ export function RouteComparisonCard({ from, to, routes, onOpenPanel, onFollowup 
         {group.routes.map((route, i) => (
           <WidgetRow
             key={i}
-            onClick={() => setPick(i)}
-            label={`${ROUTE_MODE_LABEL[route.mode] ?? route.mode}, ${minutes(route)}: show on the map`}
+            // A ride opens its own detail (the map, where to board, the steps), like a flight does; the card's map follows it too.
+            onClick={() => { setPick(i); onOpenPanel?.({ kind: "route", routes: sorted, active: sorted.indexOf(route), onAsk: onFollowup }); }}
+            label={`${ROUTE_MODE_LABEL[route.mode] ?? route.mode}, ${minutes(route)}: ${onOpenPanel ? "open the details" : "show on the map"}`}
             lead={<span className={cn("grid size-9 shrink-0 place-items-center rounded-xl", route === chosen ? "bg-lagoon text-white" : "bg-lagoon-soft text-lagoon")} aria-hidden>{React.createElement(routeModeIcon(route.mode, route.steps), { className: "size-[1.125rem]" })}</span>}
             title={<span className="inline-flex items-center gap-1.5">{(route.mode === "transit" && route.steps.length > 0 ? routeLines(route.steps) : null) || ROUTE_MODE_LABEL[route.mode] || route.mode}{group.routes.length > 1 && i === 0 ? <WidgetPill tone="sage" className="h-5 text-[0.6875rem] max-lg:text-xs">Quickest</WidgetPill> : null}</span>}
             detail={[clockOf(route.departureTime) ? `leaves ${clockOf(route.departureTime)}` : null, route.fare ? money(route.fare.amount, route.fare.currency) : null, distance(route.distanceMeters / 1000)].filter(Boolean).join(" · ")}

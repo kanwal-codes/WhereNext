@@ -66,31 +66,29 @@ function legsOf(offer: FlightOffer): Leg[] {
   return [{ from: offer.originAirport ?? "", departAt: offer.departAt, to: offer.destinationAirport ?? "", arriveAt: offer.arriveAt, minutes: offer.durationMinutes, airline: offer.airline, flightNumber: offer.flightNumbers?.slice(0, 2).join(" · "), aircraft: offer.aircraft, logo: offer.logo }];
 }
 
-const NIGHT_SKY = "bg-[radial-gradient(90%_70%_at_50%_118%,oklch(0.64_0.175_36/0.55),transparent_74%),linear-gradient(180deg,#120f0e_0%,#1a1513_58%,#2a1d17_100%)]";
-/** A little film grain, so the dark reads as a surface and not a flat fill. */
-const GRAIN = `url("data:image/svg+xml,${encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>")}")`;
+/** White at the top, a warm wash at the foot where the fares overlap it: a daylight sky, not a dark slab. */
+const DAY_SKY = "bg-[radial-gradient(90%_70%_at_50%_120%,oklch(0.64_0.175_36/0.13),transparent_72%),linear-gradient(180deg,#ffffff_0%,oklch(0.992_0.006_70)_62%,oklch(0.972_0.02_62)_100%)]";
 
-/** The route at dusk: the two ends large and light, a fine line arcing between them, the shortest time over it. */
+/** The route by day: the two ends large and dark on white, a fine line arcing between them, the shortest time over it. */
 export function FlightHero({ eyebrow, title, from, to, duration, dim = false, chip, right }: { eyebrow: ReactNode; title: ReactNode; from: { code: string; name: string }; to: { code: string; name: string }; duration: number; dim?: boolean; chip?: ReactNode; right?: ReactNode }) {
   const end = (e: { code: string; name: string }, align: "left" | "right") => (
-    <div className={cn("absolute bottom-[3.5rem] min-w-0 max-w-[40%] text-white", align === "left" ? "left-5 @[34rem]:left-[1.625rem]" : "right-5 text-right @[34rem]:right-[1.625rem]")}>
+    <div className={cn("absolute bottom-[3.5rem] min-w-0 max-w-[40%] text-ink", align === "left" ? "left-5 @[34rem]:left-[1.625rem]" : "right-5 text-right @[34rem]:right-[1.625rem]")}>
       <p className="font-display text-[2rem] leading-none font-light tracking-[-0.04em] @[34rem]:text-[2.5rem]">{e.code}</p>
-      <p className="mt-1.5 truncate text-xs text-white/70">{e.name}</p>
+      <p className="mt-1.5 truncate text-xs text-muted-foreground">{e.name}</p>
     </div>
   );
   return (
-    <div className={cn("relative h-[15rem] overflow-hidden", NIGHT_SKY)} role="group" aria-label={`${from.name} to ${to.name}`}>
-      <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.07] mix-blend-overlay" style={{ backgroundImage: GRAIN }} />
+    <div className={cn("relative h-[15rem] overflow-hidden", DAY_SKY)} role="group" aria-label={`${from.name} to ${to.name}`}>
       <svg viewBox="0 0 600 240" preserveAspectRatio="none" className={cn("absolute inset-0 size-full", dim && "opacity-35")} aria-hidden>
-        <defs><linearGradient id="fw-arc" x1="0" x2="1"><stop offset="0" stopColor="white" stopOpacity="0.05" /><stop offset="0.5" stopColor="white" stopOpacity="0.7" /><stop offset="1" stopColor="white" stopOpacity="0.05" /></linearGradient></defs>
+        <defs><linearGradient id="fw-arc" x1="0" x2="1"><stop offset="0" stopColor="#2a2420" stopOpacity="0.06" /><stop offset="0.5" stopColor="#2a2420" stopOpacity="0.5" /><stop offset="1" stopColor="#2a2420" stopOpacity="0.06" /></linearGradient></defs>
         <path d="M 36 184 Q 300 20 564 184" fill="none" stroke="url(#fw-arc)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
       </svg>
       {/* The ends are plain elements, not part of the stretched drawing, so they stay round and in view at any width. */}
-      <span aria-hidden className={cn("absolute bottom-[3.5rem] left-[6%] size-[7px] -translate-x-1/2 translate-y-1/2 rounded-full bg-white", dim && "opacity-35")} />
-      <span aria-hidden className={cn("absolute right-[6%] bottom-[3.5rem] size-[7px] translate-x-1/2 translate-y-1/2 rounded-full border border-white/70", dim && "opacity-35")} />
-      <div className="absolute inset-x-5 top-5 flex items-start justify-between gap-3 text-white @[34rem]:inset-x-[1.625rem]">
+      <span aria-hidden className={cn("absolute bottom-[3.5rem] left-[6%] size-[7px] -translate-x-1/2 translate-y-1/2 rounded-full bg-ink", dim && "opacity-35")} />
+      <span aria-hidden className={cn("absolute right-[6%] bottom-[3.5rem] size-[7px] translate-x-1/2 translate-y-1/2 rounded-full border border-ink/60 bg-white", dim && "opacity-35")} />
+      <div className="absolute inset-x-5 top-5 flex items-start justify-between gap-3 text-ink @[34rem]:inset-x-[1.625rem]">
         <div className="min-w-0">
-          <p className="eyebrow truncate text-white/70!">{eyebrow}</p>
+          <p className="eyebrow truncate text-muted-foreground!">{eyebrow}</p>
           <h3 className="mt-1 font-display text-2xl leading-[1.15] font-medium tracking-[-0.022em] text-balance @[34rem]:text-title">{title}</h3>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
@@ -100,7 +98,7 @@ export function FlightHero({ eyebrow, title, from, to, duration, dim = false, ch
       </div>
       {end(from, "left")}
       {end(to, "right")}
-      {duration > 0 && <p className="absolute bottom-[5.25rem] left-1/2 -translate-x-1/2 text-center text-xs text-white/65 @max-[34rem]:hidden"><b className="font-display text-lg font-medium text-white">{hoursMinutes(duration)}</b> shortest</p>}
+      {duration > 0 && <p className="absolute bottom-[5.25rem] left-1/2 -translate-x-1/2 text-center text-xs text-muted-foreground @max-[34rem]:hidden"><b className="font-display text-lg font-medium text-ink">{hoursMinutes(duration)}</b> shortest</p>}
     </div>
   );
 }
@@ -133,7 +131,7 @@ export function FlightPicks({ picks, selected, onSelect, roundTrip }: { picks: F
             type="button"
             onClick={() => onSelect(key)}
             aria-pressed={on}
-            className={cn("relative min-w-0 flex-1 rounded-2xl px-3.5 py-3 text-left backdrop-blur-md transition-[box-shadow,background-color,transform] duration-200 ease-out active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", on ? "border-2 border-primary bg-primary text-primary-foreground shadow-lift" : "border border-white/80 bg-card/75 shadow-soft hover:bg-card/90", "max-lg:backdrop-blur-none max-lg:shadow-none", (on ? "max-lg:border max-lg:border-primary" : "max-lg:border max-lg:border-hairline max-lg:bg-card"))}
+            className={cn("relative min-w-0 flex-1 rounded-2xl px-3.5 py-3 text-left backdrop-blur-md transition-[box-shadow,background-color,transform] duration-200 ease-out active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", on ? "border-2 border-primary bg-primary text-primary-foreground shadow-lift" : "border border-border bg-surface hover:border-ink/25", "max-lg:backdrop-blur-none max-lg:shadow-none", (on ? "max-lg:border max-lg:border-primary" : "max-lg:border max-lg:border-border max-lg:bg-surface"))}
           >
             <span className="flex items-center justify-between gap-1.5">
               <span className={cn("eyebrow truncate", on && "text-primary-foreground/70!")}>{pick.labels.join(" · ")}</span>
@@ -154,7 +152,7 @@ export function FlightPicksSkeleton() {
   return (
     <div aria-hidden className="relative z-[1] mx-4 -mt-10 flex gap-2.5 @[34rem]:mx-5">
       {[0, 1, 2].map((i) => (
-        <div key={i} className="min-w-0 flex-1 rounded-2xl border border-white/80 bg-card/80 px-3.5 py-3">
+        <div key={i} className="min-w-0 flex-1 rounded-2xl border border-border bg-surface px-3.5 py-3">
           <span className="block h-2.5 w-12 rounded bg-muted" />
           <span className="mt-2.5 block h-6 w-20 rounded-md bg-muted" />
           <span className="mt-2 block h-3 w-24 rounded bg-muted" />
@@ -288,7 +286,7 @@ export function FlightJourney({ offer, labels, roundTrip, onDetails, tripCurrenc
             )}
           </div>
           {onDetails && (
-            <button type="button" onClick={onDetails} aria-label={`Details: ${offer.airline}, ${clockOf(offer.departAt)} to ${clockOf(offer.arriveAt)}`} className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.16),0_1px_2px_oklch(0.2_0.012_65/0.3)] transition-[transform,filter] duration-200 hover:brightness-110 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+            <button type="button" onClick={onDetails} aria-label={`Details: ${offer.airline}, ${clockOf(offer.departAt)} to ${clockOf(offer.arriveAt)}`} className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.16),0_1px_2px_oklch(0.2_0.012_65/0.22)] transition-[transform,filter] duration-200 hover:brightness-110 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
               {roundTrip && offer.departureToken ? "Choose your return" : "See this flight"} <ArrowUpRight className="size-4" aria-hidden />
             </button>
           )}

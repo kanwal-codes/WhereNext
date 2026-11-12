@@ -19,9 +19,10 @@ export function NextStepCard({ tripId, plannedDays, totalDays, firstOpenDay }: {
     return () => cancelAnimationFrame(id);
   }, []);
   const job = plannedDays === 0 ? "Plan your first days" : firstOpenDay != null ? `Fill day ${firstOpenDay}` : "Everything has a plan";
-  const ask = plannedDays === 0 ? "Plan my first days" : firstOpenDay != null ? `Fill day ${firstOpenDay} of the trip` : "Check the plan for gaps and clashes";
+  // With nothing planned yet the card just opens Roam: it used to type "Plan my first days" into the composer, which left the length to be guessed.
+  const ask = plannedDays === 0 ? null : firstOpenDay != null ? `Fill day ${firstOpenDay} of the trip` : "Check the plan for gaps and clashes";
   return (
-    <Link href={`/trips/${tripId}/chat?ask=${encodeURIComponent(ask)}`} prefetch={false} className="flex items-center gap-3.5 rounded-4xl border border-border bg-surface p-3.5 pr-3 transition-transform duration-200 active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:hidden">
+    <Link href={ask ? `/trips/${tripId}/chat?ask=${encodeURIComponent(ask)}` : `/trips/${tripId}/chat`} prefetch={false} className="flex items-center gap-3.5 rounded-4xl border border-border bg-surface p-3.5 pr-3 transition-transform duration-200 active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:hidden">
       <svg viewBox="0 0 56 56" className="size-14 shrink-0 -rotate-90" aria-hidden>
         <circle cx="28" cy="28" r={r} fill="none" stroke="var(--muted)" strokeWidth="5" />
         <circle cx="28" cy="28" r={r} fill="none" stroke="var(--coral)" strokeWidth="5" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - (shown ? frac : 0))} className="transition-[stroke-dashoffset] duration-700 ease-out motion-reduce:transition-none" />

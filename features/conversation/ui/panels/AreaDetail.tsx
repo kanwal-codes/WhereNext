@@ -52,7 +52,7 @@ function Pills({ label, items, active, onPick }: { label: string; items: Array<{
             onClick={() => onPick(item.key)}
             className={cn(
               "inline-flex h-9 shrink-0 items-center rounded-full border px-3.5 text-sm font-medium whitespace-nowrap transition-colors duration-200",
-              on ? "border-ink bg-ink text-background" : "border-border bg-card text-ink-soft hover:border-ink/30 hover:text-ink",
+              on ? "border-ink bg-ink text-background" : "border-border bg-surface text-ink-soft hover:border-ink/30 hover:text-ink",
             )}
           >
             {item.label}

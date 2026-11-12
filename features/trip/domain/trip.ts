@@ -13,6 +13,15 @@ export function tripDurationDays(start?: string | null, end?: string | null): nu
   return days >= 1 && days <= 365 ? days : null;
 }
 
+/**
+ * How many days a trip is. The dates are the answer when both are set; the stored `duration_days` only stands in when they are not.
+ * The overview, the itinerary page and the trip list already read it this way; the AI planner read the stored number first, so a trip
+ * whose stored length had drifted from its dates showed one length on the card and was planned at another.
+ */
+export function effectiveTripDays(trip: { start_date?: string | null; end_date?: string | null; duration_days?: number | null } | null | undefined): number | null {
+  return tripDurationDays(trip?.start_date, trip?.end_date) ?? (trip?.duration_days && trip.duration_days > 0 ? trip.duration_days : null);
+}
+
 export const createTripInput = z
   .object({
     name: z.string().trim().min(1).max(120).default("Untitled trip"),

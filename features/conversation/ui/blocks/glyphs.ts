@@ -52,11 +52,22 @@ export function placeGlyph(category: string | null | undefined, name: string): G
 
 const TRANSIT_MODES = new Set<LucideIcon>([Bus, TramFront, TrainFront, Ship, Plane]);
 
+/** The vehicles of a transit step, most specific first. A flight is last: "Bus Megabus → Toronto Coach Terminal" is a bus, whatever the stop is called. */
+const VEHICLES: Rule[] = [
+  [/\b(?:ferry|boat|cruise)\b/i, { icon: Ship, label: "Boat" }],
+  [/\b(?:tram|streetcar)\b/i, { icon: TramFront, label: "Tram" }],
+  [/\b(?:bus|coach|megabus|flixbus|greyhound|flibco|busbud)\b/i, { icon: Bus, label: "Bus" }],
+  [/\b(?:metro|subway|train|rail|rer|tube|underground|via rail|amtrak|go transit)\b/i, { icon: TrainFront, label: "Train" }],
+  [/\b(?:flight|flying|airline)\b/i, { icon: Plane, label: "Flight" }],
+];
+
 /** A route step's mode, from the step's own words ("TRANSIT bus 208 → Cais Sodré", "WALK to hotel"). */
 export function stepGlyph(step: string): Glyph {
   if (/^\s*walk/i.test(step)) return { icon: PersonStanding, label: "Walk" };
   if (/^\s*driv/i.test(step)) return { icon: Car, label: "Drive" };
-  return BY_NAME.find(([re, g]) => TRANSIT_MODES.has(g.icon) && re.test(step))?.[1] ?? { icon: TrainFront, label: "Transit" };
+  // What it travels on is said before the arrow; the stop after it ("... Terminal", "... Station", "... Airport") only says where.
+  const [vehicle, ...rest] = step.split(/→|->/);
+  return VEHICLES.find(([re]) => re.test(vehicle))?.[1] ?? VEHICLES.find(([re, g]) => g.icon !== Plane && re.test(rest.join(" ")))?.[1] ?? { icon: TrainFront, label: "Transit" };
 }
 
 const BY_FACT: Rule[] = [

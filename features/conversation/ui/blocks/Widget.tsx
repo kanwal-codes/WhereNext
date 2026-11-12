@@ -56,7 +56,7 @@ export function WidgetPill({ tone = "neutral", icon: Icon, children, className }
 }
 
 export function Widget({
-  icon: Icon, glyph, tone = "coral", eyebrow, title, status, hero, foot, action, className, children, label,
+  icon: Icon, glyph, tone = "coral", eyebrow, title, status, hero, foot, action, actionPhoneOnly = false, className, children, label,
 }: {
   /** The chip's icon when there is no Roam line icon for the kind. */
   icon?: LucideIcon;
@@ -75,6 +75,8 @@ export function Widget({
   foot?: ReactNode;
   /** Bottom right: the one next step (`WidgetAction`). */
   action?: ReactNode;
+  /** The foot (and its action) is for a phone only: on a desktop the action lives in the header, as `status`. */
+  actionPhoneOnly?: boolean;
   className?: string;
   children?: ReactNode;
   label?: string;
@@ -102,17 +104,17 @@ export function Widget({
       {status && <div className="flex flex-wrap items-center gap-2 px-4 pt-2.5 @[34rem]:hidden max-lg:px-[1.125rem]">{status}</div>}
       {hero}
       {children}
-      {(foot || action) && <WidgetFoot foot={foot} action={action} />}
+      {(foot || action) && <WidgetFoot foot={foot} action={action} className={actionPhoneOnly && !foot ? "lg:hidden" : undefined} />}
     </section>
   );
 }
 
 /** The foot of a widget: a one-line caveat on the left, the one next step on the right. */
-export function WidgetFoot({ foot, action }: { foot?: ReactNode; action?: ReactNode }) {
+export function WidgetFoot({ foot, action, className }: { foot?: ReactNode; action?: ReactNode; className?: string }) {
   return (
-    <footer className="mt-1 flex items-center justify-between gap-4 border-t border-border bg-surface px-4 py-3 @[34rem]:px-[1.125rem] max-lg:bg-transparent max-lg:px-[1.125rem] max-lg:py-3.5">
+    <footer className={cn("mt-1 flex items-center justify-between gap-4 border-t border-border bg-surface px-4 py-3 @[34rem]:px-[1.125rem] max-lg:bg-transparent max-lg:px-[1.125rem] max-lg:py-3.5", className)}>
       {foot && <div className="flex min-w-0 flex-1 items-start gap-1.5 text-xs leading-[1.35] text-muted-foreground">{foot}</div>}
-      {action && <div className="shrink-0 has-[[data-wide]]:w-full">{action}</div>}
+      {action && <div className="shrink-0 has-[[data-wide]]:w-full lg:has-[[data-wide]]:flex lg:has-[[data-wide]]:justify-center">{action}</div>}
     </footer>
   );
 }
@@ -184,10 +186,11 @@ export function RowBar({ frac, color = "var(--coral)", className }: { frac: numb
 }
 
 /** The widget's one next step: an ink pill. A link when it goes off the page. */
-const ACTION = "inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.16),0_1px_2px_oklch(0.2_0.012_65/0.3)] transition-[transform,filter] duration-200 ease-out hover:brightness-110 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+const ACTION = "inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.16),0_1px_2px_oklch(0.2_0.012_65/0.22)] transition-[transform,filter] duration-200 ease-out hover:brightness-110 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 const ACTION_QUIET = "inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-background px-4 text-sm font-semibold text-ink transition-[transform,border-color] duration-200 ease-out hover:border-ink/30 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 export function WidgetAction({ children, onClick, href, quiet = false, arrow = true, label, wide = false }: { children: ReactNode; onClick?: () => void; href?: string; quiet?: boolean; arrow?: boolean; label?: string; /** The one step of the widget, stretched across its foot. */ wide?: boolean }) {
-  const cls = cn(quiet ? ACTION_QUIET : ACTION, "max-lg:h-11", wide && "w-full");
+  // The widget's one step: the full width of the foot on a phone, a compact centred button on a desktop, where a 600px black bar was heavy.
+  const cls = cn(quiet ? ACTION_QUIET : ACTION, "max-lg:h-11", wide && "w-full lg:h-9 lg:w-auto lg:min-w-56 lg:px-6");
   const inner = (<>{children}{arrow && <ArrowUpRight className="size-4" aria-hidden />}</>);
   return href ? (
     <a href={href} target="_blank" rel="noreferrer noopener" aria-label={label} data-wide={wide || undefined} className={cls}>{inner}</a>

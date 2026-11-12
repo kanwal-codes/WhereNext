@@ -29,7 +29,7 @@ export function ActionBar({ tripId, name }: { tripId: string; name: string }) {
   return (
     <>
       <div ref={sentinel} aria-hidden className="h-px" />
-      <div className={cn("z-20 transition-[box-shadow,background-color,border-color] duration-300 lg:sticky lg:top-0", "border-b border-transparent", stuck && "lg:border-border lg:bg-background/95 lg:shadow-[0_12px_28px_-20px_oklch(0.2_0.012_65/0.45)]")}>
+      <div className={cn("z-20 transition-[box-shadow,background-color,border-color] duration-300 lg:sticky lg:top-0", "border-b border-transparent", stuck && "lg:border-border lg:bg-background/95 lg:shadow-[0_8px_16px_-12px_oklch(0.2_0.012_65/0.28)]")}>
         {/* On a short screen the row gives up its breathing room rather than let the shortcuts sit under the
             phone's fixed tab bar — the hero above has already shrunk as far as its own content allows. */}
         <div className="mx-auto flex max-w-6xl items-center gap-4 px-5 py-4 [@media(max-height:700px)]:py-2 sm:px-8">

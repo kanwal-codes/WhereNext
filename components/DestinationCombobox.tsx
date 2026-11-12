@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type Ref } from "react";
 import { Command as Cmdk } from "cmdk";
-import { BedDouble, Landmark, Loader2, MapPin, Plane, TrainFront, Trees, Utensils, type LucideIcon } from "lucide-react";
+import { BedDouble, Bus, Landmark, Loader2, MapPin, Plane, TrainFront, Trees, Utensils, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Suggestion = { placeId: string; text: string; secondaryText: string | null; fullText?: string; types?: string[] };
@@ -11,7 +11,8 @@ type Suggestion = { placeId: string; text: string; secondaryText: string | null;
 function iconFor(types: string[] = []): LucideIcon {
   const has = (...t: string[]) => t.some((x) => types.includes(x));
   if (has("airport")) return Plane;
-  if (has("train_station", "subway_station", "transit_station", "bus_station", "light_rail_station")) return TrainFront;
+  if (has("bus_station", "bus_stop")) return Bus;
+  if (has("train_station", "subway_station", "transit_station", "light_rail_station")) return TrainFront;
   if (has("park", "national_park", "campground")) return Trees;
   if (has("lodging", "hotel")) return BedDouble;
   if (has("restaurant", "cafe", "bar", "food")) return Utensils;

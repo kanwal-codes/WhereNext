@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Bus, BedDouble, Castle, Church, Coffee, Compass, Landmark, MapPin, PersonStanding, ShoppingBasket, TrainFront, TreeDeciduous, Utensils } from "lucide-react";
+import { Bus, BedDouble, Castle, Church, Coffee, Compass, Landmark, MapPin, PersonStanding, Plane, ShoppingBasket, TrainFront, TreeDeciduous, Utensils } from "lucide-react";
 import { placeGlyph, stepGlyph, stopGlyph } from "../../features/conversation/ui/blocks/glyphs";
 
 describe("stop icons say what the stop is", () => {
@@ -28,6 +28,18 @@ describe("photo-less cards and route steps", () => {
     expect(stepGlyph("WALK to hotel (8 min)").icon).toBe(PersonStanding);
     expect(stepGlyph("TRANSIT bus 208 → Cais Sodré (35 min)").icon).toBe(Bus);
     expect(stepGlyph("TRANSIT subway 2 → Jean-Talon (14 min)").icon).toBe(TrainFront);
+  });
+  it("judges a ride by what it travels on, not by the name of the stop it ends at", () => {
+    // A bus that ends at a "Coach Terminal", "Airport" or "Station" is still a bus; it used to be drawn as a plane.
+    expect(stepGlyph("TRANSIT Bus Megabus → Toronto Coach Terminal (6 h 40 min)").icon).toBe(Bus);
+    expect(stepGlyph("TRANSIT bus 747 → Pearson Airport (35 min)").icon).toBe(Bus);
+    expect(stepGlyph("TRANSIT Train VIA Rail → Toronto Union Station (5 h 9 min)").icon).toBe(TrainFront);
+    expect(stepGlyph("TRANSIT Flixbus → Gare Centrale (4 h)").icon).toBe(Bus);
+    expect(stepGlyph("TRANSIT flight AC 400 → Toronto Pearson (1 h 25 min)").icon).toBe(Plane);
+  });
+  it("falls back to the stop only when the ride names no vehicle, and never turns that into a plane", () => {
+    expect(stepGlyph("TRANSIT 501 → Union Station").icon).toBe(TrainFront);
+    expect(stepGlyph("TRANSIT 99 → Airport").icon).toBe(TrainFront);
   });
 });
 

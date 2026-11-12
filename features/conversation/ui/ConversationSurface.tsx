@@ -161,12 +161,13 @@ export const ConversationSurface = React.memo(function ConversationSurface({
       </a>
       {/* `relative`: the sr-only labels inside are absolutely positioned; without a positioned log they anchored to the
           wrapper outside it and stretched ITS scroll area by thousands of px — a second scrollbar stacked on this one. */}
+      {/* `-mx-2 px-2`: a few pixels of room on each side inside the clip, so a card's shadow is not cut off in a hard vertical edge where the column ends. */}
       {/* `overscroll-contain`: without it, running out of content to scroll at the top/bottom
           lets the gesture "chain" into bouncing the whole page instead of staying inside this
           log — the rubber-band should feel self-contained here, the same way a native app's
           message list never drags the rest of the screen along with it. */}
       <div aria-hidden className={cn("pointer-events-none absolute inset-x-0 top-0 z-[1] h-5 bg-gradient-to-b from-background to-transparent transition-opacity duration-200 lg:hidden", scroll.scrolled ? "opacity-100" : "opacity-0")} />
-      <div ref={logRef} onScroll={handleLogScroll} data-scrolled={scroll.scrolled} role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions" className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-slim scroll-fade-t">
+      <div ref={logRef} onScroll={handleLogScroll} data-scrolled={scroll.scrolled} role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions" className="relative -mx-2 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-2 scrollbar-slim scroll-fade-t">
         <div className={cn("mx-auto w-full space-y-6 pt-2 pb-28", "max-lg:pt-3", rail ? RAIL_MEASURE : "max-w-2xl")}>
           {!loaded && messages.length === 0 && !pendingBubble && (
             <div aria-hidden className="space-y-6">

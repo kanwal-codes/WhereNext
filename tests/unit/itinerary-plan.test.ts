@@ -264,6 +264,46 @@ describe("buildItineraryPlan: the number of days asked for", () => {
     expect((block as { days: Array<{ open?: boolean }> }).days.map((d) => d.open ?? false)).toEqual([false, false, false, true, true]);
   });
 
+  it("plans the length the dates give, not a stored length that drifted from them", async () => {
+    stubModel({ days: [day(1, "a")] });
+    const trip = { places: [], itinerary: [], preferences: {}, trip: { start_date: "2026-12-18", end_date: "2026-12-22", duration_days: 3 } } as never;
+    const block = await buildItineraryPlan({ prompt: "Plan my first days", tripSummary: "", evidence: evidence(pool), tripCtx: trip, requestedDays: null });
+    expect(labels(block)).toEqual(["Day 1", "Day 2", "Day 3", "Day 4", "Day 5"]);
+  });
+
+  describe("what the intro says about thin days", () => {
+    const intro = (block: unknown) => (block as { intro?: string }).intro ?? "";
+
+    it("says nothing about missing options when every day has something, even if the model's own words would", async () => {
+      generateObjectMock.mockImplementation(async ({ schema, messages }: { schema: { parse: (v: unknown) => unknown }; messages: Array<{ content: string }> }) => {
+        const user = messages.at(-1)!.content;
+        const days = [...user.matchAll(/=== Day (\d+)\nCANDIDATES:\n- (.+?) \| id:(\S+)/g)].map((m) => ({ label: `Day ${m[1]}`, stops: [{ title: m[2], placeId: m[3] }] }));
+        return { object: schema.parse(days.length ? { days } : { title: "3 days in Toronto", intro: "Three days of food and views." }), usage: { inputTokens: 1, outputTokens: 1 } };
+      });
+      const block = await buildItineraryPlan({ prompt: "Plan my first days", tripSummary: "", evidence: evidence(pool), tripCtx: { places: [], itinerary: [], preferences: {}, trip: { duration_days: 3 } } as never, requestedDays: null });
+      expect(intro(block)).toBe("Three days of food and views.");
+      expect(JSON.stringify(generateObjectMock.mock.calls.map((c) => c[0].messages))).not.toContain("fewer options for days 5-8");
+    });
+
+    it("writes the lead-in from the days as they came out, not from what each day was offered", async () => {
+      generateObjectMock.mockImplementation(async ({ schema, messages }: { schema: { parse: (v: unknown) => unknown }; messages: Array<{ content: string }> }) => {
+        const user = messages.at(-1)!.content;
+        const days = [...user.matchAll(/=== Day (\d+)\nCANDIDATES:\n- (.+?) \| id:(\S+)/g)].map((m) => ({ label: `Day ${m[1]}`, subtitle: `Theme ${m[1]}`, stops: [{ title: m[2], placeId: m[3] }] }));
+        return { object: schema.parse(days.length ? { days } : { title: "3 days", intro: "Fine." }), usage: { inputTokens: 1, outputTokens: 1 } };
+      });
+      await buildItineraryPlan({ prompt: "plan 3 days", tripSummary: "", evidence: evidence(pool), tripCtx: { places: [], itinerary: [], preferences: {}, trip: { duration_days: 3 } } as never, requestedDays: 3 });
+      const introPrompt = generateObjectMock.mock.calls.map((c) => String(c[0].messages.at(-1).content)).find((text) => text.includes("THE PLAN:"))!;
+      expect(introPrompt).toMatch(/Day 1: Theme 1 — Place \w/);
+      expect(generateObjectMock.mock.calls.at(-1)![0].messages.at(-1).content).toContain("THE PLAN:"); // after every day call, not beside them
+    });
+
+    it("adds the note itself, for the days that really came out empty", async () => {
+      stubModel({ title: "5 days in Toronto", intro: "Five days.", days: [day(1, "a"), day(2, "b"), day(3, "c")] });
+      const block = await buildItineraryPlan({ prompt: "plan 5 days", tripSummary: "", evidence: evidence(pool.slice(0, 3)), tripCtx: { places: [], itinerary: [], preferences: {}, trip: { duration_days: 5 } } as never, requestedDays: 5 });
+      expect(intro(block)).toBe("Five days. I found fewer options for days 4 and 5, so tell me what else you want and I'll add it.");
+    });
+  });
+
   describe("a route across cities", () => {
     const paris = ["p0", "p1", "p2"].map((id, i) => place(id, `Paris Spot ${i}`));
     const rome = ["r0", "r1", "r2", "r3"].map((id, i) => place(id, `Rome Spot ${i}`));

@@ -72,7 +72,7 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
   // No airport code known: the city name stands in for it.
   const fromCode = fares.items[0]?.originAirport ?? (fromName.length <= 14 ? fromName : fromName.slice(0, 3).toUpperCase());
   const toCode = fares.items[0]?.destinationAirport ?? (toName.length <= 14 ? toName : toName.slice(0, 3).toUpperCase());
-  const panelFor = (offer: FlightsBlockData["items"][number]) => ({ kind: "flight" as const, flight: offer, route: { origin: query.fromLabel, destination: query.toLabel, dateNote, retrievedAt: fares.retrievedAt, offers: fares.items, departureDate: query.depart ?? undefined, returnDate: query.ret ?? undefined, originId: query.fromId, destinationId: query.toId } });
+  const panelFor = (offer: FlightsBlockData["items"][number]) => ({ kind: "flight" as const, flight: offer, route: { origin: query.fromLabel, destination: query.toLabel, dateNote, retrievedAt: fares.retrievedAt, offers: fares.items, departureDate: query.depart ?? undefined, returnDate: query.ret ?? undefined, originId: query.fromId, destinationId: query.toId, onChangeReturn: (day: string) => searchForBar.setReturn(day) } });
   const footNote = (
     <Notice>
       Prices are per person{roundTrip ? ", for the round trip" : ""}{fares.currency ? `, in ${fares.currency}` : ""}
@@ -103,14 +103,14 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
         to={{ code: toCode, name: toName }}
         duration={ready ? shortest : 0}
         dim={!ready}
-        chip={loading ? <span className="inline-flex h-7 items-center rounded-full border border-white/25 bg-white/15 px-3 text-xs font-medium text-white">Searching…</span> : fares.status === "empty" && !fares.problem ? <span className="inline-flex h-7 items-center rounded-full border border-white/25 bg-white/15 px-3 text-xs font-medium text-white">No flights</span> : lowest && ready ? <span className="inline-flex h-7 items-center rounded-full border border-white/25 bg-white/15 px-3 text-xs font-semibold text-white tabular-nums">From {money(lowest.price, lowest.currency, true)}</span> : undefined}
+        chip={loading ? <span className="inline-flex h-7 items-center rounded-full border border-border bg-card px-3 text-xs font-medium text-muted-foreground">Searching…</span> : fares.status === "empty" && !fares.problem ? <span className="inline-flex h-7 items-center rounded-full border border-border bg-card px-3 text-xs font-medium text-muted-foreground">No flights</span> : lowest && ready ? <span className="inline-flex h-7 items-center rounded-full border border-border bg-card px-3 text-xs font-semibold text-ink tabular-nums">From {money(lowest.price, lowest.currency, true)}</span> : undefined}
         right={
           <button
             type="button"
             onClick={() => setRouteOpen((v) => !v)}
             aria-expanded={routeOpen}
             aria-controls="flight-route-editor"
-            className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-md transition-[background-color,border-color,color,transform] active:scale-95", routeOpen ? "border-white/50 bg-white/25 text-white" : "border-white/25 bg-white/10 text-white/90 hover:bg-white/20")}
+            className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-[background-color,border-color,color,transform] active:scale-95", routeOpen ? "border-ink/30 bg-muted text-ink" : "border-border bg-card text-ink-soft hover:bg-muted hover:text-ink")}
           >
             <AnimatePresence mode="wait" initial={false}>
               <motion.span key={routeOpen ? "done" : "edit"} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.14 }} className="inline-flex items-center gap-1.5">
@@ -218,7 +218,7 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
       )}
       {ready && !showAll && offers.length > 2 + pickKeys.size && (
         <div className="px-[1.125rem] pb-1 pt-2 lg:hidden">
-          <button type="button" onClick={() => setShowAll(true)} className="flex h-12 w-full items-center justify-center rounded-full border border-hairline text-[0.9375rem] font-semibold">See all {offers.length} flights</button>
+          <button type="button" onClick={() => setShowAll(true)} className="flex h-12 w-full items-center justify-center rounded-full bg-primary text-[0.9375rem] font-semibold text-primary-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.16),0_1px_2px_oklch(0.2_0.012_65/0.22)] transition-[transform,filter] duration-200 ease-out hover:brightness-110 active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">See all {offers.length} flights</button>
         </div>
       )}
       {ready && !showAll && !filtersOn && offers.length > ROWS && (

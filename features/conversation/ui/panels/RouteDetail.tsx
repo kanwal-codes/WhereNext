@@ -40,6 +40,16 @@ function OptionCard({ route, index, single, tag, on, onSelect }: { route: RouteB
   const metrics = metricsOf(route);
   const effort = metrics && route.mode === "transit" && route.legs?.some((l) => l.mode !== "walk") ?[`${metrics.changes === 0 ? "No" : metrics.changes} change${metrics.changes === 1 ? "" : "s"}`, metrics.walkMinutes > 0 ? `${metrics.walkMinutes} min walking` : null].filter(Boolean).join(", ") : null;
   const meta = [distance(route.distanceMeters / 1000), when, route.fare ? money(route.fare.amount, route.fare.currency) : null, effort].filter(Boolean).join(" · ");
+  // Where to get on and off a ride, from its first and last leg that is not a walk, with the journey's own times.
+  const ride = route.mode === "transit" ? (route.legs ?? []).filter((leg) => leg.mode !== "walk") : [];
+  const boardAt = ride[0]?.from;
+  const getOffAt = ride.at(-1)?.to;
+  const boarding = route.mode === "transit" && (boardAt || getOffAt || clock(route.departureTime))
+    ? [
+        { label: "Board", place: boardAt ?? route.from.split(",")[0], time: clock(route.departureTime) ? `leaves ${clock(route.departureTime)}` : null },
+        { label: "Get off", place: getOffAt ?? route.to.split(",")[0], time: clock(route.arrivalTime) ? `arrives ${clock(route.arrivalTime)}` : null },
+      ]
+    : null;
   const head = (
     <>
       {!single && (
@@ -75,6 +85,19 @@ function OptionCard({ route, index, single, tag, on, onSelect }: { route: RouteB
             transition={motionTokens.swap}
             className="overflow-hidden"
           >
+            {boarding && (
+              <dl className="grid grid-cols-[auto_1fr] items-baseline gap-x-4 gap-y-2.5 border-t border-border px-4 py-3.5">
+                {boarding.map((row) => (
+                  <React.Fragment key={row.label}>
+                    <dt className="eyebrow">{row.label}</dt>
+                    <dd className={cn(type.body, "flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 font-medium")}>
+                      <span className="min-w-0 truncate">{row.place}</span>
+                      {row.time && <span className="text-sm font-normal text-muted-foreground tabular-nums">{row.time}</span>}
+                    </dd>
+                  </React.Fragment>
+                ))}
+              </dl>
+            )}
             <div className="border-t border-border px-4 py-4">
               <PlanStops stops={stops} variant="card" stagger />
             </div>

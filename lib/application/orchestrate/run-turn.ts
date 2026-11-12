@@ -1,4 +1,5 @@
 import { effectiveStops } from "@/lib/trip-stops";
+import { effectiveTripDays } from "@/features/trip/domain/trip";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { type AssistantBlock, type AssistantTurnMeta } from "@/packages/contracts/assistant";
 import { buildComposeTools } from "@/packages/ai/compose-tools";
@@ -238,7 +239,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   // The menu is shared and usually already cached; personalizing it is code. Only a menu nobody has written yet makes this wait,
   // and then for no longer than it takes: past that the plan uses fixed lanes rather than keep the traveller waiting.
   const wantsFreshPlan = caps.has("itinerary") && (resolved.itineraryDays || !tripCtx.itinerary.length) && Boolean(locationFocus);
-  const planDays = resolved.itineraryDays ?? tripCtx.trip?.duration_days ?? 3;
+  const planDays = resolved.itineraryDays ?? effectiveTripDays(tripCtx.trip) ?? 3;
   const tripPrefs = tripCtx.preferences as Record<string, unknown>;
   // A plan across several places ("2 days in Paris then 3 in Rome", "a month around Japan") gets a route first, and each city its own
   // menu. A trip that already has stops keeps its own calendar.

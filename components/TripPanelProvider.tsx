@@ -58,6 +58,8 @@ export type FlightOffer = FlightsBlock["items"][number];
 export type FlightRoute = Pick<FlightsBlock, "origin" | "destination" | "dateNote" | "retrievedAt" | "departureDate" | "returnDate" | "originId" | "destinationId"> & {
   /** Every offer in the search this flight came from, so the panel can put it in context. */
   offers?: FlightOffer[];
+  /** Moves the return day of the card this flight came from, so the card and the panel stay on the same trip. */
+  onChangeReturn?: (day: string) => void;
 };
 export type ItineraryBlock = Extract<AssistantBlock, { type: "itinerary" }>;
 export type BudgetBlock = Extract<AssistantBlock, { type: "budget" }>;

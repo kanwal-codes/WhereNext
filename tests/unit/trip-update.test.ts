@@ -62,3 +62,16 @@ describe("buildTripRowUpdate and saved cities", () => {
   });
 });
 
+describe("a stated trip length and the saved dates", () => {
+  it("moves the end date when the length changes and a start date is saved, so the two never disagree", () => {
+    const update = buildTripRowUpdate({ start_date: "2027-06-05", end_date: "2027-06-07", duration_days: 3 }, { durationDays: 5 });
+    expect(update).toMatchObject({ duration_days: 5, end_date: "2027-06-09" });
+  });
+  it("only records the length when there is no start date to count from", () => {
+    const update = buildTripRowUpdate({ start_date: null, end_date: null }, { durationDays: 5 });
+    expect(update).toEqual({ duration_days: 5 });
+  });
+  it("lets dates win when both are sent", () => {
+    expect(buildTripRowUpdate({ start_date: "2027-06-05", end_date: "2027-06-07" }, { startDate: "2027-06-05", endDate: "2027-06-10", durationDays: 3 })).toMatchObject({ duration_days: 6, end_date: "2027-06-10" });
+  });
+});

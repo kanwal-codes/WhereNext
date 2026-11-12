@@ -86,6 +86,15 @@ export function buildTripRowUpdate(current: CurrentTrip | null | undefined, trip
     if (moved) update.stops = moved;
   } else if (tripUpdate.durationDays !== undefined) {
     update.duration_days = tripUpdate.durationDays;
+    // With a start date saved, the end date follows the length: two answers to "how long is this trip" is how a card could say 5 days
+    // while the plan was built for 3.
+    const length = tripUpdate.durationDays;
+    if (length && length > 0 && current?.start_date && isRealIsoDate(current.start_date)) {
+      const end = new Date(Date.parse(`${current.start_date}T00:00:00.000Z`) + (length - 1) * 86_400_000).toISOString().slice(0, 10);
+      update.end_date = end;
+      const moved = shiftStops(parseStops(current?.stops), current.start_date, current.start_date, current?.end_date ?? null, end);
+      if (moved) update.stops = moved;
+    }
   }
 
   return update;

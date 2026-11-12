@@ -96,9 +96,9 @@ export function CineDate({ month, day }: { month: string; day: string }) {
 
 /** The round control that closes the card: a coral orb (add) or a white one (open, tickets). */
 export const CINE_ORB = "grid size-12 shrink-0 place-items-center rounded-full transition-[transform,filter] duration-200 ease-out active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
-export const CINE_ORB_WHITE = "bg-white text-ink shadow-[0_6px_16px_oklch(0_0_0/0.35)] hover:brightness-95";
+export const CINE_ORB_WHITE = "bg-white text-ink shadow-[0_3px_10px_-2px_oklch(0_0_0/0.28)] hover:brightness-95";
 /** A white pill action ("Tickets"), for a card whose next step leads off the page. */
-export const CINE_PILL_ACTION = "inline-flex h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-white px-5 text-sm font-semibold text-ink shadow-[0_6px_16px_oklch(0_0_0/0.35)] transition-[transform,filter] duration-200 ease-out hover:brightness-95 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
+export const CINE_PILL_ACTION = "inline-flex h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-white px-5 text-sm font-semibold text-ink shadow-[0_3px_10px_-2px_oklch(0_0_0/0.28)] transition-[transform,filter] duration-200 ease-out hover:brightness-95 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
 
 function Backdrop({ src, alt, glyph: Glyph }: { src?: string | null; alt: string; glyph?: LucideIcon }) {
   const [failed, setFailed] = useState(false);

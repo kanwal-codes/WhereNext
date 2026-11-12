@@ -8,6 +8,9 @@ import { Skeleton } from "@/components/Skeleton";
 import { Badge, money, type } from "@/features/conversation/ui/blocks/ui";
 import { cn } from "@/lib/utils";
 import { FareCard } from "./OtherFlights";
+import { DayChip } from "@/features/conversation/ui/blocks/SearchBarParts";
+
+const plusDay = (iso: string, n: number) => new Date(Date.parse(`${iso}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
 type State = { status: "loading" } | { status: "error" } | { status: "ready"; items: FlightOffer[] };
 
@@ -20,17 +23,52 @@ export function ReturnFlights({ tripId, flight, route }: { tripId: string; fligh
   const [state, setState] = useState<State>({ status: "loading" });
   const [picked, setPicked] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const ready = Boolean(flight.departureToken && route.originId && route.destinationId && route.departureDate && route.returnDate);
+  // The return day can be changed here. A fare's token belongs to the pair of days it was priced for, so a new day means a new
+  // search, then this same outbound flight is found in it and its new token asks for the flights back.
+  const [returnDate, setReturnDate] = useState(route.returnDate);
+  const [token, setToken] = useState(flight.departureToken);
+  const [moving, setMoving] = useState(false);
+  const [missing, setMissing] = useState(false);
+  const ready = Boolean(token && route.originId && route.destinationId && route.departureDate && returnDate);
+
+  async function changeReturn(day: string) {
+    if (day === returnDate) return;
+    setReturnDate(day);
+    setMoving(true);
+    setMissing(false);
+    setPicked(null);
+    setState({ status: "loading" });
+    route.onChangeReturn?.(day); // the card above follows the same day
+    try {
+      const res = await fetch(`/api/trips/${tripId}/flights`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ from: route.origin, to: route.destination, fromId: route.originId, toId: route.destinationId, departureDate: route.departureDate, returnDate: day }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { items?: FlightOffer[] };
+      const same = (body.items ?? []).find((o) => o.departAt === flight.departAt && o.airline === flight.airline);
+      if (!res.ok || !same?.departureToken) {
+        setMissing(true);
+        setState({ status: "error" });
+      } else {
+        setToken(same.departureToken);
+      }
+    } catch {
+      setState({ status: "error" });
+    } finally {
+      setMoving(false);
+    }
+  }
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || moving) return;
     const controller = new AbortController();
     setState({ status: "loading" });
     setPicked(null);
     fetch(`/api/trips/${tripId}/flights/return`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ fromId: route.originId, toId: route.destinationId, departureDate: route.departureDate, returnDate: route.returnDate, departureToken: flight.departureToken }),
+      body: JSON.stringify({ fromId: route.originId, toId: route.destinationId, departureDate: route.departureDate, returnDate, departureToken: token }),
       signal: controller.signal,
     })
       .then(async (res) => {
@@ -42,7 +80,7 @@ export function ReturnFlights({ tripId, flight, route }: { tripId: string; fligh
         if (!(error instanceof DOMException && error.name === "AbortError")) setState({ status: "error" });
       });
     return () => controller.abort();
-  }, [ready, tripId, flight.departureToken, route.originId, route.destinationId, route.departureDate, route.returnDate, attempt]);
+  }, [ready, moving, tripId, token, route.originId, route.destinationId, route.departureDate, returnDate, attempt]);
 
   if (!ready) return null;
   const chosen = state.status === "ready" ? state.items.find((o) => (o.id ?? "") === picked) : undefined;
@@ -52,7 +90,7 @@ export function ReturnFlights({ tripId, flight, route }: { tripId: string; fligh
     <section aria-label="Return flights" className="space-y-3">
       <div className="flex items-baseline justify-between gap-3">
         <h3 className={type.section}>Choose your return</h3>
-        {route.returnDate && <span className={cn(type.meta, "tabular-nums")}>{new Date(`${route.returnDate}T12:00:00`).toLocaleDateString("en", { weekday: "short", month: "short", day: "numeric" })}</span>}
+        {returnDate && route.departureDate && <DayChip date={returnDate} min={plusDay(route.departureDate, 1)} busy={moving} onPick={(day) => void changeReturn(day)} dateLabel="Return date" />}
       </div>
 
       {state.status === "loading" && (
@@ -68,8 +106,8 @@ export function ReturnFlights({ tripId, flight, route }: { tripId: string; fligh
 
       {state.status === "error" && (
         <div role="alert" className="rounded-2xl border border-border bg-card px-4 py-6 text-center">
-          <p className={type.body}>We couldn’t load the return flights just now.</p>
-          <button type="button" onClick={() => setAttempt((n) => n + 1)} className="mt-3 inline-flex h-9 items-center rounded-full border border-border px-4 text-sm font-medium transition-colors hover:bg-accent">Try again</button>
+          <p className={type.body}>{missing ? "That outbound flight isn’t offered with this return day. Pick another day." : "We couldn’t load the return flights just now."}</p>
+          {!missing && <button type="button" onClick={() => setAttempt((n) => n + 1)} className="mt-3 inline-flex h-9 items-center rounded-full border border-border px-4 text-sm font-medium transition-colors hover:bg-accent">Try again</button>}
         </div>
       )}
 

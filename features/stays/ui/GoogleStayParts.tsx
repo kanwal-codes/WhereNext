@@ -194,7 +194,8 @@ const modeLook = {
 } as const;
 
 const isHub = (n: StayNearbyPlace) => /airport|station|terminal|transit|bus|train|rail/i.test(n.category ?? "") || /airport|station|terminal|kolodvor|bahnhof|\bgare\b|estaci[oó]n|aerop/i.test(n.name);
-const hubIcon = (n: StayNearbyPlace) => (/airport|aerop/i.test(`${n.category} ${n.name}`) ? Plane : /bus/i.test(`${n.category} ${n.name}`) ? Bus : TrainFront);
+// A bus station inside an airport's name ("Airport Bus Terminal") is still a bus.
+const hubIcon = (n: StayNearbyPlace) => (/\bbus\b|coach/i.test(`${n.category} ${n.name}`) ? Bus : /airport|aerop/i.test(`${n.category} ${n.name}`) ? Plane : TrainFront);
 
 /** One place and the time it takes: a photo (or a glyph for a station), the name, and the quickest way, with one alternative beneath. */
 function NearbyRow({ place, hub }: { place: StayNearbyPlace; hub: boolean }) {

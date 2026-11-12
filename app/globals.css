@@ -176,16 +176,16 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Elevation. Shadows are tinted with the ink (warm, never grey-blue) and stacked: a contact
-     shadow, a body shadow and a long soft ambient one. Four steps, and only these four:
-     hairline (a 1px ring), soft (resting cards), lift (hover, open menus), float (sheets, dialogs). */
+  /* Elevation. Shadows are tinted with the ink (warm, never grey-blue) and kept SHORT: a 1px contact line, then one or two
+     small falls with a negative spread, so a card sits on the page like paper on a table. The negative spread is the point: it pulls
+     each fall in from the sides, so it never reaches past the card's own width, where a scrolling column or a clipped rail would cut it
+     off in a hard vertical edge (the long 36px halo did exactly that, and read as a triangle at the rounded corners).
+     Four steps, and only these four: hairline (a 1px ring), soft (resting cards), lift (hover, open menus), float (sheets, dialogs). */
   --shadow-hairline: 0 0 0 1px oklch(0.2 0.012 65 / 6%);
-  /* Warm, layered, long: a tight contact line, then two ever wider, fainter falloffs, so a card sits on the
-     page like paper on a table instead of wearing a grey halo. */
-  --shadow-widget: 0 1px 2px rgb(39 34 30 / 6%), 0 6px 16px rgb(39 34 30 / 7%), 0 18px 36px rgb(39 34 30 / 6%);
-  --shadow-soft: 0 1px 2px oklch(0.2 0.012 65 / 4%), 0 3px 8px -3px oklch(0.2 0.012 65 / 4.5%), 0 10px 22px -12px oklch(0.2 0.012 65 / 7%);
-  --shadow-lift: 0 1px 2px oklch(0.2 0.012 65 / 5%), 0 6px 14px -4px oklch(0.2 0.012 65 / 7%), 0 18px 34px -10px oklch(0.2 0.012 65 / 11%), 0 36px 68px -22px oklch(0.2 0.012 65 / 17%);
-  --shadow-float: 0 2px 4px oklch(0.2 0.012 65 / 6%), 0 12px 24px -8px oklch(0.2 0.012 65 / 12%), 0 32px 64px -20px oklch(0.2 0.012 65 / 24%);
+  --shadow-widget: 0 1px 2px oklch(0.2 0.012 65 / 5%), 0 6px 12px -6px oklch(0.2 0.012 65 / 8%);
+  --shadow-soft: 0 1px 2px oklch(0.2 0.012 65 / 4%), 0 4px 8px -4px oklch(0.2 0.012 65 / 6%);
+  --shadow-lift: 0 1px 2px oklch(0.2 0.012 65 / 5%), 0 6px 12px -6px oklch(0.2 0.012 65 / 8%), 0 12px 20px -12px oklch(0.2 0.012 65 / 9%);
+  --shadow-float: 0 2px 4px oklch(0.2 0.012 65 / 5%), 0 10px 20px -8px oklch(0.2 0.012 65 / 10%), 0 20px 32px -16px oklch(0.2 0.012 65 / 12%);
 }
 
 /*
@@ -706,6 +706,11 @@
   @media (max-width: 1023.98px) { mask-image: none; transition: none; }
 }
 
+/* One dock colour for every sliding pill switch. Roam / Chat sits on the muted grey with a white thumb; the daisyUI tabs box (Round trip /
+   One way, the trips filter, the transport and map tabs) used the lighter page-surface tone, so the same control read as faint in one place
+   and clear in another. Same grey, same white thumb (`bg-card shadow-soft`), light and dark. */
+.daisy-tabs.daisy-tabs-box { background-color: var(--color-muted); }
+
 @utility scrollbar-slim {
   scrollbar-width: thin;
   /* Subtle at rest, firmer on hover — a quiet pill, not a grey slab. */
@@ -732,6 +737,12 @@
   }
   &::-webkit-scrollbar-thumb:active {
     background: var(--color-muted-foreground);
+  }
+  /* A touch screen scrolls by swiping and has no use for a bar. Styling ::-webkit-scrollbar there makes Android Chrome draw a
+     permanent 6px bar inside the page (it sat on top of the message text), instead of its own thin one that appears only while scrolling. */
+  @media (pointer: coarse) {
+    scrollbar-width: none;
+    &::-webkit-scrollbar { display: none; }
   }
 }
 
@@ -818,8 +829,8 @@
    cards sit on the page instead of floating on a grey smudge; every raised surface gets a 1px top
    highlight. The canvas is pure white, so there is deliberately no grain film (multiply over white reads grey). */
 .landing-cinematic-scope {
-  --shadow-soft: 0 1px 1px rgb(31 24 16 / 5%), 0 3px 6px -2px rgb(31 24 16 / 5%), 0 14px 28px -16px rgb(31 24 16 / 16%);
-  --shadow-lift: 0 1px 1px rgb(31 24 16 / 6%), 0 5px 10px -3px rgb(31 24 16 / 7%), 0 20px 40px -18px rgb(31 24 16 / 24%), 0 44px 72px -40px rgb(31 24 16 / 22%);
+  --shadow-soft: 0 1px 1px rgb(31 24 16 / 5%), 0 3px 6px -2px rgb(31 24 16 / 5%), 0 10px 20px -14px rgb(31 24 16 / 12%);
+  --shadow-lift: 0 1px 1px rgb(31 24 16 / 6%), 0 5px 10px -4px rgb(31 24 16 / 7%), 0 16px 30px -16px rgb(31 24 16 / 15%), 0 30px 50px -28px rgb(31 24 16 / 12%);
 }
 .landing-cinematic-scope .shadow-lift {
   box-shadow: var(--shadow-lift), inset 0 1px 0 rgb(255 255 255 / 0.85);
@@ -982,9 +993,8 @@
 :root {
   --shadow-hover:
     0 0 0 1px oklch(0.2 0.012 65 / 4%),
-    0 2px 5px -1px oklch(0.2 0.012 65 / 4%),
-    0 8px 18px -6px oklch(0.2 0.012 65 / 7%),
-    0 18px 30px -14px oklch(0.2 0.012 65 / 9%);
+    0 2px 4px -1px oklch(0.2 0.012 65 / 4%),
+    0 8px 14px -8px oklch(0.2 0.012 65 / 8%);
 }
 .dark {
   --shadow-hover:
@@ -1709,13 +1719,13 @@ html[data-landing] { scrollbar-color: #c4c4ca transparent; scrollbar-width: thin
   font-weight: 600;
   line-height: 1.2;
   letter-spacing: 0.005em;
-  box-shadow: 0 1px 2px oklch(0.2 0.012 65 / 8%), 0 8px 16px -6px oklch(0.2 0.012 65 / 26%);
+  box-shadow: 0 1px 2px oklch(0.2 0.012 65 / 8%), 0 6px 12px -6px oklch(0.2 0.012 65 / 20%);
 }
 
 .trip-pin-label[data-side="left"] { left: auto; right: 38px; }
 
 /* The marker that travels the route, in the colour of the leg it is on, with a ring that breathes. */
-.trip-rider { box-shadow: 0 6px 14px -4px oklch(0.2 0.012 65 / 40%); }
+.trip-rider { box-shadow: 0 5px 12px -4px oklch(0.2 0.012 65 / 28%); }
 .trip-rider::after {
   content: "";
   position: absolute;
@@ -1743,13 +1753,13 @@ html[data-landing] { scrollbar-color: #c4c4ca transparent; scrollbar-width: thin
   letter-spacing: -0.005em;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  box-shadow: 0 1px 2px oklch(0.2 0.012 65 / 20%), 0 10px 18px -6px oklch(0.2 0.012 65 / 38%);
+  box-shadow: 0 1px 2px oklch(0.2 0.012 65 / 16%), 0 7px 14px -6px oklch(0.2 0.012 65 / 28%);
   animation: trip-pop 520ms var(--ease-out) both;
 }
 .trip-pill--ghost {
   background: #fff;
   color: var(--ink-soft);
-  box-shadow: 0 0 0 1px oklch(0.2 0.012 65 / 8%), 0 8px 16px -6px oklch(0.2 0.012 65 / 24%);
+  box-shadow: 0 0 0 1px oklch(0.2 0.012 65 / 8%), 0 6px 12px -6px oklch(0.2 0.012 65 / 18%);
   cursor: pointer;
   transition: background-color 0.16s var(--ease-out), color 0.16s var(--ease-out), transform 0.14s var(--ease-out);
 }

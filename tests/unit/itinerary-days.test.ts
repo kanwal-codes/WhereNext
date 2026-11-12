@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assignDays, SAVED, type Candidate } from "../../lib/application/itinerary-days";
+import { assignDays, fewerOptionsNote, SAVED, type Candidate } from "../../lib/application/itinerary-days";
 
 const cand = (name: string, kind: string, dayTrip = false): Candidate => ({ key: name, name, id: name, category: "place", kind, dayTrip });
 const many = (kind: string, count: number, dayTrip = false) => Array.from({ length: count }, (_, i) => cand(`${kind}${i}`, kind, dayTrip));
@@ -57,5 +57,14 @@ describe("assignDays", () => {
     expect(only.map((day) => day.length)).toEqual([2, 2, 2, 1, 1, 1]);
     const saved = assignDays({ candidates: [...many(SAVED, 8), ...many("sights", 8)], days: 6, kindOrder: [SAVED, "sights"] });
     expect(ids(saved).filter((id) => id.startsWith(SAVED))).toHaveLength(8);
+  });
+});
+
+describe("fewerOptionsNote", () => {
+  it("names the empty days, grouping neighbours", () => {
+    expect(fewerOptionsNote([4])).toBe("I found fewer options for day 4, so tell me what else you want and I'll add it.");
+    expect(fewerOptionsNote([4, 5])).toContain("days 4 and 5,");
+    expect(fewerOptionsNote([4, 5, 6])).toContain("days 4-6,");
+    expect(fewerOptionsNote([9, 4, 5, 6])).toContain("days 4-6, 9,");
   });
 });

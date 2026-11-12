@@ -6,6 +6,7 @@ import { planBreadth, routePlaceCalls } from "@/lib/application/route-calls";
 import type { TripBrief } from "@/lib/application/trip-brief";
 import type { RouteLeg } from "@/lib/application/trip-route";
 import { effectiveStops } from "@/lib/trip-stops";
+import { effectiveTripDays } from "@/features/trip/domain/trip";
 import { resolveCurrency } from "@/lib/currency";
 
 export type Evidence = Awaited<ReturnType<typeof retrieveEvidence>>;
@@ -53,7 +54,7 @@ export function planRetrieval(input: { resolved: ResolvedTurn; prompt: string; t
   // see itinerary-anchor.ts for why each of those refuses to guess further. Anything short of
   // that just falls back to today's existing behavior (accommodation, or nothing).
   const mealAsk = resolved.intent === "food" ? detectMealAsk(prompt) : null;
-  const mealDay = mealAsk ? currentTripDay(tripCtx.trip?.start_date, tripCtx.trip?.duration_days, now) : null;
+  const mealDay = mealAsk ? currentTripDay(tripCtx.trip?.start_date, effectiveTripDays(tripCtx.trip), now) : null;
   const mealAnchor = mealAsk && mealDay ? inferMealAnchor(tripCtx.itinerary, mealAsk, mealDay) : null;
   // Cap at the resolver's own MAX_TOOL_CALLS, not a smaller hardcoded number — the resolver's
   // plan can already be up to MAX_TOOL_CALLS long, and re-capping lower here silently dropped
@@ -78,7 +79,7 @@ export function planRetrieval(input: { resolved: ResolvedTurn; prompt: string; t
   toolPlan.push(...routePlaceCalls({
     wantsItinerary: caps.has("itinerary"),
     requestedDays: resolved.itineraryDays,
-    tripDays: tripCtx.trip?.duration_days,
+    tripDays: effectiveTripDays(tripCtx.trip),
     stops: effectiveStops(tripCtx.trip).stops,
     locationFocus,
     existing: toolPlan,
@@ -102,7 +103,7 @@ export function planRetrieval(input: { resolved: ResolvedTurn; prompt: string; t
       toolPlan.push(...breadth.calls);
     });
   } else if (caps.has("itinerary") && (resolved.itineraryDays || !tripCtx.itinerary.length)) {
-    const breadth = planBreadth({ days: resolved.itineraryDays ?? tripCtx.trip?.duration_days ?? 3, existing: toolPlan, location: qualify(locationFocus), kinds: brief?.kinds, hasDates: Boolean(tripStart && tripEnd) });
+    const breadth = planBreadth({ days: resolved.itineraryDays ?? effectiveTripDays(tripCtx.trip) ?? 3, existing: toolPlan, location: qualify(locationFocus), kinds: brief?.kinds, hasDates: Boolean(tripStart && tripEnd) });
     placeLimit = breadth.placeLimit;
     toolPlan.push(...breadth.calls);
   }

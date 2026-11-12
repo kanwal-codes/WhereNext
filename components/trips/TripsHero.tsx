@@ -51,7 +51,7 @@ export function TripsHero({ displayName, start }: { displayName: string; start: 
               className="mx-auto mt-5 max-w-xl"
             >
               {/* One daisyUI input wraps the field and its buttons, so the whole pill takes the focus ring. */}
-              <label className="daisy-input daisy-input-lg h-14 w-full rounded-full border-border/60 bg-background pr-2 pl-5 shadow-lift transition-[background-color,border-color,box-shadow] focus-within:border-foreground/30 focus-within:shadow-[0_10px_34px_-10px_rgba(0,0,0,0.4)] focus-within:outline-transparent">
+              <label className="daisy-input daisy-input-lg h-14 w-full rounded-full border-border/60 bg-background pr-2 pl-5 shadow-lift transition-[background-color,border-color,box-shadow] focus-within:border-foreground/30 focus-within:shadow-[0_8px_20px_-10px_rgba(0,0,0,0.28)] focus-within:outline-transparent">
                 <input
                   ref={promptInputRef}
                   value={prompt}

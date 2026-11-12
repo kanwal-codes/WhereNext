@@ -219,7 +219,7 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
                     "pointer-events-auto absolute top-1/2 z-10 flex -translate-y-1/2 items-center gap-0.5 overflow-hidden rounded-full border border-border bg-card py-1 pr-1 pl-1 shadow-lift",
                     mine ? "-left-2" : "-right-2",
                     // On a phone the bar floats just above the message, anchored to its near edge, so it never runs off the screen.
-                    "max-lg:top-auto max-lg:bottom-full max-lg:mb-2 max-lg:translate-y-0 max-lg:border-0 max-lg:p-1.5 max-lg:shadow-[0_8px_28px_-8px_oklch(0.2_0.012_65/0.4),0_0_0_1px_var(--color-hairline)]",
+                    "max-lg:top-auto max-lg:bottom-full max-lg:mb-2 max-lg:translate-y-0 max-lg:border-0 max-lg:p-1.5 max-lg:shadow-[0_6px_16px_-8px_oklch(0.2_0.012_65/0.22),0_0_0_1px_var(--color-hairline)]",
                     (mine ? "max-lg:right-0 max-lg:left-auto" : "max-lg:left-0 max-lg:right-auto"),
                   )}
                 >

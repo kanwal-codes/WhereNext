@@ -30,6 +30,20 @@ export type Candidate = { key: string; name: string; id?: string; category: stri
 
 /** The kind label for places the traveller saved to the trip. */
 export const SAVED = "Saved by you";
+/** "I found fewer options for days 4-6, 9, so tell me what else you want and I'll add it." for the days that came out empty. */
+export function fewerOptionsNote(dayNumbers: number[]): string {
+  const sorted = [...new Set(dayNumbers)].sort((a, b) => a - b);
+  const runs: Array<[number, number]> = [];
+  for (const n of sorted) {
+    const last = runs.at(-1);
+    if (last && n === last[1] + 1) last[1] = n;
+    else runs.push([n, n]);
+  }
+  const text = runs.map(([from, to]) => (from === to ? `${from}` : to === from + 1 ? `${from} and ${to}` : `${from}-${to}`));
+  const label = `${sorted.length === 1 ? "day" : "days"} ${text.join(", ")}`;
+  return `I found fewer options for ${label}, so tell me what else you want and I'll add it.`;
+}
+
 const clamp = (n: number, low: number, high: number) => Math.min(Math.max(n, low), high);
 
 /**
@@ -117,8 +131,8 @@ const EDIT_INTRO_SYSTEM = (language: string) => `You write the title and the sho
 Mention only what THE PLAN below holds; never invent a venue. No preamble, no markdown.`;
 
 const INTRO_SYSTEM = (language: string) => `You write the title and the opening of a day-by-day trip plan. Write both in language "${language}" (BCP-47). Return JSON only:
-{"title":"<N> days in <city>","intro":"<2-3 concise sentences: how many days this covers and the shape of them, tied to what the traveller actually asked for (their cuisine, group, base) rather than generic travel talk; if DAYS WITH FEW OPTIONS are listed, say so in one clause (\\"I found fewer options for days 5-8\\", never calling them \\"saved\\" places) and invite them to name what else they want; then one thing to book ahead>"}
-Mention only what THE PLAN below holds; never invent a venue. No preamble, no markdown.`;
+{"title":"<N> days in <city>","intro":"<2-3 concise sentences: how many days this covers and the shape of them, tied to what the traveller actually asked for (their cuisine, group, base) rather than generic travel talk; then one thing to book ahead>"}
+Mention only what THE PLAN below holds, and only the days it lists; never invent a venue or a day. Say nothing about days with few options or ideas for more days: that is added separately. No preamble, no markdown.`;
 
 export type DayBrief = {
   /** The day's number in the trip (Day 1 is 1). */
@@ -137,7 +151,7 @@ const describe = (candidate: Candidate) => `- ${candidate.name} | ${candidate.id
 const deadlineFor = (signal: AbortSignal | undefined, perCall: number) => withDeadline(signal, Math.max(AI_DEADLINE_MS.sideBuilder, 8_000 + perCall * 4_000));
 
 /**
- * Writes the days side by side (up to eight calls, a few days each beyond eight) with the title and intro in parallel. A day whose
+ * Writes the days side by side (up to eight calls, a few days each beyond eight), then the title and intro from what the days hold. A day whose
  * call failed still gets its candidates as plain stops, so a hiccup never leaves a hole. Null when nothing could be written at all.
  */
 export async function writeDays(input: {
@@ -157,14 +171,6 @@ export async function writeDays(input: {
   const chunks = Array.from({ length: Math.ceil(input.days.length / size) }, (_, i) => input.days.slice(i * size, (i + 1) * size));
   const head = `Traveller: ${input.tripSummary}\nPace: ${input.pace}\nRequest: ${input.prompt}\n`;
 
-  const thin = input.days.filter((day) => day.candidates.length < 2).map((day) => day.number);
-  const intro = runBulkBuilder(
-    input.mode === "edit" ? EDIT_INTRO_SYSTEM(language) : INTRO_SYSTEM(language),
-    `${head}City: ${input.city}\nDays: ${input.days.length}\n${thin.length ? `DAYS WITH FEW OPTIONS: ${thin.join(", ")}\n` : ""}\nTHE PLAN:\n${input.days.map((day) => `Day ${day.number}${day.city ? ` (${day.city})` : ""}: ${[...new Set(day.candidates.map((candidate) => candidate.kind))].slice(0, 3).join(", ") || "nothing found yet"}${day.candidates.some((candidate) => candidate.dayTrip) ? " (a day trip)" : ""}${day.events.length ? `; events: ${day.events.map((line) => line.split(" | ")[0]).join(", ")}` : ""}`).join("\n")}`,
-    introSchema,
-    withDeadline(input.signal, AI_DEADLINE_MS.sideBuilder),
-    input.onUsage,
-  );
   const written = chunks.map((chunk) => runBulkBuilder(
     DAY_SYSTEM(language),
     `${head}\n${chunk.map((day) => `=== Day ${day.number}${day.city ? ` (${day.city})` : ""}\nCANDIDATES:\n${day.candidates.length ? day.candidates.map(describe).join("\n") : "(none)"}${day.events.length ? `\nEVENTS on this day (title | time | venue):\n${day.events.map((line) => `- ${line}`).join("\n")}` : ""}${day.must ? `\nMUST (booked): ${day.must}` : ""}`).join("\n\n")}`,
@@ -172,7 +178,7 @@ export async function writeDays(input: {
     deadlineFor(input.signal, chunk.length),
     input.onUsage,
   ));
-  const [introResult, ...results] = await Promise.all([intro, ...written]);
+  const results = await Promise.all(written);
   if (results.every((result) => !result)) return null;
 
   const byNumber = new Map<number, DraftDay>();
@@ -182,5 +188,16 @@ export async function writeDays(input: {
     if (drafted) return { ...drafted, label: `Day ${day.number}` };
     return { label: `Day ${day.number}`, stops: day.candidates.slice(0, 3).map((candidate) => ({ title: candidate.name, ...(candidate.id ? { placeId: candidate.id } : {}) })) };
   });
-  return { ...(introResult?.title ? { title: introResult.title } : {}), ...(introResult?.intro ? { intro: introResult.intro } : {}), days };
+
+  // The lead-in is written from the days as they came out, after them. Written alongside them (from what each day was offered) it
+  // described a Niagara day trip on a day that had become a ravine hike: it cannot know what the days chose.
+  const planned = days.map((day, i) => `${day.label}${input.days[i]?.city ? ` (${input.days[i].city})` : ""}: ${day.subtitle ?? ""}${day.stops.length ? ` — ${day.stops.map((stop) => stop.title).join("; ")}` : " — nothing yet"}`).join("\n");
+  const intro = await runBulkBuilder(
+    input.mode === "edit" ? EDIT_INTRO_SYSTEM(language) : INTRO_SYSTEM(language),
+    `${head}City: ${input.city}\nDays: ${days.length}\n\nTHE PLAN:\n${planned}`,
+    introSchema,
+    withDeadline(input.signal, AI_DEADLINE_MS.sideBuilder),
+    input.onUsage,
+  );
+  return { ...(intro?.title ? { title: intro.title } : {}), ...(intro?.intro ? { intro: intro.intro } : {}), days };
 }

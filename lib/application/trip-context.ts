@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { usesMiles } from "@/lib/application/geo";
+import { effectiveTripDays } from "@/features/trip/domain/trip";
 import { readStayDecision, type StayDecision } from "@/packages/contracts/stay";
 import { cached } from "@/lib/server/ttl-cache";
 import { lodgingGaps, outsideTripDates } from "@/lib/trip-reservations";
@@ -287,7 +288,7 @@ export function formatTripMemory(
   const profile = [
     context.trip ? `trip: ${context.trip.name}; destination: ${context.trip.destination || "undecided"}; origin: ${context.trip.origin || "undecided"}` : null,
     route ? describeStops(route.stops, route.estimated) || null : null,
-    context.trip?.duration_days != null ? `duration: ${context.trip.duration_days} days` : null,
+    effectiveTripDays(context.trip) != null ? `duration: ${effectiveTripDays(context.trip)} days` : null,
     context.trip?.travelers != null ? `travellers: ${context.trip.travelers}` : null,
     context.trip ? `dates: ${context.trip.start_date || "undecided"}${context.trip.end_date ? ` to ${context.trip.end_date}` : ""}` : null,
     typeof preferences.currency === "string" ? `currency: ${preferences.currency}` : null,

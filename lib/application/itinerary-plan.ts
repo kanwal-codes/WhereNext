@@ -2,7 +2,7 @@ import { z } from "zod";
 import { AI_DEADLINE_MS, withDeadline } from "@/packages/ai/model-policy";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 import type { UsageEntry } from "@/lib/ai/pricing";
-import { tripDurationDays } from "@/features/trip/domain/trip";
+import { effectiveTripDays } from "@/features/trip/domain/trip";
 import { tripCalendar, effectiveStops } from "@/lib/trip-stops";
 import { runBulkBuilder } from "./bulk-builder";
 import type { RetrievedEvidence } from "./retrieve";
@@ -10,7 +10,7 @@ import type { TripContext } from "./trip-context";
 import type { TripBrief } from "./trip-brief";
 import type { RouteLeg } from "./trip-route";
 import { editTargets } from "./edit-days";
-import { assignDays, SAVED, stopSchema, writeDays, type Candidate, type DayBrief, type PlanStop } from "./itinerary-days";
+import { assignDays, fewerOptionsNote, SAVED, stopSchema, writeDays, type Candidate, type DayBrief, type PlanStop } from "./itinerary-days";
 
 /** A plan can cover a whole trip: the old cap of 7 cut an 8-day trip short. Matches the day rows the add-to-trip control offers. */
 const MAX_PLAN_DAYS = 30;
@@ -27,7 +27,7 @@ const planSchema = z.object({
 });
 
 const SYSTEM = (language: string = "en") => `You draft a day-by-day plan for a trip. Write every text field ("title", "intro", "subtitle", "note") in language "${language}" (BCP-47) — never "time" or "kind", which stay in their given formats. Return JSON only:
-{"title":"<N> days in <city>","intro":"<2-3 concise sentences: how many days this covers and the shape of them, tied to what the traveller actually asked for (their cuisine, group, base) rather than generic travel talk; if days are thin or open because few places fit, say so in one clause (\"I found fewer options for days 5-8\", never calling them \"saved\" places) and invite them to name what else they want; then one thing to book ahead>","days":[{"label":"Day 1","subtitle":"<3-5 word theme>","stops":[{"time":"09:00","title":"<place or activity>","note":"<one line: why it fits or a tip>","placeId":"<id from KNOWN PLACES, or omit>","kind":"sight"}]}]}
+{"title":"<N> days in <city>","intro":"<2-3 concise sentences: how many days this covers and the shape of them, tied to what the traveller actually asked for (their cuisine, group, base) rather than generic travel talk; then one thing to book ahead. Say nothing about days having few options: that is added separately>>","days":[{"label":"Day 1","subtitle":"<3-5 word theme>","stops":[{"time":"09:00","title":"<place or activity>","note":"<one line: why it fits or a tip>","placeId":"<id from KNOWN PLACES, or omit>","kind":"sight"}]}]}
 Rules:
 - Build ONLY from KNOWN PLACES (the traveller's saved spots + what was found this turn). Never invent a venue. Too few to fill the days? Keep every day: give thin days one or two stops, and a day with no known place left gets "stops":[] — never leave a day out, never invent a venue to fill it.
 - 2 to 4 stops per day. Give every stop a real 24-hour clock time ("09:00", "13:30", "19:00") reflecting a sensible pace through the day — not just an ordering label. Use a specific known time (a show's start, a reservation) when there is one; otherwise pick a reasonable time for that stop's kind (e.g. breakfast ~08:30, lunch ~12:30, dinner ~19:00, a museum/sight ~10:00-15:00, nightlife ~21:00+). Leave "time" out only when the stop is genuinely flexible and no reasonable time applies.
@@ -85,7 +85,7 @@ export async function buildItineraryPlan(input: {
   // One stop is ~3 per day: a fixed 12 + 12 could not fill more than a handful of days.
   const targetDays = Math.min(input.requestedDays ?? 0, MAX_PLAN_DAYS) || 0;
   // The pool follows the days being planned, the trip's own length when none were asked for.
-  const poolDays = targetDays || Math.min(input.tripCtx.trip?.duration_days ?? tripDurationDays(input.tripCtx.trip?.start_date, input.tripCtx.trip?.end_date) ?? 0, MAX_PLAN_DAYS);
+  const poolDays = targetDays || Math.min(effectiveTripDays(input.tripCtx.trip) ?? 0, MAX_PLAN_DAYS);
   const poolSize = Math.max(12, poolDays * 4);
   // Each place carries the kind of thing it was found as (from the brief), so the days can be mixed on purpose.
   const kindByQuery = new Map([...(input.brief?.kinds ?? []), ...(input.legBriefs ?? []).flatMap((leg) => leg?.kinds ?? [])].map((kind) => [kind.placeQuery, kind]));
@@ -119,7 +119,7 @@ export async function buildItineraryPlan(input: {
     : "(nothing planned yet)";
   const prefs = input.tripCtx.preferences as Record<string, unknown>;
   const pace = typeof prefs.pace === "string" ? prefs.pace : "unspecified";
-  const duration = input.tripCtx.trip?.duration_days ?? tripDurationDays(input.tripCtx.trip?.start_date, input.tripCtx.trip?.end_date);
+  const duration = effectiveTripDays(input.tripCtx.trip);
   const fresh = existing === "(nothing planned yet)";
   // What was asked beats what the trip says; an edit of some days has no target (the model copies the rest).
   const wanted = targetDays || (fresh ? Math.min(duration ?? 0, MAX_PLAN_DAYS) : 0);
@@ -320,11 +320,15 @@ export async function buildItineraryPlan(input: {
   // A plan of nothing but open days says nothing: let the turn fall back to a normal answer instead.
   if (!days.some((day) => day.stops.length > 0)) return null;
   // The model titles the plan before padding and trimming ("3 days in Toronto"): when the plan was held to a day count, the card's own count wins.
+  // Days with nothing to put in them are said plainly here, by what the plan really holds, not left to the model to remember (it once
+  // copied the wording of its own example and announced "fewer options for days 4 onward" on a 3-day plan).
+  const openNumbers = days.flatMap((day, i) => (day.open ? [Number(day.label.match(/\d+/)?.[0]) || i + 1] : []));
+  const intro = [parsed.intro, openNumbers.length ? fewerOptionsNote(openNumbers) : ""].filter(Boolean).join(" ");
   const title = wanted && fresh && days.length > 1 ? parsed.title?.replace(/^\d+(?=\s*[-–]?\s*days?\b)/i, String(days.length)) : parsed.title;
   return {
     type: "itinerary",
     ...(title ? { title } : {}),
-    ...(parsed.intro ? { intro: parsed.intro } : {}),
+    ...(intro ? { intro } : {}),
     // The days are a rework of days the trip already has: applying the card replaces them instead of piling stops on top.
     ...(targets ? { replacesDays: true } : {}),
     days: days.map(({ open, ...day }) => (open ? { ...day, open: true } : day)),
