@@ -144,6 +144,31 @@ export function DayControl({ caption, date, min, busy, onPick, prevLabel, nextLa
 }
 
 
+/** A day as a chip that reads inside a sentence. The real date input sits invisibly over it, so a phone gets its own wheel. */
+export function DayChip({ date, min, busy, onPick, dateLabel }: { date: string | null; min: string; busy: boolean; onPick: (iso: string) => void; dateLabel: string }) {
+  return (
+    <label className={cn("relative inline-flex h-9 cursor-pointer items-center rounded-full bg-coral-soft px-3 text-coral-ink tabular-nums transition-colors hover:bg-coral-soft/70 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring", busy && "pointer-events-none opacity-60")}>
+      {date ? longDate(date) : "Pick a date"}
+      <input
+        type="date"
+        aria-label={dateLabel}
+        value={date ?? ""}
+        min={min}
+        onChange={(e) => e.target.value && onPick(e.target.value)}
+        onClick={(e) => {
+          try {
+            e.currentTarget.showPicker?.();
+          } catch {
+            /* the browser opens it from the focus instead */
+          }
+        }}
+        className="absolute inset-0 size-full cursor-pointer opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:size-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+      />
+    </label>
+  );
+}
+
+
 /** A thin sweep along a bar's edge while a new search loads. */
 export function SearchSweep({ busy }: { busy: boolean }) {
   const reduce = useReducedMotion();

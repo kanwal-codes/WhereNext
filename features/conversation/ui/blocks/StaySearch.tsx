@@ -1,14 +1,15 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronDown, MapPin, Minus, Plus, Users } from "lucide-react";
+import { ChevronDown, MapPin, Minus, Plus } from "lucide-react";
+import { DestinationCombobox } from "@/components/DestinationCombobox";
 import { LoadingNote, SEARCH_NOTES } from "@/components/LoadingNote";
 import { SkeletonCard } from "@/components/Skeleton";
 import { cn } from "@/lib/utils";
 import { toStayCardItem } from "@/lib/application/stay-items";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 import type { StayOption } from "@/packages/contracts/stay";
-import { DayControl, ISO, PlaceField, SearchSweep, daysBetween, shiftIso, tomorrowIso } from "./SearchBarParts";
+import { DayChip, ISO, PlaceField, SearchSweep, daysBetween, shiftIso, tomorrowIso } from "./SearchBarParts";
 import { prettyDate } from "./ui";
 
 type StaysBlock = Extract<AssistantBlock, { type: "stays" }>;
@@ -91,18 +92,51 @@ export type StaySearchView = {
   setBoth: (checkin: string, checkout: string) => void;
 };
 
-/** A small count with a step either way. */
-function Counter({ value, min, max, onChange, noun, disabled }: { value: number; min: number; max: number; onChange: (n: number) => void; noun: string; disabled: boolean }) {
-  const btn = "grid size-9 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-35";
+const chip = "inline-flex h-9 items-center rounded-full bg-coral-soft px-3 text-coral-ink transition-colors hover:bg-coral-soft/70 disabled:pointer-events-none disabled:opacity-60";
+
+/** The place, as a chip in the sentence; a tap turns it into a search box for another. */
+function PlaceChip({ label, endpoint, busy, onPick }: { label: string; endpoint: string; busy: boolean; onPick: (label: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const root = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!editing) return;
+    const away = (e: PointerEvent) => { if (root.current && !root.current.contains(e.target as Node)) setEditing(false); };
+    document.addEventListener("pointerdown", away);
+    return () => document.removeEventListener("pointerdown", away);
+  }, [editing]);
+  if (!editing) {
+    return (
+      <button type="button" disabled={busy} onClick={() => { setDraft(""); setEditing(true); }} aria-label={`Looking for stays in ${label}. Change`} title={label} className={cn(chip, "flex w-full")}>
+        <span className="truncate">{label}</span>
+      </button>
+    );
+  }
   return (
-    <div className="inline-flex items-center rounded-full border border-border bg-background/60">
-      <button type="button" aria-label={`Fewer ${noun}s`} disabled={disabled || value <= min} onClick={() => onChange(value - 1)} className={btn}><Minus className="size-4" aria-hidden /></button>
-      <span className="inline-flex min-w-[5.5rem] items-center justify-center gap-1.5 text-sm font-medium tabular-nums" aria-live="polite">
-        <Users className="size-4 text-coral" aria-hidden />
-        {value} {noun}{value === 1 ? "" : "s"}
-      </span>
-      <button type="button" aria-label={`More ${noun}s`} disabled={disabled || value >= max} onClick={() => onChange(value + 1)} className={btn}><Plus className="size-4" aria-hidden /></button>
-    </div>
+    <span ref={root} onKeyDown={(e) => e.key === "Escape" && setEditing(false)} className="relative block w-full">
+      <DestinationCombobox
+        endpoint={endpoint}
+        scope="areas"
+        value={draft}
+        onChange={setDraft}
+        onSelect={(text) => { setEditing(false); if (text.trim() && text !== label) onPick(text.trim()); }}
+        placeholder={label}
+        autoFocus
+        inputClassName="h-9 w-full rounded-full border border-foreground/30 bg-background px-3 text-base font-medium outline-none placeholder:text-muted-foreground"
+      />
+    </span>
+  );
+}
+
+/** Guests, as a chip with a step either way inside it. */
+function GuestsChip({ value, onChange, disabled }: { value: number; onChange: (n: number) => void; disabled: boolean }) {
+  const btn = "grid size-7 place-items-center rounded-full transition-colors hover:bg-coral/15 disabled:pointer-events-none disabled:opacity-35";
+  return (
+    <span className={cn(chip, "gap-0.5 px-1")}>
+      <button type="button" aria-label="Fewer guests" disabled={disabled || value <= 1} onClick={() => onChange(value - 1)} className={btn}><Minus className="size-3.5" aria-hidden /></button>
+      <span className="px-1 tabular-nums" aria-live="polite">{value} guest{value === 1 ? "" : "s"}</span>
+      <button type="button" aria-label="More guests" disabled={disabled || value >= 24} onClick={() => onChange(value + 1)} className={btn}><Plus className="size-3.5" aria-hidden /></button>
+    </span>
   );
 }
 
@@ -127,22 +161,26 @@ export function StaySearchBar({ search, tripId, trip, defaultOpen = false }: { s
   const min = tomorrowIso();
   const showTrip = Boolean(trip.start && trip.end && ISO.test(trip.start) && ISO.test(trip.end) && trip.start >= min && (query.checkin !== trip.start || query.checkout !== trip.end));
   return (
-    <div className="relative space-y-3 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-soft">
-      <PlaceField caption="Where" Icon={MapPin} srLabel="Looking for stays in" label={query.location} endpoint={`/api/trips/${tripId}/places/google/autocomplete`} scope="areas" busy={busy} onPick={search.setLocation} />
-      <div className="grid grid-cols-2 gap-x-2.5 gap-y-3 @[34rem]:flex @[34rem]:flex-wrap @[34rem]:items-center @[34rem]:gap-x-4 @[34rem]:gap-y-2.5">
-        <DayControl caption="Check in" date={query.checkin} min={min} busy={busy} onPick={search.setCheckin} prevLabel="Check in: previous day" nextLabel="Check in: next day" dateLabel="Check-in date" />
-        <DayControl caption="Check out" date={query.checkout} min={shiftIso(query.checkin, 1)} busy={busy} onPick={search.setCheckout} prevLabel="Check out: previous day" nextLabel="Check out: next day" dateLabel="Check-out date" />
-        <div className="col-span-2 flex items-center justify-between gap-3 @[34rem]:contents">
-          <span className="pl-1 text-sm tabular-nums text-muted-foreground @[34rem]:pl-0">{search.nights} night{search.nights === 1 ? "" : "s"}</span>
-          <Counter value={query.adults} min={1} max={24} onChange={search.setAdults} noun="guest" disabled={busy} />
-        </div>
-        {showTrip && (
-          <button type="button" disabled={busy} onClick={() => search.setBoth(trip.start!, trip.end!)} className="col-span-2 h-9 rounded-full px-3 text-sm font-medium text-coral-ink transition-colors hover:bg-coral-soft disabled:opacity-50 @max-[34rem]:-ml-3 @max-[34rem]:justify-self-start">
-            Trip dates · {prettyDate(trip.start)} – {prettyDate(trip.end)}
-          </button>
-        )}
-      </div>
-      <LoadingNote busy={busy} messages={SEARCH_NOTES.stays} />
+    // The search reads as a sentence you can edit in place: each blank is a chip. No labels, no stacked fields.
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-card px-4 py-3.5 shadow-soft">
+      <p className="font-display text-lg leading-[2.35] tracking-[-0.01em] text-foreground max-lg:text-[1.1875rem]">
+        <span className="block text-muted-foreground">Stays in</span>
+        <PlaceChip label={query.location} endpoint={`/api/trips/${tripId}/places/google/autocomplete`} busy={busy} onPick={search.setLocation} />
+        <span className="text-muted-foreground">from </span>
+        <DayChip date={query.checkin} min={min} busy={busy} onPick={search.setCheckin} dateLabel="Check-in date" />
+        <span className="text-muted-foreground"> to </span>
+        <DayChip date={query.checkout} min={shiftIso(query.checkin, 1)} busy={busy} onPick={search.setCheckout} dateLabel="Check-out date" />
+        <br />
+        <span className="text-muted-foreground">for </span>
+        <GuestsChip value={query.adults} onChange={search.setAdults} disabled={busy} />
+        <span className="ml-2 whitespace-nowrap text-base tabular-nums text-muted-foreground">({search.nights} night{search.nights === 1 ? "" : "s"})</span>
+      </p>
+      {showTrip && (
+        <button type="button" disabled={busy} onClick={() => search.setBoth(trip.start!, trip.end!)} className="-ml-3 mt-1 h-9 rounded-full px-3 text-sm font-medium text-coral-ink transition-colors hover:bg-coral-soft disabled:opacity-50">
+          Use trip dates · {prettyDate(trip.start)} – {prettyDate(trip.end)}
+        </button>
+      )}
+      {busy && <div className="pt-1"><LoadingNote busy={busy} messages={SEARCH_NOTES.stays} /></div>}
       <p className="sr-only" role="status" aria-live="polite">{busy ? "Loading stays" : ""}</p>
       <SearchSweep busy={busy} />
     </div>

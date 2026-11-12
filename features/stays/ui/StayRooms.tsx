@@ -30,30 +30,30 @@ export function RoomsSection({ s, hotelId }: { s: ReturnType<typeof useStayDetai
             {shown.map((room, i) => {
               const isLocked = Boolean(locked && (locked.rateId ? locked.rateId === room.rateId : locked.roomName === room.name));
               return (
-                <li key={room.rateId ?? room.offerId ?? `${room.name}-${i}`} className="space-y-3 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 space-y-1.5">
-                      <p className={cn(T.body, "font-medium")}>{room.name}</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {room.boardName && <Badge>{room.boardName}</Badge>}
-                        {room.refundable ? (
-                          <Badge tone="positive" icon={Check}>{room.cancelBefore ? `Free cancellation until ${prettyDate(room.cancelBefore.slice(0, 10))}` : "Refundable"}</Badge>
-                        ) : (
-                          <Badge>Non-refundable</Badge>
-                        )}
-                        {room.maxOccupancy ? <Badge icon={Users}>{room.maxOccupancy} guest{room.maxOccupancy === 1 ? "" : "s"}</Badge> : null}
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="font-display text-lg font-semibold leading-tight tabular-nums">{money(room.nightlyAmount, room.currency)}<span className={cn(T.meta, "font-sans font-normal")}> / night</span></p>
-                      <p className={cn(T.meta, "tabular-nums")}>{money(room.totalAmount, room.currency)} total{room.taxesAndFees ? ` · incl. ${money(room.taxesAndFees, room.currency)} taxes` : ""}</p>
-                    </div>
+                // Three tight lines: name and nightly price; the terms as one quiet line; the total beside the action.
+                <li key={room.rateId ?? room.offerId ?? `${room.name}-${i}`} className="space-y-2 p-4">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <p className={cn(T.body, "min-w-0 font-medium")}>{room.name}</p>
+                    <p className="shrink-0 font-display text-lg font-semibold leading-tight tabular-nums">{money(room.nightlyAmount, room.currency)}<span className={cn(T.meta, "font-sans font-normal")}> / night</span></p>
                   </div>
-                  <div className="flex justify-end">
+                  <p className={cn(T.meta, "flex flex-wrap items-center gap-x-3 gap-y-1")}>
+                    {room.boardName && <span>{room.boardName}</span>}
+                    {room.refundable ? (
+                      <span className="inline-flex items-center gap-1 text-leaf"><Check className="size-3.5 shrink-0" aria-hidden />{room.cancelBefore ? `Free cancellation until ${prettyDate(room.cancelBefore.slice(0, 10))}` : "Refundable"}</span>
+                    ) : (
+                      <span>Non-refundable</span>
+                    )}
+                    {room.maxOccupancy ? <span className="inline-flex items-center gap-1"><Users className="size-3.5 shrink-0" aria-hidden />{room.maxOccupancy} guest{room.maxOccupancy === 1 ? "" : "s"}</span> : null}
+                  </p>
+                  <div className="flex items-center justify-between gap-3 pt-1">
+                    <p className={cn(T.meta, "min-w-0 leading-snug tabular-nums")}>
+                      <span className="block font-medium text-foreground">{money(room.totalAmount, room.currency)} total</span>
+                      {room.taxesAndFees ? <span className="block">incl. {money(room.taxesAndFees, room.currency)} taxes</span> : null}
+                    </p>
                     {isLocked ? (
                       <Badge tone="positive" icon={Check}>Your stay</Badge>
                     ) : (
-                      <button type="button" className="btn-primary-sm" disabled={s.busy} onClick={() => void s.lockRoom(room)}>
+                      <button type="button" className="btn-primary-sm shrink-0" disabled={s.busy} onClick={() => void s.lockRoom(room)}>
                         {s.busy ? "Saving…" : "Choose this room"}
                       </button>
                     )}

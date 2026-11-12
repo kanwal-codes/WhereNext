@@ -106,7 +106,7 @@ export function QuickActions({ actions, variant = "row" }: { actions: Array<Mayb
             href={href.startsWith("tel:") ? href : safeHref(href)}
             {...(external ? { target: "_blank", rel: "noreferrer noopener" } : {})}
             title={main ? undefined : label}
-            className={cn("inline-flex shrink-0 items-center justify-center", main ? cn(MAIN, shown.length === 1 && "flex-none") : OTHERS[(i - 1) % OTHERS.length])}
+            className={cn("inline-flex shrink-0 items-center justify-center", main ? MAIN : OTHERS[(i - 1) % OTHERS.length])}
           >
             <Icon className={main ? "size-[18px]" : "size-5"} aria-hidden />
             {main ? label : <span className="sr-only">{label}</span>}
