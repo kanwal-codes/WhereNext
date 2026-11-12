@@ -175,16 +175,11 @@ export function buildRows(input: {
   return rows;
 }
 
-/** Rows that take a whole line of the grid rather than half of one. */
-export const isWideRow = (row: Row): boolean =>
-  ["destination", "dates", "base_area", "stay"].includes(row.id) || row.id.startsWith("dec-") || row.value.length > 20;
-
-/** The panel's three groups, and the one half-width tile that would otherwise sit beside a hole (an odd number of them): it spans the row. */
-export function groupRows(rows: Row[], isEditing: (row: Row) => boolean) {
-  const confirmed = rows.filter((r) => r.certainty === "confirmed");
-  const suggested = rows.filter((r) => r.certainty === "suggested");
-  const undecided = rows.filter((r) => r.certainty === "undecided");
-  const narrow = confirmed.filter((r) => !isWideRow(r) && !isEditing(r));
-  const loneTile = narrow.length % 2 === 1 ? narrow[narrow.length - 1] : null;
-  return { confirmed, suggested, undecided, loneTile };
+/** The panel's three groups. */
+export function groupRows(rows: Row[]) {
+  return {
+    confirmed: rows.filter((r) => r.certainty === "confirmed"),
+    suggested: rows.filter((r) => r.certainty === "suggested"),
+    undecided: rows.filter((r) => r.certainty === "undecided"),
+  };
 }

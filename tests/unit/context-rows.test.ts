@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRows, datesError, dateRangeText, groupRows, isWideRow, prefValue, travellersError, type Decision, type Row } from "../../features/workspace/domain/context-rows";
+import { buildRows, datesError, dateRangeText, groupRows, prefValue, travellersError, type Decision, type Row } from "../../features/workspace/domain/context-rows";
 
 const trip = (over: Record<string, unknown> = {}) => ({ id: "t", name: "T", destination: "Lisbon", duration_days: 7, travelers: 2, start_date: "2026-12-01", end_date: "2026-12-08", ...over }) as never;
 const facts = (over: Record<string, unknown> = {}) => ({ destination: "Lisbon", travelers: 2 as number | null, ...over });
@@ -111,29 +111,8 @@ describe("buildRows", () => {
 
 describe("groupRows", () => {
   it("splits by certainty", () => {
-    const g = groupRows(rows({ memory: { pace: "slow" }, decisions: [sugg("occasion", "Birthday")] }), () => false);
+    const g = groupRows(rows({ memory: { pace: "slow" }, decisions: [sugg("occasion", "Birthday")] }));
     expect(g.confirmed.length + g.suggested.length + g.undecided.length).toBe(rows({ memory: { pace: "slow" }, decisions: [sugg("occasion", "Birthday")] }).length);
     expect(g.suggested.map((r) => r.id)).toEqual(["occasion"]);
-  });
-
-  it("stretches the last half-width tile when there is an odd number of them", () => {
-    const g = groupRows(rows({ memory: { pace: "slow" } }), () => false);
-    const narrow = g.confirmed.filter((r) => !isWideRow(r));
-    expect(narrow.length % 2).toBe(1);
-    expect(g.loneTile).toBe(narrow[narrow.length - 1]);
-    const even = groupRows(rows({ memory: { pace: "slow", occasion: "trip" } }), () => false);
-    expect(even.loneTile).toBeNull();
-  });
-
-  it("does not count a tile being edited as narrow", () => {
-    const g = groupRows(rows({ memory: { pace: "slow" } }), (r) => r.id === "pace");
-    expect(g.loneTile?.id).not.toBe("pace");
-  });
-
-  it("treats destination, dates, area, stay, decisions and long values as wide", () => {
-    const row = (id: string, value = "x"): Row => ({ id, label: id, value, certainty: "confirmed" });
-    expect(["destination", "dates", "base_area", "stay", "dec-1"].every((id) => isWideRow(row(id)))).toBe(true);
-    expect(isWideRow(row("pace", "a".repeat(21)))).toBe(true);
-    expect(isWideRow(row("pace", "slow"))).toBe(false);
   });
 });

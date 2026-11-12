@@ -98,7 +98,7 @@ describe("TripContextSurface: what it shows", () => {
 
   it("says nothing is locked in on an empty trip", () => {
     show({ trip: null });
-    expect(screen.getByText("Nothing locked in yet")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "What we know" }).parentElement!.textContent).toMatch(/Nothing locked in yet/);
   });
 
   it("locks in the trip's own facts: destination, length, travellers, dates", () => {

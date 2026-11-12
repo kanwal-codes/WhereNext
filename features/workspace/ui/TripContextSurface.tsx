@@ -2,10 +2,10 @@
 
 import {
   Ban, BedDouble, CalendarDays, Car, Check, Clock, Compass, Home, MapPin, PartyPopper, Pencil, PlaneLanding,
-  Sparkles, Users, Utensils, Wallet, X, Zap, type LucideIcon,
+  Plus, Sparkles, Users, Utensils, Wallet, Zap, type LucideIcon,
 } from "lucide-react";
 import { useTripContext } from "../application/useTripContext";
-import { buildRows, groupRows, isWideRow, type PrefKey, type Row } from "../domain/context-rows";
+import { buildRows, groupRows, type PrefKey, type Row } from "../domain/context-rows";
 import type { Trip } from "@/features/trip/domain/trip";
 import { cn } from "@/lib/utils";
 import { DestinationCombobox } from "@/components/DestinationCombobox";
@@ -23,25 +23,46 @@ const PREF_PLACEHOLDER: Record<PrefKey, string> = {
   transport: "rental car, transit, rideshare…",
 };
 
-/** Icon chip per fact: icon plus a tint taken from the palette, so the list scans by colour. */
-const ROW_ICON: Record<string, { icon: LucideIcon; tint: string }> = {
-  destination: { icon: MapPin, tint: "bg-coral-soft text-coral" },
-  length: { icon: Clock, tint: "bg-water-soft text-water" },
-  travellers: { icon: Users, tint: "bg-water-soft text-water" },
-  dates: { icon: CalendarDays, tint: "bg-water-soft text-water" },
-  occasion: { icon: PartyPopper, tint: "bg-coral-soft text-coral" },
-  budget: { icon: Wallet, tint: "bg-leaf-soft text-leaf" },
-  group: { icon: Users, tint: "bg-water-soft text-water" },
-  pace: { icon: Zap, tint: "bg-accent text-foreground" },
-  interests: { icon: Sparkles, tint: "bg-coral-soft text-coral" },
-  base_area: { icon: Home, tint: "bg-coral-soft text-coral" },
-  getting_around: { icon: Car, tint: "bg-water-soft text-water" },
-  arrival: { icon: PlaneLanding, tint: "bg-water-soft text-water" },
-  dislikes: { icon: Ban, tint: "bg-accent text-foreground" },
-  dietary: { icon: Utensils, tint: "bg-leaf-soft text-leaf" },
-  stay: { icon: BedDouble, tint: "bg-coral-soft text-coral" },
+/** One plain line icon per fact. No tinted chips: the list is read by its words, and colour is kept for what needs the traveller. */
+const ROW_ICON: Record<string, LucideIcon> = {
+  destination: MapPin,
+  length: Clock,
+  travellers: Users,
+  dates: CalendarDays,
+  occasion: PartyPopper,
+  budget: Wallet,
+  group: Users,
+  pace: Zap,
+  interests: Sparkles,
+  base_area: Home,
+  getting_around: Car,
+  arrival: PlaneLanding,
+  dislikes: Ban,
+  dietary: Utensils,
+  stay: BedDouble,
 };
-const FALLBACK_ICON = { icon: Compass, tint: "bg-accent text-foreground" };
+
+const FIELD = "h-10 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-foreground/25 focus:border-foreground/30 focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_5%,transparent)] [color-scheme:light_dark]";
+const SECTION_LABEL = "mb-1 px-1 text-xs font-medium text-muted-foreground";
+
+/** Save, Cancel and (for dates) Clear, the same under every editor. */
+function EditorActions({ saving, onSave, onCancel, onClear }: { saving: boolean; onSave: () => void; onCancel: () => void; onClear?: () => void }) {
+  return (
+    <div className="flex items-center gap-3 pt-0.5">
+      <button type="button" onClick={onSave} disabled={saving} className="btn-primary-sm">
+        {saving ? "…" : "Save"}
+      </button>
+      <button type="button" onClick={onCancel} className="text-xs text-muted-foreground transition-colors hover:text-foreground">
+        Cancel
+      </button>
+      {onClear && (
+        <button type="button" onClick={onClear} className="ml-auto text-xs text-muted-foreground transition-colors hover:text-destructive">
+          Clear
+        </button>
+      )}
+    </div>
+  );
+}
 
 export function TripContextSurface({
   tripId,
@@ -63,192 +84,10 @@ export function TripContextSurface({
   const rows = buildRows({ trip, tripFacts, tripDates, memory, decisions });
   const isRowEditing = (row: Row) =>
     row.id === "dates" ? editingDates : row.tripField ? editingField === row.tripField : editing != null && editing === row.editKey;
-  const { confirmed: confirmedRows, suggested: suggestedRows, undecided: undecidedRows, loneTile } = groupRows(rows, isRowEditing);
+  const { confirmed: confirmedRows, suggested: suggestedRows, undecided: undecidedRows } = groupRows(rows);
   const setCount = confirmedRows.length;
-
-  const renderRow = (row: Row, tile = false, lone = false) => {
-    const isEditing = row.id === "dates"
-      ? editingDates
-      : row.tripField
-        ? editingField === row.tripField
-        : editing != null && editing === row.editKey;
-    const rowIcon = ROW_ICON[row.id] ?? FALLBACK_ICON;
-    const flashId = row.tripField ?? (row.suggestionKey ? `sugg-${row.suggestionKey}` : row.editKey ?? row.id);
-    const wide = isEditing || lone || isWideRow(row);
-    // Inside "Needs your call" every row already reads as coral (the card's border, wash and
-    // eyebrow all say so) — the category tint underneath competed with that instead of
-    // reinforcing it, so a transport suggestion sat in a blue chip inside a coral card.
-    const chip = (
-      <span aria-hidden className={cn("grid shrink-0 place-items-center rounded-xl", tile && !wide ? "size-9" : "size-10", row.certainty === "suggested" ? "bg-coral-soft text-coral" : rowIcon.tint)}>
-        <rowIcon.icon className="size-[1.0625rem]" strokeWidth={1.8} />
-      </span>
-    );
-    const label = (
-      <p className="min-w-0 text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">{row.label}</p>
-    );
-    return (
-      <div
-        key={row.id}
-        className={cn(
-          "group/row transition-colors",
-          tile
-            ? cn(
-                "rounded-2xl border border-border/60 bg-card p-4 shadow-[0_14px_30px_-26px_color-mix(in_oklab,var(--color-ink)_50%,transparent)]",
-                wide ? "col-span-2 flex items-start gap-3.5" : "flex flex-col gap-3.5",
-              )
-            : "flex items-start gap-3.5 px-4 py-4",
-          flash === flashId && "bg-leaf-soft/40",
-        )}
-      >
-        {chip}
-        <div className="min-w-0 flex-1">
-        {label}
-        {isEditing && row.id === "dates" ? (
-                <div className="mt-1.5 space-y-1.5">
-                  <DateRangeField start={dStart} end={dEnd} onChange={(s, e) => { setDStart(s); setDEnd(e); }} />
-                  <div className="flex items-center gap-3">
-                    <button type="button" onClick={() => void saveDates()} disabled={savingDates} className="btn-primary-sm">
-                      {savingDates ? "…" : "Save"}
-                    </button>
-                    <button type="button" onClick={() => setEditingDates(false)} className="text-2xs text-muted-foreground hover:text-foreground">
-                      Cancel
-                    </button>
-                    {(dStart || dEnd) && (
-                      <button type="button" onClick={() => { setDStart(""); setDEnd(""); }} className="ml-auto text-2xs text-muted-foreground hover:text-destructive">
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ) : isEditing && row.tripField === "destination" ? (
-                <div className="mt-1.5 space-y-1.5">
-                  <DestinationCombobox
-                    tripId={tripId}
-                    value={fieldDraft}
-                    onChange={setFieldDraft}
-                    onSelect={(text) => { setFieldDraft(text); void saveTripField("destination", text); }}
-                    placeholder="City or region"
-                    autoFocus
-                    disabled={savingField}
-                  />
-                  <div className="flex items-center gap-3">
-                    <button type="button" onClick={() => void saveTripField("destination", fieldDraft)} disabled={savingField} className="btn-primary-sm">
-                      {savingField ? "…" : "Save"}
-                    </button>
-                    <button type="button" onClick={() => setEditingField(null)} className="text-2xs text-muted-foreground hover:text-foreground">
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : isEditing && row.tripField ? (
-                <div className="mt-1.5 space-y-1.5">
-                  <input
-                    autoFocus
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    value={fieldDraft}
-                    onChange={(e) => setFieldDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") void saveTripField(row.tripField!, fieldDraft);
-                      if (e.key === "Escape") setEditingField(null);
-                    }}
-                    placeholder="How many of you"
-                    className="w-full rounded-lg border border-input bg-background px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-ring/25"
-                  />
-                  <div className="flex items-center gap-3">
-                    <button type="button" onClick={() => void saveTripField(row.tripField!, fieldDraft)} disabled={savingField} className="btn-primary-sm">
-                      {savingField ? "…" : "Save"}
-                    </button>
-                    <button type="button" onClick={() => setEditingField(null)} className="text-2xs text-muted-foreground hover:text-foreground">
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : isEditing ? (
-                <div className="mt-1.5 space-y-1.5">
-                  <input
-                    autoFocus
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") void savePref(row.editKey!, draft);
-                      if (e.key === "Escape") setEditing(null);
-                    }}
-                    placeholder={PREF_PLACEHOLDER[row.editKey!]}
-                    className="w-full rounded-lg border border-input bg-background px-2 py-1 text-sm outline-none [color-scheme:light_dark] focus:ring-2 focus:ring-ring/25"
-                  />
-                  <div className="flex items-center gap-3">
-                    <button type="button" onClick={() => void savePref(row.editKey!, draft)} disabled={savingKey === row.editKey} className="btn-primary-sm">
-                      {savingKey === row.editKey ? "…" : "Save"}
-                    </button>
-                    <button type="button" onClick={() => setEditing(null)} className="text-2xs text-muted-foreground hover:text-foreground">
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-1 flex items-start justify-between gap-2">
-                  {/* A suggestion's value is often "X to Y" or a full name — truncating it lost the
-                      half that made it legible ("Driving between Niagara Falls an…"). Everything
-                      else stays single-line; only a suggestion gets room to wrap. */}
-                  <p className={cn("min-w-0 text-sm", row.suggestionKey ? "line-clamp-2" : "truncate", !row.value && "text-muted-foreground")}>
-                    {row.value || (row.editKey || row.editable || row.tripField ? "Not set" : "Not decided")}
-                  </p>
-                  {(row.editKey || row.editable || row.tripField) && !row.suggestionKey && (
-                    <button
-                      type="button"
-                      aria-label={`Edit ${row.label}`}
-                      onClick={() => {
-                        if (guard()) return;
-                        if (row.id === "dates") {
-                          setDStart(tripDates.start);
-                          setDEnd(tripDates.end);
-                          setEditingDates(true);
-                        } else if (row.tripField) {
-                          setEditingField(row.tripField);
-                          setFieldDraft(row.value);
-                        } else {
-                          setEditing(row.editKey!);
-                          setDraft(row.value);
-                        }
-                      }}
-                      className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-              )}
-
-        {row.note && !row.suggestionKey && !isEditing && <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{row.note}</p>}
-        {row.suggestionKey && !isEditing && (
-          <div className="mt-2">
-            {row.note && <p className="text-xs leading-relaxed text-muted-foreground">{row.note}</p>}
-            <div className="mt-1.5 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => void act(row.suggestionKey!, "confirm")}
-                disabled={busyKey === row.suggestionKey}
-                className="inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-xs font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-60"
-              >
-                <Check className="h-3 w-3" /> Confirm
-              </button>
-              <button
-                type="button"
-                onClick={() => void act(row.suggestionKey!, "dismiss")}
-                disabled={busyKey === row.suggestionKey}
-                className="inline-flex items-center gap-1 rounded-full border border-border px-3.5 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
-              >
-                <X className="h-3 w-3" /> Dismiss
-              </button>
-            </div>
-          </div>
-        )}
-        </div>
-      </div>
-    );
-  };
+  // The meter: what is settled in ink, what waits on the traveller in coral, the rest is the empty track.
+  const share = (n: number) => (rows.length ? `${(n / rows.length) * 100}%` : "0%");
 
   const startEdit = (row: Row) => {
     if (guard()) return;
@@ -265,96 +104,191 @@ export function TripContextSurface({
     }
   };
 
+  const renderRow = (row: Row) => {
+    const isEditing = isRowEditing(row);
+    const Icon = ROW_ICON[row.id] ?? Compass;
+    const flashId = row.tripField ?? (row.suggestionKey ? `sugg-${row.suggestionKey}` : row.editKey ?? row.id);
+    const canEdit = Boolean(row.editKey || row.editable || row.tripField);
+    return (
+      <div key={row.id} className={cn("group/row flex items-start gap-3.5 py-3.5 transition-colors duration-500", flash === flashId && "bg-leaf-soft/40")}>
+        <Icon aria-hidden strokeWidth={1.5} className={cn("mt-[1px] size-[1.125rem] shrink-0", row.certainty === "suggested" ? "text-coral" : "text-muted-foreground")} />
+        <div className="min-w-0 flex-1">
+          <p className="min-w-0 text-xs text-muted-foreground">{row.label}</p>
+          {isEditing && row.id === "dates" ? (
+            <div className="mt-2 space-y-2">
+              <DateRangeField start={dStart} end={dEnd} onChange={(s, e) => { setDStart(s); setDEnd(e); }} />
+              <EditorActions
+                saving={savingDates}
+                onSave={() => void saveDates()}
+                onCancel={() => setEditingDates(false)}
+                onClear={dStart || dEnd ? () => { setDStart(""); setDEnd(""); } : undefined}
+              />
+            </div>
+          ) : isEditing && row.tripField === "destination" ? (
+            <div className="mt-2 space-y-2">
+              <DestinationCombobox
+                tripId={tripId}
+                value={fieldDraft}
+                onChange={setFieldDraft}
+                onSelect={(text) => { setFieldDraft(text); void saveTripField("destination", text); }}
+                placeholder="City or region"
+                autoFocus
+                disabled={savingField}
+              />
+              <EditorActions saving={savingField} onSave={() => void saveTripField("destination", fieldDraft)} onCancel={() => setEditingField(null)} />
+            </div>
+          ) : isEditing && row.tripField ? (
+            <div className="mt-2 space-y-2">
+              <input
+                autoFocus
+                type="number"
+                inputMode="numeric"
+                min={1}
+                value={fieldDraft}
+                onChange={(e) => setFieldDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void saveTripField(row.tripField!, fieldDraft);
+                  if (e.key === "Escape") setEditingField(null);
+                }}
+                placeholder="How many of you"
+                className={FIELD}
+              />
+              <EditorActions saving={savingField} onSave={() => void saveTripField(row.tripField!, fieldDraft)} onCancel={() => setEditingField(null)} />
+            </div>
+          ) : isEditing ? (
+            <div className="mt-2 space-y-2">
+              <input
+                autoFocus
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void savePref(row.editKey!, draft);
+                  if (e.key === "Escape") setEditing(null);
+                }}
+                placeholder={PREF_PLACEHOLDER[row.editKey!]}
+                className={FIELD}
+              />
+              <EditorActions saving={savingKey === row.editKey} onSave={() => void savePref(row.editKey!, draft)} onCancel={() => setEditing(null)} />
+            </div>
+          ) : (
+            <div className="mt-0.5 flex items-start justify-between gap-2">
+              {/* A value is often "X to Y" or a full name ("Driving between Niagara Falls an…", "Bakal Tulum · Booking on Bakal Tulum H…"):
+                  cutting it to one line lost the half that made it legible, so it wraps to two. */}
+              <p className={cn("min-w-0 line-clamp-2 text-sm leading-[1.4]", !row.value && "text-muted-foreground")}>
+                {row.value || (canEdit ? "Not set" : "Not decided")}
+              </p>
+              {canEdit && !row.suggestionKey && (
+                <button
+                  type="button"
+                  aria-label={`Edit ${row.label}`}
+                  onClick={() => startEdit(row)}
+                  // Quiet until the row is hovered or focused; always there on a touch screen, where nothing hovers.
+                  className="hit-44 -my-1.5 -mr-1.5 grid size-8 shrink-0 max-lg:-my-2.5 max-lg:-mr-3 max-lg:size-10 place-items-center rounded-full text-muted-foreground opacity-0 transition-[opacity,background-color,color] duration-150 hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/row:opacity-100 group-focus-within/row:opacity-100 [@media(hover:none)]:opacity-100"
+                >
+                  <Pencil className="size-3.5" aria-hidden />
+                </button>
+              )}
+            </div>
+          )}
+
+          {row.note && !row.suggestionKey && !isEditing && <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{row.note}</p>}
+          {row.suggestionKey && !isEditing && (
+            <div className="mt-1.5">
+              {row.note && <p className="text-xs leading-relaxed text-muted-foreground">{row.note}</p>}
+              <div className="mt-2.5 flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => void act(row.suggestionKey!, "confirm")}
+                  disabled={busyKey === row.suggestionKey}
+                  className="btn-primary-sm"
+                >
+                  <Check className="size-3" aria-hidden /> Confirm
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void act(row.suggestionKey!, "dismiss")}
+                  disabled={busyKey === row.suggestionKey}
+                  className="rounded-full px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-black/[0.04] hover:text-foreground disabled:opacity-60"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="min-w-0 space-y-4">
+    <div className="min-w-0 space-y-7">
       <header className="px-1 pt-1">
-        <h3 className="font-display text-[2rem] leading-none tracking-tight">What we know</h3>
-        <p className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5">
-            <i aria-hidden className="size-2 rounded-full bg-leaf" />
-            {setCount === 0 ? "Nothing locked in yet" : `${setCount} locked in`}
-          </span>
+        <h3 className="font-display text-2xl leading-8 tracking-tight">What we know</h3>
+        <p className="mt-1.5 text-sm text-muted-foreground tabular-nums">
+          {setCount === 0 ? "Nothing locked in yet" : `${setCount} locked in`}
           {suggestedRows.length > 0 && (
             <>
-              <span aria-hidden>·</span>
-              <span className="inline-flex items-center gap-1.5">
-                <i aria-hidden className="size-2 rounded-full bg-coral" />
-                {suggestedRows.length} needs you
-              </span>
+              {" · "}
+              <span className="font-medium text-coral-ink">{suggestedRows.length} needs you</span>
             </>
           )}
-          {undecidedRows.length > 0 && (
-            <>
-              <span aria-hidden>·</span>
-              <span>{undecidedRows.length} still open</span>
-            </>
-          )}
+          {undecidedRows.length > 0 && ` · ${undecidedRows.length} still open`}
         </p>
+        <div aria-hidden className="mt-3.5 flex h-[3px] overflow-hidden rounded-full bg-border/70">
+          <i className="h-full bg-ink transition-[width] duration-500 ease-out" style={{ width: share(setCount) }} />
+          <i className="h-full bg-coral transition-[width] duration-500 ease-out" style={{ width: share(suggestedRows.length) }} />
+        </div>
       </header>
 
       {/* Locked in */}
       {confirmedRows.length > 0 && (
-        <section>
-          <div className="grid grid-flow-dense grid-cols-2 gap-2.5">
-            {confirmedRows.map((row) => renderRow(row, true, row === loneTile))}
-          </div>
-        </section>
+        <section className="-mt-5 divide-y divide-border/60 px-1">{confirmedRows.map(renderRow)}</section>
       )}
 
       {/* Suggested by the assistant */}
       {suggestedRows.length > 0 && (
         <section>
-          <p className="mb-2 flex items-center gap-2 px-1 text-2xs font-semibold tracking-[0.2em] text-coral-ink uppercase">
-            <i aria-hidden className="size-1.5 rounded-full bg-coral" />
-            Needs your call
-          </p>
-          <div className="divide-y divide-coral/15 overflow-hidden rounded-2xl border border-coral/35 bg-gradient-to-br from-card to-coral-soft/35 shadow-soft">
-            {suggestedRows.map((row) => renderRow(row))}
-          </div>
+          <p className={cn(SECTION_LABEL, "text-coral-ink")}>Needs your call</p>
+          <div className="mx-1 divide-y divide-coral/15 rounded-2xl bg-coral-soft/60 px-4">{suggestedRows.map(renderRow)}</div>
         </section>
       )}
 
       {/* To decide */}
       {undecidedRows.length > 0 && (
         <section>
-          <p className="mb-2 px-1 text-2xs font-semibold tracking-[0.2em] text-muted-foreground uppercase">Still open · tap to set</p>
-          <div>
-            <div className="flex flex-wrap gap-2">
-              {undecidedRows.map((row) => {
-                const canEdit = Boolean(row.editKey || row.editable);
-                if (canEdit) {
-                  return (
-                    <button
-                      key={row.id}
-                      type="button"
-                      onClick={() => startEdit(row)}
-                      aria-pressed={isRowEditing(row)}
-                      className="inline-flex h-[34px] items-center gap-1.5 rounded-full border border-dashed border-border bg-transparent px-4 text-sm text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground aria-pressed:border-foreground/50 aria-pressed:text-foreground"
-                    >
-                      {(() => {
-                        const Icon = (ROW_ICON[row.id] ?? FALLBACK_ICON).icon;
-                        return <Icon className="size-3.5" aria-hidden />;
-                      })()} {row.label}
-                    </button>
-                  );
-                }
+          <p className={cn(SECTION_LABEL, "mb-2.5")}>Still open</p>
+          <div className="flex flex-wrap gap-2 px-1">
+            {undecidedRows.map((row) => {
+              if (!(row.editKey || row.editable)) {
                 return (
-                  <span key={row.id} className="inline-flex h-[34px] items-center rounded-full border border-dashed border-border px-4 text-sm text-muted-foreground">
+                  <span key={row.id} className="inline-flex h-8 items-center rounded-full border border-border px-3.5 text-sm text-muted-foreground">
                     {row.label}
                   </span>
                 );
-              })}
-            </div>
-            {/* Inline editor for whichever undecided row is being edited */}
-            {undecidedRows.filter(isRowEditing).map((row) => (
-              <div key={`edit-${row.id}`} className="mt-3 overflow-hidden rounded-2xl border border-border/60 bg-card">
-                {renderRow(row)}
-              </div>
-            ))}
-            <p className="mt-2 px-1 text-xs leading-relaxed text-muted-foreground">
-              Tap one to set it now, or just keep talking — Roam fills these in as you plan.
-            </p>
+              }
+              return (
+                <button
+                  key={row.id}
+                  type="button"
+                  onClick={() => startEdit(row)}
+                  aria-pressed={isRowEditing(row)}
+                  className="hit-44 inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-card pr-3.5 pl-3 text-sm text-ink-soft transition-[border-color,color,background-color,transform] duration-150 hover:border-foreground/30 hover:text-foreground active:scale-[0.97] aria-pressed:border-foreground/40 aria-pressed:text-foreground"
+                >
+                  <Plus className="size-3.5 text-muted-foreground" strokeWidth={1.75} aria-hidden />
+                  {row.label}
+                </button>
+              );
+            })}
           </div>
+          {/* Inline editor for whichever undecided row is being edited */}
+          {undecidedRows.filter(isRowEditing).map((row) => (
+            <div key={`edit-${row.id}`} className="mx-1 mt-3 rounded-2xl border border-border/60 bg-card px-4">
+              {renderRow(row)}
+            </div>
+          ))}
+          <p className="mt-3 px-1 text-xs leading-relaxed text-muted-foreground">
+            Tap one to set it now, or just keep talking — Roam fills these in as you plan.
+          </p>
         </section>
       )}
     </div>

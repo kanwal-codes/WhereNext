@@ -10,7 +10,7 @@ import { motionTokens } from "@/components/motion-primitives";
 export function SidePane({ panel, showContext, setContextCollapsed, contextRail }: { panel: boolean; showContext: boolean; setContextCollapsed: (collapsed: boolean) => void; contextRail: ReactNode }) {
   const reduceMotion = useReducedMotion();
   return (
-    <div className="relative h-full min-h-0 overflow-hidden border-l border-border bg-surface">
+    <div className="relative h-full min-h-0 overflow-hidden bg-surface">
       {/* Crossfade in place: the panel, the context rail and its collapsed strip stack in one box, so one
           leaving while another arrives never leaves a blank beat. The panel keeps ONE key across subjects:
           TripPanel's own surface stays put and only its content swaps (a per-subject key used to slide the
@@ -41,7 +41,7 @@ export function SidePane({ panel, showContext, setContextCollapsed, contextRail 
             transition={reduceMotion ? { duration: 0 } : motionTokens.swap}
             className="absolute inset-0 flex min-w-[340px] flex-col overflow-hidden"
           >
-            <div className="flex shrink-0 justify-start px-2 pt-3">
+            <div className="flex shrink-0 justify-start px-4 pt-3">
               <button
                 type="button"
                 onClick={() => setContextCollapsed(true)}
@@ -52,7 +52,7 @@ export function SidePane({ panel, showContext, setContextCollapsed, contextRail 
                 <PanelRightClose className="size-4" />
               </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-slim px-4 pb-5">{contextRail}</div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-slim px-5 pb-10">{contextRail}</div>
           </motion.div>
         ) : (
           <motion.div

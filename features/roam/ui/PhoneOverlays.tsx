@@ -65,8 +65,7 @@ export function PhoneOverlays({ tripId, panel, sheetPanel, closePanel, groupMenu
       </Sheet>
 
       <Sheet open={mobileContextOpen} onClose={() => setMobileContextOpen(false)} side="bottom" ariaLabel="Trip context" className="max-h-[85vh] px-4 pt-4 pb-8">
-        <div className="mb-3 flex shrink-0 items-center justify-between">
-          <p className="eyebrow">Trip context</p>
+        <div className="mb-1 flex shrink-0 items-center justify-end">
           <button type="button" onClick={() => setMobileContextOpen(false)} aria-label="Close" className={controlGhost}>
             <X className="h-4 w-4" />
           </button>
