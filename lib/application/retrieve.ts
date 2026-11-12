@@ -100,7 +100,7 @@ type RouteLegPart = { mode: string; minutes: number; from?: string; to?: string;
 export type RetrievedEvidence = {
   places: Place[];
   /** Results kept in the same topical lanes the resolver requested. */
-  placeGroups?: Array<{ label: string; places: Place[] }>;
+  placeGroups?: Array<{ label: string; location?: string; places: Place[] }>;
   sources: Array<{ title: string; url: string; content: string }>;
   weather: string | null;
   /** Per-day forecast buckets — only when the trip is inside the forecast window. */
@@ -215,6 +215,7 @@ export async function retrieveEvidence(
     routes: [],
     eventList: [],
     eventsBroad: false, // set by the events handler when the query had nothing specific
+    eventsWebFallback: false,
     flights: [],
     stays: [],
     weather: { summary: null, days: [] },
@@ -250,12 +251,30 @@ export async function retrieveEvidence(
     const ranked = rankPlaces(venuesOnly, { interests: filters.interests, likes: filters.likes, dislikes: filters.dislikes }).map((r) => r.place);
     return Array.from(new Map(ranked.map((place) => [`${place.provider}:${place.name.trim().toLowerCase()}`, place])).values()).slice(0, limit);
   };
-  const uniquePlaces = filterAndRank(places, 12);
+  // A plan searches several kinds of place at once. Ranked together, the best-reviewed kind (usually restaurants) would take
+  // the whole list, so those searches are merged one kind at a time, strongest kind first, each contributing its own best.
+  const balanced = (): Place[] => {
+    const lanes = [...ctx.rawPlaceGroups].sort((a, b) => a.index - b.index).map((group) => filterAndRank(group.places, filters.placeLimit!));
+    const seen = new Set<string>();
+    const out: Place[] = [];
+    for (let rank = 0; out.length < filters.placeLimit! && lanes.some((lane) => rank < lane.length); rank += 1) {
+      for (const lane of lanes) {
+        const place = lane[rank];
+        const key = place ? `${place.provider}:${place.name.trim().toLowerCase()}` : "";
+        if (!place || seen.has(key) || out.length >= filters.placeLimit!) continue;
+        seen.add(key);
+        out.push(place);
+      }
+    }
+    return out;
+  };
+  const uniquePlaces = filters.placeLimit && ctx.rawPlaceGroups.length > 1 ? balanced() : filterAndRank(places, filters.placeLimit ?? 12);
   const usedAcrossGroups = new Set<string>();
   const placeGroups = ctx.rawPlaceGroups
     .sort((a, b) => a.index - b.index)
     .map((group) => ({
       label: group.label,
+      ...(group.location ? { location: group.location } : {}),
       places: filterAndRank(group.places, 12).filter((place) => {
         const key = `${place.provider}:${place.name.trim().toLowerCase()}`;
         if (usedAcrossGroups.has(key)) return false;
@@ -289,7 +308,7 @@ export async function retrieveEvidence(
       }
       return (a.startDate ?? "").localeCompare(b.startDate ?? "");
     })
-    .slice(0, 6);
+    .slice(0, filters.placeLimit ? 12 : 6);
 
   return { places: uniquePlaces, placeGroups, sources: uniqueSources, weather: ctx.weather.summary, weatherDays: ctx.weather.days, routes, events: uniqueEvents, flights, stays, unavailableProviders, retrievedAt: new Date().toISOString() };
 }

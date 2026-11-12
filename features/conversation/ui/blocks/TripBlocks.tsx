@@ -6,7 +6,7 @@ import type { AssistantBlock, PlaceCard } from "@/packages/contracts/assistant";
 import { cn } from "@/lib/utils";
 import { notifyToast } from "@/lib/application/toast";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
-import { addStopsToItinerary, dayIndexFromLabel, itineraryTitle } from "@/features/conversation/application/addPlanToItinerary";
+import { addStopsToItinerary, dayIndexFromLabel, itineraryTitle, replaceDaysInItinerary } from "@/features/conversation/application/addPlanToItinerary";
 import { Widget, WidgetAction, WidgetPill } from "./Widget";
 import { PlanStops } from "./PlanStops";
 import { FactStrip } from "@/components/DetailKit";
@@ -88,6 +88,8 @@ export function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, on
   const [status, setStatus] = useState<"idle" | "adding" | "added">("idle");
   const { guest, openGate } = useGuest();
   const multi = block.days.length > 1;
+  // A card that reworks days already in the trip replaces them; any other plan adds to the itinerary.
+  const replaces = Boolean(block.replacesDays);
   const day = block.days[Math.min(active, block.days.length - 1)];
   const totalStops = block.days.reduce((n, d) => n + d.stops.length, 0);
   const openLabels = block.days.filter((d) => d.open).map((d) => d.label);
@@ -100,14 +102,21 @@ export function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, on
     if (status !== "idle") return;
     setStatus("adding");
     // Days go in together (a day's own stops stay in order), so a long plan lands in seconds instead of one stop at a time.
-    const results = await Promise.all(block.days.map((d, i) => addStopsToItinerary(tripId, dayIndexFromLabel(d.label, i + 1), d.stops)));
-    const failures = results.reduce((total, n) => total + n, 0);
+    let failures: number;
+    try {
+      const results = replaces
+        ? [await replaceDaysInItinerary(tripId, block.days.map((d, i) => ({ dayIndex: dayIndexFromLabel(d.label, i + 1), stops: d.stops })))]
+        : await Promise.all(block.days.map((d, i) => addStopsToItinerary(tripId, dayIndexFromLabel(d.label, i + 1), d.stops)));
+      failures = results.reduce((total, n) => total + n, 0);
+    } catch {
+      failures = totalStops;
+    }
     if (failures === totalStops) {
       setStatus("idle");
-      notifyToast("Couldn’t add the plan to your itinerary. Try again.", "error");
+      notifyToast(replaces ? "Couldn’t replace the days in your itinerary. Try again." : "Couldn’t add the plan to your itinerary. Try again.", "error");
     } else {
       setStatus("added");
-      notifyToast(failures ? `Added the plan — ${failures} stop${failures === 1 ? "" : "s"} didn’t save.` : "Added the whole plan to your itinerary.", failures ? "info" : "success");
+      notifyToast(failures ? `${replaces ? "Replaced" : "Added"} the plan — ${failures} stop${failures === 1 ? "" : "s"} didn’t save.` : replaces ? `Replaced ${block.days.length === 1 ? block.days[0].label : "those days"} in your itinerary.` : "Added the whole plan to your itinerary.", failures ? "info" : "success");
     }
   }
 
@@ -129,7 +138,7 @@ export function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, on
             className={cn(controlSecondary, status === "added" && "border-transparent bg-secondary text-foreground")}
           >
             {status === "adding" ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : status === "added" ? <Check className="size-3.5" aria-hidden /> : <CalendarPlus className="size-3.5" aria-hidden />}
-            {status === "added" ? "Added to itinerary" : "Add whole plan"}
+            {status === "added" ? (replaces ? "Replaced in itinerary" : "Added to itinerary") : replaces ? `Replace ${multi ? "these days" : block.days[0].label}` : "Add whole plan"}
           </button>
         </>
       }

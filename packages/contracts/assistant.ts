@@ -257,6 +257,8 @@ export const assistantBlockSchema = z.discriminatedUnion("type", [
     title: z.string().max(80).optional(),
     /** One-line framing shown as the reply, so the timeline isn't also dumped as prose. */
     intro: z.string().max(200).optional(),
+    /** The days shown are a rework of days already in the trip: applying the card replaces those days instead of adding to them. */
+    replacesDays: z.boolean().optional(),
     days: z.array(z.object({
       label: z.string().max(40),
       subtitle: z.string().max(80).optional(),

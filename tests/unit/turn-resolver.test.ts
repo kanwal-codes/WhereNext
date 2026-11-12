@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const { generateObjectMock } = vi.hoisted(() => ({ generateObjectMock: vi.fn() }));
 vi.mock("ai", async (importOriginal) => ({ ...(await importOriginal<object>()), generateObject: generateObjectMock }));
 
-import { guardNamedArea, guardRepeatedClarify, resolveTurn, resolvedTurnSchema, routePracticalFacts } from "../../lib/application/turn-resolver";
+import { guardNamedArea, guardPlanLength, guardStayLimits, guardWebLookups, guardRepeatedClarify, resolveTurn, resolvedTurnSchema, routePracticalFacts } from "../../lib/application/turn-resolver";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -88,7 +88,7 @@ describe("resolveTurn", () => {
       { tool: "research_web", query: "Montreal travel essentials" },
       { tool: "search_places", query: "shopping", location: "Montreal" },
     ] }));
-    const resolved = await resolveTurn({ message: "food, museums, parks, concerts and weather", history: [], tripSummary: "" });
+    const resolved = await resolveTurn({ message: "food, museums, parks, concerts and weather, plus any tips", history: [], tripSummary: "" });
     expect(resolved.toolPlan).toHaveLength(6);
     expect(resolved.toolPlan[3]).toMatchObject({ tool: "events", category: "concerts" });
   });
@@ -274,5 +274,65 @@ describe("guardRepeatedClarify", () => {
     const out = guardRepeatedClarify("not sure", history, clarifying("Is a relaxed or a packed pace better for you?"));
     expect(out.clarify).toBeNull();
     expect(out.toolPlan).toEqual([]);
+  });
+});
+
+describe("guardWebLookups", () => {
+  const turn = (over: Record<string, unknown>) => resolvedTurnSchema.parse({ language: "en", intent: "activities", toolPlan: [{ tool: "search_places", query: "toddler activities", location: "Toronto, Canada" }, { tool: "research_web", query: "toddler activities rainy day Toronto" }], ...over });
+  const tools = (r: { toolPlan: Array<{ tool: string }> }) => r.toolPlan.map((c) => c.tool);
+
+  it("drops the web lookup when the ask is only to find venues, and from a plan, which never reads it", () => {
+    expect(tools(guardWebLookups("things to do with a 3 year old on a rainy day", turn({})))).toEqual(["search_places"]);
+    expect(tools(guardWebLookups("plan my first 5 days", turn({ capabilities: ["itinerary"] })))).toEqual(["search_places"]);
+    expect(tools(guardWebLookups("late night food after we land", turn({ intent: "nightlife" })))).toEqual(["search_places"]);
+  });
+
+  it("keeps it for what a places search cannot answer", () => {
+    for (const message of ["is it safe to walk around Alfama at night", "is the ROM open Monday evening", "what does a dinner cost in Lisbon", "where do locals eat", "see https://example.com/menu"]) {
+      expect(tools(guardWebLookups(message, turn({})))).toContain("research_web");
+    }
+  });
+
+  it("keeps it for other intents, other capabilities, no venue search and other languages", () => {
+    expect(tools(guardWebLookups("tell me about Lisbon", turn({ intent: "history_culture" })))).toContain("research_web");
+    expect(tools(guardWebLookups("compare two areas", turn({ capabilities: ["comparison"] })))).toContain("research_web");
+    expect(tools(guardWebLookups("best areas", turn({ toolPlan: [{ tool: "research_web", query: "best areas" }] })))).toEqual(["research_web"]);
+    expect(tools(guardWebLookups("cosas que hacer con niños", turn({ language: "es" })))).toContain("research_web");
+  });
+});
+
+describe("guardStayLimits", () => {
+  const stays = (extra: Record<string, unknown> = {}) => resolvedTurnSchema.parse({ intent: "stays", toolPlan: [{ tool: "stays", location: "CN Tower, Toronto", checkin: null, checkout: null, hotelName: null, ...extra }] });
+
+  it("puts a stated nightly ceiling and star floor on the hotel search", () => {
+    expect(guardStayLimits("Find me a hotel under $150 a night near the CN Tower", stays()).toolPlan[0]).toMatchObject({ priceMax: 150 });
+    expect(guardStayLimits("a 4 star hotel under 200 per night", stays()).toolPlan[0]).toMatchObject({ priceMax: 200, minStars: 4 });
+  });
+  it("keeps what the model already set, and leaves other turns alone", () => {
+    expect(guardStayLimits("under $150 a night", stays({ priceMax: 120 })).toolPlan[0]).toMatchObject({ priceMax: 120 });
+    const noStays = resolvedTurnSchema.parse({ intent: "food", toolPlan: [{ tool: "search_places", query: "ramen", location: "Toronto" }] });
+    expect(guardStayLimits("under $150 a night", noStays)).toBe(noStays);
+    const plain = stays();
+    expect(guardStayLimits("where should we stay", plain)).toBe(plain);
+  });
+});
+
+describe("guardPlanLength", () => {
+  const planTurn = (itineraryDays: number | null) => resolvedTurnSchema.parse({ intent: "activities", capabilities: ["itinerary"], itineraryDays });
+
+  it("makes the number in the message win over a stale or missing one", () => {
+    expect(guardPlanLength("Plan my first 5 days", planTurn(3)).itineraryDays).toBe(5);
+    expect(guardPlanLength("plan my first 5 days", planTurn(null)).itineraryDays).toBe(5);
+    expect(guardPlanLength("a five-day itinerary please", planTurn(3)).itineraryDays).toBe(5);
+    expect(guardPlanLength("plan us a week in Toronto", planTurn(3)).itineraryDays).toBe(7);
+  });
+
+  it("leaves edits, two different counts, no count and other capabilities to the model", () => {
+    const turn = planTurn(null);
+    expect(guardPlanLength("swap out the last 2 days", turn)).toBe(turn);
+    expect(guardPlanLength("5 days in Rome then 3 days in Paris", turn).itineraryDays).toBeNull();
+    expect(guardPlanLength("plan my first days", turn)).toBe(turn);
+    const noPlan = resolvedTurnSchema.parse({ intent: "activities", capabilities: [] });
+    expect(guardPlanLength("plan 5 days", noPlan)).toBe(noPlan);
   });
 });

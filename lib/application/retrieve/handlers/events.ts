@@ -1,5 +1,6 @@
 import { events } from "@/packages/providers/ticketmaster/client";
 import { localEvents } from "@/packages/providers/eventbrite/client";
+import { researchDetailed } from "@/packages/providers/tavily/client";
 import { cached } from "@/lib/server/ttl-cache";
 import type { ToolCall } from "../../turn-resolver";
 import type { RetrieveContext } from "../context";
@@ -92,6 +93,7 @@ export async function handleEvents(call: EventsCall, ctx: RetrieveContext): Prom
     ...(eb ?? []).map((e) => ({ title: e.title, url: e.url, date: e.date, venue: e.venue, source: "eventbrite", startDate: isoDay(e.date) })),
   ]);
 
+  const before = ctx.eventList.length;
   const artistWords = call.artist ? call.artist.toLowerCase().split(/\s+/).filter((w) => w.length > 2) : [];
   for (const event of raw) {
     // A named-act query only ever shows that act.
@@ -115,4 +117,17 @@ export async function handleEvents(call: EventsCall, ctx: RetrieveContext): Prom
     }
     ctx.eventList.push(event);
   }
+
+  // Ticketmaster and Eventbrite cover little outside North America: a Paris December returned nothing from either while a plain web
+  // search found the arena calendars and listing sites. With no structured event to show, the pages go to the reply as sources (it
+  // may say a show is "listed on <site>", never assert a date or venue from one). Once per turn, and never for a day-by-day plan,
+  // which does not read sources.
+  if (ctx.eventList.length === before && !ctx.eventsWebFallback && !ctx.filters.placeLimit && process.env.TAVILY_API_KEY) {
+    ctx.eventsWebFallback = true;
+    const month = ctx.filters.tripStart ? new Date(`${ctx.filters.tripStart}T00:00:00Z`).toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" }) : "";
+    const query = `${keyword ? `${keyword} ` : ""}events concerts shows in ${call.location}${month ? ` ${month}` : ""}`.slice(0, 300);
+    const web = await cached(`research-web:tavily:events:${query.toLowerCase()}`, RESEARCH_CACHE_MS, () => researchDetailed(query)).catch(ctx.fail("tavily"));
+    if (web) ctx.sources.push(...web.results.map(({ title, url, content }) => ({ title, url, content })));
+  }
 }
+

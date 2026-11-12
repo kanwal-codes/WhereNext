@@ -1,3 +1,4 @@
+import { effectiveStops } from "@/lib/trip-stops";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { type AssistantBlock, type AssistantTurnMeta } from "@/packages/contracts/assistant";
 import { buildComposeTools } from "@/packages/ai/compose-tools";
@@ -11,6 +12,9 @@ import { resolveCurrency } from "@/lib/currency";
 import { buildEssentialsChecklist } from "@/lib/application/essentials";
 import { buildComparison, comparedPlaceIds } from "@/lib/application/comparison";
 import { buildItineraryPlan } from "@/lib/application/itinerary-plan";
+import { askedCount } from "@/lib/application/constraints";
+import { needsRoute, planRoute } from "@/lib/application/trip-route";
+import { buildTripBrief, placeMenu } from "@/lib/application/trip-brief";
 import { buildBudgetBreakdown } from "@/lib/application/budget-plan";
 import { buildExploreOptions } from "@/lib/application/explore-options";
 import { buildStructuredAnswer } from "@/lib/application/structured-answer";
@@ -192,6 +196,10 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   }
 
   // --- RESOLVE ---------------------------------------------------------------
+  // What this place offers in this month is the same for everyone and cached for a month: start it while RESOLVE thinks, so a
+  // plan asked for a few seconds later finds it written. A menu already cached makes this a single cache read.
+  const destinationBefore = tripCtx.trip?.destination ?? null;
+  if (destinationBefore) void placeMenu({ destination: destinationBefore, startDate: tripCtx.trip?.start_date });
   const resolved = await resolveTurn({ message: prompt, history, tripSummary, viewContext, signal, onUsage });
   const tripUpdateResult = await applyTripUpdate({ supabase, tripId, tripCtx, prompt, resolved, tripSummary, deriveTripSummary });
   tripCtx = tripUpdateResult.tripCtx;
@@ -206,6 +214,8 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   const resolveMs = Math.round(performance.now() - t0);
   const language = resolved.language;
   const locationFocus = resolved.locationFocus ?? destination;
+  // A destination that only just appeared ("we're going to Toronto") gets its menu now, while the reply is still being written.
+  if (destination && destination !== destinationBefore && !resolved.outOfScope) void placeMenu({ destination, startDate: tripCtx.trip?.start_date });
 
   // --- OUT OF SCOPE ------------------------------------------------------
   // No connection to travel or this trip. Decline in one line and stop — no retrieve, no
@@ -223,7 +233,23 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
 
   // --- RETRIEVE ---------------------------------------------------------------
   req.onRetrieveStart?.(resolved.toolPlan.map((call) => call.tool));
-  const { anchor, qualify, tripStart, tripEnd, requestedImages, mealAnchor, toolPlan } = planRetrieval({ resolved, prompt, tripCtx, locationFocus, caps, now: req.now ?? new Date() });
+  // A fresh plan starts from what this trip could hold (who is going, what the place is known for, what it is best at that
+  // month), not from whatever the last message happened to search for. An edit of existing days does not need it.
+  // The menu is shared and usually already cached; personalizing it is code. Only a menu nobody has written yet makes this wait,
+  // and then for no longer than it takes: past that the plan uses fixed lanes rather than keep the traveller waiting.
+  const wantsFreshPlan = caps.has("itinerary") && (resolved.itineraryDays || !tripCtx.itinerary.length) && Boolean(locationFocus);
+  const planDays = resolved.itineraryDays ?? tripCtx.trip?.duration_days ?? 3;
+  const tripPrefs = tripCtx.preferences as Record<string, unknown>;
+  // A plan across several places ("2 days in Paris then 3 in Rome", "a month around Japan") gets a route first, and each city its own
+  // menu. A trip that already has stops keeps its own calendar.
+  const route = wantsFreshPlan && effectiveStops(tripCtx.trip).stops.length < 2 && needsRoute({ resolved, locationFocus, days: planDays })
+    ? await planRoute({ focus: locationFocus, days: planDays, startDate: tripCtx.trip?.start_date, request: prompt, signal, onUsage })
+    : null;
+  const legBriefs = route ? await Promise.all(route.map((leg) => buildTripBrief({ destination: leg.city, startDate: tripCtx.trip?.start_date, preferences: tripPrefs, waitMs: 15_000, onUsage }))) : [];
+  const brief = wantsFreshPlan && !route
+    ? await buildTripBrief({ destination: locationFocus, startDate: tripCtx.trip?.start_date, preferences: tripPrefs, waitMs: 15_000, onUsage })
+    : null;
+  const { anchor, qualify, tripStart, tripEnd, requestedImages, mealAnchor, toolPlan, placeLimit } = planRetrieval({ resolved, prompt, tripCtx, locationFocus, caps, now: req.now ?? new Date(), brief, route, legBriefs });
   const retrieveFilters = retrieveFiltersFor(tripCtx, dislikes);
 
 
@@ -234,7 +260,8 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   // gating COMPOSE indefinitely.
   const retrieveSignal = withDeadline(signal, AI_DEADLINE_MS.retrieve);
   const tRetrieve = performance.now();
-  let evidence = await retrieveEvidence(toolPlan, retrieveFilters, retrieveSignal);
+  const evidenceFilters = placeLimit ? { ...retrieveFilters, placeLimit } : retrieveFilters;
+  let evidence = await retrieveEvidence(toolPlan, evidenceFilters, retrieveSignal);
   const needsGrounding = toolPlan.length > 0;
 
   // Nothing came back for a plan that needed grounding — before giving up, retry once with a
@@ -242,7 +269,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   // resolver plan or a place name the provider didn't recognise.
   if (needsGrounding && !isGrounded(evidence)) {
     const broadened = broadenedPlan(toolPlan, resolved.intent, anchor);
-    const retried = await retrieveEvidence(broadened, retrieveFilters, retrieveSignal);
+    const retried = await retrieveEvidence(broadened, evidenceFilters, retrieveSignal);
     if (isGrounded(retried)) evidence = retried;
   }
   const retrieveMs = Math.round(performance.now() - tRetrieve);
@@ -262,7 +289,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
 
   // Persist a same-origin path, never the hostname of the laptop/phone that created the turn.
   const photoUrl = (name: string) => `/api/trips/${tripId}/places/google/photo?name=${encodeURIComponent(name)}`;
-  const { cardPlaceGroups, cardPlaces, compactPlaces, compactSources, compactEvents, eventsInWindow, eventCall, anchorEvent, eventsGuidance, compactFlights, compactStays, allowedUrls } = compactEvidence({ evidence, toolPlan, requestedImages, photoUrl });
+  const { cardPlaceGroups, cardPlaces, compactPlaces, compactSources, compactEvents, eventsInWindow, eventCall, anchorEvent, eventsGuidance, compactFlights, compactStays, allowedUrls } = compactEvidence({ evidence, toolPlan, requestedImages, photoUrl, count: askedCount(prompt) });
 
   const { weatherMonth, forecastReady, willShowWeatherCard } = weatherReadiness({ intent: resolved.intent, caps, tripStart, evidence, sourceCount: compactSources.length });
 
@@ -281,7 +308,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
         ? Promise.resolve(weatherCardFromForecast(locationFocus, evidence.weatherDays!))
         : weatherCardFromSeasonal(locationFocus, weatherMonth!, compactSources.map((source) => source.content).join("\n\n"), language, signal, onUsage),
     caps.has("itinerary")
-      ? buildItineraryPlan({ prompt, tripSummary, evidence, tripCtx, anchorEvent, requestedDays: resolved.itineraryDays, language, signal, onUsage })
+      ? buildItineraryPlan({ prompt, tripSummary, evidence, tripCtx, anchorEvent, brief, route, legBriefs, requestedDays: resolved.itineraryDays, language, signal, onUsage })
       : Promise.resolve(null),
     caps.has("budget")
       ? buildBudgetBreakdown({ prompt, tripSummary, currency: resolveCurrency(tripCtx.preferences), statedDailyBudget, evidence, tripCtx, language, signal, onUsage })

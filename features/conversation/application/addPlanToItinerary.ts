@@ -28,6 +28,33 @@ export async function addStopsToItinerary(tripId: string, dayIndex: number, stop
   return failures;
 }
 
+const norm = (title: string) => title.trim().toLowerCase();
+
+/**
+ * Makes each day hold exactly these stops: what the trip has there now and the new plan does not keep is removed (a locked item
+ * stays), stops already there are left alone, the rest are added. For a card that reworks days already in the trip, where adding would
+ * only pile new stops on top of the old ones. Throws when the current itinerary cannot be read, so nothing is half-replaced.
+ * Resolves to how many writes failed.
+ */
+export async function replaceDaysInItinerary(tripId: string, days: Array<{ dayIndex: number; stops: PlanStop[] }>): Promise<number> {
+  const res = await fetch(`/api/trips/${tripId}/itinerary`);
+  if (!res.ok) throw new Error("itinerary unavailable");
+  const current = ((await res.json()) as { items?: Array<{ title: string; day_index: number; metadata?: { locked?: boolean } | null }> }).items ?? [];
+  let failures = 0;
+  for (const day of days) {
+    const keep = new Set(day.stops.map((stop) => norm(stop.title)));
+    const here = current.filter((item) => item.day_index === day.dayIndex);
+    const have = new Set(here.map((item) => norm(item.title)));
+    for (const item of here) {
+      if (keep.has(norm(item.title)) || item.metadata?.locked === true) continue;
+      const removed = await mutate(`/api/trips/${tripId}/itinerary`, { method: "DELETE", body: { title: item.title }, announce: ["itinerary"] });
+      if (!removed.ok) failures += 1;
+    }
+    failures += await addStopsToItinerary(tripId, day.dayIndex, day.stops.filter((stop) => !have.has(norm(stop.title))));
+  }
+  return failures;
+}
+
 /** "7 days in Montreal" over a 2-day plan says the wrong thing — the count comes from the days actually shown. */
 export function itineraryTitle(title: string | undefined, days: number): string | undefined {
   if (!title) return undefined;

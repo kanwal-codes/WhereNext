@@ -13,6 +13,11 @@ export async function fetchLane(tripId: string, lane: Lane, anchor: LaneAnchor, 
       if (!anchor.city) return { lane, places: [], events: [] };
       const qs = new URLSearchParams({ location: anchor.city });
       if (q) qs.set("query", q);
+      // The anchor's own coordinates: the server then skips looking the city up again, and local events are searched around this place.
+      if (Number.isFinite(anchor.lat) && Number.isFinite(anchor.lng)) {
+        qs.set("lat", String(anchor.lat));
+        qs.set("lng", String(anchor.lng));
+      }
       const body = await fetch(`/api/trips/${tripId}/events?${qs}`, { signal }).then((r) => (r.ok ? r.json() : { events: [] }));
       return { lane, places: [], events: (body.events ?? []) as NearbyEvent[] };
     }
@@ -33,23 +38,29 @@ export async function fetchLane(tripId: string, lane: Lane, anchor: LaneAnchor, 
   }
 }
 
-/** Cosine of each candidate against the anchor, from the server embedding endpoint. `{}` on any failure. */
+/** How long the embedding re-rank may hold the section back. It only changes the ORDER of one lane's cards, so past this the cards
+ *  show in their own order; the server keeps going and caches the scores (an hour), so the next view of the same place gets them. */
+const SEMANTIC_BUDGET_MS = 700;
+/** How long the embedding fallback classifier may hold the lanes back; past it the generic lanes are used (the answer is cached for a week). */
+const CLASSIFY_BUDGET_MS = 1_200;
+
+/** Cosine of each candidate against the anchor, from the server embedding endpoint. `{}` on any failure or when it is slow. */
 export async function semanticScores(tripId: string, anchorText: string, candidates: Place[], signal: AbortSignal): Promise<Record<string, number>> {
-  try {
-    const body = await fetch(`/api/trips/${tripId}/reco`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      signal,
-      body: JSON.stringify({
-        op: "rank",
-        anchor: anchorText,
-        candidates: candidates.slice(0, 24).map((p) => ({ id: p.providerId, text: `${p.name} ${(p.category ?? "").replaceAll("_", " ")}`.trim() })),
-      }),
-    }).then((r) => (r.ok ? r.json() : { scores: {} }));
-    return (body.scores ?? {}) as Record<string, number>;
-  } catch {
-    return {};
-  }
+  const request = fetch(`/api/trips/${tripId}/reco`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    // The budget below is a race, not an abort: a slow answer is still finished and cached server-side for the next view.
+    signal,
+    body: JSON.stringify({
+      op: "rank",
+      anchor: anchorText,
+      candidates: candidates.slice(0, 24).map((p) => ({ id: p.providerId, text: `${p.name} ${(p.category ?? "").replaceAll("_", " ")}`.trim() })),
+    }),
+  })
+    .then((r) => (r.ok ? r.json() : { scores: {} }))
+    .then((body) => (body.scores ?? {}) as Record<string, number>)
+    .catch(() => ({}) as Record<string, number>);
+  return Promise.race([request, new Promise<Record<string, number>>((resolve) => setTimeout(() => resolve({}), SEMANTIC_BUDGET_MS))]);
 }
 
 /** Fire-and-forget impression / click beacon. `keepalive` so a click survives the navigation. */
@@ -83,7 +94,7 @@ export async function classify(
     const body = await fetch(`/api/trips/${tripId}/reco`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      signal,
+      signal: AbortSignal.any([signal, AbortSignal.timeout(CLASSIFY_BUDGET_MS)]),
       body: JSON.stringify({ op: "classify", id: anchor.id, name: anchor.name, primaryType: anchor.primaryType, types: anchor.types }),
     }).then((r) => (r.ok ? r.json() : sync));
     return (body?.vibe ? body : sync) as { vibe: Vibe; secondary?: Vibe };

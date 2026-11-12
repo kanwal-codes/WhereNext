@@ -5,13 +5,14 @@ import type { Evidence } from "@/lib/application/orchestrate/retrieve-plan";
  * What the model is shown of the evidence, and what the cards are built from: the (at most six) places that get cards, trimmed
  * sources/events/flights/stays, the events guidance for the system prompt, and the URLs a reply may link to.
  */
-export function compactEvidence(input: { evidence: Evidence; toolPlan: ResolvedTurn["toolPlan"]; requestedImages: boolean; photoUrl: (name: string) => string }) {
+export function compactEvidence(input: { evidence: Evidence; toolPlan: ResolvedTurn["toolPlan"]; requestedImages: boolean; photoUrl: (name: string) => string; /** How many places the traveller asked for ("just give me 3"), when a handful. */ count?: number | null }) {
   const { evidence, toolPlan, requestedImages, photoUrl } = input;
+  const cardLimit = input.count ?? 6;
   // The model must only see the places it will actually get cards for, so its reply can't
   // reference a place with no card. This slice IS the `place_list` block below.
   const cardPlaceGroups = (evidence.placeGroups?.length ?? 0) > 1
-    ? evidence.placeGroups!.map((group) => ({ ...group, places: group.places.slice(0, 6) }))
-    : [{ label: "", places: evidence.places.slice(0, 6) }];
+    ? evidence.placeGroups!.map((group) => ({ ...group, places: group.places.slice(0, cardLimit) }))
+    : [{ label: "", places: evidence.places.slice(0, cardLimit) }];
   const cardPlaces = cardPlaceGroups.flatMap((group) => group.places);
   // search-places.ts fetches phone/website/hours/openNow specifically so questions like "what
   // time does X open" can be answered — but they used to stop right here: dropped from this

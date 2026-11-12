@@ -1,6 +1,7 @@
 import type { ModelMessage } from "ai";
 import type { z } from "zod";
 import { generateStructured } from "@/packages/ai/model-policy";
+import { logger } from "@/lib/server/logger";
 import type { UsageEntry } from "@/lib/ai/pricing";
 
 /**
@@ -23,7 +24,10 @@ export async function runBulkBuilder<T>(
   try {
     const messages: ModelMessage[] = [{ role: "system", content: system }, { role: "user", content: user }];
     return await generateStructured("bulk", messages, schema, signal, onUsage);
-  } catch {
+  } catch (error) {
+    // A builder that gives up falls back to a plainer answer with no sign of why: leave one line saying which one and what failed.
+    if (!signal?.aborted) logger.warn({ err: error instanceof Error ? error.message : String(error), builder: system.slice(0, 48) }, "bulk builder failed");
+    else logger.info({ builder: system.slice(0, 48) }, "bulk builder ran out of time");
     return null;
   }
 }

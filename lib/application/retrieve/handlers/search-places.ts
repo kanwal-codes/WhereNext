@@ -16,7 +16,9 @@ export async function handleSearchPlaces(call: SearchPlacesCall, ctx: RetrieveCo
   const results = await new GooglePlacesProvider().search(`${call.query} in ${call.location}`, ctx.signal, undefined, locationBias).catch(ctx.fail("google-places"));
   if (!results) return;
   const provider = new GooglePlacesProvider();
-  const enriched = await Promise.all(results.slice(0, 6).map(async (place) => {
+  // A plan wants breadth, not cards: skip the per-place detail lookups (paid) unless an accessibility need has to be checked against them.
+  const detailCount = ctx.filters.placeLimit && !ctx.filters.accessibilityNeeds?.length ? 0 : 6;
+  const enriched = await Promise.all(results.slice(0, detailCount).map(async (place) => {
     try {
       // "light": this enrichment only ever reads phone/website/hours/accessibility/editorial
       // summary below — never reviews or photos, which "full" would also fetch and parse
@@ -30,6 +32,6 @@ export async function handleSearchPlaces(call: SearchPlacesCall, ctx: RetrieveCo
       return place;
     }
   }));
-  ctx.places.push(...enriched, ...results.slice(6));
-  ctx.rawPlaceGroups.push({ index, label: call.query, places: enriched });
+  ctx.places.push(...enriched, ...results.slice(detailCount));
+  ctx.rawPlaceGroups.push({ index, label: call.query, location: call.location, places: detailCount ? enriched : results });
 }

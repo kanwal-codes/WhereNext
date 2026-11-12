@@ -63,10 +63,25 @@ describe("planRetrieval", () => {
     else expect(r.toolPlan[0]).toMatchObject({ location: "Alfama, Lisbon, Portugal" });
   });
 
+  it("searches a route city by city, drops the country-wide search, and sizes the plan to the whole route", () => {
+    const resolved = resolve({ intent: "activities", capabilities: ["itinerary"], itineraryDays: 8, toolPlan: [{ tool: "search_places", query: "top attractions", location: "Japan" }, { tool: "research_web", query: "japan route" }] });
+    const route = [{ city: "Tokyo, Japan", days: 5 }, { city: "Kyoto, Japan", days: 3 }];
+    const r = planRetrieval({ resolved, prompt: "plan 8 days around Japan", tripCtx: ctx(), locationFocus: "Japan", caps: caps(resolved), now: NOW, route, legBriefs: [null, null] });
+    const searches = r.toolPlan.filter((c) => c.tool === "search_places") as Array<{ location: string }>;
+    expect(searches.some((c) => c.location === "Japan")).toBe(false);
+    expect(new Set(searches.map((c) => c.location))).toEqual(new Set(["Tokyo, Japan", "Kyoto, Japan"]));
+    expect(r.toolPlan.some((c) => c.tool === "research_web")).toBe(true);
+    expect(r.placeLimit).toBe(25 + 15);
+  });
+
   it("hands back the qualifier and the trip's dates for COMPOSE's own tools", () => {
     const r = plan(resolve());
     expect(r.qualify("Belém")).toBe("Belém, Lisbon, Portugal");
     expect(r.qualify("Lisbon")).toBe("Lisbon");
+    // A country is not a corner of the trip's city: "Japan" on a Lisbon trip must not become "Japan, Lisbon, Portugal".
+    expect(r.qualify("Japan")).toBe("Japan");
+    expect(r.qualify("Iceland")).toBe("Iceland");
+    expect(r.qualify("United States")).toBe("United States");
     expect([r.tripStart, r.tripEnd]).toEqual(["2026-12-01", "2026-12-05"]);
   });
 });
@@ -183,6 +198,12 @@ describe("compactEvidence", () => {
     expect(r.compactPlaces).toHaveLength(6);
     expect(r.compactSources[0].content).toHaveLength(700);
     expect([...r.allowedUrls]).toEqual(["https://s", ...Array.from({ length: 6 }, (_, i) => `https://p/${i}`)]);
+  });
+  it("gives only as many cards as were asked for, and the reply sees only those", () => {
+    const evidence = { ...none, places: Array.from({ length: 9 }, (_, i) => place(i)) } as unknown as Evidence;
+    const r = compactEvidence({ evidence, toolPlan: [] as never, requestedImages: false, photoUrl: (n) => n, count: 3 });
+    expect(r.cardPlaces.map((p) => p.name)).toEqual(["Place 0", "Place 1", "Place 2"]);
+    expect(r.compactPlaces).toHaveLength(3);
   });
   it("allows photo links only when photos were asked for", () => {
     expect([...run({ places: [place(1)] as never }, true).allowedUrls]).toEqual(["https://p/1", "/photo?name=photo1"]);

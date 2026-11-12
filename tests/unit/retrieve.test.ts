@@ -61,6 +61,38 @@ describe("retrieveEvidence", () => {
     expect(fetchMock.mock.calls.some((c) => String((c[1] as RequestInit).body).includes("retrieve-nightclubs in Mumbai"))).toBe(true);
   });
 
+  it("keeps as many places as a plan asks for and skips the per-place detail lookups", async () => {
+    process.env.GOOGLE_MAPS_API_KEY = "k";
+    const places = Array.from({ length: 20 }, (_, i) => ({ id: `q${i}`, displayName: { text: `Spot ${i}` }, location: { latitude: 43.65, longitude: -79.38 } }));
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ places }), { status: 200 })));
+    vi.stubGlobal("fetch", fetchMock);
+    const wide = await retrieveEvidence([{ tool: "search_places", query: "retrieve-plan-breadth", location: "Toronto" }], { placeLimit: 20 });
+    expect(wide.places).toHaveLength(20);
+    // Search (and its geocode) only: nothing asked Google for any single place's details.
+    expect(fetchMock.mock.calls.every((c) => String(c[0]).includes("places:searchText"))).toBe(true);
+    clearMemoryCache();
+    expect((await retrieveEvidence([{ tool: "search_places", query: "retrieve-plan-breadth-2", location: "Toronto" }])).places).toHaveLength(12);
+  });
+
+  it("merges a plan's searches one kind at a time, so the best-reviewed kind cannot take every slot", async () => {
+    process.env.GOOGLE_MAPS_API_KEY = "k";
+    const lane = (prefix: string, rating: number, count: number) => Array.from({ length: 6 }, (_, i) => ({ id: `${prefix}${i}`, displayName: { text: `${prefix} ${i}` }, rating, userRatingCount: count, location: { latitude: 43.65, longitude: -79.38 } }));
+    const fetchMock = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+      const body = String(init.body);
+      const places = body.includes("retrieve-lane-food") ? lane("Food", 4.9, 5000) : body.includes("retrieve-lane-falls") ? lane("Falls", 3.6, 15) : [];
+      return Promise.resolve(new Response(JSON.stringify({ places }), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const evidence = await retrieveEvidence([
+      { tool: "search_places", query: "retrieve-lane-food", location: "Toronto" },
+      { tool: "search_places", query: "retrieve-lane-falls", location: "Toronto" },
+    ], { placeLimit: 8 });
+    const names = evidence.places.map((p) => p.name);
+    expect(names).toHaveLength(8);
+    expect(names.filter((n) => n.startsWith("Falls")).length).toBe(4);
+    expect(names.slice(0, 2)).toEqual(["Food 0", "Falls 0"]);
+  });
+
   it("biases the actual search toward the geocoded location, not just the query text (live-testing regression, 2026-09-16)", async () => {
     // Same bug class as the recommendation-panel fix (phase-4-recommendation-ranking.md): Google's
     // Text Search has no structured location of its own, so a real "restaurants in Montreal" call

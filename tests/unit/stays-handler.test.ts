@@ -36,4 +36,23 @@ describe("handleStays", () => {
     await handleStays(call, none as never);
     expect(none.stays).toEqual([]);
   });
+
+  it("narrows the search to the nightly ceiling and star floor the traveller stated, on either provider", async () => {
+    providerMock.mockReturnValue("serpapi");
+    googleMock.mockResolvedValue({ nights: 3, options: [option], facets: {} });
+    await handleStays({ ...call, priceMax: 150, minStars: 4 }, makeCtx() as never);
+    expect(googleMock).toHaveBeenCalledWith(expect.objectContaining({ priceMax: 150, starRatings: [4, 5] }), undefined);
+    providerMock.mockReturnValue("liteapi");
+    liteMock.mockResolvedValue({ nights: 3, options: [{ ...option, hotelId: "lp1" }], facets: {} });
+    await handleStays({ ...call, priceMax: 150 }, makeCtx() as never);
+    expect(liteMock).toHaveBeenCalledWith(expect.objectContaining({ priceMax: 150 }), undefined);
+    expect(liteMock.mock.calls[0][0]).not.toHaveProperty("starRatings");
+  });
+  it("sends no limits when none were stated", async () => {
+    providerMock.mockReturnValue("serpapi");
+    googleMock.mockResolvedValue({ nights: 3, options: [option], facets: {} });
+    await handleStays(call, makeCtx() as never);
+    expect(googleMock.mock.calls[0][0]).not.toHaveProperty("priceMax");
+    expect(googleMock.mock.calls[0][0]).not.toHaveProperty("starRatings");
+  });
 });

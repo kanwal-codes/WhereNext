@@ -1,3 +1,4 @@
+import { stayLimits } from "./constraints";
 import { z } from "zod";
 import { logger } from "@/lib/server/logger";
 import { AI_DEADLINE_MS, generateStructured, withDeadline } from "@/packages/ai/model-policy";
@@ -127,6 +128,52 @@ export function guardRepeatedClarify(message: string, history: Array<{ role: "us
   return { ...resolved, clarify: null, intent: wantsStays && place ? "stays" : resolved.intent, toolPlan };
 }
 
+// How long a plan the traveller asked for is their own number, not the model's guess. Live-caught: "plan my first 5 days" on a
+// "long weekend" trip came back as a 3-day plan, because the day count rode on the model carrying the number through (and on
+// the trip's saved length when it did not). Prompt wording did not hold, so the message's own number wins here, as with the
+// other guards above. Edits ("redo the last 2 days") keep their own handling, and two different counts are left to the model.
+const WORD_COUNTS: Record<string, number> = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, fourteen: 14 };
+const STATED_DAYS = /\b(\d{1,2}|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fourteen)[\s-]+days?\b/gi;
+const A_WEEK = /\b(?:a|one|1)[\s-]+week(?:[\s-]?long)?\b/i;
+const EDITS_PLAN = /\b(?:redo|change|swap|replace|update|rework|edit|remove|drop|move|shorten|extend|add)\b/i;
+
+/** Make the day count the traveller stated in their message the one the plan is built to. */
+/**
+ * A web lookup costs 1.4-2.9 s (a places search 0.4 s) and the turn waits for the slowest call, so one that adds nothing is pure delay.
+ * The router tends to add one next to a venue search ("kids on a rainy day", "late-night food", a day-by-day plan) even though the
+ * places already answer it, and a plan never reads web sources at all. Dropped when the ask is only to find venues; kept for anything
+ * a places search cannot answer (safety, prices, rules, what a place is known for, hours, news, a link) and for every other intent.
+ */
+const NEEDS_THE_WEB = /\b(safe|safety|unsafe|scams?|etiquette|tips?|tipping|customs?|visas?|vaccin\w*|allowed|rules?|legal|history|histor\w+|known for|famous for|worth it|why|how (?:much|do|does|long|far)|costs?|prices?|priced|expensive|cheap|afford\w*|dress code|reservations?|book(?:ing)? ahead|open(?:ing)?|hours?|closed|closing|holidays?|best time|news|latest|today|tonight|this (?:week|weekend)|reviews?|reddit|locals?|hidden gems?|https?:\/\/)/i;
+export function guardWebLookups(message: string, resolved: ResolvedTurn): ResolvedTurn {
+  // The phrases above are English: another language keeps its web lookups rather than guess at them.
+  if (!resolved.toolPlan.some((call) => call.tool === "research_web") || !resolved.language.toLowerCase().startsWith("en")) return resolved;
+  const findsVenues = resolved.toolPlan.some((call) => call.tool === "search_places");
+  const venueIntent = ["food", "nightlife", "discovery", "activities"].includes(resolved.intent);
+  // Another capability (a comparison, a neighbourhood guide, a budget) reads the web notes: only a plan alone does not.
+  const onlyPlan = resolved.capabilities.every((capability) => capability === "itinerary");
+  if (!findsVenues || !venueIntent || !onlyPlan || NEEDS_THE_WEB.test(message)) return resolved;
+  return { ...resolved, toolPlan: resolved.toolPlan.filter((call) => call.tool !== "research_web") };
+}
+
+/** A nightly price ceiling or star floor the traveller stated reaches the hotel search: the model's plan carried only a place and dates. */
+export function guardStayLimits(message: string, resolved: ResolvedTurn): ResolvedTurn {
+  if (!resolved.toolPlan.some((call) => call.tool === "stays")) return resolved;
+  const { priceMax, minStars } = stayLimits(message);
+  if (priceMax === null && minStars === null) return resolved;
+  return { ...resolved, toolPlan: resolved.toolPlan.map((call) => (call.tool === "stays" ? { ...call, priceMax: call.priceMax ?? priceMax, minStars: call.minStars ?? minStars } : call)) };
+}
+
+export function guardPlanLength(message: string, resolved: ResolvedTurn): ResolvedTurn {
+  if (resolved.outOfScope || !resolved.capabilities.includes("itinerary") || EDITS_PLAN.test(message)) return resolved;
+  const counts = new Set<number>();
+  for (const match of message.matchAll(STATED_DAYS)) counts.add(Number(match[1]) || WORD_COUNTS[match[1].toLowerCase()]);
+  if (!counts.size && A_WEEK.test(message)) counts.add(7);
+  if (counts.size !== 1) return resolved;
+  const [days] = counts;
+  return days >= 1 && days <= 30 && days !== resolved.itineraryDays ? { ...resolved, itineraryDays: days } : resolved;
+}
+
 // The model often sends "" or a stale/garbage value instead of truly omitting an
 // optional date. Coerce anything that isn't a clean YYYY-MM-DD to null (not undefined: this
 // field must stay in every OpenAI structured-output "required" array, which excludes any
@@ -177,6 +224,9 @@ export const toolCallSchema = z.union([
     checkin: optionalIsoDate,
     checkout: optionalIsoDate,
     hotelName: z.string().trim().max(160).nullable().catch(null),
+    /** A nightly ceiling and a star floor the traveller stated; read from their words in code (see constraints.ts), so the model leaves them null. */
+    priceMax: z.number().positive().max(100000).nullable().optional().catch(null),
+    minStars: z.number().int().min(3).max(5).nullable().optional().catch(null),
   }),
 ]);
 export type ToolCall = z.infer<typeof toolCallSchema>;
@@ -266,6 +316,8 @@ Fields:
     * "day_trips" — trips OUT of the city for a day ("day trips from <city>", "anywhere nearby worth a day"). Add a research_web call "best day trips from <city>".
     * "structured_answer" — the answer is best as 2-4 short sections of bullets and no other menu item fits: local customs / etiquette, how something works (the metro, tipping, a pass), a "things to know" rundown, language/etiquette questions, and questions that NAME specific practical facts ("plugs, currency and tipping", "what voltage", "emergency number", "is tap water safe") — those are a fact list, never the packing checklist (intent essentials would answer with weather and a packing list and not the question). NOT a packing/what-to-bring/what-to-wear question, even when it's phrased as "things to know" or comes up alongside other essentials talk — that's intent essentials, which already has its own dedicated, weather-aware checklist; adding structured_answer on top doesn't just duplicate it, it actively REPLACES that weather-grounded checklist with a worse generic one (live-caught: "what should I pack" produced a destination-blind list — toothbrush, deodorant, a travel pillow — with no mention of Montreal's actual October weather, because structured_answer's own reply took priority over the checklist it was never supposed to compete with). Add a research_web call for the topic.
 - itineraryDays: set ONLY with the "itinerary" capability, to the number of days the traveller wants planned: the number they state ("plan 5 days", "a 5-day itinerary", "a week" = 7), taking it from the earlier request when this message only answers a question about it (they asked for 5 days, you asked which city, they said "Rome" -> 5). null when they gave no number, or when they are editing days of an existing plan.
+- Places in locationFocus and in every toolPlan "location" are always written in full as "<place>, <region or country>" ("Kyoto, Japan", "Bali, Indonesia", "Belém, Lisbon, Portugal"), whether or not they are the trip's own destination. A bare name is read as a corner of the trip's destination; only a country stands alone ("Japan", "Iceland").
+- A web lookup (research_web) is slow next to a places search: when search_places already answers the ask (finding venues or things to do), do not add one. Add it for what a places search cannot say: safety, prices, rules, what a place is known for, news, hours of a named place.
 - toolPlan: 0 to 3 read-only lookups to run now. Tools:
     {"tool":"search_places","query":"...","location":"<locationFocus>"}  - find places, venues, activities, restaurants, clubs, temples, museums.
     {"tool":"research_web","query":"..."}                                - current info, events, prices, "what is it known for", articles.
@@ -348,7 +400,7 @@ export async function resolveTurn(input: {
       const capabilities = !resolved.outOfScope && !resolved.capabilities.includes("budget") && BUDGET_PHRASING.test(input.message)
         ? [...resolved.capabilities, "budget" as const].slice(0, 4)
         : resolved.capabilities;
-      return { ...guardRepeatedClarify(input.message, input.history, guardNamedArea(input.message, routePracticalFacts(input.message, { ...resolved, capabilities }))), modelUsed };
+      return { ...guardWebLookups(input.message, guardStayLimits(input.message, guardPlanLength(input.message, guardRepeatedClarify(input.message, input.history, guardNamedArea(input.message, routePracticalFacts(input.message, { ...resolved, capabilities })))))), modelUsed };
     } catch (error) {
       if (input.signal?.aborted) throw error;
       // The turn carries on with a safe default, so without this line a broken planner call would only show as odd answers.

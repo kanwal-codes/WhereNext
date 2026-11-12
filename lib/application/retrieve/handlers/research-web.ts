@@ -1,9 +1,10 @@
-import { research as tavilyResearch } from "@/packages/providers/tavily/client";
+import { researchDetailed } from "@/packages/providers/tavily/client";
 import { research as exaResearch } from "@/packages/providers/exa/client";
 import { cached } from "@/lib/server/ttl-cache";
 import type { ToolCall } from "../../turn-resolver";
 import type { RetrieveContext } from "../context";
 import { RESEARCH_CACHE_MS } from "../context";
+import { webResearchPlan } from "../../web-research-plan";
 
 type ResearchWebCall = Extract<ToolCall, { tool: "research_web" }>;
 
@@ -21,8 +22,17 @@ export async function handleResearchWeb(call: ResearchWebCall, ctx: RetrieveCont
   // another trip asking about the same city) shouldn't re-hit the provider within this window.
   // Not tied to this call's `signal` — the cached load is shared across callers, so one caller's
   // abort must not cancel it out from under another who's still waiting on the same key.
-  const results = await cached(`research-web:${provider}:${call.query.trim().toLowerCase()}`, RESEARCH_CACHE_MS, () =>
-    useExa ? exaResearch(call.query) : tavilyResearch(call.query),
-  ).catch(ctx.fail(provider));
+  const plan = useExa ? { answer: false } : webResearchPlan(call.query);
+  const variant = `${plan.domains ? "guides" : "open"}${plan.answer ? "+answer" : ""}`;
+  const results = await cached(`research-web:${provider}:${variant}:${call.query.trim().toLowerCase()}`, RESEARCH_CACHE_MS, async () => {
+    if (useExa) return exaResearch(call.query);
+    let found = await researchDetailed(call.query, undefined, plan);
+    // A small place has few pages on the travel authorities: with fewer than two, ask the open web instead.
+    if (plan.domains && found.results.length < 2) found = await researchDetailed(call.query, undefined, { answer: plan.answer });
+    // The short answer leads, credited to the page it came from first (its own "#summary" address, so the page itself is not merged away as a duplicate), so the reply can state the fact and link its source.
+    return found.answer && found.results[0]
+      ? [{ title: "Summary of the top results", url: `${found.results[0].url}#summary`, content: found.answer }, ...found.results]
+      : found.results;
+  }).catch(ctx.fail(provider));
   if (results) ctx.sources.push(...results.map(({ title, url, content }) => ({ title, url, content })));
 }

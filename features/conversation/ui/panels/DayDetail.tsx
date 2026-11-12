@@ -6,7 +6,7 @@ import { CalendarPlus, Check, Loader2 } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { useTripPanelMaybe, type ItineraryBlock } from "@/components/TripPanelProvider";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
-import { addStopsToItinerary, dayIndexFromLabel } from "@/features/conversation/application/addPlanToItinerary";
+import { addStopsToItinerary, dayIndexFromLabel, replaceDaysInItinerary } from "@/features/conversation/application/addPlanToItinerary";
 import { ContentSwap, Reveal } from "@/components/motion-primitives";
 import { SlidingTabs } from "@/features/conversation/ui/blocks/SlidingTabs";
 import { DayStops } from "./DayStops";
@@ -63,6 +63,9 @@ export function DayDetail({ block, dayIndex, tripId }: { block: ItineraryBlock; 
   // What the itinerary already holds for this day, so the button never offers to add it twice.
   const saved = new Set((data?.itinerary ?? []).filter((row) => row.day_index === index).map((row) => norm(String(row.title ?? ""))));
   const missing = day.stops.filter((stop) => !saved.has(norm(stop.title)));
+  // A card that reworks a day replaces it: stops the trip still holds there that the new day dropped are what it would remove.
+  const replaces = Boolean(block.replacesDays);
+  const dropped = replaces ? [...saved].filter((title) => !day.stops.some((stop) => norm(stop.title) === title)) : [];
   const dayPoints = pointsFromItinerary(block, active);
   const minutes = day.stops.flatMap((s) => { const t = parseClockTime(s.time); return t ? [clockToMinutes(t)] : []; });
   const arc = minutes.length > 1 && minutes[minutes.length - 1] > minutes[0];
@@ -71,12 +74,18 @@ export function DayDetail({ block, dayIndex, tripId }: { block: ItineraryBlock; 
 
   async function addDay() {
     if (guest) return openGate("add days to your itinerary");
-    if (status !== "idle" || missing.length === 0) return;
+    if (status !== "idle" || (missing.length === 0 && dropped.length === 0)) return;
     setStatus("adding");
-    const failures = await addStopsToItinerary(tripId, index, missing);
+    let failures: number;
+    try {
+      failures = replaces ? await replaceDaysInItinerary(tripId, [{ dayIndex: index, stops: day.stops }]) : await addStopsToItinerary(tripId, index, missing);
+    } catch {
+      failures = Number.POSITIVE_INFINITY;
+    }
     setStatus("idle");
-    if (failures === missing.length) notifyToast(`Couldn’t add ${day.label}. Try again.`, "error");
-    else notifyToast(failures ? `Added ${day.label} — ${failures} stop${failures === 1 ? "" : "s"} didn’t save.` : `Added ${day.label} to your itinerary.`, failures ? "info" : "success");
+    const verb = replaces ? "replace" : "add";
+    if (failures === Number.POSITIVE_INFINITY || failures === Math.max(1, missing.length + dropped.length)) notifyToast(`Couldn’t ${verb} ${day.label}. Try again.`, "error");
+    else notifyToast(failures ? `${replaces ? "Replaced" : "Added"} ${day.label} — ${failures} stop${failures === 1 ? "" : "s"} didn’t save.` : `${replaces ? "Replaced" : "Added"} ${day.label} in your itinerary.`, failures ? "info" : "success");
   }
 
   return (
@@ -100,7 +109,7 @@ export function DayDetail({ block, dayIndex, tripId }: { block: ItineraryBlock; 
         <div className="mt-6 flex flex-wrap items-center gap-2">
         {day.open ? (
           <p className="text-sm text-ink-soft">Nothing lined up for this day yet. It is yours to wander, or ask Roam for more ideas in the chat.</p>
-        ) : missing.length === 0 ? (
+        ) : missing.length === 0 && dropped.length === 0 ? (
           <Badge tone="positive" icon={Check} className="h-8 px-3 text-sm">Already in your itinerary</Badge>
         ) : (
           <button
@@ -110,7 +119,7 @@ export function DayDetail({ block, dayIndex, tripId }: { block: ItineraryBlock; 
             className="inline-flex h-12 min-w-0 flex-1 whitespace-nowrap items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-[opacity,transform] hover:opacity-90 active:scale-[0.985] disabled:opacity-60"
           >
             {status === "adding" ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <CalendarPlus className="size-4" aria-hidden />}
-            {missing.length < day.stops.length ? `Add the other ${missing.length} stop${missing.length === 1 ? "" : "s"}` : `Add ${day.label} to itinerary`}
+            {replaces ? `Replace ${day.label} in itinerary` : missing.length < day.stops.length ? `Add the other ${missing.length} stop${missing.length === 1 ? "" : "s"}` : `Add ${day.label} to itinerary`}
           </button>
         )}
         {ctx && dayPoints.length > 0 && <MapButton className="h-12 rounded-full px-5 text-sm max-sm:w-12 max-sm:px-0" onClick={() => ctx.openPanel({ kind: "map", title: `${day.label} on the map`, points: dayPoints })}><span className="max-sm:sr-only">Map</span></MapButton>}

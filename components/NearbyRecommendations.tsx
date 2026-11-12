@@ -125,7 +125,9 @@ export function NearbyRecommendations({
   // abort the fan-out in flight and start it over.
   const typesKey = (types ?? []).join("|");
   // The section sits at the foot of a long detail view; its searches wait until someone scrolls toward it.
-  const [nearRef, near] = useNearView<HTMLDivElement>();
+  // Three screens ahead, not one: the fan-out takes a couple of seconds, so it starts while the reader is still on the details above
+  // and the section is usually there by the time they scroll to it.
+  const [nearRef, near] = useNearView<HTMLDivElement>(2400);
 
   useEffect(() => {
     if (guest) {

@@ -97,10 +97,11 @@ export function loadTripContext(supabase: SupabaseClient, tripId: string): Promi
 }
 
 async function loadTripContextUncached(supabase: SupabaseClient, tripId: string): Promise<TripContext> {
+  // The whole itinerary: a 30-day plan is about 90 stops, and a cap of 50 hid every day after the twelfth from edits and from the assistant.
   const [trip, preferences, itinerary, places, decisions, reservations, expenseRows, memberRows] = await Promise.all([
     supabase.from("trips").select("name,destination,origin,duration_days,start_date,end_date,travelers,updated_at,stops").eq("id", tripId).maybeSingle(),
     supabase.from("trip_preferences").select("data").eq("trip_id", tripId).maybeSingle(),
-    supabase.from("trip_itinerary_items").select("title,day_index,position,metadata").eq("trip_id", tripId).is("removed_at", null).order("day_index").order("position").limit(50),
+    supabase.from("trip_itinerary_items").select("title,day_index,position,metadata").eq("trip_id", tripId).is("removed_at", null).order("day_index").order("position").limit(300),
     supabase.from("trip_places").select("status,places(name,category,address)").eq("trip_id", tripId).limit(50),
     supabase.from("trip_decisions").select("kind,value,source,created_at").eq("trip_id", tripId).order("created_at", { ascending: false }).limit(30),
     supabase.from("trip_reservations").select("kind,title,starts_on,ends_on,start_time,end_time,place,to_place,amount,currency,amount_basis,travellers,status").eq("trip_id", tripId).order("starts_on", { ascending: true, nullsFirst: false }).order("start_time", { ascending: true, nullsFirst: false }).limit(60),
@@ -179,7 +180,7 @@ export function serializeTripContext(context: TripContext): string {
   if (full.length <= MAX_CONTEXT_CHARS) return full;
   const reduced = JSON.stringify({
     ...context,
-    itinerary: context.itinerary.slice(0, 20),
+    itinerary: context.itinerary.slice(0, 100),
     places: context.places.slice(0, 20),
     decisions: context.decisions.slice(0, 15),
     reservations: context.reservations?.slice(0, 30),

@@ -25,6 +25,8 @@ export type RetrieveFilters = {
   /** A stated accessibility requirement (wheelchair accessible, step-free, etc.) is a HARD
    *  constraint, not a soft preference like dislikes — see lib/application/preference-filter.ts. */
   accessibilityNeeds?: string[];
+  /** How many places to keep in all. A day-by-day plan needs a few per day, so it asks for more than the usual dozen; those searches also skip the per-place detail lookups, which only cards need. */
+  placeLimit?: number;
 };
 
 /**
@@ -47,13 +49,15 @@ export type RetrieveContext = {
   /** Collapse a transit plan's short walk legs into readable steps. */
   formatTransitSteps: (steps: Array<{ mode: string; durationSeconds: number; line?: string; arrivalStop?: string }>) => string[];
   places: Place[];
-  rawPlaceGroups: Array<{ index: number; label: string; places: Place[] }>;
+  rawPlaceGroups: Array<{ index: number; label: string; /** The place the search was run in (a plan across several cities needs to know which city each result belongs to). */ location?: string; places: Place[] }>;
   sources: Array<{ title: string; url: string; content: string }>;
   routes: RouteResult[];
   eventList: EventResult[];
   /** Set by the events handler when the query had nothing specific — "what's on?" gets ordered
    *  by pull (bigger events first) rather than by date. */
   eventsBroad: boolean;
+  /** Set once the events handler has fallen back to a web search because Ticketmaster and Eventbrite found nothing: one search per turn, however many events calls the plan has. */
+  eventsWebFallback: boolean;
   flights: FlightSearch[];
   stays: StaySearch[];
   weather: { summary: string | null; days: WeatherDay[] };
