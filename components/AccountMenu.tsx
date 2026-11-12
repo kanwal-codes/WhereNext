@@ -77,7 +77,8 @@ export function AccountMenu({ displayName, className }: { displayName: string; c
         ref={buttonRef}
         type="button"
         title={displayName}
-        aria-label="Account"
+        // Starts with the visible initials so the name still contains what is on the button (WCAG 2.5.3, label in name).
+        aria-label={`${memberInitials(displayName)}, account`}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}

@@ -101,7 +101,7 @@ export function AccountView({
   }
 
   return (
-    <div className="min-h-screen pb-32">
+    <main className="min-h-screen pb-32">
       {/* The opening frame: their dream destination when they have set one, otherwise a coastal road by day and Lisbon at blue hour by night,
        * slowly pushing in, graded dark so the white name and the frosted numbers always read. */}
       <AccountHero
@@ -133,6 +133,6 @@ export function AccountView({
       </div>
 
       <SaveBar dirty={dirty} saving={saving} saved={saved} onDiscard={() => router.refresh()} onSave={() => void saveAll()} onSavedShown={() => setSaved(false)} />
-    </div>
+    </main>
   );
 }

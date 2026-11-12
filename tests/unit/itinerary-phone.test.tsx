@@ -43,7 +43,7 @@ describe("ItinerarySurface on a phone: the day", () => {
   it("shows one day with its place in the trip, its date and how many stops", () => {
     show();
     expect(screen.getByText("Day 1 of 3")).toBeTruthy();
-    expect(screen.getByRole("heading", { level: 2 }).textContent).toMatch(/Oct 10/);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/Oct 10/);
     expect(screen.getByText("3 stops")).toBeTruthy();
     expect(screen.getByRole("button", { name: /^Louvre/ })).toBeTruthy();
     expect(screen.queryByText("Orsay")).toBeNull();
@@ -58,8 +58,10 @@ describe("ItinerarySurface on a phone: the day", () => {
     const buttons = within(strip).getAllByRole("button");
     expect(buttons).toHaveLength(3);
     expect(buttons[0].getAttribute("aria-current")).toBe("date");
-    expect(buttons[0].getAttribute("aria-label")).toMatch(/^Day 1, .*, has plans$/);
-    expect(buttons[2].getAttribute("aria-label")).toMatch(/^Day 3, /);
+    // The name starts with the chip's own text (weekday and number), so what is on screen is what voice control can say.
+    expect(buttons[0].getAttribute("aria-label")).toMatch(/^\S+ \d+, day 1, \S+, has plans$/);
+    expect(buttons[0].getAttribute("aria-label")!.toLowerCase().replace(/\s+/g, "")).toContain(buttons[0].textContent!.toLowerCase().replace(/\s+/g, ""));
+    expect(buttons[2].getAttribute("aria-label")).toMatch(/, day 3, /);
     expect(buttons[2].getAttribute("aria-label")).not.toMatch(/has plans/);
     await user.click(buttons[1]);
     expect(screen.getByText("Day 2 of 3")).toBeTruthy();

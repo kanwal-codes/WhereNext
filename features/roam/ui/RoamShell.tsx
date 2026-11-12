@@ -111,7 +111,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
     openPanel({ kind: "place", placeId: place.providerId, name: place.name });
   }, [openPanel]);
   const openStay = useCallback((stay: StayCardItem, dates: { checkin: string; checkout: string; adults?: number }, ask: (prompt: string) => void) => {
-    openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name, checkin: dates.checkin, checkout: dates.checkout, adults: dates.adults, onAsk: ask });
+    openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name, photo: stay.thumbnailUrl, checkin: dates.checkin, checkout: dates.checkout, adults: dates.adults, onAsk: ask });
   }, [openPanel]);
   const openEvent = useCallback((seed: EventSeed) => {
     openPanel({ kind: "event", seed });
@@ -133,21 +133,26 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
     <div data-roam-shell className="icons-fine flex h-[calc(100dvh-var(--topbar)-var(--tabbar))] min-h-0 w-full max-w-full flex-col overflow-x-hidden lg:h-[100dvh]">
       <div
         // A CSS transition on pixel tracks (they interpolate natively), only for the moment the layout mode changes.
-        style={{ gridTemplateColumns: columns, transition: `grid-template-columns ${reduceMotion || !modeChanged ? 0 : LAYOUT_MOTION}` }}
-        className="grid h-full min-h-0 w-full min-w-0 max-w-full"
+        // `desktop` is false on the server and while hydrating, so a wide screen used to be drawn as the phone's single column first and
+        // jump to two a moment later (the chat moved ~170px, the tab bar pushed it down 52px: a layout shift of ~0.2). Until JS knows the
+        // width, CSS picks the tracks: the phone's below `lg`, the desktop's from `lg` up. From then on the inline value (the same one) rules.
+        style={{ ...(desktop ? { gridTemplateColumns: columns } : { "--shell-cols-lg": shellColumns({ desktop: true, hasPanel: Boolean(panel), showContext: !panel && !contextCollapsed }) }), transition: `grid-template-columns ${reduceMotion || !modeChanged ? 0 : LAYOUT_MOTION}` } as React.CSSProperties}
+        className="grid h-full min-h-0 w-full min-w-0 max-w-full [grid-template-columns:minmax(0,1fr)_0px] lg:[grid-template-columns:var(--shell-cols-lg)]"
       >
         <div className="relative flex min-w-0 max-w-full flex-col overflow-hidden px-4 py-4 sm:px-6 lg:border-r lg:border-border lg:py-5 max-lg:pt-1">
-          {desktop && <div className="overflow-hidden">
+          {/* Always in the markup, hidden on a phone by CSS (a hidden Link is never in view, so it is never prefetched): mounted only once
+              JS knew the width, it arrived after first paint and pushed the whole conversation down. */}
+          <div className="overflow-hidden max-lg:hidden">
             <Reveal>
                 <div className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                   <div className="justify-self-start">
-                    {optimisticTab === "group" && <GroupMembersBadge tripId={tripId} />}
+                    {desktop && optimisticTab === "group" && <GroupMembersBadge tripId={tripId} />}
                   </div>
                   <RoamTabs tripId={tripId} activeTab={optimisticTab} onSelect={setOptimisticTab} onGuestLocked={guest ? () => openGate("chat with your group") : undefined} />
                   <div className="justify-self-end" />
                 </div>
               </Reveal>
-          </div>}
+          </div>
           {/* Both surfaces stay mounted permanently — switching tabs then costs nothing (no
               refetch, no lost scroll position). Each pane is absolutely stacked inside this one
               relative slot and crossfades on `optimisticTab` (a plain opacity toggle would have

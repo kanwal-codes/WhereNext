@@ -39,7 +39,8 @@ function guardsOf(node: ts.Node, locals: Map<string, ts.Node>, seen = new Set<ts
           }
           found.push(`member:${role}${registered ? "+registered" : ""}`);
         } else if (callee.text === "hasBearer") found.push("cron-secret");
-        else if (/^(requireUser|requireSession|requireAccount|requireRegistered)$/.test(callee.text)) found.push("user");
+        // `getSessionUser` is `getUser` without the round trip to Supabase Auth (it verifies the signed token locally); like it, the call is the guard.
+        else if (/^(requireUser|requireSession|requireAccount|requireRegistered|getSessionUser)$/.test(callee.text)) found.push("user");
         else if (locals.has(callee.text)) found.push(...guardsOf(locals.get(callee.text)!, locals, seen));
       } else if (ts.isPropertyAccessExpression(callee) && callee.name.text === "getUser") found.push("user");
     }

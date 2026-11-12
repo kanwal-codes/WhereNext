@@ -31,14 +31,14 @@ export function AuthShell({
   return (
     <div className="theme-light-scope grid min-h-screen bg-background text-foreground [color-scheme:light] lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
       <div className="relative flex flex-col px-5 py-8 sm:px-10 lg:px-14">
-        <div className="flex items-center justify-between gap-2">
+        <header className="flex items-center justify-between gap-2">
           <Link href="/" className="inline-flex w-fit items-center gap-2 text-sm">
             <BrandMark variant="compact" />
             <BrandMark variant="text" />
           </Link>
-        </div>
+        </header>
 
-        <div className="flex flex-1 items-center py-10">
+        <main className="flex flex-1 items-center py-10">
           <div className={cn("w-full max-w-md", className)}>
             <Reveal>
               <p className="eyebrow">{eyebrow}</p>
@@ -55,17 +55,17 @@ export function AuthShell({
               {children}
             </Reveal>
           </div>
-        </div>
+        </main>
 
         {footer ? (
           <Reveal delay={0.4}>
-            <div className="text-xs text-muted-foreground">{footer}</div>
+            <footer className="text-xs text-muted-foreground">{footer}</footer>
           </Reveal>
         ) : null}
       </div>
 
-      {/* Filmic plate */}
-      <div className="relative hidden overflow-hidden lg:block">
+      {/* Filmic plate: a landmark of its own (complementary), so nothing on the page sits outside one. */}
+      <aside aria-label="About Where next" className="relative hidden overflow-hidden lg:block">
         <motion.img
           src="/design/auth-side.jpg"
           alt="A quiet coast road disappearing into morning fog"
@@ -91,7 +91,7 @@ export function AuthShell({
             </p>
           </div>
         </Reveal>
-      </div>
+      </aside>
     </div>
   );
 }

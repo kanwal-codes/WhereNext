@@ -19,7 +19,7 @@ export function PhoneTripRow({ trip, status, deleting, onDelete }: { trip: TripS
   const travellers = trip.travelers ? `${trip.travelers} ${trip.travelers === 1 ? "traveller" : "travellers"}` : null;
   return (
     <div className={cn("relative transition-transform duration-200 active:scale-[0.985]", deleting && "opacity-60")}>
-      <Link href={`/trips/${trip.id}`} className="block rounded-4xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" aria-label={`${trip.name}. ${status.badge}`}>
+      <Link href={`/trips/${trip.id}`} className="block rounded-4xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
         <TripCover trip={trip} className="h-44 rounded-4xl">
           {() => (
             <span suppressHydrationWarning className="photo-chip absolute top-3.5 left-3.5 z-10 gap-1.5">

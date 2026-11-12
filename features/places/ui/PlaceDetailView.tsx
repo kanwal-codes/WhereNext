@@ -59,13 +59,15 @@ export function PlaceDetailView({
 
   const pad = panel ? PANEL_PAD : "mx-auto max-w-5xl px-5 pb-14 sm:px-8";
 
-  if (state === "loading") return <PanelLoading what="this place" panel={panel} seed={hydrated ? readPlaceSeed(tripId, placeId) : null} />;
+  const seed = hydrated ? readPlaceSeed(tripId, placeId) : null;
+
+  if (state === "loading") return <PanelLoading what="this place" panel={panel} seed={seed} insetOnPhone />;
 
   if (state === "error" || !details) {
     return (
       <>
         {!panel && <div className="mx-auto max-w-5xl px-5 pt-6 sm:px-8"><BackLink fallback={`/trips/${tripId}/discover`} label="Back" /></div>}
-        <PanelError what="this place" panel={panel} onRetry={retry} />
+        <PanelError what="this place" panel={panel} onRetry={retry} heading="h1" />
       </>
     );
   }
@@ -170,10 +172,11 @@ export function PlaceDetailView({
   return (
     <div>
       {titleTag}
-      <PlacePhonePhoto tripId={tripId} photo={photo} name={name} place={place} />
+      <PlacePhonePhoto tripId={tripId} photo={photo} name={name} place={place} placeholder={seed?.photo} />
       <div className="max-lg:hidden">
       <Hero
         image={photo ?? null}
+        placeholder={seed?.photo}
         alt={name}
         plain
         kenBurns={!panel}

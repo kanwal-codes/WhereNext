@@ -304,7 +304,7 @@ export function TripContextSurface({
       {/* Suggested by the assistant */}
       {suggestedRows.length > 0 && (
         <section>
-          <p className="mb-2 flex items-center gap-2 px-1 text-2xs font-semibold tracking-[0.2em] text-coral uppercase">
+          <p className="mb-2 flex items-center gap-2 px-1 text-2xs font-semibold tracking-[0.2em] text-coral-ink uppercase">
             <i aria-hidden className="size-1.5 rounded-full bg-coral" />
             Needs your call
           </p>

@@ -195,7 +195,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
     openPanel({ kind: "place", placeId: place.providerId, name: place.name });
   }
   function onOpenStay(stay: StayCardItem, dates: { checkin: string; checkout: string; adults?: number }) {
-    openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name, checkin: dates.checkin, checkout: dates.checkout, adults: dates.adults, onAsk: onFollowup });
+    openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name, photo: stay.thumbnailUrl, checkin: dates.checkin, checkout: dates.checkout, adults: dates.adults, onAsk: onFollowup });
   }
   function onOpenEvent(seed: EventSeed) {
     openPanel({ kind: "event", seed });

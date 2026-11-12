@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { Suspense } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { LandingNext } from "@/components/landing/LandingNext";
 import { TripsHome } from "@/components/TripsHome";
@@ -20,7 +21,18 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image" },
 };
 
-export default async function HomePage() {
+// The page waits on Supabase before it knows what to show. Behind a boundary the layout (and with it the
+// stylesheet, fonts and scripts) goes out at once and downloads while that runs, instead of starting only
+// after the whole document is built. No fallback: a signed-out visitor must not flash a trips skeleton.
+export default function HomePage() {
+  return (
+    <Suspense fallback={null}>
+      <Home />
+    </Suspense>
+  );
+}
+
+async function Home() {
   // Was `getUser()` here to decide "redirect to /trips or not", then `/trips` doing its own
   // `getUser()` + trips query again after the redirect landed — two sequential Supabase round
   // trips (plus the redirect's own network hop) for what a signed-in visitor experiences as one

@@ -35,34 +35,49 @@ export function useDestinationPhoto(tripId: string, destination: string | undefi
       setPhoto(null);
       return;
     }
-    const controller = new AbortController();
     if (cache.has(key)) {
       setPhoto(cache.get(key));
       return;
     }
-    fetch(`/api/trips/${tripId}/cover?destination=${encodeURIComponent(destination as string)}`, { signal: controller.signal })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("cover lookup failed"))))
-      .then((body) => {
-        const name = (body.photoName as string | null) ?? undefined;
-        const url = photoProxyUrl(tripId, name) ?? null;
-        cache.set(key, url);
-        setPhoto(url);
-        // Only a real photo is saved. "Nothing found" stays unsaved (the server caches it for a day), so a
-        // lookup that failed or missed once is tried again on a later visit instead of sticking forever.
-        if (!name) return;
+    let cancelled = false;
+    void lookup(tripId, destination as string, key).then((url) => {
+      if (!cancelled) setPhoto(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [tripId, destination, key, known, stored.name]);
+
+  return photo;
+}
+
+/** Lookups running now, by key: a trip is on the home page twice (phone row and desktop card), and both ask at once. */
+const inflight = new Map<string, Promise<string | null>>();
+
+function lookup(tripId: string, destination: string, key: string): Promise<string | null> {
+  const running = inflight.get(key);
+  if (running) return running;
+  const request = fetch(`/api/trips/${tripId}/cover?destination=${encodeURIComponent(destination)}`)
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error("cover lookup failed"))))
+    .then((body) => {
+      const name = (body.photoName as string | null) ?? undefined;
+      // Only a real photo is saved. "Nothing found" stays unsaved (the server caches it for a day), so a
+      // lookup that failed or missed once is tried again on a later visit instead of sticking forever.
+      if (name) {
         fetch(`/api/trips/${tripId}`, {
           method: "PATCH",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ heroPhotoName: encodeCover(name) }),
         }).catch(() => {});
-      })
-      .catch((err) => {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        cache.set(key, null);
-        setPhoto(null);
-      });
-    return () => controller.abort();
-  }, [tripId, destination, key, known, stored.name]);
-
-  return photo;
+      }
+      return photoProxyUrl(tripId, name) ?? null;
+    })
+    .catch(() => null)
+    .then((url) => {
+      cache.set(key, url);
+      inflight.delete(key);
+      return url;
+    });
+  inflight.set(key, request);
+  return request;
 }

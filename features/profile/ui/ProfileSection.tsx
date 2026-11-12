@@ -79,7 +79,7 @@ export function ProfileSection({ form, dream, password, google, email, emailVeri
         <Field label="Full name">
           <input value={name} onChange={(e) => { setName(e.target.value); touch(); }} maxLength={80} className="input-field" />
         </Field>
-        <Field label="Email" hint={emailVerified ? <span className="inline-flex items-center gap-1 text-xs text-coral"><BadgeCheck className="h-3.5 w-3.5" /> Verified</span> : undefined}>
+        <Field label="Email" hint={emailVerified ? <span className="inline-flex items-center gap-1 text-xs text-coral-ink"><BadgeCheck className="h-3.5 w-3.5" /> Verified</span> : undefined}>
           <input type="email" value={emailDraft} onChange={(e) => { setEmailDraft(e.target.value); touch(); }} className="input-field" />
         </Field>
         <Field label="Home airport">

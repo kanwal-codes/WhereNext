@@ -169,8 +169,10 @@ export function DestinationCombobox({
           aria-label={ariaLabel}
           className={inputClassName ?? "w-full rounded-lg border border-input bg-background px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-ring/25 disabled:opacity-60"}
         />
-        {showPanel && (
-          <Cmdk.List className="pop-menu absolute inset-x-0 top-full z-30 mt-2 max-h-72 overflow-y-auto overscroll-contain rounded-2xl border border-border bg-popover p-1.5 shadow-lift">
+        {/* The input points at this list with aria-controls, so the element exists while closed too (hidden): a reference to nothing is an invalid ARIA
+            value. Its rows are mounted only while open, so the arrow keys cannot land on one nobody can see. */}
+        <Cmdk.List hidden={!showPanel} className="pop-menu absolute inset-x-0 top-full z-30 mt-2 max-h-72 overflow-y-auto overscroll-contain rounded-2xl border border-border bg-popover p-1.5 shadow-lift">
+          {showPanel && (<>
             {loading && suggestions.length === 0 && (
               <div className="flex items-center gap-2 px-3 py-2.5 text-xs text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" /> Searching…
@@ -206,8 +208,8 @@ export function DestinationCombobox({
                 </Cmdk.Item>
               );
             })}
-          </Cmdk.List>
-        )}
+          </>)}
+        </Cmdk.List>
       </Cmdk>
     </div>
   );

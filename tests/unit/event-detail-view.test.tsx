@@ -33,6 +33,7 @@ vi.mock("@/components/NearbyRecommendations", () => ({ NearbyRecommendations: (p
 vi.mock("@/components/PanelStates", () => ({
   PANEL_PAD: "pad", PANEL_HERO: "hero",
   PanelLoading: ({ what }: Any) => <div>loading {what}</div>,
+  PanelLoadingBody: ({ what }: Any) => <div>loading {what}</div>,
   PanelError: ({ what, onRetry, children }: Any) => <div><span>error {what}</span><button type="button" onClick={onRetry}>retry</button>{children}</div>,
 }));
 vi.mock("@/components/motion-primitives", () => ({
@@ -68,10 +69,12 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("EventDetailView: loading", () => {
-  it("asks for the event by what the card knew, and shows a loading state first", async () => {
+  it("asks for the event by what the card knew, and shows the card's own title and photo while it loads", async () => {
     page();
+    // The hero is the same one before and after the details arrive: the title is already on it, and only the part under it waits.
     expect(screen.getByText("loading this event")).toBeTruthy();
-    await screen.findByRole("heading", { name: "Jazz Night" });
+    expect(screen.getByRole("heading", { name: "Jazz Night" })).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText("loading this event")).toBeNull());
     const url = new URL(calls[0], "http://x");
     expect(url.pathname).toBe(`/api/trips/${TRIP}/events/detail`);
     expect(Object.fromEntries(url.searchParams)).toEqual({ name: "Jazz Night", url: seed.url, source: "ticketmaster", img: "https://img/seed.jpg", date: "2026-12-02 20:00", venue: "Blue Note" });

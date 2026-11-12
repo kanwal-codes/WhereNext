@@ -168,7 +168,7 @@ describe("TripsHome: filter tabs", () => {
 
   it("fall back to All when the last trip of the open kind is deleted", async () => {
     const user = u();
-    vi.useRealTimers();
+    // Only `Date` is faked (beforeEach), so the clock stays at NOW the trips are dated against while userEvent and waitFor run on real timers.
     respond = () => new Response("{}", { status: 200 });
     home(many());
     await user.click(screen.getByRole("tab", { name: /Past/ }));
@@ -437,7 +437,6 @@ describe("TripsHome: dictation", () => {
 
 describe("TripsHome: on the phone", () => {
   it("lists every trip as a row, and keeps the cards for wider screens", async () => {
-    vi.useRealTimers();
     home([now("n", "Oslo"), soon("s", "Lisbon"), old("p", "Rome")]);
     expect(screen.getAllByTestId("row").map((r) => r.textContent?.replace(/remove.*/, ""))).toEqual(["row Oslo", "row Lisbon", "row Rome"]);
     expect(document.querySelector('a[href="/trips/new"]')?.textContent?.trim()).toBe("Create New trip");

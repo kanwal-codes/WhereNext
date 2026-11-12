@@ -77,7 +77,7 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
           <PartyPopper className="h-5 w-5 text-coral" />
         </span>
         <h1 className="mt-4 font-display text-xl leading-snug">
-          {inviterName} invited you to help plan <span className="text-coral">{tripName}</span>
+          {inviterName} invited you to help plan <span className="text-coral-ink">{tripName}</span>
         </h1>
         {trip?.destination && <p className="mt-1.5 text-sm text-muted-foreground">{trip.destination}</p>}
         <p className="mt-4 text-sm text-muted-foreground">
@@ -105,7 +105,7 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
         <PartyPopper className="h-5 w-5 text-coral" />
       </span>
       <h1 className="mt-4 font-display text-xl leading-snug">
-        {inviterName} invited you to help plan <span className="text-coral">{tripName}</span>
+        {inviterName} invited you to help plan <span className="text-coral-ink">{tripName}</span>
       </h1>
       {trip?.destination && <p className="mt-1.5 text-sm text-muted-foreground">{trip.destination}</p>}
       {joinError === "retry" && <p className="mt-4 text-sm text-destructive">We couldn’t process this invite just now. Try again in a moment.</p>}

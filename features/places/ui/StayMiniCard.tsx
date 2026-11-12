@@ -18,7 +18,7 @@ export function StayMiniCard({ tripId, stay, phoneRow = false, phoneTile }: { tr
   const open = () => {
     if (!panelCtx) return router.push(href);
     if (panelCtx.compareMode) return panelCtx.compareToggle(entry);
-    panelCtx.openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name });
+    panelCtx.openPanel({ kind: "stay", hotelId: stay.hotelId, name: stay.name, photo: stay.thumbnail });
   };
   const comparing = Boolean(panelCtx?.compareMode);
   const selected = comparing && Boolean(panelCtx?.compareHas(stay.hotelId));

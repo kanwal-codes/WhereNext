@@ -23,7 +23,7 @@ export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]
   const start = useStartTrip();
 
   return (
-    <div className="min-h-screen">
+    <main className="min-h-screen">
       <TripsHero displayName={displayName} start={start} />
 
       <div className="mx-auto max-w-6xl px-5 pt-12 pb-20 sm:px-8">
@@ -98,6 +98,6 @@ export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]
       </div>
 
       <DeleteTripSheet trip={pendingDelete} onCancel={() => setPendingDelete(null)} onConfirm={(trip) => void removeTrip(trip)} />
-    </div>
+    </main>
   );
 }

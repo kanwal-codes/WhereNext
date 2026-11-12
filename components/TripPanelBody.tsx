@@ -35,7 +35,7 @@ export function TripPanelBody({ shown, tripId, openPanel, compareList, compareRe
     case "place":
       return <PlaceDetailView tripId={tripId} placeId={shown.placeId} variant="panel" />;
     case "stay":
-      return <StayDetailView tripId={tripId} hotelId={shown.hotelId} checkin={shown.checkin} checkout={shown.checkout} adults={shown.adults} seedName={shown.name} variant="panel" onAsk={shown.onAsk} />;
+      return <StayDetailView tripId={tripId} hotelId={shown.hotelId} checkin={shown.checkin} checkout={shown.checkout} adults={shown.adults} seedName={shown.name} seedPhoto={shown.photo} variant="panel" onAsk={shown.onAsk} />;
     case "event":
       return <EventDetailView tripId={tripId} seed={shown.seed} variant="panel" />;
     case "flight":

@@ -24,7 +24,12 @@ export const PANEL_HERO = "aspect-[2/1] w-full min-h-44 max-h-80";
  * of replacing a different layout. A skeleton that stays blank for many seconds reads as broken, so
  * after a moment it says what is happening, and after a longer one it says it is slow.
  */
-export function PanelLoading({ what, panel, heroClassName, children, seed }: { what: string; panel: boolean; heroClassName?: string; children?: ReactNode; /** What the card that opened this already knew: shown at once in place of the bars it stands for. */ seed?: { title: string; subtitle?: string | null; photo?: string | null; rating?: number | null } | null }) {
+/**
+ * What sits under a detail view's header while it loads: the action and fact-strip bars, and the "still finding the details" message
+ * (a skeleton that stays blank for many seconds reads as broken). `PanelLoading` is this under a hero; a view that keeps its own hero
+ * mounted through the load (events) draws this beneath it, so the photograph never has to be rebuilt.
+ */
+export function PanelLoadingBody({ what, children }: { what: string; children?: ReactNode }) {
   const [phase, setPhase] = useState(0);
   useEffect(() => {
     const slow = setTimeout(() => setPhase(1), 2500);
@@ -34,14 +39,36 @@ export function PanelLoading({ what, panel, heroClassName, children, seed }: { w
       clearTimeout(slower);
     };
   }, []);
+  return (
+    <div aria-busy="true">
+      <Skeleton className="mt-6 h-11 w-full max-w-md rounded-full" />
+      <Skeleton className="mt-6 h-[5.25rem] w-full rounded-2xl" />
+      <p role="status" className="mt-6 min-h-5 text-sm text-muted-foreground">
+        {phase === 0 ? <span className="sr-only">Loading {what}</span> : phase === 1 ? "Finding the details…" : "Still finding the details — the source is slow today. You can keep chatting meanwhile."}
+      </p>
+      <SkeletonLines lines={3} className="mt-4" />
+      {children}
+    </div>
+  );
+}
+
+export function PanelLoading({ what, panel, heroClassName, children, seed, insetOnPhone = false }: { what: string; panel: boolean; heroClassName?: string; children?: ReactNode; /** What the card that opened this already knew: shown at once in place of the bars it stands for. */ seed?: { title: string; subtitle?: string | null; photo?: string | null; rating?: number | null } | null; /** The loaded view puts its photo in a rounded 16:10 frame on a phone (not a full-bleed strip): draw that frame while loading too, so nothing jumps when the details arrive. */ insetOnPhone?: boolean }) {
   const pad = panel ? PANEL_PAD : "mx-auto max-w-5xl px-5 pb-14 sm:px-8";
   return (
     <div aria-busy="true">
+      {insetOnPhone && (
+        <div className="px-5 pt-3 lg:hidden">
+          <div className="relative aspect-[16/10] overflow-hidden rounded-3xl bg-muted">
+            {/* eslint-disable-next-line @next/next/no-img-element -- the card's own photo, already in the browser's cache */}
+            {seed?.photo && <img src={seed.photo} alt="" className="photo-grade absolute inset-0 h-full w-full object-cover" />}
+          </div>
+        </div>
+      )}
       {seed?.photo ? (
         // eslint-disable-next-line @next/next/no-img-element -- the card's own photo, already in the browser's cache
-        <img src={seed.photo} alt="" className={cn("w-full rounded-none bg-muted object-cover", heroClassName ?? (panel ? PANEL_HERO : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]"))} />
+        <img src={seed.photo} alt="" className={cn("w-full rounded-none bg-muted object-cover", insetOnPhone && "max-lg:hidden", heroClassName ?? (panel ? PANEL_HERO : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]"))} />
       ) : (
-        <Skeleton className={cn("rounded-none", heroClassName ?? (panel ? PANEL_HERO : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]"))} />
+        <Skeleton className={cn("rounded-none", insetOnPhone && "max-lg:hidden", heroClassName ?? (panel ? PANEL_HERO : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]"))} />
       )}
       <div className={cn(pad, "pt-6")}>
         {seed ? (
@@ -59,20 +86,14 @@ export function PanelLoading({ what, panel, heroClassName, children, seed }: { w
             <Skeleton className="mt-3 h-4 w-1/2 rounded-md" />
           </>
         )}
-        <Skeleton className="mt-6 h-11 w-full max-w-md rounded-full" />
-        <Skeleton className="mt-6 h-[5.25rem] w-full rounded-2xl" />
-        <p role="status" className="mt-6 min-h-5 text-sm text-muted-foreground">
-          {phase === 0 ? <span className="sr-only">Loading {what}</span> : phase === 1 ? "Finding the details…" : "Still finding the details — the source is slow today. You can keep chatting meanwhile."}
-        </p>
-        <SkeletonLines lines={3} className="mt-4" />
-        {children}
+        <PanelLoadingBody what={what}>{children}</PanelLoadingBody>
       </div>
     </div>
   );
 }
 
 /** A failed load: says what failed, offers Retry, and never points at a screen the user isn't on. Centred in the panel so a tall column is not a small card and a lot of nothing. */
-export function PanelError({ what, panel, onRetry, children }: { what: string; panel: boolean; onRetry?: () => void; children?: ReactNode }) {
+export function PanelError({ what, panel, onRetry, children, heading: Heading = "h2" }: { what: string; panel: boolean; onRetry?: () => void; children?: ReactNode; /** "h1" when this IS the page (a place or hotel that would not load, so there is no title of its own); "h2" under a hero that already has one. */ heading?: "h1" | "h2" }) {
   const pad = panel ? PANEL_PAD : "mx-auto max-w-5xl px-5 pb-14 sm:px-8";
   return (
     <div className={cn(pad, "grid min-h-[min(30rem,62vh)] place-items-center pt-10")}>
@@ -80,7 +101,7 @@ export function PanelError({ what, panel, onRetry, children }: { what: string; p
         <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-caution-soft text-caution shadow-hairline">
           <TriangleAlert className="size-5" aria-hidden />
         </span>
-        <h2 className="mt-4 font-display text-xl leading-snug font-medium tracking-[-0.015em]">We couldn’t load {what}</h2>
+        <Heading className="mt-4 font-display text-xl leading-snug font-medium tracking-[-0.015em]">We couldn’t load {what}</Heading>
         <p className="mt-2 text-sm leading-relaxed text-ink-soft text-pretty">It didn’t come back this time. That usually clears up on its own.</p>
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
           {onRetry && (

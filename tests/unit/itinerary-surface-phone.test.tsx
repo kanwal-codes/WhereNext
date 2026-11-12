@@ -69,9 +69,9 @@ describe("ItinerarySurface on a phone", () => {
     show();
     const strip = screen.getByRole("group", { name: "Days" });
     expect(within(strip).getAllByRole("button")).toHaveLength(3);
-    expect(within(strip).getByRole("button", { name: /^Day 1.*has plans/ })).toBeTruthy();
-    expect(within(strip).getByRole("button", { name: /^Day 3(?!.*has plans)/ })).toBeTruthy();
-    await u().click(within(strip).getByRole("button", { name: /^Day 2/ }));
+    expect(within(strip).getByRole("button", { name: /day 1.*has plans/ })).toBeTruthy();
+    expect(within(strip).getByRole("button", { name: /day 3(?!.*has plans)/ })).toBeTruthy();
+    await u().click(within(strip).getByRole("button", { name: /day 2/ }));
     expect(screen.getByText("Day 2 of 3")).toBeTruthy();
     expect(stopNames()).toEqual(["Orsay"]);
   });
@@ -88,7 +88,7 @@ describe("ItinerarySurface on a phone", () => {
   it("offers 'Plan this day' on an empty day and 'Add a stop' on a planned one", async () => {
     show();
     expect(screen.getByRole("button", { name: /Add a stop/ })).toBeTruthy();
-    await u().click(within(screen.getByRole("group", { name: "Days" })).getByRole("button", { name: /^Day 3/ }));
+    await u().click(within(screen.getByRole("group", { name: "Days" })).getByRole("button", { name: /day 3/ }));
     expect(screen.getByRole("button", { name: /Plan this day/ })).toBeTruthy();
     expect(screen.getByText("Open day")).toBeTruthy();
   });
@@ -97,7 +97,7 @@ describe("ItinerarySurface on a phone", () => {
     api.handlers.push((c) => (c.method === "POST" ? { json: { item: stop("Catacombs", 2, 1) } } : undefined));
     const user = u();
     show();
-    await user.click(within(screen.getByRole("group", { name: "Days" })).getByRole("button", { name: /^Day 2/ }));
+    await user.click(within(screen.getByRole("group", { name: "Days" })).getByRole("button", { name: /day 2/ }));
     await user.click(screen.getByRole("button", { name: /Add a stop/ }));
     // A change event, not keystrokes: the sheet takes focus a beat after it opens, which would cut a fast synthetic typing run short.
     fireEvent.change(await screen.findByLabelText("Add itinerary item"), { target: { value: "Catacombs" } });

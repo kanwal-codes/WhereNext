@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, getSessionUser } from "@/lib/supabase/server";
 import { withRoute, fail } from "@/lib/server/with-route";
 import { cached } from "@/lib/server/ttl-cache";
 import { withinRateLimit } from "@/lib/server/rate-limit";
@@ -9,7 +9,7 @@ import { GooglePlacesProvider } from "@/packages/providers/google-places/client"
 export const GET = withRoute(async (request: Request) => {
   try {
     const supabase = await createSupabaseServerClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getSessionUser(supabase);
     if (!user) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     if (!(await withinRateLimit(`destination-photo:${user.id}`, 20, 60_000))) {
       return NextResponse.json({ error: "Too many lookups. Try again in a moment." }, { status: 429 });

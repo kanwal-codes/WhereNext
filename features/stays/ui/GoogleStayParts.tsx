@@ -140,7 +140,7 @@ export function WhereToBook({ s, hotelId }: { s: Details; hotelId: string }) {
                   return (
                     <motion.li key={src.source} initial={reduce ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1], delay: 0.1 + Math.min(i, 6) * 0.04 }}>
                       {href ? (
-                        <a href={href} target="_blank" rel="noopener noreferrer" aria-label={`Book on ${src.source} (opens their site)`} className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring">{row}</a>
+                        <a href={href} target="_blank" rel="noopener noreferrer" className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring">{row}<span className="sr-only">Book on {src.source} (opens their site)</span></a>
                       ) : (
                         <div className="flex items-center gap-3 px-4 py-3">{row}</div>
                       )}

@@ -202,7 +202,7 @@ function Node({ time, code, name, note, end, plus }: { time: string; code?: stri
   return (
     <div className="flex items-baseline gap-4">
       <span className="flex w-3.5 shrink-0 justify-center self-start pt-2" aria-hidden><span className={cn("size-3.5 rounded-full", end ? "border-[3px] border-foreground bg-background" : "bg-foreground")} /></span>
-      <p className="w-[6.5rem] shrink-0 font-display text-2xl leading-tight font-medium tracking-[-0.02em] tabular-nums">{time}{plus ? <sup className="ml-0.5 text-[0.6875rem] max-lg:text-xs text-coral">+{plus}</sup> : null}</p>
+      <p className="w-[6.5rem] shrink-0 font-display text-2xl leading-tight font-medium tracking-[-0.02em] tabular-nums">{time}{plus ? <sup className="ml-0.5 text-[0.6875rem] max-lg:text-xs text-coral-ink">+{plus}</sup> : null}</p>
       <div className="min-w-0">
         <p className="truncate text-[0.9375rem] font-semibold">{code}{name && <span className="font-normal text-muted-foreground"> · {name}</span>}</p>
         {note && <p className={cn(type.meta)}>{note}</p>}
@@ -322,7 +322,7 @@ export function FlightRowBody({ offer, roundTrip, cheapest, selected, onDetails 
             <span className="absolute top-px right-0 size-2 rounded-full border-2 border-foreground bg-background" />
           </div>
         </div>
-        <p className="font-display text-base font-medium tabular-nums whitespace-nowrap">{clockOf(offer.arriveAt)}{plus > 0 && <sup className="ml-0.5 text-[0.625rem] max-lg:text-xs text-coral">+{plus}</sup>}</p>
+        <p className="font-display text-base font-medium tabular-nums whitespace-nowrap">{clockOf(offer.arriveAt)}{plus > 0 && <sup className="ml-0.5 text-[0.625rem] max-lg:text-xs text-coral-ink">+{plus}</sup>}</p>
       </div>
       <div className="ml-auto flex shrink-0 flex-col items-end">
         <p className="font-display text-xl leading-tight font-medium tracking-[-0.015em] tabular-nums whitespace-nowrap">{offer.listedCurrency && <span className="mr-0.5 text-muted-foreground" title={`Converted from ${money(offer.listedPrice ?? "", offer.listedCurrency, true)} at today’s rate`}>≈</span>}{money(offer.price, offer.currency, true)}</p>

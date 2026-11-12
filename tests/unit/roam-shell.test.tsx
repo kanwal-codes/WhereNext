@@ -232,7 +232,9 @@ describe("RoamShell: the phone's header", () => {
     const user = u();
     shell();
     expect(header.title).toBe("Roam");
-    expect(screen.queryByRole("group", { name: "Conversation" })).toBeNull();
+    // The tab row is in the markup on every screen (mounted late, on desktop only, it arrived after first paint and shifted the whole chat),
+    // and hidden below `lg` by CSS: jsdom has no CSS, so what is checked is that its container carries the class that hides it.
+    expect(screen.getByRole("group", { name: "Conversation" }).closest(".max-lg\\:hidden")).not.toBeNull();
     cleanup();
     shell("group");
     expect(header.title).toBe("Group chat");

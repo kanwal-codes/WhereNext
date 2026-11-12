@@ -36,7 +36,8 @@ describe("StayMiniCard", () => {
     panel = { openPanel: vi.fn(), compareMode: false, compareToggle: vi.fn(), compareHas: () => false };
     render(<StayMiniCard tripId={TRIP} stay={stay() as never} />);
     await u().click(screen.getByRole("button", { name: "open" }));
-    expect(panel.openPanel).toHaveBeenCalledWith({ kind: "stay", hotelId: "h/1", name: "Hotel Lutetia" });
+    // The card's photo goes with it, so the panel can show it while the details load.
+    expect(panel.openPanel).toHaveBeenCalledWith({ kind: "stay", hotelId: "h/1", name: "Hotel Lutetia", photo: "https://img/h.jpg" });
     expect(push).not.toHaveBeenCalled();
   });
 

@@ -40,7 +40,7 @@ export type EventSeed = { name: string; url: string; source: string; imageUrl?: 
  */
 export type PanelState =
   | { kind: "place"; placeId: string; name: string }
-  | { kind: "stay"; hotelId: string; name: string; checkin?: string; checkout?: string; adults?: number; onAsk?: (prompt: string) => void }
+  | { kind: "stay"; hotelId: string; name: string; /** The card's own photo, already in the browser's cache: the panel shows it while the details load. */ photo?: string | null; checkin?: string; checkout?: string; adults?: number; onAsk?: (prompt: string) => void }
   | { kind: "event"; seed: EventSeed }
   | { kind: "collection"; title: string; block: AssistantBlock }
   | { kind: "flight"; flight: FlightOffer; route: FlightRoute }

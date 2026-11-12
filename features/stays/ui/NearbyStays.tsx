@@ -164,7 +164,7 @@ export function NearbyStays({
               return (
                 <li key={option.hotelId} className="w-[62%] shrink-0 snap-start sm:w-auto">
                   {panel ? (
-                    <button type="button" className={cls} onClick={() => panel.openPanel({ kind: "stay", hotelId: option.hotelId, name: option.name, checkin, checkout })}>{card}</button>
+                    <button type="button" className={cls} onClick={() => panel.openPanel({ kind: "stay", hotelId: option.hotelId, name: option.name, photo: option.thumbnail, checkin, checkout })}>{card}</button>
                   ) : (
                     <a className={cls} href={`/trips/${tripId}/stay/${encodeURIComponent(option.hotelId)}?checkin=${checkin ?? ""}&checkout=${checkout ?? ""}`}>{card}</a>
                   )}
@@ -207,7 +207,7 @@ export function NearbyStays({
       ) : (
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {alternatives.map(({ option, distance, kind: optionKind }) => {
-            const open = () => panel?.openPanel({ kind: "stay", hotelId: option.hotelId, name: option.name, checkin, checkout });
+            const open = () => panel?.openPanel({ kind: "stay", hotelId: option.hotelId, name: option.name, photo: option.thumbnail, checkin, checkout });
             const content = (
               <>
                 <div className="flex items-start justify-between gap-3">

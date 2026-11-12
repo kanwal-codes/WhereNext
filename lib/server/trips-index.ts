@@ -2,6 +2,7 @@ import { decodeCover } from "@/lib/cover-photo";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { TripSummary } from "@/packages/contracts/trip-summary";
 import { firstSavedPhotoByTrip } from "@/lib/trip-cover";
+import { getSessionUser } from "@/lib/supabase/server";
 
 export type TripsIndexData = { userId: string; displayName: string; isAnonymous: boolean; trips: TripSummary[] };
 
@@ -14,7 +15,8 @@ export type TripsIndexData = { userId: string; displayName: string; isAnonymous:
  * sign-in).
  */
 export async function loadTripsIndex(supabase: SupabaseClient): Promise<TripsIndexData | null> {
-  const { data: { user } } = await supabase.auth.getUser();
+  // Local token check, not a round trip to Supabase Auth (see getSessionUser); the row policies on the queries below still decide what is visible.
+  const user = await getSessionUser(supabase);
   if (!user) return null;
   const meta = (user.user_metadata ?? {}) as { name?: string; full_name?: string };
   const displayName = meta.name || meta.full_name || user.email?.split("@")[0] || "Traveller";

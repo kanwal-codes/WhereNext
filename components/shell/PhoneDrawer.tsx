@@ -56,13 +56,15 @@ export function PhoneDrawer({ open, onClose, tripId, pathname, trip, unread = 0 
       </div>
 
       {!guest && (
-        <Link href="/trips" prefetch={false} onClick={onClose} className="mt-4 flex items-center gap-3 rounded-2xl border border-border bg-surface p-2.5 pr-3 transition-transform active:scale-[0.985]" aria-label={`${trip.name}. All trips`}>
+        <Link href="/trips" prefetch={false} onClick={onClose} className="mt-4 flex items-center gap-3 rounded-2xl border border-border bg-surface p-2.5 pr-3 transition-transform active:scale-[0.985]">
           <DateStamp start={live?.start_date} />
           <span className="min-w-0 flex-1">
             <span className="block truncate font-display text-base leading-tight font-medium tracking-[-0.015em]">{shortTripTitle(trip.name)}</span>
             {sub && <span className="mt-0.5 block truncate text-xs text-muted-foreground">{sub}</span>}
             {status && <span suppressHydrationWarning className="mt-0.5 block text-xs font-semibold text-coral-ink">{status}</span>}
           </span>
+          {/* Said where it goes, in words only a screen reader gets: an aria-label that differs from the visible text breaks voice control (label in name). */}
+          <span className="sr-only">All trips</span>
         </Link>
       )}
 

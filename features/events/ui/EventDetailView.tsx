@@ -9,7 +9,7 @@ import { BackLink } from "@/components/BackLink";
 import { ExternalLink } from "@/components/ExternalLink";
 import { SourceCard } from "@/components/SourceCard";
 import { NearbyRecommendations } from "@/components/NearbyRecommendations";
-import { PanelError, PanelLoading, PANEL_PAD, PANEL_HERO } from "@/components/PanelStates";
+import { PanelError, PanelLoadingBody, PANEL_PAD, PANEL_HERO } from "@/components/PanelStates";
 import { Reveal, Stagger, StaggerItem, Tactile, WordReveal } from "@/components/motion-primitives";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { askAssistantHref, cityFrom } from "@/lib/places-ui";
@@ -69,10 +69,9 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
   const pad = panel ? PANEL_PAD : cn("mx-auto max-w-3xl px-5 pb-14 sm:px-8", dock && "max-lg:pb-32");
   const d = detail;
 
-  if (state === "loading") {
-    return <PanelLoading what="this event" panel={panel} heroClassName={panel ? PANEL_HERO : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]"} />;
-  }
-
+  // No separate loading screen: the seed already has the title and the photograph, so the hero below is the same one before and after
+  // the details arrive, and only the part under it waits. A swapped-in loading tree rebuilt the photograph and faded it in again.
+  const loading = state === "loading";
   const title = d?.title ?? seed.name;
   const image = d?.imageUrl ?? seed.imageUrl;
   const rawDate = d?.date ?? seed.date ?? null;
@@ -95,7 +94,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
   return (
     <div>
       {titleTag}
-      <Hero image={image || fallbackImage} fallbackImage={fallbackImage} alt={title} plain surface={panel} className={cn(panel ? PANEL_HERO : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]")}>
+      <Hero image={image || fallbackImage} fallbackImage={fallbackImage} settled={Boolean(seed.imageUrl)} alt={title} plain surface={panel} className={cn(panel ? PANEL_HERO : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]")}>
         <div className={cn("absolute inset-x-0 bottom-0", pad, "pb-6")}>
           {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className="shadow-soft max-lg:hidden" />}
           {!panel && d?.genre && <p className="eyebrow text-ink-soft! lg:hidden">{d.genre}</p>}
@@ -113,7 +112,9 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
       </Hero>
 
       <div className={cn(pad, "pt-6 space-y-8")}>
-        {state === "error" && !d ? (
+        {loading ? (
+          <PanelLoadingBody what="this event" />
+        ) : state === "error" && !d ? (
           <PanelError what="the details for this event" panel={panel} onRetry={retry}>
             {(ticketUrl || seed.url) && (
               <ExternalLink href={ticketUrl || seed.url} className="text-sm">

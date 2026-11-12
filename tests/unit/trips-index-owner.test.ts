@@ -8,7 +8,7 @@ describe("loadTripsIndex ownership", () => {
       { id: "t2", name: "Shared with me", owner_id: "someone-else", hero_photo_name: "x" },
     ];
     const supabase = {
-      auth: { getUser: async () => ({ data: { user: { id: "me", email: "me@example.com", user_metadata: {} } } }) },
+      auth: { getClaims: async () => ({ data: { claims: { sub: "me", email: "me@example.com", user_metadata: {} } } }) },
       from: (table: string) => ({
         select: () =>
           table === "trips"

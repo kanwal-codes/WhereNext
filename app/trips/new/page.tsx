@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { StandaloneTopBar } from "@/components/StandaloneTopBar";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, getSessionUser } from "@/lib/supabase/server";
 import { NewTripForm } from "@/features/trip-setup/ui/NewTripForm";
 import { Reveal } from "@/components/motion-primitives";
 
@@ -12,14 +12,14 @@ export const metadata = {
 export default async function NewTripPage() {
   let authenticated = false;
   try {
-    const { data: { user } } = await (await createSupabaseServerClient()).auth.getUser();
+    const user = await getSessionUser(await createSupabaseServerClient());
     authenticated = Boolean(user);
   } catch {
     /* show the auth prompt when auth is unavailable */
   }
 
   return (
-    <div className="min-h-screen">
+    <main className="min-h-screen">
       <div className="mx-auto max-w-2xl px-5 py-10 sm:px-8 lg:py-16">
         <StandaloneTopBar />
 
@@ -51,6 +51,6 @@ export default async function NewTripPage() {
           </div>
         </Reveal>
       </div>
-    </div>
+    </main>
   );
 }

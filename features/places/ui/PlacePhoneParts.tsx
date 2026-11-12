@@ -12,13 +12,13 @@ import { cn } from "@/lib/utils";
 type PlaceForTrip = ReturnType<typeof detailsToPlace>;
 
 /** The phone's photo: rounded, with the save heart on it. */
-export function PlacePhonePhoto({ tripId, photo, name, place }: { tripId: string; photo: string | undefined; name: string; place: PlaceForTrip }) {
+export function PlacePhonePhoto({ tripId, photo, name, place, placeholder }: { tripId: string; photo: string | undefined; name: string; place: PlaceForTrip; /** The card's smaller photo, already cached: shown until the sharp one has loaded. */ placeholder?: string | null }) {
   return (
     <div className="px-5 pt-3 lg:hidden">
       <div className="relative aspect-[16/10] overflow-hidden rounded-3xl bg-muted">
         {/* No photo: the app's own stand-in with the kind of place drawn on it, never someone else's stock picture. */}
         {photo ? (
-          <BlurImage src={withPhotoWidth(photo, 960)} alt={name} className="photo-grade absolute inset-0 h-full w-full object-cover" />
+          <BlurImage src={withPhotoWidth(photo, 960)} placeholder={placeholder} alt={name} className="photo-grade absolute inset-0 h-full w-full object-cover" />
         ) : (
           <MediaFallback icon={placeGlyph(place?.category, name).icon} className="absolute inset-0 size-full" />
         )}

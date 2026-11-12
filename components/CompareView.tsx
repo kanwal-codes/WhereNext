@@ -14,7 +14,7 @@ export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids:
   if (ids.length < 2) {
     return (
       <div className="rounded-2xl border border-dashed border-border p-10 text-center">
-        <h3 className="font-display text-lg">Nothing to compare yet</h3>
+        <h2 className="font-display text-lg">Nothing to compare yet</h2>
         <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
           Pick two to four places from{" "}
           <Link href={`/trips/${tripId}/discover`} className="font-medium text-primary">Discover</Link>, or ask Roam to

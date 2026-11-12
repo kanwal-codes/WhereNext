@@ -85,7 +85,7 @@ export function StyleSection({ editor, toggleChip, touch }: {
               {interests.length ? (
                 <div className="flex flex-wrap gap-2">{interests.map((i) => <Pill key={i}>{i}</Pill>)}</div>
               ) : (
-                <p className="text-sm text-ink-soft">No interests picked yet. <button type="button" onClick={startStyleEdit} className="text-coral hover:underline">Add some</button></p>
+                <p className="text-sm text-ink-soft">No interests picked yet. <button type="button" onClick={startStyleEdit} className="text-coral-ink hover:underline">Add some</button></p>
               )}
             </div>
 

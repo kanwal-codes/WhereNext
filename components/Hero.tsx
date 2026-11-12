@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 export function Hero({
   image,
   fallbackImage,
+  placeholder,
+  settled = false,
   alt,
   className,
   plain = false,
@@ -33,6 +35,10 @@ export function Hero({
   image?: string | null;
   /** Shown instead of `image` if that photo fails to load (a dead or blocked link), so the hero is never blank. */
   fallbackImage?: string;
+  /** A smaller rendition of `image` already in the browser's cache (the card this opened from). It sits under the photo, so the fade-in is over a picture rather than the empty wash. */
+  placeholder?: string | null;
+  /** The photo is one the visitor was already looking at (the card this opened from), so it appears at once instead of fading in from the empty wash. */
+  settled?: boolean;
   alt: string;
   className?: string;
   plain?: boolean;
@@ -93,6 +99,11 @@ export function Hero({
             style={{ backgroundImage: "radial-gradient(90% 85% at 18% 12%, color-mix(in oklab, var(--coral) 17%, transparent), transparent 66%), radial-gradient(80% 70% at 88% 100%, color-mix(in oklab, var(--lagoon) 10%, transparent), transparent 70%)" }}
           />
         ) : (
+        <>
+        {placeholder && placeholder !== baseImage && (
+          // eslint-disable-next-line @next/next/no-img-element -- the card's own photo, already cached
+          <img src={placeholder} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover object-center" />
+        )}
         <motion.img
           src={baseImage}
           alt={alt}
@@ -100,14 +111,15 @@ export function Hero({
           height={900}
           fetchPriority="high"
           onError={() => setFailedImages((current) => [...current, baseImage])}
-          className="h-full w-full object-cover object-center"
-          initial={animateIn ? { scale: kenBurns ? 1.1 : 1, opacity: 0 } : false}
+          className="relative h-full w-full object-cover object-center"
+          initial={animateIn && !settled ? { scale: kenBurns ? 1.1 : 1, opacity: 0 } : false}
           animate={{ scale: !kenBurns ? 1 : reduce ? 1.02 : 1.06, opacity: 1 }}
           transition={{
             opacity: { duration: 1, ease: [0.22, 1, 0.36, 1] },
             scale: { duration: !kenBurns || reduce ? 0 : 18, ease: "linear" },
           }}
         />
+        </>
         )}
         {coverSrc && (
           <motion.img

@@ -16,7 +16,13 @@ import type { useAddStop } from "../application/useAddStop";
 import type { useBookings } from "../application/useBookings";
 import type { useItineraryItems } from "../application/useItineraryItems";
 import type { useOpenPlace } from "../application/useOpenPlace";
-import { bookedLabel, chronological, dayDate, todayDayNumber, weekParts } from "../domain/plan";
+import { bookedLabel, chronological, dayDate, isoForDay, todayDayNumber, weekParts } from "../domain/plan";
+
+/** The month a trip day falls in, spelled out ("November"), or null when the trip has no dates: the strip shows only a weekday and a number. */
+const monthOfDay = (startDate: string | null | undefined, n: number): string | null => {
+  const iso = isoForDay(startDate, n);
+  return iso ? new Date(`${iso}T00:00:00Z`).toLocaleDateString(undefined, { month: "long", timeZone: "UTC" }) : null;
+};
 
 /** What the plan looks like: every stop, the days, what is booked and clashing, and where the plan is centred. */
 export type PlanView = {
@@ -68,7 +74,7 @@ export function PhoneDayView({ tripId, startDate, trip, plan, actions, adder }: 
     <div className="min-w-0 pb-24">
       <p className="eyebrow">Day {d} of {days.length}</p>
       <div className="mt-1 flex items-center justify-between gap-3">
-        <h2 suppressHydrationWarning className="min-w-0 font-display text-[2.5rem] leading-[1.05] font-medium tracking-[-0.04em]">{dayDate(startDate, d) ?? `Day ${d}`}</h2>
+        <h1 suppressHydrationWarning className="min-w-0 font-display text-[2.5rem] leading-[1.05] font-medium tracking-[-0.04em]">{dayDate(startDate, d) ?? `Day ${d}`}</h1>
         <button type="button" onClick={() => setPickerOpen(true)} aria-label="Choose a day" aria-haspopup="dialog" className="grid size-11 shrink-0 place-items-center rounded-full bg-muted text-foreground transition-transform active:scale-95">
           <ChevronDown className="size-5" aria-hidden />
         </button>
@@ -89,10 +95,13 @@ export function PhoneDayView({ tripId, startDate, trip, plan, actions, adder }: 
               type="button"
               onClick={() => setPhoneDay(n)}
               aria-current={on ? "date" : undefined}
-              aria-label={`Day ${n}${dayDate(startDate, n) ? `, ${dayDate(startDate, n)}` : ""}${planned ? ", has plans" : ""}`}
+              // Starts with what the chip shows ("Thu 26"), then what it stands for: a name that leaves the visible text out breaks voice control ("click Thu 26").
+              aria-label={`${parts.dow} ${parts.num}${monthOfDay(startDate, n) ? `, day ${n}, ${monthOfDay(startDate, n)}` : ""}${planned ? ", has plans" : ""}`}
               className={cn("flex h-[4.5rem] w-14 shrink-0 snap-center flex-col items-center justify-center gap-0.5 rounded-3xl border transition-colors", on ? "border-foreground bg-foreground text-background" : "border-border bg-background")}
             >
               <span className={cn("text-2xs tracking-[0.06em] uppercase", on ? "opacity-80" : "text-muted-foreground")}>{parts.dow}</span>
+              {/* A space between the two (not rendered in a flex column, but in the text): "Thu 26" is what the name has to contain. */}
+              {" "}
               <b className="font-display text-xl leading-none font-medium tabular-nums">{parts.num}</b>
               <i aria-hidden className={cn("mt-0.5 size-1.5 rounded-full", planned ? "bg-coral" : "bg-transparent")} />
             </button>

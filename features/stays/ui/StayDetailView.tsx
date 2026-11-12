@@ -52,6 +52,7 @@ export function StayDetailView({
   checkout,
   adults,
   seedName,
+  seedPhoto,
   variant = "page",
   onAsk,
 }: {
@@ -63,6 +64,8 @@ export function StayDetailView({
   adults?: number;
   /** The name the card already showed: used until (or in place of) the hotel's own details, so the page never says just "Hotel". */
   seedName?: string;
+  /** The card's own photo, already in the browser's cache: held on screen while the details load, and under the hotel's own photos after, in place of the generic stand-in. */
+  seedPhoto?: string | null;
   variant?: "page" | "panel";
   /** Panel only: hands a question to the chat already open beside this panel, instead of the page's "ask Roam" link navigating away from nowhere. */
   onAsk?: (prompt: string) => void;
@@ -88,13 +91,14 @@ export function StayDetailView({
 
   const pad = panel ? PANEL_PAD : "mx-auto max-w-5xl px-5 pb-14 sm:px-8";
 
-  if (s.state === "loading") return <PanelLoading what="this hotel" panel={panel} />;
+  const seedSrc = seedPhoto ? hotelPhotoSrc(seedPhoto) : null;
+  if (s.state === "loading") return <PanelLoading what="this hotel" panel={panel} seed={seedName || seedSrc ? { title: seedName ?? "Hotel", photo: seedSrc } : null} />;
 
   if (s.state === "error") {
     return (
       <>
         {!panel && <div className="mx-auto max-w-5xl px-5 pt-6 sm:px-8"><BackLink fallback={`/trips/${tripId}/stay`} label="Back" /></div>}
-        <PanelError what="this hotel" panel={panel} onRetry={s.retry} />
+        <PanelError what="this hotel" panel={panel} onRetry={s.retry} heading="h1" />
       </>
     );
   }
@@ -177,7 +181,10 @@ export function StayDetailView({
     <div>
       {titleTag}
       <Hero
-        image="/design/place-hotel.jpg"
+        // The card's photo when there is one, so the hotel's own photos fade in over the picture the visitor was already looking at, not over a stock hotel.
+        image={seedSrc ?? "/design/place-hotel.jpg"}
+        fallbackImage="/design/place-hotel.jpg"
+        settled={Boolean(seedSrc)}
         coverImages={images}
         onCoverError={(src) => setDeadPhotos((current) => (current.includes(src) ? current : [...current, src]))}
         coverAlt={name}

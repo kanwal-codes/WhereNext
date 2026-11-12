@@ -15,6 +15,7 @@ import { useMediaQuery } from "@/lib/use-media-query";
 import { ContentSwap, Sheet } from "@/components/motion-primitives";
 import { PanelLoading } from "@/components/PanelStates";
 import { readPlaceSeed } from "@/features/places/application/placeDetailsCache";
+import { hotelPhotoSrc } from "@/lib/hotel-photo";
 import { useCompareChat } from "@/components/useCompareChat";
 import type { Anchor } from "@/components/tripPanelLogic";
 
@@ -73,7 +74,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
       <div ref={panelRef} role="complementary" aria-label={shown ? panelTitle(shown) : "Details"} tabIndex={-1} className="flex h-full min-h-0 flex-col outline-none">
         {header}
         <div ref={scrollRef} className="min-h-0 flex-1 overscroll-contain overflow-x-hidden overflow-y-auto scrollbar-slim">
-          {slid ? animatedBody : <PanelLoading what="the details" panel seed={shown.kind === "place" ? readPlaceSeed(tripId, shown.placeId) : null} />}
+          {slid ? animatedBody : <PanelLoading what="the details" panel seed={shown.kind === "place" ? readPlaceSeed(tripId, shown.placeId) : shown.kind === "stay" ? { title: shown.name, photo: shown.photo ? hotelPhotoSrc(shown.photo) : null } : null} insetOnPhone={shown.kind === "place"} />}
         </div>
       </div>
     ) : null;

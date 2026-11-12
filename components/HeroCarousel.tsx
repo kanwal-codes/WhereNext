@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 
 /** How long a photograph is held before the next one dissolves in. */
 const HOLD_MS = 7000;
+/** How long the first photograph has the connection to itself before the next one is fetched. */
+const ARM_MS = 2500;
 
 /** Each photograph at three widths (see scripts/resize-hero-scenes.ts) — the browser takes the
  *  smallest that covers the band, which on a laptop or a half-width window is not the master. */
@@ -22,14 +24,19 @@ const SIZES = "(max-width: 767px) 860px, 100vw";
 /**
  * The trips home hero: a slow cinematic carousel of places, activities and cities. Each photograph
  * pushes in gently, dissolves into the next, and carries its caption; the set is the same for every
- * account. Only the current photograph and its neighbours are mounted, so the carousel costs three
- * images, not the whole set — and each is offered at three widths, so those three are the ones the
- * screen needs. It pauses while the tab is hidden and holds still under reduced motion.
+ * account. Only the current photograph, the one fading out and the next are mounted, so the carousel
+ * costs at most three images, not the whole set — the first alone on a cold load, the next after
+ * `ARM_MS` — and each is offered at three widths, so those are the ones the screen needs. It pauses while the tab is hidden and holds still under reduced motion.
  */
 export function HeroCarousel({ className, children }: { className?: string; children?: ReactNode }) {
   const reduce = useReducedMotion();
   const n = HERO_SCENES.length;
-  const [index, setIndex] = useState(0);
+  // `prev` is the photograph still fading out; it is null until there is one, so the first paint does not fetch the last scene.
+  const [{ index, prev }, setPos] = useState<{ index: number; prev: number | null }>({ index: 0, prev: null });
+  const advance = () => setPos((p) => ({ index: (p.index + 1) % n, prev: p.index }));
+  // The next photograph waits until the first has had the network to itself: mounted straight away, three
+  // photographs share the connection and the one that is the largest contentful paint arrives last.
+  const [armed, setArmed] = useState(false);
   const [visible, setVisible] = useState(true);
   // Held while a hand is on the timeline; a resume starts the photograph's hold again, bar and timer together.
   const [paused, setPaused] = useState(false);
@@ -44,14 +51,21 @@ export function HeroCarousel({ className, children }: { className?: string; chil
   }, []);
 
   useEffect(() => {
+    const timer = setTimeout(() => setArmed(true), ARM_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
     if (reduce || !visible || paused) return;
-    const timer = setTimeout(() => setIndex((i) => (i + 1) % n), HOLD_MS);
+    const timer = setTimeout(() => setPos((p) => ({ index: (p.index + 1) % n, prev: p.index })), HOLD_MS);
     return () => clearTimeout(timer);
   }, [index, reduce, visible, paused, n]);
 
   const scene = HERO_SCENES[index]!;
-  // The current photograph, the one before (still fading out) and the one after (loading in the dark).
-  const mounted = new Set([(index + n - 1) % n, index, (index + 1) % n]);
+  // The current photograph, the one still fading out, and (once the first has loaded) the one after it, loading in the dark.
+  const mounted = new Set<number>([index]);
+  if (prev !== null) mounted.add(prev);
+  if (armed) mounted.add((index + 1) % n);
 
   return (
     <div className={cn("relative isolate overflow-hidden bg-[oklch(0.2_0.012_65)]", className)}>
@@ -65,7 +79,7 @@ export function HeroCarousel({ className, children }: { className?: string; chil
             sizes={SIZES}
             alt={i === index ? s.alt : ""}
             aria-hidden={i !== index}
-            fetchPriority={i === 0 ? "high" : "auto"}
+            fetchPriority={i === index && prev === null ? "high" : "low"}
             decoding="async"
             style={{ "--focus": s.focus ?? "50% 50%", "--focus-sm": s.focusSm ?? s.focus ?? "50% 50%" } as React.CSSProperties}
             className={cn(
@@ -92,7 +106,7 @@ export function HeroCarousel({ className, children }: { className?: string; chil
         <button
           type="button"
           aria-label="Next photograph"
-          onClick={() => setIndex((i) => (i + 1) % n)}
+          onClick={advance}
           onMouseEnter={hold}
           onMouseLeave={release}
           onFocus={hold}

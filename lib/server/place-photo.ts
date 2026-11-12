@@ -16,7 +16,14 @@ export async function placePhotoResponse(query: URLSearchParams): Promise<Respon
   // instead (see the header below), which keeps Google's Photo API bill bounded per viewer.
   const response = await fetch(new GooglePlacesProvider().photoUrl(name, width), { signal: AbortSignal.timeout(8000) });
   const contentType = response.headers.get("content-type") ?? "";
-  if (!response.ok || !response.body || !contentType.toLowerCase().startsWith("image/")) throw new Error("Place photo is unavailable");
+  // A photo name Google no longer knows (they expire, and ours are saved on trips for months) is a missing picture, not a server fault: 404, so
+  // it is not counted as a 5xx. A refused key (403), a quota hit (429) or an outage still throw below, where they stay loud.
+  if (response.status === 400 || response.status === 404) return Response.json({ error: "Photo not found" }, { status: 404 });
+  if (!response.ok || !response.body || !contentType.toLowerCase().startsWith("image/")) {
+    // Google's own reason (key restriction, quota, an expired photo name) is the only way to tell these apart in the logs.
+    const detail = response.ok ? contentType : (await response.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 200);
+    throw new Error(`Place photo is unavailable (Google ${response.status}: ${detail})`);
+  }
   return new Response(await response.arrayBuffer(), {
     headers: { "content-type": contentType, "cache-control": "private, max-age=604800, immutable" },
   });
