@@ -93,7 +93,7 @@ export function ReplyTurn({ message, isNew, streaming, live, isLatest, dir, hand
             <ul className="mt-1 space-y-1.5 pl-5">
               {sources.map((source) => (
                 <li key={source.url}>
-                  <a href={source.url} target="_blank" rel="noreferrer noopener" className="underline-offset-2 transition-colors hover:text-foreground hover:underline">
+                  <a href={source.url} target="_blank" rel="noreferrer noopener" className="hit-44 underline-offset-2 transition-colors hover:text-foreground hover:underline">
                     {source.title}
                   </a>
                   <span className="ml-1.5 opacity-85">{hostOf(source.url)}</span>

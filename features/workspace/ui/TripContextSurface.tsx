@@ -253,17 +253,20 @@ export function TripContextSurface({
         </section>
       )}
 
-      {/* To decide */}
+      {/* To decide: the same rows as above, one line each, so the page reads as one list. The row being set opens in place. */}
       {undecidedRows.length > 0 && (
         <section>
-          <p className={cn(SECTION_LABEL, "mb-2.5")}>Still open</p>
-          <div className="flex flex-wrap gap-2 px-1">
+          <p className={SECTION_LABEL}>Still open</p>
+          <div className="divide-y divide-border/60 px-1">
             {undecidedRows.map((row) => {
-              if (!(row.editKey || row.editable)) {
+              if (isRowEditing(row)) return renderRow(row);
+              const Icon = ROW_ICON[row.id] ?? Compass;
+              if (!(row.editKey || row.editable || row.tripField)) {
                 return (
-                  <span key={row.id} className="inline-flex h-8 items-center rounded-full border border-border px-3.5 text-sm text-muted-foreground">
+                  <div key={row.id} className="flex items-center gap-3.5 py-3 text-sm text-muted-foreground/80">
+                    <Icon aria-hidden strokeWidth={1.5} className="size-[1.125rem] shrink-0 opacity-70" />
                     {row.label}
-                  </span>
+                  </div>
                 );
               }
               return (
@@ -271,22 +274,16 @@ export function TripContextSurface({
                   key={row.id}
                   type="button"
                   onClick={() => startEdit(row)}
-                  aria-pressed={isRowEditing(row)}
-                  className="hit-44 inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-card pr-3.5 pl-3 text-sm text-ink-soft transition-[border-color,color,background-color,transform] duration-150 hover:border-foreground/30 hover:text-foreground active:scale-[0.97] aria-pressed:border-foreground/40 aria-pressed:text-foreground"
+                  className="group/open flex min-h-12 w-full items-center gap-3.5 py-3 text-left text-sm text-ink-soft transition-colors hover:text-foreground"
                 >
-                  <Plus className="size-3.5 text-muted-foreground" strokeWidth={1.75} aria-hidden />
-                  {row.label}
+                  <Icon aria-hidden strokeWidth={1.5} className="size-[1.125rem] shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate">{row.label}</span>
+                  <Plus aria-hidden strokeWidth={1.5} className="size-4 shrink-0 text-muted-foreground/70 transition-[color,transform] duration-150 group-hover/open:text-foreground group-active/open:scale-90" />
                 </button>
               );
             })}
           </div>
-          {/* Inline editor for whichever undecided row is being edited */}
-          {undecidedRows.filter(isRowEditing).map((row) => (
-            <div key={`edit-${row.id}`} className="mx-1 mt-3 rounded-2xl border border-border/60 bg-card px-4">
-              {renderRow(row)}
-            </div>
-          ))}
-          <p className="mt-3 px-1 text-xs leading-relaxed text-muted-foreground">
+          <p className="mt-4 px-1 text-xs leading-relaxed text-muted-foreground">
             Tap one to set it now, or just keep talking — Roam fills these in as you plan.
           </p>
         </section>

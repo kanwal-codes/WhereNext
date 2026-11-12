@@ -48,7 +48,7 @@ export function PhoneDiscoverBar({ feed, panelCtx, activeCat, filtersOpen, setFi
           type="button"
           onClick={() => setFiltersOpen((v) => !v)}
           aria-pressed={filtersOpen}
-          aria-label={filterCount ? `Filters, ${filterCount} on` : "Filters"}
+          aria-label={filterCount ? `Filters and compare, ${filterCount} on` : "Filters and compare"}
           className={cn("relative grid size-11 shrink-0 place-items-center rounded-full border border-input bg-background transition-colors", "max-lg:border-0 max-lg:bg-secondary", filtersOpen && "border-foreground bg-foreground text-background", filtersOpen && "max-lg:bg-foreground")}
         >
           <SlidersHorizontal className="size-[1.125rem]" aria-hidden />

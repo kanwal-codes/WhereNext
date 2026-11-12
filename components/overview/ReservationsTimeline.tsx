@@ -126,12 +126,14 @@ export function ReservationsTimeline({
   const counts = countByCategory(items);
   const shown = filterByCategory(items, filter);
   const groups = groupByDate(shown);
+  // On a phone the filter row only appears once there is more than one kind of booking to tell apart.
+  const kinds = FILTERS.filter((key) => key !== "all" && counts[key] > 0).length;
 
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         {hasNextUp && items.length > 0 && <h3 className="w-full font-display text-2xl tracking-tight">{<><span className="lg:hidden">All bookings</span><span className="max-lg:hidden">Then</span></>}</h3>}
-        <div role="tablist" aria-label="Filter reservations" className="flex flex-wrap gap-2 max-lg:hidden">
+        <div role="tablist" aria-label="Filter reservations" className={cn("flex gap-2 lg:flex-wrap", "max-lg:order-last max-lg:w-full max-lg:overflow-x-auto max-lg:overscroll-x-contain max-lg:[scrollbar-width:none]", kinds < 2 && "max-lg:hidden")}>
           {FILTERS.map((key) => {
             const on = filter === key;
             return (
@@ -142,7 +144,7 @@ export function ReservationsTimeline({
                 aria-selected={on}
                 onClick={() => setFilter(key)}
                 className={cn(
-                  "daisy-btn daisy-btn-sm h-9 rounded-full px-4 font-medium shadow-none",
+                  "daisy-btn daisy-btn-sm h-9 shrink-0 rounded-full px-4 font-medium shadow-none",
                   on ? "daisy-btn-neutral border-0" : "border-border bg-card hover:border-foreground/30 hover:bg-accent",
                 )}
               >

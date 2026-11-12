@@ -40,7 +40,7 @@ export function fullPageHref(panel: PanelState, tripId: string, compareIds: stri
     case "day":
       return `${base}/itinerary`;
     case "budget":
-      return `${base}/budget`;
+      return `${base}/knowledge`;
     case "map":
     case "route":
       return `${base}/map`;

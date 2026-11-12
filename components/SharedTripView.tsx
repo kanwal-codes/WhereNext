@@ -58,7 +58,7 @@ export function SharedTripView({ trip, slug }: { trip: PublicTrip; slug: string 
             <span aria-hidden className="size-1.5 rounded-full bg-coral" />
             Shared trip
           </span>
-          <div className={`relative p-6 sm:p-9 ${photo ? "text-white" : "text-foreground"}`}>
+          <div className={`relative p-6 pt-16 sm:p-9 sm:pt-16 ${photo ? "text-white" : "text-foreground"}`}>
             <h1 className="landing-rise font-display text-5xl leading-[1.02] font-medium tracking-[-0.03em] text-balance sm:text-6xl" style={{ "--i": 1 } as React.CSSProperties}>
               {trip.name}
             </h1>
@@ -90,7 +90,7 @@ export function SharedTripView({ trip, slug }: { trip: PublicTrip; slug: string 
 
         {hasMap && (
           // eslint-disable-next-line @next/next/no-img-element -- proxied static map, no next/image loader for it
-          <img src={`/s/${slug}/map`} alt={`Map of ${trip.destination}`} width={640} height={360} className="rise mt-6 w-full rounded-3xl border border-border object-cover shadow-soft" />
+          <img src={`/s/${slug}/map`} alt={`Map of ${trip.destination}`} width={640} height={360} onError={(e) => { e.currentTarget.hidden = true; }} className="rise mt-6 w-full rounded-3xl border border-border object-cover shadow-soft" />
         )}
 
         {days.length > 0 && (

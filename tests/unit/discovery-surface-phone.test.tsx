@@ -120,9 +120,9 @@ describe("Discover on a phone", () => {
     const user = u();
     show();
     await user.click(await screen.findByRole("button", { name: "Nightlife" }));
-    await user.click(screen.getByRole("button", { name: "Filters" }));
+    await user.click(screen.getByRole("button", { name: "Filters and compare" }));
     await user.click(await screen.findByRole("button", { name: "Clubs" }));
-    expect(await screen.findByRole("button", { name: "Filters, 1 on" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Filters and compare, 1 on" })).toBeTruthy();
     expect(api.placeQueries().some((q) => q.startsWith("nightclubs"))).toBe(true);
   });
 

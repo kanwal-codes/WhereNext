@@ -24,7 +24,7 @@ describe("fullPageHref", () => {
     expect(fullPageHref(panel({ kind: "stay", hotelId: "h", checkin: "2026-01-01" }), T, [])).toBe("/trips/trip1/stay/h?checkin=2026-01-01");
     expect(fullPageHref(panel({ kind: "stay", hotelId: "h" }), T, [])).toBe("/trips/trip1/stay/h");
     expect(fullPageHref(panel({ kind: "event", seed: { name: "J", url: "u", source: "s" } }), T, [])).toBe("/trips/trip1/event?name=J&url=u&source=s");
-    for (const [kind, path] of [["collection", "discover"], ["area", "discover"], ["flight", "transport"], ["day", "itinerary"], ["budget", "budget"], ["map", "map"], ["route", "map"], ["checklist", "bookings"]] as const) {
+    for (const [kind, path] of [["collection", "discover"], ["area", "discover"], ["flight", "transport"], ["day", "itinerary"], ["budget", "knowledge"], ["map", "map"], ["route", "map"], ["checklist", "bookings"]] as const) {
       expect(fullPageHref(panel({ kind }), T, [])).toBe(`/trips/trip1/${path}`);
     }
     expect(fullPageHref(panel({ kind: "weather" }), T, [])).toBe("/trips/trip1");

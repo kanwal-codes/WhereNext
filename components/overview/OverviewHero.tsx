@@ -58,7 +58,7 @@ export function OverviewHero({
         // the hero gives up height before it gives up that row; where there is room it keeps its full size.
         // The reserve differs because the row does: below `sm` it stacks (the action across the top, the two
         // shortcuts under it), above `sm` all three sit on one line.
-        className="flex min-h-[min(34rem,calc(100svh-var(--topbar)-var(--tabbar)-9.5rem))] flex-col justify-end sm:min-h-[min(40rem,calc(100dvh-var(--topbar)-var(--tabbar)-6.5rem))] lg:min-h-[44rem] max-lg:min-h-[min(26rem,calc(100dvh-var(--topbar)-9rem))]"
+        className="flex max-lg:rounded-b-3xl min-h-[min(34rem,calc(100svh-var(--topbar)-var(--tabbar)-9.5rem))] flex-col justify-end sm:min-h-[min(40rem,calc(100dvh-var(--topbar)-var(--tabbar)-6.5rem))] lg:min-h-[44rem] max-lg:min-h-[min(26rem,calc(100dvh-var(--topbar)-9rem))]"
       >
         {({ photo }) => (
           <>

@@ -72,7 +72,6 @@ const PAGE_TITLES: Record<string, string> = {
   "/transport": "Getting around",
   "/bookings": "Bookings",
   "/knowledge": "What Roam remembers",
-  "/budget": "What Roam remembers",
   "/compare": "Compare",
   "/event": "Event",
 };

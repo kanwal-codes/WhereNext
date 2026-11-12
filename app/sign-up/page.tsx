@@ -79,9 +79,9 @@ export default function SignUpPage() {
             </Link>
           </p>
           <p>
-            <Link href="/privacy" className="link-underline">Privacy</Link>
+            <Link href="/privacy" className="link-underline -my-2 inline-block py-2">Privacy</Link>
             {" · "}
-            <Link href="/terms" className="link-underline">Terms</Link>
+            <Link href="/terms" className="link-underline -my-2 inline-block py-2">Terms</Link>
           </p>
         </div>
       }
@@ -114,7 +114,7 @@ export default function SignUpPage() {
               type="button"
               onClick={() => setShow((s) => !s)}
               aria-label={show ? "Hide characters" : "Show characters"}
-              className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+              className="hit-44 absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
             >
               {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>

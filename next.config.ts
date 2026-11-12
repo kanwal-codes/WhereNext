@@ -78,6 +78,10 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR ?? (isDev ? ".next-dev" : ".next"),
   // The round "N" dev badge floats over the bottom-left of every phone screen while developing; it adds nothing here.
   devIndicators: false,
+  // Budget folded into Trip knowledge. A real redirect for old links: a page that only calls redirect() renders first, and was the one route that threw a hydration mismatch.
+  async redirects() {
+    return [{ source: "/trips/:tripId/budget", destination: "/trips/:tripId/knowledge", permanent: false }];
+  },
   experimental: {
     // Next's default (0s for dynamic segments) treats every trip layout as stale
     // immediately, so each in-app navigation re-runs requireTripMember's live

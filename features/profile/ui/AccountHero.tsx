@@ -25,7 +25,7 @@ export function AccountHero({ avatar, dream, name, city, bio, airport, emailVeri
   const { avatarUrl, avatarError, setAvatarError, uploadingAvatar, avatarInputRef, onAvatarChosen } = avatar;
   const { dreamText, openDream, setHeroFailed, dreamHero } = dream;
   return (
-    <header className="relative isolate overflow-hidden bg-black text-white">
+    <header className="relative isolate overflow-hidden bg-black text-white max-lg:rounded-b-3xl">
       {/* eslint-disable-next-line @next/next/no-img-element -- static design asset, sized by the container */}
       <img key={dreamHero ?? "stock"} src={dreamHero ?? (isDark ? "/design/land-lisbon-blue-hour.webp" : "/design/land-coast.jpg")} alt="" onError={() => setHeroFailed(true)} className="hero-drift absolute inset-0 h-full w-full object-cover" />
       <div aria-hidden className="absolute inset-0 scrim-v" />

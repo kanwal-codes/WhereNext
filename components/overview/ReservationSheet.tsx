@@ -236,7 +236,7 @@ export function ReservationSheet({
               </Field>
             ) : (
               <Field label="Confirmation">
-                <input value={draft.confirmationCode} onChange={(e) => set("confirmationCode", e.target.value)} maxLength={80} placeholder="Booking reference" className={cn(input, "font-mono text-sm")} />
+                <input value={draft.confirmationCode} onChange={(e) => set("confirmationCode", e.target.value)} maxLength={80} placeholder="Reference" className={cn(input, "font-mono text-sm")} />
               </Field>
             )}
           </div>
@@ -249,7 +249,7 @@ export function ReservationSheet({
           <div className={cn("space-y-5", !more && "hidden")}>
           {(transit || draft.kind === "stay") && (
             <Field label="Confirmation">
-              <input value={draft.confirmationCode} onChange={(e) => set("confirmationCode", e.target.value)} maxLength={80} placeholder="Booking reference" className={cn(input, "font-mono text-sm")} />
+              <input value={draft.confirmationCode} onChange={(e) => set("confirmationCode", e.target.value)} maxLength={80} placeholder="Reference" className={cn(input, "font-mono text-sm")} />
             </Field>
           )}
 
