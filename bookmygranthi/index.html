@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>BookMyGranthi — Find & book a Sikh granthi</title>
+  <meta name="description" content="Find and book trusted Sikh granthis for Anand Karaj, Akhand Path, Sehaj Path, Naamkaran, Antam Sanskar and more. Browse profiles, check availability and send a request in minutes.">
+  <meta property="og:title" content="BookMyGranthi — Find & book a Sikh granthi">
+  <meta property="og:description" content="Trusted granthis for weddings, Paath, naming ceremonies, funerals and every occasion.">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/instrument-serif-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body data-page="home">
+<a class="skip" href="#main">Skip to content</a>
+<div id="site-header"></div>
+
+<main id="main">
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-copy">
+        <p class="eyebrow pa">ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ</p>
+        <h1 class="balance">A granthi for every<br>occasion in your life.</h1>
+        <p class="lead">Browse trusted granthis and paathis for weddings, Paath, naming ceremonies, funerals and blessings. Check availability and send a request in minutes.</p>
+      </div>
+
+      <form class="searchbar" id="search" action="find.html" method="get" role="search" aria-label="Find a granthi">
+        <div class="cell">
+          <label for="s-service">Ceremony</label>
+          <select id="s-service" name="service"></select>
+        </div>
+        <div class="cell">
+          <label for="s-where">Where</label>
+          <input id="s-where" name="where" type="text" placeholder="City or town" autocomplete="off" list="cities">
+          <datalist id="cities"></datalist>
+        </div>
+        <div class="cell">
+          <label for="s-date">When</label>
+          <input id="s-date" name="date" type="date">
+        </div>
+        <button class="btn btn-primary go" type="submit">Search</button>
+      </form>
+
+      <ul class="trust"></ul>
+    </div>
+  </section>
+
+  <!-- Occasions -->
+  <section class="section soft" id="occasions">
+    <div class="container">
+      <div class="section-head reveal">
+        <p class="eyebrow">Browse by occasion</p>
+        <h2>Whatever you’re marking, we’ll help you find the right person.</h2>
+        <p class="lead">From a once-in-a-lifetime wedding to a quiet Sukhmani Sahib at home.</p>
+      </div>
+      <div class="tiles reveal" id="tiles"></div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="section" id="how">
+    <div class="container">
+      <div class="section-head reveal">
+        <p class="eyebrow">How it works</p>
+        <h2>Booking a granthi, made simple.</h2>
+      </div>
+      <div class="steps reveal">
+        <div>
+          <div class="step-n">01</div>
+          <h3>Find</h3>
+          <p>Search by ceremony, city and date. Compare experience, languages, reviews and suggested seva.</p>
+        </div>
+        <div>
+          <div class="step-n">02</div>
+          <h3>Request</h3>
+          <p>Choose a date and time, tell us where and a little about the occasion. It takes about two minutes and is free.</p>
+        </div>
+        <div>
+          <div class="step-n">03</div>
+          <h3>Confirm</h3>
+          <p>Your granthi reviews the request and confirms, usually within a few hours. Then you plan the details together.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Featured granthis -->
+  <section class="section soft" id="featured">
+    <div class="container">
+      <div class="row between wrap section-head" style="max-width:none;margin-bottom:36px;align-items:end">
+        <div class="stack" style="--gap:14px;max-width:560px">
+          <p class="eyebrow">Featured granthis</p>
+          <h2>Trusted by families across the Sangat.</h2>
+        </div>
+        <a class="link" href="find.html">View all granthis <span id="count-arrow"></span></a>
+      </div>
+      <div class="gcards reveal" id="featured-cards"></div>
+    </div>
+  </section>
+
+  <!-- Why -->
+  <section class="section">
+    <div class="container">
+      <div class="section-head reveal">
+        <p class="eyebrow">Why BookMyGranthi</p>
+        <h2>Respectful, clear and unhurried.</h2>
+      </div>
+      <div class="values reveal" id="values"></div>
+    </div>
+  </section>
+
+  <!-- Testimonials -->
+  <section class="section soft">
+    <div class="container">
+      <div class="section-head reveal">
+        <p class="eyebrow">From families</p>
+        <h2>Kind words from the Sangat.</h2>
+      </div>
+      <div class="quotes reveal" id="quotes"></div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="section" id="faq">
+    <div class="container narrow">
+      <div class="section-head reveal">
+        <p class="eyebrow">Questions</p>
+        <h2>Good to know before you book.</h2>
+      </div>
+      <div class="faq reveal" id="faq-list"></div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="section tight">
+    <div class="container">
+      <div class="band reveal">
+        <div class="stack" style="--gap:14px">
+          <h2>Are you a granthi or paathi?</h2>
+          <p class="lead">Join BookMyGranthi to reach families in your area, manage your own calendar and set your own seva. Listing is free.</p>
+        </div>
+        <div class="actions">
+          <a class="btn btn-primary btn-lg" href="join.html">Join as a granthi</a>
+          <a class="btn btn-ghost btn-lg" href="about.html">Learn more</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div id="site-footer"></div>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/app.js"></script>
+<script src="assets/js/pages/home.js"></script>
+</body>
+</html>

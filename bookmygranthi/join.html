@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>For granthis — BookMyGranthi</title>
+  <meta name="description" content="Join BookMyGranthi to reach families in your area, manage your own calendar and set your own seva. Listing is free.">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body data-page="join">
+<a class="skip" href="#main">Skip to content</a>
+<div id="site-header"></div>
+
+<main id="main">
+  <section class="hero" style="padding-bottom:40px">
+    <div class="container">
+      <div class="hero-copy">
+        <p class="eyebrow">For granthis &amp; paathis</p>
+        <h1 class="balance">Serve more families, on your terms.</h1>
+        <p class="lead">BookMyGranthi helps families find you. You choose the ceremonies you offer, the areas you travel to and the dates you’re free. Listing is free.</p>
+        <div class="row wrap"><a class="btn btn-primary btn-lg" href="#apply">Apply to join</a><a class="btn btn-ghost btn-lg" href="#process">How verification works</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section tight">
+    <div class="container">
+      <div class="values reveal" id="benefits"></div>
+    </div>
+  </section>
+
+  <section class="section soft" id="process">
+    <div class="container">
+      <div class="section-head reveal"><p class="eyebrow">Joining</p><h2>Simple, and careful.</h2><p class="lead">Families trust a granthi with some of life’s most important moments. We keep a light but careful process.</p></div>
+      <div class="steps reveal">
+        <div><div class="step-n">01</div><h3>Apply</h3><p>Tell us about your experience, ceremonies, languages and the areas you serve.</p></div>
+        <div><div class="step-n">02</div><h3>Verify</h3><p>We check your identity and speak with a reference from your gurdwara or community.</p></div>
+        <div><div class="step-n">03</div><h3>Go live</h3><p>Set your seva and availability, and start receiving requests directly from families.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="apply">
+    <div class="container mid">
+      <div class="split">
+        <div class="stack split-aside" style="--gap:16px">
+          <p class="eyebrow">Apply</p>
+          <h2>Tell us about your Sewa.</h2>
+          <p class="lead">It takes about five minutes. We’ll be in touch within a few days to continue.</p>
+        </div>
+        <div>
+          <form class="stack" style="--gap:28px" id="apply-form" novalidate data-kind="applications">
+            <div class="form-grid">
+              <div class="field"><label for="a-name">Full name</label><input class="input" id="a-name" name="name" data-req autocomplete="name"><span class="error" role="alert">Please enter your name.</span></div>
+              <div class="field"><label for="a-title">Title</label>
+                <select class="select" id="a-title" name="title"><option>Giani</option><option>Bhai</option><option>Bibi</option><option>Other</option></select></div>
+              <div class="field"><label for="a-email">Email</label><input class="input" id="a-email" name="email" type="email" data-req autocomplete="email"><span class="error" role="alert">Please enter a valid email.</span></div>
+              <div class="field"><label for="a-phone">Phone or WhatsApp</label><input class="input" id="a-phone" name="phone" type="tel" data-req autocomplete="tel"><span class="error" role="alert">Please enter a phone number.</span></div>
+              <div class="field"><label for="a-city">City or town</label><input class="input" id="a-city" name="city" data-req><span class="error" role="alert">Please enter where you are based.</span></div>
+              <div class="field"><label for="a-years">Years of Sewa</label><input class="input" id="a-years" name="years" type="number" min="0" max="80" inputmode="numeric"></div>
+              <div class="field full"><label for="a-gurdwara">Gurdwara or community reference</label><input class="input" id="a-gurdwara" name="reference" placeholder="Gurdwara name, and who we can speak to"><span class="hint">We’ll only contact them for verification.</span></div>
+            </div>
+            <fieldset style="border:0;padding:0;margin:0">
+              <legend class="label" style="font-size:.8125rem;font-weight:500;color:var(--ink-2);margin-bottom:12px;padding:0">Ceremonies you offer</legend>
+              <div class="pill-choices" id="a-services"></div>
+            </fieldset>
+            <fieldset style="border:0;padding:0;margin:0">
+              <legend class="label" style="font-size:.8125rem;font-weight:500;color:var(--ink-2);margin-bottom:12px;padding:0">Languages</legend>
+              <div class="pill-choices">
+                <label class="choice"><input type="checkbox" name="langs" value="Punjabi" checked><span class="box">Punjabi</span></label>
+                <label class="choice"><input type="checkbox" name="langs" value="English"><span class="box">English</span></label>
+                <label class="choice"><input type="checkbox" name="langs" value="Hindi"><span class="box">Hindi</span></label>
+              </div>
+            </fieldset>
+            <div class="field"><label for="a-about">About you <span class="muted">(optional)</span></label><textarea class="textarea" id="a-about" name="about" placeholder="Your training, experience and how you like to serve families."></textarea></div>
+            <label class="check"><input type="checkbox" id="a-agree" data-req><span>I agree to the <a href="terms.html" target="_blank" rel="noopener" style="text-decoration:underline">terms</a> and <a href="privacy.html" target="_blank" rel="noopener" style="text-decoration:underline">privacy policy</a>.</span></label>
+            <div><button class="btn btn-primary btn-lg" type="submit">Submit application</button></div>
+          </form>
+          <div class="success hide" id="apply-done" role="status" tabindex="-1">
+            <div class="tick" aria-hidden="true"></div>
+            <h2 style="font-size:2rem">Thank you. Application received.</h2>
+            <p class="lead">We’ll contact you at the email you gave within a few days to continue with verification.</p>
+            <a class="btn btn-ghost" href="index.html">Back to home</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="site-footer"></div>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/app.js"></script>
+<script src="assets/js/pages/join.js"></script>
+</body>
+</html>

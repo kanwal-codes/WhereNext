@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sikh ceremonies guide — BookMyGranthi</title>
+  <meta name="description" content="A plain-language guide to Anand Karaj, Akhand Path, Sehaj Path, Sukhmani Sahib, Naamkaran, Antam Sanskar, Bhog and more: what happens, how long it takes and how to prepare.">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body data-page="ceremonies">
+<a class="skip" href="#main">Skip to content</a>
+<div id="site-header"></div>
+
+<main id="main">
+  <div class="container">
+    <header class="page-head">
+      <nav class="crumbs" aria-label="Breadcrumb"><a href="index.html">Home</a><span>/</span><span>Ceremonies</span></nav>
+      <h1 style="font-size:clamp(2.2rem,4.6vw,3.4rem)">Ceremonies guide</h1>
+      <p class="lead" style="max-width:60ch">New to arranging a Sikh ceremony, or arranging one for the first time yourself? Here’s what each involves, how long it takes and how to prepare. Practices vary between families and gurdwaras, so always confirm details with your granthi.</p>
+    </header>
+    <div class="cer-layout">
+      <nav class="toc" id="toc" aria-label="Ceremonies"></nav>
+      <div id="cers"></div>
+    </div>
+  </div>
+</main>
+
+<div id="site-footer"></div>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/app.js"></script>
+<script>
+(function () {
+  const { D, $, esc, icon } = window.BMG;
+  $('#toc').innerHTML = D.GROUPS.map((g) => {
+    const items = D.SERVICES.filter((s) => s.group === g.id);
+    return `<span class="grp">${esc(g.label)}</span>` + items.map((s) => `<a href="#${s.id}">${esc(s.name)}</a>`).join('');
+  }).join('');
+  $('#cers').innerHTML = D.GROUPS.flatMap((g) => D.SERVICES.filter((s) => s.group === g.id)).map((s) => `
+    <section class="cer" id="${s.id}">
+      <div class="cer-title"><h2>${esc(s.name)}</h2><span class="pa">${esc(s.pa)}</span></div>
+      <div class="cer-meta"><span class="chip">${icon('clock', 14)}${esc(s.duration)}</span><span class="chip outline">${esc(D.GROUPS.find((g) => g.id === s.group).label)}</span></div>
+      <p class="lead">${esc(s.short)}</p>
+      <p>${esc(s.long)}</p>
+      <div class="cer-cols">
+        <div><h3>What to expect</h3><ul class="ticks">${s.expect.map((t) => `<li>${icon('check', 16)}<span>${esc(t)}</span></li>`).join('')}</ul></div>
+        <div><h3>How to prepare</h3><ul class="ticks">${s.prepare.map((t) => `<li>${icon('check', 16)}<span>${esc(t)}</span></li>`).join('')}</ul></div>
+      </div>
+      <div><a class="btn btn-primary" href="find.html?service=${s.id}">Find a granthi for ${esc(s.name)} ${icon('arrow', 16)}</a></div>
+    </section>`).join('');
+})();
+</script>
+</body>
+</html>
