@@ -136,8 +136,11 @@ export async function retrieveEvidence(
   if (toolPlan.length === 0) return { ...EMPTY, retrievedAt: new Date().toISOString() };
 
   const unavailableProviders: string[] = [];
+  // The caller's own abort (Stop, navigation) ends the turn. The stage deadline (`AbortSignal.timeout`, reason "TimeoutError") does not:
+  // whatever is still in flight is marked unavailable and the turn goes on with what came back.
+  const stopped = () => Boolean(signal?.aborted) && (signal?.reason as { name?: string } | undefined)?.name !== "TimeoutError";
   const fail = (name: string) => (error: unknown) => {
-    if (signal?.aborted) throw error;
+    if (stopped()) throw error;
     // Live-caught: a provider failure was only ever visible as its bare name in
     // `unavailableProviders` (and the "ungrounded" fallback message) — the actual HTTP status
     // or error text that caused it was silently dropped right here, with nothing logged. That
@@ -229,8 +232,15 @@ export async function retrieveEvidence(
   const flights = ctx.flights;
   const stays = ctx.stays;
 
-  await Promise.all(toolPlan.map((call, index) => HANDLERS[call.tool](call as never, ctx, index)));
+  await Promise.all(toolPlan.map((call, index) => HANDLERS[call.tool](call as never, ctx, index).catch(fail(call.tool))));
 
+  // A day-by-day plan (the only search with a place limit) takes only places worth a stop: not a cannabis club, a grocery shop or a trade-fair hall.
+  // A direct ask for one ("grocery stores near me") is not filtered.
+  const planning = Boolean(filters.placeLimit);
+  const flat = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  // The city or region itself ("Ibiza", "Spain") comes back from a search too, but is not a place to go to.
+  const regions = new Set(toolPlan.flatMap((call) => ("location" in call && typeof call.location === "string" ? call.location.split(",").map(flat).filter(Boolean) : [])));
+  const notAStop = (place: Place) => regions.has(flat(place.name)) || /\b(locality|sublocality|political|administrative_area\w*|colloquial_area)\b/i.test(place.category ?? "") || /\b(cannabis|weed|marijuana|dispensary|head ?shop|smoke ?shop|grocery|supermarket|convenience[ _]store|convention[ _]cent(?:er|re)|congres(?:s|os))\b/i.test(`${place.category ?? ""} ${place.name}`);
   const excludeNames = new Set((filters.excludeNames ?? []).map((name) => name.trim().toLowerCase()));
   const filterAndRank = (input: Place[], limit: number) => {
     // Dislikes/accessibility: shared with the recommendation system, see preference-filter.ts.
@@ -248,7 +258,8 @@ export async function retrieveEvidence(
     // search is unaffected, since those results come from the separate `stays` tool/ctx.stays,
     // never through here.
     const venuesOnly = accessible.filter((place) => classifyPlaceVibe({ primaryType: place.category, name: place.name }).vibe !== "lodging");
-    const ranked = rankPlaces(venuesOnly, { interests: filters.interests, likes: filters.likes, dislikes: filters.dislikes }).map((r) => r.place);
+    const worthAStop = planning ? venuesOnly.filter((place) => !notAStop(place)) : venuesOnly;
+    const ranked = rankPlaces(worthAStop, { interests: filters.interests, likes: filters.likes, dislikes: filters.dislikes }).map((r) => r.place);
     return Array.from(new Map(ranked.map((place) => [`${place.provider}:${place.name.trim().toLowerCase()}`, place])).values()).slice(0, limit);
   };
   // A plan searches several kinds of place at once. Ranked together, the best-reviewed kind (usually restaurants) would take

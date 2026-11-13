@@ -237,16 +237,16 @@ describe("POST /api/ai", () => {
       retrieveEvidenceMock.mockResolvedValue({ places: [{ provider: "g", providerId: "p", name: "X", category: null, latitude: 1, longitude: 1, address: null, sourceUrl: null }], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" });
       const { body } = await readMeta(await post());
       const stages = [...body.matchAll(/"progress":"(\w+)"/g)].map((m) => m[1]);
-      expect(stages).toEqual(["resolve", "retrieve", "compose"]);
+      expect(stages).toEqual(["resolve", "retrieve", "decide", "compose"]);
     });
 
     it("names what's actually being looked up on the retrieve frame instead of a generic label", async () => {
       // Default mock plan is one search_places call (see beforeEach above).
       const { body } = await readMeta(await post());
-      expect(body).toContain('"progress":"retrieve","label":"finding places"');
+      expect(body).toMatch(/"progress":"retrieve","label":"finding places( in [^"]+)?"/);
     });
 
-    it("combines two tools' labels and caps a multi-topic plan at two, dropping the rest", async () => {
+    it("sends one line per kind of look-up, with its place or route, and caps a multi-topic plan at four", async () => {
       resolveTurnMock.mockResolvedValue({
         language: "en", locationFocus: "Lisbon", intent: "transport", wantsComparison: false,
         toolPlan: [
@@ -257,9 +257,7 @@ describe("POST /api/ai", () => {
         clarify: null, suggestedFollowups: [], proposedProfileUpdate: null,
       });
       const { body } = await readMeta(await post());
-      expect(body).toContain('"progress":"retrieve","label":"plotting the route and checking the forecast"');
-      // The third planned tool (finding places) is dropped: two named activities at most.
-      expect(body).not.toContain("finding places");
+      expect(body).toContain('"progress":"retrieve","label":"plotting the route A to B\\nchecking the forecast in Lisbon\\nfinding places in Lisbon"');
     });
 
     it("falls back to no label when RESOLVE planned no tools the map recognizes", async () => {

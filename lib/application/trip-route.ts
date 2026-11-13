@@ -68,6 +68,7 @@ export async function planRoute(input: {
         routeSchema,
         withDeadline(input.signal, AI_DEADLINE_MS.sideBuilder),
         input.onUsage,
+        "menu",
       );
       const legs = parsed ? fitLegs(parsed.legs, input.days) : null;
       if (!legs) throw new Error("no usable route"); // never cached

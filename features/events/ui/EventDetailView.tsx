@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, ChevronDown, Info, MapPin, Ticket } from "lucide-react";
+import { ArrowUpRight, CalendarDays, ChevronDown, Info, Navigation, Ticket } from "lucide-react";
 import { Hero } from "@/components/Hero";
 import { DetailSectionHeading } from "@/components/DetailSectionHeading";
 import { FactStrip } from "@/components/DetailKit";
@@ -20,7 +20,7 @@ import { ticketSellerLabel } from "@/lib/ticket-provider";
 import { eventFallbackImage } from "@/lib/event-imagery";
 import { AddEventButton } from "@/features/events/ui/AddEventButton";
 import { useEventDetail, type EventSeed } from "@/features/events/application/useEventDetail";
-import { goodToKnowRows, lineupNoteFor, readableDate, tidyAbout, venueMapsUrl } from "@/features/events/domain/event-view";
+import { goodToKnowRows, lineupNoteFor, readableDate, tidyAbout, venueDirectionsUrl, venueMapsUrl } from "@/features/events/domain/event-view";
 
 
 /** Section wrapper — title and consistent rhythm, the same plain heading every detail view
@@ -46,27 +46,13 @@ function Section({
   );
 }
 
-/** Phone: one fact as an icon, a line and a quieter note, instead of a bordered strip of stats. */
-function PhoneFact({ icon: Icon, title, note }: { icon: typeof Ticket; title: string; note?: string }) {
-  return (
-    <li className="flex items-center gap-4 py-4">
-      <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-2xl bg-muted text-foreground"><Icon className="size-[1.125rem]" /></span>
-      <span className="min-w-0">
-        <span className="block font-display text-base leading-snug font-medium text-balance">{title}</span>
-        {note && <span className="mt-0.5 block text-sm text-muted-foreground">{note}</span>}
-      </span>
-    </li>
-  );
-}
-
 /** Full detail for one event — same layout on the routed page and the chat side panel. */
 export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: string; seed: EventSeed; variant?: "page" | "panel" }) {
   const panel = variant === "panel";
   const { detail, state, retry } = useEventDetail(tripId, seed);
   const titleTag = useDocumentTitle(panel ? null : detail?.title ?? seed.name);
 
-  const dock = !panel;
-  const pad = panel ? PANEL_PAD : cn("mx-auto max-w-3xl px-5 pb-14 sm:px-8", dock && "max-lg:pb-32");
+  const pad = panel ? PANEL_PAD : "mx-auto max-w-3xl px-5 pb-14 sm:px-8";
   const d = detail;
 
   // No separate loading screen: the seed already has the title and the photograph, so the hero below is the same one before and after
@@ -80,6 +66,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
   const ticketUrl = d?.url ?? (ticketSellerLabel(seed.source, seed.url) ? seed.url : null);
   const ticketSeller = ticketSellerLabel(d?.source ?? seed.source, ticketUrl);
   const mapsUrl = venueMapsUrl(d, venueName);
+  const directionsUrl = venueDirectionsUrl(d, venueName);
 
   const headliner = d?.performers?.[0];
   const support = d?.performers?.slice(1) ?? [];
@@ -128,11 +115,38 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
             {(dt || venueName || d?.priceRange) && (
               <Reveal>
                 <div className="space-y-3">
-                  <ul className="divide-y divide-border border-b border-border lg:hidden">
-                    {dt && <PhoneFact icon={CalendarDays} title={[dt.day, dt.time].filter(Boolean).join(" · ")} note={d?.doorsTime && displayClockTime(d.doorsTime) !== dt.time ? `Doors ${displayClockTime(d.doorsTime)}` : undefined} />}
-                    {venueName && <PhoneFact icon={MapPin} title={venueName} note={[d?.venueAddress ? cityFrom(d.venueAddress) : null, d?.city].find((n) => n && n.trim().toLowerCase() !== venueName.trim().toLowerCase()) || undefined} />}
-                    {d?.priceRange && <PhoneFact icon={Ticket} title={d.priceRange} note={ticketSeller ? `Tickets via ${ticketSeller}` : "Ticket prices"} />}
-                  </ul>
+                  {/* Phone: the same shape as a place: one summary line, the date as a chip with the ticket link beside it, then the two main buttons. */}
+                  <div className="lg:hidden">
+                    {(venueName || d?.priceRange) && (
+                      <p className="text-[0.9375rem] text-ink-soft">
+                        {[venueName, [d?.venueAddress ? cityFrom(d.venueAddress) : null, d?.city].find((n) => n && venueName && n.trim().toLowerCase() !== venueName.trim().toLowerCase()), d?.priceRange && `From ${d.priceRange}`].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
+                    <div className="mt-3 flex items-center gap-2">
+                      {dt && (
+                        <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-secondary px-3.5 text-sm font-medium text-foreground">
+                          <CalendarDays className="size-4 text-muted-foreground" aria-hidden />
+                          {[dt.day, dt.time].filter(Boolean).join(" · ")}
+                        </span>
+                      )}
+                    </div>
+                    {dt && d?.doorsTime && displayClockTime(d.doorsTime) !== dt.time && <p className="mt-2 text-sm text-muted-foreground">Doors {displayClockTime(d.doorsTime)}</p>}
+                    <div className="mt-4 flex items-center gap-2.5">
+                      <div className="min-w-0 flex-1"><AddEventButton primary tripId={tripId} title={title} rawDate={rawDate} showTime={d?.showTime} latitude={d?.latitude} longitude={d?.longitude} /></div>
+                      {directionsUrl && (
+                        <a href={directionsUrl} target="_blank" rel="noreferrer noopener" className="inline-flex h-12 shrink-0 items-center gap-2 rounded-full border border-input bg-background px-5 text-[0.9375rem] font-semibold transition-transform active:scale-[0.97]">
+                          <Navigation className="size-[1.125rem]" aria-hidden /> Directions
+                        </a>
+                      )}
+                    </div>
+                    {ticketUrl && (
+                      <a href={safeHref(ticketUrl)} target="_blank" rel="noreferrer noopener" className="mt-3 flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-border px-4 py-2.5 active:bg-accent">
+                        <Ticket className="size-[1.125rem] shrink-0 text-coral" aria-hidden />
+                        <span className="min-w-0 flex-1"><span className="block text-[0.9375rem] font-medium">Tickets</span><span className="block truncate text-xs text-muted-foreground">{[ticketSeller && `via ${ticketSeller}`, "prices and availability change"].filter(Boolean).join(" · ")}</span></span>
+                        <ArrowUpRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                      </a>
+                    )}
+                  </div>
                   <div className="max-lg:hidden">
                   <FactStrip
                     facts={[
@@ -149,7 +163,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
 
             {/* Tickets — the primary action, up top */}
             {(ticketUrl || (d?.ticketOptions?.length ?? 0) > 0) && (
-              <Reveal delay={0.04}>
+              <Reveal delay={0.04} className="max-lg:hidden">
                 <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
                   <div className="p-5">
                     <div className="flex items-center justify-between gap-3">
@@ -160,7 +174,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-3">
                       {ticketUrl && (
-                        <Tactile lift={2} className={cn("inline-flex", dock && "max-lg:hidden")}>
+                        <Tactile lift={2} className="inline-flex">
                           <a
                             href={safeHref(ticketUrl)}
                             target="_blank"
@@ -206,7 +220,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                 same fix as PlaceDetailView's "Add to trip" moving up from its own former sidebar
                 spot below Photos/Reviews/Hours. */}
             <Reveal delay={0.05}>
-              <div className={cn("flex flex-wrap items-center gap-3", dock && "max-lg:hidden")}>
+              <div className="flex flex-wrap items-center gap-3 max-lg:hidden">
                 <AddEventButton tripId={tripId} title={title} rawDate={rawDate} showTime={d?.showTime} latitude={d?.latitude} longitude={d?.longitude} />
                 {!panel && (
                   <Tactile lift={2} className="inline-flex">
@@ -306,17 +320,6 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                   </ul>
                 </details>
               </Reveal>
-            )}
-
-            {dock && (
-              <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-3 border-t border-border/70 bg-background/97 px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] lg:hidden">
-                <AddEventButton block tripId={tripId} title={title} rawDate={rawDate} showTime={d?.showTime} latitude={d?.latitude} longitude={d?.longitude} />
-                {ticketUrl && (
-                  <a href={safeHref(ticketUrl)} target="_blank" rel="noreferrer noopener" className="btn-primary h-12 flex-1 justify-center rounded-full">
-                    <Ticket className="size-4" aria-hidden /> Tickets
-                  </a>
-                )}
-              </div>
             )}
 
             {cityHint && (

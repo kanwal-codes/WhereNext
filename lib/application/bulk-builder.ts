@@ -20,10 +20,11 @@ export async function runBulkBuilder<T>(
   schema: z.ZodType<T>,
   signal: AbortSignal | undefined,
   onUsage?: (entry: UsageEntry) => void,
+  role: "bulk" | "day" | "menu" = "bulk",
 ): Promise<T | null> {
   try {
     const messages: ModelMessage[] = [{ role: "system", content: system }, { role: "user", content: user }];
-    return await generateStructured("bulk", messages, schema, signal, onUsage);
+    return await generateStructured(role, messages, schema, signal, onUsage);
   } catch (error) {
     // A builder that gives up falls back to a plainer answer with no sign of why: leave one line saying which one and what failed.
     if (!signal?.aborted) logger.warn({ err: error instanceof Error ? error.message : String(error), builder: system.slice(0, 48) }, "bulk builder failed");

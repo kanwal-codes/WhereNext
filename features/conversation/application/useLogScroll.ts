@@ -130,6 +130,9 @@ export function useLogScroll({ logRef, sending, loaded, messageCount }: {
   const [scroll, setScroll] = useState({ scrolled: false, away: false });
   const handleLogScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const n = e.currentTarget;
+    // The log never scrolls sideways. Each reply is drawn 20px wider than the log on both sides (so its shadows are not cut off), which leaves
+    // a hidden strip a touch drag or a focus jump can scroll to, shifting the whole thread left and clipping the first letters of every line.
+    if (n.scrollLeft !== 0) n.scrollLeft = 0;
     const scrolled = n.scrollTop > 4;
     const away = n.scrollHeight - n.clientHeight - n.scrollTop > n.clientHeight * 1.2;
     setScroll((s) => (s.scrolled === scrolled && s.away === away ? s : { scrolled, away }));

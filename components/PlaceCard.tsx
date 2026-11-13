@@ -5,7 +5,7 @@ import { SaveHeart } from "@/features/trip/ui/SaveHeart";
 import { useRouter } from "next/navigation";
 import type { Place } from "@/packages/contracts/place";
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
-import { CompareMark, compactCount } from "@/features/conversation/ui/blocks/ui";
+import { CompareMark } from "@/features/conversation/ui/blocks/ui";
 import { CineAddress, CinePill, CineCard, CineRating, PlaceFloatingPills } from "@/features/conversation/ui/blocks/CineCard";
 import { placeGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
@@ -81,7 +81,7 @@ export function PlaceCard({ tripId, place, why, phoneRow = false, phoneTile }: {
       glyph={glyph}
       // No rating: the category stands in, never "0.0".
       topRight={<PlaceFloatingPills place={place} />}
-      topLeft={typeof place.rating === "number" ? <CineRating rating={place.rating} count={place.userRatingCount ? compactCount(place.userRatingCount) : undefined} /> : category ? <CinePill>{category}</CinePill> : undefined}
+      topLeft={typeof place.rating === "number" ? <CineRating rating={place.rating} /> : category ? <CinePill>{category}</CinePill> : undefined}
       eyebrow={category}
       title={place.name}
       why={why && why !== "Top-rated" ? why : place.reviewSummary}
@@ -94,7 +94,6 @@ export function PlaceCard({ tripId, place, why, phoneRow = false, phoneTile }: {
           <span className="inline-flex items-center gap-1">
             <Star className="size-3.5 fill-current text-foreground/80" aria-hidden />
             <span className="font-medium text-foreground">{place.rating.toFixed(1)}</span>
-            {place.userRatingCount ? <span>{compactCount(place.userRatingCount)}</span> : null}
             {isFoodPlace(place.category) && priceLabel(place.priceLevel) ? <span>· {priceLabel(place.priceLevel)}</span> : null}
           </span>
         ) : undefined,

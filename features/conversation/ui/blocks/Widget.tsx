@@ -56,7 +56,7 @@ export function WidgetPill({ tone = "neutral", icon: Icon, children, className }
 }
 
 export function Widget({
-  icon: Icon, glyph, tone = "coral", eyebrow, title, status, hero, foot, action, actionPhoneOnly = false, className, children, label,
+  icon: Icon, glyph, tone = "coral", eyebrow, title, status, hero, foot, action, actionPhoneOnly = false, statusBeside = false, className, children, label,
 }: {
   /** The chip's icon when there is no Roam line icon for the kind. */
   icon?: LucideIcon;
@@ -77,6 +77,8 @@ export function Widget({
   action?: ReactNode;
   /** The foot (and its action) is for a phone only: on a desktop the action lives in the header, as `status`. */
   actionPhoneOnly?: boolean;
+  /** Keep `status` to the right of the title in a narrow widget too, instead of on a row of its own. The status must then shrink itself (icon-only controls). */
+  statusBeside?: boolean;
   className?: string;
   children?: ReactNode;
   label?: string;
@@ -99,9 +101,9 @@ export function Widget({
           )}
           <h3 className="font-display text-xl leading-6 font-medium tracking-[-0.012em] text-balance max-lg:mt-0.5 max-lg:text-widget">{title}</h3>
         </div>
-        {status && <div className="flex shrink-0 items-center gap-2 @max-[34rem]:hidden">{status}</div>}
+        {status && <div className={cn("flex shrink-0 items-center gap-2", !statusBeside && "@max-[34rem]:hidden")}>{status}</div>}
       </header>
-      {status && <div className="flex flex-wrap items-center gap-2 px-4 pt-2.5 @[34rem]:hidden max-lg:px-[1.125rem]">{status}</div>}
+      {status && !statusBeside && <div className="flex flex-wrap items-center gap-2 px-4 pt-2.5 @[34rem]:hidden max-lg:px-[1.125rem]">{status}</div>}
       {hero}
       {children}
       {(foot || action) && <WidgetFoot foot={foot} action={action} className={actionPhoneOnly && !foot ? "lg:hidden" : undefined} />}

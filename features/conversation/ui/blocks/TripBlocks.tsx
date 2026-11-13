@@ -15,6 +15,10 @@ import { pointsFromItinerary } from "./mapPoints";
 import { controlSecondary, prettyDates, textAction, type, MapButton } from "./ui";
 import { BlockHandlers, normalize } from "./blockShared";
 
+/** In a narrow widget (a phone) the plan's two controls sit beside the title as icon-only squares; their words stay for screen readers. */
+const ICON_WHEN_NARROW = "@max-[34rem]:w-8 @max-[34rem]:px-0";
+const LABEL_WHEN_NARROW = "@max-[34rem]:sr-only";
+
 type ItineraryBlockData = Extract<AssistantBlock, { type: "itinerary" }>;
 
 /** Give each stop an id that survives a reorder (title + which occurrence of that title) and apply the visitor's order.
@@ -128,17 +132,18 @@ export function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, on
       tone="coral"
       eyebrow={block.intro && !introIsRepeat ? block.intro : `Plan · ${block.days.length} day${block.days.length === 1 ? "" : "s"}`}
       title={title ?? "Plan"}
+      statusBeside
       status={
         <>
-          {onOpenPanel && mapPoints.length > 0 && <MapButton onClick={() => onOpenPanel({ kind: "map", title: `${title ?? "Plan"} on the map`, points: mapPoints })} />}
+          {onOpenPanel && mapPoints.length > 0 && <MapButton className={ICON_WHEN_NARROW} onClick={() => onOpenPanel({ kind: "map", title: `${title ?? "Plan"} on the map`, points: mapPoints })}><span className={LABEL_WHEN_NARROW}>Map</span></MapButton>}
           <button
             type="button"
             onClick={() => void addAll()}
             disabled={status !== "idle" || totalStops === 0}
-            className={cn(controlSecondary, status === "added" && "border-transparent bg-secondary text-foreground")}
+            className={cn(controlSecondary, ICON_WHEN_NARROW, status === "added" && "border-transparent bg-secondary text-foreground")}
           >
             {status === "adding" ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : status === "added" ? <Check className="size-3.5" aria-hidden /> : <CalendarPlus className="size-3.5" aria-hidden />}
-            {status === "added" ? (replaces ? "Replaced in itinerary" : "Added to itinerary") : replaces ? `Replace ${multi ? "these days" : block.days[0].label}` : "Add whole plan"}
+            <span className={LABEL_WHEN_NARROW}>{status === "added" ? (replaces ? "Replaced in itinerary" : "Added to itinerary") : replaces ? `Replace ${multi ? "these days" : block.days[0].label}` : "Add whole plan"}</span>
           </button>
         </>
       }

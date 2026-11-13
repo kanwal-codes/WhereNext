@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarCheck, Loader2 } from "lucide-react";
+import { CalendarCheck, Check, Loader2, Plus } from "lucide-react";
 import { Tactile } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
+import { CINE_ICON_ACTION } from "@/features/conversation/ui/blocks/CineCard";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { mutate } from "@/lib/client/mutation-queue";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
@@ -12,11 +13,15 @@ import { extractEventDayIndex, extractEventTime } from "@/lib/application/event-
 
 /** Adds this event to the itinerary as a timed stop — day and time both derived from the
  * event's real schedule (Ticketmaster's embedded time, or the trip's start date), not guessed. */
-export function AddEventButton({ tripId, title, rawDate, showTime, latitude, longitude, block = false }: {
+export function AddEventButton({ tripId, title, rawDate, showTime, latitude, longitude, block = false, icon = false, primary = false }: {
   tripId: string; title: string; rawDate: string | null; showTime?: string | null;
   latitude?: number | null; longitude?: number | null;
   /** Phone dock: a full-height pill that shares the row with the tickets button. */
   block?: boolean;
+  /** A round plus on a card (a check once it is on the trip), for places too small for the labelled button. */
+  icon?: boolean;
+  /** The phone's main action: a full-width black pill, the same as "Add to trip" on a place. */
+  primary?: boolean;
 }) {
   const data = useTripDataMaybe()?.data ?? null;
   const tripStartDate = (data?.trip as { start_date?: string | null } | null)?.start_date;
@@ -50,13 +55,27 @@ export function AddEventButton({ tripId, title, rawDate, showTime, latitude, lon
     }
   }
 
+  if (icon) {
+    return (
+      <button
+        type="button"
+        disabled={busy || alreadyAdded}
+        onClick={() => void add()}
+        aria-label={alreadyAdded ? `${title} is on your trip` : `Add ${title} to your trip`}
+        className={CINE_ICON_ACTION}
+      >
+        {busy ? <Loader2 className="size-5 animate-spin" aria-hidden /> : alreadyAdded ? <Check className="size-5" aria-hidden /> : <Plus className="size-5" aria-hidden />}
+      </button>
+    );
+  }
+
   return (
     <Tactile lift={2} className={cn("inline-flex", block && "flex-1")}>
       <button
         type="button"
         disabled={busy || alreadyAdded}
         onClick={() => void add()}
-        className={cn("btn-secondary inline-flex items-center gap-2", block && "h-12 w-full justify-center rounded-full", alreadyAdded && "!border-coral/35 !bg-coral-soft !text-coral-ink disabled:opacity-100")}
+        className={cn(primary ? "btn-primary h-12 w-full px-6 text-[0.9375rem]" : "btn-secondary inline-flex items-center gap-2", !primary && block && "h-12 w-full justify-center rounded-full", alreadyAdded && "!border-coral/35 !bg-coral-soft !text-coral-ink disabled:opacity-100")}
       >
         {busy ? <Loader2 className="size-4 animate-spin" /> : <CalendarCheck className="size-4" />}
         {alreadyAdded ? (existing?.day_index ? `On Day ${existing.day_index}` : "On your trip") : "Add to trip"}

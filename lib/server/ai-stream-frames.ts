@@ -8,28 +8,40 @@ export const textFrame = (content: string) => encoder.encode(`data: ${JSON.strin
  *  RESOLVE's field-level partial JSON (that's `onPartial` in `turn-resolver.ts`/`gateway.ts`,
  *  built but not wired to the wire format here) — three coarse, always-true stages are enough to
  *  turn "blank for up to ~15s" into "labeled, updates as the turn actually progresses." */
-/** What Roam says it is doing for each tool RESOLVE can plan, so the "retrieve" progress frame says
- *  what is actually being looked up. Voice: a travel companion thinking out loud. Lower-case present
- *  participles, concrete, no jargon ("sources", "live data"), and no repeated verb when two are joined
- *  ("finding places and looking at stays"). The client capitalises it and adds the ellipsis. */
-const TOOL_PROGRESS_LABEL: Record<string, string> = {
-  search_places: "finding places",
-  research_web: "reading up on it",
-  weather: "checking the forecast",
-  events: "seeing what's on",
-  flights: "comparing flights",
-  directions: "plotting the route",
-  stays: "looking at stays",
+/** What Roam says it is doing for each thing RESOLVE planned to look up, so the "retrieve" progress frame names the real work, with the
+ *  place or route when there is one ("finding places in Ibiza", "comparing flights Toronto to Ibiza"). Voice: a travel companion thinking
+ *  out loud. Lower-case present participles, concrete, no jargon. The client capitalises each line, adds the ellipsis and cycles through them. */
+type PlannedCall = { tool: string; location?: string; origin?: string; destination?: string; from?: string; to?: string };
+const town = (text: string | undefined) => text?.split(",")[0]?.trim() || undefined;
+const inTown = (text: string | undefined) => (town(text) ? ` in ${town(text)}` : "");
+const STEP: Record<string, (call: PlannedCall) => string> = {
+  search_places: (c) => `finding places${inTown(c.location)}`,
+  research_web: () => "reading up on it",
+  weather: (c) => `checking the forecast${inTown(c.location)}`,
+  events: (c) => `seeing what's on${inTown(c.location)}`,
+  flights: (c) => (town(c.origin) && town(c.destination) ? `comparing flights ${town(c.origin)} to ${town(c.destination)}` : "comparing flights"),
+  directions: (c) => (town(c.from) && town(c.to) ? `plotting the route ${town(c.from)} to ${town(c.to)}` : "plotting the route"),
+  stays: (c) => `looking at stays${inTown(c.location)}`,
 };
-/** At most 2 named activities — RESOLVE can plan up to `MAX_TOOL_CALLS`, but "checking places,
- *  checking hotels, getting directions and checking the weather…" reads as noise, not progress.
- *  `undefined` (no tools, or none with a label) leaves the client's own generic text in place. */
-export function toolProgressLabel(tools: string[]): string | undefined {
-  const labels = [...new Set(tools.map((t) => TOOL_PROGRESS_LABEL[t]).filter((l): l is string => Boolean(l)))].slice(0, 2);
-  if (labels.length === 0) return undefined;
-  return labels.length === 1 ? labels[0] : `${labels[0]} and ${labels[1]}`;
+/** One line per kind of look-up, in the order planned (several searches of one kind read as one line); at most 4. */
+export function toolSteps(calls: PlannedCall[]): string[] {
+  const seen = new Set<string>();
+  const steps: string[] = [];
+  for (const call of calls) {
+    if (seen.has(call.tool) || !STEP[call.tool]) continue;
+    seen.add(call.tool);
+    steps.push(STEP[call.tool](call));
+  }
+  return steps.slice(0, 4);
 }
-export const progressFrame = (stage: "resolve" | "retrieve" | "compose", label?: string) =>
+/** What Roam is building once the look-ups are back; `undefined` when the answer is only written (the client says "deciding what fits you"). */
+export function buildStep(capabilities: readonly string[] = []): string | undefined {
+  if (capabilities.includes("itinerary")) return "planning your days";
+  if (capabilities.includes("budget")) return "working out the costs";
+  if (capabilities.includes("comparison")) return "weighing the options";
+  return undefined;
+}
+export const progressFrame = (stage: "resolve" | "retrieve" | "decide" | "compose", label?: string) =>
   encoder.encode(`data: ${JSON.stringify(label ? { progress: stage, label } : { progress: stage })}\n\n`);
 // An ordinary client disconnect now actively aborts RESOLVE/RETRIEVE and every in-flight COMPOSE
 // attempt (see `combinedAbort` below) — without this check, every routine tab-close would log as

@@ -7,12 +7,12 @@ import { cn } from "@/lib/utils";
 import { prettyWebsite, type GooglePlaceDetails } from "@/lib/places-ui";
 import { splitHoursLine, telHref, todayIndex } from "@/features/places/domain/place-view";
 
-/** Today's hours (the week folds out), phone, website and step-free access. Nothing renders when the place has none of them. */
+/** Today's hours (the week folds out), phone, website and step-free access. On a phone the call and website links are icons beside Add to trip, so only hours and access are listed here. Nothing renders when the place has none of them. */
 export function PlaceHoursContact({ details, hours, todayHours, wheelchair }: { details: GooglePlaceDetails; hours: string[]; todayHours: string | null; wheelchair: boolean }) {
   const hasContact = Boolean(details.nationalPhoneNumber || details.websiteUri || wheelchair);
   if (hours.length === 0 && !hasContact) return null;
   return (
-    <section aria-label="Hours and contact" className="space-y-3">
+    <section aria-label="Hours and contact" className={cn("space-y-3", hours.length === 0 && !wheelchair && "max-lg:hidden")}>
       <DetailSectionHeading>Hours &amp; contact</DetailSectionHeading>
       <InfoList>
         {hours.length > 0 && (
@@ -43,12 +43,12 @@ export function PlaceHoursContact({ details, hours, todayHours, wheelchair }: { 
           </li>
         )}
         {details.nationalPhoneNumber && (
-          <InfoRow icon={Phone} href={telHref(details.nationalPhoneNumber)}>
+          <InfoRow icon={Phone} href={telHref(details.nationalPhoneNumber)} className="max-lg:hidden">
             {details.nationalPhoneNumber}
           </InfoRow>
         )}
         {details.websiteUri && (
-          <InfoRow icon={Globe} href={details.websiteUri} external trailing={<ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />}>
+          <InfoRow icon={Globe} href={details.websiteUri} external className="max-lg:hidden" trailing={<ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />}>
             {prettyWebsite(details.websiteUri)}
           </InfoRow>
         )}

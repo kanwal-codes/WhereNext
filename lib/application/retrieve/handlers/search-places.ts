@@ -28,7 +28,7 @@ export async function handleSearchPlaces(call: SearchPlacesCall, ctx: RetrieveCo
       const detail = await provider.details(place.providerId, ctx.signal, "light") as { nationalPhoneNumber?: string; websiteUri?: string; regularOpeningHours?: { weekdayDescriptions?: string[]; openNow?: boolean }; accessibilityOptions?: { wheelchairAccessibleEntrance?: boolean }; editorialSummary?: { text?: string } };
       return { ...place, phone: detail.nationalPhoneNumber, websiteUri: detail.websiteUri, openingHours: detail.regularOpeningHours?.weekdayDescriptions, openNow: detail.regularOpeningHours?.openNow, wheelchairAccessible: detail.accessibilityOptions?.wheelchairAccessibleEntrance, reviewSummary: detail.editorialSummary?.text };
     } catch (error) {
-      if (ctx.signal?.aborted) throw error;
+      if (ctx.signal?.aborted && (ctx.signal.reason as { name?: string } | undefined)?.name !== "TimeoutError") throw error; // the stage deadline keeps the place, minus its details
       return place;
     }
   }));

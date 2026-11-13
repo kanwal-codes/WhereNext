@@ -15,6 +15,11 @@ beforeEach(() => { clearMemoryCache(); generateObjectMock.mockReset(); retrieveM
 afterEach(() => vi.restoreAllMocks());
 
 describe("pickKinds", () => {
+  it("always adds the best eating kind, even when the traveller's likes push it out", () => {
+    const kinds = [...["w1", "w2", "w3", "w4", "w5", "w6", "w7"].map((label) => kind(label, { weight: 3 })), kind("Local cuisine", { weight: 1, tags: ["food"] })];
+    expect(pickKinds(kinds, 5).map((k) => k.label)).toContain("Local cuisine");
+  });
+
   it("takes the strongest fit first and drops kinds with nothing to search", () => {
     const kinds = [kind("a", { weight: 1 }), kind("b", { weight: 3 }), kind("c", { weight: 2 }), kind("empty", { placeQuery: "", eventQuery: "" })];
     expect(pickKinds(kinds, 2).map((k) => k.label)).toEqual(["b", "c", "a"]);

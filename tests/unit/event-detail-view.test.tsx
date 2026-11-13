@@ -358,21 +358,16 @@ describe("EventDetailView: sections", () => {
 describe("EventDetailView: on the phone", () => {
   beforeEach(() => { });
 
-  it("docks the add and tickets buttons at the bottom of the page", async () => {
-    page();
+  it("puts the add and directions buttons, the date chip and a tickets row under the title, like a place", async () => {
+    page({ variant: "panel" });
     await screen.findByRole("heading", { name: "Jazz Night" });
-    const docked = document.querySelector(".fixed")!;
-    expect(within(docked as HTMLElement).getByRole("button", { name: "Add to trip" })).toBeTruthy();
-    expect(within(docked as HTMLElement).getByRole("link", { name: /Tickets/ }).getAttribute("href")).toBe("https://www.ticketmaster.com/e/1");
-  });
-
-  it("shows the facts as a list, with the price's seller", async () => {
-    page();
-    await screen.findByRole("heading", { name: "Jazz Night" });
-    const list = document.querySelector("ul.divide-y")!;
-    expect(list.textContent).toContain("Blue Note");
-    expect(list.textContent).toContain("$40 – $90");
-    expect(list.textContent).toContain("Tickets via Ticketmaster");
+    const phone = document.querySelector("div.lg\\:hidden")!;
+    expect(within(phone as HTMLElement).getByRole("button", { name: "Add to trip" })).toBeTruthy();
+    expect(within(phone as HTMLElement).getByRole("link", { name: /Directions/ }).getAttribute("href")).toContain("google.com/maps/dir");
+    expect(within(phone as HTMLElement).getByRole("link", { name: /Tickets/ }).getAttribute("href")).toBe("https://www.ticketmaster.com/e/1");
+    expect(phone.textContent).toContain("Blue Note");
+    expect(phone.textContent).toContain("From $40 – $90");
+    expect(phone.textContent).toContain("via Ticketmaster");
   });
 
   it("has no dock inside the panel", async () => {

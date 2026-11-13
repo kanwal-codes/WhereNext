@@ -5,13 +5,13 @@ import { ArrowUpRight, CalendarDays } from "lucide-react";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 import type { EventSeed } from "@/components/TripPanelProvider";
 import { EventCard } from "@/components/EventCard";
+import { AddEventButton } from "@/features/events/ui/AddEventButton";
 import type { NearbyEvent } from "@/lib/application/nearby-events";
 import { cn, safeHref } from "@/lib/utils";
-import { eventDayParts } from "@/lib/places-ui";
-import { CINE_PILL_ACTION, CineCard, CineDate, CinePill } from "./CineCard";
+import { CINE_PILL_ACTION, CineCard, CinePill } from "./CineCard";
 import { HoldHeight, ViewControls } from "./ListControls";
 import { DEFAULT_EVENT_VIEW, applyEventView, eventControls, type EventView } from "./listViews";
-import { Badge, cardWidth, CardOpenOverlay, Notice, SectionHeader, grid, prettyDate, rail, surface, textAction, type } from "./ui";
+import { cardWidth, Notice, SectionHeader, grid, prettyDate, rail, type } from "./ui";
 import { BlockHandlers, MAX_CHAT_CARDS } from "./blockShared";
 
 type EventItem = Extract<AssistantBlock, { type: "events" }>["items"][number];
@@ -86,23 +86,12 @@ function formatEventDates(dates: EventOccurrence[]): string {
   return days.length > 2 ? `${range} · ${days.length} dates` : range;
 }
 
-/** A popular event that also lands inside the trip earns a proper card, not a list row. */
-const isFeaturedEvent = (e: EventItem): boolean =>
-  e.relToTrip === "in" && ((typeof e.rank === "number" && e.rank >= 60) || Boolean(e.imageUrl));
-
-const Ticket = ({ href, children = "Tickets", label }: { href: string; children?: React.ReactNode; label?: string }) => (
-  <a href={safeHref(href)} target="_blank" rel="noreferrer noopener" aria-label={label} className={cn(textAction, "whitespace-nowrap")}>
-    {children} <ArrowUpRight className="size-3.5" aria-hidden />
-  </a>
-);
-
-function FeaturedEventCard({ group, onOpen }: { group: EventGroup; onOpen?: (seed: EventSeed) => void }) {
+function FeaturedEventCard({ group, tripId, onOpen }: { group: EventGroup; tripId: string; onOpen?: (seed: EventSeed) => void }) {
   const event = group.base;
   const rel = relToTripLabel(event);
   const active = group.dates[0] ?? { date: event.date, url: event.url };
   const open = () => onOpen?.({ ...eventSeed(event), url: active.url, date: active.date });
   const major = typeof event.rank === "number" && event.rank >= 65;
-  const day = eventDayParts(active.date);
   return (
     <CineCard
       label={`Open ${event.title}`}
@@ -110,7 +99,6 @@ function FeaturedEventCard({ group, onOpen }: { group: EventGroup; onOpen?: (see
       src={event.imageUrl}
       alt={event.title}
       glyph={CalendarDays}
-      topLeft={day ? <CineDate month={day.month} day={day.day} /> : undefined}
       topRight={major ? <CinePill>Major event</CinePill> : undefined}
       eyebrow={event.venue}
       title={event.title}
@@ -120,6 +108,8 @@ function FeaturedEventCard({ group, onOpen }: { group: EventGroup; onOpen?: (see
           {rel && <CinePill tone={event.relToTrip === "in" ? "positive" : "glass"}>{rel}</CinePill>}
         </>
       }
+      // The add button is the card's left foot, Details (or Tickets) its right action, so they sit at the two edges of the bottom row.
+      foot={<div className="pointer-events-auto relative z-10 w-fit"><AddEventButton icon tripId={tripId} title={event.title} rawDate={active.date ?? null} /></div>}
       action={
         // The details page has the tickets link; where it cannot open (no handler), the card still goes straight to tickets.
         onOpen ? (
@@ -133,37 +123,6 @@ function FeaturedEventCard({ group, onOpen }: { group: EventGroup; onOpen?: (see
         )
       }
     />
-  );
-}
-
-function EventRow({ group, onOpen }: { group: EventGroup; onOpen?: (seed: EventSeed) => void }) {
-  const event = group.base;
-  const rel = relToTripLabel(event);
-  const active = group.dates[0] ?? { date: event.date, url: event.url };
-  const open = () => onOpen?.({ ...eventSeed(event), url: active.url, date: active.date });
-  return (
-    <div className="relative flex items-start justify-between gap-4 px-4 py-3 transition-colors hover:bg-accent/40">
-      {onOpen && <CardOpenOverlay label={`Open ${event.title}`} onOpen={open} />}
-      <div className="min-w-0 space-y-1">
-        <p className={cn(type.body, "flex flex-wrap items-center gap-x-2 gap-y-1 font-medium")}>
-          <span className="min-w-0 break-words">{event.title}</span>
-          {typeof event.rank === "number" && event.rank >= 65 && <Badge tone="brand">Major event</Badge>}
-        </p>
-        <p className={cn(type.meta, "flex min-w-0 items-center gap-1.5")}>
-          <span className="shrink-0">{formatEventDates(group.dates)}</span>
-          {event.venue && <><span aria-hidden className="opacity-50">·</span><span className="truncate">{event.venue}</span></>}
-        </p>
-        {rel && <Badge tone={event.relToTrip === "in" ? "positive" : "neutral"} className={cn(event.relToTrip === "in" && "max-lg:hidden")}>{rel}</Badge>}
-      </div>
-      <div className="relative z-10 flex shrink-0 flex-col items-end gap-3">
-        <Ticket href={active.url} label={`Tickets: ${event.title}`} />
-        {onOpen && (
-          <button type="button" onClick={open} className={cn(textAction, "text-muted-foreground", "max-lg:hidden")}>
-            Details
-          </button>
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -207,9 +166,6 @@ export function EventsBlockView({ block, tripId, preview, onOpenEvent, onOpenCol
   }
   const groups = groupEventOccurrences(items);
   const visibleGroups = groups.slice(0, MAX_CHAT_CARDS);
-  const featured = visibleGroups.filter((g) => isFeaturedEvent(g.base)).slice(0, 3);
-  const featuredSet = new Set(featured);
-  const rest = visibleGroups.filter((g) => !featuredSet.has(g));
   const freshnessNote = <Notice>Dates and availability can change — check the ticket page before you buy.</Notice>;
   return (
     <div className="flex flex-col gap-3">
@@ -223,28 +179,17 @@ export function EventsBlockView({ block, tripId, preview, onOpenEvent, onOpenCol
       {controls}
       <HoldHeight frozen={filtersOn} className="flex flex-col gap-3">
         {none}
-        {featured.length > 0 && (
+        {/* Every event is a card in one sideways rail, with a picture where the listing has one and the calendar mark where it has not. */}
+        {visibleGroups.length > 0 && (
           <div className={rail}>
-            {featured.map((group, groupIndex) => (
-              <div key={`${group.base.title}-${groupIndex}`} className={cn(cardWidth(featured.length), "shrink-0 snap-start")}>
-                <FeaturedEventCard group={group} onOpen={onOpenEvent} />
+            {visibleGroups.map((group, groupIndex) => (
+              <div key={`${group.base.title}-${groupIndex}`} className={cn(cardWidth(visibleGroups.length), "shrink-0 snap-start")}>
+                <FeaturedEventCard group={group} tripId={tripId} onOpen={onOpenEvent} />
               </div>
             ))}
           </div>
         )}
-        {rest.length > 0 ? (
-          <div className={cn(surface, "overflow-hidden")}>
-            {featured.length > 0 && <h4 className={cn(type.body, "border-b border-border bg-muted/40 px-4 py-2.5 font-medium")}>More on while you&rsquo;re there</h4>}
-            <div className="divide-y divide-border">
-              {rest.map((group, groupIndex) => (
-                <EventRow key={`${group.base.title}-${groupIndex}`} group={group} onOpen={onOpenEvent} />
-              ))}
-            </div>
-            <div className="border-t border-border px-4 py-3">{freshnessNote}</div>
-          </div>
-        ) : (
-          items.length > 0 && freshnessNote
-        )}
+        {items.length > 0 && freshnessNote}
       </HoldHeight>
     </div>
   );

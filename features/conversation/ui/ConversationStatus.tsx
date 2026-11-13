@@ -5,45 +5,48 @@ import { AnimatePresence, motion } from "motion/react";
 import { ease, motionTokens } from "@/components/motion-primitives";
 import { RoamMark } from "@/features/roam/ui/RoamMark";
 
-// Phase 2.6.2 (docs/overhaul/roadmap/phase-2-speed.md): the first three labels now track real
-// backend milestones (RESOLVE started / RETRIEVE started / COMPOSE started — see `progressStage`,
-// driven by streamAssistantResponse's `onProgress`), not a fixed-timer guess. The last two stay
-// timer-driven: once COMPOSE starts there's no finer server-side signal until its first token
-// arrives, so these are a fallback ceiling for a turn that's still genuinely slow at that point —
-// `Math.max` in `Typing` below means they only ever ADVANCE the label past wherever the real
-// stage already put it, never regress it back to a stale-sounding one.
-// index 1 ("Looking into it…") is itself a fallback now — `Typing` swaps it for
-// `progressLabel` ("Finding places…", "Plotting the route…") whenever RESOLVE planned a tool
-// this session recognizes, so the wait names what's actually happening instead of staying generic.
-// Roam's voice while it works: a travel companion thinking out loud. Short, concrete, no jargon
-// ("live sources"), and never a promise it might not keep ("Almost there" on a slow turn is a small
-// lie). The long-wait line is honest instead of apologetic.
-const THINKING_STATES = [
-  "Thinking it through…",
-  "Looking into it…",
-  "Putting it together…",
-  "Still on it…",
-  "This one’s taking a little longer…",
-];
+// The line follows what the server is really doing (see `progressFrame` in the AI route):
+//   resolve  — working out what you asked
+//   retrieve — the look-ups RESOLVE planned, one line each and the place or route in it ("Finding places in Ibiza…",
+//              "Seeing what's on…", "Plotting the route Madrid to Lisbon…"), cycling while they run in parallel
+//   decide   — the answer is being worked out ("Deciding what fits you…")
+//   compose  — "Planning your days…" / "Working out the costs…" while a plan or budget is built, else "Putting it together…"
+// Roam's voice: a travel companion thinking out loud. Short, concrete, no jargon, and never a promise it might not keep
+// ("Almost there" on a slow turn is a small lie). A slow turn keeps its specific line and says so, rather than going generic.
+const GENERIC = {
+  resolve: ["Thinking it through…", "Working out what to look for…"],
+  retrieve: ["Looking into it…"],
+  decide: ["Deciding what fits you…"],
+  compose: ["Putting it together…"],
+} as const;
 
 const TYPING_MARK = ["thinking", "searching", "planning", "answering"] as const;
+const STAGE_PHASE: Record<"resolve" | "retrieve" | "decide" | "compose", number> = { resolve: 0, retrieve: 1, decide: 2, compose: 3 };
+const STEP_MS = 2400;
+const SLOW_MS = 20000;
 
-const STAGE_PHASE: Record<"resolve" | "retrieve" | "compose", number> = { resolve: 0, retrieve: 1, compose: 2 };
+const sentence = (line: string) => `${line[0]!.toUpperCase()}${line.slice(1)}…`;
 
-export function Typing({ stage, label }: { stage?: "resolve" | "retrieve" | "compose"; label?: string }) {
-  const [timerPhase, setTimerPhase] = useState(0);
+export function Typing({ stage, label }: { stage?: "resolve" | "retrieve" | "decide" | "compose"; label?: string }) {
+  const [tick, setTick] = useState(0);
+  const [slow, setSlow] = useState(false);
   useEffect(() => {
-    const timers = [
-      setTimeout(() => setTimerPhase(3), 11000),
-      setTimeout(() => setTimerPhase(4), 20000),
-    ];
-    return () => timers.forEach(clearTimeout);
+    const timer = setTimeout(() => setSlow(true), SLOW_MS);
+    return () => clearTimeout(timer);
   }, []);
-  const phase = Math.max(stage ? STAGE_PHASE[stage] : 0, timerPhase);
-  // `label` names what RESOLVE actually planned ("checking places") — only meaningful while
-  // "retrieve" is still the current phase; once the timer or a later stage has moved past it,
-  // the phase-indexed generic text below takes back over rather than a now-stale activity name.
-  const text = label && phase === STAGE_PHASE.retrieve ? `${label[0]!.toUpperCase()}${label.slice(1)}…` : THINKING_STATES[phase];
+  // One tick per step: the lines of a retrieve cycle, and the generic opening line gives way to its second one.
+  useEffect(() => {
+    setTick(0);
+    const timer = setInterval(() => setTick((n) => n + 1), STEP_MS);
+    return () => clearInterval(timer);
+  }, [stage, label]);
+
+  const current = stage ?? "resolve";
+  const phase = STAGE_PHASE[current];
+  const steps = label ? label.split("\n").filter(Boolean) : [];
+  const generic = GENERIC[current];
+  const line = steps.length ? sentence(steps[tick % steps.length]!) : generic[Math.min(tick, generic.length - 1)]!;
+  const text = slow ? `Taking a little longer — ${line[0]!.toLowerCase()}${line.slice(1)}` : line;
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
@@ -54,7 +57,7 @@ export function Typing({ stage, label }: { stage?: "resolve" | "retrieve" | "com
     >
       {/* Roam's path mark mirrors the real stage: branching while it works out what you asked,
           searching while it checks sources, folding routes into one while it composes. */}
-      <RoamMark state={TYPING_MARK[Math.min(phase, TYPING_MARK.length - 1)]} size={32} className="text-foreground" />
+      <RoamMark state={TYPING_MARK[phase]} size={32} className="text-foreground" />
       {/* The label follows the stage: the old one lifts away as the new one settles in. */}
       <AnimatePresence mode="wait" initial={false}>
         <motion.span

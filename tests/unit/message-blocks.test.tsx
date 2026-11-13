@@ -197,19 +197,17 @@ describe("MessageBlocks", () => {
     expect(html).toContain("Huge Festival");
   });
 
-  it("events block: a popular in-trip event becomes a featured card, not a list row", () => {
+  it("events block: every event is a card in one rail, with its picture where it has one", () => {
     const block: AssistantBlock = { type: "events", retrievedAt: "t", window: { start: "2026-10-26", end: "2026-10-30" }, items: [
       { title: "Michel Rivard", url: "https://x/mr", date: "2026-10-29", venue: "L'Etoile", source: "ticketmaster", imageUrl: "https://img.example/mr.jpg", relToTrip: "in", offsetDays: 0, rank: 70 },
       { title: "Small Local Gig", url: "https://x/gig", date: "2026-10-28", source: "eventbrite", relToTrip: "in", offsetDays: 0 },
     ] };
     const html = renderToStaticMarkup(<MessageBlocks blocks={[block]} {...handlers} onOpenEvent={vi.fn()} />);
-    expect(html).toContain("https://img.example/mr.jpg"); // featured card image
-    expect(html).toContain("More on while you’re there"); // list header appears once there's a featured card
-    expect(html).toContain("Small Local Gig");
-    expect(html).toMatch(/Details/); // per-event side-panel opener
-    // the featured event is not repeated as a list row below the "More on…" header
-    const listSection = html.slice(html.indexOf("More on"));
-    expect(listSection).not.toContain("Michel Rivard");
+    expect(html).toContain("https://img.example/mr.jpg"); // the card's image
+    expect(html).toContain("Small Local Gig"); // an event with no picture is a card too
+    expect(html).not.toContain("More on while you’re there"); // no separate list
+    expect(html.match(/Details: /g)).toHaveLength(2); // one opener per card
+    expect(html.match(/Add Michel Rivard to your trip/g)).toHaveLength(1); // each card has its own add button
   });
 
   it("events block: same act at the same venue on several nights collapses to one card with a date range", () => {

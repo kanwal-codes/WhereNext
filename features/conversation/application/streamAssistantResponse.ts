@@ -9,7 +9,7 @@ type AssistantDelta = {
   /** Phase 2.6.2 (docs/overhaul/roadmap/phase-2-speed.md): a real, backend-driven milestone
    *  ("thinking about your trip…" -> "checking live sources…" -> "pulling it together…"),
    *  replacing the fixed-timer guess the UI used before this. */
-  progress?: "resolve" | "retrieve" | "compose";
+  progress?: "resolve" | "retrieve" | "decide" | "compose";
   /** Set on a "retrieve" progress frame when RESOLVE planned at least one recognized tool —
    *  what's actually being looked up ("finding places", "plotting the route"), for a caller
    *  to show in place of a generic "checking live sources…". */
@@ -35,7 +35,7 @@ export async function streamAssistantResponse(
   onUserSaved: () => void,
   /** Phase 2.6.2: fires for each real backend milestone the server streams before any reply
    *  text — optional, so every other caller of this function is unaffected. */
-  onProgress?: (stage: "resolve" | "retrieve" | "compose", label?: string) => void,
+  onProgress?: (stage: "resolve" | "retrieve" | "decide" | "compose", label?: string) => void,
 ): Promise<{ content: string; meta?: AssistantTurnMeta }> {
   const response = await fetch("/api/ai", {
     method: "POST",

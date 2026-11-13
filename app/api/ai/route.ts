@@ -12,7 +12,7 @@ import { tripMemberIdentities } from "@/lib/server/trip-member-identities";
 import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 import { runAssistantTurn, finalizeAssistantBlocks, type AssistantTurnResult } from "@/lib/application/orchestrate/run-turn";
 import { lastSuggestedFollowups, modelHistory, surfacedEarlierFrom } from "@/lib/application/orchestrate/thread-history";
-import { SSE_HEADERS, doneFrame, isAbortError, progressFrame, textFrame, toolProgressLabel, truncatedFrame } from "@/lib/server/ai-stream-frames";
+import { SSE_HEADERS, doneFrame, isAbortError, buildStep, progressFrame, textFrame, toolSteps, truncatedFrame } from "@/lib/server/ai-stream-frames";
 import { openComposeStream } from "@/lib/server/compose-stream";
 import { turnLimitRefusal } from "@/lib/server/ai-turn-limits";
 import { persistedAssistantStream } from "@/features/conversation/application/persistedAssistantStream";
@@ -183,7 +183,8 @@ export const POST = withRoute(async function POST(request: Request) {
             {
               tripCtx, prompt, history: modelMessages, tripSummary, viewContext, surfacedEarlier, signal: combinedAbort,
               deriveTripSummary: (ctx) => [formatTripMemory(ctx), membersLine, expensesOf(ctx), threadSummary && `Earlier context (current trip facts take precedence): ${threadSummary}`].filter(Boolean).join(" "),
-              onRetrieveStart: (tools) => safeEnqueue(progressFrame("retrieve", toolProgressLabel(tools))),
+              onRetrieveStart: (calls) => { const steps = toolSteps(calls); safeEnqueue(progressFrame("retrieve", steps.length ? steps.join("\n") : undefined)); },
+              onRetrieveDone: (capabilities) => safeEnqueue(progressFrame("decide", buildStep(capabilities))),
             },
           );
 
@@ -204,7 +205,7 @@ export const POST = withRoute(async function POST(request: Request) {
 
           // --- COMPOSE (bounded tool-calling loop) -----------------------------
           const { system, composeSkipLine, composeTools } = result;
-          safeEnqueue(progressFrame("compose"));
+          safeEnqueue(progressFrame("compose", buildStep(result.resolved.capabilities)));
           if (composeSkipLine) {
             // Side-builders still ran (they start before COMPOSE regardless of composeSkipLine) —
             // their blocks belong on this reply too. Building `finalMeta` here used to block the

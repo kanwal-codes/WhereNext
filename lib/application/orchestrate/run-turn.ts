@@ -88,7 +88,9 @@ export type AssistantTurnRequest = {
    *  places…", "getting directions…") instead of a generic "checking live sources…". Never
    *  fires for a trivial turn (Phase 2.5) or a turn that exits before RETRIEVE (out-of-scope/
    *  clarify). Can fire with an empty array (e.g. intent trip_memory plans no tools at all). */
-  onRetrieveStart?: (tools: ResolvedTurn["toolPlan"][number]["tool"][]) => void;
+  onRetrieveStart?: (calls: ResolvedTurn["toolPlan"]) => void;
+  /** The look-ups are back and the answer is being worked out (plans, budgets and comparisons are built from here). */
+  onRetrieveDone?: (capabilities: ResolvedTurn["capabilities"]) => void;
 };
 
 type BaseResult = {
@@ -233,7 +235,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   }
 
   // --- RETRIEVE ---------------------------------------------------------------
-  req.onRetrieveStart?.(resolved.toolPlan.map((call) => call.tool));
+  req.onRetrieveStart?.(resolved.toolPlan);
   // A fresh plan starts from what this trip could hold (who is going, what the place is known for, what it is best at that
   // month), not from whatever the last message happened to search for. An edit of existing days does not need it.
   // The menu is shared and usually already cached; personalizing it is code. Only a menu nobody has written yet makes this wait,
@@ -287,6 +289,8 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
       toolsUsed: toolPlan.map((call) => call.tool), providersFailed: evidence.unavailableProviders,
     };
   }
+
+  req.onRetrieveDone?.(resolved.capabilities);
 
   // Persist a same-origin path, never the hostname of the laptop/phone that created the turn.
   const photoUrl = (name: string) => `/api/trips/${tripId}/places/google/photo?name=${encodeURIComponent(name)}`;

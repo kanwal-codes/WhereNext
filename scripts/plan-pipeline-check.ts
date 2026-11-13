@@ -16,10 +16,15 @@ import { resolveTurn } from "../lib/application/turn-resolver";
 import { needsRoute, planRoute } from "../lib/application/trip-route";
 
 const message = process.argv[2] ?? "Plan my first 5 days";
-const trip = { name: "Toronto long weekend", destination: "Toronto, Ontario, Canada", origin: null, duration_days: 4, start_date: "2026-12-18", end_date: "2026-12-21", travelers: 4 };
-const preferences = { likes: ["Indian food", "hiking"], groupType: "friends", pace: "moderate" };
-const tripSummary = `trip: ${trip.name}; destination: ${trip.destination}; duration: 4 days; travellers: 4; dates: ${trip.start_date} to ${trip.end_date}; likes: Indian food, hiking; group: friends`;
-const history = [
+// TRIP_DEST ("Ibiza, Spain"), TRIP_DAYS (5), TRIP_LIKES ("beaches,markets"), TRIP_GROUP ("solo") swap the sample traveller; SHOW_PLACES=1 lists every candidate place.
+const dest = process.env.TRIP_DEST ?? "Toronto, Ontario, Canada";
+const nights = Number(process.env.TRIP_DAYS ?? 4);
+const likes = (process.env.TRIP_LIKES ?? "Indian food,hiking").split(",").map((x) => x.trim()).filter(Boolean);
+const group = process.env.TRIP_GROUP ?? "friends";
+const trip = { name: `${dest.split(",")[0]} trip`, destination: dest, origin: null, duration_days: nights, start_date: "2026-12-18", end_date: `2026-12-${18 + nights - 1}`, travelers: group === "solo" ? 1 : 4 };
+const preferences = { likes, groupType: group, pace: "moderate" };
+const tripSummary = `trip: ${trip.name}; destination: ${trip.destination}; duration: ${nights} days; travellers: ${trip.travelers}; dates: ${trip.start_date} to ${trip.end_date}; likes: ${likes.join(", ")}; group: ${group}`;
+const history = process.env.TRIP_DEST ? [] : [
   { role: "user" as const, content: "one day trip with friends, its a long weekend in toronto and places around it" },
   { role: "assistant" as const, content: "Fun. A long weekend in Toronto gives you city and day-trip options. What are you into?" },
   { role: "user" as const, content: "famous indian restaurants" },
@@ -55,6 +60,7 @@ const perKind = new Map<string, number>();
 for (const group of evidence.placeGroups ?? []) perKind.set(group.label, group.places.length);
 console.log(`RETRIEVE ${lap(t)}: ${evidence.places.length} places, ${evidence.events.length} events, unavailable=[${evidence.unavailableProviders}]`);
 console.log(`  per search: ${[...perKind].map(([k, n]) => `${k}=${n}`).join("; ")}`);
+if (process.env.SHOW_PLACES) for (const p of evidence.places) console.log(`  place: ${p.name} | ${(p as { types?: string[] }).types?.slice(0, 2).join("/") ?? ""} | ★${(p as { rating?: number }).rating ?? "-"}`);
 console.log(`  events: ${evidence.events.map((e) => `${e.title} (${e.startDate ?? e.date}, ${e.relToTrip ?? "?"})`).join("; ") || "none"}`);
 
 const { anchorEvent } = compactEvidence({ evidence, toolPlan, requestedImages: false, photoUrl: (n) => n });

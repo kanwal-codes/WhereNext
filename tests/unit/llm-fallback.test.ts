@@ -233,3 +233,60 @@ describe("prompt caching (opts.caching) marks the system prompt", () => {
     expect(generateObjectMock.mock.calls[0][0].messages).toEqual(messages);
   });
 });
+
+describe("generateStructured — Gemini lead with Claude fallback", () => {
+  const geminiReply = (text: string) => ({ ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text }] } }], usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 3 } }) });
+  const failure = (status: number) => ({ ok: false, status, json: async () => ({ error: { status: "ERR", message: "nope" } }) });
+  const messages = [{ role: "system" as const, content: "sys" }, { role: "user" as const, content: "hi" }];
+  const chain = (name: string) => [`google/${name}`, "claude-haiku-5-5"];
+  let n = 0;
+  const fresh = () => `gemini-test-${(n += 1)}`; // the cooldown is per model name, so each test uses its own
+
+  afterEach(() => { vi.unstubAllGlobals(); delete process.env.GOOGLE_GEMINI_API; });
+
+  it("answers from Gemini when it works, without touching Claude, and tags usage with the Gemini id", async () => {
+    process.env.GOOGLE_GEMINI_API = "k";
+    const fetchMock = vi.fn().mockResolvedValue(geminiReply('Here: {"intent":"ok"}'));
+    vi.stubGlobal("fetch", fetchMock);
+    const onUsage = vi.fn();
+    const name = fresh();
+    await expect(generateStructured(chain(name), messages, schema, undefined, onUsage)).resolves.toEqual({ intent: "ok" });
+    expect(generateObjectMock).not.toHaveBeenCalled();
+    expect(onUsage).toHaveBeenCalledWith({ model: `google/${name}`, promptTokens: 5, completionTokens: 3 });
+    expect(fetchMock.mock.calls[0][0]).toContain(`/models/${name}:generateContent`);
+  });
+
+  it("falls back to Claude on a 429, then leaves Gemini alone for the cooldown", async () => {
+    process.env.GOOGLE_GEMINI_API = "k";
+    const fetchMock = vi.fn().mockResolvedValue(failure(429));
+    vi.stubGlobal("fetch", fetchMock);
+    generateObjectMock.mockResolvedValue({ object: { intent: "claude" }, usage: { inputTokens: 1, outputTokens: 1 } });
+    const name = fresh();
+    await expect(generateStructured(chain(name), messages, schema)).resolves.toEqual({ intent: "claude" });
+    await expect(generateStructured(chain(name), messages, schema)).resolves.toEqual({ intent: "claude" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(generateObjectMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("falls back to Claude when Gemini answers with JSON that does not match the schema", async () => {
+    process.env.GOOGLE_GEMINI_API = "k";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(geminiReply('{"wrong":1}')));
+    generateObjectMock.mockResolvedValue({ object: { intent: "claude" }, usage: { inputTokens: 1, outputTokens: 1 } });
+    await expect(generateStructured(chain(fresh()), messages, schema)).resolves.toEqual({ intent: "claude" });
+  });
+
+  it("goes straight to Claude when there is no key, without a request", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    generateObjectMock.mockResolvedValue({ object: { intent: "claude" }, usage: { inputTokens: 1, outputTokens: 1 } });
+    await expect(generateStructured(chain(fresh()), messages, schema)).resolves.toEqual({ intent: "claude" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("does not fall back on a 400 the next model cannot fix", async () => {
+    process.env.GOOGLE_GEMINI_API = "k";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(failure(400)));
+    await expect(generateStructured(chain(fresh()), messages, schema)).rejects.toMatchObject({ statusCode: 400 });
+    expect(generateObjectMock).not.toHaveBeenCalled();
+  });
+});

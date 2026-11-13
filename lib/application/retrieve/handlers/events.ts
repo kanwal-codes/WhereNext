@@ -90,7 +90,7 @@ export async function handleEvents(call: EventsCall, ctx: RetrieveContext): Prom
   // twice. Ticketmaster listed first so it wins a match (richer data — it's the one with images).
   const raw: EventResult[] = dedupeByFuzzyMatch([
     ...(tm ?? []).map((e) => ({ title: e.title, url: e.url, date: e.date, venue: e.venue, source: "ticketmaster", imageUrl: e.imageUrl, startDate: isoDay(e.date) })),
-    ...(eb ?? []).map((e) => ({ title: e.title, url: e.url, date: e.date, venue: e.venue, source: "eventbrite", startDate: isoDay(e.date) })),
+    ...(eb ?? []).map((e) => ({ title: e.title, url: e.url, date: e.date, venue: e.venue, source: "eventbrite", imageUrl: e.imageUrl, startDate: isoDay(e.date) })),
   ]);
 
   const before = ctx.eventList.length;

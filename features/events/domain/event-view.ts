@@ -44,6 +44,12 @@ export function goodToKnowRows(d: EventDetail | null): Array<[string, string]> {
 }
 
 /** A Google Maps search for the venue: by coordinates when known, else by name and address; null with neither. */
+/** Google Maps directions to the venue (coordinates when known, else name and address); null with nothing to go on. */
+export function venueDirectionsUrl(d: Pick<EventDetail, "latitude" | "longitude" | "venueAddress" | "city"> | null, venueName: string | null): string | null {
+  const destination = d?.latitude && d?.longitude ? `${d.latitude},${d.longitude}` : [venueName, d?.venueAddress ?? d?.city].filter(Boolean).join(", ");
+  return destination ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}` : null;
+}
+
 export function venueMapsUrl(d: Pick<EventDetail, "latitude" | "longitude" | "venueAddress" | "city"> | null, venueName: string | null): string | null {
   return d?.latitude && d?.longitude
     ? `https://www.google.com/maps/search/?api=1&query=${d.latitude},${d.longitude}`

@@ -52,7 +52,7 @@ export const GET = withRoute(async (request: Request, { params }: { params: Prom
     // carries on and is cached, so the next look includes it.
     const eb = await Promise.race([ebP, new Promise<null>((resolve) => setTimeout(() => resolve(null), tm ? EB_GRACE_MS : 6_000))]);
     const tmList = (tm ?? []).map((e) => ({ title: e.title, url: e.url, date: e.date, venue: e.venue, source: "ticketmaster", imageUrl: e.imageUrl }));
-    const ebList = (eb ?? []).map((e) => ({ title: e.title, url: e.url, date: e.date, venue: e.venue, source: "eventbrite" as string }));
+    const ebList = (eb ?? []).map((e) => ({ title: e.title, url: e.url, date: e.date, venue: e.venue, source: "eventbrite" as string, imageUrl: e.imageUrl }));
     const list = mergeEventSources(tmList, ebList);
     const terms = query.toLowerCase().split(/\s+/).filter((term) => term.length > 2 && !["concert", "event", "events", "near"].includes(term));
     const relevant = terms.length ? list.filter((event) => terms.every((term) => event.title.toLowerCase().includes(term))) : list;

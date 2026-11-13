@@ -95,6 +95,7 @@ export async function placeMenu(input: { destination: string; startDate?: string
     menuSchema,
     withDeadline(undefined, AI_DEADLINE_MS.sideBuilder),
     input.onUsage,
+    "menu",
   );
   try {
     return await cached(key, MENU_TTL_MS, async () => {
@@ -211,5 +212,13 @@ export function pickKinds(kinds: TripKind[], days: number): TripKind[] {
     if (out) picked.splice(picked.indexOf(out), 1);
     picked.push(spare.shift()!);
   }
+  // A plan with no meal in it is half a day: the best eating kind is always searched, whatever the traveller's likes. It adds a search
+  // rather than displacing one, so the kinds that fit the traveller keep their place.
+  if (!picked.some(eats)) {
+    const meal = byWeight.find(eats);
+    if (meal) picked.push(meal);
+  }
   return picked.sort((a, b) => b.weight - a.weight);
 }
+
+const eats = (kind: TripKind) => /\b(food|foods|cuisine|restaurants?|dining|eats|tapas|seafood|cafes?|brunch|street food)\b/i.test(`${kind.label} ${kind.placeQuery} ${kind.tags.join(" ")}`);

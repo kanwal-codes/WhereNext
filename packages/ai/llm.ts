@@ -59,6 +59,50 @@ async function withModelFallback<T>(
   throw lastError;
 }
 
+/** A Gemini chain entry ("google/gemini-3.5-flash-lite" or a bare "gemini-…"). Only the structured path speaks to Gemini, over plain REST:
+ *  no Google SDK is installed, and one JSON call needs nothing more. Every failure carries a `statusCode`, so `isRetryable` moves on to the next (Claude) entry. */
+const isGemini = (modelId: string) => /^(google\/)?gemini-/.test(modelId);
+const GEMINI_TIMEOUT_MS = 12_000;
+/** After a 429 or 503 Gemini is left alone for a minute: a plain key's per-minute quota recovers on that scale, and hammering it
+ *  would only add a wasted round trip to every call. Keyed by model, per process. */
+const GEMINI_COOLDOWN_MS = 60_000;
+const geminiPausedUntil = new Map<string, number>();
+const httpError = (message: string, statusCode: number) => Object.assign(new Error(message), { statusCode });
+
+const messageText = (content: ModelMessage["content"]) =>
+  typeof content === "string" ? content : content.map((part) => ("text" in part && typeof part.text === "string" ? part.text : "")).join("");
+
+async function geminiStructured<T>(modelId: string, messages: ModelMessage[], schema: z.ZodType<T>, signal: AbortSignal | undefined, onUsage?: (entry: UsageEntry) => void): Promise<T> {
+  const key = process.env.GOOGLE_GEMINI_API;
+  if (!key) throw httpError("GOOGLE_GEMINI_API is not set", 401);
+  const name = modelId.replace(/^google\//, "");
+  if ((geminiPausedUntil.get(name) ?? 0) > Date.now()) throw httpError(`${name} is cooling down after a rate limit`, 429);
+
+  const prepared = withJsonInstruction(messages, schema);
+  const system = prepared.filter((m) => m.role === "system").map((m) => messageText(m.content)).join("\n\n");
+  const contents = prepared.filter((m) => m.role !== "system").map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: messageText(m.content) }] }));
+  const timeout = AbortSignal.timeout(GEMINI_TIMEOUT_MS);
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${name}:generateContent`, {
+    method: "POST",
+    signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    headers: { "content-type": "application/json", "x-goog-api-key": key },
+    body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents, generationConfig: { responseMimeType: "application/json", maxOutputTokens: STRUCTURED_MAX_TOKENS } }),
+  });
+  const body = (await response.json().catch(() => ({}))) as {
+    error?: { status?: string; message?: string };
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number };
+  };
+  if (!response.ok) {
+    if (response.status === 429 || response.status === 503) geminiPausedUntil.set(name, Date.now() + GEMINI_COOLDOWN_MS);
+    throw httpError(`Gemini ${response.status} ${body.error?.status ?? ""}: ${body.error?.message ?? ""}`.slice(0, 300), response.status);
+  }
+  const text = (body.candidates?.[0]?.content?.parts ?? []).map((part) => part.text ?? "").join("");
+  const usage = body.usageMetadata;
+  onUsage?.({ model: modelId, promptTokens: usage?.promptTokenCount ?? 0, completionTokens: (usage?.candidatesTokenCount ?? 0) + (usage?.thoughtsTokenCount ?? 0) });
+  return schema.parse(extractJson(text));
+}
+
 /** Output cap per call. The SDK would otherwise ask for the model's maximum (128k), which is not what a plan or a blurb needs. */
 const STRUCTURED_MAX_TOKENS = 8_000;
 const TEXT_MAX_TOKENS = 4_000;
@@ -101,6 +145,7 @@ export async function generateStructured<T>(
 ): Promise<T> {
   const prepared = opts?.caching ? withCachedSystem(messages) : messages;
   return withModelFallback(chain, async (model, modelId) => {
+    if (isGemini(modelId)) return geminiStructured(modelId, prepared, schema, signal, onUsage);
     if (!nativeRefused.has(schema)) {
       try {
         const result = await generateObject({ model, schema, messages: prepared, maxOutputTokens: STRUCTURED_MAX_TOKENS, abortSignal: signal, allowSystemInMessages: true });

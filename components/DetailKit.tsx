@@ -133,7 +133,7 @@ export function InfoList({ children }: { children: ReactNode }) {
 }
 
 /** One row of an `InfoList`: icon · content … trailing. */
-export function InfoRow({ icon: Icon, href, external, trailing, children }: { icon: LucideIcon; href?: string; external?: boolean; trailing?: ReactNode; children: ReactNode }) {
+export function InfoRow({ icon: Icon, href, external, trailing, className, children }: { icon: LucideIcon; href?: string; external?: boolean; trailing?: ReactNode; className?: string; children: ReactNode }) {
   const inner = (
     <>
       <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
@@ -143,7 +143,7 @@ export function InfoRow({ icon: Icon, href, external, trailing, children }: { ic
   );
   const row = "flex min-h-12 items-center gap-3";
   return (
-    <li>
+    <li className={className}>
       {href ? (
         <a href={href.startsWith("tel:") ? href : safeHref(href)} {...(external ? { target: "_blank", rel: "noreferrer noopener" } : {})} className={cn(row, "hover:text-primary")}>
           {inner}

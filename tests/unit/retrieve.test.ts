@@ -74,6 +74,31 @@ describe("retrieveEvidence", () => {
     expect((await retrieveEvidence([{ tool: "search_places", query: "retrieve-plan-breadth-2", location: "Toronto" }])).places).toHaveLength(12);
   });
 
+  it("returns what it has when the stage deadline fires, but still stops when the traveller does", async () => {
+    process.env.GOOGLE_MAPS_API_KEY = "k";
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new DOMException("The operation was aborted due to timeout", "TimeoutError")));
+    const timedOut = AbortSignal.timeout(1);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const late = await retrieveEvidence([{ tool: "search_places", query: "retrieve-deadline", location: "Ibiza" }], {}, timedOut);
+    expect(late.places).toEqual([]);
+    expect(late.unavailableProviders).toContain("google-places");
+    clearMemoryCache();
+    const stop = new AbortController();
+    stop.abort();
+    await expect(retrieveEvidence([{ tool: "search_places", query: "retrieve-deadline-2", location: "Ibiza" }], {}, stop.signal)).rejects.toBeDefined();
+  });
+
+  it("leaves a cannabis club, a grocery shop, a congress hall and the city itself out of a plan, but not out of a direct search", async () => {
+    process.env.GOOGLE_MAPS_API_KEY = "k";
+    const names = ["Cala Salada", "The High Class Ibiza Weed Club", "Eivissa Supermarket", "Palacio de Congresos", "Ibiza", "Sa Caleta"];
+    const places = names.map((name, i) => ({ id: `nas${i}`, displayName: { text: name }, location: { latitude: 38.9, longitude: 1.4 } }));
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ places }), { status: 200 }))));
+    const plan = await retrieveEvidence([{ tool: "search_places", query: "retrieve-not-a-stop", location: "Ibiza" }], { placeLimit: 20 });
+    expect(plan.places.map((p) => p.name).sort()).toEqual(["Cala Salada", "Sa Caleta"]);
+    clearMemoryCache();
+    expect((await retrieveEvidence([{ tool: "search_places", query: "retrieve-not-a-stop-2", location: "Ibiza" }])).places).toHaveLength(6);
+  });
+
   it("merges a plan's searches one kind at a time, so the best-reviewed kind cannot take every slot", async () => {
     process.env.GOOGLE_MAPS_API_KEY = "k";
     const lane = (prefix: string, rating: number, count: number) => Array.from({ length: 6 }, (_, i) => ({ id: `${prefix}${i}`, displayName: { text: `${prefix} ${i}` }, rating, userRatingCount: count, location: { latitude: 43.65, longitude: -79.38 } }));

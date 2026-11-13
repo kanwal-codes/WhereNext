@@ -18,7 +18,7 @@ import * as llm from "./llm";
  * Every role calls Anthropic's API directly (`packages/ai/llm.ts`) with `ANTHROPIC_API_KEY`: one key,
  * one client, and a per-role list of Claude models tried in order. Call sites ask for a role, never a model id.
  */
-export type ModelRole = "resolve" | "compose" | "bulk";
+export type ModelRole = "resolve" | "compose" | "bulk" | "day" | "menu";
 
 /** One entry in a role's fallback list: an Anthropic model id, e.g. "claude-haiku-5-5". */
 export type ModelChainEntry = string;
@@ -40,18 +40,30 @@ const DEFAULT_CHAINS: Record<ModelRole, ModelChainEntry[]> = {
   resolve: ["claude-sonnet-5-5", "claude-haiku-5-5", "claude-haiku-4-5"],
   compose: ["claude-sonnet-5-5", "claude-haiku-5-5", "claude-sonnet-5"],
   bulk: ["claude-haiku-5-5", "claude-sonnet-5-5"],
+  // day — the per-day writer of a trip plan: small, parallel, structured calls where speed is what the user waits on. The same Claude
+  // chain as bulk behind a faster lead (see DAY_FAST). Structured calls only: the Gemini adapter does not serve plain text.
+  day: ["claude-haiku-5-5", "claude-sonnet-5-5"],
+  // menu — what a place holds (the shared place menu) and the legs of a multi-city route: written once, cached and reused by every
+  // traveller, so the stronger model's extra seconds and cents are paid once. Haiku answers if Sonnet stalls.
+  menu: ["claude-sonnet-5-5", "claude-haiku-5-5"],
 };
 
-const ROLE_ENV: Record<ModelRole, string> = { resolve: "RESOLVE_MODEL", compose: "AI_MODEL", bulk: "SUMMARY_MODEL" };
+/** Gemini 3.5 Flash Lite writes a day in ~1.3 s against Haiku 5.5's ~4.6 s (eval 2026-11-12, docs/qa/model-eval), with notes a little
+ *  blander but still grounded in the places it is given. Leads the day chain only when GOOGLE_GEMINI_API is set; any failure
+ *  (quota, outage, bad JSON) falls through to Claude, so the key is an optional speed-up, never a dependency. */
+const DAY_FAST = "google/gemini-3.5-flash-lite";
 
-/** The model chain for a role: the role's env override (a Gateway model id, e.g.
- *  "anthropic/claude-opus-5") first if set, then the built-in defaults above (minus a
- *  duplicate of the override). An env override is always a bare, unpinned string — pinning is
- *  only ever a built-in default's lead entry, per the doc comment on `ModelChainEntry`. */
+const ROLE_ENV: Record<ModelRole, string> = { resolve: "RESOLVE_MODEL", compose: "AI_MODEL", bulk: "SUMMARY_MODEL", day: "DAY_MODEL", menu: "MENU_MODEL" };
+
+/** The model chain for a role: the role's env override (a model id, e.g. "claude-opus-5") first if set, then the built-in
+ *  defaults above (minus a duplicate of the override). An env override is always a bare, unpinned string — pinning is
+ *  only ever a built-in default's lead entry, per the doc comment on `ModelChainEntry`. `DAY_MODEL=off` keeps the day writer on Claude. */
 export function modelChainFor(role: ModelRole): ModelChainEntry[] {
   const override = process.env[ROLE_ENV[role]];
   const defaults = DEFAULT_CHAINS[role];
-  return override ? [override, ...defaults.filter((entry) => entry !== override)] : defaults;
+  if (override === "off") return defaults;
+  const lead = override || (role === "day" && process.env.GOOGLE_GEMINI_API ? DAY_FAST : "");
+  return lead ? [lead, ...defaults.filter((entry) => entry !== lead)] : defaults;
 }
 
 /**

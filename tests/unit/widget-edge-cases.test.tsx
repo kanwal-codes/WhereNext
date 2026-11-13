@@ -24,6 +24,11 @@ describe("flight picks", () => {
     expect(labels).toEqual(expect.arrayContaining(["Cheapest", "Fastest"]));
     expect(picks.find((p) => p.offer.id === "cheap")?.labels).toContain("Cheapest");
   });
+  it("labels a fare that is both Best and Cheapest just 'Cheapest'", () => {
+    const picks = pickFares([offer("cheap", "700", 400), offer("mid", "900", 600), offer("slow", "950", 900, 1)] as never);
+    expect(picks.flatMap((p) => p.labels)).not.toContain("Best");
+    expect(picks.find((p) => p.offer.id === "cheap")?.labels).toEqual(["Cheapest", "Fastest"]);
+  });
   it("gives the cheapest and the fastest their own picks when they differ", () => {
     const picks = pickFares([offer("cheap", "700", 900, 1), offer("fast", "1100", 420), offer("mid", "800", 500)] as never);
     expect(picks.find((p) => p.labels.includes("Cheapest"))?.offer.id).toBe("cheap");

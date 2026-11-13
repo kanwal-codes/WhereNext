@@ -80,10 +80,10 @@ export function assignDays(input: { candidates: Candidate[]; days: number; kindO
   });
 
   const cityDays = Array.from({ length: days }, (_, i) => i + 1).filter((day) => !tripDays.includes(day) || out[day - 1].length < 2);
-  // One kind may fill only about a third of the days (a favourite cuisine earns a few dinners, not every one); the traveller's own
+  // One kind may fill only about half the days (a favourite cuisine earns a few dinners, not every one); the traveller's own
   // saved places have no cap. Days still short of two places afterwards are topped up from the kinds used least, so a small pool
   // (or a single kind) still fills every day.
-  const cap = Math.max(1, Math.ceil(days / 3));
+  const cap = Math.max(2, Math.ceil(days / 2));
   const used = new Map<Candidate[], number>();
   const room = (queue: Candidate[]) => (queue[0]?.kind === SAVED ? queue.length : Math.max(0, Math.min(queue.length, cap - (used.get(queue) ?? 0))));
   const size = new Map(queues.map((queue) => [queue, queue.length]));
@@ -114,7 +114,7 @@ const DAY_SYSTEM = (language: string) => `You write ONE part of a trip plan: the
 {"days":[{"label":"Day 2","subtitle":"<3-5 word theme>","stops":[{"time":"09:00","title":"<exact candidate name>","note":"<one line: why it fits or a tip>","placeId":"<id of the candidate, or omit>","kind":"sight"}]}]}
 Rules:
 - One entry per day named, labelled exactly as given.
-- Use ONLY that day's CANDIDATES: never another day's, never a venue that is not listed. Choose 2 to 4 of them (all of them when there are fewer), in the order you would do them, keeping stops in the same area close together. Copy the title and the id exactly; a candidate with no id gets no placeId.
+- Use ONLY that day's CANDIDATES: never another day's, never a venue that is not listed. Choose 3 or 4 of them (all of them when there are fewer; 2 only for a relaxed request or a day trip), in the order you would do them, keeping stops in the same area close together. Copy the title and the id exactly; a candidate with no id gets no placeId.
 - Give every stop a real 24-hour clock time at a sensible pace (breakfast ~08:30, lunch ~12:30, dinner ~19:00, a museum or sight ~10:00-15:00, nightlife ~21:00+).
 - A restaurant or cafe goes at a meal time and is never the whole day: choose a mix of kinds when the candidates allow it.
 - Candidates marked "day trip" are far from the centre: they are the day, with time left for the journey.
@@ -177,6 +177,7 @@ export async function writeDays(input: {
     chunkSchema,
     deadlineFor(input.signal, chunk.length),
     input.onUsage,
+    "day",
   ));
   const results = await Promise.all(written);
   if (results.every((result) => !result)) return null;
@@ -201,3 +202,6 @@ export async function writeDays(input: {
   );
   return { ...(intro?.title ? { title: intro.title } : {}), ...(intro?.intro ? { intro: intro.intro } : {}), days };
 }
+
+/** For the model eval (scripts/model-eval): the day writer's own system prompt. */
+export { DAY_SYSTEM };

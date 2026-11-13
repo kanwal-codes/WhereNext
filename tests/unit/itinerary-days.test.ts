@@ -6,6 +6,11 @@ const many = (kind: string, count: number, dayTrip = false) => Array.from({ leng
 const ids = (days: Candidate[][]) => days.flatMap((day) => day.map((c) => c.key));
 
 describe("assignDays", () => {
+  it("lets one kind fill about half the days: five days of beaches get three, not two", () => {
+    const days = assignDays({ candidates: [...many("beaches", 6), ...many("markets", 6), ...many("food", 6), ...many("sights", 6)], days: 5, kindOrder: ["beaches", "markets", "food", "sights"] });
+    expect(days.flat().filter((c) => c.kind === "beaches")).toHaveLength(3);
+  });
+
   it("shares the pool evenly, so a small pool thins every day a little instead of emptying the last ones", () => {
     const days = assignDays({ candidates: [...many("food", 4), ...many("sights", 4), ...many("parks", 4)], days: 6, kindOrder: ["food", "sights", "parks"] });
     expect(days.map((day) => day.length)).toEqual([2, 2, 2, 2, 2, 2]);

@@ -41,6 +41,9 @@ import { placeDirectionsUrl, telHref, todayHoursOf, usableReviews, wheelchairAcc
  * is the routed `/place/[id]`; `variant="panel"` is the chat side rail (one
  * column, tighter padding, no back-link — the panel chrome owns close).
  */
+/** A round icon-only link the height of the buttons beside it (call, website). */
+const CONTACT_ICON = "inline-flex size-12 shrink-0 items-center justify-center rounded-full border border-input bg-background text-foreground transition-transform active:scale-[0.97]";
+
 export function PlaceDetailView({
   tripId,
   placeId,
@@ -87,6 +90,7 @@ export function PlaceDetailView({
   const todayHours = todayHoursOf(hours);
   const openNow = details.regularOpeningHours?.openNow;
   const directionsHref = placeDirectionsUrl(name, details.formattedAddress, placeId);
+  const bothContacts = Boolean(details.nationalPhoneNumber && details.websiteUri);
 
   const place = detailsToPlace(details);
   // The one action, up top. No card wrapper — it's a button, not a module.
@@ -227,9 +231,20 @@ export function PlaceDetailView({
           // The two things you do with a place sit under its name, in the page, not as a bar pinned over the content.
           <div className="mt-5 flex items-center gap-2.5 lg:hidden">
             <div className="min-w-0 flex-1"><AddToTripControl tripId={tripId} place={place} size="lg" block noSave /></div>
-            <a href={directionsHref} target="_blank" rel="noreferrer noopener" className="inline-flex h-12 shrink-0 items-center gap-2 rounded-full border border-input bg-background px-5 text-[0.9375rem] font-semibold transition-transform active:scale-[0.97]">
-              <Navigation className="size-[1.125rem]" aria-hidden /> Directions
+            {/* With both a phone and a website there is no room for the word: Directions shrinks to its icon so the four fit on one row. */}
+            <a href={directionsHref} target="_blank" rel="noreferrer noopener" aria-label="Directions" className={cn("inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full border border-input bg-background text-[0.9375rem] font-semibold transition-transform active:scale-[0.97]", bothContacts ? "size-12" : "px-4")}>
+              <Navigation className="size-[1.125rem]" aria-hidden />{!bothContacts && " Directions"}
             </a>
+            {details.nationalPhoneNumber && (
+              <a href={telHref(details.nationalPhoneNumber)} aria-label={`Call ${details.nationalPhoneNumber}`} className={CONTACT_ICON}>
+                <Phone className="size-[1.125rem]" aria-hidden />
+              </a>
+            )}
+            {details.websiteUri && (
+              <a href={details.websiteUri} target="_blank" rel="noreferrer noopener" aria-label={`Website, ${prettyWebsite(details.websiteUri).split("/")[0]}`} className={CONTACT_ICON}>
+                <Globe className="size-[1.125rem]" aria-hidden />
+              </a>
+            )}
           </div>
         )}
         {panel ? (

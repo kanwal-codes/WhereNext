@@ -16,7 +16,7 @@ export async function sendConversationMessage(input: {
   onAssistantDelta: (content: string) => void;
   /** Phase 2.6.2 (docs/overhaul/roadmap/phase-2-speed.md): real backend progress milestones.
    *  `label` is set on "retrieve" when RESOLVE planned a recognized tool ("finding places"). */
-  onProgress?: (stage: "resolve" | "retrieve" | "compose", label?: string) => void;
+  onProgress?: (stage: "resolve" | "retrieve" | "decide" | "compose", label?: string) => void;
   signal?: AbortSignal;
 }): Promise<{ meta?: AssistantTurnMeta; content: string }> {
   // /api/ai persists the user's message itself as its first step (see streamAssistantResponse's

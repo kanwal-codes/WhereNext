@@ -28,7 +28,7 @@ export type FlightPick = { labels: string[]; offer: FlightOffer };
 
 /**
  * The picks above the list: Best, Cheapest, Fastest. A single flight cannot be any of them, so it is "The only option".
- * When one fare wins two (Best and Cheapest are often the same), the picks merge and the label says both.
+ * When one fare wins two, the picks merge and the label says both: but a fare that is both Best and Cheapest is just "Cheapest".
  */
 export function pickFares(items: FlightOffer[]): FlightPick[] {
   if (items.length === 0) return [];
@@ -46,7 +46,7 @@ export function pickFares(items: FlightOffer[]): FlightPick[] {
     if (same) same.labels.push(label);
     else picks.push({ labels: [label], offer });
   }
-  return picks;
+  return picks.map((pick) => (pick.labels.includes("Cheapest") ? { ...pick, labels: pick.labels.filter((label) => label !== "Best") } : pick));
 }
 
 /** How a wait between two flights reads: an overnight stop, a connection that is too tight or very long, or just a wait. */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { lastSuggestedFollowups, modelHistory, surfacedEarlierFrom } from "../../lib/application/orchestrate/thread-history";
-import { SSE_HEADERS, doneFrame, isAbortError, progressFrame, textFrame, toolProgressLabel, truncatedFrame } from "../../lib/server/ai-stream-frames";
+import { SSE_HEADERS, doneFrame, isAbortError, buildStep, progressFrame, textFrame, toolSteps, truncatedFrame } from "../../lib/server/ai-stream-frames";
 
 const text = (b: Uint8Array) => new TextDecoder().decode(b);
 
@@ -19,16 +19,29 @@ describe("SSE frames", () => {
   });
 });
 
-describe("toolProgressLabel", () => {
-  it("names one or two activities and drops the rest", () => {
-    expect(toolProgressLabel(["search_places"])).toBe("finding places");
-    expect(toolProgressLabel(["search_places", "weather"])).toBe("finding places and checking the forecast");
-    expect(toolProgressLabel(["search_places", "weather", "flights", "stays"])).toBe("finding places and checking the forecast");
+describe("toolSteps", () => {
+  it("names each kind of look-up with its place or route", () => {
+    expect(toolSteps([
+      { tool: "search_places", location: "Ibiza, Spain" },
+      { tool: "events", location: "Ibiza, Spain" },
+      { tool: "flights", origin: "Toronto, Canada", destination: "Ibiza, Spain" },
+      { tool: "directions", from: "Madrid", to: "Lisbon" },
+    ])).toEqual(["finding places in Ibiza", "seeing what's on in Ibiza", "comparing flights Toronto to Ibiza", "plotting the route Madrid to Lisbon"]);
   });
-  it("does not repeat an activity, and says nothing for tools it cannot name", () => {
-    expect(toolProgressLabel(["search_places", "search_places"])).toBe("finding places");
-    expect(toolProgressLabel([])).toBeUndefined();
-    expect(toolProgressLabel(["mystery"])).toBeUndefined();
+  it("says one line per kind, at most four, and nothing for tools it cannot name", () => {
+    expect(toolSteps([{ tool: "search_places", location: "Rome" }, { tool: "search_places", location: "Rome" }])).toEqual(["finding places in Rome"]);
+    expect(toolSteps([{ tool: "weather" }, { tool: "stays" }, { tool: "research_web" }, { tool: "events" }, { tool: "flights" }])).toHaveLength(4);
+    expect(toolSteps([{ tool: "mystery" }])).toEqual([]);
+    expect(toolSteps([{ tool: "flights" }])).toEqual(["comparing flights"]);
+  });
+});
+
+describe("buildStep", () => {
+  it("names what is being built, and nothing for an answer that is only written", () => {
+    expect(buildStep(["itinerary", "budget"])).toBe("planning your days");
+    expect(buildStep(["budget"])).toBe("working out the costs");
+    expect(buildStep(["comparison"])).toBe("weighing the options");
+    expect(buildStep(["structured_answer"])).toBeUndefined();
   });
 });
 

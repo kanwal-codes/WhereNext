@@ -167,13 +167,14 @@ describe("provider adapters", () => {
     process.env.EVENTBRITE_API_KEY = "eb-token";
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ events: { results: [
       { name: "Night Market", url: "https://www.eventbrite.ca/e/night-market", start_date: "2026-09-14", primary_venue: { name: "Distillery District" } },
-      { name: { text: "Book Launch" }, url: "https://www.eventbrite.ca/e/book-launch", start: { local: "2026-09-20T18:00:00" } },
+      { name: { text: "Book Launch" }, url: "https://www.eventbrite.ca/e/book-launch", start: { local: "2026-09-20T18:00:00" }, image: { original: { url: "https://img.evbuc.com/pic.jpg" } } },
       { name: "No URL", start_date: "2026-09-01" },
     ] } }), { status: 200 })));
     const found = await localEvents("market", 43.65, -79.38);
     expect(found).toHaveLength(2);
     expect(found[0]).toMatchObject({ title: "Night Market", url: "https://www.eventbrite.ca/e/night-market", date: "2026-09-14", venue: "Distillery District", provider: "eventbrite" });
-    expect(found[1]).toMatchObject({ title: "Book Launch", date: "2026-09-20" });
+    expect(found[1]).toMatchObject({ title: "Book Launch", date: "2026-09-20", imageUrl: "https://img.evbuc.com/pic.jpg" });
+    expect(found[0]).not.toHaveProperty("imageUrl");
   });
 
   it("normalizes a Transit App plan and returns null when uncovered", async () => {

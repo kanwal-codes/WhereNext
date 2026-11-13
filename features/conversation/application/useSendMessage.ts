@@ -45,7 +45,7 @@ export function useSendMessage({ tripId, viewContext, messages, setMessages, loa
     const timer = setTimeout(() => setOutcome(null), 4000);
     return () => clearTimeout(timer);
   }, [outcome]);
-  const [progressStage, setProgressStage] = useState<"resolve" | "retrieve" | "compose" | undefined>(undefined);
+  const [progressStage, setProgressStage] = useState<"resolve" | "retrieve" | "decide" | "compose" | undefined>(undefined);
   // What RESOLVE actually planned to look up ("checking places", "getting directions"), shown
   // during "retrieve" instead of Typing's generic label — undefined falls back to that generic
   // text (no tools planned, or none the label map recognizes).

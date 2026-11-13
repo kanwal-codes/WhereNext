@@ -2,7 +2,7 @@ import { z } from "zod";
 import { withProviderTimeout } from "../request-signal";
 import { guardedFetch } from "@/lib/server/provider-guard";
 
-export type LocalEvent = { title: string; url: string; content: string; date?: string; venue?: string; provider: "eventbrite" };
+export type LocalEvent = { title: string; url: string; content: string; date?: string; venue?: string; imageUrl?: string; provider: "eventbrite" };
 
 const nameField = z.union([z.string(), z.object({ text: z.string().optional() })]).optional();
 const responseSchema = z.object({
@@ -13,6 +13,7 @@ const responseSchema = z.object({
       start_date: z.string().optional(),
       start: z.object({ local: z.string().optional() }).optional(),
       primary_venue: z.object({ name: z.string().optional() }).nullable().optional(),
+      image: z.object({ url: z.string().optional(), original: z.object({ url: z.string().optional() }).optional() }).nullable().optional(),
     })).default([]),
   }).optional(),
 });
@@ -40,7 +41,8 @@ export async function localEvents(query: string, latitude: number, longitude: nu
         page_size: 20,
         point_radius: { latitude, longitude, radius: "25km" },
       },
-      "expand.destination_event": ["primary_venue"],
+      // "image" is what turns the listing's bare image_id into a picture; without it an Eventbrite event has none.
+      "expand.destination_event": ["primary_venue", "image"],
     }),
     signal: withProviderTimeout(signal),
   });
@@ -51,6 +53,7 @@ export async function localEvents(query: string, latitude: number, longitude: nu
     if (!title || !event.url) return [];
     const date = event.start_date ?? event.start?.local?.slice(0, 10);
     const venue = event.primary_venue?.name ?? undefined;
-    return [{ title, url: event.url, date, venue, provider: "eventbrite" as const, content: [date, venue].filter(Boolean).join(" · ") }];
+    const imageUrl = event.image?.original?.url ?? event.image?.url;
+    return [{ title, url: event.url, date, venue, ...(imageUrl && /^https:\/\//.test(imageUrl) ? { imageUrl } : {}), provider: "eventbrite" as const, content: [date, venue].filter(Boolean).join(" · ") }];
   });
 }

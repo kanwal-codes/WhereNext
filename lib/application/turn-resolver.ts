@@ -412,3 +412,6 @@ export async function resolveTurn(input: {
   // user the turn was planned without the router (rather than degrading silently).
   return { ...resolvedTurnSchema.parse({}), degraded: true };
 }
+
+/** For the model eval (scripts/model-eval): the router's own system prompt. */
+export { SYSTEM as RESOLVE_SYSTEM };

@@ -15,7 +15,7 @@ import { warmPlace } from "@/features/places/application/placeDetailsCache";
 import { SkeletonPhotoCard } from "@/components/Skeleton";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { placeGlyph } from "./glyphs";
-import { compactCount, controlSecondary, grid } from "./ui";
+import { controlSecondary, grid } from "./ui";
 import { BlockHandlers } from "./blockShared";
 
 export const cleanSectionTitle = (value?: string) => value
@@ -47,7 +47,7 @@ export function PlaceCardView({
       src={portableProxyPhotoUrl(place.photoUrl)}
       alt={place.name}
       glyph={placeGlyph(place.category, place.name).icon}
-      topLeft={typeof place.rating === "number" ? <CineRating rating={place.rating} count={place.userRatingCount ? compactCount(place.userRatingCount) : undefined} /> : category ? <CinePill>{category}</CinePill> : undefined}
+      topLeft={typeof place.rating === "number" ? <CineRating rating={place.rating} /> : category ? <CinePill>{category}</CinePill> : undefined}
       // "From the web" is the default for every card: only a non-default trust label carries information.
       topRight={<PlaceFloatingPills place={place} extra={place.trust !== "sourced" ? <CinePill>{TRUST_LABEL[place.trust] ?? place.trust}</CinePill> : undefined} />}
       eyebrow={category}
