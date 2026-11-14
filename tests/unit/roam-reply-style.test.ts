@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cityOf, declineKind, declineReply, declineText } from "@/lib/application/orchestrate/decline";
-import { asksAboutWeatherOrPacking, asksForDepth, isUrgent } from "@/lib/application/orchestrate/ask-shape";
+import { asksAboutWeatherOrPacking, asksForDepth, isFrustrated, isUrgent } from "@/lib/application/orchestrate/ask-shape";
 import { weatherReadiness } from "@/lib/application/orchestrate/weather-readiness";
 import { composeSkipLineFor } from "@/lib/application/orchestrate/compose-skip";
 import { trivialReply } from "@/lib/application/orchestrate/turn-meta";
@@ -71,10 +71,20 @@ describe("a request for depth is written, not replaced by a card's line", () => 
 
 describe("the written reply gets the shape it needs", () => {
   const params = { hasGrounding: true, locationFocus: "Lisbon", dislikes: [], accessibilityNeeds: [], surfacedEarlier: new Set<string>(), requestedImages: false, tripCtx: { preferences: {}, itinerary: [], places: [], decisions: [], lockedTitles: [] } as never, intent: "other", evidence: { retrievedAt: "t", unavailableProviders: [], routes: [] } as never, compactSources: [], showsItineraryBlock: false, showsBudgetBlock: false, exploreKind: null, eventsGuidance: "", compactFlights: [], compactStays: [], tripSummary: "", context: "{}", compactPlaces: [], compactEvents: [], photoUrl: (n: string) => n };
+  it("spots a complaint, in words or in capitals, but not a plain question", () => {
+    expect(isFrustrated("THIS PLAN IS TERRIBLE, WHY IS EVERYTHING SO FAR APART")).toBe(true);
+    expect(isFrustrated("this is useless")).toBe(true);
+    expect(isFrustrated("WHY IS EVERYTHING SO FAR APART")).toBe(true);
+    expect(isFrustrated("Is Lisbon walkable?")).toBe(false);
+    expect(isFrustrated("OK")).toBe(false);
+  });
+
   it("adds the depth and urgency instructions only when asked", () => {
     expect(buildComposeSystemPrompt(params)).not.toMatch(/URGENT:|asked for the full picture/);
     expect(buildComposeSystemPrompt({ ...params, wantsDepth: true })).toMatch(/3 to 5 short paragraphs/);
     expect(buildComposeSystemPrompt({ ...params, urgent: true })).toMatch(/under 60 words/);
+    expect(buildComposeSystemPrompt(params)).not.toMatch(/FRUSTRATED:/);
+    expect(buildComposeSystemPrompt({ ...params, frustrated: true })).toMatch(/Do not begin with "Sorry"/);
   });
   it("carries the style rules the live battery found missing", () => {
     expect(assistantSystemPrompt).toMatch(/either\/or question/);
@@ -82,6 +92,7 @@ describe("the written reply gets the shape it needs", () => {
     expect(assistantSystemPrompt).toMatch(/gets Roman letters back/);
     expect(assistantSystemPrompt).toMatch(/Never tell the traveller to tap/);
     expect(assistantSystemPrompt).toMatch(/A reply that ends on the no is a failure/);
+    expect(assistantSystemPrompt).toMatch(/do not open with "Sorry"/);
   });
 });
 

@@ -1,5 +1,5 @@
 // promptfoo provider for Roam: signs in to the LOCAL Supabase stack, makes a fresh trip per test and posts to /api/ai (SSE).
-// Vars per test: `turns` (array of user messages, run in one trip) or the prompt itself; optional `destination`, `interests`, `travelers`.
+// Vars per test: `turns` (a JSON string of user messages, run in one trip; an array var would make promptfoo fan out one test per element) or the prompt itself; optional `destination`, `interests`, `travelers`.
 // Refuses any host that is not localhost: this makes real model calls and writes trips, never point it at production.
 const BASE = process.env.EVAL_BASE_URL || "http://localhost:4001";
 const SB = process.env.EVAL_SUPABASE_URL || "http://127.0.0.1:54321";

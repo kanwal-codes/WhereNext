@@ -186,8 +186,10 @@ export async function generateStructured<T>(
   // so this keeps working the day an explicit-caching provider (Anthropic/MiniMax/Alibaba) joins
   // this chain. `bulk`/`compose` don't get this — out of this sub-phase's scope, unmeasured.
   // Builders (bulk, day) write JSON the app turns into a card: a builder-shaped call took 7.2-10.9 s by default and 4.5-5.4 s with thinking
-  // lowest, on about half the tokens. RESOLVE and the menu (written once, cached for everyone) keep the model's own thinking.
-  const opts = role === "resolve" ? { caching: "auto" as const } : role === "bulk" || role === "day" ? { lowThinking: true } : undefined;
+  // lowest, on about half the tokens. RESOLVE is the same: on its heavy messages (cannabis, rainy day with kids) it wrote 650-800 tokens, most of
+  // them hidden reasoning, and took 5.7-6.3 s; with thinking lowest 3.2-4.4 s, and routing differs from run to run no more than it already does
+  // (12 of 39 turns either way). The menu (written once, cached for everyone) keeps the model's own thinking.
+  const opts = role === "resolve" ? { caching: "auto" as const, lowThinking: true } : role === "bulk" || role === "day" ? { lowThinking: true } : undefined;
   return llm.generateStructured(modelChainFor(role), messages, schema, signal, onUsage, opts);
 }
 

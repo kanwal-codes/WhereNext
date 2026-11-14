@@ -26,7 +26,7 @@ import { ungroundedFallback } from "@/lib/application/orchestrate/fallback-reply
 import { asksForOverview, buildTripSummary } from "@/lib/application/trip-summary";
 import { cannedMeta, clarifyMeta, declinedMeta, mapCardsFor, readyMeta, trivialReply, ungroundedMeta } from "@/lib/application/orchestrate/turn-meta";
 import { declineText } from "@/lib/application/orchestrate/decline";
-import { asksAboutWeatherOrPacking, asksForDepth, isUrgent } from "@/lib/application/orchestrate/ask-shape";
+import { asksAboutWeatherOrPacking, asksForDepth, isFrustrated, isUrgent } from "@/lib/application/orchestrate/ask-shape";
 import { persistSuggestedFacts } from "@/lib/application/orchestrate/suggested-facts";
 import { buildComposeSystemPrompt } from "@/lib/application/orchestrate/system-prompt-builder";
 import { askedForDatesRecently } from "@/lib/application/orchestrate/cadence";
@@ -360,6 +360,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
     datesAlreadyAsked: askedForDatesRecently(history),
     wantsDepth: wantsDepth && !composeSkipLine,
     urgent: isUrgent(prompt),
+    frustrated: isFrustrated(prompt),
     proposedChange: buildProposedProfileCommand(tripId, resolved, allowPreferenceLearning) ? JSON.stringify(resolved.proposedProfileUpdate) : undefined,
   });
 

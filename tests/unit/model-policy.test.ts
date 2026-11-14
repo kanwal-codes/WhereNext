@@ -67,14 +67,14 @@ describe("generateStructured — RESOLVE prompt caching", () => {
   // hang inside this app's actual Next.js route context (see the doc comment on the real
   // `generateStructured` in model-policy.ts), reverted. Every role, `resolve` included, goes
   // through plain `generateStructured`/`generateObject` — the one proven to work live.
-  it("marks the system prompt cacheable for the resolve role", async () => {
+  it("marks the system prompt cacheable for the resolve role (and keeps it on low thinking)", async () => {
     const { generateStructured } = await import("@/packages/ai/model-policy");
     llmGenerateStructuredMock.mockClear();
     llmStreamStructuredMock.mockClear();
     await generateStructured("resolve", [], { parse: (v: unknown) => v } as never);
     expect(llmStreamStructuredMock).not.toHaveBeenCalled();
     expect(llmGenerateStructuredMock).toHaveBeenCalledWith(
-      expect.anything(), expect.anything(), expect.anything(), undefined, undefined, { caching: "auto" },
+      expect.anything(), expect.anything(), expect.anything(), undefined, undefined, { caching: "auto", lowThinking: true },
     );
   });
 
@@ -89,7 +89,7 @@ describe("generateStructured — RESOLVE prompt caching", () => {
     }
   });
 
-  it("asks for low thinking on the card builders (bulk, day) only: not the router, the menu or compose", async () => {
+  it("asks for low thinking on the router and the card builders (resolve, bulk, day), not the menu or compose", async () => {
     const { generateStructured } = await import("@/packages/ai/model-policy");
     const lowFor = async (role: "resolve" | "bulk" | "day" | "menu" | "compose") => {
       llmGenerateStructuredMock.mockClear();
@@ -98,7 +98,7 @@ describe("generateStructured — RESOLVE prompt caching", () => {
     };
     expect(await lowFor("bulk")).toBe(true);
     expect(await lowFor("day")).toBe(true);
-    expect(await lowFor("resolve")).toBe(false);
+    expect(await lowFor("resolve")).toBe(true);
     expect(await lowFor("menu")).toBe(false);
     expect(await lowFor("compose")).toBe(false);
   });

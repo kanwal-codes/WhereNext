@@ -20,6 +20,11 @@ const URGENT = [
 ];
 export const isUrgent = (message: string) => URGENT.some((pattern) => pattern.test(message));
 
+/** A traveller complaining about the plan or the app ("this plan is terrible", "why is everything so far apart", "useless", a message in capitals). */
+const FRUSTRATED = /\b(terrible|awful|horrible|worst|useless|ridiculous|stupid|hate (this|it)|not what i (asked|wanted)|wrong again|waste of)\b/i;
+const SHOUTING = (message: string) => { const letters = message.replace(/[^A-Za-z]/g, ""); return letters.length >= 12 && letters === letters.toUpperCase(); };
+export const isFrustrated = (message: string) => FRUSTRATED.test(message) || SHOUTING(message);
+
 /** Whether a message is about the weather or what to pack. An "essentials" question about a visa, a doctor or tipping is not, and must not
  *  be answered with a weather card and a packing checklist (the router sometimes files it under the same intent). */
 const WEATHER_OR_PACKING = /\b(weather|forecast|rain\w*|snow\w*|storm|temperature|degrees|hot|cold|warm|chilly|humid|climate|season|sunny|sunscreen|pack\w*|bring|wear|umbrella|jacket|coat|luggage|suitcase|carry-on|need to (take|bring)|what to (take|bring|wear)|checklist)\b/i;

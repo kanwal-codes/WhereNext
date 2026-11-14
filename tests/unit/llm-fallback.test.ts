@@ -219,7 +219,7 @@ describe("modelChain", () => {
 });
 
 describe("structured and text calls are left on the model's own thinking", () => {
-  it("sends no thinking setting unless the caller asks for low thinking (the router never does)", async () => {
+  it("sends no thinking setting unless the caller asks for low thinking", async () => {
     generateObjectMock.mockResolvedValueOnce({ object: { intent: "food" }, usage: { inputTokens: 1, outputTokens: 1 } });
     await generateStructured(["claude-sonnet-5-5"], [{ role: "user", content: "hi" }], schema);
     expect(generateObjectMock.mock.calls.at(-1)?.[0].providerOptions).toBeUndefined();
