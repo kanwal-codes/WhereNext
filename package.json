@@ -15,7 +15,8 @@
     "test:e2e": "playwright test",
     "db:migrate": "bun run scripts/db-migrate.ts",
     "verify:phase0": "bun run lint && bun run test && bun run typecheck && bun run build && bun run test:e2e",
-    "knip": "knip"
+    "knip": "knip",
+    "eval:roam": "PROMPTFOO_DISABLE_TELEMETRY=1 PROMPTFOO_DISABLE_REMOTE_GENERATION=true PROMPTFOO_DISABLE_UPDATE=1 npx -y promptfoo@0.125.1 eval -c evals/roam/promptfooconfig.yaml --max-concurrency 3 -o evals/roam/output/latest.json"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.75",
