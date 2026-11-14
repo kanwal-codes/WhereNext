@@ -52,3 +52,24 @@ export const isAbortError = (error: unknown) =>
 
 /** Tells the client the reply stopped early, so what it has is flagged rather than kept as a complete answer. */
 export const truncatedFrame = () => encoder.encode(`data: ${JSON.stringify({ truncated: true })}\n\n`);
+
+/** The group chat's @Roam stream ends with the saved reply (or says it could not make one) before [DONE]. */
+export const messageFrame = (message: unknown) => encoder.encode(`data: ${JSON.stringify({ message })}\n\n`);
+export const errorFrame = () => encoder.encode(`data: ${JSON.stringify({ error: true })}\n\n`);
+
+/** Splits the SSE text read so far into its whole frames (text pieces, a truncation marker) and the unfinished rest, to be joined with the next read. */
+export function readTextFrames(buffered: string): { text: string; truncated: boolean; rest: string } {
+  const parts = buffered.split("\n\n");
+  const rest = parts.pop() ?? "";
+  let text = "";
+  let truncated = false;
+  for (const part of parts) {
+    if (!part.startsWith("data: ") || part === "data: [DONE]") continue;
+    try {
+      const frame = JSON.parse(part.slice(6)) as { choices?: Array<{ delta?: { content?: string } }>; truncated?: boolean };
+      text += frame.choices?.[0]?.delta?.content ?? "";
+      if (frame.truncated) truncated = true;
+    } catch { /* a frame that is not ours */ }
+  }
+  return { text, truncated, rest };
+}

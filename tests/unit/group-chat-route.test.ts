@@ -55,6 +55,38 @@ describe("GET /api/trips/:tripId/group-chat", () => {
     requireTripMemberMock.mockRejectedValue(new TripAuthError(404, "Trip not found"));
     expect((await GET()).status).toBe(404);
   });
+
+  it("with ?after, asks only for what is newer, and refuses a cursor that is not a time", async () => {
+    const mod = await import("@/app/api/trips/[tripId]/group-chat/route");
+    const call = (query: string) => mod.GET(new Request(`http://localhost/x?${query}`), { params: Promise.resolve({ tripId: TRIP }) });
+    expect((await call("after=2026-01-01T00:00:00Z")).status).toBe(200);
+    expect(listMock).toHaveBeenCalledWith(TRIP, "u1", { limit: GROUP_HISTORY_LIMIT, after: "2026-01-01T00:00:00Z" });
+    expect((await call("after=not-a-time")).status).toBe(400);
+  });
+});
+
+describe("POST /api/trips/:tripId/group-chat: mentions", () => {
+  const MAYA = "22222222-2222-4222-8222-222222222222";
+  const STRANGER = "33333333-3333-4333-8333-333333333333";
+  const withMembers = (ids: string[]) => {
+    const inMock = vi.fn(async () => ({ data: ids.map((user_id) => ({ user_id })), error: null }));
+    requireTripMemberMock.mockResolvedValue({ supabase: { from: () => ({ select: () => ({ eq: () => ({ in: inMock }) }) }) }, user: { id: "u1" }, role: "owner" });
+    return inMock;
+  };
+
+  it("stores who the message points at, once each, only people on the trip, never yourself", async () => {
+    const inMock = withMembers([MAYA]);
+    const res = await POST({ content: "@Maya look", kind: "text", mentions: [MAYA, MAYA, STRANGER, "11111111-1111-4111-8111-111111111112"] });
+    expect(res.status).toBe(201);
+    expect(inMock).toHaveBeenCalledWith("user_id", [MAYA, STRANGER, "11111111-1111-4111-8111-111111111112"]);
+    expect(appendMock).toHaveBeenCalledWith(TRIP, expect.objectContaining({ metadata: { mentions: [MAYA] } }));
+  });
+
+  it("stores nothing extra for a message that points at nobody, and refuses ids that are not ids", async () => {
+    await POST({ content: "hello", kind: "text" });
+    expect(appendMock).toHaveBeenCalledWith(TRIP, expect.objectContaining({ metadata: {} }));
+    expect((await POST({ content: "hello", kind: "text", mentions: ["nope"] })).status).toBe(400);
+  });
 });
 
 describe("POST /api/trips/:tripId/group-chat", () => {

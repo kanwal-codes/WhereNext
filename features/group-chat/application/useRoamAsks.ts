@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import type { AssistantTurnMeta } from "@/packages/contracts/assistant";
 import { unansweredRoamAsks, type GroupMessage } from "../domain/message";
-import { postJson } from "./postJson";
+import { askRoamStreaming } from "./roamStream";
 
 /**
  * The group chat's @Roam asks: which are in flight, which got no answer, which anyone is still waiting on,
@@ -26,6 +26,8 @@ export function useRoamAsks({ tripId, messages, loaded, skewRef, meUserId, refre
   // while, and until now nothing at all told the user a reply was coming. Keyed by messageId so
   // several concurrent asks (different members, or a retry) each get their own indicator.
   const [pendingRoamIds, setPendingRoamIds] = useState<Set<string>>(new Set());
+  // What Roam has written so far for the asks YOU sent, as it arrives (everyone else's screen shows the typing bubble until the saved reply lands).
+  const [streamingText, setStreamingText] = useState<Record<string, string>>({});
   // Which Roam replies have already been considered for the auto-continue prefill below —
   // seeded with every id already in history on first load, so opening the chat doesn't refill
   // the composer for something Roam answered days ago.
@@ -83,9 +85,10 @@ export function useRoamAsks({ tripId, messages, loaded, skewRef, meUserId, refre
     // reply this whole handler exists to recover from. This is a backstop for a truly dead
     // connection, not a normal-operation timeout — the "thinking" indicator should never hang
     // forever with nothing to show for it.
-    void postJson(`/api/trips/${tripId}/group-chat/roam`, { messageId, ...options }, 150_000)
-      .then(() => {
-        void refresh();
+    void askRoamStreaming(`/api/trips/${tripId}/group-chat/roam`, { messageId, ...options }, 150_000, (soFar) => setStreamingText((current) => ({ ...current, [messageId]: soFar })))
+      .then(async () => {
+        // The saved reply replaces the words on screen only once it has been read back, so there is no blank moment between them.
+        await refresh();
         // The planner may also have stored trip facts or suggestions during this turn.
         announceWorkspaceChange("preferences");
       })
@@ -102,13 +105,20 @@ export function useRoamAsks({ tripId, messages, loaded, skewRef, meUserId, refre
         // Shown right under the message (with its Retry), not as a toast that disappears.
         if (!alreadyAnswered) setFailedRoamIds((current) => (current.includes(messageId) ? current : [...current, messageId]));
       })
-      .finally(() => setPendingRoamIds((current) => {
-        if (!current.has(messageId)) return current;
-        const next = new Set(current);
-        next.delete(messageId);
-        return next;
-      }));
+      .finally(() => {
+        setStreamingText((current) => {
+          if (!(messageId in current)) return current;
+          const { [messageId]: _gone, ...rest } = current;
+          return rest;
+        });
+        setPendingRoamIds((current) => {
+          if (!current.has(messageId)) return current;
+          const next = new Set(current);
+          next.delete(messageId);
+          return next;
+        });
+      });
   }
 
-  return { askRoam, pendingRoamIds, failedRoamIds, waitingIds, missedIds };
+  return { askRoam, streamingText, pendingRoamIds, failedRoamIds, waitingIds, missedIds };
 }

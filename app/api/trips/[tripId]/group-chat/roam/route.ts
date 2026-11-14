@@ -16,6 +16,8 @@ import { recordAiTurn } from "@/lib/server/ai-turn-trace";
 import type { UsageEntry } from "@/lib/ai/pricing";
 import { logger } from "@/lib/server/logger";
 import { composeBuffered, type BufferedCompose } from "@/lib/server/compose-buffered";
+import { openComposeStream } from "@/lib/server/compose-stream";
+import { SSE_HEADERS, doneFrame, errorFrame, messageFrame, readTextFrames, textFrame } from "@/lib/server/ai-stream-frames";
 import { surfacedEarlierFrom } from "@/lib/application/orchestrate/thread-history";
 import { composedTrace, earlyExitTrace } from "@/features/group-chat/application/roamTurnTrace";
 import { createGroupChatRepository } from "@/features/group-chat/infrastructure/groupChatRepository";
@@ -33,6 +35,9 @@ const bodySchema = z.object({
   // contains the text "@Roam". The typed-mention path (explicit omitted/false) stays stricter:
   // only the sender's own message, and only if it actually mentions Roam.
   explicit: z.boolean().optional(),
+  // The asker's own screen: stream the reply as it is written (event stream), instead of one JSON answer when it is finished.
+  // Everyone else still sees the finished message arrive, so this changes nothing about what is saved.
+  stream: z.boolean().optional(),
 });
 
 /** userId -> a display name, best-effort (name/full_name metadata, else the email's local part).
@@ -199,6 +204,94 @@ export const POST = withRoute(async (request: Request, { params }: { params: Pro
     // --- COMPOSE (buffered, bounded tool-calling loop) ------------------------
     const { composeSkipIsLeadIn, system, composeSkipLine, composeTools, allowedUrls, sideBuilders, resolved } = result;
     const tCompose = performance.now();
+    // From the model's text to the saved reply: tidy it, check it against what was looked up, store it, record the trace.
+    const settle = async (rawText: string, composedModel: string | undefined, composeUsage: BufferedCompose["usage"]) => {
+      const text = stripReasoning(rawText);
+
+      // Phase 3.2.2 mitigation (b) (docs/overhaul/roadmap/phase-3-accuracy.md): the saved reply
+      // is only written once the whole text is in, so side-builders and the grounding evaluator —
+      // neither depends on the other's result, both only need `text` / already-in-flight
+      // promises — can simply run together instead of one after the other.
+      // Phase 3.2 (docs/overhaul/roadmap/phase-3-accuracy.md): regex sanitizer + the grounding
+      // evaluator, same as the personal /api/ai route — tracked separately from `composeEntry`
+      // below so the per-model cost trace still attributes tokens to whichever model answered each.
+      let evaluatorUsage: UsageEntry | undefined;
+      let unverified = false;
+      const [[checklist, comparison], sanitized] = await Promise.all([
+        Promise.all([sideBuilders.checklistPromise, sideBuilders.comparisonPromise]),
+        // A deterministic card lead-in has no claims or links to check: skip the grounding model call.
+        composeSkipIsLeadIn ? Promise.resolve(text) : finalizeAssistantText(text, allowedUrls, system, request.signal, (entry) => { evaluatorUsage = entry; }, resolved.intent, () => { unverified = true; }, turns.filter((t) => t.role === "user").map((t) => t.content).join("\n")),
+      ]);
+      const meta = { ...finalizeAssistantBlocks(result.meta, { checklist, comparison }), ...(unverified ? { unverified: true } : {}) };
+
+      const saved = await writeRepo.append(tripId, {
+        userId: null,
+        role: "assistant",
+        kind: "text",
+        content: sanitized,
+        metadata: { ...meta, replyToMessageId: target.id },
+        idempotencyKey,
+      });
+      invalidateWorkspace(tripId);
+
+      const trace = composedTrace(result, { meta, sanitized, composedModel, composeUsage, evaluatorUsage, composeMs: Math.round(performance.now() - tCompose), totalMs: Math.round(performance.now() - t0) });
+      // Best-effort trace write (recordAiTurn already swallows its own errors) — via after(), not
+      // a bare fire-and-forget, so the platform keeps this request alive long enough for the write
+      // to actually land instead of racing a serverless teardown right after the reply is sent.
+      after(() => recordAiTurn(adminClient, tripId, trace));
+      return saved;
+    };
+
+    // Streamed for the asker: the words arrive as the model writes them, then the saved reply closes the stream. Same steps as the
+    // buffered path below, run in the same per-(trip, member) queue; a failure after the first word is an error frame, not an HTTP status.
+    if (parsedBody.data.stream) {
+      const body = new ReadableStream<Uint8Array>({
+        async start(controller) {
+          // The asker may hang up at any moment; writing to a closed stream throws, and nobody is left to tell.
+          const send = (chunk: Uint8Array) => { try { controller.enqueue(chunk); } catch { /* hung up */ } };
+          try {
+            const saved = await withTripAiTask(tripId, user.id, async () => {
+              if (composeSkipLine) {
+                send(textFrame(composeSkipLine));
+                return settle(composeSkipLine, undefined, undefined);
+              }
+              let model: string | undefined;
+              let usage: BufferedCompose["usage"];
+              const stream = await openComposeStream({
+                chain: composeModelChain(), system, messages: compactAiMessages(turns, 12, 12_000), tools: composeTools, signal: request.signal,
+                onModel: (id) => { model = id; },
+                onUsage: (inputTokens, outputTokens) => { usage = { inputTokens, outputTokens }; },
+              });
+              const reader = stream.getReader();
+              const decoder = new TextDecoder();
+              let buffered = "";
+              let written = "";
+              for (;;) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                send(value);
+                const read = readTextFrames(buffered + decoder.decode(value, { stream: true }));
+                buffered = read.rest;
+                written += read.text;
+                // A reply cut off part-way is not saved as if it were whole: the asker is offered "Try again" instead.
+                if (read.truncated) throw new Error("reply cut short");
+              }
+              return settle(written, model, usage);
+            });
+            send(messageFrame(saved));
+          } catch (error) {
+            if (!request.signal.aborted) logger.error({ err: error }, "group-chat roam: streamed reply failed");
+            send(errorFrame());
+          } finally {
+            send(doneFrame);
+            try { controller.close(); } catch { /* hung up */ }
+          }
+        },
+      });
+      return new Response(body, { status: 200, headers: SSE_HEADERS });
+    }
+
+    // --- COMPOSE (buffered, bounded tool-calling loop) ------------------------
     let composedModel: string | undefined;
     let composeUsage: BufferedCompose["usage"];
     let rawText: string;
@@ -212,39 +305,7 @@ export const POST = withRoute(async (request: Request, { params }: { params: Pro
       composedModel = composed.modelId;
       composeUsage = composed.usage;
     }
-    const text = stripReasoning(rawText);
-
-    // Phase 3.2.2 mitigation (b) (docs/overhaul/roadmap/phase-3-accuracy.md): this route is
-    // buffered (nothing streamed to the client yet at this point), so side-builders and the
-    // grounding evaluator — neither depends on the other's result, both only need `text` /
-    // already-in-flight promises — can simply run together instead of one after the other.
-    // Phase 3.2 (docs/overhaul/roadmap/phase-3-accuracy.md): regex sanitizer + the grounding
-    // evaluator, same as the personal /api/ai route — tracked separately from `composeEntry`
-    // below so the per-model cost trace still attributes tokens to whichever model answered each.
-    let evaluatorUsage: UsageEntry | undefined;
-    let unverified = false;
-    const [[checklist, comparison], sanitized] = await Promise.all([
-      Promise.all([sideBuilders.checklistPromise, sideBuilders.comparisonPromise]),
-      // A deterministic card lead-in has no claims or links to check: skip the grounding model call.
-      composeSkipIsLeadIn ? Promise.resolve(text) : finalizeAssistantText(text, allowedUrls, system, request.signal, (entry) => { evaluatorUsage = entry; }, resolved.intent, () => { unverified = true; }, turns.filter((t) => t.role === "user").map((t) => t.content).join("\n")),
-    ]);
-    const meta = { ...finalizeAssistantBlocks(result.meta, { checklist, comparison }), ...(unverified ? { unverified: true } : {}) };
-
-    const message = await writeRepo.append(tripId, {
-      userId: null,
-      role: "assistant",
-      kind: "text",
-      content: sanitized,
-      metadata: { ...meta, replyToMessageId: target.id },
-      idempotencyKey,
-    });
-    invalidateWorkspace(tripId);
-
-    const trace = composedTrace(result, { meta, sanitized, composedModel, composeUsage, evaluatorUsage, composeMs: Math.round(performance.now() - tCompose), totalMs: Math.round(performance.now() - t0) });
-    // Best-effort trace write (recordAiTurn already swallows its own errors) — via after(), not
-    // a bare fire-and-forget, so the platform keeps this request alive long enough for the write
-    // to actually land instead of racing a serverless teardown right after the reply is sent.
-    after(() => recordAiTurn(adminClient, tripId, trace));
+    const message = await settle(rawText, composedModel, composeUsage);
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (error) {

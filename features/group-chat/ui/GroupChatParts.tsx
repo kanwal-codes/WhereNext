@@ -9,6 +9,7 @@ import { memberTint } from "@/lib/member-tint";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 import type { Poll } from "@/packages/contracts/poll";
+import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
 import { GroupInviteCard } from "./GroupInviteCard";
 
 /** Every member gets the same avatar — Roam included. In this chat Roam is just the fifth friend. */
@@ -20,8 +21,20 @@ export function Avatar({ name }: { name: string }) {
   );
 }
 
-/** The same "typing…" bubble any friend would show while they write back. */
-export function TypingBubble() {
+/** The same "typing…" bubble any friend would show while they write back; once Roam's first words arrive for the person who asked, they replace the dots. */
+export function TypingBubble({ writing }: { writing?: string }) {
+  if (writing) {
+    return (
+      <div className="mt-3 flex items-start gap-2">
+        <div className="w-7 shrink-0">
+          <Avatar name="Roam" />
+        </div>
+        <div className="min-w-0 max-w-[85%] rounded-2xl rounded-tl-lg bg-muted px-4 py-2.5 text-sm leading-relaxed break-words shadow-sm max-lg:text-base max-lg:leading-snug max-lg:shadow-none [&_.chat-prose]:text-sm [&_.chat-prose]:leading-relaxed">
+          <AssistantMessage content={writing} />
+        </div>
+      </div>
+    );
+  }
   return (
       <motion.div initial={{ opacity: 0, y: 10, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ type: "spring", stiffness: 380, damping: 30 }} style={{ transformOrigin: "0% 100%" }} className="mt-3 flex items-start gap-2">
         <div className="w-7 shrink-0">

@@ -92,6 +92,8 @@ vi.mock("@/lib/application/evaluator", async (importOriginal) => {
 /** A test may reassign `composeChainRef.models` to exercise a pinned vs. unpinned chain entry. */
 const composeChainRef = vi.hoisted(() => ({ models: [{ model: { mock: true }, modelId: "test-model" }] as Array<{ model: unknown; modelId: string; providerOptions?: { gateway: { only: string[] } } }> }));
 vi.mock("@/packages/ai/compose-model", () => ({ composeModelChain: () => composeChainRef.models }));
+const openComposeStreamMock = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/server/compose-stream", () => ({ openComposeStream: openComposeStreamMock }));
 vi.mock("@/lib/server/trip-ai-queue", () => ({ withTripAiTask: (_tripId: string, _userId: string, task: () => unknown) => task() }));
 vi.mock("@/lib/server/ai-turn-trace", () => ({ recordAiTurn: recordAiTurnMock }));
 vi.mock("@/features/group-chat/infrastructure/groupChatRepository", () => ({
@@ -104,12 +106,12 @@ vi.mock("@/lib/supabase/admin", () => ({
   }),
 }));
 
-async function post(messageId: string | undefined = "m1", explicit?: boolean) {
+async function post(messageId: string | undefined = "m1", explicit?: boolean, stream?: boolean) {
   const mod = await import("@/app/api/trips/[tripId]/group-chat/roam/route");
   const req = new Request("http://localhost/x", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: messageId === undefined ? undefined : JSON.stringify({ messageId, ...(explicit === undefined ? {} : { explicit }) }),
+    body: messageId === undefined ? undefined : JSON.stringify({ messageId, ...(explicit === undefined ? {} : { explicit }), ...(stream === undefined ? {} : { stream }) }),
   });
   return mod.POST(req, { params: Promise.resolve({ tripId: TRIP }) });
 }
@@ -139,6 +141,49 @@ describe("POST /api/trips/:tripId/group-chat/roam", () => {
     expect(generateTextMock).toHaveBeenCalledTimes(1);
     expect(generateTextMock.mock.calls[0][0]).toMatchObject({ tools: {}, stopWhen: expect.anything() });
     expect(await res.json()).toMatchObject({ message: expect.objectContaining({ content: "It opens at 9am." }) });
+  });
+
+  describe("streamed for the asker (stream: true)", () => {
+    const framesOf = (...frames: Uint8Array[]) => new ReadableStream<Uint8Array>({ start(c) { frames.forEach((f) => c.enqueue(f)); c.close(); } });
+    const readAll = async (res: Response) => new TextDecoder().decode(new Uint8Array(await res.arrayBuffer()));
+
+    it("sends the words as they are written, then the saved reply, and saves exactly one reply", async () => {
+      const { textFrame } = await import("@/lib/server/ai-stream-frames");
+      openComposeStreamMock.mockImplementation(async ({ onModel, onUsage }) => { onModel("stream-model"); onUsage(10, 5); return framesOf(textFrame("It opens "), textFrame("at 9am.")); });
+      const res = await post("m1", undefined, true);
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe("text/event-stream");
+      const body = await readAll(res);
+      expect(body.indexOf("It opens ")).toBeGreaterThan(-1);
+      expect(body.indexOf("at 9am.")).toBeGreaterThan(body.indexOf("It opens "));
+      expect(body).toContain('"message"');
+      expect(body.trimEnd().endsWith("data: [DONE]")).toBe(true);
+      expect(generateTextMock).not.toHaveBeenCalled();
+      expect(appendMock).toHaveBeenCalledTimes(1);
+      expect(appendMock.mock.calls[0][1]).toMatchObject({ role: "assistant", content: "It opens at 9am.", idempotencyKey: "roam-reply:m1:u1", metadata: expect.objectContaining({ replyToMessageId: "m1" }) });
+      expect(recordAiTurnMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not save a reply that stopped part-way, and says so instead", async () => {
+      const { textFrame, truncatedFrame } = await import("@/lib/server/ai-stream-frames");
+      openComposeStreamMock.mockResolvedValue(framesOf(textFrame("It opens"), truncatedFrame()));
+      const body = await readAll(await post("m1", undefined, true));
+      expect(body).toContain('"error":true');
+      expect(body).not.toContain('"message"');
+      expect(appendMock).not.toHaveBeenCalled();
+    });
+
+    it("says so when no model could start a reply", async () => {
+      openComposeStreamMock.mockRejectedValue(new Error("all models down"));
+      const body = await readAll(await post("m1", undefined, true));
+      expect(body).toContain('"error":true');
+      expect(appendMock).not.toHaveBeenCalled();
+    });
+
+    it("still answers a plain JSON request as before when stream is not asked for", async () => {
+      expect((await post()).status).toBe(201);
+      expect(openComposeStreamMock).not.toHaveBeenCalled();
+    });
   });
 
   it("forwards a chain entry's providerOptions (provider options) to generateText", async () => {
