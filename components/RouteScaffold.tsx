@@ -10,6 +10,7 @@ export function RouteScaffold({
   description,
   action,
   tabs,
+  railAction,
   phoneQuietTitle,
   phoneTitle,
   phoneHideSwitcher,
@@ -20,6 +21,8 @@ export function RouteScaffold({
   description?: string;
   action?: ReactNode;
   tabs?: ReactNode;
+  /** A button at the top right of the header rail (desktop). */
+  railAction?: ReactNode;
   phoneQuietTitle?: boolean;
   phoneTitle?: string;
   phoneHideSwitcher?: boolean;
@@ -33,6 +36,7 @@ export function RouteScaffold({
         description={description}
         action={action}
         switcher={tabs}
+        railAction={railAction}
         phoneQuietTitle={phoneQuietTitle}
         phoneTitle={phoneTitle}
         phoneHideSwitcher={phoneHideSwitcher}

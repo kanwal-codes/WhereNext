@@ -1,6 +1,5 @@
 "use client";
 
-import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { useMemo, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import { Heart } from "lucide-react";
@@ -21,20 +20,6 @@ import { CityPill } from "@/components/CityPill";
 import { PHONE_ROUND, useSetPhoneHeader } from "@/components/shell/PhoneHeader";
 import { useMediaQuery } from "@/lib/use-media-query";
 
-
-export function DiscoverTabs({ view, onChange, savedCount }: { view: "results" | "saved"; onChange: (v: "results" | "saved") => void; savedCount: number }) {
-  return (
-    <SegmentedSwitch
-      label="Discover view"
-      value={view}
-      onChange={onChange}
-      options={[
-        { key: "results", label: "Discover" },
-        { key: "saved", label: `Saved (${savedCount})` },
-      ]}
-    />
-  );
-}
 
 export function DiscoverySurface({
   tripId,

@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BedDouble, Search } from "lucide-react";
+import { ArrowLeft, BedDouble, Search } from "lucide-react";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { PHONE_ROUND, useSetPhoneHeader } from "@/components/shell/PhoneHeader";
 import { cn } from "@/lib/utils";
 import { useTripData } from "@/components/TripDataProvider";
 import { RouteScaffold } from "@/components/RouteScaffold";
-import { SegmentedSwitch } from "@/components/SegmentedSwitch";
+import { RailButton } from "@/components/RailButton";
 import { StaySurface } from "@/features/stays/ui/StaySurface";
 import { MyStays } from "@/features/stays/ui/MyStays";
 import { useTripStays } from "@/features/stays/application/useTripStays";
@@ -43,16 +43,12 @@ export default function StayPage() {
       phoneHideSwitcher
       title="Where you’ll come back to each night"
       description="Hotels near your destination. Lock a room and the rest of the plan measures from it."
-      tabs={
-        <SegmentedSwitch
-          label="Stay view"
-          value={view}
-          onChange={setView}
-          options={[
-            { key: "browse", label: "Browse" },
-            { key: "mine", label: stays.loading ? "My stays" : `My stays (${stays.items.length})` },
-          ]}
-        />
+      railAction={
+        view === "mine" ? (
+          <RailButton icon={<ArrowLeft />} onClick={() => setView("browse")}>Browse stays</RailButton>
+        ) : (
+          <RailButton icon={<BedDouble />} onClick={() => setView("mine")}>{stays.loading ? "My stays" : `My stays (${stays.items.length})`}</RailButton>
+        )
       }
     >
       {/* Browse stays mounted while My stays is open: the search, its filters and its results are still there when you come back. */}

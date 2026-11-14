@@ -5,7 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { useTripData } from "@/components/TripDataProvider";
 import { RouteScaffold } from "@/components/RouteScaffold";
 import { SkeletonBand } from "@/components/Skeleton";
-import { DiscoverTabs, DiscoverySurface } from "@/features/places/ui/DiscoverySurface";
+import { ArrowLeft, Heart } from "lucide-react";
+import { RailButton } from "@/components/RailButton";
+import { DiscoverySurface } from "@/features/places/ui/DiscoverySurface";
 
 function DiscoverContent({
   view,
@@ -38,10 +40,16 @@ export default function DiscoverPage() {
   return (
     <RouteScaffold
       eyebrow="Discover"
-      title="Everything to do in one place"
+      title="Somewhere worth going next"
       phoneQuietTitle
       phoneHideSwitcher
-      tabs={<DiscoverTabs view={view} onChange={setView} savedCount={savedCount} />}
+      railAction={
+        view === "saved" ? (
+          <RailButton icon={<ArrowLeft />} onClick={() => setView("results")}>Back to Discover</RailButton>
+        ) : (
+          <RailButton icon={<Heart />} onClick={() => setView("saved")} ariaLabel={`Saved places, ${savedCount}`}>{`Saved (${savedCount})`}</RailButton>
+        )
+      }
     >
       <Suspense fallback={<SkeletonBand count={6} className="mt-5" />}>
         <DiscoverContent view={view} onViewChange={setView} onSavedCountChange={setSavedCount} />

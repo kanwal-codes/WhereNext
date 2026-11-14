@@ -14,6 +14,7 @@ export function PageHeader({
   description,
   action,
   switcher,
+  railAction,
   back,
   phoneQuietTitle,
   phoneTitle,
@@ -27,6 +28,8 @@ export function PageHeader({
   action?: ReactNode;
   /** A pill switch between views of this page. Centred in the rail, exactly where Roam centres its own. */
   switcher?: ReactNode;
+  /** A button in the top right corner of the rail (desktop): the page's other view, e.g. "Saved (3)". Not a switch, so no pill. */
+  railAction?: ReactNode;
   /** A sub-page: the way back sits at the left of the rail. */
   back?: { href: string; label: string };
   /** Phone redesign: below lg the title is for screen readers only (the page opens on its controls, not a heading). */
@@ -49,7 +52,7 @@ export function PageHeader({
       <header className={cn("border-b border-border pb-5 sm:pb-7", (quiet || short) && "max-lg:border-b-0 max-lg:pb-0", short && "max-lg:flex max-lg:flex-col")}>
         <Reveal y={8} className={cn(short && "max-lg:order-2", short && (back || (switcher && !phoneHideSwitcher) ? "max-lg:mt-4" : "max-lg:mt-0"))}>
           {/* On a phone a page with nothing for the rail (no way back, no switch) has no rail at all: its title sits right under the top bar. */}
-          <div className={cn("grid min-h-10 items-center gap-x-3 gap-y-3 sm:grid-cols-[1fr_auto_1fr]", !back && !switcher && "max-sm:hidden", (!switcher || phoneHideSwitcher) && "max-lg:hidden")}>
+          <div className={cn("grid min-h-10 items-center gap-x-3 gap-y-3 sm:grid-cols-[1fr_auto_1fr]", !back && !switcher && !railAction && "max-sm:hidden", (!switcher || phoneHideSwitcher) && "max-lg:hidden")}>
             {back ? (
               <Link href={back.href} className={cn("group inline-flex items-center gap-1.5 justify-self-start py-2.5 text-xs max-lg:py-3 max-lg:text-sm text-muted-foreground transition-colors hover:text-foreground", "max-lg:hidden")}>
                 <ArrowLeft className="h-3.5 w-3.5 transition-transform duration-[220ms] ease-out group-hover:-translate-x-0.5" /> {back.label}
@@ -59,7 +62,7 @@ export function PageHeader({
               <span aria-hidden className="max-sm:hidden" />
             )}
             {switcher ? <div className={cn("justify-self-center", short && "max-lg:justify-self-start")}>{switcher}</div> : <span className="max-sm:hidden" />}
-            <span className="max-sm:hidden" />
+            {railAction ? <div className="justify-self-end max-lg:hidden">{railAction}</div> : <span className="max-sm:hidden" />}
           </div>
         </Reveal>
         <div className={cn("mt-3 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end", (!switcher || phoneHideSwitcher) && "max-sm:mt-0", short && "max-lg:order-1 max-lg:mt-0 max-lg:gap-0")}>

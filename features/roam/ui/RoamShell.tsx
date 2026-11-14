@@ -29,7 +29,7 @@ import { useGuest } from "@/features/identity/ui/GuestProvider";
 // in, which is what read as a stutter instead of one glide.
 const LAYOUT_MOTION = `${motionTokens.swap.duration * 1000}ms cubic-bezier(${motionTokens.swap.ease.join(", ")})`;
 
-/** Same visual as DiscoverTabs (features/places/ui/DiscoverySurface.tsx) — a route change
+/** The shared pill switch (components/SegmentedSwitch.tsx) as a route change
  *  instead of local state, since Roam and Group chat need to stay independently deep-linkable.
  *  `onSelect` flips the visible pane immediately, in the same tick as the click — see the
  *  `optimisticTab` comment in `RoamShell` for why waiting on the URL itself feels slow. */
