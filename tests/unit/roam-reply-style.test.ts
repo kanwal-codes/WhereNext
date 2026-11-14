@@ -97,6 +97,7 @@ describe("the written reply gets the shape it needs", () => {
     expect(assistantSystemPrompt).toMatch(/Never tell the traveller to tap/);
     expect(assistantSystemPrompt).toMatch(/A reply that ends on the no is a failure/);
     expect(assistantSystemPrompt).toMatch(/do not open with "Sorry"/);
+    expect(assistantSystemPrompt).toMatch(/Never open a reply with a "quick correction" about the traveller count/);
   });
 });
 
