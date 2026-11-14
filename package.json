@@ -16,7 +16,10 @@
     "db:migrate": "bun run scripts/db-migrate.ts",
     "verify:phase0": "bun run lint && bun run test && bun run typecheck && bun run build && bun run test:e2e",
     "knip": "knip",
-    "eval:roam": "PROMPTFOO_DISABLE_TELEMETRY=1 PROMPTFOO_DISABLE_REMOTE_GENERATION=true PROMPTFOO_DISABLE_UPDATE=1 npx -y promptfoo@0.125.1 eval -c evals/roam/promptfooconfig.yaml --max-concurrency 3 -o evals/roam/output/latest.json"
+    "eval:roam": "PROMPTFOO_DISABLE_TELEMETRY=1 PROMPTFOO_DISABLE_REMOTE_GENERATION=true PROMPTFOO_DISABLE_UPDATE=1 npx -y promptfoo@0.125.1 eval -c evals/roam/promptfooconfig.yaml --no-cache --max-concurrency 4 -o evals/roam/output/latest.json --repeat 3; node evals/roam/report.cjs --compare",
+    "eval:roam:core": "EVAL_SET=core PROMPTFOO_DISABLE_TELEMETRY=1 PROMPTFOO_DISABLE_REMOTE_GENERATION=true PROMPTFOO_DISABLE_UPDATE=1 npx -y promptfoo@0.125.1 eval -c evals/roam/promptfooconfig.yaml --no-cache --max-concurrency 4 -o evals/roam/output/latest.json --repeat 1; node evals/roam/report.cjs",
+    "eval:roam:report": "node evals/roam/report.cjs --compare",
+    "eval:roam:validate": "node evals/roam/validate-checks.cjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.75",

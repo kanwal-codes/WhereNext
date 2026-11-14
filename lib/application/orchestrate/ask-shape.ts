@@ -14,6 +14,8 @@ const URGENT = [
   /\bmissed\s+(my|our|the)\s+(flight|train|bus|ferry|connection)\b/i,
   /\b(flight|train|bus|ferry)\s+(was\s+|got\s+|is\s+|has been\s+)?(cancel+ed|delayed)\b/i,
   /\b(lost|stolen|forgot|left)\s+(my|our|the)\s+(passport|wallet|phone|bag|luggage|cards?|keys?)\b/i,
+  /\b(lost|can'?t find|missing)\b.{0,20}\b(child|kid|kids|son|daughter|baby|toddler|\d+[- ]year[- ]old)\b/i,
+  /\b(is|are|was|being|been)\s+(sick|vomiting|throwing up|unconscious|passed out|bleeding|choking)\b/i,
   /\b(phone|battery)\b.{0,16}\b\d{1,2}\s?%/i,
   /\b(stomach ache|food poisoning|fever|bleeding|chest pain|can'?t breathe|ambulance|hospital|emergency|doctor|pharmacy)\b/i,
   /\b(help)!{2,}|\b(urgent|asap|right now)\b.*[!?]/i,

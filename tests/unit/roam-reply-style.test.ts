@@ -5,7 +5,7 @@ import { weatherReadiness } from "@/lib/application/orchestrate/weather-readines
 import { composeSkipLineFor } from "@/lib/application/orchestrate/compose-skip";
 import { trivialReply } from "@/lib/application/orchestrate/turn-meta";
 import { groupLabel } from "@/lib/application/trip-context";
-import { guardDepth, type ResolvedTurn } from "@/lib/application/turn-resolver";
+import { guardDepth, RESOLVE_SYSTEM, type ResolvedTurn } from "@/lib/application/turn-resolver";
 import { recentSaid } from "@/lib/application/orchestrate/run-turn";
 import { buildComposeSystemPrompt } from "@/lib/application/orchestrate/system-prompt-builder";
 import { assistantSystemPrompt } from "@/packages/contracts/assistant";
@@ -50,8 +50,8 @@ describe("ask shape", () => {
     for (const text of ["food?", "Is the Time Out Market open on Mondays?", "metro or taxi from airport", "THIS PLAN IS TERRIBLE, WHY IS EVERYTHING SO FAR APART", "we ate everything at lunch, what next"]) expect(asksForDepth(text)).toBe(false);
   });
   it("spots a traveller who is stuck right now", () => {
-    for (const text of ["im lost near Alfama and my phone is at 3%", "we just missed our flight to Lisbon!!! what do we do", "my partner has a bad stomach ache since last night", "I lost my passport", "our train was cancelled"]) expect(isUrgent(text)).toBe(true);
-    for (const text of ["its pouring rain and the kids are bored", "what is the best area to stay", "we only have 30 euros a day each"]) expect(isUrgent(text)).toBe(false);
+    for (const text of ["im lost near Alfama and my phone is at 3%", "we just missed our flight to Lisbon!!! what do we do", "my partner has a bad stomach ache since last night", "I lost my passport", "our train was cancelled", "we lost our 6 year old in Shibuya station!!!", "my friend drank too much and is being sick", "I can't find my daughter"]) expect(isUrgent(text)).toBe(true);
+    for (const text of ["its pouring rain and the kids are bored", "what is the best area to stay", "we only have 30 euros a day each", "the kids are lost in the museum audio guide, any tips", "is the sick bay open in the ferry terminal"]) expect(isUrgent(text)).toBe(false);
   });
 });
 
@@ -71,6 +71,10 @@ describe("a request for depth is written, not replaced by a card's line", () => 
 
 describe("the written reply gets the shape it needs", () => {
   const params = { hasGrounding: true, locationFocus: "Lisbon", dislikes: [], accessibilityNeeds: [], surfacedEarlier: new Set<string>(), requestedImages: false, tripCtx: { preferences: {}, itinerary: [], places: [], decisions: [], lockedTitles: [] } as never, intent: "other", evidence: { retrievedAt: "t", unavailableProviders: [], routes: [] } as never, compactSources: [], showsItineraryBlock: false, showsBudgetBlock: false, exploreKind: null, eventsGuidance: "", compactFlights: [], compactStays: [], tripSummary: "", context: "{}", compactPlaces: [], compactEvents: [], photoUrl: (n: string) => n };
+  it("tells the router never to ask a question before helping someone in trouble", () => {
+    expect(RESOLVE_SYSTEM).toMatch(/NEVER set clarify when the traveller is stuck or in trouble/);
+  });
+
   it("spots a complaint, in words or in capitals, but not a plain question", () => {
     expect(isFrustrated("THIS PLAN IS TERRIBLE, WHY IS EVERYTHING SO FAR APART")).toBe(true);
     expect(isFrustrated("this is useless")).toBe(true);

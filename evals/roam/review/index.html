@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roam eval review</title>
+<style>
+  :root { --bg:#faf8f4; --panel:#fff; --ink:#1d1b18; --muted:#6f6a62; --line:#e6e1d8; --pass:#1f7a4d; --fail:#b3361f; --defer:#8a6d1c; --accent:#2c5f6f; --user:#e9eef0; --bot:#f4efe6; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16140f; --panel:#201d17; --ink:#efe9dd; --muted:#a39c8e; --line:#38332a; --pass:#52c28a; --fail:#ef7a63; --defer:#d9b24f; --accent:#7fb7c9; --user:#26333a; --bot:#2a251c; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; background:var(--bg); color:var(--ink); height:100vh; display:flex; flex-direction:column; }
+  header { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; padding:10px 16px; border-bottom:1px solid var(--line); background:var(--panel); }
+  header h1 { font-size:15px; margin:0 8px 0 0; }
+  header .stat { color:var(--muted); font-size:13px; }
+  button, select, input[type=search] { font:inherit; padding:5px 10px; border:1px solid var(--line); border-radius:8px; background:var(--panel); color:var(--ink); }
+  button { cursor:pointer; }
+  button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, li:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+  main { flex:1; display:grid; grid-template-columns:280px 1fr; min-height:0; }
+  #list { overflow:auto; border-right:1px solid var(--line); background:var(--panel); margin:0; padding:0; list-style:none; }
+  #list li { padding:8px 12px; border-bottom:1px solid var(--line); cursor:pointer; font-size:13px; display:flex; justify-content:space-between; gap:8px; }
+  #list li.cur { background:var(--user); }
+  #list .dot { width:10px; height:10px; border-radius:50%; flex:none; margin-top:5px; border:1px solid var(--line); }
+  #list .dot.pass { background:var(--pass); } #list .dot.fail { background:var(--fail); } #list .dot.defer { background:var(--defer); }
+  #view { overflow:auto; padding:18px 22px 40px; }
+  .empty { max-width:560px; margin:12vh auto; text-align:center; color:var(--muted); }
+  .badges { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 14px; }
+  .badge { font-size:12px; padding:2px 8px; border-radius:99px; border:1px solid var(--line); color:var(--muted); background:var(--panel); }
+  .badge.warn { color:var(--fail); border-color:var(--fail); }
+  h2 { font-size:17px; margin:0; }
+  .turn { margin:10px 0; max-width:760px; }
+  .who { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:2px; }
+  .msg { padding:10px 14px; border-radius:10px; border-left:4px solid var(--accent); }
+  .msg.user { background:var(--user); } .msg.bot { background:var(--bot); border-left-color:var(--pass); font-size:16px; }
+  .msg p { margin:0 0 .6em; } .msg p:last-child { margin:0; } .msg ul { margin:.3em 0 .6em; padding-left:1.2em; }
+  details { max-width:760px; margin:8px 0; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+  summary { cursor:pointer; padding:7px 12px; font-size:13px; color:var(--muted); }
+  details > div { padding:4px 14px 12px; font-size:13px; }
+  table { border-collapse:collapse; width:100%; } td, th { text-align:left; padding:3px 8px 3px 0; vertical-align:top; font-size:13px; }
+  .ok { color:var(--pass); } .no { color:var(--fail); }
+  .label { position:sticky; bottom:0; max-width:760px; background:var(--bg); padding:12px 0 0; margin-top:16px; border-top:1px solid var(--line); }
+  .label .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .label button { padding:8px 18px; font-weight:600; }
+  #pass { border-color:var(--pass); color:var(--pass); } #fail { border-color:var(--fail); color:var(--fail); } #defer { border-color:var(--defer); color:var(--defer); }
+  .label button.on { color:#fff; } #pass.on { background:var(--pass); } #fail.on { background:var(--fail); } #defer.on { background:var(--defer); }
+  textarea { width:100%; margin-top:8px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; font:inherit; background:var(--panel); color:var(--ink); min-height:64px; }
+  .keys { color:var(--muted); font-size:12px; }
+  @media (max-width: 760px) { main { grid-template-columns:1fr; } #list { max-height:30vh; border-right:0; border-bottom:1px solid var(--line); } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Roam eval review</h1>
+  <label class="stat">Results <input id="file" type="file" accept=".json"></label>
+  <label class="stat">Labels <input id="labelsFile" type="file" accept=".json"></label>
+  <select id="filter" aria-label="Filter">
+    <option value="all">All replies</option><option value="unlabeled">Unlabeled</option><option value="failed">A check failed</option>
+    <option value="hard">A hard check failed</option><option value="unverified">Grounding flagged</option>
+  </select>
+  <input id="search" type="search" placeholder="Search case id or text" aria-label="Search">
+  <span class="stat" id="progress"></span>
+  <button id="export">Export labels.json</button>
+</header>
+<main>
+  <ul id="list" aria-label="Replies"></ul>
+  <section id="view"><div class="empty"><h2>Load a run</h2><p>Choose <code>output/latest.json</code> from <code>npm run eval:roam</code> above. Labels save in this browser as you go; export <code>labels.json</code> into <code>evals/roam/</code> and run <code>node evals/roam/validate-checks.cjs</code>.</p><p>Judge the reply as a traveller and a local expert would. The automated checks are hidden until you open them, so they do not steer you.</p></div></section>
+</main>
+<script>
+const STORE = "roam-eval-labels";
+let items = [], shown = [], cur = 0, labels = {}, undo = [];
+try { labels = JSON.parse(localStorage.getItem(STORE) || "{}"); } catch { labels = {}; }
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+// Small safe markdown: everything is escaped first, then only bold, italics, bullets and paragraphs are re-added. No links, no images, no raw HTML.
+function md(text) {
+  const lines = esc(text).split("\n"); let html = "", list = false;
+  const inline = (t) => t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+  for (const line of lines) {
+    const m = line.match(/^\s*[-•]\s+(.*)/);
+    if (m) { if (!list) { html += "<ul>"; list = true; } html += `<li>${inline(m[1])}</li>`; continue; }
+    if (list) { html += "</ul>"; list = false; }
+    if (line.trim()) html += `<p>${inline(line)}</p>`;
+  }
+  return html + (list ? "</ul>" : "");
+}
+
+function load(json) {
+  const seen = {}; items = [];
+  for (const r of json.results.results) {
+    const id = r.testCase?.description; if (!id) continue;
+    seen[id] = (seen[id] || 0) + 1;
+    items.push({ key: `${id}#${seen[id]}`, id, n: seen[id], r, md: r.response?.metadata || {}, checks: r.gradingResult?.componentResults || [], tags: r.testCase?.metadata?.tags || [] });
+  }
+  cur = 0; refresh();
+}
+
+const failed = (it) => it.checks.some((c) => !c.pass);
+const hardFailed = (it) => it.checks.some((c) => !c.pass && String(c.assertion?.metric).startsWith("hard"));
+function refresh() {
+  const f = $("filter").value, q = $("search").value.toLowerCase();
+  shown = items.filter((it) => (f === "all" || (f === "unlabeled" && !labels[it.key]) || (f === "failed" && failed(it)) || (f === "hard" && hardFailed(it)) || (f === "unverified" && it.md.unverified))
+    && (!q || it.key.toLowerCase().includes(q) || (it.r.response?.output || "").toLowerCase().includes(q)));
+  if (cur >= shown.length) cur = Math.max(0, shown.length - 1);
+  $("list").innerHTML = shown.map((it, i) => `<li tabindex="0" data-i="${i}" class="${i === cur ? "cur" : ""}"><span>${esc(it.id)} #${it.n}</span><span class="dot ${labels[it.key]?.label || ""}"></span></li>`).join("");
+  const done = items.filter((it) => labels[it.key]).length;
+  $("progress").textContent = items.length ? `${shown.length ? cur + 1 : 0} of ${shown.length} shown · ${done} of ${items.length} labeled` : "";
+  show();
+}
+
+function show() {
+  const it = shown[cur]; const view = $("view");
+  if (!it) { if (items.length) view.innerHTML = '<div class="empty"><h2>Nothing matches this filter</h2></div>'; return; }
+  const m = it.md, turns = m.turns || [{ q: m.message, text: it.r.response?.output }], t = m.trace || {};
+  const lab = labels[it.key] || {};
+  const badges = [`${m.trip?.destination || "?"} · ${m.trip?.travelers ?? "?"} · ${m.trip?.groupType || ""}`, ...it.tags, t.intent && `intent: ${t.intent}`, t.tools?.length && `tools: ${t.tools.join(", ")}`, m.language && `lang: ${m.language}`]
+    .filter(Boolean).map((b) => `<span class="badge">${esc(b)}</span>`).join("") + (m.unverified ? '<span class="badge warn">grounding evaluator flagged a claim</span>' : "") + (t.degraded ? '<span class="badge warn">router degraded</span>' : "");
+  const conv = turns.map((x) => `<div class="turn"><div class="who">Traveller</div><div class="msg user">${md(x.q)}</div><div class="who" style="margin-top:8px">Roam</div><div class="msg bot">${md(x.text)}</div></div>`).join("");
+  const cards = (m.blocks || []).map((b) => `<tr><td>${esc(b.type)}</td><td>${esc((b.names || []).join(" · "))}</td></tr>`).join("") || "<tr><td>No cards</td></tr>";
+  const trace = `<table>${["intent", "tools", "providers_failed", "resolve_ms", "retrieve_ms", "compose_ms", "total_ms", "model_compose", "cost_usd"].map((k) => `<tr><th>${k}</th><td>${esc(Array.isArray(t[k]) ? t[k].join(", ") : t[k])}</td></tr>`).join("")}</table><p>Stages: ${esc((m.progress || []).join(" → ").replace(/\n/g, " "))}</p><p>Sources: ${esc((m.sourceTitles || []).join(" · ") || "none")}</p>`;
+  const checks = `<table>${it.checks.map((c) => `<tr><td class="${c.pass ? "ok" : "no"}">${c.pass ? "pass" : "FAIL"}</td><td>${esc(c.assertion?.metric)}</td><td>${esc(c.reason)}</td></tr>`).join("")}</table>`;
+  view.innerHTML = `<h2>${esc(it.id)} <span class="stat">repeat ${it.n}</span></h2><div class="badges">${badges}</div>${conv}
+    <details><summary>Cards shown (${(m.blocks || []).length})</summary><div><table>${cards}</table></div></details>
+    <details><summary>Trace: router choice, tools, timings, sources</summary><div>${trace}</div></details>
+    <details><summary>Automated checks (open after you have labeled)</summary><div>${checks}</div></details>
+    <div class="label"><div class="row">
+      <button id="pass" class="${lab.label === "pass" ? "on" : ""}">Pass <small>1</small></button><button id="fail" class="${lab.label === "fail" ? "on" : ""}">Fail <small>2</small></button><button id="defer" class="${lab.label === "defer" ? "on" : ""}">Defer <small>D</small></button>
+      <button id="prev">Previous</button><button id="next">Next</button><span class="keys">←/→ move · 1 pass · 2 fail · D defer · U undo</span></div>
+      <textarea id="note" placeholder="What went wrong, or right? (a failure you can name becomes a check)">${esc(lab.note || "")}</textarea></div>`;
+  $("pass").onclick = () => set("pass"); $("fail").onclick = () => set("fail"); $("defer").onclick = () => set("defer");
+  $("prev").onclick = () => move(-1); $("next").onclick = () => move(1);
+  $("note").oninput = (e) => { const k = shown[cur].key; labels[k] = { ...(labels[k] || {}), note: e.target.value, at: new Date().toISOString() }; save(); };
+}
+
+function save() { try { localStorage.setItem(STORE, JSON.stringify(labels)); } catch { /* private mode: export still works */ } }
+function set(label) {
+  const k = shown[cur]?.key; if (!k) return;
+  undo.push([k, labels[k] ? { ...labels[k] } : null]);
+  labels[k] = { ...(labels[k] || {}), label, at: new Date().toISOString() }; save();
+  if ($("filter").value === "unlabeled") { refresh(); } else { move(1); }
+}
+function move(d) { if (!shown.length) return; cur = Math.min(shown.length - 1, Math.max(0, cur + d)); refresh(); const li = $("list").children[cur]; li?.scrollIntoView({ block: "nearest" }); }
+function undoLast() { const u = undo.pop(); if (!u) return; if (u[1]) labels[u[0]] = u[1]; else delete labels[u[0]]; save(); const i = shown.findIndex((x) => x.key === u[0]); if (i >= 0) cur = i; refresh(); }
+
+$("file").onchange = async (e) => { const f = e.target.files[0]; if (f) load(JSON.parse(await f.text())); };
+$("labelsFile").onchange = async (e) => { const f = e.target.files[0]; if (f) { labels = { ...labels, ...JSON.parse(await f.text()) }; save(); refresh(); } };
+$("filter").onchange = () => { cur = 0; refresh(); }; $("search").oninput = () => { cur = 0; refresh(); };
+$("list").onclick = (e) => { const li = e.target.closest("li"); if (li) { cur = Number(li.dataset.i); refresh(); } };
+$("list").onkeydown = (e) => { if (e.key === "Enter") { const li = e.target.closest("li"); if (li) { cur = Number(li.dataset.i); refresh(); } } };
+$("export").onclick = () => { const url = URL.createObjectURL(new Blob([JSON.stringify(labels, null, 1)], { type: "application/json" })); const a = Object.assign(document.createElement("a"), { href: url, download: "labels.json" }); a.click(); URL.revokeObjectURL(url); };
+document.addEventListener("keydown", (e) => {
+  if (e.target.matches("textarea,input,select") || e.metaKey || e.ctrlKey) return;
+  if (e.key === "ArrowRight" || e.key === "j") move(1); else if (e.key === "ArrowLeft" || e.key === "k") move(-1);
+  else if (e.key === "1") set("pass"); else if (e.key === "2") set("fail"); else if (e.key.toLowerCase() === "d") set("defer"); else if (e.key.toLowerCase() === "u") undoLast();
+});
+fetch("../output/latest.json").then((r) => (r.ok ? r.json() : null)).then((j) => { if (j) load(j); }).catch(() => {});
+</script>
+</body>
+</html>
