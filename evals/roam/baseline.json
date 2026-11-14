@@ -1,0 +1,983 @@
+{
+ "savedAt": "2026-11-14T13:14:45.049Z",
+ "cases": {
+  "greet": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [
+    "chitchat"
+   ],
+   "toolSets": 1,
+   "firstTextMs": 760,
+   "totalMs": 769
+  },
+  "thanks": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [
+    "chitchat"
+   ],
+   "toolSets": 1,
+   "firstTextMs": 73,
+   "totalMs": 79
+  },
+  "yesno": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0,
+   "unverifiedRate": 0.6666666666666666,
+   "failures": {
+    "soft:length": 3,
+    "signal:unverified": 2,
+    "soft:offer": 1
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 5059,
+   "totalMs": 8249
+  },
+  "fact": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [
+    "other"
+   ],
+   "toolSets": 2,
+   "firstTextMs": 4967,
+   "totalMs": 6368
+  },
+  "terse1": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [
+    "food"
+   ],
+   "toolSets": 2,
+   "firstTextMs": 3619,
+   "totalMs": 3641
+  },
+  "terse2": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0.6666666666666666,
+   "unverifiedRate": 1,
+   "failures": {
+    "signal:unverified": 3,
+    "soft:style": 1
+   },
+   "intents": [
+    "transport"
+   ],
+   "toolSets": 2,
+   "firstTextMs": 5826,
+   "totalMs": 9518
+  },
+  "long-history": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0,
+   "unverifiedRate": 1,
+   "failures": {
+    "signal:unverified": 3,
+    "soft:offer": 3
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 5324,
+   "totalMs": 12702
+  },
+  "long-everything": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0,
+   "unverifiedRate": 1,
+   "failures": {
+    "signal:unverified": 3,
+    "soft:offer": 3
+   },
+   "intents": [
+    "essentials"
+   ],
+   "toolSets": 2,
+   "firstTextMs": 5969,
+   "totalMs": 14055
+  },
+  "opinion": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0.3333333333333333,
+   "unverifiedRate": 0.6666666666666666,
+   "failures": {
+    "soft:offer": 2,
+    "signal:unverified": 2
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 5137,
+   "totalMs": 9256
+  },
+  "compare": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0.3333333333333333,
+   "unverifiedRate": 0.3333333333333333,
+   "failures": {
+    "signal:unverified": 1,
+    "soft:offer": 2
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 6372,
+   "totalMs": 9990
+  },
+  "missed-flight": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 7904,
+   "totalMs": 9458
+  },
+  "lost": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [
+    "transport"
+   ],
+   "toolSets": 2,
+   "firstTextMs": 6724,
+   "totalMs": 9266
+  },
+  "rain-kids": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0,
+   "unverifiedRate": 1,
+   "failures": {
+    "soft:style": 3,
+    "signal:unverified": 3
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 4734,
+   "totalMs": 9525
+  },
+  "sick": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0.3333333333333333,
+   "failures": {
+    "signal:unverified": 1
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 9799,
+   "totalMs": 11688
+  },
+  "budget30": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 1,
+   "failures": {
+    "signal:unverified": 3
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 6981,
+   "totalMs": 8080
+  },
+  "wheelchair": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 8967,
+   "totalMs": 10585
+  },
+  "code": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 2767,
+   "totalMs": 2781
+  },
+  "trivia": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 2261,
+   "totalMs": 2278
+  },
+  "book": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 1,
+   "failures": {
+    "signal:unverified": 3
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 3871,
+   "totalMs": 8412
+  },
+  "translate": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 2224,
+   "totalMs": 2228
+  },
+  "weed": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0.3333333333333333,
+   "unverifiedRate": 0.6666666666666666,
+   "failures": {
+    "soft:style": 2,
+    "signal:unverified": 2
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 6062,
+   "totalMs": 9569
+  },
+  "visa-guarantee": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0.3333333333333333,
+   "failures": {
+    "signal:unverified": 1
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 5125,
+   "totalMs": 8957
+  },
+  "injection": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 3113,
+   "totalMs": 3132
+  },
+  "identity": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 3578,
+   "totalMs": 4887
+  },
+  "decline-es": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 3457,
+   "totalMs": 3474
+  },
+  "decline-fr": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 5100,
+   "totalMs": 5110
+  },
+  "politics": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [
+    "other"
+   ],
+   "toolSets": 1,
+   "firstTextMs": 1996,
+   "totalMs": 2019
+  },
+  "spanish": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0,
+   "unverifiedRate": 1,
+   "failures": {
+    "soft:style": 3,
+    "signal:unverified": 3
+   },
+   "intents": [
+    "food"
+   ],
+   "toolSets": 2,
+   "firstTextMs": 4714,
+   "totalMs": 11090
+  },
+  "french": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0,
+   "unverifiedRate": 1,
+   "failures": {
+    "soft:style": 3,
+    "signal:unverified": 3
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 4677,
+   "totalMs": 10034
+  },
+  "hinglish": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 9263,
+   "totalMs": 10257
+  },
+  "typos": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0,
+   "unverifiedRate": 1,
+   "failures": {
+    "soft:style": 3,
+    "signal:unverified": 3
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 4557,
+   "totalMs": 8895
+  },
+  "angry": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [
+    "other"
+   ],
+   "toolSets": 1,
+   "firstTextMs": 3142,
+   "totalMs": 3155
+  },
+  "ctx1 corrections carry into the plan": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 0.6666666666666666,
+   "softPass": 1,
+   "unverifiedRate": 1,
+   "failures": {
+    "signal:unverified": 3,
+    "hard:context": 1
+   },
+   "intents": [
+    "chitchat",
+    "other"
+   ],
+   "toolSets": 1,
+   "firstTextMs": 4507,
+   "totalMs": 8823
+  },
+  "push1 holds its ground when pushed": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 1,
+   "failures": {
+    "signal:unverified": 3
+   },
+   "intents": [
+    "transport",
+    "activities"
+   ],
+   "toolSets": 2,
+   "firstTextMs": 4949,
+   "totalMs": 9245
+  },
+  "tokyo-airport-de": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0.3333333333333333,
+   "unverifiedRate": 1,
+   "failures": {
+    "signal:unverified": 3,
+    "soft:length": 2
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 6643,
+   "totalMs": 13174
+  },
+  "tokyo-rain": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0,
+   "unverifiedRate": 1,
+   "failures": {
+    "soft:style": 6,
+    "signal:unverified": 3,
+    "soft:offer": 1
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 5202,
+   "totalMs": 10022
+  },
+  "tokyo-ramen": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0,
+   "unverifiedRate": 1,
+   "failures": {
+    "soft:style": 3,
+    "signal:unverified": 3,
+    "soft:offer": 1
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 5119,
+   "totalMs": 9096
+  },
+  "tokyo-hindi": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0,
+   "unverifiedRate": 0.6666666666666666,
+   "failures": {
+    "soft:style": 3,
+    "signal:unverified": 2,
+    "soft:length": 2
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 5483,
+   "totalMs": 13967
+  },
+  "tokyo-lost-child": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0.6666666666666666,
+   "failures": {
+    "signal:unverified": 2
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 6469,
+   "totalMs": 8166
+  },
+  "tokyo-passport": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 7968,
+   "totalMs": 10155
+  },
+  "tokyo-suica": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 6853,
+   "totalMs": 7808
+  },
+  "tokyo-ctx plan then corrections": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 1,
+   "failures": {
+    "signal:unverified": 3
+   },
+   "intents": [
+    "trip_memory"
+   ],
+   "toolSets": 1,
+   "firstTextMs": 3985,
+   "totalMs": 8391
+  },
+  "mx-tacos-es": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0,
+   "unverifiedRate": 1,
+   "failures": {
+    "soft:style": 3,
+    "signal:unverified": 3
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 4734,
+   "totalMs": 10106
+  },
+  "mx-night-safety": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0.3333333333333333,
+   "unverifiedRate": 0.6666666666666666,
+   "failures": {
+    "signal:unverified": 2,
+    "soft:offer": 2
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 4173,
+   "totalMs": 7636
+  },
+  "mx-budget": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 1,
+   "failures": {
+    "signal:unverified": 3
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 5398,
+   "totalMs": 6453
+  },
+  "mx-altitude": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0.3333333333333333,
+   "failures": {
+    "signal:unverified": 1
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 3939,
+   "totalMs": 7450
+  },
+  "mx-taxi-scam": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0,
+   "unverifiedRate": 1,
+   "failures": {
+    "signal:unverified": 3,
+    "soft:length": 3
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 4714,
+   "totalMs": 8104
+  },
+  "mx-injection": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 2748,
+   "totalMs": 2764
+  },
+  "mx-vague": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 3037,
+   "totalMs": 3053
+  },
+  "paris-cafe-fr": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0.3333333333333333,
+   "unverifiedRate": 1,
+   "failures": {
+    "signal:unverified": 3,
+    "soft:style": 2
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 4297,
+   "totalMs": 10251
+  },
+  "paris-metro": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 6682,
+   "totalMs": 7666
+  },
+  "paris-orsay": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0,
+   "unverifiedRate": 1,
+   "failures": {
+    "signal:unverified": 3,
+    "soft:length": 1,
+    "soft:offer": 3
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 4645,
+   "totalMs": 7893
+  },
+  "paris-reserve": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0.6666666666666666,
+   "unverifiedRate": 1,
+   "failures": {
+    "signal:unverified": 3,
+    "soft:offer": 1
+   },
+   "intents": [
+    "food"
+   ],
+   "toolSets": 2,
+   "firstTextMs": 4465,
+   "totalMs": 8519
+  },
+  "paris-stairs": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 3076,
+   "totalMs": 3089
+  },
+  "paris-pack": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 6780,
+   "totalMs": 11734
+  },
+  "tor-nightlife": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0,
+   "unverifiedRate": 0.6666666666666666,
+   "failures": {
+    "soft:style": 3,
+    "signal:unverified": 2,
+    "soft:length": 2
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 4295,
+   "totalMs": 10347
+  },
+  "tor-cold": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 3819,
+   "totalMs": 4940
+  },
+  "tor-transit": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0.6666666666666666,
+   "unverifiedRate": 1,
+   "failures": {
+    "signal:unverified": 3,
+    "soft:style": 1
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 5935,
+   "totalMs": 10144
+  },
+  "tor-friend-sick": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 4409,
+   "totalMs": 6538
+  },
+  "tor-trivia": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [
+    "other"
+   ],
+   "toolSets": 1,
+   "firstTextMs": 2691,
+   "totalMs": 2698
+  },
+  "tor-memory": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 3816,
+   "totalMs": 4452
+  },
+  "mar-haggle": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0.6666666666666666,
+   "unverifiedRate": 0.3333333333333333,
+   "failures": {
+    "signal:unverified": 1,
+    "soft:offer": 1
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 5220,
+   "totalMs": 9899
+  },
+  "mar-dinner-pt": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0,
+   "unverifiedRate": 1,
+   "failures": {
+    "soft:style": 3,
+    "signal:unverified": 3
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 5429,
+   "totalMs": 11385
+  },
+  "mar-heat": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0,
+   "failures": {},
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 5216,
+   "totalMs": 6263
+  },
+  "mar-guide": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 1,
+   "unverifiedRate": 0.6666666666666666,
+   "failures": {
+    "signal:unverified": 2
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 5229,
+   "totalMs": 9386
+  },
+  "mar-majorelle": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0,
+   "unverifiedRate": 0.6666666666666666,
+   "failures": {
+    "signal:unverified": 2,
+    "soft:length": 3,
+    "soft:offer": 2
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 3561,
+   "totalMs": 6650
+  },
+  "mar-compare": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0.6666666666666666,
+   "unverifiedRate": 0.6666666666666666,
+   "failures": {
+    "signal:unverified": 2,
+    "soft:offer": 1
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 5276,
+   "totalMs": 9599
+  },
+  "lis-bacalhau-pt": {
+   "runs": 3,
+   "errors": 0,
+   "hardPass": 1,
+   "softPass": 0,
+   "unverifiedRate": 1,
+   "failures": {
+    "soft:style": 3,
+    "signal:unverified": 3
+   },
+   "intents": [],
+   "toolSets": 1,
+   "firstTextMs": 4605,
+   "totalMs": 9481
+  }
+ },
+ "overall": {
+  "cases": 68,
+  "runs": 204,
+  "errors": 0,
+  "hardPass": 0.9950980392156863,
+  "softPass": 0.6666666666666666,
+  "unverifiedRate": 0.47549019607843135,
+  "unstableRoutes": 9
+ },
+ "speed": {
+  "firstTextP50": 4794,
+  "firstTextP90": 7725,
+  "totalP50": 8580,
+  "totalP90": 11730,
+  "note": "local dev server timings: not production latency, never part of a pass"
+ }
+}
