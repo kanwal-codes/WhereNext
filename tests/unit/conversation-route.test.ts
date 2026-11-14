@@ -26,6 +26,11 @@ vi.mock("@/features/conversation/infrastructure/conversationRepository", () => (
   createConversationRepository: () => ({ list: listMock, append: appendMock }),
 }));
 
+const ratingsMock = vi.fn();
+vi.mock("@/features/conversation/infrastructure/replyFeedbackRepository", () => ({
+  createReplyFeedbackRepository: () => ({ ratingsFor: ratingsMock }),
+}));
+
 async function GET() {
   const mod = await import("@/app/api/trips/[tripId]/conversation/route");
   return mod.GET(new Request("http://localhost/x"), { params: Promise.resolve({ tripId: TRIP }) });
@@ -44,6 +49,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   requireTripMemberMock.mockResolvedValue({ supabase: {}, user: { id: "u1" }, role: "owner" });
   listMock.mockResolvedValue([{ id: "m1", role: "user", content: "hi" }]);
+  ratingsMock.mockResolvedValue(new Map());
   appendMock.mockImplementation(async (_t, _u, input) => ({ id: "m2", ...input }));
 });
 afterEach(() => vi.resetModules());
@@ -54,6 +60,21 @@ describe("GET /api/trips/:tripId/conversation", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ messages: [{ id: "m1", role: "user", content: "hi" }] });
     expect(listMock).toHaveBeenCalledWith(TRIP, "u1", { limit: 200 });
+  });
+
+  it("returns each reply's current rating for the signed-in traveller", async () => {
+    listMock.mockResolvedValue([{ id: "m1", role: "user", content: "hi" }, { id: "m2", role: "assistant", content: "yo" }]);
+    ratingsMock.mockResolvedValue(new Map([["m2", "down"]]));
+    const body = await (await GET()).json();
+    expect(body.messages).toEqual([{ id: "m1", role: "user", content: "hi" }, { id: "m2", role: "assistant", content: "yo", rating: "down" }]);
+    expect(ratingsMock).toHaveBeenCalledWith(TRIP, "u1");
+  });
+
+  it("still opens the chat when the ratings cannot be read", async () => {
+    ratingsMock.mockRejectedValue(new Error("relation does not exist"));
+    const res = await GET();
+    expect(res.status).toBe(200);
+    expect((await res.json()).messages).toHaveLength(1);
   });
 
   it("maps an auth error to its status (404 for a non-member — existence is not leaked)", async () => {

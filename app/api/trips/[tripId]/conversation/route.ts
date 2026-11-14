@@ -3,6 +3,7 @@ import { userMessageInput } from "@/features/conversation/domain/message";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { withRoute, fail, jsonRevalidated } from "@/lib/server/with-route";
 import { createConversationRepository } from "@/features/conversation/infrastructure/conversationRepository";
+import { createReplyFeedbackRepository } from "@/features/conversation/infrastructure/replyFeedbackRepository";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /** Service-role writer used only to create a brand-new trip's thread row; null if unavailable. */
@@ -23,7 +24,12 @@ export const GET = withRoute(async (request: Request, { params }: { params: Prom
   try {
     const { tripId } = await params;
     const { supabase, user } = await requireTripMember(tripId);
-    const messages = await createConversationRepository(supabase, threadWriter()).list(tripId, user.id, { limit: HISTORY_LIMIT });
+    const [listed, ratings] = await Promise.all([
+      createConversationRepository(supabase, threadWriter()).list(tripId, user.id, { limit: HISTORY_LIMIT }),
+      // Thumbs are a nicety: a failed read (or the table not migrated yet) must never keep the chat from opening.
+      createReplyFeedbackRepository(supabase).ratingsFor(tripId, user.id).catch(() => new Map<string, "up" | "down">()),
+    ]);
+    const messages = listed.map((message) => (ratings.has(message.id) ? { ...message, rating: ratings.get(message.id) } : message));
     return jsonRevalidated(request, { messages });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Conversation unavailable");

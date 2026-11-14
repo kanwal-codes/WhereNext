@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import type { AssistantBlock, AssistantTurnMeta, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { EventSeed } from "@/components/TripPanelProvider";
@@ -23,6 +23,7 @@ import { Typing, TurnOutcome } from "./ConversationStatus";
 import { ConversationHero } from "./ConversationHero";
 import { ProposalCard } from "./ProposalCard";
 import { ReplyTurn, UserTurn } from "./ConversationTurns";
+import type { ReplyRating } from "../domain/replyFeedback";
 import { RoamComposer } from "./RoamComposer";
 import { describeProposal } from "../domain/proposal";
 
@@ -129,6 +130,11 @@ export const ConversationSurface = React.memo(function ConversationSurface({
     onOpenPanel: hasPanel ? (panel) => latest.current.onOpenPanel?.(panel) : undefined,
   }), [tripId, hasPlace, hasStay, hasEvent, hasCollection, hasPanel]);
 
+  // The rating lives on the message so the session cache and a reload agree with what the traveller sees.
+  const rateReply = useCallback((messageId: string, rating: ReplyRating | null) => {
+    setMessages((current) => current.map((m) => (m.id === messageId ? { ...m, rating } : m)));
+  }, [setMessages]);
+
   const proposalRows = proposal ? describeProposal(proposal) : [];
   const proposalText = proposal ? proposalQuestion(proposal, proposalRows) : "";
 
@@ -209,7 +215,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
             const live = liveMessageIdsRef.current.has(message.id);
 
             if (message.role === "user") return <UserTurn key={message.id} message={message} isNew={isNew} undelivered={undelivered === message.id} />;
-            return <ReplyTurn key={message.id} message={message} isNew={isNew} streaming={streaming} live={live} isLatest={index === messages.length - 1} dir={dir} handlers={handlers} />;
+            return <ReplyTurn key={message.id} message={message} isNew={isNew} streaming={streaming} live={live} isLatest={index === messages.length - 1} dir={dir} handlers={handlers} tripId={tripId} onRate={rateReply} />;
           })}
 
           {pendingBubble && pendingFirst && (

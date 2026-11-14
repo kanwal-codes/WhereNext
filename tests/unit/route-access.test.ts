@@ -93,6 +93,7 @@ const MEMBER_LEVEL_WRITES: Record<string, string> = {
   "POST /api/trips/[tripId]/route-plan/hops": "route lookup",
   "POST /api/trips/[tripId]/transit": "route lookup",
   "PUT /api/trips/[tripId]/availability": "a member's own availability",
+  "PUT /api/trips/[tripId]/conversation/feedback": "a member's own thumbs on their own Roam replies",
   "POST /api/trips/[tripId]/group-chat": "chatting",
   "POST /api/trips/[tripId]/group-chat/[messageId]/reactions": "chatting",
   "POST /api/trips/[tripId]/group-chat/roam": "chatting (registered members)",

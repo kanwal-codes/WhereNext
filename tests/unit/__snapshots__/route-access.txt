@@ -31,6 +31,7 @@ GET    /api/trips/[tripId]/bookings                                 member:viewe
 GET    /api/trips/[tripId]/budget                                   member:viewer
 GET    /api/trips/[tripId]/car-rentals                              member:viewer+registered
 POST   /api/trips/[tripId]/compare-chat                             member:viewer
+PUT    /api/trips/[tripId]/conversation/feedback                    member:viewer
 GET    /api/trips/[tripId]/conversation                             member:viewer
 POST   /api/trips/[tripId]/conversation                             member:viewer
 GET    /api/trips/[tripId]/cover                                    member:viewer

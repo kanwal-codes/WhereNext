@@ -8,6 +8,8 @@ import { CopyButton } from "./blocks/ui";
 import { replyNotes, hostOf } from "../domain/replyNotes";
 import type { Message } from "../domain/message";
 import { cn } from "@/lib/utils";
+import { ReplyFeedback } from "./ReplyFeedback";
+import type { ReplyRating } from "../domain/replyFeedback";
 
 /** An older reply's blocks without its follow-up chips. Cached per source array so the result keeps its identity (a fresh array each render would defeat the memoised AssistantMessage). */
 const settledBlocks = new WeakMap<AssistantBlock[], AssistantBlock[]>();
@@ -42,7 +44,7 @@ export function UserTurn({ message, isNew, undelivered }: { message: Message; is
 }
 
 /** Roam's reply: the words and cards, anything worth a footnote, the sources behind it, and Copy. */
-export function ReplyTurn({ message, isNew, streaming, live, isLatest, dir, handlers }: {
+export function ReplyTurn({ message, isNew, streaming, live, isLatest, dir, handlers, tripId, onRate }: {
   message: Message;
   isNew: boolean;
   streaming: boolean;
@@ -52,11 +54,16 @@ export function ReplyTurn({ message, isNew, streaming, live, isLatest, dir, hand
   isLatest: boolean;
   dir: "rtl" | undefined;
   handlers: BlockHandlers;
+  tripId: string;
+  /** Records a thumbs on the reply in the thread's state (null clears it). */
+  onRate: (messageId: string, rating: ReplyRating | null) => void;
 }) {
   const meta = message.metadata as AssistantTurnMeta | undefined;
   const sources = streaming ? [] : (meta?.sources ?? []);
   const blocks = isLatest ? meta?.blocks : withoutChips(meta?.blocks);
   const notes = replyNotes(meta, streaming);
+  // A reply that never reached the database has nothing to attach a rating to.
+  const rateable = Boolean(message.content.trim()) && !streaming && !(meta as { persistFailed?: boolean } | undefined)?.persistFailed;
 
   return (
   <motion.div
@@ -83,7 +90,7 @@ export function ReplyTurn({ message, isNew, streaming, live, isLatest, dir, hand
         </div>
       </div>
     )}
-    {(sources.length > 0 || (message.content.trim() && !streaming)) && (
+    {(sources.length > 0 || rateable) && (
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
         {sources.length > 0 ? (
           <details className="group min-w-0 flex-1 text-xs text-muted-foreground">
@@ -105,11 +112,17 @@ export function ReplyTurn({ message, isNew, streaming, live, isLatest, dir, hand
           <span />
         )}
         {/* Copy rests quietly: on a mouse it appears when the reply is under the pointer (the latest always shows it); on touch it is always there. */}
-        {message.content.trim() && !streaming && (
-          <span className={cn(!isLatest && "turn-action")}>
-            <CopyButton text={message.content} tabbable={isLatest} />
-          </span>
-        )}
+        {message.content.trim() && !streaming && (() => {
+          const copy = (
+            <span className={cn(!isLatest && "turn-action")}>
+              <CopyButton text={message.content} tabbable={isLatest} />
+            </span>
+          );
+          // A rated reply keeps its thumbs lit in view; an unrated older one waits for the pointer, like Copy.
+          return rateable
+            ? <ReplyFeedback tripId={tripId} messageId={message.id} rating={message.rating ?? null} onRate={onRate} quiet={!isLatest && !message.rating}>{copy}</ReplyFeedback>
+            : copy;
+        })()}
       </div>
     )}
   </motion.div>
