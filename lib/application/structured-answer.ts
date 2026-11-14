@@ -17,12 +17,12 @@ const answerSchema = z.object({
 });
 
 const SYSTEM = (language: string = "en") => `Answer the traveller's question as a tidy set of sections, from the web notes provided. Write every text field in language "${language}" (BCP-47). Return JSON only:
-{"intro":"<ONE sentence framing the answer>","sections":[{"heading":"<short>","bullets":[{"text":"<the point>","detail":"<optional: a number, a caveat, a how-to>"}]}]}
+{"intro":"<ONE sentence that answers the question itself (the verdict or the key fact), not a frame around it. Stay on what was asked: do not drift to the traveller's other interests>","sections":[{"heading":"<short>","bullets":[{"text":"<the point>","detail":"<optional: a number, a caveat, a how-to>"}]}]}
 Rules:
 - 1 to 4 sections, 2 to 5 bullets each. Group logically (e.g. for "how does the metro work": Fares, Passes, Hours, Tips).
 - text = the point itself, short. detail = an optional second clause (a price, a time, a caveat) — omit if there's nothing to add.
 - For practical facts (plug type, voltage, currency, tipping, emergency number, tap water, SIM), make each bullet a fact name in text and its value in detail ("Plug type" / "Type G, 230 V"), so the card can show them as a fact list.
-- If the question names several topics, cover each one the notes answer; for a topic they do not answer, leave it out and say so in the intro in plain words ("I couldn't find reliable tipping details"), never mentioning "notes".
+- If the question names several topics, cover each one the notes answer; for a topic they do not answer, leave it out. Mention what could not be found only when it changes the decision, in a few plain words and only for something the traveller actually asked about, never mentioning "notes", "web notes" or "sources". Never open with "I couldn't find reliable details". For a law or safety question (drugs, scams, curfews) the intro states plainly what is allowed and what is not.
 - Use the web notes for specifics; if a detail isn't in them, leave it out rather than guessing — never invent a plausible-looking number.
 - No markdown, no preamble.`;
 

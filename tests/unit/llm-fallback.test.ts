@@ -197,16 +197,36 @@ describe("generateText — model fallback", () => {
 });
 
 describe("modelChain", () => {
+  const off = { anthropic: { thinking: { type: "disabled" } } };
+
   it("resolves each model id to an Anthropic model, preserving order", () => {
     const chain = modelChain(["claude-a", "claude-b"]);
     expect(chain).toEqual([
-      { model: { __modelId: "claude-a" }, modelId: "claude-a" },
-      { model: { __modelId: "claude-b" }, modelId: "claude-b" },
+      { model: { __modelId: "claude-a" }, modelId: "claude-a", providerOptions: off },
+      { model: { __modelId: "claude-b" }, modelId: "claude-b", providerOptions: off },
     ]);
   });
 
   it("accepts the old \"anthropic/\" spelling and traces the bare id", () => {
-    expect(modelChain(["anthropic/claude-sonnet-5"])).toEqual([{ model: { __modelId: "claude-sonnet-5" }, modelId: "claude-sonnet-5" }]);
+    expect(modelChain(["anthropic/claude-sonnet-5"])).toEqual([{ model: { __modelId: "claude-sonnet-5" }, modelId: "claude-sonnet-5", providerOptions: off }]);
+  });
+
+  it("asks for the lowest thinking each model allows: Sonnet 5.5 cannot switch it off, Haiku rejects between_tools", () => {
+    const [sonnet, haiku] = modelChain(["claude-sonnet-5-5", "claude-haiku-5-5"]);
+    expect(sonnet.providerOptions).toEqual({ anthropic: { thinking: { type: "between_tools" } } });
+    expect(haiku.providerOptions).toEqual(off);
+  });
+});
+
+describe("structured and text calls are left on the model's own thinking", () => {
+  it("sends no thinking setting for the router or builders", async () => {
+    generateObjectMock.mockResolvedValueOnce({ object: { intent: "food" }, usage: { inputTokens: 1, outputTokens: 1 } });
+    await generateStructured(["claude-sonnet-5-5"], [{ role: "user", content: "hi" }], schema);
+    expect(generateObjectMock.mock.calls.at(-1)?.[0].providerOptions).toBeUndefined();
+  });
+
+  it("modelChain(chain, false) leaves the reply writer on its own thinking too (urgent turns)", () => {
+    expect(modelChain(["claude-sonnet-5-5"], false)).toEqual([{ model: { __modelId: "claude-sonnet-5-5" }, modelId: "claude-sonnet-5-5" }]);
   });
 });
 

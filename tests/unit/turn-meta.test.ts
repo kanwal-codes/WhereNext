@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cannedMeta, clarifyMeta, declinedMeta, deflectionReply, mapCardsFor, readyMeta, surfaceForIntent, trivialReply, ungroundedMeta } from "../../lib/application/orchestrate/turn-meta";
+import { cannedMeta, clarifyMeta, declinedMeta, mapCardsFor, readyMeta, surfaceForIntent, trivialReply, ungroundedMeta } from "../../lib/application/orchestrate/turn-meta";
 
 type Any = Record<string, any>;
 const receipt = { type: "trip_update", changes: [] } as never;
@@ -29,13 +29,6 @@ describe("trivialReply", () => {
     expect(trivialReply("greeting")).toContain("for your trip next?");
     expect(trivialReply("thanks", null)).toContain("for your trip.");
     expect(trivialReply("greeting", "")).toContain("for your trip next?");
-  });
-});
-
-describe("deflectionReply", () => {
-  it("declines in one line and says what it can do", () => {
-    expect(deflectionReply("Lisbon")).toMatch(/^I can't help with that — I'm here to help plan and get the most out of your Lisbon trip\./);
-    expect(deflectionReply("Lisbon")).toContain("places, food, getting around, what to book");
   });
 });
 

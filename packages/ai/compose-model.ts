@@ -13,6 +13,6 @@ export type ComposeModel = { model: LanguageModel; modelId: string; providerOpti
  * first chunk errors (provider down / rate-limited) or, for the buffered group-chat caller,
  * when the whole call fails.
  */
-export function composeModelChain(): ComposeModel[] {
-  return resolveComposeChain();
+export function composeModelChain(opts?: { lowThinking?: boolean }): ComposeModel[] {
+  return resolveComposeChain(opts);
 }

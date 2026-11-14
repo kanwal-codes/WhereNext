@@ -27,7 +27,7 @@ const planSchema = z.object({
 });
 
 const SYSTEM = (language: string = "en") => `You draft a day-by-day plan for a trip. Write every text field ("title", "intro", "subtitle", "note") in language "${language}" (BCP-47) — never "time" or "kind", which stay in their given formats. Return JSON only:
-{"title":"<N> days in <city>","intro":"<2-3 concise sentences: how many days this covers and the shape of them, tied to what the traveller actually asked for (their cuisine, group, base) rather than generic travel talk; then one thing to book ahead. Say nothing about days having few options: that is added separately>>","days":[{"label":"Day 1","subtitle":"<3-5 word theme>","stops":[{"time":"09:00","title":"<place or activity>","note":"<one line: why it fits or a tip>","placeId":"<id from KNOWN PLACES, or omit>","kind":"sight"}]}]}
+{"title":"<N> days in <city>","intro":"<2-3 concise sentences: the shape of these days, tied to what the traveller actually asked for (their cuisine, group, base) rather than generic travel talk; open with what makes them distinctive, never with 'This covers', 'This plan' or 'Here is'; then one thing to book ahead. Say nothing about days having few options: that is added separately>>","days":[{"label":"Day 1","subtitle":"<3-5 word theme>","stops":[{"time":"09:00","title":"<place or activity>","note":"<one line: why it fits or a tip>","placeId":"<id from KNOWN PLACES, or omit>","kind":"sight"}]}]}
 Rules:
 - Build ONLY from KNOWN PLACES (the traveller's saved spots + what was found this turn). Never invent a venue. Too few to fill the days? Keep every day: give thin days one or two stops, and a day with no known place left gets "stops":[] — never leave a day out, never invent a venue to fill it.
 - 2 to 4 stops per day. Give every stop a real 24-hour clock time ("09:00", "13:30", "19:00") reflecting a sensible pace through the day — not just an ordering label. Use a specific known time (a show's start, a reservation) when there is one; otherwise pick a reasonable time for that stop's kind (e.g. breakfast ~08:30, lunch ~12:30, dinner ~19:00, a museum/sight ~10:00-15:00, nightlife ~21:00+). Leave "time" out only when the stop is genuinely flexible and no reasonable time applies.
@@ -78,6 +78,8 @@ export async function buildItineraryPlan(input: {
   legBriefs?: Array<TripBrief | null>;
   /** Days the traveller asked for this turn (from the resolver). Wins over the trip's saved length. */
   requestedDays?: number | null;
+  /** The traveller's last few messages: newer than the saved profile, so a dropped interest or a changed group size wins over it. */
+  recentSaid?: string;
   language?: string;
   signal?: AbortSignal;
   onUsage?: (entry: UsageEntry) => void;
@@ -177,7 +179,7 @@ export async function buildItineraryPlan(input: {
           events: eventOptions.filter((option) => option.day === number).map(({ event, time }) => `${listing(event.title)} | ${time ?? ""} | ${event.venue ?? ""}`),
           must: anchorDay === number ? `${input.anchorEvent!.title}${input.anchorEvent!.venue ? ` at ${input.anchorEvent!.venue}` : ""}${input.anchorEvent!.time ? `, ${input.anchorEvent!.time}` : ""}` : null,
         }));
-        return writeDays({ days: briefs, tripSummary: input.tripSummary, prompt: input.prompt, pace, city: input.tripCtx.trip?.destination ?? "", mode: "edit", language: input.language, signal: input.signal, onUsage: input.onUsage });
+        return writeDays({ days: briefs, tripSummary: input.tripSummary, prompt: input.prompt, pace, city: input.tripCtx.trip?.destination ?? "", mode: "edit", recentSaid: input.recentSaid, language: input.language, signal: input.signal, onUsage: input.onUsage });
       })()
     : routeDays && fresh && wanted === routeDays
     ? await (async () => {
@@ -199,7 +201,7 @@ export async function buildItineraryPlan(input: {
           assigned.forEach((dayCandidates, d) => briefs.push({ number: first + d, candidates: dayCandidates, events: [], must: null, city: leg.city }));
           first += leg.days;
         });
-        return writeDays({ days: briefs, tripSummary: input.tripSummary, prompt: input.prompt, pace, city: route!.map((leg) => leg.city.split(",")[0].trim()).join(", "), language: input.language, signal: input.signal, onUsage: input.onUsage });
+        return writeDays({ days: briefs, tripSummary: input.tripSummary, prompt: input.prompt, pace, city: route!.map((leg) => leg.city.split(",")[0].trim()).join(", "), recentSaid: input.recentSaid, language: input.language, signal: input.signal, onUsage: input.onUsage });
       })()
     : fresh && wanted >= 2 && wholeTrip && tripStops.length < 2
     ? await (async () => {
@@ -220,11 +222,11 @@ export async function buildItineraryPlan(input: {
           events: eventOptions.filter((option) => option.day === i + 1).map(({ event, time }) => `${listing(event.title)} | ${time ?? ""} | ${event.venue ?? ""}`),
           must: anchorDay === i + 1 ? `${input.anchorEvent!.title}${input.anchorEvent!.venue ? ` at ${input.anchorEvent!.venue}` : ""}${input.anchorEvent!.time ? `, ${input.anchorEvent!.time}` : ""}` : null,
         }));
-        return writeDays({ days: briefs, tripSummary: input.tripSummary, prompt: input.prompt, pace, city: input.tripCtx.trip?.destination ?? "", language: input.language, signal: input.signal, onUsage: input.onUsage });
+        return writeDays({ days: briefs, tripSummary: input.tripSummary, prompt: input.prompt, pace, city: input.tripCtx.trip?.destination ?? "", recentSaid: input.recentSaid, language: input.language, signal: input.signal, onUsage: input.onUsage });
       })()
     : await runBulkBuilder(
     SYSTEM(input.language),
-    `Traveller: ${input.tripSummary}\nTrip length: ${duration ? `${duration} days` : "unspecified"}\nDays to plan: ${daysDirective}\n${calendarBlock}Pace: ${pace}\nRequest: ${input.prompt}\n\nExisting itinerary:\n${existing}\n\nKNOWN PLACES:\n${known.join("\n")}${briefBlock}${eventsBlock}${anchorLine}`,
+    `Traveller: ${input.tripSummary}\n${input.recentSaid ? `Said in this chat (newer than the saved profile: where they disagree, follow this; never use anything they dropped):\n${input.recentSaid}\n` : ""}Trip length: ${duration ? `${duration} days` : "unspecified"}\nDays to plan: ${daysDirective}\n${calendarBlock}Pace: ${pace}\nRequest: ${input.prompt}\n\nExisting itinerary:\n${existing}\n\nKNOWN PLACES:\n${known.join("\n")}${briefBlock}${eventsBlock}${anchorLine}`,
     planSchema,
     // Writing a plan takes about 2 s per day (17 s for 5 days, the same for 8 on a good run): a flat 22 s cut longer plans off
     // mid-answer and threw the whole thing away for a prose reply.

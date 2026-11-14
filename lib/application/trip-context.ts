@@ -277,6 +277,15 @@ function formatBookings(reservations: ContextReservation[] | undefined, startDat
   return lines;
 }
 
+/** "group: couple" for the trip profile, left out when the traveller count has since changed so that it no longer fits ("couple" with 4
+ *  travellers made a plan say "two travellers" right after the group was corrected to four). */
+export function groupLabel(groupType: unknown, travelers: number | null | undefined): string | null {
+  if (typeof groupType !== "string" || !groupType) return null;
+  const fixed = ({ solo: 1, couple: 2 } as Record<string, number>)[groupType.trim().toLowerCase()];
+  if (fixed !== undefined && travelers != null && travelers !== fixed) return null;
+  return `group: ${groupType}`;
+}
+
 export function formatTripMemory(
   context: Pick<TripContext, "preferences" | "itinerary" | "places" | "decisions" | "lockedTitles"> & { trip?: TripContext["trip"]; reservations?: ContextReservation[]; committed?: TripContext["committed"] },
 ): string {
@@ -295,7 +304,7 @@ export function formatTripMemory(
     typeof preferences.language === "string" && preferences.language ? `preferred language: ${preferences.language}` : null,
     typeof preferences.country === "string" && preferences.country ? `home country: ${preferences.country}` : null,
     usesMiles(preferences.country) ? "distances in miles" : null,
-    typeof preferences.groupType === "string" && preferences.groupType ? `group: ${preferences.groupType}` : null,
+    groupLabel(preferences.groupType, context.trip?.travelers),
     preferences.budget !== undefined && preferences.budget !== "" ? `budget: ${preferences.budget}${typeof preferences.budget === "number" ? ` ${resolveCurrency(preferences)} per person per day` : ""}` : null,
     typeof preferences.pace === "string" && preferences.pace ? `pace: ${preferences.pace}` : null,
     likes.length ? `likes: ${likes.join(", ")}` : null,

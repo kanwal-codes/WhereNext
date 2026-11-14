@@ -30,7 +30,7 @@ Rules:
 - Sanity check: the typical daily total for a normal city trip (excl. flights & lodging) is usually well above a bare-minimum backpacker number. If yours looks low for the destination, raise it.
 - Use REAL local prices for the destination, in the currency given below. Integers only, no currency symbols or thousands separators.
 - perPerson: true unless the traveller clearly means the whole group's total.
-- If they gave a per-day budget, set setBudget to that number and make summary say plainly whether the typical plan fits under it.
+- If they gave a per-day budget, set setBudget to that number and make summary say plainly whether the typical plan fits under it. When it does not fit, summary still ends on the way through, in the same sentence: compare their figure with the "low" (careful day) total and say what makes it work (set menus and tascas or street food, free sights and viewpoints, walking instead of rides). Never leave a flat "it does not fit" as the whole answer, and do not call it "the plan" when no plan exists yet.
 No preamble, no markdown.`;
 
 /** The assistant's daily-spend estimate — the model sizes each category from real local prices. */

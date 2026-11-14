@@ -17,9 +17,15 @@ describe("cardLeadIn", () => {
 
   it("counts the places and names the top-rated one, without quoting the planner's search words", () => {
     const rated = { type: "place_list", places: [{ providerId: "a", name: "Pink Mamma", rating: 4.7, userRatingCount: 9000 }, { providerId: "b", name: "Sphère", rating: 4.8, userRatingCount: 300 }, { providerId: "c", name: "La Coupole", rating: 4.4 }] } as unknown as AssistantBlock;
-    expect(cardLeadIn([rated], "Paris, France", "top sights and restaurants to visit")).toBe("3 places in Paris to start with. Sphère is the top-rated at 4.8.");
-    expect(cardLeadIn([places(6)], "Niagara Falls, Ontario", "parks")).toBe("6 places in Niagara Falls to start with.");
-    expect(cardLeadIn([places(1)], "Niagara Falls, Ontario", null)).toBe("One place in Niagara Falls to start with.");
+    expect(cardLeadIn([rated], "Paris, France", "top sights and restaurants to visit")).toBe("Sphère is the one I'd start with in Paris, rated 4.8. 2 more to compare.");
+    expect(cardLeadIn([places(6)], "Niagara Falls, Ontario", "parks")).toBe("6 places in Niagara Falls, best matches first.");
+    expect(cardLeadIn([places(1)], "Niagara Falls, Ontario", null)).toBe("P0 is the one place that fits in Niagara Falls.");
+  });
+
+  it("leads with a place that matches what was asked, not the highest score overall", () => {
+    const mixed = { type: "place_list", places: [{ providerId: "a", name: "Prime Steakhouse", category: "steak_house", rating: 4.9 }, { providerId: "b", name: "Taverna do Marisco", category: "seafood_restaurant", rating: 4.8 }] } as unknown as AssistantBlock;
+    expect(cardLeadIn([mixed], "Lisbon, Portugal", "best seafood restaurants")).toBe("Taverna do Marisco is the one I'd start with in Lisbon, rated 4.8. 1 more to compare.");
+    expect(cardLeadIn([mixed], "Lisbon, Portugal", "best restaurants")).toContain("Prime Steakhouse");
   });
 
   it("says nothing when more than one kind of card is shown, or none", () => {

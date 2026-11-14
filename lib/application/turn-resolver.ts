@@ -1,4 +1,5 @@
 import { stayLimits } from "./constraints";
+import { asksForDepth } from "@/lib/application/orchestrate/ask-shape";
 import { z } from "zod";
 import { logger } from "@/lib/server/logger";
 import { AI_DEADLINE_MS, generateStructured, withDeadline } from "@/packages/ai/model-policy";
@@ -156,6 +157,17 @@ export function guardWebLookups(message: string, resolved: ResolvedTurn): Resolv
   return { ...resolved, toolPlan: resolved.toolPlan.filter((call) => call.tool !== "research_web") };
 }
 
+/** "Tell me everything before landing" planned only a weather call: the written answer then had nothing on arrival, money, transport or
+ *  safety to draw on. An ask for the whole picture about a place gets one practical web lookup next to whatever else was planned. */
+export function guardDepth(message: string, resolved: ResolvedTurn): ResolvedTurn {
+  if (resolved.outOfScope || resolved.clarify || !asksForDepth(message) || !resolved.locationFocus) return resolved;
+  if (!["essentials", "other", "discovery", "history_culture"].includes(resolved.intent) || resolved.toolPlan.some((call) => call.tool === "research_web") || resolved.toolPlan.length >= MAX_TOOL_CALLS) return resolved;
+  const place = resolved.locationFocus.split(",")[0].trim();
+  // A history question is answered from history sources; everything else is the practical basics a first-time visitor needs.
+  const query = resolved.intent === "history_culture" ? `${message.slice(0, 160)}` : `${place} first-time visitor guide: getting from the airport, money and cards, getting around, safety, tipping, local customs`;
+  return { ...resolved, toolPlan: [...resolved.toolPlan, { tool: "research_web" as const, query: query.slice(0, 300) }] };
+}
+
 /** A nightly price ceiling or star floor the traveller stated reaches the hotel search: the model's plan carried only a place and dates. */
 export function guardStayLimits(message: string, resolved: ResolvedTurn): ResolvedTurn {
   if (!resolved.toolPlan.some((call) => call.tool === "stays")) return resolved;
@@ -301,7 +313,7 @@ export type ResolvedTurn = z.infer<typeof resolvedTurnSchema>;
 const SYSTEM = `You plan how the assistant "Roam" should answer ONE traveller message. Return exactly one JSON object, no prose.
 
 Fields:
-- language: BCP-47 code of the user's latest message ("en", "fr", "hi", "es", "ar", ...) Judge the latest message ALONE: earlier turns in another language are irrelevant, and a short message with no words of another language ("thanks!", "somewhere nice") takes the traveller's "preferred language" from the trip profile below, or "en" if there is none. The follow-up chips (suggestedFollowups labels and prompts) must be written in this same language.
+- language: BCP-47 code of the user's latest message ("en", "fr", "hi", "es", "ar", ...). When the message is written in Roman letters but is not English (Hindi typed as "kaunsa area best hai", Punjabi, Arabic or Urdu in Latin letters), add the script: "hi-Latn", "pa-Latn", "ar-Latn", so the reply comes back in the letters the traveller typed. Judge the latest message ALONE: earlier turns in another language are irrelevant, and a short message with no words of another language ("thanks!", "somewhere nice") takes the traveller's "preferred language" from the trip profile below, or "en" if there is none. The follow-up chips (suggestedFollowups labels and prompts) must be written in this same language.
 - locationFocus: the place the conversation is about RIGHT NOW. If this message does not name a place, keep the place from earlier in the conversation. Use null only when no place is in play yet. Make it UNAMBIGUOUS: if the user names only a district or neighbourhood, append the trip's city and country (a Lisbon trip that mentions "Belém" means "Belém, Lisbon, Portugal", not Belém in Brazil).
 - A short, referential message ("book it", "do that", "yes please", "the second one") almost always refers to whatever the assistant itself just suggested — check the most recent assistant turn in the history for a trailing "[Suggested next steps shown to the user just now: ...]" annotation and resolve intent/locationFocus/toolPlan against the matching suggestion's own full prompt, not a generic guess at what the short reply might mean on its own.
 - intent: one of discovery, nightlife, food, activities, history_culture, weather, transport, stays, events, trip_memory, compare, essentials, chitchat, other.
@@ -400,7 +412,7 @@ export async function resolveTurn(input: {
       const capabilities = !resolved.outOfScope && !resolved.capabilities.includes("budget") && BUDGET_PHRASING.test(input.message)
         ? [...resolved.capabilities, "budget" as const].slice(0, 4)
         : resolved.capabilities;
-      return { ...guardWebLookups(input.message, guardStayLimits(input.message, guardPlanLength(input.message, guardRepeatedClarify(input.message, input.history, guardNamedArea(input.message, routePracticalFacts(input.message, { ...resolved, capabilities })))))), modelUsed };
+      return { ...guardDepth(input.message, guardWebLookups(input.message, guardStayLimits(input.message, guardPlanLength(input.message, guardRepeatedClarify(input.message, input.history, guardNamedArea(input.message, routePracticalFacts(input.message, { ...resolved, capabilities }))))))), modelUsed };
     } catch (error) {
       if (input.signal?.aborted) throw error;
       // The turn carries on with a safe default, so without this line a broken planner call would only show as odd answers.

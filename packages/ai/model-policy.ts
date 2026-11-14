@@ -200,6 +200,6 @@ export async function generateText(
 }
 
 /** COMPOSE's model chain as AI SDK `LanguageModel`s, for a route's own streaming/tool-calling loop. */
-export function composeModelChain() {
-  return llm.modelChain(modelChainFor("compose"));
+export function composeModelChain(opts?: { lowThinking?: boolean }) {
+  return llm.modelChain(modelChainFor("compose"), opts?.lowThinking ?? true);
 }

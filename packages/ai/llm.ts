@@ -226,6 +226,17 @@ export async function generateText(
  *  streaming + bounded tool-calling loop — that needs per-attempt time-to-first-token racing
  *  and manual step control that a single `generateText`/`generateStructured` call above doesn't
  *  expose. `providerOptions` stays on the shape so a route can forward one if an entry ever needs it. */
-export function modelChain(chain: ModelChainEntry[]): Array<{ model: ReturnType<typeof anthropic>; modelId: string; providerOptions?: ProviderOptions }> {
-  return chain.map((entry) => ({ model: modelFor(entry), modelId: entry.replace(/^anthropic\//, "") }));
+export function modelChain(chain: ModelChainEntry[], lowThinkingOn = true): Array<{ model: ReturnType<typeof anthropic>; modelId: string; providerOptions?: ProviderOptions }> {
+  return chain.map((entry) => ({ model: modelFor(entry), modelId: entry.replace(/^anthropic\//, ""), ...(lowThinkingOn ? { providerOptions: lowThinking(entry) } : {}) }));
 }
+
+/**
+ * Thinking as low as the model allows, for the streamed reply. The SDK leaves these models on adaptive thinking, which spends 1.8-4.3 s
+ * (Haiku 5.5) and 3-4.5 s (Sonnet 5.5) on hidden reasoning before the first word of a plain reply; with it off the first word arrives in
+ * ~0.5 s and ~0.8 s (replay of real compose prompts, 2026-11-14). Sonnet 5.5 cannot switch thinking off, only down to "between_tools"
+ * (think only between tool calls); Haiku rejects that value, so it is switched off. Only the reply writer gets this: with it on the router
+ * and the card builders (full battery, 2026-11-14) replies got no faster to start but the router filed more messages differently and
+ * flagged replies went from 12 to 22 of 37. An urgent message ("I'm lost", "missed my flight") keeps full thinking: with it low those
+ * replies doubled in length (48 to 94 words) and the first action is what the person needs.
+ */
+const lowThinking = (entry: ModelChainEntry): ProviderOptions => ({ anthropic: { thinking: { type: /sonnet-5-5/.test(entry) ? "between_tools" : "disabled" } } });

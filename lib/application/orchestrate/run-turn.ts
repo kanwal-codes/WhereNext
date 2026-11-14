@@ -24,7 +24,9 @@ import { applyTripUpdate, buildProposedProfileCommand } from "@/lib/application/
 import { selectBlocks } from "@/lib/application/orchestrate/block-selection";
 import { ungroundedFallback } from "@/lib/application/orchestrate/fallback-reply";
 import { asksForOverview, buildTripSummary } from "@/lib/application/trip-summary";
-import { cannedMeta, clarifyMeta, declinedMeta, deflectionReply, mapCardsFor, readyMeta, trivialReply, ungroundedMeta } from "@/lib/application/orchestrate/turn-meta";
+import { cannedMeta, clarifyMeta, declinedMeta, mapCardsFor, readyMeta, trivialReply, ungroundedMeta } from "@/lib/application/orchestrate/turn-meta";
+import { declineText } from "@/lib/application/orchestrate/decline";
+import { asksAboutWeatherOrPacking, asksForDepth, isUrgent } from "@/lib/application/orchestrate/ask-shape";
 import { persistSuggestedFacts } from "@/lib/application/orchestrate/suggested-facts";
 import { buildComposeSystemPrompt } from "@/lib/application/orchestrate/system-prompt-builder";
 import { askedForDatesRecently } from "@/lib/application/orchestrate/cadence";
@@ -57,6 +59,11 @@ import { AI_DEADLINE_MS, withDeadline } from "@/packages/ai/model-policy";
  */
 
 export type AssistantTurnDeps = { supabase: SupabaseClient; tripId: string };
+
+/** What the traveller said in their last few messages, newest last. A plan is built from the saved profile, which lags what was just said
+ *  ("forget museums" waits for a confirm tap), so the builders also read this and follow it where the two disagree. */
+export const recentSaid = (history: Array<{ role: "user" | "assistant"; content: string }>): string =>
+  history.filter((message) => message.role === "user").slice(-6).map((message) => `- ${message.content.replace(/\s+/g, " ").slice(0, 200)}`).join("\n");
 
 export type AssistantTurnRequest = {
   tripCtx: TripContext;
@@ -113,6 +120,8 @@ export type AssistantTurnResult =
       tripCtx: TripContext;
       system: string;
       composeSkipLine: string | null;
+      /** Someone stuck or stressed right now: COMPOSE keeps full thinking, since a short first-action reply is what they need and low thinking made these long. */
+      urgent?: boolean;
       /** The skip line is the deterministic card lead-in (built from the evidence, no links), so a caller has nothing to verify in it. */
       composeSkipIsLeadIn?: boolean;
       // Partial, not the exact full set: a trivial turn (Phase 2.5) hands back {} on purpose —
@@ -225,7 +234,8 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   // compose, so there's nothing to jailbreak into doing homework / coding / general chat.
   if (resolved.outOfScope) {
     const meta = declinedMeta({ language, locationFocus: resolved.locationFocus, receipt: tripUpdateReceipt });
-    return { kind: "declined", resolved, content: deflectionReply(destination), meta, timings: { resolveMs }, usage: usageLog };
+    const content = await declineText({ prompt, destination, language, signal, onUsage });
+    return { kind: "declined", resolved, content, meta, timings: { resolveMs }, usage: usageLog };
   }
 
   // --- CLARIFY -------------------------------------------------------------
@@ -296,7 +306,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   const photoUrl = (name: string) => `/api/trips/${tripId}/places/google/photo?name=${encodeURIComponent(name)}`;
   const { cardPlaceGroups, cardPlaces, compactPlaces, compactSources, compactEvents, eventsInWindow, eventCall, anchorEvent, eventsGuidance, compactFlights, compactStays, allowedUrls } = compactEvidence({ evidence, toolPlan, requestedImages, photoUrl, count: askedCount(prompt) });
 
-  const { weatherMonth, forecastReady, willShowWeatherCard } = weatherReadiness({ intent: resolved.intent, caps, tripStart, evidence, sourceCount: compactSources.length });
+  const { weatherMonth, forecastReady, willShowWeatherCard } = weatherReadiness({ intent: resolved.intent, caps, tripStart, evidence, sourceCount: compactSources.length, prompt });
 
   const statedDailyBudget = typeof (tripCtx.preferences as Record<string, unknown>).budget === "number"
     ? ((tripCtx.preferences as Record<string, unknown>).budget as number)
@@ -313,7 +323,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
         ? Promise.resolve(weatherCardFromForecast(locationFocus, evidence.weatherDays!))
         : weatherCardFromSeasonal(locationFocus, weatherMonth!, compactSources.map((source) => source.content).join("\n\n"), language, signal, onUsage),
     caps.has("itinerary")
-      ? buildItineraryPlan({ prompt, tripSummary, evidence, tripCtx, anchorEvent, brief, route, legBriefs, requestedDays: resolved.itineraryDays, language, signal, onUsage })
+      ? buildItineraryPlan({ prompt, tripSummary, evidence, tripCtx, anchorEvent, brief, route, legBriefs, requestedDays: resolved.itineraryDays, recentSaid: recentSaid(history), language, signal, onUsage })
       : Promise.resolve(null),
     caps.has("budget")
       ? buildBudgetBreakdown({ prompt, tripSummary, currency: resolveCurrency(tripCtx.preferences), statedDailyBudget, evidence, tripCtx, language, signal, onUsage })
@@ -330,7 +340,10 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   // But when a block fully answers the turn on its own, skip the model entirely and use the
   // block's own one-line intro as the reply. No "a block is shown, don't repeat it" note to a
   // model that ignores it — the coordination bug can't happen if COMPOSE never runs.
-  const composeSkipLine = composeSkipLineFor({ intent: resolved.intent, budgetBlock, optionsBlock, structuredAnswerBlock, weatherCard, itineraryBlock });
+  // A request for the whole picture ("tell me everything", "the full story of…") is answered in writing: the cards stay beside it, but a
+  // one-line stand-in would leave the question unanswered.
+  const wantsDepth = asksForDepth(prompt);
+  const composeSkipLine = composeSkipLineFor({ intent: resolved.intent, budgetBlock, optionsBlock, structuredAnswerBlock, weatherCard, itineraryBlock, wantsDepth });
 
   const system = buildComposeSystemPrompt({
     hasGrounding, generalKnowledge, locationFocus, viewContext, dislikes, accessibilityNeeds, surfacedEarlier, requestedImages,
@@ -345,13 +358,15 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
     compactFlights, compactStays, tripSummary, context, compactPlaces, compactEvents, photoUrl,
     mealAnchor,
     datesAlreadyAsked: askedForDatesRecently(history),
+    wantsDepth: wantsDepth && !composeSkipLine,
+    urgent: isUrgent(prompt),
     proposedChange: buildProposedProfileCommand(tripId, resolved, allowPreferenceLearning) ? JSON.stringify(resolved.proposedProfileUpdate) : undefined,
   });
 
   // Side builders start now and overlap with the queue slot + model TTFB; awaited when meta is
   // assembled. Each still pushes its usage onto the same `usageLog` (by reference) once it
   // settles — every caller awaits `sideBuilders` before reading `result.usage` for turn cost.
-  const checklistPromise = resolved.intent === "essentials" && !caps.has("budget") && !caps.has("structured_answer")
+  const checklistPromise = resolved.intent === "essentials" && asksAboutWeatherOrPacking(prompt) && !caps.has("budget") && !caps.has("structured_answer")
     ? buildEssentialsChecklist({ destination: locationFocus, tripSummary, evidence, language, signal, onUsage })
     : Promise.resolve(null);
   const comparisonPromise = caps.has("comparison")
@@ -406,6 +421,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
     system,
     composeSkipLine: composeSkipLine ?? leadInLine,
     composeSkipIsLeadIn: !composeSkipLine && leadInLine !== null,
+    urgent: isUrgent(prompt),
     composeTools,
     toolEvidence,
     meta,

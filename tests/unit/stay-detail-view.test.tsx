@@ -154,7 +154,8 @@ describe("StayDetailView: rooms and rates", () => {
     expect(within(rooms).getByText("Free cancellation until Nov 28")).toBeTruthy();
     expect(within(rooms).getByText("2 guests")).toBeTruthy();
     expect(within(rooms).getByText(/€300/)).toBeTruthy();
-    expect(within(rooms).getByText(/€1,200 total · incl\. €80 taxes/)).toBeTruthy();
+    expect(within(rooms).getByText(/€1,200 total/)).toBeTruthy();
+    expect(within(rooms).getByText(/incl\. €80 taxes/)).toBeTruthy();
   });
 
   it("words the other cancellation terms", () => {

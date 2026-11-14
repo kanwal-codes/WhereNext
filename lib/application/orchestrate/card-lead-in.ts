@@ -12,6 +12,8 @@ const label = (mode: string) => MODE[mode] ?? mode.charAt(0).toUpperCase() + mod
 /** "Toronto, Ontario, Canada" reads as "Toronto" in a sentence. */
 const short = (place: string) => place.split(",")[0]?.trim() || place;
 const duration = (seconds: number) => formatDuration(seconds / 60);
+/** Words in a place search that say nothing about what is wanted ("best restaurants to visit"). */
+const GENERIC_WORDS = new Set(["best", "top", "good", "great", "nice", "places", "place", "things", "near", "nearby", "around", "restaurant", "restaurants", "visit", "some", "where", "find", "want", "local", "famous", "popular", "sights", "attractions"]);
 
 /** "Done — dates updated." for a trip fact changed on the traveller's say-so: the receipt card shows what changed, so the line only needs to
  *  confirm it. Null when the receipt is not the whole reply (any other card shown, or nothing changed). */
@@ -54,11 +56,15 @@ export function cardLeadIn(blocks: AssistantBlock[], locationFocus: string | nul
     const count = all.length;
     // The search words are the planner's, not the traveller's ("top sights and restaurants to visit"): never quoted back at them.
     const where = locationFocus ? ` in ${short(locationFocus)}` : "";
-    // A line that says something: which one the ratings favour.
+    // A line that says something: which one to start with. Rated by stars, but only among the places that actually match what was asked
+    // for ("seafood" must not lead with a steakhouse that merely has a higher score).
     const rated = all.filter((place) => typeof place.rating === "number");
-    const top = rated.reduce<(typeof rated)[number] | null>((best, place) => (!best || (place.rating ?? 0) > (best.rating ?? 0) || ((place.rating ?? 0) === (best.rating ?? 0) && (place.userRatingCount ?? 0) > (best.userRatingCount ?? 0)) ? place : best), null);
-    const lead = count === 1 ? `One place${where} to start with.` : `${count} places${where} to start with.`;
-    return top && count > 1 ? `${lead} ${top.name} is the top-rated at ${top.rating?.toFixed(1)}.` : lead;
+    const asked = (query ?? "").toLowerCase().split(/[^\p{L}]+/u).filter((word) => word.length >= 4 && !GENERIC_WORDS.has(word));
+    const matching = asked.length ? rated.filter((place) => asked.some((word) => `${place.name} ${place.category ?? ""}`.toLowerCase().includes(word))) : [];
+    const pool = matching.length ? matching : rated;
+    const top = pool.reduce<(typeof pool)[number] | null>((best, place) => (!best || (place.rating ?? 0) > (best.rating ?? 0) || ((place.rating ?? 0) === (best.rating ?? 0) && (place.userRatingCount ?? 0) > (best.userRatingCount ?? 0)) ? place : best), null);
+    if (count === 1) return `${all[0].name} is the one place that fits${where}.`;
+    return top ? `${top.name} is the one I'd start with${where}, rated ${top.rating?.toFixed(1)}. ${count - 1} more to compare.` : `${count} places${where}, best matches first.`;
   }
   if (first.type === "stays") return `Here are stays in ${short(first.location)}${first.nights ? ` for ${first.nights} night${first.nights === 1 ? "" : "s"}` : ""}.`;
   if (first.type === "flights") return `Here are flights from ${short(first.origin)} to ${short(first.destination)}.`;

@@ -11,13 +11,15 @@ export function composeSkipLineFor(input: {
   structuredAnswerBlock: AssistantBlock | null;
   weatherCard: WeatherCard | null;
   itineraryBlock: AssistantBlock | null;
+  /** The traveller asked for the whole picture: a card's one-liner cannot stand in for the written answer (budget and plan cards still can). */
+  wantsDepth?: boolean;
 }): string | null {
-  const { intent, budgetBlock, optionsBlock, structuredAnswerBlock, weatherCard, itineraryBlock } = input;
+  const { intent, budgetBlock, optionsBlock, structuredAnswerBlock, weatherCard, itineraryBlock, wantsDepth } = input;
   const line: string | null =
     (budgetBlock?.type === "budget" && budgetBlock.summary) ||
-    (optionsBlock?.type === "options" && optionsBlock.intro) ||
-    (structuredAnswerBlock?.type === "structured_answer" && structuredAnswerBlock.intro) ||
-    (weatherCard && (intent === "essentials"
+    (!wantsDepth && optionsBlock?.type === "options" && optionsBlock.intro) ||
+    (!wantsDepth && structuredAnswerBlock?.type === "structured_answer" && structuredAnswerBlock.intro) ||
+    (!wantsDepth && weatherCard && (intent === "essentials"
       ? `${weatherCard.headline.replace(/[.!?]?\s*$/, "")}. The full checklist is below.`
       : weatherCard.headline)) ||
     (itineraryBlock?.type === "itinerary" && (itineraryBlock.intro || "Here's a rough day-by-day — tell me to rework any day.")) ||

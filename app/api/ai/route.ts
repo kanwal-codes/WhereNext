@@ -220,7 +220,7 @@ export const POST = withRoute(async function POST(request: Request) {
           }
 
           const tCompose = performance.now();
-          const composeChain = composeModelChain();
+          const composeChain = composeModelChain({ lowThinking: !result.urgent });
           // `withTripAiStream` throttles/queues per (trip, user) and doesn't release its slot
           // until the stream ITS OWN caller returns is fully drained — so the model-selection
           // loop still has to run inside `task()` and return a stream, exactly as before; only

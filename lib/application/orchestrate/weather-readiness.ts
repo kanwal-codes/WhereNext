@@ -1,12 +1,13 @@
 import type { ResolvedTurn } from "@/lib/application/turn-resolver";
 import type { Evidence } from "@/lib/application/orchestrate/retrieve-plan";
 import { daysUntilTrip } from "@/lib/trip-dates";
+import { asksAboutWeatherOrPacking } from "@/lib/application/orchestrate/ask-shape";
 
 const WEATHER_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 /** Whether this turn shows a weather card, and from what: a live forecast when the trip is close, else a "typical <month>" from the web notes. */
-export function weatherReadiness(input: { intent: ResolvedTurn["intent"]; caps: Set<ResolvedTurn["capabilities"][number]>; tripStart: string | undefined; evidence: Evidence; sourceCount: number }) {
-  const { intent, caps, tripStart, evidence, sourceCount } = input;
+export function weatherReadiness(input: { intent: ResolvedTurn["intent"]; caps: Set<ResolvedTurn["capabilities"][number]>; tripStart: string | undefined; evidence: Evidence; sourceCount: number; prompt?: string }) {
+  const { intent, caps, tripStart, evidence, sourceCount, prompt } = input;
   const weatherMonth = (() => {
     if (typeof tripStart !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(tripStart)) return null;
     const name = WEATHER_MONTHS[Number(tripStart.slice(5, 7)) - 1];
@@ -21,7 +22,9 @@ export function weatherReadiness(input: { intent: ResolvedTurn["intent"]; caps: 
   // language" got intent essentials + a correct structured_answer about French/English, plus an
   // entirely irrelevant "13°/5°, bring layers" weather card bolted on. The checklist-suppression
   // two lines below already excludes `structured_answer` for the same reason; this now matches it.
-  const weatherIntent = (intent === "weather" || intent === "essentials") && !caps.has("budget") && !caps.has("structured_answer");
+  // An "essentials" turn gets the weather card only when the message is about weather or packing: "do I need a visa" and "where is a doctor"
+  // are filed under the same intent but are not answered by a forecast.
+  const weatherIntent = (intent === "weather" || (intent === "essentials" && (prompt === undefined || asksAboutWeatherOrPacking(prompt)))) && !caps.has("budget") && !caps.has("structured_answer");
   // A live forecast only means something if the trip is within its reach (or under way).
   const daysToTrip = typeof tripStart === "string" && /^\d{4}-\d{2}-\d{2}$/.test(tripStart) ? daysUntilTrip(tripStart) : null;
   const tripInForecastWindow = daysToTrip !== null && daysToTrip <= 6 && daysToTrip >= -21;

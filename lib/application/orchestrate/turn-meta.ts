@@ -15,7 +15,8 @@ export function surfaceForIntent(intent: ResolvedTurn["intent"]): AssistantTurnM
  *  than reworded per request. Only ever reached for one of turn-complexity.ts's hand-curated
  *  English phrases, so a fixed English reply (no language-matching model call to do) is safe. */
 export function trivialReply(kind: TrivialKind, destination?: string | null): string {
-  const trip = destination ? ` for your ${destination} trip` : " for your trip";
+  const city = destination?.split(",")[0]?.trim();
+  const trip = city ? ` for your ${city} trip` : " for your trip";
   switch (kind) {
     case "greeting":
       return `Hey! Happy to help — what would you like to plan${trip} next?`;
@@ -27,10 +28,6 @@ export function trivialReply(kind: TrivialKind, destination?: string | null): st
       return `Got it — let me know what's next${trip}.`;
   }
 }
-
-/** The one-line decline for a message with no connection to travel or this trip. */
-export const deflectionReply = (destination: string) =>
-  `I can't help with that — I'm here to help plan and get the most out of your ${destination} trip. Ask me about places, food, getting around, what to book, or anything to do while you're there.`;
 
 type Receipt = AssistantBlock | null | undefined;
 

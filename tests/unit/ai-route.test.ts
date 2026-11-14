@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+/** COMPOSE now receives its instructions as messages (the persona is a cached prefix); tests read them as one text. */
+const systemText = (system: unknown): string => (typeof system === "string" ? system : (system as Array<{ content: string }>).map((message) => message.content).join("\n"));
+
 // after() needs Next's own request-scope AsyncLocalStorage, which doesn't exist when a test
 // calls the route handler directly (not through Next's actual server) — run the callback
 // immediately instead.
@@ -352,7 +355,7 @@ describe("POST /api/ai", () => {
     expect(retrieveEvidenceMock).not.toHaveBeenCalled();
     expect(streamTextMock).not.toHaveBeenCalled();
     const { body, meta } = await readMeta(response);
-    expect(body.toLowerCase()).toContain("can't help with that");
+    expect(body.toLowerCase()).toContain("outside what i can help with");
     expect(meta!.blocks).toEqual([]);
     expect(meta!.suggestedFollowups).toEqual([]);
   });
@@ -405,7 +408,7 @@ describe("POST /api/ai", () => {
     resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "Lisbon", intent: "essentials", wantsComparison: false, toolPlan: [{ tool: "weather", location: "Lisbon" }], clarify: null, suggestedFollowups: [], proposedProfileUpdate: null });
     retrieveEvidenceMock.mockResolvedValue({ places: [], sources: [], weather: "12-17C, rain", routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" });
     buildEssentialsChecklistMock.mockResolvedValue({ type: "checklist", groups: [{ title: "Packing", items: [{ text: "Rain shell" }] }] });
-    const { meta } = await readMeta(await post());
+    const { meta } = await readMeta(await post("What should I pack for Lisbon?"));
     expect(buildEssentialsChecklistMock).toHaveBeenCalled();
     expect((meta!.blocks as Array<{ type: string }>).some((b) => b.type === "checklist")).toBe(true);
     expect(meta).toMatchObject({ surface: "essentials" });
@@ -481,7 +484,7 @@ describe("POST /api/ai", () => {
       unavailableProviders: [], retrievedAt: "t",
     });
     await readMeta(await post());
-    const system = String((streamTextMock.mock.calls[0] as unknown as [{ system: string }])[0].system);
+    const system = systemText((streamTextMock.mock.calls[0] as unknown as [{ system: unknown }])[0].system);
     expect(system).toMatch(/shown as cards/);
     expect(system).toMatch(/Do not list hotels or prices/);
     expect(system).toMatch(/Do not restate what the cards show/);
@@ -608,7 +611,7 @@ describe("POST /api/ai", () => {
     retrieveEvidenceMock.mockResolvedValue({ places: [{ provider: "g", providerId: "p", name: "New Club", category: "night_club", latitude: 1, longitude: 1, address: null, sourceUrl: null }], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" });
     await readMeta(await post());
     expect(retrieveEvidenceMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ excludeNames: ["Bar Rouge"] }), expect.anything());
-    const system = String((streamTextMock.mock.calls[0] as unknown as [{ system: string }])[0].system);
+    const system = systemText((streamTextMock.mock.calls[0] as unknown as [{ system: unknown }])[0].system);
     expect(system).toMatch(/Already shown as cards earlier in this conversation: M1NT, Speak Low/);
   });
 
@@ -622,7 +625,7 @@ describe("POST /api/ai", () => {
     });
     await new Response((await POST(request, { params: Promise.resolve({}) })).body).text();
     expect(resolveTurnMock).toHaveBeenCalledWith(expect.objectContaining({ viewContext: "Hotel Alfama" }));
-    const system = String((streamTextMock.mock.calls[0] as unknown as [{ system: string }])[0].system);
+    const system = systemText((streamTextMock.mock.calls[0] as unknown as [{ system: unknown }])[0].system);
     expect(system).toMatch(/has this open beside the chat: Hotel Alfama/);
   });
 
@@ -653,7 +656,7 @@ describe("POST /api/ai", () => {
     const block = (meta!.blocks as Array<Record<string, unknown>>).find((b) => b.type === "events")!;
     expect(block.window).toEqual({ start: "2026-10-26", end: "2026-11-01" });
     expect((block.items as Array<Record<string, unknown>>)[0]).toMatchObject({ relToTrip: "after", offsetDays: 3 });
-    const system = String((streamTextMock.mock.calls[0] as unknown as [{ system: string }])[0].system);
+    const system = systemText((streamTextMock.mock.calls[0] as unknown as [{ system: unknown }])[0].system);
     expect(system).toMatch(/NONE fall in the trip window\. Lead with the closest: "Just After"/);
   });
 

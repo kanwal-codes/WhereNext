@@ -124,6 +124,7 @@ Rules:
 - If the Request or the Traveller states a budget, favour free and low-cost candidates and keep to its spirit; never state a price you were not given.
 - The subtitle names what the listed stops really are. A day with no candidates gets "stops":[].
 - kind: one of food | sight | activity | nightlife | transit | event | rest.
+- Never use a candidate of a kind the traveller said in the chat they dislike or want dropped; a day with fewer stops is fine. A ferry, a station or a port is never a stop of its own: it is only the way to the stop.
 No preamble, no markdown.`;
 
 const EDIT_INTRO_SYSTEM = (language: string) => `You write the title and the short lead-in for days of a trip plan that were just reworked at the traveller's request. Write both in language "${language}" (BCP-47). Return JSON only:
@@ -131,8 +132,8 @@ const EDIT_INTRO_SYSTEM = (language: string) => `You write the title and the sho
 Mention only what THE PLAN below holds; never invent a venue. No preamble, no markdown.`;
 
 const INTRO_SYSTEM = (language: string) => `You write the title and the opening of a day-by-day trip plan. Write both in language "${language}" (BCP-47). Return JSON only:
-{"title":"<N> days in <city>","intro":"<2-3 concise sentences: how many days this covers and the shape of them, tied to what the traveller actually asked for (their cuisine, group, base) rather than generic travel talk; then one thing to book ahead>"}
-Mention only what THE PLAN below holds, and only the days it lists; never invent a venue or a day. Say nothing about days with few options or ideas for more days: that is added separately. No preamble, no markdown.`;
+{"title":"<N> days in <city>","intro":"<2-3 concise sentences: the shape of these days, tied to what the traveller actually asked for (their cuisine, group, base) rather than generic travel talk; then one thing to book ahead>"}
+Open with what makes these days distinctive (a place, a split, a pace), never with "This covers", "This plan", "Here is" or "Here's", and do not open by counting the days. Use the group size and interests as the traveller's latest messages state them, which override the saved profile. Mention only what THE PLAN below holds, and only the days it lists; never invent a venue or a day. Say nothing about days with few options or ideas for more days: that is added separately. No preamble, no markdown.`;
 
 export type DayBrief = {
   /** The day's number in the trip (Day 1 is 1). */
@@ -162,6 +163,8 @@ export async function writeDays(input: {
   city: string;
   /** "edit": the days are a rework of days already in the trip, so the lead-in says what changed instead of introducing a trip. */
   mode?: "plan" | "edit";
+  /** The traveller's last few messages: they are newer than the saved profile, so a dropped interest or a changed group size wins. */
+  recentSaid?: string;
   language?: string;
   signal?: AbortSignal;
   onUsage?: (entry: UsageEntry) => void;
@@ -169,7 +172,7 @@ export async function writeDays(input: {
   const language = input.language ?? "en";
   const size = Math.max(1, Math.ceil(input.days.length / 8));
   const chunks = Array.from({ length: Math.ceil(input.days.length / size) }, (_, i) => input.days.slice(i * size, (i + 1) * size));
-  const head = `Traveller: ${input.tripSummary}\nPace: ${input.pace}\nRequest: ${input.prompt}\n`;
+  const head = `Traveller: ${input.tripSummary}\nPace: ${input.pace}\nRequest: ${input.prompt}\n${input.recentSaid ? `Said in this chat (newer than the saved profile: where they disagree, follow this; never use anything they dropped):\n${input.recentSaid}\n` : ""}`;
 
   const written = chunks.map((chunk) => runBulkBuilder(
     DAY_SYSTEM(language),
