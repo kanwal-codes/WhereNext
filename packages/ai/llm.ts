@@ -141,14 +141,15 @@ export async function generateStructured<T>(
   schema: z.ZodType<T>,
   signal?: AbortSignal,
   onUsage?: (entry: UsageEntry) => void,
-  opts?: { caching?: "auto" },
+  opts?: { caching?: "auto"; lowThinking?: boolean },
 ): Promise<T> {
   const prepared = opts?.caching ? withCachedSystem(messages) : messages;
+  const thinking = (modelId: string) => (opts?.lowThinking ? { providerOptions: lowThinking(modelId) } : {});
   return withModelFallback(chain, async (model, modelId) => {
     if (isGemini(modelId)) return geminiStructured(modelId, prepared, schema, signal, onUsage);
     if (!nativeRefused.has(schema)) {
       try {
-        const result = await generateObject({ model, schema, messages: prepared, maxOutputTokens: STRUCTURED_MAX_TOKENS, abortSignal: signal, allowSystemInMessages: true });
+        const result = await generateObject({ model, schema, messages: prepared, maxOutputTokens: STRUCTURED_MAX_TOKENS, abortSignal: signal, allowSystemInMessages: true, ...thinking(modelId) });
         onUsage?.({ model: modelId, promptTokens: result.usage.inputTokens ?? 0, completionTokens: result.usage.outputTokens ?? 0 });
         return result.object;
       } catch (error) {
@@ -156,7 +157,7 @@ export async function generateStructured<T>(
         nativeRefused.add(schema);
       }
     }
-    const result = await sdkGenerateText({ model, messages: withJsonInstruction(prepared, schema), maxOutputTokens: STRUCTURED_MAX_TOKENS, abortSignal: signal, allowSystemInMessages: true });
+    const result = await sdkGenerateText({ model, messages: withJsonInstruction(prepared, schema), maxOutputTokens: STRUCTURED_MAX_TOKENS, abortSignal: signal, allowSystemInMessages: true, ...thinking(modelId) });
     onUsage?.({ model: modelId, promptTokens: result.usage.inputTokens ?? 0, completionTokens: result.usage.outputTokens ?? 0 });
     return schema.parse(extractJson(result.text));
   }, signal);
@@ -234,9 +235,9 @@ export function modelChain(chain: ModelChainEntry[], lowThinkingOn = true): Arra
  * Thinking as low as the model allows, for the streamed reply. The SDK leaves these models on adaptive thinking, which spends 1.8-4.3 s
  * (Haiku 5.5) and 3-4.5 s (Sonnet 5.5) on hidden reasoning before the first word of a plain reply; with it off the first word arrives in
  * ~0.5 s and ~0.8 s (replay of real compose prompts, 2026-11-14). Sonnet 5.5 cannot switch thinking off, only down to "between_tools"
- * (think only between tool calls); Haiku rejects that value, so it is switched off. Only the reply writer gets this: with it on the router
- * and the card builders (full battery, 2026-11-14) replies got no faster to start but the router filed more messages differently and
- * flagged replies went from 12 to 22 of 37. An urgent message ("I'm lost", "missed my flight") keeps full thinking: with it low those
+ * (think only between tool calls); Haiku rejects that value, so it is switched off. The reply writer and the card builders (bulk, day) get this,
+ * the router does not: with it on everywhere (full battery, 2026-11-14) the router was no faster (2.7-2.9 s either way) but filed more
+ * messages differently and flagged replies went from 12 to 22 of 37. An urgent message ("I'm lost", "missed my flight") keeps full thinking: with it low those
  * replies doubled in length (48 to 94 words) and the first action is what the person needs.
  */
 const lowThinking = (entry: ModelChainEntry): ProviderOptions => ({ anthropic: { thinking: { type: /sonnet-5-5/.test(entry) ? "between_tools" : "disabled" } } });

@@ -16,14 +16,14 @@ const lineSchema = z.object({
 const budgetSchema = z.object({
   currency: z.string().trim().min(1).max(8),
   perPerson: z.boolean().default(true),
-  summary: z.string().trim().min(1).max(200),
+  summary: z.string().trim().min(1).max(280),
   lines: z.array(lineSchema).min(2).max(6),
   setBudget: z.coerce.number().nonnegative().optional(),
   tripNote: z.string().trim().max(160).optional(),
 });
 
 const SYSTEM = (language: string = "en") => `You estimate a realistic on-the-ground DAILY spending plan for a trip. Flights and lodging are booked separately — EXCLUDE them. Write every text field in language "${language}" (BCP-47). Return JSON only:
-{"currency":"<ISO 4217>","perPerson":true,"summary":"<ONE sentence: the rough daily figure, and whether it fits their stated budget if they gave one>","lines":[{"category":"Food & drink","low":N,"typical":N,"high":N,"note":"<short>"}],"setBudget":<their stated daily budget, or omit>,"tripNote":"<e.g. ~X per person over N days, excludes flights & hotel>"}
+{"currency":"<ISO 4217>","perPerson":true,"summary":"<ONE sentence of at most 220 characters: the rough daily figure, and whether it fits their stated budget if they gave one>","lines":[{"category":"Food & drink","low":N,"typical":N,"high":N,"note":"<short>"}],"setBudget":<their stated daily budget, or omit>,"tripNote":"<e.g. ~X per person over N days, excludes flights & hotel>"}
 Rules:
 - Pick 3–5 categories that fit THIS trip from: Food & drink, Activities & sights, Local transit, Nightlife, Shopping, Incidentals. Omit any that don't apply. If the traveller likes nightlife/going out, Nightlife is its own line and is not tiny.
 - typical = what a comfortable mid-range traveller ACTUALLY spends on a normal day here: sit-down meals (not just counter service), a coffee or two, paid attractions, a few drinks out. It is a realistic figure, not a frugal floor — do not lowball it. low = a careful day, high = a generous day.

@@ -61,6 +61,8 @@ describe("modelChainFor", () => {
 });
 
 describe("generateStructured — RESOLVE prompt caching", () => {
+  const optsOf = () => (llmGenerateStructuredMock.mock.calls[0] as unknown[])[5] as { caching?: string; lowThinking?: boolean } | undefined;
+
   // Phase 2.6.1 tried routing `resolve` through `streamStructured` instead — live-verified to
   // hang inside this app's actual Next.js route context (see the doc comment on the real
   // `generateStructured` in model-policy.ts), reverted. Every role, `resolve` included, goes
@@ -76,14 +78,28 @@ describe("generateStructured — RESOLVE prompt caching", () => {
     );
   });
 
-  it("does not request caching for bulk or compose — their prompts are not a shared prefix", async () => {
+  it("does not request caching for bulk, day or compose — their prompts are not a shared prefix", async () => {
     const { generateStructured } = await import("@/packages/ai/model-policy");
-    for (const role of ["bulk", "compose"] as const) {
+    for (const role of ["bulk", "day", "compose"] as const) {
       llmGenerateStructuredMock.mockClear();
       llmStreamStructuredMock.mockClear();
       await generateStructured(role, [], { parse: (v: unknown) => v } as never);
       expect(llmStreamStructuredMock).not.toHaveBeenCalled();
-      expect(llmGenerateStructuredMock).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.anything(), undefined, undefined, undefined);
+      expect(optsOf()?.caching).toBeUndefined();
     }
+  });
+
+  it("asks for low thinking on the card builders (bulk, day) only: not the router, the menu or compose", async () => {
+    const { generateStructured } = await import("@/packages/ai/model-policy");
+    const lowFor = async (role: "resolve" | "bulk" | "day" | "menu" | "compose") => {
+      llmGenerateStructuredMock.mockClear();
+      await generateStructured(role, [], { parse: (v: unknown) => v } as never);
+      return optsOf()?.lowThinking === true;
+    };
+    expect(await lowFor("bulk")).toBe(true);
+    expect(await lowFor("day")).toBe(true);
+    expect(await lowFor("resolve")).toBe(false);
+    expect(await lowFor("menu")).toBe(false);
+    expect(await lowFor("compose")).toBe(false);
   });
 });

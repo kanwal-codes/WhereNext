@@ -219,10 +219,16 @@ describe("modelChain", () => {
 });
 
 describe("structured and text calls are left on the model's own thinking", () => {
-  it("sends no thinking setting for the router or builders", async () => {
+  it("sends no thinking setting unless the caller asks for low thinking (the router never does)", async () => {
     generateObjectMock.mockResolvedValueOnce({ object: { intent: "food" }, usage: { inputTokens: 1, outputTokens: 1 } });
     await generateStructured(["claude-sonnet-5-5"], [{ role: "user", content: "hi" }], schema);
     expect(generateObjectMock.mock.calls.at(-1)?.[0].providerOptions).toBeUndefined();
+  });
+
+  it("sends the answering model's lowest thinking when lowThinking is set (builders)", async () => {
+    generateObjectMock.mockResolvedValueOnce({ object: { intent: "food" }, usage: { inputTokens: 1, outputTokens: 1 } });
+    await generateStructured(["claude-haiku-5-5"], [{ role: "user", content: "hi" }], schema, undefined, undefined, { lowThinking: true });
+    expect(generateObjectMock.mock.calls.at(-1)?.[0].providerOptions).toEqual({ anthropic: { thinking: { type: "disabled" } } });
   });
 
   it("modelChain(chain, false) leaves the reply writer on its own thinking too (urgent turns)", () => {
