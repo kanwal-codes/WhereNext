@@ -90,6 +90,20 @@ describe("digestBands", () => {
     expect(bands[5].items).toHaveLength(6);
   });
 
+  it("keeps the restaurants when their addresses spell the city differently (Ibiza is Eivissa on a Google address)", () => {
+    const eivissa = Array.from({ length: 12 }, (_, i) => place(`r${i}`, `Restaurant ${i}`, { address: `Carrer ${i}, 07800 Eivissa, Illes Balears, Spain` }));
+    const calma = place("calma", "Calma", { address: "Puerto Deportivo Ibiza Nueva, Paseo Juan Carlos I" });
+    const bands = digestBands({ ...base, eat: [calma, ...eivissa], destination: "Ibiza, Spain" });
+    expect(bands.find((b) => b.label === "Where to eat")!.items).toHaveLength(13);
+  });
+
+  it("still drops the strays from other cities when the destination's name does appear in most addresses", () => {
+    const local = Array.from({ length: 8 }, (_, i) => place(`l${i}`, `Local ${i}`, { address: `Rue ${i}, Paris, France` }));
+    const strays = [place("b1", "Berlin place", { address: "Berlin, Germany" }), place("b2", "Rome place", { address: "Roma, Italia" })];
+    const bands = digestBands({ ...base, eat: [...strays, ...local] });
+    expect(bands.find((b) => b.label === "Where to eat")!.items.map(idOf)).toEqual(local.map((p) => (p as { providerId: string }).providerId));
+  });
+
   it("names the for-you band after the first two interests", () => {
     expect(digestBands({ ...base, interests: ["food", "art", "jazz"] })[1].label).toBe("Because you like food & art");
   });

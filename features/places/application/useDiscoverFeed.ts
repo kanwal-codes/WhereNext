@@ -182,12 +182,15 @@ export function useDiscoverFeed({ tripId, destination, cities, view, data, prefs
           if (!places) {
             const queries = chosen.length ? chosen.map(subQ) : [cat.q];
             const lists = await Promise.all(queries.map((q) => fetchPlaces(q, controller.signal)));
+            // One result from each chosen sub-type in turn, so "Cafés" and "Bakeries" together each lead with their own best, not one list after the other.
             const map = new Map<string, Place>();
-            for (const list of lists) for (const p of list) map.set(p.providerId, p);
+            for (let i = 0; i < Math.max(0, ...lists.map((list) => list.length)); i += 1) for (const list of lists) if (list[i] && !map.has(list[i].providerId)) map.set(list[i].providerId, list[i]);
             places = [...map.values()];
             categoryRawCache.set(cacheKey, places);
           }
-          next = rankToItems(places);
+          // A chosen sub-type is a specific search, like a typed one: the provider's order is the answer to it. Re-ranking by how well known a place is
+          // put the best-known restaurants first under "Cafés" and pushed the coffee shops below the fold, so the pills looked as if they did nothing.
+          next = rankToItems(places, chosen.length > 0);
         } else if (cat.kind === "event") {
           let events = cachedRaw as NearbyEvent[] | undefined;
           const eventQuery = chosen.map(subQ).join(" ");

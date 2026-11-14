@@ -163,6 +163,59 @@ describe("Discover: categories and sub-filters", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Restaurants", pressed: false })).toBeTruthy());
   });
 
+  it("keeps the search's own order under a chosen sub-type: coffee shops lead under Cafés, not the best-known restaurant", async () => {
+    api = createApi({
+      places: {
+        "restaurants and cafes": [place("r9", "Famous Restaurant", { category: "restaurant", rating: 4.5, userRatingCount: 90000 })],
+        cafes: [place("c1", "Specialty Coffee", { category: "coffee_shop", rating: 4.8, userRatingCount: 300 }), place("c2", "Corner Cafe", { category: "cafe", rating: 4.5, userRatingCount: 200 }), place("r9", "Famous Restaurant", { category: "restaurant", rating: 4.5, userRatingCount: 90000 })],
+      },
+      events: [], stays: [],
+    });
+    const user = u();
+    show();
+    await user.click(await screen.findByRole("button", { name: "Eat & Drink" }));
+    await user.click(await screen.findByRole("button", { name: "Cafés" }));
+    await waitFor(() => expect(names("place")).toEqual(["Specialty Coffee", "Corner Cafe", "Famous Restaurant"]));
+  });
+
+  it("dims the old results and marks them busy until a newly chosen sub-type's results arrive", async () => {
+    // Its own city: the page's request helper remembers an answer per URL, and an earlier test already asked for "cafes in Paris".
+    data = { ...data, trip: { ...(data.trip as object), destination: "Lyon, France" } };
+    api = createApi({ places: { "restaurants and cafes": [place("r1", "Le Bistro", { address: "Rue 2, Lyon, France" })], cafes: [place("c1", "Specialty Coffee", { category: "coffee_shop", address: "Rue 1, Lyon, France" })] }, events: [], stays: [] });
+    const answer = fetch as unknown as (input: string, init?: RequestInit) => Promise<Response>;
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    vi.stubGlobal("fetch", vi.fn(async (input: string, init?: RequestInit) => { if (String(input).includes("query=cafes%20in")) await gate; return answer(input, init); }));
+    const user = u();
+    const { container } = show();
+    await user.click(await screen.findByRole("button", { name: "Eat & Drink" }));
+    await waitFor(() => expect(names("place")).toEqual(["Le Bistro"]));
+    expect(container.querySelector("[aria-busy]")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Cafés" }));
+    await waitFor(() => expect(container.querySelector("[aria-busy='true']")).toBeTruthy());
+    expect(names("place")).toEqual(["Le Bistro"]);
+    release();
+    await waitFor(() => expect(names("place")).toEqual(["Specialty Coffee"]));
+    expect(container.querySelector("[aria-busy]")).toBeNull();
+  });
+
+  it("gives each chosen sub-type its own best results first instead of one list after the other", async () => {
+    api = createApi({
+      places: {
+        restaurants: [place("r1", "Restaurant One"), place("r2", "Restaurant Two"), place("r3", "Restaurant Three")],
+        cafes: [place("c1", "Cafe One"), place("c2", "Cafe Two"), place("c3", "Cafe Three")],
+      },
+      events: [], stays: [],
+    });
+    const user = u();
+    show();
+    await user.click(await screen.findByRole("button", { name: "Eat & Drink" }));
+    await user.click(await screen.findByRole("button", { name: "Restaurants" }));
+    await user.click(screen.getByRole("button", { name: "Cafés" }));
+    await waitFor(() => expect(names("place").length).toBe(6));
+    expect(names("place").slice(0, 4)).toEqual(["Restaurant One", "Cafe One", "Restaurant Two", "Cafe Two"]);
+  });
+
   it("says nothing came back for a category that is empty", async () => {
     api = createApi({ places: {}, events: [], stays: [] });
     const user = u();

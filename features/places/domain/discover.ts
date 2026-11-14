@@ -1,7 +1,7 @@
 import type { AiSearchDirective } from "@/lib/application/ai-search";
 import type { NearbyEvent } from "@/lib/application/nearby-events";
 import type { RankAnchor, RankContext } from "@/lib/application/rank-places";
-import { inDestination } from "@/lib/places-ui";
+import { localPlaces } from "@/lib/places-ui";
 import type { Place } from "@/packages/contracts/place";
 
 export type StayItem = { hotelId: string; name: string; thumbnail: string | null; nightlyAmount: number; currency: string; stars: number | null; rating: number | null };
@@ -112,7 +112,7 @@ export function digestBands(input: {
       label: interests.length ? `Because you like ${interests.slice(0, 2).join(" & ")}` : "Highly rated right now",
       items: rank(forYou),
     },
-    { key: "eat", label: "Where to eat", items: rank(eat.filter((place) => inDestination(place, destination))) },
+    { key: "eat", label: "Where to eat", items: rank(localPlaces(eat, destination)) },
     // Real, dynamic tour operators from Google Places — not GetYourGuide's own catalog (no API
     // access there). Opening one still surfaces a "Book on GetYourGuide" link once configured,
     // via PlaceDetailView's GetYourGuideCard.
@@ -147,8 +147,7 @@ export function staysInBands(all: StayItem[], chosen: string[], bandOf: (label: 
  * Buffalo. Keep the ones in the destination; if that leaves nothing, show what came back rather than an empty page.
  */
 export function searchResults(found: Place[], anchored: boolean, destination: string): Place[] {
-  const here = anchored ? found.filter((place) => inDestination(place, destination)) : found;
-  return here.length > 0 ? here : found;
+  return anchored ? localPlaces(found, destination) : found;
 }
 
 /** What an AI-search directive asks the screen to do: open a category (with its sub-chips), or run a free-text search. */

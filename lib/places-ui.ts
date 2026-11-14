@@ -292,3 +292,16 @@ export function inDestination(place: Place, destination: string): boolean {
   const city = folded(destination.split(",")[0]?.trim() ?? destination);
   return !city || folded(place.address ?? "").includes(city);
 }
+
+/**
+ * The places of a destination-anchored search that are actually in the destination. The address check only works when addresses spell the city
+ * the way the trip does: Google writes "Eivissa" for Ibiza, "Lisboa" for Lisbon, "München" for Munich, "Ciudad de México" for Mexico City, so a
+ * search for "restaurants in Ibiza" came back with twenty places and the check kept the one whose street happened to be "Ibiza Nueva". So the
+ * check is trusted only when it keeps a real share (at least five, or a quarter) of what came back, as it does when the stray results are a few
+ * Toronto and Buffalo places among Niagara Falls ones. When hardly anything matches, the name is spelled differently, and every result is kept:
+ * the search was already anchored to the destination.
+ */
+export function localPlaces(places: Place[], destination: string): Place[] {
+  const here = places.filter((place) => inDestination(place, destination));
+  return here.length > 0 && (here.length >= 5 || here.length * 4 >= places.length) ? here : places;
+}

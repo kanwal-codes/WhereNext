@@ -106,7 +106,10 @@ export function DiscoverFeed({ tripId, view, phone, destination, activeCat, askQ
       ) : gridView ? (
         gridItems.length > 0 ? (
           <>
-            <Stagger className={cn(grid, "mt-5")}>{gridItems.slice(0, gridMore.visible).map((it) => renderItem(it, false, true))}</Stagger>
+            {/* A new filter's results take a moment (a provider search); until they land the old ones stay, dimmed, so the click visibly did something. */}
+            <div aria-busy={loading || undefined} className={cn("transition-opacity duration-200", loading && "opacity-50")}>
+              <Stagger className={cn(grid, "mt-5")}>{gridItems.slice(0, gridMore.visible).map((it) => renderItem(it, false, true))}</Stagger>
+            </div>
             {/* Rows already in hand come first (no request); an events list that has run out of them asks the provider for its next page. */}
             {gridMore.remaining > 0 ? (
               <div className="mt-6"><ShowMoreButton next={gridMore.next} visible={gridMore.visible} total={gridItems.length} onClick={gridMore.showMore} noun="results" /></div>
