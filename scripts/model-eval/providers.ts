@@ -2,7 +2,7 @@
  * One call shape for the three providers, with the retries a real app would need (overload, rate limits) and a per-provider cap on
  * calls in flight. The app itself only talks to Anthropic today (packages/ai/llm.ts); this is for measuring the others.
  */
-export type Provider = "anthropic" | "openai" | "gemini";
+type Provider = "anthropic" | "openai" | "gemini";
 export type Model = { provider: Provider; id: string; tier: "main" | "fast" };
 export type CallResult = { text: string; ms: number; inTok: number; outTok: number; retries: number; error?: string };
 

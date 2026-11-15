@@ -13,7 +13,6 @@ export const replyFeedbackInput = z.object({
   rating: z.enum(["up", "down"]).nullable(),
   note: z.string().trim().max(REPLY_NOTE_MAX).optional(),
 });
-export type ReplyFeedbackInput = z.infer<typeof replyFeedbackInput>;
 
 /** The idempotency key a stored reply carries for a local id (`local-assistant-<key>` -> `assistant:<key>`), or null for a real id. */
 export function localReplyKey(messageId: string) {

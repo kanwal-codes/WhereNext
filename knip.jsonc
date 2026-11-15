@@ -1,7 +1,8 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema-jsonc.json",
   // Files the framework or a human runs, which nothing imports.
-  "entry": ["scripts/*.{ts,mjs,cjs}", "app/sw.ts"],
+  // scripts/model-eval/run.ts is the model comparison harness; evals/roam/*.cjs are named as file:// strings in promptfooconfig.yaml.
+  "entry": ["scripts/*.{ts,mjs,cjs}", "scripts/model-eval/run.ts", "evals/roam/*.cjs", "app/sw.ts"],
   // ThemeToggle is parked: dark mode is switched off by DARK_MODE_ENABLED, not deleted.
   "ignore": ["components/ThemeToggle.tsx"],
   // eslint-config-next / @eslint/eslintrc: named as strings in eslint.config.mjs. @next/env: loaded by the e2e and eval
