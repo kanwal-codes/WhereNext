@@ -31,7 +31,7 @@ export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]
           <div className={cn("flex flex-wrap items-center justify-between gap-x-6 gap-y-4", "max-lg:flex-nowrap max-lg:gap-x-3")}>
             <div className="flex min-w-0 items-center gap-3">
               <h2 className={cn("font-display text-3xl tracking-tight", "max-lg:text-2xl")}>{list.length > 0 ? "Your trips" : "No trips yet"}</h2>
-              {list.length > 0 && <span className="daisy-badge daisy-badge-ghost tabular-nums">{list.length}</span>}
+              {list.length > 0 && !showTabs && <span className="daisy-badge daisy-badge-ghost tabular-nums">{list.length}</span>}
             </div>
             <Link href="/trips/new" className="btn-primary w-fit shrink-0">
               <Plus className="size-4" /> {<span><span className="max-lg:hidden">Create </span><span className="lg:hidden">New </span>trip</span>}

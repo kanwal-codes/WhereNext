@@ -101,7 +101,7 @@ export function DayDetail({ block, dayIndex, tripId }: { block: ItineraryBlock; 
       )}
 
       <ContentSwap swapKey={String(active)} className="space-y-5">
-      <Reveal delay={0} y={10}><header className="rounded-3xl bg-card p-5 shadow-float ring-1 ring-black/[0.06] sm:p-6">
+      <Reveal delay={0} y={10}><header className="rounded-3xl bg-card p-5 shadow-float ring-1 ring-black/[0.06] sm:p-6 max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent max-lg:p-0 max-lg:shadow-none max-lg:ring-0">
         <PanelHeader eyebrow={[day.label, ...(minutes.length === 0 ? [] : [eyebrow])]} sub={day.open ? "Open day" : `${day.stops.length} stop${day.stops.length === 1 ? "" : "s"}`}>
           <h2 className="max-w-[16ch] font-display text-4xl font-light leading-[1.04] tracking-[-0.035em] text-balance">{day.subtitle ?? day.label}</h2>
         </PanelHeader>

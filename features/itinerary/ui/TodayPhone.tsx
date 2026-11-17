@@ -122,7 +122,7 @@ export function TodayPhone({ tripId, today }: { tripId: string; today: TodayData
       )}
       {(stay || bookedStay) && (
         <div className="mt-6 flex items-center gap-3.5">
-          <span className="grid size-16 shrink-0 place-items-center rounded-2xl bg-positive-soft text-positive"><BedDouble className="size-6" aria-hidden /></span>
+          <span className="grid size-[3.25rem] shrink-0 place-items-center rounded-2xl bg-positive-soft text-positive"><BedDouble className="size-[1.375rem]" aria-hidden /></span>
           <div className="min-w-0">
             <p className="eyebrow text-positive">{running ? "Tonight you sleep at" : "Where you’ll sleep"}</p>
             <p className="mt-0.5 truncate font-display text-lg leading-snug font-medium">{stay ? stay.hotelName : bookedStay?.title}</p>

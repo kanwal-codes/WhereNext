@@ -219,7 +219,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       {alreadyBooked && (
         <p role="status" className="rounded-2xl bg-muted px-4 py-3 text-sm">
           You already have <span className="font-medium">{alreadyBooked.title}</span> booked<span className="max-lg:hidden">{alreadyBooked.date ? ` (${fmtDay(alreadyBooked.date)}${alreadyBooked.endDate ? ` → ${fmtDay(alreadyBooked.endDate)}` : ""})` : ""}</span> for some of these nights.{" "}
-          <a href={`/trips/${tripId}/bookings`} className="underline underline-offset-2">See your bookings</a>
+          <a href={`/trips/${tripId}/bookings`} className="-my-3 inline-block py-3 underline underline-offset-2">See your bookings</a>
         </p>
       )}
       {near.trim() && (

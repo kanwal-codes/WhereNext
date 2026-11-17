@@ -39,7 +39,7 @@ export function BudgetDetail({ block }: { block: BudgetBlock }) {
 
   return (
     <div className="space-y-6 p-4 pb-8">
-      <Reveal delay={0} y={10}><section aria-label="Typical day" className={cn(surface, "space-y-5 p-5")}>
+      <Reveal delay={0} y={10}><section aria-label="Typical day" className={cn(surface, "space-y-5 p-5", "max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent max-lg:p-0 max-lg:shadow-none max-lg:ring-0")}>
         <PanelHeader eyebrow={["Typical day", unit]} sub={<span className="tabular-nums">Usually between {r(block.dailyTotal.low)} and {r(block.dailyTotal.high)}</span>}>
           <BigFigure text={r(typical)} />
         </PanelHeader>

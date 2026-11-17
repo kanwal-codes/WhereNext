@@ -44,11 +44,20 @@ const PILL: Record<WidgetTone | "neutral", string> = {
   plum: "bg-muted text-foreground status-dot status-brand",
   saffron: "bg-muted text-foreground status-dot status-warn",
 };
+// With an icon the pill has its own mark: the status dot would say it twice.
+const PILL_WITH_ICON: Record<WidgetTone | "neutral", string> = {
+  neutral: PILL.neutral,
+  coral: "bg-muted text-coral-ink",
+  lagoon: "bg-muted text-lagoon",
+  sage: "bg-muted text-positive",
+  plum: "bg-muted text-plum",
+  saffron: "bg-muted text-caution",
+};
 
 /** A small status pill ("Fits your budget", "Fastest", "Over by 50"). */
 export function WidgetPill({ tone = "neutral", icon: Icon, children, className }: { tone?: WidgetTone | "neutral"; icon?: LucideIcon; children: ReactNode; className?: string }) {
   return (
-    <span className={cn("inline-flex h-6 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-xs font-semibold tabular-nums", PILL[tone], className)}>
+    <span className={cn("inline-flex h-6 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-xs font-semibold tabular-nums", (Icon ? PILL_WITH_ICON : PILL)[tone], className)}>
       {Icon && <Icon className="size-3.5 shrink-0" aria-hidden />}
       <span className="min-w-0 truncate">{children}</span>
     </span>

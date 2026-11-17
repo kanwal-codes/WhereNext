@@ -44,7 +44,7 @@ export function UserTurn({ message, isNew, undelivered }: { message: Message; is
 }
 
 /** Roam's reply: the words and cards, anything worth a footnote, the sources behind it, and Copy. */
-export function ReplyTurn({ message, isNew, streaming, live, isLatest, dir, handlers, tripId, onRate }: {
+export function ReplyTurn({ message, isNew, streaming, live, isLatest, opener = false, dir, handlers, tripId, onRate }: {
   message: Message;
   isNew: boolean;
   streaming: boolean;
@@ -52,6 +52,8 @@ export function ReplyTurn({ message, isNew, streaming, live, isLatest, dir, hand
   live: boolean;
   /** Chips answer the reply they came with; once the conversation moves on they are stale. */
   isLatest: boolean;
+  /** The first message of the thread is Roam's greeting: there is nothing in it to rate or copy. */
+  opener?: boolean;
   dir: "rtl" | undefined;
   handlers: BlockHandlers;
   tripId: string;
@@ -63,7 +65,7 @@ export function ReplyTurn({ message, isNew, streaming, live, isLatest, dir, hand
   const blocks = isLatest ? meta?.blocks : withoutChips(meta?.blocks);
   const notes = replyNotes(meta, streaming);
   // A reply that never reached the database has nothing to attach a rating to.
-  const rateable = Boolean(message.content.trim()) && !streaming && !(meta as { persistFailed?: boolean } | undefined)?.persistFailed;
+  const rateable = !opener && Boolean(message.content.trim()) && !streaming && !(meta as { persistFailed?: boolean } | undefined)?.persistFailed;
 
   return (
   <motion.div
@@ -112,7 +114,7 @@ export function ReplyTurn({ message, isNew, streaming, live, isLatest, dir, hand
           <span />
         )}
         {/* Copy rests quietly: on a mouse it appears when the reply is under the pointer (the latest always shows it); on touch it is always there. */}
-        {message.content.trim() && !streaming && (() => {
+        {!opener && message.content.trim() && !streaming && (() => {
           const copy = (
             <span className={cn(!isLatest && "turn-action")}>
               <CopyButton text={message.content} tabbable={isLatest} />

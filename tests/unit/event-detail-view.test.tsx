@@ -39,6 +39,7 @@ vi.mock("@/components/PanelStates", () => ({
 vi.mock("@/components/motion-primitives", () => ({
   Reveal: ({ children }: Any) => <div>{children}</div>, Stagger: ({ children, className }: Any) => <div className={className}>{children}</div>,
   StaggerItem: ({ children }: Any) => <div>{children}</div>, Tactile: ({ children }: Any) => <div>{children}</div>, WordReveal: ({ text }: Any) => <h1>{text}</h1>,
+  BlurImage: ({ alt, src }: Any) => <img alt={alt} src={src} />,
 }));
 
 import { EventDetailView } from "../../features/events/ui/EventDetailView";
@@ -73,7 +74,7 @@ describe("EventDetailView: loading", () => {
     page();
     // The hero is the same one before and after the details arrive: the title is already on it, and only the part under it waits.
     expect(screen.getByText("loading this event")).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Jazz Night" })).toBeTruthy();
+    expect(screen.getAllByRole("heading", { name: "Jazz Night" }).length).toBeGreaterThan(0); // the photo design and the phone design each carry the title
     await waitFor(() => expect(screen.queryByText("loading this event")).toBeNull());
     const url = new URL(calls[0], "http://x");
     expect(url.pathname).toBe(`/api/trips/${TRIP}/events/detail`);
@@ -82,22 +83,22 @@ describe("EventDetailView: loading", () => {
 
   it("leaves out what the card did not know", async () => {
     page({ seed: { name: "X", url: "u", source: "s" } });
-    await screen.findByRole("heading", { name: "Jazz Night" });
+    await screen.findAllByRole("heading", { name: "Jazz Night" });
     expect([...new URL(calls[0], "http://x").searchParams.keys()]).toEqual(["name", "url", "source"]);
   });
 
   it("reuses an event seen this session", async () => {
     const first = page();
-    await screen.findByRole("heading", { name: "Jazz Night" });
+    await screen.findAllByRole("heading", { name: "Jazz Night" });
     first.unmount();
     page();
-    expect(screen.getByRole("heading", { name: "Jazz Night" })).toBeTruthy();
+    expect(screen.getAllByRole("heading", { name: "Jazz Night" }).length).toBeGreaterThan(0); // the photo design and the phone design each carry the title
     expect(calls).toHaveLength(1);
   });
 
   it("cancels the request when the page goes away", async () => {
     const view = page();
-    await screen.findByRole("heading", { name: "Jazz Night" });
+    await screen.findAllByRole("heading", { name: "Jazz Night" });
     expect(signals[0].aborted).toBe(false);
     view.unmount();
     expect(signals[0].aborted).toBe(true);
@@ -108,7 +109,7 @@ describe("EventDetailView: loading", () => {
     const user = u();
     page();
     expect(await screen.findByText("error the details for this event")).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Jazz Night" })).toBeTruthy(); // the card's own name still heads the page
+    expect(screen.getAllByRole("heading", { name: "Jazz Night" }).length).toBeGreaterThan(0); // the photo design and the phone design each carry the title // the card's own name still heads the page
     expect(screen.getByRole("link", { name: /Open the event page/ }).getAttribute("href")).toBe(seed.url);
     detailBody = detail();
     await user.click(screen.getByRole("button", { name: "retry" }));
@@ -132,7 +133,7 @@ describe("EventDetailView: loading", () => {
 describe("EventDetailView: the top", () => {
   it("shows when, where and from what price", async () => {
     page();
-    await screen.findByRole("heading", { name: "Jazz Night" });
+    await screen.findAllByRole("heading", { name: "Jazz Night" });
     const facts = document.querySelector("dl")!;
     expect(within(facts as HTMLElement).getByText("When")).toBeTruthy();
     expect(within(facts as HTMLElement).getByText("Where")).toBeTruthy();
@@ -146,7 +147,7 @@ describe("EventDetailView: the top", () => {
   it("shows a day with no time when the date has none", async () => {
     detailBody = detail({ date: "2026-12-02", doorsTime: null, showTime: null });
     page({ seed: { ...seed, date: "2026-12-02" } });
-    await screen.findByRole("heading", { name: "Jazz Night" });
+    await screen.findAllByRole("heading", { name: "Jazz Night" });
     const when = Array.from(document.querySelectorAll("dt")).find((dt) => dt.textContent === "When")!.parentElement!;
     expect(when.textContent).toMatch(/Wed.*December 2/);
     expect(when.textContent).not.toMatch(/AM|PM/);
@@ -155,13 +156,13 @@ describe("EventDetailView: the top", () => {
   it("uses the card's image, then a fallback", async () => {
     detailBody = detail({ imageUrl: null });
     page();
-    await screen.findByRole("heading", { name: "Jazz Night" });
+    await screen.findAllByRole("heading", { name: "Jazz Night" });
     expect(hero.image).toBe("https://img/seed.jpg");
     cleanup();
     sessionStorage.clear();
     detailBody = detail({ imageUrl: null });
     page({ seed: { ...seed, imageUrl: undefined } });
-    await screen.findByRole("heading", { name: "Jazz Night" });
+    await screen.findAllByRole("heading", { name: "Jazz Night" });
     expect(hero.image).toBe(hero.fallbackImage);
   });
 
@@ -170,7 +171,7 @@ describe("EventDetailView: the top", () => {
     expect((await screen.findByRole("link", { name: "Back" })).getAttribute("href")).toBe(`/trips/${TRIP}/discover`);
     cleanup();
     page({ variant: "panel" });
-    await screen.findByRole("heading", { name: "Jazz Night" });
+    await screen.findAllByRole("heading", { name: "Jazz Night" });
     expect(screen.queryByRole("link", { name: "Back" })).toBeNull();
     expect(hero.surface).toBe(true);
   });
@@ -202,7 +203,7 @@ describe("EventDetailView: tickets", () => {
     sessionStorage.clear();
     detailBody = detail({ url: null, ticketOptions: [] });
     page({ seed: { ...seed, url: "https://random.example/e", source: "other" } });
-    await screen.findByRole("heading", { name: "Jazz Night" });
+    await screen.findAllByRole("heading", { name: "Jazz Night" });
     expect(screen.queryByRole("link", { name: /Get tickets/ })).toBeNull();
   });
 });
@@ -260,7 +261,7 @@ describe("EventDetailView: adding it to the trip", () => {
     expect((await screen.findByRole("link", { name: "Ask Roam if it fits" })).getAttribute("href")).toContain(`/trips/${TRIP}/chat`);
     cleanup();
     page({ variant: "panel" });
-    await screen.findByRole("heading", { name: "Jazz Night" });
+    await screen.findAllByRole("heading", { name: "Jazz Night" });
     expect(screen.queryByRole("link", { name: "Ask Roam if it fits" })).toBeNull();
   });
 });
@@ -290,7 +291,7 @@ describe("EventDetailView: sections", () => {
     sessionStorage.clear();
     detailBody = detail({ performers: ["Jazz Night"], lineupNote: null });
     page();
-    await screen.findByRole("heading", { name: "Jazz Night" });
+    await screen.findAllByRole("heading", { name: "Jazz Night" });
     expect(screen.queryByRole("heading", { name: "Line-up" })).toBeNull();
   });
 
@@ -343,7 +344,7 @@ describe("EventDetailView: sections", () => {
   it("leaves out sections the event has nothing for", async () => {
     detailBody = detail({ about: null, whatToExpect: null, performers: [], venueName: null, pleaseNote: null, doorsTime: null, showTime: null, admission: null, ageInfo: null, promoter: null, status: null, sources: [], priceRange: null, onSale: null, genre: null });
     page({ seed: { ...seed, venue: undefined } });
-    await screen.findByRole("heading", { name: "Jazz Night" });
+    await screen.findAllByRole("heading", { name: "Jazz Night" });
     for (const name of ["About", "What to expect", "Line-up", "Venue", "Good to know"]) expect(screen.queryByRole("heading", { name })).toBeNull();
     expect(screen.queryByText(/source/)).toBeNull();
   });
@@ -360,8 +361,8 @@ describe("EventDetailView: on the phone", () => {
 
   it("puts the add and directions buttons, the date chip and a tickets row under the title, like a place", async () => {
     page({ variant: "panel" });
-    await screen.findByRole("heading", { name: "Jazz Night" });
-    const phone = document.querySelector("div.lg\\:hidden")!;
+    await screen.findAllByRole("heading", { name: "Jazz Night" });
+    const phone = [...document.querySelectorAll("div.lg\\:hidden")].find((el) => el.textContent?.includes("Add to trip"))!;
     expect(within(phone as HTMLElement).getByRole("button", { name: "Add to trip" })).toBeTruthy();
     expect(within(phone as HTMLElement).getByRole("link", { name: /Directions/ }).getAttribute("href")).toContain("google.com/maps/dir");
     expect(within(phone as HTMLElement).getByRole("link", { name: /Tickets/ }).getAttribute("href")).toBe("https://www.ticketmaster.com/e/1");
@@ -372,7 +373,7 @@ describe("EventDetailView: on the phone", () => {
 
   it("has no dock inside the panel", async () => {
     page({ variant: "panel" });
-    await screen.findByRole("heading", { name: "Jazz Night" });
+    await screen.findAllByRole("heading", { name: "Jazz Night" });
     expect(document.querySelector(".fixed")).toBeNull();
   });
 });

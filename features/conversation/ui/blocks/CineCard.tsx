@@ -19,7 +19,7 @@ import { CardOpenOverlay } from "./ui";
  */
 
 const SCRIM =
-  "linear-gradient(to top, rgb(20 15 12 / 0.94) 0%, rgb(20 15 12 / 0.62) 36%, rgb(20 15 12 / 0) 64%), linear-gradient(to bottom, rgb(20 15 12 / 0.4) 0%, rgb(20 15 12 / 0) 24%)";
+  "linear-gradient(to top, rgb(20 15 12 / 0.94) 0%, rgb(20 15 12 / 0.62) 42%, rgb(20 15 12 / 0) 72%), linear-gradient(to bottom, rgb(20 15 12 / 0.4) 0%, rgb(20 15 12 / 0) 24%)";
 
 const pillBase = "inline-flex h-6 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-xs font-semibold tabular-nums";
 const PILL_TONE = {
@@ -223,7 +223,7 @@ export function CineCard({
           <div className="flex min-w-0 flex-col items-end gap-1.5">{save}{topRight}</div>
         </div>
         <div className="min-w-0">
-          {eyebrow && !compact && <p className="eyebrow truncate text-white/70!">{eyebrow}</p>}
+          {eyebrow && !compact && <p className="eyebrow truncate text-white/85!">{eyebrow}</p>}
           <h4 className={cn("font-display font-medium text-white text-balance", compact ? "line-clamp-2 text-body leading-tight tracking-[-0.012em]" : "mt-1.5 line-clamp-2 text-2xl leading-[1.1] tracking-[-0.022em]")}>{title}</h4>
           {compact && meta && <div className="mt-1 truncate text-xs text-white/75">{meta}</div>}
           {!compact && pills && <div className="mt-3 flex flex-wrap gap-1.5">{pills}</div>}

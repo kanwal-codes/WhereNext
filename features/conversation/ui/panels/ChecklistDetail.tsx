@@ -19,7 +19,7 @@ export function ChecklistDetail({ block, tripId }: { block: ChecklistListBlock; 
   return (
     <div className="space-y-6 p-4 pb-8">
       <Reveal delay={0} y={10}>
-        <section aria-label="Progress" className={cn(surface, "space-y-4 p-5")}>
+        <section aria-label="Progress" className={cn(surface, "space-y-4 p-5", "max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent max-lg:p-0 max-lg:shadow-none max-lg:ring-0")}>
           <PanelHeader eyebrow={["Checklist", `${groups.length} group${groups.length === 1 ? "" : "s"}`]} sub={done === total && total > 0 ? "Everything is ticked off. You are ready." : `${total - done} left. Ticks stay on this device.`}>
             <BigFigure text={`${done} of ${total}`} />
           </PanelHeader>

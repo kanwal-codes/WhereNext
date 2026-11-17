@@ -3,7 +3,8 @@
 import { hotelPhotoSrc } from "@/lib/hotel-photo";
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Globe, LogIn, LogOut, MapPin, MessageCircle, Navigation, Phone, Star } from "lucide-react";
+import { BedDouble, Globe, LogIn, LogOut, MapPin, MessageCircle, Navigation, Phone, Star } from "lucide-react";
+import { DetailPhonePhoto } from "@/features/places/ui/PlacePhoneParts";
 import { Hero } from "@/components/Hero";
 import { useTripPanelMaybe } from "@/components/TripPanelProvider";
 import { DetailSectionHeading } from "@/components/DetailSectionHeading";
@@ -193,10 +194,17 @@ export function StayDetailView({
         kenBurns={!panel}
         surface={panel}
         ratingBadge={typeof hotel?.rating === "number" ? <><Star className="size-3.5 fill-current text-coral-soft" aria-hidden /> {hotel.rating.toFixed(1)}<span className="opacity-70">/10</span></> : undefined}
-        className={cn(panel ? PANEL_HERO : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")}
+        className={cn("max-lg:hidden", panel ? PANEL_HERO : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")}
       >
         {!panel && <BackLink fallback={`/trips/${tripId}/stay`} label="Back" className="absolute left-4 top-4 border-transparent bg-white text-ink hover:bg-white" />}
       </Hero>
+      <DetailPhonePhoto
+        src={images[0] ?? seedSrc}
+        fallbackSrc="/design/place-hotel.jpg"
+        alt={name}
+        icon={BedDouble}
+        badge={typeof hotel?.rating === "number" ? <><Star className="size-3.5 fill-coral text-coral" aria-hidden /> {hotel.rating.toFixed(1)}<span className="font-normal text-muted-foreground">/10</span></> : undefined}
+      />
 
       <div className={pad}>
         <Reveal>

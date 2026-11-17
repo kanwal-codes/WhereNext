@@ -7,12 +7,28 @@ import { hotelDetails, liteApiConfigured, stayReviews, stayRooms } from "@/packa
 import { googleHotelDetails, isGoogleStayId } from "@/packages/providers/serpapi/hotels";
 import { serpConfigured } from "@/packages/providers/serpapi/client";
 import { research } from "@/packages/providers/tavily/client";
+import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { generateText } from "@/packages/ai/model-policy";
 import { writeStayAbout } from "@/lib/application/stay-about";
+import { pickHotelContact } from "@/lib/application/stay-contact";
 import { resolveStayDates } from "@/lib/application/stay-dates";
 import { resolveCurrency } from "@/lib/currency";
 import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 import { AI_TEXT_TTL_MS, cached } from "@/lib/server/ttl-cache";
+
+/** The booking engine carries no phone or website, so they come from Google's lodging within 250 m of the hotel (see `pickHotelContact`). */
+async function hotelContact(hotelId: string, hotel: { name: string; latitude: number | null; longitude: number | null }): Promise<{ phone: string | null; website: string | null } | null> {
+  if (!process.env.GOOGLE_MAPS_API_KEY || hotel.latitude == null || hotel.longitude == null) return null;
+  const find = async () => {
+    try {
+      const near = await new GooglePlacesProvider().nearby("lodging", { lat: hotel.latitude!, lng: hotel.longitude! }, 250, AbortSignal.timeout(3000));
+      return pickHotelContact(hotel.name, near);
+    } catch {
+      return null;
+    }
+  };
+  return cached(`stay:contact:${hotelId}`, 24 * 60 * 60_000, find);
+}
 
 /** One clean paragraph on what guests actually say, from web results. Null if nothing usable. */
 async function guestSentiment(name: string, city: string | null, signal?: AbortSignal): Promise<string | null> {
@@ -123,8 +139,11 @@ export const GET = withRoute(async (request: Request, { params }: { params: Prom
     if (hotel && about) hotel = { ...hotel, description: about };
 
     const nights = rates.status === "fulfilled" ? rates.value.nights : Math.max(1, Math.round((Date.parse(checkout) - Date.parse(checkin)) / 864e5));
+    const contact = hotel ? await hotelContact(hotelId, hotel) : null;
     return NextResponse.json({
       hotel,
+      phone: contact?.phone ?? null,
+      website: contact?.website ?? null,
       rooms: rates.status === "fulfilled" ? rates.value.rooms : null,
       reviews: reviews.status === "fulfilled" ? reviews.value : [],
       sentiment,

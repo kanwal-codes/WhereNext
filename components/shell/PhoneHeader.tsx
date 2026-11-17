@@ -64,6 +64,7 @@ export function backTarget(pathname: string, base: string): { href: string | nul
 }
 
 const PAGE_TITLES: Record<string, string> = {
+  "": "Overview",
   "/chat": "Roam",
   "/group": "Group chat",
   "/group/details": "Group details",
@@ -85,7 +86,7 @@ export function PhoneHeader({ pathname, tripId, tripName, onMenu, menuDot }: { p
   const override = ctx?.override ?? {};
   const base = `/trips/${tripId}`;
   const rest = pathname.startsWith(base) ? pathname.slice(base.length).replace(/\/$/, "") : "";
-  // One rule: the bar names the page you are on. Only the trip's own home page carries the trip name; Discover and Stay put their city picker here instead.
+  // One rule: the bar names the page you are on. The trip's home page is "Overview" (the photo under it already says the trip's name); Discover and Stay put their city picker here instead.
   const defaultTitle = PAGE_TITLES[rest] ?? (/^\/stay\/alternatives/.test(rest) ? "Places to stay" : /^\/stay\/./.test(rest) ? "Stay" : /^\/place\//.test(rest) ? "Place" : shortTripTitle(tripName));
   const title = override.title ?? defaultTitle;
   const back = backTarget(pathname, base);

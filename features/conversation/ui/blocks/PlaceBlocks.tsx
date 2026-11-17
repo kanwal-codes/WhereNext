@@ -55,7 +55,7 @@ export function PlaceCardView({
       pills={place.distanceToLocked ? <CinePill icon={MapPin}>{place.distanceToLocked}</CinePill> : undefined}
       why={place.reviewSummary}
       foot={place.address ? <CineAddress address={place.address} /> : undefined}
-      save={<SaveHeart tripId={tripId} place={toPlace(place)} />}
+      save={<SaveHeart tripId={tripId} place={toPlace(place)} large />}
       // One control: shortlist (still deciding) → a day (going in the plan) → remove.
       action={<AddToTripControl tripId={tripId} place={toPlace(place)} variant="orb" />}
     />

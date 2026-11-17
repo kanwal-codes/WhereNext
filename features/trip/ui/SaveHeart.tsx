@@ -18,7 +18,7 @@ const SETTLE_MS = 4000;
  * shortlisted or already on a day. A place on a day is the plan's, so the heart does not remove it from there;
  * that is what the add button's menu is for.
  */
-export function SaveHeart({ tripId, place, compact = false, light = false }: { tripId: string; place: Place; compact?: boolean; /** On a light ground (a list row) rather than over a photo. */ light?: boolean }) {
+export function SaveHeart({ tripId, place, compact = false, large = false, light = false }: { tripId: string; place: Place; compact?: boolean; /** The same 48px as the round add button beside it on a big photo card. */ large?: boolean; /** On a light ground (a list row) rather than over a photo. */ light?: boolean }) {
   const data = useTripDataMaybe()?.data ?? null;
   const { guest, openGate } = useGuest();
   const itinerary = (data?.itinerary ?? []) as Array<{ title?: string; day_index?: number }>;
@@ -72,7 +72,7 @@ export function SaveHeart({ tripId, place, compact = false, light = false }: { t
       aria-label={on ? `Remove ${place.name} from saved places` : `Save ${place.name}`}
       className={cn(
         "pointer-events-auto relative z-10 grid shrink-0 place-items-center rounded-full border transition-[transform,background-color,color] duration-200 ease-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
-        compact ? "size-8 max-lg:size-10" : "size-10 max-lg:size-11",
+        compact ? "size-8 max-lg:size-10" : large ? "size-12" : "size-10 max-lg:size-11",
         light
           ? (on ? "border-transparent bg-transparent text-coral" : "border-transparent bg-transparent text-muted-foreground hover:text-foreground")
           : (on ? "border-transparent bg-white text-coral" : "border-transparent bg-white text-ink shadow-[0_1px_3px_oklch(0.2_0.012_65/0.25)] hover:bg-white"),
