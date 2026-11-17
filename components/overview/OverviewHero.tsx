@@ -77,17 +77,6 @@ export function OverviewHero({
               ) : (
                 <span />
               )}
-              <Reveal delay={0.15}>
-                <button
-                  type="button"
-                  onClick={rename.start}
-                  aria-label="Rename trip"
-                  title="Rename trip"
-                  className="daisy-btn daisy-btn-circle daisy-btn-sm border-border/60 bg-background/88 text-foreground shadow-none hover:bg-background max-lg:size-11"
-                >
-                  <Pencil className="size-3.5" />
-                </button>
-              </Reveal>
             </div>
 
             <div className={cn("relative z-10 mx-auto w-full max-w-6xl px-4 pt-40 pb-6 transition-colors duration-1000 sm:px-8 sm:pb-9", "max-lg:pt-24", photo ? "text-white" : "text-foreground")}>
@@ -126,7 +115,8 @@ export function OverviewHero({
                   </button>
                 </form>
               ) : (
-                <>
+                <div className="flex items-end justify-between gap-3">
+                  <div className="min-w-0">
                   {shortTripTitle(trip.name || destination) !== (trip.name || destination) && (
                     // A trip named after its whole route is five lines of title on a phone: it reads "first → last" there, the route below says the rest.
                     <h2 aria-hidden className={cn("mt-3 font-display text-4xl leading-[1.02] tracking-tight text-balance lg:hidden", photo && "[text-shadow:0_2px_30px_rgba(0,0,0,0.5)]")}>{shortTripTitle(trip.name || destination)}</h2>
@@ -136,7 +126,20 @@ export function OverviewHero({
                     delay={0.25}
                     className={cn("mt-3 max-w-4xl font-display text-5xl leading-[0.96] tracking-tight text-balance sm:text-7xl lg:text-8xl", shortTripTitle(trip.name || destination) !== (trip.name || destination) && "max-lg:sr-only", photo && "[text-shadow:0_2px_30px_rgba(0,0,0,0.5)]")}
                   />
-                </>
+                  </div>
+                  {/* Just a pencil, at the foot of the title it renames: no circle behind it. */}
+                  <Reveal delay={0.6}>
+                    <button
+                      type="button"
+                      onClick={rename.start}
+                      aria-label="Rename trip"
+                      title="Rename trip"
+                      className={cn("-mr-2 mb-1 grid size-11 shrink-0 place-items-center rounded-full transition-[opacity,transform] active:scale-[0.94]", photo ? "text-white/85 drop-shadow-[0_1px_8px_rgba(0,0,0,0.55)] hover:text-white" : "text-ink-soft hover:text-foreground")}
+                    >
+                      <Pencil className="size-5" aria-hidden />
+                    </button>
+                  </Reveal>
+                </div>
               )}
 
               <p suppressHydrationWarning className={cn("mt-3 text-body leading-snug lg:hidden", photo ? "text-white/90 [text-shadow:0_1px_12px_rgba(0,0,0,0.5)]" : "text-ink-soft")}>

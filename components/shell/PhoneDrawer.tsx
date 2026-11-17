@@ -4,34 +4,18 @@ import { useEffect, useId } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Luggage, X } from "lucide-react";
-import { BrandMark } from "@/components/BrandMark";
 import { Sheet } from "@/components/motion-primitives";
-import { shortTripTitle } from "@/components/shell/trip-title";
-import { DateStamp } from "@/components/shell/DateStamp";
 import { NavRow } from "@/components/shell/NavRow";
 import { NAV, PHONE_LABEL, PHONE_NAV_GROUPS } from "@/components/shell/trip-nav";
-import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
-import { daysUntilTrip } from "@/lib/trip-dates";
 import type { ShellTrip } from "@/components/TripShell";
 
-function rangeLabel(start?: string | null, end?: string | null): string | null {
-  if (!start) return null;
-  const f = (v: string) => new Date(`${v}T00:00:00`).toLocaleDateString("en", { month: "short", day: "numeric" });
-  return end && end !== start ? `${f(start)} – ${f(end)}` : f(start);
-}
-
-/** The phone's whole-trip menu: the trip as a plain card, every page grouped Trip / Plan / Keep, then New trip, All trips and the account. */
+/** The phone's whole-trip menu: it opens on the trip's name, then every page grouped Trip / Plan / Keep, and All trips at the foot. */
 export function PhoneDrawer({ open, onClose, tripId, pathname, trip, unread = 0 }: { open: boolean; onClose: () => void; tripId: string; pathname: string; trip: ShellTrip; unread?: number }) {
   const base = `/trips/${tripId}`;
   const router = useRouter();
   const { guest, openGate } = useGuest();
   const pillId = useId();
-  const data = useTripDataMaybe();
-  const live = data?.data?.trip;
-  const until = daysUntilTrip(live?.start_date);
-  const status = until == null ? null : until > 1 ? `${until} days to go` : until === 1 ? "Tomorrow" : until === 0 ? "Starts today" : null;
-  const sub = [trip.travellers, rangeLabel(live?.start_date, live?.end_date)].filter(Boolean).join(" · ");
 
   // Every row is a link, and a link prefetches the moment it is on screen: opening the menu fired nine server requests in the middle of
   // its own slide-in. They wait for the slide to finish (still ready before a tap lands), and a row already prefetched costs nothing.
@@ -47,28 +31,15 @@ export function PhoneDrawer({ open, onClose, tripId, pathname, trip, unread = 0 
 
   return (
     <Sheet open={open} onClose={onClose} side="left" ariaLabel="Trip menu" className="icons-fine max-w-[19.5rem] rounded-r-4xl bg-background px-3.5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-      <div className="flex items-center gap-2.5 px-1.5">
-        <BrandMark variant="compact" className="size-8 text-2xs" />
-        <span className="font-display text-lg font-semibold tracking-[-0.02em]">Where Next</span>
-        <button type="button" onClick={onClose} aria-label="Close menu" className="ml-auto grid size-10 place-items-center rounded-full text-muted-foreground hover:text-foreground active:scale-[0.97]">
-          <X className="size-5" />
+      {/* The menu is this trip's, so it opens on its name and nothing else: no photo, no second line to cut short. The ✕ is the grey circle every sheet has. */}
+      <div className="flex items-center gap-3 pl-1.5">
+        <h2 className="min-w-0 flex-1 truncate font-display text-xl font-medium tracking-[-0.025em]">{trip.name}</h2>
+        <button type="button" onClick={onClose} aria-label="Close menu" className="grid size-10 shrink-0 place-items-center rounded-full bg-muted text-foreground transition-transform duration-150 active:scale-[0.97]">
+          <X className="size-4" aria-hidden />
         </button>
       </div>
 
-      {!guest && (
-        <Link href="/trips" prefetch={false} onClick={onClose} className="mt-4 flex items-center gap-3 rounded-2xl border border-border bg-surface p-2.5 pr-3 transition-transform active:scale-[0.985]">
-          <DateStamp start={live?.start_date} />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate font-display text-base leading-tight font-medium tracking-[-0.015em]">{shortTripTitle(trip.name)}</span>
-            {sub && <span className="mt-0.5 block truncate text-xs text-muted-foreground">{sub}</span>}
-            {status && <span suppressHydrationWarning className="mt-0.5 block text-xs font-semibold text-coral-ink">{status}</span>}
-          </span>
-          {/* Said where it goes, in words only a screen reader gets: an aria-label that differs from the visible text breaks voice control (label in name). */}
-          <span className="sr-only">All trips</span>
-        </Link>
-      )}
-
-      <nav aria-label="Trip" className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-slim">
+      <nav aria-label="Trip" className="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-slim">
         {PHONE_NAV_GROUPS.map((group) => (
           <div key={group.title} className="mb-1">
             <p className="eyebrow px-3 pt-3 pb-1.5">{group.title}</p>

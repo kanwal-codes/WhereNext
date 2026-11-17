@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const REPLY_NOTE_MAX = 280;
+const REPLY_NOTE_MAX = 280;
 export type ReplyRating = "up" | "down";
 
 // A just-streamed reply still carries its local id until the thread reloads; the server finds it by the send key inside.

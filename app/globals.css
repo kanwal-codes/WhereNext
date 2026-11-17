@@ -949,6 +949,11 @@
   background-color: color-mix(in oklab, var(--color-foreground) 8%, transparent);
   background-image: linear-gradient(100deg, transparent 25%, color-mix(in oklab, var(--color-foreground) 8%, transparent) 50%, transparent 75%);
 }
+/* The hairline under the Stay booking bar while prices load: a short bar sliding across, then again. */
+.stay-progress { background: color-mix(in oklab, var(--color-border) 70%, transparent); }
+.stay-progress-bar { display: block; height: 100%; width: 35%; border-radius: inherit; background: var(--color-coral); animation: stay-progress 1.3s var(--ease-out) infinite; }
+@keyframes stay-progress { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+@media (prefers-reduced-motion: reduce) { .stay-progress-bar { width: 100%; animation: none; opacity: 0.55; } }
 @keyframes skeleton-sweep { from { background-position: 150% 0; } to { background-position: -50% 0; } }
 
 /* A status line that is still in progress ("Checking places…"): a highlight travels across the text. */
@@ -1067,9 +1072,11 @@
 /* Phone: the bar belongs to the screen, not to the end of the page. Sticky inside a short page (a feed still loading) left it hanging
    mid-screen, so on a phone it is pinned to the bottom the whole time and a little narrower than the page, with room reserved under the content. */
 @media (max-width: 1023.98px) {
-  html[data-phone-v2] .ask-dock { position: fixed; inset-inline: 0; bottom: calc(var(--tabbar) + 0.75rem); margin: 0; padding: 0 1.25rem; }
-  html[data-phone-v2] .ask-dock::before { inset: -2rem 0 -1.5rem; }
-  html[data-phone-v2] .ask-dock-form:not([data-compact]) { width: min(42rem, calc(100% - 1rem)); }
+  html[data-phone-v2] .ask-dock { position: fixed; inset-inline: 0; bottom: calc(var(--tabbar) + 0.5rem); margin: 0; padding: 0 1rem; }
+  /* Like Roam's message box on a phone: grey, flat, nothing painted behind it. */
+  html[data-phone-v2] .ask-dock::before { display: none; }
+  html[data-phone-v2] .ask-dock-form:not([data-compact]) { width: min(42rem, 100%); border-color: transparent; background: var(--color-muted); box-shadow: none; }
+  html[data-phone-v2] .ask-dock-form:not([data-compact]):focus-within { border-color: transparent; box-shadow: none; }
 }
 .ask-dock::before {
   content: "";
@@ -1087,18 +1094,20 @@
   display: flex;
   align-items: center;
   width: min(42rem, 100%);
-  height: 3.5rem;
+  /* The same box as Roam's message box (RoamComposer): a rounded card that grows with the sentence. */
+  min-height: 3.375rem;
   overflow: hidden;
-  border-radius: 9999px;
-  border: 1px solid color-mix(in oklab, var(--color-border) 80%, transparent);
-  background: color-mix(in oklab, var(--color-card) 95%, transparent);
-  box-shadow: var(--shadow-lift), inset 0 1px 0 oklch(1 0 0 / 0.6);
+  border-radius: 1.5rem;
+  border: 1px solid var(--color-input);
+  background: var(--color-card);
+  box-shadow: var(--shadow-lift);
   transition: width 460ms var(--ease-out), height 460ms var(--ease-out), box-shadow 300ms var(--ease-out), background-color 360ms var(--ease-out), border-color 360ms var(--ease-out);
   animation: dock-in 700ms var(--ease-out) 450ms both;
 }
-.ask-dock-form:focus-within { box-shadow: var(--shadow-lift), inset 0 1px 0 oklch(1 0 0 / 0.6), 0 0 0 3px color-mix(in oklab, var(--color-coral) 24%, transparent); }
-.ask-dock-form[data-compact] { width: 8.25rem; height: 2.75rem; border-color: transparent; background: var(--color-foreground); color: var(--color-background); box-shadow: var(--shadow-lift), inset 0 1px 0 oklch(1 0 0 / 0.14); }
-.ask-dock-full { display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0 0.5rem 0 1.25rem; transition: opacity 220ms var(--ease-out) 170ms; }
+.ask-dock-form:focus-within { border-color: color-mix(in oklab, var(--color-ink) 30%, transparent); box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-ink) 6%, transparent), var(--shadow-lift); }
+.ask-dock-form[data-compact] { width: 8.25rem; height: 2.75rem; min-height: 0; border-radius: 9999px; border-color: transparent; background: var(--color-foreground); color: var(--color-background); box-shadow: var(--shadow-lift), inset 0 1px 0 oklch(1 0 0 / 0.14); }
+.ask-dock-full { display: flex; flex-direction: column; gap: 0.25rem; width: 100%; padding: 0.375rem 0.375rem 0.375rem 1rem; transition: opacity 220ms var(--ease-out) 170ms; }
+@media (max-width: 1023.98px) { .ask-dock-full { padding-left: 1.25rem; } }
 .ask-dock-form[data-compact] .ask-dock-full { opacity: 0; pointer-events: none; transition-duration: 110ms; transition-delay: 0s; }
 .ask-dock-mini {
   position: absolute;

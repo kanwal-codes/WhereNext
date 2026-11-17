@@ -1,7 +1,7 @@
 import type { AiSearchDirective } from "@/lib/application/ai-search";
 import type { StayFacets, StayOption } from "@/packages/contracts/stay";
 
-export type StaySort = "price" | "rating" | "stars";
+export type StaySort = "price" | "price_desc" | "rating" | "stars";
 
 /** What the stay search endpoint answers with. */
 export type StaySearchResult = {
@@ -15,11 +15,22 @@ export type StaySearchResult = {
   currency: string;
   options: StayOption[];
   facets: StayFacets;
+  /** How many hotels the first search priced, before any filter. */
+  total?: number;
+  /** The first search stopped at its limit, so a deeper one with the filters can find more. */
+  capped?: boolean;
+  /** This answer came from that deeper search. */
+  deep?: boolean;
 };
 
-const NOTHING_MATCHED = "Nothing matched — loosen the filters or change the dates.";
-export const SEARCH_FAILED = "We couldn't load hotels just now. Try again in a moment.";
-export const searchFailed = (status: string) => status.startsWith("We couldn't");
+/** Why a search could not be answered, said in the words the screen uses for it. */
+export type StaySearchError = { kind: "offline" | "unavailable"; message: string };
+const OFFLINE_MESSAGE = "You're offline. Reconnect and the hotels will load.";
+const UNAVAILABLE_MESSAGE = "The hotel sites aren't answering right now. Try again in a moment.";
+export const staySearchError = (kind: StaySearchError["kind"]): StaySearchError => ({ kind, message: kind === "offline" ? OFFLINE_MESSAGE : UNAVAILABLE_MESSAGE });
+
+/** Fewer matches than this from the first page, and a deeper search with the filters is worth its wait. */
+export const DEEP_BELOW = 6;
 
 /** The party the search starts with: the trip's travellers, from one to 24. */
 export const initialAdults = (travelers: number | null | undefined) => Math.max(1, Math.min(travelers ?? 2, 24));
@@ -44,6 +55,7 @@ export type StayQuery = {
   boards: string[];
   propertyTypes: string[];
   refundable: boolean;
+  priceMin: number | null;
   priceMax: number | null;
 };
 
@@ -58,19 +70,22 @@ export function stayQueryString(q: StayQuery): string {
   if (q.boards.length) qs.set("boards", q.boards.join(","));
   if (q.propertyTypes.length) qs.set("propertyTypes", q.propertyTypes.join(","));
   if (q.refundable) qs.set("refundable", "1");
+  if (q.priceMin) qs.set("priceMin", String(q.priceMin));
   if (q.priceMax) qs.set("priceMax", String(q.priceMax));
   return qs.toString();
 }
 
-/** The message under the filters for a result list: empty when there is something to show. */
-export const statusFor = (result: Pick<StaySearchResult, "options">) => ((result.options ?? []).length === 0 ? NOTHING_MATCHED : "");
-
 /** What a Roam search directive changes, with party size kept within what the steppers allow. */
-export type DirectivePatch = Partial<{ near: string; priceMax: number | null; stars: number[]; boards: string[]; propertyTypes: string[]; refundable: boolean; sort: StaySort; adults: number; rooms: number }>;
+export type DirectivePatch = Partial<{ checkin: string; checkout: string; nights: number; near: string; priceMin: number | null; priceMax: number | null; stars: number[]; boards: string[]; propertyTypes: string[]; refundable: boolean; sort: StaySort; adults: number; rooms: number }>;
 export function directivePatch(d: AiSearchDirective): DirectivePatch {
   const patch: DirectivePatch = {};
   if (d.location !== undefined) patch.near = d.location;
-  if (d.priceMax !== undefined) patch.priceMax = d.priceMax;
+  if (d.checkin && d.checkout) { if (d.checkout > d.checkin) { patch.checkin = d.checkin; patch.checkout = d.checkout; } }
+  // A start with no end, or a number of nights with no start: the other half is what the screen already has.
+  else if (d.checkin) { patch.checkin = d.checkin; if (d.nights) patch.nights = d.nights; }
+  else if (d.nights) patch.nights = d.nights;
+  // A new price ask replaces the old one whole: "under 150" after "between 100 and 200" must not keep the 100.
+  if (d.priceMax !== undefined || d.priceMin !== undefined) { patch.priceMax = d.priceMax ?? null; patch.priceMin = d.priceMin ?? null; }
   if (d.stars?.length) patch.stars = d.stars;
   if (d.boards?.length) patch.boards = d.boards;
   if (d.propertyTypes?.length) patch.propertyTypes = d.propertyTypes;
@@ -85,8 +100,8 @@ export function directivePatch(d: AiSearchDirective): DirectivePatch {
 export const toggled = <T,>(list: T[], v: T): T[] => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
 /** How many filters are on (each star, board and type counts; so do free cancellation and a price cap). */
-export const activeFilterCount = (f: Pick<StayQuery, "stars" | "boards" | "propertyTypes" | "refundable" | "priceMax">) =>
-  f.stars.length + f.boards.length + f.propertyTypes.length + (f.refundable ? 1 : 0) + (f.priceMax ? 1 : 0);
+export const activeFilterCount = (f: Pick<StayQuery, "stars" | "boards" | "propertyTypes" | "refundable" | "priceMin" | "priceMax">) =>
+  f.stars.length + f.boards.length + f.propertyTypes.length + (f.refundable ? 1 : 0) + (f.priceMin || f.priceMax ? 1 : 0);
 
 /** A booked stay that covers some of these nights: said up front, so nobody pays for the same nights twice. */
 export function overlappingStay<T extends { date?: string | null; endDate?: string | null; status?: string | null }>(items: T[], checkin: string, checkout: string): T | undefined {

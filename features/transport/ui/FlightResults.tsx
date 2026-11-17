@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { ExternalLink } from "lucide-react";
 import { Sheet } from "@/components/motion-primitives";
+import { SheetHeader } from "@/components/SheetHeader";
 import { sheetPrimary, sheetSecondary } from "@/components/motion/sheetActions";
 import type { FlightOffer as WidgetOffer } from "@/components/TripPanelProvider";
 import { textAction } from "@/features/conversation/ui/blocks/ui";
@@ -82,7 +83,7 @@ export function FlightResults({ t }: { t: ReturnType<typeof useTransportSearch> 
 </>) : undefined} className="icons-fine px-0 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         {opened && openedFlight && (
           <>
-            <p className="px-4 pb-1 pt-1 font-display text-xl font-medium tracking-[-0.02em]">{[opened.originAirport, opened.destinationAirport].filter(Boolean).join(" → ") || opened.airline}</p>
+            <SheetHeader eyebrow="Flight" title={[opened.originAirport, opened.destinationAirport].filter(Boolean).join(" → ") || opened.airline} onClose={() => setOpenFlight(null)} />
             <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain">
               <FlightJourney offer={opened} labels={labelsOf(opened)} roundTrip={roundTrip} />
             </div>

@@ -83,6 +83,16 @@ export const isBroadPlace = (name: string | null | undefined): boolean => {
   return isCountry(n) || REGIONS.has(n.toLowerCase()) || hasPopularAreas(n) || /^(somewhere|anywhere)\b/i.test(n);
 };
 
+/** The trip's stops, said above its title: the places themselves when there are few ("Portugal · Morocco"), otherwise what they are together ("5 cities", "3 countries", "4 places"). Nothing for a single stop. */
+export function stopsKicker(stops: ReadonlyArray<Pick<TripStop, "city">>): string | undefined {
+  if (stops.length < 2) return undefined;
+  const names = stops.map((s) => s.city);
+  if (stops.length <= 3 && names.join(" · ").length <= 34) return names.join(" · ");
+  const countries = stops.filter((s) => isCountry(s.city)).length;
+  const cities = stops.filter((s) => !isBroadPlace(s.city)).length;
+  return `${stops.length} ${countries === stops.length ? "countries" : cities === stops.length ? "cities" : "places"}`;
+}
+
 /**
  * "Niagara Falls, Ontario, Canada" is one place written the way maps write it, not three cities. A trailing country, then a trailing
  * province or state, is dropped (one of each, and never down to nothing), so a real list like "Rome, Paris, France" still reads as Rome and Paris.

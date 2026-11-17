@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { CalendarRange, ListChecks, X } from "lucide-react";
 import { Reveal, Sheet, Stagger, StaggerItem } from "@/components/motion-primitives";
+import { SuggestionRow } from "@/components/SuggestionRow";
 import { memberInitials } from "@/lib/member-initials";
 import { memberTint } from "@/lib/member-tint";
 import { useMediaQuery } from "@/lib/use-media-query";
@@ -73,13 +74,13 @@ export function ChatEmptyState({ tripId, showInvite, onStarter }: { tripId: stri
             This is the whole group&rsquo;s chat — everyone on the trip, plus Roam. Tag <span className="font-medium text-foreground">@Roam</span> to ask it something here.
           </p>
         </Reveal>
-        <Stagger delay={0.3} gap={0.07} className="mt-5 flex flex-wrap justify-center gap-2 sm:mt-6">
-          {["@Roam what should we do first?", "@Roam where should we eat tonight?"].map((starter) => (
-            <StaggerItem key={starter}>
-              <button type="button" onClick={() => onStarter(starter)} className="btn-chip h-9 px-4 text-sm">{starter}</button>
-            </StaggerItem>
+        <SuggestionRow center className="mt-5 w-full sm:mt-6">
+          {["@Roam what should we do first?", "@Roam where should we eat tonight?"].map((starter, i) => (
+            <Reveal key={starter} delay={0.3 + i * 0.07} y={8}>
+              <button type="button" onClick={() => onStarter(starter)} className="btn-chip h-9 whitespace-nowrap px-4 text-sm">{starter}</button>
+            </Reveal>
           ))}
-        </Stagger>
+        </SuggestionRow>
         {/* Nobody else has joined: the invite link, here, rather than a chat that talks to itself. */}
         {showInvite && (
           <Reveal delay={0.45} y={12} className="w-full">
@@ -214,5 +215,53 @@ export function PollSheet({ open, onClose, onCreate }: { open: boolean; onClose:
       </div>
     </div>
   </Sheet>
+  );
+}
+
+const REACT_HINT_KEY = "group-chat:react-hint";
+
+/**
+ * Whether to tell a phone how to react: once per device, a moment after there is something from someone else to react to, never on a screen with a
+ * mouse (it has the hover button) and never again after it is dismissed or the person has reacted. Touch has no hover, and holding a message is the one
+ * thing nothing on screen shows.
+ */
+export function useReactHint(ready: boolean, reacted: boolean) {
+  const [show, setShow] = useState(false);
+  const dismiss = useCallback(() => {
+    setShow(false);
+    try { window.localStorage.setItem(REACT_HINT_KEY, "1"); } catch { /* storage blocked: it may show once more, which is harmless */ }
+  }, []);
+  useEffect(() => {
+    if (!ready || typeof window.matchMedia !== "function" || !window.matchMedia("(pointer: coarse)").matches) return;
+    try { if (window.localStorage.getItem(REACT_HINT_KEY)) return; } catch { /* treated as not seen */ }
+    const timer = window.setTimeout(() => setShow(true), 1500);
+    return () => window.clearTimeout(timer);
+  }, [ready]);
+  // Having reacted is the answer to the hint, and it goes by itself after a while if nobody touches it.
+  useEffect(() => { if (show && reacted) dismiss(); }, [show, reacted, dismiss]);
+  useEffect(() => {
+    if (!show) return;
+    const timer = window.setTimeout(dismiss, 12_000);
+    return () => window.clearTimeout(timer);
+  }, [show, dismiss]);
+  return [show, dismiss] as const;
+}
+
+/** The one line that says how to react on a phone, in the chat's own pill style, with a way to put it away. */
+export function ReactHint({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <motion.p
+      role="status"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 6 }}
+      transition={{ duration: 0.22 }}
+      className="pointer-events-auto absolute inset-x-0 bottom-full mx-auto mb-2 flex w-fit max-w-full items-center gap-1 rounded-full bg-foreground py-1 pr-1 pl-4 text-xs font-medium text-background shadow-lift"
+    >
+      <span className="min-w-0 truncate">Hold a message to react · double-tap for ❤️</span>
+      <button type="button" onClick={onDismiss} aria-label="Got it" className="grid size-8 shrink-0 place-items-center rounded-full text-background/70 transition-colors hover:text-background active:scale-[0.97]">
+        <X className="size-3.5" aria-hidden />
+      </button>
+    </motion.p>
   );
 }

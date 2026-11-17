@@ -27,13 +27,24 @@ describe("stayLimits", () => {
     expect(stayLimits("a room for 90 a night or less").priceMax).toBe(90);
   });
 
+  it("reads a price range, in both orders, and ignores ranges that are not money", () => {
+    expect(stayLimits("hotels between 100 and 200 dollars")).toMatchObject({ priceMin: 100, priceMax: 200 });
+    expect(stayLimits("hotels between $200 and $100")).toMatchObject({ priceMin: 100, priceMax: 200 });
+    expect(stayLimits("a room for 80 to 140 a night")).toMatchObject({ priceMin: 80, priceMax: 140 });
+    expect(stayLimits("between 120 and 180 per night please")).toMatchObject({ priceMin: 120, priceMax: 180 });
+    expect(stayLimits("price 150-200")).toMatchObject({ priceMin: 150, priceMax: 200 });
+    expect(stayLimits("a budget of $90 to $140")).toMatchObject({ priceMin: 90, priceMax: 140 });
+    expect(stayLimits("between 2 and 4 stars")).toMatchObject({ priceMin: null, priceMax: null });
+    expect(stayLimits("between 10 and 12 days")).toMatchObject({ priceMin: null, priceMax: null });
+  });
+
   it("reads a star floor", () => {
-    expect(stayLimits("4 star hotel in Rome")).toEqual({ priceMax: null, minStars: 4 });
+    expect(stayLimits("4 star hotel in Rome")).toEqual({ priceMin: null, priceMax: null, minStars: 4 });
     expect(stayLimits("five stars or better").minStars).toBe(5);
   });
 
   it("finds nothing in an ordinary ask", () => {
-    expect(stayLimits("where should we stay in Lisbon")).toEqual({ priceMax: null, minStars: null });
-    expect(stayLimits("total budget $600 for two")).toEqual({ priceMax: null, minStars: null });
+    expect(stayLimits("where should we stay in Lisbon")).toEqual({ priceMin: null, priceMax: null, minStars: null });
+    expect(stayLimits("total budget $600 for two")).toEqual({ priceMin: null, priceMax: null, minStars: null });
   });
 });

@@ -14,6 +14,7 @@ import { readStayDecision } from "@/packages/contracts/stay";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { ContentSwap, Sheet } from "@/components/motion-primitives";
 import { PanelLoading } from "@/components/PanelStates";
+import { PanelBoundary } from "@/components/PanelBoundary";
 import { readPlaceSeed } from "@/features/places/application/placeDetailsCache";
 import { hotelPhotoSrc } from "@/lib/hotel-photo";
 import { useCompareChat } from "@/components/useCompareChat";
@@ -59,13 +60,13 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
   const narrow = shown ? ["flight", "day", "budget", "route", "area", "weather", "checklist"].includes(shown.kind) : false;
   // On a phone the route is a map with a sheet over it (see RouteDetail) and needs the panel's whole height, not a reading column.
   const fill = shown?.kind === "route" && !desktop;
-  const animatedBody = <ContentSwap swapKey={sk} className={fill ? "h-full" : "min-h-full"}>{narrow && !fill ? <div className="mx-auto w-full max-w-[40rem]">{body}</div> : body}</ContentSwap>;
+  const animatedBody = <PanelBoundary resetKey={sk} onClose={closePanel}><ContentSwap swapKey={sk} className={fill ? "h-full" : "min-h-full"}>{narrow && !fill ? <div className="mx-auto w-full max-w-[40rem]">{body}</div> : body}</ContentSwap></PanelBoundary>;
   const header = shown && (
-    <TripPanelHeader shown={shown} layout={layout} tripId={tripId} compareIds={compareList.map((e) => e.id)} canGoBack={canGoBack} goBack={goBack} hasChat={chat.chat.length > 0} clearChat={chat.clear} closePanel={closePanel} />
+    <TripPanelHeader shown={shown} layout={layout} tripId={tripId} compareIds={compareList.map((e) => e.id)} canGoBack={canGoBack} goBack={goBack} closePanel={closePanel} />
   );
 
   // A "See all" list is just being browsed: no question bar over it.
-  const composer = layout === "drawer" && panel && panel.kind !== "collection" && <TripPanelComposer boxRef={composerBox} chat={chat} isCompare={panel.kind === "compare"} />;
+  const composer = layout === "drawer" && panel && panel.kind !== "collection" && <TripPanelComposer boxRef={composerBox} chat={chat} isCompare={panel.kind === "compare"} scrollRef={scrollRef} />;
 
   // Chat route: render inline in its own column — no drawer chrome, no composer (the main chat serves).
   if (layout === "inline") {

@@ -18,6 +18,18 @@ beforeEach(() => {
   process.env.SERP_API_KEY = "test-key";
 });
 
+describe("searchGoogleHotels: a price range", () => {
+  it("keeps only the hotels priced between the two ends", async () => {
+    reply({ properties: [
+      prop({ name: "Cheap", property_token: "a", rate_per_night: { extracted_lowest: 60 }, total_rate: { extracted_lowest: 180 } }),
+      prop({ name: "Middle", property_token: "b", rate_per_night: { extracted_lowest: 150 }, total_rate: { extracted_lowest: 450 } }),
+      prop({ name: "Dear", property_token: "c", rate_per_night: { extracted_lowest: 320 }, total_rate: { extracted_lowest: 960 } }),
+    ] });
+    const { options } = await searchGoogleHotels({ ...input, priceMin: 100, priceMax: 200 });
+    expect(options.map((o) => o.name)).toEqual(["Middle"]);
+  });
+});
+
 describe("searchGoogleHotels", () => {
   it("maps hotels to priced options: our ids, ratings out of ten, the page's facets", async () => {
     reply({ properties: [prop(), prop({ name: "Zagreb Studio", type: "vacation rental", property_token: "tok2", extracted_hotel_class: undefined, overall_rating: 4.9, rate_per_night: { extracted_lowest: 60 }, total_rate: undefined }), prop({ name: "No price", property_token: "tok3", rate_per_night: undefined }), prop()] });

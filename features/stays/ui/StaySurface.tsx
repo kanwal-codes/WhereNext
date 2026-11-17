@@ -8,13 +8,13 @@ import { useTripStays } from "@/features/stays/application/useTripStays";
 import { useRouter } from "next/navigation";
 import { SwapView } from "@/components/SwapView";
 import { StayResultCard } from "@/features/stays/ui/StayResultCard";
-import { BedDouble, ChevronDown, MapPin, Minus, Plus, SlidersHorizontal, Star, X } from "lucide-react";
+import { ChevronDown, Minus, Plus, SlidersHorizontal, Star } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { AiSearchBar } from "@/components/AiSearchBar";
+import { readStayAsk, stayAskNeedsModel } from "@/lib/application/stay-ask";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import { readStayDecision, type StayOption } from "@/packages/contracts/stay";
-import { SkeletonList } from "@/components/Skeleton";
-import { EmptyState } from "@/components/EmptyState";
+import { ActiveFilters, StayEmpty, StayError, StayProgress, StayResultSkeleton, StayStaleBanner, StayStatusLine } from "@/features/stays/ui/StayStatus";
 import { formatMoney } from "@/lib/currency";
 import { useShowMore } from "@/lib/use-show-more";
 import { ShowMoreButton } from "@/components/ShowMoreButton";
@@ -28,7 +28,7 @@ import { fmtDay } from "@/lib/trip-dates";
 import { prefetchStayDetails } from "@/features/stays/application/useStayDetails";
 import { dateFormat } from "@/lib/format-cache";
 import { useStaySearch } from "@/features/stays/application/useStaySearch";
-import { activeFilterCount, nightsBetween, nightsText, overlappingStay, searchFailed, stayCompareEntry, toggled } from "@/features/stays/domain/stay-search";
+import { activeFilterCount, nightsBetween, nightsText, overlappingStay, stayCompareEntry, toggled } from "@/features/stays/domain/stay-search";
 
 /** "Tue, Oct 27", for the big date in a booking cell. */
 const fmtLong = (iso: string) => {
@@ -86,7 +86,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
 
   const {
     checkin, setCheckin, checkout, setCheckout, adults, setAdults, rooms, setRooms, stars, setStars, boards, setBoards, propertyTypes, setPropertyTypes,
-    refundable, setRefundable, priceMax, setPriceMax, sort, setSort, near, setNear, result, status, loading, search, applyDirective, clearFilters,
+    refundable, setRefundable, priceMin, setPriceMin, priceMax, setPriceMax, sort, setSort, near, setNear, result, error, loading, slow, deepening, pricing, placeChanged, search, applyDirective, clearFilters,
   } = useStaySearch({
     tripId,
     start: { checkin: (cities.hasChoice ? cityWindow?.checkin : lockedStay?.checkin) ?? cityWindow?.checkin ?? trip?.start_date ?? "", checkout: (cities.hasChoice ? cityWindow?.checkout : lockedStay?.checkout) ?? cityWindow?.checkout ?? trip?.end_date ?? "" },
@@ -99,14 +99,23 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   const sheeted = useMediaQuery("(max-width: 639.98px)");
 
   const { visible, remaining, next, showMore, first } = useShowMore(result?.options.length ?? 0, result);
+  // The list on screen is for another place (the area or city changed): none of it is worth keeping while the new one loads.
+  const showList = Boolean(result && result.options.length > 0) && !placeChanged;
+  // One view at a time: the skeleton until there is something to say (or while the last list is being replaced by nothing yet), then the list, why there is none, or why it failed.
+  const view = showList ? "results" : loading || deepening || (!result && !error) ? "skeleton" : result ? "empty" : "error";
+  const openDates = () => {
+    if (sheeted) return setBarOpen(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    document.querySelector<HTMLInputElement>('main input[type="date"]')?.focus();
+  };
 
   const detailHref = (hotelId: string) =>
-    `/trips/${tripId}/stay/${encodeURIComponent(hotelId)}?checkin=${result?.checkin ?? checkin}&checkout=${result?.checkout ?? checkout}&adults=${adults}&rooms=${rooms}`;
+    `/trips/${tripId}/stay/${encodeURIComponent(hotelId)}?checkin=${checkin || (result?.checkin ?? "")}&checkout=${checkout || (result?.checkout ?? "")}&adults=${adults}&rooms=${rooms}`;
   const panelCtx = useTripPanelMaybe();
   const stayEntry = (o: StayOption): CompareEntry => stayCompareEntry(o, detailHref(o.hotelId), money);
   const money = (n: number) => formatMoney(n, result?.currency ?? "CAD");
   const facets = result?.facets;
-  const activeFilters = activeFilterCount({ stars, boards, propertyTypes, refundable, priceMax });
+  const activeFilters = activeFilterCount({ stars, boards, propertyTypes, refundable, priceMin, priceMax });
 
   // A stay already booked for (some of) these nights: said up front, so nobody pays for the same nights twice.
   const alreadyBooked = overlappingStay(booked.items, checkin, checkout);
@@ -114,18 +123,18 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   const filterBody = (
     <div className="space-y-4">
       <div className="lg:hidden">
-        <span className="text-sm font-medium">Sort by</span>
-        <div className="mt-1.5 flex flex-wrap gap-1.5">
-          {([["price", "Price"], ["rating", "Guest rating"], ["stars", "Stars"]] as const).map(([key, label]) => (
-            <button key={key} type="button" onClick={() => setSort(key)} aria-pressed={sort === key} className="btn-chip">{label}</button>
+        <span className="text-sm font-semibold">Sort by</span>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {([["price", "Price, low to high"], ["price_desc", "Price, high to low"], ["rating", "Guest rating"], ["stars", "Stars"]] as const).map(([key, label]) => (
+            <button key={key} type="button" onClick={() => setSort(key)} aria-pressed={sort === key} className="btn-chip justify-center">{label}</button>
           ))}
         </div>
       </div>
       {facets && facets.priceMax > facets.priceMin && (
         <div>
           <div className="flex items-center justify-between text-sm">
-            <span className="font-medium">Max price / night</span>
-            <span className="text-muted-foreground tabular-nums">{money(priceMax ?? facets.priceMax)}</span>
+            <span className="font-semibold">Price per night</span>
+            <span className="text-muted-foreground tabular-nums">{priceMin ? `${money(priceMin)} to ${money(priceMax ?? facets.priceMax)}` : priceMax ? `Up to ${money(priceMax)}` : "Any price"}</span>
           </div>
           <input
             type="range"
@@ -139,8 +148,8 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       )}
       {facets && facets.propertyTypes.length > 1 && (
         <div>
-          <span className="text-sm font-medium">Type of place</span>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
+          <span className="text-sm font-semibold">Type of place</span>
+          <div className="mt-2 flex flex-wrap gap-2">
             {facets.propertyTypes.map((t) => (
               <button
                 key={t}
@@ -157,8 +166,8 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       )}
       {facets && facets.stars.length > 0 && (
         <div>
-          <span className="text-sm font-medium">Star rating</span>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
+          <span className="text-sm font-semibold">Star rating</span>
+          <div className="mt-2 flex flex-wrap gap-2">
             {facets.stars.map((s) => (
               <button
                 key={s}
@@ -175,8 +184,8 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       )}
       {facets && facets.boards.length > 0 && (
         <div>
-          <span className="text-sm font-medium">Board</span>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
+          <span className="text-sm font-semibold">Meals</span>
+          <div className="mt-2 flex flex-wrap gap-2">
             {facets.boards.map((b) => (
               <button
                 key={b}
@@ -191,12 +200,12 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
           </div>
         </div>
       )}
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={refundable} onChange={(e) => setRefundable(e.target.checked)} className="accent-primary" />
+      <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl bg-muted px-4 text-body max-sm:flex sm:min-h-0 sm:rounded-none sm:bg-transparent sm:px-0 sm:text-sm">
+        <input type="checkbox" checked={refundable} onChange={(e) => setRefundable(e.target.checked)} className="size-5 accent-primary sm:size-4" />
         Free cancellation only
       </label>
       {activeFilters > 0 && (
-        <button type="button" onClick={clearFilters} className="text-xs font-medium text-primary hover:underline">
+        <button type="button" onClick={clearFilters} className="text-xs font-medium text-primary hover:underline max-sm:hidden">
           Clear filters
         </button>
       )}
@@ -222,16 +231,6 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
           <a href={`/trips/${tripId}/bookings`} className="-my-3 inline-block py-3 underline underline-offset-2">See your bookings</a>
         </p>
       )}
-      {near.trim() && (
-        <p className="flex items-center gap-2 text-sm">
-          <MapPin className="size-3.5 shrink-0 text-coral" />
-          <span className="min-w-0 truncate">Searching near <span className="font-medium">{near}</span></span>
-          <button type="button" onClick={() => setNear("")} className="inline-flex shrink-0 items-center gap-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
-            <X className="size-3" /> clear
-          </button>
-        </p>
-      )}
-
       {/* The booking bar: four cells divided by hairlines (the gap shows the border colour through), then filters and sort. */}
       <div className="overflow-hidden rounded-4xl bg-card shadow-float ring-1 ring-black/[0.05] max-lg:overflow-visible max-lg:rounded-none max-lg:bg-transparent max-lg:shadow-none max-lg:ring-0">
         {/* On a phone the four fields fold into one line (dates, guests, rooms) that opens them: the list starts a screen sooner. */}
@@ -277,7 +276,8 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
             Sort
             <span className="relative">
               <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="h-8 max-lg:h-10 max-lg:text-sm cursor-pointer appearance-none rounded-full border border-border bg-background pr-8 pl-3.5 text-xs font-medium text-ink-soft transition-colors hover:border-ink/30 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-                <option value="price">Price</option>
+                <option value="price">Price, low to high</option>
+                <option value="price_desc">Price, high to low</option>
                 <option value="rating">Guest rating</option>
                 <option value="stars">Stars</option>
               </select>
@@ -287,12 +287,30 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
           <button type="button" onClick={() => setRefundable((v) => !v)} aria-pressed={refundable} className="btn-chip shrink-0 max-lg:h-10 max-lg:text-sm lg:hidden">
             Free cancellation
           </button>
-          {status && <p role="status" className="ml-auto text-xs text-muted-foreground max-lg:hidden">{status}</p>}
         </div>
 
         {showFilters && !sheeted && (
           <div className="border-t border-border px-4 py-4 max-lg:mt-3 max-lg:rounded-2xl max-lg:border max-lg:bg-card">{filterBody}</div>
         )}
+      </div>
+
+      <div className="-mt-2 space-y-3">
+        <ActiveFilters
+          priceMin={priceMin} priceMax={priceMax} stars={stars} refundable={refundable} boards={boards} propertyTypes={propertyTypes} near={near} money={money}
+          on={{
+            price: () => { setPriceMin(null); setPriceMax(null); },
+            stars: () => setStars([]),
+            refundable: () => setRefundable(false),
+            board: (b) => setBoards(toggled(boards, b)),
+            type: (t) => setPropertyTypes(toggled(propertyTypes, t)),
+            near: () => setNear(""),
+            all: () => { clearFilters(); setNear(""); },
+          }}
+        />
+        <div className="relative">
+        <StayProgress active={loading || deepening} />
+        <StayStatusLine onOrder={sheeted ? () => setShowFilters(true) : undefined} loading={loading} slow={slow} deepening={deepening} error={error} hasResult={Boolean(result)} count={result?.options.length ?? 0} total={result?.total} filtered={activeFilters > 0} sort={sort} checkin={checkin} checkout={checkout} />
+        </div>
       </div>
 
       {sheeted && (
@@ -302,18 +320,22 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
             <div className="grid grid-cols-2 gap-2">{cells}</div>
           </Sheet>
           <Sheet open={showFilters} onClose={() => setShowFilters(false)} ariaLabel="Sort and filter" padded footer={<button type="button" onClick={() => setShowFilters(false)} className={sheetPrimary}>Done</button>}>
-            <p className="pb-3 pt-1 font-display text-xl font-medium tracking-[-0.02em]">Sort and filter</p>
+            <div className="flex items-baseline justify-between gap-3 pb-3 pt-1">
+              <p className="font-display text-xl font-medium tracking-[-0.02em]">Sort and filter</p>
+              {activeFilters > 0 && <button type="button" onClick={clearFilters} className="-my-2 -mr-2 rounded-full px-3 py-2 text-sm font-semibold text-ink-soft underline underline-offset-2 active:bg-muted">Clear all</button>}
+            </div>
             <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain -mx-1 px-1">{filterBody}</div>
           </Sheet>
         </>
       )}
 
-      <div className="relative">
-        <SwapView id={loading && !result ? "skeleton" : "results"}>
-      {loading && !result ? (
-        <SkeletonList count={6} className="xl:grid-cols-3" />
-      ) : result && result.options.length > 0 ? (
+      <div className="relative" aria-busy={loading || deepening}>
+        <SwapView id={view}>
+      {view === "skeleton" ? (
+        <StayResultSkeleton count={6} />
+      ) : showList && result ? (
         <>
+          {error && <StayStaleBanner onRetry={() => void search(true)} />}
           <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 max-lg:gap-x-5 max-lg:gap-y-7">
             {result.options.slice(0, visible).map((o, index) => {
               const comparing = Boolean(panelCtx?.compareMode);
@@ -326,6 +348,8 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
                 >
                   <StayResultCard
                     phoneRow
+                    nights={result.nights}
+                    pricing={pricing}
                     stay={{ ...o, reviewCount: o.reviewCount, boardName: o.boardName }}
                     href={detailHref(o.hotelId)}
                     onOpen={() => {
@@ -343,10 +367,10 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
           </ul>
           <ShowMoreButton next={next} visible={visible} total={visible + remaining} onClick={showMore} />
         </>
+      ) : view === "empty" ? (
+        <StayEmpty filtered={activeFilters > 0} priced={Boolean(priceMin || priceMax)} near={near} total={result?.total ?? 0} checkin={checkin} checkout={checkout} onClear={clearFilters} onClearPrice={() => { setPriceMin(null); setPriceMax(null); }} onWiden={() => setNear("")} onDates={openDates} />
       ) : (
-        !loading && (
-          <EmptyState icon={BedDouble} action={searchFailed(status) ? <button type="button" onClick={() => void search()} className="btn-primary h-11 rounded-full px-6">Try again</button> : undefined}>{status || "No stays to show yet."}</EmptyState>
-        )
+        error && <StayError error={error} onRetry={() => void search(true)} />
       )}
         </SwapView>
       </div>
@@ -356,8 +380,10 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
         variant="dock"
         tripId={tripId}
         scope="stays"
-        placeholder={phone ? "Ask Roam about stays" : `Ask — “near ${destination ? destination.split(",")[0] : "the old town"} station, under 250 a night, free cancellation”`}
+        placeholder={phone ? "Try “Dec 10–14, 4 stars, under 200”" : `Ask — “near ${destination ? destination.split(",")[0] : "the old town"} station, under 250 a night, free cancellation”`}
         onDirective={applyDirective}
+        readNow={(query) => readStayAsk(query, new Date().toLocaleDateString("en-CA"))}
+        readWhole={(query) => !stayAskNeedsModel(query)}
       />
     </div>
   );

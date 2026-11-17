@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { Sheet } from "@/components/motion-primitives";
+import { SheetHeader } from "@/components/SheetHeader";
 import { useDistance } from "@/components/use-distance";
 import { ChevronRight, ExternalLink, Ticket, TriangleAlert } from "lucide-react";
 import type { RouteDay, RouteLegStep } from "@/packages/contracts/route-plan";
@@ -105,7 +106,28 @@ const hasSteps = (leg: RouteDay["legs"][number]) => mergeWalkSteps(leg.steps).le
 
 const MAPS_MODE: Record<string, string> = { walk: "walking", drive: "driving", bike: "bicycling" };
 
-export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date }: { day: RouteDay; tripId: string; onHoverLeg?: (index: number | null) => void; onLegChosen?: () => void; date?: string | null }) {
+/**
+ * A stop's name and time. A stop that is a real place is a card, like the stops of a plan in Roam: bordered, with a chevron, so it reads as something
+ * to open, and pressing it opens the place in a sheet. One that is not stays a plain line.
+ */
+function StopRow({ name, time: at, onOpen }: { name: string; time?: string; onOpen?: () => void }) {
+  const body = (
+    <>
+      <span className="line-clamp-2 min-w-0 flex-1 font-display text-body font-medium leading-snug tracking-[-0.006em]">{name}</span>
+      {at && <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{formatClockTime(at)}</span>}
+      {onOpen && <ChevronRight className="-mr-1 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+    </>
+  );
+  return onOpen ? (
+    <button type="button" onClick={onOpen} aria-haspopup="dialog" aria-label={`${name}, open details`} className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-border bg-card px-3.5 py-2.5 text-left shadow-soft transition-[transform,box-shadow] duration-200 active:scale-[0.985] lg:hover:shadow-float">
+      {body}
+    </button>
+  ) : (
+    <div className="flex min-w-0 items-center justify-between gap-3 py-[3px]">{body}</div>
+  );
+}
+
+export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date, onOpenStop }: { day: RouteDay; tripId: string; onHoverLeg?: (index: number | null) => void; onLegChosen?: () => void; date?: string | null; /** What opens the place a stop is, when it has one. */ onOpenStop?: (stopId: string) => (() => void) | undefined }) {
   const distance = useDistance();
   const [open, setOpen] = useState<number | null>(null);
   const [hover, setHover] = useState<number | null>(null);
@@ -123,11 +145,10 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date }: { 
         </h2>
         {day.booked?.length ? <BookedList booked={day.booked} tripId={tripId} className="mt-4" /> : null}
         {day.stops.map((stop) => (
-          <p key={stop.id} className="mt-4 flex items-center gap-3 font-display text-body font-medium leading-snug">
-            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-coral-fill text-xs font-semibold text-white shadow-soft">1</span>
-            <span className="min-w-0 flex-1">{stop.name}</span>
-            {stop.time && <span className="shrink-0 text-xs font-normal tabular-nums text-muted-foreground">{formatClockTime(stop.time)}</span>}
-          </p>
+          <div key={stop.id} className="mt-4 grid grid-cols-[1.75rem_minmax(0,1fr)] items-center gap-x-3">
+            <span className="grid size-7 place-items-center rounded-full bg-coral-fill text-xs font-semibold text-white shadow-soft">1</span>
+            <StopRow name={stop.name} time={stop.time} onOpen={onOpenStop?.(stop.id)} />
+          </div>
         ))}
         <p className="mt-4 text-sm text-ink-soft">
           {day.stops.length === 1 ? "One more stop on this day and the ways between them show up here." : "Add stops to this day and the ways between them show up here."}
@@ -171,11 +192,8 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date }: { 
               transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay: 0.07 * i }}
               className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3"
             >
-              <span className="mt-px grid size-7 place-items-center rounded-full bg-coral-fill text-xs font-semibold text-white shadow-soft">{i + 1}</span>
-              <div className="flex min-w-0 items-center justify-between gap-3 py-[3px]">
-                <span className="line-clamp-2 font-display text-body font-medium leading-snug tracking-[-0.006em]">{stop.name}</span>
-                {stop.time && <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{formatClockTime(stop.time)}</span>}
-              </div>
+              <span className={cn("grid size-7 place-items-center rounded-full bg-coral-fill text-xs font-semibold text-white shadow-soft", onOpenStop?.(stop.id) ? "mt-[0.4375rem]" : "mt-px")}>{i + 1}</span>
+              <StopRow name={stop.name} time={stop.time} onOpen={onOpenStop?.(stop.id)} />
 
               {leg ? (
                 <>
@@ -234,9 +252,9 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date }: { 
       <Sheet open={open != null} onClose={() => setOpen(null)} side="bottom" ariaLabel="Getting between two stops" padded>
         {open != null && day.legs[open] && (
           <>
-            <div className="pb-3 pt-1">
-              <p className="font-display text-xl font-medium leading-tight tracking-[-0.02em]">{day.stops[open]?.name} <span className="text-muted-foreground">→</span> {day.stops[open + 1]?.name}</p>
-              <p className="mt-1.5 text-sm tabular-nums text-ink-soft">
+            <SheetHeader eyebrow="Getting there" title={`${day.stops[open]?.name} → ${day.stops[open + 1]?.name}`} onClose={() => setOpen(null)} bordered={false} />
+            <div className="pb-3 pt-2">
+              <p className="text-sm tabular-nums text-ink-soft">
                 {[day.legs[open].minutes != null ? formatDuration(day.legs[open].minutes!) : null, day.legs[open].km != null ? distance(day.legs[open].km!) : null, time(day.legs[open].departure) && time(day.legs[open].arrival) ? `${time(day.legs[open].departure)}–${time(day.legs[open].arrival)}` : null].filter(Boolean).join(" · ")}
               </p>
             </div>

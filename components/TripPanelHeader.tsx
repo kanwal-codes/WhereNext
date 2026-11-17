@@ -1,7 +1,7 @@
 "use client";
 
 import Link, { useLinkStatus } from "next/link";
-import { ArrowLeft, BedDouble, CalendarDays, CalendarRange, Eraser, LayoutGrid, Loader2, Map as MapIcon, MapPin, Route as RouteIcon, Maximize2, Plane, Scale, Wallet, X, CloudSun, ListChecks } from "lucide-react";
+import { ArrowLeft, BedDouble, CalendarDays, CalendarRange, LayoutGrid, Loader2, Map as MapIcon, MapPin, Route as RouteIcon, Maximize2, Plane, Scale, Wallet, X, CloudSun, ListChecks } from "lucide-react";
 import { panelTitle, type PanelState } from "@/components/TripPanelProvider";
 import { fullPageHref } from "@/components/tripPanelLogic";
 import { cn } from "@/lib/utils";
@@ -15,15 +15,13 @@ function ExpandIcon() {
   return pending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Maximize2 className="size-4" aria-hidden />;
 }
 
-export function TripPanelHeader({ shown, layout, tripId, compareIds, canGoBack, goBack, hasChat, clearChat, closePanel }: {
+export function TripPanelHeader({ shown, layout, tripId, compareIds, canGoBack, goBack, closePanel }: {
   shown: PanelState;
   layout: "drawer" | "inline";
   tripId: string;
   compareIds: string[];
   canGoBack: boolean;
   goBack: () => void;
-  hasChat: boolean;
-  clearChat: () => void;
   closePanel: (() => void) | undefined;
 }) {
   const KindIcon = KIND_ICON[shown.kind];
@@ -44,11 +42,6 @@ export function TripPanelHeader({ shown, layout, tripId, compareIds, canGoBack, 
         <span className={cn("min-w-0 truncate font-display text-base font-semibold tracking-[-0.01em]", "max-lg:text-center max-lg:text-xl max-lg:tracking-[-0.025em]")}>{panelTitle(shown)}</span>
       </div>
       <div className="flex shrink-0 items-center gap-0.5 max-lg:justify-self-end">
-        {hasChat && (
-          <button type="button" onClick={clearChat} aria-label="Clear this chat" title="Clear this chat" className={controlGhost}>
-            <Eraser className="size-4" aria-hidden />
-          </button>
-        )}
         <Link
           href={fullPageHref(shown, tripId, compareIds)}
           // Do NOT close the panel here: closing pops the panel's browser-history entry with history.back(),

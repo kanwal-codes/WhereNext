@@ -22,7 +22,7 @@ const noFeatures = group(["features/**"], "packages/ is below features/: it can'
 const pure = group(["react", "react-dom", "next", "next/**", "@supabase/**", "lib/server/**", "lib/supabase/**"], "domain/ and contracts/ stay pure: no framework, database or server code.");
 
 const config = [
-  { ignores: [".next/**", ".next-build-phone/**", ".next-dev*/**", ".next-local/**", ".next-e2e/**", "node_modules/**", "test-results/**", "coverage/**", "frontend/**"] },
+  { ignores: [".next/**", ".next-build-phone/**", ".next-dev*/**", ".next-demo/**", ".next-local/**", ".next-e2e/**", "node_modules/**", "test-results/**", "coverage/**", "frontend/**"] },
   ...compat.extends("next/core-web-vitals"),
   // React hooks (use*.ts) in application/ read UI context providers on purpose; everything else there stays UI-free.
   { files: ts("lib/**", "features/*/application/**", "features/*/infrastructure/**"), ignores: ["features/*/application/use*.ts"], rules: restrict(noUi) },

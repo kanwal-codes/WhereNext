@@ -3,6 +3,7 @@ import React from "react";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { TransportScreen as TransportSurface } from "../support/transport-screen";
 import { TRIP, createApi, driveRoute, flight, matchMedia, route } from "../support/transport-harness";
 
 /**
@@ -21,7 +22,6 @@ vi.mock("@/features/transport/ui/TripOptions", async () => ({ TripOptionsSheet: 
 vi.mock("@/features/conversation/ui/panels/OtherFlights", async () => ({ AirlineMark: (await import("../support/transport-harness")).stubs.AirlineMark }));
 vi.mock("@/features/maps/ui/modeParts", async () => (await import("../support/transport-harness")).stubs.modeParts);
 
-import { TransportSurface } from "../../features/transport/ui/TransportSurface";
 
 let api: ReturnType<typeof createApi>;
 const u = () => userEvent.setup({ pointerEventsCheck: 0 });
@@ -47,18 +47,6 @@ afterEach(() => {
 });
 
 describe("TransportSurface: searching", () => {
-  it("has no Search button, and waits for both ends before it searches", async () => {
-    api = createApi({});
-    const user = u();
-    render(<TransportSurface tripId={TRIP} />);
-    expect(screen.queryByRole("button", { name: "Search" })).toBeNull();
-    await user.type(field("From"), "Paris");
-    await user.click(screen.getByRole("button", { name: "pick From" }));
-    // Only one end: the cursor goes to the other one, nothing is sent.
-    expect(document.activeElement).toBe(field("To"));
-    expect(api.calls).toHaveLength(0);
-  });
-
   it("does not search while you are still typing", async () => {
     api = createApi({});
     const user = u();
@@ -92,21 +80,6 @@ describe("TransportSurface: searching", () => {
     release();
     await screen.findByRole("list", { name: "Routes" });
     expect(screen.queryByText("Finding routes…")).toBeNull();
-    expect(api.posts("/transit")).toHaveLength(1);
-  });
-
-  it("searches when you leave the form with both ends typed, once", async () => {
-    api = createApi({ transit: [route()], drive: driveRoute });
-    const user = u();
-    render(<><TransportSurface tripId={TRIP} /><button type="button">elsewhere</button></>);
-    await user.type(field("From"), "Paris");
-    await user.type(field("To"), "Lyon");
-    await user.click(screen.getByRole("button", { name: "elsewhere" }));
-    await screen.findByRole("list", { name: "Routes" });
-    // Leaving the form again with the same two places must not search again.
-    await user.click(field("To"));
-    await user.click(screen.getByRole("button", { name: "elsewhere" }));
-    await new Promise((r) => setTimeout(r, 400));
     expect(api.posts("/transit")).toHaveLength(1);
   });
 
@@ -223,8 +196,9 @@ describe("TransportSurface: searching", () => {
     const user = u();
     render(<TransportSurface tripId={TRIP} />);
     await searchFor(user, "Paris", "Atlantis");
-    await user.click(await screen.findByRole("tab", { name: /^Drive/ }));
-    expect(await screen.findByText("Couldn’t find one of those places.")).toBeTruthy();
+    // Nothing could be searched: one message for the whole result (not three empty tabs), naming the place that was not found.
+    expect(await screen.findByText("No route found")).toBeTruthy();
+    expect(screen.getByText(/We couldn’t find “Atlantis”/)).toBeTruthy();
   });
 
   it("searches as soon as the destination is picked when the start is already filled in", async () => {

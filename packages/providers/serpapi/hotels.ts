@@ -2,6 +2,7 @@ import { withProviderTimeout } from "../request-signal";
 import { guardedFetch } from "@/lib/server/provider-guard";
 import { cityFrom } from "../../../lib/places-ui";
 import type { StayDetails, StayFacets, StayNearbyPlace, StayOption, StayPriceRead, StayPriceSource, StayReview, StaySearchResult, StayTheme } from "../../contracts/stay";
+import { applyStayFilters } from "../../contracts/stay-filter";
 
 /**
  * Hotels the way Google Hotels shows them, through SerpAPI: real properties, real prices from several sites, Google's
@@ -51,9 +52,10 @@ export type GoogleStayInput = {
   limit?: number;
   starRatings?: number[];
   refundableOnly?: boolean;
+  priceMin?: number;
   priceMax?: number;
   propertyTypes?: string[];
-  sort?: "price" | "rating" | "stars";
+  sort?: "price" | "price_desc" | "rating" | "stars";
 };
 
 function toOption(p: RawProperty, input: GoogleStayInput, nights: number): StayOption | null {
@@ -107,12 +109,7 @@ export async function searchGoogleHotels(input: GoogleStayInput, signal?: AbortS
     boards: [], // Google does not say what a rate includes
     propertyTypes: Array.from(new Set(options.map((o) => o.propertyType).filter((t): t is string => Boolean(t)))).sort((a, b) => (a === "Hotel" ? -1 : b === "Hotel" ? 1 : a.localeCompare(b))),
   };
-  if (input.starRatings?.length) options = options.filter((o) => o.stars != null && input.starRatings!.includes(Math.round(o.stars)));
-  if (input.refundableOnly) options = options.filter((o) => o.refundable);
-  if (typeof input.priceMax === "number") options = options.filter((o) => o.nightlyAmount <= input.priceMax!);
-  if (input.propertyTypes?.length) options = options.filter((o) => o.propertyType && input.propertyTypes!.includes(o.propertyType));
-  const sort = input.sort ?? "price";
-  options.sort((a, b) => (sort === "rating" ? (b.rating ?? 0) - (a.rating ?? 0) : sort === "stars" ? (b.stars ?? 0) - (a.stars ?? 0) : a.nightlyAmount - b.nightlyAmount));
+  options = applyStayFilters(options, input);
   return { nights, options: options.slice(0, input.limit ?? 6), facets };
 }
 

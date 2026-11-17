@@ -32,10 +32,10 @@ test("preview trip renders the routed workspace shell and every surface route", 
   // Transport merged into "Getting around", Budget into "Trip knowledge" — old routes still land.
   // Wait for the destination page's own heading before checking the client-set <title>: the map
   // route pulls in mapbox-gl and cold-compiles slowly in `next dev`, and the title is only set
-  // once the map page mounts (its Browse / My trip switch is the first thing on it).
+  // once the map page mounts (its "Where to?" route pill is the first thing on it).
   await page.goto("/trips/rebuild-preview/transport");
   await expect(page).toHaveURL(/\/trips\/rebuild-preview\/map$/);
-  await expect(page.getByText("My trip", { exact: true })).toBeVisible({ timeout: 40_000 });
+  await expect(page.getByRole("button", { name: "Where to? Search for a route" })).toBeVisible({ timeout: 40_000 });
   await expect(page).toHaveTitle(/Getting around/, { timeout: 10_000 });
   await page.goto("/trips/rebuild-preview/budget");
   await expect(page).toHaveURL(/\/trips\/rebuild-preview\/knowledge$/, { timeout: 20_000 });

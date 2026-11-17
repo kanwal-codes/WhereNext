@@ -1,9 +1,9 @@
 import { KeyboardAssist } from "@/components/KeyboardAssist";
+import "./fonts.css";
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import Script from "next/script";
-import { Outfit, Figtree } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ToastHost } from "@/components/ToastHost";
@@ -19,8 +19,6 @@ import { DARK_MODE_ENABLED } from "@/lib/theme-config";
 // at load time.
 const THEME_INIT = `(function(){try{var enabled=${DARK_MODE_ENABLED ? "true" : "false"};var t=localStorage.getItem("theme");var d=enabled&&(t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches));document.documentElement.classList.toggle("dark",d);if(!enabled)localStorage.setItem("theme","light");}catch(e){}})();`;
 
-const outfit = Outfit({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-outfit", display: "swap" });
-const figtree = Figtree({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-figtree", display: "swap" });
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://www.wherenexts.com"),
@@ -56,7 +54,7 @@ export const viewport: Viewport = {
 // the wrong ancestor and drifts off-screen instead of staying pinned.
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${outfit.variable} ${figtree.variable} overflow-x-hidden`} data-phone-v2={""} suppressHydrationWarning>
+    <html lang="en" className="overflow-x-hidden" data-phone-v2={""} suppressHydrationWarning>
       <body>
         {/* beforeInteractive: Next.js injects this into <head> and runs it before hydration,
             so the `dark` class lands before first paint — no light-then-dark flash. */}

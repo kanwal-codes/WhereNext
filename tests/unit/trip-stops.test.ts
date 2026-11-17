@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shiftStops, currentStop, defaultStops, describeStops, effectiveStops, findStop, parseStops, splitDestinations, stayWindow, stopDayRange, stopForDate, stopsFromStays, tripCalendar } from "../../lib/trip-stops";
+import { shiftStops, currentStop, defaultStops, describeStops, effectiveStops, findStop, parseStops, splitDestinations, stayWindow, stopDayRange, stopForDate, stopsFromStays, stopsKicker, tripCalendar } from "../../lib/trip-stops";
 
 describe("splitDestinations", () => {
   it("splits a list written with commas, arrows or 'then', keeps a single place whole and drops repeats", () => {
@@ -125,5 +125,20 @@ describe("stopsFromStays", () => {
     expect(stopsFromStays("New York, Rome, Paris", stays, "2027-06-05", "2027-06-13")).toBeNull();
     expect(stopsFromStays("Rome", stays.slice(0, 1), "2027-06-05", "2027-06-13")).toBeNull();
     expect(stopsFromStays("New York, Rome", [stays[0]!, { startsOn: null, endsOn: null }], "2027-06-05", "2027-06-13")).toBeNull();
+  });
+});
+
+describe("stopsKicker", () => {
+  const stop = (city: string) => ({ city });
+  const many = (...cities: string[]) => cities.map(stop);
+  it("names the places when there are few, and what they are together when there are many", () => {
+    expect(stopsKicker(many("Portugal", "Morocco"))).toBe("Portugal · Morocco");
+    expect(stopsKicker(many("Lisbon", "Porto", "Faro"))).toBe("Lisbon · Porto · Faro");
+    expect(stopsKicker(many("Portugal", "Spain", "France", "Italy"))).toBe("4 countries");
+    expect(stopsKicker(many("Lisbon", "Porto", "Faro", "Sintra", "Evora"))).toBe("5 cities");
+    expect(stopsKicker(many("Portugal", "Marrakech", "Fes", "Lisbon"))).toBe("4 places");
+    expect(stopsKicker(many("Santiago de Compostela", "Porto", "Lisbon"))).toBe("3 cities"); // too long to say in one line
+    expect(stopsKicker(many("Lisbon"))).toBeUndefined();
+    expect(stopsKicker([])).toBeUndefined();
   });
 });

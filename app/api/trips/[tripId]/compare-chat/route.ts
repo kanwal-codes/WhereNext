@@ -21,6 +21,8 @@ const itemSchema = z.object({
   rating: z.string().max(40).optional(),
   when: z.string().max(80).optional(),
   address: z.string().max(200).optional(),
+  summary: z.string().max(700).optional(),
+  hours: z.string().max(420).optional(),
   lat: z.number().optional(),
   lng: z.number().optional(),
 });
@@ -42,20 +44,41 @@ export const POST = withRoute(async (request: Request, { params }: { params: Pro
     const accessibilityNeeds = asList(context.preferences.accessibilityNeeds);
 
     const itemLines = items.map((it, i) => {
-      const bits = [it.detail, it.price && `price ${it.price}`, it.rating && `rating ${it.rating}`, it.when, it.address].filter(Boolean);
+      const bits = [it.detail, it.price && `price ${it.price}`, it.rating && `rating ${it.rating}`, it.when, it.address, it.summary && `about: ${it.summary}`, it.hours && `hours: ${it.hours}`].filter(Boolean);
       const dist = anchor && it.lat != null && it.lng != null
         ? ` (~${haversineKm({ latitude: anchor.lat, longitude: anchor.lng }, { latitude: it.lat, longitude: it.lng }).toFixed(1)} km straight-line from ${anchor.name})`
         : "";
       return `${i + 1}. ${it.name}${bits.length ? ` — ${bits.join("; ")}` : ""}${dist}`;
     });
 
+    // A single thing on screen: which planned stops are near it, so "it would fit on day 1" is a fact with a distance, not a guess.
+    const only = items.length === 1 ? items[0]! : null;
+    const nearPlanned = only && only.lat != null && only.lng != null
+      ? (context.itinerary ?? [])
+          .filter((stop) => stop.latitude != null && stop.longitude != null && stop.title.trim().toLowerCase() !== only.name.trim().toLowerCase())
+          .map((stop) => ({ stop, km: haversineKm({ latitude: only.lat!, longitude: only.lng! }, { latitude: stop.latitude!, longitude: stop.longitude! }) }))
+          .filter(({ km }) => km <= 15)
+          .sort((a, b) => a.km - b.km)
+          .slice(0, 3)
+          .map(({ stop, km }) => `${stop.title} (day ${stop.day_index}, ${km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`} straight-line)`)
+      : [];
+    if (nearPlanned.length) itemLines.push(`Near what is already planned: ${nearPlanned.join("; ")}.`);
+
     // Shares the same grounding/dislikes/accessibility/language rules the main chat pipeline
     // applies — this is the same comparison feature, reached from a different surface, and a
     // stated dislike or accessibility need must be respected here too, not only in chat.
     const system = [
-      "You are the traveller's trip assistant, helping them compare a short list of options they picked on screen.",
+      items.length === 1
+        ? "You are the traveller's trip assistant. They have one thing open on screen (a place, a hotel, an event, a flight) and are asking about it."
+        : "You are the traveller's trip assistant, helping them compare a short list of options they picked on screen.",
       "Reply in the language of the traveller's latest message.",
-      "Be concise and decisive: in 2–4 sentences say which you'd choose and why, judging fit against their budget, pace, what's already planned, and how convenient each is from where they're staying.",
+      items.length === 1
+        ? [
+          "Answer in this shape. First, one bolded sentence that answers the question directly: for \"is it worth it\" give a clear yes, maybe or not really, with the reason in a few words.",
+          "Then at most three short bullets, each starting with a bold label, using only the ones the question needs and the facts support: **Best for** (who it suits, what to do there), **Plan around** (how long to allow, the best time, today's hours, anything that is closed or booked out), **Fits your trip** (the day it suits, which planned stops are near it and how far, how far it is from where they are staying).",
+          "Keep the whole answer under about 90 words. Do not repeat the rating, review count or address the page already shows unless it changes the answer. No filler and no hedging paragraph; if something the question needs is missing, say so in one short clause. A planned stop with an obviously placeholder time (like 03:00) is worth one clause only when the question is about planning around it.",
+        ].join(" ")
+        : "Be concise and decisive: in 2–4 sentences say which you'd choose and why, judging fit against their budget, pace, what's already planned, and how convenient each is from where they're staying.",
       anchor ? `They're staying at ${anchor.name}; the straight-line distances below are rough — if asked about real travel time, give a sensible range and say it depends on transit, never invent exact minutes.` : "No accommodation is locked yet, so you can't judge distance from a base.",
       dislikesInstruction(dislikes),
       accessibilityNeeds.length ? `Accessibility requirement (hard constraint): ${accessibilityNeeds.join(", ")}. If an option's accessibility isn't confirmed by the details given, say so rather than assuming it fits.` : "",
@@ -63,7 +86,7 @@ export const POST = withRoute(async (request: Request, { params }: { params: Pro
       "",
       `Trip context (JSON): ${serializeTripContext(context)}`,
       "",
-      "Options being compared:",
+      items.length === 1 ? "What is open on screen:" : "Options being compared:",
       ...itemLines,
     ].filter(Boolean).join("\n");
 

@@ -21,7 +21,7 @@ import { mentionsRoam } from "../domain/message";
 import { mentionPattern } from "../domain/mentions";
 import { useChatLive } from "@/lib/client/trip-realtime";
 import { memberLabel, useTripMembers } from "@/lib/client/use-trip-members";
-import { ChatEmptyState, PollSheet, TypingBubble } from "./GroupChatParts";
+import { ChatEmptyState, PollSheet, ReactHint, TypingBubble, useReactHint } from "./GroupChatParts";
 import { GroupMessageRow, type RowActions, type RowView } from "./GroupMessageRow";
 import { GroupComposer } from "./GroupComposer";
 import { dayLabel } from "./chat-format";
@@ -84,7 +84,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
   const logRef = useRef<HTMLDivElement>(null);
   useKeepScrollGap(logRef);
   const { messages, setMessages, older, hasOlder, windowSize, loadingOlder, loaded, loadFailed, refresh, loadOlder, olderSentinelRef, seenIdsRef, skewRef } = useGroupChatLog({ tripId, active, cacheKey, logRef });
-  const { expandedReactionFor, setExpandedReactionFor, pressingId, pendingVoteFor, createPoll, castVote, toggleReaction, onBubblePressStart, onBubblePressEnd, onBubblePressMove } = useGroupInteractions({ tripId, setMessages, refresh });
+  const { expandedReactionFor, setExpandedReactionFor, pressingId, likedId, pendingVoteFor, createPoll, castVote, toggleReaction, onBubblePressStart, onBubblePressEnd, onBubblePressMove } = useGroupInteractions({ tripId, setMessages, refresh });
   const speechBaseRef = useRef("");
   const bubbleRefs = useRef<Map<string, HTMLElement>>(new Map());
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -261,7 +261,13 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
     onError: (message) => notifyToast(message, "error"),
   });
 
-  const rowView: RowView = { tripId, meUserId: me?.userId, members, membersLoaded, mentions: mentionLookup, messagesById, expandedReactionFor, pressingId, highlightedId, pendingVoteFor, pendingRoamIds, failedRoamIds, missedIds, bubbleRefs };
+  // On a phone nothing shows that holding a message reacts: say so once, when there is a friend's message to react to.
+  const [reactHint, dismissReactHint] = useReactHint(
+    loaded && messages.some((m) => m.kind !== "system" && m.kind !== "poll" && m.role !== "assistant" && m.userId !== null && m.userId !== me?.userId),
+    Boolean(expandedReactionFor) || messages.some((m) => m.reactions.some((r) => r.mine)),
+  );
+
+  const rowView: RowView = { tripId, meUserId: me?.userId, members, membersLoaded, mentions: mentionLookup, messagesById, expandedReactionFor, pressingId, likedId, highlightedId, pendingVoteFor, pendingRoamIds, failedRoamIds, missedIds, bubbleRefs };
   const rowActions: RowActions = { castVote, toggleReaction, setExpandedReactionFor, onBubblePressStart, onBubblePressEnd, onBubblePressMove, scrollToMessage, askRoam, submit, setOutbox, onFollowup, onOpenPlace, onOpenStay, onOpenEvent, onOpenCollection, openPanel };
 
   return (
@@ -336,8 +342,9 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
               {notice.action && <button type="button" onClick={notice.action.run} className="shrink-0 font-semibold text-foreground underline underline-offset-2">{notice.action.label}</button>}
             </p>
           )}
+          <AnimatePresence>{reactHint && !notice && !unseen && <ReactHint key="react-hint" onDismiss={dismissReactHint} />}</AnimatePresence>
           <AnimatePresence>
-            {away && !unseen && !notice && (
+            {away && !unseen && !notice && !reactHint && (
               <motion.button
                 key="latest"
                 type="button"

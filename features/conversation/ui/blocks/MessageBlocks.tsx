@@ -1,5 +1,6 @@
 "use client";
 
+import { MAX_SUGGESTIONS, SuggestionRow } from "@/components/SuggestionRow";
 import React from "react";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
@@ -121,15 +122,15 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
 
         if (block.type === "actions") {
           return (
-            <div key={index} className="flex flex-wrap gap-2">
-              {block.items.map((item, chipIndex) => (
+            <SuggestionRow key={index}>
+              {block.items.slice(0, MAX_SUGGESTIONS).map((item, chipIndex) => (
                 <Enter key={item.label} live={live} index={index + chipIndex + 1} y={6}>
-                  <button type="button" onClick={() => onFollowup(item.prompt)} className="btn-chip">
+                  <button type="button" onClick={() => onFollowup(item.prompt)} className="btn-chip whitespace-nowrap">
                     {item.label}
                   </button>
                 </Enter>
               ))}
-            </div>
+            </SuggestionRow>
           );
         }
 
@@ -149,15 +150,15 @@ export function MessageBlocks({ blocks, tripId, onFollowup, onOpenPlace, onOpenS
           // The question itself streams as the reply text; only the answer chips are structured.
           if (block.chips.length === 0) return null;
           return (
-            <div key={index} className="flex flex-wrap gap-2">
-              {block.chips.map((chip, chipIndex) => (
+            <SuggestionRow key={index}>
+              {block.chips.slice(0, MAX_SUGGESTIONS).map((chip, chipIndex) => (
                 <Enter key={chip} live={live} index={index + chipIndex + 1} y={6}>
-                  <button type="button" onClick={() => onFollowup(chip)} className="btn-chip">
+                  <button type="button" onClick={() => onFollowup(chip)} className="btn-chip whitespace-nowrap">
                     {chip}
                   </button>
                 </Enter>
               ))}
-            </div>
+            </SuggestionRow>
           );
         }
 

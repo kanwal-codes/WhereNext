@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { SmilePlus } from "lucide-react";
+import { Copy, Heart, SmilePlus } from "lucide-react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { memberTint } from "@/lib/member-tint";
 import { Pressable } from "@/components/motion-primitives";
@@ -17,6 +17,7 @@ import { Avatar, PollCard } from "./GroupChatParts";
 import { dayLabel, displayName, fullTime, timeLabel } from "./chat-format";
 import { renderRich, type MentionLookup } from "./rich-text";
 import { cn } from "@/lib/utils";
+import { notifyToast } from "@/lib/application/toast";
 
 const COMMON_EMOJI = ["👍", "❤️", "😂", "🎉", "😍", "🤔"];
 
@@ -31,6 +32,8 @@ export type RowView = {
   messagesById: Map<string, GroupMessage>;
   expandedReactionFor: string | null;
   pressingId: string | null;
+  /** The message a double tap just liked: a heart pops over it. */
+  likedId: string | null;
   highlightedId: string | null;
   pendingVoteFor: string | null;
   pendingRoamIds: Set<string>;
@@ -71,7 +74,7 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
   view: RowView;
   actions: RowActions;
 }) {
-  const { tripId, meUserId, members, membersLoaded, mentions, messagesById, expandedReactionFor, pressingId, highlightedId, pendingVoteFor, pendingRoamIds, failedRoamIds, missedIds, bubbleRefs } = view;
+  const { tripId, meUserId, members, membersLoaded, mentions, messagesById, expandedReactionFor, pressingId, likedId, highlightedId, pendingVoteFor, pendingRoamIds, failedRoamIds, missedIds, bubbleRefs } = view;
   const { castVote, toggleReaction, setExpandedReactionFor, onBubblePressStart, onBubblePressEnd, onBubblePressMove, scrollToMessage, askRoam, submit, setOutbox, onFollowup, onOpenPlace, onOpenStay, onOpenEvent, onOpenCollection, openPanel } = actions;
   const local = (message as { local?: Outgoing }).local;
   const mine = local ? true : message.userId !== null && message.userId === meUserId;
@@ -181,9 +184,26 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
             onPointerCancel={onBubblePressEnd}
             onPointerMove={onBubblePressMove}
             title={fullTime(message.created_at)}
-            className="group relative min-w-0 max-w-full [touch-action:pan-y] [@media(pointer:coarse)]:select-none"
+            // Holding a message is how a phone reacts, so the browser's own menu and text selection must not answer the same touch first.
+            onContextMenu={(event) => { if (typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches) event.preventDefault(); }}
+            className="group relative min-w-0 max-w-full [touch-action:pan-y] [@media(pointer:coarse)]:[-webkit-touch-callout:none] [@media(pointer:coarse)]:select-none"
           >
             {bubble}
+            <AnimatePresence>
+              {likedId === message.id && (
+                <motion.span
+                  key="like"
+                  aria-hidden
+                  initial={{ opacity: 0, scale: 0.4 }}
+                  animate={{ opacity: 1, scale: 1.15 }}
+                  exit={{ opacity: 0, scale: 1.5 }}
+                  transition={{ type: "spring", stiffness: 420, damping: 18 }}
+                  className="pointer-events-none absolute inset-0 z-10 grid place-items-center"
+                >
+                  <Heart className="size-10 fill-coral text-coral drop-shadow-md" />
+                </motion.span>
+              )}
+            </AnimatePresence>
             {/* The reaction trigger sits in the gutter at the vertical middle of the bubble —
                 left for your own messages, right for everyone else's. The expanded
                 picker starts from the trigger's exact point (same `layoutId`, so
@@ -228,6 +248,20 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
                     (mine ? "max-lg:right-0 max-lg:left-auto" : "max-lg:left-0 max-lg:right-auto"),
                   )}
                 >
+                  {/* A phone cannot select the text (holding is taken), so copying is here, beside the reactions. */}
+                  {message.content.trim() && (
+                    <button
+                      type="button"
+                      aria-label="Copy message"
+                      onClick={() => {
+                        setExpandedReactionFor(null);
+                        void navigator.clipboard?.writeText(message.content).then(() => notifyToast("Copied", "success")).catch(() => notifyToast("Couldn’t copy that.", "error"));
+                      }}
+                      className="hidden size-11 shrink-0 place-items-center rounded-full text-ink-soft transition-transform active:scale-[0.97] max-lg:grid"
+                    >
+                      <Copy className="size-5" aria-hidden />
+                    </button>
+                  )}
                   {COMMON_EMOJI.map((emoji) => (
                     <button
                       key={emoji}
@@ -295,6 +329,17 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
                 </motion.button>
               </Pressable>
             ))}
+            {/* With reactions already under it, adding another is one tap here: touch has no hover button, and a long press is easy to miss. */}
+            {message.reactions.length > 0 && !local && !expanded && (
+              <button
+                type="button"
+                onClick={() => setExpandedReactionFor(message.id)}
+                aria-label="Add reaction"
+                className="hit-44 grid h-6 w-7 place-items-center rounded-full border border-border bg-card text-muted-foreground transition-[background-color,color,transform] hover:bg-accent hover:text-foreground active:scale-[0.97]"
+              >
+                <SmilePlus className="size-3.5" aria-hidden />
+              </button>
+            )}
           </div>
         </div>
       </motion.div>

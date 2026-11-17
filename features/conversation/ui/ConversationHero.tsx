@@ -1,6 +1,7 @@
 "use client";
 
-import { Reveal, Stagger, StaggerItem } from "@/components/motion-primitives";
+import { Reveal } from "@/components/motion-primitives";
+import { SuggestionRow } from "@/components/SuggestionRow";
 import { RoamMark } from "@/features/roam/ui/RoamMark";
 
 /** Ways into an empty conversation: three things nearly every trip starts with. */
@@ -23,15 +24,15 @@ export function ConversationHero({ disabled, onStarter }: { disabled: boolean; o
           proper view when something is easier to see than to describe.
         </p>
       </Reveal>
-      <Stagger delay={0.34} gap={0.07} className="mt-6 flex flex-wrap justify-center gap-2">
-        {STARTERS.map((starter) => (
-          <StaggerItem key={starter}>
-            <button type="button" disabled={disabled} onClick={() => onStarter(starter)} className="btn-chip h-9 px-4 text-sm disabled:opacity-50">
+      <SuggestionRow center className="mt-6">
+        {STARTERS.map((starter, i) => (
+          <Reveal key={starter} delay={0.34 + i * 0.07} y={8}>
+            <button type="button" disabled={disabled} onClick={() => onStarter(starter)} className="btn-chip h-9 whitespace-nowrap px-4 text-sm disabled:opacity-50">
               {starter}
             </button>
-          </StaggerItem>
+          </Reveal>
         ))}
-      </Stagger>
+      </SuggestionRow>
     </div>
   );
 }

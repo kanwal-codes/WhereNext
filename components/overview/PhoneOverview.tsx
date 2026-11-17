@@ -3,7 +3,6 @@
 import { useState, type ComponentType, type ReactNode } from "react";
 import Link from "next/link";
 import { BedDouble, CalendarRange, ChevronDown, ChevronRight, Share2, Ticket, Users } from "lucide-react";
-import { TripArt, hashString } from "@/components/trips/TripArt";
 import { RoutePanel } from "@/components/overview/RoutePanel";
 import { ShareTrip } from "@/features/trip/ui/ShareTrip";
 import { lodgingGaps } from "@/lib/trip-reservations";
@@ -13,6 +12,9 @@ import { cn } from "@/lib/utils";
 import type { Reservation } from "@/packages/contracts/reservation";
 
 type TripLike = { destination?: string | null; start_date?: string | null; end_date?: string | null; stops?: unknown };
+
+/** How many stops of the route show before "Show all". */
+const ROUTE_PREVIEW = 4;
 
 const nights = (a: string, b: string) => Math.max(1, Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000));
 
@@ -42,12 +44,13 @@ function TripRow({ href, icon: Icon, title, note, tone = "quiet", dot = false, o
 }
 
 /**
- * Phone redesign: under the hero and the next step, the Overview is two quiet bands. The route as a row of city cards,
+ * Phone redesign: under the hero and the next step, the Overview is two quiet bands. The route as its stops on one rail,
  * and "The trip" as plain rows that each say whether anything needs you (see the approved Overview).
  */
 export function PhoneOverview({ tripId, trip, reservations, stays }: { tripId: string; trip: TripLike; reservations: Reservation[]; stays: Array<{ startsOn: string | null; endsOn: string | null }> }) {
   const { stops } = effectiveStops(trip);
   const [panel, setPanel] = useState<"route" | "share" | null>(null);
+  const [allStops, setAllStops] = useState(false);
   const unread = useGroupUnread(tripId, true);
   const live = reservations.filter((r) => r.status !== "cancelled");
   const gaps = lodgingGaps(reservations, trip.start_date, trip.end_date);
@@ -57,24 +60,32 @@ export function PhoneOverview({ tripId, trip, reservations, stays }: { tripId: s
     <div className="space-y-9 px-4 pt-8 lg:hidden">
       {stops.length > 1 && (
         <section aria-label="The route">
-          <div className="flex items-baseline justify-between gap-3">
-            <h2 className="font-display text-widget font-medium tracking-[-0.025em]">The route</h2>
-            <span className="text-sm text-ink-soft">{stops.length} cities</span>
-          </div>
-          <ol className="-mx-4 mt-3 flex snap-x gap-3 overflow-x-auto overscroll-x-contain px-4 pb-1 no-scrollbar scroll-px-4">
-            {stops.map((s) => {
+          <h2 className="font-display text-widget font-medium tracking-[-0.025em]">The route</h2>
+          {/* The stops in order on one rail, like the days of the plan: a few at a time, the rest a tap away, so ten places read as well as two. */}
+          <ol className="mt-3 rounded-2xl border border-border bg-card px-4 py-1">
+            {(allStops ? stops : stops.slice(0, ROUTE_PREVIEW)).map((s, i, shown) => {
               const n = s.startDate && s.endDate ? nights(s.startDate, s.endDate) : null;
               return (
-                <li key={s.city} className="w-36 shrink-0 snap-start">
-                  <TripArt seed={hashString(s.city)} className="relative grid aspect-[4/3] place-items-end overflow-hidden rounded-2xl p-3 ring-1 ring-black/[0.04]">
-                    <span aria-hidden className="absolute top-2 left-3 font-display text-4xl leading-none font-medium tracking-[-0.04em] text-foreground/20">{s.city.charAt(0)}</span>
-                  </TripArt>
-                  <p className="mt-2 font-display text-base leading-tight font-medium">{s.city}</p>
-                  <p className="text-sm text-ink-soft">{n ? `${n} ${n === 1 ? "night" : "nights"}` : "no dates yet"}</p>
+                <li key={s.city} className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3">
+                  {/* The rail runs through the row from badge to badge, so the stops read as one route rather than a list of dots. */}
+                  <span className="relative flex justify-center pt-3.5">
+                    {shown.length > 1 && <span aria-hidden className={cn("absolute left-1/2 w-px -translate-x-1/2 bg-coral/30", i === 0 ? "top-7 bottom-0" : i === shown.length - 1 ? "top-0 h-7" : "inset-y-0")} />}
+                    <span className="relative grid size-7 shrink-0 place-items-center rounded-full bg-coral-fill text-xs font-semibold text-white shadow-soft">{i + 1}</span>
+                  </span>
+                  <span className={cn("flex min-w-0 items-center justify-between gap-3 py-3.5", i < shown.length - 1 && "border-b border-border/70")}>
+                    <span className="min-w-0 truncate font-display text-lg leading-snug font-medium tracking-[-0.015em]">{s.city}</span>
+                    {n && <span className="shrink-0 text-sm text-ink-soft tabular-nums">{n} {n === 1 ? "night" : "nights"}</span>}
+                  </span>
                 </li>
               );
             })}
           </ol>
+          {stops.length > ROUTE_PREVIEW && (
+            <button type="button" onClick={() => setAllStops((v) => !v)} aria-expanded={allStops} className="mt-2 flex h-11 w-full items-center justify-center gap-1.5 rounded-full text-sm font-medium text-ink-soft transition-colors active:bg-muted/60">
+              {allStops ? "Show fewer" : `Show all ${stops.length} stops`}
+              <ChevronDown aria-hidden className={cn("size-4 transition-transform duration-300", allStops && "rotate-180")} />
+            </button>
+          )}
         </section>
       )}
 

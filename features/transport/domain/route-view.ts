@@ -46,9 +46,9 @@ export const googleFlightsUrl = (f: Flight, returnDate: string) => {
 export const clock = (iso?: string, timeZone?: string) => {
   if (!iso) return null;
   try {
-    return dateFormat([], { hour: "2-digit", minute: "2-digit", ...(timeZone ? { timeZone } : {}) }).format(new Date(iso));
+    return dateFormat([], { hour: "numeric", minute: "2-digit", ...(timeZone ? { timeZone } : {}) }).format(new Date(iso));
   } catch {
-    return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   }
 };
 export const money = (f?: Route["fare"]) => {
