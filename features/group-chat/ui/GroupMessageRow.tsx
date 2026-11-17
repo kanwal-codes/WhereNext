@@ -19,6 +19,16 @@ import { cn } from "@/lib/utils";
 import { useMediaQuery } from "@/lib/use-media-query";
 
 const COMMON_EMOJI = ["👍", "❤️", "😂", "🎉", "😍", "🤔"];
+// The phone pill is a 44px-tall row (p-1 around 36px buttons), set 4px low so it clears the last line of the message; closed, it is clipped to the 24px smiley it grows out of, so opening only
+// widens it from that spot and closing draws it back in. Same shape both ends (px for top/bottom/radius, % for the right edge) so they interpolate.
+const PILL_W = COMMON_EMOJI.length * 36 + (COMMON_EMOJI.length - 1) * 2 + 8;
+const PILL_CLOSED = { opacity: 0, clipPath: `inset(6px ${((1 - 24 / PILL_W) * 100).toFixed(1)}% 14px 0px round 12px)` };
+const PILL_OPEN = "inset(0px 0% 0px 0px round 22px)";
+const PILL_EASE = { duration: 0.22, ease: [0.22, 1, 0.36, 1] as const };
+// Desktop: a 38px-tall bar (border + p-1 around 28px buttons) anchored by its right edge on the 32px trigger, clipped to the trigger when closed.
+const BAR_W = COMMON_EMOJI.length * 28 + (COMMON_EMOJI.length - 1) * 2 + 10;
+const BAR_CLOSED = { opacity: 0, clipPath: `inset(3px 0% 3px ${((1 - 32 / BAR_W) * 100).toFixed(1)}% round 16px)` };
+const BAR_OPEN = "inset(0px 0% 0px 0% round 19px)";
 
 /** What the row reads from the surface around it. */
 export type RowView = {
@@ -172,25 +182,20 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
             </p>
           )}
           {/* The text stays selectable: holding a message selects it, as anywhere else. Reacting is the smiley under it. */}
-          <div title={fullTime(message.created_at)} className={cn("group relative min-w-0 max-w-full transition-[margin] duration-200", phone && !local && (!mine || message.reactions.length > 0) && (expanded && !mine ? "mb-9" : "mb-4"))}>
+          <div title={fullTime(message.created_at)} className={cn("group relative min-w-0 max-w-full transition-[margin] duration-200", phone && !local && (!mine || message.reactions.length > 0) && "mb-4")}>
             {bubble}
-            {/* The reaction trigger sits in the gutter at the vertical middle of the bubble —
-                left for your own messages, right for everyone else's. The expanded
-                picker starts from the trigger's exact point (same `layoutId`, so
-                Framer Motion morphs one into the other in place) but grows the other
-                direction — inward, over the message — rather than further out into
-                the empty gutter, which is too narrow for six emoji anyway. Reveal-on-
-                hover; touch has no hover state, so this never shows there — long-press
-                → the Sheet below is how touch reacts. */}
-            {!phone && !mine && !expanded && !local && (
+            {/* The reaction trigger sits in the gutter at the vertical middle of the bubble, to the right of everyone else's messages.
+                Tapped, a pill of the six grows out of the trigger's own spot, inward over the message (the gutter is too narrow
+                for six emoji), and draws back into it on close; nothing around it moves. Reveal-on-hover; touch has no hover
+                state, so this never shows there — the phone design below is how touch reacts. */}
+            {!phone && !mine && !local && (
               <div
                 className={cn(
-                  "pointer-events-none absolute top-1/2 z-10 flex -translate-y-1/2 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100",
-                  mine ? "right-full mr-2" : "left-full ml-2",
+                  "pointer-events-none absolute top-1/2 left-full z-10 ml-2 flex -translate-y-1/2 items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100",
+                  expanded && "opacity-100",
                 )}
               >
                 <motion.button
-                  layoutId={`reaction-picker-${message.id}`}
                   type="button"
                   onClick={() => setExpandedReactionFor(message.id)}
                   aria-label="Add reaction"
@@ -201,100 +206,99 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
                 >
                   <SmilePlus className="size-4" />
                 </motion.button>
-              </div>
-            )}
-            <AnimatePresence>
-              {!phone && !mine && expanded && (
-                <motion.div
-                  key="bar"
-                  layoutId={`reaction-picker-${message.id}`}
-                  data-reaction-expand
-                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                  className={cn(
-                    "pointer-events-auto absolute top-1/2 z-10 flex -translate-y-1/2 items-center gap-0.5 overflow-hidden rounded-full border border-border bg-card py-1 pr-1 pl-1 shadow-lift",
-                    mine ? "-left-2" : "-right-2",
-                  )}
-                >
-                  {COMMON_EMOJI.map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      aria-label={`React ${emoji}`}
-                      onClick={() => void toggleReaction(message.id, emoji)}
-                      className="grid size-7 shrink-0 place-items-center rounded-full text-base transition-transform hover:scale-125 active:scale-[0.97]"
+                <AnimatePresence>
+                  {expanded && (
+                    <motion.div
+                      key="bar"
+                      data-reaction-expand
+                      initial={BAR_CLOSED}
+                      animate={{ clipPath: BAR_OPEN, opacity: 1, transition: { clipPath: PILL_EASE, opacity: { duration: 0.08 } } }}
+                      exit={{ ...BAR_CLOSED, transition: { clipPath: PILL_EASE, opacity: { duration: 0.08, delay: 0.14 } } }}
+                      className="pointer-events-auto absolute top-1/2 right-0 flex -translate-y-1/2 items-center gap-0.5 rounded-full border border-border bg-card p-1 shadow-lift"
                     >
-                      {emoji}
-                    </button>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-            {/* Phone: a smiley under the message. Tapped (or the message held), it opens into a pill of the six, with the one you chose lit; picking one closes it. */}
-            {phone && !local && (!mine || message.reactions.length > 0) && (
-              <div className={cn("absolute top-full -mt-2 z-10 flex items-center gap-1", mine ? "right-3 flex-row-reverse" : "left-3")}>
-              <AnimatePresence initial={false}>
-                {expanded && !mine ? (
-                  <motion.div
-                    key="pill"
-                    layoutId={`reaction-picker-${message.id}`}
-                    data-reaction-expand
-                    role="group"
-                    aria-label="React to this message"
-                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                    className="flex items-center gap-0.5 rounded-full bg-card p-1 shadow-[0_6px_16px_-8px_oklch(0.2_0.012_65/0.22),0_0_0_1px_var(--color-hairline)]"
-                  >
-                    {COMMON_EMOJI.map((emoji) => {
-                      const mineHere = message.reactions.some((r) => r.emoji === emoji && r.mine);
-                      return (
+                      {COMMON_EMOJI.map((emoji) => (
                         <button
                           key={emoji}
                           type="button"
                           aria-label={`React ${emoji}`}
-                          aria-pressed={mineHere}
                           onClick={() => void toggleReaction(message.id, emoji)}
-                          className={cn("grid size-9 min-h-0! shrink-0 place-items-center rounded-full text-xl transition-[background-color,transform] active:scale-[0.9]", mineHere && "bg-muted ring-1 ring-border")}
+                          className="grid size-7 shrink-0 place-items-center rounded-full text-base transition-transform hover:scale-125 active:scale-[0.97]"
                         >
                           {emoji}
                         </button>
-                      );
-                    })}
-                  </motion.div>
-                ) : mine ? null : (
-                  <motion.button
-                    key="smiley"
-                    layoutId={`reaction-picker-${message.id}`}
-                    type="button"
-                    onClick={() => setExpandedReactionFor(message.id)}
-                    aria-label="Add reaction"
-                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                    className="relative grid size-6 min-h-0! place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-soft transition-colors before:absolute before:-inset-2.5 before:content-[''] active:bg-muted"
-                  >
-                    <SmilePlus className="size-3.5" aria-hidden />
-                  </motion.button>
-                )}
-              </AnimatePresence>
-              {(!expanded || mine) && (
-                <div className={cn("flex items-center gap-1", mine && "flex-row-reverse")}>
-            {message.reactions.map((r) => (
-              <Pressable key={r.emoji}>
-                <motion.button
-                  layout
-                  type="button"
-                  aria-pressed={r.mine}
-                  aria-label={`${r.emoji} ${r.count}${r.mine ? ", you reacted" : ""}`}
-                  onClick={() => void toggleReaction(message.id, r.emoji)}
-                  className={cn(
-                    "flex h-6 min-h-0! items-center gap-1 rounded-full border px-2 text-2xs transition-colors",
-                    r.mine ? "border-primary/30 bg-primary/10 text-primary" : "border-border bg-card text-muted-foreground hover:bg-accent",
+                      ))}
+                    </motion.div>
                   )}
-                >
-                  <span>{r.emoji}</span>
-                  <span>{r.count}</span>
-                </motion.button>
-              </Pressable>
-            ))}
+                </AnimatePresence>
+              </div>
+            )}
+            {/* Phone: a smiley under the message. Tapped (or the message held), a pill of the six grows out of the smiley's own spot and lies over whatever is next to it; nothing around it moves. Picking one, or tapping elsewhere, draws it back in. */}
+            {phone && !local && (!mine || message.reactions.length > 0) && (
+              <div className={cn("absolute top-full -mt-2 z-10 flex items-center gap-1", mine ? "right-3 flex-row-reverse" : "left-3")}>
+                {!mine && (
+                  <span className="relative z-10">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedReactionFor(message.id)}
+                      aria-label="Add reaction"
+                      className="relative grid size-6 min-h-0! place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-soft transition-colors before:absolute before:-inset-2.5 before:content-[''] active:bg-muted"
+                    >
+                      <SmilePlus className="size-3.5" aria-hidden />
+                    </button>
+                    <AnimatePresence>
+                      {expanded && (
+                        <div className="pointer-events-none absolute top-1/2 left-0 -translate-y-[calc(50%-4px)]">
+                          <motion.div
+                            key="pill"
+                            data-reaction-expand
+                            role="group"
+                            aria-label="React to this message"
+                            initial={PILL_CLOSED}
+                            animate={{ clipPath: PILL_OPEN, opacity: 1, transition: { clipPath: PILL_EASE, opacity: { duration: 0.08 } } }}
+                            exit={{ ...PILL_CLOSED, transition: { clipPath: PILL_EASE, opacity: { duration: 0.08, delay: 0.14 } } }}
+                            className="pointer-events-auto flex items-center gap-0.5 rounded-full bg-card p-1 shadow-[0_6px_16px_-8px_oklch(0.2_0.012_65/0.22),0_0_0_1px_var(--color-hairline)]"
+                          >
+                            {COMMON_EMOJI.map((emoji) => {
+                              const mineHere = message.reactions.some((r) => r.emoji === emoji && r.mine);
+                              return (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  aria-label={`React ${emoji}`}
+                                  aria-pressed={mineHere}
+                                  onClick={() => void toggleReaction(message.id, emoji)}
+                                  className={cn("grid size-9 min-h-0! shrink-0 place-items-center rounded-full text-xl transition-[background-color,transform] active:scale-[0.9]", mineHere && "bg-muted ring-1 ring-border")}
+                                >
+                                  {emoji}
+                                </button>
+                              );
+                            })}
+                          </motion.div>
+                        </div>
+                      )}
+                    </AnimatePresence>
+                  </span>
+                )}
+                <div className={cn("flex items-center gap-1", mine && "flex-row-reverse")}>
+                  {message.reactions.map((r) => (
+                    <Pressable key={r.emoji}>
+                      <motion.button
+                        layout
+                        type="button"
+                        aria-pressed={r.mine}
+                        aria-label={`${r.emoji} ${r.count}${r.mine ? ", you reacted" : ""}`}
+                        onClick={() => void toggleReaction(message.id, r.emoji)}
+                        className={cn(
+                          "flex h-6 min-h-0! items-center gap-1 rounded-full border px-2 text-2xs transition-colors",
+                          r.mine ? "border-primary/30 bg-primary/10 text-primary" : "border-border bg-card text-muted-foreground hover:bg-accent",
+                        )}
+                      >
+                        <span>{r.emoji}</span>
+                        <span>{r.count}</span>
+                      </motion.button>
+                    </Pressable>
+                  ))}
                 </div>
-              )}
               </div>
             )}
           </div>
