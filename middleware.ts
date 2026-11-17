@@ -4,11 +4,21 @@ import { getPublicEnv } from "@/lib/env";
 import { ACCOUNT_REQUIRED, guestDecision } from "@/lib/guest-policy";
 
 export async function middleware(request: NextRequest) {
-  const env = getPublicEnv(); const response = NextResponse.next({ request });
+  const env = getPublicEnv(); let response = NextResponse.next({ request });
   if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) return response;
-  const supabase = createServerClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, { cookies: { getAll: () => request.cookies.getAll(), setAll: (items) => items.forEach(({ name, value, options }) => { request.cookies.set(name, value); response.cookies.set(name, value, options); }) } });
+  const supabase = createServerClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, { cookies: { getAll: () => request.cookies.getAll(), setAll: (items) => {
+    // A refreshed session must reach the page in THIS request, not only the browser afterwards. NextResponse.next({ request }) copies the
+    // request headers (cookies included) when it is created, so a cookie set on the request later is not forwarded: the page then saw the
+    // expired token and refreshed it a second time, one round trip after the first. Make the response again once the cookies are set.
+    items.forEach(({ name, value }) => request.cookies.set(name, value));
+    response = NextResponse.next({ request });
+    items.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+  } } });
   // Verified locally from the session token (no call to Supabase Auth); also refreshes it when due.
+  const t0 = Date.now();
   const { data } = await supabase.auth.getClaims();
+  const claimsMs = Date.now() - t0;
+  response.headers.set("Server-Timing", `claims;dur=${claimsMs}`);
   const user = data?.claims ? { is_anonymous: data.claims.is_anonymous === true } : null;
 
   // Guests (anonymous sessions) may only use Roam: everything else is closed here, for pages and

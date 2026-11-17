@@ -40,8 +40,12 @@ async function Home() {
   // the same `TripsHome` `/trips` would show, no redirect needed. `/trips` stays a real,
   // independently-loading route of its own — sign-in flows and other code link to it directly.
   let data: Awaited<ReturnType<typeof loadTripsIndex>> = null;
+  const t0 = Date.now();
   try {
     data = await loadTripsIndex(await createSupabaseServerClient());
+    const ms = Date.now() - t0;
+    // Shows in Vercel runtime logs when a home load is slow (session refresh, cold database), so the cause is measured, not guessed.
+    if (ms > 1500) console.warn(`[home] session + trips took ${ms}ms`);
   } catch {
     /* Supabase unavailable — show the public landing. */
   }
