@@ -27,6 +27,19 @@ describe("rebuild contracts", () => {
     expect(result).toContain("group: friends");
     expect(result).toContain("Saved places: none yet.");
   });
+  it("tells the assistant when each planned item is, and what is already booked", () => {
+    const result = formatTripMemory({
+      preferences: {},
+      itinerary: [{ title: "Dinner at Bistro", day_index: 2, locked: false, time: "19:30" }, { title: "Louvre", day_index: 3, locked: false }],
+      lockedTitles: [],
+      places: [],
+      decisions: [],
+      reservations: [{ kind: "activity", title: "Eiffel Tower summit", startsOn: "2027-06-09", endsOn: null, startTime: "10:15", endTime: null, place: "Paris", toPlace: null, amount: 60, currency: "EUR", amountBasis: "total", travellers: 2, cancelled: false }],
+    } as Parameters<typeof formatTripMemory>[0]);
+    expect(result).toContain("Dinner at Bistro (day 2 at 19:30)");
+    expect(result).toContain("Louvre (day 3)");
+    expect(result).toContain("activity: Eiffel Tower summit (Paris), 2027-06-09 10:15");
+  });
   it("merges preferences: lists accumulate, scalars replace", () => {
     const merged = mergePreferences(
       { likes: ["art"], dislikes: ["museums"], budget: 100, pace: "relaxed" },

@@ -132,9 +132,8 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
         </div>
       </div>
       {ready && fares.assumed && (
-        <div role="note" className="mx-4 mt-3 mb-2 flex items-center gap-2.5 rounded-2xl bg-muted px-3.5 py-3 text-sm text-foreground [&_svg]:text-caution @[34rem]:mx-5 max-lg:mx-[1.125rem]">
-          <Info className="size-4 shrink-0" aria-hidden />
-          <span>No travel date set, so these are example prices. Pick your date above.</span>
+        <div className="mx-4 mt-3 mb-2 @[34rem]:mx-5 max-lg:mx-[1.125rem]">
+          <Notice tone="caution">No travel date set, so these are example prices. Pick your date above.</Notice>
         </div>
       )}
       {fares.insights && ready && fares.currency && <div className="max-lg:hidden"><PriceInsight insights={fares.insights} currency={fares.currency} /></div>}

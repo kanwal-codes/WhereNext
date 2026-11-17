@@ -9,7 +9,8 @@ export type SortDef = { id: string; label: string };
 export type FilterDef = { id: string; label: string; active: boolean; onToggle: () => void };
 
 // One of several: the chosen one is solid black, the others the same quiet grey as the other days on a plan card.
-const chip = (on: boolean) => cn(controlSecondary, "h-8", on ? "border-primary bg-primary text-primary-foreground hover:border-primary hover:text-primary-foreground" : "bg-surface");
+// The app's one filter chip (`btn-chip`): white at rest, ink when on; it styles itself from aria-pressed.
+const chip = (_on: boolean) => "btn-chip shrink-0";
 
 /**
  * Sort and filter for any list card: a segmented "Sort by" control, filter chips, "Clear", and a live count.

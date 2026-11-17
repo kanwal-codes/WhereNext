@@ -30,7 +30,7 @@ vi.mock("@/components/PanelStates", () => ({
   PanelLoading: ({ what, panel }: Any) => <div>loading {what} {String(panel)}</div>,
   PanelError: ({ what, onRetry }: Any) => <button type="button" onClick={onRetry}>retry {what}</button>,
 }));
-vi.mock("@/components/motion-primitives", () => ({ Reveal: ({ children }: Any) => <div>{children}</div>, WordReveal: ({ text }: Any) => <h1>{text}</h1> }));
+vi.mock("@/components/motion-primitives", () => ({ Reveal: ({ children }: Any) => <div>{children}</div>, WordReveal: ({ text }: Any) => <h1>{text}</h1>, BlurImage: ({ alt, src }: Any) => <img alt={alt} src={src} /> }));
 vi.mock("@/components/PhotoLightbox", () => ({
   usePhotoLightbox: () => lightbox,
   PhotoLightbox: ({ photos, index }: Any) => <div data-testid="lightbox" data-count={photos.length} data-index={String(index)} />,

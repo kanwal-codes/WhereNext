@@ -49,8 +49,9 @@ describe("reply feedback", () => {
     expect(screen.getByRole("group", { name: "Rate this reply" })).toBeTruthy();
     expect(up().getAttribute("aria-pressed")).toBe("false");
     expect(down().tabIndex).toBe(0);
-    // One shared control: 44px on the phone design (max-lg), the compact 32px control with a 44px hit area from lg up.
-    expect(up().className).toMatch(/max-lg:size-11/);
+    // One shared control: 36px on the phone design (max-lg) and 32px from lg up, both with a hit area that reaches past the edges (48px and 44px).
+    expect(up().className).toMatch(/max-lg:size-9/);
+    expect(up().className).toMatch(/before:-inset-1\.5/);
     expect(up().className).toMatch(/\bsize-8\b/);
   });
 

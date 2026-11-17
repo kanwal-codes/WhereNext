@@ -77,7 +77,7 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
   const searchUrl = `https://www.google.com/travel/flights?q=${encodeURIComponent(`Flights from ${route.origin} to ${route.destination} on ${flight.departAt.slice(0, 10)}${route.returnDate ? ` through ${route.returnDate}` : ""}`)}`;
 
   return (
-    <div className="space-y-7 p-5 pb-6 sm:p-6 sm:pb-6">
+    <div className="space-y-7 p-4 pb-6 sm:p-6 sm:pb-6">
       <Reveal delay={0} y={10}><header className="space-y-4">
         <div className="flex items-start gap-4">
           <AirlineMark offer={{ ...flight, legs: fetched ?? flight.legs }} className="size-12" />
@@ -231,8 +231,8 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
         </Reveal>
       )}
 
-      {/* The way on stays in reach while the page scrolls: the button rides the bottom edge over a fade. */}
-      <div className="sticky bottom-0 z-10 -mx-5 -mb-6 space-y-2.5 bg-gradient-to-t from-background via-background/95 to-transparent px-5 pb-5 pt-8 sm:-mx-6 sm:px-6">
+      {/* The way on stays in reach while the page scrolls: the button rides the bottom edge on a solid bar, so nothing shows through it. */}
+      <div className="sticky bottom-0 z-10 -mx-4 -mb-6 space-y-2.5 border-t border-border bg-background px-4 pb-5 pt-3 sm:-mx-6 sm:px-6">
         <a
           href={searchUrl}
           target="_blank"

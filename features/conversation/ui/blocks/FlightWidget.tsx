@@ -134,12 +134,12 @@ export function FlightPicks({ picks, selected, onSelect, roundTrip }: { picks: F
             className={cn("relative min-w-0 flex-1 rounded-2xl px-3.5 py-3 text-left backdrop-blur-md transition-[box-shadow,background-color,transform] duration-200 ease-out active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", on ? "border border-primary bg-card ring-1 ring-primary shadow-lift" : "border border-border bg-surface hover:border-ink/25", "max-lg:backdrop-blur-none max-lg:shadow-none", (on ? "max-lg:border max-lg:border-primary" : "max-lg:border max-lg:border-border max-lg:bg-surface"))}
           >
             <span className="flex items-center justify-between gap-1.5">
-              <span className="eyebrow truncate">{pick.labels.join(" · ")}</span>
+              <span className="eyebrow truncate">{(picks.length > 2 ? pick.labels.slice(0, 1) : pick.labels).join(" · ")}</span>
               <AirlineMark offer={pick.offer} className="size-6" />
             </span>
             <FitText className="mt-1.5 font-display text-widget leading-tight font-medium tracking-[-0.025em] tabular-nums">{money(pick.offer.price, pick.offer.currency, true)}</FitText>
             {on ? <span aria-hidden className="absolute right-3 bottom-3 grid size-[1.125rem] place-items-center rounded-full bg-primary text-primary-foreground lg:hidden"><Check className="size-3" strokeWidth={3.5} /></span> : null}
-            <span className={cn(type.meta, "block truncate", on && "max-lg:pr-6")}>{hoursMinutes(pick.offer.durationMinutes)} · {pick.offer.stops === 0 ? "nonstop" : `${pick.offer.stops} stop${pick.offer.stops > 1 ? "s" : ""}`}{roundTrip ? " · round trip" : ""}</span>
+            <span className={cn(type.meta, "block", picks.length > 2 ? "text-balance" : "truncate", on && "max-lg:pr-6")}>{hoursMinutes(pick.offer.durationMinutes)} · {pick.offer.stops === 0 ? "nonstop" : `${pick.offer.stops} stop${pick.offer.stops > 1 ? "s" : ""}`}{roundTrip ? " · round trip" : ""}</span>
           </button>
         );
       })}

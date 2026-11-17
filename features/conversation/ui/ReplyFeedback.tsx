@@ -8,7 +8,7 @@ import { sendReplyFeedback } from "../application/sendReplyFeedback";
 import { REPLY_NOTE_MAX, type ReplyRating } from "../domain/replyFeedback";
 import { controlGhost } from "./blocks/ui";
 
-const thumb = cn(controlGhost, "max-lg:size-11 aria-pressed:bg-muted aria-pressed:text-foreground");
+const thumb = cn(controlGhost, "max-lg:size-9 aria-pressed:bg-muted aria-pressed:text-foreground");
 
 /**
  * Thumbs under one of Roam's replies. Tapping the lit thumb again clears it. A thumbs-down offers a one-line note

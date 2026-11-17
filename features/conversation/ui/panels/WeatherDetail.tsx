@@ -22,7 +22,7 @@ export function WeatherDetail({ block }: { block: WeatherBlock }) {
   return (
     <div className="space-y-6 p-4 pb-8">
       <Reveal delay={0} y={10}>
-        <section aria-label="Weather" className={cn(surface, "space-y-4 p-5")}>
+        <section aria-label="Weather" className={cn(surface, "space-y-4 p-5", "max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent max-lg:p-0 max-lg:shadow-none max-lg:ring-0")}>
           <PanelHeader eyebrow={[block.mode === "forecast" && days.length ? "Forecast" : `Typical ${block.month ?? "weather"}`, block.location ?? "Your trip"]} sub={block.headline}>
             {typeof headline === "number" ? <BigFigure text={deg(headline)} /> : <p className="font-display text-2xl">{block.headline}</p>}
           </PanelHeader>

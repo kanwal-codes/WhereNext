@@ -199,7 +199,7 @@ for (const theme of themes) {
           if (t.css) loc = root.locator(`${t.css}:visible`);
           else if (typeof t.label === "string") loc = loc.or(root.locator(`[aria-label="${t.label}"]`));
           await (t.first ? loc.first() : loc.first()).click({ timeout: 8000 });
-          const panel = page.locator("div.fixed.z-40").last();
+          const panel = page.locator("div.fixed.z-50").last();
           await panel.waitFor({ timeout: 8000 });
           await page.waitForTimeout(2800 + (t.wait ?? 0)); // maps: let the camera finish fitting the pins and the tiles draw
           const f = `${theme}/${w.name}--${t.name}.png`;
@@ -208,7 +208,7 @@ for (const theme of themes) {
           await cap("sheet", t.title, t.name);
           // The whole length of the sheet: grow the window to the sheet's content, take it, put the window back.
           const full = await page.evaluate(() => {
-            const sheet = [...document.querySelectorAll("div.fixed.z-40")].pop();
+            const sheet = [...document.querySelectorAll("div.fixed.z-50")].pop();
             if (!sheet) return 0;
             const scrollers = [...sheet.querySelectorAll("*")].filter((e) => /(auto|scroll)/.test(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight + 4);
             const best = scrollers.sort((a, b) => b.scrollHeight - a.scrollHeight)[0];

@@ -1,6 +1,7 @@
 "use client";
 
-import { Clock, Star } from "lucide-react";
+import type React from "react";
+import { Clock, Star, type LucideIcon } from "lucide-react";
 import { BlurImage } from "@/components/motion-primitives";
 import { placeGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { MediaFallback, compactCount } from "@/features/conversation/ui/blocks/ui";
@@ -52,6 +53,26 @@ export function PlacePhoneSummary({ details, city, price, openNow, todayHours }:
           )}
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * The phone's photo for a stay or an event: the same rounded 16:10 picture as a place's, so the three details open the same way.
+ * `badge` rides the bottom-right corner (a rating); the name goes below as text, never over the photo.
+ */
+export function DetailPhonePhoto({ src, fallbackSrc, alt, icon, badge }: { src: string | null | undefined; fallbackSrc?: string; alt: string; icon: LucideIcon; badge?: React.ReactNode }) {
+  const shown = src || fallbackSrc;
+  return (
+    <div className="px-4 pt-3 lg:hidden">
+      <div className="relative aspect-[16/10] overflow-hidden rounded-3xl bg-muted">
+        {shown ? (
+          <BlurImage src={withPhotoWidth(shown, 960)} alt={alt} className="photo-grade absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <MediaFallback icon={icon} className="absolute inset-0 size-full" />
+        )}
+        {badge && <span className="absolute right-3 bottom-3 inline-flex h-8 items-center gap-1 rounded-full bg-white/94 px-3 text-sm font-semibold text-ink shadow-soft">{badge}</span>}
+      </div>
     </div>
   );
 }

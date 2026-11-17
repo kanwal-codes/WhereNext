@@ -61,7 +61,7 @@ export function PlaceCard({ tripId, place, why, phoneRow = false, phoneTile }: {
         feature={feature}
         pick={feature && why && why !== "Top-rated" ? "Roam’s pick" : undefined}
         selected={selected}
-        save={!comparing ? <SaveHeart tripId={tripId} place={place} compact={!feature} /> : undefined}
+        save={!comparing ? <SaveHeart tripId={tripId} place={place} compact /> : undefined}
         add={!comparing ? <AddToTripControl tripId={tripId} place={place} variant="orb" size="sm" /> : undefined}
         overlay={comparing ? <CompareMark selected={selected} /> : undefined}
       />
@@ -86,7 +86,7 @@ export function PlaceCard({ tripId, place, why, phoneRow = false, phoneTile }: {
       title={place.name}
       why={why && why !== "Top-rated" ? why : place.reviewSummary}
       foot={place.address ? <CineAddress address={place.address} /> : undefined}
-      save={comparing ? undefined : <SaveHeart tripId={tripId} place={place} />}
+      save={comparing ? undefined : <SaveHeart tripId={tripId} place={place} large />}
       action={comparing ? undefined : <AddToTripControl tripId={tripId} place={place} variant="orb" />}
       overlay={comparing ? <CompareMark selected={selected} /> : undefined}
       row={{

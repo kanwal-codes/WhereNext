@@ -62,7 +62,7 @@ export function CopyButton({ text, label = "reply", tabbable = true }: { text: s
         setDone(true);
         setTimeout(() => setDone(false), 1600);
       }}
-      className={cn(controlGhost, "max-lg:size-10")}
+      className={cn(controlGhost, "max-lg:size-9")}
     >
       {done ? <Check key="done" className="settle-in size-4 text-positive" aria-hidden /> : <Copy className="size-4" aria-hidden />}
     </button>

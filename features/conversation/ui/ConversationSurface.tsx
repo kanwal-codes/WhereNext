@@ -215,7 +215,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
             const live = liveMessageIdsRef.current.has(message.id);
 
             if (message.role === "user") return <UserTurn key={message.id} message={message} isNew={isNew} undelivered={undelivered === message.id} />;
-            return <ReplyTurn key={message.id} message={message} isNew={isNew} streaming={streaming} live={live} isLatest={index === messages.length - 1} dir={dir} handlers={handlers} tripId={tripId} onRate={rateReply} />;
+            return <ReplyTurn key={message.id} message={message} isNew={isNew} streaming={streaming} live={live} isLatest={index === messages.length - 1} opener={index === 0} dir={dir} handlers={handlers} tripId={tripId} onRate={rateReply} />;
           })}
 
           {pendingBubble && pendingFirst && (

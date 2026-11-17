@@ -5,6 +5,7 @@ import { ArrowUpRight, CalendarDays, ChevronDown, Info, Navigation, Ticket } fro
 import { Hero } from "@/components/Hero";
 import { DetailSectionHeading } from "@/components/DetailSectionHeading";
 import { ACTION_LABELLED, FactStrip } from "@/components/DetailKit";
+import { DetailPhonePhoto } from "@/features/places/ui/PlacePhoneParts";
 import { BackLink } from "@/components/BackLink";
 import { ExternalLink } from "@/components/ExternalLink";
 import { SourceCard } from "@/components/SourceCard";
@@ -81,7 +82,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
   return (
     <div>
       {titleTag}
-      <Hero image={image || fallbackImage} fallbackImage={fallbackImage} settled={Boolean(seed.imageUrl)} alt={title} plain surface={panel} className={cn(panel ? PANEL_HERO : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]")}>
+      <Hero image={image || fallbackImage} fallbackImage={fallbackImage} settled={Boolean(seed.imageUrl)} alt={title} plain surface={panel} className={cn("max-lg:hidden", panel ? PANEL_HERO : "h-[42vh] min-h-[260px] sm:h-[48vh] sm:max-h-[440px]")}>
         <div className={cn("absolute inset-x-0 bottom-0", pad, "pb-6")}>
           {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className="shadow-soft max-lg:hidden" />}
           {!panel && d?.genre && <p className="eyebrow text-ink-soft! lg:hidden">{d.genre}</p>}
@@ -97,6 +98,9 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
           )}
         </div>
       </Hero>
+      <DetailPhonePhoto src={image} fallbackSrc={fallbackImage} alt={title} icon={CalendarDays} />
+
+      <h1 className="px-4 pt-5 font-display text-title leading-[1.1] [text-wrap:balance] sm:px-6 lg:hidden">{title}</h1>
 
       <div className={cn(pad, "pt-6 space-y-8")}>
         {loading ? (
@@ -132,7 +136,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                     </div>
                     {dt && d?.doorsTime && displayClockTime(d.doorsTime) !== dt.time && <p className="mt-2 text-sm text-ink-soft">Doors {displayClockTime(d.doorsTime)}</p>}
                     <div className="mt-4 flex items-center gap-2.5">
-                      <div className="min-w-0 flex-1"><AddEventButton primary tripId={tripId} title={title} rawDate={rawDate} showTime={d?.showTime} latitude={d?.latitude} longitude={d?.longitude} /></div>
+                      <div className="flex min-w-0 flex-1"><AddEventButton primary block tripId={tripId} title={title} rawDate={rawDate} showTime={d?.showTime} latitude={d?.latitude} longitude={d?.longitude} /></div>
                       {directionsUrl && (
                         <a href={directionsUrl} target="_blank" rel="noreferrer noopener" className={ACTION_LABELLED}>
                           <Navigation className="size-[1.125rem]" aria-hidden /> Directions

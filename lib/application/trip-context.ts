@@ -314,7 +314,7 @@ export function formatTripMemory(
 
   const itinerary = context.itinerary
     // day_index is 1-based everywhere it's written (add_itinerary_item, placement, the itinerary route).
-    .map((item) => (item.title ? `${item.title}${typeof item.day_index === "number" ? ` (day ${item.day_index})` : ""}${item.locked ? " [locked]" : ""}` : ""))
+    .map((item) => (item.title ? `${item.title}${typeof item.day_index === "number" ? ` (day ${item.day_index}${item.time ? ` at ${item.time}` : ""})` : item.time ? ` (at ${item.time})` : ""}${item.locked ? " [locked]" : ""}` : ""))
     .filter(Boolean);
   const savedPlaces = context.places
     .map((item) => (item.place?.name ? `${item.place.name} [${item.status ?? "saved"}]` : ""))
