@@ -1,8 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { activeFilterCount, directivePatch, initialAdults, nightsBetween, nightsText, overlappingStay, statusFor, stayCompareEntry, stayQueryString, toggled, type StayQuery } from "../../features/stays/domain/stay-search";
+import { activeFilterCount, directivePatch, initialAdults, nightsBetween, nightsText, overlappingStay, stayCompareEntry, stayQueryString, toggled, type StayQuery } from "../../features/stays/domain/stay-search";
 import type { StayOption } from "../../packages/contracts/stay";
 
-const q = (over: Partial<StayQuery> = {}): StayQuery => ({ adults: 2, rooms: 1, sort: "price", near: "", city: "", checkin: "", checkout: "", stars: [], boards: [], propertyTypes: [], refundable: false, priceMax: null, ...over });
+const q = (over: Partial<StayQuery> = {}): StayQuery => ({ adults: 2, rooms: 1, sort: "price", near: "", city: "", checkin: "", checkout: "", stars: [], boards: [], propertyTypes: [], refundable: false, priceMin: null, priceMax: null, ...over });
+
+describe("a price range asked in words", () => {
+  it("keeps both ends, and sends them to the search", () => {
+    expect(directivePatch({ priceMin: 100, priceMax: 200 } as never)).toEqual({ priceMin: 100, priceMax: 200 });
+    const qs = new URLSearchParams(stayQueryString(q({ priceMin: 100, priceMax: 200 })));
+    expect(qs.get("priceMin")).toBe("100");
+    expect(qs.get("priceMax")).toBe("200");
+  });
+  it("replaces the old price whole: a ceiling alone clears an earlier floor", () => {
+    expect(directivePatch({ priceMax: 150 } as never)).toEqual({ priceMin: null, priceMax: 150 });
+    expect(directivePatch({ stars: [4] } as never).priceMin).toBeUndefined();
+  });
+  it("moves the dates when the sentence names them, and only when the stay is a real one", () => {
+    expect(directivePatch({ checkin: "2026-12-10", checkout: "2026-12-14" } as never)).toEqual({ checkin: "2026-12-10", checkout: "2026-12-14" });
+    expect(directivePatch({ checkin: "2026-12-14", checkout: "2026-12-10" } as never)).toEqual({});
+    expect(directivePatch({ checkin: "2026-12-10" } as never)).toEqual({ checkin: "2026-12-10" });
+    expect(directivePatch({ checkin: "2026-12-10", nights: 3 } as never)).toEqual({ checkin: "2026-12-10", nights: 3 });
+    expect(directivePatch({ nights: 2 } as never)).toEqual({ nights: 2 });
+    expect(directivePatch({ checkout: "2026-12-10" } as never)).toEqual({});
+  });
+  it("counts a range as one filter", () => {
+    expect(activeFilterCount(q({ priceMin: 100, priceMax: 200 }))).toBe(1);
+  });
+});
 
 describe("initialAdults", () => {
   it("is the trip's party, from one to 24", () => {
@@ -41,17 +65,10 @@ describe("stayQueryString", () => {
   });
 });
 
-describe("statusFor", () => {
-  it("is empty when there is something to show", () => {
-    expect(statusFor({ options: [{}] as never })).toBe("");
-    expect(statusFor({ options: [] })).toContain("Nothing matched");
-  });
-});
-
 describe("directivePatch", () => {
   it("passes on only what Roam understood", () => {
     expect(directivePatch({})).toEqual({});
-    expect(directivePatch({ location: "Gare", priceMax: 200, stars: [4], boards: ["B"], propertyTypes: ["V"], refundable: false, sort: "stars" } as never)).toEqual({ near: "Gare", priceMax: 200, stars: [4], boards: ["B"], propertyTypes: ["V"], refundable: false, sort: "stars" });
+    expect(directivePatch({ location: "Gare", priceMax: 200, stars: [4], boards: ["B"], propertyTypes: ["V"], refundable: false, sort: "stars" } as never)).toEqual({ near: "Gare", priceMin: null, priceMax: 200, stars: [4], boards: ["B"], propertyTypes: ["V"], refundable: false, sort: "stars" });
   });
   it("ignores empty lists, and keeps party size in range", () => {
     expect(directivePatch({ stars: [], boards: [] } as never)).toEqual({});

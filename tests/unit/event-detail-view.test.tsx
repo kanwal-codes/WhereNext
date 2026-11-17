@@ -39,6 +39,7 @@ vi.mock("@/components/PanelStates", () => ({
 vi.mock("@/components/motion-primitives", () => ({
   Reveal: ({ children }: Any) => <div>{children}</div>, Stagger: ({ children, className }: Any) => <div className={className}>{children}</div>,
   StaggerItem: ({ children }: Any) => <div>{children}</div>, Tactile: ({ children }: Any) => <div>{children}</div>, WordReveal: ({ text }: Any) => <h1>{text}</h1>,
+  // eslint-disable-next-line @next/next/no-img-element
   BlurImage: ({ alt, src }: Any) => <img alt={alt} src={src} />,
 }));
 

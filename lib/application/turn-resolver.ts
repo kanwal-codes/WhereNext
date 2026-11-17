@@ -171,9 +171,9 @@ export function guardDepth(message: string, resolved: ResolvedTurn): ResolvedTur
 /** A nightly price ceiling or star floor the traveller stated reaches the hotel search: the model's plan carried only a place and dates. */
 export function guardStayLimits(message: string, resolved: ResolvedTurn): ResolvedTurn {
   if (!resolved.toolPlan.some((call) => call.tool === "stays")) return resolved;
-  const { priceMax, minStars } = stayLimits(message);
-  if (priceMax === null && minStars === null) return resolved;
-  return { ...resolved, toolPlan: resolved.toolPlan.map((call) => (call.tool === "stays" ? { ...call, priceMax: call.priceMax ?? priceMax, minStars: call.minStars ?? minStars } : call)) };
+  const { priceMin, priceMax, minStars } = stayLimits(message);
+  if (priceMin === null && priceMax === null && minStars === null) return resolved;
+  return { ...resolved, toolPlan: resolved.toolPlan.map((call) => (call.tool === "stays" ? { ...call, priceMin: call.priceMin ?? priceMin, priceMax: call.priceMax ?? priceMax, minStars: call.minStars ?? minStars } : call)) };
 }
 
 export function guardPlanLength(message: string, resolved: ResolvedTurn): ResolvedTurn {
@@ -237,6 +237,7 @@ export const toolCallSchema = z.union([
     checkout: optionalIsoDate,
     hotelName: z.string().trim().max(160).nullable().catch(null),
     /** A nightly ceiling and a star floor the traveller stated; read from their words in code (see constraints.ts), so the model leaves them null. */
+    priceMin: z.number().positive().max(100000).nullable().optional().catch(null),
     priceMax: z.number().positive().max(100000).nullable().optional().catch(null),
     minStars: z.number().int().min(3).max(5).nullable().optional().catch(null),
   }),

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, type RefObject } from "react";
+import { FormEvent, useRef, type RefObject } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowDown } from "lucide-react";
 import { MicButton, SendButton } from "@/components/ComposerButtons";
@@ -30,7 +30,10 @@ export function RoamComposer({ tripId, rail, input, setInput, loaded, guestGate,
   scrollToLatestMessage: () => void;
   textareaRef: RefObject<HTMLTextAreaElement | null>;
 }) {
-  const isMultiline = useAutoGrowTextarea(textareaRef, input);
+  // The single-line width the buttons leave (both only while dictating with text), pinned on a hidden mirror: the box goes multi-line when the text no longer fits THERE,
+  // and once it has, the real field takes the whole width (the buttons are in their own row), as in Gemini's. Decided from a width that never changes, so it cannot flip back and forth.
+  const mirrorRef = useRef<HTMLDivElement>(null);
+  const isMultiline = useAutoGrowTextarea(textareaRef, input, undefined, mirrorRef);
   const canSend = loaded && Boolean(input.trim());
   const micButton = speech.supported && <MicButton listening={speech.listening} disabled={!loaded || sending} onToggle={speech.toggle} hasText={canSend} />;
   const sendOrStopButton = <SendButton canSend={canSend} stopping={sending} onStop={stop} micShown={speech.supported} />;
@@ -101,6 +104,10 @@ export function RoamComposer({ tripId, rail, input, setInput, loaded, guestGate,
               again, wrapping again — the "gets stuck and won't shrink back down" the box
               never actually settled at. */}
           <div className="relative w-full">
+            <div aria-hidden="true" ref={mirrorRef} className={cn("pointer-events-none invisible absolute inset-x-0 top-0 overflow-hidden break-words whitespace-pre-wrap py-2 pr-24 text-base leading-normal", !(speech.listening && canSend) && "max-lg:pr-14")}>
+              {input}
+              {"\u200b"}
+            </div>
             <textarea
               ref={textareaRef}
               id={`${tripId}-roam-composer`}
@@ -119,7 +126,11 @@ export function RoamComposer({ tripId, rail, input, setInput, loaded, guestGate,
               }}
               placeholder={!loaded ? "Loading…" : guestGate ? "Save your trip to keep chatting" : speech.listening ? "Listening…" : sending ? "Type your next message…" : "Ask about your trip…"}
               disabled={!loaded || guestGate}
-              className="block max-h-[96px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent py-2 pr-24 text-base leading-normal outline-none transition-[height] duration-150 ease-out placeholder:text-muted-foreground disabled:opacity-60"
+              className={cn(
+                "block max-h-[96px] w-full resize-none overflow-y-auto scrollbar-slim bg-transparent py-2 pr-24 text-base leading-normal outline-none transition-[height] duration-150 ease-out placeholder:text-muted-foreground disabled:opacity-60",
+                // Beside the buttons only that much is kept clear (on a phone one 44px button stands at the right at a time; both show while dictating). Below them, none.
+                isMultiline ? "pr-3 max-lg:pr-3" : speech.listening && canSend ? "max-lg:pr-24" : "max-lg:pr-14",
+              )}
             />
             {!isMultiline && (
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center gap-1">

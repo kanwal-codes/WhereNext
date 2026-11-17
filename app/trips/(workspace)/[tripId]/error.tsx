@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { EmptyState } from "@/components/EmptyState";
+import { SectionError } from "@/components/SectionError";
 
 /**
  * Catches anything the finer-grained `(animated)/error.tsx` doesn't reach — notably a crash
@@ -14,11 +14,5 @@ export default function TripSectionError({ error, reset }: { error: Error & { di
     console.error(error);
   }, [error]);
 
-  return (
-    <div className="mx-auto w-full min-w-0 max-w-5xl px-4 py-10 sm:px-8">
-      <EmptyState action={<button onClick={reset} className="btn-primary-sm">Try again</button>}>
-        This trip view hit an unexpected error.
-      </EmptyState>
-    </div>
-  );
+  return <SectionError what="this page" digest={error.digest} reset={reset} />;
 }

@@ -23,7 +23,7 @@ export type StayCardData = {
 };
 
 /** Phone redesign: a stay as a wide photo with its name, score and price under it, like the Roam stays widget. */
-function PhoneStayCard({ stay, href, onOpen, locked, comparing, selected }: { stay: StayCardData; href: string; onOpen: () => void; locked: boolean; comparing: boolean; selected: boolean }) {
+function PhoneStayCard({ stay, href, onOpen, locked, comparing, selected, nights, pricing }: { stay: StayCardData; href: string; onOpen: () => void; locked: boolean; comparing: boolean; selected: boolean; nights?: number; pricing?: boolean }) {
   const kind = stay.propertyType && stay.propertyType !== "Hotel" ? stay.propertyType : null;
   const rated = typeof stay.rating === "number" && stay.rating > 0;
   const line = [kind, typeof stay.stars === "number" && stay.stars > 0 ? `${stay.stars}-star` : null, stay.boardName].filter(Boolean).join(" · ");
@@ -55,10 +55,16 @@ function PhoneStayCard({ stay, href, onOpen, locked, comparing, selected }: { st
             {line && <span className="min-w-0 truncate">{line}</span>}
           </p>
         </div>
-        {stay.nightlyAmount > 0 ? (
+        {pricing ? (
+          // The dates or party changed: the old price would be for other nights, so a shimmer holds its place until the new one arrives.
+          <div aria-hidden className="shrink-0 space-y-2 pt-1">
+            <span className="skeleton ml-auto block h-5 w-16 rounded-md" />
+            <span className="skeleton ml-auto block h-3 w-24 rounded-md" />
+          </div>
+        ) : stay.nightlyAmount > 0 ? (
           <p className="shrink-0 text-right">
             <span className="block font-display text-lg leading-snug font-medium whitespace-nowrap tabular-nums">{money(stay.nightlyAmount, stay.currency)}</span>
-            <span className="block text-xs text-muted-foreground tabular-nums">{stay.totalAmount ? `${money(stay.totalAmount, stay.currency)} total` : "/ night"}</span>
+            <span className="block text-xs text-muted-foreground tabular-nums">{stay.totalAmount ? `${money(stay.totalAmount, stay.currency)} ${nights && nights > 0 ? `for ${nights} ${nights === 1 ? "night" : "nights"}` : "total"}` : "/ night"}</span>
           </p>
         ) : (
           <p className="shrink-0 text-right text-xs text-muted-foreground">Price unavailable</p>
@@ -73,7 +79,7 @@ function PhoneStayCard({ stay, href, onOpen, locked, comparing, selected }: { st
  * "CA$230 / night" and the details button look identical on every screen. Only its state differs: the
  * stay the group has locked, and the compare picker.
  */
-export function StayResultCard({ stay, href, onOpen, locked = false, comparing = false, selected = false, phoneRow = false }: { stay: StayCardData; href: string; onOpen: () => void; locked?: boolean; comparing?: boolean; selected?: boolean; /** A horizontal card on a phone (the Stay page's long list). */ phoneRow?: boolean }) {
+export function StayResultCard({ stay, href, onOpen, locked = false, comparing = false, selected = false, phoneRow = false, nights, pricing = false }: { stay: StayCardData; nights?: number; /** The dates or party changed and the prices are being looked up again: the old ones are not shown. */ pricing?: boolean; href: string; onOpen: () => void; locked?: boolean; comparing?: boolean; selected?: boolean; /** A horizontal card on a phone (the Stay page's long list). */ phoneRow?: boolean }) {
   const kind = stay.propertyType && stay.propertyType !== "Hotel" ? stay.propertyType : null;
   const card = (
     <CineCard
@@ -103,11 +109,16 @@ export function StayResultCard({ stay, href, onOpen, locked = false, comparing =
           </>
         ) : undefined
       }
-      foot={stay.nightlyAmount > 0 ? (
+      foot={pricing ? (
+        <div aria-hidden className="space-y-2 pt-1">
+          <span className="block h-7 w-28 animate-pulse rounded-md bg-white/25" />
+          <span className="block h-3 w-24 animate-pulse rounded-md bg-white/15" />
+        </div>
+      ) : stay.nightlyAmount > 0 ? (
         <p className="flex flex-wrap items-baseline gap-x-1.5">
           <FitText className="max-w-full font-display text-title leading-none font-medium tracking-[-0.025em] tabular-nums">{money(stay.nightlyAmount, stay.currency)}</FitText>
           <span className="text-xs text-white/70">/ night</span>
-          {stay.totalAmount ? <span className="w-full pt-0.5 text-xs text-white/60 tabular-nums">{money(stay.totalAmount, stay.currency)} total</span> : null}
+          {stay.totalAmount ? <span className="w-full pt-0.5 text-xs text-white/60 tabular-nums">{money(stay.totalAmount, stay.currency)} {nights && nights > 0 ? `for ${nights} ${nights === 1 ? "night" : "nights"}` : "total"}</span> : null}
         </p>
       ) : (
         <p className="text-xs text-white/75">Price unavailable for these dates</p>
@@ -132,7 +143,7 @@ export function StayResultCard({ stay, href, onOpen, locked = false, comparing =
   if (!(phoneRow)) return card;
   return (
     <>
-      <div className="lg:hidden"><PhoneStayCard stay={stay} href={href} onOpen={onOpen} locked={locked} comparing={comparing} selected={selected} /></div>
+      <div className="lg:hidden"><PhoneStayCard stay={stay} href={href} onOpen={onOpen} locked={locked} comparing={comparing} selected={selected} nights={nights} pricing={pricing} /></div>
       <div className="max-lg:hidden">{card}</div>
     </>
   );

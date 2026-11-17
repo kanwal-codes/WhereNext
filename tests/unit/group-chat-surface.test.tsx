@@ -769,6 +769,29 @@ describe("GroupChatSurface: the box", () => {
 
 });
 
+describe("GroupChatSurface: telling a phone how to react", () => {
+  const touch = () => { window.matchMedia = ((q: string) => ({ matches: q.includes("coarse"), media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, onchange: null, dispatchEvent: () => false })) as never; };
+
+  it("says once, on a phone, to hold a message or double-tap it, and not again after it is put away", async () => {
+    try { window.localStorage.removeItem("group-chat:react-hint"); } catch { /* */ }
+    touch();
+    const { user, unmount } = await open();
+    const hint = await screen.findByText(/Hold a message to react/, undefined, { timeout: 8000 });
+    expect(hint.textContent).toContain("double-tap for ❤️");
+    await user.click(screen.getByRole("button", { name: "Got it" }));
+    // Put away once, it is remembered on this device: that is what keeps it from showing again (the pill itself fades out, which jsdom does not always finish).
+    await waitFor(() => expect(window.localStorage.getItem("group-chat:react-hint")).toBe("1"));
+    unmount();
+  });
+
+  it("says nothing on a screen with a mouse, which has the hover button", async () => {
+    try { window.localStorage.removeItem("group-chat:react-hint"); } catch { /* */ }
+    await open();
+    await new Promise((r) => setTimeout(r, 1800));
+    expect(screen.queryByText(/Hold a message to react/)).toBeNull();
+  });
+});
+
 describe("GroupChatSurface: holding a message", () => {
   const bubbleOf = (text: string) => screen.getByText(text).closest("[title]") as HTMLElement;
 
@@ -780,16 +803,56 @@ describe("GroupChatSurface: holding a message", () => {
     expect(posts("/group-chat/1/reactions")[0].body).toEqual({ emoji: "❤️" });
   });
 
+  it("keeps the browser's own menu from answering a hold on a phone, and copies from the bar instead", async () => {
+    window.matchMedia = ((q: string) => ({ matches: q.includes("coarse"), media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, onchange: null, dispatchEvent: () => false })) as never;
+    const { user } = await open();
+    const bubble = bubbleOf("Who is up for tapas?");
+    expect(fireEvent.contextMenu(bubble)).toBe(false); // preventDefault was called: nothing native opens over the reactions
+    fireEvent.pointerDown(bubble, { pointerType: "touch" });
+    await user.click(await screen.findByRole("button", { name: "Copy message" }, { timeout: 2000 }));
+    await waitFor(async () => expect(await navigator.clipboard.readText()).toBe("Who is up for tapas?"));
+  });
+
+  it("likes a message with a double tap: a heart, no menu", async () => {
+    await open();
+    const bubble = bubbleOf("Who is up for tapas?");
+    fireEvent.pointerDown(bubble, { pointerType: "touch" });
+    fireEvent.pointerUp(bubble, { pointerType: "touch" });
+    fireEvent.pointerDown(bubble, { pointerType: "touch" });
+    fireEvent.pointerUp(bubble, { pointerType: "touch" });
+    await waitFor(() => expect(posts("/group-chat/1/reactions")[0]?.body).toEqual({ emoji: "❤️" }));
+    expect(screen.queryByRole("button", { name: "React 👍" })).toBeNull();
+    // Two taps far apart are two taps, not a like.
+    await new Promise((r) => setTimeout(r, 450));
+    fireEvent.pointerDown(bubble, { pointerType: "touch" });
+    fireEvent.pointerUp(bubble, { pointerType: "touch" });
+    await new Promise((r) => setTimeout(r, 400));
+    fireEvent.pointerDown(bubble, { pointerType: "touch" });
+    fireEvent.pointerUp(bubble, { pointerType: "touch" });
+    expect(posts("/group-chat/1/reactions")).toHaveLength(1);
+  });
+
   it("does nothing if the finger moves or lifts first, or for a mouse", async () => {
     await open();
     const bubble = bubbleOf("Who is up for tapas?");
     fireEvent.pointerDown(bubble, { pointerType: "touch" });
     fireEvent.pointerMove(bubble, { pointerType: "touch" });
+    await new Promise((r) => setTimeout(r, 350));
     fireEvent.pointerDown(bubble, { pointerType: "touch" });
     fireEvent.pointerUp(bubble, { pointerType: "touch" });
     fireEvent.pointerDown(bubble, { pointerType: "mouse" });
     await new Promise((r) => setTimeout(r, 600));
     expect(screen.queryByRole("button", { name: "React 👍" })).toBeNull();
+  });
+
+  it("adds a one-tap way to react next to the reactions a message already has", async () => {
+    const { user } = await open();
+    expect(screen.getAllByRole("button", { name: "Add reaction" })).toHaveLength(2);
+    await user.click(screen.getAllByRole("button", { name: "Add reaction" })[0]);
+    await user.click(screen.getByRole("button", { name: "React 👍" }));
+    await screen.findByRole("button", { name: "👍 1, you reacted" });
+    // The message that was reacted to now has the chip beside its reaction as well as the hover trigger.
+    expect(screen.getAllByRole("button", { name: "Add reaction" }).length).toBeGreaterThan(2);
   });
 
   it("closes the reaction bar when something else is tapped", async () => {

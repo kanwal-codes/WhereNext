@@ -1,12 +1,40 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AiSearchDirective } from "@/lib/application/ai-search";
-import { cachedGet } from "@/lib/client/cached-get";
 import { readSessionCache, writeSessionCache } from "@/lib/client/session-cache";
-import { SEARCH_FAILED, directivePatch, initialAdults, statusFor, stayQueryString, type StaySearchResult, type StaySort } from "@/features/stays/domain/stay-search";
+import { applyStayFilters, hasStayFilters, type StayFilters } from "@/packages/contracts/stay-filter";
+import { addDaysIso } from "@/lib/application/stay-ask";
+import { DEEP_BELOW, directivePatch, nightsBetween, initialAdults, staySearchError, stayQueryString, type StaySearchError, type StaySearchResult, type StaySort } from "@/features/stays/domain/stay-search";
+
+/** After this long a search says it is slow, instead of leaving the reader to wonder. */
+const SLOW_MS = 8_000;
+const KEEP_MS = 5 * 60_000;
+
+type Remembered = {
+  startKey: string; checkin: string; checkout: string; adults: number; rooms: number;
+  stars: number[]; boards: string[]; propertyTypes: string[]; refundable: boolean; priceMin: number | null; priceMax: number | null; sort: StaySort; near: string;
+};
+
+/** What this tab last searched for on this trip, so coming back (the back button, a reload) puts the screen as it was left. */
+function recall(tripId: string, startKey: string): Partial<Remembered> | null {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(`stay-state:${tripId}`) ?? "null") as Remembered | null;
+    if (!saved) return null;
+    const today = new Date().toLocaleDateString("en-CA");
+    // Dates are only kept while they are the same trip dates they were chosen against, and still ahead.
+    const datesOk = saved.startKey === startKey && saved.checkout >= today;
+    return datesOk ? saved : { ...saved, checkin: undefined, checkout: undefined };
+  } catch {
+    return null;
+  }
+}
 
 /**
  * The Stay screen's search: the dates, party and filters, and the hotels they find. A multi-city trip is searched one city at a time, for the
  * nights spent there; picking another city moves the search with it.
+ *
+ * Two kinds of choice live here. The place, dates and party need the hotel sites: changing them searches again. The filters and the order only
+ * choose among the hotels already priced, so they are applied here at once, with no request (see `applyStayFilters`); only when they leave
+ * too few of a capped first page does a deeper search with them go out.
  */
 export function useStaySearch({ tripId, start, travelers, city, hasChoice, cityWindow }: {
   tripId: string;
@@ -17,23 +45,36 @@ export function useStaySearch({ tripId, start, travelers, city, hasChoice, cityW
   hasChoice: boolean;
   cityWindow: { checkin: string; checkout: string } | null;
 }) {
-  const [checkin, setCheckin] = useState(start.checkin);
-  const [checkout, setCheckout] = useState(start.checkout);
-  const [adults, setAdults] = useState(initialAdults(travelers));
-  const [rooms, setRooms] = useState(1);
-  const [stars, setStars] = useState<number[]>([]);
-  const [boards, setBoards] = useState<string[]>([]);
-  const [propertyTypes, setPropertyTypes] = useState<string[]>([]);
-  const [refundable, setRefundable] = useState(false);
-  const [priceMax, setPriceMax] = useState<number | null>(null);
-  const [sort, setSort] = useState<StaySort>("price");
-  const [near, setNear] = useState(""); // AI "hotels near X" — overrides the destination anchor
+  const startKey = `${start.checkin}|${start.checkout}`;
+  const [saved] = useState(() => (typeof window === "undefined" ? null : recall(tripId, startKey)));
+  const [checkin, setCheckin] = useState(saved?.checkin ?? start.checkin);
+  const [checkout, setCheckout] = useState(saved?.checkout ?? start.checkout);
+  const [adults, setAdults] = useState(saved?.adults ?? initialAdults(travelers));
+  const [rooms, setRooms] = useState(saved?.rooms ?? 1);
+  const [stars, setStars] = useState<number[]>(saved?.stars ?? []);
+  const [boards, setBoards] = useState<string[]>(saved?.boards ?? []);
+  const [propertyTypes, setPropertyTypes] = useState<string[]>(saved?.propertyTypes ?? []);
+  const [refundable, setRefundable] = useState(saved?.refundable ?? false);
+  const [priceMin, setPriceMin] = useState<number | null>(saved?.priceMin ?? null);
+  const [priceMax, setPriceMax] = useState<number | null>(saved?.priceMax ?? null);
+  const [sort, setSort] = useState<StaySort>(saved?.sort ?? "price");
+  const [near, setNear] = useState(saved?.near ?? ""); // AI "hotels near X" — overrides the destination anchor
 
-  const [result, setResult] = useState<StaySearchResult | null>(null);
-  const [status, setStatus] = useState("");
+  const [base, setBase] = useState<StaySearchResult | null>(null);
+  const [basePlace, setBasePlace] = useState("");
+  const [deep, setDeep] = useState<{ key: string; result: StaySearchResult } | null>(null);
+  const [error, setError] = useState<StaySearchError | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deepening, setDeepening] = useState(false);
+  const [slow, setSlow] = useState(false);
   const reqId = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(`stay-state:${tripId}`, JSON.stringify({ startKey, checkin, checkout, adults, rooms, stars, boards, propertyTypes, refundable, priceMin, priceMax, sort, near } satisfies Remembered));
+    } catch { /* storage blocked: the screen just starts fresh next time */ }
+  }, [tripId, startKey, checkin, checkout, adults, rooms, stars, boards, propertyTypes, refundable, priceMin, priceMax, sort, near]);
 
   // Picking another city moves the search to that city and the nights spent there.
   const lastCity = useRef(city);
@@ -47,57 +88,95 @@ export function useStaySearch({ tripId, start, travelers, city, hasChoice, cityW
     }
   }, [city, hasChoice, cityWindow]);
 
-  const search = useCallback(async () => {
+  const filters = useMemo<StayFilters>(
+    () => ({ starRatings: stars, boards, refundableOnly: refundable, priceMin: priceMin ?? undefined, priceMax: priceMax ?? undefined, propertyTypes, sort }),
+    [stars, boards, refundable, priceMin, priceMax, propertyTypes, sort],
+  );
+  const filterKey = JSON.stringify(filters);
+  // The search itself: place, dates and party. No filter and no order in it, so one answer serves every filter the reader tries.
+  const placeNow = `${near}|${hasChoice ? city : ""}`;
+  const baseQs = stayQueryString({ adults, rooms, sort: "price", near, city: hasChoice ? city : "", checkin, checkout, stars: [], boards: [], propertyTypes: [], refundable: false, priceMin: null, priceMax: null });
+
+  const search = useCallback(async (fresh = false) => {
     const mine = ++reqId.current;
-    // Cancel a still-in-flight prior search instead of just ignoring its response — otherwise
-    // rapid filter changes (stars, boards, dates) kept every earlier request running against the
-    // hotel provider for nothing, same fix DiscoverySurface already has for its own searches.
+    // Cancel a still-in-flight prior search instead of just ignoring its response: rapid changes of dates kept every earlier request
+    // running against the hotel provider for nothing.
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
     setLoading(true);
-    setStatus("");
+    setError(null);
+    const slowTimer = window.setTimeout(() => { if (mine === reqId.current) setSlow(true); }, SLOW_MS);
     try {
-      const qs = stayQueryString({ adults, rooms, sort, near, city: hasChoice ? city : "", checkin, checkout, stars, boards, propertyTypes, refundable, priceMax });
-      const cacheKey = `stay-search:${tripId}:${qs}`;
-      const cachedResult = readSessionCache<StaySearchResult>(cacheKey, 5 * 60_000);
+      const cacheKey = `stay-search:v2:${tripId}:${baseQs}`;
+      const cachedResult = fresh ? undefined : readSessionCache<StaySearchResult>(cacheKey, KEEP_MS);
       if (cachedResult) {
-        if (mine !== reqId.current) return;
-        setResult(cachedResult);
-        setStatus(statusFor(cachedResult));
+        if (mine === reqId.current) { setBase(cachedResult); setBasePlace(placeNow); }
         return;
       }
-
-      const response = await cachedGet(`/api/trips/${tripId}/stays?${qs}`, { signal: controller.signal });
-      const body = await response.json();
+      const response = await fetch(`/api/trips/${tripId}/stays?${baseQs}`, { signal: controller.signal });
+      const body = await response.json().catch(() => null);
       if (mine !== reqId.current) return;
-      if (!response.ok) {
-        setResult(null);
-        setStatus(SEARCH_FAILED);
+      if (!response.ok || !body) {
+        // What was already on screen stays there: a failed refresh must not wipe a list the reader was using.
+        setError(staySearchError("unavailable"));
         return;
       }
-      const next = body as StaySearchResult;
-      writeSessionCache(cacheKey, next);
-      setResult(next);
-      setStatus(statusFor(next));
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      if (mine === reqId.current) {
-        setResult(null);
-        setStatus(SEARCH_FAILED);
-      }
+      writeSessionCache(cacheKey, body as StaySearchResult);
+      setBase(body as StaySearchResult);
+      setBasePlace(placeNow);
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      if (mine === reqId.current) setError(staySearchError(typeof navigator !== "undefined" && navigator.onLine === false ? "offline" : e instanceof TypeError ? "offline" : "unavailable"));
     } finally {
-      if (mine === reqId.current) setLoading(false);
+      window.clearTimeout(slowTimer);
+      if (mine === reqId.current) { setLoading(false); setSlow(false); }
     }
-  }, [tripId, adults, rooms, sort, checkin, checkout, stars, boards, propertyTypes, refundable, priceMax, near, hasChoice, city]);
+  }, [tripId, baseQs, placeNow]);
 
   useEffect(() => {
     void search();
   }, [search]);
 
+  // What the filters leave of the hotels already priced: at once, with no request.
+  const local = useMemo(() => (base ? applyStayFilters(base.options, filters) : []), [base, filters]);
+  const deepKey = `${baseQs}|${filterKey}`;
+  const deepUsable = deep?.key === deepKey;
+  const needsDeeper = Boolean(base?.capped && hasStayFilters(filters) && local.length < DEEP_BELOW && !deepUsable);
+
+  useEffect(() => {
+    if (!needsDeeper) { setDeepening(false); return; }
+    const controller = new AbortController();
+    setDeepening(true);
+    // A beat after the last change, so dragging a price slider does not send a search per notch.
+    const timer = window.setTimeout(async () => {
+      try {
+        const qs = stayQueryString({ adults, rooms, sort, near, city: hasChoice ? city : "", checkin, checkout, stars, boards, propertyTypes, refundable, priceMin, priceMax });
+        const response = await fetch(`/api/trips/${tripId}/stays?${qs}&deep=1`, { signal: controller.signal });
+        if (!response.ok) return;
+        setDeep({ key: deepKey, result: (await response.json()) as StaySearchResult });
+      } catch { /* the first page's matches stay as they are */ } finally {
+        if (!controller.signal.aborted) setDeepening(false);
+      }
+    }, 450);
+    return () => { controller.abort(); window.clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deepKey stands for every query input here
+  }, [needsDeeper, deepKey, tripId]);
+
+  const result = useMemo<StaySearchResult | null>(() => (base ? { ...base, total: base.total ?? base.options.length, options: deepUsable ? deep!.result.options : local } : null), [base, deepUsable, deep, local]);
+
   function applyDirective(d: AiSearchDirective) {
     const patch = directivePatch(d);
     if (patch.near !== undefined) setNear(patch.near);
+    if (patch.checkin && patch.checkout) { setCheckin(patch.checkin); setCheckout(patch.checkout); }
+    else if (patch.checkin || patch.nights) {
+      // Only the start was named (or only the length): the stay keeps the length it had, or the one asked for.
+      // With no dates chosen yet, the length counts from the dates the list was priced for.
+      const from = patch.checkin ?? (checkin || base?.checkin || "");
+      const length = patch.nights ?? (nightsBetween(checkin, checkout) || 1);
+      if (from) { setCheckin(from); setCheckout(addDaysIso(from, length)); }
+    }
+    if (patch.priceMin !== undefined) setPriceMin(patch.priceMin);
     if (patch.priceMax !== undefined) setPriceMax(patch.priceMax);
     if (patch.stars) setStars(patch.stars);
     if (patch.boards) setBoards(patch.boards);
@@ -113,12 +192,13 @@ export function useStaySearch({ tripId, start, travelers, city, hasChoice, cityW
     setBoards([]);
     setPropertyTypes([]);
     setRefundable(false);
+    setPriceMin(null);
     setPriceMax(null);
   };
 
   return {
     checkin, setCheckin, checkout, setCheckout, adults, setAdults, rooms, setRooms,
-    stars, setStars, boards, setBoards, propertyTypes, setPropertyTypes, refundable, setRefundable, priceMax, setPriceMax, sort, setSort, near, setNear,
-    result, status, loading, search, applyDirective, clearFilters,
+    stars, setStars, boards, setBoards, propertyTypes, setPropertyTypes, refundable, setRefundable, priceMin, setPriceMin, priceMax, setPriceMax, sort, setSort, near, setNear,
+    result, error, loading, slow, deepening, pricing: loading && Boolean(base) && basePlace === placeNow, placeChanged: loading && Boolean(base) && basePlace !== placeNow, search, applyDirective, clearFilters,
   };
 }

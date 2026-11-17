@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { generateStructured } from "@/packages/ai/model-policy";
+import { readStayAsk, stayAskNeedsModel } from "./stay-ask";
 
 export type AiSearchScope = "stays" | "discover" | "getting-around";
 
@@ -16,14 +17,20 @@ const aiSearchDirectiveSchema = z.object({
   categories: z.array(z.string().max(40)).max(4).optional().catch(undefined),
   subChips: z.array(z.string().max(40)).max(8).optional().catch(undefined),
   freeText: z.string().max(160).optional().catch(undefined),
+  checkin: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().catch(undefined),
+  checkout: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().catch(undefined),
+  priceMin: z.number().positive().max(100000).optional().catch(undefined),
   priceMax: z.number().positive().max(100000).optional().catch(undefined),
   stars: z.array(z.number().int().min(1).max(5)).optional().catch(undefined),
   boards: z.array(z.string().max(40)).optional().catch(undefined),
   propertyTypes: z.array(z.string().max(40)).optional().catch(undefined),
   refundable: z.boolean().optional().catch(undefined),
-  sort: z.enum(["price", "rating", "stars"]).optional().catch(undefined),
+  sort: z.enum(["price", "price_desc", "rating", "stars"]).optional().catch(undefined),
+  nights: z.number().int().min(1).max(60).optional().catch(undefined),
   adults: z.number().int().min(1).max(24).optional().catch(undefined),
   rooms: z.number().int().min(1).max(8).optional().catch(undefined),
+  /** Part of the sentence needed the model and it could not answer: what the code read was applied, the rest was not. */
+  unread: z.boolean().optional().catch(undefined),
 });
 export type AiSearchDirective = z.infer<typeof aiSearchDirectiveSchema>;
 
@@ -37,7 +44,8 @@ Always include a short "interpretation" (max ~15 words) restating what you under
 Trip destination: ${ctx.destination || "unknown"}.
 Keys you may use:
 - location: a specific place the hotel should be near ("near Palais des congrès", "close to YUL airport", "walking distance to the old town"). Put the place name here, add the city if the sentence implies it.
-- priceMax (number, nightly), stars (array 1-5), refundable (boolean), sort ("price" | "rating" | "stars"), adults (int), rooms (int), boards (array like ["Breakfast included"]).
+- priceMin and priceMax (numbers, nightly): "under 150" is priceMax 150, "over 100" or "from 100" is priceMin 100, and "between 100 and 200" is both (priceMin 100, priceMax 200). Never put a range into priceMax alone.
+- stars (array 1-5), refundable (boolean), sort ("price" | "price_desc" | "rating" | "stars"; price_desc is most expensive first), adults (int), rooms (int), boards (array like ["Breakfast included"]).
 - propertyTypes (array like ["Apartment", "Villa", "Guest house"]) — only when they name a stay type instead of "hotel".`;
   }
   if (scope === "discover") {
@@ -68,6 +76,8 @@ export function plainDiscoverQuery(query: string): AiSearchDirective | null {
   return { freeText: text, interpretation: `Searching for “${text}”` };
 }
 
+const MODEL_WAIT_MS = 9_000;
+
 /** One structured model call: free-text search -> a typed directive. Never throws; returns {} on failure. */
 export async function parseAiSearch(
   scope: AiSearchScope,
@@ -79,8 +89,15 @@ export async function parseAiSearch(
     const plain = plainDiscoverQuery(query);
     if (plain) return plain;
   }
+  // What the words themselves fix about a hotel search (the dates, the price range) is read in code and wins over the model's reading of it.
+  const said = scope === "stays" ? readStayAsk(query, new Date().toISOString().slice(0, 10)) : {};
+  // A sentence this code reads whole (dates, prices, an order, stars, guests) has nothing left to ask a model.
+  if (scope === "stays" && Object.keys(said).length && !stayAskNeedsModel(query)) return { ...said, interpretation: "Applied what you asked" };
+  // A slow model must not leave the bar waiting: after this long what the words themselves said is applied, and the box is free again.
+  const wait = AbortSignal.timeout(MODEL_WAIT_MS);
+  signal = signal ? AbortSignal.any([signal, wait]) : wait;
   try {
-    return await generateStructured(
+    const model = await generateStructured(
       "resolve",
       [
         { role: "system", content: prompt(scope, ctx) },
@@ -89,7 +106,9 @@ export async function parseAiSearch(
       aiSearchDirectiveSchema,
       signal,
     );
+    // A model that put a range in one field must not leave its old half behind.
+    return { ...(said.priceMin !== undefined || said.priceMax !== undefined ? { ...model, priceMin: undefined, priceMax: undefined } : model), ...said };
   } catch {
-    return {};
+    return Object.keys(said).length ? { ...said, ...(stayAskNeedsModel(query) ? { unread: true } : {}) } : { unread: true };
   }
 }

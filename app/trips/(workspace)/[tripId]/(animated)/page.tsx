@@ -29,7 +29,7 @@ import { daysUntilTrip, tripDayIndex, tripWhen } from "@/lib/trip-dates";
 import { RoutePanel } from "@/components/overview/RoutePanel";
 import { SettleUpNotice } from "@/components/overview/SettleUpNotice";
 import { useTripStays } from "@/features/stays/application/useTripStays";
-import { effectiveStops } from "@/lib/trip-stops";
+import { effectiveStops, stopsKicker } from "@/lib/trip-stops";
 import { budgetLabel, openQuestions, placePhotoName, planDays, tastePicture } from "@/lib/trip-overview";
 import { readStayDecision } from "@/packages/contracts/stay";
 import { cn } from "@/lib/utils";
@@ -143,7 +143,7 @@ export default function TripOverviewPage() {
         <OverviewHero
           trip={cover}
           destination={destination}
-          kicker={route.stops.length > 1 ? `${route.stops.length} cities` : undefined}
+          kicker={stopsKicker(route.stops)}
           statusText={statusText}
           facts={facts}
           rename={{ editing: editingName, draft: nameDraft, saving: savingName, start: startEditingName, setDraft: setNameDraft, save: () => void saveName(), cancel: () => setEditingName(false) }}

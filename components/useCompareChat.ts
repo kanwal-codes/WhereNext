@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useGuest } from "@/features/identity/ui/GuestProvider";
-import { chatItems } from "@/components/tripPanelLogic";
+import { chatItems, placeChatItem } from "@/components/tripPanelLogic";
+import { fetchPlaceDetails } from "@/features/places/application/placeDetailsCache";
 import type { CompareEntry, PanelState } from "@/components/TripPanelProvider";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -8,7 +9,14 @@ type ChatMessage = { role: "user" | "assistant"; content: string };
 /** The question auto-asked the moment a fresh comparison opens — never shown as a "user" bubble
  *  since the traveller didn't type it; only Roam's answer to it is worth displaying. */
 export const COMPARE_VERDICT_PROMPT = "Which of these should I pick, and why? One short paragraph.";
-const FAILED = "Roam couldn’t answer just now. Try again in a moment.";
+export const FAILED = "Roam couldn’t answer just now. Try again in a moment.";
+
+/** What the chat is told about what is open. A place goes with its own page's facts (the details are already on their way or in the session's cache); the wait for them is short, and without them the name alone is sent. */
+async function itemsFor(panel: PanelState, compareList: CompareEntry[], tripId: string) {
+  if (panel.kind !== "place") return chatItems(panel, compareList);
+  const body = await Promise.race([fetchPlaceDetails(tripId, panel.placeId), new Promise<null>((r) => setTimeout(() => r(null), 1500))]).catch(() => null);
+  return [placeChatItem(panel.name, body?.place)];
+}
 
 /** The panel's scratch chat: scoped to what the panel shows, with Roam's take auto-asked on a fresh comparison. */
 export function useCompareChat({ panel, shown, compareList, tripId, subjectKey }: {
@@ -64,7 +72,7 @@ export function useCompareChat({ panel, shown, compareList, tripId, subjectKey }
       const res = await fetch(`/api/trips/${tripId}/compare-chat`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ items: chatItems(panel, compareList), messages: [...history, { role: "user", content: q }] }),
+        body: JSON.stringify({ items: await itemsFor(panel, compareList, tripId), messages: [...history, { role: "user", content: q }] }),
         signal,
       });
       if (!res.ok || !res.body) throw new Error("compare-chat");
@@ -94,5 +102,14 @@ export function useCompareChat({ panel, shown, compareList, tripId, subjectKey }
   const verdictFailed = verdictMsg?.content === FAILED;
   const retryVerdict = () => { setChat([]); void ask(COMPARE_VERDICT_PROMPT, []); };
 
-  return { chat, input, setInput, sending, ask, clear: () => setChat([]), verdictMsg, verdictFailed, retryVerdict };
+  /** Asks the last question again, after an answer that failed. */
+  const retryLast = () => {
+    const lastQuestion = [...chat].reverse().find((m) => m.role === "user")?.content;
+    if (!lastQuestion) return;
+    const before = chat.slice(0, chat.findLastIndex((m) => m.role === "user"));
+    setChat(before);
+    void ask(lastQuestion, before.filter((m) => m.content.trim() && m.content !== FAILED));
+  };
+
+  return { chat, input, setInput, sending, ask, clear: () => setChat([]), verdictMsg, verdictFailed, retryVerdict, retryLast };
 }

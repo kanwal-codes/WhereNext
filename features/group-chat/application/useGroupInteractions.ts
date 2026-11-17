@@ -5,6 +5,9 @@ import type { GroupMessage } from "../domain/message";
 import { postJson } from "./postJson";
 
 const LONG_PRESS_MS = 450;
+/** Two touches on one bubble this close together are a double tap. */
+const DOUBLE_TAP_MS = 300;
+const QUICK_REACTION = "❤️";
 
 /**
  * What a member does to a message in the thread: react (the inline bar, or a long press on touch), vote on a poll, start a poll.
@@ -14,6 +17,9 @@ export function useGroupInteractions({ tripId, setMessages, refresh }: { tripId:
   const [expandedReactionFor, setExpandedReactionFor] = useState<string | null>(null);
   const [pressingId, setPressingId] = useState<string | null>(null);
   const [pendingVoteFor, setPendingVoteFor] = useState<string | null>(null);
+  // The message a double tap just liked, for the heart that pops over it.
+  const [likedId, setLikedId] = useState<string | null>(null);
+  const lastTap = useRef<{ id: string; at: number } | null>(null);
   // Guards against the server-side toggle race: a delete-then-insert isn't atomic, so two
   // near-simultaneous taps on the same (message, emoji) can both see "not reacted yet" and
   // both insert, or the second can re-add what the first just removed. Blocking a second
@@ -84,6 +90,18 @@ export function useGroupInteractions({ tripId, setMessages, refresh }: { tripId:
   // so this never fires for a click.
   function onBubblePressStart(event: ReactPointerEvent, messageId: string) {
     if (event.pointerType !== "touch") return;
+    // A second touch on the same bubble, straight after the first: the quick like, with no menu to open.
+    const now = Date.now();
+    if (lastTap.current && lastTap.current.id === messageId && now - lastTap.current.at < DOUBLE_TAP_MS) {
+      lastTap.current = null;
+      if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; }
+      try { navigator.vibrate?.(8); } catch { /* no-op */ }
+      setLikedId(messageId);
+      window.setTimeout(() => setLikedId((current) => (current === messageId ? null : current)), 700);
+      void toggleReaction(messageId, QUICK_REACTION);
+      return;
+    }
+    lastTap.current = { id: messageId, at: now };
     pressMoved.current = false;
     setPressingId(messageId);
     pressTimer.current = setTimeout(() => {
@@ -112,5 +130,5 @@ export function useGroupInteractions({ tripId, setMessages, refresh }: { tripId:
     onBubblePressEnd();
   }
 
-  return { expandedReactionFor, setExpandedReactionFor, pressingId, pendingVoteFor, createPoll, castVote, toggleReaction, onBubblePressStart, onBubblePressEnd, onBubblePressMove };
+  return { expandedReactionFor, setExpandedReactionFor, pressingId, likedId, pendingVoteFor, createPoll, castVote, toggleReaction, onBubblePressStart, onBubblePressEnd, onBubblePressMove };
 }

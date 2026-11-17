@@ -1,10 +1,8 @@
 "use client";
 
-import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { animate as animateValue, motion, useDragControls, useMotionValue, useReducedMotion } from "motion/react";
-import { ChevronDown, ChevronLeft, ChevronRight, MapPin, Route as RouteIcon } from "lucide-react";
-import { PickerSheet } from "@/components/PickerSheet";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useSetPhoneHeader } from "@/components/shell/PhoneHeader";
 import { modeSwatch } from "@/features/maps/ui/modeParts";
 import { MODE_LABEL } from "@/lib/application/mode-visuals";
@@ -82,7 +80,7 @@ export const EASE = [0.22, 1, 0.36, 1] as const;
  * map, so it becomes a draggable bottom sheet instead — pull it down to see the map, up to see
  * the plan. No backdrop: the map stays visible and interactive either way. Reports how much of
  * the map it covers so the route is framed in what is left. */
-export function MapPanel({ collapsedLabel, onInset, children }: { collapsedLabel?: string; onInset?: (inset: MapInset) => void; children: ReactNode }) {
+export function MapPanel({ collapsedLabel, onInset, opens, children }: { collapsedLabel?: string; onInset?: (inset: MapInset) => void; /** Changes when something new has arrived to look at (a route was found, or cleared): a folded sheet opens to show it. */ opens?: string | number | boolean; children: ReactNode }) {
   const desktop = useMediaQuery("(min-width: 1024px)");
   const reduce = useReducedMotion();
   const dragControls = useDragControls();
@@ -123,6 +121,14 @@ export function MapPanel({ collapsedLabel, onInset, children }: { collapsedLabel
     if (!next) setTall(false);
     animateValue(y, next ? 0 : travel, reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 42 });
   };
+
+  const firstOpens = useRef(true);
+  useEffect(() => {
+    if (firstOpens.current) { firstOpens.current = false; return; }
+    if (!desktop && opens !== undefined) snapTo(true);
+    // `snapTo` is rebuilt every render; a change of `opens` is what should trigger it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opens]);
 
   // The sheet's content (and so `travel`) can change height — e.g. switching to a day with more
   // stops — keep a collapsed sheet resting at the new peek offset instead of drifting mid-way.
@@ -231,63 +237,17 @@ export function MapLegend({ modes, panelOpen }: { modes: string[]; panelOpen: bo
   );
 }
 
-function GettingAroundTabs({ tab, onChange, floating = false }: { tab: "trip" | "browse"; onChange: (t: "trip" | "browse") => void; floating?: boolean }) {
-  return (
-    <SegmentedSwitch
-      label="Map view"
-      value={tab}
-      onChange={onChange}
-      floating={floating}
-      options={[
-        { key: "browse", label: "Browse" },
-        { key: "trip", label: "My trip" },
-      ]}
-    />
-  );
-}
-
-const VIEWS = [
-  { key: "trip", label: "My trip", sub: "Your stops, day by day", Icon: MapPin },
-  { key: "browse", label: "Directions", sub: "Any two places, drawn on the map", Icon: RouteIcon },
-] as const;
-
-/** Phone: the one pill in the middle of the header (the same pill as Discover's city), which opens a sheet to choose My trip or Directions. */
-function ViewPill({ tab, onChange }: { tab: "trip" | "browse"; onChange: (t: "trip" | "browse") => void }) {
-  const [open, setOpen] = useState(false);
-  const current = VIEWS.find((v) => v.key === tab) ?? VIEWS[0];
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-label={`${current.label}. Change view`}
-        className="inline-flex h-11 max-w-full items-center gap-1.5 rounded-full bg-muted px-4 font-display text-body font-semibold tracking-[-0.01em] transition-transform active:scale-[0.97]"
-      >
-        <span className="truncate">{current.label}</span>
-        <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-      </button>
-      <PickerSheet
-        open={open}
-        onClose={() => setOpen(false)}
-        title="Getting around"
-        ariaLabel="Choose a view"
-        value={tab}
-        onPick={onChange}
-        options={VIEWS.map((v) => ({ key: v.key, label: v.label, sub: v.sub, lead: <v.Icon className="size-5 shrink-0 text-muted-foreground" aria-hidden /> }))}
-      />
-    </>
-  );
-}
-
 /** The whole screen is the map: a quiet shade at the top, a vignette at the edges, and the controls float over it. */
-export function MapStage({ tab, onTab, children }: { tab: "trip" | "browse"; onTab: (t: "trip" | "browse") => void; children: ReactNode }) {
-  // Phone: the same header as every other tab. The pill in the middle (where Discover has its city) picks My trip or Directions, so no switch floats on the map.
+export function MapStage({ pill, trailing, children }: {
+  /** Phone: the pill that starts and shows a route, in the middle of the header where other pages have their title. Keep it memoised. */
+  pill?: ReactNode;
+  /** Phone: the round button at the header's right edge (taking the route away). Keep it memoised. */
+  trailing?: ReactNode;
+  children: ReactNode;
+}) {
+  // Phone: the same header as every other tab, with the route pill where Discover has its city. No bar behind it: the map runs up under it.
   const phone = useMediaQuery("(max-width: 1023.98px)");
-  const headerTitle = useMemo(() => (phone ? <ViewPill tab={tab} onChange={onTab} /> : undefined), [phone, tab, onTab]);
-  // No bar behind the header: the map runs up under it, so only the round button and the pill sit on the map.
-  useSetPhoneHeader({ titleNode: headerTitle, variant: phone ? "overlay" : undefined });
+  useSetPhoneHeader({ titleNode: phone ? pill : undefined, trailing: phone ? trailing : undefined, variant: phone ? "overlay" : undefined });
   return (
     <section aria-label="Getting around" className="map-under-header relative isolate h-[calc(100dvh-var(--tabbar))] min-h-[520px] w-full overflow-hidden bg-surface max-lg:-mt-[var(--topbar)] lg:h-[100dvh]">
       <h1 className="sr-only">Getting around</h1>
@@ -296,12 +256,6 @@ export function MapStage({ tab, onTab, children }: { tab: "trip" | "browse"; onT
       <div aria-hidden className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(70%_55%_at_94%_0%,oklch(0.64_0.175_36/0.08),transparent)]" />
       <div aria-hidden className="grain pointer-events-none absolute inset-0 z-[1]" />
       <div aria-hidden className="scrim-t pointer-events-none absolute inset-x-0 top-0 z-[1] h-28 [--scrim:0.14]" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center p-4 max-lg:hidden">
-        <div className="pointer-events-auto">
-          <GettingAroundTabs tab={tab} onChange={onTab} floating />
-        </div>
-      </div>
     </section>
   );
 }
-

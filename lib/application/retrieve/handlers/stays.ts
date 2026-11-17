@@ -21,12 +21,12 @@ export async function handleStays(call: StaysCall, ctx: RetrieveContext): Promis
   // actually collide instead of silently keying differently forever.
   // A price ceiling or star floor the traveller stated narrows the search (and keys its own cache entry, apart from the unfiltered one).
   const starRatings = call.minStars ? Array.from({ length: 6 - call.minStars }, (_, i) => call.minStars! + i) : [];
-  const limited = call.priceMax != null || starRatings.length > 0;
-  const filters = limited ? { ...DEFAULT_STAY_FILTERS, starRatings, ...(call.priceMax != null ? { priceMax: call.priceMax } : {}) } : DEFAULT_STAY_FILTERS;
+  const limited = call.priceMin != null || call.priceMax != null || starRatings.length > 0;
+  const filters = limited ? { ...DEFAULT_STAY_FILTERS, starRatings, ...(call.priceMin != null ? { priceMin: call.priceMin } : {}), ...(call.priceMax != null ? { priceMax: call.priceMax } : {}) } : DEFAULT_STAY_FILTERS;
   const cacheKey = (provider === "serpapi" ? "serp:" : "") + staysCacheKey({ location: call.location, checkin, checkout, adults: adults ?? "", rooms: 1, currency: ctx.filters.currency ?? "", filters });
   const result = await cached(cacheKey, 5 * 60_000, async () => {
     // Real hotels and prices from Google Hotels when it is set up; LiteAPI otherwise.
-    const narrow = { ...(starRatings.length ? { starRatings } : {}), ...(call.priceMax != null ? { priceMax: call.priceMax } : {}) };
+    const narrow = { ...(starRatings.length ? { starRatings } : {}), ...(call.priceMin != null ? { priceMin: call.priceMin } : {}), ...(call.priceMax != null ? { priceMax: call.priceMax } : {}) };
     if (provider === "serpapi") return searchGoogleHotels({ location: call.location, checkin, checkout, adults, currency: ctx.filters.currency ?? "CAD", limit: 12, ...narrow }, ctx.signal);
     const point = await ctx.geocode(call.location);
     return searchStays(

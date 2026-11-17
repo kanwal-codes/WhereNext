@@ -1,6 +1,7 @@
 import { haversineKm } from "@/lib/application/geo";
 import { formatDuration } from "@/lib/utils";
 import { panelTitle, type CompareEntry, type PanelState } from "@/components/TripPanelProvider";
+import type { GooglePlaceDetails } from "@/lib/places-ui";
 
 export type Anchor = { name: string; lat: number; lng: number } | null;
 export function distanceLabel(entry: CompareEntry, anchor: Anchor): string {
@@ -77,4 +78,25 @@ export function chatItems(p: PanelState, compareList: CompareEntry[]) {
   if (p.kind === "checklist") return [{ name: panelTitle(p), detail: `Checklist: ${p.block.groups.flatMap((g) => g.items.map((i) => i.text)).slice(0, 8).join(", ")}` }];
   if (p.kind === "budget") return [{ name: panelTitle(p), detail: `About ${p.block.dailyTotal.typical} ${p.block.currency} a day, ${p.block.perPerson ? "per person" : "for the group"}` }];
   return [{ name: panelTitle(p), detail: p.kind === "stay" ? "Hotel" : p.kind === "event" ? "Event" : "Place" }];
+}
+
+const PRICE: Record<string, string> = { PRICE_LEVEL_FREE: "free", PRICE_LEVEL_INEXPENSIVE: "inexpensive", PRICE_LEVEL_MODERATE: "moderate", PRICE_LEVEL_EXPENSIVE: "expensive", PRICE_LEVEL_VERY_EXPENSIVE: "very expensive" };
+const words = (type: string) => type.replace(/_/g, " ");
+
+/** What the place's own page says about it, in the shape the chat reads: so a question about it is answered from the rating, hours and summary on screen, not from its name alone. */
+export function placeChatItem(name: string, d: GooglePlaceDetails | null | undefined) {
+  if (!d) return { name, detail: "Place" };
+  const hours = d.regularOpeningHours;
+  const detail = [d.primaryType ? words(d.primaryType) : "Place", d.accessibilityOptions?.wheelchairAccessibleEntrance ? "wheelchair-accessible entrance" : null, d.businessStatus && d.businessStatus !== "OPERATIONAL" ? words(d.businessStatus.toLowerCase()) : null].filter(Boolean).join(", ");
+  return {
+    name,
+    detail: detail.slice(0, 200),
+    ...(d.priceLevel && PRICE[d.priceLevel] ? { price: PRICE[d.priceLevel] } : {}),
+    ...(d.rating ? { rating: `${d.rating}${d.userRatingCount ? ` from ${d.userRatingCount.toLocaleString("en-US")} reviews` : ""}` } : {}),
+    ...(hours?.openNow != null ? { when: hours.openNow ? "open now" : "closed now" } : {}),
+    ...(d.formattedAddress ? { address: d.formattedAddress.slice(0, 200) } : {}),
+    ...(d.editorialSummary?.text ? { summary: d.editorialSummary.text.slice(0, 700) } : {}),
+    ...(hours?.weekdayDescriptions?.length ? { hours: hours.weekdayDescriptions.join("; ").slice(0, 420) } : {}),
+    ...(d.location?.latitude != null && d.location.longitude != null ? { lat: d.location.latitude, lng: d.location.longitude } : {}),
+  };
 }

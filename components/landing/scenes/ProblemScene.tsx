@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
-import { Caveat } from "next/font/google";
 import { Reveal } from "@/components/landing/story/Reveal";
 import { calm, watch } from "@/components/landing/story/scroll";
 import { BoardingPass, BrowserTabs, ChatThread, ConcertTicket, FoldedMap, IndexCard, Polaroid, Receipt, StickyNote, WeatherCard } from "@/components/landing/story/desk";
 
-const hand = Caveat({ subsets: ["latin"], weight: ["600"], variable: "--font-hand", display: "swap" });
 
 type Piece = {
   w: number; // rem
@@ -142,7 +140,7 @@ export function ProblemScene() {
   }, []);
 
   return (
-    <section ref={sectionRef} data-scene="problem" className={`story-scene ${hand.variable}`}>
+    <section ref={sectionRef} data-scene="problem" className="story-scene">
       <div className="mx-auto max-w-4xl px-[var(--lp-gutter)] text-center">
         <div ref={headingRef}>
           <Reveal as="h2" className="story-h2">

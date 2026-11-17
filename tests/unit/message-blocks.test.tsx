@@ -169,6 +169,18 @@ describe("MessageBlocks", () => {
     expect(clarify).not.toContain("How many nights?"); // the question already streams as the reply text
   });
 
+  it("offers at most three suggestions, on one line that scrolls instead of wrapping", () => {
+    const items = ["One", "Two", "Three", "Four", "Five"].map((label) => ({ label, prompt: label }));
+    const html = render([{ type: "actions", items }]);
+    expect(html).toContain("Three");
+    expect(html).not.toContain("Four");
+    expect(html).toContain("overflow-x-auto");
+    expect(html).not.toContain("flex-wrap");
+    const clarify = render([{ type: "clarifying_question", question: "Which?", chips: ["a", "b", "c", "d"] }]);
+    expect(clarify).toContain(">c<");
+    expect(clarify).not.toContain(">d<");
+  });
+
   it("renders no chip UI for a clarifying_question with no chips", () => {
     const html = render([{ type: "clarifying_question", question: "which?", chips: [] }]);
     expect(html).not.toContain("btn-chip");

@@ -120,3 +120,37 @@ describe("POST /api/trips/:tripId/compare-chat", () => {
     expect(system).toMatch(/~\d+\.\d km straight-line from Hotel Bairro/);
   });
 });
+
+describe("compare-chat: one thing open", () => {
+  it("is told it is answering about one thing, and is given what its page says", async () => {
+    requireTripMemberMock.mockResolvedValue({ supabase: {} });
+    loadTripContextMock.mockResolvedValue({ lockedStay: null, preferences: {} });
+    generateTextMock.mockResolvedValue("Yes.");
+    await post({ items: [{ name: "Castelo", detail: "tourist attraction", summary: "A hilltop castle.", hours: "Monday: 9 AM–9 PM" }], messages: [{ role: "user", content: "worth it?" }] });
+    const system = generateTextMock.mock.calls.at(-1)![1][0].content as string;
+    expect(system).toContain("one thing open on screen");
+    expect(system).toContain("What is open on screen:");
+    expect(system).toContain("about: A hilltop castle.");
+    expect(system).toContain("hours: Monday: 9 AM–9 PM");
+    expect(system).not.toContain("Options being compared");
+    expect(system).toContain("one bolded sentence");
+  });
+
+  it("tells it which planned stops are near the place, with their day and distance", async () => {
+    requireTripMemberMock.mockResolvedValue({ supabase: {} });
+    loadTripContextMock.mockResolvedValue({
+      lockedStay: null,
+      preferences: {},
+      itinerary: [
+        { title: "Miradouro de Santa Luzia", day_index: 1, locked: false, latitude: 38.7115, longitude: -9.1296 },
+        { title: "Far away", day_index: 3, locked: false, latitude: 41.15, longitude: -8.61 },
+        { title: "Castelo", day_index: 2, locked: false, latitude: 38.7139, longitude: -9.1334 },
+      ],
+    });
+    generateTextMock.mockResolvedValue("Yes.");
+    await post({ items: [{ name: "Castelo", lat: 38.7139, lng: -9.1334 }], messages: [{ role: "user", content: "fits?" }] });
+    const system = generateTextMock.mock.calls.at(-1)![1][0].content as string;
+    expect(system).toMatch(/Near what is already planned: Miradouro de Santa Luzia \(day 1, \d+ m straight-line\)\./);
+    expect(system).not.toContain("Far away");
+  });
+});

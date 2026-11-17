@@ -4,6 +4,7 @@ import { DateField, TimeField } from "@/components/DateTimeField";
 import { Minus, Plus } from "lucide-react";
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { Sheet } from "@/components/motion-primitives";
+import { SheetHeader } from "@/components/SheetHeader";
 import { sheetPrimary } from "@/components/motion/sheetActions";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
@@ -46,7 +47,7 @@ export function TripOptionsSheet({
 
   return (
     <Sheet open={open} onClose={onClose} side={phone ? "bottom" : "center"} ariaLabel="When and who" footer={<button type="button" onClick={onClose} className={sheetPrimary}>Done</button>} padded={phone} className={cn("bg-background", !phone && "icons-fine p-5")}>
-      <p className="pb-3 pt-1 font-display text-xl font-medium tracking-[-0.02em]">When and who</p>
+      <SheetHeader title="When and who" onClose={onClose} bordered={false} />
       <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain -mx-1 px-1">
         <div className="space-y-4">
           <SegmentedSwitch

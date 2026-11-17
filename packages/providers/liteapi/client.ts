@@ -3,6 +3,7 @@ import { withProviderTimeout } from "../request-signal";
 import { guardedFetch } from "@/lib/server/provider-guard";
 import { stripTags } from "@/lib/server/html-text";
 import { stayReviewSchema, type StayDetails, type StayFacets, type StayOption, type StayReview, type StayRoom, type StaySearchResult } from "../../contracts/stay";
+import { applyStayFilters } from "../../contracts/stay-filter";
 
 export type { StayDetails, StayRoom, StaySearchResult, StayReview };
 
@@ -243,8 +244,8 @@ export type StaySearchInput = {
   city?: string; countryCode?: string; latitude?: number; longitude?: number;
   checkin: string; checkout: string;
   adults?: number; rooms?: number; currency?: string; limit?: number;
-  starRatings?: number[]; boards?: string[]; refundableOnly?: boolean; priceMax?: number; propertyTypes?: string[];
-  sort?: "price" | "rating" | "stars";
+  starRatings?: number[]; boards?: string[]; refundableOnly?: boolean; priceMin?: number; priceMax?: number; propertyTypes?: string[];
+  sort?: "price" | "price_desc" | "rating" | "stars";
 };
 
 /** Bookable stays near a place, priced for the given nights, filtered and sorted. Keeps every room rate per hotel. */
@@ -253,7 +254,7 @@ export async function searchStays(input: StaySearchInput, signal?: AbortSignal):
   const limit = Math.min(Math.max(input.limit ?? 6, 1), 30);
   const nights = nightsBetween(input.checkin, input.checkout);
   // Cast a wider net when filters are on, since many will be dropped after pricing.
-  const netWidth = limit + (input.starRatings?.length || input.boards?.length || input.refundableOnly || input.priceMax ? 24 : 6);
+  const netWidth = limit + (input.starRatings?.length || input.boards?.length || input.refundableOnly || input.priceMin || input.priceMax ? 24 : 6);
   const hotels = await hotelIndex({ ...input, starRatings: input.starRatings }, netWidth, signal);
   const empty: StayFacets = { priceMin: 0, priceMax: 0, stars: [], boards: [], propertyTypes: [] };
   if (hotels.length === 0) return { nights, options: [], facets: empty };
@@ -299,18 +300,7 @@ export async function searchStays(input: StaySearchInput, signal?: AbortSignal):
       .sort((a, b) => (a === "Hotel" ? -1 : b === "Hotel" ? 1 : a.localeCompare(b))),
   };
 
-  if (input.starRatings?.length) options = options.filter((o) => o.stars != null && input.starRatings!.includes(Math.round(o.stars)));
-  if (input.boards?.length) options = options.filter((o) => o.rooms.some((r) => r.boardName && input.boards!.includes(r.boardName)));
-  if (input.refundableOnly) options = options.filter((o) => o.rooms.some((r) => r.refundable));
-  if (typeof input.priceMax === "number") options = options.filter((o) => o.nightlyAmount <= input.priceMax!);
-  if (input.propertyTypes?.length) options = options.filter((o) => o.propertyType && input.propertyTypes!.includes(o.propertyType));
-
-  const sort = input.sort ?? "price";
-  options.sort((a, b) =>
-    sort === "rating" ? (b.rating ?? 0) - (a.rating ?? 0)
-    : sort === "stars" ? (b.stars ?? 0) - (a.stars ?? 0)
-    : a.nightlyAmount - b.nightlyAmount,
-  );
+  options = applyStayFilters(options, input);
   return { nights, options: options.slice(0, limit), facets };
 }
 

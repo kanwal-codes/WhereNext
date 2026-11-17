@@ -42,12 +42,13 @@ vi.mock("@/features/conversation/ui/panels/MapDetail", () => ({ MapDetail: () =>
 vi.mock("@/features/conversation/ui/panels/WeatherDetail", () => ({ WeatherDetail: () => <div>WEATHER</div> }));
 vi.mock("@/features/conversation/ui/panels/ChecklistDetail", () => ({ ChecklistDetail: () => <div>CHECKLIST</div> }));
 vi.mock("@/components/PanelStates", () => ({ PanelLoading: () => <div>LOADING</div> }));
-vi.mock("@/features/places/application/placeDetailsCache", () => ({ readPlaceSeed: () => null }));
+vi.mock("@/features/places/application/placeDetailsCache", () => ({ readPlaceSeed: () => null, fetchPlaceDetails: async () => (placeDetails ? { place: placeDetails } : null) }));
 
 import { TripPanel } from "../../components/TripPanel";
 
 type Call = { method: string; url: string; body?: { items: Array<Record<string, unknown>>; messages: Array<{ role: string; content: string }> } };
 let calls: Call[];
+let placeDetails: Record<string, unknown> | null = null;
 let answer: string | "fail";
 const answers = () => calls.filter((c) => c.url.endsWith("/compare-chat"));
 
@@ -63,6 +64,7 @@ beforeEach(() => {
   tripData = { tripId: TRIP, data: { decisions: [] } };
   answer = "Pick the first one.";
   calls = [];
+  placeDetails = null;
   openGate.mockClear();
   vi.stubGlobal("fetch", vi.fn(async (input: string, init?: RequestInit) => {
     calls.push({ method: init?.method ?? "GET", url: String(input), body: init?.body ? JSON.parse(String(init.body)) : undefined });
@@ -280,6 +282,40 @@ describe("TripPanel: asking about the open item", () => {
     await waitFor(() => expect(screen.getByTestId("assistant").textContent).toBe("Pick the first one."));
   });
 
+  it("tells Roam what the place's own page says, not only its name", async () => {
+    placeDetails = { primaryType: "tourist_attraction", rating: 4.5, userRatingCount: 104500, formattedAddress: "R. de Santa Cruz, Lisboa", editorialSummary: { text: "A hilltop castle." }, regularOpeningHours: { openNow: false, weekdayDescriptions: ["Monday: 9 AM–9 PM"] }, location: { latitude: 38.71, longitude: -9.13 } };
+    const user = u();
+    openPlace();
+    await user.type(screen.getByLabelText("Ask about this item"), "Worth it?");
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(answers()).toHaveLength(1));
+    expect(answers()[0].body!.items).toEqual([{ name: "Louvre", detail: "tourist attraction", rating: "4.5 from 104,500 reviews", when: "closed now", address: "R. de Santa Cruz, Lisboa", summary: "A hilltop castle.", hours: "Monday: 9 AM–9 PM", lat: 38.71, lng: -9.13 }]);
+  });
+
+  it("folds the answers away and brings them back", async () => {
+    const user = u();
+    openPlace();
+    await user.type(screen.getByLabelText("Ask about this item"), "Hi?");
+    await user.keyboard("{Enter}");
+    await screen.findByTestId("assistant");
+    await user.click(screen.getByRole("button", { name: "Hide the answers" }));
+    expect(screen.queryByTestId("assistant")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Show the answers" }));
+    expect(screen.getByTestId("assistant")).toBeTruthy();
+  });
+
+  it("offers Try again on an answer that failed, and asks the same question again", async () => {
+    const user = u();
+    openPlace();
+    answer = "fail";
+    await user.type(screen.getByLabelText("Ask about this item"), "Why?");
+    await user.keyboard("{Enter}");
+    answer = "Because.";
+    await user.click(await screen.findByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(screen.getByTestId("assistant").textContent).toBe("Because."));
+    expect(answers()[1].body!.messages).toEqual([{ role: "user", content: "Why?" }]);
+  });
+
   it("carries the earlier turns of the chat into the next question", async () => {
     const user = u();
     openPlace();
@@ -310,9 +346,12 @@ describe("TripPanel: asking about the open item", () => {
     await user.type(screen.getByLabelText("Ask about this item"), "Hi?");
     await user.keyboard("{Enter}");
     await screen.findByTestId("assistant");
-    await user.click(screen.getByRole("button", { name: "Clear this chat" }));
-    expect(screen.queryByText("Hi?")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Clear this chat" })).toBeNull();
+    // The control sits on the conversation (in its card), not in the sheet's top bar.
+    expect(screen.getAllByRole("button", { name: "Clear chat" })).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Clear chat" }));
+    // The card leaves with a short fade, so the question is gone a moment later.
+    await waitFor(() => expect(screen.queryByText("Hi?")).toBeNull());
+    expect(screen.queryByRole("button", { name: "Clear chat" })).toBeNull();
   });
 
   it("asks a guest to save the trip instead of sending", async () => {

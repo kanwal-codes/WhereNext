@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronRight, ExternalLink } from "lucide-react";
 import { Sheet } from "@/components/motion-primitives";
+import { SheetHeader } from "@/components/SheetHeader";
 import { sheetPrimary, sheetSecondary } from "@/components/motion/sheetActions";
 import { useDistance } from "@/components/use-distance";
 import type { RouteTag } from "@/lib/application/route-overlay";
@@ -12,6 +13,7 @@ import { ModeTile, Ribbon, colorOf, railStyle } from "@/features/maps/ui/modePar
 import type { useTransportSearch } from "../application/useTransportSearch";
 import { clock, googleMapsTransitUrl, hexColor, mergeWalks, money, routeOrder, routeSummaries, transitSaveValue, type Step } from "../domain/route-view";
 
+const shortName = (place: string) => place.split(",")[0]!.trim();
 const TAG_TEXT: Record<RouteTag, string> = { fastest: "Fastest", "fewer-changes": "Fewer changes", "least-walking": "Least walking" };
 
 function StepRow({ step, last }: { step: Step; last: boolean }) {
@@ -36,8 +38,9 @@ function StepRow({ step, last }: { step: Step; last: boolean }) {
             </p>
             <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
               {step.departureStop ?? "—"} → {step.arrivalStop ?? "—"}
-              {step.stopCount ? ` · ${step.stopCount} stop${step.stopCount === 1 ? "" : "s"}` : ""} · {durationFromSeconds(step.durationSeconds ?? 0)}
-              {step.agency ? ` · ${step.agency}` : ""}
+            </p>
+            <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
+              {[durationFromSeconds(step.durationSeconds ?? 0), step.stopCount ? `${step.stopCount} stop${step.stopCount === 1 ? "" : "s"}` : null, step.agency && !step.line?.toLowerCase().includes(step.agency.toLowerCase().split(" ")[0]!) && !step.agency.toLowerCase().includes((step.line ?? "").toLowerCase()) ? step.agency : null].filter(Boolean).join(" · ")}
             </p>
           </>
         )}
@@ -117,8 +120,9 @@ export function TransitResults({ t }: { t: ReturnType<typeof useTransportSearch>
 </>) : undefined} padded>
         {opened && open != null && (
           <>
-            <div className="pb-3 pt-1">
-              <p className="font-display text-2xl font-medium leading-none tabular-nums tracking-[-0.025em]">{durationFromSeconds(opened.durationSeconds)}</p>
+            <SheetHeader eyebrow="Transit" title={`${shortName(from)} to ${shortName(to)}`} onClose={() => setOpen(null)} bordered={false} />
+            <div className="pb-4 pt-2">
+              <p className="font-display text-3xl font-medium leading-none tabular-nums tracking-[-0.03em]">{durationFromSeconds(opened.durationSeconds)}</p>
               <p className="mt-1.5 text-sm text-ink-soft tabular-nums">
                 {[clock(opened.departureTime, opened.timeZone) && clock(opened.arrivalTime, opened.timeZone) ? `${clock(opened.departureTime, opened.timeZone)} → ${clock(opened.arrivalTime, opened.timeZone)}` : null, money(opened.fare), distance(opened.distanceMeters / 1000)].filter(Boolean).join(" · ")}
               </p>

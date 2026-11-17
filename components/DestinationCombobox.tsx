@@ -46,6 +46,7 @@ export function DestinationCombobox({
   inputRef,
   maxLength,
   selectOnFocus,
+  quietFocus,
   ariaLabel = "Destination",
 }: {
   /** The trip whose autocomplete route to use; omit it (and pass `endpoint`) outside a trip, e.g. on the profile. */
@@ -75,6 +76,8 @@ export function DestinationCombobox({
   maxLength?: number;
   /** Focusing a field that already has a value selects it, so typing replaces it (a saved home city, a saved airport). */
   selectOnFocus?: boolean;
+  /** Focusing the field does not open the suggestions: they come once something is typed (a field that opens already holding a place). */
+  quietFocus?: boolean;
   ariaLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -144,10 +147,10 @@ export function DestinationCombobox({
       <Cmdk shouldFilter={false} loop>
         <Cmdk.Input
           value={value}
-          onValueChange={onChange}
+          onValueChange={(v) => { if (quietFocus) setOpen(true); onChange(v); }}
           onFocus={(e) => {
             if (selectOnFocus) e.currentTarget.select();
-            setOpen(true);
+            if (!quietFocus) setOpen(true);
             // A route field sits low in a scrolling panel: bring it up so its suggestions have room below.
             if (scope === "places") rootRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
           }}

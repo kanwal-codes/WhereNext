@@ -16,19 +16,16 @@ let mapProps: Any = {};
 let transportProps: Any = {};
 let timelineProps: Record<number, Any> = {};
 let headerTitle: React.ReactNode = null;
+let headerTrailing: React.ReactNode = null;
 let headerVariant: string | undefined;
 let routePlan: Any | "fail" | null;
 let geocode: { lng: number; lat: number } | null;
 let calls: string[];
 
-vi.mock("@/components/TripDataProvider", () => ({ useTripData: () => ({ tripId: TRIP, data }) }));
+vi.mock("@/components/TripDataProvider", () => ({ useTripData: () => ({ tripId: TRIP, data }), useTripDataMaybe: () => ({ tripId: TRIP, data }) }));
 vi.mock("@/lib/use-media-query", () => ({ useMediaQuery: (q: string) => (q.includes("min-width") ? desktop : !desktop) }));
-vi.mock("@/components/shell/PhoneHeader", () => ({ PHONE_ROUND: "round", useSetPhoneHeader: ({ titleNode, variant }: { titleNode?: React.ReactNode; variant?: string }) => { headerTitle = titleNode ?? null; headerVariant = variant; } }));
-vi.mock("@/components/SegmentedSwitch", () => ({
-  SegmentedSwitch: ({ options, value, onChange, label }: { options: Array<{ key: string; label: string }>; value: string; onChange: (k: string) => void; label: string }) => (
-    <div role="group" aria-label={label}>{options.map((o) => <button key={o.key} type="button" aria-pressed={value === o.key} onClick={() => onChange(o.key)}>{o.label}</button>)}</div>
-  ),
-}));
+vi.mock("@/components/shell/PhoneHeader", () => ({ PHONE_ROUND: "round", useSetPhoneHeader: ({ titleNode, trailing, variant }: { titleNode?: React.ReactNode; trailing?: React.ReactNode; variant?: string }) => { headerTitle = titleNode ?? null; headerTrailing = trailing ?? null; headerVariant = variant; } }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), back: vi.fn() }) }));
 vi.mock("next/dynamic", () => ({
   default: () => function TripMapStub(props: Any) { mapProps = props; return <div data-testid="trip-map" />; },
 }));
@@ -46,12 +43,9 @@ vi.mock("@/features/maps/ui/RouteTimeline", () => ({
   },
 }));
 vi.mock("@/features/transport/ui/TransportSurface", () => ({
-  TransportSurface: (props: Any) => { transportProps = props; return <div data-testid="transport">{props.searchSlot}{props.driveSlot}</div>; },
+  TransportSurface: (props: Any) => { transportProps = props; return <div data-testid="transport">{props.driveSlot}</div>; },
 }));
 vi.mock("@/features/transport/ui/RentalCarList", () => ({ RentalCarList: ({ center }: { center: Any }) => <div data-testid="rentals">{center.lat},{center.lng}</div> }));
-vi.mock("@/components/AiSearchBar", () => ({
-  AiSearchBar: ({ onDirective }: { onDirective: (d: Any) => void }) => <button type="button" onClick={() => onDirective({ from: "Paris", to: "Lyon", modes: ["train"] })}>ask</button>,
-}));
 vi.mock("@/components/motion-primitives", () => ({ Reveal: ({ children }: { children: React.ReactNode }) => <div>{children}</div>, Sheet: ({ open, children }: { open: boolean; children: React.ReactNode }) => (open ? <div role="dialog">{children}</div> : null) }));
 
 import { MapSurface } from "../../features/maps/ui/MapSurface";
@@ -66,16 +60,14 @@ const row = (id: string, title: string, day_index: number, lat?: number, lng?: n
 const rpCalls = () => calls.filter((c) => c.includes("/route-plan"));
 
 function renderMap(props: Partial<React.ComponentProps<typeof MapSurface>> = {}) {
-  const onTab = vi.fn();
-  const view = render(<MapSurface tripId={TRIP} tab="trip" onTab={onTab} {...props} />);
-  return { onTab, ...view };
+  return render(<MapSurface tripId={TRIP} {...props} />);
 }
 
 beforeEach(() => {
   data = { trip: { origin: "Toronto", destination: "Paris", start_date: "2026-12-01" }, itinerary: [], savedPlaces: [], decisions: [] };
   desktop = true;
   
-  mapProps = {}; transportProps = {}; timelineProps = {}; headerTitle = null; headerVariant = undefined;
+  mapProps = {}; transportProps = {}; timelineProps = {}; headerTitle = null; headerTrailing = null; headerVariant = undefined;
   routePlan = null;
   geocode = { lng: 2.35, lat: 48.85 };
   calls = [];
@@ -100,7 +92,7 @@ const pinNames = () => (mapProps.pins as Any[]).map((p) => p.name);
 describe("MapSurface: pins", () => {
   it("shows an empty trip as the destination's map with three ways forward, not a blank page", async () => {
     const user = u();
-    const { onTab } = renderMap();
+    renderMap();
     await screen.findByTestId("trip-map");
     expect(mapProps.pins).toEqual([]);
     // `browse` not undefined is what makes the map sit on the destination instead of the whole globe.
@@ -109,9 +101,9 @@ describe("MapSurface: pins", () => {
     expect(screen.getByText("Nothing on the map yet")).toBeTruthy();
     expect(screen.getByRole("link", { name: /Find places to go/ }).getAttribute("href")).toBe(`/trips/${TRIP}/discover`);
     expect(screen.getByRole("link", { name: /Plan the days with Roam/ }).getAttribute("href")).toBe(`/trips/${TRIP}/chat`);
+    // "Just need directions" opens the route editor in place of the pill: one field asking where to.
     await user.click(screen.getByRole("button", { name: /Just need directions/ }));
-    expect(onTab).toHaveBeenCalledWith("browse");
-    expect(screen.getByRole("group", { name: "Map view" })).toBeTruthy();
+    expect(await screen.findByLabelText("To")).toBeTruthy();
   });
 
   it("pins itinerary stops that have a location, linked to the place when it is known", async () => {
@@ -275,7 +267,7 @@ describe("MapSurface: days and the plan", () => {
     const view = renderMap();
     await waitFor(() => expect(rpCalls()).toHaveLength(1));
     data = { ...data, itinerary: [...data.itinerary, row("i2", "Eiffel", 1, 48.858, 2.294)] };
-    view.rerender(<MapSurface tripId={TRIP} tab="trip" onTab={view.onTab} />);
+    view.rerender(<MapSurface tripId={TRIP} />);
     await waitFor(() => expect(rpCalls()).toHaveLength(2));
   });
 });
@@ -344,62 +336,58 @@ describe("MapSurface: the lines on the map", () => {
   });
 });
 
-describe("MapSurface: Browse", () => {
-  const browse = (props: Partial<React.ComponentProps<typeof MapSurface>> = {}) => renderMap({ tab: "browse", ...props });
+describe("MapSurface: a route", () => {
+  const preset = { from: "Paris", to: "Lyon", modes: [], nonce: 1 };
+  /** A link from chat that carried a route: the search runs on arrival, so the sheet is the route's results. */
+  const route = (props: Partial<React.ComponentProps<typeof MapSurface>> = {}) => renderMap({ start: { preset }, ...props });
 
-  it("shows an empty map and the transport search, even on an empty trip", async () => {
-    browse();
+  it("shows an empty map and the results in place of the trip, even on an empty trip", async () => {
+    route();
     await screen.findByTestId("transport");
     expect(mapProps.pins).toEqual([]);
-    expect(mapProps.browse).toBeNull();
+    expect(screen.getByText("Ways to get there")).toBeTruthy();
+    expect(screen.queryByText("Nothing on the map yet")).toBeNull();
+  });
+
+  it("puts the trip back, with its pins, when the route is cleared from the header", async () => {
+    const user = u();
+    desktop = false;
+    data.itinerary = [row("i1", "Louvre", 1, 48.86, 2.34)];
+    route();
+    await screen.findByTestId("transport");
+    expect(mapProps.pins).toEqual([]);
+    const header = within(render(<>{headerTrailing}</>).container);
+    await user.click(header.getByRole("button", { name: "Clear the route" }));
+    await waitFor(() => expect(screen.queryByTestId("transport")).toBeNull());
+    expect(pinNames()).toEqual(["Louvre"]);
+    expect(screen.getByText("My trip")).toBeTruthy();
   });
 
   it("centres on the destination when nothing is pinned yet", async () => {
-    browse();
+    route();
     await waitFor(() => expect(mapProps.center).toEqual([2.35, 48.85]));
     expect(calls.some((c) => c.includes(`/api/trips/${TRIP}/geocode?q=Paris`))).toBe(true);
-    expect(transportProps.near).toEqual([2.35, 48.85]);
   });
 
-  it("does not look the destination up when something is pinned, and searches near the first pin", async () => {
+  it("does not look the destination up when something is pinned", async () => {
     data.itinerary = [row("i1", "Louvre", 1, 48.86, 2.34)];
-    browse();
+    route({ start: { preset: { from: "Nice", to: "Lyon", modes: [], nonce: 2 } } });
     await screen.findByTestId("transport");
-    expect(calls.some((c) => c.includes("/geocode"))).toBe(false);
-    expect(transportProps.near).toEqual([2.34, 48.86]);
+    expect(calls.some((c) => c.includes(`/geocode?q=Paris`))).toBe(false);
   });
 
-  it("draws the route chosen in the transport search, and clears it", async () => {
-    browse();
+  it("shows the two ends in the header pill on a phone", async () => {
+    desktop = false;
+    route();
     await screen.findByTestId("transport");
-    const legs = [{ polyline: [[0, 0], [1, 1]], mode: "train", dim: false }];
-    act(() => transportProps.onRoute(legs, { nodes: [], pills: [] }));
-    expect(mapProps.browse).toEqual({ legs });
-    expect(mapProps.overlay).toEqual({ nodes: [], pills: [] });
-    expect(within(screen.getByRole("list", { name: "Map key" })).getAllByRole("listitem")).toHaveLength(1);
-    act(() => transportProps.onRoute(null));
-    expect(mapProps.browse).toBeNull();
-    expect(screen.queryByRole("list", { name: "Map key" })).toBeNull();
-  });
-
-  it("turns what Roam understood from a search into a preset for the transport search", async () => {
-    const user = u();
-    browse();
-    await user.click(await screen.findByRole("button", { name: "ask" }));
-    expect(transportProps.preset).toMatchObject({ from: "Paris", to: "Lyon", modes: ["train"] });
-    expect(typeof transportProps.preset.nonce).toBe("number");
-  });
-
-  it("starts from the preset a link from chat carried", async () => {
-    const preset = { from: "A", to: "B", modes: [], nonce: 1 };
-    browse({ start: { preset } });
-    await screen.findByTestId("transport");
-    expect(transportProps.preset).toBe(preset);
+    const pill = within(render(<>{headerTitle}</>).container).getByRole("button", { name: /^Route from Paris to Lyon/ });
+    expect(pill.textContent).toContain("From Paris");
+    expect(pill.textContent).toContain("Lyon");
   });
 
   it("offers rental cars near the destination, and hides them again", async () => {
     const user = u();
-    browse();
+    route();
     await screen.findByTestId("transport");
     await user.click(await screen.findByRole("button", { name: "Find a rental car near Paris" }));
     expect(screen.getByTestId("rentals").textContent).toBe("48.85,2.35");
@@ -409,7 +397,7 @@ describe("MapSurface: Browse", () => {
 
   it("offers no rental cars when it cannot tell where to look", async () => {
     geocode = null;
-    browse();
+    route();
     await screen.findByTestId("transport");
     await waitFor(() => expect(calls.some((c) => c.includes("/geocode"))).toBe(true));
     expect(screen.queryByRole("button", { name: /rental car/ })).toBeNull();
@@ -417,12 +405,23 @@ describe("MapSurface: Browse", () => {
 });
 
 describe("MapSurface: tabs and the panel", () => {
-  it("switches between My trip and Browse", async () => {
+  it("titles the sheet with what it shows, so a folded sheet still says what it is", async () => {
+    data.itinerary = [row("i1", "Louvre", 1, 48.86, 2.34)];
+    renderMap();
+    await screen.findByTestId("trip-map");
+    expect(screen.getByText("My trip")).toBeTruthy();
+    expect(screen.getByText("How you get around")).toBeTruthy();
+  });
+
+  it("opens the route editor from the pill on a wide screen, in the panel", async () => {
     const user = u();
-    const { onTab } = renderMap();
-    await user.click(screen.getByRole("button", { name: "Browse" }));
-    expect(onTab).toHaveBeenCalledWith("browse");
-    expect(screen.getByRole("button", { name: "My trip", pressed: true })).toBeTruthy();
+    data.itinerary = [row("i1", "Louvre", 1, 48.86, 2.34)];
+    renderMap();
+    await screen.findByTestId("trip-map");
+    await user.click(screen.getByRole("button", { name: "Where to? Search for a route" }));
+    expect(await screen.findByLabelText("To")).toBeTruthy();
+    // Only the destination is asked at first; the start comes once there is one.
+    expect(screen.queryByLabelText("From")).toBeNull();
   });
 
   it("makes room for the panel on a wide screen, and gives the map back when it is hidden", async () => {
@@ -452,17 +451,16 @@ describe("MapSurface: tabs and the panel", () => {
     expect(mapProps.inset.bottom).toBe(96);
   });
 
-  it("makes the header pill choose between My trip and Directions on the phone", async () => {
+  it("puts the route pill in the phone header, and opens the editor as a sheet from it", async () => {
     const user = u();
     desktop = false;
     data.itinerary = [row("i1", "Louvre", 1, 48.86, 2.34)];
-    const { onTab } = renderMap();
+    renderMap();
     await screen.findByTestId("trip-map");
     expect(headerVariant).toBe("overlay");
-    const { getByRole } = within(render(<>{headerTitle}</>).container);
-    await user.click(getByRole("button", { name: "My trip. Change view" }));
-    await user.click(await screen.findByRole("button", { name: /Directions/ }));
-    expect(onTab).toHaveBeenCalledWith("browse");
+    expect(headerTrailing).toBeNull();
+    await user.click(within(render(<>{headerTitle}</>).container).getByRole("button", { name: "Where to? Search for a route" }));
+    expect(within(await screen.findByRole("dialog")).getByLabelText("To")).toBeTruthy();
   });
 
   it("leaves the header alone off the phone", async () => {

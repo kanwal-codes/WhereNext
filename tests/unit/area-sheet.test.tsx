@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
-import { act, cleanup, fireEvent, render, renderHook, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isBroadPlace, splitDestinations } from "../../lib/trip-stops";
@@ -93,7 +93,7 @@ describe("AreaSheet", () => {
     const onPickArea = vi.fn(); const onClose = vi.fn();
     render(<AreaSheet {...props} onPickArea={onPickArea} onClose={onClose} />);
     const sheet = screen.getByRole("dialog", { name: "Where in Portugal" });
-    expect(within(sheet).getByRole("button", { name: /Anywhere in Portugal/ }).getAttribute("aria-current")).toBe("true");
+    expect(within(sheet).getByRole("button", { name: /Anywhere in Portugal/ }).getAttribute("aria-pressed")).toBe("true");
     await user.click(within(sheet).getByRole("button", { name: /^Porto/ }));
     expect(onPickArea).toHaveBeenCalledWith({ name: "Porto", text: "Porto, Portugal" });
     expect(onClose).toHaveBeenCalled();
@@ -104,7 +104,7 @@ describe("AreaSheet", () => {
     const onPickArea = vi.fn();
     render(<AreaSheet {...props} area={{ name: "Porto", text: "Porto, Portugal" }} onPickArea={onPickArea} />);
     const sheet = screen.getByRole("dialog");
-    expect(within(sheet).getByRole("button", { name: /^Porto/ }).getAttribute("aria-current")).toBe("true");
+    expect(within(sheet).getByRole("button", { name: /^Porto/ }).getAttribute("aria-pressed")).toBe("true");
     await user.click(within(sheet).getByRole("button", { name: /Anywhere in Portugal/ }));
     expect(onPickArea).toHaveBeenCalledWith(null);
   });
@@ -126,6 +126,30 @@ describe("AreaSheet", () => {
     expect(screen.queryByRole("button", { name: /Anywhere in Portugal/ })).toBeNull();
     await user.click(screen.getByRole("button", { name: /Portimão/ }));
     expect(onPickArea).toHaveBeenCalledWith({ name: "Portimão", text: "Portimão, Faro, Portugal" });
+  });
+
+  it("opens on the search field, and has a close button like the other sheets with a field", async () => {
+    render(<AreaSheet {...props} onPickArea={vi.fn()} />);
+    const sheet = screen.getByRole("dialog", { name: "Where in Portugal" });
+    await waitFor(() => expect(document.activeElement).toBe(within(sheet).getByRole("textbox", { name: /Search in Portugal/ })));
+    expect(within(sheet).getByRole("button", { name: "Close" })).toBeTruthy();
+  });
+
+  it("shows the usual places that match at once, and a loading row, while the search is still on its way", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => { release = r; });
+    vi.stubGlobal("fetch", vi.fn(async () => { await gate; return new Response(JSON.stringify({ suggestions: [suggestion("1", "Portimão", "Faro, Portugal", "Portimão, Faro, Portugal")] }), { status: 200 }); }));
+    render(<AreaSheet {...props} onPickArea={vi.fn()} />);
+    fireEvent.change(screen.getByRole("textbox", { name: /Search in Portugal/ }), { target: { value: "por" } });
+    // No wait for the network: Porto is there, the list is marked busy, and nothing says "Use ..." yet.
+    expect(screen.getByRole("button", { name: /^Porto$/ })).toBeTruthy();
+    expect(screen.getByRole("list", { name: "Places in Portugal" }).getAttribute("aria-busy")).toBe("true");
+    expect(screen.queryByRole("button", { name: /^Use/ })).toBeNull();
+    release();
+    await screen.findByRole("button", { name: /Portimão/ });
+    expect(screen.getByRole("list", { name: "Places in Portugal" }).getAttribute("aria-busy")).toBe("false");
+    // The place itself is never offered as somewhere inside it.
+    expect(screen.queryByRole("button", { name: /^Portugal$/ })).toBeNull();
   });
 
   it("still takes a name nothing matched, as typed", async () => {
@@ -169,7 +193,7 @@ describe("AreaSheet", () => {
   it("marks the narrowed place as the chosen row under the current country", () => {
     render(<AreaSheet {...props} area={{ name: "Porto", text: "Porto, Portugal" }} stops={[{ city: "Portugal", startDate: null, endDate: null }, { city: "Spain", startDate: null, endDate: null }]} onPickArea={vi.fn()} />);
     expect(screen.getByRole("button", { name: /^Portugal/ }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: /^Porto$/ }).getAttribute("aria-current")).toBe("true");
+    expect(screen.getByRole("button", { name: /^Porto$/ }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("is only the list of stops when the place is already a city", () => {

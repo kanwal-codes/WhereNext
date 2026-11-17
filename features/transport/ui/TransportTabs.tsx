@@ -18,7 +18,7 @@ export function TransportTabs({ t }: { t: ReturnType<typeof useTransportSearch> 
         <div className="space-y-4">
           <SegmentedSwitch
             label="Ways to get there"
-            className="w-full [&>*]:flex-1"
+            className="w-full [&>*]:flex-1 [&>*]:px-2 [&_svg]:shrink-0"
             value={tab}
             onChange={(k) => {
               setTab(k);

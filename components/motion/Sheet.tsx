@@ -26,7 +26,7 @@ export function Sheet({
 }: {
   open: boolean;
   onClose: () => void;
-  side?: "bottom" | "right" | "left" | "center";
+  side?: "bottom" | "right" | "left" | "center" | "top";
   ariaLabel?: string;
   initialFocus?: RefObject<HTMLElement | null>;
   className?: string;
@@ -50,7 +50,7 @@ export function Sheet({
   // instead of sliding, since a translate-from-offscreen entrance doesn't read as a
   // popup when the box isn't pinned to that edge.
   const closed =
-    side === "center" ? { opacity: 0, scale: 0.96 } : side === "bottom" ? { y: "100%" } : side === "right" ? { x: "100%" } : { x: "-100%" };
+    side === "center" ? { opacity: 0, scale: 0.96 } : side === "bottom" ? { y: "100%" } : side === "top" ? { y: "-100%" } : side === "right" ? { x: "100%" } : { x: "-100%" };
 
   if (!host) return null;
   return createPortal(
@@ -59,7 +59,7 @@ export function Sheet({
         <motion.div
           className={cn(
             "fixed inset-0 z-50 flex bg-black/40 will-change-[opacity]",
-            side === "center" ? "items-center justify-center p-4" : side === "bottom" ? "items-end" : side === "right" ? "justify-end" : "justify-start",
+            side === "center" ? "items-center justify-center p-4" : side === "bottom" ? "items-end" : side === "top" ? "items-start" : side === "right" ? "justify-end" : "justify-start",
           )}
           initial={{ opacity: 0, pointerEvents: "none" }}
           animate={{ opacity: 1, pointerEvents: "auto" }}
@@ -83,7 +83,7 @@ export function Sheet({
               // Not for "center": it scales in, and a layer promoted at 0.96 keeps that raster scale, leaving its text soft.
               "relative flex min-h-0 flex-col bg-surface shadow-lift outline-none",
               side !== "center" && "will-change-transform",
-              side === "center" ? "w-full max-w-sm rounded-3xl" : side === "bottom" ? "max-h-[92dvh] w-full rounded-t-4xl bg-background" : "h-full w-full max-w-xl",
+              side === "center" ? "w-full max-w-sm rounded-3xl" : side === "bottom" ? "max-h-[92dvh] w-full rounded-t-4xl bg-background" : side === "top" ? "max-h-[88dvh] w-full rounded-b-4xl bg-background pt-[env(safe-area-inset-top)]" : "h-full w-full max-w-xl",
               padded && "icons-fine px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]",
               className,
             )}

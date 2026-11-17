@@ -9,13 +9,25 @@ import { durationFromSeconds } from "@/lib/utils";
 import { flightsStatusText, legsFor, mergeWalks, pathOf, transitStatusText, fastestIndex, type DriveRoute, type Flight, type MapLegShape, type Route, type RouteSort } from "../domain/route-view";
 
 /** What the AI search bar (or a caller) can push in to run a search without the user retyping. */
-export type TransportPreset = { from?: string; to?: string; modes?: string[]; nonce: number };
+export type TransportPreset = {
+  from?: string;
+  to?: string;
+  modes?: string[];
+  /** What the sentence said about when and who; left out, the screen keeps what it has. */
+  date?: string;
+  returnDate?: string;
+  time?: { kind: "depart" | "arrive"; time: string };
+  travellers?: number;
+  nonce: number;
+};
 
 /**
  * The "Find your way there" search: the two ends, when and who, and the three searches it runs together (public transit, driving,
  * flights when the places are far apart), with what each found and the tab that is open. A newer search replaces an older one; changing
  * the day, time or travellers repeats the search on the same tab; whichever tab is open is what the map shows.
  */
+const shortName = (place: string) => place.split(",")[0]!.trim();
+
 export function useTransportSearch({ tripId, preset, onRoute }: {
   tripId: string;
   preset?: TransportPreset;
@@ -65,6 +77,7 @@ export function useTransportSearch({ tripId, preset, onRoute }: {
   const controller = useRef<AbortController | null>(null);
   const toRef = useRef<HTMLInputElement>(null);
   const modesRef = useRef<string[]>([]);
+  const lastOptions = useRef("");
 
   /** What the map shows besides the chosen route: the others (tap one to take it), the time on each, and where the vehicle changes. */
   function overlayFor(list: Route[], i: number): MapOverlay {
@@ -100,20 +113,22 @@ export function useTransportSearch({ tripId, preset, onRoute }: {
     }
   }
 
-  async function loadFlights(a: string, b: string) {
-    const key = `${a}|${b}|${when?.date ?? ""}|${returnDate}|${travellers}`;
-    if (!a || !b || flightsKey.current === key) return;
+  async function loadFlights(a: string, b: string, o: { when: When | null; returnDate: string; travellers: number } = { when, returnDate, travellers }) {
+    const key = `${a}|${b}|${o.when?.date ?? ""}|${o.returnDate}|${o.travellers}`;
+    if (!a || !b || flightsKey.current === key) return 0;
     flightsKey.current = key;
+    let found = 0;
     setFlightsLoading(true);
     setFlightsStatus("");
     try {
-      const res = await fetch(`/api/trips/${tripId}/flights`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ from: a, to: b, adults: travellers, ...(when ? { departureDate: when.date } : {}), ...(returnDate ? { returnDate } : {}) }) });
+      const res = await fetch(`/api/trips/${tripId}/flights`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ from: a, to: b, adults: o.travellers, ...(o.when ? { departureDate: o.when.date } : {}), ...(o.returnDate ? { returnDate: o.returnDate } : {}) }) });
       const body = await res.json();
       const offers = (body.offers ?? []) as Flight[];
       if (flightsKey.current !== key) return;
       setFlights(offers);
+      found = offers.length;
       setFlightsAssumed(Boolean(body.assumedDate));
-      setFlightsStatus(flightsStatusText({ ok: res.ok, count: offers.length, assumedDate: Boolean(body.assumedDate), travellers }));
+      setFlightsStatus(flightsStatusText({ ok: res.ok, count: offers.length, assumedDate: Boolean(body.assumedDate), travellers: o.travellers }));
     } catch {
       if (flightsKey.current === key) {
         flightsKey.current = "";
@@ -122,18 +137,25 @@ export function useTransportSearch({ tripId, preset, onRoute }: {
     } finally {
       if (flightsKey.current === key || flightsKey.current === "") setFlightsLoading(false);
     }
+    return found;
   }
 
   /**
    * Run the search. `force` repeats it for the same two places (the time changed, or the caller asked again); without it a search for what
    * is already on screen, or already on its way, is dropped, so settling a field twice (a pick, then leaving it) costs one search, not two.
    */
-  async function search(over?: { from?: string; to?: string; modes?: string[]; keepTab?: boolean; force?: boolean }) {
+  async function search(over?: { from?: string; to?: string; modes?: string[]; keepTab?: boolean; force?: boolean; when?: When | null; returnDate?: string; travellers?: number }) {
     const a = (over?.from ?? from).trim();
     const b = (over?.to ?? to).trim();
     if (over?.from !== undefined) setFrom(a);
     if (over?.to !== undefined) setTo(b);
     if (over?.modes) modesRef.current = over.modes;
+    // What this search uses: what the caller just said, else what the screen holds (state set in the same tick is not read yet).
+    const opts = { when: over?.when !== undefined ? over.when : when, returnDate: over?.returnDate ?? returnDate, travellers: over?.travellers ?? travellers };
+    if (over?.when !== undefined) setWhen(over.when);
+    if (over?.returnDate !== undefined) setReturnDate(over.returnDate);
+    if (over?.travellers !== undefined) setTravellers(over.travellers);
+    lastOptions.current = JSON.stringify([opts.when, opts.returnDate, opts.travellers]);
     if (!a || !b) return;
     if (!over?.force && queryRef.current.a === a && queryRef.current.b === b && (loading || searched)) return;
     controller.current?.abort();
@@ -169,13 +191,13 @@ export function useTransportSearch({ tripId, preset, onRoute }: {
       const transitJob = (async () => {
         try {
           // The time means the clock where the journey starts, so the server needs to know where that is.
-          const start = when ? (await coords)[0] : null;
-          const response = await fetch(`/api/trips/${tripId}/transit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ origin: a, destination: b, ...(when && start ? { when: { ...when, at: start } } : {}) }), signal: request.signal });
+          const start = opts.when ? (await coords)[0] : null;
+          const response = await fetch(`/api/trips/${tripId}/transit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ origin: a, destination: b, ...(opts.when && start ? { when: { ...opts.when, at: start } } : {}) }), signal: request.signal });
           const body = await response.json();
           const found = (body.routes ?? []) as Route[];
           setRoutes(found);
           if (body.timeIgnored) setTimeNote("We couldn’t use that time (it may have passed), so these are for now.");
-          setTransitStatus(transitStatusText({ ok: response.ok, count: found.length, when, timeIgnored: Boolean(body.timeIgnored) }));
+          setTransitStatus(transitStatusText({ ok: response.ok, count: found.length, when: opts.when, timeIgnored: Boolean(body.timeIgnored) }));
           if (response.ok && found.length) setSelected(fastestIndex(found));
           return found.length;
         } catch (error) {
@@ -190,10 +212,12 @@ export function useTransportSearch({ tripId, preset, onRoute }: {
           const [oCoord, dCoord] = await coords;
           if (!oCoord || !dCoord) {
             setDriveStatus("Couldn’t find one of those places.");
+            // Nothing can be searched without both places: say so for the whole result, not only the Drive tab.
+            setStatus(`We couldn’t find ${!oCoord ? `“${shortName(a)}”` : `“${shortName(b)}”`}. Check the spelling, or pick it from the suggestions.`);
             return false;
           }
           setDriveEnds({ from: oCoord, to: dCoord });
-          const res = await fetch(`/api/trips/${tripId}/directions`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ origin: oCoord, destination: dCoord, profile: "driving", traffic: true, currency: tripCurrency, ...(departAtParam(when) ? { departAt: departAtParam(when) } : {}) }), signal: request.signal });
+          const res = await fetch(`/api/trips/${tripId}/directions`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ origin: oCoord, destination: dCoord, profile: "driving", traffic: true, currency: tripCurrency, ...(departAtParam(opts.when) ? { departAt: departAtParam(opts.when) } : {}) }), signal: request.signal });
           const body = await res.json();
           const route = res.ok ? (body.route as DriveRoute | undefined) ?? null : null;
           setUsdRate(body.usdRate ?? null);
@@ -211,13 +235,15 @@ export function useTransportSearch({ tripId, preset, onRoute }: {
       const flightsJob = (async () => {
         const [oCoord, dCoord] = await coords;
         const far = oCoord && dCoord && haversineKm({ latitude: oCoord[1], longitude: oCoord[0] }, { latitude: dCoord[1], longitude: dCoord[0] }) >= 300;
-        if (first === "flight" || far) await loadFlights(a, b);
-      })().catch(() => {});
+        return first === "flight" || far ? await loadFlights(a, b, opts) : 0;
+      })().catch(() => 0);
 
       const [found, drove] = await Promise.all([transitJob, driveJob]);
       setSearched(true);
       if (first === "transit" && found === 0 && drove) setTab("drive");
       if (first === "flight") await flightsJob;
+      // Nothing runs on rails or roads between the two (an ocean apart): the flights are the answer, so that tab opens.
+      else if (first === "transit" && found === 0 && !drove && ((await flightsJob) ?? 0) > 0 && controller.current === request) setTab("flight");
     } catch (error) {
       // A newer search has taken over: it owns the screen now.
       if (controller.current !== request) return;
@@ -236,7 +262,6 @@ export function useTransportSearch({ tripId, preset, onRoute }: {
 
   // Change the day, time or number of travellers and the results follow: the same search again, on the same tab.
   const optionsKey = JSON.stringify([when, returnDate, travellers]);
-  const lastOptions = useRef(optionsKey);
   useEffect(() => {
     if (lastOptions.current === optionsKey) return;
     lastOptions.current = optionsKey;
@@ -296,7 +321,14 @@ export function useTransportSearch({ tripId, preset, onRoute }: {
   // Run a search pushed in from the AI bar.
   useEffect(() => {
     if (!preset?.nonce) return;
-    void search({ from: preset.from, to: preset.to, modes: preset.modes ?? [], force: true });
+    const day = preset.date ?? when?.date;
+    const stated = preset.time ?? (preset.date ? { kind: "depart" as const, time: when?.time ?? "09:00" } : null);
+    void search({
+      from: preset.from, to: preset.to, modes: preset.modes ?? [], force: true,
+      ...(day && stated ? { when: { kind: stated.kind, date: day, time: stated.time } } : {}),
+      ...(preset.returnDate !== undefined || preset.date ? { returnDate: preset.returnDate ?? "" } : {}),
+      ...(preset.travellers ? { travellers: Math.min(9, Math.max(1, preset.travellers)) } : {}),
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preset?.nonce]);
 
