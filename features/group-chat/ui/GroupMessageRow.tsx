@@ -1,8 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { Copy, Heart, SmilePlus } from "lucide-react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import { Copy, SmilePlus } from "lucide-react";
 import { memberTint } from "@/lib/member-tint";
 import { Pressable } from "@/components/motion-primitives";
 import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
@@ -17,6 +16,7 @@ import { Avatar, PollCard } from "./GroupChatParts";
 import { dayLabel, displayName, fullTime, timeLabel } from "./chat-format";
 import { renderRich, type MentionLookup } from "./rich-text";
 import { cn } from "@/lib/utils";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { notifyToast } from "@/lib/application/toast";
 
 const COMMON_EMOJI = ["👍", "❤️", "😂", "🎉", "😍", "🤔"];
@@ -31,9 +31,6 @@ export type RowView = {
   mentions: MentionLookup;
   messagesById: Map<string, GroupMessage>;
   expandedReactionFor: string | null;
-  pressingId: string | null;
-  /** The message a double tap just liked: a heart pops over it. */
-  likedId: string | null;
   highlightedId: string | null;
   pendingVoteFor: string | null;
   pendingRoamIds: Set<string>;
@@ -47,9 +44,6 @@ export type RowActions = {
   castVote: (messageId: string, pollId: string, optionKey: string) => Promise<void>;
   toggleReaction: (messageId: string, emoji: string) => Promise<void>;
   setExpandedReactionFor: (id: string | null) => void;
-  onBubblePressStart: (event: ReactPointerEvent, messageId: string) => void;
-  onBubblePressEnd: () => void;
-  onBubblePressMove: () => void;
   scrollToMessage: (id: string) => void;
   askRoam: (messageId: string, options?: { explicit?: boolean }) => void;
   submit: (text: string, retryKey?: string) => Promise<unknown> | void;
@@ -74,13 +68,15 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
   view: RowView;
   actions: RowActions;
 }) {
-  const { tripId, meUserId, members, membersLoaded, mentions, messagesById, expandedReactionFor, pressingId, likedId, highlightedId, pendingVoteFor, pendingRoamIds, failedRoamIds, missedIds, bubbleRefs } = view;
-  const { castVote, toggleReaction, setExpandedReactionFor, onBubblePressStart, onBubblePressEnd, onBubblePressMove, scrollToMessage, askRoam, submit, setOutbox, onFollowup, onOpenPlace, onOpenStay, onOpenEvent, onOpenCollection, openPanel } = actions;
+  const { tripId, meUserId, members, membersLoaded, mentions, messagesById, expandedReactionFor, highlightedId, pendingVoteFor, pendingRoamIds, failedRoamIds, missedIds, bubbleRefs } = view;
+  const { castVote, toggleReaction, setExpandedReactionFor, scrollToMessage, askRoam, submit, setOutbox, onFollowup, onOpenPlace, onOpenStay, onOpenEvent, onOpenCollection, openPanel } = actions;
   const local = (message as { local?: Outgoing }).local;
   const mine = local ? true : message.userId !== null && message.userId === meUserId;
   const isRoam = message.role === "assistant";
   const name = displayName(message.userId, members, meUserId, membersLoaded);
   const expanded = expandedReactionFor === message.id;
+  // The phone reacts from a smiley under the message that opens into a pill of six; a wide screen keeps its hover button and floating bar.
+  const phone = useMediaQuery("(max-width: 1023.98px)");
 
   const divider = showDateDivider && (
     <div className="flex items-center justify-center py-3">
@@ -176,34 +172,9 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
               <time dateTime={message.created_at} title={fullTime(message.created_at)} className="text-muted-foreground tabular-nums">{timeLabel(message.created_at)}</time>
             </p>
           )}
-          <motion.div
-            animate={{ scale: pressingId === message.id ? 0.96 : 1 }}
-            transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            onPointerDown={(event) => onBubblePressStart(event, message.id)}
-            onPointerUp={onBubblePressEnd}
-            onPointerCancel={onBubblePressEnd}
-            onPointerMove={onBubblePressMove}
-            title={fullTime(message.created_at)}
-            // Holding a message is how a phone reacts, so the browser's own menu and text selection must not answer the same touch first.
-            onContextMenu={(event) => { if (typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches) event.preventDefault(); }}
-            className="group relative min-w-0 max-w-full [touch-action:pan-y] [@media(pointer:coarse)]:[-webkit-touch-callout:none] [@media(pointer:coarse)]:select-none"
-          >
+          {/* The text stays selectable: holding a message selects it, as anywhere else. Reacting is the smiley under it. */}
+          <div title={fullTime(message.created_at)} className={cn("group relative min-w-0 max-w-full", phone && !local && "mb-4")}>
             {bubble}
-            <AnimatePresence>
-              {likedId === message.id && (
-                <motion.span
-                  key="like"
-                  aria-hidden
-                  initial={{ opacity: 0, scale: 0.4 }}
-                  animate={{ opacity: 1, scale: 1.15 }}
-                  exit={{ opacity: 0, scale: 1.5 }}
-                  transition={{ type: "spring", stiffness: 420, damping: 18 }}
-                  className="pointer-events-none absolute inset-0 z-10 grid place-items-center"
-                >
-                  <Heart className="size-10 fill-coral text-coral drop-shadow-md" />
-                </motion.span>
-              )}
-            </AnimatePresence>
             {/* The reaction trigger sits in the gutter at the vertical middle of the bubble —
                 left for your own messages, right for everyone else's. The expanded
                 picker starts from the trigger's exact point (same `layoutId`, so
@@ -212,7 +183,7 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
                 the empty gutter, which is too narrow for six emoji anyway. Reveal-on-
                 hover; touch has no hover state, so this never shows there — long-press
                 → the Sheet below is how touch reacts. */}
-            {!expanded && !local && (
+            {!phone && !expanded && !local && (
               <div
                 className={cn(
                   "pointer-events-none absolute top-1/2 z-10 flex -translate-y-1/2 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100",
@@ -234,7 +205,7 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
               </div>
             )}
             <AnimatePresence>
-              {expanded && (
+              {!phone && expanded && (
                 <motion.div
                   key="bar"
                   layoutId={`reaction-picker-${message.id}`}
@@ -243,32 +214,15 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
                   className={cn(
                     "pointer-events-auto absolute top-1/2 z-10 flex -translate-y-1/2 items-center gap-0.5 overflow-hidden rounded-full border border-border bg-card py-1 pr-1 pl-1 shadow-lift",
                     mine ? "-left-2" : "-right-2",
-                    // On a phone the bar floats just above the message, anchored to its near edge, so it never runs off the screen.
-                    "max-lg:top-auto max-lg:bottom-full max-lg:mb-2 max-lg:translate-y-0 max-lg:border-0 max-lg:p-1.5 max-lg:shadow-[0_6px_16px_-8px_oklch(0.2_0.012_65/0.22),0_0_0_1px_var(--color-hairline)]",
-                    (mine ? "max-lg:right-0 max-lg:left-auto" : "max-lg:left-0 max-lg:right-auto"),
                   )}
                 >
-                  {/* A phone cannot select the text (holding is taken), so copying is here, beside the reactions. */}
-                  {message.content.trim() && (
-                    <button
-                      type="button"
-                      aria-label="Copy message"
-                      onClick={() => {
-                        setExpandedReactionFor(null);
-                        void navigator.clipboard?.writeText(message.content).then(() => notifyToast("Copied", "success")).catch(() => notifyToast("Couldn’t copy that.", "error"));
-                      }}
-                      className="hidden size-11 shrink-0 place-items-center rounded-full text-ink-soft transition-transform active:scale-[0.97] max-lg:grid"
-                    >
-                      <Copy className="size-5" aria-hidden />
-                    </button>
-                  )}
                   {COMMON_EMOJI.map((emoji) => (
                     <button
                       key={emoji}
                       type="button"
                       aria-label={`React ${emoji}`}
                       onClick={() => void toggleReaction(message.id, emoji)}
-                      className="grid size-7 shrink-0 place-items-center rounded-full text-base transition-transform hover:scale-125 active:scale-[0.97] max-lg:size-11 max-lg:text-2xl"
+                      className="grid size-7 shrink-0 place-items-center rounded-full text-base transition-transform hover:scale-125 active:scale-[0.97]"
                     >
                       {emoji}
                     </button>
@@ -276,7 +230,92 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
                 </motion.div>
               )}
             </AnimatePresence>
-          </motion.div>
+            {/* Phone: a smiley under the message. Tapped (or the message held), it opens into a pill of the six, with the one you chose lit; picking one closes it. */}
+            {phone && !local && (
+              <div className={cn("absolute -bottom-4 z-10 flex items-center gap-1", mine ? "right-3 flex-row-reverse" : "left-3")}>
+              <AnimatePresence initial={false}>
+                {expanded ? (
+                  <motion.div
+                    key="pill"
+                    layoutId={`reaction-picker-${message.id}`}
+                    data-reaction-expand
+                    role="group"
+                    aria-label="React to this message"
+                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                    className="flex items-center gap-0.5 rounded-full bg-card p-1 shadow-[0_6px_16px_-8px_oklch(0.2_0.012_65/0.22),0_0_0_1px_var(--color-hairline)]"
+                  >
+                    {COMMON_EMOJI.map((emoji) => {
+                      const mineHere = message.reactions.some((r) => r.emoji === emoji && r.mine);
+                      return (
+                        <button
+                          key={emoji}
+                          type="button"
+                          aria-label={`React ${emoji}`}
+                          aria-pressed={mineHere}
+                          onClick={() => void toggleReaction(message.id, emoji)}
+                          className={cn("grid size-10 shrink-0 place-items-center rounded-full text-xl transition-[background-color,transform] active:scale-[0.9]", mineHere && "bg-muted ring-1 ring-border")}
+                        >
+                          {emoji}
+                        </button>
+                      );
+                    })}
+                    {/* Holding a message is taken by reacting, so copying lives here too. */}
+                    {message.content.trim() && (
+                      <>
+                        <span aria-hidden className="mx-0.5 h-5 w-px bg-border" />
+                        <button
+                          type="button"
+                          aria-label="Copy message"
+                          onClick={() => {
+                            setExpandedReactionFor(null);
+                            void navigator.clipboard?.writeText(message.content).then(() => notifyToast("Copied", "success")).catch(() => notifyToast("Couldn’t copy that.", "error"));
+                          }}
+                          className="grid size-9 min-h-0! shrink-0 place-items-center rounded-full text-ink-soft transition-transform active:scale-[0.9]"
+                        >
+                          <Copy className="size-[1.125rem]" aria-hidden />
+                        </button>
+                      </>
+                    )}
+                  </motion.div>
+                ) : (
+                  <motion.button
+                    key="smiley"
+                    layoutId={`reaction-picker-${message.id}`}
+                    type="button"
+                    onClick={() => setExpandedReactionFor(message.id)}
+                    aria-label="Add reaction"
+                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                    className="relative grid size-6 min-h-0! place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-soft transition-colors before:absolute before:-inset-2.5 before:content-[''] active:bg-muted"
+                  >
+                    <SmilePlus className="size-3.5" aria-hidden />
+                  </motion.button>
+                )}
+              </AnimatePresence>
+              {!expanded && (
+                <div className={cn("flex items-center gap-1", mine && "flex-row-reverse")}>
+            {message.reactions.map((r) => (
+              <Pressable key={r.emoji}>
+                <motion.button
+                  layout
+                  type="button"
+                  aria-pressed={r.mine}
+                  aria-label={`${r.emoji} ${r.count}${r.mine ? ", you reacted" : ""}`}
+                  onClick={() => void toggleReaction(message.id, r.emoji)}
+                  className={cn(
+                    "flex h-6 min-h-0! items-center gap-1 rounded-full border px-2 text-2xs transition-colors",
+                    r.mine ? "border-primary/30 bg-primary/10 text-primary" : "border-border bg-card text-muted-foreground hover:bg-accent",
+                  )}
+                >
+                  <span>{r.emoji}</span>
+                  <span>{r.count}</span>
+                </motion.button>
+              </Pressable>
+            ))}
+                </div>
+              )}
+              </div>
+            )}
+          </div>
           {roamBlocks && roamBlocks.length > 0 && (
             // Cards use the whole row, as wide as in the Roam tab, not what is left after the avatar gutter and the 85% cap.
             <div className="-ml-9 w-[calc(100%+2.25rem)] min-w-0 max-w-none">
@@ -310,6 +349,7 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
               )}
             </p>
           )}
+          {!phone && (
           <div className="flex flex-wrap items-center gap-1.5 px-1">
             {message.reactions.map((r) => (
               <Pressable key={r.emoji}>
@@ -320,7 +360,7 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
                   aria-label={`${r.emoji} ${r.count}${r.mine ? ", you reacted" : ""}`}
                   onClick={() => void toggleReaction(message.id, r.emoji)}
                   className={cn(
-                    "flex h-6 items-center gap-1 rounded-full border px-2 text-2xs transition-colors",
+                    "flex h-6 min-h-0! items-center gap-1 rounded-full border px-2 text-2xs transition-colors",
                     r.mine ? "border-primary/30 bg-primary/10 text-primary" : "border-border bg-card text-muted-foreground hover:bg-accent",
                   )}
                 >
@@ -329,18 +369,8 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
                 </motion.button>
               </Pressable>
             ))}
-            {/* With reactions already under it, adding another is one tap here: touch has no hover button, and a long press is easy to miss. */}
-            {message.reactions.length > 0 && !local && !expanded && (
-              <button
-                type="button"
-                onClick={() => setExpandedReactionFor(message.id)}
-                aria-label="Add reaction"
-                className="hit-44 grid h-6 w-7 place-items-center rounded-full border border-border bg-card text-muted-foreground transition-[background-color,color,transform] hover:bg-accent hover:text-foreground active:scale-[0.97]"
-              >
-                <SmilePlus className="size-3.5" aria-hidden />
-              </button>
-            )}
           </div>
+          )}
         </div>
       </motion.div>
     </div>

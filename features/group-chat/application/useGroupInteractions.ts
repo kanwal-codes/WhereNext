@@ -1,25 +1,17 @@
-import { useEffect, useRef, useState, type Dispatch, type PointerEvent as ReactPointerEvent, type SetStateAction } from "react";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { notifyToast } from "@/lib/application/toast";
 import { applyReactionToggle, applyVote } from "../domain/chat-state";
 import type { GroupMessage } from "../domain/message";
 import { postJson } from "./postJson";
 
-const LONG_PRESS_MS = 450;
-/** Two touches on one bubble this close together are a double tap. */
-const DOUBLE_TAP_MS = 300;
-const QUICK_REACTION = "❤️";
 
 /**
- * What a member does to a message in the thread: react (the inline bar, or a long press on touch), vote on a poll, start a poll.
+ * What a member does to a message in the thread: react (the hover button, or the smiley under it on a phone), vote on a poll, start a poll.
  * Each is optimistic against the local list and put right by `refresh` if the server disagrees.
  */
 export function useGroupInteractions({ tripId, setMessages, refresh }: { tripId: string; setMessages: Dispatch<SetStateAction<GroupMessage[]>>; refresh: () => Promise<unknown> | void }) {
   const [expandedReactionFor, setExpandedReactionFor] = useState<string | null>(null);
-  const [pressingId, setPressingId] = useState<string | null>(null);
   const [pendingVoteFor, setPendingVoteFor] = useState<string | null>(null);
-  // The message a double tap just liked, for the heart that pops over it.
-  const [likedId, setLikedId] = useState<string | null>(null);
-  const lastTap = useRef<{ id: string; at: number } | null>(null);
   // Guards against the server-side toggle race: a delete-then-insert isn't atomic, so two
   // near-simultaneous taps on the same (message, emoji) can both see "not reacted yet" and
   // both insert, or the second can re-add what the first just removed. Blocking a second
@@ -27,10 +19,6 @@ export function useGroupInteractions({ tripId, setMessages, refresh }: { tripId:
   // double-tap); it doesn't cover two separate tabs racing, which would need a DB-side atomic
   // upsert-toggle (ponytail: revisit with a stored procedure if that's ever actually seen).
   const pendingReactionsRef = useRef<Set<string>>(new Set());
-  // Long-press-to-react: one shared timer is enough since only one bubble can be held at a time.
-  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pressMoved = useRef(false);
-
   // Tap anywhere outside an expanded inline emoji bar to close it.
   useEffect(() => {
     if (!expandedReactionFor) return;
@@ -86,49 +74,5 @@ export function useGroupInteractions({ tripId, setMessages, refresh }: { tripId:
     }
   }
 
-  // Touch-only: holding a bubble opens the same inline emoji bar the mouse gets from its trigger button (below),
-  // so this never fires for a click.
-  function onBubblePressStart(event: ReactPointerEvent, messageId: string) {
-    if (event.pointerType !== "touch") return;
-    // A second touch on the same bubble, straight after the first: the quick like, with no menu to open.
-    const now = Date.now();
-    if (lastTap.current && lastTap.current.id === messageId && now - lastTap.current.at < DOUBLE_TAP_MS) {
-      lastTap.current = null;
-      if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; }
-      try { navigator.vibrate?.(8); } catch { /* no-op */ }
-      setLikedId(messageId);
-      window.setTimeout(() => setLikedId((current) => (current === messageId ? null : current)), 700);
-      void toggleReaction(messageId, QUICK_REACTION);
-      return;
-    }
-    lastTap.current = { id: messageId, at: now };
-    pressMoved.current = false;
-    setPressingId(messageId);
-    pressTimer.current = setTimeout(() => {
-      if (!pressMoved.current) {
-        // Best-effort haptic — some browsers throw when it's called without a trusted user
-        // gesture, and that must never take the actual reaction trigger down with it.
-        try {
-          navigator.vibrate?.(10);
-        } catch {
-          /* no-op */
-        }
-        setExpandedReactionFor(messageId);
-      }
-      setPressingId(null);
-    }, LONG_PRESS_MS);
-  }
-  function onBubblePressEnd() {
-    if (pressTimer.current) {
-      clearTimeout(pressTimer.current);
-      pressTimer.current = null;
-    }
-    setPressingId(null);
-  }
-  function onBubblePressMove() {
-    pressMoved.current = true;
-    onBubblePressEnd();
-  }
-
-  return { expandedReactionFor, setExpandedReactionFor, pressingId, likedId, pendingVoteFor, createPoll, castVote, toggleReaction, onBubblePressStart, onBubblePressEnd, onBubblePressMove };
+  return { expandedReactionFor, setExpandedReactionFor, pendingVoteFor, createPoll, castVote, toggleReaction };
 }
