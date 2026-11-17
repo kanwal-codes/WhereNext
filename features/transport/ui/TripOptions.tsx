@@ -46,8 +46,8 @@ export function TripOptionsSheet({
 
   return (
     <Sheet open={open} onClose={onClose} side={phone ? "bottom" : "center"} ariaLabel="When and who" footer={<button type="button" onClick={onClose} className={sheetPrimary}>Done</button>} padded={phone} className={cn("bg-background", !phone && "icons-fine p-5")}>
-      <p className="px-1 pb-3 pt-1 font-display text-xl font-medium tracking-[-0.02em]">When and who</p>
-      <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain px-1">
+      <p className="pb-3 pt-1 font-display text-xl font-medium tracking-[-0.02em]">When and who</p>
+      <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain -mx-1 px-1">
         <div className="space-y-4">
           <SegmentedSwitch
             label="Leave or arrive"

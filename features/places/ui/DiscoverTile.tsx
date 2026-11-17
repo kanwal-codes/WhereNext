@@ -21,8 +21,8 @@ function TilePhoto({ src, icon, className }: { src?: string | null; icon: Lucide
 
 /**
  * Phone redesign: how Discover shows anything it found. The first result is a wide photo with its name on it ("feature"),
- * the rest sit two to a row with the add button on the photo and the name and one line of facts under it. The whole tile
- * opens the place; the corner button adds it. See the Discover render in the approved screens.
+ * the rest sit two to a row with the name and one line of facts under the photo. The whole tile opens the place; the two buttons on the photo are the
+ * same on every tile: the heart (top right) saves it, the plus (bottom right) puts it on a day. See the Discover render in the approved screens.
  */
 export function DiscoverTile({
   label, onOpen, warm, href, src, icon, title, meta, rating, feature = false, pick, save, add, overlay, selected = false,
@@ -64,9 +64,14 @@ export function DiscoverTile({
         <div className="pointer-events-none absolute inset-x-4 bottom-4 z-[1] flex items-end justify-between gap-3">
           <div className="min-w-0">
             <h3 className="font-display text-widget leading-[1.15] font-medium tracking-[-0.025em] text-balance">{title}</h3>
-            {meta && <p className="mt-0.5 truncate text-sm text-white/85">{meta}</p>}
+            {(meta || stars) && (
+              <p className="mt-0.5 flex items-center gap-1.5 text-sm text-white/85">
+                {meta && <span className="min-w-0 truncate">{meta}</span>}
+                {stars && <span className="text-white">{stars}</span>}
+              </p>
+            )}
           </div>
-          {stars && <span className="pb-0.5 text-sm text-white">{stars}</span>}
+          {add && <div className="pointer-events-auto shrink-0">{add}</div>}
         </div>
         {overlay}
       </article>
@@ -78,6 +83,7 @@ export function DiscoverTile({
       {/* The photo lets taps through to the open-card overlay beneath it; only the controls on it take their own. */}
       <div className={cn("pointer-events-none relative aspect-[4/3] overflow-hidden rounded-2xl bg-muted", selected && "ring-2 ring-primary")}>
         <TilePhoto src={src} icon={icon} className="photo-grade absolute inset-0 h-full w-full object-cover" />
+        {save && <div className="pointer-events-auto absolute top-2 right-2 z-[2]">{save}</div>}
         {add && <div className="pointer-events-auto absolute right-2 bottom-2 z-[2]">{add}</div>}
         {overlay && <div className="pointer-events-auto contents">{overlay}</div>}
       </div>
