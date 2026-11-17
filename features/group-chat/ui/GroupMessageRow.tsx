@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { Copy, SmilePlus } from "lucide-react";
+import { SmilePlus } from "lucide-react";
 import { memberTint } from "@/lib/member-tint";
 import { Pressable } from "@/components/motion-primitives";
 import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
@@ -17,7 +17,6 @@ import { dayLabel, displayName, fullTime, timeLabel } from "./chat-format";
 import { renderRich, type MentionLookup } from "./rich-text";
 import { cn } from "@/lib/utils";
 import { useMediaQuery } from "@/lib/use-media-query";
-import { notifyToast } from "@/lib/application/toast";
 
 const COMMON_EMOJI = ["👍", "❤️", "😂", "🎉", "😍", "🤔"];
 
@@ -173,7 +172,7 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
             </p>
           )}
           {/* The text stays selectable: holding a message selects it, as anywhere else. Reacting is the smiley under it. */}
-          <div title={fullTime(message.created_at)} className={cn("group relative min-w-0 max-w-full", phone && !local && "mb-4")}>
+          <div title={fullTime(message.created_at)} className={cn("group relative min-w-0 max-w-full transition-[margin] duration-200", phone && !local && (!mine || message.reactions.length > 0) && (expanded && !mine ? "mb-9" : "mb-4"))}>
             {bubble}
             {/* The reaction trigger sits in the gutter at the vertical middle of the bubble —
                 left for your own messages, right for everyone else's. The expanded
@@ -183,7 +182,7 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
                 the empty gutter, which is too narrow for six emoji anyway. Reveal-on-
                 hover; touch has no hover state, so this never shows there — long-press
                 → the Sheet below is how touch reacts. */}
-            {!phone && !expanded && !local && (
+            {!phone && !mine && !expanded && !local && (
               <div
                 className={cn(
                   "pointer-events-none absolute top-1/2 z-10 flex -translate-y-1/2 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100",
@@ -205,7 +204,7 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
               </div>
             )}
             <AnimatePresence>
-              {!phone && expanded && (
+              {!phone && !mine && expanded && (
                 <motion.div
                   key="bar"
                   layoutId={`reaction-picker-${message.id}`}
@@ -231,10 +230,10 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
               )}
             </AnimatePresence>
             {/* Phone: a smiley under the message. Tapped (or the message held), it opens into a pill of the six, with the one you chose lit; picking one closes it. */}
-            {phone && !local && (
-              <div className={cn("absolute -bottom-4 z-10 flex items-center gap-1", mine ? "right-3 flex-row-reverse" : "left-3")}>
+            {phone && !local && (!mine || message.reactions.length > 0) && (
+              <div className={cn("absolute top-full -mt-2 z-10 flex items-center gap-1", mine ? "right-3 flex-row-reverse" : "left-3")}>
               <AnimatePresence initial={false}>
-                {expanded ? (
+                {expanded && !mine ? (
                   <motion.div
                     key="pill"
                     layoutId={`reaction-picker-${message.id}`}
@@ -253,31 +252,14 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
                           aria-label={`React ${emoji}`}
                           aria-pressed={mineHere}
                           onClick={() => void toggleReaction(message.id, emoji)}
-                          className={cn("grid size-10 shrink-0 place-items-center rounded-full text-xl transition-[background-color,transform] active:scale-[0.9]", mineHere && "bg-muted ring-1 ring-border")}
+                          className={cn("grid size-9 min-h-0! shrink-0 place-items-center rounded-full text-xl transition-[background-color,transform] active:scale-[0.9]", mineHere && "bg-muted ring-1 ring-border")}
                         >
                           {emoji}
                         </button>
                       );
                     })}
-                    {/* Holding a message is taken by reacting, so copying lives here too. */}
-                    {message.content.trim() && (
-                      <>
-                        <span aria-hidden className="mx-0.5 h-5 w-px bg-border" />
-                        <button
-                          type="button"
-                          aria-label="Copy message"
-                          onClick={() => {
-                            setExpandedReactionFor(null);
-                            void navigator.clipboard?.writeText(message.content).then(() => notifyToast("Copied", "success")).catch(() => notifyToast("Couldn’t copy that.", "error"));
-                          }}
-                          className="grid size-9 min-h-0! shrink-0 place-items-center rounded-full text-ink-soft transition-transform active:scale-[0.9]"
-                        >
-                          <Copy className="size-[1.125rem]" aria-hidden />
-                        </button>
-                      </>
-                    )}
                   </motion.div>
-                ) : (
+                ) : mine ? null : (
                   <motion.button
                     key="smiley"
                     layoutId={`reaction-picker-${message.id}`}
@@ -291,7 +273,7 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
                   </motion.button>
                 )}
               </AnimatePresence>
-              {!expanded && (
+              {(!expanded || mine) && (
                 <div className={cn("flex items-center gap-1", mine && "flex-row-reverse")}>
             {message.reactions.map((r) => (
               <Pressable key={r.emoji}>

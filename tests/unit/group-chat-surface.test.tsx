@@ -783,26 +783,20 @@ describe("GroupChatSurface: reacting on a phone", () => {
     expect(screen.queryByRole("group", { name: "React to this message" })).toBeNull();
   });
 
-  it("puts a smiley under every message that opens into a pill of six, lights the one you chose, and closes on a pick", async () => {
+  it("puts a smiley under every message from a friend (not your own) that opens into a pill of six, lights the one you chose, and has no Copy in it", async () => {
     phone();
     const { user } = await open();
     const smileys = screen.getAllByRole("button", { name: "Add reaction" });
-    expect(smileys.length).toBeGreaterThanOrEqual(2);
+    // Two messages on screen, one of them yours: only the friend's has the smiley.
+    expect(smileys).toHaveLength(1);
     await user.click(smileys[0]);
     const pill = screen.getByRole("group", { name: "React to this message" });
     expect(within(pill).getAllByRole("button", { name: /^React / })).toHaveLength(6);
+    expect(within(pill).queryByRole("button", { name: "Copy message" })).toBeNull();
     await user.click(within(pill).getByRole("button", { name: "React 👍" }));
     expect(posts("/group-chat/1/reactions")[0].body).toEqual({ emoji: "👍" });
     await screen.findByRole("button", { name: "👍 1, you reacted" });
     await user.click(screen.getAllByRole("button", { name: "Add reaction" })[0]);
     expect(within(screen.getByRole("group", { name: "React to this message" })).getByRole("button", { name: "React 👍" }).getAttribute("aria-pressed")).toBe("true");
-  });
-
-  it("copies a message from the pill", async () => {
-    phone();
-    const { user } = await open();
-    await user.click(screen.getAllByRole("button", { name: "Add reaction" })[0]);
-    await user.click(screen.getByRole("button", { name: "Copy message" }));
-    await waitFor(async () => expect(await navigator.clipboard.readText()).toBe("Who is up for tapas?"));
   });
 });
