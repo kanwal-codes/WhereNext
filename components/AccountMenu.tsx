@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Bell, Compass, Database, LogOut, UserRound, type LucideIcon } from "lucide-react";
+import { Bell, Compass, LogOut, UserRound, type LucideIcon } from "lucide-react";
 import { memberInitials } from "@/lib/member-initials";
 import { cn } from "@/lib/utils";
 
@@ -20,13 +20,12 @@ const ITEMS: Array<{ href: string; label: string; hint: string; Icon: LucideIcon
   { href: "/account#profile", label: "Profile", hint: "Name, photo, email", Icon: UserRound },
   { href: "/account#style", label: "Travel style", hint: "What Roam plans around", Icon: Compass },
   { href: "/account#notifications", label: "Notifications and sharing", hint: "Alerts, shared trips", Icon: Bell },
-  { href: "/account#danger", label: "Account data", hint: "Export or delete", Icon: Database },
 ];
 
 const WIDTH = 256;
 const ROW = "flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none";
 
-/** The account avatar: opens a short menu (profile, travel style, notifications, account data, sign out) instead of leaving the page. */
+/** The account avatar: opens a short menu (profile, travel style, notifications, sign out) instead of leaving the page. */
 export function AccountMenu({ displayName, className }: { displayName: string; className?: string }) {
   const reduce = useReducedMotion();
   const menuId = useId();

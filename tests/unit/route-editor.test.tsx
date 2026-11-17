@@ -22,7 +22,7 @@ import { useRouteAsk } from "../../features/transport/application/useRouteAsk";
 function Editor({ search, onGo = () => {}, home = "Toronto, Canada", stay = "" }: { search: ReturnType<typeof vi.fn>; onGo?: () => void; home?: string; stay?: string }) {
   const [from, setFrom] = React.useState("");
   const [to, setTo] = React.useState("");
-  const t = { from, to, setFrom, setTo, search, when: null, trip: null } as never;
+  const t = { from, to, setFrom, setTo, search, setAnyTime: vi.fn(), when: null, trip: null } as never;
   const ask = useRouteAsk({ tripId: "t1", t, home, stay, onGo });
   const ref = React.useRef<HTMLInputElement>(null);
   const ref2 = React.useRef<HTMLInputElement>(null);
