@@ -6,6 +6,8 @@
  * the travel day between them. Pure functions, no I/O.
  */
 
+import { hasPopularAreas } from "@/lib/popular-areas";
+
 export type TripStop = { city: string; startDate: string | null; endDate: string | null };
 
 type TripLike = { destination?: string | null; start_date?: string | null; end_date?: string | null; stops?: unknown };
@@ -51,6 +53,8 @@ export function splitDestinations(destination: string | null | undefined): strin
 const COUNTRY_ALIASES = ["usa", "us", "uk", "united states", "united states of america", "united kingdom", "england", "scotland", "wales", "turkey", "uae"];
 const REGIONS = new Set([
   "alabama", "alaska", "arizona", "arkansas", "california", "colorado", "connecticut", "delaware", "florida", "georgia", "hawaii", "idaho", "illinois", "indiana", "iowa", "kansas", "kentucky", "louisiana", "maine", "maryland", "massachusetts", "michigan", "minnesota", "mississippi", "missouri", "montana", "nebraska", "nevada", "new hampshire", "new jersey", "new mexico", "new york state", "north carolina", "north dakota", "ohio", "oklahoma", "oregon", "pennsylvania", "rhode island", "south carolina", "south dakota", "tennessee", "texas", "utah", "vermont", "virginia", "washington state", "west virginia", "wisconsin", "wyoming", "district of columbia",
+  "kerala", "rajasthan", "goa", "gujarat", "maharashtra", "karnataka", "tamil nadu", "punjab", "uttar pradesh", "himachal pradesh", "west bengal", "andhra pradesh", "telangana",
+  "new south wales", "queensland", "western australia", "south australia", "tasmania",
   "ontario", "quebec", "québec", "british columbia", "alberta", "manitoba", "saskatchewan", "nova scotia", "new brunswick", "newfoundland and labrador", "prince edward island", "yukon", "nunavut", "northwest territories",
 ]);
 let countryNames: Set<string> | null = null;
@@ -70,12 +74,24 @@ const isCountry = (name: string): boolean => {
 const isRegion = (name: string): boolean => /^[A-Z]{2}$/.test(name) || REGIONS.has(name.toLowerCase());
 
 /**
+ * A place too big to search as one: a country, a state or province, a famous region (Tuscany), or a trip with no place chosen yet. Stays and
+ * Discover for "Portugal" or "Kerala" are centred on the middle of nowhere, so these are the places the "Where in …?" sheet is offered for.
+ */
+export const isBroadPlace = (name: string | null | undefined): boolean => {
+  const n = (name ?? "").trim();
+  if (!n) return false;
+  return isCountry(n) || REGIONS.has(n.toLowerCase()) || hasPopularAreas(n) || /^(somewhere|anywhere)\b/i.test(n);
+};
+
+/**
  * "Niagara Falls, Ontario, Canada" is one place written the way maps write it, not three cities. A trailing country, then a trailing
  * province or state, is dropped (one of each, and never down to nothing), so a real list like "Rome, Paris, France" still reads as Rome and Paris.
  */
 function withoutPlaceSuffix(parts: string[]): string[] {
   let out = parts;
-  if (out.length > 1 && isCountry(out[out.length - 1]!)) out = out.slice(0, -1);
+  // A country after another country ("Portugal, Spain") is a stop of its own; after a city, state or nothing it is only the address.
+  const prev = out[out.length - 2];
+  if (out.length > 1 && isCountry(out[out.length - 1]!) && !(prev && isCountry(prev) && !isRegion(prev))) out = out.slice(0, -1);
   if (out.length > 1 && isRegion(out[out.length - 1]!)) out = out.slice(0, -1);
   return out;
 }

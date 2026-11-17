@@ -63,7 +63,7 @@ export function EssentialsSurface({ tripId, initialCompleted }: { tripId: string
         <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
           <div className="h-full rounded-full bg-leaf transition-[width] duration-500 ease-out" style={{ width: `${pct}%` }} />
         </div>
-        <span className="shrink-0 text-sm font-medium tabular-nums text-muted-foreground">
+        <span className="shrink-0 text-sm font-medium tabular-nums text-ink-soft">
           {complete}/{ITEMS.length}
         </span>
       </div>
@@ -79,11 +79,11 @@ export function EssentialsSurface({ tripId, initialCompleted }: { tripId: string
               >
                 <span
                   className={cn(
-                    "grid h-6 w-6 shrink-0 place-items-center rounded-full border transition-colors",
+                    "grid size-6 shrink-0 place-items-center rounded-full border transition-colors",
                     checked ? "border-leaf bg-leaf text-background" : "border-border",
                   )}
                 >
-                  {checked && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+                  {checked && <Check className="size-3.5" strokeWidth={3} />}
                 </span>
                 <span className={cn("transition-colors", checked && "text-muted-foreground line-through")}>{item}</span>
               </button>

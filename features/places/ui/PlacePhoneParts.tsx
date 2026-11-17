@@ -14,7 +14,7 @@ type PlaceForTrip = ReturnType<typeof detailsToPlace>;
 /** The phone's photo: rounded, with the save heart on it. */
 export function PlacePhonePhoto({ tripId, photo, name, place, placeholder }: { tripId: string; photo: string | undefined; name: string; place: PlaceForTrip; /** The card's smaller photo, already cached: shown until the sharp one has loaded. */ placeholder?: string | null }) {
   return (
-    <div className="px-5 pt-3 lg:hidden">
+    <div className="px-4 pt-3 lg:hidden">
       <div className="relative aspect-[16/10] overflow-hidden rounded-3xl bg-muted">
         {/* No photo: the app's own stand-in with the kind of place drawn on it, never someone else's stock picture. */}
         {photo ? (
@@ -32,7 +32,7 @@ export function PlacePhonePhoto({ tripId, photo, name, place, placeholder }: { t
 export function PlacePhoneSummary({ details, city, price, openNow, todayHours }: { details: GooglePlaceDetails; city: string | undefined; price: string | undefined; openNow: boolean | undefined; todayHours: string | null }) {
   return (
     <div className="mt-2 lg:hidden">
-      <p className="flex flex-wrap items-center gap-x-2 text-[0.9375rem] text-ink-soft">
+      <p className="flex flex-wrap items-center gap-x-2 text-body text-ink-soft">
         {typeof details.rating === "number" && (
           <span className="inline-flex items-center gap-1 font-semibold text-foreground tabular-nums">
             <Star className="size-4 fill-coral text-coral" aria-hidden />
@@ -45,7 +45,7 @@ export function PlacePhoneSummary({ details, city, price, openNow, todayHours }:
       {(typeof openNow === "boolean" || todayHours) && (
         <p className="mt-3 flex flex-wrap gap-2">
           {typeof openNow === "boolean" && (
-            <span className={cn("inline-flex h-9 items-center gap-1.5 rounded-full bg-secondary px-3.5 text-sm font-medium", openNow ? "text-foreground" : "text-ink-soft")}>
+            <span className={cn("inline-flex h-9 items-center gap-1.5 rounded-full bg-muted px-3.5 text-sm font-medium", openNow ? "text-foreground" : "text-ink-soft")}>
               <Clock className={cn("size-4", openNow ? "text-positive" : "text-muted-foreground")} aria-hidden />
               {openNowChip(openNow, todayHours)}
             </span>

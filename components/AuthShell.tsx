@@ -30,7 +30,7 @@ export function AuthShell({
   const reduce = useReducedMotion();
   return (
     <div className="theme-light-scope grid min-h-screen bg-background text-foreground [color-scheme:light] lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
-      <div className="relative flex flex-col px-5 py-8 sm:px-10 lg:px-14">
+      <div className="relative flex flex-col px-4 py-8 sm:px-10 lg:px-14">
         <header className="flex items-center justify-between gap-2">
           <Link href="/" className="inline-flex w-fit items-center gap-2 text-sm">
             <BrandMark variant="compact" />
@@ -84,7 +84,7 @@ export function AuthShell({
 
         <Reveal delay={0.5} className="absolute inset-x-0 bottom-0 p-10">
           <div className="max-w-sm rounded-2xl border border-border/60 bg-card/70 p-6 shadow-soft backdrop-blur-xl">
-            <Quote className="h-4 w-4 text-coral" />
+            <Quote className="size-4 text-coral" />
             <p className="mt-3 font-display text-lg leading-snug">A trip should build itself while you talk about it.</p>
             <p className="mt-2 text-xs text-muted-foreground">
               Conversation in, an organised plan out — dates, stays, routes and everything you decided along the way.
@@ -125,7 +125,7 @@ export function SubmitButton({
     >
       {loading ? (
         <motion.span
-          className="h-4 w-4 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground"
+          className="size-4 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground"
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
         />

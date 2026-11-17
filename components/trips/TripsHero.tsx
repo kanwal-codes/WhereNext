@@ -20,7 +20,7 @@ export function TripsHero({ displayName, start }: { displayName: string; start: 
     <HeroCarousel className="h-[480px] rounded-b-3xl sm:h-[420px] max-lg:h-[26rem]">
       <div className="absolute inset-x-0 top-0">
         <Reveal>
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 pt-6 sm:px-8">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 pt-6 sm:px-8">
             <Link href="/" prefetch={false} className="inline-flex items-center gap-2 max-lg:min-h-11 transition-[opacity,transform] duration-200 hover:opacity-85 active:scale-[0.97]">
               <BrandMark variant="compact" className="ring-1 ring-white/60 transition-shadow duration-700" />
               <BrandMark variant="text" className="hidden text-white transition-colors duration-700 sm:inline" />
@@ -31,7 +31,7 @@ export function TripsHero({ displayName, start }: { displayName: string; start: 
       </div>
 
       <div className="absolute inset-x-0 bottom-0">
-        <div className="mx-auto max-w-6xl px-5 pb-14 sm:px-8 sm:pb-8">
+        <div className="mx-auto max-w-6xl px-4 pb-14 sm:px-8 sm:pb-8">
           <Reveal delay={0.2}>
             <WordReveal
               text="Trips you’re thinking about."
@@ -69,11 +69,11 @@ export function TripsHero({ displayName, start }: { displayName: string; start: 
                     aria-pressed={speech.listening}
                     disabled={starting}
                     className={cn(
-                      "daisy-btn daisy-btn-circle daisy-btn-ghost h-10 w-10 max-lg:h-11 max-lg:w-11 shrink-0 border-0 transition-colors disabled:opacity-40",
+                      "daisy-btn daisy-btn-circle daisy-btn-ghost size-10 max-lg:h-11 max-lg:w-11 shrink-0 border-0 transition-colors disabled:opacity-40",
                       speech.listening ? "bg-destructive/10 text-destructive" : "text-muted-foreground hover:text-foreground",
                     )}
                   >
-                    <Mic className={cn("h-4 w-4", speech.listening && "animate-pulse")} />
+                    <Mic className={cn("size-4", speech.listening && "animate-pulse")} />
                   </button>
                 )}
                 <button
@@ -82,16 +82,16 @@ export function TripsHero({ displayName, start }: { displayName: string; start: 
                   title="Start planning"
                   disabled={!canSend}
                   className={cn(
-                    "daisy-btn daisy-btn-circle h-10 w-10 max-lg:h-11 max-lg:w-11 shrink-0 border-0 shadow-none transition-[background-color,color,transform] active:scale-95",
+                    "daisy-btn daisy-btn-circle size-10 max-lg:h-11 max-lg:w-11 shrink-0 border-0 shadow-none transition-[background-color,color,transform] active:scale-[0.97]",
                     canSend ? "bg-coral text-background" : "bg-foreground/8 text-muted-foreground",
                   )}
                 >
-                  {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                  {starting ? <Loader2 className="size-4 animate-spin" /> : <ArrowRight className="size-4" />}
                 </button>
               </label>
             </form>
             {promptError ? (
-              <p role="alert" className="mx-auto mt-2 max-w-xl rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium text-destructive">
+              <p role="alert" className="mx-auto mt-2 max-w-xl rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-destructive">
                 {promptError}
               </p>
             ) : (

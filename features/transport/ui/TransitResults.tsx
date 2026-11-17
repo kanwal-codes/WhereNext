@@ -1,13 +1,16 @@
 "use client";
 
-import { ChevronDown, ExternalLink } from "lucide-react";
+import { useState } from "react";
+import { ChevronRight, ExternalLink } from "lucide-react";
+import { Sheet } from "@/components/motion-primitives";
+import { sheetPrimary, sheetSecondary } from "@/components/motion/sheetActions";
 import { useDistance } from "@/components/use-distance";
 import type { RouteTag } from "@/lib/application/route-overlay";
 import { MODE_LABEL } from "@/lib/application/mode-visuals";
 import { cn, durationFromSeconds, formatDuration } from "@/lib/utils";
 import { ModeTile, Ribbon, colorOf, railStyle } from "@/features/maps/ui/modeParts";
 import type { useTransportSearch } from "../application/useTransportSearch";
-import { clock, googleMapsTransitUrl, hexColor, mergeWalks, money, routeSummaries, transitSaveValue, type Step } from "../domain/route-view";
+import { clock, googleMapsTransitUrl, hexColor, mergeWalks, money, routeOrder, routeSummaries, transitSaveValue, type Step } from "../domain/route-view";
 
 const TAG_TEXT: Record<RouteTag, string> = { fastest: "Fastest", "fewer-changes": "Fewer changes", "least-walking": "Least walking" };
 
@@ -43,26 +46,33 @@ function StepRow({ step, last }: { step: Step; last: boolean }) {
   );
 }
 
-/** The Transit tab: each route as an expandable card (times, fare, a ribbon of the legs, changes and walking), then its steps and Save. */
+/**
+ * The Transit tab: each route as a card (times, fare, a ribbon of the legs, changes and walking). Taking one draws it on the map and opens
+ * its steps in a bottom sheet over the page, with Start in Google Maps and Save to my trip, instead of unfolding the card in place.
+ */
 export function TransitResults({ t }: { t: ReturnType<typeof useTransportSearch> }) {
   const distance = useDistance();
-  const { from, to, tab, routes, selected, choose, saveChoice } = t;
+  const { from, to, tab, routes, selected, choose, saveChoice, routeSort } = t;
   const { meta: routeMeta, tags: routeTags } = routeSummaries(routes);
+  const [open, setOpen] = useState<number | null>(null);
+  const opened = open != null ? routes[open] : undefined;
+  const openSteps = opened ? mergeWalks(opened.steps ?? []) : [];
   return (
     <>
       {tab === "transit" && routes.length > 0 && (
         <ul className="space-y-3" aria-label="Routes">
-          {routes.map((route, i) => {
+          {routeOrder(routes, routeSort).map((i) => {
+            const route = routes[i];
             const tag = routeTags[i];
-            const open = selected === i;
+            const on = selected === i;
             const dep = clock(route.departureTime, route.timeZone);
             const arr = clock(route.arrivalTime, route.timeZone);
             const fare = money(route.fare);
             const steps = mergeWalks(route.steps ?? []);
             const rides = steps.filter((st) => (st.mode ?? "") !== "walk");
             return (
-              <li key={i} className={cn("rounded-2xl bg-card transition-shadow duration-200", open ? "shadow-lift ring-[1.5px] ring-ink" : "ring-1 ring-border hover:ring-input")}>
-                <button type="button" onClick={() => choose(i)} aria-expanded={open} className="block w-full rounded-2xl p-4 text-left">
+              <li key={i} className={cn("rounded-2xl bg-card transition-shadow duration-200", on ? "shadow-lift ring-[1.5px] ring-ink" : "ring-1 ring-border hover:ring-input")}>
+                <button type="button" onClick={() => { choose(i); setOpen(i); }} aria-haspopup="dialog" className="block w-full rounded-2xl p-4 text-left">
                   <span className="flex items-center justify-between gap-3">
                     {tag ? (
                       <span className={cn("status-chip", tag === "fastest" && "status-ok")}>{TAG_TEXT[tag]}</span>
@@ -71,7 +81,7 @@ export function TransitResults({ t }: { t: ReturnType<typeof useTransportSearch>
                     )}
                     <span className="flex items-center gap-2 text-xs tabular-nums text-muted-foreground">
                       {dep && arr && <span>{dep} → {arr}</span>}
-                      <ChevronDown className={cn("size-4 transition-transform duration-300", open && "rotate-180")} aria-hidden="true" />
+                      <ChevronRight className="size-4" aria-hidden="true" />
                     </span>
                   </span>
                   <span className="mt-2.5 flex items-baseline justify-between gap-3">
@@ -91,47 +101,47 @@ export function TransitResults({ t }: { t: ReturnType<typeof useTransportSearch>
                     </span>
                   </span>
                 </button>
-
-                {open && (
-                  <div className="border-t border-border px-4 pb-4 pt-4">
-                    {steps.length > 0 ? (
-                      <ol>
-                        {steps.map((step, si) => (
-                          <StepRow key={si} step={step} last={si === steps.length - 1} />
-                        ))}
-                      </ol>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No step-by-step breakdown was returned for this route.</p>
-                    )}
-                    <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-                      {route.fare
-                        ? "Buy this fare from the operator’s app or a station machine. A single ticket or day pass usually covers the whole trip."
-                        : "Check the operator’s app or a station machine for the current fare and tickets."}
-                    </p>
-                    <div className="mt-4 flex flex-wrap items-center gap-2">
-                      <a
-                        href={googleMapsTransitUrl(from, to)}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="btn-primary-sm"
-                      >
-                        Start in Google Maps <ExternalLink className="size-3.5" aria-hidden="true" />
-                      </a>
-                    <button
-                      type="button"
-                      onClick={() => void saveChoice(transitSaveValue(route, from, to))}
-                      className="btn-chip"
-                    >
-                      Save to my trip
-                    </button>
-                    </div>
-                  </div>
-                )}
               </li>
             );
           })}
         </ul>
       )}
+
+      <Sheet open={tab === "transit" && opened != null} onClose={() => setOpen(null)} side="bottom" ariaLabel="Route details" footer={opened ? (<>
+              <button type="button" onClick={() => void saveChoice(transitSaveValue(opened, from, to))} className={sheetSecondary}>
+                Save to my trip
+              </button>
+              <a href={googleMapsTransitUrl(from, to)} target="_blank" rel="noreferrer noopener" className={sheetPrimary}>
+                Start in Maps <ExternalLink className="size-3.5" aria-hidden="true" />
+              </a>
+</>) : undefined} padded>
+        {opened && open != null && (
+          <>
+            <div className="px-1 pb-3 pt-1">
+              <p className="font-display text-2xl font-medium leading-none tabular-nums tracking-[-0.025em]">{durationFromSeconds(opened.durationSeconds)}</p>
+              <p className="mt-1.5 text-sm text-ink-soft tabular-nums">
+                {[clock(opened.departureTime, opened.timeZone) && clock(opened.arrivalTime, opened.timeZone) ? `${clock(opened.departureTime, opened.timeZone)} → ${clock(opened.arrivalTime, opened.timeZone)}` : null, money(opened.fare), distance(opened.distanceMeters / 1000)].filter(Boolean).join(" · ")}
+              </p>
+            </div>
+            <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain px-1">
+              {openSteps.length > 0 ? (
+                <ol>
+                  {openSteps.map((step, si) => (
+                    <StepRow key={si} step={step} last={si === openSteps.length - 1} />
+                  ))}
+                </ol>
+              ) : (
+                <p className="text-sm text-ink-soft">No step-by-step breakdown was returned for this route.</p>
+              )}
+              <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+                {opened.fare
+                  ? "Buy this fare from the operator’s app or a station machine. A single ticket or day pass usually covers the whole trip."
+                  : "Check the operator’s app or a station machine for the current fare and tickets."}
+              </p>
+            </div>
+          </>
+        )}
+      </Sheet>
     </>
   );
 }

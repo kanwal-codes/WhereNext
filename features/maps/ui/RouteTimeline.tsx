@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { motion } from "motion/react";
+import { Sheet } from "@/components/motion-primitives";
 import { useDistance } from "@/components/use-distance";
-import { ChevronDown, TriangleAlert } from "lucide-react";
+import { ChevronRight, ExternalLink, Ticket, TriangleAlert } from "lucide-react";
 import type { RouteDay, RouteLegStep } from "@/packages/contracts/route-plan";
 import { MODE_ICON, MODE_LABEL } from "@/lib/application/mode-visuals";
 import { ModeTile, Ribbon, colorOf, legRailStyle, mainMode, mergeWalkSteps } from "@/features/maps/ui/modeParts";
@@ -81,19 +83,27 @@ function AltChip({ tripId, dayIndex, leg, alt, onChosen }: { tripId: string; day
   );
 }
 
-/** What is already booked for the day, above the stops it sits between. */
-function BookedList({ booked, className }: { booked: NonNullable<RouteDay["booked"]>; className?: string }) {
+/** What is already booked for the day, above the stops it sits between. The same row as the Plan page's: a ticket, the title, the when, a link to Bookings. */
+function BookedList({ booked, tripId, className }: { booked: NonNullable<RouteDay["booked"]>; tripId: string; className?: string }) {
   return (
-    <ul aria-label="Booked" className={cn("space-y-1.5", className)}>
+    <ul aria-label="Booked" className={cn("space-y-2", className)}>
       {booked.map((b, i) => (
-        <li key={`${b.title}-${i}`} className="flex flex-wrap items-baseline justify-between gap-x-3 rounded-2xl bg-secondary px-3.5 py-2 text-sm">
-          <span className="min-w-0 truncate font-medium">{b.title}</span>
-          {b.detail && <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{b.detail}</span>}
+        <li key={`${b.title}-${i}`}>
+          <Link href={`/trips/${tripId}/bookings`} className="flex min-h-12 items-center gap-3 rounded-2xl bg-muted px-4 py-2.5 text-sm">
+            <Ticket className="size-[1.125rem] shrink-0 text-leaf" aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate font-medium">{b.title}</span>
+            {b.detail && <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{b.detail}</span>}
+          </Link>
         </li>
       ))}
     </ul>
   );
 }
+
+/** A leg has something to open when it is more than one piece (a walk, a ride, a walk); a lone walk is already said on the row. */
+const hasSteps = (leg: RouteDay["legs"][number]) => mergeWalkSteps(leg.steps).length > 1;
+
+const MAPS_MODE: Record<string, string> = { walk: "walking", drive: "driving", bike: "bicycling" };
 
 export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date }: { day: RouteDay; tripId: string; onHoverLeg?: (index: number | null) => void; onLegChosen?: () => void; date?: string | null }) {
   const distance = useDistance();
@@ -107,29 +117,38 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date }: { 
   if (day.stops.length < 2) {
     return (
       <div>
-        {day.booked?.length ? (
-          <>
-            <h2 className="font-display text-title font-medium leading-none tracking-[-0.03em]">
-              Day {day.day}
-              {date && <span className="ml-2.5 align-[2px] text-base font-normal tracking-[-0.01em] text-muted-foreground">{date}</span>}
-            </h2>
-            <BookedList booked={day.booked} className="mt-4" />
-          </>
-        ) : null}
-        <p className={cn("text-sm text-muted-foreground", day.booked?.length && "mt-4")}>Add at least two stops to this day to see how to get between them.</p>
+        <h2 className="font-display text-title font-medium leading-none tracking-[-0.03em]">
+          Day {day.day}
+          {date && <span className="ml-2.5 align-[2px] text-base font-normal tracking-[-0.01em] text-ink-soft">{date}</span>}
+        </h2>
+        {day.booked?.length ? <BookedList booked={day.booked} tripId={tripId} className="mt-4" /> : null}
+        {day.stops.map((stop) => (
+          <p key={stop.id} className="mt-4 flex items-center gap-3 font-display text-body font-medium leading-snug">
+            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-coral-fill text-xs font-semibold text-white shadow-soft">1</span>
+            <span className="min-w-0 flex-1">{stop.name}</span>
+            {stop.time && <span className="shrink-0 text-xs font-normal tabular-nums text-muted-foreground">{formatClockTime(stop.time)}</span>}
+          </p>
+        ))}
+        <p className="mt-4 text-sm text-ink-soft">
+          {day.stops.length === 1 ? "One more stop on this day and the ways between them show up here." : "Add stops to this day and the ways between them show up here."}
+        </p>
+        <Link href={`/trips/${tripId}/discover`} className="mt-3 inline-flex h-11 items-center rounded-full bg-muted px-5 text-sm font-semibold transition-transform active:scale-[0.985]">
+          Find places to add
+        </Link>
       </div>
     );
   }
 
   const s = day.summary;
+  const ribbonParts = day.legs.flatMap((l, i) => (l.steps.length > 0 ? mergeWalkSteps(l.steps).map((st) => ({ mode: st.mode, minutes: st.minutes, group: i })) : [{ mode: l.mode, minutes: l.minutes ?? 0, group: i }]));
 
   return (
     <div>
       <h2 className="font-display text-title font-medium leading-none tracking-[-0.03em]">
         Day {day.day}
-        {date && <span className="ml-2.5 align-[2px] text-base font-normal tracking-[-0.01em] text-muted-foreground">{date}</span>}
+        {date && <span className="ml-2.5 align-[2px] text-base font-normal tracking-[-0.01em] text-ink-soft">{date}</span>}
       </h2>
-      {day.booked?.length ? <BookedList booked={day.booked} className="mt-4" /> : null}
+      {day.booked?.length ? <BookedList booked={day.booked} tripId={tripId} className="mt-4" /> : null}
       <FactStrip
         className="mt-4"
         facts={[
@@ -138,11 +157,8 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date }: { 
           s.transitRides ? { label: "Transit rides", value: s.transitRides, note: s.fare ? `~${formatMoney(s.fare.amount, s.fare.currency)} in fares` : undefined } : false,
         ]}
       />
-      <Ribbon
-        className="mt-4"
-        parts={day.legs.flatMap((l, i) => (l.steps.length > 0 ? mergeWalkSteps(l.steps).map((st) => ({ mode: st.mode, minutes: st.minutes, group: i })) : [{ mode: l.mode, minutes: l.minutes ?? 0, group: i }]))}
-        dim={hover}
-      />
+      {/* A bar of one piece, or only walking, says nothing the numbers above do not. */}
+      {ribbonParts.length > 1 && ribbonParts.some((p) => p.mode !== "walk") && <Ribbon className="mt-4" parts={ribbonParts} dim={hover} />}
 
       <ol className="mt-6">
         {day.stops.map((stop, i) => {
@@ -157,7 +173,7 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date }: { 
             >
               <span className="mt-px grid size-7 place-items-center rounded-full bg-coral-fill text-xs font-semibold text-white shadow-soft">{i + 1}</span>
               <div className="flex min-w-0 items-center justify-between gap-3 py-[3px]">
-                <span className="truncate font-display text-[15px] font-medium leading-snug tracking-[-0.006em]">{stop.name}</span>
+                <span className="line-clamp-2 font-display text-body font-medium leading-snug tracking-[-0.006em]">{stop.name}</span>
                 {stop.time && <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{formatClockTime(stop.time)}</span>}
               </div>
 
@@ -176,19 +192,17 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date }: { 
                     ) : (
                       <button
                         type="button"
-                        onClick={() => setOpen(open === i ? null : i)}
-                        aria-expanded={leg.steps.length > 1 ? open === i : undefined}
+                        onClick={() => hasSteps(leg) && setOpen(i)}
+                        aria-haspopup={hasSteps(leg) ? "dialog" : undefined}
                         className="group/leg -mx-2 flex w-[calc(100%+1rem)] items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-surface"
                       >
                         <ModeTile mode={mainMode(leg)} />
                         <span className="min-w-0 flex-1 text-sm leading-tight">
                           <span className="font-semibold tabular-nums">{leg.minutes != null ? formatDuration(leg.minutes) : "Route"}</span>
-                          <span className="text-muted-foreground tabular-nums">
-                            {leg.km != null ? ` · ${distance(leg.km)}` : ""}
-                            {time(leg.departure) && time(leg.arrival) ? ` · ${time(leg.departure)}–${time(leg.arrival)}` : ""}
-                          </span>
+                          {/* The ride's own departure and arrival times are in its sheet: here they only crowded the row, beside the stops' own times. */}
+                          <span className="text-muted-foreground tabular-nums">{leg.km != null ? ` · ${distance(leg.km)}` : ""}</span>
                         </span>
-                        {leg.steps.length > 1 && <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-300", open === i && "rotate-180")} aria-hidden="true" />}
+                        {hasSteps(leg) && <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
                       </button>
                     )}
                     {leg.note && leg.kind === "local" && <p className="mt-1 text-2xs leading-snug text-muted-foreground">{leg.note}</p>}
@@ -202,16 +216,12 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date }: { 
                     )}
                     {leg.kind === "local" && leg.alternatives.length > 0 && (
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        <span className="mr-0.5 text-2xs text-muted-foreground">Or</span>
-                        {leg.alternatives.map((alt) => (
+                        <span className="mr-0.5 text-2xs text-muted-foreground">Or go by</span>
+                        {/* One chip per way of travelling: after a switch the old choice comes back as an alternative beside the one the server also offered. */}
+                        {leg.alternatives.filter((alt, k, all) => all.findIndex((x) => x.mode === alt.mode) === k).map((alt) => (
                           <AltChip key={alt.mode} tripId={tripId} dayIndex={day.day} leg={leg} alt={alt} onChosen={() => onLegChosen?.()} />
                         ))}
                       </div>
-                    )}
-                    {open === i && leg.steps.length > 0 && (
-                      <ul className="mt-2.5 space-y-2 pb-1">
-                        {mergeWalkSteps(leg.steps).map((st, k) => <StepLine key={k} s={st} />)}
-                      </ul>
                     )}
                   </div>
                 </>
@@ -220,6 +230,30 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date }: { 
           );
         })}
       </ol>
+
+      <Sheet open={open != null} onClose={() => setOpen(null)} side="bottom" ariaLabel="Getting between two stops" padded>
+        {open != null && day.legs[open] && (
+          <>
+            <div className="px-1 pb-3 pt-1">
+              <p className="font-display text-xl font-medium leading-tight tracking-[-0.02em]">{day.stops[open]?.name} <span className="text-muted-foreground">→</span> {day.stops[open + 1]?.name}</p>
+              <p className="mt-1.5 text-sm tabular-nums text-ink-soft">
+                {[day.legs[open].minutes != null ? formatDuration(day.legs[open].minutes!) : null, day.legs[open].km != null ? distance(day.legs[open].km!) : null, time(day.legs[open].departure) && time(day.legs[open].arrival) ? `${time(day.legs[open].departure)}–${time(day.legs[open].arrival)}` : null].filter(Boolean).join(" · ")}
+              </p>
+            </div>
+            <ul className="scrollbar-slim min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-1 pb-2 text-sm">
+              {mergeWalkSteps(day.legs[open].steps).map((st, k) => <StepLine key={k} s={st} />)}
+            </ul>
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(day.stops[open]?.name ?? "")}&destination=${encodeURIComponent(day.stops[open + 1]?.name ?? "")}&travelmode=${MAPS_MODE[mainMode(day.legs[open])] ?? "transit"}`}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="mt-4 flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground transition-transform active:scale-[0.985]"
+            >
+              Open in Maps <ExternalLink className="size-3.5" aria-hidden="true" />
+            </a>
+          </>
+        )}
+      </Sheet>
     </div>
   );
 }

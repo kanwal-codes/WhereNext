@@ -30,7 +30,7 @@ export function PhoneTripRow({ trip, status, deleting, onDelete }: { trip: TripS
         </TripCover>
         <span className="mt-3 block px-1">
           <span className="line-clamp-2 block font-display text-widget leading-tight font-medium tracking-[-0.025em]">{title}</span>
-          <span className="mt-1 block truncate text-[0.9375rem] text-ink-soft tabular-nums">{[when, travellers].filter(Boolean).join(" · ")}</span>
+          <span className="mt-1 block truncate text-body text-ink-soft tabular-nums">{[when, travellers].filter(Boolean).join(" · ")}</span>
         </span>
       </Link>
       <TripMenu name={trip.name} href={`/trips/${trip.id}`} deleting={deleting} onDelete={onDelete} isOwner={trip.is_owner !== false} className="absolute top-2.5 right-2.5 z-20" />

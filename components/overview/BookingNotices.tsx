@@ -51,7 +51,7 @@ export function BookingNotices({ tripId, reservations, startDate, endDate }: { t
   return (
     <>
       <div className="max-lg:hidden">{list}</div>
-      <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" className="flex min-h-12 w-full items-center gap-2.5 rounded-2xl bg-muted px-4 text-left text-[0.9375rem] transition-transform active:scale-[0.985] lg:hidden">
+      <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" className="flex min-h-12 w-full items-center gap-2.5 rounded-2xl bg-muted px-4 text-left text-body transition-transform active:scale-[0.985] lg:hidden">
         <span aria-hidden className="size-2 shrink-0 rounded-full bg-coral" />
         <span className="min-w-0 flex-1 truncate" suppressHydrationWarning>
           <b className="font-semibold">{count === 1 ? "1 thing to check" : `${count} things to check`}</b>
@@ -59,7 +59,7 @@ export function BookingNotices({ tripId, reservations, startDate, endDate }: { t
         </span>
         <ChevronRight className="size-[1.125rem] shrink-0 text-muted-foreground" aria-hidden />
       </button>
-      <Sheet open={open} onClose={() => setOpen(false)} side="bottom" ariaLabel="Things to check" className="rounded-t-4xl bg-background px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+      <Sheet open={open} onClose={() => setOpen(false)} side="bottom" ariaLabel="Things to check" className="px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         <p className="pb-2 font-display text-xl font-medium tracking-[-0.02em]">Things to check</p>
         {list}
       </Sheet>

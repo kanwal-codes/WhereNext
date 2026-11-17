@@ -144,9 +144,9 @@ export function InviteToGroup({ tripId }: { tripId: string }) {
   return (
     <div>
       {linkError ? (
-        <div className="flex items-center justify-between gap-2 rounded-xl bg-secondary px-3 py-2">
+        <div className="flex items-center justify-between gap-2 rounded-xl bg-muted px-3 py-2">
           <p className="text-xs text-destructive">Couldn’t create an invite link.</p>
-          <button type="button" onClick={() => { setLinkError(false); setPreparingLink(true); void loadInvites(); }} className="shrink-0 text-xs font-medium text-destructive underline decoration-destructive/40 underline-offset-2 transition-[opacity,transform] hover:opacity-70 active:scale-95">
+          <button type="button" onClick={() => { setLinkError(false); setPreparingLink(true); void loadInvites(); }} className="shrink-0 text-xs font-medium text-destructive underline decoration-destructive/40 underline-offset-2 transition-[opacity,transform] hover:opacity-70 active:scale-[0.97]">
             Retry
           </button>
         </div>
@@ -172,7 +172,7 @@ export function InviteToGroup({ tripId }: { tripId: string }) {
                   transition={{ duration: 0.16 }}
                   className="inline-flex items-center"
                 >
-                  {copied ? <Check className="h-3.5 w-3.5" /> : "Copy"}
+                  {copied ? <Check className="size-3.5" /> : "Copy"}
                 </motion.span>
               </AnimatePresence>
             </button>
@@ -202,9 +202,9 @@ export function InviteToGroup({ tripId }: { tripId: string }) {
           onClick={() => void sendEmailInvite()}
           disabled={sending || !email.trim()}
           aria-label="Send email invite"
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-border text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary disabled:opacity-40"
+          className="grid size-9 shrink-0 place-items-center rounded-xl border border-border text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary disabled:opacity-40"
         >
-          {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+          {sending ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
         </button>
       </div>
 
@@ -212,13 +212,13 @@ export function InviteToGroup({ tripId }: { tripId: string }) {
         <ul className="mt-3 space-y-1.5">
           {emailInvites.map((inv) => (
             <li key={inv.id} className="flex items-center gap-2.5 rounded-xl border border-dashed border-border px-3 py-2">
-              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground">
-                <Mail className="h-3.5 w-3.5" />
+              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground">
+                <Mail className="size-3.5" />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-medium">{inv.email}</p>
                 <p className="flex items-center gap-1 text-2xs text-muted-foreground">
-                  <Clock className="h-2.5 w-2.5" /> {daysLeft(inv.expiresAt)}
+                  <Clock className="size-2.5" /> {daysLeft(inv.expiresAt)}
                 </p>
               </div>
               <button
@@ -226,9 +226,9 @@ export function InviteToGroup({ tripId }: { tripId: string }) {
                 onClick={() => void revoke(inv.id)}
                 disabled={revokingId === inv.id}
                 aria-label={`Revoke invite for ${inv.email}`}
-                className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
+                className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
               >
-                {revokingId === inv.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                {revokingId === inv.id ? <Loader2 className="size-3 animate-spin" /> : <X className="size-3.5" />}
               </button>
             </li>
           ))}

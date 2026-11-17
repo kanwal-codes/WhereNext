@@ -1,7 +1,9 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { generateObjectMock } = vi.hoisted(() => ({ generateObjectMock: vi.fn() }));
+const { generateObjectMock, lookUpHoursMock } = vi.hoisted(() => ({ generateObjectMock: vi.fn(), lookUpHoursMock: vi.fn() }));
 vi.mock("ai", async (importOriginal) => ({ ...(await importOriginal<object>()), generateObject: generateObjectMock }));
+// The paid hours lookup never runs in a test: each test says what Google would have answered.
+vi.mock("../../lib/application/plan-hours", () => ({ lookUpHours: lookUpHoursMock }));
 
 import { buildItineraryPlan, dayIndexForDate } from "../../lib/application/itinerary-plan";
 import type { RetrievedEvidence } from "../../lib/application/retrieve";
@@ -14,6 +16,9 @@ const evidence = (places: ReturnType<typeof place>[] = []): RetrievedEvidence =>
   ({ places, sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" }) as unknown as RetrievedEvidence;
 const tripCtx = { places: [], itinerary: [], preferences: { pace: "relaxed" } } as never;
 
+beforeEach(() => {
+  lookUpHoursMock.mockResolvedValue(new Map());
+});
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -469,3 +474,51 @@ describe("buildItineraryPlan: the number of days asked for", () => {
   });
 });
 
+
+describe("buildItineraryPlan: the plan check", () => {
+  const stopsOf = (block: unknown) => (block as { days: Array<{ stops: Array<{ title: string; time?: string }> }> }).days[0].stops;
+  const typed = (id: string, name: string, category: string) => ({ ...place(id, name), category });
+
+  it("never keeps a ferry terminal or a station as a stop", async () => {
+    stubModel({ days: [{ label: "Day 1", stops: [
+      { title: "Beach Grill", placeId: "a" },
+      { title: "Ferry Terminal", placeId: "b", kind: "transit" },
+      { title: "Central Station", placeId: "c" },
+      { title: "Old Fort", placeId: "d" },
+    ] }] });
+    const block = await buildItineraryPlan({ prompt: "plan", tripSummary: "", tripCtx, evidence: evidence([typed("a", "Beach Grill", "restaurant"), typed("b", "Ferry Terminal", "ferry_terminal"), typed("c", "Central Station", "train_station"), typed("d", "Old Fort", "tourist_attraction")]) });
+    expect(stopsOf(block).map((s) => s.title)).toEqual(["Beach Grill", "Old Fort"]);
+  });
+
+  it("gives ordinary stops no time even if the model wrote one, and keeps their order", async () => {
+    stubModel({ days: [{ label: "Day 1", stops: [{ time: "19:00", title: "Late", placeId: "a" }, { time: "08:00", title: "Early", placeId: "b" }] }] });
+    const block = await buildItineraryPlan({ prompt: "plan", tripSummary: "", tripCtx, evidence: evidence([place("a", "Late"), place("b", "Early")]) });
+    expect(stopsOf(block)).toEqual([{ title: "Late", placeId: "a" }, { title: "Early", placeId: "b" }]);
+  });
+
+  it("looks up hours for the stops it uses and drops one shut that whole weekday and one closed for good, never judging by the hour", async () => {
+    // 2026-11-16 is a Monday.
+    lookUpHoursMock.mockResolvedValue(new Map([
+      ["a", { lines: ["Monday: Closed"], closedForGood: false }],
+      ["b", { lines: ["Monday: 9:00 AM – 5:00 PM"], closedForGood: true }],
+      ["c", { lines: ["Monday: 11:00 PM – 11:30 PM"], closedForGood: false }],
+      ["d", { lines: ["Monday: 9:00 AM – 5:00 PM"], closedForGood: false }],
+    ]));
+    stubModel({ days: [{ label: "Day 1", stops: [
+      { title: "Shut Monday", placeId: "a" },
+      { title: "Gone For Good", placeId: "b" },
+      { title: "Short Hours", placeId: "c" },
+      { title: "Open Fine", placeId: "d" },
+    ] }] });
+    const block = await buildItineraryPlan({ prompt: "plan", tripSummary: "", tripCtx: { ...(tripCtx as object), trip: { start_date: "2026-11-16" } } as never, evidence: evidence(["a", "b", "c", "d"].map((id, i) => place(id, ["Shut Monday", "Gone For Good", "Short Hours", "Open Fine"][i]))) });
+    expect(lookUpHoursMock.mock.calls[0][0]).toEqual(["a", "b", "c", "d"]);
+    expect(stopsOf(block).map((s) => s.title)).toEqual(["Short Hours", "Open Fine"]);
+  });
+
+  it("makes no hours lookup without a trip start date, and keeps every stop when the lookup finds nothing", async () => {
+    stubModel({ days: [{ label: "Day 1", stops: [{ time: "10:00", title: "A", placeId: "a" }, { time: "12:00", title: "B", placeId: "b" }] }] });
+    const block = await buildItineraryPlan({ prompt: "plan", tripSummary: "", tripCtx, evidence: evidence([place("a", "A"), place("b", "B")]) });
+    expect(lookUpHoursMock).not.toHaveBeenCalled();
+    expect(stopsOf(block)).toHaveLength(2);
+  });
+});

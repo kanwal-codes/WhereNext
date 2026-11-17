@@ -46,7 +46,7 @@ export function CompareGrid({ list, anchor, onRemove }: { list: CompareEntry[]; 
   const ROWS = ALL_ROWS.filter((row) => list.some(row.has));
 
   if (list.length === 0) {
-    return <p className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">Pick a few cards to compare — the Compare button is on every place, stay and event.</p>;
+    return <p className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-ink-soft">Pick a few cards to compare — the Compare button is on every place, stay and event.</p>;
   }
 
   return (

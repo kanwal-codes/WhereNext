@@ -14,10 +14,10 @@ import type { TodayData } from "@/features/itinerary/application/useTodayData";
 export function TodayWide({ tripId, today }: { tripId: string; today: TodayData }) {
   const { data, offline, isOffline, dayIndex, items, dateLine, stay, bookedToday, bookedStay, city } = today;
   return (
-    <div className="mx-auto max-w-lg px-5 py-10">
+    <div className="mx-auto max-w-lg px-4 py-10">
       {isOffline && (
         <p className="mb-4 flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
-          <CloudOff className="h-3.5 w-3.5" /> Offline — showing your last saved copy
+          <CloudOff className="size-3.5" /> Offline — showing your last saved copy
           {offline ? ` (${new Date(offline.savedAt).toLocaleString()})` : ""}
         </p>
       )}
@@ -37,7 +37,7 @@ export function TodayWide({ tripId, today }: { tripId: string; today: TodayData 
 
       {city && (
         <Reveal delay={0.1} y={8}>
-          <p className="mt-3 text-sm text-muted-foreground">Today in {city}</p>
+          <p className="mt-3 text-sm text-ink-soft">Today in {city}</p>
         </Reveal>
       )}
       {city && <TripWeather tripId={tripId} location={city} className="mt-1.5" />}
@@ -49,7 +49,7 @@ export function TodayWide({ tripId, today }: { tripId: string; today: TodayData 
               const Icon = KIND_META[reservation.kind].icon;
               const time = note === "Arrives" || note === "Check-out" ? reservation.endTime : reservation.startTime;
               return (
-                <li key={`${reservation.id}-${note ?? "on"}`} className="flex items-center gap-3.5 rounded-2xl bg-secondary p-4">
+                <li key={`${reservation.id}-${note ?? "on"}`} className="flex items-center gap-3.5 rounded-2xl bg-muted p-4">
                   <Icon className="size-5 shrink-0 text-leaf" aria-hidden />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{reservation.title}</p>

@@ -10,7 +10,7 @@ import { TripArt, hashString } from "@/components/trips/TripArt";
 export function InviteCard({ seed, icon: Icon, title, children, href, cta }: { seed: string; icon: LucideIcon; title: string; children: string; href: string; cta: string }) {
   return (
     <Link href={href} className="group block rounded-3xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">
-      <TripArt seed={hashString(seed)} className="rounded-3xl border border-border/70 p-6 shadow-soft transition-[border-color,box-shadow,transform] duration-300 group-hover:border-foreground/20 group-hover:shadow-lift group-active:scale-[0.995] sm:p-9">
+      <TripArt seed={hashString(seed)} className="rounded-3xl border border-border/70 p-6 shadow-soft transition-[border-color,box-shadow,transform] duration-300 group-hover:border-foreground/20 group-hover:shadow-lift group-active:scale-[0.985] sm:p-9">
         <div className="relative z-10 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-4">
             <span className="grid size-12 shrink-0 place-items-center rounded-2xl border border-border/60 bg-background/85 shadow-hairline">

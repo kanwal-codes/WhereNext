@@ -5,9 +5,15 @@ import Link from "next/link";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Bell, Compass, Database, LogOut, UserRound, type LucideIcon } from "lucide-react";
-import { signOut } from "@/features/identity/application/authClient";
 import { memberInitials } from "@/lib/member-initials";
 import { cn } from "@/lib/utils";
+
+/** Loaded when someone actually signs out: the auth client pulls in the whole Supabase browser library (54 KB gzipped), which the trips home does not otherwise need. */
+async function signOutAndLeave() {
+  const { signOut } = await import("@/features/identity/application/authClient");
+  await signOut();
+  window.location.assign("/sign-in");
+}
 
 /** Each one lands on its own section of the account page. */
 const ITEMS: Array<{ href: string; label: string; hint: string; Icon: LucideIcon }> = [
@@ -83,7 +89,7 @@ export function AccountMenu({ displayName, className }: { displayName: string; c
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         onClick={toggle}
-        className={cn("grid h-9 w-9 max-lg:h-11 max-lg:w-11 shrink-0 place-items-center rounded-full border border-border/60 bg-background/92 text-xs font-semibold text-foreground transition-[opacity,transform] hover:opacity-70 active:scale-95", open && "opacity-70", className)}
+        className={cn("grid size-9 max-lg:h-11 max-lg:w-11 shrink-0 place-items-center rounded-full border border-border/60 bg-background/92 text-xs font-semibold text-foreground transition-[opacity,transform] hover:opacity-70 active:scale-[0.97]", open && "opacity-70", className)}
       >
         {memberInitials(displayName)}
       </button>
@@ -121,7 +127,7 @@ export function AccountMenu({ displayName, className }: { displayName: string; c
                   </Link>
                 ))}
                 <div className="mx-2 my-1 hairline" />
-                <button type="button" role="menuitem" onClick={() => void signOut().then(() => window.location.assign("/sign-in"))} className={ROW}>
+                <button type="button" role="menuitem" onClick={() => void signOutAndLeave()} className={ROW}>
                   <LogOut className="size-4 shrink-0 text-muted-foreground" aria-hidden />
                   <span>Sign out</span>
                 </button>

@@ -38,7 +38,7 @@ export function RemoveControl({ label, onConfirm, className }: { label: string; 
               autoFocus
               disabled={busy}
               onClick={async () => { setBusy(true); const gone = await onConfirm(); if (!gone) { setBusy(false); setArmed(false); } }}
-              className="inline-flex h-7 min-w-[4.25rem] items-center justify-center rounded-full bg-destructive px-3 text-xs font-medium text-white transition-[filter,transform] hover:brightness-110 active:scale-95 disabled:opacity-70"
+              className="inline-flex h-7 min-w-[4.25rem] items-center justify-center rounded-full bg-destructive px-3 text-xs font-medium text-white transition-[filter,transform] hover:brightness-110 active:scale-[0.97] disabled:opacity-70"
             >
               {busy ? <Loader2 className="size-3.5 animate-spin" aria-label="Removing" /> : "Remove"}
             </button>

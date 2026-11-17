@@ -250,6 +250,20 @@ export class GooglePlacesProvider {
     return cached(`google-place-table:${placeId}`, 15 * 60_000, () => load());
   }
   /**
+   * Only when a place is open: its seven weekday lines and whether Google still lists it as trading. Its own small mask (no
+   * accessibility or editorial fields), so a plan checking its stops does not pay for the whole detail record.
+   */
+  async openingHours(placeId: string, signal?: AbortSignal): Promise<{ lines?: string[]; status?: string }> {
+    const load = async (abort?: AbortSignal) => {
+      const response = await guardedFetch("google-places", `${placesBase()}/v1/places/${encodeURIComponent(placeId)}`, { headers: { "x-goog-api-key": this.key(), "x-goog-fieldmask": "regularOpeningHours.weekdayDescriptions,businessStatus" }, signal: withProviderTimeout(abort) });
+      if (!response.ok) throw new Error(`Google place hours failed: ${response.status}`);
+      const body = (await response.json()) as { regularOpeningHours?: { weekdayDescriptions?: string[] }; businessStatus?: string };
+      return { lines: body.regularOpeningHours?.weekdayDescriptions, status: body.businessStatus };
+    };
+    if (process.env.NODE_ENV === "test") return load(signal);
+    return cached(`google-place-hours:${placeId}`, 6 * 3_600_000, () => load());
+  }
+  /**
    * A place's photographs as Google lists them now (resource names and sizes). A photo name only stays valid for a while, so this
    * is the fresh source when one has been retired: the place id is inside the old name. Photos only, and kept for a few minutes.
    */

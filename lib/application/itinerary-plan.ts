@@ -3,6 +3,12 @@ import { AI_DEADLINE_MS, withDeadline } from "@/packages/ai/model-policy";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 import type { UsageEntry } from "@/lib/ai/pricing";
 import { effectiveTripDays } from "@/features/trip/domain/trip";
+import { isoForDay } from "@/features/itinerary/domain/plan";
+import { closedThatDay, isTransitStop } from "./plan-check";
+import { lookUpHours, type PlaceHours } from "./plan-hours";
+
+/** The hours lookups run side by side after the plan is written; past this the plan goes out unchecked rather than wait. */
+const HOURS_DEADLINE_MS = 4_000;
 import { tripCalendar, effectiveStops } from "@/lib/trip-stops";
 import { runBulkBuilder } from "./bulk-builder";
 import type { RetrievedEvidence } from "./retrieve";
@@ -27,10 +33,10 @@ const planSchema = z.object({
 });
 
 const SYSTEM = (language: string = "en") => `You draft a day-by-day plan for a trip. Write every text field ("title", "intro", "subtitle", "note") in language "${language}" (BCP-47) — never "time" or "kind", which stay in their given formats. Return JSON only:
-{"title":"<N> days in <city>","intro":"<2-3 concise sentences: the shape of these days, tied to what the traveller actually asked for (their cuisine, group, base) rather than generic travel talk; open with what makes them distinctive, never with 'This covers', 'This plan' or 'Here is'; then one thing to book ahead. Say nothing about days having few options: that is added separately>>","days":[{"label":"Day 1","subtitle":"<3-5 word theme>","stops":[{"time":"09:00","title":"<place or activity>","note":"<one line: why it fits or a tip>","placeId":"<id from KNOWN PLACES, or omit>","kind":"sight"}]}]}
+{"title":"<N> days in <city>","intro":"<2-3 concise sentences: the shape of these days, tied to what the traveller actually asked for (their cuisine, group, base) rather than generic travel talk; open with what makes them distinctive, never with 'This covers', 'This plan' or 'Here is'; then one thing to book ahead. Say nothing about days having few options: that is added separately>>","days":[{"label":"Day 1","subtitle":"<3-5 word theme>","stops":[{"title":"<place or activity>","note":"<one line: why it fits or a tip>","placeId":"<id from KNOWN PLACES, or omit>","kind":"sight"}]}]}
 Rules:
 - Build ONLY from KNOWN PLACES (the traveller's saved spots + what was found this turn). Never invent a venue. Too few to fill the days? Keep every day: give thin days one or two stops, and a day with no known place left gets "stops":[] — never leave a day out, never invent a venue to fill it.
-- 2 to 4 stops per day. Give every stop a real 24-hour clock time ("09:00", "13:30", "19:00") reflecting a sensible pace through the day — not just an ordering label. Use a specific known time (a show's start, a reservation) when there is one; otherwise pick a reasonable time for that stop's kind (e.g. breakfast ~08:30, lunch ~12:30, dinner ~19:00, a museum/sight ~10:00-15:00, nightlife ~21:00+). Leave "time" out only when the stop is genuinely flexible and no reasonable time applies.
+- 2 to 4 stops per day, in a natural order for the day (a lunch place in the middle, nightlife last). Plan the day, not the hours: ordinary stops get NO "time" (travellers sleep in, go late, or take it slowly). Give "time" only to something that starts at a set time (an event, a show, a class, a reservation), copied exactly.
 - note: one short line — why it suits this traveller, or a practical tip. No fluff.
 - placeId: copy the exact id from KNOWN PLACES when the stop IS that place; omit otherwise.
 - kind: one of food | sight | activity | nightlife | transit | event | rest.
@@ -249,6 +255,12 @@ export async function buildItineraryPlan(input: {
       ? { ...(input.anchorEvent!.time ? { time: input.anchorEvent!.time } : {}), title: input.anchorEvent!.title, ...(input.anchorEvent!.venue ? { note: input.anchorEvent!.venue } : {}), kind: "event" }
       : null;
     let anchorPlaced = false;
+    // Hours for the places the plan really uses (a whole-trip search skips the paid detail lookup, so none came with the places):
+    // only with a start date, since a weekday is needed to read them.
+    const startDate = input.tripCtx.trip?.start_date;
+    const hours = startDate
+      ? await lookUpHours(parsed.days.flatMap((day) => day.stops.flatMap((stop) => (stop.placeId && byId.has(stop.placeId) && !byId.get(stop.placeId)!.openingHours ? [stop.placeId] : []))), withDeadline(input.signal, HOURS_DEADLINE_MS))
+      : new Map<string, PlaceHours>();
     // The model still sometimes reaches for an earlier day's place once KNOWN PLACES runs thin
     // (seen live: a 7-day plan repeating Central Park / Times Square / Rockefeller Center 2-3x
     // on the last few days) despite being told not to. Enforce it here rather than trust the
@@ -273,11 +285,19 @@ export async function buildItineraryPlan(input: {
         }
         const place = stop.placeId ? byId.get(stop.placeId) : byName.get(normalize(stop.title));
         if (!place) return [];
+        const found = place.providerId ? byId.get(place.providerId) : undefined;
+        // A ferry, station or port is the way to a stop, never one (the prompt says so; the model sometimes still does it).
+        if (isTransitStop(stop, found?.category)) return [];
         const key = place.providerId ?? normalize(place.name);
         if (usedPlaces.has(key)) return [];
+        // Shut for good, or shut that whole weekday: leave it out. Hours are only known for the places looked up above.
+        const looked = place.providerId ? hours.get(place.providerId) : undefined;
+        if (looked?.closedForGood) return [];
+        const date = isoForDay(startDate, dayNumber);
+        if (date && closedThatDay(found?.openingHours ?? looked?.lines, date)) return [];
         usedPlaces.add(key);
+        // A plan is days, not hours: only an event (or the anchor) carries a time, so an ordinary stop has none.
         return [{
-          ...(stop.time ? { time: stop.time } : {}),
           title: place.name,
           ...(stop.note ? { note: stop.note } : {}),
           ...(place.providerId ? { placeId: place.providerId } : {}),

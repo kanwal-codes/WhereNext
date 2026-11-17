@@ -3,7 +3,8 @@
 import { hotelPhotoSrc } from "@/lib/hotel-photo";
 import Link from "next/link";
 import { useState } from "react";
-import { ChevronRight, MapPin, Paperclip, Plus, UtensilsCrossed } from "lucide-react";
+import { ChevronRight, MapPin, Paperclip, Plus, Ticket, UtensilsCrossed } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { BlurImage, Stagger, StaggerItem } from "@/components/motion-primitives";
 import { KIND_META } from "@/components/overview/ReservationSheet";
 import { RemoveControl } from "@/components/overview/RemoveControl";
@@ -13,10 +14,10 @@ import { cn } from "@/lib/utils";
 import type { Booking } from "@/packages/contracts/booking";
 
 const STATUS: Record<Booking["status"], string> = {
-  confirmed: "status-dot status-ok border-transparent bg-secondary text-foreground",
-  pending: "status-dot border-transparent bg-secondary text-foreground",
-  failed: "status-dot status-bad border-transparent bg-secondary text-foreground",
-  cancelled: "status-dot status-bad border-transparent bg-secondary text-foreground",
+  confirmed: "status-dot status-ok border-transparent bg-muted text-foreground",
+  pending: "status-dot border-transparent bg-muted text-foreground",
+  failed: "status-dot status-bad border-transparent bg-muted text-foreground",
+  cancelled: "status-dot status-bad border-transparent bg-muted text-foreground",
 };
 
 const FILTERS: Array<Category | "all"> = ["all", "stay", "travel", "do"];
@@ -31,11 +32,11 @@ function Thumb({ item }: { item: TimelineItem }) {
   const [failed, setFailed] = useState(false);
   const Icon = KIND_META[item.kind].icon;
   return (
-    <TripArt seed={hashString(item.id)} className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl max-lg:h-12 max-lg:w-12 max-lg:rounded-2xl">
+    <TripArt seed={hashString(item.id)} className="grid size-20 shrink-0 place-items-center rounded-2xl max-lg:h-12 max-lg:w-12 max-lg:rounded-2xl">
       {item.thumbnail && !failed ? (
         <BlurImage src={hotelPhotoSrc(item.thumbnail)} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />
       ) : (
-        <Icon className="relative h-6 w-6 text-foreground/70" />
+        <Icon className="relative size-6 text-foreground/70" />
       )}
     </TripArt>
   );
@@ -53,20 +54,20 @@ function Row({ item, onOpenBooking, onEdit, onRemove }: { item: TimelineItem; on
           {item.status && <span className={cn("daisy-badge h-5 px-2 text-2xs capitalize", STATUS[item.status], "max-lg:hidden")}>{item.status}</span>}
         </span>
         <span className={cn("mt-0.5 block truncate font-display text-xl tracking-tight", "max-lg:text-base max-lg:leading-tight", dim && "line-through decoration-muted-foreground/50")}>{item.title}</span>
-        {item.subtitle && <span className="block truncate text-sm text-muted-foreground max-lg:hidden">{item.subtitle}</span>}
+        {item.subtitle && <span className="block truncate text-sm text-ink-soft max-lg:hidden">{item.subtitle}</span>}
         <span suppressHydrationWarning className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           {item.time && <span className="tabular-nums">{clockLabel(item.time)}</span>}
           {n && <span className="tabular-nums">{n} {n === 1 ? "night" : "nights"}</span>}
           {item.place && (
             <span className="flex min-w-0 items-center gap-1 max-lg:hidden">
-              <MapPin className="h-3 w-3 shrink-0" />
+              <MapPin className="size-3 shrink-0" />
               <span className="truncate">{item.place}</span>
             </span>
           )}
           {item.code && <span className="font-mono tracking-wide">Ref {item.code}</span>}
           {item.fileCount > 0 && (
             <span className="flex items-center gap-1">
-              <Paperclip className="h-3 w-3" />
+              <Paperclip className="size-3" />
               {item.fileCount} {item.fileCount === 1 ? "file" : "files"}
             </span>
           )}
@@ -74,7 +75,7 @@ function Row({ item, onOpenBooking, onEdit, onRemove }: { item: TimelineItem; on
       </span>
       <span className="flex shrink-0 flex-col items-end justify-between self-stretch max-lg:hidden">
         {item.amountLabel ? <span className="text-sm font-medium tabular-nums">{item.amountLabel}</span> : <span />}
-        <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform duration-300 group-hover:translate-x-0.5" />
+        <ChevronRight className="size-4 text-muted-foreground transition-transform duration-300 group-hover:translate-x-0.5" />
       </span>
       {item.status && (
         <span className={cn("status-chip shrink-0 self-center capitalize lg:hidden", item.status === "confirmed" && "status-ok", (item.status === "failed" || item.status === "cancelled") && "status-bad")}>{item.status === "pending" ? "Reserved" : item.status}</span>
@@ -145,7 +146,7 @@ export function ReservationsTimeline({
                 onClick={() => setFilter(key)}
                 className={cn(
                   "daisy-btn daisy-btn-sm h-9 shrink-0 rounded-full px-4 font-medium shadow-none",
-                  on ? "daisy-btn-neutral border-0" : "border-border bg-card hover:border-foreground/30 hover:bg-accent",
+                  on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-foreground/30 hover:bg-accent",
                 )}
               >
                 {key === "all" ? "All" : CATEGORY_LABEL[key]}
@@ -156,16 +157,16 @@ export function ReservationsTimeline({
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={onReserveTable} className="daisy-btn daisy-btn-outline h-10 rounded-full border-border bg-card px-5 font-medium shadow-none hover:border-foreground/30 hover:bg-accent">
-            <UtensilsCrossed className="h-4 w-4" /> Reserve a table
+            <UtensilsCrossed className="size-4" /> Reserve a table
           </button>
           <button type="button" onClick={onAdd} className="btn-primary h-10 rounded-full px-5">
-            <Plus className="h-4 w-4" /> Add reservation
+            <Plus className="size-4" /> Add reservation
           </button>
         </div>
       </div>
 
       {groups.length === 0 && hasNextUp && filter === "all" ? null : groups.length === 0 ? (
-        <p className="mt-6 rounded-3xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted-foreground">Nothing in this group yet.</p>
+        <EmptyState icon={Ticket} className="mt-6">Nothing in this group yet.</EmptyState>
       ) : (
         <div className="mt-8 space-y-10">
           {groups.map((group) => (

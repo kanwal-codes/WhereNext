@@ -30,7 +30,8 @@ function PhoneStayCard({ stay, href, onOpen, locked, comparing, selected }: { st
   return (
     <article data-tappable className="group relative isolate">
       <CardOpenOverlay label={`Open ${stay.name}`} onOpen={onOpen} href={href} />
-      <div className={cn("relative aspect-[16/10] overflow-hidden rounded-3xl bg-muted", locked && "ring-2 ring-positive/60", selected && "ring-2 ring-coral")}>
+      {/* The photo lets taps through to the open-card overlay under it: it comes later in the stack, so without this it would take the tap itself and do nothing. */}
+      <div className={cn("pointer-events-none relative aspect-[16/10] overflow-hidden rounded-3xl bg-muted", locked && "ring-2 ring-positive/60", selected && "ring-2 ring-coral")}>
         <StayPhoto src={stay.thumbnail} alt="" className="photo-grade absolute inset-0 h-full w-full object-cover" />
         {(locked || stay.refundable) && (
           <span className="photo-chip absolute bottom-3 left-3 gap-1.5">
@@ -43,7 +44,7 @@ function PhoneStayCard({ stay, href, onOpen, locked, comparing, selected }: { st
       <div className="mt-3 flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h3 className="font-display text-lg leading-snug font-medium tracking-[-0.015em] text-balance">{stay.name}</h3>
-          <p className="mt-0.5 flex items-center gap-x-1.5 text-sm whitespace-nowrap text-muted-foreground">
+          <p className="mt-0.5 flex items-center gap-x-1.5 text-sm whitespace-nowrap text-ink-soft">
             {rated && (
               <span className="inline-flex shrink-0 items-center gap-1 tabular-nums">
                 <Star className="size-3.5 fill-coral text-coral" aria-hidden />
@@ -121,7 +122,7 @@ export function StayResultCard({ stay, href, onOpen, locked = false, comparing =
         meta: typeof stay.rating === "number" && stay.rating > 0 ? `${stay.rating.toFixed(1)}/10${stay.reviewCount ? ` · ${compactCount(stay.reviewCount)}` : ""}${stay.refundable ? " · Free cancellation" : ""}` : stay.refundable ? "Free cancellation" : undefined,
         sub: stay.nightlyAmount > 0 ? <span><b className="font-display text-base font-medium text-foreground tabular-nums">{money(stay.nightlyAmount, stay.currency)}</b> / night</span> : "Price unavailable for these dates",
         action: stay.nightlyAmount > 0 ? (
-          <button type="button" onClick={onOpen} aria-label={`Rooms & details: ${stay.name}`} className="grid size-9 place-items-center rounded-full border border-border bg-background transition-transform active:scale-95">
+          <button type="button" onClick={onOpen} aria-label={`Rooms & details: ${stay.name}`} className="grid size-9 place-items-center rounded-full border border-border bg-background transition-transform active:scale-[0.97]">
             <ArrowUpRight className="size-4" aria-hidden />
           </button>
         ) : undefined,

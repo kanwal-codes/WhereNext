@@ -32,7 +32,7 @@ export function PlaceAbout({ about, aboutLoading, editorial, typeChips, amenitie
         ) : aboutLoading ? (
           <div aria-hidden className="mt-3 space-y-2.5">
             <div className="skeleton h-4 w-full rounded-md" />
-            <div className="skeleton h-4 w-4/5 rounded-md" />
+            <div className="skeleton size-4/5 rounded-md" />
           </div>
         ) : null}
         {(typeChips.length > 0 || amenities.length > 0) && (

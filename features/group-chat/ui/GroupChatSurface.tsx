@@ -284,9 +284,9 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
             <div ref={olderSentinelRef} className="flex justify-center pt-4 pb-2">
               {loadingOlder ? (
                 // A plain status, not a greyed-out button, and clear of the fade at the top of the log.
-                <span role="status" className="inline-flex h-10 items-center gap-2 rounded-full bg-secondary px-4 text-sm font-semibold text-ink-soft"><Loader2 className="size-4 animate-spin" aria-hidden />Loading earlier messages</span>
+                <span role="status" className="inline-flex h-10 items-center gap-2 rounded-full bg-muted px-4 text-sm font-semibold text-ink-soft"><Loader2 className="size-4 animate-spin" aria-hidden />Loading earlier messages</span>
               ) : (
-                <button type="button" onClick={() => void loadOlder()} className="btn-chip h-9 px-4 text-xs max-lg:h-10 max-lg:border-0 max-lg:bg-secondary max-lg:text-sm max-lg:font-semibold max-lg:text-ink-soft">Show earlier messages</button>
+                <button type="button" onClick={() => void loadOlder()} className="btn-chip h-9 px-4 text-xs max-lg:h-10 max-lg:border-0 max-lg:bg-muted max-lg:text-sm max-lg:font-semibold max-lg:text-ink-soft">Show earlier messages</button>
               )}
             </div>
           )}
@@ -328,7 +328,7 @@ export const GroupChatSurface = React.memo(function GroupChatSurface({
         </button>
       )}
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-3 pb-3">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         <div className={cn("pointer-events-auto relative mx-auto w-full", rail ? RAIL_MEASURE : "max-w-2xl")}>
           {notice && (
             <p role="status" className="pointer-events-auto absolute inset-x-0 bottom-full mx-auto mb-2 flex w-fit max-w-full items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs text-ink-soft shadow-lift">

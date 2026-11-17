@@ -27,7 +27,7 @@ export function SharedTripView({ trip, slug }: { trip: PublicTrip; slug: string 
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <header className="mx-auto flex max-w-3xl items-center justify-between px-5 py-5">
+      <header className="mx-auto flex max-w-3xl items-center justify-between px-4 py-5">
         <Link href="/" className="inline-flex items-center gap-2 text-sm" aria-label="Where Next home">
           <BrandMark variant="compact" />
           <BrandMark variant="text" />
@@ -35,7 +35,7 @@ export function SharedTripView({ trip, slug }: { trip: PublicTrip; slug: string 
         <Link href="/trips/new" className="btn-primary-sm">Plan your own</Link>
       </header>
 
-      <div className="mx-auto max-w-3xl px-5 pb-20">
+      <div className="mx-auto max-w-3xl px-4 pb-20">
         {/* The opening shot: the stay's photograph when there is one, a warm wash when there is not. */}
         <section
           className="relative isolate flex min-h-[26rem] flex-col justify-end overflow-hidden rounded-3xl border border-border shadow-soft sm:min-h-[30rem]"
@@ -123,7 +123,7 @@ export function SharedTripView({ trip, slug }: { trip: PublicTrip; slug: string 
               <p className="eyebrow">Staying at</p>
               <p className="mt-2 font-display text-2xl leading-snug font-medium tracking-[-0.02em]">{trip.stay.hotelName}</p>
               {trip.stay.roomName && <p className="mt-0.5 text-sm text-ink-soft">{trip.stay.roomName}</p>}
-              <p className="mt-3 text-sm text-muted-foreground tabular-nums">
+              <p className="mt-3 text-sm text-ink-soft tabular-nums">
                 {fmt(trip.stay.checkin)} → {fmt(trip.stay.checkout)} · {trip.stay.nights} night{trip.stay.nights === 1 ? "" : "s"}
               </p>
             </div>
@@ -150,7 +150,7 @@ export function SharedTripView({ trip, slug }: { trip: PublicTrip; slug: string 
         )}
 
         {days.length === 0 && trip.places.length === 0 && !trip.stay && (
-          <p className="mt-10 text-center text-sm text-muted-foreground">This trip doesn’t have an itinerary yet.</p>
+          <p className="mt-10 text-center text-sm text-ink-soft">This trip doesn’t have an itinerary yet.</p>
         )}
 
         {/* The closing shot: an invitation, not a footer. */}

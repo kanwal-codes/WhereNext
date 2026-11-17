@@ -48,7 +48,7 @@ onDrop={(e) => {
 }}
     >
 <span className="absolute top-1/2 -left-7 grid h-[18px] w-[18px] -translate-y-1/2 place-items-center rounded-full border border-border bg-background">
-  <span className={cn("h-1.5 w-1.5 rounded-full", locked ? "bg-leaf" : "bg-coral")} />
+  <span className={cn("size-1.5 rounded-full", locked ? "bg-leaf" : "bg-coral")} />
 </span>
 <div
   className={cn(
@@ -68,7 +68,7 @@ onDrop={(e) => {
     // Dragging needs a mouse: on a phone the ⋯ menu moves a stop, so the handle is not shown there.
     className={cn("cursor-grab rounded p-1 text-muted-foreground active:cursor-grabbing max-sm:hidden", locked && "cursor-not-allowed opacity-30")}
   >
-    <GripVertical className="h-3.5 w-3.5" />
+    <GripVertical className="size-3.5" />
   </button>
   <div className="flex min-w-0 items-start gap-3">
     {/* What the stop is, drawn the way the plan shows it in Roam. */}
@@ -90,12 +90,12 @@ onDrop={(e) => {
       >
         {item.title}{" "}
         {resolvingTitle === item.title ? (
-          <Loader2 className="inline h-3 w-3 animate-spin align-[-1px] text-muted-foreground" />
+          <Loader2 className="inline size-3 animate-spin align-[-1px] text-muted-foreground" />
         ) : (
-          <ArrowUpRight className="inline h-3 w-3 align-[-1px] text-muted-foreground" />
+          <ArrowUpRight className="inline size-3 align-[-1px] text-muted-foreground" />
         )}
       </button>
-      {locked && <Lock className="h-3 w-3 shrink-0 text-leaf" />}
+      {locked && <Lock className="size-3 shrink-0 text-leaf" />}
     </p>
     {(() => {
       const time = typeof item.metadata?.time === "string" ? item.metadata.time : "";
@@ -118,7 +118,7 @@ onDrop={(e) => {
               just transparent) input to say that instead. */}
           {!time && (
             <span className="pointer-events-none absolute left-0 flex items-center gap-1 text-xs text-muted-foreground">
-              <Clock className="h-3 w-3" /> <span className="whitespace-nowrap">Add time</span>
+              <Clock className="size-3" /> <span className="whitespace-nowrap">Add time</span>
             </span>
           )}
         </div>
@@ -142,7 +142,7 @@ onDrop={(e) => {
       disabled={locked || itemIndex === 0}
       className="rounded-lg p-1.5 transition-colors hover:bg-accent disabled:opacity-30"
     >
-      <ChevronUp className="h-3.5 w-3.5" />
+      <ChevronUp className="size-3.5" />
     </button>
     <button
       aria-label={`Move ${item.title} later in the day`}
@@ -150,19 +150,19 @@ onDrop={(e) => {
       disabled={locked || itemIndex === count - 1}
       className="rounded-lg p-1.5 transition-colors hover:bg-accent disabled:opacity-30"
     >
-      <ChevronDown className="h-3.5 w-3.5" />
+      <ChevronDown className="size-3.5" />
     </button>
     <button aria-label="Move to previous day" onClick={() => move(item, -1)} disabled={locked} className="rounded-lg p-1.5 transition-colors hover:bg-accent disabled:opacity-30">
-      <ArrowUp className="h-3.5 w-3.5" />
+      <ArrowUp className="size-3.5" />
     </button>
     <button aria-label="Move to next day" onClick={() => move(item, 1)} disabled={locked} className="rounded-lg p-1.5 transition-colors hover:bg-accent disabled:opacity-30">
-      <ArrowDown className="h-3.5 w-3.5" />
+      <ArrowDown className="size-3.5" />
     </button>
     <button aria-label={locked ? "Unlock" : "Lock"} onClick={() => toggleLock(item)} className="rounded-lg p-1.5 transition-colors hover:bg-accent">
-      {locked ? <LockOpen className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+      {locked ? <LockOpen className="size-3.5" /> : <Lock className="size-3.5" />}
     </button>
     <button aria-label="Remove" onClick={() => remove(item)} disabled={locked} className="rounded-lg p-1.5 text-destructive transition-colors hover:bg-accent disabled:opacity-30">
-      <Trash2 className="h-3.5 w-3.5" />
+      <Trash2 className="size-3.5" />
     </button>
   </div>
 </div>

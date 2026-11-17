@@ -26,7 +26,7 @@ export function StayFeature({ tripId, stay, compact = false, booked = [] }: { tr
           {liveBooked.map((item) => (
             <li key={item.id} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3 max-lg:flex-col max-lg:items-start">
               <span className="min-w-0 font-display text-xl tracking-tight max-lg:text-lg max-lg:leading-snug">{item.title}</span>
-              <span suppressHydrationWarning className="text-sm text-muted-foreground tabular-nums">
+              <span suppressHydrationWarning className="text-sm text-ink-soft tabular-nums">
                 {item.date ? fmtDay(item.date) : "dates not set"}
                 {item.endDate ? ` to ${fmtDay(item.endDate)}` : ""}
               </span>

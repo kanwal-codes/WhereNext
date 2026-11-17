@@ -98,15 +98,15 @@ export default function SignInPage() {
               aria-label={show ? "Hide characters" : "Show characters"}
               className="hit-44 absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
             >
-              {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
             </button>
           </div>
         </Field>
 
-        {error && <p role="alert" className="rounded-xl bg-secondary px-3 py-2 text-xs font-medium text-destructive">{error}</p>}
+        {error && <p role="alert" className="rounded-xl bg-muted px-3 py-2 text-xs font-medium text-destructive">{error}</p>}
 
         <SubmitButton loading={loading} type="submit">
-          Sign in {loading ? null : <ArrowRight className="h-4 w-4" />}
+          Sign in {loading ? null : <ArrowRight className="size-4" />}
         </SubmitButton>
       </form>
     </AuthShell>

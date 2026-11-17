@@ -50,7 +50,7 @@ export function PhoneDrawer({ open, onClose, tripId, pathname, trip, unread = 0 
       <div className="flex items-center gap-2.5 px-1.5">
         <BrandMark variant="compact" className="size-8 text-2xs" />
         <span className="font-display text-lg font-semibold tracking-[-0.02em]">Where Next</span>
-        <button type="button" onClick={onClose} aria-label="Close menu" className="ml-auto grid size-10 place-items-center rounded-full text-muted-foreground hover:text-foreground active:scale-95">
+        <button type="button" onClick={onClose} aria-label="Close menu" className="ml-auto grid size-10 place-items-center rounded-full text-muted-foreground hover:text-foreground active:scale-[0.97]">
           <X className="size-5" />
         </button>
       </div>
@@ -104,7 +104,7 @@ export function PhoneDrawer({ open, onClose, tripId, pathname, trip, unread = 0 
       {!guest && (
         <div className="mt-2 pt-1">
           {/* Where the other trips live: a soft row, the same icon-then-label shape as the pages above it. */}
-          <Link href="/trips" prefetch={false} onClick={onClose} className="flex min-h-12 items-center gap-3 rounded-2xl bg-secondary px-4 text-[0.9375rem] font-medium text-foreground transition-transform active:scale-[0.985]">
+          <Link href="/trips" prefetch={false} onClick={onClose} className="flex min-h-12 items-center gap-3 rounded-2xl bg-muted px-4 text-body font-medium text-foreground transition-transform active:scale-[0.985]">
             <Luggage className="size-5 text-ink-soft" aria-hidden />
             All trips
           </Link>

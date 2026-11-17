@@ -17,7 +17,7 @@ export function ShellClient({ guest, open }: { guest: boolean; open: boolean }) 
         <PhoneHeaderProvider>
           <div className="min-h-screen bg-background text-foreground">
             <PhoneHeader pathname={`/trips/${TRIP}/chat`} tripId={TRIP} tripName={trip.name} onMenu={() => undefined} />
-            <p className="p-4 text-sm text-muted-foreground">{guest ? "Guest" : "Member"} view</p>
+            <p className="p-4 text-sm text-ink-soft">{guest ? "Guest" : "Member"} view</p>
           </div>
           <PhoneDrawer open={open} onClose={() => undefined} tripId={TRIP} pathname={`/trips/${TRIP}/chat`} trip={trip} unread={guest ? 0 : 3} />
         </PhoneHeaderProvider>

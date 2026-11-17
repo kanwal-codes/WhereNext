@@ -24,7 +24,7 @@ export function SettingSection({ id, title, blurb, action, inline = false, child
           </span>
           <ChevronRight className="size-[1.125rem] shrink-0 text-muted-foreground" aria-hidden />
         </button>
-        <Sheet open={open} onClose={() => setOpen(false)} side="bottom" ariaLabel={title} className="rounded-t-4xl bg-background px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        <Sheet open={open} onClose={() => setOpen(false)} side="bottom" ariaLabel={title} className="px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           <p className="pb-3 font-display text-xl font-medium tracking-[-0.02em]">{title}</p>
           <div className="min-h-0 flex-1 space-y-8 overflow-y-auto pb-2">{children}</div>
         </Sheet>
@@ -111,7 +111,7 @@ export function Chip({ active, onClick, children }: { active: boolean; onClick: 
       aria-pressed={active}
       className={cn(
         "rounded-full border px-3.5 py-1.5 text-sm transition-colors",
-        active ? "border-transparent bg-coral text-background" : "border-border bg-background text-ink-soft hover:border-ink/25 hover:text-foreground",
+        active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-ink-soft hover:border-ink/25 hover:text-foreground",
       )}
     >
       {children}
@@ -146,7 +146,7 @@ function ToggleSwitch({ checked, onChange, label }: { checked: boolean; onChange
       className={cn("relative mt-0.5 h-6 w-10 shrink-0 rounded-full transition-colors before:absolute before:-inset-2.5 before:content-['']", checked ? "bg-coral" : "bg-border")}
     >
       <motion.span
-        className="absolute top-0.5 h-5 w-5 rounded-full bg-background shadow-soft"
+        className="absolute top-0.5 size-5 rounded-full bg-background shadow-soft"
         animate={{ left: checked ? "18px" : "2px" }}
         transition={{ type: "spring", stiffness: 500, damping: 32 }}
       />

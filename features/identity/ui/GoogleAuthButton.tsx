@@ -39,7 +39,7 @@ export function GoogleAuthButton({ label = "Continue with Google", redirectTo }:
       disabled={loading}
       className="btn-secondary w-full"
     >
-      <GoogleIcon className="h-4 w-4" />
+      <GoogleIcon className="size-4" />
       {loading ? "Redirecting…" : label}
     </button>
   );

@@ -16,7 +16,7 @@ function Thumb({ tripId, place }: { tripId: string; place: MosaicPlace }) {
   const [failed, setFailed] = useState(false);
   const src = place.photoName && !failed ? photoProxyUrl(tripId, place.photoName, 240) : null;
   return (
-    <TripArt seed={hashString(place.name)} className="h-12 w-12 shrink-0 rounded-xl">
+    <TripArt seed={hashString(place.name)} className="size-12 shrink-0 rounded-xl">
       {src ? (
         <BlurImage src={src} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />
       ) : (
@@ -32,7 +32,7 @@ export function SavedPlacesList({ tripId, places }: { tripId: string; places: Mo
     <section className={panel}>
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="font-display text-2xl tracking-tight max-lg:text-xl">Saved places</h2>
-        <span className="text-sm tabular-nums text-muted-foreground">{places.length}</span>
+        <span className="text-sm tabular-nums text-ink-soft">{places.length}</span>
       </div>
       {places.length > 0 ? (
         <ul className="mt-4 space-y-1">
@@ -44,13 +44,13 @@ export function SavedPlacesList({ tripId, places }: { tripId: string; places: Mo
                   <span className="block truncate text-body font-medium">{place.name}</span>
                   {place.category && <span className="block truncate text-xs text-muted-foreground">{categoryLabel(place.category)}</span>}
                 </span>
-                <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-all duration-300 group-hover:translate-x-0.5 group-hover:opacity-100" />
+                <ArrowRight className="size-4 shrink-0 text-muted-foreground opacity-0 transition-all duration-300 group-hover:translate-x-0.5 group-hover:opacity-100" />
               </Link>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="mt-3 text-sm text-muted-foreground">Nothing saved yet.</p>
+        <p className="mt-3 text-sm text-ink-soft">Nothing saved yet.</p>
       )}
     </section>
   );
@@ -62,7 +62,7 @@ export function ConstraintsPanel({ taste }: { taste: TastePicture }) {
   return (
     <section className={panel}>
       <h2 className="font-display text-2xl tracking-tight max-lg:text-xl">Constraints</h2>
-      <p className="mt-1 text-sm text-muted-foreground">Hard edges the plan has to respect.</p>
+      <p className="mt-1 text-sm text-ink-soft">Hard edges the plan has to respect.</p>
       {any ? (
         <div className="mt-4 space-y-4">
           {taste.avoids.length > 0 && (
@@ -70,7 +70,7 @@ export function ConstraintsPanel({ taste }: { taste: TastePicture }) {
               <p className="mb-2 text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">Avoid</p>
               <div className="flex flex-wrap gap-2">
                 {taste.avoids.map((item) => (
-                  <span key={item} className="daisy-badge h-7 border-border bg-muted px-3 text-sm text-muted-foreground line-through decoration-muted-foreground/50">{item}</span>
+                  <span key={item} className="daisy-badge h-7 border-border bg-muted px-3 text-sm text-ink-soft line-through decoration-muted-foreground/50">{item}</span>
                 ))}
               </div>
             </div>
@@ -87,7 +87,7 @@ export function ConstraintsPanel({ taste }: { taste: TastePicture }) {
           )}
         </div>
       ) : (
-        <p className="mt-3 text-sm text-muted-foreground">None captured yet.</p>
+        <p className="mt-3 text-sm text-ink-soft">None captured yet.</p>
       )}
     </section>
   );
@@ -98,23 +98,23 @@ export function UndecidedPanel({ items, tripId }: { items: string[]; tripId: str
   return (
     <section className={cn(panel, "border-dashed bg-transparent shadow-none", "max-lg:border-solid")}>
       <h2 className="font-display text-2xl tracking-tight max-lg:text-xl">Still undecided</h2>
-      <p className="mt-1 text-sm text-muted-foreground">Raised only when they start to matter.</p>
+      <p className="mt-1 text-sm text-ink-soft">Raised only when they start to matter.</p>
       {items.length > 0 ? (
         <>
           <div className="mt-4 flex flex-wrap gap-2">
             {items.map((item) => (
               <span key={item} className="daisy-badge h-7 border-border bg-background px-3 text-sm max-lg:h-9 max-lg:px-4">
-                <span aria-hidden className="mr-1 h-1.5 w-1.5 rounded-full bg-coral" />
+                <span aria-hidden className="mr-1 size-1.5 rounded-full bg-coral" />
                 {item}
               </span>
             ))}
           </div>
           <Link href={`/trips/${tripId}/chat`} className="group mt-3 inline-flex items-center gap-1 py-2 max-lg:min-h-11 text-sm font-medium text-primary transition-colors hover:underline">
-            Settle them with Roam <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+            Settle them with Roam <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-0.5" />
           </Link>
         </>
       ) : (
-        <p className="mt-3 text-sm text-muted-foreground">Nothing outstanding.</p>
+        <p className="mt-3 text-sm text-ink-soft">Nothing outstanding.</p>
       )}
     </section>
   );

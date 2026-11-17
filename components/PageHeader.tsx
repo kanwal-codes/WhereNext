@@ -55,7 +55,7 @@ export function PageHeader({
           <div className={cn("grid min-h-10 items-center gap-x-3 gap-y-3 sm:grid-cols-[1fr_auto_1fr]", !back && !switcher && !railAction && "max-sm:hidden", (!switcher || phoneHideSwitcher) && "max-lg:hidden")}>
             {back ? (
               <Link href={back.href} className={cn("group inline-flex items-center gap-1.5 justify-self-start py-2.5 text-xs max-lg:py-3 max-lg:text-sm text-muted-foreground transition-colors hover:text-foreground", "max-lg:hidden")}>
-                <ArrowLeft className="h-3.5 w-3.5 transition-transform duration-[220ms] ease-out group-hover:-translate-x-0.5" /> {back.label}
+                <ArrowLeft className="size-3.5 transition-transform duration-[220ms] ease-out group-hover:-translate-x-0.5" /> {back.label}
               </Link>
             ) : (
               // No section label: the pill (or the title) is the page's heading. The empty first column keeps a pill centred.

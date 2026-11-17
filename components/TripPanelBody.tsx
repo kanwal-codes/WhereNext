@@ -79,7 +79,7 @@ export function TripPanelBody({ shown, tripId, openPanel, compareList, compareRe
               {verdictMsg.content ? (
                 <AssistantMessage content={verdictMsg.content} />
               ) : (
-                <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden /> Comparing your options…</span>
+                <span className="inline-flex items-center gap-1.5 text-sm text-ink-soft"><Loader2 className="size-4 animate-spin" aria-hidden /> Comparing your options…</span>
               )}
               {verdictFailed && (
                 <button type="button" className={cn(textAction, "underline")} onClick={retryVerdict}>Try again</button>

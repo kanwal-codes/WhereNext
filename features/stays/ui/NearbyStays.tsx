@@ -143,7 +143,7 @@ export function NearbyStays({
           <div className="mt-4 grid grid-cols-3 gap-3"><Skeleton className="aspect-[4/5]" /><Skeleton className="aspect-[4/5]" /><Skeleton className="aspect-[4/5]" /></div>
         ) : (
           // A row of three on a laptop; a swipe row on a phone, with the next card peeking in.
-          <ul className="no-scrollbar -mx-5 mt-4 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0">
+          <ul className="no-scrollbar -mx-4 mt-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0">
             {shown.map(({ option, distance }) => {
               const card = (
                 <>
@@ -183,7 +183,7 @@ export function NearbyStays({
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="font-display text-xl">Other places to stay</h2>
         </div>
-        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">A short list around this hotel, priced for your dates.</p>
+        <p className="mt-1 text-sm leading-relaxed text-ink-soft">A short list around this hotel, priced for your dates.</p>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2" aria-label="Alternative stay sorting">
@@ -212,16 +212,16 @@ export function NearbyStays({
               <>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0"><p className="text-xs text-muted-foreground">{optionKind}</p><p className="mt-0.5 truncate font-display text-base font-semibold">{option.name}</p></div>
-                  <HotelPhoto src={option.thumbnail} width={64} height={48} className="h-12 w-16 shrink-0 rounded-lg object-cover" fallback={<div className="grid h-12 w-16 shrink-0 place-items-center rounded-lg bg-muted"><BedDouble className="h-4 w-4 text-muted-foreground" /></div>} />
+                  <HotelPhoto src={option.thumbnail} width={64} height={48} className="h-12 w-16 shrink-0 rounded-lg object-cover" fallback={<div className="grid h-12 w-16 shrink-0 place-items-center rounded-lg bg-muted"><BedDouble className="size-4 text-muted-foreground" /></div>} />
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span className="font-medium text-foreground">{formatMoney(option.nightlyAmount, option.currency || currency)}<span className="font-normal text-muted-foreground"> / night</span></span>
                   {typeof option.rating === "number" && <span className="tabular-nums">{option.rating.toFixed(1)}/10</span>}
-                  {distance != null && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" /> {distance < 1 ? `${Math.round(distance * 1000)} m` : `${distance.toFixed(1)} km`}</span>}
+                  {distance != null && <span className="inline-flex items-center gap-1"><MapPin className="size-3" /> {distance < 1 ? `${Math.round(distance * 1000)} m` : `${distance.toFixed(1)} km`}</span>}
                 </div>
               </>
             );
-            return panel ? <button key={option.hotelId} type="button" onClick={open} className="group rounded-lg border border-border/80 bg-card/70 p-4 text-left transition-colors hover:border-primary/40 hover:bg-card">{content}<span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary">View stay <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" /></span></button> : <a key={option.hotelId} href={`/trips/${tripId}/stay/${encodeURIComponent(option.hotelId)}?checkin=${checkin ?? ""}&checkout=${checkout ?? ""}`} className="group rounded-lg border border-border/80 bg-card/70 p-4 transition-colors hover:border-primary/40 hover:bg-card">{content}<span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary">View stay <ArrowUpRight className="h-3.5 w-3.5" /></span></a>;
+            return panel ? <button key={option.hotelId} type="button" onClick={open} className="group rounded-lg border border-border/80 bg-card/70 p-4 text-left transition-colors hover:border-primary/40 hover:bg-card">{content}<span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary">View stay <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-0.5" /></span></button> : <a key={option.hotelId} href={`/trips/${tripId}/stay/${encodeURIComponent(option.hotelId)}?checkin=${checkin ?? ""}&checkout=${checkout ?? ""}`} className="group rounded-lg border border-border/80 bg-card/70 p-4 transition-colors hover:border-primary/40 hover:bg-card">{content}<span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary">View stay <ArrowUpRight className="size-3.5" /></span></a>;
           })}
         </div>
       )}

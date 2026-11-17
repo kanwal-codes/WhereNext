@@ -17,20 +17,20 @@ export function DangerSection({ actions }: { actions: ReturnType<typeof useAccou
             <p className="text-sm font-medium">Sign out</p>
             <p className="text-sm text-ink-soft">Ends this session on this device.</p>
           </div>
-          <button type="button" onClick={() => void signOutUser().then(() => window.location.assign("/sign-in"))} className="rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-secondary active:scale-[0.985]">Sign out</button>
+          <button type="button" onClick={() => void signOutUser().then(() => window.location.assign("/sign-in"))} className="rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-muted active:scale-[0.985]">Sign out</button>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 border-b border-border pb-6">
-          <Download className="h-4 w-4 text-ink-soft" />
+          <Download className="size-4 text-ink-soft" />
           <div className="mr-auto">
             <p className="text-sm font-medium">Export my data</p>
             <p className="text-sm text-ink-soft">Every trip, itinerary item and saved place as a single file.</p>
           </div>
-          <button type="button" onClick={() => void exportData()} className="rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-secondary active:scale-[0.985]">Export</button>
+          <button type="button" onClick={() => void exportData()} className="rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-muted active:scale-[0.985]">Export</button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-secondary px-5 py-5">
-          <Trash2 className="h-4 w-4 text-destructive" />
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-muted px-5 py-5">
+          <Trash2 className="size-4 text-destructive" />
           <div className="mr-auto">
             <p className="text-sm font-medium text-destructive">Delete account</p>
             <p className="text-sm text-ink-soft">Your account and your own details go. Trips you share with friends stay with them and pass to the next member; trips only you are on are deleted. This can’t be undone.</p>
@@ -47,14 +47,14 @@ export function DangerSection({ actions }: { actions: ReturnType<typeof useAccou
           </div>
           <input value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} placeholder="DELETE" className="input-field" />
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={() => setDeleteOpen(false)} className="rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-secondary active:scale-[0.985]">Keep my account</button>
+            <button type="button" onClick={() => setDeleteOpen(false)} className="rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-muted active:scale-[0.985]">Keep my account</button>
             <button
               type="button"
               onClick={() => void deleteAccount()}
               disabled={deleteConfirm !== "DELETE" || deleting}
               className="btn-destructive"
             >
-              {deleting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {deleting && <Loader2 className="size-3.5 animate-spin" />}
               Delete my account
             </button>
           </div>

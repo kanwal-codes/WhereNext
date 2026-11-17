@@ -312,12 +312,10 @@ describe("TripMap: lines", () => {
     expect(legsData(m)[0].geometry.coordinates).toEqual(L1.polyline);
   });
 
-  it("rides a marker along the route, in the colour and icon of the current mode", async () => {
+  it("draws the route and nothing travels along it", async () => {
     await boot({ pins: [A, B], legs: [L1] });
     tick(performance.now() + 100);
-    const rider = live().find((k) => k.opts.element.className.includes("trip-rider"))!;
-    expect(rider.opts.element.style.background).toBeTruthy();
-    expect(rider.opts.element.innerHTML).toContain("<svg");
+    expect(live().some((k) => k.opts.element.className.includes("trip-rider"))).toBe(false);
   });
 
   it("does not restart the reveal when only the dim flag changes", async () => {

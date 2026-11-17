@@ -15,7 +15,7 @@ export const clock = (iso: string) => {
 export const dayOf = (iso: string) => prettyDate(iso.slice(0, 10)) ?? "";
 export const hm = (mins: number) => (mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h ${mins % 60}m`);
 export const stopsLabel = (o: FlightOffer) => (o.stops === 0 ? "Nonstop" : `${o.stops} stop${o.stops > 1 ? "s" : ""}`);
-export const eyebrow = "text-[11px] max-lg:text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground";
+export const eyebrow = "text-2xs max-lg:text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground";
 export const sameFlight = (a: FlightOffer, b: FlightOffer) => (a.id && b.id ? a.id === b.id : a.airline === b.airline && a.departAt === b.departAt);
 /** A fare rule that says "not" is a restriction; anything else is a permission. */
 export const isRestriction = (rule: string) => /\bnot\b|non-?refundable|no (?:changes|refunds?)/i.test(rule);
@@ -64,7 +64,7 @@ function LegCard({ leg }: { leg: Leg }) {
             <li key={label} className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs text-ink-soft"><Icon className="size-3.5 text-coral" aria-hidden />{label}</li>
           ))}
           {leg.legroom && <li className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs text-ink-soft"><Armchair className="size-3.5 text-coral" aria-hidden />{leg.legroom} legroom</li>}
-          {leg.oftenDelayed && <li className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-foreground"><Clock className="size-3.5 text-caution" aria-hidden />Often over 30 min late</li>}
+          {leg.oftenDelayed && <li className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-foreground"><Clock className="size-3.5 text-caution" aria-hidden />Often over 30 min late</li>}
         </ul>
       )}
     </div>

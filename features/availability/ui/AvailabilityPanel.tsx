@@ -124,11 +124,11 @@ export function AvailabilityPanel({ tripId }: { tripId: string }) {
   }
 
   if (!loaded) {
-    return <div className="space-y-3 px-5 pt-1 pb-6"><Skeleton className="h-9 w-full rounded-xl" /></div>;
+    return <div className="space-y-3 px-4 pt-1 pb-6"><Skeleton className="h-9 w-full rounded-xl" /></div>;
   }
 
   return (
-    <div className="space-y-6 px-5 pt-1 pb-6">
+    <div className="space-y-6 px-4 pt-1 pb-6">
       <div>
         <p className="text-sm font-medium">Your availability</p>
         <p className="mt-0.5 text-2xs text-muted-foreground">Add every stretch of dates you could do — this doesn’t lock anything, it just shows the group where things overlap.</p>
@@ -139,15 +139,15 @@ export function AvailabilityPanel({ tripId }: { tripId: string }) {
               <span className="text-muted-foreground">–</span>
               <DateField value={range.endDate} onChange={(v) => updateRange(index, "endDate", v)} className="mt-0 flex-1 text-sm" ariaLabel="End date" />
               {myRanges.length > 1 && (
-                <button type="button" onClick={() => removeRange(index)} aria-label="Remove range" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:text-destructive">
-                  <Trash2 className="h-3.5 w-3.5" />
+                <button type="button" onClick={() => removeRange(index)} aria-label="Remove range" className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:text-destructive">
+                  <Trash2 className="size-3.5" />
                 </button>
               )}
             </div>
           ))}
         </div>
         <button type="button" onClick={() => setMyRanges((c) => [...c, { id: crypto.randomUUID(), startDate: "", endDate: "" }])} className="btn-chip mt-2 gap-1">
-          <Plus className="h-3 w-3" /> Add another range
+          <Plus className="size-3" /> Add another range
         </button>
         <button type="button" onClick={() => void save()} disabled={saving} className="btn-primary-sm mt-3 w-full">
           {saving ? "Saving…" : "Save my availability"}
@@ -169,7 +169,7 @@ export function AvailabilityPanel({ tripId }: { tripId: string }) {
                     <span
                       className={cn(
                         "mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-2xs font-medium uppercase tracking-[0.1em]",
-                        full ? "border-transparent bg-secondary text-foreground status-dot status-ok" : "border-transparent bg-secondary text-foreground status-dot status-info",
+                        full ? "border-transparent bg-muted text-foreground status-dot status-ok" : "border-transparent bg-muted text-foreground status-dot status-info",
                       )}
                     >
                       {overlap.userIds.length}/{memberCount} available

@@ -207,9 +207,9 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
                   whileHover={{ scale: 1.15 }}
                   whileTap={{ scale: 0.9 }}
                   transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                  className="pointer-events-auto grid h-8 w-8 shrink-0 place-items-center rounded-full border border-border bg-card/95 text-muted-foreground shadow-lift backdrop-blur transition-colors hover:bg-accent hover:text-foreground"
+                  className="hit-44 pointer-events-auto grid size-8 shrink-0 place-items-center rounded-full border border-border bg-card/95 text-muted-foreground shadow-lift backdrop-blur transition-colors hover:bg-accent hover:text-foreground"
                 >
-                  <SmilePlus className="h-4 w-4" />
+                  <SmilePlus className="size-4" />
                 </motion.button>
               </div>
             )}
@@ -234,7 +234,7 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
                       type="button"
                       aria-label={`React ${emoji}`}
                       onClick={() => void toggleReaction(message.id, emoji)}
-                      className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-base transition-transform hover:scale-125 active:scale-95 max-lg:size-11 max-lg:text-2xl"
+                      className="grid size-7 shrink-0 place-items-center rounded-full text-base transition-transform hover:scale-125 active:scale-[0.97] max-lg:size-11 max-lg:text-2xl"
                     >
                       {emoji}
                     </button>

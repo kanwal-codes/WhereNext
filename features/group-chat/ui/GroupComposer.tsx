@@ -232,7 +232,7 @@ export function GroupComposer({ input, setInput, people, loaded, submit, speech,
       event.preventDefault();
       void submit(input);
     }}
-    className="flex w-full flex-col gap-1 overflow-hidden rounded-3xl border border-input bg-card p-1.5 shadow-lift transition-[border-color,box-shadow] duration-200 ease-out focus-within:border-ink/30 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_6%,transparent),var(--shadow-lift)] max-lg:border-transparent max-lg:bg-secondary max-lg:shadow-none max-lg:focus-within:border-transparent max-lg:focus-within:shadow-none"
+    className="flex w-full flex-col gap-1 overflow-hidden rounded-3xl border border-input bg-card p-1.5 shadow-lift transition-[border-color,box-shadow] duration-200 ease-out focus-within:border-ink/30 focus-within:shadow-halo max-lg:border-transparent max-lg:bg-muted max-lg:shadow-none max-lg:focus-within:border-transparent max-lg:focus-within:shadow-none"
   >
     {/* `messageTextarea` (defined above, alongside the buttons it conditionally overlays)
         is the ONLY thing that must never remount — the buttons moving between an overlay
@@ -272,7 +272,7 @@ export function GroupComposer({ input, setInput, people, loaded, submit, speech,
               }}
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm transition-colors hover:bg-accent"
             >
-              <ListChecks className="h-4 w-4 text-coral" /> Poll
+              <ListChecks className="size-4 text-coral" /> Poll
             </button>
           </div>
         ),

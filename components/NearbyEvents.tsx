@@ -106,7 +106,7 @@ export function NearbyEvents({ tripId, location, query = "" }: { tripId: string;
             "mt-4",
             expanded
               ? "grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3"
-              : "no-scrollbar -mx-5 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0",
+              : "no-scrollbar -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0",
           )}
         >
           {visibleEvents.map((event) => (

@@ -44,7 +44,7 @@ export const textAction =
 
 /** An icon-only control: 32px visible, 44px effective hit area. */
 export const controlGhost =
-  "relative inline-flex size-8 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-[color,background-color,transform] hover:bg-accent hover:text-foreground active:scale-95 before:absolute before:-inset-1.5 before:content-['']";
+  "relative inline-flex size-8 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-[color,background-color,transform] hover:bg-accent hover:text-foreground active:scale-[0.97] before:absolute before:-inset-1.5 before:content-['']";
 
 /** Copy something to the clipboard; flips to a check for a moment so the click is acknowledged.
  *  `label` names what's being copied ("reply", "amount", ...) for the button's own aria-label/title. */
@@ -71,10 +71,10 @@ export function CopyButton({ text, label = "reply", tabbable = true }: { text: s
 
 type Tone = "neutral" | "positive" | "caution" | "brand";
 const TONE: Record<Tone, string> = {
-  neutral: "bg-secondary text-ink-soft",
-  positive: "bg-secondary text-foreground status-dot status-ok",
-  caution: "bg-secondary text-foreground status-dot status-warn",
-  brand: "bg-secondary text-foreground status-dot status-brand",
+  neutral: "bg-muted text-ink-soft",
+  positive: "bg-muted text-foreground status-dot status-ok",
+  caution: "bg-muted text-foreground status-dot status-warn",
+  brand: "bg-muted text-foreground status-dot status-brand",
 };
 
 /** A small status or fit marker. daisyUI supplies the structure; the app's tokens supply the colour. */

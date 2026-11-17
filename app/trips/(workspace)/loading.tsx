@@ -31,13 +31,13 @@ export default function OpeningTripLoading() {
 
       <div className="min-w-0">
         <div className="sticky top-0 z-30 flex h-[var(--topbar)] items-center gap-3 border-b border-border bg-background/95 px-4 lg:hidden">
-          <BrandMark variant="compact" className="h-7 w-7 shrink-0 text-2xs" />
+          <BrandMark variant="compact" className="size-7 shrink-0 text-2xs" />
           <Skeleton className="h-4 w-32 rounded-md" />
           <Skeleton className="ml-auto size-10 rounded-full" />
         </div>
         <div aria-hidden>
           <Skeleton className="h-[26rem] rounded-none rounded-b-4xl sm:h-[30rem] lg:rounded-none" />
-          <div className="mx-auto max-w-6xl px-5 pt-8 sm:px-8">
+          <div className="mx-auto max-w-6xl px-4 pt-8 sm:px-8">
             <div className="flex flex-wrap gap-3">
               <Skeleton className="h-11 w-44 rounded-full" />
               <Skeleton className="h-11 w-28 rounded-full" />

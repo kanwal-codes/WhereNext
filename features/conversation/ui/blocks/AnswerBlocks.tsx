@@ -45,7 +45,7 @@ export function ComparisonBlockView({ block }: { block: ComparisonBlockData }) {
       title={block.title}
       foot={best ? undefined : `${view.options.length} options compared`}
       hero={best ? (
-        <div className="mx-4 mt-3.5 flex items-start gap-3 rounded-2xl bg-secondary px-4 py-3.5 @[34rem]:mx-[1.125rem]">
+        <div className="mx-4 mt-3.5 flex items-start gap-3 rounded-2xl bg-muted px-4 py-3.5 @[34rem]:mx-[1.125rem]">
           <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-positive text-white" aria-hidden><Check className="size-4" strokeWidth={2.5} /></span>
           <div className="min-w-0">
             <p className="eyebrow text-positive">Best for you</p>
@@ -74,7 +74,7 @@ export function ComparisonBlockView({ block }: { block: ComparisonBlockData }) {
               {options.map((option, i) => {
                 const value = attribute.values[i];
                 return (
-                  <dd key={option.label} className={cn("flex min-w-0 items-start gap-2.5 @[34rem]:block @[34rem]:rounded-xl @[34rem]:-mx-2.5 @[34rem]:px-2.5 @[34rem]:py-1.5", option.best && "@[34rem]:bg-secondary")}>
+                  <dd key={option.label} className={cn("flex min-w-0 items-start gap-2.5 @[34rem]:block @[34rem]:rounded-xl @[34rem]:-mx-2.5 @[34rem]:px-2.5 @[34rem]:py-1.5", option.best && "@[34rem]:bg-muted")}>
                     <span aria-hidden className="mt-[0.4rem] size-2.5 shrink-0 rounded-full @[34rem]:hidden" style={{ background: OPTION_DOT[i] }} />
                     <span className="min-w-0">
                       <span className={cn("block text-xs font-medium @[34rem]:sr-only", option.best ? "text-positive" : "text-muted-foreground")}>{option.label}</span>
@@ -125,7 +125,7 @@ export function StructuredAnswerBlockView({ block }: { block: StructuredAnswerBl
               {tiles ? (
                 <dl className="grid grid-cols-2 gap-2.5 pt-1">
                   {section.bullets.map((bullet, j) => (
-                    <div key={j} className="rounded-2xl bg-secondary px-3.5 py-3">
+                    <div key={j} className="rounded-2xl bg-muted px-3.5 py-3">
                       <dt className="eyebrow">{bullet.text}</dt>
                       <dd className="mt-1 font-display text-title leading-none font-medium tracking-[-0.025em] tabular-nums">{bullet.detail}</dd>
                     </div>

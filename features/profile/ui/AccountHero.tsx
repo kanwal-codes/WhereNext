@@ -31,7 +31,7 @@ export function AccountHero({ avatar, dream, name, city, bio, airport, emailVeri
       <div aria-hidden className="absolute inset-0 scrim-v" />
       <div aria-hidden className="absolute inset-0 bg-[radial-gradient(85%_70%_at_12%_95%,rgba(0,0,0,0.6),transparent)]" />
 
-      <div className="relative mx-auto flex min-h-[28rem] max-w-6xl flex-col justify-between gap-16 px-5 pt-7 pb-8 sm:min-h-[32rem] sm:px-8 sm:pb-10">
+      <div className="relative mx-auto flex min-h-[28rem] max-w-6xl flex-col justify-between gap-16 px-4 pt-7 pb-8 sm:min-h-[32rem] sm:px-8 sm:pb-10">
         <StandaloneTopBar photo />
 
         <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
@@ -42,7 +42,7 @@ export function AccountHero({ avatar, dream, name, city, bio, airport, emailVeri
                   type="button"
                   onClick={() => avatarInputRef.current?.click()}
                   aria-label="Change photo"
-                  className="group relative block h-24 w-24 overflow-hidden rounded-3xl bg-primary transition-[box-shadow,transform] duration-200 hover:shadow-lift active:scale-[0.985] sm:h-32 sm:w-32"
+                  className="group relative block size-24 overflow-hidden rounded-3xl bg-primary transition-[box-shadow,transform] duration-200 hover:shadow-lift active:scale-[0.985] sm:h-32 sm:w-32"
                 >
                   {avatarUrl && !avatarError ? (
                     // eslint-disable-next-line @next/next/no-img-element -- external/user-uploaded, not a static asset
@@ -54,10 +54,10 @@ export function AccountHero({ avatar, dream, name, city, bio, airport, emailVeri
                   )}
                   <span className="absolute inset-0 grid place-items-center bg-black/55 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
                     {uploadingAvatar ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <Loader2 className="size-5 animate-spin" />
                     ) : (
                       <span className="flex flex-col items-center gap-1">
-                        <Camera className="h-4 w-4" />
+                        <Camera className="size-4" />
                         Change
                       </span>
                     )}
@@ -73,22 +73,22 @@ export function AccountHero({ avatar, dream, name, city, bio, airport, emailVeri
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/85">
                 {city && (
                   <span className="inline-flex items-center gap-1.5">
-                    <Plane className="h-4 w-4 opacity-70" />
+                    <Plane className="size-4 opacity-70" />
                     {city}
                   </span>
                 )}
                 {emailVerified && (
                   <span className="inline-flex items-center gap-1.5">
-                    <BadgeCheck className="h-4 w-4 opacity-70" /> Verified
+                    <BadgeCheck className="size-4 opacity-70" /> Verified
                   </span>
                 )}
                 {dreamText ? (
                   <button type="button" onClick={openDream} title="Change your dream destination" className="inline-flex items-center gap-1.5 underline-offset-4 transition-opacity hover:underline">
-                    <Compass className="h-4 w-4 opacity-70" /> Dreaming of {dreamText}
+                    <Compass className="size-4 opacity-70" /> Dreaming of {dreamText}
                   </button>
                 ) : (
                   <button type="button" onClick={openDream} className="daisy-badge h-7 gap-1.5 border-white/30 bg-white/15 px-3 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/25 max-sm:h-9 max-sm:px-4">
-                    <Compass className="h-3.5 w-3.5" /> Add your dream destination
+                    <Compass className="size-3.5" /> Add your dream destination
                   </button>
                 )}
               </div>

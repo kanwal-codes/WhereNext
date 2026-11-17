@@ -34,7 +34,7 @@ export function TodayPhone({ tripId, today }: { tripId: string; today: TodayData
   const isBookedStop = (title: string) => bookedToday.some((b) => b.reservation.title.trim().toLowerCase() === title.trim().toLowerCase());
   const navHref = directionsTo(next);
   return (
-    <div className="px-5 pt-2 pb-16">
+    <div className="px-4 pt-2 pb-16">
       <div className="flex items-center justify-between gap-3">
         <p className="eyebrow">{running ? (dateLine ?? "Today") : startLine ? `Trip starts ${startLine}` : "Your trip"}</p>
         {viewCity && <TripWeather tripId={tripId} location={viewCity} />}
@@ -57,9 +57,9 @@ export function TodayPhone({ tripId, today }: { tripId: string; today: TodayData
             {untilText && <span className="rounded-full bg-coral-fill px-3 py-1 text-xs font-semibold text-white">{untilText}</span>}
           </div>
           <h2 className="mt-2 font-display text-title leading-[1.12] font-medium tracking-[-0.03em] text-balance">{next.title}</h2>
-          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.9375rem] text-ink-soft">
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-body text-ink-soft">
             <span suppressHydrationWarning>{[viewCity, timeOf(next) ? clockLabel(timeOf(next)) : null].filter(Boolean).join(" · ")}</span>
-            {isBookedStop(next.title) && <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground"><Check className="size-3.5 text-positive" aria-hidden />Tickets booked</span>}
+            {isBookedStop(next.title) && <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-foreground"><Check className="size-3.5 text-positive" aria-hidden />Tickets booked</span>}
           </p>
           {navHref ? (
             <a href={navHref} target="_blank" rel="noreferrer noopener" className="btn-primary mt-4 h-12 w-full rounded-full"><Navigation className="size-4" aria-hidden /> Directions</a>
@@ -90,7 +90,7 @@ export function TodayPhone({ tripId, today }: { tripId: string; today: TodayData
                     <span aria-hidden className="grid size-[3.25rem] shrink-0 place-items-center rounded-2xl bg-coral-soft text-coral-ink"><g.icon className="size-[1.375rem]" /></span>
                     <span className="min-w-0 flex-1">
                       <span className="block font-display text-base leading-snug font-medium tracking-[-0.01em] text-balance">{it.title}</span>
-                      <span suppressHydrationWarning className="mt-0.5 block text-sm text-muted-foreground">{[timeOf(it) ? clockLabel(timeOf(it)) : null, g.label].filter(Boolean).join(" · ")}</span>
+                      <span suppressHydrationWarning className="mt-0.5 block text-sm text-ink-soft">{[timeOf(it) ? clockLabel(timeOf(it)) : null, g.label].filter(Boolean).join(" · ")}</span>
                     </span>
                   </Link>
                 </li>
@@ -106,11 +106,11 @@ export function TodayPhone({ tripId, today }: { tripId: string; today: TodayData
             const Icon = KIND_META[reservation.kind].icon;
             const time = note === "Arrives" || note === "Check-out" ? reservation.endTime : reservation.startTime;
             return (
-              <li key={`${reservation.id}-${note ?? "on"}`} className="flex min-h-14 items-center gap-3 rounded-2xl bg-secondary px-4 py-3">
+              <li key={`${reservation.id}-${note ?? "on"}`} className="flex min-h-14 items-center gap-3 rounded-2xl bg-muted px-4 py-3">
                 <Icon className="size-5 shrink-0 text-leaf" aria-hidden />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{reservation.title}</p>
-                  <p className="truncate text-sm text-muted-foreground">{[note, time ? clockLabel(time) : null, reservation.place].filter(Boolean).join(" · ")}</p>
+                  <p className="truncate text-sm text-ink-soft">{[note, time ? clockLabel(time) : null, reservation.place].filter(Boolean).join(" · ")}</p>
                 </div>
                 {reservation.attachments[0] && (
                   <a href={`/api/trips/${tripId}/reservations/${reservation.id}/files?path=${encodeURIComponent(reservation.attachments[0].path)}`} target="_blank" rel="noopener noreferrer" className="btn-chip shrink-0">Ticket</a>

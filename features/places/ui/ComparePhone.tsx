@@ -73,7 +73,7 @@ export function ComparePhone({ tripId, ids, onIdsChange, present, rows, stats, s
               type="button"
               onClick={() => onChoose(id, d!)}
               disabled={savedIds.has(id)}
-              className={cn("mt-auto flex h-11 w-full items-center justify-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-[background-color,transform] active:scale-[0.985]", savedIds.has(id) ? "border-transparent bg-secondary text-foreground" : "border-primary bg-primary text-primary-foreground")}
+              className={cn("mt-auto flex h-11 w-full items-center justify-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-[background-color,transform] active:scale-[0.985]", savedIds.has(id) ? "border-transparent bg-muted text-foreground" : "border-primary bg-primary text-primary-foreground")}
             >
               {savedIds.has(id) ? <><Check className="size-4" aria-hidden /> On the trip</> : "Choose this"}
             </button>

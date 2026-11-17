@@ -3,8 +3,9 @@
 import { SegmentedSwitch } from "@/components/SegmentedSwitch";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { animate as animateValue, motion, useDragControls, useMotionValue, useReducedMotion } from "motion/react";
-import { ChevronLeft, ChevronRight, Route as RouteIcon, Search } from "lucide-react";
-import { PHONE_ROUND, useSetPhoneHeader } from "@/components/shell/PhoneHeader";
+import { ChevronDown, ChevronLeft, ChevronRight, MapPin, Route as RouteIcon } from "lucide-react";
+import { PickerSheet } from "@/components/PickerSheet";
+import { useSetPhoneHeader } from "@/components/shell/PhoneHeader";
 import { modeSwatch } from "@/features/maps/ui/modeParts";
 import { MODE_LABEL } from "@/lib/application/mode-visuals";
 import { useMediaQuery } from "@/lib/use-media-query";
@@ -48,9 +49,9 @@ export function HScrollFade({ className, children }: { className?: string; child
             type="button"
             aria-label="Show earlier days"
             onClick={() => page(-1)}
-            className="pointer-events-auto grid h-6 w-6 shrink-0 place-items-center rounded-full max-lg:h-10 max-lg:w-10 text-muted-foreground transition-colors hover:text-foreground"
+            className="pointer-events-auto grid size-6 shrink-0 place-items-center rounded-full max-lg:h-10 max-lg:w-10 text-muted-foreground transition-colors hover:text-foreground"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="size-4" />
           </button>
         </div>
       )}
@@ -60,9 +61,9 @@ export function HScrollFade({ className, children }: { className?: string; child
             type="button"
             aria-label="Show more days"
             onClick={() => page(1)}
-            className="pointer-events-auto grid h-6 w-6 shrink-0 place-items-center rounded-full max-lg:h-10 max-lg:w-10 text-muted-foreground transition-colors hover:text-foreground"
+            className="pointer-events-auto grid size-6 shrink-0 place-items-center rounded-full max-lg:h-10 max-lg:w-10 text-muted-foreground transition-colors hover:text-foreground"
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="size-4" />
           </button>
         </div>
       )}
@@ -88,17 +89,27 @@ export function MapPanel({ collapsedLabel, onInset, children }: { collapsedLabel
   const containerRef = useRef<HTMLDivElement>(null);
   const y = useMotionValue(0);
   const [travel, setTravel] = useState(0);
+  // The map's own height (the sheet's parent) and the bar above it: what "pulled all the way up" is measured against.
+  const [stageH, setStageH] = useState(0);
+  const [barH, setBarH] = useState(56);
   const [expanded, setExpanded] = useState(true);
+  // Three resting places on a phone: the peek, the sheet at its own height (at most 54% of the map), and tall (nearly the whole screen).
+  const [tall, setTall] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     if (desktop) return;
     const el = containerRef.current;
     if (!el) return;
-    const measure = () => setTravel(Math.max(0, el.getBoundingClientRect().height - SHEET_PEEK));
+    const measure = () => {
+      setTravel(Math.max(0, el.getBoundingClientRect().height - SHEET_PEEK));
+      setStageH(el.parentElement?.clientHeight ?? 0);
+      setBarH(document.querySelector<HTMLElement>("[data-trip-topbar]")?.offsetHeight ?? 56);
+    };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
+    if (el.parentElement) ro.observe(el.parentElement);
     return () => ro.disconnect();
   }, [desktop]);
 
@@ -109,6 +120,7 @@ export function MapPanel({ collapsedLabel, onInset, children }: { collapsedLabel
 
   const snapTo = (next: boolean) => {
     setExpanded(next);
+    if (!next) setTall(false);
     animateValue(y, next ? 0 : travel, reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 42 });
   };
 
@@ -146,7 +158,7 @@ export function MapPanel({ collapsedLabel, onInset, children }: { collapsedLabel
           type="button"
           onClick={() => setCollapsed(true)}
           aria-label="Hide the trip panel to see the full map"
-          className="absolute top-[5.25rem] z-20 grid size-9 place-items-center rounded-full bg-card text-muted-foreground shadow-lift ring-1 ring-black/[0.04] transition-[transform,color] duration-150 hover:text-foreground active:scale-95"
+          className="absolute top-[5.25rem] z-20 grid size-9 place-items-center rounded-full bg-card text-muted-foreground shadow-lift ring-1 ring-black/[0.04] transition-[transform,color] duration-150 hover:text-foreground active:scale-[0.97]"
           style={{ left: PANEL_WIDTH + PANEL_GAP + 8 }}
         >
           <ChevronLeft className="size-4" aria-hidden="true" />
@@ -163,18 +175,31 @@ export function MapPanel({ collapsedLabel, onInset, children }: { collapsedLabel
       dragControls={dragControls}
       dragListener={false}
       dragConstraints={{ top: 0, bottom: travel }}
-      dragElastic={0}
+      dragElastic={{ top: 0.12, bottom: 0 }}
       initial={reduce ? false : { opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5, ease: EASE }}
-      onDragEnd={(_, info) => snapTo(!(info.offset.y > travel / 2 || info.velocity.y > 500))}
+      animate={{
+        opacity: 1,
+        // Measured pixels, not percentages, so the height can glide between its own size and tall.
+        ...(stageH ? { maxHeight: tall ? stageH - barH - 8 : Math.round(stageH * 0.54), height: tall ? stageH - barH - 8 : "auto" } : {}),
+      }}
+      transition={{ duration: 0.5, ease: EASE, maxHeight: reduce ? { duration: 0 } : { type: "spring", stiffness: 380, damping: 40 }, height: reduce ? { duration: 0 } : { type: "spring", stiffness: 380, damping: 40 } }}
+      onDragEnd={(_, info) => {
+        const up = info.offset.y < -50 || info.velocity.y < -500;
+        const down = info.offset.y > 50 || info.velocity.y > 500;
+        // Up from the peek opens the sheet; up from there takes it tall. Down from tall comes back to the sheet's own height before it folds away.
+        // The drag moved the sheet by hand: whichever way it settles, it comes back to rest at 0 (or the peek) on a spring.
+        const rest = () => animateValue(y, 0, reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 42 });
+        if (up) { if (expanded) { setTall(true); rest(); } else snapTo(true); }
+        else if (tall) { setTall(!down); rest(); }
+        else snapTo(!(info.offset.y > travel / 2 || info.velocity.y > 500));
+      }}
       className="absolute inset-x-0 bottom-0 z-10 flex max-h-[54%] flex-col overflow-hidden rounded-t-3xl bg-card shadow-float ring-1 ring-black/[0.05]"
     >
       <button
         type="button"
-        aria-label={expanded ? "Collapse to see the map" : "Expand for trip details"}
+        aria-label={tall ? "Bring the sheet back down" : expanded ? "Collapse to see the map" : "Expand for trip details"}
         onPointerDown={(e) => dragControls.start(e)}
-        onClick={() => snapTo(!expanded)}
+        onClick={() => (tall ? setTall(false) : snapTo(!expanded))}
         className="flex shrink-0 cursor-grab touch-none justify-center pb-2 pt-3 max-lg:py-[17px] active:cursor-grabbing"
       >
         <span className="h-1.5 w-10 rounded-full bg-input" />
@@ -221,23 +246,50 @@ function GettingAroundTabs({ tab, onChange, floating = false }: { tab: "trip" | 
   );
 }
 
+const VIEWS = [
+  { key: "trip", label: "My trip", sub: "Your stops, day by day", Icon: MapPin },
+  { key: "browse", label: "Directions", sub: "Any two places, drawn on the map", Icon: RouteIcon },
+] as const;
+
+/** Phone: the one pill in the middle of the header (the same pill as Discover's city), which opens a sheet to choose My trip or Directions. */
+function ViewPill({ tab, onChange }: { tab: "trip" | "browse"; onChange: (t: "trip" | "browse") => void }) {
+  const [open, setOpen] = useState(false);
+  const current = VIEWS.find((v) => v.key === tab) ?? VIEWS[0];
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={`${current.label}. Change view`}
+        className="inline-flex h-11 max-w-full items-center gap-1.5 rounded-full bg-muted px-4 font-display text-body font-semibold tracking-[-0.01em] transition-transform active:scale-[0.97]"
+      >
+        <span className="truncate">{current.label}</span>
+        <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+      </button>
+      <PickerSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Getting around"
+        ariaLabel="Choose a view"
+        value={tab}
+        onPick={onChange}
+        options={VIEWS.map((v) => ({ key: v.key, label: v.label, sub: v.sub, lead: <v.Icon className="size-5 shrink-0 text-muted-foreground" aria-hidden /> }))}
+      />
+    </>
+  );
+}
+
 /** The whole screen is the map: a quiet shade at the top, a vignette at the edges, and the controls float over it. */
 export function MapStage({ tab, onTab, children }: { tab: "trip" | "browse"; onTab: (t: "trip" | "browse") => void; children: ReactNode }) {
-  // Phone redesign: no Browse | My trip switch floating on the map. One round button at the right of the header goes to the other view.
-  const narrow = useMediaQuery("(max-width: 1023.98px)");
-  const phone = narrow;
-  const headerSwitch = useMemo(() => {
-    if (!phone) return undefined;
-    const toBrowse = tab === "trip";
-    return (
-      <button type="button" onClick={() => onTab(toBrowse ? "browse" : "trip")} aria-label={toBrowse ? "Browse the map" : "Back to my trip"} className={PHONE_ROUND}>
-        {toBrowse ? <Search className="size-[1.2rem]" /> : <RouteIcon className="size-[1.2rem]" />}
-      </button>
-    );
-  }, [phone, tab, onTab]);
-  useSetPhoneHeader({ trailing: headerSwitch });
+  // Phone: the same header as every other tab. The pill in the middle (where Discover has its city) picks My trip or Directions, so no switch floats on the map.
+  const phone = useMediaQuery("(max-width: 1023.98px)");
+  const headerTitle = useMemo(() => (phone ? <ViewPill tab={tab} onChange={onTab} /> : undefined), [phone, tab, onTab]);
+  // No bar behind the header: the map runs up under it, so only the round button and the pill sit on the map.
+  useSetPhoneHeader({ titleNode: headerTitle, variant: phone ? "overlay" : undefined });
   return (
-    <section aria-label="Getting around" className="relative isolate h-[calc(100dvh-var(--topbar)-var(--tabbar))] min-h-[520px] w-full overflow-hidden bg-surface lg:h-[100dvh]">
+    <section aria-label="Getting around" className="map-under-header relative isolate h-[calc(100dvh-var(--tabbar))] min-h-[520px] w-full overflow-hidden bg-surface max-lg:-mt-[var(--topbar)] lg:h-[100dvh]">
       <h1 className="sr-only">Getting around</h1>
       {children}
       <div aria-hidden className="vignette pointer-events-none absolute inset-0 z-[1] opacity-30" />

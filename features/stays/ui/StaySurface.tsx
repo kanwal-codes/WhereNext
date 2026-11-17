@@ -22,6 +22,8 @@ import { cn } from "@/lib/utils";
 import { CityPill } from "@/components/CityPill";
 import { useSetPhoneHeader } from "@/components/shell/PhoneHeader";
 import { useMediaQuery } from "@/lib/use-media-query";
+import { Sheet } from "@/components/motion-primitives";
+import { sheetPrimary } from "@/components/motion/sheetActions";
 import { fmtDay } from "@/lib/trip-dates";
 import { prefetchStayDetails } from "@/features/stays/application/useStayDetails";
 import { dateFormat } from "@/lib/format-cache";
@@ -34,12 +36,12 @@ const fmtLong = (iso: string) => {
   return Number.isNaN(d.getTime()) ? "" : dateFormat("en", { weekday: "short", month: "short", day: "numeric" }).format(d);
 };
 
-const cellLabel = "block text-[0.625rem] max-lg:text-xs font-medium tracking-[0.22em] text-muted-foreground uppercase";
+const cellLabel = "block text-2xs max-lg:text-xs font-medium tracking-[0.22em] text-muted-foreground uppercase";
 
 function Stepper({ label, value, set, min, max }: { label: string; value: number; set: (n: number) => void; min: number; max: number }) {
-  const btn = "grid size-9 place-items-center rounded-full border border-border bg-background text-foreground max-lg:border-0 transition-[background-color,border-color,transform] hover:border-foreground/30 hover:bg-accent active:scale-95 disabled:opacity-30 disabled:hover:bg-background";
+  const btn = "grid size-9 place-items-center rounded-full border border-border bg-background text-foreground max-lg:border-0 transition-[background-color,border-color,transform] hover:border-foreground/30 hover:bg-accent active:scale-[0.97] disabled:opacity-30 disabled:hover:bg-background";
   return (
-    <div className="bg-card px-4 py-3.5 max-lg:rounded-2xl max-lg:bg-secondary">
+    <div className="bg-card px-4 py-3.5 max-lg:rounded-2xl max-lg:bg-muted">
       <span className={cellLabel}>{label}</span>
       <div className="mt-2 flex items-center justify-between gap-2">
         <button type="button" onClick={() => set(Math.max(min, value - 1))} disabled={value <= min} aria-label={`Fewer ${label}`} className={btn}>
@@ -57,7 +59,7 @@ function Stepper({ label, value, set, min, max }: { label: string; value: number
 /** A date cell: the date large in the display face, the label above it; the real date input sits invisibly over it, so a tap opens the native picker. */
 function DateCell({ label, value, onChange, min }: { label: string; value: string; onChange: (v: string) => void; min?: string }) {
   return (
-    <label className="relative block cursor-pointer bg-card px-4 py-3.5 transition-colors focus-within:bg-accent/50 hover:bg-accent/40 max-lg:rounded-2xl max-lg:bg-secondary max-lg:focus-within:bg-card max-lg:focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_5%,transparent),0_8px_18px_-12px_color-mix(in_oklab,var(--color-ink)_20%,transparent)]">
+    <label className="relative block cursor-pointer bg-card px-4 py-3.5 transition-colors focus-within:bg-accent/50 hover:bg-accent/40 max-lg:rounded-2xl max-lg:bg-muted max-lg:focus-within:bg-card max-lg:focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_5%,transparent),0_8px_18px_-12px_color-mix(in_oklab,var(--color-ink)_20%,transparent)]">
       <span className={cellLabel}>{label}</span>
       <span className={cn("mt-2 block font-display text-xl leading-none font-medium tracking-[-0.02em] tabular-nums", !value && "text-muted-foreground")}>{value ? fmtLong(value) : "Add date"}</span>
       <input type="date" value={value} min={min} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 size-full cursor-pointer opacity-0" />
@@ -75,8 +77,9 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   // Phone redesign: the city is the pill in the middle of the header, as on Discover.
   const narrow = useMediaQuery("(max-width: 1023.98px)");
   const phone = narrow;
-  const pillCity = (cities.hasChoice ? cities.city : destination).split(",")[0].trim();
-  const headerTitle = useMemo(() => (phone && pillCity ? <CityPill stops={cities.stops} city={pillCity} onPick={cities.setCity} /> : undefined), [phone, pillCity, cities.stops, cities.setCity]);
+  const pillCity = (cities.area?.name ?? (cities.hasChoice ? cities.city : destination)).split(",")[0].trim();
+  const refine = useMemo(() => (cities.broad ? { tripId, parent: cities.parent, activeStop: cities.stop?.city ?? cities.parent, area: cities.area, onPickArea: cities.setArea } : undefined), [cities.broad, tripId, cities.parent, cities.stop, cities.area, cities.setArea]);
+  const headerTitle = useMemo(() => (phone && pillCity ? <CityPill stops={cities.stops} city={pillCity} onPick={cities.setCity} refine={refine} /> : undefined), [phone, pillCity, cities.stops, cities.setCity, refine]);
   useSetPhoneHeader({ titleNode: headerTitle });
   const cityWindow = cities.hasChoice && cities.stop ? stayWindow(cities.stop) : null;
   const booked = useTripStays(tripId);
@@ -87,11 +90,13 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   } = useStaySearch({
     tripId,
     start: { checkin: (cities.hasChoice ? cityWindow?.checkin : lockedStay?.checkin) ?? cityWindow?.checkin ?? trip?.start_date ?? "", checkout: (cities.hasChoice ? cityWindow?.checkout : lockedStay?.checkout) ?? cityWindow?.checkout ?? trip?.end_date ?? "" },
-    travelers: trip?.travelers, city: cities.city, hasChoice: cities.hasChoice, cityWindow,
+    travelers: trip?.travelers, city: cities.city, hasChoice: cities.scoped, cityWindow,
   });
   const [barOpen, setBarOpen] = useState(false);
   const nightsLabel = nightsText(nightsBetween(checkin, checkout));
   const [showFilters, setShowFilters] = useState(false);
+  // On a phone the dates and the filters open as sheets over the page, so opening them moves nothing underneath; from `sm` up they stay inline.
+  const sheeted = useMediaQuery("(max-width: 639.98px)");
 
   const { visible, remaining, next, showMore, first } = useShowMore(result?.options.length ?? 0, result);
 
@@ -106,21 +111,123 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   // A stay already booked for (some of) these nights: said up front, so nobody pays for the same nights twice.
   const alreadyBooked = overlappingStay(booked.items, checkin, checkout);
 
+  const filterBody = (
+    <div className="space-y-4">
+      <div className="lg:hidden">
+        <span className="text-sm font-medium">Sort by</span>
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {([["price", "Price"], ["rating", "Guest rating"], ["stars", "Stars"]] as const).map(([key, label]) => (
+            <button key={key} type="button" onClick={() => setSort(key)} aria-pressed={sort === key} className="btn-chip">{label}</button>
+          ))}
+        </div>
+      </div>
+      {facets && facets.priceMax > facets.priceMin && (
+        <div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-medium">Max price / night</span>
+            <span className="text-muted-foreground tabular-nums">{money(priceMax ?? facets.priceMax)}</span>
+          </div>
+          <input
+            type="range"
+            min={Math.floor(facets.priceMin)}
+            max={Math.ceil(facets.priceMax)}
+            value={priceMax ?? Math.ceil(facets.priceMax)}
+            onChange={(e) => setPriceMax(Number(e.target.value) >= Math.ceil(facets.priceMax) ? null : Number(e.target.value))}
+            className="mt-2 w-full accent-primary"
+          />
+        </div>
+      )}
+      {facets && facets.propertyTypes.length > 1 && (
+        <div>
+          <span className="text-sm font-medium">Type of place</span>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {facets.propertyTypes.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setPropertyTypes(toggled(propertyTypes, t))}
+                aria-pressed={propertyTypes.includes(t)}
+                className="btn-chip"
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {facets && facets.stars.length > 0 && (
+        <div>
+          <span className="text-sm font-medium">Star rating</span>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {facets.stars.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setStars(toggled(stars, s))}
+                aria-pressed={stars.includes(s)}
+                className="btn-chip"
+              >
+                {s} <Star className="size-3 fill-current" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {facets && facets.boards.length > 0 && (
+        <div>
+          <span className="text-sm font-medium">Board</span>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {facets.boards.map((b) => (
+              <button
+                key={b}
+                type="button"
+                onClick={() => setBoards(toggled(boards, b))}
+                aria-pressed={boards.includes(b)}
+                className="btn-chip"
+              >
+                {b}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={refundable} onChange={(e) => setRefundable(e.target.checked)} className="accent-primary" />
+        Free cancellation only
+      </label>
+      {activeFilters > 0 && (
+        <button type="button" onClick={clearFilters} className="text-xs font-medium text-primary hover:underline">
+          Clear filters
+        </button>
+      )}
+    </div>
+  );
+
+  const cells = (
+    <>
+      <DateCell label="Check-in" value={checkin} onChange={setCheckin} />
+      <DateCell label="Check-out" value={checkout} onChange={setCheckout} min={checkin || undefined} />
+      <Stepper label="Guests" value={adults} set={setAdults} min={1} max={16} />
+      <Stepper label="Rooms" value={rooms} set={setRooms} min={1} max={8} />
+    </>
+  );
+
+
   return (
     <div className="flex min-h-[calc(100svh-13rem)] flex-col gap-5">
-      <CityChips stops={cities.stops} current={cities.city} onPick={cities.setCity} estimated={cities.estimated} className="-mb-2 max-lg:hidden" />
+      <CityChips stops={cities.stops} current={cities.stop?.city ?? cities.city} onPick={cities.setCity} estimated={cities.estimated} refine={refine} className="-mb-2 max-lg:hidden" />
       {alreadyBooked && (
-        <p role="status" className="rounded-2xl bg-secondary px-4 py-3 text-sm">
+        <p role="status" className="rounded-2xl bg-muted px-4 py-3 text-sm">
           You already have <span className="font-medium">{alreadyBooked.title}</span> booked<span className="max-lg:hidden">{alreadyBooked.date ? ` (${fmtDay(alreadyBooked.date)}${alreadyBooked.endDate ? ` → ${fmtDay(alreadyBooked.endDate)}` : ""})` : ""}</span> for some of these nights.{" "}
           <a href={`/trips/${tripId}/bookings`} className="underline underline-offset-2">See your bookings</a>
         </p>
       )}
       {near.trim() && (
         <p className="flex items-center gap-2 text-sm">
-          <MapPin className="h-3.5 w-3.5 shrink-0 text-coral" />
+          <MapPin className="size-3.5 shrink-0 text-coral" />
           <span className="min-w-0 truncate">Searching near <span className="font-medium">{near}</span></span>
           <button type="button" onClick={() => setNear("")} className="inline-flex shrink-0 items-center gap-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
-            <X className="h-3 w-3" /> clear
+            <X className="size-3" /> clear
           </button>
         </p>
       )}
@@ -152,20 +259,17 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
           onClick={() => setShowFilters((v) => !v)}
           aria-pressed={showFilters}
           aria-label={activeFilters ? `Filters, ${activeFilters} on` : "Filters"}
-          className={cn("relative grid size-12 shrink-0 place-items-center rounded-full transition-colors sm:hidden", showFilters ? "bg-foreground text-background" : "bg-secondary text-foreground")}
+          className={cn("relative grid size-12 shrink-0 place-items-center rounded-full transition-colors sm:hidden", showFilters ? "bg-foreground text-background" : "bg-muted text-foreground")}
         >
           <SlidersHorizontal className="size-[1.125rem]" aria-hidden />
           {activeFilters > 0 && !showFilters && <span aria-hidden className="absolute top-2.5 right-2.5 size-2.5 rounded-full bg-coral ring-2 ring-secondary" />}
         </button>
         </div>
-        <div className={cn("grid grid-cols-2 gap-px overflow-hidden bg-border lg:grid-cols-4", !barOpen && "max-sm:hidden", "max-lg:mb-3 max-lg:gap-2 max-lg:overflow-visible max-lg:border-0 max-lg:bg-transparent")}>
-          <DateCell label="Check-in" value={checkin} onChange={setCheckin} />
-          <DateCell label="Check-out" value={checkout} onChange={setCheckout} min={checkin || undefined} />
-          <Stepper label="Guests" value={adults} set={setAdults} min={1} max={16} />
-          <Stepper label="Rooms" value={rooms} set={setRooms} min={1} max={8} />
-        </div>
+        {!sheeted && (
+          <div className="grid grid-cols-2 gap-px overflow-hidden bg-border lg:grid-cols-4 max-lg:mb-3 max-lg:gap-2 max-lg:overflow-visible max-lg:border-0 max-lg:bg-transparent">{cells}</div>
+        )}
 
-        <div className="flex flex-wrap items-center gap-3 border-t border-border bg-card px-4 py-3 max-lg:-mx-5 sm:max-lg:-mx-8 max-lg:flex-nowrap max-lg:gap-2 max-lg:overflow-x-auto max-lg:border-t-0 max-lg:bg-transparent max-lg:px-5 sm:max-lg:px-8 max-lg:py-0 max-lg:[-ms-overflow-style:none] max-lg:[scrollbar-width:none] max-lg:[&::-webkit-scrollbar]:hidden max-sm:hidden">
+        <div className="flex flex-wrap items-center gap-3 border-t border-border bg-card px-4 py-3 max-lg:-mx-4 sm:max-lg:-mx-8 max-lg:flex-nowrap max-lg:gap-2 max-lg:overflow-x-auto max-lg:border-t-0 max-lg:bg-transparent max-lg:px-4 sm:max-lg:px-8 max-lg:py-0 max-lg:[-ms-overflow-style:none] max-lg:[scrollbar-width:none] max-lg:[&::-webkit-scrollbar]:hidden max-sm:hidden">
           <button type="button" onClick={() => setShowFilters((v) => !v)} aria-pressed={showFilters} className="btn-chip shrink-0 max-lg:h-10 max-lg:text-sm">
             <SlidersHorizontal className="size-3.5" aria-hidden /> Filters{activeFilters ? ` · ${activeFilters}` : ""}
           </button>
@@ -186,98 +290,23 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
           {status && <p role="status" className="ml-auto text-xs text-muted-foreground max-lg:hidden">{status}</p>}
         </div>
 
-        {showFilters && (
-          <div className="space-y-4 border-t border-border px-4 py-4 max-lg:mt-3 max-lg:rounded-2xl max-lg:border max-lg:bg-card">
-            <div className="lg:hidden">
-              <span className="text-sm font-medium">Sort by</span>
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {([["price", "Price"], ["rating", "Guest rating"], ["stars", "Stars"]] as const).map(([key, label]) => (
-                  <button key={key} type="button" onClick={() => setSort(key)} aria-pressed={sort === key} className="btn-chip">{label}</button>
-                ))}
-              </div>
-            </div>
-            {facets && facets.priceMax > facets.priceMin && (
-              <div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">Max price / night</span>
-                  <span className="text-muted-foreground tabular-nums">{money(priceMax ?? facets.priceMax)}</span>
-                </div>
-                <input
-                  type="range"
-                  min={Math.floor(facets.priceMin)}
-                  max={Math.ceil(facets.priceMax)}
-                  value={priceMax ?? Math.ceil(facets.priceMax)}
-                  onChange={(e) => setPriceMax(Number(e.target.value) >= Math.ceil(facets.priceMax) ? null : Number(e.target.value))}
-                  className="mt-2 w-full accent-primary"
-                />
-              </div>
-            )}
-            {facets && facets.propertyTypes.length > 1 && (
-              <div>
-                <span className="text-sm font-medium">Type of place</span>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {facets.propertyTypes.map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setPropertyTypes(toggled(propertyTypes, t))}
-                      aria-pressed={propertyTypes.includes(t)}
-                      className="btn-chip"
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {facets && facets.stars.length > 0 && (
-              <div>
-                <span className="text-sm font-medium">Star rating</span>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {facets.stars.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setStars(toggled(stars, s))}
-                      aria-pressed={stars.includes(s)}
-                      className="btn-chip"
-                    >
-                      {s} <Star className="h-3 w-3 fill-current" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {facets && facets.boards.length > 0 && (
-              <div>
-                <span className="text-sm font-medium">Board</span>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {facets.boards.map((b) => (
-                    <button
-                      key={b}
-                      type="button"
-                      onClick={() => setBoards(toggled(boards, b))}
-                      aria-pressed={boards.includes(b)}
-                      className="btn-chip"
-                    >
-                      {b}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={refundable} onChange={(e) => setRefundable(e.target.checked)} className="accent-primary" />
-              Free cancellation only
-            </label>
-            {activeFilters > 0 && (
-              <button type="button" onClick={clearFilters} className="text-xs font-medium text-primary hover:underline">
-                Clear filters
-              </button>
-            )}
-          </div>
+        {showFilters && !sheeted && (
+          <div className="border-t border-border px-4 py-4 max-lg:mt-3 max-lg:rounded-2xl max-lg:border max-lg:bg-card">{filterBody}</div>
         )}
       </div>
+
+      {sheeted && (
+        <>
+          <Sheet open={barOpen} onClose={() => setBarOpen(false)} ariaLabel="Dates and guests" padded footer={<button type="button" onClick={() => setBarOpen(false)} className={sheetPrimary}>Done</button>}>
+            <p className="px-1 pb-3 pt-1 font-display text-xl font-medium tracking-[-0.02em]">Dates and guests</p>
+            <div className="grid grid-cols-2 gap-2">{cells}</div>
+          </Sheet>
+          <Sheet open={showFilters} onClose={() => setShowFilters(false)} ariaLabel="Sort and filter" padded footer={<button type="button" onClick={() => setShowFilters(false)} className={sheetPrimary}>Done</button>}>
+            <p className="px-1 pb-3 pt-1 font-display text-xl font-medium tracking-[-0.02em]">Sort and filter</p>
+            <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain px-1">{filterBody}</div>
+          </Sheet>
+        </>
+      )}
 
       <div className="relative">
         <SwapView id={loading && !result ? "skeleton" : "results"}>
@@ -285,7 +314,6 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
         <SkeletonList count={6} className="xl:grid-cols-3" />
       ) : result && result.options.length > 0 ? (
         <>
-          {result.assumedDates && <p className="text-xs text-caution">Example dates, set yours above for accurate prices.</p>}
           <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 max-lg:gap-x-5 max-lg:gap-y-7">
             {result.options.slice(0, visible).map((o, index) => {
               const comparing = Boolean(panelCtx?.compareMode);

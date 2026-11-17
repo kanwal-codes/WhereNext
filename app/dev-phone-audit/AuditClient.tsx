@@ -27,7 +27,7 @@ export function AuditClient({ theme, scene, edge }: { theme: "light" | "dark"; s
       <div className="mx-auto w-full max-w-[430px] space-y-10 px-4 py-6">
         {shown.map((s) => (
           <section key={s.label} data-scene={s.label.split(" ")[0]} className="space-y-4">
-            <p className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">{s.label}</p>
+            <p className="font-mono text-2xs tracking-wider text-muted-foreground uppercase">{s.label}</p>
             <div className="flex justify-end">
               <p className="max-w-[85%] rounded-2xl rounded-br-lg bg-primary px-4 py-2.5 text-sm leading-relaxed text-primary-foreground">{s.user}</p>
             </div>

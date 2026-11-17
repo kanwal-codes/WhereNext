@@ -73,22 +73,22 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
     const redirectTarget = encodeURIComponent(`/join/${token}`);
     return (
       <JoinCard>
-        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-coral/15" aria-hidden="true">
-          <PartyPopper className="h-5 w-5 text-coral" />
+        <span className="mx-auto grid size-12 place-items-center rounded-full bg-coral/15" aria-hidden="true">
+          <PartyPopper className="size-5 text-coral" />
         </span>
         <h1 className="mt-4 font-display text-xl leading-snug">
           {inviterName} invited you to help plan <span className="text-coral-ink">{tripName}</span>
         </h1>
-        {trip?.destination && <p className="mt-1.5 text-sm text-muted-foreground">{trip.destination}</p>}
-        <p className="mt-4 text-sm text-muted-foreground">
+        {trip?.destination && <p className="mt-1.5 text-sm text-ink-soft">{trip.destination}</p>}
+        <p className="mt-4 text-sm text-ink-soft">
           You’ll need a free Where next? account to join — it takes a few seconds, and you’ll land right in the group chat.
         </p>
         <div className="mt-6 flex flex-col gap-2.5">
           <Link href={`/sign-up?redirect=${redirectTarget}`} className="btn-primary inline-flex items-center justify-center gap-1.5">
-            <UserPlus className="h-4 w-4" /> Create an account
+            <UserPlus className="size-4" /> Create an account
           </Link>
           <Link href={`/sign-in?redirect=${redirectTarget}`} className="btn-secondary inline-flex items-center justify-center gap-1.5">
-            I already have an account <ArrowRight className="h-3.5 w-3.5" />
+            I already have an account <ArrowRight className="size-3.5" />
           </Link>
         </div>
       </JoinCard>
@@ -101,17 +101,17 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
   if (joinError === "dead") return <DeadInvite reason="It may have expired or already been used. Ask for a fresh link." />;
   return (
     <JoinCard>
-      <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-coral/15" aria-hidden="true">
-        <PartyPopper className="h-5 w-5 text-coral" />
+      <span className="mx-auto grid size-12 place-items-center rounded-full bg-coral/15" aria-hidden="true">
+        <PartyPopper className="size-5 text-coral" />
       </span>
       <h1 className="mt-4 font-display text-xl leading-snug">
         {inviterName} invited you to help plan <span className="text-coral-ink">{tripName}</span>
       </h1>
-      {trip?.destination && <p className="mt-1.5 text-sm text-muted-foreground">{trip.destination}</p>}
+      {trip?.destination && <p className="mt-1.5 text-sm text-ink-soft">{trip.destination}</p>}
       {joinError === "retry" && <p className="mt-4 text-sm text-destructive">We couldn’t process this invite just now. Try again in a moment.</p>}
       <form method="post" action={`/join/${token}/accept`} className="mt-6">
         <button type="submit" className="btn-primary inline-flex w-full items-center justify-center gap-1.5">
-          Join the trip <ArrowRight className="h-3.5 w-3.5" />
+          Join the trip <ArrowRight className="size-3.5" />
         </button>
       </form>
     </JoinCard>

@@ -45,7 +45,7 @@ export function WeatherDetail({ block }: { block: WeatherBlock }) {
                   <span className="w-10 shrink-0 text-sm font-semibold text-ink-soft">{d.label}</span>
                   {React.createElement(ICON[d.condition ?? "mixed"], { className: cn("size-5 shrink-0", d.wet ? "text-lagoon" : "text-caution"), "aria-hidden": true })}
                   <span className="w-5 shrink-0">{d.wet && <Droplets className="size-4 text-lagoon" aria-label="Rain expected" />}</span>
-                  <span className="text-sm text-muted-foreground tabular-nums">{deg(d.min)}</span>
+                  <span className="text-sm text-ink-soft tabular-nums">{deg(d.min)}</span>
                   <span className="relative h-1.5 min-w-8 flex-1 rounded-full bg-muted" aria-hidden>
                     <span className="absolute inset-y-0 rounded-full bg-gradient-to-r from-lagoon to-caution" style={{ left: `${((d.min - lo) / span) * 100}%`, right: `${100 - ((d.max - lo) / span) * 100}%` }} />
                   </span>

@@ -40,7 +40,7 @@ export default function UpdatePasswordPage() {
       subtitle="Set a new password for your account, then head back to your trips."
       footer={
         <Link href="/sign-in" className="link-underline inline-flex items-center gap-1.5 text-foreground">
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
+          <ArrowLeft className="size-3.5" /> Back to sign in
         </Link>
       }
     >
@@ -54,10 +54,10 @@ export default function UpdatePasswordPage() {
         <Field label="Confirm password">
           <input type="password" name="password-confirmation" autoComplete="new-password" required minLength={8} value={confirmation} onChange={(e) => setConfirmation(e.target.value)} className={inputClass} />
         </Field>
-        {error && <p role="alert" className="rounded-xl bg-secondary px-3 py-2 text-xs font-medium text-destructive">{error}</p>}
-        {message && <p role="status" className="rounded-xl bg-secondary px-3 py-2 text-xs font-medium text-foreground">{message}</p>}
+        {error && <p role="alert" className="rounded-xl bg-muted px-3 py-2 text-xs font-medium text-destructive">{error}</p>}
+        {message && <p role="status" className="rounded-xl bg-muted px-3 py-2 text-xs font-medium text-foreground">{message}</p>}
         <SubmitButton loading={loading} type="submit">
-          Update password {loading ? null : <ArrowRight className="h-4 w-4" />}
+          Update password {loading ? null : <ArrowRight className="size-4" />}
         </SubmitButton>
       </form>
     </AuthShell>

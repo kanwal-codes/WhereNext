@@ -18,7 +18,6 @@ import { SidePane } from "./SidePane";
 import { PhoneOverlays } from "./PhoneOverlays";
 import { layoutModeOf, shellColumns } from "../domain/shell-layout";
 import { useIdleWarm } from "../application/useIdleWarm";
-import { usePanelStyle } from "@/lib/use-panel-style";
 import type { AssistantBlock, PlaceCard, StayCardItem } from "@/packages/contracts/assistant";
 import type { Trip } from "@/features/trip/domain/trip";
 import { cn } from "@/lib/utils";
@@ -57,7 +56,6 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
   const [contextCollapsed, setContextCollapsed] = useState(false);
   const [mobileContextOpen, setMobileContextOpen] = useState(false);
   const [groupMenuOpen, setGroupMenuOpen] = useState(false);
-  const sheetPanel = usePanelStyle() === "sheet";
   // `activeTab` is derived one layer up from `usePathname()`, which only updates once Next's
   // router finishes the /chat<->/group navigation — a real network round trip for that route's
   // RSC payload, since `router.refresh()` (called from `TripDataProvider` on every realtime
@@ -139,7 +137,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
         style={{ ...(desktop ? { gridTemplateColumns: columns } : { "--shell-cols-lg": shellColumns({ desktop: true, hasPanel: Boolean(panel), showContext: !panel && !contextCollapsed }) }), transition: `grid-template-columns ${reduceMotion || !modeChanged ? 0 : LAYOUT_MOTION}` } as React.CSSProperties}
         className="grid h-full min-h-0 w-full min-w-0 max-w-full [grid-template-columns:minmax(0,1fr)_0px] lg:[grid-template-columns:var(--shell-cols-lg)]"
       >
-        <div className="relative flex min-w-0 max-w-full flex-col overflow-hidden px-4 py-4 sm:px-6 lg:border-r lg:border-border lg:py-5 max-lg:pt-1">
+        <div className="relative flex min-w-0 max-w-full flex-col overflow-hidden px-4 py-4 sm:px-6 lg:border-r lg:border-border lg:py-5 max-lg:pt-1 max-lg:pb-0">
           {/* Always in the markup, hidden on a phone by CSS (a hidden Link is never in view, so it is never prefetched): mounted only once
               JS knew the width, it arrived after first paint and pushed the whole conversation down. */}
           <div className="overflow-hidden max-lg:hidden">
@@ -198,7 +196,7 @@ export function RoamShell({ tripId, activeTab }: { tripId: string; activeTab: "r
         {desktop && <SidePane panel={Boolean(panel)} showContext={showContext} setContextCollapsed={setContextCollapsed} contextRail={contextRail} />}
       </div>
 
-      {!desktop && <PhoneOverlays tripId={tripId} panel={Boolean(panel)} sheetPanel={sheetPanel} closePanel={closePanel} groupMenuOpen={groupMenuOpen} setGroupMenuOpen={setGroupMenuOpen} mobileContextOpen={mobileContextOpen} setMobileContextOpen={setMobileContextOpen} contextRail={contextRail} />}
+      {!desktop && <PhoneOverlays tripId={tripId} panel={Boolean(panel)} closePanel={closePanel} groupMenuOpen={groupMenuOpen} setGroupMenuOpen={setGroupMenuOpen} mobileContextOpen={mobileContextOpen} setMobileContextOpen={setMobileContextOpen} contextRail={contextRail} />}
     </div>
   );
 }

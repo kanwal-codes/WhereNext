@@ -15,7 +15,7 @@ export function ReviewFigure({ r }: { r: GoogleReview }) {
     <figure className="rounded-2xl border border-border bg-card p-4">
       <figcaption className="flex items-center gap-3">
         <span className="daisy-avatar daisy-avatar-placeholder" aria-hidden>
-          <span className="grid size-9 place-items-center rounded-full bg-muted text-sm font-medium text-muted-foreground">{author.charAt(0).toUpperCase()}</span>
+          <span className="grid size-9 place-items-center rounded-full bg-muted text-sm font-medium text-ink-soft">{author.charAt(0).toUpperCase()}</span>
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium">{author}</span>

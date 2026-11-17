@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { AlignLeft, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { shortTripTitle } from "@/components/shell/trip-title";
+import { useScrollCompact } from "@/lib/use-scroll-compact";
 
 /**
  * The phone header (docs/design/phone-redesign-plan.md, phase 1): one round button on the left (menu, or back on a
@@ -76,7 +77,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/event": "Event",
 };
 
-export const PHONE_ROUND = "grid size-11 shrink-0 place-items-center rounded-full bg-secondary text-foreground transition-transform duration-200 ease-out active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+export const PHONE_ROUND = "grid size-11 shrink-0 place-items-center rounded-full bg-muted text-foreground transition-transform duration-200 ease-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 export function PhoneHeader({ pathname, tripId, tripName, onMenu, menuDot }: { pathname: string; tripId: string; tripName: string; onMenu: () => void; menuDot?: boolean }) {
   const router = useRouter();
@@ -89,10 +90,21 @@ export function PhoneHeader({ pathname, tripId, tripName, onMenu, menuDot }: { p
   const title = override.title ?? defaultTitle;
   const back = backTarget(pathname, base);
   const overlay = override.variant === "overlay";
+  // Out of the way while reading down, back on the first scroll up: the same rule (and the same moments) as the Ask Roam bar at the bottom.
+  // Pages that scroll inside their own box (chat, the map) never move the window, so the bar simply stays there.
+  const [hidden, setHidden] = useScrollCompact();
   return (
     <header
       data-trip-topbar
-      className={cn("icons-fine sticky top-0 z-30 flex h-[var(--topbar)] items-center gap-3 px-3 pt-[env(safe-area-inset-top)] lg:hidden", overlay ? "bg-transparent" : "bg-background/95")}
+      // A control focused from the keyboard must not sit out of sight above the screen: it brings the bar back.
+      onFocusCapture={() => setHidden(false)}
+      className={cn(
+        "icons-fine sticky top-0 z-30 flex h-[var(--topbar)] items-center gap-3 px-4 pt-[env(safe-area-inset-top)] lg:hidden",
+        // No `will-change-transform`: a transformed header becomes the containing block for `position: fixed`, so the city and view sheets opened from it would be laid out inside the bar instead of over the screen.
+        "transition-transform duration-300 ease-out motion-reduce:transition-none",
+        overlay ? "bg-transparent" : "bg-background/95",
+        hidden && "-translate-y-full",
+      )}
     >
       {back ? (
         back.href ? (

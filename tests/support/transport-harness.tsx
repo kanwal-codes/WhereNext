@@ -24,7 +24,7 @@ export const flight = (id: string, over: Record<string, unknown> = {}) => ({
 export const driveRoute = { distanceMeters: 465000, durationSeconds: 16200, geometry: { coordinates: [[2.35, 48.85], [3.5, 47], [4.83, 45.76]] }, congestion: ["low", "heavy"] };
 
 export type Call = { method: string; url: string; body?: Record<string, any> };
-type Cfg = { transit?: unknown[] | "fail"; drive?: unknown | "fail" | null; flights?: unknown[] | "fail"; flightsAssumedDate?: boolean; usdRate?: { currency: string; rate: number } | null; decisionOk?: boolean };
+type Cfg = { transit?: unknown[] | "fail"; drive?: unknown | "fail" | null; flights?: unknown[] | "fail"; flightsAssumedDate?: boolean; usdRate?: { currency: string; rate: number } | null; decisionOk?: boolean; /** Holds the transit answer until it resolves, so a test can look at the screen while a search is on its way. */ gate?: Promise<void> };
 
 /** A fake transport backend: geocoding by place name, then transit, driving, flights and the decisions endpoint. */
 export function createApi(cfg: Cfg) {
@@ -39,6 +39,7 @@ export function createApi(cfg: Cfg) {
       const hit = PLACES[q];
       return hit ? json({ lng: hit[0], lat: hit[1] }) : json({}, 404);
     }
+    if (url.endsWith("/transit")) await cfg.gate;
     if (url.endsWith("/transit")) return cfg.transit === "fail" ? json({}, 500) : json({ routes: cfg.transit ?? [] });
     if (url.endsWith("/directions")) return cfg.drive === "fail" ? json({}, 500) : json({ route: cfg.drive ?? null, usdRate: cfg.usdRate ?? null });
     if (url.endsWith("/flights")) return cfg.flights === "fail" ? json({}, 500) : json({ offers: cfg.flights ?? [], assumedDate: cfg.flightsAssumedDate });
@@ -73,7 +74,6 @@ export const stubs = {
       <span data-testid="options">{JSON.stringify({ travellers, when, returnDate })}</span>
     </div>
   ),
-  FlightDetails: () => <div>FLIGHT DETAILS</div>,
   AirlineMark: () => null,
   modeParts: { ModeTile: () => null, Ribbon: () => null, colorOf: () => "#000", railStyle: () => ({}) },
 };

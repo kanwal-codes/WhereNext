@@ -11,7 +11,7 @@ export function DeleteTripSheet({ trip, onCancel, onConfirm }: { trip: TripSumma
       <div className="space-y-4 p-6">
         <div>
           <h3 className="font-display text-xl">{trip?.is_owner === false ? "Leave this trip?" : "Delete this trip?"}</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-sm text-ink-soft">
             {trip && (
               <>
                 <span className="font-medium text-foreground">&ldquo;{trip.name}&rdquo;</span>
@@ -35,7 +35,7 @@ export function DeleteTripSheet({ trip, onCancel, onConfirm }: { trip: TripSumma
             onClick={() => trip && onConfirm(trip)}
             className="btn-destructive"
           >
-            <Trash2 className="h-3.5 w-3.5" /> {trip?.is_owner === false ? "Leave trip" : "Delete trip"}
+            <Trash2 className="size-3.5" /> {trip?.is_owner === false ? "Leave trip" : "Delete trip"}
           </button>
         </div>
       </div>

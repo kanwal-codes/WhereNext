@@ -89,7 +89,7 @@ export function StayDetailView({
   const importantFacilities = useMemo(() => headlineFacilities(facilities), [facilities]);
   const digest = useMemo(() => reviewDigest(s.reviews), [s.reviews]);
 
-  const pad = panel ? PANEL_PAD : "mx-auto max-w-5xl px-5 pb-14 sm:px-8";
+  const pad = panel ? PANEL_PAD : "mx-auto max-w-5xl px-4 pb-14 sm:px-8";
 
   const seedSrc = seedPhoto ? hotelPhotoSrc(seedPhoto) : null;
   if (s.state === "loading") return <PanelLoading what="this hotel" panel={panel} seed={seedName || seedSrc ? { title: seedName ?? "Hotel", photo: seedSrc } : null} />;
@@ -97,7 +97,7 @@ export function StayDetailView({
   if (s.state === "error") {
     return (
       <>
-        {!panel && <div className="mx-auto max-w-5xl px-5 pt-6 sm:px-8"><BackLink fallback={`/trips/${tripId}/stay`} label="Back" /></div>}
+        {!panel && <div className="mx-auto max-w-5xl px-4 pt-6 sm:px-8"><BackLink fallback={`/trips/${tripId}/stay`} label="Back" /></div>}
         <PanelError what="this hotel" panel={panel} onRetry={s.retry} heading="h1" />
       </>
     );
@@ -140,7 +140,7 @@ export function StayDetailView({
           {hotel?.description ? (
             <p className="mt-2 text-body leading-relaxed text-ink-soft">{hotel.description}</p>
           ) : (
-            <p className="mt-2 text-sm text-muted-foreground">No description available for this hotel yet.</p>
+            <p className="mt-2 text-sm text-ink-soft">No description available for this hotel yet.</p>
           )}
         </section>
       </Reveal>
@@ -166,7 +166,7 @@ export function StayDetailView({
       href={askAssistantHref(tripId, { name, address: [hotel?.address, hotel?.city].filter(Boolean).join(", "), kind: "stay" })}
       className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4 text-sm transition-colors hover:bg-accent"
     >
-      <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+      <MessageCircle className="mt-0.5 size-4 shrink-0 text-primary" />
       <span>
         <span className="block text-sm font-medium">Does {name} fit your trip?</span>
         <span className="mt-1 block leading-relaxed text-muted-foreground">Roam checks it against your budget and the area you want. The question is written for you.</span>
@@ -201,16 +201,16 @@ export function StayDetailView({
       <div className={pad}>
         <Reveal>
           <div className="pt-6">
-            <p className="text-sm text-muted-foreground">{typeof hotel?.stars === "number" ? `Hotel · ${hotel.stars}-star` : "Hotel"}</p>
+            <p className="text-sm text-ink-soft">{typeof hotel?.stars === "number" ? `Hotel · ${hotel.stars}-star` : "Hotel"}</p>
             {panel ? (
               <h1 className="mt-2 max-w-2xl font-display text-2xl font-semibold leading-tight">{name}</h1>
             ) : (
               <WordReveal text={name} delay={0.18} className="mt-2 max-w-2xl font-display text-4xl leading-tight" />
             )}
-            <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+            <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-ink-soft">
               {hotel?.address && (
                 <span className="inline-flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5" /> {[hotel.address, hotel.city, hotel.country].filter(Boolean).join(", ")}
+                  <MapPin className="size-3.5" /> {[hotel.address, hotel.city, hotel.country].filter(Boolean).join(", ")}
                 </span>
               )}
             </p>
@@ -227,7 +227,7 @@ export function StayDetailView({
                   onClick={() => ask(`Does ${name} fit my trip — my budget, pace, and what I've saved so far?\n${name}${hotel?.address ? ` — ${hotel.address}` : ""}`)}
                   className="flex w-full items-start gap-3 rounded-2xl border border-border bg-card p-4 text-left text-sm transition-colors hover:bg-accent"
                 >
-                  <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <MessageCircle className="mt-0.5 size-4 shrink-0 text-primary" />
                   <span>
                     <span className="block text-sm font-medium">Does {name} fit your trip?</span>
                     <span className="mt-1 block leading-relaxed text-muted-foreground">Ask Roam — it weighs this against your budget and the area you want.</span>

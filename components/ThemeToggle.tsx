@@ -50,11 +50,11 @@ export function ThemeToggle({ className }: { className?: string }) {
       aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
       title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
       className={cn(
-        "grid h-9 w-9 shrink-0 place-items-center rounded-full border border-border/60 text-foreground transition-colors hover:bg-accent",
+        "grid size-9 shrink-0 place-items-center rounded-full border border-border/60 text-foreground transition-colors hover:bg-accent",
         className,
       )}
     >
-      {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
     </button>
   );
 }

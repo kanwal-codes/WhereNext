@@ -32,17 +32,17 @@ const HERO: Record<WidgetTone, string> = {
   coral: "bg-[linear-gradient(135deg,var(--coral-soft),oklch(0.99_0.006_60))]",
   lagoon: "bg-[linear-gradient(160deg,var(--lagoon-soft),oklch(0.99_0.004_220))]",
   // Money and caution are shown by the pill and the bar, not by tinting the whole band.
-  sage: "bg-secondary",
-  plum: "bg-secondary",
-  saffron: "bg-secondary",
+  sage: "bg-muted",
+  plum: "bg-muted",
+  saffron: "bg-muted",
 };
 const PILL: Record<WidgetTone | "neutral", string> = {
-  neutral: "bg-secondary text-ink-soft",
-  coral: "bg-secondary text-foreground status-dot status-brand",
-  lagoon: "bg-secondary text-foreground status-dot status-info",
-  sage: "bg-secondary text-foreground status-dot status-ok",
-  plum: "bg-secondary text-foreground status-dot status-brand",
-  saffron: "bg-secondary text-foreground status-dot status-warn",
+  neutral: "bg-muted text-ink-soft",
+  coral: "bg-muted text-foreground status-dot status-brand",
+  lagoon: "bg-muted text-foreground status-dot status-info",
+  sage: "bg-muted text-foreground status-dot status-ok",
+  plum: "bg-muted text-foreground status-dot status-brand",
+  saffron: "bg-muted text-foreground status-dot status-warn",
 };
 
 /** A small status pill ("Fits your budget", "Fastest", "Over by 50"). */
@@ -157,7 +157,7 @@ export function WidgetRow({ lead, title, detail, mid, value, className, onClick,
     <>
       {lead}
       <div className="min-w-0 flex-1 @[34rem]:flex-none @[34rem]:basis-[34%]">
-        <p className="truncate text-[0.9375rem] leading-snug font-medium">{title}</p>
+        <p className="truncate text-body leading-snug font-medium">{title}</p>
         {detail && <p className="truncate text-xs leading-snug text-muted-foreground">{detail}</p>}
       </div>
       {mid && <div className="hidden min-w-0 flex-1 @[34rem]:block">{mid}</div>}

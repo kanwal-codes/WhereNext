@@ -23,7 +23,7 @@ export function StyleSection({ editor, toggleChip, touch }: {
           <>
             <button type="button" onClick={cancelStyleEdit} className="rounded-full border border-border px-4 py-1.5 text-sm text-ink-soft transition-colors hover:border-ink/25 hover:text-foreground">Cancel</button>
             <button type="button" onClick={() => void finishStyleEdit()} disabled={savingStyle} className="inline-flex items-center gap-2 rounded-full bg-coral px-4 py-1.5 text-sm text-background transition-opacity hover:opacity-90 disabled:opacity-60">
-              {savingStyle && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {savingStyle && <Loader2 className="size-3.5 animate-spin" />}
               Done
             </button>
           </>

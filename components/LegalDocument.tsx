@@ -31,7 +31,7 @@ export function LegalDocument({
       <main className="mx-auto max-w-3xl px-6 pb-24 sm:px-10">
         <p className="eyebrow">Legal</p>
         <h1 className="mt-3 font-display text-4xl leading-[1.1] tracking-[-0.03em] sm:text-5xl">{title}</h1>
-        <p className="mt-3 text-sm text-muted-foreground">Last updated {updated}</p>
+        <p className="mt-3 text-sm text-ink-soft">Last updated {updated}</p>
         <div className="mt-10 space-y-8 text-sm leading-relaxed text-ink-soft [&_a]:underline [&_a]:underline-offset-2">{children}</div>
       </main>
 

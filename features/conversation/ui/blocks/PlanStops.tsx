@@ -51,7 +51,7 @@ function StopRow({ stop, last, panel, roomy = false, timed, band, onOpenPlace, r
   return (
     <>
       {panel && timed && (
-        <div className={cn(band, "flex shrink-0 justify-end self-start whitespace-nowrap font-medium tabular-nums", roomy && "@max-[28rem]:hidden", roomy ? cn("pt-1", /\d/.test(time ?? "") ? "w-[3.75rem] text-sm @[28rem]:w-[4.75rem] @[28rem]:text-lg font-display text-foreground" : "w-[4.5rem] text-xs font-semibold text-ink-soft") : "w-[4.5rem] items-center text-sm text-muted-foreground")}>{time}</div>
+        <div className={cn(band, "flex shrink-0 justify-end self-start whitespace-nowrap font-medium tabular-nums", roomy && "@max-[28rem]:hidden", roomy ? cn("pt-1", /\d/.test(time ?? "") ? "w-[3.75rem] text-sm @[28rem]:w-[4.75rem] @[28rem]:text-lg font-display text-foreground" : "w-[4.5rem] text-xs font-semibold text-ink-soft") : "w-[4.5rem] items-center text-sm text-ink-soft")}>{time}</div>
       )}
       <div className="flex shrink-0 flex-col items-center">
         <span

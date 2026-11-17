@@ -62,7 +62,7 @@ export default function GroupDetailsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-5 pt-5 pb-10 sm:px-8">
+    <div className="mx-auto w-full max-w-2xl px-4 pt-5 pb-10 sm:px-8">
       <PageHeader
         eyebrow="Group details"
         title="Group details"
@@ -70,7 +70,7 @@ export default function GroupDetailsPage() {
         back={{ href: `/trips/${tripId}/group`, label: "Back to group chat" }}
         action={
           <button type="button" onClick={() => setAvailabilityOpen(true)} className="btn-chip shrink-0 gap-1.5">
-            <CalendarRange className="h-3.5 w-3.5" /> Set your dates
+            <CalendarRange className="size-3.5" /> Set your dates
           </button>
         }
       />
@@ -84,14 +84,14 @@ export default function GroupDetailsPage() {
             aria-expanded={inviteOpen}
             className="flex w-full items-center gap-3 p-5 text-left"
           >
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-coral/15" aria-hidden="true">
-              <Mail className="h-4 w-4 text-coral" />
+            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-coral/15" aria-hidden="true">
+              <Mail className="size-4 text-coral" />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block font-display text-base">Invite people</span>
-              <span className="block text-sm text-muted-foreground">Send a link that adds someone straight into this trip</span>
+              <span className="block text-sm text-ink-soft">Send a link that adds someone straight into this trip</span>
             </span>
-            <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", inviteOpen && "rotate-180")} />
+            <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", inviteOpen && "rotate-180")} />
           </button>
           <AnimatePresence initial={false}>
             {inviteOpen && (
@@ -120,7 +120,7 @@ export default function GroupDetailsPage() {
       ) : (
         <Reveal delay={0.08}>
           <p className="mb-2 flex items-center gap-1.5 px-1 text-2xs font-medium tracking-[0.1em] text-muted-foreground uppercase">
-            <Users className="h-3 w-3" aria-hidden="true" /> {members.length} member{members.length === 1 ? "" : "s"}
+            <Users className="size-3" aria-hidden="true" /> {members.length} member{members.length === 1 ? "" : "s"}
           </p>
           <ul className="space-y-2">
             {members.map((m) => {
@@ -129,7 +129,7 @@ export default function GroupDetailsPage() {
               const busy = busyUserId === m.userId;
               return (
                 <li key={m.userId} className="flex items-center gap-3 rounded-2xl border border-border bg-card px-3 py-2.5">
-                  <span aria-hidden style={memberTint(label)} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-semibold">{memberInitials(label)}</span>
+                  <span aria-hidden style={memberTint(label)} className="grid size-9 shrink-0 place-items-center rounded-full text-xs font-semibold">{memberInitials(label)}</span>
                   <div className="min-w-0 flex-1">
                     <p className="flex items-center gap-2 text-sm font-medium">
                       <span className="truncate">{name}</span>
@@ -149,7 +149,7 @@ export default function GroupDetailsPage() {
                       onClick={() => setConfirmLeave(true)}
                       className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                     >
-                      <LogOut className="h-3.5 w-3.5" aria-hidden /> Leave
+                      <LogOut className="size-3.5" aria-hidden /> Leave
                     </button>
                   ))}
                 </li>

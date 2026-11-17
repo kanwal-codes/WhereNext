@@ -23,7 +23,7 @@ export function SidebarHeader({ trip, tripId, wide, collapsed, allTripsHref, onC
               onClick={onCollapse}
               aria-label="Collapse sidebar"
               title="Collapse sidebar"
-              className="-mr-1.5 grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground opacity-0 transition-[opacity,background-color,color] group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-sidebar-accent hover:text-foreground active:scale-95"
+              className="-mr-1.5 grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground opacity-0 transition-[opacity,background-color,color] group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-sidebar-accent hover:text-foreground active:scale-[0.97]"
             >
               <PanelLeftClose className="size-4" />
             </button>
@@ -33,7 +33,7 @@ export function SidebarHeader({ trip, tripId, wide, collapsed, allTripsHref, onC
       <div
         inert={!collapsed}
         className={cn(
-          "absolute top-0 left-1/2 grid h-8 w-8 -translate-x-1/2 place-items-center transition-opacity duration-300",
+          "absolute top-0 left-1/2 grid size-8 -translate-x-1/2 place-items-center transition-opacity duration-300",
           collapsed ? "opacity-100 delay-150" : "pointer-events-none opacity-0",
         )}
       >
@@ -48,9 +48,9 @@ export function SidebarHeader({ trip, tripId, wide, collapsed, allTripsHref, onC
           onClick={onExpand}
           aria-label="Expand sidebar"
           title="Expand sidebar"
-          className="absolute inset-0 grid place-items-center rounded-full border border-sidebar-border bg-background/60 text-muted-foreground opacity-0 pointer-events-none transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 hover:text-foreground active:scale-95"
+          className="absolute inset-0 grid place-items-center rounded-full border border-sidebar-border bg-background/60 text-muted-foreground opacity-0 pointer-events-none transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 hover:text-foreground active:scale-[0.97]"
         >
-          <PanelLeftOpen className="h-4 w-4" />
+          <PanelLeftOpen className="size-4" />
         </button>
       </div>
     </div>

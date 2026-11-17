@@ -62,23 +62,23 @@ export function ShareTrip({ tripId }: { tripId: string }) {
   return (
     <section className="rounded-2xl border border-border bg-card p-5 shadow-soft">
       <h2 className="flex items-center gap-2 font-display text-lg">
-        <Link2 className="h-4 w-4 text-coral" /> Share this trip
+        <Link2 className="size-4 text-coral" /> Share this trip
       </h2>
       {!loaded ? (
         <div className="mt-4 h-10 skeleton rounded-full" />
       ) : !slug ? (
         <>
-          <p className="mt-2 text-sm text-muted-foreground">Create an unlisted link to a read-only view of the itinerary.</p>
+          <p className="mt-2 text-sm text-ink-soft">Create an unlisted link to a read-only view of the itinerary.</p>
           <button type="button" onClick={() => void enable()} disabled={busy} className="btn-primary mt-4 w-full">
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create share link"}
+            {busy ? <Loader2 className="size-4 animate-spin" /> : "Create share link"}
           </button>
         </>
       ) : (
         <>
           <div className="mt-3 flex items-center gap-2 rounded-xl border border-input bg-background px-3 py-2 max-lg:py-0 focus-within:ring-2 focus-within:ring-ring/25">
             <input aria-label="Share link" name="share-link" readOnly value={url} className="min-w-0 flex-1 bg-transparent text-xs outline-none max-lg:h-11" onFocus={(e) => e.currentTarget.select()} />
-            <button type="button" onClick={() => void copy()} className="shrink-0 text-xs max-lg:text-sm font-medium text-primary max-lg:grid max-lg:h-11 max-lg:min-w-11 max-lg:place-items-center underline-offset-2 transition-[opacity,transform] hover:underline hover:opacity-80 active:scale-95">
-              {copied ? <Check className="h-3.5 w-3.5 text-positive" /> : "Copy"}
+            <button type="button" onClick={() => void copy()} className="shrink-0 text-xs max-lg:text-sm font-medium text-primary max-lg:grid max-lg:h-11 max-lg:min-w-11 max-lg:place-items-center underline-offset-2 transition-[opacity,transform] hover:underline hover:opacity-80 active:scale-[0.97]">
+              {copied ? <Check className="size-3.5 text-positive" /> : "Copy"}
             </button>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">Anyone with the link can view it. It’s not indexed.</p>

@@ -44,13 +44,13 @@ export function NextUpCard({ item, onOpenBooking, onEdit, onRemove }: { item: Ti
       {photo ? (
         <BlurImage src={hotelPhotoSrc(item.thumbnail!)} alt="" onError={() => setImageFailed(true)} className="absolute inset-0 h-full w-full object-cover group-hover:scale-[1.05]" />
       ) : (
-        <Icon aria-hidden className="pointer-events-none absolute -right-6 -bottom-8 h-72 w-72 text-foreground/[0.06]" strokeWidth={1} />
+        <Icon aria-hidden className="pointer-events-none absolute -right-6 -bottom-8 size-72 text-foreground/[0.06]" strokeWidth={1} />
       )}
       {photo && <div aria-hidden className="absolute inset-0 scrim-b" />}
 
       <div className="relative flex flex-wrap items-center gap-2">
         <span className={cn(badge, "gap-1.5")}>
-          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-coral" />
+          <span aria-hidden className="size-1.5 rounded-full bg-coral" />
           <span suppressHydrationWarning>{soon ? `Next up · ${soon}` : "Next up"}</span>
         </span>
         <span className={badge}>{KIND_META[item.kind].label}</span>
@@ -62,14 +62,14 @@ export function NextUpCard({ item, onOpenBooking, onEdit, onRemove }: { item: Ti
         <div className="min-w-0 max-w-2xl">
           <h3 className={cn("font-display text-4xl leading-[1.05] tracking-tight text-balance sm:text-6xl", "max-lg:text-[2rem] max-lg:tracking-[-0.04em]", photo && "[text-shadow:0_2px_24px_rgba(0,0,0,0.5)]")}>{item.title}</h3>
           {facts.length > 0 && (
-            <p suppressHydrationWarning className={cn("mt-1 text-[0.9375rem] lg:hidden", photo ? "text-white/85" : "text-ink-soft")}>
+            <p suppressHydrationWarning className={cn("mt-1 text-body lg:hidden", photo ? "text-white/85" : "text-ink-soft")}>
               {[facts[0].value, facts[0].desc, facts.find((f) => f.title === "Price")?.value].filter(Boolean).join(" · ")}
             </p>
           )}
-          {item.subtitle && <p className={cn("mt-2 text-base", "max-lg:mt-0.5 max-lg:text-[0.9375rem]", photo ? "text-white/85" : "text-muted-foreground")}>{item.subtitle}</p>}
+          {item.subtitle && <p className={cn("mt-2 text-base", "max-lg:mt-0.5 max-lg:text-body", photo ? "text-white/85" : "text-muted-foreground")}>{item.subtitle}</p>}
           {item.place && (
             <p className={cn("mt-1 flex items-center gap-1.5 text-sm", photo ? "text-white/75" : "text-muted-foreground")}>
-              <MapPin className="h-3.5 w-3.5 shrink-0" />
+              <MapPin className="size-3.5 shrink-0" />
               <span className="truncate">{item.place}</span>
             </p>
           )}

@@ -71,7 +71,7 @@ export function ItinerarySurface({
     <div className="min-w-0 space-y-8 sm:space-y-12">
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* On a phone the days are one swipeable row that runs to the screen edge, not a block that wraps onto a second line. */}
-        <nav aria-label="Jump to a day" className="flex min-w-0 flex-wrap gap-2 max-sm:-mx-5 max-sm:w-[calc(100%+2.5rem)] max-sm:flex-nowrap max-sm:snap-x max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:px-5 max-sm:py-1 max-sm:scroll-px-5 no-scrollbar">
+        <nav aria-label="Jump to a day" className="flex min-w-0 flex-wrap gap-2 max-sm:-mx-4 max-sm:w-[calc(100%+2rem)] max-sm:flex-nowrap max-sm:snap-x max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:px-4 max-sm:py-1 max-sm:scroll-px-4 no-scrollbar">
           {days.map((d) => (
             <a
               key={d}
@@ -85,7 +85,7 @@ export function ItinerarySurface({
           ))}
         </nav>
         <a href={`/trips/${tripId}/today`} className="group inline-flex items-center gap-1 text-sm font-medium text-foreground/80 transition-colors hover:text-foreground max-sm:py-2 max-lg:py-3">
-          Today view <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+          Today view <ArrowUpRight className="size-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
         </a>
       </div>
 

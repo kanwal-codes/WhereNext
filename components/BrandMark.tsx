@@ -20,7 +20,7 @@ export function BrandMark({
       <span
         aria-label="Where Next"
         className={cn(
-          "grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary font-display text-sm font-bold tracking-tight text-primary-foreground",
+          "grid size-8 shrink-0 place-items-center rounded-lg bg-primary font-display text-sm font-bold tracking-tight text-primary-foreground",
           className,
         )}
       >

@@ -64,7 +64,7 @@ export function TripReviewPanel({ tripId }: { tripId: string }) {
           return (
             <li key={f.id} className="rounded-xl border border-border/70 bg-background/60 p-3">
               <div className="flex items-start gap-2">
-                <Icon className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${f.severity === "warn" ? "text-coral" : "text-muted-foreground"}`} />
+                <Icon className={`mt-0.5 size-3.5 shrink-0 ${f.severity === "warn" ? "text-coral" : "text-muted-foreground"}`} />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">{f.title}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">{f.detail}</p>
@@ -80,7 +80,7 @@ export function TripReviewPanel({ tripId }: { tripId: string }) {
                       </Link>
                     )}
                     <button type="button" onClick={() => void dismiss(f.id)} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
-                      <X className="h-3 w-3" /> Dismiss
+                      <X className="size-3" /> Dismiss
                     </button>
                   </div>
                 </div>
@@ -90,7 +90,7 @@ export function TripReviewPanel({ tripId }: { tripId: string }) {
         })}
       </ul>
       <p className="mt-3 flex items-center gap-1 text-2xs text-muted-foreground">
-        <Check className="h-3 w-3" /> Updated as your plan changes
+        <Check className="size-3" /> Updated as your plan changes
       </p>
     </section>
   );

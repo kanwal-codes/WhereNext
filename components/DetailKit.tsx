@@ -58,14 +58,15 @@ export function FactStrip({ facts, className, variant = "default" }: { facts: Ar
 }
 
 const ring = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
-const press = "transition-[background-color,box-shadow,transform] duration-200 ease-out active:scale-95";
-/** The first action is the thing to do (a wide ink pill); each of the rest takes its own shape and tint, so a row of three reads as three different things and not three copies of one button. */
+const press = "transition-[background-color,box-shadow,transform] duration-200 ease-out active:scale-[0.97]";
+/**
+ * The actions under a detail's name come in two kinds, on every detail (a place, a stay, an event): the one thing to do is a wide ink pill, and
+ * everything else is the same outlined round button (`ACTION_ICON`) or, when it has room for its word, an outlined pill (`ACTION_LABELLED`).
+ * No tints and no mix of shapes: colour here would only say "different", and these are all just ways out of the page.
+ */
 const MAIN = cn("h-12 min-w-0 flex-1 gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.14),0_6px_14px_-8px_oklch(0.2_0.012_65/0.38)] hover:bg-primary/88", press, ring);
-const OTHERS = [
-  cn("size-12 rounded-full bg-coral-soft text-coral-ink hover:shadow-soft", press, ring),
-  cn("size-12 rounded-2xl bg-lagoon-soft text-lagoon hover:shadow-soft", press, ring),
-  cn("size-12 rounded-2xl bg-leaf-soft text-leaf hover:shadow-soft", press, ring),
-] as const;
+export const ACTION_ICON = cn("inline-flex size-12 shrink-0 items-center justify-center rounded-full border border-input bg-background text-foreground hover:bg-muted", press, ring);
+export const ACTION_LABELLED = cn("inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full border border-input bg-background px-5 text-body font-semibold hover:bg-muted", press, ring);
 
 const BAR_TINT = ["bg-coral-soft text-coral-ink", "bg-leaf-soft text-leaf", "bg-lagoon-soft text-lagoon"] as const;
 
@@ -106,9 +107,9 @@ export function QuickActions({ actions, variant = "row" }: { actions: Array<Mayb
             href={href.startsWith("tel:") ? href : safeHref(href)}
             {...(external ? { target: "_blank", rel: "noreferrer noopener" } : {})}
             title={main ? undefined : label}
-            className={cn("inline-flex shrink-0 items-center justify-center", main ? MAIN : OTHERS[(i - 1) % OTHERS.length])}
+            className={cn("inline-flex shrink-0 items-center justify-center", main ? MAIN : ACTION_ICON)}
           >
-            <Icon className={main ? "size-[18px]" : "size-5"} aria-hidden />
+            <Icon className="size-[1.125rem]" aria-hidden />
             {main ? label : <span className="sr-only">{label}</span>}
           </a>
         );

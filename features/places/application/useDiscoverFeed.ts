@@ -24,7 +24,7 @@ const categoryRawCache = new Map<string, Place[] | NearbyEvent[] | StayItem[]>()
 export function useDiscoverFeed({ tripId, destination, cities, view, data, prefs, saved, interests, interestsKey, initialQuery }: {
   tripId: string;
   destination: string;
-  cities: { hasChoice: boolean; stop: Parameters<typeof stayWindow>[0] | null };
+  cities: { hasChoice: boolean; scoped: boolean; stop: Parameters<typeof stayWindow>[0] | null };
   view: "results" | "saved";
   data: { rejectedPlaceIds?: string[]; itinerary?: Array<Record<string, unknown>>; decisions?: unknown[] } | null | undefined;
   prefs: Record<string, unknown>;
@@ -80,7 +80,7 @@ export function useDiscoverFeed({ tripId, destination, cities, view, data, prefs
   const fetchStays = useCallback(async (signal?: AbortSignal): Promise<StayItem[]> => {
     if (!destination) return [];
     const window = cities.hasChoice && cities.stop ? stayWindow(cities.stop) : null;
-    const qs = new URLSearchParams(cities.hasChoice ? { location: destination } : {});
+    const qs = new URLSearchParams(cities.scoped ? { location: destination } : {});
     if (window) {
       qs.set("checkin", window.checkin);
       qs.set("checkout", window.checkout);
@@ -88,7 +88,7 @@ export function useDiscoverFeed({ tripId, destination, cities, view, data, prefs
     const r = await cachedGet(`/api/trips/${tripId}/stays${qs.size ? `?${qs}` : ""}`, { signal });
     const body = await r.json().catch(() => ({}));
     return r.ok ? ((body.options ?? []) as Array<Record<string, unknown>>).map(toStayItem).filter((s) => s.hotelId) : [];
-  }, [tripId, destination, cities.hasChoice, cities.stop]);
+  }, [tripId, destination, cities.hasChoice, cities.scoped, cities.stop]);
 
   // Personalised ordering for every place list — same ranker the assistant's
   // RETRIEVE uses, so Discover and chat stay coherent.

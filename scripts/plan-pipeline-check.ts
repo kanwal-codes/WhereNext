@@ -8,6 +8,7 @@
  *     bun run scripts/plan-pipeline-check.ts ["Plan my first 5 days"]
  */
 import { buildItineraryPlan } from "../lib/application/itinerary-plan";
+import { planScore } from "../lib/application/plan-check";
 import { compactEvidence } from "../lib/application/orchestrate/evidence-compaction";
 import { planRetrieval, retrieveFiltersFor } from "../lib/application/orchestrate/retrieve-plan";
 import { retrieveEvidence } from "../lib/application/retrieve";
@@ -70,6 +71,7 @@ console.log(`ITINERARY ${lap(t)}:`);
 if (!block || block.type !== "itinerary") console.log("  (no plan)");
 else {
   console.log(`  ${block.title ?? ""} — ${block.intro ?? ""}`);
+  console.log(`  SCORE ${JSON.stringify(planScore(block.days as Parameters<typeof planScore>[0]))}`);
   for (const day of block.days) console.log(`  ${day.label}${day.subtitle ? ` · ${day.subtitle}` : ""}${(day as { open?: boolean }).open ? " [open]" : ""}\n${day.stops.map((s) => `      ${s.time ?? "--:--"} ${s.kind ?? ""} ${s.title}`).join("\n")}`);
 }
 process.exit(0);

@@ -29,7 +29,7 @@ function BudgetRing({ block }: { block: BudgetBlockData }) {
         return seg;
       })}
       <text x="60" y="58" textAnchor="middle" className="fill-foreground font-display text-xl font-medium">{compactMoney(block.dailyTotal.typical, block.currency)}</text>
-      <text x="60" y="75" textAnchor="middle" className="fill-ink-soft text-[10px]">per day</text>
+      <text x="60" y="75" textAnchor="middle" className="fill-ink-soft text-2xs">per day</text>
     </svg>
   );
 }

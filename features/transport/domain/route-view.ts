@@ -110,6 +110,19 @@ export function routeSummaries(routes: Route[]) {
   return { meta, tags: tagRoutes(meta) };
 }
 
+/** How the transit routes are listed. `best` is the order the server sent them in. */
+export type RouteSort = "best" | "fastest" | "changes" | "walking";
+
+/** The order to show the routes in: indexes into `routes`, which stay what everything else (the chosen route, the map) points at. */
+export function routeOrder(routes: Route[], sort: RouteSort): number[] {
+  const order = routes.map((_, i) => i);
+  if (sort === "best") return order;
+  const { meta } = routeSummaries(routes);
+  const key = (i: number) => (sort === "fastest" ? meta[i].minutes : sort === "changes" ? meta[i].changes : meta[i].walkMinutes);
+  // Ties keep the server's order, then the quicker route first.
+  return order.sort((a, b) => key(a) - key(b) || meta[a].minutes - meta[b].minutes || a - b);
+}
+
 /** The index of the quickest route. */
 export const fastestIndex = (routes: Route[]) => routes.reduce((best, r, i) => (r.durationSeconds < routes[best].durationSeconds ? i : best), 0);
 
@@ -147,12 +160,6 @@ export function flightPrice(f: Flight): string {
   } catch {
     return `${f.priceAmount} ${f.priceCurrency}`;
   }
-}
-
-/** A flight's clock time, or "" for a bad timestamp. */
-export function flightClock(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "" : dateFormat([], { hour: "numeric", minute: "2-digit" }).format(d);
 }
 
 export const stopsLabel = (stops: number) => (stops === 0 ? "non-stop" : `${stops} stop${stops === 1 ? "" : "s"}`);

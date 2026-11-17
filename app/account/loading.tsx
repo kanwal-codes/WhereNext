@@ -5,8 +5,8 @@ import { Skeleton } from "@/components/Skeleton";
 export default function AccountLoading() {
   return (
     <div className="min-h-svh">
-      <div className="mx-auto w-full max-w-6xl px-5 pt-6 sm:px-8">
-        <Skeleton className="h-9 w-9 rounded-full" />
+      <div className="mx-auto w-full max-w-6xl px-4 pt-6 sm:px-8">
+        <Skeleton className="size-9 rounded-full" />
         <div className="mt-16 flex items-center gap-5">
           <Skeleton className="size-20 rounded-full" />
           <div className="space-y-3">

@@ -60,7 +60,7 @@ export function DaySection({ d, startDate, tripId, plan, actions, adder, drag, o
         <div className="min-w-0">
           <p aria-hidden className="font-display text-6xl leading-none tabular-nums text-foreground/15 sm:text-7xl">{String(d).padStart(2, "0")}</p>
           <h3 suppressHydrationWarning className="mt-2 font-display text-2xl tracking-tight">{date ?? `Day ${d}`}</h3>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+          <p className="mt-0.5 text-sm text-ink-soft">
             {cityFor(d) ? `${cityFor(d)} · ` : ""}
             {dayItems.length === 0 ? ((bookedByDay.get(d) ?? []).length > 0 ? "Booked only" : "Open day") : `${dayItems.length} ${dayItems.length === 1 ? "stop" : "stops"}`}
           </p>
@@ -73,7 +73,7 @@ export function DaySection({ d, startDate, tripId, plan, actions, adder, drag, o
           }}
           className="daisy-btn daisy-btn-sm h-9 shrink-0 rounded-full border-border bg-card px-4 font-medium shadow-none hover:border-foreground/30 hover:bg-accent"
         >
-          <Plus className="h-3.5 w-3.5" /> Add here
+          <Plus className="size-3.5" /> Add here
         </button>
       </div>
 
@@ -89,7 +89,7 @@ export function DaySection({ d, startDate, tripId, plan, actions, adder, drag, o
           }}
           className="relative mb-4 flex flex-wrap items-center gap-2 rounded-3xl border border-border/70 bg-card p-2 pl-5 shadow-soft transition-colors focus-within:border-foreground/30"
         >
-          <Plus aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <Plus aria-hidden className="size-4 shrink-0 text-muted-foreground" />
           <div className="min-w-0 flex-1 basis-48 max-sm:pr-8">
             <DestinationCombobox
               tripId={tripId}
@@ -111,7 +111,7 @@ export function DaySection({ d, startDate, tripId, plan, actions, adder, drag, o
               inputClassName="w-full min-w-0 bg-transparent px-1 py-2 text-body outline-none placeholder:text-muted-foreground"
             />
           </div>
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <label className="flex items-center gap-2 text-sm text-ink-soft">
             Day
             <select
               value={day}
@@ -136,8 +136,8 @@ export function DaySection({ d, startDate, tripId, plan, actions, adder, drag, o
       {(conflictsByDay.get(d) ?? []).length > 0 && (
         <ul aria-label={`Scheduling clashes on day ${d}`} className="mb-4 space-y-2">
           {(conflictsByDay.get(d) ?? []).map((c) => (
-            <li key={`${c.a}-${c.b}`} className="flex items-center gap-3 rounded-2xl bg-secondary px-4 py-2.5 text-sm">
-              <AlertTriangle className="h-4 w-4 shrink-0 text-caution" />
+            <li key={`${c.a}-${c.b}`} className="flex items-center gap-3 rounded-2xl bg-muted px-4 py-2.5 text-sm">
+              <AlertTriangle className="size-4 shrink-0 text-caution" />
               <span className="min-w-0 flex-1">
                 <span className="font-medium">{c.a}</span> and <span className="font-medium">{c.b}</span> are close together, around {clockLabel(c.at)}.
               </span>
@@ -151,8 +151,8 @@ export function DaySection({ d, startDate, tripId, plan, actions, adder, drag, o
             const Icon = KIND_META[reservation.kind].icon;
             return (
               <li key={`${reservation.id}-${note ?? "on"}`}>
-                <a href={`/trips/${tripId}/bookings`} className="flex items-center gap-3 rounded-2xl bg-secondary px-4 py-2.5 text-sm transition-colors hover:bg-accent">
-                  <Icon className="h-4 w-4 shrink-0 text-leaf" />
+                <a href={`/trips/${tripId}/bookings`} className="flex items-center gap-3 rounded-2xl bg-muted px-4 py-2.5 text-sm transition-colors hover:bg-accent">
+                  <Icon className="size-4 shrink-0 text-leaf" />
                   <span className="min-w-0 flex-1 truncate font-medium">{reservation.title}</span>
                   <span suppressHydrationWarning className="shrink-0 text-xs text-muted-foreground tabular-nums">
                     {bookedLabel(reservation, note)}
@@ -171,7 +171,7 @@ export function DaySection({ d, startDate, tripId, plan, actions, adder, drag, o
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className={cn(
-                "rounded-3xl border border-dashed px-5 py-8 text-sm text-muted-foreground",
+                "rounded-3xl border border-dashed px-5 py-8 text-sm text-ink-soft",
                 dropHint === `${d}:end` ? "border-coral bg-coral-soft/40" : "border-border",
               )}
             >

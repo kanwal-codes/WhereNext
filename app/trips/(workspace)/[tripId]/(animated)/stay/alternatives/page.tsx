@@ -18,7 +18,7 @@ export default async function StayAlternativesPage({
   const initialOrder = (ORDERS as readonly string[]).includes(query.order ?? "") ? (query.order as (typeof ORDERS)[number]) : "nearby";
   const initialKind = (KINDS as readonly string[]).includes(query.kind ?? "") ? (query.kind as (typeof KINDS)[number]) : "All";
   return (
-    <main className="mx-auto max-w-5xl px-5 pt-5 pb-10 sm:px-8">
+    <main className="mx-auto max-w-5xl px-4 pt-5 pb-10 sm:px-8">
       <PageHeader
         eyebrow="Find your fit"
         title={`Places to stay around ${location || "your destination"}.`}

@@ -32,7 +32,7 @@ export function CompareTable({ tripId, ids, onIdsChange, present, rows, stats, s
       case "rating":
         return typeof d.rating === "number" ? (
           <span className="inline-flex items-center gap-1.5">
-            <Star className="h-3.5 w-3.5 fill-current text-coral" />
+            <Star className="size-3.5 fill-current text-coral" />
             {d.rating.toFixed(1)}
             {d.rating === bestRating && <span className="rounded-full bg-coral-soft px-2 py-0.5 text-xs font-medium text-coral-ink">Best rated</span>}
           </span>
@@ -65,7 +65,7 @@ export function CompareTable({ tripId, ids, onIdsChange, present, rows, stats, s
           "—"
         ) : (
           <span className="inline-flex items-center gap-2">
-            <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+            <MapPin className="size-3.5 text-muted-foreground" />
             {distance(km)}
             {km === closestKm && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">Closest</span>}
           </span>
@@ -100,7 +100,7 @@ export function CompareTable({ tripId, ids, onIdsChange, present, rows, stats, s
                 aria-label={`Remove ${d!.displayName?.text ?? "place"} from comparison`}
                 className="absolute top-2 right-2 rounded-full bg-background/90 p-1.5 text-muted-foreground backdrop-blur transition-colors hover:text-destructive"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="size-3.5" />
               </button>
             )}
             <Link href={`/trips/${tripId}/place/${encodeURIComponent(id)}`} className="block pr-6 font-display text-base leading-tight hover:text-primary">
@@ -112,12 +112,12 @@ export function CompareTable({ tripId, ids, onIdsChange, present, rows, stats, s
               disabled={savedIds.has(id)}
               className={cn(
                 "mt-2 flex w-full items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                savedIds.has(id) ? "border-transparent bg-secondary text-foreground" : "border-border hover:bg-accent",
+                savedIds.has(id) ? "border-transparent bg-muted text-foreground" : "border-border hover:bg-accent",
               )}
             >
               {savedIds.has(id) ? (
                 <>
-                  <Check className="h-3.5 w-3.5" /> On the trip
+                  <Check className="size-3.5" /> On the trip
                 </>
               ) : (
                 "Choose this"

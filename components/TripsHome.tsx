@@ -26,7 +26,7 @@ export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]
     <main className="min-h-screen">
       <TripsHero displayName={displayName} start={start} />
 
-      <div className="mx-auto max-w-6xl px-5 pt-12 pb-20 sm:px-8">
+      <div className="mx-auto max-w-6xl px-4 pt-12 pb-20 sm:px-8">
         <Reveal delay={0.55}>
           <div className={cn("flex flex-wrap items-center justify-between gap-x-6 gap-y-4", "max-lg:flex-nowrap max-lg:gap-x-3")}>
             <div className="flex min-w-0 items-center gap-3">
@@ -34,7 +34,7 @@ export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]
               {list.length > 0 && <span className="daisy-badge daisy-badge-ghost tabular-nums">{list.length}</span>}
             </div>
             <Link href="/trips/new" className="btn-primary w-fit shrink-0">
-              <Plus className="h-4 w-4" /> {<span><span className="max-lg:hidden">Create </span><span className="lg:hidden">New </span>trip</span>}
+              <Plus className="size-4" /> {<span><span className="max-lg:hidden">Create </span><span className="lg:hidden">New </span>trip</span>}
             </Link>
           </div>
           {showTabs && (

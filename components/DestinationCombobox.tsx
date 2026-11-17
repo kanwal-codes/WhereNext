@@ -176,7 +176,7 @@ export function DestinationCombobox({
           {showPanel && (<>
             {loading && suggestions.length === 0 && (
               <div className="flex items-center gap-2 px-3 py-2.5 text-xs text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin" /> Searching…
+                <Loader2 className="size-3 animate-spin" /> Searching…
               </div>
             )}
             {status === "ok" && suggestions.length === 0 && (

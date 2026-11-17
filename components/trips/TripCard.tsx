@@ -55,15 +55,15 @@ export function TripCard({
           <h3 className="daisy-card-title min-w-0 font-display text-title leading-tight tracking-tight">
             <span className="truncate">{trip.name}</span>
           </h3>
-          <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-            <MapPin className="h-3.5 w-3.5 shrink-0" />
+          <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-soft">
+            <MapPin className="size-3.5 shrink-0" />
             <span className="truncate">{trip.destination || "Destination not set"}</span>
           </p>
           <div className="mt-5 flex items-center justify-between gap-3 border-t border-border/70 pt-4 text-sm">
             <span className="min-w-0 truncate tabular-nums text-ink-soft">{when}</span>
             {trip.travelers ? (
               <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground" title="Travellers">
-                <Users className="h-3.5 w-3.5" />
+                <Users className="size-3.5" />
                 <span className="tabular-nums">{trip.travelers}</span>
               </span>
             ) : null}
