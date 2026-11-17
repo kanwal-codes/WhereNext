@@ -73,8 +73,8 @@ export function PhoneDiscoverBar({ feed, panelCtx, activeCat, filtersOpen, setFi
       {/* A phone gets a bottom sheet, like every other set of options in the app (a popover over the feed is a card nobody else uses); a wide screen keeps the row that unfolds under the chips. */}
       {phone ? (
         <Sheet open={filtersOpen} onClose={() => setFiltersOpen(() => false)} ariaLabel="Compare and filter" padded footer={<button type="button" onClick={() => setFiltersOpen(() => false)} className={sheetPrimary}>Done</button>}>
-          <p className="px-1 pb-3 pt-1 font-display text-xl font-medium tracking-[-0.02em]">Compare and filter</p>
-          <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain px-1">{chips}</div>
+          <p className="pb-3 pt-1 font-display text-xl font-medium tracking-[-0.02em]">Compare and filter</p>
+          <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain -mx-1 px-1">{chips}</div>
         </Sheet>
       ) : (
         <AnimatePresence initial={false}>

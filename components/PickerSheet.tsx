@@ -41,7 +41,7 @@ export function PickerSheet<K extends string>({ open, onClose, title, ariaLabel,
 }) {
   return (
     <Sheet open={open} onClose={onClose} side="bottom" ariaLabel={ariaLabel} padded className="max-h-[78dvh]">
-      <p className="px-2 pb-2 pt-1 font-display text-xl font-medium tracking-[-0.02em]">{title}</p>
+      <p className="pb-2 pt-1 font-display text-xl font-medium tracking-[-0.02em]">{title}</p>
       <ul className="scrollbar-slim grid min-h-0 flex-1 gap-1.5 overflow-y-auto overscroll-contain">
         {options.map((o) => {
           const on = o.key === value;

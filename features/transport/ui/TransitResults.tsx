@@ -117,13 +117,13 @@ export function TransitResults({ t }: { t: ReturnType<typeof useTransportSearch>
 </>) : undefined} padded>
         {opened && open != null && (
           <>
-            <div className="px-1 pb-3 pt-1">
+            <div className="pb-3 pt-1">
               <p className="font-display text-2xl font-medium leading-none tabular-nums tracking-[-0.025em]">{durationFromSeconds(opened.durationSeconds)}</p>
               <p className="mt-1.5 text-sm text-ink-soft tabular-nums">
                 {[clock(opened.departureTime, opened.timeZone) && clock(opened.arrivalTime, opened.timeZone) ? `${clock(opened.departureTime, opened.timeZone)} → ${clock(opened.arrivalTime, opened.timeZone)}` : null, money(opened.fare), distance(opened.distanceMeters / 1000)].filter(Boolean).join(" · ")}
               </p>
             </div>
-            <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain px-1">
+            <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain -mx-1 px-1">
               {openSteps.length > 0 ? (
                 <ol>
                   {openSteps.map((step, si) => (

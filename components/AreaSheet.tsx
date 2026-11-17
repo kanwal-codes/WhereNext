@@ -75,7 +75,7 @@ export function AreaSheet({ open, onClose, tripId, parent, stops, activeStop, ar
   const pick = (row: Row) => { onPickArea(row.area); onClose(); };
 
   const several = stops.length > 1;
-  const heading = "px-2 pb-3 pt-1 font-display text-xl font-medium tracking-[-0.02em]";
+  const heading = "pb-3 pt-1 font-display text-xl font-medium tracking-[-0.02em]";
   const stopSub = (st: TripStop) => (st.startDate && st.endDate ? `${day(st.startDate)} to ${day(st.endDate)}` : undefined);
 
   return (

@@ -216,7 +216,7 @@ export function PhoneDayView({ tripId, startDate, trip, plan, actions, adder }: 
           const run = (fn: () => void) => () => { fn(); setToolsItem(null); };
           return (
             <>
-              <p className="truncate px-2 font-display text-xl font-medium tracking-[-0.02em]">{item.title}</p>
+              <p className="truncate font-display text-xl font-medium tracking-[-0.02em]">{item.title}</p>
               <label className="mt-2 flex min-h-14 items-center justify-between gap-3 rounded-2xl px-3">
                 <span className="flex items-center gap-3 text-body font-medium"><Clock className="size-5 text-muted-foreground" aria-hidden /> Time</span>
                 <TimeField value={time} disabled={locked} onChange={(v) => setTime(item, v || null)} ariaLabel={`Target time for ${item.title}`} placeholder="Add time" className="w-40" />
@@ -233,7 +233,7 @@ export function PhoneDayView({ tripId, startDate, trip, plan, actions, adder }: 
       </Sheet>
 
       <Sheet open={addOpen} onClose={() => setAddOpen(false)} side="bottom" ariaLabel="Add a stop" padded>
-        <p className="px-2 font-display text-xl font-medium tracking-[-0.02em]">Add to {dayDate(startDate, day) ?? `day ${day}`}</p>
+        <p className="font-display text-xl font-medium tracking-[-0.02em]">Add to {dayDate(startDate, day) ?? `day ${day}`}</p>
         <form onSubmit={(e) => { e.preventDefault(); void add(); }} className="mt-3 space-y-3">
           <div className="rounded-2xl border border-input px-3">
             <DestinationCombobox

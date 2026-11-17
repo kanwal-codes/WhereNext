@@ -46,7 +46,7 @@ export function EventCard({ tripId, event, className, onSelect, compact = false,
         meta={[whenLine, event.venue].filter(Boolean).join(" · ") || "Date to be announced"}
         feature={phoneTile === "feature"}
         selected={selected}
-        add={!comparing && phoneTile === "grid" ? (
+        add={!comparing ? (
           <a href={safeHref(event.url)} target="_blank" rel="noreferrer noopener" aria-label={`Tickets: ${event.title}`} className="grid size-11 place-items-center rounded-full bg-white/94 text-[#2a2623] shadow-soft transition-transform active:scale-[0.97]">
             <Ticket className="size-[1.125rem]" aria-hidden />
           </a>

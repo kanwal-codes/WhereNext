@@ -61,8 +61,8 @@ export function PlaceCard({ tripId, place, why, phoneRow = false, phoneTile }: {
         feature={feature}
         pick={feature && why && why !== "Top-rated" ? "Roam’s pick" : undefined}
         selected={selected}
-        save={feature && !comparing ? <SaveHeart tripId={tripId} place={place} /> : undefined}
-        add={!feature && !comparing ? <AddToTripControl tripId={tripId} place={place} variant="orb" size="sm" /> : undefined}
+        save={!comparing ? <SaveHeart tripId={tripId} place={place} compact={!feature} /> : undefined}
+        add={!comparing ? <AddToTripControl tripId={tripId} place={place} variant="orb" size="sm" /> : undefined}
         overlay={comparing ? <CompareMark selected={selected} /> : undefined}
       />
     );

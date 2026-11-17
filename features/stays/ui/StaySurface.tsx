@@ -298,12 +298,12 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       {sheeted && (
         <>
           <Sheet open={barOpen} onClose={() => setBarOpen(false)} ariaLabel="Dates and guests" padded footer={<button type="button" onClick={() => setBarOpen(false)} className={sheetPrimary}>Done</button>}>
-            <p className="px-1 pb-3 pt-1 font-display text-xl font-medium tracking-[-0.02em]">Dates and guests</p>
+            <p className="pb-3 pt-1 font-display text-xl font-medium tracking-[-0.02em]">Dates and guests</p>
             <div className="grid grid-cols-2 gap-2">{cells}</div>
           </Sheet>
           <Sheet open={showFilters} onClose={() => setShowFilters(false)} ariaLabel="Sort and filter" padded footer={<button type="button" onClick={() => setShowFilters(false)} className={sheetPrimary}>Done</button>}>
-            <p className="px-1 pb-3 pt-1 font-display text-xl font-medium tracking-[-0.02em]">Sort and filter</p>
-            <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain px-1">{filterBody}</div>
+            <p className="pb-3 pt-1 font-display text-xl font-medium tracking-[-0.02em]">Sort and filter</p>
+            <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain -mx-1 px-1">{filterBody}</div>
           </Sheet>
         </>
       )}

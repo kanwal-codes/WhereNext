@@ -234,13 +234,13 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date }: { 
       <Sheet open={open != null} onClose={() => setOpen(null)} side="bottom" ariaLabel="Getting between two stops" padded>
         {open != null && day.legs[open] && (
           <>
-            <div className="px-1 pb-3 pt-1">
+            <div className="pb-3 pt-1">
               <p className="font-display text-xl font-medium leading-tight tracking-[-0.02em]">{day.stops[open]?.name} <span className="text-muted-foreground">→</span> {day.stops[open + 1]?.name}</p>
               <p className="mt-1.5 text-sm tabular-nums text-ink-soft">
                 {[day.legs[open].minutes != null ? formatDuration(day.legs[open].minutes!) : null, day.legs[open].km != null ? distance(day.legs[open].km!) : null, time(day.legs[open].departure) && time(day.legs[open].arrival) ? `${time(day.legs[open].departure)}–${time(day.legs[open].arrival)}` : null].filter(Boolean).join(" · ")}
               </p>
             </div>
-            <ul className="scrollbar-slim min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-1 pb-2 text-sm">
+            <ul className="scrollbar-slim min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain -mx-1 px-1 pb-2 text-sm">
               {mergeWalkSteps(day.legs[open].steps).map((st, k) => <StepLine key={k} s={st} />)}
             </ul>
             <a
