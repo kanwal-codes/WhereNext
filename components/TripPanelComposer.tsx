@@ -127,8 +127,8 @@ export function TripPanelComposer({ boxRef, chat, isCompare, scrollRef }: {
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           data-compact={compact || undefined}
-          // The same box, and the same fold into a pill, as the Ask bar on Stay and Discover; translucent, so the page shows through it.
-          className="ask-dock-form shrink-0 !bg-card/75 backdrop-blur-md data-[compact]:!bg-foreground max-lg:!bg-muted/70 max-lg:data-[compact]:!bg-foreground"
+          // The same box, and the same fold into a pill, as the Ask bar on Stay and Discover, frosted like every message box.
+          className="ask-dock-form shrink-0"
         >
           <div className="ask-dock-full" inert={compact}>
             <div className="flex items-center gap-1">
