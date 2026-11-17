@@ -60,14 +60,14 @@ export function TripWeather({ tripId, location, className, card = false, loading
 
   if (loading) {
     return card ? (
-      <div className={cn("flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground", className)}>
-        <Loader2 className="h-4 w-4 animate-spin" /> Checking the weather…
+      <div className={cn("flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm text-ink-soft", className)}>
+        <Loader2 className="size-4 animate-spin" /> Checking the weather…
       </div>
     ) : loadingText ? (
-      <span className={cn("text-sm text-muted-foreground", className)}>{loadingText}</span>
+      <span className={cn("text-sm text-ink-soft", className)}>{loadingText}</span>
     ) : null;
   }
-  if (!data || data.kind === "none" || !data.summary) return loadingText ? <span className={cn("text-sm text-muted-foreground", className)}>No outlook yet.</span> : null;
+  if (!data || data.kind === "none" || !data.summary) return loadingText ? <span className={cn("text-sm text-ink-soft", className)}>No outlook yet.</span> : null;
 
   const label = data.kind === "seasonal" ? `Typical weather${data.month ? ` · ${data.month}` : ""}` : "During your trip";
 
@@ -75,7 +75,7 @@ export function TripWeather({ tripId, location, className, card = false, loading
     return (
       <div className={cn("rounded-2xl border border-border bg-card p-5 shadow-soft", className)}>
         <p className="eyebrow inline-flex items-center gap-1.5">
-          <CloudSun className="h-3.5 w-3.5 text-coral" /> {label}
+          <CloudSun className="size-3.5 text-coral" /> {label}
         </p>
         <p className="mt-1.5 text-sm text-ink-soft">{data.summary}</p>
       </div>
@@ -83,7 +83,7 @@ export function TripWeather({ tripId, location, className, card = false, loading
   }
 
   return (
-    <span className={cn("inline-flex items-start gap-2 text-sm leading-snug text-muted-foreground", className)}>
+    <span className={cn("inline-flex items-start gap-2 text-sm leading-snug text-ink-soft", className)}>
       <CloudSun className="mt-px size-4 shrink-0" aria-hidden /> <span className="line-clamp-2">{data.summary.split(/(?<=[.!?])\s+/)[0]}</span>
     </span>
   );
@@ -100,7 +100,7 @@ export function TripRouteWeather({ tripId, trip, className }: { tripId: string; 
   return (
     <div className={cn("rounded-2xl border border-border bg-card p-5 shadow-soft", className)}>
       <p className="eyebrow inline-flex items-center gap-1.5">
-        <CloudSun className="h-3.5 w-3.5 text-coral" /> Weather in each city
+        <CloudSun className="size-3.5 text-coral" /> Weather in each city
       </p>
       <ul className="mt-2 space-y-2">
         {stops.map((stop) => (

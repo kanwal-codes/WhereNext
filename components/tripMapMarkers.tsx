@@ -1,7 +1,6 @@
-import { renderToStaticMarkup } from "react-dom/server";
 import along from "@turf/along";
 import { lineString } from "@turf/helpers";
-import { MODE_ICON, STOP_CORAL, STOP_INK } from "@/lib/application/mode-visuals";
+import { STOP_CORAL, STOP_INK } from "@/lib/application/mode-visuals";
 import type { MapNode, MapPill } from "@/lib/application/route-overlay";
 import type { MapPin } from "@/components/TripMap";
 import { pinSvg } from "@/components/tripMapLogic";
@@ -41,12 +40,6 @@ export function stopPin(p: MapPin, index: number, number: number | null, kindCol
   el.title = `${p.name}${p.day != null ? ` · Day ${p.day}` : ""}`;
   if (p.href) el.onclick = () => { window.location.href = p.href!; };
   return el;
-}
-
-/** The icon for whatever vehicle the rider marker is on right now. */
-export function riderIconHtml(mode: string): string {
-  const Icon = MODE_ICON[mode] ?? MODE_ICON.unknown;
-  return renderToStaticMarkup(<Icon className="h-4 w-4" color="#fff" strokeWidth={2} />);
 }
 
 /** A time (or a tappable "take this route") sitting on a line. */

@@ -110,7 +110,7 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
             onClick={() => setRouteOpen((v) => !v)}
             aria-expanded={routeOpen}
             aria-controls="flight-route-editor"
-            className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-[background-color,border-color,color,transform] active:scale-95", routeOpen ? "border-ink/30 bg-muted text-ink" : "border-border bg-card text-ink-soft hover:bg-muted hover:text-ink")}
+            className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-[background-color,border-color,color,transform] active:scale-[0.97]", routeOpen ? "border-ink/30 bg-muted text-ink" : "border-border bg-card text-ink-soft hover:bg-muted hover:text-ink")}
           >
             <AnimatePresence mode="wait" initial={false}>
               <motion.span key={routeOpen ? "done" : "edit"} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.14 }} className="inline-flex items-center gap-1.5">
@@ -132,7 +132,7 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
         </div>
       </div>
       {ready && fares.assumed && (
-        <div role="note" className="mx-4 mt-3 mb-2 flex items-center gap-2.5 rounded-2xl bg-secondary px-3.5 py-3 text-sm text-foreground [&_svg]:text-caution @[34rem]:mx-5 max-lg:mx-[1.125rem]">
+        <div role="note" className="mx-4 mt-3 mb-2 flex items-center gap-2.5 rounded-2xl bg-muted px-3.5 py-3 text-sm text-foreground [&_svg]:text-caution @[34rem]:mx-5 max-lg:mx-[1.125rem]">
           <Info className="size-4 shrink-0" aria-hidden />
           <span>No travel date set, so these are example prices. Pick your date above.</span>
         </div>
@@ -218,7 +218,7 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
       )}
       {ready && !showAll && offers.length > 2 + pickKeys.size && (
         <div className="px-[1.125rem] pb-1 pt-2 lg:hidden">
-          <button type="button" onClick={() => setShowAll(true)} className="flex h-12 w-full items-center justify-center rounded-full bg-primary text-[0.9375rem] font-semibold text-primary-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.16),0_1px_2px_oklch(0.2_0.012_65/0.22)] transition-[transform,filter] duration-200 ease-out hover:brightness-110 active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">See all {offers.length} flights</button>
+          <button type="button" onClick={() => setShowAll(true)} className="flex h-12 w-full items-center justify-center rounded-full bg-primary text-body font-semibold text-primary-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.16),0_1px_2px_oklch(0.2_0.012_65/0.22)] transition-[transform,filter] duration-200 ease-out hover:brightness-110 active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">See all {offers.length} flights</button>
         </div>
       )}
       {ready && !showAll && !filtersOn && offers.length > ROWS && (

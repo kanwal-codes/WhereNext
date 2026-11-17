@@ -23,7 +23,7 @@ export function BackLink({ fallback, label, className }: { fallback: string; lab
         className,
       )}
     >
-      <ArrowLeft className="h-3.5 w-3.5" /> {label}
+      <ArrowLeft className="size-3.5" /> {label}
     </button>
   );
 }

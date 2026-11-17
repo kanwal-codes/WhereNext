@@ -1,33 +1,47 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { useMemo } from "react";
+import { ExternalLink } from "lucide-react";
+import { Sheet } from "@/components/motion-primitives";
+import { sheetPrimary, sheetSecondary } from "@/components/motion/sheetActions";
+import type { FlightOffer as WidgetOffer } from "@/components/TripPanelProvider";
 import { textAction } from "@/features/conversation/ui/blocks/ui";
-import { AirlineMark } from "@/features/conversation/ui/panels/OtherFlights";
+import { FlightJourney, FlightPicks, FlightRowBody, offerKey, pickFares } from "@/features/conversation/ui/blocks/FlightWidget";
 import { arrangeFlights, fitsTime } from "@/lib/application/travel-time";
-import { cn, formatDuration } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { useTransportSearch } from "../application/useTransportSearch";
-import { flightClock, flightPrice, flightSaveValue, googleFlightsUrl, stopsLabel } from "../domain/route-view";
-import { FlightDetails } from "./FlightDetails";
+import { flightSaveValue, flightPrice, googleFlightsUrl, type Flight } from "../domain/route-view";
 
-/** The Flights tab: sort and filter chips, the time filter note, and each offer as an expandable card with Save and View on Google Flights. */
+/** A search result in the shape Roam's flight widget draws (the same fares; only the price fields are named differently). */
+export const asWidget = (f: Flight): WidgetOffer => ({ ...f, id: f.id, price: f.priceAmount, currency: f.priceCurrency, listedPrice: f.listedAmount }) as WidgetOffer;
+
+const allowsChanges = (o: Flight) => Boolean(o.fareConditions?.some((c) => /changes? allowed/i.test(c) && !/not allowed/i.test(c)));
+
+/**
+ * The Flights tab, drawn like Roam's flight widget: the three picks (Best, Cheapest, Fastest) on top, then every fare as a row with its times,
+ * stops and price. Taking a pick or a row opens the whole journey in a bottom sheet (each flight, each wait, the fare's terms) with Save to my
+ * trip and View on Google Flights. The sort and the filters that would change the list are the pills under the switch, in ResultPills.
+ */
 export function FlightResults({ t }: { t: ReturnType<typeof useTransportSearch> }) {
-  const { flights, tab, flightsLoading, when, sort, setSort, nonstopOnly, setNonstopOnly, anyTime, setAnyTime, openFlight, setOpenFlight, returnDate, travellers, saveChoice } = t;
+  const { flights, tab, flightsLoading, when, sort, nonstopOnly, changesOnly, airport, anyTime, setAnyTime, openFlight, setOpenFlight, returnDate, saveChoice } = t;
   const onTime = flights.filter((f) => anyTime || fitsTime(f, when));
-  const shownFlights = arrangeFlights(onTime, sort, nonstopOnly);
+  const shown = useMemo(
+    () => arrangeFlights(onTime, sort, nonstopOnly).filter((f) => (!changesOnly || allowsChanges(f)) && (!airport || f.destinationAirport === airport)),
+    [onTime, sort, nonstopOnly, changesOnly, airport],
+  );
+  const offers = useMemo(() => shown.map(asWidget), [shown]);
+  const picks = useMemo(() => pickFares(offers), [offers]);
+  const roundTrip = Boolean(returnDate) || flights.some((f) => f.returnLegs?.length);
+  const cheapest = picks.find((p) => p.labels.includes("Cheapest"))?.offer;
+  const index = Math.max(0, offers.findIndex((o) => offerKey(o) === openFlight));
+  const opened = openFlight && offers.length ? offers[index] : null;
+  const openedFlight = opened ? shown[index] : null;
+  const labelsOf = (o: WidgetOffer) => picks.find((p) => p.offer === o)?.labels ?? [];
+
   return (
     <>
       {tab === "flight" && !flightsLoading && flights.length > 0 && (
         <div className="space-y-3">
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Sort and filter flights">
-            {(["best", "cheapest", "fastest", "earliest"] as const).map((k) => (
-              <button key={k} type="button" aria-pressed={sort === k} onClick={() => setSort(k)} className="btn-chip capitalize">
-                {k}
-              </button>
-            ))}
-            <button type="button" aria-pressed={nonstopOnly} onClick={() => setNonstopOnly((v) => !v)} className="btn-chip">
-              Non-stop
-            </button>
-          </div>
           {when && !anyTime && onTime.length < flights.length && (
             <p className="text-xs text-muted-foreground">
               Showing flights {when.kind === "depart" ? "leaving after" : "landing by"} {when.time}.{" "}
@@ -36,61 +50,45 @@ export function FlightResults({ t }: { t: ReturnType<typeof useTransportSearch> 
               </button>
             </p>
           )}
-          {shownFlights.length === 0 && <p className="rounded-2xl bg-surface px-4 py-5 text-sm leading-relaxed text-muted-foreground">No flights match those filters. Try another time, or turn off Non-stop.</p>}
+          {shown.length === 0 && <p className="rounded-2xl bg-surface px-4 py-5 text-sm leading-relaxed text-ink-soft">No flights match those filters. Try another time, or turn a filter off.</p>}
         </div>
       )}
 
-      {tab === "flight" && !flightsLoading && shownFlights.length > 0 && (
-        <ul className="space-y-3">
-          {shownFlights.map((f, i) => {
-            const price = flightPrice(f);
-            const id = f.id || String(i);
-            const open = openFlight === id;
-            const via = f.layoverAirports?.length ? ` via ${f.layoverAirports.join(", ")}` : "";
-            return (
-              <li key={id} className={cn("rounded-2xl bg-card transition-shadow duration-200", open ? "shadow-lift ring-[1.5px] ring-ink" : "ring-1 ring-border hover:ring-input")}>
-                <button type="button" onClick={() => setOpenFlight(open ? null : id)} aria-expanded={open} className="block w-full rounded-2xl p-4 text-left">
-                  <span className="flex items-center gap-3">
-                    <AirlineMark offer={f} className="size-8" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-display text-base font-medium">{f.airline}</span>
-                      <span className="block text-xs text-muted-foreground tabular-nums">{formatDuration(f.durationMinutes)} · {f.stops === 0 ? "non-stop" : `${stopsLabel(f.stops)}${via}`}{f.returnLegs?.length || returnDate ? " · round-trip fare" : ""}</span>
-                    </span>
-                    <span className="font-display text-xl font-medium tabular-nums tracking-[-0.012em]">{price}</span>
-                  </span>
-                  {f.departAt && f.arriveAt && (
-                    <span className="mt-3.5 flex items-center justify-between gap-3 text-sm tabular-nums">
-                      <span>
-                        <span className="font-semibold">{flightClock(f.departAt)}</span>
-                        {f.originAirport && <span className="ml-1.5 text-muted-foreground">{f.originAirport}</span>}
-                      </span>
-                      <span aria-hidden="true" className="h-px flex-1 bg-border" />
-                      <span className="text-right">
-                        <span className="font-semibold">{flightClock(f.arriveAt)}</span>
-                        {f.destinationAirport && <span className="ml-1.5 text-muted-foreground">{f.destinationAirport}</span>}
-                      </span>
-                      <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-300", open && "rotate-180")} aria-hidden="true" />
-                    </span>
-                  )}
-                </button>
-                {open && <FlightDetails flight={f} travellers={travellers} />}
-                <div className="flex gap-2 px-4 pb-4 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => void saveChoice(flightSaveValue(f, price))}
-                    className="btn-chip"
-                  >
-                    Save to my trip
+      {tab === "flight" && !flightsLoading && shown.length > 0 && (
+        <div className="space-y-4">
+          <FlightPicks picks={picks} selected={openFlight} onSelect={setOpenFlight} roundTrip={roundTrip} />
+          <ul className="space-y-3" aria-label="Flights">
+            {offers.map((offer) => {
+              const key = offerKey(offer);
+              return (
+                <li key={key} className="rounded-2xl bg-card ring-1 ring-border transition-shadow hover:ring-input">
+                  <button type="button" onClick={() => setOpenFlight(key)} aria-haspopup="dialog" aria-label={`${offer.airline}, ${flightPrice(shown[offers.indexOf(offer)])}`} className="block w-full rounded-2xl p-4 text-left">
+                    <FlightRowBody offer={offer} roundTrip={roundTrip} cheapest={shown.length > 1 && offer === cheapest} onDetails={() => {}} />
                   </button>
-                  <a href={googleFlightsUrl(f, returnDate)} target="_blank" rel="noopener noreferrer" className="btn-primary-sm">
-                    View on Google Flights
-                  </a>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
+
+      <Sheet open={tab === "flight" && opened != null} onClose={() => setOpenFlight(null)} side="bottom" ariaLabel="Flight details" footerClassName="px-4" footer={opened && openedFlight ? (<>
+              <button type="button" onClick={() => void saveChoice(flightSaveValue(openedFlight, flightPrice(openedFlight)))} className={sheetSecondary}>
+                Save to my trip
+              </button>
+              <a href={googleFlightsUrl(openedFlight, returnDate)} target="_blank" rel="noopener noreferrer" className={sheetPrimary}>
+                Google Flights <ExternalLink className="size-3.5" aria-hidden="true" />
+              </a>
+</>) : undefined} className="icons-fine px-0 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        {opened && openedFlight && (
+          <>
+            <p className="px-4 pb-1 pt-1 font-display text-xl font-medium tracking-[-0.02em]">{[opened.originAirport, opened.destinationAirport].filter(Boolean).join(" → ") || opened.airline}</p>
+            <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain">
+              <FlightJourney offer={opened} labels={labelsOf(opened)} roundTrip={roundTrip} />
+            </div>
+          </>
+        )}
+      </Sheet>
     </>
   );
 }

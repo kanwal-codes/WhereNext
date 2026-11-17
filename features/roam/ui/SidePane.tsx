@@ -47,7 +47,7 @@ export function SidePane({ panel, showContext, setContextCollapsed, contextRail 
                 onClick={() => setContextCollapsed(true)}
                 aria-label="Hide trip context"
                 title="Hide trip context"
-                className="grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-[background-color,color,transform] hover:bg-muted hover:text-foreground active:scale-95"
+                className="grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-[background-color,color,transform] hover:bg-muted hover:text-foreground active:scale-[0.97]"
               >
                 <PanelRightClose className="size-4" />
               </button>
@@ -68,9 +68,9 @@ export function SidePane({ panel, showContext, setContextCollapsed, contextRail 
               onClick={() => setContextCollapsed(false)}
               aria-label="Show trip context"
               title="Show trip context"
-              className="grid size-8 shrink-0 place-items-center rounded-full border border-border bg-background/60 text-muted-foreground transition-colors hover:text-foreground active:scale-95"
+              className="grid size-8 shrink-0 place-items-center rounded-full border border-border bg-background/60 text-muted-foreground transition-colors hover:text-foreground active:scale-[0.97]"
             >
-              <PanelRightOpen className="h-4 w-4" />
+              <PanelRightOpen className="size-4" />
             </button>
           </motion.div>
         )}

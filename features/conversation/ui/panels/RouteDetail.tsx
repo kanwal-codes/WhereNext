@@ -71,7 +71,7 @@ function OptionCard({ route, index, single, tag, on, onSelect }: { route: RouteB
       {single ? (
         <div className="flex min-h-14 items-center gap-3 px-3 py-2.5">{head}</div>
       ) : (
-        <button type="button" role="radio" aria-checked={on} onClick={onSelect} className={cn("flex min-h-14 w-full items-center gap-3 px-3 py-2.5 text-left transition-colors", on ? "bg-accent/50" : "hover:bg-accent/30")}>
+        <button type="button" role="radio" aria-checked={on} onClick={onSelect} className={cn("flex min-h-14 w-full items-center gap-3 px-3 py-2.5 text-left transition-colors", on ? "bg-muted" : "hover:bg-muted/60")}>
           {head}
         </button>
       )}
@@ -92,7 +92,7 @@ function OptionCard({ route, index, single, tag, on, onSelect }: { route: RouteB
                     <dt className="eyebrow">{row.label}</dt>
                     <dd className={cn(type.body, "flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 font-medium")}>
                       <span className="min-w-0 truncate">{row.place}</span>
-                      {row.time && <span className="text-sm font-normal text-muted-foreground tabular-nums">{row.time}</span>}
+                      {row.time && <span className="text-sm font-normal text-ink-soft tabular-nums">{row.time}</span>}
                     </dd>
                   </React.Fragment>
                 ))}

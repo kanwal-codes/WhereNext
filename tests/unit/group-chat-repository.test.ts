@@ -34,6 +34,16 @@ describe("list", () => {
     expect(rec2.of("group_messages", "lt")).toHaveLength(0);
   });
 
+  it("asks only for what is newer than a given time, oldest first, in one query", async () => {
+    const rec = createRecorder({ group_messages: [{ data: [row("1"), row("2")] }], group_message_reactions: [{ data: [] }] });
+    const messages = await createGroupChatRepository(rec.client).list("t1", "u1", { after: "2026-10-01T00:00:00Z", limit: 40 });
+    expect(rec.of("group_messages", "gt")[0].args).toEqual(["created_at", "2026-10-01T00:00:00Z"]);
+    expect(rec.of("group_messages", "order").map((c) => c.args)).toEqual([["created_at", { ascending: true }], ["id", { ascending: true }]]);
+    expect(rec.of("group_messages", "limit")[0].args).toEqual([40]);
+    expect(rec.of("group_messages", "range")).toHaveLength(0);
+    expect(messages.map((m) => m.id)).toEqual(["1", "2"]);
+  });
+
   it("stops at the limit, asking for no more than that", async () => {
     const rec = createRecorder({ group_messages: [{ data: rows(3) }], group_message_reactions: [{ data: [] }] });
     await createGroupChatRepository(rec.client).list("t1", "u1", { limit: 3 });

@@ -116,7 +116,7 @@ export default function SignUpPage() {
               aria-label={show ? "Hide characters" : "Show characters"}
               className="hit-44 absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
             >
-              {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
             </button>
           </div>
         </Field>
@@ -141,25 +141,25 @@ export default function SignUpPage() {
             type="checkbox"
             checked={agreed}
             onChange={(e) => setAgreed(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-input accent-[var(--coral)]"
+            className="mt-0.5 size-4 rounded border-input accent-[var(--coral)]"
           />
           <span>
             I agree to the <span className="text-foreground">Terms</span> and <span className="text-foreground">Privacy Policy</span>.
           </span>
         </label>
 
-        {error && <p role="alert" className="rounded-xl bg-secondary px-3 py-2 text-xs font-medium text-destructive">{error}</p>}
-        {message && <p role="status" className="rounded-xl bg-secondary px-3 py-2 text-xs font-medium text-foreground">{message}</p>}
+        {error && <p role="alert" className="rounded-xl bg-muted px-3 py-2 text-xs font-medium text-destructive">{error}</p>}
+        {message && <p role="status" className="rounded-xl bg-muted px-3 py-2 text-xs font-medium text-foreground">{message}</p>}
 
         <SubmitButton loading={loading} type="submit">
-          Create account {loading ? null : <ArrowRight className="h-4 w-4" />}
+          Create account {loading ? null : <ArrowRight className="size-4" />}
         </SubmitButton>
       </form>
 
       <ul className="mt-6 space-y-2 text-xs text-muted-foreground">
         {["Free while you plan", "Every trip stays private to you", "Nothing to install"].map((t) => (
           <li key={t} className="flex items-center gap-2">
-            <Check className="h-3.5 w-3.5 text-coral" /> {t}
+            <Check className="size-3.5 text-coral" /> {t}
           </li>
         ))}
       </ul>

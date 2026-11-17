@@ -1,5 +1,6 @@
 "use client";
 
+import { SheetHeader } from "@/components/SheetHeader";
 import { DateField, TimeField } from "@/components/DateTimeField";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ExternalLink, Globe, Loader2, MapPin, Phone, Search, UtensilsCrossed, X } from "lucide-react";
@@ -171,19 +172,11 @@ export function TableSheet({
   return (
     <Sheet open={open} onClose={onClose} side={desktop ? "right" : "bottom"} ariaLabel="Reserve a table">
       <div className="flex min-h-0 flex-1 flex-col">
-        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-4">
-          <div className="min-w-0">
-            <p className="eyebrow">Dining</p>
-            <p className="truncate font-display text-lg">Reserve a table</p>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="shrink-0 rounded-full border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground">
-            <X className="h-4 w-4" />
-          </button>
-        </header>
+        <SheetHeader eyebrow="Dining" title="Reserve a table" onClose={onClose} />
 
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain scrollbar-slim px-5 py-5">
-          <div className="flex items-start gap-3 rounded-2xl bg-muted/60 px-4 py-3 text-sm leading-relaxed text-muted-foreground">
-            <UtensilsCrossed className="mt-0.5 h-4 w-4 shrink-0 text-foreground" />
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain scrollbar-slim px-4 py-5">
+          <div className="flex items-start gap-3 rounded-2xl bg-muted/60 px-4 py-3 text-sm leading-relaxed text-ink-soft">
+            <UtensilsCrossed className="mt-0.5 size-4 shrink-0 text-foreground" />
             <p>Find the restaurant, say when, and pick a way to book. We don&rsquo;t book for you: you finish on their site or by phone.</p>
           </div>
 
@@ -192,7 +185,7 @@ export function TableSheet({
             <span className="mb-1.5 block text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">Restaurant</span>
             {picked ? (
               <div className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3">
-                <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <MapPin className="size-4 shrink-0 text-muted-foreground" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{picked.name}</span>
                   {picked.address && <span className="block truncate text-xs text-muted-foreground">{picked.address}</span>}
@@ -202,9 +195,9 @@ export function TableSheet({
             ) : (
               <>
                 <div className="relative">
-                  <Search className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
                   <input autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={160} placeholder={city ? `Search restaurants in ${city}` : "Restaurant name"} className={cn(input, "pl-10")} />
-                  {searching && <Loader2 className="absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
+                  {searching && <Loader2 className="absolute top-1/2 right-4 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
                 </div>
                 {(shownSaved.length > 0 || found.length > 0) && (
                   <ul className="mt-2 overflow-hidden rounded-2xl border border-border bg-card">
@@ -215,7 +208,7 @@ export function TableSheet({
                             <span className="block truncate text-sm font-medium">{r.name}</span>
                             {r.address && <span className="block truncate text-xs text-muted-foreground">{r.address}</span>}
                           </span>
-                          <span className="daisy-badge status-dot status-ok h-5 shrink-0 gap-1.5 border-transparent bg-secondary px-2 text-2xs font-semibold text-foreground">Saved</span>
+                          <span className="daisy-badge status-dot status-ok h-5 shrink-0 gap-1.5 border-transparent bg-muted px-2 text-2xs font-semibold text-foreground">Saved</span>
                         </button>
                       </li>
                     ))}
@@ -247,10 +240,10 @@ export function TableSheet({
 
           <Field label="Party size">
             <div className="flex items-center gap-3">
-              <button type="button" aria-label="Fewer guests" onClick={() => setParty((p) => Math.max(1, p - 1))} className="grid h-11 w-11 place-items-center rounded-full border border-border text-lg transition-colors hover:bg-accent">−</button>
+              <button type="button" aria-label="Fewer guests" onClick={() => setParty((p) => Math.max(1, p - 1))} className="grid size-11 place-items-center rounded-full border border-border text-lg transition-colors hover:bg-accent">−</button>
               <span className="w-10 text-center font-display text-2xl tabular-nums" aria-live="polite">{party}</span>
-              <button type="button" aria-label="More guests" onClick={() => setParty((p) => Math.min(20, p + 1))} className="grid h-11 w-11 place-items-center rounded-full border border-border text-lg transition-colors hover:bg-accent">+</button>
-              <span className="text-sm text-muted-foreground">{party === 1 ? "guest" : "guests"}</span>
+              <button type="button" aria-label="More guests" onClick={() => setParty((p) => Math.min(20, p + 1))} className="grid size-11 place-items-center rounded-full border border-border text-lg transition-colors hover:bg-accent">+</button>
+              <span className="text-sm text-ink-soft">{party === 1 ? "guest" : "guests"}</span>
             </div>
           </Field>
 
@@ -261,12 +254,12 @@ export function TableSheet({
           {ready && (
             <section aria-label="Ways to book" className="space-y-4 border-t border-border pt-5">
               <Heading>Ways to book</Heading>
-              {options.mapsReserve && <p className="-mt-2 text-sm text-muted-foreground">Google lists this place as taking reservations. Its Maps page has a Reserve button.</p>}
+              {options.mapsReserve && <p className="-mt-2 text-sm text-ink-soft">Google lists this place as taking reservations. Its Maps page has a Reserve button.</p>}
 
               {options.prefilled && (
                 <a href={options.prefilled.url} {...external} className="daisy-btn daisy-btn-neutral h-auto min-h-12 w-full flex-col gap-0 rounded-full border-0 py-2.5 shadow-none">
                   <span className="flex items-center gap-2">
-                    Open {options.prefilled.name} <ExternalLink className="h-4 w-4" />
+                    Open {options.prefilled.name} <ExternalLink className="size-4" />
                   </span>
                   <span className="text-xs font-normal opacity-70">Restaurant, guests, date and time filled in</span>
                 </a>
@@ -275,16 +268,16 @@ export function TableSheet({
               <div className="flex flex-wrap gap-2">
                 {options.call && (
                   <a href={options.call.href} {...external} className={linkBtn}>
-                    <Phone className="h-4 w-4" /> Call
+                    <Phone className="size-4" /> Call
                   </a>
                 )}
                 {options.website && (
                   <a href={options.website} {...external} className={linkBtn}>
-                    <Globe className="h-4 w-4" /> Website
+                    <Globe className="size-4" /> Website
                   </a>
                 )}
                 <a href={options.maps} {...external} className={linkBtn}>
-                  <MapPin className="h-4 w-4" /> Google Maps
+                  <MapPin className="size-4" /> Google Maps
                 </a>
               </div>
               {options.call && <p className="-mt-2 text-xs text-muted-foreground">{options.call.label}</p>}
@@ -296,7 +289,7 @@ export function TableSheet({
                   <div className="mt-2 flex flex-wrap gap-2">
                     {options.popular.map((site) => (
                       <a key={site.id} href={site.url} {...external} className="daisy-badge h-8 gap-1.5 border-border bg-card px-3 text-sm font-medium transition-colors hover:bg-accent">
-                        {site.name} <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                        {site.name} <ExternalLink className="size-3 text-muted-foreground" />
                       </a>
                     ))}
                   </div>
@@ -306,18 +299,18 @@ export function TableSheet({
           )}
 
           {opened && (
-            <div className="space-y-3 rounded-3xl bg-secondary p-4">
+            <div className="space-y-3 rounded-3xl bg-muted p-4">
               <p className="font-medium">Booked it?</p>
-              <p className="-mt-2 text-sm text-muted-foreground">Add your confirmation number and we will keep it with the trip. You can leave it blank.</p>
+              <p className="-mt-2 text-sm text-ink-soft">Add your confirmation number and we will keep it with the trip. You can leave it blank.</p>
               <input value={code} onChange={(e) => setCode(e.target.value)} maxLength={80} placeholder="Confirmation number" className={cn(input, "font-mono text-sm")} />
             </div>
           )}
         </div>
 
-        <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-border px-5 py-4">
+        <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-border px-4 py-4">
           <span className="text-xs text-muted-foreground">Saves as a dining reservation.</span>
           <button type="button" onClick={() => void save()} disabled={!ready || saving} className="daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-card px-6 font-medium shadow-none">
-            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            {saving && <Loader2 className="size-4 animate-spin" />}
             Save to my trip
           </button>
         </footer>

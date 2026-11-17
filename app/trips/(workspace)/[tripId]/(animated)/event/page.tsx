@@ -18,7 +18,7 @@ function EventDetail() {
 
   if (!name) {
     return (
-      <div className="mx-auto max-w-3xl px-5 py-10 sm:px-8">
+      <div className="mx-auto max-w-3xl px-4 py-10 sm:px-8">
         <EmptyState icon={Ticket} action={<Link href={`/trips/${tripId}/discover`} className="btn-secondary">Open Discover</Link>}>
           No event selected. Pick one from Discover, or ask Roam what is on.
         </EmptyState>
@@ -44,7 +44,7 @@ function EventDetail() {
 
 export default function EventDetailPage() {
   return (
-    <Suspense fallback={<SkeletonLines lines={6} className="mx-auto max-w-3xl px-5 py-14 sm:px-8" />}>
+    <Suspense fallback={<SkeletonLines lines={6} className="mx-auto max-w-3xl px-4 py-14 sm:px-8" />}>
       <EventDetail />
     </Suspense>
   );

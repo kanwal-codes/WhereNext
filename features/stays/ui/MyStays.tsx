@@ -15,7 +15,7 @@ export function MyStays({ tripId, items, loading, onRemove, onBrowse }: { tripId
       <div className="rounded-3xl border border-dashed border-border bg-card/50 p-8 text-center sm:p-12">
         <span className="mx-auto grid size-12 place-items-center rounded-full bg-muted text-muted-foreground"><BedDouble className="size-5" aria-hidden /></span>
         <p className="mt-4 font-display text-2xl tracking-tight">No stays on this trip yet</p>
-        <p className="mx-auto mt-1 max-w-md text-sm leading-relaxed text-muted-foreground">Lock a room from Browse and it lands here, or add one you have already booked from Bookings.</p>
+        <p className="mx-auto mt-1 max-w-md text-sm leading-relaxed text-ink-soft">Lock a room from Browse and it lands here, or add one you have already booked from Bookings.</p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <button type="button" onClick={onBrowse} className="btn-primary h-11 rounded-full px-6">Browse stays</button>
           <Link href={`/trips/${tripId}/bookings`} className="daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-card px-5 font-medium shadow-none hover:border-foreground/30 hover:bg-accent">Add a booking</Link>

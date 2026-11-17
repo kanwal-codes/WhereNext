@@ -80,7 +80,7 @@ export function FeaturedTrip({
                 <div className="min-w-0 max-w-xl pr-12 lg:pr-0">
                   <h3 className="font-display text-4xl leading-[1.05] tracking-tight text-balance sm:text-5xl">{trip.name}</h3>
                   <p className={cn("mt-3 flex items-center gap-1.5 text-base transition-colors duration-700", photo ? "text-white/85" : "text-muted-foreground")}>
-                    <MapPin className="h-4 w-4 shrink-0" />
+                    <MapPin className="size-4 shrink-0" />
                     <span className="truncate">{trip.destination || "Destination not set"}</span>
                   </p>
                   <p className={cn("mt-1 text-sm tabular-nums transition-colors duration-700", photo ? "text-white/75" : "text-muted-foreground")}>{when}</p>
@@ -106,7 +106,7 @@ export function FeaturedTrip({
                     ))}
                   </div>
                   <span className={cn("daisy-btn w-fit border-0 shadow-none transition-colors duration-700", photo ? "bg-white text-zinc-900 group-hover:bg-white/90" : "daisy-btn-neutral")}>
-                    Open trip <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+                    Open trip <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-0.5" />
                   </span>
                 </div>
               </div>

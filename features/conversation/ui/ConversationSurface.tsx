@@ -195,7 +195,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
 
           {hiddenCount > 0 && (
             <div className="flex justify-center pb-2">
-              <button type="button" onClick={showEarlier} className="btn-chip h-9 px-4 text-xs max-lg:h-10 max-lg:border-0 max-lg:bg-secondary max-lg:text-sm max-lg:font-semibold max-lg:text-ink-soft">Show earlier messages</button>
+              <button type="button" onClick={showEarlier} className="btn-chip h-9 px-4 text-xs max-lg:h-10 max-lg:border-0 max-lg:bg-muted max-lg:text-sm max-lg:font-semibold max-lg:text-ink-soft">Show earlier messages</button>
             </div>
           )}
 
@@ -227,7 +227,7 @@ export const ConversationSurface = React.memo(function ConversationSurface({
             </div>
           )}
           {unanswered && (
-            <p role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+            <p role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-soft">
               Roam didn&rsquo;t get to answer this one.
               <button type="button" onClick={() => void submit(unanswered.content, (unanswered.idempotency_key as string).slice("user:".length))} className="link-underline font-medium text-foreground">
                 Try again

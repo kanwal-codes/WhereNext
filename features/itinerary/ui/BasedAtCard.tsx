@@ -13,17 +13,17 @@ export function BasedAtCard({ lockedStay }: { lockedStay: StayDecision }) {
         src={lockedStay.thumbnail}
         width={96}
         height={96}
-        className="h-16 w-16 shrink-0 rounded-2xl object-cover"
+        className="size-16 shrink-0 rounded-2xl object-cover"
         fallback={
-          <span className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-muted">
-            <BedDouble className="h-5 w-5 text-muted-foreground" />
+          <span className="grid size-16 shrink-0 place-items-center rounded-2xl bg-muted">
+            <BedDouble className="size-5 text-muted-foreground" />
           </span>
         }
       />
       <div className="min-w-0">
         <p className="text-2xs font-medium tracking-[0.14em] text-muted-foreground uppercase">Based at</p>
         <p className="truncate font-display text-xl tracking-tight">{lockedStay.hotelName}</p>
-        <p suppressHydrationWarning className="truncate text-sm text-muted-foreground">
+        <p suppressHydrationWarning className="truncate text-sm text-ink-soft">
           {fmtDay(lockedStay.checkin)} to {fmtDay(lockedStay.checkout)}
         </p>
       </div>

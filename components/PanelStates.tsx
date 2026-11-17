@@ -43,7 +43,7 @@ export function PanelLoadingBody({ what, children }: { what: string; children?: 
     <div aria-busy="true">
       <Skeleton className="mt-6 h-11 w-full max-w-md rounded-full" />
       <Skeleton className="mt-6 h-[5.25rem] w-full rounded-2xl" />
-      <p role="status" className="mt-6 min-h-5 text-sm text-muted-foreground">
+      <p role="status" className="mt-6 min-h-5 text-sm text-ink-soft">
         {phase === 0 ? <span className="sr-only">Loading {what}</span> : phase === 1 ? "Finding the details…" : "Still finding the details — the source is slow today. You can keep chatting meanwhile."}
       </p>
       <SkeletonLines lines={3} className="mt-4" />
@@ -53,11 +53,11 @@ export function PanelLoadingBody({ what, children }: { what: string; children?: 
 }
 
 export function PanelLoading({ what, panel, heroClassName, children, seed, insetOnPhone = false }: { what: string; panel: boolean; heroClassName?: string; children?: ReactNode; /** What the card that opened this already knew: shown at once in place of the bars it stands for. */ seed?: { title: string; subtitle?: string | null; photo?: string | null; rating?: number | null } | null; /** The loaded view puts its photo in a rounded 16:10 frame on a phone (not a full-bleed strip): draw that frame while loading too, so nothing jumps when the details arrive. */ insetOnPhone?: boolean }) {
-  const pad = panel ? PANEL_PAD : "mx-auto max-w-5xl px-5 pb-14 sm:px-8";
+  const pad = panel ? PANEL_PAD : "mx-auto max-w-5xl px-4 pb-14 sm:px-8";
   return (
     <div aria-busy="true">
       {insetOnPhone && (
-        <div className="px-5 pt-3 lg:hidden">
+        <div className="px-4 pt-3 lg:hidden">
           <div className="relative aspect-[16/10] overflow-hidden rounded-3xl bg-muted">
             {/* eslint-disable-next-line @next/next/no-img-element -- the card's own photo, already in the browser's cache */}
             {seed?.photo && <img src={seed.photo} alt="" className="photo-grade absolute inset-0 h-full w-full object-cover" />}
@@ -74,7 +74,7 @@ export function PanelLoading({ what, panel, heroClassName, children, seed, inset
         {seed ? (
           <>
             <h1 className="font-display text-2xl leading-tight font-medium tracking-[-0.03em]">{seed.title}</h1>
-            <p className="mt-2 flex flex-wrap items-center gap-x-2 text-[0.9375rem] text-ink-soft">
+            <p className="mt-2 flex flex-wrap items-center gap-x-2 text-body text-ink-soft">
               {typeof seed.rating === "number" && <span className="font-semibold text-foreground tabular-nums">★ {seed.rating.toFixed(1)}</span>}
               {seed.subtitle && <span>{seed.subtitle}</span>}
             </p>
@@ -94,7 +94,7 @@ export function PanelLoading({ what, panel, heroClassName, children, seed, inset
 
 /** A failed load: says what failed, offers Retry, and never points at a screen the user isn't on. Centred in the panel so a tall column is not a small card and a lot of nothing. */
 export function PanelError({ what, panel, onRetry, children, heading: Heading = "h2" }: { what: string; panel: boolean; onRetry?: () => void; children?: ReactNode; /** "h1" when this IS the page (a place or hotel that would not load, so there is no title of its own); "h2" under a hero that already has one. */ heading?: "h1" | "h2" }) {
-  const pad = panel ? PANEL_PAD : "mx-auto max-w-5xl px-5 pb-14 sm:px-8";
+  const pad = panel ? PANEL_PAD : "mx-auto max-w-5xl px-4 pb-14 sm:px-8";
   return (
     <div className={cn(pad, "grid min-h-[min(30rem,62vh)] place-items-center pt-10")}>
       <div role="alert" className="mx-auto max-w-sm text-center">

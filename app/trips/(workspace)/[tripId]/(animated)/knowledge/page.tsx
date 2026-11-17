@@ -27,7 +27,7 @@ function MemoryRow({ icon: Icon, tone, title, detail, last, bare, children }: { 
         </span>
         <ChevronRight className="size-[1.125rem] shrink-0 text-muted-foreground" aria-hidden />
       </button>
-      <Sheet open={open} onClose={() => setOpen(false)} side="bottom" ariaLabel={title} className="rounded-t-4xl bg-background px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+      <Sheet open={open} onClose={() => setOpen(false)} side="bottom" ariaLabel={title} className="px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         {!bare && <p className="pb-3 font-display text-xl font-medium tracking-[-0.02em]">{title}</p>}
         <div className="min-h-0 flex-1 overflow-y-auto [&_h2:first-of-type]:sr-only">{children}</div>
       </Sheet>
@@ -78,7 +78,7 @@ export default function KnowledgePage() {
 
       {/* "What we know" (locked in, still to decide) lives beside the conversation, where it is edited as you talk; repeating it here only meant two copies to keep in step. */}
       {phone ? (
-        <div className="mx-auto max-w-6xl px-5 pt-3">
+        <div className="mx-auto max-w-6xl px-4 pt-3">
           <MemoryRow icon={DollarSign} tone="bg-coral-soft text-coral-ink" title="Budget" bare detail={budget !== null ? `${formatMoney(budget, currency)} a day, per person` : "Not set yet"}>
             <BudgetSurface tripId={tripId} durationDays={trip?.duration_days} travelers={trip?.travelers} initialBudget={prefs.budget} currency={currency} />
           </MemoryRow>
@@ -91,7 +91,7 @@ export default function KnowledgePage() {
           <div className="mt-8"><SavedPlacesList tripId={tripId} places={saved} /></div>
         </div>
       ) : (
-      <div className="mx-auto grid max-w-6xl items-start gap-6 px-5 pt-8 sm:px-8 max-lg:gap-8 lg:grid-cols-2">
+      <div className="mx-auto grid max-w-6xl items-start gap-6 px-4 pt-8 sm:px-8 max-lg:gap-8 lg:grid-cols-2">
         <div className="min-w-0 space-y-6 max-lg:space-y-8">
           <Reveal>
             <BudgetSurface

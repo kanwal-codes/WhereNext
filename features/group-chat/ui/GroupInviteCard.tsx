@@ -74,7 +74,7 @@ export function GroupInviteCard({ tripId, tripName }: { tripId: string; tripName
       <div className="relative flex items-center gap-3">
         {/* You, and the places still waiting for the others. */}
         <span className="flex -space-x-1.5" aria-hidden>
-          <span className="relative z-[3] grid size-10 place-items-center rounded-full bg-foreground text-[11px] max-lg:text-xs font-semibold text-background ring-2 ring-card">You</span>
+          <span className="relative z-[3] grid size-10 place-items-center rounded-full bg-foreground text-2xs max-lg:text-xs font-semibold text-background ring-2 ring-card">You</span>
           <span className="relative z-[2] grid size-10 place-items-center rounded-full border-2 border-dashed border-border bg-card text-muted-foreground ring-2 ring-card"><UserPlus className="size-4" /></span>
           <span className="relative z-[1] grid size-10 place-items-center rounded-full border-2 border-dashed border-border/70 bg-card text-muted-foreground/70 ring-2 ring-card"><UserPlus className="size-4" /></span>
         </span>
@@ -103,7 +103,7 @@ export function GroupInviteCard({ tripId, tripName }: { tripId: string; tripName
           disabled={!link}
           className={cn(
             "relative inline-flex h-10 shrink-0 items-center gap-1.5 overflow-hidden rounded-xl px-4 text-sm font-medium transition-[background-color,color,transform] active:scale-[0.97] disabled:opacity-50",
-            copied ? "bg-secondary text-foreground" : "bg-primary text-primary-foreground hover:opacity-90",
+            copied ? "bg-muted text-foreground" : "bg-primary text-primary-foreground hover:opacity-90",
           )}
         >
           <AnimatePresence mode="wait" initial={false}>

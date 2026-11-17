@@ -75,7 +75,7 @@ export function AddEventButton({ tripId, title, rawDate, showTime, latitude, lon
         type="button"
         disabled={busy || alreadyAdded}
         onClick={() => void add()}
-        className={cn(primary ? "btn-primary h-12 w-full px-6 text-[0.9375rem]" : "btn-secondary inline-flex items-center gap-2", !primary && block && "h-12 w-full justify-center rounded-full", alreadyAdded && "!border-coral/35 !bg-coral-soft !text-coral-ink disabled:opacity-100")}
+        className={cn(primary ? "btn-primary h-12 w-full px-6 text-body" : "btn-secondary inline-flex items-center gap-2", !primary && block && "h-12 w-full justify-center rounded-full", alreadyAdded && "!border-coral/35 !bg-coral-soft !text-coral-ink disabled:opacity-100")}
       >
         {busy ? <Loader2 className="size-4 animate-spin" /> : <CalendarCheck className="size-4" />}
         {alreadyAdded ? (existing?.day_index ? `On Day ${existing.day_index}` : "On your trip") : "Add to trip"}

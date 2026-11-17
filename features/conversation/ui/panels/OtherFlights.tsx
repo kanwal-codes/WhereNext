@@ -82,7 +82,7 @@ export function FareCard({ offer, onPick, delta, badges, selected, priceNote }: 
       onClick={() => onPick(offer)}
       className={cn(
         "group relative block w-full rounded-2xl border bg-card p-4 text-left shadow-soft transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-[0.985]",
-        selected ? "border-coral ring-1 ring-coral/40" : "border-border hover:border-foreground/25",
+        selected ? "border-primary ring-1 ring-primary" : "border-border hover:border-foreground/25",
       )}
     >
       {selected && <span aria-hidden className="absolute right-3 top-3 grid size-5 place-items-center rounded-full bg-coral text-white"><Check className="size-3" strokeWidth={3} /></span>}

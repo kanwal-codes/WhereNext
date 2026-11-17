@@ -127,7 +127,7 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
               {stops.map((code, i) => (
                 <span key={code + i} className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ left: stopAt(i) }}>
                   <span className="block size-2.5 rounded-full border-2 border-coral bg-card" />
-                  <span className="absolute left-1/2 top-4 -translate-x-1/2 text-[11px] max-lg:text-xs font-medium tracking-wide text-muted-foreground">{code}</span>
+                  <span className="absolute left-1/2 top-4 -translate-x-1/2 text-2xs max-lg:text-xs font-medium tracking-wide text-muted-foreground">{code}</span>
                 </span>
               ))}
               <motion.span

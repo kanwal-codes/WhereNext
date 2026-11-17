@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowUpRight, CalendarDays, ChevronDown, Info, Navigation, Ticket } from "lucide-react";
 import { Hero } from "@/components/Hero";
 import { DetailSectionHeading } from "@/components/DetailSectionHeading";
-import { FactStrip } from "@/components/DetailKit";
+import { ACTION_LABELLED, FactStrip } from "@/components/DetailKit";
 import { BackLink } from "@/components/BackLink";
 import { ExternalLink } from "@/components/ExternalLink";
 import { SourceCard } from "@/components/SourceCard";
@@ -52,7 +52,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
   const { detail, state, retry } = useEventDetail(tripId, seed);
   const titleTag = useDocumentTitle(panel ? null : detail?.title ?? seed.name);
 
-  const pad = panel ? PANEL_PAD : "mx-auto max-w-3xl px-5 pb-14 sm:px-8";
+  const pad = panel ? PANEL_PAD : "mx-auto max-w-3xl px-4 pb-14 sm:px-8";
   const d = detail;
 
   // No separate loading screen: the seed already has the title and the photograph, so the hero below is the same one before and after
@@ -118,23 +118,23 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                   {/* Phone: the same shape as a place: one summary line, the date as a chip with the ticket link beside it, then the two main buttons. */}
                   <div className="lg:hidden">
                     {(venueName || d?.priceRange) && (
-                      <p className="text-[0.9375rem] text-ink-soft">
+                      <p className="text-body text-ink-soft">
                         {[venueName, [d?.venueAddress ? cityFrom(d.venueAddress) : null, d?.city].find((n) => n && venueName && n.trim().toLowerCase() !== venueName.trim().toLowerCase()), d?.priceRange && `From ${d.priceRange}`].filter(Boolean).join(" · ")}
                       </p>
                     )}
                     <div className="mt-3 flex items-center gap-2">
                       {dt && (
-                        <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-secondary px-3.5 text-sm font-medium text-foreground">
+                        <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-muted px-3.5 text-sm font-medium text-foreground">
                           <CalendarDays className="size-4 text-muted-foreground" aria-hidden />
                           {[dt.day, dt.time].filter(Boolean).join(" · ")}
                         </span>
                       )}
                     </div>
-                    {dt && d?.doorsTime && displayClockTime(d.doorsTime) !== dt.time && <p className="mt-2 text-sm text-muted-foreground">Doors {displayClockTime(d.doorsTime)}</p>}
+                    {dt && d?.doorsTime && displayClockTime(d.doorsTime) !== dt.time && <p className="mt-2 text-sm text-ink-soft">Doors {displayClockTime(d.doorsTime)}</p>}
                     <div className="mt-4 flex items-center gap-2.5">
                       <div className="min-w-0 flex-1"><AddEventButton primary tripId={tripId} title={title} rawDate={rawDate} showTime={d?.showTime} latitude={d?.latitude} longitude={d?.longitude} /></div>
                       {directionsUrl && (
-                        <a href={directionsUrl} target="_blank" rel="noreferrer noopener" className="inline-flex h-12 shrink-0 items-center gap-2 rounded-full border border-input bg-background px-5 text-[0.9375rem] font-semibold transition-transform active:scale-[0.97]">
+                        <a href={directionsUrl} target="_blank" rel="noreferrer noopener" className={ACTION_LABELLED}>
                           <Navigation className="size-[1.125rem]" aria-hidden /> Directions
                         </a>
                       )}
@@ -142,7 +142,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                     {ticketUrl && (
                       <a href={safeHref(ticketUrl)} target="_blank" rel="noreferrer noopener" className="mt-3 flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-border px-4 py-2.5 active:bg-accent">
                         <Ticket className="size-[1.125rem] shrink-0 text-coral" aria-hidden />
-                        <span className="min-w-0 flex-1"><span className="block text-[0.9375rem] font-medium">Tickets</span><span className="block truncate text-xs text-muted-foreground">{[ticketSeller && `via ${ticketSeller}`, "prices and availability change"].filter(Boolean).join(" · ")}</span></span>
+                        <span className="min-w-0 flex-1"><span className="block text-body font-medium">Tickets</span><span className="block truncate text-xs text-muted-foreground">{[ticketSeller && `via ${ticketSeller}`, "prices and availability change"].filter(Boolean).join(" · ")}</span></span>
                         <ArrowUpRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
                       </a>
                     )}
@@ -168,7 +168,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                   <div className="p-5">
                     <div className="flex items-center justify-between gap-3">
                       <h2 className="flex items-center gap-2 font-display text-lg">
-                        <Ticket className="h-4 w-4 text-coral" /> Tickets
+                        <Ticket className="size-4 text-coral" /> Tickets
                       </h2>
                       {ticketSeller && <span className="text-xs text-muted-foreground">via {ticketSeller}</span>}
                     </div>
@@ -181,7 +181,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                             rel="noreferrer noopener"
                             className="btn-primary"
                           >
-                            <Ticket className="h-4 w-4" /> Get tickets
+                            <Ticket className="size-4" /> Get tickets
                           </a>
                         </Tactile>
                       )}
@@ -252,7 +252,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                 {headliner && (
                   <p className="text-lg font-medium leading-tight">
                     {headliner}
-                    {support.length > 0 && <span className="text-sm font-normal text-muted-foreground"> — headlining</span>}
+                    {support.length > 0 && <span className="text-sm font-normal text-ink-soft"> — headlining</span>}
                   </p>
                 )}
                 {support.length > 0 && (
@@ -264,7 +264,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                     ))}
                   </Stagger>
                 )}
-                {lineupNote && <p className="mt-2.5 text-sm text-muted-foreground">{lineupNote}</p>}
+                {lineupNote && <p className="mt-2.5 text-sm text-ink-soft">{lineupNote}</p>}
               </Section>
             )}
 
@@ -298,7 +298,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
                 )}
                 {d?.pleaseNote && (
                   <p className={cn("flex gap-2 text-xs leading-relaxed text-muted-foreground", goodToKnow.length > 0 && "mt-3")}>
-                    <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {d.pleaseNote}
+                    <Info className="mt-0.5 size-3.5 shrink-0" /> {d.pleaseNote}
                   </p>
                 )}
               </Section>
@@ -308,7 +308,7 @@ export function EventDetailView({ tripId, seed, variant = "page" }: { tripId: st
               <Reveal delay={0.14}>
                 <details className="group text-xs">
                   <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground">
-                    <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+                    <ChevronDown className="size-3.5 transition-transform group-open:rotate-180" />
                     <span className="font-medium">{d.sources.length} source{d.sources.length === 1 ? "" : "s"}</span>
                   </summary>
                   <ul className="mt-2 space-y-1 pl-5">

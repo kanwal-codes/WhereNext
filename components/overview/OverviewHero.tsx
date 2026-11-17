@@ -66,11 +66,11 @@ export function OverviewHero({
             <div aria-hidden className={cn("pointer-events-none absolute inset-0 z-[2] scrim-v [--scrim:0.85] transition-opacity duration-1000", photo ? "opacity-100" : "opacity-0")} />
             <div aria-hidden className={cn("pointer-events-none absolute inset-0 z-[2] bg-[radial-gradient(85%_65%_at_22%_88%,rgba(0,0,0,0.42),transparent)] transition-opacity duration-1000", photo ? "opacity-100" : "opacity-0")} />
 
-            <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-3 px-5 pt-5 sm:px-8 sm:pt-7">
+            <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-3 px-4 pt-5 sm:px-8 sm:pt-7">
               {statusText ? (
                 <Reveal delay={0.1}>
                   <span suppressHydrationWarning className="photo-chip">
-                    <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-coral" />
+                    <span aria-hidden className="size-1.5 rounded-full bg-coral" />
                     {statusText}
                   </span>
                 </Reveal>
@@ -85,15 +85,15 @@ export function OverviewHero({
                   title="Rename trip"
                   className="daisy-btn daisy-btn-circle daisy-btn-sm border-border/60 bg-background/88 text-foreground shadow-none hover:bg-background max-lg:size-11"
                 >
-                  <Pencil className="h-3.5 w-3.5" />
+                  <Pencil className="size-3.5" />
                 </button>
               </Reveal>
             </div>
 
-            <div className={cn("relative z-10 mx-auto w-full max-w-6xl px-5 pt-40 pb-6 transition-colors duration-1000 sm:px-8 sm:pb-9", "max-lg:pt-24", photo ? "text-white" : "text-foreground")}>
+            <div className={cn("relative z-10 mx-auto w-full max-w-6xl px-4 pt-40 pb-6 transition-colors duration-1000 sm:px-8 sm:pb-9", "max-lg:pt-24", photo ? "text-white" : "text-foreground")}>
               <Reveal delay={0.1}>
                 <p className={cn("flex items-center gap-1.5 text-sm font-medium tracking-[0.14em] uppercase transition-colors duration-1000", photo ? "text-white/85 [text-shadow:0_1px_12px_rgba(0,0,0,0.6)]" : "text-muted-foreground")}>
-                  <MapPin className="h-3.5 w-3.5 shrink-0" />
+                  <MapPin className="size-3.5 shrink-0" />
                   <span className="truncate">
                     {/* "London, England, United Kingdom" is a provider string; the place a traveller names is "London, United Kingdom". */}
                     {kicker ?? (() => { const { city, country } = coverText({ name: destination, destination }); return country && country !== city ? `${city}, ${country}` : city; })()}
@@ -122,7 +122,7 @@ export function OverviewHero({
                     className="min-w-0 flex-1 rounded-2xl border border-border/60 bg-background/90 px-4 py-2 font-display text-3xl text-foreground shadow-soft outline-none backdrop-blur focus:border-foreground/40 sm:text-5xl"
                   />
                   <button type="submit" disabled={rename.saving} aria-label="Save trip name" className="daisy-btn daisy-btn-circle border-border/60 bg-background/90 text-foreground shadow-none backdrop-blur">
-                    {rename.saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                    {rename.saving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
                   </button>
                 </form>
               ) : (
@@ -139,7 +139,7 @@ export function OverviewHero({
                 </>
               )}
 
-              <p suppressHydrationWarning className={cn("mt-3 text-[0.9375rem] leading-snug lg:hidden", photo ? "text-white/90 [text-shadow:0_1px_12px_rgba(0,0,0,0.5)]" : "text-ink-soft")}>
+              <p suppressHydrationWarning className={cn("mt-3 text-body leading-snug lg:hidden", photo ? "text-white/90 [text-shadow:0_1px_12px_rgba(0,0,0,0.5)]" : "text-ink-soft")}>
                 {facts
                   .filter((f) => f.label !== "From" && f.value)
                   .map((f) => (f.label === "Travellers" ? `${f.value} ${f.value === "1" ? "traveller" : "travellers"}` : String(f.value)))
@@ -161,9 +161,9 @@ export function OverviewHero({
                   {facts.map((fact) => (
                     <div key={fact.label} className={cn("daisy-stat", fact.label === "From" && "max-lg:hidden")}>
                       <div className="daisy-stat-title flex items-center gap-1.5 text-2xs tracking-[0.1em] uppercase">
-                        <fact.icon className="h-3 w-3" /> {fact.label}
+                        <fact.icon className="size-3" /> {fact.label}
                       </div>
-                      <div className={cn("daisy-stat-value font-display text-xl tracking-tight tabular-nums max-sm:text-lg sm:text-2xl", "max-sm:text-[0.9375rem]! max-sm:leading-snug!", fact.label === "Dates" && "max-sm:whitespace-nowrap!", !fact.value && "opacity-75")}>{fact.value ?? "Not set"}</div>
+                      <div className={cn("daisy-stat-value font-display text-xl tracking-tight tabular-nums max-sm:text-lg sm:text-2xl", "max-sm:text-body! max-sm:leading-snug!", fact.label === "Dates" && "max-sm:whitespace-nowrap!", !fact.value && "opacity-75")}>{fact.value ?? "Not set"}</div>
                       {fact.desc && <div className="daisy-stat-desc">{fact.desc}</div>}
                     </div>
                   ))}

@@ -208,7 +208,7 @@ export function ExpensesPanel({ tripId, defaultCurrency }: { tripId: string; def
   return (
     <div className="space-y-4">
       {state.totals.length > 0 && (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-ink-soft">
           Spent together: <span className="font-medium tabular-nums text-foreground">{state.totals.map((t) => formatMoney(t.total, t.currency)).join(" · ")}</span>
         </p>
       )}

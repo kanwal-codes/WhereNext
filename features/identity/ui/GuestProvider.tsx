@@ -27,7 +27,7 @@ function GuestGateDialog({ open, tripId, what, onClose }: { open: boolean; tripI
         aria-label="Close"
         className="absolute top-3 right-3 z-10 rounded-full p-1.5 text-muted-foreground hover:text-foreground"
       >
-        <X className="h-4 w-4" />
+        <X className="size-4" />
       </button>
       <GuestSavePrompt
         tripId={tripId}

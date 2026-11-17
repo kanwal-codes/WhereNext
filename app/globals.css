@@ -236,7 +236,7 @@
   --primary: oklch(0.205 0.012 65);
   --primary-foreground: oklch(1 0 0);
 
-  --secondary: oklch(0.967 0.004 80);
+  --secondary: var(--muted);
   --secondary-foreground: oklch(0.24 0.012 65);
 
   --muted: oklch(0.967 0.004 80);
@@ -364,7 +364,7 @@
   --primary: oklch(0.97 0.002 260);
   --primary-foreground: oklch(0.16 0.005 260);
 
-  --secondary: oklch(0.24 0.005 260);
+  --secondary: var(--muted);
   --secondary-foreground: oklch(0.97 0.002 260);
 
   --muted: oklch(0.23 0.005 260);
@@ -667,6 +667,11 @@
   /* One selected state for every filter chip in the app: ink, like the primary button. */
   &[aria-pressed="true"], &[data-active="true"] { background-color: var(--color-primary); border-color: var(--color-primary); color: var(--color-primary-foreground); }
   &[aria-pressed="true"]:hover, &[data-active="true"]:hover { background-color: color-mix(in oklab, var(--color-primary) 86%, white); color: var(--color-primary-foreground); }
+}
+
+/* The halo a text box or composer gets while it is being typed in: a soft 4px ring of ink over the lifted shadow. */
+@utility shadow-halo {
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-ink) 6%, transparent), var(--shadow-lift);
 }
 
 @utility hairline {
@@ -1724,19 +1729,6 @@ html[data-landing] { scrollbar-color: #c4c4ca transparent; scrollbar-width: thin
 
 .trip-pin-label[data-side="left"] { left: auto; right: 38px; }
 
-/* The marker that travels the route, in the colour of the leg it is on, with a ring that breathes. */
-.trip-rider { box-shadow: 0 5px 12px -4px oklch(0.2 0.012 65 / 28%); }
-.trip-rider::after {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  border-radius: 9999px;
-  border: 2px solid var(--rider, currentColor);
-  opacity: 0;
-  animation: rider-ring 2.2s var(--ease-out) infinite;
-}
-@keyframes rider-ring { 0% { transform: scale(1); opacity: 0.5; } 100% { transform: scale(2); opacity: 0; } }
-
 /* A time sitting on a route: ink for the one you are on, white for the others, which you can tap. */
 @keyframes trip-pop { 0% { opacity: 0; transform: scale(0.82) translateY(4px); } 100% { opacity: 1; transform: none; } }
 .trip-pill {
@@ -1814,6 +1806,8 @@ html[data-landing] { scrollbar-color: #c4c4ca transparent; scrollbar-width: thin
 
 /* Mapbox's own controls, in the app's skin: white, soft shadow, rounded to match the floating panel. */
 .trip-map .mapboxgl-ctrl-top-right { margin: 14px 14px 0 0; }
+/* Getting around on a phone: the map runs up under the header, so the zoom buttons start below it. */
+@media (max-width: 1023.98px) { .map-under-header .trip-map .mapboxgl-ctrl-top-right { margin-top: calc(var(--topbar) + 8px); } }
 .trip-map .mapboxgl-ctrl-group {
   overflow: hidden;
   border-radius: 16px;
@@ -1828,7 +1822,7 @@ html[data-landing] { scrollbar-color: #c4c4ca transparent; scrollbar-width: thin
 .trip-map .mapboxgl-ctrl-icon { filter: none; }
 /* Names would pile on top of each other at phone width, where the pins sit close; the numbers and the list carry it. */
 @media (max-width: 639.98px) { .trip-pin-label { display: none; } }
-@media (prefers-reduced-motion: reduce) { .trip-pin-drop, .trip-rider::after, .trip-pill, .trip-node { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .trip-pin-drop, .trip-pill, .trip-node { animation: none; } }
 
 /* Phone redesign: one icon weight. Lucide draws at 2px; widgets and the phone chrome use 1.6px, rounded, so
    icons sit with the type instead of shouting over it. Scope a surface with `icons-fine`; nothing else changes. */

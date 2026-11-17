@@ -27,7 +27,7 @@ export function PlaceHoursContact({ details, hours, todayHours, wheelchair }: { 
                   </span>
                 )}
               </summary>
-              <dl className="grid grid-cols-[6.5rem_1fr] gap-x-3 gap-y-1.5 pb-3 pl-7 text-sm text-muted-foreground">
+              <dl className="grid grid-cols-[6.5rem_1fr] gap-x-3 gap-y-1.5 pb-3 pl-7 text-sm text-ink-soft">
                 {hours.map((h, i) => {
                   const [day, hoursText] = splitHoursLine(h);
                   const today = i === todayIndex();

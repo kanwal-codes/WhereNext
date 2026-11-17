@@ -45,10 +45,10 @@ function SkeletonRow({ className }: { className?: string }) {
       <div className={cn(pulse, "h-[7.5rem] w-24 shrink-0 rounded-2xl")} />
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
         <div className={cn(pulse, "h-2.5 w-1/3 rounded-md")} />
-        <div className={cn(pulse, "h-4 w-4/5 rounded-md")} />
+        <div className={cn(pulse, "size-4/5 rounded-md")} />
         <div className={cn(pulse, "h-4 w-3/5 rounded-md")} />
         <div className={cn(pulse, "mt-1 h-3 w-2/5 rounded-md")} />
-        <div className={cn(pulse, "h-3 w-3/5 rounded-md")} />
+        <div className={cn(pulse, "size-3/5 rounded-md")} />
       </div>
       <div className="flex shrink-0 flex-col items-center justify-between py-0.5">
         <div className={cn(pulse, "size-8 rounded-full")} />
@@ -95,7 +95,7 @@ export function SkeletonList({ count = 6, className }: { count?: number; classNa
 /** Discover's bands while they load: a swipeable row of tall cards on a phone, three across from sm up. */
 export function SkeletonBand({ count = 6, className }: { count?: number; className?: string }) {
   return (
-    <div aria-hidden="true" className={cn("flex gap-4 overflow-hidden max-sm:-mx-5 max-sm:px-5 sm:grid sm:grid-cols-3", className)}>
+    <div aria-hidden="true" className={cn("flex gap-4 overflow-hidden max-sm:-mx-4 max-sm:px-4 sm:grid sm:grid-cols-3", className)}>
       {Array.from({ length: count }).map((_, i) => (
         <SkeletonPhotoCard key={i} className="w-[15.5rem] shrink-0 aspect-[3/4] sm:aspect-[11/10] sm:w-auto" />
       ))}

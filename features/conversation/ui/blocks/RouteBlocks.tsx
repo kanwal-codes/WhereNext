@@ -279,16 +279,16 @@ export function RouteComparisonCard({ from, to, routes, onOpenPanel, onFollowup 
               role="tab"
               aria-selected={on}
               onClick={() => { setMode(g.mode); setPick(0); }}
-              className={cn("flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl border px-3 py-2 text-left transition-colors", on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-surface hover:border-ink/30")}
+              className={cn("flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl border px-3 py-2 text-left transition-colors", on ? "border-primary bg-card text-foreground ring-1 ring-primary" : "border-border bg-surface hover:border-ink/30")}
             >
               <Icon className="size-5 shrink-0 @max-[27rem]:hidden" aria-hidden />
               <span className="min-w-0">
-                <span className="block truncate text-[0.9375rem] leading-tight font-medium">{ROUTE_MODE_LABEL[g.mode] ?? g.mode}</span>
-                <span className={cn("block truncate text-xs leading-tight tabular-nums", on ? "text-primary-foreground/70" : "text-muted-foreground")}>{g.routes.length > 1 ? `${g.routes.length} routes · ${minutes(g.routes[0])}` : (
+                <span className="block truncate text-body leading-tight font-medium">{ROUTE_MODE_LABEL[g.mode] ?? g.mode}</span>
+                <span className={"block truncate text-xs leading-tight tabular-nums text-muted-foreground"}>{g.routes.length > 1 ? `${g.routes.length} routes · ${minutes(g.routes[0])}` : (
                   <>{minutes(g.routes[0])}<span className="@max-[34rem]:hidden"> · {distance(g.routes[0].distanceMeters / 1000)}</span></>
                 )}</span>
               </span>
-              {g.routes[0] === fastest ? <WidgetPill tone="sage" className="ml-auto h-5 text-[0.6875rem] max-lg:text-xs @max-[34rem]:hidden">Fastest</WidgetPill> : minutes(g.routes[0]) === minutes(fastest) ? <WidgetPill className="ml-auto h-5 text-[0.6875rem] max-lg:text-xs @max-[34rem]:hidden">Same time</WidgetPill> : null}
+              {g.routes[0] === fastest ? <WidgetPill tone="sage" className="ml-auto h-5 text-2xs max-lg:text-xs @max-[34rem]:hidden">Fastest</WidgetPill> : minutes(g.routes[0]) === minutes(fastest) ? <WidgetPill className="ml-auto h-5 text-2xs max-lg:text-xs @max-[34rem]:hidden">Same time</WidgetPill> : null}
             </button>
           );
         })}
@@ -301,7 +301,7 @@ export function RouteComparisonCard({ from, to, routes, onOpenPanel, onFollowup 
             onClick={() => { setPick(i); onOpenPanel?.({ kind: "route", routes: sorted, active: sorted.indexOf(route), onAsk: onFollowup }); }}
             label={`${ROUTE_MODE_LABEL[route.mode] ?? route.mode}, ${minutes(route)}: ${onOpenPanel ? "open the details" : "show on the map"}`}
             lead={<span className={cn("grid size-9 shrink-0 place-items-center rounded-xl", route === chosen ? "bg-lagoon text-white" : "bg-lagoon-soft text-lagoon")} aria-hidden>{React.createElement(routeModeIcon(route.mode, route.steps), { className: "size-[1.125rem]" })}</span>}
-            title={<span className="inline-flex items-center gap-1.5">{(route.mode === "transit" && route.steps.length > 0 ? routeLines(route.steps) : null) || ROUTE_MODE_LABEL[route.mode] || route.mode}{group.routes.length > 1 && i === 0 ? <WidgetPill tone="sage" className="h-5 text-[0.6875rem] max-lg:text-xs">Quickest</WidgetPill> : null}</span>}
+            title={<span className="inline-flex items-center gap-1.5">{(route.mode === "transit" && route.steps.length > 0 ? routeLines(route.steps) : null) || ROUTE_MODE_LABEL[route.mode] || route.mode}{group.routes.length > 1 && i === 0 ? <WidgetPill tone="sage" className="h-5 text-2xs max-lg:text-xs">Quickest</WidgetPill> : null}</span>}
             detail={[clockOf(route.departureTime) ? `leaves ${clockOf(route.departureTime)}` : null, route.fare ? money(route.fare.amount, route.fare.currency) : null, distance(route.distanceMeters / 1000)].filter(Boolean).join(" · ")}
             mid={<RowBar frac={route.durationSeconds / slowest} color={route === fastest ? "var(--positive)" : "var(--lagoon)"} />}
             value={<RowValue>{minutes(route)}</RowValue>}

@@ -152,7 +152,7 @@ export default function TripOverviewPage() {
         <div aria-hidden="true" className="skeleton min-h-[34rem] sm:min-h-[40rem]" />
       )}
 
-      <div className="px-5 pt-4 sm:px-8 lg:hidden">
+      <div className="px-4 pt-4 sm:px-8 lg:hidden">
         <NextStepCard
           tripId={tripId}
           plannedDays={new Set(itinerary.map((row) => row.day_index)).size}
@@ -170,7 +170,7 @@ export default function TripOverviewPage() {
       )}
       <div className="max-lg:hidden"><ActionBar tripId={tripId} name={trip?.name || destination} /></div>
 
-      <div className="mx-auto max-w-6xl space-y-16 px-5 pt-4 sm:px-8 sm:pt-6 max-lg:space-y-12">
+      <div className="mx-auto max-w-6xl space-y-16 px-4 pt-4 sm:px-8 sm:pt-6 max-lg:space-y-12">
         <Reveal>
           <TripReviewPanel tripId={tripId} />
         </Reveal>

@@ -20,7 +20,7 @@ export default async function NewTripPage() {
 
   return (
     <main className="min-h-screen">
-      <div className="mx-auto max-w-2xl px-5 py-10 sm:px-8 lg:py-16">
+      <div className="mx-auto max-w-2xl px-4 py-10 sm:px-8 lg:py-16">
         <StandaloneTopBar />
 
         <Reveal>
@@ -28,7 +28,7 @@ export default async function NewTripPage() {
           <h1 className="mt-3 max-w-lg font-display text-4xl leading-[1.15]">
             Start with a feeling. We&rsquo;ll find the trip.
           </h1>
-          <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-3 max-w-md text-sm leading-relaxed text-ink-soft">
             No form to finish first. Tell Roam what&rsquo;s on your mind and shape the details when
             you&rsquo;re ready.
           </p>

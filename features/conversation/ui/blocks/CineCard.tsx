@@ -88,20 +88,20 @@ export function PlaceFloatingPills({ place, extra }: { place: { openNow?: boolea
 export function CineDate({ month, day }: { month: string; day: string }) {
   return (
     <span className="inline-flex w-[3.25rem] flex-col items-center rounded-2xl bg-white py-1.5 shadow-[0_1px_3px_oklch(0.2_0.012_65/0.25)]" aria-hidden>
-      <span className="text-[0.625rem] max-lg:text-xs leading-3 font-semibold tracking-[0.14em] text-coral-ink uppercase">{month}</span>
+      <span className="text-2xs max-lg:text-xs leading-3 font-semibold tracking-[0.14em] text-coral-ink uppercase">{month}</span>
       <span className="font-display text-2xl leading-6 font-medium text-ink tabular-nums">{day}</span>
     </span>
   );
 }
 
 /** The round control that closes the card: a coral orb (add) or a white one (open, tickets). */
-export const CINE_ORB = "grid size-12 shrink-0 place-items-center rounded-full transition-[transform,filter] duration-200 ease-out active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
+export const CINE_ORB = "grid size-12 shrink-0 place-items-center rounded-full transition-[transform,filter] duration-200 ease-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
 export const CINE_ORB_WHITE = "bg-white text-ink shadow-[0_3px_10px_-2px_oklch(0_0_0/0.28)] hover:brightness-95";
 /** A white pill action ("Tickets"), for a card whose next step leads off the page. */
-export const CINE_PILL_ACTION = "inline-flex h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-white px-5 text-sm font-semibold text-ink shadow-[0_3px_10px_-2px_oklch(0_0_0/0.28)] transition-[transform,filter] duration-200 ease-out hover:brightness-95 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
+export const CINE_PILL_ACTION = "inline-flex h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-white px-5 text-sm font-semibold text-ink shadow-[0_3px_10px_-2px_oklch(0_0_0/0.28)] transition-[transform,filter] duration-200 ease-out hover:brightness-95 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
 
 /** The same white action as a plain circle with one icon ("add"), the height of the pill beside it. */
-export const CINE_ICON_ACTION = "inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-white text-ink shadow-[0_3px_10px_-2px_oklch(0_0_0/0.28)] transition-[transform,filter] duration-200 ease-out hover:brightness-95 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:opacity-100";
+export const CINE_ICON_ACTION = "inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-white text-ink shadow-[0_3px_10px_-2px_oklch(0_0_0/0.28)] transition-[transform,filter] duration-200 ease-out hover:brightness-95 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:opacity-100";
 
 function Backdrop({ src, alt, glyph: Glyph }: { src?: string | null; alt: string; glyph?: LucideIcon }) {
   const [failed, setFailed] = useState(false);
@@ -134,7 +134,7 @@ export type CineRowContent = { meta?: ReactNode; sub?: ReactNode; save?: ReactNo
 function CineRow({ label, onOpen, href, src, alt, glyph: Glyph, eyebrow, title, row, selected, overlay }: { label: string; onOpen?: () => void; href?: string; src?: string | null; alt: string; glyph?: LucideIcon; eyebrow?: ReactNode; title: ReactNode; row: CineRowContent; selected: boolean; overlay?: ReactNode }) {
   const [failed, setFailed] = useState(false);
   return (
-    <article data-tappable={onOpen ? "" : undefined} className={cn("card-lift group relative isolate flex w-full items-center gap-4 overflow-hidden rounded-4xl bg-card p-3 pr-3.5 shadow-float ring-1 ring-black/[0.05]", selected && "ring-2 ring-coral")}>
+    <article data-tappable={onOpen ? "" : undefined} className={cn("card-lift group relative isolate flex w-full items-center gap-4 overflow-hidden rounded-4xl bg-card p-3 pr-3.5 shadow-float ring-1 ring-black/[0.05]", selected && "ring-2 ring-primary")}>
       {onOpen && <CardOpenOverlay label={label} onOpen={onOpen} href={href} />}
       <div className="pointer-events-none relative h-[7.5rem] w-24 shrink-0 overflow-hidden rounded-2xl bg-muted shadow-soft ring-1 ring-black/[0.06]">
         {src && !failed ? (
@@ -144,7 +144,7 @@ function CineRow({ label, onOpen, href, src, alt, glyph: Glyph, eyebrow, title, 
         )}
       </div>
       <div className="pointer-events-none relative z-[1] flex min-w-0 flex-1 flex-col justify-center py-0.5">
-        {eyebrow && <p className="truncate text-[0.625rem] max-lg:text-xs font-medium tracking-[0.22em] text-muted-foreground uppercase">{eyebrow}</p>}
+        {eyebrow && <p className="truncate text-2xs max-lg:text-xs font-medium tracking-[0.22em] text-muted-foreground uppercase">{eyebrow}</p>}
         <h4 className="mt-1 line-clamp-2 font-display text-xl leading-[1.15] font-medium tracking-[-0.02em] text-balance">{title}</h4>
         <span aria-hidden className="my-2 h-px w-8 bg-gradient-to-r from-coral/80 to-transparent" />
         {row.meta && <div className="truncate text-xs text-muted-foreground tabular-nums">{row.meta}</div>}
@@ -209,7 +209,7 @@ export function CineCard({
       className={cn(
         "card-lift group relative isolate h-full w-full overflow-hidden rounded-3xl bg-[oklch(0.2_0.012_60)] text-white shadow-soft",
         compact ? "aspect-[4/5]" : wide ? "aspect-[4/3] sm:aspect-[3/4]" : "aspect-[3/4]",
-        selected && "ring-2 ring-coral",
+        selected && "ring-2 ring-primary",
         className,
       )}
     >
@@ -224,7 +224,7 @@ export function CineCard({
         </div>
         <div className="min-w-0">
           {eyebrow && !compact && <p className="eyebrow truncate text-white/70!">{eyebrow}</p>}
-          <h4 className={cn("font-display font-medium text-white text-balance", compact ? "line-clamp-2 text-[0.9375rem] leading-tight tracking-[-0.012em]" : "mt-1.5 line-clamp-2 text-2xl leading-[1.1] tracking-[-0.022em]")}>{title}</h4>
+          <h4 className={cn("font-display font-medium text-white text-balance", compact ? "line-clamp-2 text-body leading-tight tracking-[-0.012em]" : "mt-1.5 line-clamp-2 text-2xl leading-[1.1] tracking-[-0.022em]")}>{title}</h4>
           {compact && meta && <div className="mt-1 truncate text-xs text-white/75">{meta}</div>}
           {!compact && pills && <div className="mt-3 flex flex-wrap gap-1.5">{pills}</div>}
           {hasBottom && (

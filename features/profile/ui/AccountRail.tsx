@@ -16,7 +16,7 @@ export function AccountRail({ active, onPick }: { active: string; onPick: (id: s
               onClick={() => onPick(s.id)}
               className={cn("relative block whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm transition-colors", active === s.id ? "text-foreground" : "text-ink-soft hover:text-foreground")}
             >
-              {active === s.id && <motion.span layoutId="profile-nav-pill" className="absolute inset-0 rounded-full bg-secondary" transition={{ type: "spring", stiffness: 380, damping: 32 }} />}
+              {active === s.id && <motion.span layoutId="profile-nav-pill" className="absolute inset-0 rounded-full bg-muted" transition={{ type: "spring", stiffness: 380, damping: 32 }} />}
               <span className="relative">{s.label}</span>
             </a>
           </li>

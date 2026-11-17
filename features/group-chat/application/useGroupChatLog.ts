@@ -9,6 +9,10 @@ import { clockSkewMs } from "../domain/outbox";
 const VISIBLE_MESSAGES = 20;
 /** How often an open chat re-reads the log as a safety net, and how stale it may be before a tab switch re-reads it. */
 const POLL_MS = 30_000;
+/** Of every this-many polls, one re-reads the whole newest page (reactions and votes on older messages only arrive that way); the rest only ask what is new. */
+const FULL_REFRESH_EVERY = 4;
+/** A "what is new" check starts this far before the newest message it has, so a message that was committed a moment late is not missed (merged by id, so nothing doubles). */
+const NEWS_OVERLAP_MS = 5_000;
 
 /**
  * The group chat's message log: the newest page (read on open, on a realtime change, and every 30 s while the chat is on
@@ -38,6 +42,9 @@ export function useGroupChatLog({ tripId, active, cacheKey, logRef }: { tripId: 
   const seenIdsRef = useRef<Set<string>>(new Set());
   const firstReadRef = useRef(true);
   const refreshIdRef = useRef(0);
+  const pollCountRef = useRef(0);
+  const messagesRef = useRef<GroupMessage[]>([]);
+  messagesRef.current = messages;
   /** When the log last came back from the server, so returning to this tab doesn't re-read it for nothing. */
   const refreshedAtRef = useRef(0);
 
@@ -91,6 +98,42 @@ export function useGroupChatLog({ tripId, active, cacheKey, logRef }: { tripId: 
     }
   }, [tripId, cacheKey]);
 
+  // What an open chat asks every 30 s: only the messages newer than the newest it has (one small query, nothing to
+  // compare when nobody wrote), with a full re-read now and then for the reactions and votes a new-messages check cannot see.
+  const pollNews = useCallback(async () => {
+    pollCountRef.current += 1;
+    const newest = messagesRef.current[messagesRef.current.length - 1];
+    if (!newest || pollCountRef.current % FULL_REFRESH_EVERY === 0) {
+      void refresh();
+      return;
+    }
+    const after = new Date(Date.parse(newest.created_at) - NEWS_OVERLAP_MS).toISOString();
+    try {
+      const response = await fetch(`/api/trips/${tripId}/group-chat?after=${encodeURIComponent(after)}`);
+      if (!response.ok) throw new Error("load");
+      skewRef.current = clockSkewMs(response.headers.get("date"), Date.now());
+      const incoming = ((await response.json()).messages ?? []) as GroupMessage[];
+      setLoadFailed(false);
+      refreshedAtRef.current = Date.now();
+      if (incoming.length === 0) return;
+      setMessages((prev) => {
+        const byId = new Map(incoming.map((m) => [m.id, m]));
+        const known = new Set(prev.map((m) => m.id));
+        let changed = false;
+        const merged = prev.map((m) => {
+          const next = byId.get(m.id);
+          if (!next || JSON.stringify(next) === JSON.stringify(m)) return m;
+          changed = true;
+          return next;
+        });
+        const added = incoming.filter((m) => !known.has(m.id));
+        return changed || added.length > 0 ? [...merged, ...added] : prev;
+      });
+    } catch {
+      setLoadFailed(true);
+    }
+  }, [tripId, refresh]);
+
   useEffect(() => {
     if (!active) return;
     // Switching back to a tab that was read moments ago costs nothing: a message that arrived meanwhile
@@ -109,14 +152,13 @@ export function useGroupChatLog({ tripId, active, cacheKey, logRef }: { tripId: 
   // Safety net for when the realtime socket is down or silently dropped (a bad table on the channel, a
   // suspended tab): while the chat is on screen, re-read it every 30s so a collaborator's message still
   // lands without a manual reload. Realtime stays the fast path; this only covers its gaps.
-  // ponytail: plain interval poll, swap for an `after=<last id>` delta fetch if history gets large.
   useEffect(() => {
     if (!active) return;
     const id = setInterval(() => {
-      if (document.visibilityState === "visible") void refresh();
+      if (document.visibilityState === "visible") void pollNews();
     }, POLL_MS);
     return () => clearInterval(id);
-  }, [active, refresh]);
+  }, [active, pollNews]);
 
   // Keep what you were reading in place when older messages land above it.
   useLayoutEffect(() => {

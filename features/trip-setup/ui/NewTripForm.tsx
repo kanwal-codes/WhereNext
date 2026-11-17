@@ -41,21 +41,21 @@ export function NewTripForm() {
         <div className="border-b border-border/70 bg-surface/70 p-5 sm:p-7">
           <p className="eyebrow text-coral-ink">A blank page, in the good way</p>
           <h2 className="mt-2 max-w-md font-display text-2xl leading-tight">One conversation. A trip that gets clearer as you go.</h2>
-          <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">Start anywhere: a place, a date, a mood, or nothing decided yet. Roam will keep the useful details in view.</p>
+          <p className="mt-3 max-w-md text-sm leading-relaxed text-ink-soft">Start anywhere: a place, a date, a mood, or nothing decided yet. Roam will keep the useful details in view.</p>
           <button type="button" onClick={() => void createTrip()} disabled={Boolean(busy)} className="btn-primary mt-6 inline-flex items-center gap-2">
-            {busy === "trip" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} Start planning
+            {busy === "trip" ? <Loader2 className="size-4 animate-spin" /> : <ArrowRight className="size-4" />} Start planning
           </button>
         </div>
         <div className="p-5 sm:p-7">
-          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><Link2 className="h-3.5 w-3.5" /> Or bring a guide with you</div>
+          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><Link2 className="size-3.5" /> Or bring a guide with you</div>
           <div className="mt-3 flex items-center gap-2 rounded-xl border border-input bg-background px-3 py-2 focus-within:ring-2 focus-within:ring-ring/25 max-sm:py-2.5">
             <input type="url" value={link} onChange={(event) => setLink(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void importLink(); } }} placeholder="Paste a guide link" className="min-w-0 flex-1 bg-transparent py-1 text-base outline-none placeholder:text-muted-foreground sm:text-sm max-sm:min-h-8" />
-            <button type="button" onClick={() => void importLink()} disabled={!link.trim() || Boolean(busy)} className="btn-primary-sm shrink-0 max-sm:h-10 max-sm:px-5">{busy === "link" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Import"}</button>
+            <button type="button" onClick={() => void importLink()} disabled={!link.trim() || Boolean(busy)} className="btn-primary-sm shrink-0 max-sm:h-10 max-sm:px-5">{busy === "link" ? <Loader2 className="size-3.5 animate-spin" /> : "Import"}</button>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">We&rsquo;ll pull the useful places into a new conversation.</p>
         </div>
       </div>
-      {error && <p role="alert" className="rounded-xl bg-secondary px-4 py-3 text-sm font-medium text-destructive">{error}</p>}
+      {error && <p role="alert" className="rounded-xl bg-muted px-4 py-3 text-sm font-medium text-destructive">{error}</p>}
     </div>
   );
 }

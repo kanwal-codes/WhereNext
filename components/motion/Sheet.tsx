@@ -1,7 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion, useDragControls, useReducedMotion } from "motion/react";
-import { useRef, type ReactNode, type RefObject } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { ease } from "@/components/motion/tokens";
 import { useModalFocus } from "@/components/motion/useModalFocus";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,9 @@ export function Sheet({
   ariaLabel,
   initialFocus,
   className,
+  padded = false,
+  footer,
+  footerClassName,
   children,
 }: {
   open: boolean;
@@ -26,12 +30,21 @@ export function Sheet({
   ariaLabel?: string;
   initialFocus?: RefObject<HTMLElement | null>;
   className?: string;
+  /** The standard body padding of a bottom sheet (16px at the sides, 12px above, the home-indicator inset below) for a sheet that is a title and a body. Forms and detail sheets lay out their own. */
+  padded?: boolean;
+  /** The buttons at the foot (see `sheetPrimary` / `sheetSecondary`), kept in view under a scrolling body. */
+  footer?: ReactNode;
+  footerClassName?: string;
   children: ReactNode;
 }) {
   const reduce = useReducedMotion();
   const panelRef = useRef<HTMLDivElement>(null);
   const dragControls = useDragControls();
   useModalFocus(open, onClose, panelRef, initialFocus);
+  // Rendered on the body, not where it was written: a sheet opened from inside something that is moved by a transform (the phone header that hides on
+  // scroll, the map's draggable panel) or that clips (overflow-hidden) would otherwise be laid out inside that box, not over the screen.
+  const [host, setHost] = useState<HTMLElement | null>(null);
+  useEffect(() => setHost(document.body), []);
 
   // "center" is a real dialog box, not an edge-anchored sheet — it scales/fades in
   // instead of sliding, since a translate-from-offscreen entrance doesn't read as a
@@ -39,7 +52,8 @@ export function Sheet({
   const closed =
     side === "center" ? { opacity: 0, scale: 0.96 } : side === "bottom" ? { y: "100%" } : side === "right" ? { x: "100%" } : { x: "-100%" };
 
-  return (
+  if (!host) return null;
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -69,7 +83,8 @@ export function Sheet({
               // Not for "center": it scales in, and a layer promoted at 0.96 keeps that raster scale, leaving its text soft.
               "relative flex min-h-0 flex-col bg-surface shadow-lift outline-none",
               side !== "center" && "will-change-transform",
-              side === "center" ? "w-full max-w-sm rounded-3xl" : side === "bottom" ? "max-h-[92dvh] w-full rounded-t-3xl" : "h-full w-full max-w-xl",
+              side === "center" ? "w-full max-w-sm rounded-3xl" : side === "bottom" ? "max-h-[92dvh] w-full rounded-t-4xl bg-background" : "h-full w-full max-w-xl",
+              padded && "icons-fine px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]",
               className,
             )}
             initial={reduce ? false : closed}
@@ -113,9 +128,11 @@ export function Sheet({
               </div>
             )}
             {children}
+            {footer && <div className={cn("mt-4 flex shrink-0 gap-2", footerClassName)}>{footer}</div>}
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    host,
   );
 }

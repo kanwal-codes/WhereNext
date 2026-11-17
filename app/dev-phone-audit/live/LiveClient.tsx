@@ -48,7 +48,7 @@ function Scenes({ theme, scene, edge }: { theme: "light" | "dark"; scene?: strin
           ))}
         </div>
       </div>
-      <PhoneOverlays tripId={TRIP} panel={Boolean(panel)} sheetPanel={false} closePanel={closePanel} groupMenuOpen={false} setGroupMenuOpen={noop} mobileContextOpen={false} setMobileContextOpen={noop} contextRail={null} />
+      <PhoneOverlays tripId={TRIP} panel={Boolean(panel)} closePanel={closePanel} groupMenuOpen={false} setGroupMenuOpen={noop} mobileContextOpen={false} setMobileContextOpen={noop} contextRail={null} />
     </>
   );
 }

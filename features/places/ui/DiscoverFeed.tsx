@@ -82,7 +82,7 @@ export function DiscoverFeed({ tripId, view, phone, destination, activeCat, askQ
           <div className="mt-12 flex flex-col items-center px-3 text-center">
             <span aria-hidden className="grid size-16 place-items-center rounded-full bg-coral-soft text-coral-ink">{view === "saved" ? <Heart className="size-7" /> : <Compass className="size-7" />}</span>
             <h2 className="mt-5 font-display text-2xl font-medium tracking-[-0.03em]">{view === "saved" ? "Nothing saved yet" : "Nothing matched that"}</h2>
-            <p className="mt-2 text-[0.9375rem] leading-relaxed text-ink-soft text-pretty">
+            <p className="mt-2 text-body leading-relaxed text-ink-soft text-pretty">
               {view === "saved"
                 ? "Tap the heart on a place and it lands here. Roam can suggest a few to start."
                 : destination
@@ -146,7 +146,7 @@ export function DiscoverFeed({ tripId, view, phone, destination, activeCat, askQ
                     )}
                   </div>
                   {/* Two rows of three per band; the rest lives behind "See all". */}
-                  <Stagger className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 max-sm:-mx-5 max-sm:-mb-10 max-sm:flex max-sm:snap-x max-sm:snap-mandatory max-sm:items-stretch max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:px-5 max-sm:pt-2 max-sm:pb-10 max-sm:scroll-px-5 no-scrollbar">
+                  <Stagger className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 max-sm:-mx-4 max-sm:-mb-10 max-sm:flex max-sm:snap-x max-sm:snap-mandatory max-sm:items-stretch max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:px-4 max-sm:pt-2 max-sm:pb-10 max-sm:scroll-px-4 no-scrollbar">
                     {band.items.slice(0, 6).map((it) => renderItem(it, true))}
                   </Stagger>
                   {band.key && band.items.length > 6 && (

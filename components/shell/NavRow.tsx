@@ -62,7 +62,7 @@ export function NavRow({
           padX,
         )}
       >
-        <Icon className="h-4 w-4 shrink-0 opacity-60" />
+        <Icon className="size-4 shrink-0 opacity-60" />
         <span className={cn("truncate transition-[max-width,margin,opacity]", SIDEBAR_MOTION, collapsed ? "ml-0 max-w-0 opacity-0" : "ml-2.5 max-w-[12rem] flex-1 opacity-100")}>{label}</span>
       </button>
     );
@@ -97,7 +97,7 @@ export function NavRow({
           />
         </>
       )}
-      <Icon className={cn("h-4 w-4 shrink-0 transition-[opacity,transform] duration-200 ease-out group-hover:scale-110", active ? "opacity-100" : "opacity-70 group-hover:opacity-100")} />
+      <Icon className={cn("size-4 shrink-0 transition-[opacity,transform] duration-200 ease-out group-hover:scale-110", active ? "opacity-100" : "opacity-70 group-hover:opacity-100")} />
       <span
         className={cn(
           "truncate transition-[max-width,margin,opacity]",

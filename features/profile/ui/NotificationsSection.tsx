@@ -31,15 +31,15 @@ export function NotificationsSection({ form, actions, sharedTrips, touch }: {
             {sharedTrips.map((s) => (
               <div key={s.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-4 last:border-b-0">
                 <div className="flex items-center gap-3">
-                  <Link2 className="h-4 w-4 text-ink-soft" />
+                  <Link2 className="size-4 text-ink-soft" />
                   <div>
                     <p className="text-sm font-medium">{s.name}</p>
-                    <p className="flex items-center gap-1.5 text-sm text-ink-soft"><Eye className="h-3.5 w-3.5" /> Anyone with the link can view</p>
+                    <p className="flex items-center gap-1.5 text-sm text-ink-soft"><Eye className="size-3.5" /> Anyone with the link can view</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4 text-sm">
                   <button type="button" onClick={() => void copyShareLink(s.slug)} className="inline-flex items-center gap-1.5 text-ink-soft transition-colors hover:text-foreground">
-                    <Copy className="h-3.5 w-3.5" /> Copy
+                    <Copy className="size-3.5" /> Copy
                   </button>
                   <button type="button" onClick={() => void revokeShare(s.id)} className="text-ink-soft transition-colors hover:text-destructive">Revoke</button>
                 </div>

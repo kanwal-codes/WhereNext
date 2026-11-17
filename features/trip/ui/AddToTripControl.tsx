@@ -131,7 +131,7 @@ export function AddToTripControl({
               orb
                 ? cn(
                     cn(sm ? "h-10 min-w-10" : "h-12 min-w-12"),
-                    "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-sm font-semibold transition-[background-color,color,box-shadow,transform,filter] duration-200 ease-out hover:brightness-105 active:scale-95 disabled:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
+                    "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-sm font-semibold transition-[background-color,color,box-shadow,transform,filter] duration-200 ease-out hover:brightness-105 active:scale-[0.97] disabled:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
                     day
                       // Over a photo the planned state is a white pill; in a list row (the small orb) the card is already white.
                       ? (sm ? "bg-coral-soft px-3.5 text-coral-ink" : "bg-white px-4 text-ink shadow-[0_3px_10px_-2px_oklch(0_0_0/0.28)]")
@@ -140,12 +140,12 @@ export function AddToTripControl({
                         // Over a photo the add button is a white disc with a black plus, like the heart and Tickets beside it.
                         : "bg-white text-ink shadow-[0_3px_10px_-2px_oklch(0_0_0/0.28)]",
                     // Phone: the small "+" is a soft white circle, not a glowing coral orb.
-                    sm && !day && "max-lg:bg-secondary max-lg:text-ink max-lg:shadow-[0_2px_10px_oklch(0_0_0/0.18)]",
+                    sm && !day && "max-lg:bg-muted max-lg:text-ink max-lg:shadow-[0_2px_10px_oklch(0_0_0/0.18)]",
                   )
                 : "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full border font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out active:scale-[0.985] disabled:opacity-70",
               !orb && ring,
               !orb && block && "w-full",
-              !orb && (sm ? "h-8 px-3 text-xs" : size === "lg" ? "h-12 px-6 text-[0.9375rem]" : "h-10 px-5 text-sm"),
+              !orb && (sm ? "h-8 px-3 text-xs" : size === "lg" ? "h-12 px-6 text-body" : "h-10 px-5 text-sm"),
               !orb &&
                 (day
                   ? "border-transparent bg-coral-fill text-coral-fill-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.18)] hover:brightness-105"
@@ -183,7 +183,7 @@ export function AddToTripControl({
           aria-label={saved ? `Remove ${place.name} from saved places` : `Save ${place.name}`}
           aria-pressed={saved}
           className={cn(
-            "grid shrink-0 place-items-center rounded-full border transition-[background-color,border-color,color,transform] duration-200 ease-out active:scale-95 disabled:opacity-70",
+            "grid shrink-0 place-items-center rounded-full border transition-[background-color,border-color,color,transform] duration-200 ease-out active:scale-[0.97] disabled:opacity-70",
             ring,
             sm ? "size-8 max-lg:size-10" : size === "lg" ? "size-12" : "size-10 max-lg:size-11",
             saved
@@ -236,7 +236,7 @@ export function AddToTripControl({
                   onClick={() => void apply("none")}
                   className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-destructive transition-colors hover:bg-destructive/10"
                 >
-                  <Trash2 className="h-3.5 w-3.5 shrink-0" />
+                  <Trash2 className="size-3.5 shrink-0" />
                   Remove from itinerary
                 </button>
               </>
@@ -273,13 +273,13 @@ function MenuRow({
     >
       <span
         className={cn(
-          "grid h-4 w-4 shrink-0 place-items-center rounded-full border transition-colors",
+          "grid size-4 shrink-0 place-items-center rounded-full border transition-colors",
           selected ? "border-leaf bg-leaf text-primary-foreground" : "border-border",
         )}
       >
-        {selected && <Check className="h-2.5 w-2.5" strokeWidth={3} />}
+        {selected && <Check className="size-2.5" strokeWidth={3} />}
       </span>
-      <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      <Icon className="size-3.5 shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate">{title}</span>
       {hint && <span className="shrink-0 text-xs text-muted-foreground">{hint}</span>}
     </button>

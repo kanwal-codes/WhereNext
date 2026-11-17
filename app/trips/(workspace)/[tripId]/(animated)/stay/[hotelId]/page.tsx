@@ -22,7 +22,7 @@ export default function StayDetailPage({ params }: { params: Promise<{ hotelId: 
   const { tripId } = useTripData();
   const { hotelId } = use(params);
   return (
-    <Suspense fallback={<p className="px-5 py-16 text-center text-sm text-muted-foreground">Loading hotel…</p>}>
+    <Suspense fallback={<p className="px-5 py-16 text-center text-sm text-ink-soft">Loading hotel…</p>}>
       <StayDetail tripId={tripId} hotelId={decodeURIComponent(hotelId)} />
     </Suspense>
   );

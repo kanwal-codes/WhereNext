@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { haptic } from "@/lib/haptics";
 import { hasAsk, mentionsRoam, type GroupMessage } from "../domain/message";
+import { mentionedUserIds, type Mentionable } from "../domain/mentions";
 import { SEND_TIMEOUT_MS, restoreOutbox, sendFailure, serializeOutbox, type Outgoing } from "../domain/outbox";
 import { postJson } from "./postJson";
 
@@ -9,9 +10,11 @@ import { postJson } from "./postJson";
  * so a reply lost on the way back never posts the same words twice. Unsent messages and the half-typed one survive a
  * reload (kept per trip, per tab), and are sent again when the connection returns.
  */
-export function useMessageSender({ tripId, meUserId, input, setInput, messages, setMessages, seenIdsRef, refresh, askRoam, stopListening }: {
+export function useMessageSender({ tripId, meUserId, people, input, setInput, messages, setMessages, seenIdsRef, refresh, askRoam, stopListening }: {
   tripId: string;
   meUserId: string | undefined;
+  /** The other people on the trip, so a message that says "@Maya" records that it points at her. */
+  people: Mentionable[];
   input: string;
   setInput: Dispatch<SetStateAction<string>>;
   messages: GroupMessage[];
@@ -55,7 +58,7 @@ export function useMessageSender({ tripId, meUserId, input, setInput, messages, 
     if (!retryKey) setInput("");
     setOutbox((current) => (retryKey ? current.map((o) => (o.key === key ? { ...o, status: "sending", reason: undefined } : o)) : [...current, { key, content, status: "sending", created_at: new Date().toISOString() }]));
     try {
-      const { message } = await postJson<{ message: GroupMessage }>(`/api/trips/${tripId}/group-chat`, { content, kind: "text", idempotencyKey: key }, SEND_TIMEOUT_MS);
+      const { message } = await postJson<{ message: GroupMessage }>(`/api/trips/${tripId}/group-chat`, { content, kind: "text", idempotencyKey: key, mentions: mentionedUserIds(content, people) }, SEND_TIMEOUT_MS);
       seenIdsRef.current.add(message.id);
       setMessages((current) => (current.some((m) => m.id === message.id) ? current : [...current, message]));
       setOutbox((current) => current.filter((o) => o.key !== key));

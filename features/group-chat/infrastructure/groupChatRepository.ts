@@ -72,7 +72,21 @@ const scopedIdempotencyKey = (role: string, key: string) => `${role}:${key}`;
  */
 export function createGroupChatRepository(supabase: SupabaseClient) {
   return {
-    async list(tripId: string, viewerId: string, options: { limit?: number; /** Only messages sent before this ISO time: the page of history older than what is already on screen. */ before?: string } = {}): Promise<GroupMessage[]> {
+    async list(tripId: string, viewerId: string, options: { limit?: number; /** Only messages sent before this ISO time: the page of history older than what is already on screen. */ before?: string; /** Only messages sent after this ISO time, oldest first: what a chat that is already open is missing. */ after?: string } = {}): Promise<GroupMessage[]> {
+      if (options.after) {
+        const result = await supabase
+          .from("group_messages")
+          .select(COLUMNS)
+          .eq("trip_id", tripId)
+          .gt("created_at", options.after)
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+          .limit(options.limit ?? 100);
+        if (result.error) throw result.error;
+        const rows = (result.data ?? []) as GroupMessageRow[];
+        const reactions = await reactionsByMessage(supabase, rows.map((row) => row.id), viewerId);
+        return withResolvedPolls(supabase, rows.map((row) => toMessage(row, reactions.get(row.id) ?? [])), viewerId);
+      }
       // Same newest-first-then-reverse paging as conversationRepository — Supabase caps a
       // single page, so page backwards and only flip once every page has arrived.
       const pageSize = 500;

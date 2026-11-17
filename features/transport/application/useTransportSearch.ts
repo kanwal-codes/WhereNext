@@ -6,7 +6,7 @@ import { congestionRuns, interchangeNodes, type MapOverlay } from "@/lib/applica
 import { departAtParam, type Sort, type When } from "@/lib/application/travel-time";
 import { resolveCurrency } from "@/lib/currency";
 import { durationFromSeconds } from "@/lib/utils";
-import { flightsStatusText, legsFor, mergeWalks, pathOf, transitStatusText, fastestIndex, type DriveRoute, type Flight, type MapLegShape, type Route } from "../domain/route-view";
+import { flightsStatusText, legsFor, mergeWalks, pathOf, transitStatusText, fastestIndex, type DriveRoute, type Flight, type MapLegShape, type Route, type RouteSort } from "../domain/route-view";
 
 /** What the AI search bar (or a caller) can push in to run a search without the user retyping. */
 export type TransportPreset = { from?: string; to?: string; modes?: string[]; nonce: number };
@@ -49,7 +49,13 @@ export function useTransportSearch({ tripId, preset, onRoute }: {
   const [returnDate, setReturnDate] = useState("");
   const [travellers, setTravellers] = useState(Math.min(9, Math.max(1, Math.round(trip?.travelers ?? 1))));
   const [sort, setSort] = useState<Sort>("best");
+  const [routeSort, setRouteSort] = useState<RouteSort>("best");
   const [nonstopOnly, setNonstopOnly] = useState(false);
+  // Flight filters that only exist when they would change the list (see FlightFilters.availableFilters).
+  const [changesOnly, setChangesOnly] = useState(false);
+  const [airport, setAirport] = useState<string | null>(null);
+  // The fares are for a day nobody chose: the day pill says so instead of a sentence above the list.
+  const [flightsAssumed, setFlightsAssumed] = useState(false);
   const [anyTime, setAnyTime] = useState(false);
   const [openFlight, setOpenFlight] = useState<string | null>(null);
   const [timeNote, setTimeNote] = useState("");
@@ -78,8 +84,9 @@ export function useTransportSearch({ tripId, preset, onRoute }: {
     };
   }
 
+  /** Take a route: it is drawn on the map and its details open. Taking the one already taken keeps it. */
   function choose(i: number) {
-    setSelected((cur) => (cur === i ? null : i));
+    setSelected(i);
   }
 
   async function geocode(q: string, signal: AbortSignal): Promise<[number, number] | null> {
@@ -105,6 +112,7 @@ export function useTransportSearch({ tripId, preset, onRoute }: {
       const offers = (body.offers ?? []) as Flight[];
       if (flightsKey.current !== key) return;
       setFlights(offers);
+      setFlightsAssumed(Boolean(body.assumedDate));
       setFlightsStatus(flightsStatusText({ ok: res.ok, count: offers.length, assumedDate: Boolean(body.assumedDate), travellers }));
     } catch {
       if (flightsKey.current === key) {
@@ -116,16 +124,18 @@ export function useTransportSearch({ tripId, preset, onRoute }: {
     }
   }
 
-  async function search(over?: { from?: string; to?: string; modes?: string[]; keepTab?: boolean }) {
+  /**
+   * Run the search. `force` repeats it for the same two places (the time changed, or the caller asked again); without it a search for what
+   * is already on screen, or already on its way, is dropped, so settling a field twice (a pick, then leaving it) costs one search, not two.
+   */
+  async function search(over?: { from?: string; to?: string; modes?: string[]; keepTab?: boolean; force?: boolean }) {
     const a = (over?.from ?? from).trim();
     const b = (over?.to ?? to).trim();
     if (over?.from !== undefined) setFrom(a);
     if (over?.to !== undefined) setTo(b);
     if (over?.modes) modesRef.current = over.modes;
-    if (!a || !b) {
-      setStatus("Enter both a start and a destination.");
-      return;
-    }
+    if (!a || !b) return;
+    if (!over?.force && queryRef.current.a === a && queryRef.current.b === b && (loading || searched)) return;
     controller.current?.abort();
     const request = new AbortController();
     controller.current = request;
@@ -143,6 +153,9 @@ export function useTransportSearch({ tripId, preset, onRoute }: {
     setSelected(null);
     setRoutes([]);
     setFlights([]);
+    setFlightsAssumed(false);
+    setChangesOnly(false);
+    setAirport(null);
     setDriveRoute(null);
     setDriveEnds(null);
 
@@ -228,7 +241,7 @@ export function useTransportSearch({ tripId, preset, onRoute }: {
     if (lastOptions.current === optionsKey) return;
     lastOptions.current = optionsKey;
     if (!searched) return;
-    const timer = window.setTimeout(() => void search({ keepTab: true }), 500);
+    const timer = window.setTimeout(() => void search({ keepTab: true, force: true }), 500);
     return () => window.clearTimeout(timer);
     // `search` is rebuilt every render; the options are what should trigger it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -250,6 +263,27 @@ export function useTransportSearch({ tripId, preset, onRoute }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, routes, selected, driveRoute, driveEnds]);
 
+  /** Back to a blank screen: a field was emptied, so what was found no longer answers anything. */
+  function clear() {
+    controller.current?.abort();
+    controller.current = null;
+    queryRef.current = { a: "", b: "" };
+    flightsKey.current = "";
+    setLoading(false);
+    setSearched(false);
+    setStatus("");
+    setTransitStatus("");
+    setDriveStatus("");
+    setFlightsStatus("");
+    setFlightsLoading(false);
+    setTimeNote("");
+    setSelected(null);
+    setRoutes([]);
+    setFlights([]);
+    setDriveRoute(null);
+    setDriveEnds(null);
+  }
+
   async function saveChoice(value: Record<string, unknown>) {
     const r = await fetch(`/api/trips/${tripId}/decisions`, {
       method: "POST",
@@ -262,13 +296,13 @@ export function useTransportSearch({ tripId, preset, onRoute }: {
   // Run a search pushed in from the AI bar.
   useEffect(() => {
     if (!preset?.nonce) return;
-    void search({ from: preset.from, to: preset.to, modes: preset.modes ?? [] });
+    void search({ from: preset.from, to: preset.to, modes: preset.modes ?? [], force: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preset?.nonce]);
 
   return {
     from, setFrom, to, setTo, routes, flights, driveRoute, driveEnds, selected, status, tab, setTab, transitStatus, usdRate, driveStatus, flightsStatus, flightsLoading,
     loadFlights, trip, when, setWhen, returnDate, setReturnDate, travellers, setTravellers, sort, setSort, nonstopOnly, setNonstopOnly, anyTime, setAnyTime,
-    openFlight, setOpenFlight, timeNote, searched, loading, toRef, queryRef, search, choose, saveChoice,
+    openFlight, setOpenFlight, timeNote, searched, loading, toRef, queryRef, search, clear, choose, saveChoice, routeSort, setRouteSort, changesOnly, setChangesOnly, airport, setAirport, flightsAssumed,
   };
 }

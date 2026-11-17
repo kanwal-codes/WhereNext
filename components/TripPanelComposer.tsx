@@ -36,8 +36,8 @@ export function TripPanelComposer({ boxRef, chat, isCompare }: { boxRef: Ref<HTM
                 {m.content ? (
                   <AssistantMessage content={m.content} />
                 ) : loading ? (
-                  <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Thinking…
+                  <span className="inline-flex items-center gap-1.5 text-sm text-ink-soft">
+                    <Loader2 className="size-3.5 animate-spin" /> Thinking…
                   </span>
                 ) : null}
               </div>
@@ -53,7 +53,7 @@ export function TripPanelComposer({ boxRef, chat, isCompare }: { boxRef: Ref<HTM
         className="shrink-0"
       >
         {/* The same pill as the main chat's message box, so asking about a card feels like asking Roam. */}
-        <div className="flex items-center gap-1 rounded-full border border-input bg-card py-1.5 pl-4 pr-1.5 shadow-lift transition-[border-color,box-shadow] duration-200 focus-within:border-ink/30 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_6%,transparent),var(--shadow-lift)]">
+        <div className="flex items-center gap-1 rounded-full border border-input bg-card py-1.5 pl-4 pr-1.5 shadow-lift transition-[border-color,box-shadow] duration-200 focus-within:border-ink/30 focus-within:shadow-halo">
           <input
             aria-label="Ask about this item"
             name="panel-question"

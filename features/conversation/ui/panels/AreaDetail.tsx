@@ -52,7 +52,7 @@ function Pills({ label, items, active, onPick }: { label: string; items: Array<{
             onClick={() => onPick(item.key)}
             className={cn(
               "inline-flex h-9 shrink-0 items-center rounded-full border px-3.5 text-sm font-medium whitespace-nowrap transition-colors duration-200",
-              on ? "border-ink bg-ink text-background" : "border-border bg-surface text-ink-soft hover:border-ink/30 hover:text-ink",
+              on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-surface text-ink-soft hover:border-ink/30 hover:text-ink",
             )}
           >
             {item.label}
@@ -194,7 +194,7 @@ export function AreaDetail({ tripId, panel }: { tripId: string; panel: AreaPanel
           <h2 className="font-display text-title leading-[1.1] font-medium tracking-[-0.025em] text-balance">{item.name}</h2>
           <Meta items={[item.meta]} />
           {item.bestFor && <div><Badge tone="positive" icon={Check}>Best for {item.bestFor}</Badge></div>}
-          <p className="text-[0.9375rem] leading-relaxed text-ink-soft text-pretty">{item.blurb}</p>
+          <p className="text-body leading-relaxed text-ink-soft text-pretty">{item.blurb}</p>
           {feel.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
               {feel.map((tag) => <Badge key={tag}>{tag}</Badge>)}
@@ -205,7 +205,7 @@ export function AreaDetail({ tripId, panel }: { tripId: string; panel: AreaPanel
 
       {isArea && (
         <Reveal delay={0.1} y={10}>
-          <section aria-label="Make this your base" className={cn("flex flex-wrap items-center gap-x-3.5 gap-y-3 rounded-2xl border p-3.5 transition-colors", isBase ? "border-transparent bg-secondary" : "border-border bg-card")}>
+          <section aria-label="Make this your base" className={cn("flex flex-wrap items-center gap-x-3.5 gap-y-3 rounded-2xl border p-3.5 transition-colors", isBase ? "border-transparent bg-muted" : "border-border bg-card")}>
             <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl", isBase ? "bg-positive/15 text-positive" : "bg-coral-soft text-coral-ink")} aria-hidden>
               {isBase ? <Check className="size-5" /> : <Home className="size-5" />}
             </span>

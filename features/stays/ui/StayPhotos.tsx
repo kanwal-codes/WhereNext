@@ -11,7 +11,7 @@ export function StayPhotos({ images, name, panel, onOpen, onDead }: { images: st
     <Reveal delay={0.08}>
       <section>
         <DetailSectionHeading>Photos</DetailSectionHeading>
-        <div className={cn("mt-1 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain no-scrollbar pb-14 -mb-12 pt-2", panel ? "-mr-4 pr-4" : "-mx-5 px-5 sm:mx-0 sm:px-0")}>
+        <div className={cn("mt-1 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain no-scrollbar pb-14 -mb-12 pt-2", panel ? "-mr-4 pr-4" : "-mx-4 px-4 sm:mx-0 sm:px-0")}>
           {images.slice(1).map((src, i) => (
             <button
               key={src}

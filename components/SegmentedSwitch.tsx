@@ -16,11 +16,10 @@ export type SwitchOption<K extends string> = {
 };
 
 /**
- * The one pill switch for the app: Roam / Chat, Discover / Saved, Browse / My trip. The thumb
- * glides to the chosen segment (a shared `layoutId`) instead of cutting, and every instance is
- * the same 40px so the pill never changes size between screens. Solid dark thumb on a flat
- * background; a floating instance (over a map or photo) gets a frosted white thumb instead, so
- * it reads as glass over whatever is underneath rather than a flat cutout.
+ * The one pill switch for the app: Roam / Chat, Transit / Drive / Flights, Leave / Arrive. Always exactly one is on, there are two to four, and
+ * the choice changes the content below. The chosen one is a white thumb that glides (a shared `layoutId`) over a grey track: never a black
+ * thumb, because black means an action or a filter chip (see DESIGN.md, "Selected states"). Every instance is the same 40px so the pill
+ * never changes size between screens; a floating instance (over a map or photo) gets a shadow and a frosted thumb.
  */
 export function SegmentedSwitch<K extends string>({
   options,

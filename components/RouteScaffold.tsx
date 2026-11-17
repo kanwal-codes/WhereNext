@@ -29,7 +29,7 @@ export function RouteScaffold({
   children: ReactNode;
 }) {
   return (
-    <div className="mx-auto w-full min-w-0 max-w-6xl px-5 pt-5 pb-10 sm:px-8">
+    <div className="mx-auto w-full min-w-0 max-w-6xl px-4 pt-5 pb-10 sm:px-8">
       <PageHeader
         eyebrow={eyebrow}
         title={title}

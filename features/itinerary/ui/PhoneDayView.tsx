@@ -4,6 +4,7 @@ import { TimeField } from "@/components/DateTimeField";
 import { BookingNotices } from "@/components/overview/BookingNotices";
 import { KIND_META } from "@/components/overview/ReservationSheet";
 import { DestinationCombobox } from "@/components/DestinationCombobox";
+import { PickerSheet } from "@/components/PickerSheet";
 import { Sheet } from "@/components/motion-primitives";
 import { stopGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpRight, Check, ChevronDown, ChevronUp, Clock, Lock, LockOpen, Map as MapIcon, MoreHorizontal, Plus, Trash2 } from "lucide-react";
@@ -75,16 +76,16 @@ export function PhoneDayView({ tripId, startDate, trip, plan, actions, adder }: 
       <p className="eyebrow">Day {d} of {days.length}</p>
       <div className="mt-1 flex items-center justify-between gap-3">
         <h1 suppressHydrationWarning className="min-w-0 font-display text-[2.5rem] leading-[1.05] font-medium tracking-[-0.04em]">{dayDate(startDate, d) ?? `Day ${d}`}</h1>
-        <button type="button" onClick={() => setPickerOpen(true)} aria-label="Choose a day" aria-haspopup="dialog" className="grid size-11 shrink-0 place-items-center rounded-full bg-muted text-foreground transition-transform active:scale-95">
+        <button type="button" onClick={() => setPickerOpen(true)} aria-label="Choose a day" aria-haspopup="dialog" className="grid size-11 shrink-0 place-items-center rounded-full bg-muted text-foreground transition-transform active:scale-[0.97]">
           <ChevronDown className="size-5" aria-hidden />
         </button>
       </div>
-      <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[0.9375rem] text-ink-soft">
+      <p className="mt-1 flex flex-wrap items-center gap-x-2 text-body text-ink-soft">
         <span>{city ? `${city} · ` : ""}{dayItems.length === 0 ? (booked.length > 0 ? "Booked only" : "Open day") : `${dayItems.length} ${dayItems.length === 1 ? "stop" : "stops"}`}</span>
         <Link href={`/trips/${tripId}/today`} className="inline-flex min-h-11 items-center gap-0.5 font-medium text-foreground underline underline-offset-4">Today view <ArrowUpRight className="size-3.5" aria-hidden /></Link>
       </p>
 
-      <div ref={stripRef} role="group" aria-label="Days" className="-mx-5 mt-4 flex snap-x gap-2 overflow-x-auto overscroll-x-contain px-5 py-1 no-scrollbar scroll-px-5">
+      <div ref={stripRef} role="group" aria-label="Days" className="-mx-4 mt-4 flex snap-x gap-2 overflow-x-auto overscroll-x-contain px-4 py-1 no-scrollbar scroll-px-4">
         {days.map((n) => {
           const parts = weekPartsOf(n);
           const on = n === d;
@@ -97,9 +98,9 @@ export function PhoneDayView({ tripId, startDate, trip, plan, actions, adder }: 
               aria-current={on ? "date" : undefined}
               // Starts with what the chip shows ("Thu 26"), then what it stands for: a name that leaves the visible text out breaks voice control ("click Thu 26").
               aria-label={`${parts.dow} ${parts.num}${monthOfDay(startDate, n) ? `, day ${n}, ${monthOfDay(startDate, n)}` : ""}${planned ? ", has plans" : ""}`}
-              className={cn("flex h-[4.5rem] w-14 shrink-0 snap-center flex-col items-center justify-center gap-0.5 rounded-3xl border transition-colors", on ? "border-foreground bg-foreground text-background" : "border-border bg-background")}
+              className={cn("flex h-[4.5rem] w-14 shrink-0 snap-center flex-col items-center justify-center gap-0.5 rounded-3xl border transition-colors", on ? "border-primary bg-background ring-1 ring-primary" : "border-border bg-background")}
             >
-              <span className={cn("text-2xs tracking-[0.06em] uppercase", on ? "opacity-80" : "text-muted-foreground")}>{parts.dow}</span>
+              <span className={"text-2xs tracking-[0.06em] uppercase text-muted-foreground"}>{parts.dow}</span>
               {/* A space between the two (not rendered in a flex column, but in the text): "Thu 26" is what the name has to contain. */}
               {" "}
               <b className="font-display text-xl leading-none font-medium tabular-nums">{parts.num}</b>
@@ -115,7 +116,7 @@ export function PhoneDayView({ tripId, startDate, trip, plan, actions, adder }: 
             const Icon = KIND_META[reservation.kind].icon;
             return (
               <li key={`${reservation.id}-${note ?? "on"}`}>
-                <a href={`/trips/${tripId}/bookings`} className="flex min-h-12 items-center gap-3 rounded-2xl bg-secondary px-4 py-2.5 text-sm">
+                <a href={`/trips/${tripId}/bookings`} className="flex min-h-12 items-center gap-3 rounded-2xl bg-muted px-4 py-2.5 text-sm">
                   <Icon className="size-[1.125rem] shrink-0 text-leaf" aria-hidden />
                   <span className="min-w-0 flex-1 truncate font-medium">{reservation.title}</span>
                   <span suppressHydrationWarning className="shrink-0 text-xs text-muted-foreground tabular-nums">{bookedLabel(reservation, note)}</span>
@@ -126,7 +127,7 @@ export function PhoneDayView({ tripId, startDate, trip, plan, actions, adder }: 
         </ul>
       )}
       {(conflictsByDay.get(d) ?? []).map((c) => (
-        <p key={`${c.a}-${c.b}`} className="mt-2 flex items-center gap-3 rounded-2xl bg-secondary px-4 py-3 text-sm">
+        <p key={`${c.a}-${c.b}`} className="mt-2 flex items-center gap-3 rounded-2xl bg-muted px-4 py-3 text-sm">
           <AlertTriangle className="size-4 shrink-0 text-caution" aria-hidden />
           <span><span className="font-medium">{c.a}</span> and <span className="font-medium">{c.b}</span> are close together, around {clockLabel(c.at)}.</span>
         </p>
@@ -148,7 +149,7 @@ export function PhoneDayView({ tripId, startDate, trip, plan, actions, adder }: 
                 </span>
                 <span className="min-w-0">
                   <span className="block font-display text-base leading-snug font-medium tracking-[-0.01em] text-balance">{item.title}</span>
-                  <span className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <span className="mt-0.5 flex items-center gap-1.5 text-sm text-ink-soft">
                     {time && <span suppressHydrationWarning className="font-medium text-ink-soft tabular-nums">{clockLabel(time)}</span>}
                     <span>{Glyph.label}</span>
                     {isBooked && <span className="inline-flex items-center gap-1 font-semibold text-positive"><Check className="size-3.5" aria-hidden />Booked</span>}
@@ -166,7 +167,7 @@ export function PhoneDayView({ tripId, startDate, trip, plan, actions, adder }: 
       <button
         type="button"
         onClick={() => { setDay(d); setAddOpen(true); }}
-        className="mt-3 flex h-14 w-full items-center gap-2.5 rounded-2xl border-[1.5px] border-dashed border-input px-4 text-[0.9375rem] font-medium text-ink-soft transition-colors active:bg-muted"
+        className="mt-3 flex h-14 w-full items-center gap-2.5 rounded-2xl border-[1.5px] border-dashed border-input px-4 text-body font-medium text-ink-soft transition-colors active:bg-muted"
       >
         <Plus className="size-[1.125rem] text-coral" aria-hidden /> {dayItems.length === 0 ? "Plan this day" : "Add a stop"}
       </button>
@@ -176,52 +177,48 @@ export function PhoneDayView({ tripId, startDate, trip, plan, actions, adder }: 
       </div>
 
       {removed && (
-        <p role="status" className="mt-4 rounded-2xl bg-secondary px-4 py-3 text-sm">
+        <p role="status" className="mt-4 rounded-2xl bg-muted px-4 py-3 text-sm">
           {removed.title} removed.{" "}
           <button type="button" onClick={() => void restore()} className="min-h-11 font-medium underline underline-offset-4">Undo</button>
         </p>
       )}
 
-      <Link href={`/trips/${tripId}/map?day=${d}`} className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-20 inline-flex h-12 -translate-x-1/2 items-center gap-2 rounded-full bg-foreground px-5 text-[0.9375rem] font-semibold text-background shadow-lift transition-transform active:scale-[0.97]">
+      <Link href={`/trips/${tripId}/map?day=${d}`} className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-20 inline-flex h-12 -translate-x-1/2 items-center gap-2 rounded-full bg-foreground px-5 text-body font-semibold text-background shadow-lift transition-transform active:scale-[0.97]">
         <MapIcon className="size-[1.125rem]" aria-hidden /> View on map
       </Link>
 
-      <Sheet open={pickerOpen} onClose={() => setPickerOpen(false)} side="bottom" ariaLabel="Choose a day" className="icons-fine max-h-[78dvh] rounded-t-4xl bg-background px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-        <p className="px-2 pb-1 font-display text-xl font-medium tracking-[-0.02em]">Go to a day</p>
-        <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          {days.map((n) => {
-            const on = n === d;
-            const count = (itemsByDay.get(n) ?? []).length;
-            return (
-              <li key={n}>
-                <button type="button" onClick={() => { setPhoneDay(n); setPickerOpen(false); }} aria-current={on ? "date" : undefined} className="flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 text-left transition-colors active:bg-muted">
-                  <span className="w-9 shrink-0 font-display text-lg tabular-nums text-muted-foreground">{String(n).padStart(2, "0")}</span>
-                  <span className="min-w-0 flex-1">
-                    <span suppressHydrationWarning className={cn("block font-display text-base", on ? "font-semibold" : "font-medium")}>{dayDate(startDate, n) ?? `Day ${n}`}</span>
-                    <span className="block truncate text-sm text-muted-foreground">{[cityFor(n), count ? `${count} ${count === 1 ? "stop" : "stops"}` : "Open day"].filter(Boolean).join(" · ")}</span>
-                  </span>
-                  {on && <Check className="size-5 text-coral" aria-hidden />}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </Sheet>
+      <PickerSheet
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        title="Go to a day"
+        ariaLabel="Choose a day"
+        value={String(d)}
+        onPick={(key) => setPhoneDay(Number(key))}
+        options={days.map((n) => {
+          const count = (itemsByDay.get(n) ?? []).length;
+          return {
+            key: String(n),
+            label: <span suppressHydrationWarning>{dayDate(startDate, n) ?? `Day ${n}`}</span>,
+            sub: [cityFor(n), count ? `${count} ${count === 1 ? "stop" : "stops"}` : "Open day"].filter(Boolean).join(" · "),
+            lead: <span className="w-9 shrink-0 font-display text-lg tabular-nums text-muted-foreground">{String(n).padStart(2, "0")}</span>,
+          };
+        })}
+      />
 
-      <Sheet open={toolsItem !== null} onClose={() => setToolsItem(null)} side="bottom" ariaLabel={toolsItem ? `Options for ${toolsItem.title}` : "Stop options"} className="icons-fine rounded-t-4xl bg-background px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+      <Sheet open={toolsItem !== null} onClose={() => setToolsItem(null)} side="bottom" ariaLabel={toolsItem ? `Options for ${toolsItem.title}` : "Stop options"} padded>
         {toolsItem && (() => {
           const item = items.find((i) => i.id === toolsItem.id) ?? toolsItem;
           const list = itemsByDay.get(item.day_index) ?? [];
           const at = list.findIndex((i) => i.id === item.id);
           const locked = item.metadata?.locked === true;
           const time = typeof item.metadata?.time === "string" ? item.metadata.time : "";
-          const row = "flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 text-left text-[0.9375rem] font-medium transition-colors active:bg-muted disabled:opacity-40";
+          const row = "flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 text-left text-body font-medium transition-colors active:bg-muted disabled:opacity-40";
           const run = (fn: () => void) => () => { fn(); setToolsItem(null); };
           return (
             <>
               <p className="truncate px-2 font-display text-xl font-medium tracking-[-0.02em]">{item.title}</p>
               <label className="mt-2 flex min-h-14 items-center justify-between gap-3 rounded-2xl px-3">
-                <span className="flex items-center gap-3 text-[0.9375rem] font-medium"><Clock className="size-5 text-muted-foreground" aria-hidden /> Time</span>
+                <span className="flex items-center gap-3 text-body font-medium"><Clock className="size-5 text-muted-foreground" aria-hidden /> Time</span>
                 <TimeField value={time} disabled={locked} onChange={(v) => setTime(item, v || null)} ariaLabel={`Target time for ${item.title}`} placeholder="Add time" className="w-40" />
               </label>
               <button type="button" className={row} disabled={locked || Boolean(time) || at <= 0} onClick={run(() => moveWithinDay(item, -1))}><ChevronUp className="size-5 text-muted-foreground" aria-hidden /> Earlier in the day</button>
@@ -235,7 +232,7 @@ export function PhoneDayView({ tripId, startDate, trip, plan, actions, adder }: 
         })()}
       </Sheet>
 
-      <Sheet open={addOpen} onClose={() => setAddOpen(false)} side="bottom" ariaLabel="Add a stop" className="icons-fine rounded-t-4xl bg-background px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+      <Sheet open={addOpen} onClose={() => setAddOpen(false)} side="bottom" ariaLabel="Add a stop" padded>
         <p className="px-2 font-display text-xl font-medium tracking-[-0.02em]">Add to {dayDate(startDate, day) ?? `day ${day}`}</p>
         <form onSubmit={(e) => { e.preventDefault(); void add(); }} className="mt-3 space-y-3">
           <div className="rounded-2xl border border-input px-3">

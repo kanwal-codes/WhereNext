@@ -53,7 +53,7 @@ export function StayGuestReviews({ s, digest }: { s: Stay; digest: ReturnType<ty
                 <figure key={i} className="flex w-[16.5rem] shrink-0 snap-start flex-col rounded-2xl border border-border bg-card p-3.5">
                   <div className="flex items-center justify-between gap-3">
                     {typeof r.rating === "number" ? (
-                      <span className="inline-flex h-6 items-center gap-1 rounded-full bg-secondary px-2.5 text-xs font-semibold tabular-nums"><Star className="size-3 fill-current text-coral" aria-hidden />{r.rating.toFixed(1)}</span>
+                      <span className="inline-flex h-6 items-center gap-1 rounded-full bg-muted px-2.5 text-xs font-semibold tabular-nums"><Star className="size-3 fill-current text-coral" aria-hidden />{r.rating.toFixed(1)}</span>
                     ) : <span className="text-xs font-semibold">Guest note</span>}
                     {r.date && <span className="text-xs text-muted-foreground">{relativeDate(r.date)}</span>}
                   </div>

@@ -21,7 +21,7 @@ export function StayAmenities({ facilityCount, headline, grouped }: { facilityCo
           <div className="mt-3 flex flex-wrap gap-1.5">
             {dedupeFacilities(headline).map((facility) => <Badge key={facility}>{facility}</Badge>)}
           </div>
-        ) : <p className="mt-3 text-sm text-muted-foreground">Amenities will appear here when the hotel provides them.</p>}
+        ) : <p className="mt-3 text-sm text-ink-soft">Amenities will appear here when the hotel provides them.</p>}
         <div className="mt-4 flex flex-wrap gap-2">
           {Object.entries(grouped).map(([group, facilities]) => {
             const remaining = dedupeFacilities(facilities.filter((facility) => !headlineSet.has(facility)));
@@ -30,7 +30,7 @@ export function StayAmenities({ facilityCount, headline, grouped }: { facilityCo
             return (
               <div key={group}>
                 <button type="button" onClick={() => setOpenGroup(open ? null : group)} aria-expanded={open} className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors", open ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:text-foreground")}>
-                  {group} <span className="opacity-70">{remaining.length}</span><ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+                  {group} <span className="opacity-70">{remaining.length}</span><ChevronDown className={cn("size-3.5 transition-transform", open && "rotate-180")} />
                 </button>
                 {open && <div className="mt-2 flex flex-wrap gap-2 rounded-2xl bg-muted/35 p-3">{remaining.map((facility) => <Badge key={facility} className="bg-card">{facility}</Badge>)}</div>}
               </div>

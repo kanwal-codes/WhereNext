@@ -32,7 +32,7 @@ export default function ForgotPasswordPage() {
       subtitle="Enter the email on your account and we’ll send a single-use reset link."
       footer={
         <Link href="/sign-in" className="link-underline inline-flex items-center gap-1.5 text-foreground">
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
+          <ArrowLeft className="size-3.5" /> Back to sign in
         </Link>
       }
     >
@@ -46,11 +46,11 @@ export default function ForgotPasswordPage() {
             transition={reduceMotion ? { duration: 0 } : { duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
             className="rounded-2xl border border-border bg-card p-6 shadow-soft"
           >
-            <span className="grid h-10 w-10 place-items-center rounded-full bg-coral-soft text-coral">
-              <MailCheck className="h-5 w-5" />
+            <span className="grid size-10 place-items-center rounded-full bg-coral-soft text-coral">
+              <MailCheck className="size-5" />
             </span>
             <h2 className="mt-4 font-display text-xl">Check your inbox</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-2 text-sm leading-relaxed text-ink-soft">
               If an account exists for <span className="text-foreground">{email || "that address"}</span>, a reset link is on
               its way.
             </p>
@@ -67,9 +67,9 @@ export default function ForgotPasswordPage() {
             <Field label="Email">
               <input type="email" name="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={inputClass} />
             </Field>
-            {error && <p role="alert" className="rounded-xl bg-secondary px-3 py-2 text-xs font-medium text-destructive">{error}</p>}
+            {error && <p role="alert" className="rounded-xl bg-muted px-3 py-2 text-xs font-medium text-destructive">{error}</p>}
             <SubmitButton loading={loading} type="submit">
-              Send reset link {loading ? null : <ArrowRight className="h-4 w-4" />}
+              Send reset link {loading ? null : <ArrowRight className="size-4" />}
             </SubmitButton>
           </motion.form>
         )}

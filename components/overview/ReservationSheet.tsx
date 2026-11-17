@@ -1,5 +1,7 @@
 "use client";
 
+import { SheetHeader } from "@/components/SheetHeader";
+import { sheetPrimary, sheetSecondary } from "@/components/motion/sheetActions";
 import { DateField, TimeField } from "@/components/DateTimeField";
 import { DestinationCombobox } from "@/components/DestinationCombobox";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -152,21 +154,13 @@ export function ReservationSheet({
   return (
     <Sheet open={open} onClose={onClose} side={desktop ? "right" : "bottom"} ariaLabel={editing ? "Edit reservation" : "Add a reservation"}>
       <form onSubmit={(e) => void submit(e)} className="flex min-h-0 flex-1 flex-col">
-        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-4">
-          <div className="min-w-0">
-            <p className="eyebrow">{editing ? "Edit" : "New"}</p>
-            <p className="truncate font-display text-lg">{editing ? "Reservation" : "Add a reservation"}</p>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="shrink-0 rounded-full border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground">
-            <X className="h-4 w-4" />
-          </button>
-        </header>
+        <SheetHeader eyebrow={editing ? "Edit" : "New"} title={editing ? "Reservation" : "Add a reservation"} onClose={onClose} />
 
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain scrollbar-slim px-5 py-5">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain scrollbar-slim px-4 py-5">
           {!editing && (
             <div className="rounded-2xl border border-dashed border-border bg-background">
               <button type="button" onClick={() => setPasteOpen((v) => !v)} aria-expanded={pasteOpen} className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium transition-colors hover:bg-accent/60 active:bg-accent">
-                <ClipboardPaste className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <ClipboardPaste className="size-4 shrink-0 text-muted-foreground" />
                 <span className="flex-1">Paste a confirmation and let Roam fill this in</span>
                 <span className="text-xs font-normal text-muted-foreground">{pasteOpen ? "Close" : "Try it"}</span>
               </button>
@@ -183,7 +177,7 @@ export function ReservationSheet({
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-xs text-muted-foreground">Nothing is saved until you review it.</span>
                     <button type="button" onClick={() => void readConfirmation()} disabled={pasted.trim().length < 10 || reading} className="daisy-btn daisy-btn-neutral h-10 rounded-full border-0 px-5 shadow-none">
-                      {reading && <Loader2 className="h-4 w-4 animate-spin" />}
+                      {reading && <Loader2 className="size-4 animate-spin" />}
                       Fill it in
                     </button>
                   </div>
@@ -191,7 +185,7 @@ export function ReservationSheet({
               )}
             </div>
           )}
-          {readNote && <p role="status" className="-mt-2 text-sm text-muted-foreground">{readNote}</p>}
+          {readNote && <p role="status" className="-mt-2 text-sm text-ink-soft">{readNote}</p>}
 
           <div role="radiogroup" aria-label="What kind of reservation" className="grid grid-cols-3 gap-2">
             {KINDS.map((kind) => {
@@ -204,9 +198,9 @@ export function ReservationSheet({
                   role="radio"
                   aria-checked={on}
                   onClick={() => set("kind", kind)}
-                  className={cn("flex flex-col items-center gap-1.5 rounded-2xl border px-2 py-3 text-xs font-medium transition-colors", on ? "border-foreground bg-foreground text-background" : "border-border hover:bg-accent")}
+                  className={cn("flex flex-col items-center gap-1.5 rounded-2xl border px-2 py-3 text-xs font-medium transition-colors", on ? "border-primary bg-card text-foreground ring-1 ring-primary" : "border-border hover:bg-accent")}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="size-4" />
                   {KIND_META[kind].label}
                 </button>
               );
@@ -241,7 +235,7 @@ export function ReservationSheet({
             )}
           </div>
 
-          <button type="button" onClick={() => setMore((v) => !v)} aria-expanded={more} className="flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl bg-secondary px-4 text-left text-sm font-medium transition-colors active:bg-accent">
+          <button type="button" onClick={() => setMore((v) => !v)} aria-expanded={more} className="flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl bg-muted px-4 text-left text-sm font-medium transition-colors active:bg-accent">
             <span>{more ? "Fewer details" : "More details"} <span className="font-normal text-muted-foreground">{more ? "" : "· price, place, notes, tickets"}</span></span>
             <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-200", more && "rotate-180")} aria-hidden />
           </button>
@@ -285,7 +279,7 @@ export function ReservationSheet({
           </div>
 
           <label className="flex items-center gap-3 rounded-2xl border border-border bg-background px-4 py-3 text-sm">
-            <input type="checkbox" checked={draft.status === "cancelled"} onChange={(e) => set("status", e.target.checked ? "cancelled" : "confirmed")} className="h-4 w-4 accent-primary" />
+            <input type="checkbox" checked={draft.status === "cancelled"} onChange={(e) => set("status", e.target.checked ? "cancelled" : "confirmed")} className="size-4 accent-primary" />
             <span>This booking was cancelled <span className="text-muted-foreground">(kept for reference, not counted in the budget)</span></span>
           </label>
 
@@ -304,7 +298,7 @@ export function ReservationSheet({
               disabled={uploading}
               className="flex w-full flex-col items-center gap-1.5 rounded-2xl border border-dashed border-border bg-background px-4 py-5 text-sm text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-accent disabled:opacity-60"
             >
-              {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
+              {uploading ? <Loader2 className="size-5 animate-spin" /> : <Paperclip className="size-5" />}
               <span className="font-medium text-foreground">{uploading ? "Uploading…" : "Add a PDF or photo"}</span>
               <span className="text-xs">Tickets, vouchers, screenshots. Up to 10 MB each.</span>
             </button>
@@ -312,18 +306,18 @@ export function ReservationSheet({
               <ul className="mt-3 space-y-2">
                 {files.map((file) => (
                   <li key={file.path} className="flex items-center gap-3 rounded-2xl border border-border bg-card px-3 py-2.5">
-                    {file.type === "application/pdf" ? <FileText className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ImageIcon className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                    {file.type === "application/pdf" ? <FileText className="size-4 shrink-0 text-muted-foreground" /> : <ImageIcon className="size-4 shrink-0 text-muted-foreground" />}
                     <a href={`/api/trips/${tripId}/reservations/${editing?.id}/files?path=${encodeURIComponent(file.path)}`} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate text-sm hover:underline">{file.name}</a>
                     <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{sizeLabel(file.size)}</span>
-                    <button type="button" onClick={() => void removeFile(file)} aria-label={`Remove ${file.name}`} className="shrink-0 rounded-full p-1 text-muted-foreground transition-colors hover:text-destructive"><X className="h-3.5 w-3.5" /></button>
+                    <button type="button" onClick={() => void removeFile(file)} aria-label={`Remove ${file.name}`} className="shrink-0 rounded-full p-1 text-muted-foreground transition-colors hover:text-destructive"><X className="size-3.5" /></button>
                   </li>
                 ))}
                 {staged.map((file, index) => (
                   <li key={`${file.name}-${index}`} className="flex items-center gap-3 rounded-2xl border border-dashed border-border bg-card px-3 py-2.5">
-                    {file.type === "application/pdf" ? <FileText className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ImageIcon className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                    {file.type === "application/pdf" ? <FileText className="size-4 shrink-0 text-muted-foreground" /> : <ImageIcon className="size-4 shrink-0 text-muted-foreground" />}
                     <span className="min-w-0 flex-1 truncate text-sm">{file.name}</span>
                     <span className="shrink-0 text-xs text-muted-foreground">Uploads when you add it</span>
-                    <button type="button" onClick={() => setStaged((current) => current.filter((_, i) => i !== index))} aria-label={`Remove ${file.name}`} className="shrink-0 rounded-full p-1 text-muted-foreground transition-colors hover:text-destructive"><X className="h-3.5 w-3.5" /></button>
+                    <button type="button" onClick={() => setStaged((current) => current.filter((_, i) => i !== index))} aria-label={`Remove ${file.name}`} className="shrink-0 rounded-full p-1 text-muted-foreground transition-colors hover:text-destructive"><X className="size-3.5" /></button>
                   </li>
                 ))}
               </ul>
@@ -334,22 +328,20 @@ export function ReservationSheet({
           </div>
 
           {error && (
-            <p role="alert" className="rounded-2xl bg-secondary px-4 py-2.5 text-sm font-medium text-destructive">
+            <p role="alert" className="rounded-2xl bg-muted px-4 py-2.5 text-sm font-medium text-destructive">
               {error}
             </p>
           )}
         </div>
 
-        <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-border px-5 py-4">
-          {editing ? (
-            <button type="button" onClick={() => void remove()} disabled={saving} className="text-sm font-medium text-destructive hover:underline disabled:opacity-50">
+        <footer className="flex shrink-0 gap-2 border-t border-border px-4 py-4">
+          {editing && (
+            <button type="button" onClick={() => void remove()} disabled={saving} className={`${sheetSecondary} text-destructive disabled:opacity-50`}>
               Remove
             </button>
-          ) : (
-            <span />
           )}
-          <button type="submit" disabled={saving || !draft.title.trim()} className="daisy-btn daisy-btn-neutral h-11 rounded-full border-0 px-7 shadow-none">
-            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+          <button type="submit" disabled={saving || !draft.title.trim()} className={sheetPrimary}>
+            {saving && <Loader2 className="size-4 animate-spin" />}
             {editing ? "Save changes" : "Add it"}
           </button>
         </footer>

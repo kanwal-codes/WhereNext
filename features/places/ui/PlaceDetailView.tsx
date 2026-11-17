@@ -12,7 +12,7 @@ import {
 import { AddToTripControl } from "@/features/trip/ui/AddToTripControl";
 import { GetYourGuideCard } from "@/components/GetYourGuideCard";
 import { Hero } from "@/components/Hero";
-import { FactStrip, QuickActions } from "@/components/DetailKit";
+import { ACTION_ICON, ACTION_LABELLED, FactStrip, QuickActions } from "@/components/DetailKit";
 import { placeFacts } from "@/features/places/ui/placeFacts";
 import { NearbyRecommendations } from "@/components/NearbyRecommendations";
 import { BackLink } from "@/components/BackLink";
@@ -42,7 +42,6 @@ import { placeDirectionsUrl, telHref, todayHoursOf, usableReviews, wheelchairAcc
  * column, tighter padding, no back-link — the panel chrome owns close).
  */
 /** A round icon-only link the height of the buttons beside it (call, website). */
-const CONTACT_ICON = "inline-flex size-12 shrink-0 items-center justify-center rounded-full border border-input bg-background text-foreground transition-transform active:scale-[0.97]";
 
 export function PlaceDetailView({
   tripId,
@@ -60,7 +59,7 @@ export function PlaceDetailView({
   const titleTag = useDocumentTitle(panel ? null : details?.displayName?.text ?? "Place");
   const lightbox = usePhotoLightbox();
 
-  const pad = panel ? PANEL_PAD : "mx-auto max-w-5xl px-5 pb-14 sm:px-8";
+  const pad = panel ? PANEL_PAD : "mx-auto max-w-5xl px-4 pb-14 sm:px-8";
 
   const seed = hydrated ? readPlaceSeed(tripId, placeId) : null;
 
@@ -69,7 +68,7 @@ export function PlaceDetailView({
   if (state === "error" || !details) {
     return (
       <>
-        {!panel && <div className="mx-auto max-w-5xl px-5 pt-6 sm:px-8"><BackLink fallback={`/trips/${tripId}/discover`} label="Back" /></div>}
+        {!panel && <div className="mx-auto max-w-5xl px-4 pt-6 sm:px-8"><BackLink fallback={`/trips/${tripId}/discover`} label="Back" /></div>}
         <PanelError what="this place" panel={panel} onRetry={retry} heading="h1" />
       </>
     );
@@ -105,7 +104,7 @@ export function PlaceDetailView({
       <AddToTripControl tripId={tripId} place={place} size="lg" block />
     </div>
   ) : (
-    <p className="text-sm text-muted-foreground">This place can&rsquo;t be added &mdash; we don&rsquo;t have a location for it.</p>
+    <p className="text-sm text-ink-soft">This place can&rsquo;t be added &mdash; we don&rsquo;t have a location for it.</p>
   );
 
   const asideSecondary = (
@@ -155,10 +154,10 @@ export function PlaceDetailView({
           href={askAssistantHref(tripId, { name, address: details.formattedAddress, mapsUrl: details.googleMapsUri })}
           className="flex items-start gap-3 rounded-2xl border border-border bg-surface p-5 transition-colors hover:bg-accent"
         >
-          <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+          <MessageCircle className="mt-0.5 size-4 shrink-0 text-primary" />
           <span>
             <span className="block text-sm font-medium">Does {name} fit your trip?</span>
-            <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">
+            <span className="mt-1 block text-sm leading-relaxed text-ink-soft">
               Roam weighs it against your budget, pace and saved places. The question is written for you — just send it.
             </span>
           </span>
@@ -203,7 +202,7 @@ export function PlaceDetailView({
                 separate, already-visible placement (a narrow drawer has no "beside" to offer). */}
             <div className={cn(!panel && "sm:flex sm:items-start sm:justify-between sm:gap-6")}>
               <div className="min-w-0">
-                <p className="text-sm text-muted-foreground max-lg:hidden">{categoryLabel(details.primaryType)}</p>
+                <p className="text-sm text-ink-soft max-lg:hidden">{categoryLabel(details.primaryType)}</p>
                 {panel ? (
                   <h1 className="mt-1 font-display text-2xl font-semibold leading-tight max-lg:text-title max-lg:font-medium max-lg:tracking-[-0.03em]">{name}</h1>
                 ) : (
@@ -213,10 +212,10 @@ export function PlaceDetailView({
               {!panel && <div className="mt-4 max-w-sm shrink-0 sm:mt-2 sm:w-64">{asideAction}</div>}
             </div>
             <PlacePhoneSummary details={details} city={city} price={price} openNow={openNow} todayHours={todayHours} />
-            <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground max-lg:hidden">
+            <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-soft max-lg:hidden">
               {details.formattedAddress && (
                 <span className="inline-flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5" /> {details.formattedAddress}
+                  <MapPin className="size-3.5" /> {details.formattedAddress}
                 </span>
               )}
               {status && <Badge tone="caution">{status}</Badge>}
@@ -232,16 +231,16 @@ export function PlaceDetailView({
           <div className="mt-5 flex items-center gap-2.5 lg:hidden">
             <div className="min-w-0 flex-1"><AddToTripControl tripId={tripId} place={place} size="lg" block noSave /></div>
             {/* With both a phone and a website there is no room for the word: Directions shrinks to its icon so the four fit on one row. */}
-            <a href={directionsHref} target="_blank" rel="noreferrer noopener" aria-label="Directions" className={cn("inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full border border-input bg-background text-[0.9375rem] font-semibold transition-transform active:scale-[0.97]", bothContacts ? "size-12" : "px-4")}>
+            <a href={directionsHref} target="_blank" rel="noreferrer noopener" aria-label="Directions" className={bothContacts ? ACTION_ICON : ACTION_LABELLED}>
               <Navigation className="size-[1.125rem]" aria-hidden />{!bothContacts && " Directions"}
             </a>
             {details.nationalPhoneNumber && (
-              <a href={telHref(details.nationalPhoneNumber)} aria-label={`Call ${details.nationalPhoneNumber}`} className={CONTACT_ICON}>
+              <a href={telHref(details.nationalPhoneNumber)} aria-label={`Call ${details.nationalPhoneNumber}`} className={ACTION_ICON}>
                 <Phone className="size-[1.125rem]" aria-hidden />
               </a>
             )}
             {details.websiteUri && (
-              <a href={details.websiteUri} target="_blank" rel="noreferrer noopener" aria-label={`Website, ${prettyWebsite(details.websiteUri).split("/")[0]}`} className={CONTACT_ICON}>
+              <a href={details.websiteUri} target="_blank" rel="noreferrer noopener" aria-label={`Website, ${prettyWebsite(details.websiteUri).split("/")[0]}`} className={ACTION_ICON}>
                 <Globe className="size-[1.125rem]" aria-hidden />
               </a>
             )}

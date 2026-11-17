@@ -15,7 +15,7 @@ import type { Outgoing } from "../domain/outbox";
 import type { GroupMessage } from "../domain/message";
 import { Avatar, PollCard } from "./GroupChatParts";
 import { dayLabel, displayName, fullTime, timeLabel } from "./chat-format";
-import { renderRich } from "./rich-text";
+import { renderRich, type MentionLookup } from "./rich-text";
 import { cn } from "@/lib/utils";
 
 const COMMON_EMOJI = ["👍", "❤️", "😂", "🎉", "😍", "🤔"];
@@ -26,6 +26,8 @@ export type RowView = {
   meUserId: string | undefined;
   members: Parameters<typeof displayName>[1];
   membersLoaded: boolean;
+  /** How "@Name" of someone on the trip is found and coloured in a message. */
+  mentions: MentionLookup;
   messagesById: Map<string, GroupMessage>;
   expandedReactionFor: string | null;
   pressingId: string | null;
@@ -69,7 +71,7 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
   view: RowView;
   actions: RowActions;
 }) {
-  const { tripId, meUserId, members, membersLoaded, messagesById, expandedReactionFor, pressingId, highlightedId, pendingVoteFor, pendingRoamIds, failedRoamIds, missedIds, bubbleRefs } = view;
+  const { tripId, meUserId, members, membersLoaded, mentions, messagesById, expandedReactionFor, pressingId, highlightedId, pendingVoteFor, pendingRoamIds, failedRoamIds, missedIds, bubbleRefs } = view;
   const { castVote, toggleReaction, setExpandedReactionFor, onBubblePressStart, onBubblePressEnd, onBubblePressMove, scrollToMessage, askRoam, submit, setOutbox, onFollowup, onOpenPlace, onOpenStay, onOpenEvent, onOpenCollection, openPanel } = actions;
   const local = (message as { local?: Outgoing }).local;
   const mine = local ? true : message.userId !== null && message.userId === meUserId;
@@ -124,11 +126,14 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
       <span className="min-w-0 truncate text-muted-foreground">{replySource.content}</span>
     </button>
   );
+  // Someone pointed this message at you: the bubble says so, so it is easy to find again.
+  const pointsAtYou = !mine && !!meUserId && ((message.metadata as { mentions?: string[] } | undefined)?.mentions ?? []).includes(meUserId);
   const bubbleClass = cn(
     "min-w-0 max-w-full rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words shadow-sm",
     "max-lg:text-base max-lg:leading-snug max-lg:shadow-none",
     roamBlocks && roamBlocks.length > 0 && "max-w-[92%]",
     mine ? "rounded-br-lg bg-gradient-to-br from-primary to-primary/90 text-primary-foreground" : "rounded-tl-lg bg-muted text-foreground",
+    pointsAtYou && "ring-2 ring-coral/40",
     mine && "max-lg:bg-none max-lg:bg-primary",
   );
   const bubble = isRoam ? (
@@ -137,7 +142,7 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
       <AssistantMessage content={message.content} />
     </div>
   ) : (
-    <p className={cn(bubbleClass, local?.status === "sending" && "opacity-70")}>{renderRich(message.content)}</p>
+    <p className={cn(bubbleClass, local?.status === "sending" && "opacity-70")}>{renderRich(message.content, mentions, mine)}</p>
   );
 
   return (
@@ -202,9 +207,9 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
                   whileHover={{ scale: 1.15 }}
                   whileTap={{ scale: 0.9 }}
                   transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                  className="pointer-events-auto grid h-8 w-8 shrink-0 place-items-center rounded-full border border-border bg-card/95 text-muted-foreground shadow-lift backdrop-blur transition-colors hover:bg-accent hover:text-foreground"
+                  className="hit-44 pointer-events-auto grid size-8 shrink-0 place-items-center rounded-full border border-border bg-card/95 text-muted-foreground shadow-lift backdrop-blur transition-colors hover:bg-accent hover:text-foreground"
                 >
-                  <SmilePlus className="h-4 w-4" />
+                  <SmilePlus className="size-4" />
                 </motion.button>
               </div>
             )}
@@ -229,7 +234,7 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
                       type="button"
                       aria-label={`React ${emoji}`}
                       onClick={() => void toggleReaction(message.id, emoji)}
-                      className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-base transition-transform hover:scale-125 active:scale-95 max-lg:size-11 max-lg:text-2xl"
+                      className="grid size-7 shrink-0 place-items-center rounded-full text-base transition-transform hover:scale-125 active:scale-[0.97] max-lg:size-11 max-lg:text-2xl"
                     >
                       {emoji}
                     </button>

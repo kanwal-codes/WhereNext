@@ -140,7 +140,7 @@ export function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, on
             type="button"
             onClick={() => void addAll()}
             disabled={status !== "idle" || totalStops === 0}
-            className={cn(controlSecondary, ICON_WHEN_NARROW, status === "added" && "border-transparent bg-secondary text-foreground")}
+            className={cn(controlSecondary, ICON_WHEN_NARROW, status === "added" && "border-transparent bg-muted text-foreground")}
           >
             {status === "adding" ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : status === "added" ? <Check className="size-3.5" aria-hidden /> : <CalendarPlus className="size-3.5" aria-hidden />}
             <span className={LABEL_WHEN_NARROW}>{status === "added" ? (replaces ? "Replaced in itinerary" : "Added to itinerary") : replaces ? `Replace ${multi ? "these days" : block.days[0].label}` : "Add whole plan"}</span>
@@ -180,11 +180,11 @@ export function ItineraryBlockView({ block: sourceBlock, tripId, onOpenPlace, on
               onClick={() => setActive(i)}
               className={cn(
                 "min-w-[6.5rem] flex-1 rounded-xl border px-3.5 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                i === active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-surface text-foreground hover:border-ink/25",
+                i === active ? "border-primary bg-card text-foreground ring-1 ring-primary" : "border-border bg-surface text-foreground hover:border-ink/25",
               )}
             >
               <span className="block font-display text-base leading-tight font-medium">{d.label}</span>
-              <span className={cn("mt-0.5 block truncate text-xs", i === active ? "text-primary-foreground/70" : "text-muted-foreground")}>{d.subtitle ?? (d.open ? "Open" : `${d.stops.length} stop${d.stops.length === 1 ? "" : "s"}`)}</span>
+              <span className={"mt-0.5 block truncate text-xs text-muted-foreground"}>{d.subtitle ?? (d.open ? "Open" : `${d.stops.length} stop${d.stops.length === 1 ? "" : "s"}`)}</span>
             </button>
           ))}
         </div>
@@ -258,7 +258,7 @@ export function TripUpdateBlockView({ block, onFollowup }: { block: TripUpdateBl
               <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-positive-soft text-positive" aria-hidden><Check className="size-4" /></span>
               <div className="min-w-0 flex-1">
                 <p className="eyebrow">{change.label}</p>
-                <p className="mt-0.5 text-[0.9375rem] leading-snug">
+                <p className="mt-0.5 text-body leading-snug">
                   {from !== "Not set" && <span className="text-muted-foreground line-through decoration-muted-foreground/50">{from}</span>}
                   {from !== "Not set" && to !== "Not set" && <ArrowRight className="mx-1.5 inline size-3.5 align-[-2px] text-muted-foreground" aria-label="to" />}
                   {from !== "Not set" && to === "Not set" ? <WidgetPill className="ml-2 h-5">Cleared</WidgetPill> : <span className="font-medium text-foreground">{to}</span>}

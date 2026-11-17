@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { lineString } from "@turf/helpers";
 import turfLength from "@turf/length";
-import { endpointPin, nodeElement, pillElement, riderIconHtml, spreadPillSpots, stopPin } from "../../components/tripMapMarkers";
+import { endpointPin, nodeElement, pillElement, spreadPillSpots, stopPin } from "../../components/tripMapMarkers";
 import type { MapPin } from "../../components/TripMap";
 
 const KIND: Record<MapPin["kind"], string> = { stay: "#s", eat: "#e", see: "#v", do: "#d", event: "#x", saved: "#a" };
@@ -60,11 +60,6 @@ describe("tripMapMarkers: route furniture", () => {
     const named = nodeElement({ id: "n", at: [0, 0], color: "#abc", label: "Gare du Nord" });
     expect(named.querySelector(".trip-node-label")?.textContent).toBe("Gare du Nord");
     expect((named.firstElementChild as HTMLElement).style.getPropertyValue("--node")).toBe("#abc");
-  });
-
-  it("draws an icon for known vehicles and falls back for unknown ones", () => {
-    expect(riderIconHtml("walk")).toContain("<svg");
-    expect(riderIconHtml("hovercraft")).toBe(riderIconHtml("unknown"));
   });
 });
 

@@ -89,3 +89,12 @@ export function hoursPill(openNow: boolean | undefined, lines: readonly string[]
   }
   return closed;
 }
+
+/**
+ * Is a place shut all day on a given weekday (0 = Sunday), by its seven weekday lines? Only a line that plainly says "Closed" counts:
+ * no lines, or a line that cannot be read, is never taken as a closure.
+ */
+export function closedOnDay(lines: readonly string[] | undefined, weekday: number): boolean {
+  const line = lines?.find((l) => l.replace(SPACES, " ").split(":")[0]?.trim().toLowerCase() === DAYS[weekday]);
+  return parseLine(line ?? "")?.[0] === "closed";
+}

@@ -111,12 +111,12 @@ export function assignDays(input: { candidates: Candidate[]; days: number; kindO
 }
 
 const DAY_SYSTEM = (language: string) => `You write ONE part of a trip plan: the days named below, from the candidate places given for each day. Write "subtitle" and "note" in language "${language}" (BCP-47); "time" and "kind" stay in their given formats. Return JSON only:
-{"days":[{"label":"Day 2","subtitle":"<3-5 word theme>","stops":[{"time":"09:00","title":"<exact candidate name>","note":"<one line: why it fits or a tip>","placeId":"<id of the candidate, or omit>","kind":"sight"}]}]}
+{"days":[{"label":"Day 2","subtitle":"<3-5 word theme>","stops":[{"title":"<exact candidate name>","note":"<one line: why it fits or a tip>","placeId":"<id of the candidate, or omit>","kind":"sight"}]}]}
 Rules:
 - One entry per day named, labelled exactly as given.
 - Use ONLY that day's CANDIDATES: never another day's, never a venue that is not listed. Choose 3 or 4 of them (all of them when there are fewer; 2 only for a relaxed request or a day trip), in the order you would do them, keeping stops in the same area close together. Copy the title and the id exactly; a candidate with no id gets no placeId.
-- Give every stop a real 24-hour clock time at a sensible pace (breakfast ~08:30, lunch ~12:30, dinner ~19:00, a museum or sight ~10:00-15:00, nightlife ~21:00+).
-- A restaurant or cafe goes at a meal time and is never the whole day: choose a mix of kinds when the candidates allow it.
+- Plan the day, not the hours: ordinary stops get NO "time" (travellers sleep in, go late, or take it slowly). Only an event with a start time carries "time", copied exactly. List the stops in a natural order for the day (a lunch place in the middle, nightlife last).
+- A restaurant or cafe is never the whole day: choose a mix of kinds when the candidates allow it.
 - Candidates marked "day trip" are far from the centre: they are the day, with time left for the journey.
 - If an EVENT is listed for a day, use it only when it suits the traveller, with its title and time copied exactly, kind "event" and no placeId. A MUST event is booked: it appears exactly once, with its time, and the rest of that day is built around it.
 - note: one short line, why it suits this traveller or a practical tip. No fluff.

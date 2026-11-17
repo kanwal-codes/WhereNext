@@ -31,7 +31,7 @@ export function PlanDays({ tripId, days }: { tripId: string; days: PlanDay[] }) 
             <ol className="relative mt-6 space-y-4 border-l border-border pl-5">
               {day.items.map((item, index) => (
                 <li key={`${item}-${index}`} className="relative text-body leading-snug text-ink-soft">
-                  <span aria-hidden className="absolute top-[0.42rem] -left-[1.56rem] h-2 w-2 rounded-full bg-coral ring-4 ring-card" />
+                  <span aria-hidden className="absolute top-[0.42rem] -left-[1.56rem] size-2 rounded-full bg-coral ring-4 ring-card" />
                   {item}
                 </li>
               ))}

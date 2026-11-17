@@ -273,14 +273,14 @@ describe("Sheet: where it sits", () => {
   it("anchors a bottom sheet low with a drag handle", () => {
     render(<Harness side="bottom" />);
     const dialog = screen.getByRole("dialog");
-    expect(dialog.className).toContain("rounded-t-3xl");
+    expect(dialog.className).toContain("rounded-t-4xl");
     expect(dialog.parentElement!.className).toContain("items-end");
     expect(dialog.querySelector("[aria-hidden]")).toBeTruthy();
   });
 
   it("is a bottom sheet by default", () => {
     render(<Harness />);
-    expect(screen.getByRole("dialog").className).toContain("rounded-t-3xl");
+    expect(screen.getByRole("dialog").className).toContain("rounded-t-4xl");
   });
 
   it("puts a right or left sheet against its edge, with no handle", () => {

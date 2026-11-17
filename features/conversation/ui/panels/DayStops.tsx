@@ -2,17 +2,16 @@
 
 import React from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { ArrowUpRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { motionTokens } from "@/components/motion-primitives";
 import { formatClockTime, parseClockTime } from "@/lib/application/clock-time";
 import { cn } from "@/lib/utils";
 import { stopGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { TINT, type PlanStop } from "@/features/conversation/ui/blocks/PlanStops";
 
-/** A day's stops as a timeline: the time, a node on a line that runs to the next stop, and a card for the stop itself. */
+/** A day's stops as a column of cards: the time sits inside each card with what it is, and a short line joins one card to the next. */
 export function DayStops({ stops, onOpenPlace }: { stops: PlanStop[]; onOpenPlace?: (stop: PlanStop) => void }) {
   const reduce = useReducedMotion();
-  const timed = stops.some((stop) => parseClockTime(stop.time));
   return (
     <ol>
       {stops.map((stop, i) => {
@@ -20,52 +19,39 @@ export function DayStops({ stops, onOpenPlace }: { stops: PlanStop[]; onOpenPlac
         const Icon = glyph.icon;
         const last = i === stops.length - 1;
         const clock = parseClockTime(stop.time);
-        const [hour, period] = clock ? formatClockTime(clock).split(" ") : [null, null];
+        const time = clock ? formatClockTime(clock) : null;
         const open = stop.placeId && onOpenPlace ? () => onOpenPlace(stop) : null;
         const body = (
           <>
-            <span role="img" aria-label={glyph.label} className={cn("mt-1.5 grid size-10 shrink-0 place-items-center rounded-full max-sm:size-9", TINT[stop.kind ?? "activity"])}>
-              <Icon className="size-[1.125rem]" aria-hidden />
+            <span role="img" aria-label={glyph.label} className={cn("grid size-10 shrink-0 place-items-center rounded-full", TINT[stop.kind ?? "activity"])}>
+              <Icon className="size-5" aria-hidden />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="eyebrow block">{glyph.label}</span>
-              <span className="block font-display text-lg font-semibold leading-6 tracking-[-0.015em]">{stop.title}</span>
-              {stop.note && <span className="mt-1 block text-sm leading-normal text-ink-soft">{stop.note}</span>}
-            </span>
-            {open && (
-              <span aria-hidden className="mt-1.5 grid size-8 shrink-0 max-sm:hidden place-items-center rounded-full bg-muted text-muted-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                <ArrowUpRight className="size-4 transition-transform duration-200 group-hover:translate-x-px group-hover:-translate-y-px" />
+              <span className="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {time && <span className="rounded-full bg-coral-soft px-2 py-0.5 tabular-nums text-coral-ink">{time}</span>}
+                <span className="truncate">{glyph.label}</span>
               </span>
-            )}
+              <span className="mt-1 block font-display text-lg font-semibold leading-6 tracking-[-0.015em]">{stop.title}</span>
+              {stop.note && <span className="mt-1 block text-body leading-normal text-ink-soft">{stop.note}</span>}
+            </span>
+            {open && <ChevronRight aria-hidden className="mt-2.5 size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5" />}
           </>
         );
         return (
           <motion.li
             key={`${stop.title}-${i}`}
-            className="flex gap-2.5 sm:gap-3"
             initial={reduce ? false : { opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...motionTokens.swap, delay: 0.08 + i * 0.07 }}
           >
-            {timed && (
-              <div className="w-[4.25rem] shrink-0 whitespace-nowrap sm:w-[4.5rem] pt-8 text-right leading-5">
-                {hour && <span className="font-display text-base font-semibold tabular-nums">{hour}</span>}
-                {period && <span className="ml-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">{period}</span>}
-              </div>
+            {open ? (
+              <button type="button" onClick={open} className="group flex w-full items-start gap-3 rounded-2xl border border-border bg-card p-4 text-left shadow-soft transition-[transform,box-shadow] duration-200 active:scale-[0.985] lg:hover:-translate-y-0.5 lg:hover:shadow-float">
+                {body}
+              </button>
+            ) : (
+              <div className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4 shadow-soft">{body}</div>
             )}
-            <div aria-hidden className="relative w-3 shrink-0">
-              {stops.length > 1 && <span className={cn("absolute left-1/2 w-px -translate-x-1/2 bg-coral/30", i === 0 ? "top-11 bottom-0" : last ? "top-0 h-11" : "inset-y-0")} />}
-              <span className="absolute left-0 top-[2.375rem] size-3 rounded-full bg-coral ring-4 ring-coral-soft" />
-            </div>
-            <div className={cn("min-w-0 flex-1", !last && "pb-3")}>
-              {open ? (
-                <button type="button" onClick={open} className="group flex w-full items-start gap-3 rounded-2xl border border-border bg-card p-4 text-left shadow-soft transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-lift active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-                  {body}
-                </button>
-              ) : (
-                <div className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4 shadow-soft">{body}</div>
-              )}
-            </div>
+            {!last && <span aria-hidden className="mx-9 block h-4 w-px bg-coral/30" />}
           </motion.li>
         );
       })}

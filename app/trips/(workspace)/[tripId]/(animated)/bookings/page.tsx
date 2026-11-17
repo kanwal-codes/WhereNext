@@ -126,7 +126,7 @@ export default function BookingsPage() {
         ]}
       />
 
-      <div className="mx-auto max-w-6xl space-y-12 px-5 pt-6 sm:space-y-16 sm:px-8 sm:pt-8">
+      <div className="mx-auto max-w-6xl space-y-12 px-4 pt-6 sm:space-y-16 sm:px-8 sm:pt-8">
         <section>
           <div className="max-lg:hidden"><SectionHeading title="Your bookings" count={timeline.length} /></div>
           {!loading && (
@@ -154,15 +154,15 @@ export default function BookingsPage() {
             ) : timeline.length === 0 ? (
               <div className="rounded-3xl border border-dashed border-border bg-card/50 p-8">
                 <p className="font-display text-2xl tracking-tight">Nothing reserved yet</p>
-                <p className="mt-1 max-w-lg text-sm leading-relaxed text-muted-foreground">
+                <p className="mt-1 max-w-lg text-sm leading-relaxed text-ink-soft">
                   Add a hotel, a train, a tour or a dinner as you book it, or find a stay and a flight here and they will appear on their own.
                 </p>
                 <div className="mt-5 flex flex-wrap gap-3">
                   <button type="button" onClick={openAdd} className="btn-primary h-11 rounded-full px-6">
-                    <Plus className="h-4 w-4" /> Add reservation
+                    <Plus className="size-4" /> Add reservation
                   </button>
                   <button type="button" onClick={() => setTableOpen(true)} className="daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-card px-5 font-medium shadow-none hover:border-foreground/30 hover:bg-accent">
-                    <UtensilsCrossed className="h-4 w-4" /> Reserve a table
+                    <UtensilsCrossed className="size-4" /> Reserve a table
                   </button>
                   <Link href={`/trips/${tripId}/stay`} className="daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-card px-5 font-medium shadow-none hover:border-foreground/30 hover:bg-accent">
                     Find a stay
@@ -211,12 +211,12 @@ export default function BookingsPage() {
                   <RoamMark state="settled" size={84} />
                   <span>
                     <span className="block font-display text-2xl tracking-tight">A checklist for {destination}</span>
-                    <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">
+                    <span className="mt-1 block text-sm leading-relaxed text-ink-soft">
                       Visas, eSIM, plugs, currency, transit passes. Roam builds one for exactly where you&rsquo;re going.
                     </span>
                   </span>
                   <span className="daisy-btn daisy-btn-neutral w-fit border-0 shadow-none">
-                    Build it <ArrowRight className="h-4 w-4" />
+                    Build it <ArrowRight className="size-4" />
                   </span>
                 </Link>
               </Tactile>
@@ -235,7 +235,7 @@ export default function BookingsPage() {
         </section>
       </div>
 
-      <Sheet open={checklistOpen} onClose={() => setChecklistOpen(false)} side="bottom" ariaLabel="Before you go checklist" className="rounded-t-4xl bg-background px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+      <Sheet open={checklistOpen} onClose={() => setChecklistOpen(false)} side="bottom" ariaLabel="Before you go checklist" className="px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         <p className="pb-3 font-display text-xl font-medium tracking-[-0.02em]">Before you go</p>
         <div className="min-h-0 flex-1 overflow-y-auto"><EssentialsSurface tripId={tripId} initialCompleted={data?.essentials} /></div>
       </Sheet>

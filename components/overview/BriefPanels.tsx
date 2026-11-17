@@ -10,7 +10,7 @@ const panel = "rounded-3xl border border-border/70 bg-card p-6 shadow-soft";
 
 function Chip({ children, tone }: { children: string; tone: "like" | "avoid" | "diet" | "fact" }) {
   const toneClass = {
-    like: "border-transparent bg-secondary text-foreground",
+    like: "border-transparent bg-muted text-foreground",
     avoid: "border-border bg-muted text-muted-foreground line-through decoration-muted-foreground/50",
     diet: "border-coral/30 bg-coral/10 text-foreground",
     fact: "border-border bg-background text-foreground",
@@ -52,7 +52,7 @@ function TasteAndQuestions({ taste, questions }: { tripId?: string; taste: Taste
           )}
         </div>
       ) : (
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Tell Roam where you&rsquo;re going, what matters to you, and how you want the days to feel.</p>
+        <p className="mt-3 text-sm leading-relaxed text-ink-soft">Tell Roam where you&rsquo;re going, what matters to you, and how you want the days to feel.</p>
       )}
 
       <div className="mt-6 border-t border-border pt-5">
@@ -61,13 +61,13 @@ function TasteAndQuestions({ taste, questions }: { tripId?: string; taste: Taste
           <ul className="mt-3 space-y-2.5">
             {questions.map((question) => (
               <li key={question} className="flex gap-2.5 text-sm leading-relaxed text-ink-soft">
-                <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-coral" />
+                <span aria-hidden className="mt-2 size-1.5 shrink-0 rounded-full bg-coral" />
                 {question}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="mt-3 text-sm text-muted-foreground">Nothing pressing. Keep planning.</p>
+          <p className="mt-3 text-sm text-ink-soft">Nothing pressing. Keep planning.</p>
         )}
       </div>
     </section>

@@ -2,6 +2,8 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { SlidersHorizontal, X } from "lucide-react";
+import { Sheet } from "@/components/motion-primitives";
+import { sheetPrimary } from "@/components/motion/sheetActions";
 import type { useTripPanelMaybe } from "@/components/TripPanelProvider";
 import { cn } from "@/lib/utils";
 import type { useDiscoverFeed } from "../application/useDiscoverFeed";
@@ -11,7 +13,7 @@ type Feed = ReturnType<typeof useDiscoverFeed>;
 type PanelCtx = ReturnType<typeof useTripPanelMaybe>;
 type Category = NonNullable<ReturnType<(typeof CATEGORY_BY_KEY)["get"]>>;
 
-/** On a phone: one chip row (All, the categories, or the search being shown) with a filter button; the filters float over the feed. */
+/** On a phone: one chip row (All, the categories, or the search being shown) with a filter button; the filters and Compare open in a bottom sheet. */
 export function PhoneDiscoverBar({ feed, panelCtx, activeCat, filtersOpen, setFiltersOpen, filterCount, phone }: {
   feed: Feed;
   panelCtx: PanelCtx;
@@ -22,6 +24,19 @@ export function PhoneDiscoverBar({ feed, panelCtx, activeCat, filtersOpen, setFi
   phone: boolean;
 }) {
   const { catKey, subs, setSubs, searchLabel, setSearchLabel, searchMode, setSearchMode, pickCategory, toggleSub } = feed;
+  const chips = (
+    <div className="flex flex-wrap gap-2 pb-1">
+      {panelCtx && (
+        <button type="button" onClick={() => { panelCtx.setCompareMode(!panelCtx.compareMode); panelCtx.compareClear(); }} aria-pressed={panelCtx.compareMode} className="btn-chip">
+          {panelCtx.compareMode ? `Comparing · ${panelCtx.compareList.length}` : "Compare places"}
+        </button>
+      )}
+      {activeCat?.subs.map((s) => (
+        <button key={s.label} type="button" onClick={() => toggleSub(s.label)} aria-pressed={subs.includes(s.label)} className="btn-chip">{s.label}</button>
+      ))}
+      {subs.length > 0 && <button type="button" onClick={() => setSubs([])} className="px-2 text-sm text-ink-soft">Clear</button>}
+    </div>
+  );
   return (
     <div className="flex flex-col gap-3 pt-1">
       <div className="flex items-center gap-2">
@@ -49,38 +64,33 @@ export function PhoneDiscoverBar({ feed, panelCtx, activeCat, filtersOpen, setFi
           onClick={() => setFiltersOpen((v) => !v)}
           aria-pressed={filtersOpen}
           aria-label={filterCount ? `Filters and compare, ${filterCount} on` : "Filters and compare"}
-          className={cn("relative grid size-11 shrink-0 place-items-center rounded-full border border-input bg-background transition-colors", "max-lg:border-0 max-lg:bg-secondary", filtersOpen && "border-foreground bg-foreground text-background", filtersOpen && "max-lg:bg-foreground")}
+          className={cn("relative grid size-11 shrink-0 place-items-center rounded-full border border-input bg-background transition-colors", "max-lg:border-0 max-lg:bg-muted", filtersOpen && "border-foreground bg-foreground text-background", filtersOpen && "max-lg:bg-foreground")}
         >
           <SlidersHorizontal className="size-[1.125rem]" aria-hidden />
           {filterCount > 0 && !filtersOpen && <span aria-hidden className="absolute top-2 right-2 size-2.5 rounded-full bg-coral ring-2 ring-background" />}
         </button>
       </div>
-      {/* On a phone the filter chips float over the feed instead of pushing it down and pulling it back up: opening and closing move nothing underneath, so there is nothing to jitter. */}
-      <div className={cn(phone && "relative h-0")}>
-      <AnimatePresence initial={false}>
-        {filtersOpen && (
-          <motion.div
-            initial={phone ? { opacity: 0, y: -6, scale: 0.98 } : { opacity: 0, height: 0 }}
-            animate={phone ? { opacity: 1, y: 0, scale: 1 } : { opacity: 1, height: "auto" }}
-            exit={phone ? { opacity: 0, y: -6, scale: 0.98 } : { opacity: 0, height: 0 }}
-            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className={cn(phone ? "absolute inset-x-0 top-1 z-30 origin-top rounded-2xl border border-border bg-card p-3 shadow-lift" : "overflow-hidden")}
-          >
-            <div className="flex flex-wrap gap-2 pb-1">
-              {panelCtx && (
-                <button type="button" onClick={() => { panelCtx.setCompareMode(!panelCtx.compareMode); panelCtx.compareClear(); }} aria-pressed={panelCtx.compareMode} className="btn-chip">
-                  {panelCtx.compareMode ? `Comparing · ${panelCtx.compareList.length}` : "Compare places"}
-                </button>
-              )}
-              {activeCat?.subs.map((s) => (
-                <button key={s.label} type="button" onClick={() => toggleSub(s.label)} aria-pressed={subs.includes(s.label)} className="btn-chip">{s.label}</button>
-              ))}
-              {subs.length > 0 && <button type="button" onClick={() => setSubs([])} className="px-2 text-sm text-muted-foreground">Clear</button>}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      </div>
+      {/* A phone gets a bottom sheet, like every other set of options in the app (a popover over the feed is a card nobody else uses); a wide screen keeps the row that unfolds under the chips. */}
+      {phone ? (
+        <Sheet open={filtersOpen} onClose={() => setFiltersOpen(() => false)} ariaLabel="Compare and filter" padded footer={<button type="button" onClick={() => setFiltersOpen(() => false)} className={sheetPrimary}>Done</button>}>
+          <p className="px-1 pb-3 pt-1 font-display text-xl font-medium tracking-[-0.02em]">Compare and filter</p>
+          <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain px-1">{chips}</div>
+        </Sheet>
+      ) : (
+        <AnimatePresence initial={false}>
+          {filtersOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              className="overflow-hidden"
+            >
+              {chips}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )}
     </div>
   );
 }
@@ -138,7 +148,7 @@ export function CategoryStrip({ feed, panelCtx }: { feed: Feed; panelCtx: PanelC
                     aria-pressed={on}
                     className="btn-chip shrink-0"
                   >
-                    <Icon className="h-3.5 w-3.5" /> {c.label}
+                    <Icon className="size-3.5" /> {c.label}
                   </button>
                 );
               })}

@@ -15,10 +15,10 @@ export default function TripLoading() {
   return (
     <div className="flex min-h-svh flex-col">
       <div className="sticky top-0 z-30 flex h-[var(--topbar)] shrink-0 items-center gap-3 border-b border-border bg-background/95 px-4">
-        <BrandMark variant="compact" className="h-6 w-6 shrink-0 text-2xs" />
+        <BrandMark variant="compact" className="size-6 shrink-0 text-2xs" />
         <Skeleton className="h-4 w-40 rounded-md" />
       </div>
-      <div className="mx-auto w-full min-w-0 max-w-5xl flex-1 px-5 py-10 sm:px-8">
+      <div className="mx-auto w-full min-w-0 max-w-5xl flex-1 px-4 py-10 sm:px-8">
         <Skeleton className="h-3 w-20 rounded-md" />
         <Skeleton className="mt-3 h-8 w-64 rounded-md" />
         <div className="mt-8 space-y-4">

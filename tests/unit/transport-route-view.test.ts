@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   cheapestFlight, compareContext, describeRoutes, driveSaveValue, driveTrafficOf, fastestIndex, flightPrice, flightSaveValue, flightsStatusText, googleFlightsUrl,
-  googleMapsTransitUrl, hexColor, legsFor, lyftHref, mergeWalks, money, pathOf, routeSummaries, stopsLabel, transitSaveValue, transitStatusText, uberHref,
+  googleMapsTransitUrl, hexColor, legsFor, lyftHref, mergeWalks, money, pathOf, routeOrder, routeSummaries, stopsLabel, transitSaveValue, transitStatusText, uberHref,
   type DriveRoute, type Flight, type Route,
 } from "../../features/transport/domain/route-view";
 
@@ -129,5 +129,24 @@ describe("driveTrafficOf", () => {
     expect(traffic).not.toBeNull();
     expect(traffic!.bar.length).toBeLessThanOrEqual(2);
     expect(traffic!.bar.reduce((a, b) => a + b.km, 0)).toBeGreaterThan(0);
+  });
+});
+
+describe("routeOrder", () => {
+  const ride = (seconds: number) => ({ mode: "subway", durationSeconds: seconds });
+  const walk = (seconds: number) => ({ mode: "walk", durationSeconds: seconds });
+  // 0: 30 min, two rides, 10 min walking. 1: 20 min, three rides (two changes), 2 min walking. 2: 45 min, one ride, no walking.
+  const routes = [
+    route({ durationSeconds: 1800, steps: [walk(300), ride(600), ride(600), walk(300)] }),
+    route({ durationSeconds: 1200, steps: [ride(400), ride(400), ride(400), walk(120)] }),
+    route({ durationSeconds: 2700, steps: [ride(2700)] }),
+  ];
+
+  it("keeps the server's order for best, and indexes into the original list for every other order", () => {
+    expect(routeOrder(routes, "best")).toEqual([0, 1, 2]);
+    expect(routeOrder(routes, "fastest")).toEqual([1, 0, 2]);
+    expect(routeOrder(routes, "changes")).toEqual([2, 0, 1]);
+    expect(routeOrder(routes, "walking")).toEqual([2, 1, 0]);
+    expect(routeOrder([], "fastest")).toEqual([]);
   });
 });

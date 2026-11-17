@@ -12,7 +12,7 @@ export function createRecorder(results: Record<string, Array<{ data?: unknown; e
     from(table: string) {
       const q: Record<string, unknown> = {};
       const log = (method: string) => (...args: unknown[]) => { calls.push({ table, method, args }); return q; };
-      for (const m of ["select", "eq", "lt", "in", "order", "range", "insert", "upsert"]) q[m] = log(m);
+      for (const m of ["select", "eq", "lt", "gt", "in", "order", "range", "limit", "insert", "upsert"]) q[m] = log(m);
       const terminal = async () => ({ data: null, error: null, ...next(table) });
       q.maybeSingle = (...a: unknown[]) => { calls.push({ table, method: "maybeSingle", args: a }); return terminal(); };
       q.single = (...a: unknown[]) => { calls.push({ table, method: "single", args: a }); return terminal(); };

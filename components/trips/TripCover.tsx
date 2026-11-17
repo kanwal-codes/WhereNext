@@ -145,6 +145,9 @@ export function TripCover({
             alt={trip.destination ? `Photo of ${trip.destination}` : ""}
             loading="lazy"
             decoding="async"
+            // On the trips home the hero is what the page is judged on: a row of card photos (150-220 KB each) must not share the connection with it
+            // and the scripts at the same priority. The featured trip's cover is the one photo that stays at the browser's own choice.
+            fetchPriority={size === "card" ? "low" : undefined}
             // A photo that finished loading before the page hydrated (cached, or already in view) never
             // fires onLoad, so check for it here too. The same goes for one that FAILED before hydration (an expired
             // photo name answers 404 while the server-rendered <img> is already loading): `complete` with no width is a broken image.

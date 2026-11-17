@@ -43,6 +43,8 @@ export function MyStayCard({ stay, onRemove }: { stay: MyStay; onRemove?: () => 
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(90%_130%_at_0%_0%,color-mix(in_oklab,var(--leaf)_11%,transparent),transparent_62%)]" />
 
       <div className="relative aspect-[16/9] shrink-0 overflow-hidden sm:aspect-auto sm:w-64 lg:w-72">
+        {/* The title's link only stretches over the text column (that is its positioned parent), so the photo gets its own, out of the tab order. */}
+        <Link href={stay.href} aria-hidden tabIndex={-1} className="absolute inset-0 z-[1]" />
         <StayPhoto src={stay.thumbnail} alt="" className="photo-grade absolute inset-0 h-full w-full object-cover" />
         <span className="photo-chip absolute top-3 left-3 gap-1.5">
           <Check className="size-3.5 text-leaf" aria-hidden />
@@ -58,7 +60,7 @@ export function MyStayCard({ stay, onRemove }: { stay: MyStay; onRemove?: () => 
             </Link>
           </h3>
           {stay.address && (
-            <p className="mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground">
+            <p className="mt-1.5 flex items-center gap-1.5 text-sm text-ink-soft">
               <MapPin className="size-3.5 shrink-0" aria-hidden />
               <span className="truncate">{stay.address}</span>
             </p>

@@ -33,18 +33,18 @@ export function RentalCarList({ tripId, center }: { tripId: string; center: { la
 
   if (loading) {
     return (
-      <p className="flex items-center gap-2 rounded-2xl border border-dashed border-border p-5 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" /> Looking for rental cars nearby…
+      <p className="flex items-center gap-2 rounded-2xl border border-dashed border-border p-5 text-sm text-ink-soft">
+        <Loader2 className="size-4 animate-spin" /> Looking for rental cars nearby…
       </p>
     );
   }
 
   if (error) {
-    return <p className="rounded-2xl border border-dashed border-border p-5 text-sm text-muted-foreground">We couldn’t load rental cars just now. Try again in a moment.</p>;
+    return <p className="rounded-2xl border border-dashed border-border p-5 text-sm text-ink-soft">We couldn’t load rental cars just now. Try again in a moment.</p>;
   }
 
   if (!businesses || businesses.length === 0) {
-    return <p className="rounded-2xl border border-dashed border-border p-5 text-sm text-muted-foreground">No rental car locations came back for this area.</p>;
+    return <p className="rounded-2xl border border-dashed border-border p-5 text-sm text-ink-soft">No rental car locations came back for this area.</p>;
   }
 
   return (
@@ -55,19 +55,19 @@ export function RentalCarList({ tripId, center }: { tripId: string; center: { la
             <span className="font-display text-base">{b.name}</span>
             {typeof b.rating === "number" && (
               <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                <Star className="h-3 w-3 fill-current text-coral" /> {b.rating.toFixed(1)}
+                <Star className="size-3 fill-current text-coral" /> {b.rating.toFixed(1)}
               </span>
             )}
           </div>
           {b.address && (
             <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-              <MapPin className="h-3 w-3 shrink-0" /> <span className="truncate">{b.address}</span>
+              <MapPin className="size-3 shrink-0" /> <span className="truncate">{b.address}</span>
             </p>
           )}
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
             {b.phone && (
               <a href={`tel:${b.phone.replace(/\s/g, "")}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-                <Phone className="h-3 w-3" /> {b.phone}
+                <Phone className="size-3" /> {b.phone}
               </a>
             )}
             {b.websiteUri && <ExternalLink href={b.websiteUri}>Website</ExternalLink>}

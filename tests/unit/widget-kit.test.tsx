@@ -36,6 +36,6 @@ describe("the widget kit", () => {
     const offer = (id: string, price: string) => ({ id, airline: "Air", price, currency: "CAD", departAt: "2026-11-15T10:00:00", arriveAt: "2026-11-15T18:00:00", durationMinutes: 480, stops: 0 });
     const html = render([{ type: "flights", retrievedAt: "t", origin: "Toronto", destination: "London", dateNote: "x", items: [offer("a", "900"), offer("b", "800"), offer("c", "1000")] } as unknown as AssistantBlock]);
     // The sort tab also says "Cheapest"; the fare badge is the small pill.
-    expect(html.match(/text-\[0\.6875rem\][^>]*><span[^>]*>Cheapest/g)?.length).toBe(1);
+    expect(html.match(/text-2xs[^>]*><span[^>]*>Cheapest/g)?.length).toBe(1);
   });
 });

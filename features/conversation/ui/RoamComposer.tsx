@@ -36,7 +36,7 @@ export function RoamComposer({ tripId, rail, input, setInput, loaded, guestGate,
   const sendOrStopButton = <SendButton canSend={canSend} stopping={sending} onStop={stop} micShown={speech.supported} />;
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-background from-55% to-transparent px-3 pt-8 pb-3 max-lg:bg-none max-lg:px-0 max-lg:pt-0">
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-background from-55% to-transparent px-3 pt-8 pb-3 max-lg:bg-none max-lg:px-0 max-lg:pt-0 max-lg:pb-[max(0.5rem,env(safe-area-inset-bottom))]">
       <div className={cn("pointer-events-auto relative mx-auto w-full min-w-0", rail ? RAIL_MEASURE : "max-w-2xl")}>
         <AnimatePresence>
           {away && (
@@ -83,8 +83,8 @@ export function RoamComposer({ tripId, rail, input, setInput, loaded, guestGate,
           className={cn(
             "flex w-full min-w-0 max-w-full flex-col gap-1 rounded-3xl border border-input bg-card py-1.5 pl-4 pr-1.5 shadow-lift transition-[border-color,box-shadow] duration-200 ease-out",
             "max-lg:pr-1.5 max-lg:pl-5",
-            "focus-within:border-ink/30 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_6%,transparent),var(--shadow-lift)]",
-            "max-lg:border-transparent max-lg:bg-secondary max-lg:shadow-none max-lg:focus-within:border-transparent max-lg:focus-within:shadow-none",
+            "focus-within:border-ink/30 focus-within:shadow-halo",
+            "max-lg:border-transparent max-lg:bg-muted max-lg:shadow-none max-lg:focus-within:border-transparent max-lg:focus-within:shadow-none",
             sending && "composer-live",
           )}
         >

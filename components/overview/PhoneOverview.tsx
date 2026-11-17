@@ -22,7 +22,7 @@ function TripRow({ href, icon: Icon, title, note, tone = "quiet", dot = false, o
 }) {
   const body = (
     <>
-      <span aria-hidden className={cn("relative grid size-11 shrink-0 place-items-center rounded-2xl ring-1", tone === "attention" ? "bg-secondary text-caution ring-border/70" : "bg-surface text-ink-soft ring-border/70")}>
+      <span aria-hidden className={cn("relative grid size-11 shrink-0 place-items-center rounded-2xl ring-1", tone === "attention" ? "bg-muted text-caution ring-border/70" : "bg-surface text-ink-soft ring-border/70")}>
         <Icon className="size-5" />
         {dot && <span className="absolute -top-0.5 -right-0.5 size-3 rounded-full bg-coral ring-[3px] ring-background" />}
       </span>
@@ -54,14 +54,14 @@ export function PhoneOverview({ tripId, trip, reservations, stays }: { tripId: s
   const gapNights = gaps.reduce((t, g) => t + g.nights, 0);
   const stayCount = live.filter((r) => r.kind === "stay").length;
   return (
-    <div className="space-y-9 px-5 pt-8 lg:hidden">
+    <div className="space-y-9 px-4 pt-8 lg:hidden">
       {stops.length > 1 && (
         <section aria-label="The route">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="font-display text-widget font-medium tracking-[-0.025em]">The route</h2>
-            <span className="text-sm text-muted-foreground">{stops.length} cities</span>
+            <span className="text-sm text-ink-soft">{stops.length} cities</span>
           </div>
-          <ol className="-mx-5 mt-3 flex snap-x gap-3 overflow-x-auto overscroll-x-contain px-5 pb-1 no-scrollbar scroll-px-5">
+          <ol className="-mx-4 mt-3 flex snap-x gap-3 overflow-x-auto overscroll-x-contain px-4 pb-1 no-scrollbar scroll-px-4">
             {stops.map((s) => {
               const n = s.startDate && s.endDate ? nights(s.startDate, s.endDate) : null;
               return (
@@ -70,7 +70,7 @@ export function PhoneOverview({ tripId, trip, reservations, stays }: { tripId: s
                     <span aria-hidden className="absolute top-2 left-3 font-display text-4xl leading-none font-medium tracking-[-0.04em] text-foreground/20">{s.city.charAt(0)}</span>
                   </TripArt>
                   <p className="mt-2 font-display text-base leading-tight font-medium">{s.city}</p>
-                  <p className="text-sm text-muted-foreground">{n ? `${n} ${n === 1 ? "night" : "nights"}` : "no dates yet"}</p>
+                  <p className="text-sm text-ink-soft">{n ? `${n} ${n === 1 ? "night" : "nights"}` : "no dates yet"}</p>
                 </li>
               );
             })}

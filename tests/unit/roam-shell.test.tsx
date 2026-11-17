@@ -14,7 +14,6 @@ let desktop = true;
 let guest = false;
 let panel: Any | null;
 const keyboardFit = vi.fn();
-let sheetPanel = false;
 let header: Any = {};
 let conv: Any = {};
 let group: Any = {};
@@ -24,7 +23,6 @@ const openGate = vi.fn();
 
 vi.mock("@/lib/use-media-query", () => ({ useMediaQuery: () => desktop }));
 vi.mock("@/lib/use-keyboard-fit", () => ({ useKeyboardFit: (enabled: boolean) => keyboardFit(enabled) }));
-vi.mock("@/lib/use-panel-style", () => ({ usePanelStyle: () => (sheetPanel ? "sheet" : "page") }));
 vi.mock("@/components/shell/PhoneHeader", () => ({ PHONE_ROUND: "round", useSetPhoneHeader: (h: Any) => { header = h; } }));
 vi.mock("@/components/TripDataProvider", () => ({ useTripData: () => ({ data: { trip: { id: TRIP }, preferences: {}, decisions: [] } }) }));
 vi.mock("@/features/identity/ui/GuestProvider", () => ({ useGuest: () => ({ guest, openGate }) }));
@@ -58,7 +56,7 @@ const u = () => userEvent.setup({ pointerEventsCheck: 0 });
 const shell = (tab: "roam" | "group" = "roam") => render(<RoamShell tripId={TRIP} activeTab={tab} />);
 const grid = () => document.querySelector<HTMLElement>("[data-roam-shell] > div")!;
 beforeEach(() => {
-  desktop = true; guest = false; panel = null; sheetPanel = false; keyboardFit.mockClear(); header = {}; conv = {}; group = {};
+  desktop = true; guest = false; panel = null; keyboardFit.mockClear(); header = {}; conv = {}; group = {};
   [openPanel, closePanel, openGate].forEach((m) => m.mockClear());
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
@@ -270,7 +268,6 @@ describe("RoamShell: the phone's header", () => {
   });
 
   it("puts a detail panel in a sheet over a scrim that closes it", async () => {
-    sheetPanel = true;
     panel = { kind: "place" };
     shell();
     expect(screen.getByTestId("trip-panel")).toBeTruthy();

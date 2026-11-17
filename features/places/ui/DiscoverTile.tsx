@@ -54,9 +54,10 @@ export function DiscoverTile({
   ) : null;
   if (feature) {
     return (
-      <article data-tappable className={cn("group relative isolate aspect-[16/11] overflow-hidden rounded-3xl bg-muted text-white", selected && "ring-2 ring-coral")}>
+      <article data-tappable className={cn("group relative isolate aspect-[16/11] overflow-hidden rounded-3xl bg-muted text-white", selected && "ring-2 ring-primary")}>
         <CardOpenOverlay label={label} onOpen={onOpen} href={href} warm={warm} />
-        <TilePhoto src={src} icon={icon} className="photo-grade absolute inset-0 h-full w-full object-cover" />
+        {/* The photo comes after the overlay and is absolutely placed, so without this it sits on top of the link and swallows the tap. */}
+        <TilePhoto src={src} icon={icon} className="photo-grade pointer-events-none absolute inset-0 h-full w-full object-cover" />
         <div aria-hidden className="photo-scrim pointer-events-none absolute inset-0" />
         {pick && <span className="pointer-events-none absolute top-3 left-3 z-[1] rounded-full bg-white/92 px-3 py-1.5 text-xs font-semibold text-coral-ink">{pick}</span>}
         {save && <div className="absolute top-2 right-2 z-[2]">{save}</div>}
@@ -75,14 +76,14 @@ export function DiscoverTile({
     <article data-tappable className="group relative isolate min-w-0">
       <CardOpenOverlay label={label} onOpen={onOpen} href={href} warm={warm} />
       {/* The photo lets taps through to the open-card overlay beneath it; only the controls on it take their own. */}
-      <div className={cn("pointer-events-none relative aspect-[4/3] overflow-hidden rounded-2xl bg-muted", selected && "ring-2 ring-coral")}>
+      <div className={cn("pointer-events-none relative aspect-[4/3] overflow-hidden rounded-2xl bg-muted", selected && "ring-2 ring-primary")}>
         <TilePhoto src={src} icon={icon} className="photo-grade absolute inset-0 h-full w-full object-cover" />
         {add && <div className="pointer-events-auto absolute right-2 bottom-2 z-[2]">{add}</div>}
         {overlay && <div className="pointer-events-auto contents">{overlay}</div>}
       </div>
-      <h3 className="mt-2.5 font-display text-[0.9375rem] leading-snug font-medium tracking-[-0.01em] text-balance">{title}</h3>
+      <h3 className="mt-2.5 font-display text-body leading-snug font-medium tracking-[-0.01em] text-balance">{title}</h3>
       {(meta || stars) && (
-        <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
+        <p className="mt-0.5 flex items-center gap-1.5 text-sm text-ink-soft">
           {meta && <span className="min-w-0 truncate">{meta}</span>}
           {stars && <span className="text-foreground">{stars}</span>}
         </p>

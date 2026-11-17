@@ -18,7 +18,7 @@ export function ProposalCard({ text, rows, confirming, onConfirm, onCancel }: {
     {rows.length > 0 && (
       <details className="group mt-3">
         <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
-          <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
+          <ChevronRight className="size-3 transition-transform group-open:rotate-90" />
           See exactly what will be saved
         </summary>
         <dl className="mt-1.5 space-y-1 rounded-xl border border-border/60 bg-background/70 px-3 py-2 text-xs leading-relaxed">

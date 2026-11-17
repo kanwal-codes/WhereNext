@@ -47,7 +47,7 @@ export function EventCard({ tripId, event, className, onSelect, compact = false,
         feature={phoneTile === "feature"}
         selected={selected}
         add={!comparing && phoneTile === "grid" ? (
-          <a href={safeHref(event.url)} target="_blank" rel="noreferrer noopener" aria-label={`Tickets: ${event.title}`} className="grid size-11 place-items-center rounded-full bg-white/94 text-[#2a2623] shadow-soft transition-transform active:scale-95">
+          <a href={safeHref(event.url)} target="_blank" rel="noreferrer noopener" aria-label={`Tickets: ${event.title}`} className="grid size-11 place-items-center rounded-full bg-white/94 text-[#2a2623] shadow-soft transition-transform active:scale-[0.97]">
             <Ticket className="size-[1.125rem]" aria-hidden />
           </a>
         ) : undefined}
@@ -107,7 +107,7 @@ export function EventCard({ tripId, event, className, onSelect, compact = false,
           meta: <span className="font-medium text-coral-ink">{when ?? "Date to be announced"}</span>,
           sub: seller ? `via ${seller}` : undefined,
           action: comparing ? undefined : (
-            <a href={safeHref(event.url)} target="_blank" rel="noreferrer noopener" aria-label={`Tickets: ${event.title}`} className="grid size-10 place-items-center rounded-full border border-border bg-background transition-transform active:scale-95">
+            <a href={safeHref(event.url)} target="_blank" rel="noreferrer noopener" aria-label={`Tickets: ${event.title}`} className="grid size-10 place-items-center rounded-full border border-border bg-background transition-transform active:scale-[0.97]">
               <Ticket className="size-[18px]" aria-hidden />
             </a>
           ),

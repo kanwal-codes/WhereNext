@@ -128,8 +128,8 @@ export function MorePlaces({ block, tripId, onOpenPlace }: { block: Extract<Assi
           </button>
         </div>
       )}
-      {failed && <p className="text-center text-sm text-muted-foreground">Couldn’t find more just now. Try again in a moment.</p>}
-      {found && fresh.length === 0 && <p className="text-center text-sm text-muted-foreground">That’s everything Roam found near here.</p>}
+      {failed && <p className="text-center text-sm text-ink-soft">Couldn’t find more just now. Try again in a moment.</p>}
+      {found && fresh.length === 0 && <p className="text-center text-sm text-ink-soft">That’s everything Roam found near here.</p>}
     </>
   );
 }

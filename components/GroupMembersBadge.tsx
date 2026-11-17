@@ -32,7 +32,7 @@ export function GroupMembersBadge({ tripId }: { tripId: string }) {
             </span>
           ))}
           {overflow > 0 && (
-            <span className="grid size-6 place-items-center rounded-full bg-muted text-[9px] font-semibold text-muted-foreground ring-2 ring-background">
+            <span className="grid size-6 place-items-center rounded-full bg-muted text-2xs font-semibold text-muted-foreground ring-2 ring-background">
               +{overflow}
             </span>
           )}

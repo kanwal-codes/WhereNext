@@ -131,15 +131,15 @@ export function FlightPicks({ picks, selected, onSelect, roundTrip }: { picks: F
             type="button"
             onClick={() => onSelect(key)}
             aria-pressed={on}
-            className={cn("relative min-w-0 flex-1 rounded-2xl px-3.5 py-3 text-left backdrop-blur-md transition-[box-shadow,background-color,transform] duration-200 ease-out active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", on ? "border-2 border-primary bg-primary text-primary-foreground shadow-lift" : "border border-border bg-surface hover:border-ink/25", "max-lg:backdrop-blur-none max-lg:shadow-none", (on ? "max-lg:border max-lg:border-primary" : "max-lg:border max-lg:border-border max-lg:bg-surface"))}
+            className={cn("relative min-w-0 flex-1 rounded-2xl px-3.5 py-3 text-left backdrop-blur-md transition-[box-shadow,background-color,transform] duration-200 ease-out active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", on ? "border border-primary bg-card ring-1 ring-primary shadow-lift" : "border border-border bg-surface hover:border-ink/25", "max-lg:backdrop-blur-none max-lg:shadow-none", (on ? "max-lg:border max-lg:border-primary" : "max-lg:border max-lg:border-border max-lg:bg-surface"))}
           >
             <span className="flex items-center justify-between gap-1.5">
-              <span className={cn("eyebrow truncate", on && "text-primary-foreground/70!")}>{pick.labels.join(" · ")}</span>
+              <span className="eyebrow truncate">{pick.labels.join(" · ")}</span>
               <AirlineMark offer={pick.offer} className="size-6" />
             </span>
             <FitText className="mt-1.5 font-display text-widget leading-tight font-medium tracking-[-0.025em] tabular-nums">{money(pick.offer.price, pick.offer.currency, true)}</FitText>
-            {on ? <span aria-hidden className="absolute right-3 bottom-3 grid size-[1.125rem] place-items-center rounded-full bg-white text-primary lg:hidden"><Check className="size-3" strokeWidth={3.5} /></span> : null}
-            <span className={cn(type.meta, "block truncate", on && "text-primary-foreground/70!", on && "max-lg:pr-6")}>{hoursMinutes(pick.offer.durationMinutes)} · {pick.offer.stops === 0 ? "nonstop" : `${pick.offer.stops} stop${pick.offer.stops > 1 ? "s" : ""}`}{roundTrip ? " · round trip" : ""}</span>
+            {on ? <span aria-hidden className="absolute right-3 bottom-3 grid size-[1.125rem] place-items-center rounded-full bg-primary text-primary-foreground lg:hidden"><Check className="size-3" strokeWidth={3.5} /></span> : null}
+            <span className={cn(type.meta, "block truncate", on && "max-lg:pr-6")}>{hoursMinutes(pick.offer.durationMinutes)} · {pick.offer.stops === 0 ? "nonstop" : `${pick.offer.stops} stop${pick.offer.stops > 1 ? "s" : ""}`}{roundTrip ? " · round trip" : ""}</span>
           </button>
         );
       })}
@@ -180,7 +180,7 @@ function LegBlock({ leg, fallbackAirline, compact = false }: { leg: Leg; fallbac
       <div className={cn("min-w-0 flex-1 rounded-2xl bg-surface", compact ? "p-3" : "p-3.5")}>
         <div className="flex items-center gap-3">
           <AirlineMark offer={{ airline: leg.airline ?? fallbackAirline, logo: leg.logo }} className={cn("shrink-0", compact ? "size-8" : "size-9")} />
-          <p className="min-w-0 flex-1 truncate text-[0.9375rem] font-semibold">{leg.airline ?? fallbackAirline}{leg.flightNumber && <span className="ml-1.5 font-normal text-muted-foreground">{leg.flightNumber}</span>}</p>
+          <p className="min-w-0 flex-1 truncate text-body font-semibold">{leg.airline ?? fallbackAirline}{leg.flightNumber && <span className="ml-1.5 font-normal text-muted-foreground">{leg.flightNumber}</span>}</p>
         </div>
         {detail && <p className={cn(type.meta, "mt-2")}>{detail}</p>}
         {(shown.length > 0 || leg.legroom || leg.oftenDelayed) && (
@@ -200,16 +200,16 @@ function Node({ time, code, name, note, end, plus }: { time: string; code?: stri
   return (
     <div className="flex items-baseline gap-4">
       <span className="flex w-3.5 shrink-0 justify-center self-start pt-2" aria-hidden><span className={cn("size-3.5 rounded-full", end ? "border-[3px] border-foreground bg-background" : "bg-foreground")} /></span>
-      <p className="w-[6.5rem] shrink-0 font-display text-2xl leading-tight font-medium tracking-[-0.02em] tabular-nums">{time}{plus ? <sup className="ml-0.5 text-[0.6875rem] max-lg:text-xs text-coral-ink">+{plus}</sup> : null}</p>
+      <p className="w-[6.5rem] shrink-0 font-display text-2xl leading-tight font-medium tracking-[-0.02em] tabular-nums">{time}{plus ? <sup className="ml-0.5 text-2xs max-lg:text-xs text-coral-ink">+{plus}</sup> : null}</p>
       <div className="min-w-0">
-        <p className="truncate text-[0.9375rem] font-semibold">{code}{name && <span className="font-normal text-muted-foreground"> · {name}</span>}</p>
+        <p className="truncate text-body font-semibold">{code}{name && <span className="font-normal text-muted-foreground"> · {name}</span>}</p>
         {note && <p className={cn(type.meta)}>{note}</p>}
       </div>
     </div>
   );
 }
 
-const WAIT_TONE = { neutral: "bg-secondary text-ink-soft", night: "bg-secondary text-foreground [&_svg]:text-lagoon", caution: "bg-secondary text-foreground [&_svg]:text-caution" } as const;
+const WAIT_TONE = { neutral: "bg-muted text-ink-soft", night: "bg-muted text-foreground [&_svg]:text-lagoon", caution: "bg-muted text-foreground [&_svg]:text-caution" } as const;
 
 /**
  * One fare opened out: the whole journey in order (each flight, each wait between them), then the price, the fare's
@@ -306,8 +306,8 @@ export function FlightRowBody({ offer, roundTrip, cheapest, selected, onDetails 
     <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
       <AirlineMark offer={offer} className="size-9 shrink-0" />
       <div className="min-w-0 flex-1 @[34rem]:w-[7.25rem] @[34rem]:flex-none">
-        <p className="line-clamp-2 text-[0.9375rem] leading-[1.2] font-medium">{offer.airline}</p>
-        {cheapest ? <WidgetPill tone="sage" className="mt-0.5 h-5 text-[0.6875rem] max-lg:text-xs">Cheapest</WidgetPill> : <p className={cn(type.meta, "truncate")}>{[offer.cabinClass, offer.flightNumbers?.slice(0, 2).join(" · ")].filter(Boolean).join(" · ") || offer.originAirport}</p>}
+        <p className="line-clamp-2 text-body leading-[1.2] font-medium">{offer.airline}</p>
+        {cheapest ? <WidgetPill tone="sage" className="mt-0.5 h-5 text-2xs max-lg:text-xs">Cheapest</WidgetPill> : <p className={cn(type.meta, "truncate")}>{[offer.cabinClass, offer.flightNumbers?.slice(0, 2).join(" · ")].filter(Boolean).join(" · ") || offer.originAirport}</p>}
       </div>
       <div className="order-last flex w-full min-w-0 items-center gap-3 @[34rem]:order-none @[34rem]:w-auto @[34rem]:flex-1">
         <p className="font-display text-base font-medium tabular-nums whitespace-nowrap">{clockOf(offer.departAt)}</p>
@@ -320,7 +320,7 @@ export function FlightRowBody({ offer, roundTrip, cheapest, selected, onDetails 
             <span className="absolute top-px right-0 size-2 rounded-full border-2 border-foreground bg-background" />
           </div>
         </div>
-        <p className="font-display text-base font-medium tabular-nums whitespace-nowrap">{clockOf(offer.arriveAt)}{plus > 0 && <sup className="ml-0.5 text-[0.625rem] max-lg:text-xs text-coral-ink">+{plus}</sup>}</p>
+        <p className="font-display text-base font-medium tabular-nums whitespace-nowrap">{clockOf(offer.arriveAt)}{plus > 0 && <sup className="ml-0.5 text-2xs max-lg:text-xs text-coral-ink">+{plus}</sup>}</p>
       </div>
       <div className="ml-auto flex shrink-0 flex-col items-end">
         <p className="font-display text-xl leading-tight font-medium tracking-[-0.015em] tabular-nums whitespace-nowrap">{offer.listedCurrency && <span className="mr-0.5 text-muted-foreground" title={`Converted from ${money(offer.listedPrice ?? "", offer.listedCurrency, true)} at today’s rate`}>≈</span>}{money(offer.price, offer.currency, true)}</p>

@@ -16,11 +16,11 @@ export function GetYourGuideCard({ query, label }: { query: string; label: strin
       rel="noreferrer noopener"
       className="flex items-start gap-3 rounded-2xl border border-border bg-surface p-5 transition-colors hover:bg-accent"
     >
-      <Compass className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+      <Compass className="mt-0.5 size-4 shrink-0 text-primary" />
       <span>
         <span className="eyebrow">Guided tours &amp; activities</span>
         <span className="mt-1 flex items-center gap-1 text-sm leading-[1.75]">
-          {label} <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          {label} <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground" />
         </span>
       </span>
     </a>

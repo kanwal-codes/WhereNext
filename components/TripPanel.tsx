@@ -90,7 +90,7 @@ export function TripPanel({ layout = "drawer" }: { layout?: "drawer" | "inline" 
           Open
         </button>
         <button type="button" onClick={ctx.compareClear} aria-label="Clear comparison" className="rounded-full p-1.5 text-muted-foreground hover:bg-accent">
-          <X className="h-3.5 w-3.5" />
+          <X className="size-3.5" />
         </button>
       </div>
     </motion.div>

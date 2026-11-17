@@ -12,7 +12,7 @@ export function PlacePhotos({ photos, name, panel, onOpen }: { photos: string[];
     <Reveal delay={0.08}>
       <section>
         <DetailSectionHeading>Photos</DetailSectionHeading>
-        <div className={cn("mt-1 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain no-scrollbar px-1 pb-14 -mb-12 pt-2", panel ? "" : "-mx-5 px-5 sm:mx-0 sm:px-0")}>
+        <div className={cn("mt-1 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain no-scrollbar px-1 pb-14 -mb-12 pt-2", panel ? "" : "-mx-4 px-4 sm:mx-0 sm:px-0")}>
           {photos.map((src, i) => (
             <button
               key={src}

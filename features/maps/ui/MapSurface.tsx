@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { motion } from "motion/react";
-import { Car, MapPin } from "lucide-react";
+import Link from "next/link";
+import { Car, Compass, Route as RouteIcon, Sparkles } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { coarseKind } from "@/features/places/ui/discoverTaxonomy";
 import { readStayDecision } from "@/packages/contracts/stay";
@@ -14,7 +15,7 @@ import { RentalCarList } from "@/features/transport/ui/RentalCarList";
 import { AiSearchBar } from "@/components/AiSearchBar";
 import { Reveal } from "@/components/motion-primitives";
 import type { AiSearchDirective } from "@/lib/application/ai-search";
-import { formatDuration } from "@/lib/utils";
+import { cn, formatDuration } from "@/lib/utils";
 import type { MapPin as Pin, MapLeg, MapInset, MapOverlay } from "@/components/TripMap";
 import { cachedGet } from "@/lib/client/cached-get";
 import { buildPins, dayDate, dayNumbers, dayOverlayFor, daysShown, mapLegsFor, modesDrawn, type ItineraryRow, type SavedRow } from "@/features/maps/domain/map-view";
@@ -23,7 +24,7 @@ import { EASE, HScrollFade, MapLegend, MapPanel, MapStage } from "@/features/map
 
 const TripMap = dynamic(() => import("@/components/TripMap").then((m) => m.TripMap), {
   ssr: false,
-  loading: () => <div className="skeleton absolute inset-0 grid place-items-center text-sm text-muted-foreground">Loading map…</div>,
+  loading: () => <div className="skeleton absolute inset-0 grid place-items-center text-sm text-ink-soft">Loading map…</div>,
 });
 
 const kindFor = (category?: string | null): Pin["kind"] => {
@@ -98,15 +99,33 @@ export function MapSurface({ tripId, tab, onTab, start }: { tripId: string; tab:
 
   const modesUsed = useMemo(() => modesDrawn(tab, planDays, browseLegs), [planDays, tab, browseLegs]);
 
+  // Nothing pinned yet: still the destination's own map (the same view Directions opens on) with a panel that says what to do next.
   if (tab === "trip" && pins.length === 0) {
+    const base = `/trips/${tripId}`;
+    const row = "flex min-h-[60px] items-center gap-3 rounded-2xl py-2 pl-2.5 pr-3.5 text-left transition-transform duration-150 active:scale-[0.985]";
     return (
       <MapStage tab={tab} onTab={onTab}>
-        <div className="absolute inset-0 grid place-items-center bg-surface px-6">
-          <p className="max-w-sm text-center text-sm leading-relaxed text-muted-foreground">
-            <MapPin className="mx-auto mb-3 size-6 text-muted-foreground/50" aria-hidden="true" />
-            Add stops to your itinerary or save places from Discover — they&rsquo;ll appear on the map here, day by day.
-          </p>
-        </div>
+        <TripMap className="absolute inset-0 h-full min-h-0 w-full rounded-none border-0" pins={[]} activeDay="all" center={center} browse={null} inset={inset} fitControl cinematic />
+        <MapPanel onInset={setInset}>
+          <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-8 pt-2 lg:pt-6">
+            <h2 className="font-display text-2xl font-medium tracking-[-0.025em]">Nothing on the map yet</h2>
+            <p className="mt-1.5 text-body leading-relaxed text-ink-soft">Stops you plan or save show up here, day by day, with the ways between them.</p>
+            <div className="mt-5 grid gap-2">
+              <Link href={`${base}/discover`} className={cn(row, "bg-primary text-primary-foreground")}>
+                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/15"><Compass className="size-5" aria-hidden="true" /></span>
+                <span className="min-w-0 flex-1"><b className="block text-body font-semibold">Find places to go</b><span className="block text-sm text-primary-foreground/70">{destination ? `Browse ${destination.split(",")[0]} in Discover` : "Browse Discover"}</span></span>
+              </Link>
+              <Link href={`${base}/chat`} className={cn(row, "bg-muted")}>
+                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-card"><Sparkles className="size-5" aria-hidden="true" /></span>
+                <span className="min-w-0 flex-1"><b className="block text-body font-semibold">Plan the days with Roam</b><span className="block text-sm text-ink-soft">Ask for a day-by-day plan</span></span>
+              </Link>
+              <button type="button" onClick={() => onTab("browse")} className={cn(row, "bg-muted")}>
+                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-card"><RouteIcon className="size-5" aria-hidden="true" /></span>
+                <span className="min-w-0 flex-1"><b className="block text-body font-semibold">Just need directions?</b><span className="block text-sm text-ink-soft">Any two places, drawn on the map</span></span>
+              </button>
+            </div>
+          </div>
+        </MapPanel>
       </MapStage>
     );
   }
@@ -120,7 +139,7 @@ export function MapSurface({ tripId, tab, onTab, start }: { tripId: string; tab:
           <MapPanel collapsedLabel={activeDay !== "all" ? `Day ${activeDay}` : undefined} onInset={setInset}>
             {days.length > 1 && (
               <div className="shrink-0 border-b border-border">
-                <HScrollFade className="flex gap-2 px-5 py-4">
+                <HScrollFade className="flex gap-2 px-4 py-4">
                   {days.map((d) => (
                     <button key={d} type="button" aria-pressed={activeDay === d} onClick={() => setActiveDay(d)} className="btn-chip shrink-0">
                       Day {d}
@@ -129,7 +148,7 @@ export function MapSurface({ tripId, tab, onTab, start }: { tripId: string; tab:
                 </HScrollFade>
               </div>
             )}
-            <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-8 pt-5">
+            <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-8 pt-5">
               <motion.div
                 key={String(activeDay)}
                 initial={{ opacity: 0, y: 10 }}
@@ -148,7 +167,7 @@ export function MapSurface({ tripId, tab, onTab, start }: { tripId: string; tab:
                       {shown.map((p, i) => (
                         <li key={p.id} className="flex items-center gap-3 text-sm">
                           <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground shadow-soft">{i + 1}</span>
-                          <span className="truncate font-display text-[15px] font-medium">{p.name}</span>
+                          <span className="truncate font-display text-body font-medium">{p.name}</span>
                         </li>
                       ))}
                     </ol>
@@ -166,39 +185,38 @@ export function MapSurface({ tripId, tab, onTab, start }: { tripId: string; tab:
           <TripMap className="absolute inset-0 h-full min-h-0 w-full rounded-none border-0" pins={[]} activeDay="all" center={center} browse={browseLegs && browseLegs.length ? browse : null} inset={inset} fitControl cinematic overlay={browseOverlay} />
           <MapLegend modes={modesUsed} panelOpen={Boolean(inset.left)} />
           <MapPanel onInset={setInset}>
-            <div className="scrollbar-slim min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5 pt-6">
+            <div className="scrollbar-slim min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5 pt-6 max-lg:pt-2">
               <TransportSurface
                 tripId={tripId}
                 near={rentalCenter ? [rentalCenter.lng, rentalCenter.lat] : undefined}
                 preset={gaPreset}
                 onRoute={onBrowseRoute}
+                driveSlot={
+                  rentalCenter && (
+                    <div>
+                      <button type="button" onClick={() => setShowRentals((v) => !v)} className="btn-chip">
+                        <Car className="size-3.5" />
+                        {showRentals ? "Hide rental cars" : `Find a rental car near ${destination || "your destination"}`}
+                      </button>
+                      {showRentals && (
+                        <Reveal className="mt-3">
+                          <RentalCarList tripId={tripId} center={rentalCenter} />
+                        </Reveal>
+                      )}
+                    </div>
+                  )
+                }
                 searchSlot={
-                  <div className="space-y-1.5">
-                    <AiSearchBar
-                      variant="plain"
-                      tripId={tripId}
-                      scope="getting-around"
-                      placeholder={`Ask — “${origin || "Toronto"} to ${destination || "Montreal"} by train”, “cheapest way to the airport”`}
-                      onDirective={applyGaDirective}
-                    />
-                    <p className="text-xs text-muted-foreground">Or fill in the fields below. Say “by flight”, “by train” or “driving” to narrow it.</p>
-                  </div>
+                  <AiSearchBar
+                    variant="plain"
+                    tripId={tripId}
+                    scope="getting-around"
+                    placeholder={`“${(origin || "Toronto").split(",")[0]} to ${(destination || "Montreal").split(",")[0]}”`}
+                    onDirective={applyGaDirective}
+                  />
                 }
               />
 
-              {rentalCenter && (
-                <div>
-                  <button type="button" onClick={() => setShowRentals((v) => !v)} className="btn-chip">
-                    <Car className="h-3.5 w-3.5" />
-                    {showRentals ? "Hide rental cars" : `Find a rental car near ${destination || "your destination"}`}
-                  </button>
-                  {showRentals && (
-                    <Reveal className="mt-3">
-                      <RentalCarList tripId={tripId} center={rentalCenter} />
-                    </Reveal>
-                  )}
-                </div>
-              )}
             </div>
           </MapPanel>
         </>

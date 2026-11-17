@@ -36,3 +36,25 @@ describe("GooglePlacesProvider.search — locationBias", () => {
     expect(requestBody(fetchMock)).not.toHaveProperty("locationBias");
   });
 });
+
+describe("GooglePlacesProvider.openingHours", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("asks only for the weekday lines and the trading status, and returns them", async () => {
+    vi.stubEnv("GOOGLE_MAPS_API_KEY", "test-key");
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ regularOpeningHours: { weekdayDescriptions: ["Monday: Closed"] }, businessStatus: "OPERATIONAL" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await new GooglePlacesProvider().openingHours("abc");
+    expect((fetchMock.mock.calls[0][1] as RequestInit & { headers: Record<string, string> }).headers["x-goog-fieldmask"]).toBe("regularOpeningHours.weekdayDescriptions,businessStatus");
+    expect(result).toEqual({ lines: ["Monday: Closed"], status: "OPERATIONAL" });
+  });
+
+  it("throws on a failed lookup so the plan can leave that stop unchecked", async () => {
+    vi.stubEnv("GOOGLE_MAPS_API_KEY", "test-key");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("no", { status: 500 })));
+    await expect(new GooglePlacesProvider().openingHours("abc")).rejects.toThrow();
+  });
+});

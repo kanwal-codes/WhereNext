@@ -8,11 +8,14 @@ import { useAutoGrowTextarea } from "@/lib/use-autogrow-textarea";
 import type { useSpeechInput } from "@/lib/use-speech-input";
 import { roamMentionGhost } from "../domain/chat-state";
 import { MAX_MESSAGE_LENGTH, completeRoamMention, hasAsk, mentionsRoam } from "../domain/message";
+import { applyMention, mentionOptions, mentionQuery, type Mentionable } from "../domain/mentions";
 import { cn } from "@/lib/utils";
 
 /** The box at the foot of the thread: the message field (with `@Roam` completion), + menu, mic and send. */
-export function GroupComposer({ input, setInput, loaded, submit, speech, onPoll }: {
+export function GroupComposer({ input, setInput, people, loaded, submit, speech, onPoll }: {
   input: string;
+  /** The other people on the trip: typing "@" and a few letters offers them. */
+  people: Mentionable[];
   setInput: (update: string | ((current: string) => string)) => void;
   loaded: boolean;
   submit: (text: string, retryKey?: string) => Promise<unknown> | void;
@@ -31,6 +34,24 @@ export function GroupComposer({ input, setInput, loaded, submit, speech, onPoll 
   // partial mention token at the very end of the input ("@", "@r", "@ro", ... "@roam", any
   // case) and, while it's a genuine prefix of "roam", offers Tab to complete it.
   const { active: mentionActive, ghost: mentionGhost } = roamMentionGhost(input);
+
+  // "@" and a few letters offers the people on the trip (and Roam). Escape closes it until the half-typed name changes.
+  const token = mentionQuery(input);
+  const [dismissed, setDismissed] = useState<string | null>(null);
+  const [picked, setPicked] = useState(0);
+  const others = token ? mentionOptions(people, token.query) : [];
+  // Roam is listed too, but a list of only Roam is no list: that case keeps its inline "oam" completion.
+  const roamListed = token !== null && "roam".startsWith(token.query.toLowerCase());
+  const options: Mentionable[] = others.length > 0 && token ? [...(roamListed ? [{ userId: "roam", name: "Roam" }] : []), ...others] : [];
+  const pickerOpen = options.length > 0 && token !== null && dismissed !== `${token.start}:${token.query}`;
+  const activeOption = options[Math.min(picked, Math.max(options.length - 1, 0))];
+
+  function pick(option: Mentionable) {
+    if (!token) return;
+    setInput(applyMention(input, token.start, option.name));
+    setPicked(0);
+    textareaRef.current?.focus();
+  }
 
   function insertRoamMention() {
     setInput((current) => current.replace(/@r?o?a?m?$/i, "@Roam "));
@@ -114,7 +135,7 @@ export function GroupComposer({ input, setInput, loaded, submit, speech, onPoll 
       {/* Ghost completion — sits behind the (transparent-background) textarea, so the real
           typed text visually covers its invisible spacer span and only the suggested
           remainder ("oam", "am", "m", ...) shows through in muted gray. */}
-      {mentionGhost && (
+      {mentionGhost && !pickerOpen && (
         <div aria-hidden="true" className={cn("pointer-events-none absolute inset-0 overflow-hidden py-2 text-base leading-normal break-words whitespace-pre-wrap", isMultiline ? "px-2.5" : SINGLE_LINE_INSET)}>
           <span className="invisible">{input}</span>
           <span className="text-muted-foreground">{mentionGhost}</span>
@@ -125,8 +146,25 @@ export function GroupComposer({ input, setInput, loaded, submit, speech, onPoll 
         aria-label="Message the group"
         rows={1}
         value={input}
-        onChange={(event) => setInput(completeRoamMention(input, event.target.value))}
+        onChange={(event) => { setPicked(0); setInput(pickerOpen ? event.target.value : completeRoamMention(input, event.target.value)); }}
         onKeyDown={(event) => {
+          if (pickerOpen && token && activeOption && !event.nativeEvent.isComposing) {
+            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+              event.preventDefault();
+              setPicked((current) => (current + (event.key === "ArrowDown" ? 1 : options.length - 1)) % options.length);
+              return;
+            }
+            if (event.key === "Enter" || event.key === "Tab") {
+              event.preventDefault();
+              pick(activeOption);
+              return;
+            }
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setDismissed(`${token.start}:${token.query}`);
+              return;
+            }
+          }
           if (event.key === "Tab" && mentionActive) {
             event.preventDefault();
             insertRoamMention();
@@ -166,12 +204,35 @@ export function GroupComposer({ input, setInput, loaded, submit, speech, onPoll 
   );
 
   return (
+  <>
+  {pickerOpen && (
+    // Above the box, outside the form (its rounded edge clips anything that sticks out); mouse-down is kept from taking the focus off the text.
+    <div role="listbox" aria-label="Mention someone" className="absolute inset-x-0 bottom-full z-20 mb-2 overflow-hidden rounded-2xl border border-border bg-card py-1 shadow-lift">
+      {options.map((option, index) => (
+        <button
+          key={option.userId}
+          id={`mention-option-${option.userId}`}
+          type="button"
+          role="option"
+          aria-label={option.userId === "roam" ? "@Roam, asks Roam" : `@${option.name}`}
+          aria-selected={option === activeOption}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => pick(option)}
+          className={cn("flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm transition-colors max-lg:min-h-11 max-lg:text-base", option === activeOption ? "bg-accent" : "hover:bg-accent/60")}
+          onMouseEnter={() => setPicked(index)}
+        >
+          <span className="font-semibold text-coral-ink">@{option.name}</span>
+          {option.userId === "roam" && <span className="text-xs text-muted-foreground">asks Roam</span>}
+        </button>
+      ))}
+    </div>
+  )}
   <form
     onSubmit={(event: FormEvent) => {
       event.preventDefault();
       void submit(input);
     }}
-    className="flex w-full flex-col gap-1 overflow-hidden rounded-3xl border border-input bg-card p-1.5 shadow-lift transition-[border-color,box-shadow] duration-200 ease-out focus-within:border-ink/30 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_6%,transparent),var(--shadow-lift)] max-lg:border-transparent max-lg:bg-secondary max-lg:shadow-none max-lg:focus-within:border-transparent max-lg:focus-within:shadow-none"
+    className="flex w-full flex-col gap-1 overflow-hidden rounded-3xl border border-input bg-card p-1.5 shadow-lift transition-[border-color,box-shadow] duration-200 ease-out focus-within:border-ink/30 focus-within:shadow-halo max-lg:border-transparent max-lg:bg-muted max-lg:shadow-none max-lg:focus-within:border-transparent max-lg:focus-within:shadow-none"
   >
     {/* `messageTextarea` (defined above, alongside the buttons it conditionally overlays)
         is the ONLY thing that must never remount — the buttons moving between an overlay
@@ -211,12 +272,13 @@ export function GroupComposer({ input, setInput, loaded, submit, speech, onPoll 
               }}
               className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm transition-colors hover:bg-accent"
             >
-              <ListChecks className="h-4 w-4 text-coral" /> Poll
+              <ListChecks className="size-4 text-coral" /> Poll
             </button>
           </div>
         ),
         document.body,
       )}
   </form>
+  </>
   );
 }

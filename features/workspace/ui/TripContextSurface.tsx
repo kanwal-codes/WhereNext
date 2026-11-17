@@ -224,7 +224,7 @@ export function TripContextSurface({
     <div className="min-w-0 space-y-7">
       <header className="px-1 pt-1">
         <h3 className="font-display text-2xl leading-8 tracking-tight">What we know</h3>
-        <p className="mt-1.5 text-sm text-muted-foreground tabular-nums">
+        <p className="mt-1.5 text-sm text-ink-soft tabular-nums">
           {setCount === 0 ? "Nothing locked in yet" : `${setCount} locked in`}
           {suggestedRows.length > 0 && (
             <>

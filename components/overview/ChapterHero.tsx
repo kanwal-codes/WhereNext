@@ -50,9 +50,9 @@ export function ChapterHero({
 
   // Phone redesign: the numbers are one quiet line under the title, not a bordered box before the page begins.
   const line = phoneLine !== undefined ? (
-    phoneLine ? <p suppressHydrationWarning className="mt-1 text-[0.9375rem] text-ink-soft tabular-nums lg:hidden">{phoneLine}</p> : null
+    phoneLine ? <p suppressHydrationWarning className="mt-1 text-body text-ink-soft tabular-nums lg:hidden">{phoneLine}</p> : null
   ) : stats.length > 0 ? (
-    <p suppressHydrationWarning className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm text-muted-foreground tabular-nums lg:hidden">
+    <p suppressHydrationWarning className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm text-ink-soft tabular-nums lg:hidden">
       {stats.map((stat, i) => (
         <span key={stat.label} className="whitespace-nowrap">
           <span className="font-display text-base font-medium text-foreground">{stat.value}</span>
@@ -64,7 +64,7 @@ export function ChapterHero({
   ) : null;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-5 pt-5 sm:px-8">
+    <div className="mx-auto w-full max-w-6xl px-4 pt-5 sm:px-8">
       <PageHeader
         eyebrow={eyebrow}
         title={title}

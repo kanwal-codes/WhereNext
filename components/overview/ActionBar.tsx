@@ -32,7 +32,7 @@ export function ActionBar({ tripId, name }: { tripId: string; name: string }) {
       <div className={cn("z-20 transition-[box-shadow,background-color,border-color] duration-300 lg:sticky lg:top-0", "border-b border-transparent", stuck && "lg:border-border lg:bg-background/95 lg:shadow-[0_8px_16px_-12px_oklch(0.2_0.012_65/0.28)]")}>
         {/* On a short screen the row gives up its breathing room rather than let the shortcuts sit under the
             phone's fixed tab bar — the hero above has already shrunk as far as its own content allows. */}
-        <div className="mx-auto flex max-w-6xl items-center gap-4 px-5 py-4 [@media(max-height:700px)]:py-2 sm:px-8">
+        <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-4 [@media(max-height:700px)]:py-2 sm:px-8">
           <p aria-hidden={!stuck} className={cn("hidden min-w-0 flex-1 truncate font-display text-lg tracking-[-0.01em] transition-[opacity,transform] duration-300 lg:block", stuck ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-1 opacity-0")}>
             {name}
           </p>
@@ -42,10 +42,10 @@ export function ActionBar({ tripId, name }: { tripId: string; name: string }) {
               <RoamMark state="settled" size={30} /> Continue planning
             </Link>
             <Link href={`/trips/${tripId}/itinerary`} className={secondary}>
-              <CalendarDays className="h-4 w-4" /> Itinerary
+              <CalendarDays className="size-4" /> Itinerary
             </Link>
             <Link href={`/trips/${tripId}/discover`} className={secondary}>
-              <Compass className="h-4 w-4" /> Discover
+              <Compass className="size-4" /> Discover
             </Link>
           </div>
         </div>

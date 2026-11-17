@@ -10,14 +10,14 @@ export default function TripsIndexLoading() {
     <div className="min-h-svh" aria-busy="true">
       <div className="relative h-[480px] overflow-hidden rounded-b-3xl bg-[oklch(0.2_0.012_65)] sm:h-[420px]">
         <div aria-hidden className="absolute inset-0 bg-[radial-gradient(90%_75%_at_50%_100%,oklch(0.38_0.06_45/0.55),transparent)]" />
-        <div className="relative mx-auto flex max-w-6xl items-center justify-between px-5 pt-6 sm:px-8">
+        <div className="relative mx-auto flex max-w-6xl items-center justify-between px-4 pt-6 sm:px-8">
           <div className="flex items-center gap-2">
             <BrandMark variant="compact" className="ring-1 ring-white/50" />
             <BrandMark variant="text" textClassName="text-white" className="hidden text-white sm:inline" />
           </div>
           <div className="skeleton size-9 rounded-full !bg-white/15 [--skeleton-hi:oklch(1_0_0/0.16)]" />
         </div>
-        <div className="absolute inset-x-0 bottom-0 mx-auto max-w-6xl px-5 pb-14 sm:px-8 sm:pb-8">
+        <div className="absolute inset-x-0 bottom-0 mx-auto max-w-6xl px-4 pb-14 sm:px-8 sm:pb-8">
           <div className="mx-auto flex max-w-2xl flex-col items-center gap-3">
             <div className="skeleton h-10 w-3/4 rounded-xl !bg-white/15 [--skeleton-hi:oklch(1_0_0/0.16)] sm:h-12" />
             <div className="skeleton h-4 w-1/2 rounded-md !bg-white/10 [--skeleton-hi:oklch(1_0_0/0.12)]" />
@@ -31,7 +31,7 @@ export default function TripsIndexLoading() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-5 pt-12 pb-20 sm:px-8">
+      <div className="mx-auto max-w-6xl px-4 pt-12 pb-20 sm:px-8">
         <div className="flex items-center justify-between gap-4">
           <Skeleton className="h-9 w-44 rounded-xl" />
           <Skeleton className="h-11 w-44 rounded-full" />

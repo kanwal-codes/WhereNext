@@ -9,19 +9,32 @@ import { memberTint } from "@/lib/member-tint";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 import type { Poll } from "@/packages/contracts/poll";
+import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
 import { GroupInviteCard } from "./GroupInviteCard";
 
 /** Every member gets the same avatar — Roam included. In this chat Roam is just the fifth friend. */
 export function Avatar({ name }: { name: string }) {
   return (
-    <span aria-hidden style={memberTint(name)} className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-2xs font-semibold shadow-hairline">
+    <span aria-hidden style={memberTint(name)} className="grid size-7 shrink-0 place-items-center rounded-full text-2xs font-semibold shadow-hairline">
       {memberInitials(name)}
     </span>
   );
 }
 
-/** The same "typing…" bubble any friend would show while they write back. */
-export function TypingBubble() {
+/** The same "typing…" bubble any friend would show while they write back; once Roam's first words arrive for the person who asked, they replace the dots. */
+export function TypingBubble({ writing }: { writing?: string }) {
+  if (writing) {
+    return (
+      <div className="mt-3 flex items-start gap-2">
+        <div className="w-7 shrink-0">
+          <Avatar name="Roam" />
+        </div>
+        <div className="min-w-0 max-w-[85%] rounded-2xl rounded-tl-lg bg-muted px-4 py-2.5 text-sm leading-relaxed break-words shadow-sm max-lg:text-base max-lg:leading-snug max-lg:shadow-none [&_.chat-prose]:text-sm [&_.chat-prose]:leading-relaxed">
+          <AssistantMessage content={writing} />
+        </div>
+      </div>
+    );
+  }
   return (
       <motion.div initial={{ opacity: 0, y: 10, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ type: "spring", stiffness: 380, damping: 30 }} style={{ transformOrigin: "0% 100%" }} className="mt-3 flex items-start gap-2">
         <div className="w-7 shrink-0">
@@ -32,7 +45,7 @@ export function TypingBubble() {
           {[0, 1, 2].map((i) => (
             <motion.span
               key={i}
-              className="h-1.5 w-1.5 rounded-full bg-coral/70"
+              className="size-1.5 rounded-full bg-coral/70"
               animate={{ opacity: [0.35, 1, 0.35], y: [0, -3, 0], scale: [1, 1.15, 1] }}
               transition={{ duration: 1.1, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }}
             />
@@ -84,7 +97,7 @@ export function PollCard({ content, name, poll, pendingVoteFor, onVote }: { cont
   return (
       <div className="mx-auto w-full max-w-sm overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
         <p className="flex flex-wrap items-center gap-1.5 border-b border-border/60 px-4 pt-3.5 pb-2.5 font-display text-sm">
-          <ListChecks className="h-3.5 w-3.5 shrink-0 text-coral" />
+          <ListChecks className="size-3.5 shrink-0 text-coral" />
           <span className="min-w-0">{content}</span>
           <span className="ml-auto shrink-0 rounded-full bg-muted px-2 py-0.5 text-2xs font-medium text-muted-foreground">{name}</span>
         </p>
@@ -143,7 +156,7 @@ export function PollSheet({ open, onClose, onCreate }: { open: boolean; onClose:
 
   return (
   <Sheet open={open} onClose={() => (saving ? undefined : onClose())} ariaLabel="Start a poll" side={desktop ? "center" : "bottom"}>
-    <div className="px-5 pt-1 pb-6">
+    <div className="px-4 pt-1 pb-6">
       <p className="mb-3 text-sm font-medium">Start a poll</p>
       <input
         value={question}
@@ -171,7 +184,7 @@ export function PollSheet({ open, onClose, onCreate }: { open: boolean; onClose:
                 aria-label={`Remove option ${i + 1}`}
                 className="shrink-0 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="size-3.5" />
               </button>
             )}
           </div>

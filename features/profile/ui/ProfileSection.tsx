@@ -44,7 +44,7 @@ export function ProfileSection({ form, dream, password, google, email, emailVeri
       >
       <div className="rounded-3xl bg-gradient-to-br from-muted/60 to-coral-soft/50 p-5 sm:p-6">
         <div className="mb-2 flex items-center justify-between gap-3">
-          <p className="eyebrow flex items-center gap-1.5"><Compass className="h-3.5 w-3.5" /> Dream destination</p>
+          <p className="eyebrow flex items-center gap-1.5"><Compass className="size-3.5" /> Dream destination</p>
           <button type="button" onClick={() => setDreamOpen(false)} className="text-sm text-ink-soft underline-offset-2 hover:text-foreground hover:underline">Close</button>
         </div>
         <p className="font-display text-xl tracking-tight text-balance sm:text-2xl">Where would you go tomorrow?</p>
@@ -61,11 +61,11 @@ export function ProfileSection({ form, dream, password, google, email, emailVeri
               inputClassName="input-field"
             />
           </div>
-          {savingDream && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-ink-soft" />}
+          {savingDream && <Loader2 className="size-4 shrink-0 animate-spin text-ink-soft" />}
         </div>
         {dreamText && (
           <p className="mt-3 flex flex-wrap items-center gap-x-3 text-sm text-ink-soft">
-            <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> {dreamText}</span>
+            <span className="inline-flex items-center gap-1.5"><MapPin className="size-3.5" /> {dreamText}</span>
             <button type="button" onClick={() => void clearDream()} className="underline-offset-2 hover:text-destructive hover:underline">Remove</button>
           </p>
         )}
@@ -79,7 +79,7 @@ export function ProfileSection({ form, dream, password, google, email, emailVeri
         <Field label="Full name">
           <input value={name} onChange={(e) => { setName(e.target.value); touch(); }} maxLength={80} className="input-field" />
         </Field>
-        <Field label="Email" hint={emailVerified ? <span className="inline-flex items-center gap-1 text-xs text-coral-ink"><BadgeCheck className="h-3.5 w-3.5" /> Verified</span> : undefined}>
+        <Field label="Email" hint={emailVerified ? <span className="inline-flex items-center gap-1 text-xs text-coral-ink"><BadgeCheck className="size-3.5" /> Verified</span> : undefined}>
           <input type="email" value={emailDraft} onChange={(e) => { setEmailDraft(e.target.value); touch(); }} className="input-field" />
         </Field>
         <Field label="Home airport">
@@ -90,7 +90,7 @@ export function ProfileSection({ form, dream, password, google, email, emailVeri
               if (airportText.trim() && !airportCode(airportText)) setAirportText(airport);
             }}
           >
-            <Plane className="pointer-events-none absolute left-3 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 text-ink-soft" />
+            <Plane className="pointer-events-none absolute left-3 top-1/2 z-[1] size-4 -translate-y-1/2 text-ink-soft" />
             <DestinationCombobox
               endpoint="/api/account/airports"
               value={airportText}
@@ -182,7 +182,7 @@ export function ProfileSection({ form, dream, password, google, email, emailVeri
                   disabled={!canChangePassword(newPw, confirmPw) || savingPw}
                   className="inline-flex items-center gap-2 rounded-full bg-coral px-4 py-2 text-sm text-background transition-opacity hover:opacity-90 disabled:opacity-50"
                 >
-                  {savingPw && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {savingPw && <Loader2 className="size-3.5 animate-spin" />}
                   Update password
                 </button>
               </div>

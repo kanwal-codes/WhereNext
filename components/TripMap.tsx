@@ -14,7 +14,7 @@ import { easeOutQuad, legLines, routeKeyFor } from "@/lib/application/route-anim
 import { cn } from "@/lib/utils";
 import { FitControl, addLegLayers, basemapPaints } from "@/components/tripMapStyle";
 import { framingPadding, labelSide, pinsShown } from "@/components/tripMapLogic";
-import { endpointPin, nodeElement, pillElement, riderIconHtml, spreadPillSpots, stopPin } from "@/components/tripMapMarkers";
+import { endpointPin, nodeElement, pillElement, spreadPillSpots, stopPin } from "@/components/tripMapMarkers";
 
 export type MapPin = {
   id: string;
@@ -85,8 +85,6 @@ export function TripMap({
   const holder = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<mapboxgl.Marker[]>([]);
-  const pulseMarker = useRef<mapboxgl.Marker | null>(null);
-  const pulseMode = useRef<string>("");
   const raf = useRef<number>(0);
   const drawState = useRef<{ key: string; startedAt: number }>({ key: "", startedAt: 0 });
   const framed = useRef<mapboxgl.LngLatBounds | null>(null);
@@ -197,8 +195,6 @@ export function TripMap({
       cancelAnimationFrame(raf.current);
       ro?.disconnect();
       observer?.disconnect();
-      pulseMarker.current?.remove();
-      pulseMarker.current = null;
       map.current?.remove();
       map.current = null;
     };
@@ -225,11 +221,9 @@ export function TripMap({
     };
     fitRef.current = () => { if (framed.current) m.fitBounds(framed.current, { padding: padding(), maxZoom: 15, duration: 1100, pitch, bearing: 0 }); };
 
-    /** Draws `legList` (progressively revealing it on a genuinely new route), and rides a
-     * mode-specific icon marker along it on a loop. Shared by both render branches below. */
+    /** Draws `legList`: revealed gradually the first time a route appears, then settled on its exact line. Nothing travels along it.
+     * Shared by both render branches below. */
     const animateRoute = (legList: MapLeg[]) => {
-      pulseMarker.current?.remove();
-      pulseMarker.current = null;
       cancelAnimationFrame(raf.current);
       const { legs: pieces, totalKm } = legLines(legList);
       if (pieces.length === 0) {
@@ -247,32 +241,8 @@ export function TripMap({
       const key = routeKeyFor(legList);
       if (drawState.current.key !== key) drawState.current = { key, startedAt: performance.now() };
 
-      const el = document.createElement("div");
-      el.className = "trip-rider grid h-8 w-8 place-items-center rounded-full border-2 border-white";
-      pulseMode.current = "";
-      pulseMarker.current = new mapboxgl.Marker({ element: el }).setLngLat(pieces[0].line.geometry.coordinates[0] as [number, number]).addTo(m);
-
-      let dist = 0;
-      let last = performance.now();
-      let settled = false;
-      const line = lineString(pieces.flatMap((p) => p.line.geometry.coordinates as Array<[number, number]>));
       const tick = (now: number) => {
-        const dt = Math.min(now - last, 64);
-        last = now;
-        dist = (dist + (totalKm / 8) * (dt / 1000)) % totalKm;
         try {
-          const at = along(line, dist, { units: "kilometers" });
-          pulseMarker.current?.setLngLat(at.geometry.coordinates as [number, number]);
-
-          const current = pieces.find((p) => dist <= p.endKm) ?? pieces[pieces.length - 1];
-          if (current.mode !== pulseMode.current) {
-            pulseMode.current = current.mode;
-            el.style.background = MODE_COLOR[current.mode] ?? MODE_COLOR.unknown;
-            el.style.setProperty("--rider", MODE_COLOR[current.mode] ?? MODE_COLOR.unknown);
-            el.innerHTML = riderIconHtml(current.mode);
-          }
-
-          // One-time progressive reveal on a genuinely new route, then settle to the full line.
           const elapsed = now - drawState.current.startedAt;
           if (elapsed < DRAW_MS) {
             const revealKm = totalKm * easeOutQuad(Math.min(1, elapsed / DRAW_MS));
@@ -282,16 +252,15 @@ export function TripMap({
               return [featureFor(p, visible)];
             });
             (m.getSource("legs") as mapboxgl.GeoJSONSource | undefined)?.setData({ type: "FeatureCollection", features });
-          } else if (!settled) {
-            // Settle once, exactly, to the real (un-sliced) geometry — avoids float drift from slicing. A flag, not a time
-            // window: a busy frame that skips past the end of the reveal must not leave the line half drawn.
-            settled = true;
+            raf.current = requestAnimationFrame(tick);
+          } else {
+            // Settle exactly, once, to the real (un-sliced) geometry: slicing drifts by a float. A busy frame that skips past the end of the
+            // reveal lands here too, so the line is never left half drawn.
             (m.getSource("legs") as mapboxgl.GeoJSONSource | undefined)?.setData(fullFeatures());
           }
         } catch {
           /* style mid-swap */
         }
-        raf.current = requestAnimationFrame(tick);
       };
       raf.current = requestAnimationFrame(tick);
     };
@@ -320,8 +289,6 @@ export function TripMap({
     if (browse !== undefined && shown.length === 0) {
       markers.current = [];
       (m.getSource("legs") as mapboxgl.GeoJSONSource | undefined)?.setData({ type: "FeatureCollection", features: [] });
-      pulseMarker.current?.remove();
-      pulseMarker.current = null;
       cancelAnimationFrame(raf.current);
       if (center) m.easeTo({ center, zoom: 11, duration: 600 });
       return;
@@ -412,12 +379,12 @@ export function TripMap({
     };
   }, [overlay, ready, styleVersion]);
 
-  if (failed) return <div className={cn("grid h-[52vh] min-h-[320px] w-full place-items-center rounded-2xl border border-border bg-muted/40 p-6 text-center text-sm text-muted-foreground", className)}>The map couldn’t load. Try reloading the page.</div>;
+  if (failed) return <div className={cn("grid h-[52vh] min-h-[320px] w-full place-items-center rounded-2xl border border-border bg-muted/40 p-6 text-center text-sm text-ink-soft", className)}>The map couldn’t load. Try reloading the page.</div>;
 
   return (
     <div className={cn("trip-map relative h-[52vh] min-h-[320px] w-full overflow-hidden rounded-2xl border border-border", className)}>
       <div ref={holder} className="h-full w-full" />
-      {!ready && <div className="skeleton absolute inset-0 grid place-items-center text-sm text-muted-foreground">Loading map…</div>}
+      {!ready && <div className="skeleton absolute inset-0 grid place-items-center text-sm text-ink-soft">Loading map…</div>}
     </div>
   );
 }

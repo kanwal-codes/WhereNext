@@ -88,7 +88,7 @@ export function GuestSavePrompt({ tripId, exhausted, heading, body }: { tripId: 
                   Continue <ArrowRight className="size-4" aria-hidden />
                 </button>
               </form>
-              <p className="mt-4 text-center text-sm text-muted-foreground">
+              <p className="mt-4 text-center text-sm text-ink-soft">
                 Already have an account?{" "}
                 <button type="button" onClick={() => go("signin", { keepEmail: true })} className="link-underline font-medium text-foreground">Sign in</button>
               </p>
@@ -105,7 +105,7 @@ export function GuestSavePrompt({ tripId, exhausted, heading, body }: { tripId: 
               <button type="submit" disabled={locked} className="btn-primary w-full py-3!">
                 {busy === "submit" ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null} Create account and save trip
               </button>
-              <p className="text-center text-sm text-muted-foreground">
+              <p className="text-center text-sm text-ink-soft">
                 Already have an account?{" "}
                 <button type="button" onClick={() => go("signin", { keepEmail: true })} className="link-underline font-medium text-foreground">Sign in</button>
               </p>
@@ -137,7 +137,7 @@ export function GuestSavePrompt({ tripId, exhausted, heading, body }: { tripId: 
               </form>
               <Or />
               <GoogleButton busy={busy === "google"} disabled={locked} onClick={() => void withGoogle()} />
-              <p className="mt-4 text-center text-sm text-muted-foreground">
+              <p className="mt-4 text-center text-sm text-ink-soft">
                 New here?{" "}
                 <button type="button" onClick={() => go("email", { keepEmail: true })} className="link-underline font-medium text-foreground">Create an account</button>
               </p>
@@ -151,7 +151,7 @@ export function GuestSavePrompt({ tripId, exhausted, heading, body }: { tripId: 
                 {busy === "resend" ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
                 {wait > 0 ? `Resend email in ${wait}s` : "Resend email"}
               </button>
-              <p className="text-center text-sm text-muted-foreground">
+              <p className="text-center text-sm text-ink-soft">
                 Wrong address?{" "}
                 <button type="button" onClick={() => go("email")} className="link-underline font-medium text-foreground">Use a different email</button>
               </p>

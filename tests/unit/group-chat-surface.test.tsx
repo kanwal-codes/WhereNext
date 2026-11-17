@@ -25,7 +25,7 @@ vi.mock("@/components/TripPanelProvider", () => ({ useTripPanel: () => ({ openPa
 vi.mock("@/lib/client/trip-realtime", () => ({ useChatLive: () => true }));
 vi.mock("@/lib/client/use-trip-members", () => ({
   memberLabel: (m?: { name?: string }) => m?.name ?? "Someone",
-  useTripMembers: () => ({ loaded: true, members: [{ userId: ME, name: "Me" }, { userId: FRIEND, name: "Priya" }] }),
+  useTripMembers: () => ({ loaded: true, members: [{ userId: ME, name: "Me", isYou: true }, { userId: FRIEND, name: "Priya", isYou: false }] }),
 }));
 vi.mock("@/features/conversation/ui/ConversationSurface", () => ({ RAIL_MEASURE: "max-w-2xl" }));
 vi.mock("@/features/conversation/ui/AssistantMessage", () => ({ AssistantMessage: ({ content }: { content: string }) => <div>{content}</div> }));
@@ -38,7 +38,8 @@ const at = (n: number) => new Date(Date.UTC(2026, 9, 10, 10, n)).toISOString();
 const msg = (id: string, over: Partial<GroupMessage> = {}): GroupMessage => ({ id, userId: FRIEND, role: "user", kind: "text", content: `text ${id}`, metadata: {}, created_at: at(0), reactions: [], ...over });
 
 type Call = { method: string; url: string; body?: Record<string, unknown> };
-type Handler = (call: Call) => { status?: number; json?: unknown } | undefined | Promise<{ status?: number; json?: unknown } | undefined>;
+type Out = { status?: number; json?: unknown; /** A whole response, for an event stream. */ raw?: Response };
+type Handler = (call: Call) => Out | undefined | Promise<Out | undefined>;
 
 let calls: Call[];
 let handlers: Handler[];
@@ -51,6 +52,7 @@ function installFetch() {
     calls.push(call);
     for (const h of handlers) {
       const out = await h(call);
+      if (out?.raw) return out.raw;
       if (out) return new Response(JSON.stringify(out.json ?? {}), { status: out.status ?? 200, headers: { "content-type": "application/json", date: new Date().toUTCString() } });
     }
     if (call.method === "GET" && call.url.includes("/group-chat")) return new Response(JSON.stringify({ messages: history }), { status: 200, headers: { "content-type": "application/json" } });
@@ -330,6 +332,42 @@ describe("GroupChatSurface: asking Roam", () => {
     await user.keyboard("{Enter}");
   };
 
+  it("shows the words as Roam writes them in place of the dots, then the saved reply replaces them", async () => {
+    const frame = (content: string) => `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`;
+    const enc = new TextEncoder();
+    let push!: (text: string) => void;
+    let end!: () => void;
+    const body = new ReadableStream<Uint8Array>({ start(c) { push = (t) => c.enqueue(enc.encode(t)); end = () => c.close(); } });
+    handlers.push(acceptAsk);
+    handlers.push((c) => (c.method === "POST" && c.url.endsWith("/group-chat/roam") ? { raw: new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } }) } : undefined));
+    const { user } = await open();
+    await sendAsk(user);
+    expect(await screen.findByText("Roam is typing")).toBeTruthy();
+    expect(posts("/group-chat/roam")[0].body).toMatchObject({ messageId: "ask", stream: true });
+    await act(async () => { push(frame("Try Time ")); });
+    expect(await screen.findByText("Try Time")).toBeTruthy();
+    expect(screen.queryByText("Roam is typing")).toBeNull();
+    await act(async () => { push(frame("Out Market.")); });
+    expect(await screen.findByText("Try Time Out Market.")).toBeTruthy();
+    history = [...history, roamReply("ask")];
+    await act(async () => { push(`data: ${JSON.stringify({ message: roamReply("ask") })}\n\ndata: [DONE]\n\n`); end(); });
+    // The saved reply is now in the thread, and only it: the streamed copy has gone.
+    await waitFor(() => expect(screen.getAllByText("Try Time Out Market.")).toHaveLength(1));
+    expect(screen.queryByText("Roam is typing")).toBeNull();
+  });
+
+  it("offers a Retry when the stream stops without a saved reply", async () => {
+    const enc = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({ start(c) { c.enqueue(enc.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: "Try Ti" } }] })}\n\ndata: ${JSON.stringify({ error: true })}\n\ndata: [DONE]\n\n`)); c.close(); } });
+    handlers.push(acceptAsk);
+    handlers.push((c) => (c.method === "POST" && c.url.endsWith("/group-chat/roam") ? { raw: new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } }) } : undefined));
+    const { user } = await open();
+    await sendAsk(user);
+    expect(await screen.findByText("Roam didn’t reply")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+    expect(screen.queryByText("Try Ti")).toBeNull();
+  });
+
   it("shows Roam typing while the ask is in flight, then stops", async () => {
     let release!: (v: { json: unknown }) => void;
     handlers.push(acceptAsk);
@@ -454,6 +492,48 @@ describe("GroupChatSurface: connection", () => {
     expect(calls.filter((c) => c.method === "GET").length).toBeGreaterThan(before);
   });
 
+  it("asks only for what is new every 30 s, and re-reads the whole page on the 4th", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    try {
+      await open();
+      handlers.push((c) => (c.url.includes("?after=") ? { json: { messages: [msg("3", { content: "Fresh from Priya", created_at: at(5) })] } } : undefined));
+      const chatGets = () => calls.filter((c) => c.method === "GET" && c.url.includes("/group-chat"));
+      const tick = () => act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+      await tick();
+      expect(await screen.findByText("Fresh from Priya")).toBeTruthy();
+      const news = () => chatGets().filter((c) => c.url.includes("?after="));
+      expect(news()).toHaveLength(1);
+      // The check starts 5 s before the newest message it had, so one committed a moment late is not missed.
+      expect(decodeURIComponent(news()[0].url)).toContain(`after=${new Date(Date.parse(at(1)) - 5000).toISOString()}`);
+      expect(chatGets().filter((c) => !c.url.includes("?after="))).toHaveLength(1);
+      await tick(); await tick();
+      expect(news()).toHaveLength(3);
+      expect(decodeURIComponent(news()[2].url)).toContain(`after=${new Date(Date.parse(at(5)) - 5000).toISOString()}`);
+      // The message that came back twice (the overlap) is still on screen once.
+      expect(screen.getAllByText("Fresh from Priya")).toHaveLength(1);
+      await tick();
+      expect(chatGets().filter((c) => !c.url.includes("?after="))).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("says the chat may be out of date when a new-messages check fails, and clears it when the next works", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    try {
+      await open();
+      let failing = true;
+      handlers.push((c) => (c.url.includes("?after=") ? (failing ? { status: 500 } : { json: { messages: [] } }) : undefined));
+      await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+      expect(await screen.findByText(/Couldn’t refresh the chat/)).toBeTruthy();
+      failing = false;
+      await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+      await waitFor(() => expect(screen.queryByText(/Couldn’t refresh the chat/)).toBeNull());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("shows nothing about Roam typing until an @Roam ask is waiting for a reply", async () => {
     await open();
     expect(screen.queryByText("Roam is typing")).toBeNull();
@@ -564,6 +644,67 @@ describe("GroupChatSurface: threads, notices and the day", () => {
     expect(Element.prototype.scrollTo).toHaveBeenCalled();
   });
 
+});
+
+describe("GroupChatSurface: pointing at someone", () => {
+  it("offers the people on the trip after an @, never yourself, and completes the name", async () => {
+    const { user } = await open();
+    await user.type(box(), "hey @pr");
+    const list = await screen.findByRole("listbox", { name: "Mention someone" });
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["@Priya"]);
+    expect(list).toBeTruthy();
+    await user.keyboard("{Enter}");
+    expect(box().value).toBe("hey @Priya ");
+    expect(screen.queryByRole("listbox")).toBeNull();
+  });
+
+  it("lists Roam first when both fit, and never lists yourself", async () => {
+    const { user } = await open();
+    await user.type(box(), "@");
+    expect(screen.getAllByRole("option").map((o) => o.getAttribute("aria-label"))).toEqual(["@Roam, asks Roam", "@Priya"]);
+  });
+
+  it("closes on Escape and keeps the text; a click on a name picks it", async () => {
+    const { user } = await open();
+    await user.type(box(), "@p");
+    await screen.findByRole("listbox");
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(box().value).toBe("@p");
+    await user.type(box(), "r");
+    await user.click(await screen.findByRole("option", { name: "@Priya" }));
+    expect(box().value).toBe("@Priya ");
+  });
+
+  it("sends who the message points at, and colours the name; yours is picked out", async () => {
+    const { user } = await open();
+    await user.type(box(), "@pr");
+    await user.keyboard("{Enter}");
+    await user.type(box(), "can you check?");
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(posts("/group-chat")).toHaveLength(1));
+    expect(posts("/group-chat")[0].body).toMatchObject({ content: "@Priya can you check?", mentions: [FRIEND] });
+  });
+
+  it("sends no mentions for a message that points at nobody, and leaves @Roam alone", async () => {
+    const { user } = await open();
+    await user.type(box(), "@r");
+    expect(screen.queryByRole("listbox")).toBeNull();
+    await user.keyboard("{Tab}");
+    expect(box().value).toBe("@Roam ");
+    await user.type(box(), "hi");
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(posts("/group-chat")).toHaveLength(1));
+    expect(posts("/group-chat")[0].body?.mentions).toEqual([]);
+  });
+
+  it("rings and highlights a message that points at you", async () => {
+    history = [msg("5", { content: "@Me where are you?", metadata: { mentions: [ME] }, created_at: at(4) })];
+    await open();
+    const name = (await screen.findAllByText("@Me")).at(-1)!;
+    expect(name.className).toContain("bg-coral-soft");
+    expect(name.closest("p")!.className).toContain("ring-2");
+  });
 });
 
 describe("GroupChatSurface: the box", () => {

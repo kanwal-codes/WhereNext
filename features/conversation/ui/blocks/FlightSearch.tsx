@@ -166,7 +166,7 @@ export function FlightSearchBar({ search, tripId, trip, routeOpen, onRouteDone }
                 }}
                 disabled={busy}
                 aria-label="Swap from and to"
-                className="absolute z-10 grid size-9 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-soft transition-[color,border-color,transform] hover:border-foreground/25 hover:text-foreground active:scale-95 disabled:pointer-events-none disabled:opacity-50 @max-[34rem]:right-4 @max-[34rem]:top-1/2 @max-[34rem]:-translate-y-1/2 @[34rem]:left-1/2 @[34rem]:top-1/2 @[34rem]:-translate-x-1/2 @[34rem]:-translate-y-1/2"
+                className="absolute z-10 grid size-9 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-soft transition-[color,border-color,transform] hover:border-foreground/25 hover:text-foreground active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 @max-[34rem]:right-4 @max-[34rem]:top-1/2 @max-[34rem]:-translate-y-1/2 @[34rem]:left-1/2 @[34rem]:top-1/2 @[34rem]:-translate-x-1/2 @[34rem]:-translate-y-1/2"
               >
                 <motion.span animate={{ rotate: turn * 180 }} transition={{ duration: reduce ? 0 : 0.4, ease }} className="grid place-items-center @max-[34rem]:rotate-90">
                   <ArrowLeftRight className="size-4" aria-hidden />
@@ -220,7 +220,7 @@ export function FlightSearchBar({ search, tripId, trip, routeOpen, onRouteDone }
 
 /** Google's read on whether these dates are a good time to buy: low, typical or high for the route. */
 export function PriceInsight({ insights, currency }: { insights: Insights; currency: string }) {
-  const tone = { low: { Icon: TrendingDown, text: "Prices are low for these dates", cls: "bg-secondary text-foreground [&_svg]:text-positive" }, typical: { Icon: Minus, text: "Prices are typical for these dates", cls: "bg-secondary text-ink-soft" }, high: { Icon: TrendingUp, text: "Prices are higher than usual for these dates", cls: "bg-secondary text-foreground [&_svg]:text-caution" } }[insights.level];
+  const tone = { low: { Icon: TrendingDown, text: "Prices are low for these dates", cls: "bg-muted text-foreground [&_svg]:text-positive" }, typical: { Icon: Minus, text: "Prices are typical for these dates", cls: "bg-muted text-ink-soft" }, high: { Icon: TrendingUp, text: "Prices are higher than usual for these dates", cls: "bg-muted text-foreground [&_svg]:text-caution" } }[insights.level];
   const usual = insights.typicalLow && insights.typicalHigh ? `Usually ${money(insights.typicalLow, currency, true)} to ${money(insights.typicalHigh, currency, true)}` : null;
   return (
     <div className={cn("flex items-center gap-2.5 border-b border-border px-4 py-2.5 text-sm", tone.cls)} role="note">

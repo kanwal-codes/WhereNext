@@ -68,7 +68,7 @@ beforeEach(() => {
   calls = [];
   signals = [];
   hold = null;
-  cities = { stops: [{ city: "Paris", startDate: "2026-12-01", endDate: "2026-12-05" }], estimated: false, stop: { city: "Paris", startDate: "2026-12-01", endDate: "2026-12-05" }, city: "Paris", setCity: vi.fn(), hasChoice: false };
+  cities = { stops: [{ city: "Paris", startDate: "2026-12-01", endDate: "2026-12-05" }], estimated: false, stop: { city: "Paris", startDate: "2026-12-01", endDate: "2026-12-05" }, city: "Paris", setCity: vi.fn(), hasChoice: false, scoped: false, area: null, setArea: vi.fn(), broad: false, parent: "Paris" };
   narrow = false; headerTitle = null;
   push.mockClear(); prefetch.mockClear();
   try { sessionStorage.clear(); } catch { /* */ }
@@ -125,7 +125,7 @@ describe("StaySurface: the search", () => {
   });
 
   it("searches one city at a time on a multi-city trip, for the nights spent there", async () => {
-    cities = { ...cities, hasChoice: true, city: "Lyon", stop: { city: "Lyon", startDate: "2026-12-05", endDate: "2026-12-08" }, stops: [{ city: "Paris" }, { city: "Lyon" }] };
+    cities = { ...cities, hasChoice: true, scoped: true, city: "Lyon", stop: { city: "Lyon", startDate: "2026-12-05", endDate: "2026-12-08" }, stops: [{ city: "Paris" }, { city: "Lyon" }] };
     renderStay();
     await screen.findByTestId("card-h1");
     expect(lastSearch().get("location")).toBe("Lyon");
@@ -160,10 +160,27 @@ describe("StaySurface: the search", () => {
     expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
   });
 
-  it("warns that example dates were used", async () => {
+  it("shows the hotels without a note above them when example dates were used", async () => {
     stayApi = result([hotel("h1", "Hotel Un")], { assumedDates: true });
     renderStay();
-    expect(await screen.findByText("Example dates, set yours above for accurate prices.")).toBeTruthy();
+    expect(await screen.findByTestId("card-h1")).toBeTruthy();
+    expect(screen.queryByText(/Example dates/)).toBeNull();
+  });
+
+  it("opens the dates and the filters as sheets over the page on a phone, not inline", async () => {
+    const user = u();
+    narrow = true;
+    renderStay();
+    await screen.findByTestId("card-h1");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await user.click(screen.getByText(/guests? · \d rooms?/).closest("button")!);
+    const dates = await screen.findByRole("dialog", { name: "Dates and guests" });
+    expect(within(dates).getByText("Check-in")).toBeTruthy();
+    await user.click(within(dates).getByRole("button", { name: "Done" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await user.click(screen.getAllByRole("button", { name: "Filters" })[0]);
+    const filters = await screen.findByRole("dialog", { name: "Sort and filter" });
+    expect(within(filters).getByText("Max price / night")).toBeTruthy();
   });
 
   it("shows 15 hotels, then more on request", async () => {
@@ -406,7 +423,7 @@ describe("StaySurface: opening and comparing", () => {
 
 describe("StaySurface: bookings and cities", () => {
   it("prefers the place Roam was asked to search near over the city picked", async () => {
-    cities = { ...cities, hasChoice: true, city: "Lyon", stop: { city: "Lyon", startDate: "2026-12-05", endDate: "2026-12-08" }, stops: [{ city: "Paris" }, { city: "Lyon" }] };
+    cities = { ...cities, hasChoice: true, scoped: true, city: "Lyon", stop: { city: "Lyon", startDate: "2026-12-05", endDate: "2026-12-08" }, stops: [{ city: "Paris" }, { city: "Lyon" }] };
     renderStay();
     await screen.findByTestId("card-h1");
     act(() => directive.current!({ location: "Part-Dieu" }));
@@ -414,7 +431,7 @@ describe("StaySurface: bookings and cities", () => {
   });
 
   it("forgets the 'near' place when another city is picked", async () => {
-    cities = { ...cities, hasChoice: true, city: "Paris", stop: { city: "Paris", startDate: "2026-12-01", endDate: "2026-12-05" }, stops: [{ city: "Paris" }, { city: "Lyon" }] };
+    cities = { ...cities, hasChoice: true, scoped: true, city: "Paris", stop: { city: "Paris", startDate: "2026-12-01", endDate: "2026-12-05" }, stops: [{ city: "Paris" }, { city: "Lyon" }] };
     const view = renderStay();
     await screen.findByTestId("card-h1");
     act(() => directive.current!({ location: "Gare de Lyon" }));
@@ -454,7 +471,7 @@ describe("StaySurface: bookings and cities", () => {
 
   it("moves the search to the city picked, with the nights spent there", async () => {
     const user = u();
-    cities = { ...cities, hasChoice: true, city: "Paris", stop: { city: "Paris", startDate: "2026-12-01", endDate: "2026-12-05" }, stops: [{ city: "Paris" }, { city: "Lyon" }] };
+    cities = { ...cities, hasChoice: true, scoped: true, city: "Paris", stop: { city: "Paris", startDate: "2026-12-01", endDate: "2026-12-05" }, stops: [{ city: "Paris" }, { city: "Lyon" }] };
     const view = renderStay();
     await screen.findByTestId("card-h1");
     await user.click(screen.getByRole("button", { name: "Lyon" }));

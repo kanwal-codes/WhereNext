@@ -28,18 +28,22 @@ export function TripPanelHeader({ shown, layout, tripId, compareIds, canGoBack, 
 }) {
   const KindIcon = KIND_ICON[shown.kind];
   return (
-    <header className={cn("flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2.5", "icons-fine max-lg:flex-wrap max-lg:border-b-0 max-lg:px-4 max-lg:pt-1.5 max-lg:pb-2")}>
-      {layout === "inline" && <div aria-hidden className="hidden basis-full justify-center py-1 max-lg:flex"><i className="block h-1 w-9 rounded-full bg-input" /></div>}
-      <div className={cn("flex min-w-0 items-center gap-1.5", "max-lg:flex-1 max-lg:basis-0")}>
-        {canGoBack && (
-          <button type="button" onClick={goBack} aria-label="Back to previous item" className={controlGhost}>
+    <header className={cn("flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2.5", // On a phone: three equal-weight cells, so the title sits in the middle of the sheet whatever is at either edge (back on the left, close on the right).
+        "icons-fine max-lg:grid max-lg:grid-cols-[minmax(2.5rem,1fr)_minmax(0,auto)_minmax(2.5rem,1fr)] max-lg:border-b-0 max-lg:px-4 max-lg:pt-1.5 max-lg:pb-2")}>
+      {layout === "inline" && <div aria-hidden className="hidden basis-full justify-center py-1 max-lg:col-span-3 max-lg:flex"><i className="block h-1 w-9 rounded-full bg-input" /></div>}
+      <div className="flex min-w-0 items-center gap-1.5 max-lg:contents">
+        {canGoBack ? (
+          <button type="button" onClick={goBack} aria-label="Back to previous item" className={cn(controlGhost, "max-lg:justify-self-start")}>
             <ArrowLeft className="size-4" aria-hidden />
           </button>
+        ) : (
+          <span aria-hidden className="hidden max-lg:block" />
         )}
-        {KindIcon && <KindIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
-        <span className={cn("min-w-0 truncate font-display text-base font-semibold tracking-[-0.01em]", "max-lg:text-xl max-lg:tracking-[-0.025em]")}>{panelTitle(shown)}</span>
+        {/* The kind of thing it is (a grid for a list, a pin for a place) helps beside the title on a wide screen; centred on a phone it is only clutter. */}
+        {KindIcon && <KindIcon className="size-4 shrink-0 text-muted-foreground max-lg:hidden" aria-hidden />}
+        <span className={cn("min-w-0 truncate font-display text-base font-semibold tracking-[-0.01em]", "max-lg:text-center max-lg:text-xl max-lg:tracking-[-0.025em]")}>{panelTitle(shown)}</span>
       </div>
-      <div className="flex shrink-0 items-center gap-0.5">
+      <div className="flex shrink-0 items-center gap-0.5 max-lg:justify-self-end">
         {hasChat && (
           <button type="button" onClick={clearChat} aria-label="Clear this chat" title="Clear this chat" className={controlGhost}>
             <Eraser className="size-4" aria-hidden />

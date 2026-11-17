@@ -43,10 +43,11 @@ export function DiscoverySurface({
   const [filtersOpen, setFiltersOpen] = useState(false);
   // A multi-city trip shows one city at a time (the one the group is in, or the one picked); a one-city trip is just its destination.
   const cities = useTripCity(data?.trip);
-  const destination = cities.hasChoice ? cities.city : (data?.trip.destination?.trim() ?? "");
+  const destination = cities.scoped ? cities.city : (data?.trip.destination?.trim() ?? "");
   // Phone redesign: the city is the pill in the middle of the header, and Saved is the heart at its right edge (no Discover | Saved switch).
-  const cityLabel = (cities.hasChoice ? cities.city : destination).split(",")[0].trim();
-  const headerTitle = useMemo(() => (phone && cityLabel ? <CityPill stops={cities.stops} city={cityLabel} onPick={cities.setCity} /> : undefined), [phone, cityLabel, cities.stops, cities.setCity]);
+  const cityLabel = (cities.area?.name ?? (cities.hasChoice ? cities.city : destination)).split(",")[0].trim();
+  const refine = useMemo(() => (cities.broad ? { tripId, parent: cities.parent, activeStop: cities.stop?.city ?? cities.parent, area: cities.area, onPickArea: cities.setArea } : undefined), [cities.broad, tripId, cities.parent, cities.stop, cities.area, cities.setArea]);
+  const headerTitle = useMemo(() => (phone && cityLabel ? <CityPill stops={cities.stops} city={cityLabel} onPick={cities.setCity} refine={refine} /> : undefined), [phone, cityLabel, cities.stops, cities.setCity, refine]);
   const prefs = (data?.preferences ?? {}) as Record<string, unknown>;
   const interestsKey = interestsKeyOf(prefs);
   const interests = useMemo(() => interestTerms(interestsKey), [interestsKey]);
@@ -92,7 +93,7 @@ export function DiscoverySurface({
 
   return (
     <div className="@container flex min-h-[calc(100svh-13rem)] flex-col max-lg:pb-24">
-      {view === "results" && !phone && <CityChips stops={cities.stops} current={cities.city} onPick={cities.setCity} estimated={cities.estimated} className="mt-3 -mb-1" />}
+      {view === "results" && !phone && <CityChips stops={cities.stops} current={cities.stop?.city ?? cities.city} onPick={cities.setCity} estimated={cities.estimated} refine={refine} className="mt-3 -mb-1" />}
       {phone && view === "results" && (
         <PhoneDiscoverBar feed={feed} panelCtx={panelCtx} activeCat={activeCat} filtersOpen={filtersOpen} setFiltersOpen={setFiltersOpen} filterCount={filterCount} phone={phone} />
       )}

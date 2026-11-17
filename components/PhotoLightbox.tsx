@@ -51,7 +51,7 @@ export function PhotoLightbox({
             aria-label="Close"
             className="absolute top-3 right-3 z-10 rounded-full bg-black/60 p-1.5 text-white backdrop-blur transition-colors hover:bg-black/80"
           >
-            <X className="h-4 w-4" />
+            <X className="size-4" />
           </button>
           {photos.length > 1 && (
             <>
@@ -61,7 +61,7 @@ export function PhotoLightbox({
                 aria-label="Previous photo"
                 className="absolute top-1/2 left-3 z-10 -translate-y-1/2 rounded-full bg-black/60 p-1.5 text-white backdrop-blur transition-colors hover:bg-black/80"
               >
-                <ChevronLeft className="h-5 w-5" />
+                <ChevronLeft className="size-5" />
               </button>
               <button
                 type="button"
@@ -69,7 +69,7 @@ export function PhotoLightbox({
                 aria-label="Next photo"
                 className="absolute top-1/2 right-3 z-10 -translate-y-1/2 rounded-full bg-black/60 p-1.5 text-white backdrop-blur transition-colors hover:bg-black/80"
               >
-                <ChevronRight className="h-5 w-5" />
+                <ChevronRight className="size-5" />
               </button>
             </>
           )}

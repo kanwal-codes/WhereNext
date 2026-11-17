@@ -117,7 +117,7 @@ export function AccountView({
         isDark={isDark}
       />
 
-      <div className="mx-auto max-w-6xl px-5 sm:px-8">
+      <div className="mx-auto max-w-6xl px-4 sm:px-8">
 
         {/* Rail + body */}
         <div className="mt-10 gap-10 lg:grid lg:grid-cols-[200px_minmax(0,1fr)]">

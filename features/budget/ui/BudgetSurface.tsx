@@ -131,7 +131,7 @@ export function BudgetSurface({
               onAnimationComplete={(def) => { if (def === "animate") setTimeout(() => setSaved(false), 1600); }}
               className="inline-flex items-center gap-1 text-xs text-leaf"
             >
-              <Check className="h-3 w-3" /> Saved
+              <Check className="size-3" /> Saved
             </motion.span>
           )}
         </AnimatePresence>
@@ -140,7 +140,7 @@ export function BudgetSurface({
 
       <p aria-hidden className="mt-3 flex flex-wrap items-baseline gap-x-2 lg:hidden">
         <span className={cn("font-display text-[2.5rem] leading-none font-medium tracking-[-0.03em] tabular-nums", !touched && "text-muted-foreground")}>{money(daily)}</span>
-        <span className="text-sm text-muted-foreground">{touched ? "per person, per day" : "per person, per day · drag to set"}</span>
+        <span className="text-sm text-ink-soft">{touched ? "per person, per day" : "per person, per day · drag to set"}</span>
       </p>
       <div className="mt-4 flex items-center gap-3 max-lg:mt-2">
         <input
@@ -179,7 +179,7 @@ export function BudgetSurface({
             <div role="progressbar" aria-label="Booked against the whole-trip budget" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.round((committed.perPerson / wholeTrip) * 100))} className="h-2 overflow-hidden rounded-full bg-muted">
               <div className="h-full rounded-full bg-primary transition-[width] duration-700 ease-out" style={{ width: `${Math.min(100, (committed.perPerson / wholeTrip) * 100)}%` }} />
             </div>
-            <p className="mt-2 flex items-baseline justify-between gap-3 text-sm text-muted-foreground">
+            <p className="mt-2 flex items-baseline justify-between gap-3 text-sm text-ink-soft">
               <span>{money(committed.convertedTotal)} booked so far</span>
               <span className="font-display text-base text-foreground tabular-nums">{Math.round((committed.perPerson / wholeTrip) * 100)}%</span>
             </p>
@@ -196,7 +196,7 @@ export function BudgetSurface({
             ))}
           </dl>
         ) : !committed || committed.lines.length === 0 ? (
-          <p className="mt-2 text-sm text-muted-foreground">Nothing with a price yet. Add bookings on the Bookings page.</p>
+          <p className="mt-2 text-sm text-ink-soft">Nothing with a price yet. Add bookings on the Bookings page.</p>
         ) : (
           <>
             <dl className="mt-2 space-y-1 text-sm max-lg:hidden">

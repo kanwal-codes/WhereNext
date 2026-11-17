@@ -12,7 +12,7 @@ describe("splitDestinations", () => {
     expect(splitDestinations("Niagara Falls, ON, Canada")).toEqual(["Niagara Falls"]);
     expect(splitDestinations("Montreal, Canada")).toEqual(["Montreal"]);
     expect(splitDestinations("Rome, Paris, France")).toEqual(["Rome", "Paris"]);
-    expect(splitDestinations("France, Italy")).toEqual(["France"]);
+    expect(splitDestinations("France, Italy")).toEqual(["France", "Italy"]);
   });
 });
 

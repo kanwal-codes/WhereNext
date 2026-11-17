@@ -10,7 +10,7 @@ export function BigFigure({ text, className }: { text: string; className?: strin
         if (!bit) return null;
         return /^\d/.test(bit)
           ? <span key={i} className="text-[3.25rem] font-light whitespace-nowrap text-foreground">{bit}</span>
-          : <span key={i} className="mr-1.5 text-base font-normal tracking-normal text-muted-foreground">{bit}</span>;
+          : <span key={i} className="mr-1.5 text-base font-normal tracking-normal text-ink-soft">{bit}</span>;
       })}
     </p>
   );
@@ -20,11 +20,11 @@ export function BigFigure({ text, className }: { text: string; className?: strin
 export function PanelHeader({ eyebrow, children, sub }: { eyebrow: string[]; children: React.ReactNode; sub?: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[0.6875rem] max-lg:text-xs font-medium tracking-[0.26em] text-muted-foreground uppercase">
+      <p className="text-2xs max-lg:text-xs font-medium tracking-[0.26em] text-muted-foreground uppercase">
         {eyebrow.map((part, i) => <React.Fragment key={i}>{i > 0 && <span aria-hidden className="mx-1.5 text-coral">·</span>}{part}</React.Fragment>)}
       </p>
       <div className="mt-3">{children}</div>
-      {sub && <p className="mt-3 truncate text-sm text-muted-foreground">{sub}</p>}
+      {sub && <p className="mt-3 truncate text-sm text-ink-soft">{sub}</p>}
       <div aria-hidden className="mt-5 h-px w-full bg-gradient-to-r from-coral/70 via-foreground/15 to-transparent" />
     </div>
   );

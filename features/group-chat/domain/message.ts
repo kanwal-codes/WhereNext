@@ -8,6 +8,8 @@ export const groupMessageInput = z.object({
   content: z.string().trim().min(1).max(MAX_MESSAGE_LENGTH),
   kind: z.enum(["text", "content_share"]).default("text"),
   shareCard: boundedRecord().optional(),
+  /** Who the message points at ("@Maya"): checked against the trip's members before it is stored. */
+  mentions: z.array(z.string().uuid()).max(20).optional(),
   idempotencyKey: z.string().min(1).max(120).optional(),
 });
 

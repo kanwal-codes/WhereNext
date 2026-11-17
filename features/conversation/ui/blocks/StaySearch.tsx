@@ -173,7 +173,7 @@ export function StaySearchBar({ search, tripId, trip, defaultOpen = false }: { s
         <br />
         <span className="text-muted-foreground">for </span>
         <GuestsChip value={query.adults} onChange={search.setAdults} disabled={busy} />
-        <span className="ml-2 whitespace-nowrap text-base tabular-nums text-muted-foreground">({search.nights} night{search.nights === 1 ? "" : "s"})</span>
+        <span className="ml-2 whitespace-nowrap text-base tabular-nums text-ink-soft">({search.nights} night{search.nights === 1 ? "" : "s"})</span>
       </p>
       {showTrip && (
         <button type="button" disabled={busy} onClick={() => search.setBoth(trip.start!, trip.end!)} className="-ml-3 mt-1 h-9 rounded-full px-3 text-sm font-medium text-coral-ink transition-colors hover:bg-coral-soft disabled:opacity-50">
