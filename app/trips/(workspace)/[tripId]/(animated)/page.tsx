@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, MapPin, Users, Wallet } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
@@ -51,6 +51,9 @@ export default function TripOverviewPage() {
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [savingName, setSavingName] = useState(false);
+  // The name you just typed, shown at once while it saves; dropped when the trip itself says the same, or when the save fails.
+  const [pendingName, setPendingName] = useState<string | null>(null);
+  const savingRef = useRef(false);
 
   const prefs = (data?.preferences ?? {}) as Record<string, unknown>;
   const savedRows = ((data?.savedPlaces ?? []) as SavedPlace[]).map((row) => row.places).filter(Boolean) as NonNullable<SavedPlace["places"]>[];
@@ -95,7 +98,7 @@ export default function TripOverviewPage() {
   const cover: TripSummary | null = trip
     ? {
         id: tripId,
-        name: trip.name,
+        name: pendingName ?? trip.name,
         destination: trip.destination ?? null,
         origin: trip.origin ?? null,
         duration_days: trip.duration_days ?? null,
@@ -112,13 +115,19 @@ export default function TripOverviewPage() {
     setEditingName(true);
   };
 
+  // Enter and leaving the field both save, and they arrive together: one request, not two. The name shows at once and the editor closes;
+  // the change reaches the rest of the page through the workspace signal (which refreshes the trip once), so nothing else is asked for here.
   const saveName = async () => {
+    if (savingRef.current) return;
     const name = nameDraft.trim();
     if (!name || name === trip?.name) {
       setEditingName(false);
       return;
     }
+    savingRef.current = true;
     setSavingName(true);
+    setPendingName(name);
+    setEditingName(false);
     try {
       const res = await fetch(`/api/trips/${tripId}`, {
         method: "PATCH",
@@ -127,14 +136,16 @@ export default function TripOverviewPage() {
       });
       if (!res.ok) throw new Error("Failed to rename trip");
       announceWorkspaceChange("trip");
-      router.refresh();
-      setEditingName(false);
     } catch {
+      setPendingName(null);
+      setEditingName(true);
       notifyToast("Couldn't rename the trip. Try again.");
     } finally {
+      savingRef.current = false;
       setSavingName(false);
     }
   };
+  useEffect(() => { if (pendingName !== null && trip?.name === pendingName) setPendingName(null); }, [pendingName, trip?.name]);
 
   return (
     <div className="min-h-full pb-16">
