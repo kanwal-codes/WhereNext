@@ -18,7 +18,7 @@ export function RoutePill({ from, to, loading, onOpen, className }: { from: stri
       aria-haspopup="dialog"
       aria-label={empty ? "Where to? Search for a route" : `Route from ${from || "…"} to ${to || "…"}. Edit`}
       className={cn(
-        "relative flex h-11 w-fit max-w-full min-w-0 items-center overflow-hidden rounded-full bg-muted px-5 text-left transition-transform active:scale-[0.985]",
+        "relative flex h-11 w-fit max-w-full min-w-0 items-center overflow-hidden rounded-full bg-muted px-5 text-center transition-transform active:scale-[0.985]",
         empty ? "min-w-[11rem] gap-2.5" : "min-w-[8.5rem]",
         className,
       )}
@@ -29,9 +29,9 @@ export function RoutePill({ from, to, loading, onOpen, className }: { from: stri
           <span className="truncate font-display text-body font-semibold tracking-[-0.01em] text-ink-soft">Where to?</span>
         </>
       ) : (
-        // The place you are going is the line that matters: large and bold. Where you leave from is the quiet line above it.
-        <span className="grid min-w-0 flex-1">
-          <span className="truncate text-[0.6875rem] font-normal leading-3.5 tracking-[0.01em] text-ink-soft">{from ? `From ${city(from)}` : "Add a start"}</span>
+        // The place you are going is the line that matters: large and bold. Where you leave from is the quiet line above it (no "From": the two lines read as a route).
+        <span className="grid min-w-0 flex-1 justify-items-center">
+          <span className="truncate text-[0.6875rem] font-normal leading-3.5 tracking-[0.01em] text-ink-soft">{from ? city(from) : "Add a start"}</span>
           <span className={cn("truncate font-display text-[0.9375rem] font-semibold leading-[1.15rem] tracking-[-0.012em]", !to && "font-medium text-muted-foreground")}>{to ? city(to) : "Where to?"}</span>
         </span>
       )}

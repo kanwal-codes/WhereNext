@@ -2,6 +2,16 @@ import { describe, expect, it } from "vitest";
 import { clockToMinutes, formatClockTime, isClockTime, parseClockTime } from "@/lib/application/clock-time";
 
 describe("parseClockTime", () => {
+  it("reads a bare 1-6 o'clock with no am/pm as the afternoon, and leaves an explicit 24-hour time alone", () => {
+    expect(parseClockTime("3:00")).toBe("15:00");
+    expect(parseClockTime("3")).toBe("15:00");
+    expect(parseClockTime("6:30")).toBe("18:30");
+    expect(parseClockTime("7:00")).toBe("07:00");
+    expect(parseClockTime("11:15")).toBe("11:15");
+    expect(parseClockTime("03:00")).toBe("03:00");
+    expect(parseClockTime("3:00 AM")).toBe("03:00");
+  });
+
   it("passes through an already-24h HH:MM value", () => {
     expect(parseClockTime("14:30")).toBe("14:30");
     expect(parseClockTime("09:00")).toBe("09:00");
@@ -51,5 +61,19 @@ describe("isClockTime", () => {
     expect(isClockTime("24:00")).toBe(false);
     expect(isClockTime("9:00")).toBe(false);
     expect(isClockTime(9)).toBe(false);
+  });
+});
+
+import { aDuration } from "@/lib/utils";
+
+describe("aDuration", () => {
+  it("picks a or an for how the duration is spoken", () => {
+    expect(aDuration(8)).toBe("an 8 min");
+    expect(aDuration(11)).toBe("an 11 min");
+    expect(aDuration(18)).toBe("an 18 min");
+    expect(aDuration(20)).toBe("a 20 min");
+    expect(aDuration(6)).toBe("a 6 min");
+    expect(aDuration(65)).toBe("a 1 h 5 min");
+    expect(aDuration(480)).toBe("an 8 h");
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { motion } from "motion/react";
 import Link from "next/link";
@@ -122,10 +122,9 @@ export function MapSurface({ tripId, start }: { tripId: string; /** Where a link
   };
   // The header keeps stable nodes: they are rebuilt only when what they show changes.
   const open = useCallback(() => setEditing(true), []);
-  const clearRef = useRef(clearRoute);
-  clearRef.current = clearRoute;
   const pill = useMemo(() => <RoutePill from={t.from} to={t.to} loading={t.loading} onOpen={open} />, [t.from, t.to, t.loading, open]);
-  const clearButton = useMemo(() => (hasValue ? <ClearRoute onClear={() => clearRef.current()} /> : undefined), [hasValue]);
+  // Phone: taking the route away sits in the sheet that shows it (the header keeps just the menu and the pill). Desktop keeps it beside the pill.
+  const clearInSheet = phone && hasValue ? <ClearRoute onClear={clearRoute} className="size-10" /> : undefined;
   useEffect(() => {
     if (editing && !phone) window.setTimeout(() => toRef.current?.focus(), 80);
   }, [editing, phone]);
@@ -167,7 +166,7 @@ export function MapSurface({ tripId, start }: { tripId: string; /** Where a link
   );
 
   return (
-    <MapStage pill={pill} trailing={clearButton}>
+    <MapStage pill={pill}>
       <TripMap
         key={showTrip ? "trip" : "route"}
         className="absolute inset-0 h-full min-h-0 w-full rounded-none border-0"
@@ -199,9 +198,12 @@ export function MapSurface({ tripId, start }: { tripId: string; /** Where a link
           </div>
         )}
 
+        {/* Phone, no results yet (a half-filled route): the way out sits at the sheet's top right, level with the grip. With results it is in the title row below. */}
+        {!routeOn && clearInSheet && <div className="absolute right-3 top-1.5 z-10">{clearInSheet}</div>}
+
         {routeOn ? (
           <>
-          <SheetTitle eyebrow="Directions" title="Ways to get there" />
+          <SheetTitle eyebrow="Directions" title="Ways to get there" trailing={clearInSheet} />
           <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(2rem+var(--phone-bottom))] pt-1">
             <TransportSurface
               tripId={tripId}
@@ -231,7 +233,6 @@ export function MapSurface({ tripId, start }: { tripId: string; /** Where a link
           </div>
         ) : (
           <>
-            <SheetTitle eyebrow="My trip" title="How you get around" />
             {days.length > 1 && (
               <div className="shrink-0 border-b border-border">
                 <HScrollFade className="flex gap-2 px-4 pb-4 pt-1">
@@ -281,12 +282,15 @@ export function MapSurface({ tripId, start }: { tripId: string; /** Where a link
 }
 
 /** What the sheet is showing, said at its top so it reads even when the sheet is folded to its peek: the trip, or the route that was asked for. */
-function SheetTitle({ eyebrow, title, sub }: { eyebrow: string; title: string; sub?: string }) {
+function SheetTitle({ eyebrow, title, sub, trailing }: { eyebrow: string; title: string; sub?: string; trailing?: ReactNode }) {
   return (
-    <div data-sheet-grip className="shrink-0 touch-none px-4 pb-3 pt-1">
-      <p className="eyebrow">{eyebrow}</p>
-      <h2 className="mt-1 font-display text-xl font-medium leading-tight tracking-[-0.02em]">{title}</h2>
-      {sub && <p className="mt-0.5 text-sm text-ink-soft">{sub}</p>}
+    <div data-sheet-grip className="flex shrink-0 touch-none items-start justify-between gap-3 px-4 pb-3 pt-1">
+      <div className="min-w-0">
+        <p className="eyebrow">{eyebrow}</p>
+        <h2 className="mt-1 font-display text-xl font-medium leading-tight tracking-[-0.02em]">{title}</h2>
+        {sub && <p className="mt-0.5 text-sm text-ink-soft">{sub}</p>}
+      </div>
+      {trailing && <div className="-mt-1.5 shrink-0">{trailing}</div>}
     </div>
   );
 }

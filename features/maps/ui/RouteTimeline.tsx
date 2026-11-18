@@ -6,15 +6,14 @@ import { motion } from "motion/react";
 import { Sheet } from "@/components/motion-primitives";
 import { SheetHeader } from "@/components/SheetHeader";
 import { useDistance } from "@/components/use-distance";
-import { ChevronRight, ExternalLink, Ticket, TriangleAlert } from "lucide-react";
+import { ArrowUpRight, ChevronRight, ExternalLink, Ticket, TriangleAlert } from "lucide-react";
 import type { RouteDay, RouteLegStep } from "@/packages/contracts/route-plan";
-import { MODE_ICON, MODE_LABEL } from "@/lib/application/mode-visuals";
+import { MODE_ICON, MODE_LABEL, MODE_SOFT } from "@/lib/application/mode-visuals";
 import { ModeTile, Ribbon, colorOf, legRailStyle, mainMode, mergeWalkSteps } from "@/features/maps/ui/modeParts";
 import { FactStrip } from "@/components/DetailKit";
-import { formatClockTime } from "@/lib/application/clock-time";
 import { isTimeFitAtRisk } from "@/lib/application/time-fit";
 import { formatMoney } from "@/lib/currency";
-import { cn, formatDuration } from "@/lib/utils";
+import { aDuration, cn, formatDuration } from "@/lib/utils";
 
 const time = (iso: string | null) => {
   if (!iso) return null;
@@ -107,25 +106,55 @@ const hasSteps = (leg: RouteDay["legs"][number]) => mergeWalkSteps(leg.steps).le
 const MAPS_MODE: Record<string, string> = { walk: "walking", drive: "driving", bike: "bicycling" };
 
 /**
- * A stop's name and time. A stop that is a real place is a card, like the stops of a plan in Roam: bordered, with a chevron, so it reads as something
- * to open, and pressing it opens the place in a sheet. One that is not stays a plain line.
+ * A stop's name, set like the stops of a plan in Roam. A stop that is a real place is a link (the arrow says so) and pressing it opens the place in a
+ * sheet; one that is not is plain text. The name sits on a 40px line (the height a link has in the plan widget on a phone) so the numbered marker beside it
+ * centres on it (`stopMarker`). The stop's clock time is not shown here: it is on the Plan page, and the warning under a hop still uses it.
  */
-function StopRow({ name, time: at, onOpen }: { name: string; time?: string; onOpen?: () => void }) {
-  const body = (
-    <>
-      <span className="line-clamp-2 min-w-0 flex-1 font-display text-body font-medium leading-snug tracking-[-0.006em]">{name}</span>
-      {at && <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{formatClockTime(at)}</span>}
-      {onOpen && <ChevronRight className="-mr-1 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
-    </>
-  );
-  return onOpen ? (
-    <button type="button" onClick={onOpen} aria-haspopup="dialog" aria-label={`${name}, open details`} className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-border bg-card px-3.5 py-2.5 text-left shadow-soft transition-[transform,box-shadow] duration-200 active:scale-[0.985] lg:hover:shadow-float">
-      {body}
-    </button>
-  ) : (
-    <div className="flex min-w-0 items-center justify-between gap-3 py-[3px]">{body}</div>
+function StopRow({ name, onOpen }: { name: string; onOpen?: () => void }) {
+  return (
+    <div className="flex min-h-10 min-w-0 items-center">
+      {onOpen ? (
+        <button type="button" onClick={onOpen} aria-haspopup="dialog" aria-label={`${name}, open details`} className="relative inline-flex min-h-0! min-w-0 items-center gap-1.5 text-left font-display text-[1.0625rem] font-medium leading-snug tracking-[-0.006em] text-foreground underline-offset-4 transition-colors hover:text-coral hover:underline after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']">
+          <span className="line-clamp-2 min-w-0">{name}</span>
+          <ArrowUpRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        </button>
+      ) : (
+        <p className="line-clamp-2 min-w-0 font-display text-[1.0625rem] font-medium leading-snug tracking-[-0.006em]">{name}</p>
+      )}
+    </div>
   );
 }
+
+/**
+ * The way between two stops, as one soft pill in the mode's own tint: the vehicle in a white disc, the time, the distance. When the hop is more than one
+ * piece (a walk, a ride, a walk) it opens them in a sheet; a lone walk has nothing more to show and stays a plain label.
+ */
+function LegPill({ leg, label, detail, onOpen }: { leg: RouteDay["legs"][number]; label: string; detail: string | null; onOpen?: () => void }) {
+  const mode = mainMode(leg);
+  const Icon = MODE_ICON[mode] ?? MODE_ICON.unknown;
+  const body = (
+    <>
+      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-card/85 shadow-hairline" style={{ color: colorOf(mode) }}>
+        <Icon className="size-4" aria-hidden="true" />
+      </span>
+      <span className="text-sm leading-none">
+        <span className="font-semibold tabular-nums">{label}</span>
+        {detail && <span className="tabular-nums text-ink-soft">{` · ${detail}`}</span>}
+      </span>
+      {onOpen && <ChevronRight className="-mr-1 size-4 shrink-0 text-ink-soft" aria-hidden="true" />}
+    </>
+  );
+  const cls = "inline-flex h-10 min-h-0! items-center gap-2 rounded-full pl-1.5 pr-4 text-left transition-transform duration-200 active:scale-[0.985]";
+  const style = { background: MODE_SOFT[mode] ?? MODE_SOFT.unknown };
+  return onOpen ? (
+    <button type="button" onClick={onOpen} aria-haspopup="dialog" className={cn(cls, "cursor-pointer")} style={style}>{body}</button>
+  ) : (
+    <button type="button" className={cn(cls, "cursor-default")} style={style}>{body}</button>
+  );
+}
+
+/** The numbered marker of a stop, centred on the name's 40px line. */
+const stopMarker = () => "mt-1.5 grid size-7 place-items-center self-start rounded-full bg-coral-fill text-xs font-semibold text-white shadow-soft";
 
 export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date, onOpenStop }: { day: RouteDay; tripId: string; onHoverLeg?: (index: number | null) => void; onLegChosen?: () => void; date?: string | null; /** What opens the place a stop is, when it has one. */ onOpenStop?: (stopId: string) => (() => void) | undefined }) {
   const distance = useDistance();
@@ -145,9 +174,9 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date, onOp
         </h2>
         {day.booked?.length ? <BookedList booked={day.booked} tripId={tripId} className="mt-4" /> : null}
         {day.stops.map((stop) => (
-          <div key={stop.id} className="mt-4 grid grid-cols-[1.75rem_minmax(0,1fr)] items-center gap-x-3">
-            <span className="grid size-7 place-items-center rounded-full bg-coral-fill text-xs font-semibold text-white shadow-soft">1</span>
-            <StopRow name={stop.name} time={stop.time} onOpen={onOpenStop?.(stop.id)} />
+          <div key={stop.id} className="mt-4 grid grid-cols-[1.75rem_minmax(0,1fr)] items-start gap-x-3">
+            <span className={stopMarker()}>1</span>
+            <StopRow name={stop.name} onOpen={onOpenStop?.(stop.id)} />
           </div>
         ))}
         <p className="mt-4 text-sm text-ink-soft">
@@ -171,11 +200,12 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date, onOp
       </h2>
       {day.booked?.length ? <BookedList booked={day.booked} tripId={tripId} className="mt-4" /> : null}
       <FactStrip
-        className="mt-4"
+        variant="hero"
+        className="mt-5"
         facts={[
           { label: "On the move", value: formatDuration(s.movingMinutes) },
           { label: "Stops", value: day.stops.length },
-          s.transitRides ? { label: "Transit rides", value: s.transitRides, note: s.fare ? `~${formatMoney(s.fare.amount, s.fare.currency)} in fares` : undefined } : false,
+          s.transitRides ? { label: "Transit", value: s.transitRides, note: s.fare ? `~${formatMoney(s.fare.amount, s.fare.currency)} in fares` : undefined } : false,
         ]}
       />
       {/* A bar of one piece, or only walking, says nothing the numbers above do not. */}
@@ -192,8 +222,8 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date, onOp
               transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay: 0.07 * i }}
               className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3"
             >
-              <span className={cn("grid size-7 place-items-center rounded-full bg-coral-fill text-xs font-semibold text-white shadow-soft", onOpenStop?.(stop.id) ? "mt-[0.4375rem]" : "mt-px")}>{i + 1}</span>
-              <StopRow name={stop.name} time={stop.time} onOpen={onOpenStop?.(stop.id)} />
+              <span className={stopMarker()}>{i + 1}</span>
+              <StopRow name={stop.name} onOpen={onOpenStop?.(stop.id)} />
 
               {leg ? (
                 <>
@@ -201,40 +231,27 @@ export function RouteTimeline({ day, tripId, onHoverLeg, onLegChosen, date, onOp
                     <span className="w-1 self-stretch" style={legRailStyle(leg)} />
                   </div>
                   <div
-                    className="min-w-0 py-1.5 pb-4"
+                    className="min-w-0 pb-6 pt-2"
                     onMouseEnter={() => hoverLeg(i)}
                     onMouseLeave={() => hoverLeg(null)}
                   >
                     {leg.kind === "longhaul" ? (
-                      <p className="text-xs leading-snug text-caution">{leg.note}</p>
+                      <p className="flex items-start gap-2 rounded-2xl bg-caution-soft px-3.5 py-2.5 text-xs leading-snug text-caution">{leg.note}</p>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => hasSteps(leg) && setOpen(i)}
-                        aria-haspopup={hasSteps(leg) ? "dialog" : undefined}
-                        className="group/leg -mx-2 flex w-[calc(100%+1rem)] items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-surface"
-                      >
-                        <ModeTile mode={mainMode(leg)} />
-                        <span className="min-w-0 flex-1 text-sm leading-tight">
-                          <span className="font-semibold tabular-nums">{leg.minutes != null ? formatDuration(leg.minutes) : "Route"}</span>
-                          {/* The ride's own departure and arrival times are in its sheet: here they only crowded the row, beside the stops' own times. */}
-                          <span className="text-muted-foreground tabular-nums">{leg.km != null ? ` · ${distance(leg.km)}` : ""}</span>
-                        </span>
-                        {hasSteps(leg) && <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
-                      </button>
+                      <LegPill leg={leg} label={leg.minutes != null ? formatDuration(leg.minutes) : "Route"} detail={leg.km != null ? distance(leg.km) : null} onOpen={hasSteps(leg) ? () => setOpen(i) : undefined} />
                     )}
-                    {leg.note && leg.kind === "local" && <p className="mt-1 text-2xs leading-snug text-muted-foreground">{leg.note}</p>}
+                    {leg.note && leg.kind === "local" && <p className="mt-1.5 text-2xs leading-snug text-muted-foreground">{leg.note}</p>}
                     {isTimeFitAtRisk(leg.timeFit) && leg.timeFit && (
-                      <p className="mt-1.5 flex items-start gap-1.5 text-2xs font-medium leading-snug text-caution">
-                        <TriangleAlert className="mt-px size-3 shrink-0" aria-hidden="true" />
+                      <p className="mt-2 flex items-start gap-2 rounded-2xl bg-caution-soft px-3.5 py-2.5 text-xs font-medium leading-snug text-caution">
+                        <TriangleAlert className="mt-px size-3.5 shrink-0" aria-hidden="true" />
                         {leg.timeFit.availableMinutes <= 0
-                          ? `No time between these stops for a ${formatDuration(leg.timeFit.neededMinutes)} trip.`
+                          ? `No time between these stops for ${aDuration(leg.timeFit.neededMinutes)} trip.`
                           : `Only ${formatDuration(leg.timeFit.availableMinutes)} between these stops — this trip takes ~${formatDuration(leg.timeFit.neededMinutes)}.`}
                       </p>
                     )}
                     {leg.kind === "local" && leg.alternatives.length > 0 && (
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        <span className="mr-0.5 text-2xs text-muted-foreground">Or go by</span>
+                      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                        <span className="mr-0.5 text-xs text-muted-foreground">Or go by</span>
                         {/* One chip per way of travelling: after a switch the old choice comes back as an alternative beside the one the server also offered. */}
                         {leg.alternatives.filter((alt, k, all) => all.findIndex((x) => x.mode === alt.mode) === k).map((alt) => (
                           <AltChip key={alt.mode} tripId={tripId} dayIndex={day.day} leg={leg} alt={alt} onChosen={() => onLegChosen?.()} />

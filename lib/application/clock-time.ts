@@ -16,6 +16,9 @@ export function parseClockTime(raw?: string | null): string | undefined {
   const meridiem = match[3]?.toLowerCase();
   if (meridiem === "pm" && hour !== 12) hour += 12;
   if (meridiem === "am" && hour === 12) hour = 0;
+  // "3:00" with no am/pm and no leading zero is a visit at three in the afternoon, not three in the morning: nothing worth planning happens at 1-6 AM,
+  // and the planner drops the suffix now and then. A zero-padded "03:00" was matched above and is taken as the 24-hour time it is. 7-11 stay morning.
+  if (!meridiem && hour >= 1 && hour <= 6) hour += 12;
   if (!meridiem && hour > 23) return undefined;
   if (hour > 23) return undefined;
   const candidate = `${String(hour).padStart(2, "0")}:${minute}`;

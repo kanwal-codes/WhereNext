@@ -349,18 +349,17 @@ describe("MapSurface: a route", () => {
     expect(screen.queryByText("Nothing on the map yet")).toBeNull();
   });
 
-  it("puts the trip back, with its pins, when the route is cleared from the header", async () => {
+  it("puts the trip back, with its pins, when the route is cleared from the sheet", async () => {
     const user = u();
     desktop = false;
     data.itinerary = [row("i1", "Louvre", 1, 48.86, 2.34)];
     route();
     await screen.findByTestId("transport");
     expect(mapProps.pins).toEqual([]);
-    const header = within(render(<>{headerTrailing}</>).container);
-    await user.click(header.getByRole("button", { name: "Clear the route" }));
+    expect(headerTrailing).toBeNull(); // the header keeps just the menu and the pill
+    await user.click(screen.getByRole("button", { name: "Clear the route" }));
     await waitFor(() => expect(screen.queryByTestId("transport")).toBeNull());
     expect(pinNames()).toEqual(["Louvre"]);
-    expect(screen.getByText("My trip")).toBeTruthy();
   });
 
   it("centres on the destination when nothing is pinned yet", async () => {
@@ -381,7 +380,8 @@ describe("MapSurface: a route", () => {
     route();
     await screen.findByTestId("transport");
     const pill = within(render(<>{headerTitle}</>).container).getByRole("button", { name: /^Route from Paris to Lyon/ });
-    expect(pill.textContent).toContain("From Paris");
+    expect(pill.textContent).toContain("Paris");
+    expect(pill.textContent).not.toContain("From");
     expect(pill.textContent).toContain("Lyon");
   });
 
@@ -405,12 +405,12 @@ describe("MapSurface: a route", () => {
 });
 
 describe("MapSurface: tabs and the panel", () => {
-  it("titles the sheet with what it shows, so a folded sheet still says what it is", async () => {
+  it("leads the trip's sheet with its content, not a title (the results sheet keeps its title)", async () => {
     data.itinerary = [row("i1", "Louvre", 1, 48.86, 2.34)];
     renderMap();
     await screen.findByTestId("trip-map");
-    expect(screen.getByText("My trip")).toBeTruthy();
-    expect(screen.getByText("How you get around")).toBeTruthy();
+    expect(screen.queryByText("How you get around")).toBeNull();
+    expect(screen.queryByText("My trip")).toBeNull();
   });
 
   it("opens the route editor from the pill on a wide screen, in the panel", async () => {

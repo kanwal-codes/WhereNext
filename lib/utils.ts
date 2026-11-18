@@ -20,4 +20,9 @@ export function formatDuration(minutes: number): string {
   const rem = m % 60;
   return rem ? `${h} h ${rem} min` : `${h} h`;
 }
+/** "a" or "an" for a spoken duration: "an 8 min", "an 11 min", "an 18 min", "a 20 min", "a 1 h 5 min". */
+export const aDuration = (minutes: number): string => {
+  const text = formatDuration(minutes);
+  return `${/^(8|11|18)(?!\d)/.test(text) ? "an" : "a"} ${text}`;
+};
 export const durationFromSeconds = (seconds: number) => formatDuration(seconds / 60);
