@@ -100,6 +100,8 @@ export function Sheet({
                   dragListener: false,
                   dragConstraints: { top: 0, bottom: 0 },
                   dragElastic: { top: 0, bottom: 0.5 },
+                  // Let go short of closing and it returns on a tight spring with no bounce (the default is a slow, loose one).
+                  dragTransition: { bounceStiffness: 460, bounceDamping: 44 },
                   onDragEnd: (_: unknown, info: { offset: { y: number }; velocity: { y: number } }) => {
                     if (info.offset.y > 90 || info.velocity.y > 600) onClose();
                   },
@@ -111,6 +113,7 @@ export function Sheet({
                   drag: "x" as const,
                   dragConstraints: { left: 0, right: 0 },
                   dragElastic: { left: 0.5, right: 0 },
+                  dragTransition: { bounceStiffness: 460, bounceDamping: 44 },
                   dragDirectionLock: true,
                   onDragEnd: (_: unknown, info: { offset: { x: number }; velocity: { x: number } }) => {
                     if (info.offset.x < -70 || info.velocity.x < -500) onClose();

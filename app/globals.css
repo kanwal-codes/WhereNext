@@ -1868,10 +1868,17 @@ html[data-landing] { scrollbar-color: #c4c4ca transparent; scrollbar-width: thin
    - No double-tap-to-zoom delay on anything you can press, and no grey flash: pressed states do the talking. */
 @media (max-width: 63.9375rem) {
   html[data-phone-v2] { -webkit-tap-highlight-color: transparent; }
+  /* One icon weight: Lucide draws at 2px by default, the phone chrome and sheets at 1.6 (`icons-fine`), so the same icon changed weight from screen to screen.
+     Anything still on the library default takes the fine weight; icons that set their own weight (a large glyph, a drawn mark) are left as drawn. */
+  html[data-phone-v2] svg.lucide[stroke-width="2"] { stroke-width: 1.6; }
   /* The theme is `@theme inline`, so the 2xs step is a literal in each utility: re-state it here. */
   html[data-phone-v2] :is(.text-2xs, .eyebrow, .max-lg\:eyebrow) { font-size: 0.75rem; line-height: 1.0625rem; }
   html[data-phone-v2] :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"]), select, textarea) { font-size: 16px; }
-  :where(html[data-phone-v2]) :is(a, button, summary, select, label, input, textarea, [role="button"], [role="tab"]) { touch-action: manipulation; }
+  /* In the base layer so a component's own `touch-none` (every drag handle: sheets, the map sheet, stop reordering) still wins. Unlayered, this rule beat
+     those utilities, left the handle on `manipulation`, and iOS took the swipe for a pan: the pointer was cancelled and nothing could be dragged. */
+  @layer base {
+    :where(html[data-phone-v2]) :is(a, button, summary, select, label, input, textarea, [role="button"], [role="tab"]) { touch-action: manipulation; }
+  }
   :where(html[data-phone-v2]) :is(button:not([role="switch"]), [role="tab"], summary, select) { min-height: 2.5rem; }
   /* The secondary button is a soft pill like the round header buttons: a fill, not an outline. */
   html[data-phone-v2] .btn-secondary { border-color: transparent; background-color: var(--color-secondary); border-radius: 9999px; }
@@ -1879,3 +1886,8 @@ html[data-landing] { scrollbar-color: #c4c4ca transparent; scrollbar-width: thin
   html[data-phone-v2] .daisy-btn-outline { border-color: transparent; background-color: var(--color-secondary); color: var(--color-foreground); }
   html[data-phone-v2] .daisy-btn:disabled, html[data-phone-v2] .daisy-btn[disabled] { background-color: var(--color-muted); border-color: transparent; color: var(--color-muted-foreground); box-shadow: none; opacity: 1; }
 }
+
+/* The map sheet, below its top position: the whole sheet is the handle, so nothing inside may start a scroll or a pan of its own (the day chips still
+   scroll sideways). At its top position the content scrolls as usual and only the grip and the title drag it. */
+[data-sheet-lock] *:not(.overflow-x-auto, .overflow-x-auto *) { touch-action: none; }
+[data-sheet-lock] .overflow-y-auto { overflow-y: hidden; }

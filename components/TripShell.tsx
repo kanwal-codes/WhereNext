@@ -75,7 +75,7 @@ export function TripShell({ tripId, trip, children }: { tripId: string; trip: Sh
           `auto`, quietly turning this <main> into an intermediate scroll container. Any sticky
           descendant (the Getting Around map, in Browse and My trip) then sticks relative to this
           box instead of the real viewport and just scrolls away with the page. */}
-      <main className={cn("w-full min-w-0 max-w-full", !/\/(chat|group)$/.test(pathname) && "max-lg:pb-[var(--tabbar)]")}>{children}</main>
+      <main className={cn("w-full min-w-0 max-w-full", !/\/(chat|group|map)$/.test(pathname) && "max-lg:pb-[var(--tabbar)]")}>{children}</main>
     </div>
   );
   return <PhoneHeaderProvider>{shell}</PhoneHeaderProvider>;

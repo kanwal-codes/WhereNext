@@ -44,7 +44,7 @@ export function NextUpCard({ item, onOpenBooking, onEdit, onRemove }: { item: Ti
       {photo ? (
         <BlurImage src={hotelPhotoSrc(item.thumbnail!)} alt="" onError={() => setImageFailed(true)} className="absolute inset-0 h-full w-full object-cover group-hover:scale-[1.05]" />
       ) : (
-        <Icon aria-hidden className="pointer-events-none absolute -right-6 -bottom-8 size-72 text-foreground/[0.06]" strokeWidth={1} />
+        <Icon aria-hidden className="pointer-events-none absolute -right-6 -bottom-8 size-72 text-foreground/[0.06] max-lg:-top-6 max-lg:-right-5 max-lg:bottom-auto max-lg:size-40 max-lg:[stroke-width:0.7] max-lg:text-foreground/[0.05]" strokeWidth={1} />
       )}
       {photo && <div aria-hidden className="absolute inset-0 scrim-b" />}
 

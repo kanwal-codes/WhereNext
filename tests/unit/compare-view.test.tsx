@@ -67,7 +67,7 @@ describe("CompareView: what is asked for", () => {
   it("asks for two or more picks, and points to Discover", () => {
     view(["a"]);
     expect(screen.getByText("Nothing to compare yet")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Discover" }).getAttribute("href")).toBe(`/trips/${TRIP}/discover`);
+    expect(screen.getByRole("link", { name: "Open Discover" }).getAttribute("href")).toBe(`/trips/${TRIP}/discover`);
     expect(fetchDetails.mock.calls.map((c) => c[1])).toEqual(["a"]); // the single pick is still fetched, ready for the second
   });
 

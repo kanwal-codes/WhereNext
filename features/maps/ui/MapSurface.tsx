@@ -202,7 +202,7 @@ export function MapSurface({ tripId, start }: { tripId: string; /** Where a link
         {routeOn ? (
           <>
           <SheetTitle eyebrow="Directions" title="Ways to get there" />
-          <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-8 pt-1">
+          <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(2rem+var(--phone-bottom))] pt-1">
             <TransportSurface
               tripId={tripId}
               t={t}
@@ -226,7 +226,7 @@ export function MapSurface({ tripId, start }: { tripId: string; /** Where a link
           </div>
           </>
         ) : pins.length === 0 ? (
-          <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-8 pt-2 lg:pt-5">
+          <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(2rem+var(--phone-bottom))] pt-2 lg:pt-5">
             <NothingYet tripId={tripId} destination={destination} onDirections={open} />
           </div>
         ) : (
@@ -243,7 +243,7 @@ export function MapSurface({ tripId, start }: { tripId: string; /** Where a link
                 </HScrollFade>
               </div>
             )}
-            <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-8 pt-5">
+            <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(2rem+var(--phone-bottom))] pt-5">
               <motion.div key={String(activeDay)} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease: EASE }}>
                 {planDays.length > 0 && planDays.some((d) => d.legs.length > 0 || (d.booked?.length ?? 0) > 0) ? (
                   <div className="space-y-10">
@@ -283,7 +283,7 @@ export function MapSurface({ tripId, start }: { tripId: string; /** Where a link
 /** What the sheet is showing, said at its top so it reads even when the sheet is folded to its peek: the trip, or the route that was asked for. */
 function SheetTitle({ eyebrow, title, sub }: { eyebrow: string; title: string; sub?: string }) {
   return (
-    <div className="shrink-0 px-4 pb-3 pt-1">
+    <div data-sheet-grip className="shrink-0 touch-none px-4 pb-3 pt-1">
       <p className="eyebrow">{eyebrow}</p>
       <h2 className="mt-1 font-display text-xl font-medium leading-tight tracking-[-0.02em]">{title}</h2>
       {sub && <p className="mt-0.5 text-sm text-ink-soft">{sub}</p>}

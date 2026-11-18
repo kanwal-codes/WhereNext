@@ -42,9 +42,9 @@ export const controlSecondary =
 export const textAction =
   "relative inline-flex items-center gap-1 text-xs font-medium text-foreground underline-offset-4 transition-colors hover:text-coral hover:underline after:absolute after:-inset-x-2 after:-inset-y-3.5 after:content-['']";
 
-/** An icon-only control: 32px visible, 44px effective hit area. */
+/** An icon-only control: 32px visible, 44px effective hit area. On a phone it is 40px square: every button is at least 40px tall there, so a 32px-wide one would be an upright rectangle. */
 export const controlGhost =
-  "relative inline-flex size-8 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-[color,background-color,transform] hover:bg-accent hover:text-foreground active:scale-[0.97] before:absolute before:-inset-1.5 before:content-['']";
+  "relative inline-flex size-8 max-lg:size-10 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-[color,background-color,transform] hover:bg-accent hover:text-foreground active:scale-[0.97] before:absolute before:-inset-1.5 before:content-['']";
 
 /** Copy something to the clipboard; flips to a check for a moment so the click is acknowledged.
  *  `label` names what's being copied ("reply", "amount", ...) for the button's own aria-label/title. */
@@ -62,7 +62,7 @@ export function CopyButton({ text, label = "reply", tabbable = true }: { text: s
         setDone(true);
         setTimeout(() => setDone(false), 1600);
       }}
-      className={cn(controlGhost, "max-lg:size-9")}
+      className={controlGhost}
     >
       {done ? <Check key="done" className="settle-in size-4 text-positive" aria-hidden /> : <Copy className="size-4" aria-hidden />}
     </button>

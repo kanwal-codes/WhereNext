@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { animate as animateValue, motion, useDragControls, useMotionValue, useReducedMotion } from "motion/react";
+import { animate as animateValue, motion, useDragControls, useMotionValue, useReducedMotion, useTransform } from "motion/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useSetPhoneHeader } from "@/components/shell/PhoneHeader";
 import { modeSwatch } from "@/features/maps/ui/modeParts";
@@ -72,6 +72,8 @@ export function HScrollFade({ className, children }: { className?: string; child
 /** Peek height (px) when the mobile sheet is collapsed — just the drag handle plus enough of the
  * first row to hint there's more, deliberately short so most of the map stays visible. */
 const SHEET_PEEK = 96;
+type Detent = "peek" | "half" | "tall";
+const SHEET_BLEED = 40;
 const PANEL_WIDTH = 420;
 const PANEL_GAP = 16;
 export const EASE = [0.22, 1, 0.36, 1] as const;
@@ -86,55 +88,65 @@ export function MapPanel({ collapsedLabel, onInset, opens, children }: { collaps
   const dragControls = useDragControls();
   const containerRef = useRef<HTMLDivElement>(null);
   const y = useMotionValue(0);
-  const [travel, setTravel] = useState(0);
+  const anim = useRef<ReturnType<typeof animateValue> | null>(null);
   // The map's own height (the sheet's parent) and the bar above it: what "pulled all the way up" is measured against.
   const [stageH, setStageH] = useState(0);
   const [barH, setBarH] = useState(56);
-  const [expanded, setExpanded] = useState(true);
-  // Three resting places on a phone: the peek, the sheet at its own height (at most 54% of the map), and tall (nearly the whole screen).
-  const [tall, setTall] = useState(false);
+  // Three resting places on a phone: the peek, half (54% of the map), and tall (nearly the whole screen).
+  const [detent, setDetent] = useState<Detent>("half");
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     if (desktop) return;
     const el = containerRef.current;
-    if (!el) return;
+    const stage = el?.parentElement;
+    if (!el || !stage) return;
     const measure = () => {
-      setTravel(Math.max(0, el.getBoundingClientRect().height - SHEET_PEEK));
-      setStageH(el.parentElement?.clientHeight ?? 0);
+      setStageH(stage.clientHeight);
       setBarH(document.querySelector<HTMLElement>("[data-trip-topbar]")?.offsetHeight ?? 56);
     };
     measure();
     const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    if (el.parentElement) ro.observe(el.parentElement);
+    ro.observe(stage);
     return () => ro.disconnect();
   }, [desktop]);
 
+  // The sheet is always as tall as it gets and only ever moves by transform (nothing is laid out while it moves): `y` is how far it is let down from tall.
+  const tallH = stageH ? stageH - barH - 8 : 0;
+  const halfH = Math.min(Math.round(stageH * 0.54), tallH);
+  const pos: Record<Detent, number> = { tall: 0, half: tallH - halfH, peek: Math.max(0, tallH - SHEET_PEEK) };
+  const shown = tallH - pos[detent];
+
   useEffect(() => {
     if (desktop) onInset?.({ left: collapsed ? 0 : PANEL_WIDTH + PANEL_GAP });
-    else onInset?.({ bottom: Math.min(expanded ? travel + SHEET_PEEK : SHEET_PEEK, Math.round(window.innerHeight * 0.38)) });
-  }, [desktop, collapsed, expanded, travel, onInset]);
+    else onInset?.({ bottom: Math.min(tallH ? shown : SHEET_PEEK, Math.round(window.innerHeight * 0.38)) });
+  }, [desktop, collapsed, shown, tallH, onInset]);
 
-  const snapTo = (next: boolean) => {
-    setExpanded(next);
-    if (!next) setTall(false);
-    animateValue(y, next ? 0 : travel, reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 42 });
+  const settle = (next: Detent, velocity = 0) => {
+    setDetent(next);
+    anim.current?.stop();
+    // Lets go at the speed the finger had, then settles without bounce: a flick carries on, a slow release eases in.
+    anim.current = animateValue(y, pos[next], reduce ? { duration: 0 } : { type: "spring", stiffness: 340, damping: 36, velocity });
   };
 
   const firstOpens = useRef(true);
   useEffect(() => {
     if (firstOpens.current) { firstOpens.current = false; return; }
-    if (!desktop && opens !== undefined) snapTo(true);
-    // `snapTo` is rebuilt every render; a change of `opens` is what should trigger it.
+    if (!desktop && opens !== undefined && detent === "peek") settle("half");
+    // `settle` is rebuilt every render; a change of `opens` is what should trigger it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opens]);
 
-  // The sheet's content (and so `travel`) can change height — e.g. switching to a day with more
-  // stops — keep a collapsed sheet resting at the new peek offset instead of drifting mid-way.
+  // The map's height changed (first measure, rotation, Safari's toolbar): rest at the new place for the same detent, without animating.
   useEffect(() => {
-    if (!expanded) y.set(travel);
-  }, [travel, expanded, y]);
+    if (!tallH) return;
+    anim.current?.stop();
+    y.set(pos[detent]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tallH, halfH]);
+
+  // The map dims a little as the sheet comes up, so it reads as a layer rising over it.
+  const scrim = useTransform(y, [0, Math.max(1, pos.peek)], [0.16, 0]);
 
   if (desktop) {
     if (collapsed) {
@@ -173,48 +185,50 @@ export function MapPanel({ collapsedLabel, onInset, opens, children }: { collaps
     );
   }
 
+  const begin = (e: React.PointerEvent) => { anim.current?.stop(); dragControls.start(e); };
+
   return (
-    <motion.div
-      ref={containerRef}
-      style={{ y }}
-      drag="y"
-      dragControls={dragControls}
-      dragListener={false}
-      dragConstraints={{ top: 0, bottom: travel }}
-      dragElastic={{ top: 0.12, bottom: 0 }}
-      initial={reduce ? false : { opacity: 0 }}
-      animate={{
-        opacity: 1,
-        // Measured pixels, not percentages, so the height can glide between its own size and tall.
-        ...(stageH ? { maxHeight: tall ? stageH - barH - 8 : Math.round(stageH * 0.54), height: tall ? stageH - barH - 8 : "auto" } : {}),
-      }}
-      transition={{ duration: 0.5, ease: EASE, maxHeight: reduce ? { duration: 0 } : { type: "spring", stiffness: 380, damping: 40 }, height: reduce ? { duration: 0 } : { type: "spring", stiffness: 380, damping: 40 } }}
-      onDragEnd={(_, info) => {
-        const up = info.offset.y < -50 || info.velocity.y < -500;
-        const down = info.offset.y > 50 || info.velocity.y > 500;
-        // Up from the peek opens the sheet; up from there takes it tall. Down from tall comes back to the sheet's own height before it folds away.
-        // The drag moved the sheet by hand: whichever way it settles, it comes back to rest at 0 (or the peek) on a spring.
-        const rest = () => animateValue(y, 0, reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 42 });
-        if (up) { if (expanded) { setTall(true); rest(); } else snapTo(true); }
-        else if (tall) { setTall(!down); rest(); }
-        else snapTo(!(info.offset.y > travel / 2 || info.velocity.y > 500));
-      }}
-      className="absolute inset-x-0 bottom-0 z-10 flex max-h-[54%] flex-col overflow-hidden rounded-t-3xl bg-card shadow-float ring-1 ring-black/[0.05]"
-    >
-      <button
-        type="button"
-        aria-label={tall ? "Bring the sheet back down" : expanded ? "Collapse to see the map" : "Expand for trip details"}
-        onPointerDown={(e) => dragControls.start(e)}
-        onClick={() => (tall ? setTall(false) : snapTo(!expanded))}
-        className="flex shrink-0 cursor-grab touch-none justify-center pb-2 pt-3 max-lg:py-[17px] active:cursor-grabbing"
+    <>
+      <motion.div aria-hidden style={{ opacity: scrim }} className="pointer-events-none absolute inset-0 z-[9] bg-[oklch(0.2_0.012_65)]" />
+      <motion.div
+        ref={containerRef}
+        // 40px of the sheet lies below the screen, so pulling it past the top (it stretches a little) never shows a gap under it.
+        style={{ y, height: tallH ? tallH + SHEET_BLEED : undefined, bottom: tallH ? -SHEET_BLEED : 0 }}
+        drag="y"
+        dragControls={dragControls}
+        dragListener={false}
+        dragConstraints={{ top: 0, bottom: pos.peek }}
+        dragElastic={{ top: 0.08, bottom: 0.04 }}
+        dragMomentum={false}
+        data-sheet-lock={detent === "tall" ? undefined : ""}
+        initial={reduce ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4, ease: EASE }}
+        // Below the top position the whole sheet is the handle (its content does not scroll there); at the top, only the grip and the title are.
+        onPointerDown={(e) => { if (detent !== "tall" || (e.target as HTMLElement).closest("[data-sheet-grip],[data-sheet-handle]")) begin(e); }}
+        onDragEnd={(_, info) => {
+          // Where it would come to rest if it kept going a moment: the nearest of the three places to that.
+          const projected = y.get() + info.velocity.y * 0.2;
+          const next = (["tall", "half", "peek"] as Detent[]).reduce((best, d) => (Math.abs(pos[d] - projected) < Math.abs(pos[best] - projected) ? d : best), "half" as Detent);
+          settle(next, info.velocity.y);
+        }}
+        className={cn("absolute inset-x-0 bottom-0 z-10 flex flex-col overflow-hidden rounded-t-3xl bg-card shadow-float ring-1 ring-black/[0.05]", !tallH && "max-h-[54%]")}
       >
-        <span className="h-1.5 w-10 rounded-full bg-input" />
-      </button>
-      {/* Passed straight through, same as the desktop branch above — callers already split their
-          own content into a shrink-0 header (day chips) plus a separately-scrolling body; wrapping
-          it all in one more scroll container here would make that header scroll away too. */}
-      {children}
-    </motion.div>
+        <button
+          type="button"
+          data-sheet-handle
+          aria-label={detent === "tall" ? "Bring the sheet back down" : detent === "half" ? "Collapse to see the map" : "Expand for trip details"}
+          onClick={() => settle(detent === "tall" ? "half" : detent === "half" ? "peek" : "half")}
+          className="flex shrink-0 cursor-grab touch-none justify-center pb-2 pt-3 max-lg:py-[17px] active:cursor-grabbing"
+        >
+          <span className="h-1.5 w-10 rounded-full bg-input" />
+        </button>
+        {/* Passed straight through, same as the desktop branch above — callers already split their
+            own content into a shrink-0 header (day chips) plus a separately-scrolling body; wrapping
+            it all in one more scroll container here would make that header scroll away too. */}
+        {children}
+      </motion.div>
+    </>
   );
 }
 
@@ -249,7 +263,7 @@ export function MapStage({ pill, trailing, children }: {
   const phone = useMediaQuery("(max-width: 1023.98px)");
   useSetPhoneHeader({ titleNode: phone ? pill : undefined, trailing: phone ? trailing : undefined, variant: phone ? "overlay" : undefined });
   return (
-    <section aria-label="Getting around" className="map-under-header relative isolate h-[calc(100dvh-var(--tabbar))] min-h-[520px] w-full overflow-hidden bg-surface max-lg:-mt-[var(--topbar)] lg:h-[100dvh]">
+    <section aria-label="Getting around" className="map-under-header relative isolate h-[100dvh] min-h-[520px] w-full overflow-hidden bg-surface max-lg:-mt-[var(--topbar)] lg:h-[100dvh]">
       <h1 className="sr-only">Getting around</h1>
       {children}
       <div aria-hidden className="vignette pointer-events-none absolute inset-0 z-[1] opacity-30" />

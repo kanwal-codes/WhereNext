@@ -6,11 +6,14 @@ import { cn } from "@/lib/utils";
  *  paragraph or a one-off dashed box. */
 export function EmptyState({
   icon: Icon,
+  title,
   children,
   action,
   className,
 }: {
   icon?: ComponentType<{ className?: string }>;
+  /** A short headline above the line of text, for a screen that is empty rather than a list that is. */
+  title?: string;
   children: ReactNode;
   action?: ReactNode;
   className?: string;
@@ -29,7 +32,8 @@ export function EmptyState({
           <Icon className="size-5" />
         </span>
       )}
-      <p className={cn("relative mx-auto max-w-sm text-sm leading-relaxed text-ink-soft text-pretty", Icon && "mt-3.5")}>{children}</p>
+      {title && <h3 className={cn("relative font-display text-xl leading-snug font-medium tracking-[-0.012em] text-balance", Icon && "mt-3.5")}>{title}</h3>}
+      <p className={cn("relative mx-auto max-w-sm text-sm leading-relaxed text-ink-soft text-pretty", title ? "mt-1.5" : Icon && "mt-3.5")}>{children}</p>
       {action && <div className="relative mt-5 flex justify-center">{action}</div>}
     </div>
   );

@@ -3,7 +3,8 @@
 import { BookingNotices } from "@/components/overview/BookingNotices";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Plus, UtensilsCrossed } from "lucide-react";
+import { ArrowRight, Plus, Ticket, UtensilsCrossed } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { useTripData } from "@/components/TripDataProvider";
 import { subscribeWorkspaceChanges } from "@/lib/application/workspace-events";
 import { cachedGet } from "@/lib/client/cached-get";
@@ -152,26 +153,28 @@ export default function BookingsPage() {
                 </div>
               </div>
             ) : timeline.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-border bg-card/50 p-8">
-                <p className="font-display text-2xl tracking-tight">Nothing reserved yet</p>
-                <p className="mt-1 max-w-lg text-sm leading-relaxed text-ink-soft">
-                  Add a hotel, a train, a tour or a dinner as you book it, or find a stay and a flight here and they will appear on their own.
-                </p>
-                <div className="mt-5 flex flex-wrap gap-3">
-                  <button type="button" onClick={openAdd} className="btn-primary h-11 rounded-full px-6">
+              <EmptyState
+                icon={Ticket}
+                title="Nothing reserved yet"
+                action={
+                  <div className="grid w-full max-w-xs grid-cols-2 gap-2.5">
+                  <button type="button" onClick={openAdd} className="btn-primary h-11 w-full rounded-full px-3">
                     <Plus className="size-4" /> Add reservation
                   </button>
-                  <button type="button" onClick={() => setTableOpen(true)} className="daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-card px-5 font-medium shadow-none hover:border-foreground/30 hover:bg-accent">
+                  <button type="button" onClick={() => setTableOpen(true)} className="daisy-btn daisy-btn-outline h-11 w-full rounded-full border-border bg-card px-3 font-medium shadow-none hover:border-foreground/30 hover:bg-accent">
                     <UtensilsCrossed className="size-4" /> Reserve a table
                   </button>
-                  <Link href={`/trips/${tripId}/stay`} className="daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-card px-5 font-medium shadow-none hover:border-foreground/30 hover:bg-accent">
+                  <Link href={`/trips/${tripId}/stay`} className="daisy-btn daisy-btn-outline h-11 w-full rounded-full border-border bg-card px-3 font-medium shadow-none hover:border-foreground/30 hover:bg-accent">
                     Find a stay
                   </Link>
-                  <Link href={`/trips/${tripId}/map`} className="daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-card px-5 font-medium shadow-none hover:border-foreground/30 hover:bg-accent">
+                  <Link href={`/trips/${tripId}/map`} className="daisy-btn daisy-btn-outline h-11 w-full rounded-full border-border bg-card px-3 font-medium shadow-none hover:border-foreground/30 hover:bg-accent">
                     Find a flight
                   </Link>
                 </div>
-              </div>
+                }
+              >
+                Add a hotel, a train, a tour or a dinner as you book it, or find a stay and a flight here and they will appear on their own.
+              </EmptyState>
             ) : (
               <div className="space-y-10">
                 {nextUp && <NextUpCard item={nextUp} onOpenBooking={setOpenBookingId} onEdit={editItem} onRemove={removeItem} />}
@@ -184,8 +187,8 @@ export default function BookingsPage() {
         <div className="grid gap-x-10 gap-y-16 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <button type="button" onClick={() => setChecklistOpen(true)} aria-haspopup="dialog" className="-mt-4 flex min-h-[4.25rem] w-full items-center gap-3.5 border-t border-hairline py-2 text-left lg:hidden">
             <svg viewBox="0 0 48 48" className="size-12 shrink-0" aria-hidden>
-              <circle cx="24" cy="24" r="19" fill="none" className="stroke-hairline" strokeWidth="5" />
-              <circle cx="24" cy="24" r="19" fill="none" className="stroke-coral" strokeWidth="5" strokeLinecap="round" strokeDasharray={`${(119.4 * done) / ESSENTIALS_TOTAL} 119.4`} transform="rotate(-90 24 24)" />
+              <circle cx="24" cy="24" r="19" fill="none" className="stroke-input" strokeWidth="5" />
+              {done > 0 && <circle cx="24" cy="24" r="19" fill="none" className="stroke-coral" strokeWidth="5" strokeLinecap="round" strokeDasharray={`${(119.4 * done) / ESSENTIALS_TOTAL} 119.4`} transform="rotate(-90 24 24)" />}
             </svg>
             <span className="min-w-0 flex-1">
               <b className="block font-display text-base font-medium leading-tight">Before you go</b>

@@ -289,7 +289,7 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
                         aria-label={`${r.emoji} ${r.count}${r.mine ? ", you reacted" : ""}`}
                         onClick={() => void toggleReaction(message.id, r.emoji)}
                         className={cn(
-                          "flex h-6 min-h-0! items-center gap-1 rounded-full border px-2 text-2xs transition-colors",
+                          "relative flex h-6 min-h-0! items-center gap-1 rounded-full border px-2 text-2xs transition-colors before:absolute before:-inset-x-0.5 before:-inset-y-2 before:content-['']",
                           r.mine ? "border-primary/30 bg-primary/10 text-primary" : "border-border bg-card text-muted-foreground hover:bg-accent",
                         )}
                       >
@@ -346,7 +346,7 @@ export function GroupMessageRow({ message, showDateDivider, isFirstInGroup, isLa
                   aria-label={`${r.emoji} ${r.count}${r.mine ? ", you reacted" : ""}`}
                   onClick={() => void toggleReaction(message.id, r.emoji)}
                   className={cn(
-                    "flex h-6 min-h-0! items-center gap-1 rounded-full border px-2 text-2xs transition-colors",
+                    "relative flex h-6 min-h-0! items-center gap-1 rounded-full border px-2 text-2xs transition-colors before:absolute before:-inset-x-0.5 before:-inset-y-2 before:content-['']",
                     r.mine ? "border-primary/30 bg-primary/10 text-primary" : "border-border bg-card text-muted-foreground hover:bg-accent",
                   )}
                 >

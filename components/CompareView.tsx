@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { Columns2 } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { Skeleton } from "@/components/Skeleton";
 import { compareAnchors, compareRows, compareStats } from "@/features/places/domain/compare-places";
 import { useComparePlaces } from "@/features/places/application/useComparePlaces";
@@ -13,14 +15,13 @@ export function CompareView({ tripId, ids, onIdsChange }: { tripId: string; ids:
 
   if (ids.length < 2) {
     return (
-      <div className="rounded-2xl border border-dashed border-border p-10 text-center">
-        <h2 className="font-display text-lg">Nothing to compare yet</h2>
-        <p className="mx-auto mt-2 max-w-sm text-sm text-ink-soft">
-          Pick two to four places from{" "}
-          <Link href={`/trips/${tripId}/discover`} className="font-medium text-primary">Discover</Link>, or ask Roam to
-          &ldquo;compare these&rdquo;.
-        </p>
-      </div>
+      <EmptyState
+        icon={Columns2}
+        title="Nothing to compare yet"
+        action={<Link href={`/trips/${tripId}/discover`} className="btn-primary h-11 rounded-full px-6">Open Discover</Link>}
+      >
+        Pick two to four places, or ask Roam to &ldquo;compare these&rdquo;.
+      </EmptyState>
     );
   }
 

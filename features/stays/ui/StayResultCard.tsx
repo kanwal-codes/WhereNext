@@ -133,7 +133,7 @@ export function StayResultCard({ stay, href, onOpen, locked = false, comparing =
         meta: typeof stay.rating === "number" && stay.rating > 0 ? `${stay.rating.toFixed(1)}/10${stay.reviewCount ? ` · ${compactCount(stay.reviewCount)}` : ""}${stay.refundable ? " · Free cancellation" : ""}` : stay.refundable ? "Free cancellation" : undefined,
         sub: stay.nightlyAmount > 0 ? <span><b className="font-display text-base font-medium text-foreground tabular-nums">{money(stay.nightlyAmount, stay.currency)}</b> / night</span> : "Price unavailable for these dates",
         action: stay.nightlyAmount > 0 ? (
-          <button type="button" onClick={onOpen} aria-label={`Rooms & details: ${stay.name}`} className="grid size-9 place-items-center rounded-full border border-border bg-background transition-transform active:scale-[0.97]">
+          <button type="button" onClick={onOpen} aria-label={`Rooms & details: ${stay.name}`} className="grid size-9 place-items-center rounded-full border border-border bg-background max-lg:size-10 transition-transform active:scale-[0.97]">
             <ArrowUpRight className="size-4" aria-hidden />
           </button>
         ) : undefined,
