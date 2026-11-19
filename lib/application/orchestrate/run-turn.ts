@@ -33,6 +33,7 @@ import { askedForDatesRecently } from "@/lib/application/orchestrate/cadence";
 import { broadenedPlan, isGrounded, isKnowledgeQuestion, planRetrieval, readDislikes, readStrList, retrieveFiltersFor } from "@/lib/application/orchestrate/retrieve-plan";
 import { compactEvidence } from "@/lib/application/orchestrate/evidence-compaction";
 import { weatherReadiness } from "@/lib/application/orchestrate/weather-readiness";
+import { missingDatesQuestion } from "@/lib/application/orchestrate/date-gate";
 import { composeSkipLineFor, leadInLineFor } from "@/lib/application/orchestrate/compose-skip";
 import type { UsageEntry } from "@/lib/ai/pricing";
 import { AI_DEADLINE_MS, withDeadline } from "@/packages/ai/model-policy";
@@ -241,9 +242,13 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   }
 
   // --- CLARIFY -------------------------------------------------------------
-  if (resolved.clarify) {
-    const meta = clarifyMeta({ language, locationFocus: resolved.locationFocus, receipt: tripUpdateReceipt, clarify: resolved.clarify, suggestedFollowups: resolved.suggestedFollowups });
-    return { kind: "clarify", resolved, content: resolved.clarify.question, meta, timings: { resolveMs }, usage: usageLog };
+  // A flight or stay search with no day to price is asked about first, not run on an example date and then run again.
+  const previousReply = [...history].reverse().find((entry) => entry.role === "assistant")?.content;
+  const clarify = resolved.clarify ?? missingDatesQuestion({ resolved, prompt, previousReply, tripStart: tripCtx.trip?.start_date, tripEnd: tripCtx.trip?.end_date });
+  if (clarify) {
+    const meta = clarifyMeta({ language, locationFocus: resolved.locationFocus, receipt: tripUpdateReceipt, clarify, suggestedFollowups: resolved.suggestedFollowups });
+    // The searches it held back did not run: a trace should not list them.
+    return { kind: "clarify", resolved: resolved.clarify ? resolved : { ...resolved, clarify, toolPlan: [] }, content: clarify.question, meta, timings: { resolveMs }, usage: usageLog };
   }
 
   // --- RETRIEVE ---------------------------------------------------------------

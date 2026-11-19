@@ -443,7 +443,7 @@ describe("POST /api/ai", () => {
   });
 
   it("emits a flights block from duffel evidence", async () => {
-    resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "London", intent: "transport", wantsComparison: false, toolPlan: [{ tool: "flights", origin: "Toronto", destination: "London" }], clarify: null, suggestedFollowups: [], proposedProfileUpdate: null });
+    resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "London", intent: "transport", wantsComparison: false, toolPlan: [{ tool: "flights", origin: "Toronto", destination: "London", departureDate: "2099-01-01" }], clarify: null, suggestedFollowups: [], proposedProfileUpdate: null });
     retrieveEvidenceMock.mockResolvedValue({
       places: [], sources: [], weather: null, routes: [], events: [], stays: [],
       flights: [{ origin: "Toronto", destination: "London", departureDate: "2026-10-13", assumedDate: true, offers: [
@@ -459,7 +459,7 @@ describe("POST /api/ai", () => {
   });
 
   it("emits a stays block from LiteAPI evidence", async () => {
-    resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "Lisbon", intent: "stays", wantsComparison: false, toolPlan: [{ tool: "stays", location: "Lisbon" }], clarify: null, suggestedFollowups: [], proposedProfileUpdate: null });
+    resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "Lisbon", intent: "stays", wantsComparison: false, toolPlan: [{ tool: "stays", location: "Lisbon", checkin: "2099-01-01" }], clarify: null, suggestedFollowups: [], proposedProfileUpdate: null });
     retrieveEvidenceMock.mockResolvedValue({
       places: [], sources: [], weather: null, routes: [], events: [], flights: [],
       stays: [{ location: "Lisbon", checkin: "2026-10-15", checkout: "2026-10-18", nights: 3, assumedDates: true, options: [
@@ -479,7 +479,7 @@ describe("POST /api/ai", () => {
   });
 
   it("tells the model to reason about hotels rather than re-list the cards", async () => {
-    resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "Lisbon", intent: "stays", wantsComparison: false, toolPlan: [{ tool: "stays", location: "Lisbon" }], clarify: null, suggestedFollowups: [], proposedProfileUpdate: null });
+    resolveTurnMock.mockResolvedValue({ language: "en", locationFocus: "Lisbon", intent: "stays", wantsComparison: false, toolPlan: [{ tool: "stays", location: "Lisbon", checkin: "2099-01-01" }], clarify: null, suggestedFollowups: [], proposedProfileUpdate: null });
     retrieveEvidenceMock.mockResolvedValue({
       places: [], sources: [], weather: null, routes: [], events: [], flights: [],
       stays: [{ location: "Lisbon", checkin: "2026-10-15", checkout: "2026-10-18", nights: 3, assumedDates: true, options: [
