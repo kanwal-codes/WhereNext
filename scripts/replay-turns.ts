@@ -5,7 +5,7 @@
  *   bun run scripts/replay-turns.ts --list [--limit 20]
  *   bun run scripts/replay-turns.ts --stage judge [--limit 50]
  *       free: flight judgement on the recorded flight evidence; prints the sentences Roam is now given
- *   bun run scripts/replay-turns.ts --stage resolve [--repeat 3] [--limit 20] [--id <record id>]
+ *   bun run scripts/replay-turns.ts --stage resolve [--repeat 3] [--limit 20] [--id <record id>] [--match "text in the question"]
  *       re-asks the router the recorded question (a paid model call per run) and reports where its plan differs from the
  *       recorded one and from itself. Needs ANTHROPIC_API_KEY in the shell, nothing else from .env.local.
  *
@@ -42,10 +42,12 @@ function args() {
   const repeat = Number(get("--repeat") ?? 3);
   if (!Number.isInteger(limit) || limit < 1) throw new Error("--limit must be a positive whole number");
   if (!Number.isInteger(repeat) || repeat < 1 || repeat > 10) throw new Error("--repeat must be 1 to 10");
-  return { list: a.includes("--list"), stage: get("--stage") ?? "judge", limit, repeat, id: get("--id"), allowRemote: a.includes("--allow-remote") };
+  return { list: a.includes("--list"), stage: get("--stage") ?? "judge", limit, repeat, id: get("--id"), match: get("--match"), allowRemote: a.includes("--allow-remote") };
 }
 
 async function main() {
+  // The router call uses the AI SDK's deprecated generateObject; its warning prints a stack per call.
+  (globalThis as { AI_SDK_LOG_WARNINGS?: boolean }).AI_SDK_LOG_WARNINGS = false;
   const opts = args();
   const url = process.env.REPLAY_DATABASE_URL ?? LOCAL_URL;
   const host = new URL(url).hostname;
@@ -55,6 +57,7 @@ async function main() {
     const rows = await sql<Rec[]>`
       select id, created_at, kind, prompt, history, trip_summary, resolved, evidence from ai_turn_records
       where (${opts.id ?? null}::uuid is null or id = ${opts.id ?? null}::uuid)
+        and (${opts.match ?? null}::text is null or prompt ilike ${"%" + (opts.match ?? "") + "%"})
       order by created_at desc limit ${opts.limit}`;
     if (!rows.length) return console.log("No recorded turns yet. Turns are recorded when the app runs (not in production unless ROAM_RECORD_TURNS=1).");
 

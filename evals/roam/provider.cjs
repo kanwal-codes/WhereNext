@@ -33,7 +33,7 @@ async function newTrip(s, vars) {
   if (vars.accessibilityNeeds) preferences.accessibilityNeeds = list(vars.accessibilityNeeds, []);
   const r = await fetch(`${BASE}/api/trips`, {
     method: "POST", headers: headers(s),
-    body: JSON.stringify({ name: `Eval ${Date.now()}`, destination: vars.destination || "Lisbon, Portugal", durationDays: days(startDate, endDate), startDate, endDate, travelerCount: Number(vars.travelers || 2), preferences, idempotencyKey: `eval-${Math.random().toString(36).slice(2)}` }),
+    body: JSON.stringify({ name: `Eval ${Date.now()}`, destination: vars.destination || "Lisbon, Portugal", ...(vars.origin ? { origin: vars.origin } : {}), durationDays: days(startDate, endDate), startDate, endDate, travelerCount: Number(vars.travelers || 2), preferences, idempotencyKey: `eval-${Math.random().toString(36).slice(2)}` }),
   });
   const j = await r.json().catch(() => ({}));
   const id = j.trip?.id || j.id || j.tripId;
