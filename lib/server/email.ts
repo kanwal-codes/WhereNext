@@ -31,6 +31,8 @@ export async function sendEmail({ to, subject, html, text }: SendArgs): Promise<
       method: "POST",
       headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
       body: JSON.stringify({ from, to, subject, html, text }),
+      // A hung mail API would otherwise hold the cron sweep open until the platform kills it.
+      signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
       logger.error({ status: res.status, body: await res.text().catch(() => "") }, "resend send failed");

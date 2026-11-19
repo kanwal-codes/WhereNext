@@ -88,7 +88,6 @@ export function RoamComposer({ tripId, rail, input, setInput, loaded, guestGate,
             "max-lg:pr-1.5 max-lg:pl-5",
             "focus-within:border-ink/30 focus-within:shadow-halo",
             "max-lg:border-transparent max-lg:shadow-none max-lg:focus-within:border-transparent max-lg:focus-within:shadow-none",
-            sending && "composer-live",
           )}
         >
           {/* The buttons overlay this box (single line) or sit in their own row below it

@@ -41,7 +41,7 @@ function isRetryable(error: unknown): boolean {
  */
 async function withModelFallback<T>(
   chain: ModelChainEntry[],
-  op: (model: ReturnType<typeof anthropic>, modelId: string) => Promise<T>,
+  op: (model: ReturnType<typeof anthropic>, modelId: string, retries: { maxRetries?: number }) => Promise<T>,
   externalSignal?: AbortSignal,
 ): Promise<T> {
   let lastError: unknown;
@@ -49,7 +49,9 @@ async function withModelFallback<T>(
     const entry = chain[i];
     const modelId = entry.replace(/^anthropic\//, "");
     try {
-      return await op(anthropic(modelId), modelId);
+      // The SDK retries a failed call twice (after 2 s and 4 s, or a retry-after of up to 60 s) before this loop sees the error. While another
+      // model is left, failing over is faster than waiting on the one that just failed; only the last model keeps the SDK's retries.
+      return await op(anthropic(modelId), modelId, i < chain.length - 1 ? { maxRetries: 0 } : {});
     } catch (error) {
       if (isAbort(error) && externalSignal?.aborted) throw error;
       if (!isRetryable(error) || i === chain.length - 1) throw error;
@@ -145,11 +147,11 @@ export async function generateStructured<T>(
 ): Promise<T> {
   const prepared = opts?.caching ? withCachedSystem(messages) : messages;
   const thinking = (modelId: string) => (opts?.lowThinking ? { providerOptions: lowThinking(modelId) } : {});
-  return withModelFallback(chain, async (model, modelId) => {
+  return withModelFallback(chain, async (model, modelId, retries) => {
     if (isGemini(modelId)) return geminiStructured(modelId, prepared, schema, signal, onUsage);
     if (!nativeRefused.has(schema)) {
       try {
-        const result = await generateObject({ model, schema, messages: prepared, maxOutputTokens: STRUCTURED_MAX_TOKENS, abortSignal: signal, allowSystemInMessages: true, ...thinking(modelId) });
+        const result = await generateObject({ model, schema, messages: prepared, ...retries, maxOutputTokens: STRUCTURED_MAX_TOKENS, abortSignal: signal, allowSystemInMessages: true, ...thinking(modelId) });
         onUsage?.({ model: modelId, promptTokens: result.usage.inputTokens ?? 0, completionTokens: result.usage.outputTokens ?? 0 });
         return result.object;
       } catch (error) {
@@ -157,7 +159,7 @@ export async function generateStructured<T>(
         nativeRefused.add(schema);
       }
     }
-    const result = await sdkGenerateText({ model, messages: withJsonInstruction(prepared, schema), maxOutputTokens: STRUCTURED_MAX_TOKENS, abortSignal: signal, allowSystemInMessages: true, ...thinking(modelId) });
+    const result = await sdkGenerateText({ model, messages: withJsonInstruction(prepared, schema), ...retries, maxOutputTokens: STRUCTURED_MAX_TOKENS, abortSignal: signal, allowSystemInMessages: true, ...thinking(modelId) });
     onUsage?.({ model: modelId, promptTokens: result.usage.inputTokens ?? 0, completionTokens: result.usage.outputTokens ?? 0 });
     return schema.parse(extractJson(result.text));
   }, signal);
@@ -187,8 +189,8 @@ export async function streamStructured<T>(
   onUsage?: (entry: UsageEntry) => void,
   opts?: { caching?: "auto"; onPartial?: (partial: DeepPartial<T>) => void },
 ): Promise<T> {
-  return withModelFallback(chain, async (model, modelId) => {
-    const result = streamObject({ model, schema, messages: opts?.caching ? withCachedSystem(messages) : messages, abortSignal: signal, allowSystemInMessages: true });
+  return withModelFallback(chain, async (model, modelId, retries) => {
+    const result = streamObject({ model, schema, ...retries, messages: opts?.caching ? withCachedSystem(messages) : messages, abortSignal: signal, allowSystemInMessages: true });
     if (opts?.onPartial) {
       const onPartial = opts.onPartial;
       // Detached: this loop and the `await result.object` below both read the same underlying
@@ -215,8 +217,8 @@ export async function generateText(
   signal?: AbortSignal,
   onUsage?: (entry: UsageEntry) => void,
 ): Promise<string> {
-  return withModelFallback(chain, async (model, modelId) => {
-    const result = await sdkGenerateText({ model, messages, maxOutputTokens: TEXT_MAX_TOKENS, abortSignal: signal, allowSystemInMessages: true });
+  return withModelFallback(chain, async (model, modelId, retries) => {
+    const result = await sdkGenerateText({ model, messages, ...retries, maxOutputTokens: TEXT_MAX_TOKENS, abortSignal: signal, allowSystemInMessages: true });
     onUsage?.({ model: modelId, promptTokens: result.usage.inputTokens ?? 0, completionTokens: result.usage.outputTokens ?? 0 });
     if (!result.text) throw new Error("AI provider returned an empty response");
     return result.text;

@@ -203,7 +203,6 @@ export function AiSearchBar({
             "composer-glass flex w-full min-w-0 max-w-full flex-col gap-1 rounded-3xl border border-input py-1.5 pr-1.5 pl-4 shadow-lift transition-[border-color,box-shadow] duration-200 ease-out",
             "max-lg:pl-5 focus-within:border-ink/30 focus-within:shadow-halo",
             "max-lg:border-transparent max-lg:shadow-none max-lg:focus-within:border-transparent max-lg:focus-within:shadow-none",
-            busy && "composer-live",
           )}
         >
           {field}

@@ -968,11 +968,6 @@
 }
 @keyframes shimmer-text { from { background-position: 130% 0; } to { background-position: -130% 0; } }
 
-/* The composer while Roam works: a thread of coral and lagoon light travels around its edge, the
-   way the mark does. It is a 1.5px ring painted inside the border, so it works under overflow-hidden. */
-@property --ring-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
-@keyframes ring-spin { to { --ring-angle: 360deg; } }
-@keyframes ring-in { from { opacity: 0; } to { opacity: 1; } }
 /* The frosted look of every box you type to Roam in (the chat, the group chat, the Ask bars, the panel's ask box): translucent, so what scrolls behind
    it shows through, softened. The tint is the card on a wide screen and the app's grey on a phone, the same two colours as before, only see-through. */
 :root {
@@ -985,21 +980,6 @@
   backdrop-filter: blur(14px) saturate(1.15);
 }
 @media (max-width: 1023.98px) { .composer-glass { background-color: var(--composer-glass-phone); } }
-
-.composer-live { position: relative; }
-.composer-live::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1.5px;
-  pointer-events: none;
-  background: conic-gradient(from var(--ring-angle), transparent 0 52%, color-mix(in oklab, var(--cat-see) 70%, transparent) 66%, var(--coral) 84%, transparent 100%);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-  animation: ring-in 0.5s var(--ease-out) both, ring-spin 3.4s linear infinite;
-}
 
 /* Controls that appear (the send arrow once there is text, the stop pill) settle in, never pop. */
 @keyframes settle-in { from { opacity: 0; transform: scale(0.72); } to { opacity: 1; transform: none; } }
@@ -1039,7 +1019,6 @@
 @media (prefers-reduced-motion: reduce) {
   .skeleton, .shimmer-text { animation: none; }
   .shimmer-text { background: none; -webkit-text-fill-color: currentColor; color: var(--color-muted-foreground); }
-  .composer-live::before { animation: none; background: color-mix(in oklab, var(--coral) 45%, transparent); }
   .settle-in { animation: none; }
   .card-lift { transition: none; }
   .card-lift:hover, .card-lift:active { transform: none; }

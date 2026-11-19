@@ -49,6 +49,15 @@ describe("generateStructured — model fallback", () => {
     expect(anthropicMock).toHaveBeenNthCalledWith(2, "claude-b");
   });
 
+  it("turns the SDK's own retries off while another model is left, and keeps them on the last", async () => {
+    generateObjectMock
+      .mockRejectedValueOnce(Object.assign(new Error("overloaded"), { status: 529 }))
+      .mockResolvedValueOnce({ object: { intent: "food" }, usage: { inputTokens: 1, outputTokens: 1 } });
+    await generateStructured(["claude-a", "claude-b"], [{ role: "user", content: "x" }], schema);
+    expect(generateObjectMock.mock.calls[0][0]).toMatchObject({ maxRetries: 0 });
+    expect(generateObjectMock.mock.calls[1][0]).not.toHaveProperty("maxRetries");
+  });
+
   it("reports usage tagged with the model that actually answered, not the first one tried", async () => {
     generateObjectMock
       .mockRejectedValueOnce(Object.assign(new Error("down"), { status: 500 }))

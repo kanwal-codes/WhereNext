@@ -22,10 +22,14 @@ const withTtft = <T,>(promise: Promise<T>, ms: number): Promise<T> => {
  * `onModel` is told which model answered; `onUsage` its token counts once the stream finishes (some providers report none).
  */
 /** The text of a multi-step run, with a paragraph break where a new step starts after text (a line said before a tool call must not run into the answer). */
-async function* textWithStepBreaks(parts: AsyncIterable<{ type: string; text?: string }>): AsyncGenerator<string> {
+async function* textWithStepBreaks(parts: AsyncIterable<{ type: string; text?: string; error?: unknown }>): AsyncGenerator<string> {
   let sawText = false;
   let pendingBreak = false;
   for await (const part of parts) {
+    // streamText never throws a provider failure (429, 529 overloaded, 5xx): it ends `fullStream` with an "error" part. Ignoring it read as
+    // a clean, empty reply, so the fallback model never ran and a reply cut off part-way was saved as complete. Same for an "abort" part.
+    if (part.type === "error") throw part.error instanceof Error ? part.error : new Error(String(part.error));
+    if (part.type === "abort") throw new DOMException("compose aborted", "AbortError");
     if (part.type === "start-step") pendingBreak = sawText;
     else if (part.type === "text-delta" && part.text) {
       if (pendingBreak) { yield "\n\n"; pendingBreak = false; }
@@ -62,6 +66,9 @@ export async function openComposeStream(args: {
       messages,
       tools,
       stopWhen: stepCountIs(COMPOSE_MAX_STEPS),
+      // The SDK's own retries (2, after 2 s and 4 s, or a retry-after of up to 60 s) would spend the TTFT budget on a model that just
+      // failed. While another model is left, fail over at once; only the last one retries.
+      ...(i < chain.length - 1 ? { maxRetries: 0 } : {}),
       abortSignal: AbortSignal.any([attemptController.signal, withDeadline(signal, 60_000)]),
       onError: ({ error }) => {
         if (isAbortError(error)) return; // ordinary disconnect/timeout, not a real failure

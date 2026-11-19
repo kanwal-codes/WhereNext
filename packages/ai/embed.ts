@@ -1,3 +1,4 @@
+import { withProviderTimeout } from "@/packages/providers/request-signal";
 import { cosineSimilarity } from "ai";
 
 /**
@@ -18,7 +19,8 @@ export async function embed(texts: string[], signal?: AbortSignal): Promise<numb
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
     body: JSON.stringify({ model: (process.env.EMBED_MODEL || "text-embedding-3-small").replace(/^openai\//, ""), input: texts }),
-    signal: signal ?? AbortSignal.timeout(8_000),
+    // The caller's signal is often the request's own, which has no deadline: keep the 8 s ceiling either way.
+    signal: withProviderTimeout(signal, 8_000),
   });
   if (!response.ok) throw new Error(`embeddings request failed: ${response.status}`);
   const body = (await response.json()) as { data?: Array<{ index: number; embedding: number[] }> };
