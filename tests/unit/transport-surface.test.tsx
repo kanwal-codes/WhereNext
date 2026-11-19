@@ -336,9 +336,9 @@ describe("TransportSurface: flights", () => {
     await user.click(within(row).getAllByRole("button")[0]);
     const sheet = await screen.findByRole("dialog", { name: "Flight details" });
     expect(within(sheet).getByRole("region", { name: /Air Test journey/ })).toBeTruthy();
-    expect(within(sheet).getByRole("link", { name: /Google Flights/ }).getAttribute("href")).toBe(
-      `https://www.google.com/travel/flights?q=${encodeURIComponent("Flights from CDG to LYS on 2026-12-01")}`,
-    );
+    // Fares are shown here only: nothing in the sheet sends the traveller to another site.
+    expect(within(sheet).queryAllByRole("link")).toHaveLength(0);
+    expect(within(sheet).getByRole("button", { name: "Save to my trip" })).toBeTruthy();
   });
 
   it("opens the same sheet from a pick", async () => {

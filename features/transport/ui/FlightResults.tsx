@@ -1,17 +1,16 @@
 "use client";
 
 import { useMemo } from "react";
-import { ExternalLink } from "lucide-react";
 import { Sheet } from "@/components/motion-primitives";
 import { SheetHeader } from "@/components/SheetHeader";
-import { sheetPrimary, sheetSecondary } from "@/components/motion/sheetActions";
+import { sheetPrimary } from "@/components/motion/sheetActions";
 import type { FlightOffer as WidgetOffer } from "@/components/TripPanelProvider";
 import { textAction } from "@/features/conversation/ui/blocks/ui";
 import { FlightJourney, FlightPicks, FlightRowBody, offerKey, pickFares } from "@/features/conversation/ui/blocks/FlightWidget";
 import { arrangeFlights, fitsTime } from "@/lib/application/travel-time";
 import { cn } from "@/lib/utils";
 import type { useTransportSearch } from "../application/useTransportSearch";
-import { flightSaveValue, flightPrice, googleFlightsUrl, type Flight } from "../domain/route-view";
+import { flightSaveValue, flightPrice, type Flight } from "../domain/route-view";
 
 /** A search result in the shape Roam's flight widget draws (the same fares; only the price fields are named differently). */
 export const asWidget = (f: Flight): WidgetOffer => ({ ...f, id: f.id, price: f.priceAmount, currency: f.priceCurrency, listedPrice: f.listedAmount }) as WidgetOffer;
@@ -21,7 +20,7 @@ const allowsChanges = (o: Flight) => Boolean(o.fareConditions?.some((c) => /chan
 /**
  * The Flights tab, drawn like Roam's flight widget: the three picks (Best, Cheapest, Fastest) on top, then every fare as a row with its times,
  * stops and price. Taking a pick or a row opens the whole journey in a bottom sheet (each flight, each wait, the fare's terms) with Save to my
- * trip and View on Google Flights. The sort and the filters that would change the list are the pills under the switch, in ResultPills.
+ * trip. The sort and the filters that would change the list are the pills under the switch, in ResultPills.
  */
 export function FlightResults({ t }: { t: ReturnType<typeof useTransportSearch> }) {
   const { flights, tab, flightsLoading, when, sort, nonstopOnly, changesOnly, airport, anyTime, setAnyTime, openFlight, setOpenFlight, returnDate, saveChoice } = t;
@@ -74,12 +73,9 @@ export function FlightResults({ t }: { t: ReturnType<typeof useTransportSearch> 
       )}
 
       <Sheet open={tab === "flight" && opened != null} onClose={() => setOpenFlight(null)} side="bottom" ariaLabel="Flight details" footerClassName="px-4" footer={opened && openedFlight ? (<>
-              <button type="button" onClick={() => void saveChoice(flightSaveValue(openedFlight, flightPrice(openedFlight)))} className={sheetSecondary}>
+              <button type="button" onClick={() => void saveChoice(flightSaveValue(openedFlight, flightPrice(openedFlight)))} className={sheetPrimary}>
                 Save to my trip
               </button>
-              <a href={googleFlightsUrl(openedFlight, returnDate)} target="_blank" rel="noopener noreferrer" className={sheetPrimary}>
-                Google Flights <ExternalLink className="size-3.5" aria-hidden="true" />
-              </a>
 </>) : undefined} className="icons-fine px-0 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         {opened && openedFlight && (
           <>
