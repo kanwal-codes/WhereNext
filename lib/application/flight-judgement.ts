@@ -7,10 +7,10 @@ import type { FlightSearch } from "@/lib/application/retrieve";
  * cheapest option really costs in time. Thresholds are rules of thumb: the decision evals (EVAL_SET=decisions) are
  * where they get tuned.
  */
-export const LONG_LAYOVER_MIN = 6 * 60;
-export const SHORT_CONNECTION_MIN = 90;
+const LONG_LAYOVER_MIN = 6 * 60;
+const SHORT_CONNECTION_MIN = 90;
 /** A saving under this share of the fastest fare is not worth extra hours in the air. */
-export const TINY_SAVING_PCT = 5;
+const TINY_SAVING_PCT = 5;
 /** Extra travel time under this is "not slower". */
 const SAME_TIME_H = 0.25;
 
