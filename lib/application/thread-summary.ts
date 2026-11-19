@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateText } from "@/packages/ai/model-policy";
+import { logger } from "@/lib/server/logger";
 
 const SUMMARY_THRESHOLD = 16;
 const SUMMARY_BATCH_SIZE = 8;
@@ -86,7 +87,7 @@ export async function refreshThreadSummary(
       ],
       signal,
     );
-    await supabase
+    const saved = await supabase
       .from("conversation_threads")
       .update({
         summary: summary.trim().slice(0, 600),
@@ -94,7 +95,10 @@ export async function refreshThreadSummary(
         summarized_through_created_at: lastMessage.created_at,
       })
       .eq("id", row.id);
-  } catch {
+    // Supabase reports a failed write in `error`, it does not throw: unlogged, every long turn would pay for a summary that is never kept.
+    if (saved.error) logger.warn({ err: saved.error, threadId: row.id }, "thread summary not saved");
+  } catch (error) {
     // Non-fatal: the next long turn retries.
+    logger.warn({ err: error }, "thread summary failed");
   }
 }

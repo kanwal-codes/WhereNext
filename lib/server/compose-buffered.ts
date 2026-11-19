@@ -34,6 +34,8 @@ export async function composeBuffered(args: {
         messages,
         tools,
         stopWhen: stepCountIs(COMPOSE_MAX_STEPS),
+        // No SDK retries while another model is left: failing over beats a 2 s + 4 s backoff on the model that just failed.
+        ...(i < chain.length - 1 ? { maxRetries: 0 } : {}),
         // Only the LAST provider in the chain (nowhere left to fail over to) gets the full
         // buffered budget — an earlier attempt that's merely stalled (not actually down)
         // used to cost the user the entire 60s before this route would even try the next

@@ -87,10 +87,12 @@ async function run(request: Request): Promise<Response> {
         const sent = owner?.email ? await sendEmail({ to: owner.email, ...digest(trip.id, trip.name, pending) }).catch(() => false) : false;
         if (sent) {
           emailed += 1;
-          await admin.from("trip_decisions").upsert(
+          const marked = await admin.from("trip_decisions").upsert(
             { trip_id: trip.id, kind: "review_notified", source: "assistant", idempotency_key: `review_notified:${trip.id}`, value: { ids: [...notified, ...pending.map((f) => f.id)] } },
             { onConflict: "trip_id,idempotency_key" },
           );
+          // Unrecorded, tomorrow's sweep mails the same findings again.
+          if (marked.error) logger.error({ err: marked.error, tripId: trip.id }, "trip-review: could not record the sent digest");
           invalidateWorkspace(trip.id);
         }
       }
