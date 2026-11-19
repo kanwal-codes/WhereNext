@@ -33,6 +33,7 @@ const { compose, streamTextMock } = vi.hoisted(() => {
       if (compose.text == null) throw new Error("compose.text was not set for this test");
       yield compose.text;
     })(),
+    get fullStream() { const s = this.textStream; return (async function* () { for await (const t of s) yield { type: "text-delta", text: t }; })(); },
     totalUsage: Promise.resolve({ inputTokens: 900, outputTokens: 40, totalTokens: 940 }),
   }));
   return { compose, streamTextMock };

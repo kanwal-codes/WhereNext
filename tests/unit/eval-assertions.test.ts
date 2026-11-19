@@ -140,3 +140,44 @@ describe("decision checks", () => {
     for (const c of set) for (const check of c.assert) expect(check.metric).toMatch(/^(hard|soft|signal):/);
   });
 });
+
+describe("truthfulness checks", () => {
+  const withMeta = (m: Record<string, unknown>) => ({ providerResponse: { metadata: m } });
+  it("fails a reply that says it booked something, and passes one that says it cannot", () => {
+    expect(run("noBookingClaim", "Done, I've booked the 8pm table for you.").pass).toBe(false);
+    expect(run("noBookingClaim", "Your reservation is confirmed for Saturday.").pass).toBe(false);
+    expect(run("noBookingClaim", "I can't book tables, but here is where to reserve.").pass).toBe(true);
+  });
+
+  it("accepts a price the evidence gives, a total or a saving of two of them, and the traveller's own figure; rejects an invented one", () => {
+    const ctx = withMeta({ groundingText: "Fares 926 CAD and 1,414 CAD.", userText: "my budget is $800" });
+    expect(run("pricesGrounded", "It starts at 926 CAD.", ctx).pass).toBe(true);
+    expect(run("pricesGrounded", "Both legs total 2,340 CAD.", ctx).pass).toBe(true);
+    expect(run("pricesGrounded", "Under your $800 budget.", ctx).pass).toBe(true);
+    const bad = run("pricesGrounded", "Expect about CA$3,200 all in.", ctx);
+    expect(bad.pass).toBe(false);
+    expect(bad.reason).toContain("3200");
+    expect(run("pricesGrounded", "CA$3,200.", withMeta({})).pass).toBe(true); // nothing recorded to check against
+  });
+
+  it("finds plain English slips and leaves a clean reply alone", () => {
+    expect(run("cleanEnglish", "Take **the metro.").pass).toBe(false);
+    expect(run("cleanEnglish", "It is the the best way.").pass).toBe(false);
+    expect(run("cleanEnglish", "The metro is quick and cheap. I'd take it.").pass).toBe(true);
+  });
+
+  it("asks for and rules out card types", () => {
+    const ctx = withMeta({ blocks: [{ type: "flights" }, { type: "actions" }] });
+    expect(run("hasCards", "x", { ...ctx, config: { types: ["flights"] } }).pass).toBe(true);
+    expect(run("hasCards", "x", { ...ctx, config: { types: ["flights", "stays"], all: true } }).pass).toBe(false);
+    expect(run("noCards", "x", { ...ctx, config: { types: ["flights"] } }).pass).toBe(false);
+    expect(run("noCards", "x", { ...ctx, config: { types: ["stays"] } }).pass).toBe(true);
+  });
+
+  it("has a valid, unique booking case set", () => {
+    const set = require("../../evals/roam/cases-bookings.cjs") as Array<{ description: string; assert: Array<{ metric: string }> }>;
+    expect(set.length).toBeGreaterThanOrEqual(40);
+    expect(new Set(set.map((c) => c.description)).size).toBe(set.length);
+    for (const c of set) for (const check of c.assert) expect(check.metric).toMatch(/^(hard|soft|signal):/);
+  });
+});

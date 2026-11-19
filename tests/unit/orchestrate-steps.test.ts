@@ -173,6 +173,10 @@ describe("leadInLineFor", () => {
   it("is a one-line lead-in when cards alone answer a plain lookup", () => {
     expect(leadInLineFor(input())).toEqual(expect.any(String));
   });
+  it("is null when the search used dates the traveller never gave, or they asked for a whole home", () => {
+    expect(leadInLineFor(input({ assumedGap: true }))).toBeNull();
+    expect(leadInLineFor(input({ prompt: "an apartment or a house in Lisbon" }))).toBeNull();
+  });
   it("is null when another block already carries the reply", () => {
     expect(leadInLineFor(input({ composeSkipLine: "x" }))).toBeNull();
   });

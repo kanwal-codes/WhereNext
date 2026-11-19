@@ -24,6 +24,7 @@ function fake(spec: { chunks?: string[]; fail?: Error; hangFirst?: boolean; midF
         if (spec.midFail && i === 1) throw spec.midFail;
       }
     })(),
+    get fullStream() { const s = this.textStream; return (async function* () { for await (const t of s) yield { type: "text-delta", text: t }; })(); },
     totalUsage: Promise.resolve(spec.usage ?? { inputTokens: 7, outputTokens: 3 }),
   };
   return { result, abort };

@@ -48,6 +48,7 @@ const { compose, streamTextMock, composeChainRef, slowStream } = vi.hoisted(() =
         });
       }
     })(),
+    get fullStream() { const s = this.textStream; return (async function* () { for await (const t of s) yield { type: "text-delta", text: t }; })(); },
     totalUsage: Promise.resolve({ inputTokens: 10, outputTokens: 20, totalTokens: 30 }),
   }));
   return { compose, streamTextMock, composeChainRef, slowStream };

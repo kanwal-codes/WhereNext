@@ -53,6 +53,15 @@ function isApproximatelyGrounded(value: number, groundedNumbers: number[]): bool
   return groundedNumbers.some((g) => Math.abs(value - g) <= Math.max(value, g) * APPROX_TOLERANCE);
 }
 
+/** What adding or subtracting two real figures gives: a total of two legs ("926 + 1,414 = 2,340") or a saving ("1,414 - 1,129 = 285") is arithmetic
+ *  on the evidence, not an invention. Matched tightly (a rounding step), so a made-up figure near a sum by chance is still caught. */
+function isDerivedFromGrounded(value: number, groundedNumbers: number[]): boolean {
+  const figures = [...new Set(groundedNumbers.filter((n) => n >= 20))].slice(0, 120);
+  const near = (x: number) => Math.abs(value - x) <= Math.max(1, value * 0.005);
+  for (let i = 0; i < figures.length; i++) for (let j = i; j < figures.length; j++) if (near(figures[i]! + figures[j]!) || near(Math.abs(figures[i]! - figures[j]!))) return true;
+  return false;
+}
+
 /**
  * `groundingText` — the turn's full evidence + trip-context JSON (the same string already sent
  * to the model as its `system` prompt) — is optional so existing callers with nothing to check
@@ -79,10 +88,11 @@ export function sanitizeAssistantContent(content: string, allowedUrls: ReadonlyS
     out = out.replace(MONEY_PATTERN, (amount) => {
       if (groundingText.includes(amount)) return amount;
       const values = numbersIn(amount);
-      return values.length > 0 && values.every((v) => isApproximatelyGrounded(v, groundedNumbers))
+      return values.length > 0 && values.every((v) => isApproximatelyGrounded(v, groundedNumbers) || isDerivedFromGrounded(v, groundedNumbers))
         ? amount
         : "an amount I can't verify here";
     });
   }
-  return out;
+  // The model sometimes pads a list marker ("-   Place"): one space, so the source and any plain-text view read cleanly.
+  return out.replace(/^([-*])[ \t]{2,}(?=\S)/gm, "$1 ");
 }

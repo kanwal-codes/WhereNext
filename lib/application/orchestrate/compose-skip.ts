@@ -27,6 +27,9 @@ export function composeSkipLineFor(input: {
   return line;
 }
 
+/** A traveller asking for a whole home needs a sentence about what the stay search covers, not "Here are stays". */
+const HOME_RENTAL = /\b(airbnb|vrbo|apartment|house|villa|cottage|rental|rent)\b/i;
+
 /** The deterministic one-liner that stands in for a model-written reply: a card lead-in for a plain lookup, or a receipt line for a plain trip-fact change. */
 export function leadInLineFor(input: {
   composeSkipLine: string | null;
@@ -39,11 +42,13 @@ export function leadInLineFor(input: {
   unavailableProviderCount: number;
   blocks: AssistantBlock[];
   locationFocus: string;
+  /** The search ran on dates the traveller never gave: a canned line cannot say so. */
+  assumedGap?: boolean;
 }): string | null {
-  const { composeSkipLine, resolved, prompt, language, hasGrounding, tripUpdateReceipt, sourceCount, unavailableProviderCount, blocks, locationFocus } = input;
+  const { assumedGap, composeSkipLine, resolved, prompt, language, hasGrounding, tripUpdateReceipt, sourceCount, unavailableProviderCount, blocks, locationFocus } = input;
   const firstPlaceQuery = resolved.toolPlan.find((call) => call.tool === "search_places");
   const leadIn =
-    !composeSkipLine && (resolved.cardsAnswer || looksLikePlainLookup(prompt)) && hasGrounding && !tripUpdateReceipt && language.toLowerCase().startsWith("en") && sourceCount === 0 && unavailableProviderCount === 0
+    !composeSkipLine && !assumedGap && !HOME_RENTAL.test(prompt) && (resolved.cardsAnswer || looksLikePlainLookup(prompt)) && hasGrounding && !tripUpdateReceipt && language.toLowerCase().startsWith("en") && sourceCount === 0 && unavailableProviderCount === 0
       ? cardLeadIn(blocks, locationFocus, firstPlaceQuery && firstPlaceQuery.tool === "search_places" ? firstPlaceQuery.query : null)
       : null;
 

@@ -50,6 +50,23 @@ async function traceRow(s, tripId) {
   } catch { return null; }
 }
 
+/** What the writer was shown this turn (its prompt with the retrieved evidence) and the raw evidence, from the recorded turn, read with the LOCAL service key
+ *  (ai_turn_records is server-only). Lets a check ask "is this price in anything the model was given?". Empty when recording is off or the key is missing. */
+async function groundingFor(tripId, expected = 1) {
+  const key = process.env.EVAL_SERVICE_KEY || process.env.LOCAL_SERVICE_KEY;
+  if (!key) return "";
+  for (let attempt = 0; attempt < 6; attempt++) {
+    try {
+      const r = await fetch(`${SB}/rest/v1/ai_turn_records?trip_id=eq.${tripId}&order=created_at.desc&limit=${expected}&select=system_prompt,evidence`, { headers: { apikey: key, authorization: `Bearer ${key}` } });
+      const rows = r.ok ? await r.json() : [];
+      // Turn N is recorded a moment after its reply ends: wait until all N records are there, so a thread is checked against everything the writer saw.
+      if (rows.length >= expected) return rows.map((x) => `${x.system_prompt || ""}\n${x.evidence ? JSON.stringify(x.evidence) : ""}`).join("\n").slice(0, 800_000);
+    } catch { /* try again */ }
+    await new Promise((res) => setTimeout(res, 400));
+  }
+  return "";
+}
+
 /** Every `name` in a block, so a check can ask "was this place in a card?". */
 const namesIn = (value, out = []) => {
   if (Array.isArray(value)) value.forEach((v) => namesIn(v, out));
@@ -97,6 +114,8 @@ module.exports = class RoamProvider {
       for (const m of messages) {
         const t = { q: m, ...(await turn(s, tripId, m)) };
         t.trace = await traceRow(s, tripId);
+        // A thread may quote a figure from an earlier turn's cards, so the grounding is everything the writer saw so far.
+        t.groundingText = await groundingFor(tripId, turns.length + 1);
         turns.push(t);
         // A turn whose router or model call failed (no credit, outage) is an infrastructure error, not a reply to score.
         if (t.ok && t.trace?.degraded) return { error: "router degraded: a model call failed (check the Anthropic credit and the dev server log)" };
@@ -106,7 +125,7 @@ module.exports = class RoamProvider {
       if (!last.ok) return { error: `HTTP ${last.status}` };
       return {
         output: last.text, latencyMs: last.totalMs,
-        metadata: { trip: { destination: vars.destination || "Lisbon, Portugal", travelers: Number(vars.travelers || 2), groupType: vars.groupType || "couple" }, message: messages[messages.length - 1], firstTextMs: last.firstTextMs, totalMs: last.totalMs, blocks: last.blocks, unverified: last.unverified, language: last.language, sourceTitles: last.sourceTitles, trace: last.trace, progress: last.progress, turns },
+        metadata: { groundingText: last.groundingText || "", userText: messages.join("\n"), trip: { destination: vars.destination || "Lisbon, Portugal", travelers: Number(vars.travelers || 2), groupType: vars.groupType || "couple" }, message: messages[messages.length - 1], firstTextMs: last.firstTextMs, totalMs: last.totalMs, blocks: last.blocks, unverified: last.unverified, language: last.language, sourceTitles: last.sourceTitles, trace: last.trace, progress: last.progress, turns },
       };
     } catch (error) {
       return { error: error instanceof Error ? error.message : String(error) };

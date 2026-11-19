@@ -356,7 +356,7 @@ export const POST = withRoute(async function POST(request: Request) {
           // `finalMeta` was already computed (including the side-builder blocks) inside the stream above, before
           // it closed — see its own doc comment for why that has to happen there.
           recordComposedTurn(scope, { result, meta: finalMeta ?? result.meta, finalText, tokensIn, tokensOut, composedModel, composeMs, evaluatorUsage, totalMs });
-          void recordTurnContent(scope.traceClient, { tripId, userId }, { kind: "ready", prompt, history: modelMessages, tripSummary, resolved: result.resolved, toolPlan: result.toolPlan, evidence: result.evidence, systemPrompt: result.system, reply: finalText, blocks: (finalMeta ?? result.meta).blocks.map((b) => b.type) });
+          void recordTurnContent(scope.traceClient, { tripId, userId }, { kind: "ready", prompt, history: modelMessages, tripSummary, resolved: result.resolved, toolPlan: result.toolPlan, evidence: { ...result.evidence, composeToolResults: result.toolEvidence }, systemPrompt: result.system, reply: finalText, blocks: (finalMeta ?? result.meta).blocks.map((b) => b.type) });
         },
       ),
       { headers: SSE_HEADERS },

@@ -114,3 +114,56 @@ module.exports = {
   notUnverified: (output, { providerResponse }) => (providerResponse?.metadata?.unverified ? fail("grounding evaluator flagged an unsupported claim") : ok("no flag")),
 };
 module.exports.words = words;
+
+
+// ---- truthfulness and plain English, found by pattern (no model) ----------------------------------------------------------
+const MONEY = /(?:CA\$|US\$|AU\$|NZ\$|\$|€|£|¥|₹)\s?(\d[\d,]*(?:\.\d+)?)|(\d[\d,]*(?:\.\d+)?)\s?(?:CAD|USD|EUR|GBP|INR|JPY|AUD)\b/g;
+const moneyIn = (t) => [...String(t).matchAll(MONEY)].map((m) => String(Number((m[1] ?? m[2]).replace(/,/g, "")))).filter((n) => n !== "NaN");
+/** The numbers a reply may use: the evidence and the question, and the sum or difference of two of them (a total is a sum, a saving a difference). */
+const allowedNumbers = (hay) => {
+  const base = [...new Set([...String(hay).matchAll(/\d[\d,]*(?:\.\d+)?/g)].map((m) => Number(m[0].replace(/,/g, ""))).filter(Number.isFinite))];
+  const out = new Set();
+  for (const n of base) { out.add(String(n)); out.add(String(Math.round(n))); }
+  const prices = base.filter((n) => n >= 20 && n < 100000).slice(0, 400);
+  for (let i = 0; i < prices.length; i++) for (let j = i + 1; j < prices.length; j++) { const d = Math.abs(prices[i] - prices[j]); const t = prices[i] + prices[j]; out.add(String(Math.round(d))); out.add(String(d)); out.add(String(Math.round(t))); out.add(String(t)); }
+  return out;
+};
+const BOOKING_CLAIM = /\b(?:i(?:'ve| have|’ve)?\s+(?:just\s+)?(?:booked|reserved|confirmed|held|purchased|bought|secured)|(?:your|the)\s+(?:flight|room|hotel|table|booking|reservation|stay)\s+(?:is|has been|was)\s+(?:booked|confirmed|reserved|held)|(?:booking|reservation)\s+(?:is\s+)?confirmed|i(?:'ll|’ll| will)\s+(?:book|reserve)\s+(?:it|that|this|the))\b/i;
+
+Object.assign(module.exports, {
+  /** hard: the reply never says it booked, reserved, held or bought anything (it cannot). */
+  noBookingClaim: (output) => { const hit = String(output).match(BOOKING_CLAIM); return hit ? fail(`claims a booking: "${hit[0]}"`) : ok("no booking claim"); },
+  /** hard: every price in the reply is one the model was given (evidence, the traveller's own figures) or arithmetic on them. */
+  pricesGrounded: (output, { providerResponse }) => {
+    const md = providerResponse?.metadata || {};
+    if (!md.groundingText) return ok("no grounding text recorded");
+    const allowed = allowedNumbers(`${md.groundingText}\n${md.userText || ""}`);
+    const bad = [...new Set(moneyIn(output))].filter((n) => !allowed.has(n));
+    return bad.length ? fail(`price not in the evidence: ${bad.join(", ")}`) : ok(`${new Set(moneyIn(output)).size} prices grounded`);
+  },
+  /** soft: slips a reader would notice (unbalanced bold, a repeated word, a lowercase "i", a stray space, an unfinished last sentence). */
+  cleanEnglish: (output) => {
+    const t = String(output).replace(/\r/g, ""); const found = [];
+    if ((t.match(/\*\*/g) || []).length % 2 === 1) found.push("odd number of ** marks");
+    const dup = t.match(/\b([A-Za-z]{2,})\s+\1\b/i); if (dup && !/^(had|that|is|do|so|very)$/i.test(dup[1])) found.push(`repeated word "${dup[0]}"`);
+    if (/\bi\b(?![.'’])/.test(t.replace(/`[^`]*`/g, ""))) found.push('lowercase "i"');
+    if (/\s[,.](?=\s|$)/.test(t)) found.push("space before , or .");
+    if (/\.{4,}|!{2,}|\?{2,}/.test(t)) found.push("stacked punctuation");
+    const last = (t.trim().split("\n").pop() || "").trim();
+    if (t.trim().length > 40 && !/[.!?:)”"'\]*]$/.test(last) && !/^\s*(?:[-*•]|\d+\.)\s/.test(last) && !/[\p{Emoji_Presentation}]$/u.test(last)) found.push("last sentence has no ending");
+    return found.length ? fail(found.join("; ")) : ok("clean");
+  },
+  /** config: { types, all } the turn shows a card of one of these types (all: every one of them). */
+  hasCards: (output, { providerResponse, config }) => {
+    const have = new Set((providerResponse?.metadata?.blocks || []).map((b) => b.type));
+    const hit = config.types.filter((t) => have.has(t));
+    return (config.all ? hit.length === config.types.length : hit.length > 0) ? ok(`cards: ${[...have].join(", ")}`) : fail(`wanted ${config.types.join(config.all ? " + " : " or ")}, got ${[...have].join(", ") || "none"}`);
+  },
+  /** config: { types } the turn shows none of these card types (a vague ask must not produce made-up results). */
+  noCards: (output, { providerResponse, config }) => {
+    const have = (providerResponse?.metadata?.blocks || []).map((b) => b.type).filter((t) => config.types.includes(t));
+    return have.length ? fail(`showed ${have.join(", ")} for an ask that cannot be searched yet`) : ok("no results shown");
+  },
+  /** soft: the reply asks the traveller something. */
+  asksQuestion: (output) => (String(output).includes("?") ? ok("asks") : fail("asks nothing")),
+});
