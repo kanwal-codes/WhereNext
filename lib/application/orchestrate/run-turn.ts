@@ -410,7 +410,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   // When the cards alone answer a plain lookup, a model-written paragraph would only repeat them (and costs the whole COMPOSE
   // call): a one-line lead-in is the reply. Only when nothing else needs saying — grounded, English, no web sources to weigh,
   // no provider that failed, no trip change to report — and exactly one kind of card is shown (see `cardLeadIn`).
-  const leadInLine = leadInLineFor({ composeSkipLine, resolved, prompt, language, hasGrounding, tripUpdateReceipt, sourceCount: compactSources.length, unavailableProviderCount: evidence.unavailableProviders.length, blocks, locationFocus });
+  const leadInLine = leadInLineFor({ composeSkipLine, resolved, prompt, language, hasGrounding, tripUpdateReceipt, sourceCount: compactSources.length, unavailableProviderCount: evidence.unavailableProviders.length, blocks, locationFocus, assumedGap: compactFlights.some((f) => f.exampleDate) || compactStays.some((st) => st.exampleDates) });
 
   const meta = readyMeta({
     language, locationFocus, intent: resolved.intent, blocks, sources: compactSources, retrievedAt: evidence.retrievedAt,

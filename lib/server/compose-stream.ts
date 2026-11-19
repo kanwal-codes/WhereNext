@@ -21,6 +21,20 @@ const withTtft = <T,>(promise: Promise<T>, ms: number): Promise<T> => {
  *
  * `onModel` is told which model answered; `onUsage` its token counts once the stream finishes (some providers report none).
  */
+/** The text of a multi-step run, with a paragraph break where a new step starts after text (a line said before a tool call must not run into the answer). */
+async function* textWithStepBreaks(parts: AsyncIterable<{ type: string; text?: string }>): AsyncGenerator<string> {
+  let sawText = false;
+  let pendingBreak = false;
+  for await (const part of parts) {
+    if (part.type === "start-step") pendingBreak = sawText;
+    else if (part.type === "text-delta" && part.text) {
+      if (pendingBreak) { yield "\n\n"; pendingBreak = false; }
+      sawText = true;
+      yield part.text;
+    }
+  }
+}
+
 export async function openComposeStream(args: {
   chain: ReturnType<typeof composeModelChain>;
   system: string;
@@ -56,7 +70,7 @@ export async function openComposeStream(args: {
       ...(entry.providerOptions ? { providerOptions: entry.providerOptions } : {}),
     });
     try {
-      const it = streamResult.textStream[Symbol.asyncIterator]();
+      const it = textWithStepBreaks(streamResult.fullStream)[Symbol.asyncIterator]();
       // Earlier attempts still have a fallback to move to, so they get a shorter leash —
       // only the last provider in the chain (nowhere left to fail over to) waits the
       // full, generous timeout.

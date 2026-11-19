@@ -129,4 +129,4 @@ const wider = [
 ];
 
 // EVAL_SET=decisions runs only the decision questions (cases-decisions.cjs); the default run does not include them, they cost extra.
-module.exports = process.env.EVAL_SET === "core" ? core : process.env.EVAL_SET === "decisions" ? require("./cases-decisions.cjs") : [...core, ...wider];
+module.exports = process.env.EVAL_SET === "core" ? core : process.env.EVAL_SET === "decisions" ? require("./cases-decisions.cjs") : process.env.EVAL_SET === "bookings" ? require("./cases-bookings.cjs") : [...core, ...wider];
