@@ -3,8 +3,9 @@ import { research as exaResearch } from "@/packages/providers/exa/client";
 import { cached } from "@/lib/server/ttl-cache";
 import type { ToolCall } from "../../turn-resolver";
 import type { RetrieveContext } from "../context";
-import { RESEARCH_CACHE_MS } from "../context";
+import { RESEARCH_CACHE_MS, RESEARCH_PERSIST_MS } from "../context";
 import { webResearchPlan } from "../../web-research-plan";
+import { knownAnswer } from "../../destination-knowledge";
 
 type ResearchWebCall = Extract<ToolCall, { tool: "research_web" }>;
 
@@ -16,6 +17,12 @@ type ResearchWebCall = Extract<ToolCall, { tool: "research_web" }>;
 // Whichever provider is actually in use is cache-keyed separately, so switching between them
 // mid-rollout can't serve one provider's cached results under the other's name.
 export async function handleResearchWeb(call: ResearchWebCall, ctx: RetrieveContext): Promise<void> {
+  // A stable question about a place we have already read up on (tipping, plugs, tap water...) needs no paid search.
+  const known = knownAnswer(call.query);
+  if (known) {
+    ctx.sources.push(...known);
+    return;
+  }
   const useExa = Boolean(process.env.EXA_API_KEY);
   const provider = useExa ? "exa" : "tavily";
   // A repeat or adjacent ask for the same topic (this turn's own retry, a follow-up question,
@@ -33,6 +40,6 @@ export async function handleResearchWeb(call: ResearchWebCall, ctx: RetrieveCont
     return found.answer && found.results[0]
       ? [{ title: "Summary of the top results", url: `${found.results[0].url}#summary`, content: found.answer }, ...found.results]
       : found.results;
-  }).catch(ctx.fail(provider));
+  }, { persistMs: RESEARCH_PERSIST_MS }).catch(ctx.fail(provider));
   if (results) ctx.sources.push(...results.map(({ title, url, content }) => ({ title, url, content })));
 }

@@ -128,4 +128,5 @@ const wider = [
   one("lisbon", "lis-bacalhau-pt", "Onde posso comer bacalhau hoje à noite?", ["list", "cards", "lang:pt"]),
 ];
 
-module.exports = process.env.EVAL_SET === "core" ? core : [...core, ...wider];
+// EVAL_SET=decisions runs only the decision questions (cases-decisions.cjs); the default run does not include them, they cost extra.
+module.exports = process.env.EVAL_SET === "core" ? core : process.env.EVAL_SET === "decisions" ? require("./cases-decisions.cjs") : [...core, ...wider];

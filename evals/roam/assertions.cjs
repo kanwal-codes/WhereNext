@@ -47,6 +47,11 @@ module.exports = {
     const hits = BAD.filter(([re]) => re.test(output)).map(([, name]) => name);
     return hits.length ? fail(`flags: ${hits.join(", ")}`) : ok("clean");
   },
+  /** config: { groups: [[regex source, ...], ...] } — the reply must touch every group (any one phrase in it is enough). For decision questions: did it say the thing that matters. */
+  mentionsAnyOf: (output, { config }) => {
+    const missing = config.groups.filter((g) => !g.some((src) => new RegExp(src, "i").test(output))).map((g) => g[0]);
+    return missing.length ? fail(`never touched: ${missing.join(" | ")}`) : ok("covers every point");
+  },
   noOfferQuestion: (output) => (/\bdo you want me to\b|\bwould you like me to\b|\bshall i\b/i.test(output) ? fail("ends on an offer-question") : ok("no offer-question")),
   emojiAtMost: (output, { config }) => {
     const n = (String(output).match(EMOJI) || []).length;

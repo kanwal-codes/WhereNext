@@ -21,6 +21,7 @@ import { withPrunedFollowups } from "@/lib/application/followups";
 import { finalizeAssistantText } from "@/lib/application/evaluator";
 import { withTripAiStream } from "@/lib/server/trip-ai-queue";
 import { recordComposedTurn, recordEarlyExitTurn } from "@/lib/server/ai-turn-accounting";
+import { recordTurnContent } from "@/lib/server/ai-turn-record";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /** Service-role writer used to create a brand-new trip's thread row and to append turn traces
@@ -349,11 +350,13 @@ export const POST = withRoute(async function POST(request: Request) {
           if (result.kind !== "ready") {
             // No COMPOSE call on this path (declined/clarify/ungrounded).
             recordEarlyExitTurn(scope, { result, prompt, finalText, blocks: (finalMeta ?? result.meta).blocks, tools: toolsForTrace, providersFailed: providersFailedForTrace, totalMs });
+            void recordTurnContent(scope.traceClient, { tripId, userId }, { kind: result.kind, prompt, history: modelMessages, tripSummary, resolved: result.resolved, reply: finalText, blocks: (finalMeta ?? result.meta).blocks.map((b) => b.type) });
             return;
           }
           // `finalMeta` was already computed (including the side-builder blocks) inside the stream above, before
           // it closed — see its own doc comment for why that has to happen there.
           recordComposedTurn(scope, { result, meta: finalMeta ?? result.meta, finalText, tokensIn, tokensOut, composedModel, composeMs, evaluatorUsage, totalMs });
+          void recordTurnContent(scope.traceClient, { tripId, userId }, { kind: "ready", prompt, history: modelMessages, tripSummary, resolved: result.resolved, toolPlan: result.toolPlan, evidence: result.evidence, systemPrompt: result.system, reply: finalText, blocks: (finalMeta ?? result.meta).blocks.map((b) => b.type) });
         },
       ),
       { headers: SSE_HEADERS },

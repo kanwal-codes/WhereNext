@@ -52,3 +52,12 @@ describe("TTL cache", () => {
     expect(s.refreshes).toBe(1);
   });
 });
+
+describe("per-family counts", () => {
+  it("counts asks and real provider loads apart", async () => {
+    await cached("fam:one:a", 10_000, async () => 1);
+    await cached("fam:one:a", 10_000, async () => 2);
+    await cached("fam:one:b", 10_000, async () => 3);
+    expect(cacheStats().byFamily["fam:one"]).toEqual({ calls: 3, loads: 2 });
+  });
+});

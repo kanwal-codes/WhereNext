@@ -1,4 +1,5 @@
 import Redis from "ioredis";
+import { persisted } from "@/lib/server/provider-store";
 
 /**
  * `cached(key, ttlMs, load)` — one loader call per key per TTL, with in-flight dedupe
@@ -20,9 +21,18 @@ const PREFIX = "npb:cache:";
 const STALE_FACTOR = 4;
 
 const stats = { hits: 0, misses: 0, staleServes: 0, refreshes: 0 };
+/** Per key family ("research-web:tavily", "directions:mapbox", ...): asks, and how many of them really went to the provider. */
+const byFamily = new Map<string, { calls: number; loads: number }>();
+const family = (key: string) => key.split(":").slice(0, 2).join(":");
+function count(key: string, load: boolean) {
+  const f = family(key);
+  const row = byFamily.get(f) ?? { calls: 0, loads: 0 };
+  if (load) row.loads += 1; else row.calls += 1;
+  byFamily.set(f, row);
+}
 /** Snapshot of cache activity since process start — surfaced by /api/ready. */
 export function cacheStats() {
-  return { ...stats, backend: redis && redis.status === "ready" ? "redis" : "memory" };
+  return { ...stats, backend: redis && redis.status === "ready" ? "redis" : "memory", byFamily: Object.fromEntries(byFamily) };
 }
 
 let redis: Redis | null | undefined;
@@ -133,10 +143,14 @@ async function cachedRedis<T>(r: Redis, key: string, ttlMs: number, load: () => 
  *  unbounded key is an unbounded memory/Redis entry that anyone can mint. */
 const MAX_KEY_LENGTH = 512;
 
-export function cached<T>(key: string, ttlMs: number, load: () => Promise<T>): Promise<T> {
+/** `persistMs`: also keep the value in Postgres that long (see provider-store.ts), so it outlives Redis/memory and restarts. */
+export function cached<T>(key: string, ttlMs: number, load: () => Promise<T>, opts?: { persistMs?: number }): Promise<T> {
   if (key.length > MAX_KEY_LENGTH) return load();
+  count(key, false);
+  const loadAndCount = () => { count(key, true); return load(); };
+  const source = opts?.persistMs ? () => persisted(key, opts.persistMs!, loadAndCount) : loadAndCount;
   const r = client();
-  return r && r.status === "ready" ? cachedRedis(r, key, ttlMs, load) : cachedMemory(key, ttlMs, load);
+  return r && r.status === "ready" ? cachedRedis(r, key, ttlMs, source) : cachedMemory(key, ttlMs, source);
 }
 
 /** Drop one key from both layers — for a write that must be visible on the next
@@ -171,6 +185,7 @@ export function clearMemoryCache() {
   entries.clear();
   inflight.clear();
   stats.hits = stats.misses = stats.staleServes = stats.refreshes = 0;
+  byFamily.clear();
 }
 
 /**
