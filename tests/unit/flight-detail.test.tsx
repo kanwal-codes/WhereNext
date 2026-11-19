@@ -13,8 +13,22 @@ describe("FlightDetail journey", () => {
       { from: "YYZ", departAt: "2026-11-15T20:25:00", to: "ZRH", arriveAt: "2026-11-16T09:35:00", minutes: 430, layoverMinutes: 130 },
       { from: "ZRH", departAt: "2026-11-16T11:45:00", to: "DUB", arriveAt: "2026-11-16T13:05:00", minutes: 140 },
     ] });
-    expect(html).toContain("See the journey");
-    expect(html).toContain("2 flights · 2h 10m of layover");
+    // The legs are in hand, so the journey is simply there (no tap, no extra search).
+    expect(html).not.toContain("See the journey");
+    expect(html).toContain("Your journey");
+    expect(html).toContain("2 flights, 2h 10m of layover");
+    expect(html).toContain("2h 10m layover");
+  });
+
+  it("says once that bags and fare rules are not shown, instead of a row that would be empty", () => {
+    expect(render({ ...base, stops: 0 })).toContain("Bag and change rules");
+    expect(render({ ...base, stops: 0, baggage: "1 checked bag" })).not.toContain("Bag and change rules");
+  });
+
+  it("shows the emissions line only when the provider gave one, and calls the cheapest Cheapest", () => {
+    expect(render({ ...base, stops: 0, co2Kg: 943, co2Diff: 13 })).toContain("943 kg CO₂");
+    expect(render({ ...base, stops: 0, co2Kg: 943, co2Diff: 13 })).toContain("13% more than typical");
+    expect(render({ ...base, stops: 0 })).not.toContain("CO₂");
   });
 
   it("still offers a plainer journey for a card saved before legs were kept, from its airports and flight numbers", () => {

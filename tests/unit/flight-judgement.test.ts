@@ -9,11 +9,11 @@ const search = (offers: FlightOffer[], extra: Partial<FlightSearch> = {}): Fligh
 
 describe("flight judgement", () => {
   it("names the layovers and flags the risky ones", () => {
-    const o = offer({ legs: [leg({ to: "DOH", toName: "Doha", layoverMinutes: 540, overnight: true }), leg({ from: "DOH", to: "DEL" }), leg({ from: "DEL", to: "BOM", layoverMinutes: 60 })] });
+    const o = offer({ legs: [leg({ to: "DOH", toName: "Doha", layoverMinutes: 540, overnight: true }), leg({ from: "DOH", to: "DEL" }), leg({ from: "DEL", to: "BOM", layoverMinutes: 40 })] });
     const { offers } = judgeFlights(search([o]));
     expect(offers[0].layovers[0]).toBe("9 h at Doha (DOH), overnight");
     expect(offers[0].flags).toContain("overnight layover at DOH");
-    expect(offers[0].flags.some((f) => f.startsWith("tight connection (60 min"))).toBe(true);
+    expect(offers[0].flags.some((f) => f.startsWith("tight connection (40 min"))).toBe(true);
   });
 
   it("flags a long daytime layover and an often-delayed flight; return legs are labelled", () => {

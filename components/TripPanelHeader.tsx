@@ -2,7 +2,7 @@
 
 import Link, { useLinkStatus } from "next/link";
 import { ArrowLeft, BedDouble, CalendarDays, CalendarRange, LayoutGrid, Loader2, Map as MapIcon, MapPin, Route as RouteIcon, Maximize2, Plane, Scale, Wallet, X, CloudSun, ListChecks } from "lucide-react";
-import { panelTitle, type PanelState } from "@/components/TripPanelProvider";
+import { panelHeading, type PanelState } from "@/components/TripPanelProvider";
 import { fullPageHref } from "@/components/tripPanelLogic";
 import { cn } from "@/lib/utils";
 import { controlGhost } from "@/features/conversation/ui/blocks/ui";
@@ -39,7 +39,7 @@ export function TripPanelHeader({ shown, layout, tripId, compareIds, canGoBack, 
         )}
         {/* The kind of thing it is (a grid for a list, a pin for a place) helps beside the title on a wide screen; centred on a phone it is only clutter. */}
         {KindIcon && <KindIcon className="size-4 shrink-0 text-muted-foreground max-lg:hidden" aria-hidden />}
-        <span className={cn("min-w-0 truncate font-display text-base font-semibold tracking-[-0.01em]", "max-lg:text-center max-lg:text-xl max-lg:tracking-[-0.025em]")}>{panelTitle(shown)}</span>
+        <span className={cn("min-w-0 truncate font-display text-base font-semibold tracking-[-0.01em]", "max-lg:text-center max-lg:text-xl max-lg:tracking-[-0.025em]")}>{panelHeading(shown)}</span>
       </div>
       <div className="flex shrink-0 items-center gap-0.5 max-lg:justify-self-end">
         <Link

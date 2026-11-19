@@ -25,3 +25,13 @@ describe("card panels", () => {
     expect(itineraryTitle(undefined, 2)).toBeUndefined();
   });
 });
+
+describe("panel heading", () => {
+  it("heads a flight by its route while Roam is still told which airline is open", async () => {
+    const { panelHeading, panelTitle } = await import("../../components/TripPanelProvider");
+    const f = { airline: "Air Canada · SWISS", price: "1846", currency: "CAD", durationMinutes: 1575, stops: 2, departAt: "2027-01-12T12:30:00", arriveAt: "2027-01-14T01:15:00", originAirport: "YTZ", destinationAirport: "DEL" };
+    const r = { origin: "Toronto, Ontario, Canada", destination: "Delhi, India", retrievedAt: "t" };
+    expect(panelHeading({ kind: "flight", flight: f, route: r } as never)).toBe("Toronto to Delhi");
+    expect(panelTitle({ kind: "flight", flight: f, route: r } as never)).toBe("Air Canada · SWISS · YTZ–DEL");
+  });
+});

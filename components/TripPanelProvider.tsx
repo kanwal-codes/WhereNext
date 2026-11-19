@@ -73,6 +73,11 @@ type OptionItem = Extract<AssistantBlock, { type: "options" }>["items"][number];
 export type CardPanel = Extract<PanelState, { kind: "flight" | "day" | "budget" | "map" | "route" | "area" | "weather" | "checklist" }>;
 
 /** What the panel is called: its header, its accessible name, and what Roam is told is open beside the chat. */
+/** The heading a panel shows. A flight is headed by its route ("Toronto to Delhi"): the airline is the first thing in the sheet, and `panelTitle` (which names the airline) stays what Roam is told is open. */
+export function panelHeading(panel: PanelState): string {
+  return panel.kind === "flight" ? `${panel.route.origin.split(",")[0].trim()} to ${panel.route.destination.split(",")[0].trim()}` : panelTitle(panel);
+}
+
 export function panelTitle(panel: PanelState): string {
   switch (panel.kind) {
     case "place":

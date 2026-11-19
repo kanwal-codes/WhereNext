@@ -132,10 +132,11 @@ describe("MessageBlocks", () => {
     ] }]);
     expect(html).toContain("Toronto");
     expect(html).toContain("Air Canada");
-    expect(html).toContain("CA$812.40");
+    expect(html).toContain("CA$812"); // a row compares fares in whole dollars; the sheet has the exact price
     expect(html).toContain("8h 11m");
     expect(html).toContain("nonstop");
-    expect(html).toMatch(/fares change/i);
+    expect(html).toMatch(/change quickly/i);
+    expect(html).toMatch(/Roam can.t book flights/);
   });
 
   it("renders stays as a card carousel with nightly rates, a rooms drill-down, and a freshness note", () => {

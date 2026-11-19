@@ -1,19 +1,14 @@
 import type { FlightLeg, FlightOffer } from "@/packages/providers/duffel/client";
 import type { FlightSearch } from "@/lib/application/retrieve";
+import { LONG_LAYOVER_MIN, TIGHT_CONNECTION_MIN } from "@/lib/application/flight-risks";
+import { tradeoff } from "@/lib/application/flight-tradeoff";
 
 /**
  * What a traveller weighs when they ask "is it worth it?", worked out here from the offers so the model explains
  * facts instead of rediscovering them: where each layover is and how long, which flights are risky, and what the
- * cheapest option really costs in time. Thresholds are rules of thumb: the decision evals (EVAL_SET=decisions) are
- * where they get tuned.
+ * cheapest option really costs in time. The thresholds are the cards' own (flight-risks.ts), so the words and the
+ * cards agree; the decision evals (EVAL_SET=decisions) are where they get tuned.
  */
-const LONG_LAYOVER_MIN = 6 * 60;
-const SHORT_CONNECTION_MIN = 90;
-/** A saving under this share of the fastest fare is not worth extra hours in the air. */
-const TINY_SAVING_PCT = 5;
-/** Extra travel time under this is "not slower". */
-const SAME_TIME_H = 0.25;
-
 const hours = (minutes: number) => Math.round((minutes / 60) * 10) / 10;
 const money = (amount: number, currency: string) => `${Math.round(amount).toLocaleString("en-US")} ${currency}`;
 
@@ -27,12 +22,14 @@ function layoverNotes(legs: FlightLeg[] | undefined, prefix: string) {
     notes.push(`${prefix}${hours(leg.layoverMinutes)} h at ${where}${leg.overnight ? ", overnight" : ""}`);
     if (leg.overnight) flags.push(`${prefix}overnight layover at ${leg.to}`);
     else if (leg.layoverMinutes >= LONG_LAYOVER_MIN) flags.push(`${prefix}long layover (${hours(leg.layoverMinutes)} h at ${leg.to})`);
-    if (leg.layoverMinutes < SHORT_CONNECTION_MIN) flags.push(`${prefix}tight connection (${leg.layoverMinutes} min at ${leg.to})`);
+    if (leg.layoverMinutes < TIGHT_CONNECTION_MIN) flags.push(`${prefix}tight connection (${leg.layoverMinutes} min at ${leg.to})`);
   }
   return { notes, flags };
 }
 
 export type JudgedOffer = { layovers: string[]; flags: string[] };
+
+const VERDICT = { "not slower": "and not slower", "small saving": "a small saving for the extra time", "real saving": "a real saving, but slower" } as const;
 
 /** Per offer: its layovers and risk flags. For the search: plain sentences on cheapest vs fastest vs nonstop. */
 export function judgeFlights(search: FlightSearch): { offers: JudgedOffer[]; read: string[] } {
@@ -42,39 +39,35 @@ export function judgeFlights(search: FlightSearch): { offers: JudgedOffer[]; rea
     return { layovers: [...out.notes, ...back.notes], flags: [...out.flags, ...back.flags] };
   });
 
-  const priced = search.offers
-    .map((offer, index) => ({ offer, index, price: Number(offer.priceAmount) }))
-    .filter((o) => Number.isFinite(o.price) && o.price > 0 && o.offer.durationMinutes > 0);
+  const t = tradeoff(search.offers.map((o) => ({ price: Number(o.priceAmount), minutes: o.durationMinutes, stops: o.stops })));
   const read: string[] = [];
-  if (priced.length === 0) return { offers, read };
+  if (!t) return { offers, read };
 
-  const currency = priced[0].offer.priceCurrency;
-  const label = (o: { offer: FlightOffer }) => `${o.offer.airline} ${o.offer.stops === 0 ? "nonstop" : `${o.offer.stops} stop${o.offer.stops === 1 ? "" : "s"}`}, ${hours(o.offer.durationMinutes)} h`;
-  const cheapest = priced.reduce((a, b) => (b.price < a.price ? b : a));
-  const fastest = priced.reduce((a, b) => (b.offer.durationMinutes < a.offer.durationMinutes ? b : a));
+  const cheapest = search.offers[t.cheapest];
+  const fastest = search.offers[t.fastest];
+  const currency = cheapest.priceCurrency;
+  const label = (o: FlightOffer) => `${o.airline} ${o.stops === 0 ? "nonstop" : `${o.stops} stop${o.stops === 1 ? "" : "s"}`}, ${hours(o.durationMinutes)} h`;
   read.push(search.returnDate ? "Each fare is a round-trip total; the hours are the outbound flight." : "Each fare is one way.");
 
-  if (cheapest.index === fastest.index) {
+  if (t.same) {
     read.push(`${label(cheapest)} is both the cheapest and the fastest.`);
   } else {
-    const saves = fastest.price - cheapest.price;
-    const extra = hours(cheapest.offer.durationMinutes - fastest.offer.durationMinutes);
-    const pct = Math.round((saves / fastest.price) * 100);
-    const verdict = extra <= SAME_TIME_H ? "and not slower"
-      : pct < TINY_SAVING_PCT ? "a small saving for the extra time"
-      : "a real saving, but slower";
-    read.push(`Cheapest is ${label(cheapest)}; fastest is ${label(fastest)}. The cheapest saves ${money(saves, currency)} (${pct}%) and takes ${extra} h longer: ${verdict}.`);
-    const risky = offers[cheapest.index].flags;
+    read.push(`Cheapest is ${label(cheapest)}; fastest is ${label(fastest)}. The cheapest saves ${money(t.saves, currency)} (${t.savesPct}%) and takes ${hours(t.extraMinutes)} h longer: ${VERDICT[t.verdict]}.`);
+    const risky = offers[t.cheapest].flags;
     if (risky.length) read.push(`Cheapest option flags: ${risky.join("; ")}.`);
   }
 
   // Nonstop against the cheapest, when they differ: what the convenience costs.
-  const nonstop = priced.filter((o) => o.offer.stops === 0).reduce<typeof cheapest | null>((a, b) => (!a || b.price < a.price ? b : a), null);
   // (Skipped when the nonstop is the fastest option: the sentence above already says it.)
-  if (nonstop && nonstop.index !== fastest.index && cheapest.offer.stops > 0 && nonstop.price > cheapest.price) {
-    const premium = nonstop.price - cheapest.price;
-    const shorter = hours(cheapest.offer.durationMinutes - nonstop.offer.durationMinutes);
-    read.push(`The cheapest nonstop (${label(nonstop)}) costs ${money(premium, currency)} (${Math.round((premium / cheapest.price) * 100)}%) more than the cheapest option and saves ${shorter} h.`);
+  const nonstop = search.offers
+    .map((offer, index) => ({ offer, index, price: Number(offer.priceAmount) }))
+    .filter((o) => o.offer.stops === 0 && Number.isFinite(o.price) && o.price > 0 && o.offer.durationMinutes > 0)
+    .reduce<{ offer: FlightOffer; index: number; price: number } | null>((a, b) => (!a || b.price < a.price ? b : a), null);
+  const cheapestPrice = Number(cheapest.priceAmount);
+  if (nonstop && nonstop.index !== t.fastest && cheapest.stops > 0 && nonstop.price > cheapestPrice) {
+    const premium = nonstop.price - cheapestPrice;
+    const shorter = hours(cheapest.durationMinutes - nonstop.offer.durationMinutes);
+    read.push(`The cheapest nonstop (${label(nonstop.offer)}) costs ${money(premium, currency)} (${Math.round((premium / cheapestPrice) * 100)}%) more than the cheapest option and saves ${shorter} h.`);
   }
 
   const ins = search.insights;
