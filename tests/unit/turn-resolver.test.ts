@@ -24,15 +24,15 @@ function mockModel(content: string) {
     usage: { inputTokens: 10, outputTokens: 10 },
   }));
 }
-/** Distinct responses per call — for exercising the 2-attempt retry. */
+/** Distinct responses per ROUTER call — for exercising the 2-attempt retry. The follow-up chips call (its own prompt, run beside the
+ *  router) always gets no chips and does not use up a response. */
 function mockModelSequence(...contents: string[]) {
-  for (const content of contents) {
-    generateObjectMock.mockImplementationOnce(async ({ schema }: { schema: Schema }) => ({
-      object: schema.parse(JSON.parse(content)),
-      usage: { inputTokens: 10, outputTokens: 10 },
-    }));
-  }
-  return generateObjectMock;
+  const queue = [...contents];
+  generateObjectMock.mockImplementation(async ({ schema, messages }: { schema: Schema; messages: Array<{ content: string }> }) => {
+    const content = String(messages[0]?.content).includes("follow-up chips") ? JSON.stringify({ suggestedFollowups: [] }) : queue.shift() ?? "";
+    return { object: schema.parse(JSON.parse(content)), usage: { inputTokens: 10, outputTokens: 10 } };
+  });
+  return { mock: generateObjectMock, routerCalls: () => generateObjectMock.mock.calls.filter(([a]) => !String((a as { messages: Array<{ content: string }> }).messages[0]?.content).includes("follow-up chips")) };
 }
 
 describe("resolveTurn", () => {
@@ -176,20 +176,63 @@ describe("resolveTurn", () => {
   });
 
   it("retries once on an unparseable first response, then succeeds", async () => {
-    const mock = mockModelSequence("garbage no json", JSON.stringify({ language: "en", intent: "food", toolPlan: [] }));
+    const { routerCalls } = mockModelSequence("garbage no json", JSON.stringify({ language: "en", intent: "food", toolPlan: [] }));
     const resolved = await resolveTurn({ message: "food", history: [], tripSummary: "" });
-    expect(mock).toHaveBeenCalledTimes(2);
+    expect(routerCalls()).toHaveLength(2);
     expect(resolved.intent).toBe("food");
     expect(resolved.degraded).toBeUndefined(); // not the safe-default path
   });
 
   it("passes viewContext into the prompt so 'there' resolves to the open panel", async () => {
-    const mock = mockModelSequence(JSON.stringify({ language: "en", intent: "transport", toolPlan: [] }));
+    const { routerCalls } = mockModelSequence(JSON.stringify({ language: "en", intent: "transport", toolPlan: [] }));
     await resolveTurn({ message: "how do I get there?", history: [], tripSummary: "trip: Lisbon", viewContext: "Hotel Memmo Alfama" });
-    const call = mock.mock.calls[0][0] as { messages: Array<{ role: string; content: string }> };
+    const call = routerCalls()[0][0] as { messages: Array<{ role: string; content: string }> };
     const userMsg = call.messages.find((m) => m.role === "user")!.content;
     expect(userMsg).toContain("Hotel Memmo Alfama");
     expect(userMsg).toMatch(/there.*this place.*it/i);
+  });
+});
+
+describe("resolveTurn: follow-up chips come from their own call beside the router", () => {
+  const chipsCall = (a: unknown) => String((a as { messages: Array<{ content: string }> }).messages[0]?.content).includes("follow-up chips");
+
+  it("asks the router without the chips and adds the chips call's answer", async () => {
+    generateObjectMock.mockImplementation(async ({ schema, messages }: { schema: Schema; messages: Array<{ content: string }> }) => ({
+      object: schema.parse(chipsCall({ messages }) ? { suggestedFollowups: [{ label: "Clubs", prompt: "What are the best clubs?" }] } : { language: "en", intent: "food", toolPlan: [] }),
+      usage: { inputTokens: 1, outputTokens: 1 },
+    }));
+    const resolved = await resolveTurn({ message: "food", history: [], tripSummary: "" });
+    expect(resolved.suggestedFollowups).toEqual([{ label: "Clubs", prompt: "What are the best clubs?" }]);
+    const router = generateObjectMock.mock.calls.find(([a]) => !chipsCall(a))![0] as { schema: { shape: Record<string, unknown> }; messages: Array<{ content: string }> };
+    expect(router.schema.shape).not.toHaveProperty("suggestedFollowups");
+    expect(router.messages[0].content).not.toContain("suggestedFollowups");
+  });
+
+  it("does not hold the turn for chips still being written, and stops that call", async () => {
+    vi.useFakeTimers();
+    let chipsSignal: AbortSignal | undefined;
+    generateObjectMock.mockImplementation(({ schema, messages, abortSignal }: { schema: Schema; messages: Array<{ content: string }>; abortSignal: AbortSignal }) => {
+      if (chipsCall({ messages })) { chipsSignal = abortSignal; return new Promise(() => {}); }
+      return Promise.resolve({ object: schema.parse({ language: "en", intent: "food", toolPlan: [] }), usage: { inputTokens: 1, outputTokens: 1 } });
+    });
+    const turn = resolveTurn({ message: "food", history: [], tripSummary: "" });
+    await vi.advanceTimersByTimeAsync(1_500);
+    const resolved = await turn;
+    vi.useRealTimers();
+    expect(resolved.intent).toBe("food");
+    expect(resolved.suggestedFollowups).toEqual([]);
+    expect(chipsSignal?.aborted).toBe(true);
+  });
+
+  it("a failed chips call leaves the turn without chips, never failing it", async () => {
+    generateObjectMock.mockImplementation(async ({ schema, messages }: { schema: Schema; messages: Array<{ content: string }> }) => {
+      if (chipsCall({ messages })) throw Object.assign(new Error("bad request"), { statusCode: 400 });
+      return { object: schema.parse({ language: "en", intent: "food", toolPlan: [] }), usage: { inputTokens: 1, outputTokens: 1 } };
+    });
+    const resolved = await resolveTurn({ message: "food", history: [], tripSummary: "" });
+    expect(resolved.intent).toBe("food");
+    expect(resolved.degraded).toBeUndefined();
+    expect(resolved.suggestedFollowups).toEqual([]);
   });
 });
 
