@@ -2,20 +2,20 @@
 
 import { FitText } from "@/components/FitText";
 import React, { type ReactNode } from "react";
-import { AlertTriangle, ArrowUpRight, BedDouble, Briefcase, Check, ChevronRight, Clock, Leaf, Moon, Plug, Shield, Tv, Wifi, Armchair } from "lucide-react";
+import { ArrowUpRight, Briefcase, Check, ChevronRight, Clock, Leaf, Moon, Shield } from "lucide-react";
 import type { FlightOffer } from "@/components/TripPanelProvider";
 import { cn } from "@/lib/utils";
 import { AirlineMark } from "../panels/OtherFlights";
+import { JourneyRail } from "../panels/JourneyRail";
+import { formatDuration, offerRisks } from "@/lib/application/flight-risks";
 import { arrivalDayOffset } from "./FlightFilters";
+import { shortAirline } from "./flightCopy";
 import { money, prettyDate, type } from "./ui";
 import { WidgetPill } from "./Widget";
 
 type Leg = NonNullable<FlightOffer["legs"]>[number];
 
 export const offerKey = (o: FlightOffer) => o.id ?? `${o.airline}|${o.departAt}|${o.price}`;
-
-/** "7h 11m" from minutes. */
-const hoursMinutes = (minutes: number) => (minutes < 60 ? `${Math.round(minutes)}m` : `${Math.floor(minutes / 60)}h ${String(Math.round(minutes % 60)).padStart(2, "0")}m`);
 
 /** The clock time of an ISO moment ("6:20 PM"); a dash when it can't be read, never blank space. */
 function clockOf(iso?: string | null): string {
@@ -47,17 +47,6 @@ export function pickFares(items: FlightOffer[]): FlightPick[] {
     else picks.push({ labels: [label], offer });
   }
   return picks.map((pick) => (pick.labels.includes("Cheapest") ? { ...pick, labels: pick.labels.filter((label) => label !== "Best") } : pick));
-}
-
-/** How a wait between two flights reads: an overnight stop, a connection that is too tight or very long, or just a wait. */
-export function layoverNote(leg: Leg): { text: string; tone: "neutral" | "night" | "caution" } | null {
-  const place = leg.toName ? `${leg.toName.replace(/\s+(international\s+)?airport$/i, "")} (${leg.to})` : leg.to;
-  const minutes = leg.layoverMinutes;
-  if (minutes === undefined) return { text: `Stop in ${place}`, tone: "neutral" };
-  if (leg.overnight) return { text: `Overnight in ${place}, ${hoursMinutes(minutes)}`, tone: "night" };
-  if (minutes < 45) return { text: `Only ${minutes} min in ${place} to change planes`, tone: "caution" };
-  if (minutes >= 360) return { text: `${hoursMinutes(minutes)} layover in ${place}`, tone: "caution" };
-  return { text: `${hoursMinutes(minutes)} layover in ${place}`, tone: "neutral" };
 }
 
 /** The legs of one fare, or one synthesised leg when the provider gave only the journey as a whole. */
@@ -98,13 +87,19 @@ export function FlightHero({ eyebrow, title, from, to, duration, dim = false, ch
       </div>
       {end(from, "left")}
       {end(to, "right")}
-      {duration > 0 && <p className="absolute bottom-[5.25rem] left-1/2 -translate-x-1/2 text-center text-xs text-muted-foreground @max-[34rem]:hidden"><b className="font-display text-lg font-medium text-ink">{hoursMinutes(duration)}</b> shortest</p>}
+      {duration > 0 && <p className="absolute bottom-[5.25rem] left-1/2 -translate-x-1/2 text-center text-xs text-muted-foreground @max-[34rem]:hidden"><b className="font-display text-lg font-medium text-ink">{formatDuration(duration)}</b> shortest</p>}
     </div>
   );
 }
 
-/** The three picks (or two, or one) that overlap the hero's lower edge. */
-export function FlightPicks({ picks, selected, onSelect, roundTrip }: { picks: FlightPick[]; selected: string | null; onSelect: (key: string) => void; roundTrip: boolean }) {
+/** Whole dollars: a tile or a row compares fares, so cents are noise; the sheet keeps the exact price. */
+const wholeMoney = (o: FlightOffer) => money(Math.round(Number(o.price)), o.currency, true);
+
+/**
+ * The three picks (or two, or one) that overlap the hero's lower edge. On a phone a tile opens its sheet (the journey under the
+ * picks is a desktop view, so a selected state would show nothing); on desktop it selects the flight the journey shows.
+ */
+export function FlightPicks({ picks, selected, onSelect, onOpen }: { picks: FlightPick[]; selected: string | null; onSelect: (key: string) => void; onOpen?: (offer: FlightOffer) => void }) {
   if (picks.length === 1 && picks[0].labels[0] === "The only option") {
     const o = picks[0].offer;
     return (
@@ -113,33 +108,37 @@ export function FlightPicks({ picks, selected, onSelect, roundTrip }: { picks: F
           <AirlineMark offer={o} className="size-8" />
           <div className="min-w-0 flex-1">
             <p className="eyebrow text-primary-foreground/70!">The only option</p>
-            <p className={cn(type.meta, "truncate text-primary-foreground/70!")}>{o.airline} · {o.stops === 0 ? "nonstop" : `${o.stops} stop${o.stops > 1 ? "s" : ""}`} · {hoursMinutes(o.durationMinutes)}</p>
+            <p className={cn(type.meta, "truncate text-primary-foreground/70!")}>{o.airline} · {o.stops === 0 ? "nonstop" : `${o.stops} stop${o.stops > 1 ? "s" : ""}`} · {formatDuration(o.durationMinutes)}</p>
           </div>
-          <FitText className="font-display text-2xl font-medium tracking-[-0.025em] tabular-nums">{money(o.price, o.currency, true)}</FitText>
+          <FitText className="font-display text-2xl font-medium tracking-[-0.025em] tabular-nums">{wholeMoney(o)}</FitText>
         </div>
       </div>
     );
   }
   return (
-    <div className="relative z-[1] mx-4 -mt-10 flex gap-2.5 @[34rem]:mx-5 max-lg:mx-[1.125rem] max-lg:mt-4">
+    <div className="relative z-[1] mx-4 -mt-10 flex gap-2 @[34rem]:mx-5 max-lg:mx-[1.125rem] max-lg:mt-4">
       {picks.map((pick) => {
         const key = offerKey(pick.offer);
         const on = selected === key;
+        const stops = pick.offer.stops === 0 ? "Nonstop" : `${pick.offer.stops} stop${pick.offer.stops > 1 ? "s" : ""}`;
         return (
           <button
             key={key}
             type="button"
-            onClick={() => onSelect(key)}
+            onClick={() => {
+              onSelect(key);
+              if (onOpen && window.matchMedia("(max-width: 1023.98px)").matches) onOpen(pick.offer);
+            }}
             aria-pressed={on}
-            className={cn("relative min-w-0 flex-1 rounded-2xl px-3.5 py-3 text-left backdrop-blur-md transition-[box-shadow,background-color,transform] duration-200 ease-out active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", on ? "border border-primary bg-card ring-1 ring-primary shadow-lift" : "border border-border bg-surface hover:border-ink/25", "max-lg:backdrop-blur-none max-lg:shadow-none", (on ? "max-lg:border max-lg:border-primary" : "max-lg:border max-lg:border-border max-lg:bg-surface"))}
+            className={cn("relative min-w-0 flex-1 rounded-2xl border border-border bg-surface p-3 text-left transition-[box-shadow,background-color,border-color,transform] duration-200 ease-out hover:border-ink/25 active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:px-3.5", on && "lg:border-primary lg:bg-card lg:shadow-lift lg:ring-1 lg:ring-primary lg:backdrop-blur-md")}
           >
             <span className="flex items-center justify-between gap-1.5">
-              <span className="eyebrow truncate">{pick.labels.slice(0, 1).join(" · ")}</span>
-              <AirlineMark offer={pick.offer} className="size-6" />
+              <span className="eyebrow truncate">{pick.labels.slice(0, picks.length <= 2 ? 2 : 1).join(" · ")}</span>
+              <AirlineMark offer={pick.offer} className="size-6 max-lg:hidden" />
             </span>
-            <FitText className="mt-1.5 font-display text-widget leading-tight font-medium tracking-[-0.025em] tabular-nums">{money(pick.offer.price, pick.offer.currency, true)}</FitText>
-            {on ? <span aria-hidden className="absolute right-3 bottom-3 grid size-[1.125rem] place-items-center rounded-full bg-primary text-primary-foreground lg:hidden"><Check className="size-3" strokeWidth={3.5} /></span> : null}
-            <span className={cn(type.meta, "block", "text-balance", on && "max-lg:pr-6")}>{hoursMinutes(pick.offer.durationMinutes)} · {pick.offer.stops === 0 ? "nonstop" : `${pick.offer.stops} stop${pick.offer.stops > 1 ? "s" : ""}`}{roundTrip ? " · round trip" : ""}</span>
+            <FitText className="mt-1 font-display text-lg leading-[1.625rem] font-medium tracking-[-0.015em] tabular-nums lg:text-widget lg:leading-tight">{wholeMoney(pick.offer)}</FitText>
+            <span className="mt-0.5 block truncate text-xs leading-[1.125rem] font-semibold">{shortAirline(pick.offer.airline)}</span>
+            <span className={cn(type.meta, "block tabular-nums")}>{formatDuration(pick.offer.durationMinutes)}<br className="lg:hidden" /><span className="lg:before:content-['_·_']">{stops}</span></span>
           </button>
         );
       })}
@@ -161,55 +160,6 @@ export function FlightPicksSkeleton() {
     </div>
   );
 }
-
-/** The comforts of a flight read as quiet marks on one line, not as bordered chips that each take a row in a narrow card. */
-const MARK = "inline-flex items-center gap-1 whitespace-nowrap text-xs text-ink-soft";
-const AMENITY_ICON = (text: string) => (/wi-?fi/i.test(text) ? Wifi : /power|usb|outlet/i.test(text) ? Plug : /video|entertain|stream|screen/i.test(text) ? Tv : Check);
-
-/** One flight of the journey: airline, number, aircraft, time in the air, and only the comforts it actually has. */
-function LegBlock({ leg, fallbackAirline, compact = false }: { leg: Leg; fallbackAirline: string; compact?: boolean }) {
-  // On a journey of three or more flights each box slims down: the comforts of every flight would bury the journey, so only the
-  // legroom and a warning (a flight that is often late) stay; the full list is one tap away on the flight's details.
-  const amenities = compact ? [] : (leg.amenities ?? []);
-  const shown = amenities.slice(0, 3);
-  const detail = [leg.aircraft, hoursMinutes(leg.minutes)].filter(Boolean).join(" · ");
-  return (
-    <div className="flex gap-3.5">
-      <span className="w-3.5 shrink-0" aria-hidden />
-      {/* The logo and the airline share a row; everything else gets the box's full width beneath, so nothing is cut short. */}
-      <div className={cn("min-w-0 flex-1 rounded-2xl bg-surface", compact ? "p-3" : "p-3.5")}>
-        <div className="flex items-center gap-3">
-          <AirlineMark offer={{ airline: leg.airline ?? fallbackAirline, logo: leg.logo }} className={cn("shrink-0", compact ? "size-8" : "size-9")} />
-          <p className="min-w-0 flex-1 truncate text-body font-semibold">{leg.airline ?? fallbackAirline}{leg.flightNumber && <span className="ml-1.5 font-normal text-muted-foreground">{leg.flightNumber}</span>}</p>
-        </div>
-        {detail && <p className={cn(type.meta, "mt-2")}>{detail}</p>}
-        {(shown.length > 0 || leg.legroom || leg.oftenDelayed) && (
-          <div className="mt-2 flex flex-wrap gap-x-3.5 gap-y-1.5">
-            {shown.map((a) => { const Icon = AMENITY_ICON(a); return <span key={a} className={MARK}><Icon className="size-3.5 shrink-0" aria-hidden />{a}</span>; })}
-            {amenities.length > shown.length && <span className={MARK}>+{amenities.length - shown.length} more</span>}
-            {leg.legroom && <span className={MARK}><Armchair className="size-3.5 shrink-0" aria-hidden />{leg.legroom} legroom</span>}
-            {leg.oftenDelayed && <span className={cn(MARK, "font-medium text-caution")}><AlertTriangle className="size-3.5 shrink-0" aria-hidden />Often delayed 30+ min</span>}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Node({ time, code, name, note, end, plus }: { time: string; code?: string; name?: string; note?: string; end?: boolean; plus?: number }) {
-  return (
-    <div className="flex items-baseline gap-4">
-      <span className="flex w-3.5 shrink-0 justify-center self-start pt-2" aria-hidden><span className={cn("size-3.5 rounded-full", end ? "border-[3px] border-foreground bg-background" : "bg-foreground")} /></span>
-      <p className="w-[6.5rem] shrink-0 font-display text-2xl leading-tight font-medium tracking-[-0.02em] tabular-nums">{time}{plus ? <sup className="ml-0.5 text-2xs max-lg:text-xs text-coral-ink">+{plus}</sup> : null}</p>
-      <div className="min-w-0">
-        <p className="truncate text-body font-semibold">{code}{name && <span className="font-normal text-muted-foreground"> · {name}</span>}</p>
-        {note && <p className={cn(type.meta)}>{note}</p>}
-      </div>
-    </div>
-  );
-}
-
-const WAIT_TONE = { neutral: "bg-muted text-ink-soft", night: "bg-muted text-foreground [&_svg]:text-lagoon", caution: "bg-muted text-foreground [&_svg]:text-caution" } as const;
 
 /**
  * One fare opened out: the whole journey in order (each flight, each wait between them), then the price, the fare's
@@ -237,31 +187,10 @@ export function FlightJourney({ offer, labels, roundTrip, onDetails, tripCurrenc
             {overnight && <WidgetPill icon={Moon} tone="lagoon">Overnight stop</WidgetPill>}
             {plus > 0 && <WidgetPill icon={Moon}>Arrives next day</WidgetPill>}
           </div>
-          <Node time={clockOf(legs[0]?.departAt ?? offer.departAt)} code={legs[0]?.from || offer.originAirport} name={legs[0]?.fromName} note={prettyDate(offer.departAt.slice(0, 10))} />
-          {legs.map((leg, i) => {
-            const wait = i < legs.length - 1 ? layoverNote(leg) : null;
-            return (
-              <React.Fragment key={i}>
-                {hasLegDetail || legs.length === 1 ? <LegBlock leg={leg} fallbackAirline={offer.airline} compact={legs.length >= 3} /> : null}
-                {wait && (
-                  <div className="flex items-center gap-4">
-                    <span className="flex w-3.5 shrink-0 justify-center" aria-hidden><span className="h-8 w-0.5 bg-[repeating-linear-gradient(to_bottom,var(--border)_0_4px,transparent_4px_8px)]" /></span>
-                    <span className={cn("inline-flex min-h-7 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium", WAIT_TONE[wait.tone])}>
-                      {wait.tone === "night" ? <BedDouble className="size-3.5 shrink-0" aria-hidden /> : wait.tone === "caution" ? <AlertTriangle className="size-3.5 shrink-0" aria-hidden /> : <Clock className="size-3.5 shrink-0" aria-hidden />}
-                      {wait.text}
-                    </span>
-                  </div>
-                )}
-              </React.Fragment>
-            );
-          })}
+          <JourneyRail legs={legs} />
           {!hasLegDetail && offer.stops > 0 && (
-            <div className="flex items-center gap-4">
-              <span className="flex w-3.5 shrink-0 justify-center" aria-hidden><span className="h-8 w-0.5 bg-[repeating-linear-gradient(to_bottom,var(--border)_0_4px,transparent_4px_8px)]" /></span>
-              <span className={cn("inline-flex min-h-7 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium", WAIT_TONE.neutral)}><Clock className="size-3.5 shrink-0" aria-hidden />{offer.stops} stop{offer.stops > 1 ? "s" : ""}{offer.layoverAirports?.length ? ` via ${offer.layoverAirports.join(", ")}` : ""}</span>
-            </div>
+            <p className={cn(type.meta, "inline-flex items-center gap-1.5")}><Clock className="size-3.5 shrink-0" aria-hidden />{offer.stops} stop{offer.stops > 1 ? "s" : ""}{offer.layoverAirports?.length ? ` via ${offer.layoverAirports.join(", ")}` : ""}</p>
           )}
-          <Node end time={clockOf(legs[legs.length - 1]?.arriveAt ?? offer.arriveAt)} code={legs[legs.length - 1]?.to || offer.destinationAirport} name={legs[legs.length - 1]?.toName} note={prettyDate(offer.arriveAt.slice(0, 10))} plus={plus} />
         </div>
         {/* Under the journey: the price and what the fare includes on the left, the button on the right, as tall as the content and no taller.
             Only a wide card puts it beside the journey as a column, centred so any spare height is shared above and below it. */}
@@ -296,36 +225,42 @@ export function FlightJourney({ offer, labels, roundTrip, onDetails, tripCurrenc
   );
 }
 
-/** One fare in the list: airline (two lines at most), the clock times with a timeline between, the price on the right. */
-export function FlightRowBody({ offer, roundTrip, cheapest, selected, onDetails }: { offer: FlightOffer; roundTrip: boolean; cheapest: boolean; selected?: boolean; onDetails?: () => void }) {
+/** One fare in the list: airline, the clock times with a timeline between, the price on the right. Risks sit under the airline in one saffron line each. */
+export function FlightRowBody({ offer, cheapest, onDetails }: { offer: FlightOffer; cheapest: boolean; onDetails?: () => void }) {
   const stops = offer.stops;
   const plus = arrivalDayOffset(offer.departAt, offer.arriveAt);
-  // The airports a short trip changes at; with three or more stops the list would not fit, and the journey card names them all.
-  const via = offer.layoverAirports?.length && stops <= 2 ? ` · ${offer.layoverAirports.join(", ")}` : "";
+  // The airports a short trip changes at; with three or more stops the list would not fit, and the journey names them all.
+  const via = offer.layoverAirports?.length && stops <= 2 ? true : false;
+  const risks = offerRisks(offer.legs);
+  const cabin = offer.cabinClass && !/^economy$/i.test(offer.cabinClass) ? offer.cabinClass : null;
   return (
     <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
       <AirlineMark offer={offer} className="size-9 shrink-0" />
       <div className="min-w-0 flex-1 @[34rem]:w-[7.25rem] @[34rem]:flex-none">
         <p className="line-clamp-2 text-body leading-[1.2] font-medium">{offer.airline}</p>
-        {cheapest ? <WidgetPill tone="sage" className="mt-0.5 h-5 text-2xs max-lg:text-xs">Cheapest</WidgetPill> : <p className={cn(type.meta, "truncate")}>{[offer.cabinClass, offer.flightNumbers?.slice(0, 2).join(" · ")].filter(Boolean).join(" · ") || offer.originAirport}</p>}
+        {cheapest && <WidgetPill tone="sage" className="mt-0.5 h-5 text-2xs max-lg:text-xs">Cheapest</WidgetPill>}
+        {cabin && <p className={cn(type.meta, "truncate")}>{cabin}</p>}
+        {risks.map((risk) => <p key={risk} className="mt-0.5 flex items-center gap-1 text-xs leading-[1.125rem] font-medium text-caution"><Clock className="size-3 shrink-0" aria-hidden />{risk}</p>)}
       </div>
       <div className="order-last flex w-full min-w-0 items-center gap-3 @[34rem]:order-none @[34rem]:w-auto @[34rem]:flex-1">
         <p className="font-display text-base font-medium tabular-nums whitespace-nowrap">{clockOf(offer.departAt)}</p>
         <div className="min-w-0 flex-1">
-          <p className="flex justify-between gap-2 text-xs text-ink-soft tabular-nums"><span className="whitespace-nowrap">{offer.durationMinutes > 0 ? hoursMinutes(offer.durationMinutes) : ""}</span><span className="truncate">{stops === 0 ? "nonstop" : `${stops} stop${stops > 1 ? "s" : ""}${via}`}</span></p>
+          <p className="text-center text-xs leading-[1.125rem] text-ink-soft tabular-nums">{[offer.durationMinutes > 0 ? formatDuration(offer.durationMinutes) : null, stops === 0 ? "nonstop" : `${stops} stop${stops > 1 ? "s" : ""}`].filter(Boolean).join(" · ")}</p>
           <div className="relative my-1 h-2.5" aria-hidden>
             <span className="absolute inset-x-0 top-1 h-0.5 rounded-full bg-border" />
             <span className="absolute top-px left-0 size-2 rounded-full bg-foreground" />
             {Array.from({ length: Math.min(stops, 3) }, (_, k) => <span key={k} className="absolute top-[0.1875rem] size-1.5 -translate-x-1/2 rounded-full bg-coral" style={{ left: `${((k + 1) / (Math.min(stops, 3) + 1)) * 100}%` }} />)}
             <span className="absolute top-px right-0 size-2 rounded-full border-2 border-foreground bg-background" />
           </div>
+          {(offer.originAirport || offer.destinationAirport) && (
+            <p className="flex justify-between gap-2 text-xs leading-[1.125rem] tracking-[0.04em] text-muted-foreground"><span>{offer.originAirport}</span>{via && <span className="min-w-0 truncate tracking-normal">via {offer.layoverAirports?.join(", ")}</span>}<span>{offer.destinationAirport}</span></p>
+          )}
         </div>
         <p className="font-display text-base font-medium tabular-nums whitespace-nowrap">{clockOf(offer.arriveAt)}{plus > 0 && <sup className="ml-0.5 text-2xs max-lg:text-xs text-coral-ink">+{plus}</sup>}</p>
       </div>
-      <div className="ml-auto flex shrink-0 flex-col items-end">
-        <p className="font-display text-xl leading-tight font-medium tracking-[-0.015em] tabular-nums whitespace-nowrap">{offer.listedCurrency && <span className="mr-0.5 text-muted-foreground" title={`Converted from ${money(offer.listedPrice ?? "", offer.listedCurrency, true)} at today’s rate`}>≈</span>}{money(offer.price, offer.currency, true)}</p>
-        <p className="text-[0.71875rem] max-lg:text-xs text-muted-foreground">{roundTrip ? "round trip" : "per person"}</p>
-        {onDetails && <span className="mt-1 inline-flex items-center gap-0.5 text-xs font-medium text-ink-soft" aria-hidden>{selected ? "Shown above" : "Details"}<ChevronRight className="size-3.5" /></span>}
+      <div className="ml-auto flex shrink-0 items-center gap-1">
+        <p className="font-display text-xl leading-tight font-medium tracking-[-0.015em] tabular-nums whitespace-nowrap">{offer.listedCurrency && <span className="mr-0.5 text-muted-foreground" title={`Converted from ${money(offer.listedPrice ?? "", offer.listedCurrency, true)} at today’s rate`}>≈</span>}{wholeMoney(offer)}</p>
+        {onDetails && <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
       </div>
     </div>
   );

@@ -3,14 +3,15 @@
 import React, { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { Reveal } from "@/components/motion-primitives";
-import { ArrowUpRight, Armchair, Check, Clock, Luggage, Plane, Ticket, X, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, Armchair, Check, Leaf, Luggage, Plane, Ticket, X, type LucideIcon } from "lucide-react";
 import { useTripPanelMaybe, type FlightOffer, type FlightRoute } from "@/components/TripPanelProvider";
 import { Badge, Notice, money, prettyDate, type } from "@/features/conversation/ui/blocks/ui";
 import { arrivalDayOffset } from "@/features/conversation/ui/blocks/FlightFilters";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { AirlineMark, OtherFlights } from "./OtherFlights";
 import { ReturnFlights } from "./ReturnFlights";
-import { Journey, type FullLeg, clock, dayOf, eyebrow, hm, isRestriction, journeyLegs, sameFlight, stopsLabel } from "./FlightJourney";
+import { Journey, type FullLeg, clock, dayOf, eyebrow, isRestriction, journeyLegs, sameFlight, stopsLabel } from "./FlightJourney";
+import { formatDuration } from "@/lib/application/flight-risks";
 import { cn } from "@/lib/utils";
 
 /**
@@ -34,12 +35,6 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
   const from = flight.originAirport ?? route.origin;
   const to = flight.destinationAirport ?? route.destination;
   const expired = flight.expiresAt ? new Date(flight.expiresAt).getTime() < Date.now() : false;
-  const facts = [
-    flight.cabinClass ? { icon: Armchair, label: "Cabin", value: flight.cabinClass } : null,
-    flight.baggage ? { icon: Luggage, label: "Baggage", value: flight.baggage } : null,
-    flight.flightNumbers?.length ? { icon: Ticket, label: flight.flightNumbers.length > 1 ? "Flights" : "Flight", value: flight.flightNumbers.join(" · ") } : null,
-    flight.aircraft ? { icon: Plane, label: "Aircraft", value: flight.aircraft } : null,
-  ].filter((f): f is { icon: LucideIcon; label: string; value: string } => f !== null);
   // A card saved before the journey was kept has only its airports and flight numbers. The first time its journey is
   // opened, the same search is asked again and the matching fare's full legs replace them.
   const [fetched, setFetched] = useState<FullLeg[] | null>(null);
@@ -52,6 +47,13 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
   }, [flight.id]);
   const legs = fetched ?? journeyLegs(flight, route.origin, route.destination);
   const journey = legs.length > 1;
+  // With a journey, each flight's number and aircraft are in it; a nonstop has no journey, so they stay here.
+  const facts = [
+    flight.cabinClass && !/^economy$/i.test(flight.cabinClass) ? { icon: Armchair, label: "Cabin", value: flight.cabinClass } : null,
+    flight.baggage ? { icon: Luggage, label: "Baggage", value: flight.baggage } : null,
+    !journey && flight.flightNumbers?.length ? { icon: Ticket, label: flight.flightNumbers.length > 1 ? "Flights" : "Flight", value: flight.flightNumbers.join(" · ") } : null,
+    !journey && flight.aircraft ? { icon: Plane, label: "Aircraft", value: flight.aircraft } : null,
+  ].filter((f): f is { icon: LucideIcon; label: string; value: string } => f !== null);
   const loadFull = () => {
     if (asked.current || fetched || (flight.legs && flight.legs.length > 1) || !tripId || !flight.id?.startsWith("serp:")) return;
     asked.current = true;
@@ -69,6 +71,8 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
       .catch(() => undefined)
       .finally(() => setLoadingLegs(false));
   };
+  // Google Flights gives neither bags nor fare rules: say so once, in place of a row that would be empty.
+  const noRules = !flight.baggage && !flight.fareConditions?.length;
   const exampleDate = /^example date/i.test(route.dateNote ?? "");
   const when = route.returnDate ? `${dayOf(flight.departAt)} – ${prettyDate(route.returnDate) ?? route.returnDate}` : dayOf(flight.departAt);
   // Where the connections sit along the line, and where the plane is: mid-route when it is nonstop, nearing the end when it connects.
@@ -82,7 +86,7 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
         <div className="flex items-start gap-4">
           <AirlineMark offer={{ ...flight, legs: fetched ?? flight.legs }} className="size-12" />
           <div className="min-w-0 flex-1">
-            <h2 className="font-display text-xl font-semibold leading-tight tracking-[-0.02em] text-balance sm:text-2xl">{flight.airline}</h2>
+            <h2 className="font-display text-lg font-semibold leading-tight tracking-[-0.02em] text-balance sm:text-2xl">{flight.airline}</h2>
             <p className={cn(type.meta, "mt-1 flex flex-wrap items-center gap-x-2 gap-y-1")}>
               {flight.operatingAirline && flight.operatingAirline !== flight.airline && <span>Operated by {flight.operatingAirline}</span>}
               <span className="tabular-nums">{when}</span>
@@ -102,8 +106,8 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
         </div>
         {(cheapest || fastest) && (
           <div className="flex flex-wrap gap-1.5">
-            {cheapest && <Badge tone="positive" icon={Check}>Lowest fare</Badge>}
-            {fastest && <Badge tone="brand" icon={Clock}>Fastest</Badge>}
+            {cheapest && <Badge tone="positive">Cheapest</Badge>}
+            {fastest && <Badge tone="brand">Fastest</Badge>}
           </div>
         )}
       </header></Reveal>
@@ -140,7 +144,7 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
                 <Plane className="size-5 rotate-45 text-coral" strokeWidth={1.75} />
               </motion.span>
             </div>
-            <p className="mt-1 text-sm font-medium whitespace-nowrap tabular-nums">{hm(flight.durationMinutes)}</p>
+            <p className="mt-1 text-sm font-medium whitespace-nowrap tabular-nums">{formatDuration(flight.durationMinutes)}</p>
             <p className={cn(type.meta, "whitespace-nowrap tabular-nums")}>{stopsLabel(flight)}</p>
           </div>
           <div className="text-right">
@@ -165,7 +169,7 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
         </div>
 
         {/* The fold: a perforation between the route and the small print, with the notches a torn pass has. */}
-        {(facts.length > 0 || journey) && (
+        {(facts.length > 0 || journey || noRules || flight.co2Kg) && (
           <>
             <div className="relative mt-6" aria-hidden>
               <div className="mx-5 border-t-2 border-dashed border-border" />
@@ -184,10 +188,16 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
                 ))}
               </ul>
             )}
-            {journey && <div className={facts.length === 0 ? "mt-5" : undefined}><Journey legs={legs} loading={loadingLegs} onOpen={loadFull} /></div>}
+            {(noRules || flight.co2Kg) && (
+              <ul className={cn("relative grid gap-3 px-6 text-sm leading-[1.3125rem]", facts.length > 0 ? "pb-5" : "pt-5", journey ? "pb-5" : "pb-6")}>
+                {noRules && <li className="flex items-start gap-3"><span className="grid size-8 shrink-0 place-items-center rounded-xl bg-muted text-ink-soft"><Luggage className="size-4" aria-hidden /></span><span><b className="block font-semibold">Bag and change rules</b><span className={type.meta}>Not shown here. Check the airline’s site before you book.</span></span></li>}
+                {flight.co2Kg ? <li className="flex items-start gap-3"><span className="grid size-8 shrink-0 place-items-center rounded-xl bg-muted text-ink-soft"><Leaf className="size-4" aria-hidden /></span><span><b className="block font-semibold tabular-nums">{flight.co2Kg.toLocaleString("en")} kg CO₂</b>{typeof flight.co2Diff === "number" && flight.co2Diff !== 0 && <span className={cn(type.meta, "tabular-nums")}>{Math.abs(flight.co2Diff)}% {flight.co2Diff < 0 ? "less" : "more"} than typical for this route</span>}</span></li> : null}
+              </ul>
+            )}
+            {journey && <div className={facts.length === 0 && !noRules && !flight.co2Kg ? "mt-5" : undefined}><Journey legs={legs} loading={loadingLegs} onOpen={loadFull} /></div>}
           </>
         )}
-        {facts.length === 0 && !journey && <div className="h-6" />}
+        {facts.length === 0 && !journey && !noRules && !flight.co2Kg && <div className="h-6" />}
       </section></Reveal>
 
       {(flight.fareConditions?.length || flight.expiresAt) && (
@@ -227,7 +237,7 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
 
       {others.length > 0 && (
         <Reveal delay={0.2} y={10}>
-          <OtherFlights roundTrip={roundTrip} flight={flight} offers={offers} others={others} onPick={(o) => ctx?.openPanel({ kind: "flight", flight: o, route })} />
+          <OtherFlights flight={flight} offers={offers} others={others} onPick={(o) => ctx?.openPanel({ kind: "flight", flight: o, route })} />
         </Reveal>
       )}
 
@@ -239,9 +249,9 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
           rel="noreferrer noopener"
           className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground shadow-lift transition-[opacity,transform] hover:opacity-90 active:scale-[0.985]"
         >
-          See this route on Google Flights <ArrowUpRight className="size-4" aria-hidden />
+          Continue on Google Flights <ArrowUpRight className="size-4" aria-hidden />
         </a>
-        <p className={cn(type.meta, "text-center")}>Fares change quickly, and Roam can’t book flights. Check the airline before you commit.</p>
+        <p className={cn(type.meta, "text-center")}>Roam can’t book flights. Fares change quickly, so confirm the price on the airline’s site.</p>
       </div>
     </div>
   );

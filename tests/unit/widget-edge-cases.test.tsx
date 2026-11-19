@@ -2,7 +2,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { AssistantBlock } from "../../packages/contracts/assistant";
-import { layoverNote, pickFares } from "../../features/conversation/ui/blocks/FlightWidget";
+import { pickFares } from "../../features/conversation/ui/blocks/FlightWidget";
 
 vi.mock("@/components/CompareView", () => ({ CompareView: () => <div /> }));
 import { MessageBlocks } from "../../features/conversation/ui/blocks/MessageBlocks";
@@ -33,19 +33,6 @@ describe("flight picks", () => {
     const picks = pickFares([offer("cheap", "700", 900, 1), offer("fast", "1100", 420), offer("mid", "800", 500)] as never);
     expect(picks.find((p) => p.labels.includes("Cheapest"))?.offer.id).toBe("cheap");
     expect(picks.find((p) => p.labels.includes("Fastest"))?.offer.id).toBe("fast");
-  });
-});
-
-describe("layover notes", () => {
-  const leg = (extra: object) => ({ from: "YYZ", departAt: "x", to: "YUL", toName: "Montréal Trudeau Airport", arriveAt: "y", minutes: 80, ...extra });
-  it("says an overnight stop is overnight, a tight change is tight, and a very long wait is long", () => {
-    expect(layoverNote(leg({ layoverMinutes: 580, overnight: true }) as never)).toMatchObject({ tone: "night", text: expect.stringContaining("Overnight in Montréal Trudeau (YUL)") });
-    expect(layoverNote(leg({ layoverMinutes: 38 }) as never)).toMatchObject({ tone: "caution", text: expect.stringContaining("Only 38 min") });
-    expect(layoverNote(leg({ layoverMinutes: 420 }) as never)).toMatchObject({ tone: "caution", text: expect.stringContaining("7h 00m layover") });
-    expect(layoverNote(leg({ layoverMinutes: 95 }) as never)).toMatchObject({ tone: "neutral", text: expect.stringContaining("1h 35m layover") });
-  });
-  it("still says there is a stop when the wait is not known", () => {
-    expect(layoverNote(leg({}) as never)).toMatchObject({ tone: "neutral", text: expect.stringContaining("Stop in Montréal Trudeau (YUL)") });
   });
 });
 

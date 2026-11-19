@@ -57,14 +57,14 @@ export function FlightResults({ t }: { t: ReturnType<typeof useTransportSearch> 
 
       {tab === "flight" && !flightsLoading && shown.length > 0 && (
         <div className="space-y-4">
-          <FlightPicks picks={picks} selected={openFlight} onSelect={setOpenFlight} roundTrip={roundTrip} />
+          <FlightPicks picks={picks} selected={openFlight} onSelect={setOpenFlight} />
           <ul className="space-y-3" aria-label="Flights">
             {offers.map((offer) => {
               const key = offerKey(offer);
               return (
                 <li key={key} className="rounded-2xl bg-card ring-1 ring-border transition-shadow hover:ring-input">
                   <button type="button" onClick={() => setOpenFlight(key)} aria-haspopup="dialog" aria-label={`${offer.airline}, ${flightPrice(shown[offers.indexOf(offer)])}`} className="block w-full rounded-2xl p-4 text-left">
-                    <FlightRowBody offer={offer} roundTrip={roundTrip} cheapest={shown.length > 1 && offer === cheapest} onDetails={() => {}} />
+                    <FlightRowBody offer={offer} cheapest={shown.length > 1 && offer === cheapest} onDetails={() => {}} />
                   </button>
                 </li>
               );

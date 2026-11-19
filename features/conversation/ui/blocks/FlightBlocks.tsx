@@ -5,6 +5,8 @@ import { Info, Pencil, Plane, ChevronDown, X } from "lucide-react";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 import { cn } from "@/lib/utils";
 import { FlightHero, FlightJourney, FlightPicks, FlightPicksSkeleton, FlightRowBody, offerKey, pickFares } from "./FlightWidget";
+import { tradeoff } from "@/lib/application/flight-tradeoff";
+import { tradeoffText } from "./flightCopy";
 import { WidgetFoot } from "./Widget";
 import { AnimatePresence, motion } from "motion/react";
 import { motionTokens } from "@/components/motion-primitives";
@@ -73,10 +75,14 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
   const fromCode = fares.items[0]?.originAirport ?? (fromName.length <= 14 ? fromName : fromName.slice(0, 3).toUpperCase());
   const toCode = fares.items[0]?.destinationAirport ?? (toName.length <= 14 ? toName : toName.slice(0, 3).toUpperCase());
   const panelFor = (offer: FlightsBlockData["items"][number]) => ({ kind: "flight" as const, flight: offer, route: { origin: query.fromLabel, destination: query.toLabel, dateNote, retrievedAt: fares.retrievedAt, offers: fares.items, departureDate: query.depart ?? undefined, returnDate: query.ret ?? undefined, originId: query.fromId, destinationId: query.toId, onChangeReturn: (day: string) => searchForBar.setReturn(day) } });
+  // What the cheapest costs in time against the fastest: the one sentence the writer's judgement also makes (flight-tradeoff.ts).
+  const trade = ready && fares.items.length > 1 ? tradeoff(fares.items.map((o) => ({ price: Number(o.price), minutes: o.durationMinutes, stops: o.stops }))) : null;
+  const strip = trade && shownCurrency ? tradeoffText(trade, shownCurrency, (amount, currency) => money(amount, currency, true)) : null;
+  const moreCount = Math.max(0, offers.length - pickKeys.size);
   const footNote = (
     <Notice>
-      Prices are per person{roundTrip ? ", for the round trip" : ""}{fares.currency ? `, in ${fares.currency}` : ""}
-      {fares.items.some((o) => o.listedCurrency) ? `, converted from ${[...new Set(fares.items.map((o) => o.listedCurrency).filter(Boolean))].join(", ")} at today’s rate, so approximate` : ""}. Fares change quickly — check the airline or a travel site before booking.
+      Prices are per person{roundTrip ? " for the round trip" : ""}{fares.currency ? `, in ${fares.currency}` : ""}
+      {fares.items.some((o) => o.listedCurrency) ? `, converted from ${[...new Set(fares.items.map((o) => o.listedCurrency).filter(Boolean))].join(", ")} at today’s rate, so approximate` : ""}, and change quickly. Roam can’t book flights: you book on the airline’s site.
       {staleCurrency && <button type="button" onClick={() => { resetView(); fares.retry(); }} className={cn(textAction, "ml-1.5 align-baseline")}>Show prices in {tripCurrency}</button>}
     </Notice>
   );
@@ -125,8 +131,11 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
       {/* While the search is being edited on a phone, the form comes first and the fares it will change sit beneath it. */}
       <div className="flex flex-col">
         <div className={cn(searchOpen && "max-lg:order-2 max-lg:pb-1")}>
-          {loading && fares.items.length === 0 ? <FlightPicksSkeleton /> : ready && picks.length > 0 && <FlightPicks picks={picks} selected={chosenPick ? offerKey(chosenPick.offer) : null} onSelect={setChosen} roundTrip={roundTrip} />}
+          {loading && fares.items.length === 0 ? <FlightPicksSkeleton /> : ready && picks.length > 0 && <FlightPicks picks={picks} selected={chosenPick ? offerKey(chosenPick.offer) : null} onSelect={setChosen} onOpen={onOpenPanel ? (offer) => onOpenPanel(panelFor(offer)) : undefined} />}
         </div>
+        {ready && !searchOpen && strip && (
+          <div className="mx-4 mt-3 flex items-start gap-2 rounded-2xl bg-surface px-3 py-3 text-sm leading-[1.3125rem] text-ink-soft tabular-nums @[34rem]:mx-5 max-lg:mx-[1.125rem]"><Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden /><span>{strip}</span></div>
+        )}
         <div className={cn(!searchOpen && "max-lg:hidden")}>
           <FlightSearchBar search={searchForBar} tripId={tripId} trip={tripDates} routeOpen={routeOpen} onRouteDone={() => setRouteOpen(false)} />
         </div>
@@ -182,13 +191,18 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
           <button type="button" onClick={() => setView({ ...DEFAULT_FLIGHT_VIEW, sort: view.sort })} className={controlSecondary}>Clear filters</button>
         </div>
       )}
+      {ready && fares.items.length > 1 && moreCount > 0 && (
+        <div className="flex items-baseline justify-between px-[1.125rem] pb-1 pt-4 lg:hidden">
+          <p className="eyebrow">{moreCount} more option{moreCount > 1 ? "s" : ""}</p>
+          {roundTrip && day && <span className="text-xs text-muted-foreground">Outbound · {day}</span>}
+        </div>
+      )}
       {ready && fares.items.length > 1 && (
       <ul className="divide-y divide-border">
         {shown.map((offer, offerIndex) => {
           const flightPanel = panelFor(offer);
           const openFlight = () => onOpenPanel?.(flightPanel);
           const key = offerKey(offer);
-          const isPicked = chosenPick ? offerKey(chosenPick.offer) === key : false;
           return (
             <motion.li
               layout="position"
@@ -209,7 +223,7 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
               tabIndex={onOpenPanel ? 0 : undefined}
               aria-label={onOpenPanel ? `Open details for ${offer.airline}, ${clock(offer.departAt)} to ${clock(offer.arriveAt)}` : undefined}
             >
-              <FlightRowBody offer={offer} roundTrip={roundTrip} cheapest={offers.length > 1 && offer === lowest} selected={isPicked} onDetails={onOpenPanel ? openFlight : undefined} />
+              <FlightRowBody offer={offer} cheapest={offers.length > 1 && offer === lowest} onDetails={onOpenPanel ? openFlight : undefined} />
             </motion.li>
           );
         })}

@@ -6,15 +6,15 @@ import { Check, Clock } from "lucide-react";
 import type { FlightOffer } from "@/components/TripPanelProvider";
 import { arrivalDayOffset } from "@/features/conversation/ui/blocks/FlightFilters";
 import { Badge, money, type } from "@/features/conversation/ui/blocks/ui";
+import { formatDuration } from "@/lib/application/flight-risks";
 import { cn } from "@/lib/utils";
 
 const clock = (iso: string) => {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" });
 };
-const hm = (mins: number) => `${Math.floor(mins / 60)}h ${mins % 60}m`;
 /** "British Airways" → "BA", "Iberia" → "I": a monogram stands in when the airline's own logo is not there. */
-const monogram = (airline: string) => airline.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("");
+const monogram = (airline: string) => airline.split(/\s+/).filter((w) => /^\p{L}/u.test(w)).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("");
 const stopsText = (o: FlightOffer) => (o.stops === 0 ? "Nonstop" : `${o.stops} stop${o.stops > 1 ? "s" : ""}${o.layoverAirports?.length ? ` via ${o.layoverAirports.join(", ")}` : ""}`);
 
 /** One airline's mark: its logo when Google supplies one, else its initials, in the same round frame. */
@@ -73,7 +73,7 @@ export function FareCard({ offer, onPick, delta, badges, selected, priceNote }: 
   priceNote?: string;
 }) {
   const offset = arrivalDayOffset(offer.departAt, offer.arriveAt);
-  const label = `${offer.airline}, ${clock(offer.departAt)} to ${clock(offer.arriveAt)}, ${hm(offer.durationMinutes)}, ${stopsText(offer)}, ${money(offer.price, offer.currency, true)}`;
+  const label = `${offer.airline}, ${clock(offer.departAt)} to ${clock(offer.arriveAt)}, ${formatDuration(offer.durationMinutes)}, ${stopsText(offer)}, ${money(offer.price, offer.currency, true)}`;
   return (
     <button
       type="button"
@@ -112,7 +112,7 @@ export function FareCard({ offer, onPick, delta, badges, selected, priceNote }: 
         </span>
         <span className="flex flex-col items-center gap-1.5 px-1">
           <RouteLine stops={offer.stops} />
-          <span className={cn(type.meta, "tabular-nums")}>{hm(offer.durationMinutes)}</span>
+          <span className={cn(type.meta, "tabular-nums")}>{formatDuration(offer.durationMinutes)}</span>
         </span>
         <span className="text-right">
           <span className="block text-base font-medium leading-none tabular-nums">
@@ -131,7 +131,7 @@ export function FareCard({ offer, onPick, delta, badges, selected, priceNote }: 
  * The other flights from the same search, as a ladder of cards: how each compares with the flight you are looking at.
  * Tapping one opens it.
  */
-export function OtherFlights({ flight, offers, others, onPick, roundTrip }: { flight: FlightOffer; offers: FlightOffer[]; others: FlightOffer[]; onPick: (offer: FlightOffer) => void; roundTrip?: boolean }) {
+export function OtherFlights({ flight, offers, others, onPick }: { flight: FlightOffer; offers: FlightOffer[]; others: FlightOffer[]; onPick: (offer: FlightOffer) => void }) {
   const reduce = useReducedMotion();
   // A badge says "this one stands out", so it needs a single winner: a tie is not a standout.
   const lowest = Math.min(...offers.map((o) => Number(o.price)));
@@ -161,12 +161,11 @@ export function OtherFlights({ flight, offers, others, onPick, roundTrip }: { fl
               <FareCard
                 offer={o}
                 onPick={onPick}
-                priceNote={roundTrip ? "round trip" : undefined}
                 delta={Number.isFinite(diff) ? { text: diff === 0 ? "Same price" : `${money(Math.abs(diff), o.currency, true)} ${diff < 0 ? "less" : "more"}`, good: diff < 0 } : null}
                 badges={(cheapest || fastest) && (
                   <span className="mt-3 flex flex-wrap gap-1.5">
-                    {cheapest && <Badge tone="positive" icon={Check}>Lowest fare</Badge>}
-                    {fastest && <Badge tone="brand" icon={Clock}>Fastest</Badge>}
+                    {cheapest && <Badge tone="positive">Cheapest</Badge>}
+                    {fastest && <Badge tone="brand">Fastest</Badge>}
                   </span>
                 )}
               />
