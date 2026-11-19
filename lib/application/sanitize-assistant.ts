@@ -93,5 +93,6 @@ export function sanitizeAssistantContent(content: string, allowedUrls: ReadonlyS
         : "an amount I can't verify here";
     });
   }
-  return out;
+  // The model sometimes pads a list marker ("-   Place"): one space, so the source and any plain-text view read cleanly.
+  return out.replace(/^([-*])[ \t]{2,}(?=\S)/gm, "$1 ");
 }

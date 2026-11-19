@@ -8,4 +8,8 @@ describe("sanitizeAssistantContent: arithmetic on real fares", () => {
     expect(sanitizeAssistantContent("The cheaper one saves 285 CAD.", new Set(), grounding)).toBe("The cheaper one saves 285 CAD.");
     expect(sanitizeAssistantContent("Expect about 9,900 CAD in all.", new Set(), grounding)).toContain("an amount I can't verify here");
   });
+  it("trims a padded list marker to one space", async () => {
+    const { sanitizeAssistantContent } = await import("../../lib/application/sanitize-assistant");
+    expect(sanitizeAssistantContent("-   **A** · 4.6\n*  B", new Set())).toBe("- **A** · 4.6\n* B");
+  });
 });
