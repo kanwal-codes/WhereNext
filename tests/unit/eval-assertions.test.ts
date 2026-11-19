@@ -123,3 +123,20 @@ describe("the case set", () => {
     for (const c of cases.filter((x) => x.vars.turns !== undefined)) expect(typeof c.vars.turns).toBe("string");
   });
 });
+
+describe("decision checks", () => {
+  const groups = [["separate tickets?"], ["miss|missed"]];
+  it("passes a reply that touches every point and names what it missed", () => {
+    expect(run("mentionsAnyOf", "Two separate tickets means if you miss the second flight nobody rebooks you.", { config: { groups } }).pass).toBe(true);
+    const r = run("mentionsAnyOf", "Sure, take the cheaper one.", { config: { groups } });
+    expect(r.pass).toBe(false);
+    expect(r.reason).toContain("separate tickets?");
+  });
+
+  it("has unique ids and valid check groups in the decision set", () => {
+    const set = require("../../evals/roam/cases-decisions.cjs") as Array<{ description: string; assert: Array<{ metric: string }> }>;
+    expect(set.length).toBeGreaterThanOrEqual(30);
+    expect(new Set(set.map((c) => c.description)).size).toBe(set.length);
+    for (const c of set) for (const check of c.assert) expect(check.metric).toMatch(/^(hard|soft|signal):/);
+  });
+});

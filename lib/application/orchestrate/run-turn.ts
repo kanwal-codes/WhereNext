@@ -128,6 +128,8 @@ export type AssistantTurnResult =
       // COMPOSE gets no tools at all for a plain greeting/acknowledgment, nothing to look up.
       composeTools: Partial<ReturnType<typeof buildComposeTools>["tools"]>;
       toolEvidence: ReturnType<typeof buildComposeTools>["accumulated"];
+      /** What RETRIEVE returned for the planned look-ups (not the tools COMPOSE called itself): kept so a turn can be replayed. */
+      evidence?: Awaited<ReturnType<typeof retrieveEvidence>>;
       meta: AssistantTurnMeta;
       allowedUrls: Set<string>;
       toolPlan: ResolvedTurn["toolPlan"];
@@ -425,6 +427,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
     urgent: isUrgent(prompt),
     composeTools,
     toolEvidence,
+    evidence,
     meta,
     allowedUrls,
     toolPlan,

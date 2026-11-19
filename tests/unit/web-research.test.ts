@@ -38,8 +38,8 @@ describe("handleResearchWeb", () => {
   it("asks for the travel authorities only for a guide question, and puts a short answer first, credited to the top page", async () => {
     detailedMock.mockResolvedValue({ results: [page(1), page(2)], answer: "Yes, it is safe." });
     const ctx = makeCtx();
-    await handleResearchWeb({ tool: "research_web", query: "is tap water safe in Lisbon" }, ctx as never);
-    expect(detailedMock).toHaveBeenCalledWith("is tap water safe in Lisbon", undefined, { answer: true });
+    await handleResearchWeb({ tool: "research_web", query: "is tap water safe in Porto" }, ctx as never);
+    expect(detailedMock).toHaveBeenCalledWith("is tap water safe in Porto", undefined, { answer: true });
     expect(ctx.sources[0]).toEqual({ title: "Summary of the top results", url: "https://site1.example/p#summary", content: "Yes, it is safe." });
     expect(ctx.sources).toHaveLength(3);
   });

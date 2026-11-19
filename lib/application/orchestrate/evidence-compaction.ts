@@ -1,4 +1,5 @@
 import type { ResolvedTurn } from "@/lib/application/turn-resolver";
+import { judgeFlights } from "@/lib/application/flight-judgement";
 import type { Evidence } from "@/lib/application/orchestrate/retrieve-plan";
 
 /**
@@ -62,15 +63,22 @@ export function compactEvidence(input: { evidence: Evidence; toolPlan: ResolvedT
     : compactSources.length
       ? "There are no verified event cards. If a web source clearly names a relevant show you may mention it as \"listed on <source>\" — never assert its date or venue — otherwise say you found no confirmed events for those dates and suggest checking a venue's own calendar closer to the trip."
       : "";
-  const compactFlights = evidence.flights.map((search) => ({
-    origin: search.origin, destination: search.destination, departureDate: search.departureDate, exampleDate: search.assumedDate,
-    offers: search.offers.map((offer) => ({
-      airline: offer.airline, price: `${offer.priceAmount} ${offer.priceCurrency}`, listedByAirline: offer.listedAmount ? `${offer.listedAmount} ${offer.listedCurrency} (converted at today's rate, so approximate)` : undefined,
-      operatingAirline: offer.operatingAirline, cabinClass: offer.cabinClass, baggage: offer.baggage,
-      airports: offer.originAirport && offer.destinationAirport ? `${offer.originAirport} → ${offer.destinationAirport}` : undefined,
-      hours: +(offer.durationMinutes / 60).toFixed(1), stops: offer.stops, departs: offer.departAt, arrives: offer.arriveAt,
-    })),
-  }));
+  const compactFlights = evidence.flights.map((search) => {
+    const judged = judgeFlights(search);
+    return {
+      origin: search.origin, destination: search.destination, departureDate: search.departureDate, exampleDate: search.assumedDate,
+      // What the cheapest option costs in time, and the risks the layovers carry, worked out in code (flight-judgement.ts).
+      read: judged.read,
+      offers: search.offers.map((offer, i) => ({
+        airline: offer.airline, price: `${offer.priceAmount} ${offer.priceCurrency}`, listedByAirline: offer.listedAmount ? `${offer.listedAmount} ${offer.listedCurrency} (converted at today's rate, so approximate)` : undefined,
+        operatingAirline: offer.operatingAirline, cabinClass: offer.cabinClass, baggage: offer.baggage,
+        airports: offer.originAirport && offer.destinationAirport ? `${offer.originAirport} → ${offer.destinationAirport}` : undefined,
+        hours: +(offer.durationMinutes / 60).toFixed(1), stops: offer.stops, departs: offer.departAt, arrives: offer.arriveAt,
+        layovers: judged.offers[i].layovers.length ? judged.offers[i].layovers : undefined,
+        flags: judged.offers[i].flags.length ? judged.offers[i].flags : undefined,
+      })),
+    };
+  });
   const compactStays = evidence.stays.map((search) => ({
     location: search.location, checkin: search.checkin, checkout: search.checkout, nights: search.nights, exampleDates: search.assumedDates,
     // Google Hotels says nothing about what a rate includes and flags free cancellation only sometimes: absent is "not stated", never "no".

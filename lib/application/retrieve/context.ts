@@ -8,6 +8,8 @@ import type { EventResult, FlightSearch, RouteResult, StaySearch } from "../retr
 // identical paid Ticketmaster/Eventbrite/Tavily call. Shared by every handler that hits one of
 // those three providers, so it lives here rather than duplicated per handler file.
 export const RESEARCH_CACHE_MS = 30 * 60_000;
+/** Web research is also kept in Postgres this long (a week, the same cautious step as the app's own written text); see provider-store.ts. */
+export const RESEARCH_PERSIST_MS = 7 * 24 * 60 * 60_000;
 
 export type RetrieveFilters = {
   dislikes?: string[];

@@ -1,0 +1,39 @@
+{
+  "_note": "Stable travel facts only (never prices, opening hours, visa or entry rules, advisories). Each fact is paraphrased from the page in `url`, read directly on `checked`. Add a destination by reading its pages first; see docs/design/roam-knowledge-research.md for what still needs a source.",
+  "destinations": [
+    {
+      "id": "mexico-city",
+      "name": "Mexico City",
+      "aliases": ["mexico city", "cdmx", "ciudad de mexico"],
+      "facts": [
+        { "topic": "tipping", "text": "About 10% is customary at restaurants, bars and cafés, up to about 15% for very good service, and some restaurants add a gratuity to the bill. Tips are also customary for valets, bellhops and similar staff.", "site": "Mexico City government tourism guide", "url": "https://mexicocity.cdmx.gob.mx/e/basics-for-mexico-city-travel/?lang=en", "checked": "2026-11-18" },
+        { "topic": "plugs", "text": "Mexico City runs on 110 V at 60 Hz with Type B flat-pin plugs, the same as the US and Canada. Adapters are hard to find outside big airports, so bring one if your devices need it.", "site": "Mexico City government tourism guide", "url": "https://mexicocity.cdmx.gob.mx/e/basics-for-mexico-city-travel/?lang=en", "checked": "2026-11-18" },
+        { "topic": "season", "text": "The rainy season runs May to October, usually with sunny mornings and cloudy or rainy afternoons. Winters are mild, April and May are hot and dry, and mornings and evenings can be cold in winter. The average temperature is about 16°C.", "site": "Mexico City government tourism guide", "url": "https://mexicocity.cdmx.gob.mx/e/basics-for-mexico-city-travel/?lang=en", "checked": "2026-11-18" },
+        { "topic": "money", "text": "The guide suggests carrying only the cash you need for the day plus a credit card, noting you can withdraw from an ATM at any time, and asking for a receipt for every purchase.", "site": "Mexico City government tourism guide", "url": "https://mexicocity.cdmx.gob.mx/e/basics-for-mexico-city-travel/?lang=en", "checked": "2026-11-18" }
+      ]
+    },
+    {
+      "id": "lisbon",
+      "name": "Lisbon",
+      "aliases": ["lisbon", "lisboa"],
+      "facts": [
+        { "topic": "tipping", "text": "Tipping is modest: about 5–10% at sit-down restaurants when no service charge is added, rounding up at bars and cafés, €1–2 a day for hotel housekeeping, and rounding taxi fares up to the next euro.", "site": "Lisbon Tourism travel tips (updated Oct 2026)", "url": "https://www.lisbontourism.org/lisbon-travel-tips/", "checked": "2026-11-18" },
+        { "topic": "water", "text": "Tap water is safe to drink throughout Portugal; some people just prefer bottled for the taste.", "site": "Lisbon Tourism travel tips (updated Oct 2026)", "url": "https://www.lisbontourism.org/lisbon-travel-tips/", "checked": "2026-11-18" },
+        { "topic": "plugs", "text": "Portugal uses Type F plugs at 220 V, so bring an EU plug adapter if your devices have a different plug.", "site": "Lisbon Tourism travel tips (updated Oct 2026)", "url": "https://www.lisbontourism.org/lisbon-travel-tips/", "checked": "2026-11-18" },
+        { "topic": "airport", "text": "The airport metro leaves from the arrivals hall and reaches central Lisbon (Alameda, Marquês de Pombal, Baixa-Chiado) in about 25 minutes. The page puts the fare at about €1.90 and airport taxis at €10–18, and says to skip taxis and vans unless you have heavy luggage, arrive after midnight or travel with young children.", "site": "Lisbon Tourism travel tips (updated Oct 2026)", "url": "https://www.lisbontourism.org/lisbon-travel-tips/", "checked": "2026-11-18" },
+        { "topic": "season", "text": "April–May is the best overall time and September–October is excellent; June is also strong because of the Santos Populares festivities. July and August are hot (35°C and up) and crowded with peak prices, and November–February is cool with some rainy days but good value.", "site": "Lisbon Tourism travel tips (updated Oct 2026)", "url": "https://www.lisbontourism.org/lisbon-travel-tips/", "checked": "2026-11-18" },
+        { "topic": "money", "text": "Visa and Mastercard work at most restaurants, hotels and shops, but small tascas, market kiosks and souvenir stalls are often cash-only, so carry €40–60 in small bills. Decline an ATM's offer to convert to your home currency, and prefer Multibanco ATMs at bank branches over standalone machines, which the page says add large markups.", "site": "Lisbon Tourism travel tips (updated Oct 2026)", "url": "https://www.lisbontourism.org/lisbon-travel-tips/", "checked": "2026-11-18" }
+      ]
+    },
+    {
+      "id": "tokyo",
+      "name": "Tokyo",
+      "aliases": ["tokyo"],
+      "facts": [
+        { "topic": "tipping", "text": "There is generally no tipping in Japan: taxis need only the metered fare and hotel bellboys are not tipped. The exceptions are a hired driver for the day (about ¥1,000 for a half day, ¥2,000 for a full day) and meals at high-end ryokan (about ¥1,000 a night), always given in an envelope, never handed over as loose cash.", "site": "Inside Japan Tours travel tips", "url": "https://www.insidejapantours.com/travel-tips/", "checked": "2026-11-18" },
+        { "topic": "money", "text": "Japan is still largely cash-based, so carry some yen. Major cards are accepted more in big cities but not everywhere. Visa and Mastercard work at Japan Post and 7-Eleven ATMs, which need a 4-digit PIN.", "site": "Inside Japan Tours travel tips", "url": "https://www.insidejapantours.com/travel-tips/", "checked": "2026-11-18" },
+        { "topic": "plugs", "text": "Japan runs on 100 V with flat two-pin plugs like the US, so a North American plug works. The frequency is 50 Hz in Tokyo and eastern Japan and 60 Hz in the west.", "site": "Inside Japan Tours travel tips", "url": "https://www.insidejapantours.com/travel-tips/", "checked": "2026-11-18" }
+      ]
+    }
+  ]
+}

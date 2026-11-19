@@ -16,7 +16,10 @@ const KEY = "idem-1";
 const PROMPT = "best nightclubs in Shanghai";
 
 const appendSpy = vi.fn(async (_tripId: string, _userId: string, input: unknown) => ({ id: "a1", ...(input as object) }));
-const insertSpy = vi.hoisted(() => vi.fn(async () => ({ error: null })));
+const insertSpy = vi.hoisted(() => vi.fn(async (..._args: unknown[]) => ({ error: null })));
+/** The ai_turn_traces row (it alone has providers_failed); the whole-turn record is written through the same fake. */
+const traceCall = () => insertSpy.mock.calls.filter((call) => (call[0] as Record<string, unknown> | undefined)?.providers_failed !== undefined).at(-1);
+const recordCall = () => insertSpy.mock.calls.filter((call) => (call[0] as Record<string, unknown> | undefined)?.system_prompt !== undefined || (call[0] as Record<string, unknown> | undefined)?.kind !== undefined).at(-1);
 const upsertSpy = vi.hoisted(() => vi.fn(async () => ({ error: null })));
 const loadTripContextMock = vi.fn();
 const resolveTurnMock = vi.fn();
@@ -641,8 +644,21 @@ describe("POST /api/ai", () => {
     await readMeta(response); // consume the stream so persist + trace run
     expect(retrieveEvidenceMock).toHaveBeenCalledTimes(2);
     expect((retrieveEvidenceMock.mock.calls as unknown as unknown[][])[1][0]).toEqual([{ tool: "directions", from: "M1NT, China", to: "hotel, China", mode: "transit" }]);
-    const traceRow = (insertSpy.mock.calls.at(-1) as unknown as unknown[] | undefined)?.[0] as { tools: string[] } | undefined;
+    const traceRow = (traceCall() as unknown as unknown[] | undefined)?.[0] as { tools: string[] } | undefined;
     expect(traceRow?.tools).toEqual(expect.arrayContaining(["search_places", "directions"]));
+  });
+
+  it("records the whole turn (question, router plan, retrieved evidence, prompt, reply) so it can be replayed", async () => {
+    retrieveEvidenceMock.mockResolvedValueOnce({ places: [{ provider: "g", providerId: "p", name: "M1NT", category: "night_club", latitude: 1, longitude: 1, address: null, sourceUrl: null }], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "2026-11-18T00:00:00.000Z", usedTools: [] } as never);
+    const response = await post();
+    expect(response.status).toBe(200);
+    await readMeta(response);
+    const row = (recordCall() as unknown as unknown[] | undefined)?.[0] as Record<string, unknown> | undefined;
+    expect(row?.kind).toBe("ready");
+    expect(typeof row?.prompt).toBe("string");
+    expect(row?.resolved).toBeTruthy();
+    expect(JSON.stringify(row?.evidence)).toContain("M1NT");
+    expect(typeof row?.system_prompt).toBe("string");
   });
 
   it("carries the trip window + per-event offsets on the events block and briefs COMPOSE on the near-miss", async () => {
@@ -810,7 +826,7 @@ describe("POST /api/ai", () => {
     compose.failFirstN = 1;
     retrieveEvidenceMock.mockResolvedValue({ places: [{ provider: "g", providerId: "p", name: "X", category: null, latitude: 1, longitude: 1, address: null, sourceUrl: null }], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" });
     await readMeta(await post());
-    const traceRow = (insertSpy.mock.calls.at(-1) as unknown as unknown[] | undefined)?.[0] as { model_resolve?: string; model_compose?: string } | undefined;
+    const traceRow = (traceCall() as unknown as unknown[] | undefined)?.[0] as { model_resolve?: string; model_compose?: string } | undefined;
     expect(traceRow?.model_resolve).toBe("resolve-fallback-model");
     expect(traceRow?.model_compose).toBe("fallback-model"); // the primary threw — this is what really answered
   });
@@ -829,7 +845,7 @@ describe("POST /api/ai", () => {
     });
     retrieveEvidenceMock.mockResolvedValue({ places: [{ provider: "g", providerId: "p", name: "X", category: null, latitude: 1, longitude: 1, address: null, sourceUrl: null }], sources: [], weather: null, routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "t" });
     await readMeta(await post());
-    const traceRow = (insertSpy.mock.calls.at(-1) as unknown as unknown[] | undefined)?.[0] as { model_resolve?: string } | undefined;
+    const traceRow = (traceCall() as unknown as unknown[] | undefined)?.[0] as { model_resolve?: string } | undefined;
     // Asserting the exact value, not just `.not.toBe("compose-env-model")` — a prior version of
     // this test only checked the negative and missed that `?? process.env.RESOLVE_MODEL ?? undefined`
     // stores `""` (not `undefined`) when RESOLVE_MODEL is set-but-blank, since `??` doesn't treat
