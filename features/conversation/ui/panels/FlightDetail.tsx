@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
  * beneath, a perforated fold, then the small print. Below it, the other flights from the same
  * search so the choice stays in view.
  */
-export function FlightDetail({ flight, route }: { flight: FlightOffer; route: FlightRoute }) {
+export function FlightDetail({ flight, route, onSwitch }: { flight: FlightOffer; route: FlightRoute; /** Where picking one of the other flights goes when there is no trip panel to open it in (the home page's flights tool). */ onSwitch?: (flight: FlightOffer) => void }) {
   const ctx = useTripPanelMaybe();
   const tripId = useTripDataMaybe()?.tripId;
   const roundTrip = Boolean(route.returnDate);
@@ -30,10 +30,14 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
   const cheapest = offers.length > 1 && offers.every((o) => sameFlight(o, flight) || Number(o.price) > price);
   const fastest = offers.length > 1 && offers.every((o) => sameFlight(o, flight) || o.durationMinutes > flight.durationMinutes);
   const others = offers.filter((o) => !sameFlight(o, flight)).sort((a, b) => Number(a.price) - Number(b.price));
+  const airlines = flight.airline.split(/\s+·\s+/).filter(Boolean);
   const dayOffset = arrivalDayOffset(flight.departAt, flight.arriveAt);
   const city = (place: string) => place.split(",")[0].trim();
-  const from = flight.originAirport ?? route.origin;
-  const to = flight.destinationAirport ?? route.destination;
+  // Only an airport code is set large. With none, the city's name stands in, smaller, so a long one cannot push the route line out.
+  const asCode = (code: string | null | undefined, place: string) => (code && /^[A-Z0-9]{3,4}$/.test(code) ? code : null) ?? place.split(",")[0]!.trim();
+  const from = asCode(flight.originAirport, route.origin);
+  const to = asCode(flight.destinationAirport, route.destination);
+  const bigCode = (c: string) => (/^[A-Z0-9]{3,4}$/.test(c) ? "text-[2rem] sm:text-5xl" : "text-xl sm:text-3xl");
   const expired = flight.expiresAt ? new Date(flight.expiresAt).getTime() < Date.now() : false;
   // A card saved before the journey was kept has only its airports and flight numbers. The first time its journey is
   // opened, the same search is asked again and the matching fare's full legs replace them.
@@ -85,14 +89,17 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
         <div className="flex items-start gap-4">
           <AirlineMark offer={{ ...flight, legs: fetched ?? flight.legs }} className="size-12" />
           <div className="min-w-0 flex-1">
-            <h2 className="font-display text-lg font-semibold leading-tight tracking-[-0.02em] text-balance sm:text-2xl">{flight.airline}</h2>
+            <h2 className="font-display text-lg font-semibold leading-tight tracking-[-0.02em] sm:text-2xl">
+              {airlines.slice(0, 2).map((name) => <span key={name} className="block truncate" title={name}>{name}</span>)}
+              {airlines.length > 2 && <span className="block text-sm font-medium text-muted-foreground">+{airlines.length - 2} more</span>}
+            </h2>
             <p className={cn(type.meta, "mt-1 flex flex-wrap items-center gap-x-2 gap-y-1")}>
               {flight.operatingAirline && flight.operatingAirline !== flight.airline && <span>Operated by {flight.operatingAirline}</span>}
               <span className="tabular-nums">{when}</span>
               {exampleDate && <Badge className="h-5">Example date</Badge>}
             </p>
           </div>
-          <div className="shrink-0 text-right">
+          <div className="max-w-[55%] shrink-0 text-right">
             <p className="font-display text-2xl font-light leading-none tabular-nums tracking-[-0.03em] sm:text-3xl">
               {flight.listedCurrency && <span className="mr-1 text-xl font-normal text-muted-foreground">≈</span>}
               {money(flight.price, flight.currency, true)}
@@ -115,10 +122,10 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
         {/* A warm wash from the top edge, the way a pass catches the light at the gate. */}
         <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-gradient-to-b from-coral/[0.08] via-coral/[0.03] to-transparent" />
 
-        <div className="relative grid grid-cols-[auto_minmax(0,1fr)_auto] gap-x-4 px-6 pt-6">
-          <div>
+        <div className="relative grid grid-cols-[minmax(0,auto)_minmax(3rem,1fr)_minmax(0,auto)] gap-x-3 px-6 pt-6">
+          <div className="min-w-0">
             <p className={eyebrow}>Departs</p>
-            <p className="mt-2 font-display text-[2rem] font-light leading-none tracking-[-0.04em] sm:text-5xl">{from}</p>
+            <p className={cn("mt-2 truncate font-display font-light leading-none tracking-[-0.04em]", bigCode(from))}>{from}</p>
             <p className={cn(type.meta, "mt-2 truncate")}>{city(route.origin)}</p>
           </div>
           <div className="flex min-w-0 flex-col items-center pt-[1.6rem]">
@@ -143,23 +150,23 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
                 <Plane className="size-5 rotate-45 text-coral" strokeWidth={1.75} />
               </motion.span>
             </div>
-            <p className="mt-1 text-sm font-medium whitespace-nowrap tabular-nums">{formatDuration(flight.durationMinutes)}</p>
+            <p className={cn("text-sm font-medium whitespace-nowrap tabular-nums", stops.length ? "mt-3.5" : "mt-1")}>{formatDuration(flight.durationMinutes)}</p>
             <p className={cn(type.meta, "whitespace-nowrap tabular-nums")}>{stopsLabel(flight)}</p>
           </div>
-          <div className="text-right">
+          <div className="min-w-0 text-right">
             <p className={eyebrow}>Arrives</p>
-            <p className="mt-2 font-display text-[2rem] font-light leading-none tracking-[-0.04em] sm:text-5xl">{to}</p>
+            <p className={cn("mt-2 truncate font-display font-light leading-none tracking-[-0.04em]", bigCode(to))}>{to}</p>
             <p className={cn(type.meta, "mt-2 truncate")}>{city(route.destination)}</p>
           </div>
         </div>
 
         <div className="relative mt-5 grid grid-cols-2 gap-x-4 px-6">
-          <div>
+          <div className="min-w-0">
             <p className="font-display text-2xl font-semibold leading-none tabular-nums tracking-[-0.02em]">{clock(flight.departAt)}</p>
             <p className={cn(type.meta, "mt-1.5")}>{dayOf(flight.departAt)}</p>
           </div>
-          <div className="text-right">
-            <p className="font-display text-2xl font-semibold leading-none tabular-nums tracking-[-0.02em]">
+          <div className="min-w-0 text-right">
+            <p className="font-display text-2xl font-semibold leading-none tabular-nums tracking-[-0.02em] whitespace-nowrap">
               {clock(flight.arriveAt)}
               {dayOffset > 0 && <sup className="ml-0.5 text-xs font-normal text-muted-foreground">+{dayOffset}</sup>}
             </p>
@@ -236,7 +243,7 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
 
       {others.length > 0 && (
         <Reveal delay={0.2} y={10}>
-          <OtherFlights flight={flight} offers={offers} others={others} onPick={(o) => ctx?.openPanel({ kind: "flight", flight: o, route })} />
+          <OtherFlights flight={flight} offers={offers} others={others} onPick={(o) => (onSwitch ? onSwitch(o) : ctx?.openPanel({ kind: "flight", flight: o, route }))} />
         </Reveal>
       )}
 

@@ -13,6 +13,10 @@ GET    /api/cron/guest-cleanup                                      cron-secret
 POST   /api/cron/guest-cleanup                                      cron-secret
 GET    /api/cron/trip-review                                        cron-secret
 POST   /api/cron/trip-review                                        cron-secret
+GET    /api/flights/cover                                           user
+GET    /api/flights/photo                                           user
+GET    /api/flights/places                                          user
+POST   /api/flights                                                 user
 POST   /api/guest/claim-ticket                                      user
 POST   /api/guest/claim                                             user
 POST   /api/guest/reset                                             user

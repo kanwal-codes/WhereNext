@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type Ref } from "react";
 import { Command as Cmdk } from "cmdk";
-import { BedDouble, Bus, Landmark, Loader2, MapPin, Plane, TrainFront, Trees, Utensils, type LucideIcon } from "lucide-react";
+import { BedDouble, Bus, Landmark, Loader2, MapPin, Plane, TrainFront, Trees, Utensils, X, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Suggestion = { placeId: string; text: string; secondaryText: string | null; fullText?: string; types?: string[] };
@@ -81,6 +81,8 @@ export function DestinationCombobox({
   ariaLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
+  // The cross shows only in the field being edited, not in every filled one on the screen.
+  const [focused, setFocused] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
   const loading = status === "loading";
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -145,10 +147,14 @@ export function DestinationCombobox({
   return (
     <div ref={rootRef} className="relative">
       <Cmdk shouldFilter={false} loop>
+        {/* The field and a small cross that empties it: a whole place ("Lisbon, Portugal") goes in one tap, not forty backspaces. */}
+        <div className="relative flex items-center">
         <Cmdk.Input
           value={value}
           onValueChange={(v) => { if (quietFocus) setOpen(true); onChange(v); }}
+          onBlur={() => setFocused(false)}
           onFocus={(e) => {
+            setFocused(true);
             if (selectOnFocus) e.currentTarget.select();
             if (!quietFocus) setOpen(true);
             // A route field sits low in a scrolling panel: bring it up so its suggestions have room below.
@@ -172,7 +178,21 @@ export function DestinationCombobox({
           }}
           aria-label={ariaLabel}
           className={inputClassName ?? "w-full rounded-lg border border-input bg-background px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-ring/25 disabled:opacity-60"}
+          style={value && !disabled && focused ? { paddingRight: "1.75rem" } : undefined}
         />
+        {value && !disabled && focused && (
+          <button
+            type="button"
+            aria-label="Clear"
+            // The field keeps its focus (a pointer press would otherwise take it away and close the keyboard).
+            onPointerDown={(e) => e.preventDefault()}
+            onClick={() => { onChange(""); setOpen(false); rootRef.current?.querySelector("input")?.focus(); }}
+            className="absolute right-0 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-[0.94] max-lg:size-7"
+          >
+            <X className="size-3.5" aria-hidden />
+          </button>
+        )}
+        </div>
         {/* The input points at this list with aria-controls, so the element exists while closed too (hidden): a reference to nothing is an invalid ARIA
             value. Its rows are mounted only while open, so the arrow keys cannot land on one nobody can see. */}
         <Cmdk.List hidden={!showPanel} className="pop-menu absolute inset-x-0 top-full z-30 mt-2 max-h-72 overflow-y-auto overscroll-contain rounded-2xl border border-border bg-popover p-1.5 shadow-lift">

@@ -23,16 +23,18 @@ export type TripMember = { supabase: SupabaseClient; user: User; role: string; g
  */
 const HOUR = 60 * 60_000;
 
-export async function requireTripMember(
-  tripId: string,
+export type TripAccessOptions = {
   /** `registered` refuses guests (anonymous sessions) — for anything social or paid: invites,
    *  sharing, bookings, expenses. Guests can chat and look at their own draft trip, nothing more. */
-  opts: { role?: "owner" | "editor"; registered?: boolean; limit?: { bucket: string; max: number } } = {},
-): Promise<TripMember> {
+  registered?: boolean;
+  limit?: { bucket: string; max: number };
+};
+
+/** A signed-in person (a guest counts) held to the same ceilings as a trip route, for the tools that need no trip: flight search, its place pickers. */
+export async function requireUser(opts: TripAccessOptions = {}): Promise<{ supabase: SupabaseClient; user: User; guest: boolean }> {
   const supabase = await createSupabaseServerClient();
   const user = await getSessionUser(supabase);
   if (!user) throw new TripAuthError(401, "Authentication required");
-  if (!isUuid(tripId)) throw new TripAuthError(404, "Trip not found");
   const guest = isGuest(user);
   if (guest && opts.registered) throw new TripAuthError(403, "Save your trip with an account to use this.");
   if (guest && !(await withinRateLimit(guestKey.api(user.id), GUEST_API_LIMIT, 60 * 60_000, { failClosed: true }))) {
@@ -41,6 +43,13 @@ export async function requireTripMember(
   // A registered person is held to a high overall ceiling too (guests have their own, above), and to the route's own bucket if it has one.
   if (!guest && !(await withinRateLimit(`user-api:${user.id}`, 3000, HOUR))) throw new TripAuthError(429, "You’re moving fast. Try again in a little while.");
   if (opts.limit && !(await withinRateLimit(`user-${opts.limit.bucket}:${user.id}`, opts.limit.max, HOUR))) throw new TripAuthError(429, "You’ve used a lot of searches this hour. Try again in a little while.");
+  return { supabase, user, guest };
+}
+
+export async function requireTripMember(tripId: string, opts: TripAccessOptions & { role?: "owner" | "editor" } = {}): Promise<TripMember> {
+  // A malformed id is "not found", answered before any limit is spent.
+  const { supabase, user, guest } = await requireUser(opts);
+  if (!isUuid(tripId)) throw new TripAuthError(404, "Trip not found");
   const membership = await supabase.from("trip_members").select("role").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle();
   // A query failure (outage, timeout) must not read as "not a member" — that's a real 404 the
   // route callers treat as final (e.g. notFound() in trip layout), while this is retryable.

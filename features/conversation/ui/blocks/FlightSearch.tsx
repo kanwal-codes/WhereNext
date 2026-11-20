@@ -20,14 +20,14 @@ type Insights = NonNullable<FlightsBlock["insights"]>;
 /** The day a card's fares are for: its own field, else the first date its note names (cards saved before the field existed). */
 const startDate = (block: FlightsBlock): string | null => block.departureDate ?? block.dateNote?.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? null;
 
-export type FlightQuery = { fromLabel: string; fromId?: string; toLabel: string; toId?: string; depart: string | null; ret: string | null };
+export type FlightQuery = { fromLabel: string; fromId?: string; toLabel: string; toId?: string; depart: string | null; ret: string | null; /** Travellers the fares are priced for; left out, the search prices one. */ adults?: number };
 
 /**
  * The flights card's own search. It starts from the fares the chat found and, when the traveller changes the route or a
  * day (or turns the trip into a round trip), asks again: a skeleton while it loads, then the new fares. A newer change
  * cancels an older one still in flight, so the list never shows anything but what the bar says.
  */
-export function useFlightSearch(block: FlightsBlock, tripId: string, trip: { start?: string | null; end?: string | null }) {
+export function useFlightSearch(block: FlightsBlock, tripId: string | null, trip: { start?: string | null; end?: string | null }) {
   const [query, setQuery] = useState<FlightQuery>(() => ({ fromLabel: block.origin, fromId: block.originId, toLabel: block.destination, toId: block.destinationId, depart: startDate(block), ret: block.returnDate ?? null }));
   const [items, setItems] = useState<FlightItems>(block.items);
   const [insights, setInsights] = useState<Insights | null>(block.insights ?? null);
@@ -54,10 +54,10 @@ export function useFlightSearch(block: FlightsBlock, tripId: string, trip: { sta
     let gaveUp = false;
     const giveUpTimer = setTimeout(() => { gaveUp = true; request.abort(); }, 40_000);
     try {
-      const res = await fetch(`/api/trips/${tripId}/flights`, {
+      const res = await fetch(tripId ? `/api/trips/${tripId}/flights` : "/api/flights", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ from: next.fromLabel, to: next.toLabel, fromId: next.fromId, toId: next.toId, departureDate: next.depart, ...(next.ret ? { returnDate: next.ret } : {}) }),
+        body: JSON.stringify({ from: next.fromLabel, to: next.toLabel, fromId: next.fromId, toId: next.toId, departureDate: next.depart, ...(next.ret ? { returnDate: next.ret } : {}), ...(next.adults && next.adults > 1 ? { adults: next.adults } : {}) }),
         signal: request.signal,
       });
       const body = (await res.json().catch(() => ({}))) as {
@@ -74,7 +74,7 @@ export function useFlightSearch(block: FlightsBlock, tripId: string, trip: { sta
       setQuery({
         fromLabel: body.origin?.label ?? next.fromLabel, fromId: body.origin?.id ?? next.fromId,
         toLabel: body.destination?.label ?? next.toLabel, toId: body.destination?.id ?? next.toId,
-        depart: body.departureDate ?? next.depart, ret: body.returnDate ?? null,
+        depart: body.departureDate ?? next.depart, ret: body.returnDate ?? null, adults: next.adults,
       });
       setItems(found);
       setInsights(body.insights ?? null);
@@ -98,6 +98,9 @@ export function useFlightSearch(block: FlightsBlock, tripId: string, trip: { sta
   return {
     query, items, insights, assumed, status, problem, searched, retrievedAt, currency,
     retry: () => void run(q()),
+    /** A whole search at once (the flights page's sheet): where, which days, how many people. */
+    search: (next: FlightQuery) => void run(next),
+    setAdults: (adults: number) => void run({ ...q(), adults }),
     setFrom: (label: string) => void run({ ...q(), fromLabel: label, fromId: undefined }),
     setTo: (label: string) => void run({ ...q(), toLabel: label, toId: undefined }),
     swap: () => void run({ ...q(), fromLabel: q().toLabel, fromId: q().toId, toLabel: q().fromLabel, toId: q().fromId }),

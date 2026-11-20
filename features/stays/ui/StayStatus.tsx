@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { AlertCircle, BedDouble, ChevronDown, Loader2, SearchX, WifiOff, X } from "lucide-react";
+import { AlertCircle, BedDouble, Loader2, SearchX, SlidersHorizontal, WifiOff, X } from "lucide-react";
 import { Skeleton } from "@/components/Skeleton";
 import { fmtDay } from "@/lib/trip-dates";
 import { cn } from "@/lib/utils";
@@ -45,11 +45,13 @@ const ORDER: Record<StaySort, string> = { price: "Cheapest first", price_desc: "
 
 /**
  * One row saying what the screen is doing or what it found, the same on a phone and a desktop: the count on the left, the order on the right
- * (a button on a phone, where it opens the sort and filter sheet; plain text on a desktop, which has its own menu).
+ * (a "Filter" button on a phone, where it opens the sort and filter sheet; plain text on a desktop, which has its own menu).
  */
 export function StayStatusLine({ loading, slow, deepening, error, hasResult, count, total, filtered, sort, checkin, checkout, onOrder }: {
   loading: boolean; slow: boolean; deepening: boolean; error: StaySearchError | null; hasResult: boolean; count: number; total: number | undefined; filtered: boolean; sort: StaySort; checkin: string; checkout: string; onOrder?: () => void;
 }) {
+  // The dates are not shown elsewhere on a phone (the header pill opens them), so the line says them.
+  const when = checkin && checkout ? <span className="sm:hidden"> · {fmtDay(checkin)} – {fmtDay(checkout)}</span> : null;
   let text: ReactNode = null;
   let busy = false;
   let showOrder = false;
@@ -61,12 +63,13 @@ export function StayStatusLine({ loading, slow, deepening, error, hasResult, cou
     text = "Looking further for stays that match…";
   } else if (hasResult && !error && count > 0) {
     showOrder = true;
-    text = filtered && total ? <><b className="font-semibold text-foreground">{count}</b> of {total} stays</> : <><b className="font-semibold text-foreground">{count}</b> {count === 1 ? "stay" : "stays"}</>;
+    text = filtered && total ? <><b className="font-semibold text-foreground">{count}</b> of {total} stays{when}</> : <><b className="font-semibold text-foreground">{count}</b> {count === 1 ? "stay" : "stays"}{when}</>;
   }
   const order = showOrder && (onOrder ? (
     <button type="button" onClick={onOrder} className="-my-2 -mr-2 inline-flex items-center gap-1 rounded-full px-2 py-2 text-sm font-medium text-ink-soft transition-colors active:bg-muted">
-      {ORDER[sort]}
-      <ChevronDown className="size-4 text-muted-foreground" aria-hidden />
+      <SlidersHorizontal className="size-4 text-muted-foreground" aria-hidden />
+      Filter
+      {filtered && <span aria-hidden className="size-1.5 rounded-full bg-coral" />}
     </button>
   ) : (
     <span className="text-sm text-muted-foreground">{ORDER[sort]}</span>

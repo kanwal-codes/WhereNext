@@ -40,6 +40,8 @@ vi.mock("@/features/stays/ui/StayResultCard", () => ({
     </div>
   ),
 }));
+// The place field is a cmdk list, which measures itself with ResizeObserver (jsdom has none).
+globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
 let narrow = false;
 let headerTitle: React.ReactNode = null;
 vi.mock("@/components/shell/PhoneHeader", () => ({ useSetPhoneHeader: ({ titleNode }: Any) => { headerTitle = titleNode ?? null; } }));
@@ -197,7 +199,7 @@ describe("StaySurface: the search", () => {
     renderStay();
     await screen.findByTestId("card-h1");
     expect(screen.queryByRole("dialog")).toBeNull();
-    await user.click(screen.getByText(/guests? · \d rooms?/).closest("button")!);
+    await user.click(within(render(<>{headerTitle}</>).container).getByRole("button", { name: /^Dates, guests and place/ }));
     const dates = await screen.findByRole("dialog", { name: "Dates and guests" });
     expect(within(dates).getByText("Check-in")).toBeTruthy();
     await user.click(within(dates).getByRole("button", { name: "Done" }));
@@ -307,23 +309,18 @@ describe("StaySurface: dates and party", () => {
     expect(screen.getByRole("button", { name: "Fewer Rooms" }).hasAttribute("disabled")).toBe(false);
     await user.click(screen.getByRole("button", { name: "Fewer Rooms" }));
     expect(screen.getByRole("button", { name: "Fewer Rooms" }).hasAttribute("disabled")).toBe(true);
-    expect(screen.getByText("4 nights · 3 guests · 1 room")).toBeTruthy();
   });
 
-  it("summarises the nights, guests and rooms on the phone's folded bar", async () => {
-    renderStay();
-    await screen.findByTestId("card-h1");
-    expect(screen.getByText("4 nights · 2 guests · 1 room")).toBeTruthy();
-  });
-
-  it("opens and closes the folded bar", async () => {
+  it("opens the dates and guests from the header pill and closes them with Done", async () => {
     const user = u();
+    narrow = true;
     renderStay();
     await screen.findByTestId("card-h1");
-    const toggle = screen.getByRole("button", { name: /Edit/ });
-    expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    await user.click(toggle);
-    expect(screen.getByRole("button", { name: /Done/ }).getAttribute("aria-expanded")).toBe("true");
+    await user.click(within(render(<>{headerTitle}</>).container).getByRole("button", { name: /^Dates, guests and place/ }));
+    const dates = await screen.findByRole("dialog", { name: "Dates and guests" });
+    expect(dates.querySelector('input[aria-label="Place"]')).toBeTruthy();
+    await user.click(within(dates).getByRole("button", { name: "Done" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 });
 
@@ -651,20 +648,18 @@ describe("StaySurface: on the phone", () => {
     await screen.findByTestId("card-h1");
     expect(headerTitle).toBeTruthy();
     const { container } = render(<>{headerTitle}</>);
-    expect(container.textContent).toBe("pill Paris");
+    expect(container.textContent).toBe("Paris");
     expect(screen.getByTestId("city-chips").className).toContain("max-lg:hidden");
     expect(screen.getByTestId("ai").getAttribute("data-placeholder")).toBe("Try “Dec 10–14, 4 stars, under 200”");
   });
 
-  it("has a round filters button that says how many are on", async () => {
+  it("has a Filter button on the count line that opens the filters", async () => {
     const user = u();
     renderStay();
     await screen.findByTestId("card-h1");
-    const round = screen.getAllByRole("button", { name: "Filters" })[0];
-    expect(round.getAttribute("aria-pressed")).toBe("false");
-    await user.click(round);
+    await user.click(screen.getByRole("button", { name: "Filter" }));
     await user.click(screen.getByRole("button", { name: "4" }));
-    expect(screen.getByRole("button", { name: "Filters, 1 on" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: /^Remove: .*4/ })).toBeTruthy();
   });
 
   it("sorts and toggles free cancellation from chips", async () => {
@@ -673,9 +668,8 @@ describe("StaySurface: on the phone", () => {
     await screen.findByTestId("card-h1");
     await user.click(screen.getByRole("button", { name: "Free cancellation" }));
     expect(screen.getByRole("button", { name: "Remove: Free cancellation" })).toBeTruthy();
-    await user.click(screen.getAllByRole("button", { name: /^Filters/ })[0]);
+    await user.click(screen.getByRole("button", { name: "Filter" }));
     await user.click(screen.getByRole("button", { name: "Guest rating" }));
-    expect(screen.getByText(/Best rated first/)).toBeTruthy();
     expect(searches()).toHaveLength(1);
   });
 });

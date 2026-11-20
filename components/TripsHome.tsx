@@ -8,6 +8,7 @@ import { EmptyTrips } from "@/components/trips/EmptyTrips";
 import { FeaturedTrip } from "@/components/trips/FeaturedTrip";
 import { TripCard } from "@/components/trips/TripCard";
 import { PhoneTripRow } from "@/components/trips/PhoneTripRow";
+import { ToolsStrip } from "@/components/trips/ToolsStrip";
 import { TripsHero } from "@/components/trips/TripsHero";
 import { useStartTrip } from "@/components/trips/useStartTrip";
 import { useTripList } from "@/components/trips/useTripList";
@@ -27,6 +28,7 @@ export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]
       <TripsHero displayName={displayName} start={start} />
 
       <div className="mx-auto max-w-6xl px-4 pt-12 pb-20 sm:px-8">
+        <Reveal delay={0.5}><ToolsStrip /></Reveal>
         <Reveal delay={0.55}>
           <div className={cn("flex flex-wrap items-center justify-between gap-x-6 gap-y-4", "max-lg:flex-nowrap max-lg:gap-x-3")}>
             <div className="flex min-w-0 items-center gap-3">

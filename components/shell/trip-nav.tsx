@@ -1,4 +1,4 @@
-import { BedDouble, CalendarDays, Compass, LayoutGrid, Map, Notebook, Ticket, Users } from "lucide-react";
+import { BedDouble, CalendarDays, Compass, LayoutGrid, Map, Notebook, Plane, Ticket, Users } from "lucide-react";
 import { RoamIcon } from "@/components/shell/NavRow";
 
 export const NAV = [
@@ -8,6 +8,7 @@ export const NAV = [
   { seg: "discover", label: "Discover", icon: Compass },
   { seg: "map", label: "Getting around", icon: Map },
   { seg: "stay", label: "Stay", icon: BedDouble },
+  { seg: "flights", label: "Flights", icon: Plane },
   { seg: "itinerary", label: "Plan", icon: CalendarDays },
   { seg: "knowledge", label: "What Roam remembers", icon: Notebook },
   { seg: "bookings", label: "Bookings", icon: Ticket },
@@ -16,7 +17,7 @@ export const NAV = [
 /** The phone drawer's grouping (docs/design/phone-redesign-plan.md, decision 10): the trip itself, then planning, then what to keep. */
 export const PHONE_NAV_GROUPS: Array<{ title: string; segs: string[] }> = [
   { title: "Trip", segs: ["", "chat", "group"] },
-  { title: "Plan", segs: ["itinerary", "discover", "stay", "map"] },
+  { title: "Plan", segs: ["itinerary", "discover", "stay", "flights", "map"] },
   { title: "Keep", segs: ["knowledge", "bookings"] },
 ];
 
