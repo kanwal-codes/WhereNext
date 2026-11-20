@@ -35,13 +35,6 @@ export type MapLegShape = { polyline: Array<[number, number]>; mode: string; col
 
 export const hexColor = (c?: string) => (c ? `#${c.replace(/^#/, "")}` : undefined);
 
-/** Where to buy it: Google Flights, on this flight's airports and day (these are Google's own fares; nothing is sold here). */
-export const googleFlightsUrl = (f: Flight, returnDate: string) => {
-  const day = f.departAt?.slice(0, 10);
-  const query = `Flights from ${f.originAirport ?? ""} to ${f.destinationAirport ?? ""}${day ? ` on ${day}` : ""}${returnDate ? ` returning ${returnDate}` : ""}`;
-  return `https://www.google.com/travel/flights?q=${encodeURIComponent(query)}`;
-};
-
 /** A time as the clocks read where the journey starts (`timeZone`), not where the reader is. */
 export const clock = (iso?: string, timeZone?: string) => {
   if (!iso) return null;

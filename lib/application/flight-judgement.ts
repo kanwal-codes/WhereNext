@@ -73,7 +73,7 @@ export function judgeFlights(search: FlightSearch): { offers: JudgedOffer[]; rea
   const ins = search.insights;
   if (ins) {
     const range = ins.typicalLow && ins.typicalHigh ? ` (typically ${money(ins.typicalLow, currency)} to ${money(ins.typicalHigh, currency)})` : "";
-    read.push(`Google rates these prices ${ins.level} for this route${range}.`);
+    read.push(`These prices are ${ins.level} for this route${range}.`);
   }
   return { offers, read };
 }

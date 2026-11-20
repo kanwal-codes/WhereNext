@@ -54,7 +54,7 @@ describe("flight judgement", () => {
   it("passes on Google's price level, and copes with no usable prices", () => {
     const o = offer({});
     const r = judgeFlights(search([o], { insights: { level: "low", lowest: 980, typicalLow: 1150, typicalHigh: 1400 } }));
-    expect(r.read.join(" ")).toContain("Google rates these prices low for this route (typically 1,150 CAD to 1,400 CAD)");
+    expect(r.read.join(" ")).toContain("These prices are low for this route (typically 1,150 CAD to 1,400 CAD)");
     expect(judgeFlights(search([offer({ priceAmount: "n/a" })])).read).toEqual([]);
   });
 });

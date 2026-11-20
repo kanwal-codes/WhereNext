@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { Reveal } from "@/components/motion-primitives";
-import { ArrowUpRight, Armchair, Check, Leaf, Luggage, Plane, Ticket, X, type LucideIcon } from "lucide-react";
+import { Armchair, Check, Leaf, Luggage, Plane, Ticket, X, type LucideIcon } from "lucide-react";
 import { useTripPanelMaybe, type FlightOffer, type FlightRoute } from "@/components/TripPanelProvider";
 import { Badge, Notice, money, prettyDate, type } from "@/features/conversation/ui/blocks/ui";
 import { arrivalDayOffset } from "@/features/conversation/ui/blocks/FlightFilters";
@@ -78,7 +78,6 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
   // Where the connections sit along the line, and where the plane is: mid-route when it is nonstop, nearing the end when it connects.
   const stops = flight.layoverAirports ?? [];
   const stopAt = (i: number) => `${((i + 1) / (stops.length + 1)) * 72}%`;
-  const searchUrl = `https://www.google.com/travel/flights?q=${encodeURIComponent(`Flights from ${route.origin} to ${route.destination} on ${flight.departAt.slice(0, 10)}${route.returnDate ? ` through ${route.returnDate}` : ""}`)}`;
 
   return (
     <div className="space-y-7 p-4 pb-6 sm:p-6 sm:pb-6">
@@ -241,18 +240,8 @@ export function FlightDetail({ flight, route }: { flight: FlightOffer; route: Fl
         </Reveal>
       )}
 
-      {/* The way on stays in reach while the page scrolls: the button rides the bottom edge on a solid bar, so nothing shows through it. */}
-      <div className="sticky bottom-0 z-10 -mx-4 -mb-6 space-y-2.5 border-t border-border bg-background px-4 pb-5 pt-3 sm:-mx-6 sm:px-6">
-        <a
-          href={searchUrl}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground shadow-lift transition-[opacity,transform] hover:opacity-90 active:scale-[0.985]"
-        >
-          Continue on Google Flights <ArrowUpRight className="size-4" aria-hidden />
-        </a>
-        <p className={cn(type.meta, "text-center")}>Roam can’t book flights. Fares change quickly, so confirm the price on the airline’s site.</p>
-      </div>
+      {/* Fares are shown here and nowhere else: no link out. The note stays so nobody expects a Book button. */}
+      <p className={cn(type.meta, "text-center")}>Roam can’t book flights. Fares change quickly, so confirm the price on the airline’s site.</p>
     </div>
   );
 }

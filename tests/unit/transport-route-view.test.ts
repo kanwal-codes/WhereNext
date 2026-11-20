@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  cheapestFlight, compareContext, describeRoutes, driveSaveValue, driveTrafficOf, fastestIndex, flightPrice, flightSaveValue, flightsStatusText, googleFlightsUrl,
+  cheapestFlight, compareContext, describeRoutes, driveSaveValue, driveTrafficOf, fastestIndex, flightPrice, flightSaveValue, flightsStatusText,
   googleMapsTransitUrl, hexColor, legsFor, lyftHref, mergeWalks, money, pathOf, routeOrder, routeSummaries, stopsLabel, transitSaveValue, transitStatusText, uberHref,
   type DriveRoute, type Flight, type Route,
 } from "../../features/transport/domain/route-view";
@@ -108,10 +108,6 @@ describe("flights and links", () => {
     expect(cheap.from).toMatch(/96|95/);
     expect(cheapestFlight([])).toBeNull();
     expect(cheapestFlight([flight({ priceCurrency: "XX" })])!.from).toBeNull();
-  });
-  it("links to Google Flights for the airports, the day and the return", () => {
-    expect(decodeURIComponent(googleFlightsUrl(flight(), "2026-12-08"))).toBe("https://www.google.com/travel/flights?q=Flights from CDG to LYS on 2026-12-01 returning 2026-12-08");
-    expect(decodeURIComponent(googleFlightsUrl(flight({ departAt: "" }), ""))).toBe("https://www.google.com/travel/flights?q=Flights from CDG to LYS");
   });
   it("builds the rideshare and maps links", () => {
     expect(uberHref("A b", "C")).toBe("uber://?action=setPickup&pickup[formatted_address]=A%20b&dropoff[formatted_address]=C");
