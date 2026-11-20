@@ -3,6 +3,9 @@ import type { AssistantTurnMeta } from "@/packages/contracts/assistant";
 type Stored = { role: string; content: string; metadata?: unknown };
 type Followup = { label: string; prompt: string };
 
+/** The reply as Roam wrote it: `modelHistory` appends the suggested next steps to the latest one, which is not part of what was said. */
+export const replyText = (content: string) => content.replace(/\n\n\[Suggested next steps shown to the user just now:[\s\S]*$/, "").trim();
+
 /** The suggested next steps the most recent assistant message offered, if any. */
 export function lastSuggestedFollowups(stored: Stored[]): Followup[] | undefined {
   const lastAssistantMessage = [...stored].reverse().find((message) => message.role === "assistant");

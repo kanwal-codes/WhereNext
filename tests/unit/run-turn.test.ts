@@ -184,3 +184,35 @@ describe("runAssistantTurn — nothing came back from RETRIEVE", () => {
     expect(result.system).toContain("Use only the evidence below");
   });
 });
+
+describe("runAssistantTurn — dates before a flight or stay search", () => {
+  const flightsPlan = { language: "en", locationFocus: "Vancouver", intent: "transport", outOfScope: false, capabilities: [], toolPlan: [{ tool: "flights", origin: "Toronto", destination: "Vancouver" }],
+    clarify: null, suggestedFollowups: [], proposedProfileUpdate: null, proposedTripUpdate: null, suggestedFacts: [] };
+  const evidence = { places: [], placeGroups: [], sources: [], weather: null, weatherDays: [], routes: [], events: [], flights: [], stays: [], unavailableProviders: [], retrievedAt: "2026-01-01T00:00:00Z" };
+
+  it("asks for the day and runs no search when there is no date anywhere", async () => {
+    resolveTurnMock.mockResolvedValue(flightsPlan);
+    retrieveEvidenceMock.mockResolvedValue(evidence);
+    retrieveEvidenceMock.mockClear(); // a search left running by an earlier test must not count here
+    const result = await runAssistantTurn(deps, { tripCtx, prompt: "Cheap flights from toronto to Vancouver", history: [], tripSummary: "" });
+    expect(result.kind).toBe("clarify");
+    expect(result.kind === "clarify" && result.content).toBe("What day do you want to fly?");
+    expect(retrieveEvidenceMock).not.toHaveBeenCalled();
+    expect(result.resolved.toolPlan).toEqual([]);
+  });
+
+  it("searches when the trip already has dates", async () => {
+    resolveTurnMock.mockResolvedValue(flightsPlan);
+    retrieveEvidenceMock.mockResolvedValue(evidence);
+    const dated: TripContext = { ...tripCtx, trip: { ...tripCtx.trip!, start_date: "2099-03-01", end_date: "2099-03-08" } };
+    await runAssistantTurn(deps, { tripCtx: dated, prompt: "Cheap flights from toronto to Vancouver", history: [], tripSummary: "" });
+    expect(retrieveEvidenceMock).toHaveBeenCalled();
+  });
+
+  it("searches on the traveller's dodge after Roam asked, instead of asking again", async () => {
+    resolveTurnMock.mockResolvedValue(flightsPlan);
+    retrieveEvidenceMock.mockResolvedValue(evidence);
+    await runAssistantTurn(deps, { tripCtx, prompt: "I'm flexible", history: [{ role: "user", content: "cheap flights to Vancouver" }, { role: "assistant", content: "What day do you want to fly?" }], tripSummary: "" });
+    expect(retrieveEvidenceMock).toHaveBeenCalled();
+  });
+});
