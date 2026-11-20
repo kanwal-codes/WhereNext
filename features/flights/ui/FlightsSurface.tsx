@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
-import { ArrowLeft, ChevronDown, Info, Minus, Search, TrendingDown, TrendingUp } from "lucide-react";
+import { ArrowLeft, CalendarDays, ChevronDown, Info, Search } from "lucide-react";
 import { LoadingNote, SEARCH_NOTES } from "@/components/LoadingNote";
+import { Skeleton } from "@/components/Skeleton";
 import { motionTokens } from "@/components/motion-primitives";
 import { Sheet } from "@/components/motion-primitives";
 import { SheetHeader } from "@/components/SheetHeader";
@@ -32,12 +33,11 @@ const clock = (value: string) => {
 
 /** Google's read on the dates, as one quiet line (not a banner): low, typical or high for the route, and what is usual. */
 function InsightLine({ level, usual }: { level: "low" | "typical" | "high"; usual: string | null }) {
-  const tone = { low: { Icon: TrendingDown, text: "Low for these dates", cls: "text-positive" }, typical: { Icon: Minus, text: "Typical for these dates", cls: "text-ink-soft" }, high: { Icon: TrendingUp, text: "High for these dates", cls: "text-caution" } }[level];
+  const tone = { low: { text: "Low for these dates", dot: "bg-positive" }, typical: { text: "Typical for these dates", dot: "bg-muted-foreground/60" }, high: { text: "High for these dates", dot: "bg-caution" } }[level];
   return (
-    <p role="note" className="flex items-center gap-2 text-sm">
-      <tone.Icon className={cn("size-4 shrink-0", tone.cls)} aria-hidden />
-      <span className="font-medium">{tone.text}</span>
-      {usual && <span className="ml-auto text-muted-foreground">{usual}</span>}
+    <p role="note" className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 text-sm">
+      <span className="inline-flex items-center gap-2 font-medium"><span aria-hidden className={cn("size-2 shrink-0 rounded-full", tone.dot)} />{tone.text}</span>
+      {usual && <span className="text-muted-foreground">{usual}</span>}
     </p>
   );
 }
@@ -148,13 +148,14 @@ export function FlightsSurface({ tripId, active = true }: { tripId: string | nul
         onClick={() => openSheet("dates")}
         aria-haspopup="dialog"
         aria-label="Change days and travellers"
-        className="relative flex min-h-16 w-full items-center gap-3 overflow-hidden rounded-full border border-input bg-card px-5 text-left transition-transform duration-200 ease-out active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className="relative flex h-12 w-full items-center gap-3 overflow-hidden rounded-full border border-input bg-card pr-4 pl-4 text-left transition-transform duration-200 ease-out active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
-        <span className="min-w-0 flex-1">
-          <span className="block truncate font-display text-lg font-medium tracking-[-0.015em]">{datesLine(query.depart, query.ret) ?? "Choose your dates"}</span>
-          <span className="block truncate text-sm text-muted-foreground"><span className="max-lg:hidden">{routeLine(query.fromLabel, query.toLabel)} · </span>{travellersLine(adults)}</span>
+        <CalendarDays className="size-[1.125rem] shrink-0 text-ink-soft" aria-hidden />
+        <span className="min-w-0 flex-1 truncate">
+          <span className="font-display text-base font-medium tracking-[-0.01em] tabular-nums">{datesLine(query.depart, query.ret) ?? "Choose your dates"}</span>
+          <span className="text-sm text-muted-foreground"> · {travellersLine(adults)}</span>
         </span>
-        <ChevronDown className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+        <ChevronDown className="size-[1.125rem] shrink-0 text-muted-foreground" aria-hidden />
         <SearchSweep busy={loading} />
       </button>}
       <LoadingNote busy={loading} messages={roundTrip ? SEARCH_NOTES.roundTrip : SEARCH_NOTES.flights} className="mt-2 px-1" />
@@ -166,7 +167,8 @@ export function FlightsSurface({ tripId, active = true }: { tripId: string | nul
         <div className="mt-5" aria-busy={loading}>
           {loading && fares.items.length === 0 && (
             <>
-              <FlightPicksSkeleton />
+              <div aria-hidden className="mb-5 flex gap-2"><Skeleton className="h-10 w-44 rounded-full" /><Skeleton className="h-10 w-24 rounded-full" /><Skeleton className="h-10 w-24 rounded-full" /></div>
+              <div className="[&>*]:mx-0! [&>*]:mt-0!"><FlightPicksSkeleton /></div>
               <div className="mt-4"><FlightRowsSkeleton /></div>
             </>
           )}
@@ -200,7 +202,7 @@ export function FlightsSurface({ tripId, active = true }: { tripId: string | nul
 
           {ready && fares.items.length > 0 && (
             <motion.div key={fares.retrievedAt} initial={reduce ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={motionTokens.standard}>
-              {fares.insights && <div className="mb-3 px-1"><InsightLine level={fares.insights.level} usual={usual} /></div>}
+              {fares.insights && <div className="mb-4 mt-1 px-1"><InsightLine level={fares.insights.level} usual={usual} /></div>}
               <div className={cn("transition-opacity duration-200", loading && "pointer-events-none opacity-50")}>
                 <FlightControls items={fares.items} view={view} onChange={(v) => { setView(v); setShowAll(false); }} shown={offers.length} />
               </div>
@@ -211,8 +213,8 @@ export function FlightsSurface({ tripId, active = true }: { tripId: string | nul
                 </div>
               ) : (
                 <>
-                  <div className="mt-4 [&>*]:mx-0! [&>*]:mt-0!"><FlightPicks picks={picks} selected={null} onSelect={openOffer} /></div>
-                  <ul className="mt-2 divide-y divide-border">
+                  <div className="mt-5 [&>*]:mx-0! [&>*]:mt-0!"><FlightPicks picks={picks} selected={null} onSelect={openOffer} /></div>
+                  <ul className="mt-3">
                     {shown.map((offer, i) => {
                       const key = offerKey(offer);
                       return (
@@ -222,7 +224,7 @@ export function FlightsSurface({ tripId, active = true }: { tripId: string | nul
                           initial={reduce ? false : { opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ ...motionTokens.standard, delay: Math.min(i, 6) * 0.05 }}
-                          className="-mx-3 cursor-pointer rounded-2xl px-3 py-3.5 transition-colors hover:bg-muted/40 focus-visible:bg-muted/50 focus-visible:outline-none"
+                          className="relative -mx-4 cursor-pointer px-4 py-4 transition-colors duration-200 after:absolute after:inset-x-4 after:bottom-0 after:h-px after:bg-border last:after:hidden active:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none lg:-mx-3 lg:rounded-2xl lg:px-3 lg:after:inset-x-3 lg:hover:bg-muted/40"
                           role="button"
                           tabIndex={0}
                           onClick={() => openOffer(key)}

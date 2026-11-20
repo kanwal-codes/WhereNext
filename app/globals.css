@@ -984,6 +984,9 @@
 /* Controls that appear (the send arrow once there is text, the stop pill) settle in, never pop. */
 @keyframes settle-in { from { opacity: 0; transform: scale(0.72); } to { opacity: 1; transform: none; } }
 @utility settle-in { animation: settle-in 0.28s var(--ease-out) both; }
+/* A tile arriving: a short rise and fade, staggered by the caller with animation-delay. */
+@keyframes tile-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@utility tile-in { animation: tile-in 0.4s var(--ease-out) both; }
 
 /* A card you can open (EntityCard: places, events, stays, options, wherever they appear) rises 3px with
    the deeper shadow on hover and sinks on press. It lives here, once, so a place card in chat and the
@@ -1020,6 +1023,7 @@
   .skeleton, .shimmer-text { animation: none; }
   .shimmer-text { background: none; -webkit-text-fill-color: currentColor; color: var(--color-muted-foreground); }
   .settle-in { animation: none; }
+  .tile-in { animation: none; }
   .card-lift { transition: none; }
   .card-lift:hover, .card-lift:active { transform: none; }
   .card-lift:hover img { scale: 1; }
