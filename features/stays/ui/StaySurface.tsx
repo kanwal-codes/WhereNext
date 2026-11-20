@@ -23,6 +23,7 @@ import { AreaSheet } from "@/components/AreaSheet";
 import { DestinationCombobox } from "@/components/DestinationCombobox";
 import { CityPill } from "@/components/CityPill";
 import { useSetPhoneHeader } from "@/components/shell/PhoneHeader";
+import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { Sheet } from "@/components/motion-primitives";
 import { SheetHeader } from "@/components/SheetHeader";
@@ -97,6 +98,7 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   const [areaOpen, setAreaOpen] = useState(false);
   // Typing another place in the sheet anchors the search there; the pill then names it.
   const pillCity = near.trim() ? near.split(",")[0]!.trim() : cityName;
+  const keyboard = useKeyboardInset(barOpen);
   const [placeText, setPlaceText] = useState(pillCity);
   useEffect(() => { if (barOpen) setPlaceText(pillCity); }, [barOpen, pillCity]);
   const sheetedPill = useMediaQuery("(max-width: 639.98px)");
@@ -298,9 +300,9 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
 
       {sheeted && (
         <>
-          <Sheet open={barOpen} onClose={() => setBarOpen(false)} side="top" ariaLabel="Dates and guests" className="icons-fine">
+          <Sheet open={barOpen} onClose={() => setBarOpen(false)} side="top" ariaLabel="Dates and guests" className="icons-fine max-h-[min(88dvh,var(--vvh,88dvh))]!">
             <SheetHeader title="Dates and guests" onClose={() => setBarOpen(false)} bordered={false} />
-            <div className="px-4 pb-5">
+            <div className={cn("px-4 pb-5", keyboard && "min-h-0 flex-1 overflow-y-auto overscroll-contain pb-0")}>
             {/* The place is typed here, the way the flights search takes it: another city anchors the search there. The chevron opens the trip's own cities and areas when there are some. */}
             <div className="mb-2 flex items-center gap-3 rounded-2xl bg-muted px-4 py-3.5 transition-shadow focus-within:bg-card focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_5%,transparent),0_8px_18px_-12px_color-mix(in_oklab,var(--color-ink)_20%,transparent)]">
               <div className="min-w-0 flex-1">
@@ -314,7 +316,9 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
               )}
             </div>
             <div className="grid grid-cols-2 gap-2">{cells}</div>
-            <button type="button" onClick={() => setBarOpen(false)} className={cn(sheetPrimary, "mt-4 w-full flex-none")}>Done</button>
+            <div className={cn("mt-4", keyboard && "sticky bottom-0 -mx-4 bg-background px-4 pb-3 pt-2")}>
+              <button type="button" onClick={() => setBarOpen(false)} className={cn(sheetPrimary, "w-full flex-none")}>Done</button>
+            </div>
             </div>
           </Sheet>
           <AreaSheet open={areaOpen} onClose={() => setAreaOpen(false)} tripId={refine?.tripId ?? ""} parent={refine?.parent ?? pillCity} stops={cities.stops} activeStop={refine?.activeStop ?? pillCity} area={refine?.area ?? null} onPickStop={cities.setCity} onPickArea={refine?.onPickArea ?? (() => {})} narrow={Boolean(refine)} />
