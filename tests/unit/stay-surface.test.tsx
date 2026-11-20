@@ -149,7 +149,7 @@ describe("StaySurface: the search", () => {
     stayApi = "fail";
     const user = u();
     renderStay();
-    expect(await screen.findByText("The hotel sites aren't answering right now. Try again in a moment.")).toBeTruthy();
+    expect(await screen.findByText("The hotel sites aren’t answering right now. Try again in a moment.")).toBeTruthy();
     stayApi = result([hotel("h1", "Hotel Un")]);
     await user.click(screen.getByRole("button", { name: "Try again" }));
     await screen.findByTestId("card-h1");
@@ -173,7 +173,7 @@ describe("StaySurface: the search", () => {
   it("tells an offline reader to reconnect, not that the hotels are down", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
     renderStay();
-    expect(await screen.findByText("You're offline")).toBeTruthy();
+    expect(await screen.findByText("You’re offline")).toBeTruthy();
     expect(screen.getByText("Reconnect and the hotels will load.")).toBeTruthy();
   });
 
@@ -499,7 +499,7 @@ describe("StaySurface: asking Roam", () => {
     await screen.findByTestId("card-a");
     act(() => directive.current!({ sort: "price_desc" }));
     await waitFor(() => expect(Array.from(document.querySelectorAll("[data-testid^='card-']")).map((e) => e.getAttribute("data-testid"))).toEqual(["card-b", "card-a"]));
-    expect(screen.getByText(/Most expensive first/)).toBeTruthy();
+    expect(screen.getAllByText(/Highest price/).length).toBeGreaterThan(0);
     expect(searches()).toHaveLength(1);
   });
 
@@ -653,23 +653,36 @@ describe("StaySurface: on the phone", () => {
     expect(screen.getByTestId("ai").getAttribute("data-placeholder")).toBe("Try “Dec 10–14, 4 stars, under 200”");
   });
 
-  it("has a Filter button on the count line that opens the filters", async () => {
+  const pills = () => within(screen.getByRole("group", { name: "Sort and filter" }));
+
+  it("has a Filters pill, under the header, that opens the filters", async () => {
     const user = u();
     renderStay();
     await screen.findByTestId("card-h1");
-    await user.click(screen.getByRole("button", { name: "Filter" }));
+    await user.click(pills().getByRole("button", { name: /^Filters/ }));
     await user.click(screen.getByRole("button", { name: "4" }));
     expect(screen.getByRole("button", { name: /^Remove: .*4/ })).toBeTruthy();
+  });
+
+  it("opens a pill's group in a small panel and closes it again", async () => {
+    const user = u();
+    renderStay();
+    await screen.findByTestId("card-h1");
+    await user.click(pills().getByRole("button", { name: /^Sort:/ }));
+    const panel = screen.getByRole("region", { name: "Sort by" });
+    await user.click(within(panel).getByRole("button", { name: "Best rated" }));
+    expect(screen.queryByRole("region", { name: "Sort by" })).toBeNull();
+    expect(pills().getByRole("button", { name: /^Sort: Best rated/ })).toBeTruthy();
   });
 
   it("sorts and toggles free cancellation from chips", async () => {
     const user = u();
     renderStay();
     await screen.findByTestId("card-h1");
-    await user.click(screen.getByRole("button", { name: "Free cancellation" }));
+    await user.click(pills().getByRole("button", { name: "Free cancellation" }));
     expect(screen.getByRole("button", { name: "Remove: Free cancellation" })).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Filter" }));
-    await user.click(screen.getByRole("button", { name: "Guest rating" }));
+    await user.click(pills().getByRole("button", { name: /^Filters/ }));
+    await user.click(screen.getByRole("button", { name: "Best rated" }));
     expect(searches()).toHaveLength(1);
   });
 });

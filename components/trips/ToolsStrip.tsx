@@ -6,9 +6,9 @@ type Tool = { name: string; line: string; Icon: LucideIcon; href?: string };
 
 /** Things to do with no trip. Only Flights works on its own today; the others are shown so the row is whole, and say they are coming. */
 const TOOLS: Tool[] = [
-  { name: "Flights", line: "Fares for your days", Icon: Plane, href: "/flights" },
-  { name: "Stays", line: "Soon", Icon: BedDouble },
-  { name: "Eat", line: "Soon", Icon: Utensils },
+  { name: "Flights", line: "Prices for your dates", Icon: Plane, href: "/flights" },
+  { name: "Stays", line: "Coming soon", Icon: BedDouble },
+  { name: "Eat", line: "Coming soon", Icon: Utensils },
 ];
 
 const tile = "flex min-h-28 flex-col justify-between gap-3 rounded-3xl bg-surface p-3.5 ring-1 ring-border";

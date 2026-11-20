@@ -119,7 +119,7 @@ export function FlightPicks({ picks, selected, onSelect, onOpen }: { picks: Flig
   if (picks.length === 1 && picks[0].labels.length > 1) return <FlightPickBoth pick={picks[0]} on={selected === offerKey(picks[0].offer)} onSelect={onSelect} onOpen={onOpen} />;
   return (
     <div className="relative z-[1] mx-4 -mt-10 flex gap-2 @[34rem]:mx-5 max-lg:mx-[1.125rem] max-lg:mt-4">
-      {picks.map((pick) => {
+      {picks.map((pick, i) => {
         const key = offerKey(pick.offer);
         const on = selected === key;
         const stops = pick.offer.stops === 0 ? "Nonstop" : `${pick.offer.stops} stop${pick.offer.stops > 1 ? "s" : ""}`;
@@ -127,15 +127,16 @@ export function FlightPicks({ picks, selected, onSelect, onOpen }: { picks: Flig
           <button
             key={key}
             type="button"
+            style={{ animationDelay: `${i * 70}ms` }}
             onClick={() => {
               onSelect(key);
               if (onOpen && window.matchMedia("(max-width: 1023.98px)").matches) onOpen(pick.offer);
             }}
             aria-pressed={on}
-            className={cn("relative min-w-0 flex-1 rounded-2xl border border-border bg-surface p-3 text-left transition-[box-shadow,background-color,border-color,transform] duration-200 ease-out hover:border-ink/25 active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:px-3.5", on && "lg:border-primary lg:bg-card lg:shadow-lift lg:ring-1 lg:ring-primary lg:backdrop-blur-md")}
+            className={cn("tile-in relative min-w-0 flex-1 rounded-2xl border border-border bg-surface p-3 text-left transition-[box-shadow,background-color,border-color,transform] duration-200 ease-out hover:border-ink/25 active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:px-3.5", on && "lg:border-primary lg:bg-card lg:shadow-lift lg:ring-1 lg:ring-primary lg:backdrop-blur-md")}
           >
             <span className="flex items-center justify-between gap-1.5">
-              <span className="eyebrow truncate">{pick.labels.slice(0, picks.length <= 2 ? 2 : 1).join(" · ")}</span>
+              <span className={cn("eyebrow status-dot inline-flex min-w-0 items-center gap-1.5 tracking-[0.06em]!", pick.labels[0] === "Cheapest" ? "status-ok" : pick.labels[0] === "Fastest" ? "status-info" : "status-brand")}><span className="truncate">{pick.labels.slice(0, picks.length <= 2 ? 2 : 1).join(" · ")}</span></span>
               <AirlineMark offer={pick.offer} className="size-6 max-lg:hidden" />
             </span>
             <FitText className="mt-1 font-display text-lg leading-[1.625rem] font-medium tracking-[-0.015em] tabular-nums lg:text-widget lg:leading-tight">{wholeMoney(pick.offer)}</FitText>
@@ -311,7 +312,8 @@ export function FlightRowBody({ offer, cheapest, onDetails }: { offer: FlightOff
   const cabin = offer.cabinClass && !/^economy$/i.test(offer.cabinClass) ? offer.cabinClass : null;
   return (
     <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
-      <AirlineMark offer={offer} className="size-9 shrink-0" />
+      {/* A fixed slot: one logo or two overlapping, the airline names start in the same place down the list. */}
+      <span className="flex w-[3.75rem] shrink-0"><AirlineMark offer={offer} className="size-9 shrink-0" /></span>
       <div className="min-w-0 flex-1 @[34rem]:w-[7.25rem] @[34rem]:flex-none">
         <p className="line-clamp-2 text-body leading-[1.2] font-medium">{offer.airline}</p>
         {cheapest && <WidgetPill tone="sage" className="mt-0.5 h-5 text-2xs max-lg:text-xs">Cheapest</WidgetPill>}

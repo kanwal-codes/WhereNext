@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Plane, Search } from "lucide-react";
-import { EmptyState } from "@/components/EmptyState";
+import { StateMessage, stateButton } from "@/components/StateMessage";
 import { RemoveControl } from "@/components/overview/RemoveControl";
 import { Skeleton } from "@/components/Skeleton";
 import { clockLabel, dayHeading, type TimelineItem } from "@/lib/trip-reservations";
@@ -22,18 +22,18 @@ export function MyFlights({ tripId, items, loading, onRemove, onSearch }: { trip
   if (loading) return <div className="space-y-4"><Skeleton className="h-44 rounded-3xl" /></div>;
   if (items.length === 0) {
     return (
-      <EmptyState
+      <StateMessage
         icon={Plane}
         title="No flights on this trip yet"
-        action={
-          <div className="flex flex-wrap justify-center gap-3">
-            <button type="button" onClick={onSearch} className="btn-primary h-11 rounded-full px-6">Search flights</button>
-            <Link href={`/trips/${tripId}/bookings`} className="daisy-btn daisy-btn-outline h-11 rounded-full border-border bg-card px-5 font-medium shadow-none hover:border-foreground/30 hover:bg-accent">Add a booking</Link>
-          </div>
+        actions={
+          <>
+            <button type="button" onClick={onSearch} className={stateButton.primary}>Search flights</button>
+            <Link href={`/trips/${tripId}/bookings`} className={stateButton.secondary}>Add a booking</Link>
+          </>
         }
       >
-        Flights you save from Getting around or book land here, or add one you have already booked from Bookings.
-      </EmptyState>
+        Flights you save or book appear here. You can also add one you’ve already booked from Bookings.
+      </StateMessage>
     );
   }
   return (

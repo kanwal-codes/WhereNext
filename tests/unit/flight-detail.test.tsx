@@ -20,12 +20,13 @@ describe("FlightDetail journey", () => {
     expect(html).toContain("2h 10m layover");
   });
 
-  it("keeps the traveller here: no link out to Google Flights or anywhere else, and the can't-book note stays", () => {
+  it("keeps the traveller here: no link out to Google Flights or anywhere else, and says to check the price with the airline", () => {
     const html = render({ ...base, stops: 0 });
     expect(html).not.toContain("google.com");
     expect(html).not.toContain("Continue on");
     expect(html).not.toMatch(/<a\s/);
-    expect(html).toContain("Roam can’t book flights");
+    expect(html).toContain("Check the price with the airline before you book");
+    expect(html).not.toContain("can’t book");
   });
 
   it("says once that bags and fare rules are not shown, instead of a row that would be empty", () => {

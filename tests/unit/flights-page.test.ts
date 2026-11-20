@@ -14,6 +14,11 @@ describe("draftFromTrip", () => {
     expect(d.ret).toBeNull();
     expect(d.adults).toBe(1);
   });
+  it("does not treat an itinerary written out as one place to fly to", () => {
+    expect(draftFromTrip({ destination: "Portugal, then Morocco" }, now).toLabel).toBe("");
+    expect(draftFromTrip({ destination: "Paris and Rome" }, now).toLabel).toBe("");
+    expect(draftFromTrip({ destination: "Lisbon, Portugal" }, now).toLabel).toBe("Lisbon, Portugal");
+  });
   it("keeps travellers between 1 and 9", () => {
     expect(draftFromTrip({ travelers: 40 }, now).adults).toBe(9);
     expect(draftFromTrip({ travelers: 0 }, now).adults).toBe(1);

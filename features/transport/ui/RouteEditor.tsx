@@ -92,6 +92,8 @@ export function RouteEditor({ tripId, near, t, ask, chips, onClose, toRef, fromR
       onEnter={() => decide(row === "from" ? from : to, row)}
       placeholder={row === "to" && speech.listening ? "Listening…" : waiting?.need === "city" && waiting.side === row ? `A city in ${waiting.place}` : row === "from" ? "Where from?" : "Where to?"}
       inputClassName={`${field} pr-11`}
+      // The swap button sits at the right of both rows: the cross stops short of it, so each can be pressed.
+      clearRight="2.75rem"
     />
   );
 

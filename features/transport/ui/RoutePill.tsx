@@ -1,6 +1,7 @@
 "use client";
 
 import { Search, X } from "lucide-react";
+import { placeName } from "@/lib/place-label";
 import { cn } from "@/lib/utils";
 
 /**
@@ -10,7 +11,7 @@ import { cn } from "@/lib/utils";
  */
 export function RoutePill({ from, to, loading, onOpen, className }: { from: string; to: string; loading: boolean; onOpen: () => void; className?: string }) {
   const empty = !from && !to;
-  const city = (place: string) => place.split(",")[0]!.trim();
+  const city = placeName;
   return (
     <button
       type="button"

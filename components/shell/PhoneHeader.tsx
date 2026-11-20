@@ -70,7 +70,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/group/details": "Group details",
   "/itinerary": "Plan",
   "/today": "Today",
-  "/flights": "Flights",
+  "/eat": "Eat", "/flights": "Flights",
   "/map": "Getting around",
   "/transport": "Getting around",
   "/bookings": "Bookings",

@@ -47,7 +47,7 @@ export function DiscoverTile({
   selected?: boolean;
 }) {
   const stars = typeof rating === "number" && rating > 0 ? (
-    <span className="inline-flex shrink-0 items-center gap-1 font-display font-semibold tabular-nums">
+    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap font-display font-semibold tabular-nums">
       <Star className="size-3.5 fill-coral text-coral" aria-hidden />
       {rating.toFixed(1)}
     </span>

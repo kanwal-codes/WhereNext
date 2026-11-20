@@ -8,6 +8,7 @@ import { Sheet, ease } from "@/components/motion-primitives";
 import { SheetHeader } from "@/components/SheetHeader";
 import { SlidingTabs } from "@/features/conversation/ui/blocks/SlidingTabs";
 import { cn } from "@/lib/utils";
+import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { canSearch, MAX_TRAVELLERS, tomorrow, travellersLine, type FlightDraft } from "../domain/flights-page";
 
@@ -58,6 +59,7 @@ export function FlightSearchSheet({ open, onClose, tripId, draft, onSearch, focu
 }) {
   const phone = useMediaQuery("(max-width: 1023.98px)");
   const reduce = useReducedMotion();
+  const keyboard = useKeyboardInset(open && phone);
   const [fields, setFields] = useState<FlightDraft>(draft);
   const [round, setRound] = useState(wantsRound(draft));
   const [turn, setTurn] = useState(0);
@@ -87,9 +89,9 @@ export function FlightSearchSheet({ open, onClose, tripId, draft, onSearch, focu
   const endpoint = tripId ? `/api/trips/${tripId}/flights/places` : "/api/flights/places";
   const field = "h-14 min-w-0 flex-1 bg-transparent font-display text-lg font-medium tracking-[-0.015em] outline-none placeholder:font-sans placeholder:text-base placeholder:font-normal placeholder:text-muted-foreground/70";
   return (
-    <Sheet open={open} onClose={onClose} side={phone ? "top" : "center"} ariaLabel="Search flights" initialFocus={focus === "dates" ? undefined : (toRef as RefObject<HTMLElement | null>)} className="icons-fine lg:max-w-md lg:p-5">
+    <Sheet open={open} onClose={onClose} side={phone ? "top" : "center"} ariaLabel="Search flights" initialFocus={focus === "dates" ? undefined : (toRef as RefObject<HTMLElement | null>)} className="icons-fine max-lg:max-h-[min(88dvh,var(--vvh,88dvh))]! lg:max-w-md lg:p-5">
       <SheetHeader title="Flights" onClose={onClose} bordered={false} />
-      <form onSubmit={(e) => { e.preventDefault(); go(); }} className="px-4 pb-5 lg:px-0 lg:pb-0">
+      <form onSubmit={(e) => { e.preventDefault(); go(); }} className={cn("px-4 pb-5 lg:px-0 lg:pb-0", keyboard && "min-h-0 flex-1 overflow-y-auto overscroll-contain pb-0")}>
         <div className="relative rounded-2xl bg-surface ring-1 ring-border transition-shadow focus-within:bg-card focus-within:ring-2 focus-within:ring-ink/80">
           <div className="flex items-center gap-3.5 px-4 pr-16 [&>div]:min-w-0 [&>div]:flex-1 [&>div]:static">
             <span aria-hidden className="grid size-5 shrink-0 place-items-center"><span className="size-3 rounded-[3px] bg-primary" /></span>
@@ -124,7 +126,10 @@ export function FlightSearchSheet({ open, onClose, tripId, draft, onSearch, focu
           <DateTile caption="Return" value={round ? fields.ret : null} min={fields.depart ? plusDays(fields.depart, 1) : min} placeholder={round ? "Pick a day" : "One way"} disabled={!round} onPick={(iso) => set({ ret: iso })} />
         </div>
 
-        <button type="submit" disabled={!ready} className="btn-primary mt-4 h-14 w-full rounded-full text-base transition-[opacity,transform] duration-200 ease-out active:scale-[0.985] disabled:opacity-40">Search flights</button>
+        {/* With the keyboard up the form scrolls above it and the button stays at its foot, so it is never under the keys. */}
+        <div className={cn("mt-4", keyboard ? "sticky bottom-0 -mx-4 bg-background px-4 pb-3 pt-2" : "")}>
+          <button type="submit" disabled={!ready} className="btn-primary h-14 w-full rounded-full text-base transition-[opacity,transform] duration-200 ease-out active:scale-[0.985] disabled:opacity-40">Search flights</button>
+        </div>
       </form>
     </Sheet>
   );
