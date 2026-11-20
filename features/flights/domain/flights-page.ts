@@ -1,3 +1,5 @@
+import { placeName } from "@/lib/place-label";
+
 /** What the Flights page needs to know that is not about drawing: the search a trip starts from, how it reads in a pill, and where people fly. */
 
 export type FlightDraft = { fromLabel: string; toLabel: string; depart: string | null; ret: string | null; adults: number };
@@ -7,8 +9,14 @@ export const MAX_TRAVELLERS = 9;
 const isoOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 export const tomorrow = (now = new Date()) => isoOf(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
 /** "Toronto, Ontario, Canada" is "Toronto": the part a person says. */
-export const shortPlace = (label: string) => label.split(",")[0]!.trim();
+export const shortPlace = placeName;
 const clampTravellers = (n: number | null | undefined) => Math.min(MAX_TRAVELLERS, Math.max(1, Math.round(n ?? 1) || 1));
+
+/** A destination that is one place ("Lisbon, Portugal"), or "": an itinerary written out ("Portugal, then Morocco") is not somewhere to fly to. */
+const singlePlace = (destination: string | null | undefined) => {
+  const d = destination?.trim() ?? "";
+  return /\s(then|and|&|\+|to)\s|→|->|;/i.test(d) ? "" : d;
+};
 
 /**
  * The search a trip begins with: from where it starts, to where it goes, on the days it has. Only days still ahead count (the providers are asked
@@ -18,7 +26,7 @@ export function draftFromTrip(trip: { origin?: string | null; destination?: stri
   const first = tomorrow(now);
   const depart = trip?.start_date && trip.start_date >= first ? trip.start_date : null;
   const ret = depart && trip?.end_date && trip.end_date > depart ? trip.end_date : null;
-  return { fromLabel: trip?.origin?.trim() ?? "", toLabel: trip?.destination?.trim() ?? "", depart, ret, adults: clampTravellers(trip?.travelers) };
+  return { fromLabel: trip?.origin?.trim() ?? "", toLabel: singlePlace(trip?.destination), depart, ret, adults: clampTravellers(trip?.travelers) };
 }
 
 /** Enough to ask: somewhere to leave from, somewhere to go, and the day. A return is optional (a one-way trip has none). */

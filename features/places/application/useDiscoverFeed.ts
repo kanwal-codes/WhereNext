@@ -21,7 +21,7 @@ const categoryRawCache = new Map<string, Place[] | NearbyEvent[] | StayItem[]>()
  * What Discover shows: the filter state (category, sub-chips, search), and the feed behind it — the "All" digest, one category,
  * or a search — with the requests, caching and ranking each needs. A newer request always replaces an older one.
  */
-export function useDiscoverFeed({ tripId, destination, cities, view, data, prefs, saved, interests, interestsKey, initialQuery }: {
+export function useDiscoverFeed({ tripId, destination, cities, view, data, prefs, saved, interests, interestsKey, initialQuery, initialCatKey }: {
   tripId: string;
   destination: string;
   cities: { hasChoice: boolean; scoped: boolean; stop: Parameters<typeof stayWindow>[0] | null };
@@ -32,12 +32,14 @@ export function useDiscoverFeed({ tripId, destination, cities, view, data, prefs
   interests: string[];
   interestsKey: string;
   initialQuery?: string;
+  /** Start on this category instead of the mixed feed (the Eat page opens on "eat"). */
+  initialCatKey?: string;
 }) {
   /** Anchor a free-text query to the trip's destination unless it already names a place (`force`: it is a list of interests). */
   const scope = useCallback((q: string, force = false) => scopeQuery(q, destination, { force }), [destination]);
 
   // --- filter + feed state ------------------------------------------
-  const [catKey, setCatKey] = useState<string | null>(null); // null = "All"
+  const [catKey, setCatKey] = useState<string | null>(initialCatKey ?? null); // null = "All"
   const [subs, setSubs] = useState<string[]>([]);
   const [searchLabel, setSearchLabel] = useState(""); // what the AI search resolved to, for the "Clear" chip
   // Arriving with a query (`?q=`) starts in search mode, so the default feed never starts beside that search and discards its results.
@@ -47,6 +49,10 @@ export function useDiscoverFeed({ tripId, destination, cities, view, data, prefs
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  // A category the provider could not answer (as opposed to one with nothing in it), and a counter that asks for it again.
+  const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const failedRef = useRef(false);
   const reqId = useRef(0);
   // Cancels the in-flight provider requests from whatever `loadAll`/`loadCategory` call this one
   // supersedes — `reqId` already discards a stale *result*, but without this the superseded
@@ -61,6 +67,7 @@ export function useDiscoverFeed({ tripId, destination, cities, view, data, prefs
     async (q: string, signal?: AbortSignal, limit?: number, force = false): Promise<Place[]> => {
       const r = await cachedGet(`/api/trips/${tripId}/places?query=${encodeURIComponent(scope(q, force))}${limit ? `&limit=${limit}` : ""}`, { signal });
       const body = await r.json().catch(() => ({}));
+      if (!r.ok) failedRef.current = true;
       return r.ok ? (body.places ?? []) : [];
     },
     [tripId, scope],
@@ -172,6 +179,8 @@ export function useDiscoverFeed({ tripId, destination, cities, view, data, prefs
       abortRef.current = controller;
       setLoading(true);
       setMessage("");
+      setError(false);
+      failedRef.current = false;
       try {
         const subQ = (label: string) => cat.subs.find((s) => s.label === label)?.q ?? label;
         const cacheKey = `${tripId}:${destination}:${cat.key}:${cat.kind === "stay" ? "" : [...chosen].sort().join("|")}`;
@@ -186,7 +195,8 @@ export function useDiscoverFeed({ tripId, destination, cities, view, data, prefs
             const map = new Map<string, Place>();
             for (let i = 0; i < Math.max(0, ...lists.map((list) => list.length)); i += 1) for (const list of lists) if (list[i] && !map.has(list[i].providerId)) map.set(list[i].providerId, list[i]);
             places = [...map.values()];
-            categoryRawCache.set(cacheKey, places);
+            // An answer that failed is not kept: asking again has to go back to the provider.
+            if (places.length > 0 || !failedRef.current) categoryRawCache.set(cacheKey, places);
           }
           // A chosen sub-type is a specific search, like a typed one: the provider's order is the answer to it. Re-ranking by how well known a place is
           // put the best-known restaurants first under "Cafés" and pushed the coffee shops below the fold, so the pills looked as if they did nothing.
@@ -211,11 +221,13 @@ export function useDiscoverFeed({ tripId, destination, cities, view, data, prefs
         if (mine !== reqId.current) return;
         setItems(next);
         setLoading(false);
+        setError(next.length === 0 && failedRef.current);
         setMessage(next.length ? "" : `Nothing came back for ${cat.label.toLowerCase()}${chosen.length ? " with those filters" : ""}.`);
       } catch (error) {
         if (mine !== reqId.current) return; // superseded — the newer call owns loading/message state now
         if (error instanceof DOMException && error.name === "AbortError") return; // this call was the one cancelled
         setLoading(false);
+        setError(true);
         setMessage(`Nothing came back for ${cat.label.toLowerCase()}${chosen.length ? " with those filters" : ""}.`);
       }
     },
@@ -280,7 +292,7 @@ export function useDiscoverFeed({ tripId, destination, cities, view, data, prefs
     }
     const cat = CATEGORY_BY_KEY.get(catKey);
     if (cat) void loadCategory(cat, subs);
-  }, [view, searchMode, destination, catKey, subs, loadAll, loadCategory]);
+  }, [view, searchMode, destination, catKey, subs, loadAll, loadCategory, attempt]);
 
   function pickCategory(key: string | null) {
     setSearchMode(false);
@@ -316,5 +328,6 @@ export function useDiscoverFeed({ tripId, destination, cities, view, data, prefs
     }
   }
 
-  return { catKey, subs, setSubs, searchLabel, setSearchLabel, searchMode, setSearchMode, bands, items, loading, message, eventsBusy, moreEvents: eventPaging.current.more, pickCategory, applyDirective, toggleSub, loadMoreEvents };
+  const retry = () => setAttempt((n) => n + 1);
+  return { error, retry, catKey, subs, setSubs, searchLabel, setSearchLabel, searchMode, setSearchMode, bands, items, loading, message, eventsBusy, moreEvents: eventPaging.current.more, pickCategory, applyDirective, toggleSub, loadMoreEvents };
 }

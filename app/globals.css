@@ -1186,16 +1186,15 @@
   @media (max-width: 1023.98px) and (pointer: coarse) { filter: none; }
 }
 
-/* One status language for the whole app: a quiet neutral chip (soft fill, ink text, no border) and colour only in a small
-   dot or icon. Never a tinted, translucent fill with a border in the same hue. `status-dot` adds the dot to anything
-   inline-flex; `status-ok|warn|bad|info|brand` choose its colour. */
+/* One status language for the whole app: a quiet neutral chip (soft fill, ink text, no border) whose words say the state. There is no dot:
+   `status-dot` and `status-chip` keep their names (and their colours, for anything that wants to read `--status`), but draw nothing extra.
+   `status-ok|warn|bad|info|brand` set that colour. */
 @utility status-dot {
-  &::before { content: ""; flex: none; width: 0.4375rem; height: 0.4375rem; border-radius: 9999px; background: var(--status, var(--color-muted-foreground)); }
+  --status: var(--color-muted-foreground);
 }
 @utility status-chip {
   display: inline-flex; align-items: center; gap: 0.375rem; height: 1.5rem; max-width: 100%; padding: 0 0.625rem; border-radius: 9999px;
   background: var(--color-secondary); color: var(--color-foreground); font-size: 0.75rem; font-weight: 600; white-space: nowrap;
-  &::before { content: ""; flex: none; width: 0.4375rem; height: 0.4375rem; border-radius: 9999px; background: var(--status, var(--color-muted-foreground)); }
 }
 @utility status-ok { --status: var(--color-positive); }
 @utility status-warn { --status: var(--color-caution); }

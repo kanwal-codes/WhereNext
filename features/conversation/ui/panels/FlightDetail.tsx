@@ -228,7 +228,7 @@ export function FlightDetail({ flight, route, onSwitch }: { flight: FlightOffer;
           {flight.expiresAt && (
             <Notice tone={expired ? "caution" : "neutral"}>
               {expired
-                ? "This fare may no longer be available. Check the current price before you plan around it."
+                ? "This price may no longer be available. Check the current price before you plan around it."
                 : `Fare held until ${new Date(flight.expiresAt).toLocaleString("en", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}.`}
             </Notice>
           )}
@@ -248,7 +248,7 @@ export function FlightDetail({ flight, route, onSwitch }: { flight: FlightOffer;
       )}
 
       {/* Fares are shown here and nowhere else: no link out. The note stays so nobody expects a Book button. */}
-      <p className={cn(type.meta, "text-center")}>Roam can’t book flights. Fares change quickly, so confirm the price on the airline’s site.</p>
+      <p className={cn(type.meta, "text-center")}>Prices change quickly. Check the price with the airline before you book.</p>
     </div>
   );
 }

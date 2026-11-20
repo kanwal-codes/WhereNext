@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CityChips } from "@/components/CityChips";
 import { useTripCity } from "@/lib/client/use-trip-city";
 import { stayWindow } from "@/lib/trip-stops";
@@ -8,7 +8,7 @@ import { useTripStays } from "@/features/stays/application/useTripStays";
 import { useRouter } from "next/navigation";
 import { SwapView } from "@/components/SwapView";
 import { StayResultCard } from "@/features/stays/ui/StayResultCard";
-import { ChevronDown, Minus, Plus, SlidersHorizontal, Star } from "lucide-react";
+import { ChevronDown, Minus, Plus, SlidersHorizontal, Star, X } from "lucide-react";
 import { useTripData } from "@/components/TripDataProvider";
 import { AiSearchBar } from "@/components/AiSearchBar";
 import { readStayAsk, stayAskNeedsModel } from "@/lib/application/stay-ask";
@@ -136,84 +136,79 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   // A stay already booked for (some of) these nights: said up front, so nobody pays for the same nights twice.
   const alreadyBooked = overlappingStay(booked.items, checkin, checkout);
 
+  // The controls of each group, without their titles: the sheet and the desktop bar put a title over them, a pill's small panel has its own.
+  const priceLabel = priceMin ? `${money(priceMin)} to ${money(priceMax ?? facets?.priceMax ?? 0)}` : priceMax ? `Up to ${money(priceMax)}` : "Any price";
+  const sortContent = (
+    <div className="grid grid-cols-2 gap-2">
+      {([["price", "Lowest price"], ["price_desc", "Highest price"], ["rating", "Best rated"], ["stars", "Most stars"]] as const).map(([key, label]) => (
+        <button key={key} type="button" onClick={() => { setSort(key); setOpenPill(null); }} aria-pressed={sort === key} className="btn-chip justify-center">{label}</button>
+      ))}
+    </div>
+  );
+  const priceContent = facets && facets.priceMax > facets.priceMin ? (
+    <input
+      type="range"
+      aria-label="Highest price per night"
+      min={Math.floor(facets.priceMin)}
+      max={Math.ceil(facets.priceMax)}
+      value={priceMax ?? Math.ceil(facets.priceMax)}
+      onChange={(e) => setPriceMax(Number(e.target.value) >= Math.ceil(facets.priceMax) ? null : Number(e.target.value))}
+      className="w-full accent-primary"
+    />
+  ) : null;
+  const typeContent = facets && facets.propertyTypes.length > 1 ? (
+    <div className="flex flex-wrap gap-2">
+      {facets.propertyTypes.map((t) => (
+        <button key={t} type="button" onClick={() => setPropertyTypes(toggled(propertyTypes, t))} aria-pressed={propertyTypes.includes(t)} className="btn-chip">{t}</button>
+      ))}
+    </div>
+  ) : null;
+  const starsContent = facets && facets.stars.length > 0 ? (
+    <div className="flex flex-wrap gap-2">
+      {facets.stars.map((st) => (
+        <button key={st} type="button" onClick={() => setStars(toggled(stars, st))} aria-pressed={stars.includes(st)} className="btn-chip">{st} <Star className="size-3 fill-current" /></button>
+      ))}
+    </div>
+  ) : null;
+  const mealsContent = facets && facets.boards.length > 0 ? (
+    <div className="flex flex-wrap gap-2">
+      {facets.boards.map((bd) => (
+        <button key={bd} type="button" onClick={() => setBoards(toggled(boards, bd))} aria-pressed={boards.includes(bd)} className="btn-chip">{bd}</button>
+      ))}
+    </div>
+  ) : null;
+
   const filterBody = (
     <div className="space-y-4">
       <div className="lg:hidden">
         <span className="text-sm font-semibold">Sort by</span>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          {([["price", "Price, low to high"], ["price_desc", "Price, high to low"], ["rating", "Guest rating"], ["stars", "Stars"]] as const).map(([key, label]) => (
-            <button key={key} type="button" onClick={() => setSort(key)} aria-pressed={sort === key} className="btn-chip justify-center">{label}</button>
-          ))}
-        </div>
+        <div className="mt-2">{sortContent}</div>
       </div>
-      {facets && facets.priceMax > facets.priceMin && (
+      {priceContent && (
         <div>
           <div className="flex items-center justify-between text-sm">
             <span className="font-semibold">Price per night</span>
-            <span className="text-muted-foreground tabular-nums">{priceMin ? `${money(priceMin)} to ${money(priceMax ?? facets.priceMax)}` : priceMax ? `Up to ${money(priceMax)}` : "Any price"}</span>
+            <span className="text-muted-foreground tabular-nums">{priceLabel}</span>
           </div>
-          <input
-            type="range"
-            min={Math.floor(facets.priceMin)}
-            max={Math.ceil(facets.priceMax)}
-            value={priceMax ?? Math.ceil(facets.priceMax)}
-            onChange={(e) => setPriceMax(Number(e.target.value) >= Math.ceil(facets.priceMax) ? null : Number(e.target.value))}
-            className="mt-2 w-full accent-primary"
-          />
+          <div className="mt-2">{priceContent}</div>
         </div>
       )}
-      {facets && facets.propertyTypes.length > 1 && (
+      {typeContent && (
         <div>
           <span className="text-sm font-semibold">Type of place</span>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {facets.propertyTypes.map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setPropertyTypes(toggled(propertyTypes, t))}
-                aria-pressed={propertyTypes.includes(t)}
-                className="btn-chip"
-              >
-                {t}
-              </button>
-            ))}
-          </div>
+          <div className="mt-2">{typeContent}</div>
         </div>
       )}
-      {facets && facets.stars.length > 0 && (
+      {starsContent && (
         <div>
           <span className="text-sm font-semibold">Star rating</span>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {facets.stars.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setStars(toggled(stars, s))}
-                aria-pressed={stars.includes(s)}
-                className="btn-chip"
-              >
-                {s} <Star className="size-3 fill-current" />
-              </button>
-            ))}
-          </div>
+          <div className="mt-2">{starsContent}</div>
         </div>
       )}
-      {facets && facets.boards.length > 0 && (
+      {mealsContent && (
         <div>
           <span className="text-sm font-semibold">Meals</span>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {facets.boards.map((b) => (
-              <button
-                key={b}
-                type="button"
-                onClick={() => setBoards(toggled(boards, b))}
-                aria-pressed={boards.includes(b)}
-                className="btn-chip"
-              >
-                {b}
-              </button>
-            ))}
-          </div>
+          <div className="mt-2">{mealsContent}</div>
         </div>
       )}
       <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl bg-muted px-4 text-body max-sm:flex sm:min-h-0 sm:rounded-none sm:bg-transparent sm:px-0 sm:text-sm">
@@ -227,6 +222,29 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       )}
     </div>
   );
+
+  // A phone: a row of pills under the header (no count line), each showing what it is set to and opening its group in a small panel over the list.
+  type PillKey = "sort" | "price" | "type" | "stars" | "meals";
+  const [openPill, setOpenPill] = useState<PillKey | null>(null);
+  const pillsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!openPill) return;
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpenPill(null); };
+    const away = (e: PointerEvent) => { if (!pillsRef.current?.contains(e.target as Node)) setOpenPill(null); };
+    document.addEventListener("keydown", esc);
+    document.addEventListener("pointerdown", away);
+    return () => { document.removeEventListener("keydown", esc); document.removeEventListener("pointerdown", away); };
+  }, [openPill]);
+  const SORT_LABEL = { price: "Lowest price", price_desc: "Highest price", rating: "Best rated", stars: "Most stars" } as const;
+  const pillDefs: Array<{ key: PillKey; label: string; on: boolean; title: string; body: ReactNode; clear?: () => void }> = [
+    { key: "sort", label: `Sort: ${SORT_LABEL[sort]}`, on: sort !== "price", title: "Sort by", body: sortContent },
+    ...(priceContent ? [{ key: "price" as const, label: priceMin || priceMax ? priceLabel : "Price", on: Boolean(priceMin || priceMax), title: "Price per night", body: <div><p className="mb-1 text-sm text-muted-foreground tabular-nums">{priceLabel}</p>{priceContent}</div>, clear: () => { setPriceMin(null); setPriceMax(null); } }] : []),
+    ...(typeContent ? [{ key: "type" as const, label: propertyTypes.length === 1 ? propertyTypes[0]! : propertyTypes.length > 1 ? `${propertyTypes.length} types` : "Type", on: propertyTypes.length > 0, title: "Type of place", body: typeContent, clear: () => setPropertyTypes([]) }] : []),
+    ...(starsContent ? [{ key: "stars" as const, label: stars.length ? `${[...stars].sort((x, y) => y - x).join(", ")} stars` : "Stars", on: stars.length > 0, title: "Star rating", body: starsContent, clear: () => setStars([]) }] : []),
+    ...(mealsContent ? [{ key: "meals" as const, label: boards.length === 1 ? boards[0]! : boards.length > 1 ? `${boards.length} meal plans` : "Meals", on: boards.length > 0, title: "Meals", body: mealsContent, clear: () => setBoards([]) }] : []),
+  ];
+  const showPills = sheeted && Boolean(result) && !error && (result?.options.length ?? 0) > 0 && !loading && !deepening;
+  const openDef = pillDefs.find((d) => d.key === openPill) ?? null;
 
   const cells = (
     <>
@@ -261,10 +279,10 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
             Sort
             <span className="relative">
               <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="h-8 max-lg:h-10 max-lg:text-sm cursor-pointer appearance-none rounded-full border border-border bg-background pr-8 pl-3.5 text-xs font-medium text-ink-soft transition-colors hover:border-ink/30 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-                <option value="price">Price, low to high</option>
-                <option value="price_desc">Price, high to low</option>
-                <option value="rating">Guest rating</option>
-                <option value="stars">Stars</option>
+                <option value="price">Lowest price</option>
+                <option value="price_desc">Highest price</option>
+                <option value="rating">Best rated</option>
+                <option value="stars">Most stars</option>
               </select>
               <ChevronDown aria-hidden className="pointer-events-none absolute top-1/2 right-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
             </span>
@@ -294,7 +312,36 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
         />
         <div className="relative">
         <StayProgress active={loading || deepening} />
-        <StayStatusLine onOrder={sheeted ? () => setShowFilters(true) : undefined} loading={loading} slow={slow} deepening={deepening} error={error} hasResult={Boolean(result)} count={result?.options.length ?? 0} total={result?.total} filtered={activeFilters > 0} sort={sort} checkin={checkin} checkout={checkout} />
+        {!showPills && <StayStatusLine loading={loading} slow={slow} deepening={deepening} error={error} hasResult={Boolean(result)} count={result?.options.length ?? 0} total={result?.total} filtered={activeFilters > 0} sort={sort} checkin={checkin} checkout={checkout} />}
+        {showPills && (
+          <div ref={pillsRef} className="relative">
+            <div role="group" aria-label="Sort and filter" className="no-scrollbar -mx-4 flex items-center gap-2 overflow-x-auto px-4">
+              <button type="button" onClick={() => setShowFilters(true)} aria-haspopup="dialog" aria-pressed={activeFilters > 0} className="btn-chip shrink-0 gap-1.5">
+                <SlidersHorizontal className="size-3.5" aria-hidden />
+                {activeFilters > 0 ? `Filters · ${activeFilters}` : "Filters"}
+              </button>
+              {pillDefs.map((d) => (
+                <button key={d.key} type="button" onClick={() => setOpenPill((cur) => (cur === d.key ? null : d.key))} aria-expanded={openPill === d.key} aria-pressed={d.on} className="btn-chip shrink-0 gap-1.5">
+                  {d.label}
+                  <ChevronDown className={cn("size-3.5 opacity-60 transition-transform duration-200", openPill === d.key && "rotate-180")} aria-hidden />
+                </button>
+              ))}
+              <button type="button" onClick={() => setRefundable(!refundable)} aria-pressed={refundable} className="btn-chip shrink-0">Free cancellation</button>
+            </div>
+            {openDef && (
+              <div role="region" aria-label={openDef.title} className="absolute inset-x-0 top-full z-20 mt-2 rounded-2xl bg-card p-4 shadow-lift ring-1 ring-border">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold">{openDef.title}</h3>
+                  <div className="-mr-2 flex items-center gap-1">
+                    {openDef.on && openDef.clear && <button type="button" onClick={openDef.clear} className="rounded-full px-2.5 py-1.5 text-sm font-medium text-ink-soft underline underline-offset-2 active:bg-muted">Clear</button>}
+                    <button type="button" onClick={() => setOpenPill(null)} aria-label="Close" className="grid size-8 place-items-center rounded-full text-muted-foreground transition-colors active:bg-muted"><X className="size-4" aria-hidden /></button>
+                  </div>
+                </div>
+                <div className="mt-3">{openDef.body}</div>
+              </div>
+            )}
+          </div>
+        )}
         </div>
       </div>
 

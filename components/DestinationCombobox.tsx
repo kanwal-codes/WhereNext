@@ -48,6 +48,7 @@ export function DestinationCombobox({
   selectOnFocus,
   quietFocus,
   ariaLabel = "Destination",
+  clearRight = "0px",
 }: {
   /** The trip whose autocomplete route to use; omit it (and pass `endpoint`) outside a trip, e.g. on the profile. */
   tripId?: string;
@@ -79,6 +80,8 @@ export function DestinationCombobox({
   /** Focusing the field does not open the suggestions: they come once something is typed (a field that opens already holding a place). */
   quietFocus?: boolean;
   ariaLabel?: string;
+  /** How far in from the field's right edge the clear cross sits, for a field with something of its own at the right (the route editor's swap button). */
+  clearRight?: string;
 }) {
   const [open, setOpen] = useState(false);
   // The cross shows only in the field being edited, not in every filled one on the screen.
@@ -178,7 +181,7 @@ export function DestinationCombobox({
           }}
           aria-label={ariaLabel}
           className={inputClassName ?? "w-full rounded-lg border border-input bg-background px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-ring/25 disabled:opacity-60"}
-          style={value && !disabled && focused ? { paddingRight: "1.75rem" } : undefined}
+          style={value && !disabled && focused ? { paddingRight: `calc(${clearRight} + 1.75rem)` } : undefined}
         />
         {value && !disabled && focused && (
           <button
@@ -187,7 +190,8 @@ export function DestinationCombobox({
             // The field keeps its focus (a pointer press would otherwise take it away and close the keyboard).
             onPointerDown={(e) => e.preventDefault()}
             onClick={() => { onChange(""); setOpen(false); rootRef.current?.querySelector("input")?.focus(); }}
-            className="absolute right-0 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-[0.94] max-lg:size-7"
+            style={{ right: clearRight }}
+            className="absolute top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-[0.94] max-lg:size-7"
           >
             <X className="size-3.5" aria-hidden />
           </button>

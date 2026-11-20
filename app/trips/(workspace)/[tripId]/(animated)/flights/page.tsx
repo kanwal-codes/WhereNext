@@ -40,8 +40,8 @@ export default function FlightsPage() {
       eyebrow="Flights"
       phoneQuietTitle
       phoneHideSwitcher
-      title="Fares for the days you choose"
-      description="Real prices in your currency, with every stop and layover in the open."
+      title="Flight prices for your dates"
+      description="Prices in your currency, with every stop and layover shown."
       railAction={
         view === "mine" ? (
           <RailButton icon={<Search />} onClick={() => setView("search")}>Search flights</RailButton>

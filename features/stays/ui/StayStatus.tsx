@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { AlertCircle, BedDouble, Loader2, SearchX, SlidersHorizontal, WifiOff, X } from "lucide-react";
 import { Skeleton } from "@/components/Skeleton";
+import { StateMessage, stateButton } from "@/components/StateMessage";
 import { fmtDay } from "@/lib/trip-dates";
 import { cn } from "@/lib/utils";
 import type { StaySearchError, StaySort } from "@/features/stays/domain/stay-search";
@@ -41,7 +42,7 @@ export function StayProgress({ active }: { active: boolean }) {
   );
 }
 
-const ORDER: Record<StaySort, string> = { price: "Cheapest first", price_desc: "Most expensive first", rating: "Best rated first", stars: "Most stars first" };
+const ORDER: Record<StaySort, string> = { price: "Lowest price", price_desc: "Highest price", rating: "Best rated", stars: "Most stars" };
 
 /**
  * One row saying what the screen is doing or what it found, the same on a phone and a desktop: the count on the left, the order on the right
@@ -129,46 +130,32 @@ export function ActiveFilters({ priceMin, priceMax, stars, refundable, boards, p
   );
 }
 
-const secondary = "inline-flex h-11 items-center justify-center rounded-full border border-border bg-background px-5 text-sm font-medium transition-[background-color,transform] hover:bg-muted active:scale-[0.97]";
-const primary = "btn-primary h-11 rounded-full px-6";
+const secondary = stateButton.secondary;
+const primary = stateButton.primary;
 
-/** The card every "nothing to show" and "could not load" state shares: a lit icon, a short title, a sentence, and what to do about it. */
-function StayMessage({ icon: Icon, title, children, actions }: { icon: typeof BedDouble; title: string; children: ReactNode; actions: ReactNode }) {
-  return (
-    <div className="rise relative overflow-hidden rounded-3xl border border-border bg-card px-6 py-11 text-center shadow-soft before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-32 before:bg-[radial-gradient(60%_100%_at_50%_0%,color-mix(in_oklab,var(--coral)_13%,transparent),transparent)]">
-      <span className="relative mx-auto grid size-12 place-items-center rounded-2xl bg-coral-soft text-coral-ink shadow-hairline">
-        <Icon className="size-5" aria-hidden />
-      </span>
-      <h3 className="relative mt-4 font-display text-xl font-medium tracking-[-0.02em] text-balance">{title}</h3>
-      <p className="relative mx-auto mt-1.5 max-w-xs text-sm leading-relaxed text-ink-soft text-pretty">{children}</p>
-      <div className="relative mt-6 flex flex-wrap justify-center gap-2">{actions}</div>
-    </div>
-  );
-}
-
-/** No stays to show, and what to do about it: which of the reader's choices is the cause decides what is offered. */
+/** No stays to show, and what to do about it: which of the reader’s choices is the cause decides what is offered. */
 export function StayEmpty({ filtered, priced, near, total, checkin, checkout, onClear, onClearPrice, onWiden, onDates }: {
   filtered: boolean; priced: boolean; near: string; total: number; checkin: string; checkout: string; onClear: () => void; onClearPrice: () => void; onWiden: () => void; onDates: () => void;
 }) {
   const dates = checkin && checkout ? `${fmtDay(checkin)} – ${fmtDay(checkout)}` : "these dates";
   if (filtered && total > 0) {
     return (
-      <StayMessage icon={SearchX} title="No stays match those filters" actions={<><button type="button" onClick={onClear} className={primary}>Clear filters</button>{priced && <button type="button" onClick={onClearPrice} className={secondary}>Remove price limit</button>}</>}>
+      <StateMessage icon={SearchX} title="No stays match those filters" actions={<><button type="button" onClick={onClear} className={primary}>Clear filters</button>{priced && <button type="button" onClick={onClearPrice} className={secondary}>Remove price limit</button>}</>}>
         {total} {total === 1 ? "stay is" : "stays are"} available for {dates}. Loosen a filter to see {total === 1 ? "it" : "them"}.
-      </StayMessage>
+      </StateMessage>
     );
   }
   if (near.trim()) {
     return (
-      <StayMessage icon={SearchX} title={`Nothing near ${near.trim()}`} actions={<><button type="button" onClick={onWiden} className={primary}>Search the whole city</button><button type="button" onClick={onDates} className={secondary}>Change dates</button></>}>
+      <StateMessage icon={SearchX} title={`Nothing near ${near.trim()}`} actions={<><button type="button" onClick={onWiden} className={primary}>Search the whole city</button><button type="button" onClick={onDates} className={secondary}>Change dates</button></>}>
         No stays came back there for {dates}.
-      </StayMessage>
+      </StateMessage>
     );
   }
   return (
-    <StayMessage icon={BedDouble} title="No stays for those dates" actions={<button type="button" onClick={onDates} className={primary}>Change dates</button>}>
+    <StateMessage icon={BedDouble} title="No stays for those dates" actions={<button type="button" onClick={onDates} className={primary}>Change dates</button>}>
       Nothing came back for {dates}. Other dates, or a wider area, often have rooms.
-    </StayMessage>
+    </StateMessage>
   );
 }
 
@@ -176,9 +163,9 @@ export function StayEmpty({ filtered, priced, near, total, checkin, checkout, on
 export function StayError({ error, onRetry }: { error: StaySearchError; onRetry: () => void }) {
   const offline = error.kind === "offline";
   return (
-    <StayMessage icon={offline ? WifiOff : AlertCircle} title={offline ? "You're offline" : "Couldn't load stays"} actions={<button type="button" onClick={onRetry} className={primary}>Try again</button>}>
-      {offline ? "Reconnect and the hotels will load." : "The hotel sites aren't answering right now. Try again in a moment."}
-    </StayMessage>
+    <StateMessage icon={offline ? WifiOff : AlertCircle} title={offline ? "You’re offline" : "We couldn’t load stays"} actions={<button type="button" onClick={onRetry} className={primary}>Try again</button>}>
+      {offline ? "Reconnect and the hotels will load." : "The hotel sites aren’t answering right now. Try again in a moment."}
+    </StateMessage>
   );
 }
 
