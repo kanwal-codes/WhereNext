@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
-import { ArrowLeft, CalendarDays, ChevronDown, Info, Search } from "lucide-react";
+import { ArrowLeft, CalendarDays, ChevronDown, Info, Search, SlidersHorizontal } from "lucide-react";
 import { LoadingNote, SEARCH_NOTES } from "@/components/LoadingNote";
 import { Skeleton } from "@/components/Skeleton";
 import { motionTokens } from "@/components/motion-primitives";
 import { Sheet } from "@/components/motion-primitives";
+import { sheetPrimary } from "@/components/motion/sheetActions";
 import { SheetHeader } from "@/components/SheetHeader";
 import { useSetPhoneHeader } from "@/components/shell/PhoneHeader";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
@@ -68,6 +69,8 @@ export function FlightsSurface({ tripId, active = true }: { tripId: string | nul
   const [idea, setIdea] = useState<string | null>(null);
   const [view, setView] = useState<FlightView>(DEFAULT_FLIGHT_VIEW);
   const [showAll, setShowAll] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const activeFilters = Number(view.nonstop) + Number(view.changes) + Number(view.airport !== null);
   const { query } = fares;
   const loading = fares.status === "loading";
   const ready = fares.status === "ready";
@@ -142,29 +145,31 @@ export function FlightsSurface({ tripId, active = true }: { tripId: string | nul
           <span aria-hidden />
         </div>
       )}
-      {/* After a search, the days and the people in the same wide pill Stay uses: a tap reopens the search on the days. Before one the header pill is the only way in (the sheet asks for the days itself). */}
-      {started && <button
-        type="button"
-        onClick={() => openSheet("dates")}
-        aria-haspopup="dialog"
-        aria-label="Change days and travellers"
-        className="relative flex h-12 w-full items-center gap-3 overflow-hidden rounded-full border border-input bg-card pr-4 pl-4 text-left transition-transform duration-200 ease-out active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-      >
-        <CalendarDays className="size-[1.125rem] shrink-0 text-ink-soft" aria-hidden />
-        <span className="min-w-0 flex-1 truncate">
-          <span className="font-display text-base font-medium tracking-[-0.01em] tabular-nums">{datesLine(query.depart, query.ret) ?? "Choose your dates"}</span>
-          <span className="text-sm text-muted-foreground"> · {travellersLine(adults)}</span>
-        </span>
-        <ChevronDown className="size-[1.125rem] shrink-0 text-muted-foreground" aria-hidden />
-        <SearchSweep busy={loading} />
-      </button>}
+      {/* The search opens from the header pill (a phone, and the home page's own), so there is no second control for it. A trip's desktop has no header pill: it keeps the wide button that reopens the search on the days. */}
+      {started && !standalone && (
+        <button
+          type="button"
+          onClick={() => openSheet("dates")}
+          aria-haspopup="dialog"
+          aria-label="Change days and travellers"
+          className="relative flex h-12 w-full items-center gap-3 overflow-hidden rounded-full border border-input bg-card pr-4 pl-4 text-left transition-transform duration-200 ease-out active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring max-lg:hidden"
+        >
+          <CalendarDays className="size-[1.125rem] shrink-0 text-ink-soft" aria-hidden />
+          <span className="min-w-0 flex-1 truncate">
+            <span className="font-display text-base font-medium tracking-[-0.01em] tabular-nums">{datesLine(query.depart, query.ret) ?? "Choose your dates"}</span>
+            <span className="text-sm text-muted-foreground"> · {travellersLine(adults)}</span>
+          </span>
+          <ChevronDown className="size-[1.125rem] shrink-0 text-muted-foreground" aria-hidden />
+          <SearchSweep busy={loading} />
+        </button>
+      )}
       <LoadingNote busy={loading} messages={roundTrip ? SEARCH_NOTES.roundTrip : SEARCH_NOTES.flights} className="mt-2 px-1" />
       <p className="sr-only" role="status" aria-live="polite">{loading ? "Loading flights" : ""}</p>
 
       {!started && <FlightIdeas tripId={tripId} origin={draft.fromLabel || trip?.origin} destination={trip?.destination} onPick={(city) => { setIdea(city); openSheet("dates"); }} />}
 
       {started && (
-        <div className="mt-5" aria-busy={loading}>
+        <div className="mt-4" aria-busy={loading}>
           {loading && fares.items.length === 0 && (
             <>
               <div aria-hidden className="mb-5 flex gap-2"><Skeleton className="h-10 w-44 rounded-full" /><Skeleton className="h-10 w-24 rounded-full" /><Skeleton className="h-10 w-24 rounded-full" /></div>
@@ -203,7 +208,16 @@ export function FlightsSurface({ tripId, active = true }: { tripId: string | nul
           {ready && fares.items.length > 0 && (
             <motion.div key={fares.retrievedAt} initial={reduce ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={motionTokens.standard}>
               {fares.insights && <div className="mb-4 mt-1 px-1"><InsightLine level={fares.insights.level} usual={usual} /></div>}
-              <div className={cn("transition-opacity duration-200", loading && "pointer-events-none opacity-50")}>
+              {/* A phone: the count, and one Filter button that opens sort and filters in a sheet, as Stay does. A desktop keeps them inline. */}
+              <div className={cn("flex items-center justify-between gap-3 px-1 lg:hidden", loading && "pointer-events-none opacity-50")}>
+                <p role="status" aria-live="polite" className="text-sm text-ink-soft"><b className="font-semibold text-foreground">{offers.length}</b>{offers.length === fares.items.length ? "" : ` of ${fares.items.length}`} {fares.items.length === 1 ? "flight" : "flights"}</p>
+                <button type="button" onClick={() => setFilterOpen(true)} aria-haspopup="dialog" className="-my-2 -mr-2 inline-flex items-center gap-1.5 rounded-full px-2 py-2 text-sm font-medium text-ink-soft transition-colors active:bg-muted">
+                  <SlidersHorizontal className="size-4 text-muted-foreground" aria-hidden />
+                  Filter
+                  {activeFilters > 0 && <span aria-hidden className="size-1.5 rounded-full bg-coral" />}
+                </button>
+              </div>
+              <div className={cn("transition-opacity duration-200 max-lg:hidden", loading && "pointer-events-none opacity-50")}>
                 <FlightControls items={fares.items} view={view} onChange={(v) => { setView(v); setShowAll(false); }} shown={offers.length} />
               </div>
               {offers.length === 0 ? (
@@ -251,6 +265,11 @@ export function FlightsSurface({ tripId, active = true }: { tripId: string | nul
           )}
         </div>
       )}
+
+      <Sheet open={filterOpen} onClose={() => setFilterOpen(false)} side="bottom" ariaLabel="Sort and filter flights" padded footer={<button type="button" onClick={() => setFilterOpen(false)} className={sheetPrimary}>Show {offers.length} {offers.length === 1 ? "flight" : "flights"}</button>}>
+        <p className="pb-3 pt-1 font-display text-xl font-medium tracking-[-0.02em]">Sort and filter</p>
+        <div className="-mx-4"><FlightControls items={fares.items} view={view} onChange={(v) => { setView(v); setShowAll(false); }} shown={offers.length} /></div>
+      </Sheet>
 
       <Sheet open={own !== null} onClose={() => setOwn(null)} side={wide ? "right" : "bottom"} ariaLabel="Flight details" className="lg:max-w-xl">
         {own && (
