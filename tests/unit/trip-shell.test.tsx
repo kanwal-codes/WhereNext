@@ -69,12 +69,12 @@ describe("TripShell: the sidebar", () => {
     expect(side.getByText("Lisbon · Oct 20 – 24")).toBeTruthy();
   });
 
-  it("lists the nine places in order, linking each under the trip", () => {
+  it("lists the ten places in order, linking each under the trip", () => {
     shell();
     const nav = within(aside()).getByRole("navigation");
-    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Overview", "Roam", "Group chat", "Discover", "Getting around", "Stay", "Plan", "What Roam remembers", "Bookings"]);
+    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Overview", "Roam", "Group chat", "Discover", "Getting around", "Stay", "Flights", "Plan", "What Roam remembers", "Bookings"]);
     expect(within(nav).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual([
-      `/trips/${TRIP}`, `/trips/${TRIP}/chat`, `/trips/${TRIP}/group`, `/trips/${TRIP}/discover`, `/trips/${TRIP}/map`, `/trips/${TRIP}/stay`, `/trips/${TRIP}/itinerary`, `/trips/${TRIP}/knowledge`, `/trips/${TRIP}/bookings`,
+      `/trips/${TRIP}`, `/trips/${TRIP}/chat`, `/trips/${TRIP}/group`, `/trips/${TRIP}/discover`, `/trips/${TRIP}/map`, `/trips/${TRIP}/stay`, `/trips/${TRIP}/flights`, `/trips/${TRIP}/itinerary`, `/trips/${TRIP}/knowledge`, `/trips/${TRIP}/bookings`,
     ]);
   });
 

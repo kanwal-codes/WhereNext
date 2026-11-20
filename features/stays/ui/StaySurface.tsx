@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CityChips } from "@/components/CityChips";
 import { useTripCity } from "@/lib/client/use-trip-city";
 import { stayWindow } from "@/lib/trip-stops";
@@ -19,10 +19,13 @@ import { formatMoney } from "@/lib/currency";
 import { useShowMore } from "@/lib/use-show-more";
 import { ShowMoreButton } from "@/components/ShowMoreButton";
 import { cn } from "@/lib/utils";
+import { AreaSheet } from "@/components/AreaSheet";
+import { DestinationCombobox } from "@/components/DestinationCombobox";
 import { CityPill } from "@/components/CityPill";
 import { useSetPhoneHeader } from "@/components/shell/PhoneHeader";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { Sheet } from "@/components/motion-primitives";
+import { SheetHeader } from "@/components/SheetHeader";
 import { sheetPrimary } from "@/components/motion/sheetActions";
 import { fmtDay } from "@/lib/trip-dates";
 import { prefetchStayDetails } from "@/features/stays/application/useStayDetails";
@@ -77,10 +80,8 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
   // Phone redesign: the city is the pill in the middle of the header, as on Discover.
   const narrow = useMediaQuery("(max-width: 1023.98px)");
   const phone = narrow;
-  const pillCity = (cities.area?.name ?? (cities.hasChoice ? cities.city : destination)).split(",")[0].trim();
+  const cityName = (cities.area?.name ?? (cities.hasChoice ? cities.city : destination)).split(",")[0].trim();
   const refine = useMemo(() => (cities.broad ? { tripId, parent: cities.parent, activeStop: cities.stop?.city ?? cities.parent, area: cities.area, onPickArea: cities.setArea } : undefined), [cities.broad, tripId, cities.parent, cities.stop, cities.area, cities.setArea]);
-  const headerTitle = useMemo(() => (phone && pillCity ? <CityPill stops={cities.stops} city={pillCity} onPick={cities.setCity} refine={refine} /> : undefined), [phone, pillCity, cities.stops, cities.setCity, refine]);
-  useSetPhoneHeader({ titleNode: headerTitle });
   const cityWindow = cities.hasChoice && cities.stop ? stayWindow(cities.stop) : null;
   const booked = useTripStays(tripId);
 
@@ -93,6 +94,19 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
     travelers: trip?.travelers, city: cities.city, hasChoice: cities.scoped, cityWindow,
   });
   const [barOpen, setBarOpen] = useState(false);
+  const [areaOpen, setAreaOpen] = useState(false);
+  // Typing another place in the sheet anchors the search there; the pill then names it.
+  const pillCity = near.trim() ? near.split(",")[0]!.trim() : cityName;
+  const [placeText, setPlaceText] = useState(pillCity);
+  useEffect(() => { if (barOpen) setPlaceText(pillCity); }, [barOpen, pillCity]);
+  const sheetedPill = useMediaQuery("(max-width: 639.98px)");
+  const headerTitle = useMemo(() => {
+    if (!phone || !pillCity) return undefined;
+    // Under 640px the pill is the way into the search: it opens the dates and guests sheet (which holds the place choice too). A wider phone keeps the city sheet.
+    if (sheetedPill) return <button type="button" onClick={() => setBarOpen(true)} aria-haspopup="dialog" aria-label={`Dates, guests and place: ${pillCity}. Change`} className="inline-flex h-11 max-w-full items-center gap-1.5 rounded-full bg-muted px-4 font-display text-body font-semibold tracking-[-0.01em] transition-transform active:scale-[0.97]"><span className="truncate">{pillCity}</span><ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden /></button>;
+    return <CityPill stops={cities.stops} city={pillCity} onPick={cities.setCity} refine={refine} />;
+  }, [phone, sheetedPill, pillCity, cities.stops, cities.setCity, refine]);
+  useSetPhoneHeader({ titleNode: headerTitle });
   const nightsLabel = nightsText(nightsBetween(checkin, checkout));
   const [showFilters, setShowFilters] = useState(false);
   // On a phone the dates and the filters open as sheets over the page, so opening them moves nothing underneath; from `sm` up they stay inline.
@@ -233,37 +247,6 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
       )}
       {/* The booking bar: four cells divided by hairlines (the gap shows the border colour through), then filters and sort. */}
       <div className="overflow-hidden rounded-4xl bg-card shadow-float ring-1 ring-black/[0.05] max-lg:overflow-visible max-lg:rounded-none max-lg:bg-transparent max-lg:shadow-none max-lg:ring-0">
-        {/* On a phone the four fields fold into one line (dates, guests, rooms) that opens them: the list starts a screen sooner. */}
-        <div className="flex items-center gap-2 max-sm:mb-3 sm:contents">
-        <button
-          type="button"
-          onClick={() => setBarOpen((v) => !v)}
-          aria-expanded={barOpen}
-          className="flex w-full items-center gap-3 px-4 py-3.5 text-left sm:hidden max-lg:min-h-12 max-lg:min-w-0 max-lg:flex-1 max-lg:rounded-full max-lg:border max-lg:border-hairline max-lg:bg-card max-lg:px-4 max-lg:py-1.5"
-        >
-          <span className="min-w-0 flex-1">
-            <span className="block truncate font-display text-lg leading-tight font-medium tracking-[-0.015em] tabular-nums max-lg:text-[1.0625rem]">
-              {checkin && checkout ? <>{fmtDay(checkin)} <span aria-hidden className="mx-0.5 text-coral max-lg:text-foreground">{"–"}</span> {fmtDay(checkout)}</> : "Choose your dates"}
-            </span>
-            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-              {nightsLabel ? `${nightsLabel} · ` : ""}{adults} guest{adults === 1 ? "" : "s"} · {rooms} room{rooms === 1 ? "" : "s"}
-            </span>
-          </span>
-          <span className={cn("inline-flex h-8 items-center gap-1 rounded-full px-3.5 text-xs font-medium transition-colors", barOpen ? "bg-primary text-primary-foreground" : "border border-border bg-background text-foreground", "max-lg:h-auto max-lg:border-0 max-lg:bg-transparent max-lg:px-0 max-lg:text-muted-foreground max-lg:[&>span]:hidden")}>
-            <span>{barOpen ? "Done" : "Edit"}</span> <ChevronDown className={cn("size-3.5 transition-transform duration-300", barOpen && "rotate-180", "max-lg:size-[1.125rem]")} aria-hidden />
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowFilters((v) => !v)}
-          aria-pressed={showFilters}
-          aria-label={activeFilters ? `Filters, ${activeFilters} on` : "Filters"}
-          className={cn("relative grid size-12 shrink-0 place-items-center rounded-full transition-colors sm:hidden", showFilters ? "bg-foreground text-background" : "bg-muted text-foreground")}
-        >
-          <SlidersHorizontal className="size-[1.125rem]" aria-hidden />
-          {activeFilters > 0 && !showFilters && <span aria-hidden className="absolute top-2.5 right-2.5 size-2.5 rounded-full bg-coral ring-2 ring-secondary" />}
-        </button>
-        </div>
         {!sheeted && (
           <div className="grid grid-cols-2 gap-px overflow-hidden bg-border lg:grid-cols-4 max-lg:mb-3 max-lg:gap-2 max-lg:overflow-visible max-lg:border-0 max-lg:bg-transparent">{cells}</div>
         )}
@@ -315,10 +298,26 @@ export function StaySurface({ tripId, destination }: { tripId: string; destinati
 
       {sheeted && (
         <>
-          <Sheet open={barOpen} onClose={() => setBarOpen(false)} ariaLabel="Dates and guests" padded footer={<button type="button" onClick={() => setBarOpen(false)} className={sheetPrimary}>Done</button>}>
-            <p className="pb-3 pt-1 font-display text-xl font-medium tracking-[-0.02em]">Dates and guests</p>
+          <Sheet open={barOpen} onClose={() => setBarOpen(false)} side="top" ariaLabel="Dates and guests" className="icons-fine">
+            <SheetHeader title="Dates and guests" onClose={() => setBarOpen(false)} bordered={false} />
+            <div className="px-4 pb-5">
+            {/* The place is typed here, the way the flights search takes it: another city anchors the search there. The chevron opens the trip's own cities and areas when there are some. */}
+            <div className="mb-2 flex items-center gap-3 rounded-2xl bg-muted px-4 py-3.5 transition-shadow focus-within:bg-card focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_5%,transparent),0_8px_18px_-12px_color-mix(in_oklab,var(--color-ink)_20%,transparent)]">
+              <div className="min-w-0 flex-1">
+                <span className="block text-xs font-medium tracking-[0.22em] text-muted-foreground uppercase">Place</span>
+                <DestinationCombobox tripId={tripId} value={placeText} onChange={setPlaceText} onSelect={(text) => { setPlaceText(text); setNear(text.trim() === cityName.trim() ? "" : text); }} placeholder="Where to?" ariaLabel="Place" quietFocus inputClassName="mt-1.5 block h-7 w-full truncate bg-transparent font-display text-xl leading-7 font-medium tracking-[-0.02em] outline-none placeholder:font-sans placeholder:text-base placeholder:font-normal placeholder:text-muted-foreground/70" />
+              </div>
+              {cities.stops.length > 1 || refine ? (
+                <button type="button" onClick={() => { setBarOpen(false); setAreaOpen(true); }} aria-haspopup="dialog" aria-label="Choose from this trip" className="-mr-2 grid size-10 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors active:bg-card"><ChevronDown className="size-5" aria-hidden /></button>
+              ) : (
+                <ChevronDown className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-2">{cells}</div>
+            <button type="button" onClick={() => setBarOpen(false)} className={cn(sheetPrimary, "mt-4 w-full flex-none")}>Done</button>
+            </div>
           </Sheet>
+          <AreaSheet open={areaOpen} onClose={() => setAreaOpen(false)} tripId={refine?.tripId ?? ""} parent={refine?.parent ?? pillCity} stops={cities.stops} activeStop={refine?.activeStop ?? pillCity} area={refine?.area ?? null} onPickStop={cities.setCity} onPickArea={refine?.onPickArea ?? (() => {})} narrow={Boolean(refine)} />
           <Sheet open={showFilters} onClose={() => setShowFilters(false)} ariaLabel="Sort and filter" padded footer={<button type="button" onClick={() => setShowFilters(false)} className={sheetPrimary}>Done</button>}>
             <div className="flex items-baseline justify-between gap-3 pb-3 pt-1">
               <p className="font-display text-xl font-medium tracking-[-0.02em]">Sort and filter</p>
