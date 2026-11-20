@@ -9,7 +9,7 @@ import { resolveCurrency } from "@/lib/currency";
 import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 
 const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-export const flightBodySchema = z.object({
+const flightBodySchema = z.object({
   from: z.string().trim().min(1).max(120),
   to: z.string().trim().min(1).max(120),
   fromId: z.string().trim().min(1).max(60).optional(),
