@@ -102,14 +102,17 @@ export function FlightsSurface({ tripId, active = true }: { tripId: string | nul
   const ready = fares.status === "ready";
   const roundTrip = query.ret !== null;
 
-  // The first visit of a session opens the search, filled in from the trip, so the way in is one tap and not a page of pictures.
+  // Arriving opens the search, so the way in is one tap and not a page of pictures. From the home page's Flights tile it opens every time (as Stays and
+  // Eat do); in a trip only the first visit of a session does, filled in from the trip.
   useEffect(() => {
     if (started) return;
-    const key = `flights:opened:${tripId ?? "home"}`;
-    try {
-      if (sessionStorage.getItem(key)) return;
-      sessionStorage.setItem(key, "1");
-    } catch { /* storage blocked: the pill is still there */ }
+    if (!standalone) {
+      const key = `flights:opened:${tripId ?? "home"}`;
+      try {
+        if (sessionStorage.getItem(key)) return;
+        sessionStorage.setItem(key, "1");
+      } catch { /* storage blocked: the pill is still there */ }
+    }
     setSheet({ open: true });
     // Once, on arrival.
     // eslint-disable-next-line react-hooks/exhaustive-deps

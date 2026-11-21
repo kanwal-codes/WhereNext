@@ -17,7 +17,7 @@ export function TripsHero({ displayName, start }: { displayName: string; start: 
   const { prompt, setPrompt, starting, promptError, promptInputRef, canSend, speech, startTrip } = start;
   const wide = useMediaQuery("(min-width: 640px)");
   return (
-    <HeroCarousel className="h-[480px] rounded-b-3xl sm:h-[420px] max-lg:h-[26rem]">
+    <HeroCarousel className="h-[480px] rounded-b-3xl sm:h-[420px] max-lg:h-[24rem]">
       <div className="absolute inset-x-0 top-0">
         <Reveal>
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 pt-6 sm:px-8">
@@ -30,15 +30,17 @@ export function TripsHero({ displayName, start }: { displayName: string; start: 
         </Reveal>
       </div>
 
+      {/* Under the words only: the brightest part of a photograph (sky, balloons) never sits behind the headline. */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-4/5 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
       <div className="absolute inset-x-0 bottom-0">
-        <div className="mx-auto max-w-6xl px-4 pb-14 sm:px-8 sm:pb-8">
+        <div className="mx-auto max-w-6xl px-4 pb-6 sm:px-8 sm:pb-8">
           <Reveal delay={0.2}>
             <WordReveal
               text="Trips you’re thinking about."
               delay={0.3}
-              className="mx-auto max-w-2xl text-center font-display text-4xl leading-[1.15] text-white transition-colors duration-700 [text-shadow:0_2px_24px_rgba(0,0,0,0.45)] sm:text-5xl"
+              className="mx-auto max-w-2xl text-balance text-center font-display text-4xl leading-[1.15] text-white transition-colors duration-700 [text-shadow:0_2px_24px_rgba(0,0,0,0.45)] sm:text-5xl"
             />
-            <p className="mx-auto mt-3 max-w-xl text-center text-body leading-relaxed font-medium text-white transition-colors duration-700 [text-shadow:0_1px_14px_rgba(0,0,0,0.65)] sm:text-base">
+            <p className="mx-auto mt-3 max-w-xl text-balance text-center text-body leading-relaxed font-medium text-white transition-colors duration-700 [text-shadow:0_1px_14px_rgba(0,0,0,0.65)] sm:text-base">
               Talk it through, and the plan builds itself alongside the conversation.
             </p>
           </Reveal>

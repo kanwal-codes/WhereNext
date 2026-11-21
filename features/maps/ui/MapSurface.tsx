@@ -274,7 +274,7 @@ export function MapSurface({ tripId, start }: { tripId: string; /** Where a link
       {phone && (
         <Sheet open={editing} onClose={closeEditor} side="top" ariaLabel="Directions" initialFocus={toRef} className="icons-fine">
           <SheetHeader title="Directions" onClose={closeEditor} bordered={false} />
-          <div className="px-4 pb-5">{editor}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-5">{editor}</div>
         </Sheet>
       )}
     </MapStage>

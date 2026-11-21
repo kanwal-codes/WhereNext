@@ -24,10 +24,16 @@ POST   /api/guest/reset                                             user
 POST   /api/guest/start                                             user
 GET    /api/health                                                  public
 GET    /api/hotel-photo                                             public
+GET    /api/places/about                                            user
+GET    /api/places/details                                          user
+GET    /api/places                                                  user
+GET    /api/places/table                                            user
 GET    /api/profile                                                 user
 PUT    /api/profile                                                 user
 GET    /api/ready                                                   cron-secret
 POST   /api/route-map                                               public
+GET    /api/stays/[hotelId]                                         user
+GET    /api/stays                                                   user
 POST   /api/trips/[tripId]/ai-search                                member:viewer
 GET    /api/trips/[tripId]/availability                             member:viewer
 PUT    /api/trips/[tripId]/availability                             member:viewer

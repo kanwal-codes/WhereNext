@@ -9,11 +9,11 @@ type State = "loading" | "ready" | "error";
 export type PlaceAbout = { content: string; source?: { title: string; url: string } };
 
 /**
- * Fetches a Google place's details for a trip. Shared by the full `/place/[id]`
+ * Fetches a Google place's details, for a trip or (tripId null) for someone with none. Shared by the full `/place/[id]`
  * route and the in-chat `PlacePanel` so the two can't drift. Add-to-trip actions
  * live in `AddToTripControl`.
  */
-export function usePlaceDetails(tripId: string, placeId: string) {
+export function usePlaceDetails(tripId: string | null, placeId: string) {
   const [details, setDetails] = useState<GooglePlaceDetails | null>(null);
   const [about, setAbout] = useState<PlaceAbout | null>(null);
   const [aboutLoading, setAboutLoading] = useState(true);
@@ -41,7 +41,7 @@ export function usePlaceDetails(tripId: string, placeId: string) {
   // The blurb is written after the place is on screen: it takes a moment the page should not wait for.
   useEffect(() => {
     const controller = new AbortController();
-    const key = `place-about:${tripId}:${placeId}`;
+    const key = `place-about:${tripId ?? "home"}:${placeId}`;
     try {
       const cached = sessionStorage.getItem(key);
       if (cached) {
@@ -52,7 +52,7 @@ export function usePlaceDetails(tripId: string, placeId: string) {
     } catch { /* unavailable */ }
     setAbout(null);
     setAboutLoading(true);
-    fetch(`/api/trips/${tripId}/places/google/about?placeId=${encodeURIComponent(placeId)}`, { signal: controller.signal })
+    fetch(tripId ? `/api/trips/${tripId}/places/google/about?placeId=${encodeURIComponent(placeId)}` : `/api/places/about?placeId=${encodeURIComponent(placeId)}`, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : { about: null }))
       .then((body: { about?: PlaceAbout | null }) => {
         try { sessionStorage.setItem(key, JSON.stringify(body.about ?? null)); } catch { /* ignore */ }

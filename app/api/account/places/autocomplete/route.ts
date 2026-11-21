@@ -5,7 +5,7 @@ import { cached } from "@/lib/server/ttl-cache";
 import { withinRateLimit } from "@/lib/server/rate-limit";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 
-/** City/region typeahead for the profile's dream destination, e.g. `?query=Kyo`. */
+/** City/region typeahead for the profile's dream destination, e.g. `?query=Kyo`; `scope=places` widens it to any place. */
 export const GET = withRoute(async (request: Request) => {
   try {
     const supabase = await createSupabaseServerClient();
@@ -14,8 +14,13 @@ export const GET = withRoute(async (request: Request) => {
     if (!(await withinRateLimit(`autocomplete:${user.id}`, 60, 60_000))) {
       return NextResponse.json({ error: "Too many searches. Try again in a moment." }, { status: 429 });
     }
-    const query = new URL(request.url).searchParams.get("query")?.trim();
+    const url = new URL(request.url);
+    const query = url.searchParams.get("query")?.trim();
     if (!query || query.length < 2) return NextResponse.json({ suggestions: [] });
+    // `scope=places`: any place, restaurants and hotels included (the Eat page takes a restaurant's name as well as a city).
+    if (url.searchParams.get("scope") === "places") {
+      return NextResponse.json({ suggestions: await cached(`places:autocomplete:places:-:${query.toLowerCase()}`, 60_000, () => new GooglePlacesProvider().autocompletePlaces(query, request.signal)) });
+    }
     const suggestions = await cached(`places:autocomplete:${query.toLowerCase()}`, 60_000, () => new GooglePlacesProvider().autocompleteRegions(query, request.signal));
     return NextResponse.json({ suggestions });
   } catch (error) {

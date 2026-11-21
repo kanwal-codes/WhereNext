@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 type PlaceForTrip = ReturnType<typeof detailsToPlace>;
 
 /** The phone's photo: rounded, with the save heart on it. */
-export function PlacePhonePhoto({ tripId, photo, name, place, placeholder }: { tripId: string; photo: string | undefined; name: string; place: PlaceForTrip; /** The card's smaller photo, already cached: shown until the sharp one has loaded. */ placeholder?: string | null }) {
+export function PlacePhonePhoto({ tripId, photo, name, place, placeholder }: { tripId: string | null; photo: string | undefined; name: string; place: PlaceForTrip; /** The card's smaller photo, already cached: shown until the sharp one has loaded. */ placeholder?: string | null }) {
   return (
     <div className="px-4 pt-3 lg:hidden">
       <div className="relative aspect-[16/10] overflow-hidden rounded-3xl bg-muted">
@@ -23,7 +23,7 @@ export function PlacePhonePhoto({ tripId, photo, name, place, placeholder }: { t
         ) : (
           <MediaFallback icon={placeGlyph(place?.category, name).icon} className="absolute inset-0 size-full" />
         )}
-        {place && <div className="absolute top-2 right-2"><SaveHeart tripId={tripId} place={place} /></div>}
+        {place && tripId && <div className="absolute top-2 right-2"><SaveHeart tripId={tripId} place={place} /></div>}
       </div>
     </div>
   );

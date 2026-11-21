@@ -36,8 +36,12 @@ function recall(tripId: string, startKey: string): Partial<Remembered> | null {
  * choose among the hotels already priced, so they are applied here at once, with no request (see `applyStayFilters`); only when they leave
  * too few of a capped first page does a deeper search with them go out.
  */
+/** Where a stay search goes: the trip's own route, or the person's with no trip. */
+const staysApi = (tripId: string | null) => (tripId ? `/api/trips/${tripId}/stays` : "/api/stays");
+
 export function useStaySearch({ tripId, start, travelers, city, hasChoice, cityWindow }: {
-  tripId: string;
+  /** Null with no trip: the search then goes to the person's own route and must be told the place. */
+  tripId: string | null;
   /** Where the dates start: the booked stay's, the city's nights, or the trip's. */
   start: { checkin: string; checkout: string };
   travelers: number | null | undefined;
@@ -46,7 +50,8 @@ export function useStaySearch({ tripId, start, travelers, city, hasChoice, cityW
   cityWindow: { checkin: string; checkout: string } | null;
 }) {
   const startKey = `${start.checkin}|${start.checkout}`;
-  const [saved] = useState(() => (typeof window === "undefined" ? null : recall(tripId, startKey)));
+  // With no trip nothing is remembered: the search starts empty each time.
+  const [saved] = useState(() => (typeof window === "undefined" || !tripId ? null : recall(tripId, startKey)));
   const [checkin, setCheckin] = useState(saved?.checkin ?? start.checkin);
   const [checkout, setCheckout] = useState(saved?.checkout ?? start.checkout);
   const [adults, setAdults] = useState(saved?.adults ?? initialAdults(travelers));
@@ -71,6 +76,7 @@ export function useStaySearch({ tripId, start, travelers, city, hasChoice, cityW
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
+    if (!tripId) return;
     try {
       sessionStorage.setItem(`stay-state:${tripId}`, JSON.stringify({ startKey, checkin, checkout, adults, rooms, stars, boards, propertyTypes, refundable, priceMin, priceMax, sort, near } satisfies Remembered));
     } catch { /* storage blocked: the screen just starts fresh next time */ }
@@ -98,6 +104,8 @@ export function useStaySearch({ tripId, start, travelers, city, hasChoice, cityW
   const baseQs = stayQueryString({ adults, rooms, sort: "price", near, city: hasChoice ? city : "", checkin, checkout, stars: [], boards: [], propertyTypes: [], refundable: false, priceMin: null, priceMax: null });
 
   const search = useCallback(async (fresh = false) => {
+    // With no trip there is no place to fall back on: nothing is asked until one is chosen.
+    if (!tripId && !baseQs.includes("location=")) { setLoading(false); return; }
     const mine = ++reqId.current;
     // Cancel a still-in-flight prior search instead of just ignoring its response: rapid changes of dates kept every earlier request
     // running against the hotel provider for nothing.
@@ -108,13 +116,13 @@ export function useStaySearch({ tripId, start, travelers, city, hasChoice, cityW
     setError(null);
     const slowTimer = window.setTimeout(() => { if (mine === reqId.current) setSlow(true); }, SLOW_MS);
     try {
-      const cacheKey = `stay-search:v2:${tripId}:${baseQs}`;
+      const cacheKey = `stay-search:v2:${tripId ?? "home"}:${baseQs}`;
       const cachedResult = fresh ? undefined : readSessionCache<StaySearchResult>(cacheKey, KEEP_MS);
       if (cachedResult) {
         if (mine === reqId.current) { setBase(cachedResult); setBasePlace(placeNow); }
         return;
       }
-      const response = await fetch(`/api/trips/${tripId}/stays?${baseQs}`, { signal: controller.signal });
+      const response = await fetch(`${staysApi(tripId)}?${baseQs}`, { signal: controller.signal });
       const body = await response.json().catch(() => null);
       if (mine !== reqId.current) return;
       if (!response.ok || !body) {
@@ -152,7 +160,7 @@ export function useStaySearch({ tripId, start, travelers, city, hasChoice, cityW
     const timer = window.setTimeout(async () => {
       try {
         const qs = stayQueryString({ adults, rooms, sort, near, city: hasChoice ? city : "", checkin, checkout, stars, boards, propertyTypes, refundable, priceMin, priceMax });
-        const response = await fetch(`/api/trips/${tripId}/stays?${qs}&deep=1`, { signal: controller.signal });
+        const response = await fetch(`${staysApi(tripId)}?${qs}&deep=1`, { signal: controller.signal });
         if (!response.ok) return;
         setDeep({ key: deepKey, result: (await response.json()) as StaySearchResult });
       } catch { /* the first page's matches stay as they are */ } finally {

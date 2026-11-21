@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import {
   Globe,
@@ -26,7 +27,7 @@ import { usePlaceDetails } from "@/features/places/application/usePlaceDetails";
 import { useHydrated } from "@/lib/use-media-query";
 import { readPlaceSeed } from "@/features/places/application/placeDetailsCache";
 import { useDocumentTitle } from "@/lib/use-document-title";
-import { amenityChips, askAssistantHref, businessStatusLabel, categoryLabel, cityFrom, detailsToPlace, photoProxyUrl, prettyWebsite, priceLabel, secondaryTypes } from "@/lib/places-ui";
+import { accountPhotoUrl, amenityChips, askAssistantHref, businessStatusLabel, categoryLabel, cityFrom, detailsToPlace, photoProxyUrl, prettyWebsite, priceLabel, secondaryTypes } from "@/lib/places-ui";
 import { Badge, compactCount } from "@/features/conversation/ui/blocks/ui";
 import { cn } from "@/lib/utils";
 import { PlaceAbout } from "@/features/places/ui/PlaceAbout";
@@ -47,10 +48,17 @@ export function PlaceDetailView({
   tripId,
   placeId,
   variant = "page",
+  primaryAction,
+  extra,
 }: {
-  tripId: string;
+  /** Null for someone with no trip: there is then no saving, no adding to a trip, no neighbours, and `primaryAction` takes the place of "Add to trip". */
+  tripId: string | null;
   placeId: string;
   variant?: "page" | "panel";
+  /** The one button up top when there is no trip ("Reserve a table"). */
+  primaryAction?: ReactNode;
+  /** A block under the name and actions, before the body (what to do with the visit). */
+  extra?: ReactNode;
 }) {
   const panel = variant === "panel";
   const { details, about, aboutLoading, state, retry } = usePlaceDetails(tripId, placeId);
@@ -68,15 +76,16 @@ export function PlaceDetailView({
   if (state === "error" || !details) {
     return (
       <>
-        {!panel && <div className="mx-auto max-w-5xl px-4 pt-6 sm:px-8"><BackLink fallback={`/trips/${tripId}/discover`} label="Back" /></div>}
+        {!panel && <div className="mx-auto max-w-5xl px-4 pt-6 sm:px-8"><BackLink fallback={tripId ? `/trips/${tripId}/discover` : "/eat"} label="Back" /></div>}
         <PanelError what="this place" panel={panel} onRetry={retry} heading="h1" />
       </>
     );
   }
 
   const name = details.displayName?.text ?? "Place";
-  const photo = photoProxyUrl(tripId, details.photos?.[0]?.name);
-  const morePhotos = (details.photos ?? []).slice(1).map((p) => photoProxyUrl(tripId, p.name)).filter((u): u is string => Boolean(u));
+  const photoUrl = (name: string | undefined) => (tripId ? photoProxyUrl(tripId, name) : accountPhotoUrl(name));
+  const photo = photoUrl(details.photos?.[0]?.name);
+  const morePhotos = (details.photos ?? []).slice(1).map((p) => photoUrl(p.name)).filter((u): u is string => Boolean(u));
   const hours = details.regularOpeningHours?.weekdayDescriptions ?? [];
   const price = priceLabel(details.priceLevel);
   const status = businessStatusLabel(details.businessStatus);
@@ -99,7 +108,9 @@ export function PlaceDetailView({
   // body at the body's own full width, and an unconstrained full-width button there stretched
   // into a very long, thin bar spanning nearly the whole page. Capping it keeps it looking like
   // a button at every width instead of a banner at in-between ones.
-  const asideAction = place ? (
+  const asideAction = !tripId ? (
+    primaryAction ? <div className={cn(panel ? "max-w-md" : "max-w-sm", "max-lg:hidden")}>{primaryAction}</div> : null
+  ) : place ? (
     <div className={cn(panel ? "max-w-md" : "max-w-sm", "max-lg:hidden")}>
       <AddToTripControl tripId={tripId} place={place} size="lg" block />
     </div>
@@ -149,7 +160,7 @@ export function PlaceDetailView({
 
       <PlacePhotos photos={morePhotos} name={name} panel={panel} onOpen={lightbox.open} />
 
-      {!panel && <Reveal delay={0.1}>
+      {!panel && tripId && <Reveal delay={0.1}>
         <Link
           href={askAssistantHref(tripId, { name, address: details.formattedAddress, mapsUrl: details.googleMapsUri })}
           className="flex items-start gap-3 rounded-2xl border border-border bg-surface p-5 transition-colors hover:bg-accent"
@@ -187,7 +198,7 @@ export function PlaceDetailView({
         ratingBadge={typeof details.rating === "number" ? <><Star className="size-3.5 fill-current text-coral-soft" aria-hidden /> {details.rating.toFixed(1)}{details.userRatingCount ? <span className="opacity-70"> {compactCount(details.userRatingCount)}</span> : null}</> : undefined}
         className={cn(panel ? PANEL_HERO : "h-[38vh] min-h-[240px] sm:h-[46vh] sm:max-h-[420px]")}
       >
-        {!panel && <BackLink fallback={`/trips/${tripId}/discover`} label="Back" className="absolute top-4 left-4" />}
+        {!panel && <BackLink fallback={tripId ? `/trips/${tripId}/discover` : "/eat"} label="Back" className="absolute top-4 left-4" />}
       </Hero>
       </div>
 
@@ -220,7 +231,7 @@ export function PlaceDetailView({
               )}
               {status && <Badge tone="caution">{status}</Badge>}
             </p>
-            {city && isWeatherRelevantPlace({ primaryType: details.primaryType, types: details.types }) && (
+            {tripId && city && isWeatherRelevantPlace({ primaryType: details.primaryType, types: details.types }) && (
               <TripWeather tripId={tripId} location={city} className="mt-1.5" />
             )}
           </div>
@@ -229,7 +240,7 @@ export function PlaceDetailView({
         {place && (
           // The two things you do with a place sit under its name, in the page, not as a bar pinned over the content.
           <div className="mt-5 flex items-center gap-2.5 lg:hidden">
-            <div className="min-w-0 flex-1"><AddToTripControl tripId={tripId} place={place} size="lg" block noSave /></div>
+            <div className="min-w-0 flex-1">{tripId ? <AddToTripControl tripId={tripId} place={place} size="lg" block noSave /> : primaryAction}</div>
             {/* With both a phone and a website there is no room for the word: Directions shrinks to its icon so the four fit on one row. */}
             <a href={directionsHref} target="_blank" rel="noreferrer noopener" aria-label="Directions" className={bothContacts ? ACTION_ICON : ACTION_LABELLED}>
               <Navigation className="size-[1.125rem]" aria-hidden />{!bothContacts && " Directions"}
@@ -246,6 +257,7 @@ export function PlaceDetailView({
             )}
           </div>
         )}
+        {extra && <div className="mt-5">{extra}</div>}
         {panel ? (
           <div className="mt-6 space-y-8">
             <Reveal delay={0.08}>{asideAction}</Reveal>
@@ -261,7 +273,7 @@ export function PlaceDetailView({
           </div>
         )}
 
-        <NearbyRecommendations
+        {tripId && <NearbyRecommendations
           tripId={tripId}
           excludeId={placeId}
           anchorName={name}
@@ -270,7 +282,7 @@ export function PlaceDetailView({
           types={details.types}
           lat={details.location?.latitude}
           lng={details.location?.longitude}
-        />
+        />}
       </div>
 
       <PhotoLightbox photos={morePhotos} index={lightbox.index} onIndexChange={lightbox.open} onClose={lightbox.close} alt={name} />

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from "rea
 import { createPortal } from "react-dom";
 import { ease } from "@/components/motion/tokens";
 import { useModalFocus } from "@/components/motion/useModalFocus";
+import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { cn } from "@/lib/utils";
 
 /**
@@ -38,6 +39,8 @@ export function Sheet({
   children: ReactNode;
 }) {
   const reduce = useReducedMotion();
+  // A sheet from the top stops at the keyboard (--vvh is the height left above it) instead of running under it.
+  useKeyboardInset(open && side === "top");
   const panelRef = useRef<HTMLDivElement>(null);
   const dragControls = useDragControls();
   useModalFocus(open, onClose, panelRef, initialFocus);
@@ -83,7 +86,7 @@ export function Sheet({
               // Not for "center": it scales in, and a layer promoted at 0.96 keeps that raster scale, leaving its text soft.
               "relative flex min-h-0 flex-col bg-surface shadow-lift outline-none",
               side !== "center" && "will-change-transform",
-              side === "center" ? "w-full max-w-sm rounded-3xl" : side === "bottom" ? "max-h-[92dvh] w-full rounded-t-4xl bg-background" : side === "top" ? "max-h-[88dvh] w-full rounded-b-4xl bg-background pt-[env(safe-area-inset-top)]" : "h-full w-full max-w-xl",
+              side === "center" ? "w-full max-w-sm rounded-3xl" : side === "bottom" ? "max-h-[92dvh] w-full rounded-t-4xl bg-background" : side === "top" ? "max-h-[min(88dvh,var(--vvh,88dvh))] w-full rounded-b-4xl bg-background pt-[env(safe-area-inset-top)]" : "h-full w-full max-w-xl",
               padded && "icons-fine px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]",
               className,
             )}

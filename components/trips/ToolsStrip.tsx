@@ -1,44 +1,42 @@
 import Link from "next/link";
-import { BedDouble, Plane, Utensils, type LucideIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ArrowUpRight, BedDouble, Plane, Utensils, type LucideIcon } from "lucide-react";
 
-type Tool = { name: string; line: string; Icon: LucideIcon; href?: string };
+type Tool = { name: string; Icon: LucideIcon; href: string };
 
-/** Things to do with no trip. Only Flights works on its own today; the others are shown so the row is whole, and say they are coming. */
+/** Things to do with no trip: each opens a page that works on its own, so someone who only needs a flight, a hotel or a table never has to start a plan. */
 const TOOLS: Tool[] = [
-  { name: "Flights", line: "Prices for your dates", Icon: Plane, href: "/flights" },
-  { name: "Stays", line: "Coming soon", Icon: BedDouble },
-  { name: "Eat", line: "Coming soon", Icon: Utensils },
+  { name: "Flights", Icon: Plane, href: "/flights" },
+  { name: "Stays", Icon: BedDouble, href: "/stay" },
+  { name: "Eat", Icon: Utensils, href: "/eat" },
 ];
 
-const tile = "flex min-h-28 flex-col justify-between gap-3 rounded-3xl bg-surface p-3.5 ring-1 ring-border";
-
-/** "Just need one thing?": a row of tools to use without starting a trip, between the hero and the trips. */
+/**
+ * "Just need one thing?": the tools to use without starting a trip, between the hero and the trips. Each tile is a warm card with a lit icon
+ * medallion, its name, and a small arrow that says it goes somewhere; a large pale copy of the icon sits behind, cropped at the corner, for depth.
+ */
 export function ToolsStrip() {
   return (
     <section aria-labelledby="tools-strip" className="mb-10">
       <h2 id="tools-strip" className="font-display text-xl font-medium tracking-[-0.015em] sm:text-2xl">Just need one thing?</h2>
       <ul className="mt-3.5 grid grid-cols-3 gap-2.5 sm:gap-3 lg:max-w-xl">
-        {TOOLS.map(({ name, line, Icon, href }) => {
-          const body = (
-            <>
-              <span className="grid size-9 place-items-center rounded-full bg-coral-soft text-coral-ink"><Icon className="size-[1.125rem]" aria-hidden /></span>
-              <span>
-                <span className="block font-display text-base font-semibold leading-tight tracking-[-0.01em]">{name}</span>
-                <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">{line}</span>
+        {TOOLS.map(({ name, Icon, href }, i) => (
+          <li key={name} className="rise" style={{ animationDelay: `${i * 70}ms` }}>
+            <Link
+              href={href}
+              prefetch={false}
+              className="group relative isolate flex h-full min-h-32 flex-col justify-between overflow-hidden rounded-[1.75rem] bg-[linear-gradient(155deg,var(--color-card)_30%,color-mix(in_oklab,var(--color-coral-soft)_70%,var(--color-card)))] p-3.5 shadow-[inset_0_1px_0_rgb(255_255_255/0.9),0_12px_26px_-20px_rgb(90_40_20/0.45)] ring-1 ring-border transition-[transform,box-shadow] duration-300 ease-out hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_rgb(255_255_255/0.9),0_18px_30px_-18px_rgb(90_40_20/0.5)] active:translate-y-0 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              <Icon aria-hidden strokeWidth={1.25} className="pointer-events-none absolute -right-4 -bottom-4 -z-10 size-24 text-coral-ink/[0.08] transition-transform duration-500 ease-out group-hover:-rotate-6 group-hover:scale-110" />
+              <span className="grid size-11 place-items-center rounded-full bg-card text-coral-ink shadow-[0_8px_16px_-10px_rgb(160_60_30/0.55)] ring-1 ring-coral/15 transition-transform duration-300 ease-out group-hover:scale-105">
+                <Icon className="size-5" aria-hidden />
               </span>
-            </>
-          );
-          return (
-            <li key={name}>
-              {href ? (
-                <Link href={href} prefetch={false} className={cn(tile, "h-full transition-[box-shadow,transform] duration-200 ease-out hover:shadow-soft active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring")}>{body}</Link>
-              ) : (
-                <div aria-disabled="true" className={cn(tile, "h-full opacity-55")}>{body}</div>
-              )}
-            </li>
-          );
-        })}
+              <span className="flex items-center justify-between gap-1">
+                <span className="font-display text-[1.0625rem] leading-none font-semibold tracking-[-0.015em]">{name}</span>
+                <ArrowUpRight aria-hidden className="size-4 shrink-0 text-muted-foreground transition-[transform,color] duration-300 ease-out group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-coral-ink" />
+              </span>
+            </Link>
+          </li>
+        ))}
       </ul>
     </section>
   );

@@ -1,4 +1,4 @@
-import { Beer, BedDouble, Bus, Car, Castle, Church, Clock, Coffee, Coins, Compass, GlassWater, HandCoins, Landmark, Languages, Plug, Siren, Smartphone, Ticket, Zap, MapPin, Martini, Moon, PersonStanding, Plane, Ship, ShoppingBag, ShoppingBasket, TicketCheck, TrainFront, TramFront, TreeDeciduous, Utensils, type LucideIcon } from "lucide-react";
+import { Beer, BedDouble, Bus, Car, Castle, Church, Clock, Coffee, Coins, Compass, Croissant, GlassWater, HandCoins, Landmark, Languages, Plug, Siren, Smartphone, Ticket, Zap, MapPin, Martini, Moon, PersonStanding, Plane, Ship, ShoppingBag, ShoppingBasket, TicketCheck, TrainFront, TramFront, TreeDeciduous, Utensils, type LucideIcon } from "lucide-react";
 
 export type Glyph = { icon: LucideIcon; label: string };
 type Rule = [RegExp, Glyph];
@@ -9,12 +9,13 @@ const BY_NAME: Rule[] = [
   [/\b(?:castle|fort|fortress|palace|chateau|château|citadel)\b/i, { icon: Castle, label: "Castle" }],
   [/\b(?:park|parc|garden|gardens|jardin|trail|hike|hiking|mount|mont|mountain|lake|lac|beach|forest|reserve|island|île|ile|falls|canyon|lookout|summit)\b/i, { icon: TreeDeciduous, label: "Outdoors" }],
   [/\b(?:market|marché|marche|souk|bazaar|food hall)\b/i, { icon: ShoppingBasket, label: "Market" }],
-  [/\b(?:shop|shops|shopping|boutique|mall|store|outlet)\b/i, { icon: ShoppingBag, label: "Shopping" }],
   [/\b(?:museum|musée|musee|gallery|galerie|exhibit|exhibition)\b/i, { icon: Landmark, label: "Museum" }],
   [/\b(?:pub|brewery|taproom|beer|tavern)\b/i, { icon: Beer, label: "Pub" }],
   [/\b(?:bar|cocktail|club|lounge|nightclub|speakeasy|rooftop)\b/i, { icon: Martini, label: "Bar" }],
+  [/\b(?:dessert|desserts|crêperie|creperie|crepe|crêpe|crepes|ice cream|gelato|bakery|boulangerie|patisserie|pâtisserie|chocolat\w*)\b/i, { icon: Croissant, label: "Bakery" }],
   [/\b(?:cafe|café|coffee|bakery|patisserie|pâtisserie|bagel|espresso|brunch|breakfast)\b/i, { icon: Coffee, label: "Café" }],
   [/\b(?:restaurant|dinner|lunch|bistro|brasserie|diner|eatery|poutine|sushi|pizza|ramen|steakhouse|kitchen|grill|food)\b/i, { icon: Utensils, label: "Food" }],
+  [/\b(?:shop|shops|shopping|boutique|mall|store|outlet)\b/i, { icon: ShoppingBag, label: "Shopping" }],
   [/\b(?:hostel|hotel|inn|lodge|airbnb|check[- ]in|check[- ]out|bags|luggage|drop bags|accommodation)\b/i, { icon: BedDouble, label: "Stay" }],
   [/\b(?:airport|flight|terminal|depart|arrive|arrival)\b/i, { icon: Plane, label: "Flight" }],
   [/\b(?:ferry|boat|cruise)\b/i, { icon: Ship, label: "Boat" }],

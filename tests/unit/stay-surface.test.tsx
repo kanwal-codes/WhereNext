@@ -22,7 +22,7 @@ const push = vi.fn();
 const prefetch = vi.fn();
 const directive = { current: null as null | ((d: Any) => void) };
 
-vi.mock("@/components/TripDataProvider", () => ({ useTripData: () => ({ tripId: TRIP, data }) }));
+vi.mock("@/components/TripDataProvider", () => ({ useTripData: () => ({ tripId: TRIP, data }), useTripDataMaybe: () => ({ tripId: TRIP, data }) }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("@/lib/client/use-trip-city", () => ({ useTripCity: () => cities }));
 vi.mock("@/features/stays/application/useTripStays", () => ({ useTripStays: () => ({ items }) }));
@@ -200,9 +200,9 @@ describe("StaySurface: the search", () => {
     await screen.findByTestId("card-h1");
     expect(screen.queryByRole("dialog")).toBeNull();
     await user.click(within(render(<>{headerTitle}</>).container).getByRole("button", { name: /^Dates, guests and place/ }));
-    const dates = await screen.findByRole("dialog", { name: "Dates and guests" });
+    const dates = await screen.findByRole("dialog", { name: "Stays" });
     expect(within(dates).getByText("Check-in")).toBeTruthy();
-    await user.click(within(dates).getByRole("button", { name: "Done" }));
+    await user.click(within(dates).getByRole("button", { name: "Search stays" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await user.click(screen.getAllByRole("button", { name: "Filters" })[0]);
     const filters = await screen.findByRole("dialog", { name: "Sort and filter" });
@@ -230,7 +230,7 @@ describe("StaySurface: while a search is refreshed", () => {
     await user.click(screen.getByRole("button", { name: "More Guests" }));
     await waitFor(() => expect(hold!).toHaveLength(1));
     expect(screen.getByTestId("card-h1").getAttribute("data-pricing")).toBe("true");
-    expect(screen.getByText(/Checking prices for/)).toBeTruthy();
+    expect(screen.queryByText(/Checking prices/)).toBeNull();
     act(() => hold![0].resolve());
     await waitFor(() => expect(screen.getByTestId("card-h1").getAttribute("data-pricing")).toBe("false"));
   });
@@ -311,15 +311,15 @@ describe("StaySurface: dates and party", () => {
     expect(screen.getByRole("button", { name: "Fewer Rooms" }).hasAttribute("disabled")).toBe(true);
   });
 
-  it("opens the dates and guests from the header pill and closes them with Done", async () => {
+  it("opens the dates and guests from the header pill and closes them with Search stays", async () => {
     const user = u();
     narrow = true;
     renderStay();
     await screen.findByTestId("card-h1");
     await user.click(within(render(<>{headerTitle}</>).container).getByRole("button", { name: /^Dates, guests and place/ }));
-    const dates = await screen.findByRole("dialog", { name: "Dates and guests" });
+    const dates = await screen.findByRole("dialog", { name: "Stays" });
     expect(dates.querySelector('input[aria-label="Place"]')).toBeTruthy();
-    await user.click(within(dates).getByRole("button", { name: "Done" }));
+    await user.click(within(dates).getByRole("button", { name: "Search stays" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 });
