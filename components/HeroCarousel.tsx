@@ -98,11 +98,8 @@ export function HeroCarousel({ className, children }: { className?: string; chil
 
       {children}
 
-      {/* The place, and one hairline that fills over the hold. Press the line for the next photograph. */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 sm:px-8">
-        <p aria-live="off" className="eyebrow min-w-0 truncate !text-white/80 [text-shadow:0_1px_8px_rgba(0,0,0,0.5)]" key={scene.place}>
-          <span className="hero-caption">{scene.place}</span>
-        </p>
+      {/* One hairline that fills over the hold. Press the line for the next photograph. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 mx-auto flex max-w-6xl items-center justify-end gap-4 px-4 sm:px-8">
         <button
           type="button"
           aria-label="Next photograph"

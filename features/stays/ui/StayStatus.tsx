@@ -33,15 +33,6 @@ export function StayResultSkeleton({ count = 6 }: { count?: number }) {
   );
 }
 
-/** A hairline along the top of the status row while prices are on their way: the screen is working, even when the old list is still showing. It takes no room of its own. */
-export function StayProgress({ active }: { active: boolean }) {
-  return (
-    <div aria-hidden="true" className={cn("stay-progress pointer-events-none absolute inset-x-0 top-0 h-0.5 overflow-hidden rounded-full transition-opacity duration-300", active ? "opacity-100" : "opacity-0")}>
-      <span className="stay-progress-bar" />
-    </div>
-  );
-}
-
 const ORDER: Record<StaySort, string> = { price: "Lowest price", price_desc: "Highest price", rating: "Best rated", stars: "Most stars" };
 
 /**
@@ -57,8 +48,9 @@ export function StayStatusLine({ loading, slow, deepening, error, hasResult, cou
   let busy = false;
   let showOrder = false;
   if (loading) {
-    busy = true;
-    text = slow ? "Still looking — the hotel sites are slow right now." : checkin && checkout ? `Checking prices for ${fmtDay(checkin)} – ${fmtDay(checkout)}…` : "Checking prices…";
+    // The skeleton below is the message; words only when the wait gets long.
+    busy = slow;
+    text = slow ? "Still looking. Hotel sites are slow right now." : null;
   } else if (deepening) {
     busy = true;
     text = "Looking further for stays that match…";

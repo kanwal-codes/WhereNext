@@ -48,10 +48,10 @@ function IdeaCard({ tripId, city, delay, onPick }: { tripId: string | null; city
           // eslint-disable-next-line @next/next/no-img-element -- the proxied photo is already sized to the card
           <img src={src} alt="" loading="lazy" onLoad={() => setLoaded(true)} className={cn("absolute inset-0 size-full object-cover transition-[transform,opacity] duration-500 ease-out group-hover:scale-[1.04]", loaded ? "opacity-100" : "opacity-0")} />
         ) : failed ? (
-          <span className="absolute inset-0 grid place-items-center text-muted-foreground"><MapPin className="size-7" aria-hidden /></span>
+          <span className="absolute inset-0 grid place-items-center bg-gradient-to-br from-coral-soft to-muted text-coral-ink"><MapPin className="size-7" aria-hidden /></span>
         ) : null}
         {!loaded && !failed && <span aria-hidden className="skeleton absolute inset-0" />}
-        <span aria-hidden className="scrim-b absolute inset-0" />
+        {(loaded || failed) && <span aria-hidden className="scrim-b absolute inset-0" />}
         <span className="absolute inset-x-4 bottom-4">
           <span className="block font-display text-xl leading-tight font-medium tracking-[-0.015em]">{name}</span>
           {rest.length > 0 && <span className="mt-0.5 block text-sm text-white/80">{rest.join(",").trim()}</span>}

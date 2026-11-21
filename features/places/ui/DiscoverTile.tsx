@@ -7,6 +7,9 @@ import { BlurImage } from "@/components/motion-primitives";
 import { CardOpenOverlay, MediaFallback } from "@/features/conversation/ui/blocks/ui";
 import { cn } from "@/lib/utils";
 
+/** Shouted words in a name ("OSMO X MARUSAN Café") read as words; short ones (BBQ, NYC, X) stay as they are. */
+const softCaps = (t: string) => t.replace(/\b\p{Lu}{4,}\b/gu, (w) => w[0] + w.slice(1).toLowerCase());
+
 function TilePhoto({ src, icon, className }: { src?: string | null; icon: LucideIcon; className?: string }) {
   const [failed, setFailed] = useState(false);
   if (!src || failed) return <MediaFallback icon={icon} className={className} />;
@@ -63,7 +66,7 @@ export function DiscoverTile({
         {save && <div className="absolute top-2 right-2 z-[2]">{save}</div>}
         <div className="pointer-events-none absolute inset-x-4 bottom-4 z-[1] flex items-end justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="font-display text-widget leading-[1.15] font-medium tracking-[-0.025em] text-balance">{title}</h3>
+            <h3 className="font-display text-widget leading-[1.15] font-medium tracking-[-0.025em] text-balance">{softCaps(title)}</h3>
             {(meta || stars) && (
               <p className="mt-0.5 flex items-center gap-1.5 text-sm text-white/85">
                 {meta && <span className="min-w-0 truncate">{meta}</span>}
@@ -87,10 +90,10 @@ export function DiscoverTile({
         {add && <div className="pointer-events-auto absolute right-2 bottom-2 z-[2]">{add}</div>}
         {overlay && <div className="pointer-events-auto contents">{overlay}</div>}
       </div>
-      <h3 className="mt-2.5 font-display text-body leading-snug font-medium tracking-[-0.01em] text-balance">{title}</h3>
+      <h3 className="mt-2.5 font-display text-body leading-snug font-medium tracking-[-0.01em] text-balance">{softCaps(title)}</h3>
       {(meta || stars) && (
-        <p className="mt-0.5 flex items-center gap-1.5 text-sm text-ink-soft">
-          {meta && <span className="min-w-0 truncate">{meta}</span>}
+        <p className="mt-0.5 flex items-start gap-1.5 text-sm text-ink-soft">
+          {meta && <span className="line-clamp-2 min-w-0">{meta}</span>}
           {stars && <span className="text-foreground">{stars}</span>}
         </p>
       )}

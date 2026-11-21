@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { useTripData } from "@/components/TripDataProvider";
+import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { announceWorkspaceChange } from "@/lib/application/workspace-events";
 import { notifyToast } from "@/lib/application/toast";
 import type { Reservation } from "@/packages/contracts/reservation";
@@ -19,8 +19,8 @@ const stored = (decisions: ReadonlyArray<Decision>, kind: RemovableDecision) =>
  * Each call resolves true once it is gone, so the caller can close its own UI.
  */
 export function useRemoveTripItem(tripId: string) {
-  const { data } = useTripData();
-  const current = data?.decisions;
+  // Maybe: the Stays page with no trip has no provider, and nothing to remove.
+  const current = useTripDataMaybe()?.data?.decisions;
 
   const removeDecision = useCallback(async (kind: RemovableDecision, name: string): Promise<boolean> => {
     const before = stored((current ?? []) as Decision[], kind);
