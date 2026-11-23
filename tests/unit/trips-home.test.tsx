@@ -19,6 +19,7 @@ const assign = vi.fn();
 vi.mock("@/lib/use-media-query", () => ({ useMediaQuery: () => wide }));
 vi.mock("@/lib/use-speech-input", () => ({ useSpeechInput: (opts: Any) => { speechOpts = opts; return speech; } }));
 vi.mock("@/lib/application/toast", () => ({ notifyToast: (...a: unknown[]) => toast(...a) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: assign }) }));
 vi.mock("next/link", () => ({ __esModule: true, default: ({ href, children, ...rest }: Any) => <a href={href} {...rest}>{children}</a> }));
 vi.mock("@/components/BrandMark", () => ({ BrandMark: ({ variant }: Any) => <span>{`brand ${variant}`}</span> }));
 vi.mock("@/components/AccountMenu", () => ({ AccountMenu: ({ displayName }: Any) => <div data-testid="account">{displayName}</div> }));
@@ -33,6 +34,9 @@ vi.mock("@/components/motion-primitives", () => ({
 }));
 vi.mock("@/components/trips/FeaturedTrip", () => ({ FeaturedTrip: ({ trip, status, deleting, onDelete }: Any) => <article data-testid="featured" data-deleting={String(deleting)}>{`featured ${trip.name} ${status.badge}`}<button type="button" onClick={onDelete}>{`delete ${trip.name}`}</button></article> }));
 vi.mock("@/components/trips/TripCard", () => ({ TripCard: ({ trip, status, deleting, onDelete }: Any) => <article data-testid="card" data-deleting={String(deleting)}>{`card ${trip.name} ${status.badge}`}<button type="button" onClick={onDelete}>{`delete ${trip.name}`}</button></article> }));
+vi.mock("@/components/trips/PastTrips", () => ({
+  PastTrips: ({ trips, onDelete, defaultOpen }: Any) => (trips.length ? <section data-testid="past" data-open={String(defaultOpen)}>{trips.map((t: Any) => <article key={t.id} data-testid="past-row">{`past ${t.name}`}<button type="button" onClick={() => onDelete(t)}>{`delete ${t.name}`}</button></article>)}</section> : null),
+}));
 vi.mock("@/components/trips/PhoneTripRow", () => ({ PhoneTripRow: ({ trip, onDelete }: Any) => <article data-testid="row">{`row ${trip.name}`}<button type="button" onClick={onDelete}>{`remove ${trip.name}`}</button></article> }));
 
 import { TripsHome } from "../../components/TripsHome";
@@ -97,8 +101,10 @@ describe("TripsHome: which trip leads", () => {
     home([old("p", "Rome"), soon("s", "Lisbon", 30), now("n", "Oslo"), soon("c", "Porto", 5), trip("u", "Someday")]);
     expect(screen.getByTestId("featured").textContent).toContain("featured Oslo Underway");
     expect(screen.getAllByTestId("card").map((c) => c.textContent?.replace(/delete.*/, ""))).toEqual([
-      "card Porto In 5 days", "card Lisbon In 4 weeks", "card Someday Planning", "card Rome Past",
+      "card Porto In 5 days", "card Lisbon In 4 weeks", "card Someday Planning",
     ]);
+    // What is over is not in the list: it is folded away at the end, under its own heading.
+    expect(screen.getByTestId("past").textContent).toContain("past Rome");
   });
 
   it("features the soonest upcoming trip when nothing is under way", () => {
@@ -106,13 +112,16 @@ describe("TripsHome: which trip leads", () => {
     expect(screen.getByTestId("featured").textContent).toContain("featured Sooner In 3 days");
   });
 
-  it("features a trip still being planned, then a past one", () => {
+  it("features a trip still being planned, and keeps a past one out of the list", () => {
     home([old("p", "Rome"), trip("u", "Someday")]);
     expect(screen.getByTestId("featured").textContent).toContain("featured Someday");
+    expect(screen.getByTestId("past").getAttribute("data-open")).toBe("false");
     cleanup();
+    // With only past trips there is nothing to feature, and the past section opens by itself.
     home([old("p", "Rome")]);
-    expect(screen.getByTestId("featured").textContent).toContain("featured Rome Past");
+    expect(screen.queryByTestId("featured")).toBeNull();
     expect(screen.queryByTestId("grid")).toBeNull();
+    expect(screen.getByTestId("past").getAttribute("data-open")).toBe("true");
   });
 
   it("lays the rest out two across for one, two or four, three across otherwise", () => {
@@ -146,42 +155,45 @@ describe("TripsHome: filter tabs", () => {
   it("count each kind, with underway folded into Upcoming, and leave out kinds with none", () => {
     home(many());
     const tabs = within(screen.getByRole("tablist")).getAllByRole("tab").map((t) => t.textContent);
-    expect(tabs).toEqual(["All5", "Upcoming3", "Planning1", "Past1"]);
+    expect(tabs).toEqual(["All4", "Upcoming3", "Planning1"]);
     cleanup();
+    // Past trips have no tab, and do not count towards showing the tabs.
     home([soon("a", "A"), soon("b", "B"), soon("c", "C"), old("p", "Rome")]);
-    expect(within(screen.getByRole("tablist")).getAllByRole("tab").map((t) => t.textContent)).toEqual(["All4", "Upcoming3", "Past1"]);
+    expect(screen.queryByRole("tablist")).toBeNull();
   });
 
   it("narrow the list to one kind and mark the chosen tab", async () => {
     const user = u();
     home(many());
     expect(screen.getByRole("tab", { name: /All/ }).getAttribute("aria-selected")).toBe("true");
-    await user.click(screen.getByRole("tab", { name: /Past/ }));
-    expect(screen.getByRole("tab", { name: /Past/ }).getAttribute("aria-selected")).toBe("true");
+    await user.click(screen.getByRole("tab", { name: /Planning/ }));
+    expect(screen.getByRole("tab", { name: /Planning/ }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("tab", { name: /All/ }).getAttribute("aria-selected")).toBe("false");
-    expect(screen.getByTestId("featured").textContent).toContain("Rome");
+    expect(screen.getByTestId("featured").textContent).toContain("Someday");
     expect(screen.queryAllByTestId("card")).toHaveLength(0);
     await user.click(screen.getByRole("tab", { name: /Upcoming/ }));
     expect(screen.getByTestId("featured").textContent).toContain("Oslo");
     expect(screen.getAllByTestId("card")).toHaveLength(2);
   });
 
-  it("fall back to All when the last trip of the open kind is deleted", async () => {
+  it("fall back to All (and drop the tabs) when the last trip of the open kind is deleted", async () => {
     const user = u();
     // Only `Date` is faked (beforeEach), so the clock stays at NOW the trips are dated against while userEvent and waitFor run on real timers.
     respond = () => new Response("{}", { status: 200 });
     home(many());
-    await user.click(screen.getByRole("tab", { name: /Past/ }));
-    await user.click(screen.getByRole("button", { name: "delete Rome" }));
+    await user.click(screen.getByRole("tab", { name: /Planning/ }));
+    await user.click(screen.getByRole("button", { name: "delete Someday" }));
     await user.click(screen.getByRole("button", { name: /^Delete trip$/ }));
-    await waitFor(() => expect(screen.queryByText(/Rome/)).toBeNull());
-    expect(screen.getByRole("tab", { name: /All/ }).getAttribute("aria-selected")).toBe("true");
+    await waitFor(() => expect(screen.queryByText(/Someday/)).toBeNull());
+    // What is left is one kind, so there is nothing to filter and the tabs go.
+    expect(screen.queryByRole("tablist")).toBeNull();
     expect(screen.getByTestId("featured").textContent).toContain("Oslo");
+    expect(screen.getAllByTestId("card")).toHaveLength(2);
   });
 });
 
 describe("TripsHome: deleting and leaving", () => {
-  beforeEach(() => { vi.useRealTimers(); });
+  // Only `Date` is faked (the outer beforeEach), so the trips stay dated against NOW: a trip made to be ahead is not turned into a past one, which would leave it out of the list.
 
   it("asks first, and keeps the trip when you change your mind", async () => {
     const user = u();
@@ -280,7 +292,7 @@ describe("TripsHome: starting a trip", () => {
     expect(document.activeElement).toBe(input());
   });
 
-  it("makes a blank trip and opens its chat with the words already in the composer", async () => {
+  it("makes a blank trip and opens its chat, which sends the words as the first message", async () => {
     const user = u();
     home([]);
     await user.type(input(), "A long weekend & more");
@@ -289,14 +301,14 @@ describe("TripsHome: starting a trip", () => {
     expect(fetchCalls[0].url).toBe("/api/trips");
     expect(fetchCalls[0].init?.method).toBe("POST");
     expect(JSON.parse(String(fetchCalls[0].init?.body))).toEqual({ destination: null, idempotencyKey: "key-1" });
-    expect(assign).toHaveBeenCalledWith(`/trips/new-1/chat?ask=${encodeURIComponent("A long weekend & more")}`);
+    expect(assign).toHaveBeenCalledWith(`/trips/new-1/chat?ask=${encodeURIComponent("A long weekend & more")}&send=1`);
   });
 
   it("trims what was typed, and sends on Enter", async () => {
     const user = u();
     home([]);
     await user.type(input(), "  Oslo  {Enter}");
-    await waitFor(() => expect(assign).toHaveBeenCalledWith("/trips/new-1/chat?ask=Oslo"));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith("/trips/new-1/chat?ask=Oslo&send=1"));
   });
 
   it("disables the box while it works, and shows a spinner in place of the arrow", async () => {
@@ -337,7 +349,7 @@ describe("TripsHome: starting a trip", () => {
     expect(input().disabled).toBe(false);
     respond = () => new Response(JSON.stringify({ trip: { id: "ok" } }), { status: 200 });
     await user.click(send());
-    await waitFor(() => expect(assign).toHaveBeenCalledWith("/trips/ok/chat?ask=Oslo"));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith("/trips/ok/chat?ask=Oslo&send=1"));
     expect(fetchCalls.map((c) => JSON.parse(String(c.init?.body)).idempotencyKey)).toEqual(["key-1", "key-1"]);
     expect(screen.queryByRole("alert")).toBeNull();
   });
@@ -438,7 +450,7 @@ describe("TripsHome: dictation", () => {
 describe("TripsHome: on the phone", () => {
   it("lists every trip as a row, and keeps the cards for wider screens", async () => {
     home([now("n", "Oslo"), soon("s", "Lisbon"), old("p", "Rome")]);
-    expect(screen.getAllByTestId("row").map((r) => r.textContent?.replace(/remove.*/, ""))).toEqual(["row Oslo", "row Lisbon", "row Rome"]);
+    expect(screen.getAllByTestId("row").map((r) => r.textContent?.replace(/remove.*/, ""))).toEqual(["row Oslo", "row Lisbon"]);
     expect(document.querySelector('a[href="/trips/new"]')?.textContent?.trim()).toBe("Create New trip");
     const user = u();
     await user.click(screen.getByRole("button", { name: "remove Lisbon" }));

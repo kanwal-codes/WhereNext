@@ -10,21 +10,26 @@ describe("homeView", () => {
 
   it("sorts for the home screen and leads with what is under way", () => {
     const v = homeView(trips, NOW, "all");
-    expect(v.visible.map((x) => x.id)).toEqual(["now", "soon", "later", "idea", "past"]);
+    expect(v.visible.map((x) => x.id)).toEqual(["now", "soon", "later", "idea"]);
     expect(v.featured?.id).toBe("now");
-    expect(v.rest.map((x) => x.id)).toEqual(["soon", "later", "idea", "past"]);
+    expect(v.rest.map((x) => x.id)).toEqual(["soon", "later", "idea"]);
+    // What is over is kept apart, for its own section at the end of the page.
+    expect(v.past.map((x) => x.id)).toEqual(["past"]);
   });
 
   it("counts every kind, folding what is under way into Upcoming", () => {
-    expect(homeView(trips, NOW, "all").counts).toMatchObject({ all: 5, upcoming: 3, underway: 1, undated: 1, past: 1 });
+    expect(homeView(trips, NOW, "all").counts).toMatchObject({ all: 4, upcoming: 3, underway: 1, undated: 1, past: 1 });
   });
 
-  it("filters to the chosen kind and features within it", () => {
-    const v = homeView(trips, NOW, "past");
-    expect(v.visible.map((x) => x.id)).toEqual(["past"]);
-    expect(v.featured?.id).toBe("past");
+  it("filters to the chosen kind and features within it, and has no tab for past trips", () => {
+    const v = homeView(trips, NOW, "undated");
+    expect(v.visible.map((x) => x.id)).toEqual(["idea"]);
+    expect(v.featured?.id).toBe("idea");
     expect(v.rest).toEqual([]);
     expect(homeView(trips, NOW, "upcoming").visible.map((x) => x.id)).toEqual(["now", "soon", "later"]);
+    const past = homeView(trips, NOW, "past");
+    expect(past.activeFilter).toBe("all");
+    expect(past.visible.map((x) => x.id)).toEqual(["now", "soon", "later", "idea"]);
   });
 
   it("falls back to All when the asked-for kind has no trips", () => {
@@ -34,7 +39,7 @@ describe("homeView", () => {
   });
 
   it("lists only the kinds that have trips, All first", () => {
-    expect(homeView(trips, NOW, "all").tabs.map((x) => x.key)).toEqual(["all", "upcoming", "undated", "past"]);
+    expect(homeView(trips, NOW, "all").tabs.map((x) => x.key)).toEqual(["all", "upcoming", "undated"]);
     expect(homeView([t("a", 5), t("b", 9)], NOW, "all").tabs.map((x) => x.key)).toEqual(["all", "upcoming"]);
   });
 

@@ -25,8 +25,8 @@ test("authenticated user can create and reload a trip workspace", async ({ page 
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(page).toHaveURL(/\/trips(?:\/new)?$/, { timeout: 15_000 });
 
+    // "New trip" makes a blank trip and opens Roam on it.
     await page.goto("/trips/new");
-    await page.getByRole("button", { name: "Start planning" }).click();
     await expect(page).toHaveURL(/\/trips\/[0-9a-f-]{36}\/chat$/i, { timeout: 30_000 });
     await expect(page.getByRole("heading", { name: "Plan this the way you’d talk about it" })).toBeVisible();
     const draftTripId = page.url().match(/\/trips\/([0-9a-f-]{36})/i)?.[1];

@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { NewTripLink } from "@/components/trips/NewTripLink";
 import { Reveal } from "@/components/motion-primitives";
 import { RoamMark } from "@/features/roam/ui/RoamMark";
 import { cn } from "@/lib/utils";
@@ -34,9 +34,9 @@ export function EmptyTrips() {
           <p className="mt-3 max-w-md text-sm leading-relaxed text-ink-soft max-lg:mx-auto">
             You only need a name and a destination. Dates, budget and who&rsquo;s coming can all come out of the conversation later. Or tell Roam what you&rsquo;re after in the box above.
           </p>
-          <Link href="/trips/new" className="btn-primary mt-7">
-            Create your first trip <ArrowRight className="size-4" />
-          </Link>
+          <NewTripLink className="btn-primary mt-7">
+            {(spinner) => <>Create your first trip {spinner ?? <ArrowRight className="size-4" />}</>}
+          </NewTripLink>
         </div>
       </div>
     </Reveal>

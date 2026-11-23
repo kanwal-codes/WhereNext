@@ -88,7 +88,7 @@ export function AccountMenu({ displayName, className }: { displayName: string; c
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         onClick={toggle}
-        className={cn("grid size-9 max-lg:h-11 max-lg:w-11 shrink-0 place-items-center rounded-full border border-border/60 bg-background/92 text-xs font-semibold text-foreground transition-[opacity,transform] hover:opacity-70 active:scale-[0.97]", open && "opacity-70", className)}
+        className={cn("grid size-10 max-lg:size-11 shrink-0 place-items-center rounded-full border border-border/60 bg-background/92 text-sm font-semibold text-foreground transition-[opacity,transform] hover:opacity-70 active:scale-[0.97]", open && "opacity-70", className)}
       >
         {memberInitials(displayName)}
       </button>

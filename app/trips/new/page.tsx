@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { StandaloneTopBar } from "@/components/StandaloneTopBar";
 import { createSupabaseServerClient, getSessionUser } from "@/lib/supabase/server";
-import { NewTripForm } from "@/features/trip-setup/ui/NewTripForm";
+import { OpenNewTrip } from "@/features/trip-setup/ui/OpenNewTrip";
 import { Reveal } from "@/components/motion-primitives";
 
 export const metadata = {
@@ -24,20 +24,9 @@ export default async function NewTripPage() {
         <StandaloneTopBar />
 
         <Reveal>
-          <p className="eyebrow mt-12">New trip</p>
-          <h1 className="mt-3 max-w-lg font-display text-4xl leading-[1.15]">
-            Start with a feeling. We&rsquo;ll find the trip.
-          </h1>
-          <p className="mt-3 max-w-md text-sm leading-relaxed text-ink-soft">
-            No form to finish first. Tell Roam what&rsquo;s on your mind and shape the details when
-            you&rsquo;re ready.
-          </p>
-        </Reveal>
-
-        <Reveal delay={0.12}>
-          <div className="mt-9">
+          <div className="mt-12">
             {authenticated ? (
-              <NewTripForm />
+              <OpenNewTrip />
             ) : (
               <div className="rounded-2xl border border-border bg-card p-6 shadow-soft">
                 <p className="text-sm">Sign in or create an account before starting a trip.</p>

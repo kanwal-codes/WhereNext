@@ -5,6 +5,8 @@ import { Plus } from "lucide-react";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion-primitives";
 import { DeleteTripSheet } from "@/components/trips/DeleteTripSheet";
 import { EmptyTrips } from "@/components/trips/EmptyTrips";
+import { NewTripLink } from "@/components/trips/NewTripLink";
+import { PastTrips } from "@/components/trips/PastTrips";
 import { FeaturedTrip } from "@/components/trips/FeaturedTrip";
 import { TripCard } from "@/components/trips/TripCard";
 import { PhoneTripRow } from "@/components/trips/PhoneTripRow";
@@ -20,7 +22,7 @@ export type { TripSummary };
 
 export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]; displayName: string; userId?: string }) {
   const { list, now, view, setFilter, deleting, pendingDelete, setPendingDelete, removeTrip } = useTripList(trips, userId);
-  const { counts, activeFilter, visible, featured, rest, tabs, showTabs } = view;
+  const { counts, activeFilter, visible, featured, rest, past, tabs, showTabs } = view;
   const start = useStartTrip();
 
   return (
@@ -35,9 +37,9 @@ export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]
               <h2 className={cn("font-display text-3xl tracking-tight", "max-lg:text-2xl")}>{list.length > 0 ? "Your trips" : "No trips yet"}</h2>
               {list.length > 0 && !showTabs && <span className="daisy-badge daisy-badge-ghost tabular-nums">{list.length}</span>}
             </div>
-            <Link href="/trips/new" className="btn-primary w-fit shrink-0">
-              <Plus className="size-4" /> {<span><span className="max-lg:hidden">Create </span><span className="lg:hidden">New </span>trip</span>}
-            </Link>
+            <NewTripLink className="btn-primary w-fit shrink-0">
+              {(spinner) => <>{spinner ?? <Plus className="size-4" />} <span><span className="max-lg:hidden">Create </span><span className="lg:hidden">New </span>trip</span></>}
+            </NewTripLink>
           </div>
           {showTabs && (
             <div role="tablist" aria-label="Filter trips" className="daisy-tabs daisy-tabs-box daisy-tabs-sm mt-5 w-fit max-w-full overflow-x-auto bg-muted">
@@ -60,7 +62,7 @@ export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]
 
         {list.length === 0 ? (
           <EmptyTrips />
-        ) : (
+        ) : visible.length === 0 ? null : (
           <div key={activeFilter}>
             <ul className="mt-6 space-y-3 lg:hidden">
               {visible.map((trip) => (
@@ -97,6 +99,9 @@ export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]
             </div>
           </div>
         )}
+
+        {/* After everything else on the page: the trips that are over, folded away. */}
+        <PastTrips trips={past} deleting={deleting} onDelete={setPendingDelete} defaultOpen={visible.length === 0} />
       </div>
 
       <DeleteTripSheet trip={pendingDelete} onCancel={() => setPendingDelete(null)} onConfirm={(trip) => void removeTrip(trip)} />
