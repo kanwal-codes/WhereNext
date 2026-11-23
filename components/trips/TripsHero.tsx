@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, Loader2, Mic } from "lucide-react";
 import { AccountMenu } from "@/components/AccountMenu";
+import { HomeDrawer } from "@/components/trips/HomeDrawer";
 import { BrandMark } from "@/components/BrandMark";
 import { HeroCarousel } from "@/components/HeroCarousel";
 import { Reveal, WordReveal } from "@/components/motion-primitives";
@@ -12,38 +13,51 @@ import { cn } from "@/lib/utils";
 
 const PROMPT_CHIPS = ["A relaxing weekend", "Somewhere new", "Reunite with friends"];
 
-/** The photograph across the top: the brand and account, the headline, and the box where a trip starts (typed, picked from a suggestion, or dictated). */
-export function TripsHero({ displayName, start }: { displayName: string; start: ReturnType<typeof useStartTrip> }) {
+/**
+ * The photograph across the top: the brand and account, the headline, and the box where a trip starts (typed, picked from a suggestion, or dictated).
+ * `compact` is for someone who already has trips: on a phone the photo is short and holds only the greeting, with the box on its lower edge and the photo kept light there, so the curved corners read as photograph and not as a dark wedge, so their trips start on the first screen.
+ * A desktop keeps the full photograph either way.
+ */
+export function TripsHero({ displayName, start, compact = false }: { displayName: string; start: ReturnType<typeof useStartTrip>; compact?: boolean }) {
   const { prompt, setPrompt, starting, promptError, promptInputRef, canSend, speech, startTrip } = start;
   const wide = useMediaQuery("(min-width: 640px)");
+  const phone = useMediaQuery("(max-width: 1023.98px)");
+  const firstName = displayName.trim().split(/\s+/)[0] ?? "";
   return (
-    <HeroCarousel className="h-[480px] rounded-b-3xl sm:h-[420px] max-lg:h-[24rem]">
+    <HeroCarousel grade={compact && phone ? 0.3 : 1} className={cn("z-10 h-[480px] rounded-b-3xl sm:h-[420px]", compact ? "max-lg:h-[15rem] max-lg:rounded-b-[2rem]" : "max-lg:h-[24rem]")}>
       <div className="absolute inset-x-0 top-0">
         <Reveal>
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 pt-6 sm:px-8">
-            <Link href="/" prefetch={false} className="inline-flex items-center gap-2 max-lg:min-h-11 transition-[opacity,transform] duration-200 hover:opacity-85 active:scale-[0.97]">
+            {/* A phone: the menu button at the left (the account and the tools live in it); the mark and the avatar are for wider screens. */}
+            <HomeDrawer displayName={displayName} />
+            <Link href="/" prefetch={false} className="inline-flex items-center gap-2 max-lg:hidden transition-[opacity,transform] duration-200 hover:opacity-85 active:scale-[0.97]">
               {/* The same box as the account button beside it (40px, 44px on a phone), so the two ends of the bar match. */}
               <BrandMark variant="compact" className="size-10 max-lg:size-11 rounded-xl ring-1 ring-white/60 transition-shadow duration-700" />
               <BrandMark variant="text" className="hidden text-white transition-colors duration-700 sm:inline" />
             </Link>
-            <AccountMenu displayName={displayName} />
+            <div className="max-lg:hidden"><AccountMenu displayName={displayName} /></div>
           </div>
         </Reveal>
       </div>
 
       {/* Under the words only: the brightest part of a photograph (sky, balloons) never sits behind the headline. */}
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-4/5 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
+      <div aria-hidden className={cn("pointer-events-none absolute inset-x-0 bottom-0 h-4/5 rounded-b-[inherit] bg-gradient-to-t from-black/60 via-black/30 to-transparent", compact && "max-lg:from-black/25 max-lg:via-black/5")} />
       <div className="absolute inset-x-0 bottom-0">
-        <div className="mx-auto max-w-6xl px-4 pb-6 sm:px-8 sm:pb-8">
+        <div className={cn("mx-auto max-w-6xl px-4 pb-6 sm:px-8 sm:pb-8", compact && "max-lg:pb-5")}>
           <Reveal delay={0.2}>
-            <WordReveal
-              text="Trips you’re thinking about."
-              delay={0.3}
-              className="mx-auto max-w-2xl text-balance text-center font-display text-4xl leading-[1.15] text-white transition-colors duration-700 [text-shadow:0_2px_24px_rgba(0,0,0,0.45)] sm:text-5xl"
-            />
-            <p className="mx-auto mt-3 max-w-xl text-balance text-center text-body leading-relaxed font-medium text-white transition-colors duration-700 [text-shadow:0_1px_14px_rgba(0,0,0,0.65)] sm:text-base">
-              Talk it through, and the plan builds itself alongside the conversation.
-            </p>
+            {compact && (
+              <p className="text-center font-display text-3xl leading-[1.1] tracking-[-0.025em] text-white [text-shadow:0_2px_24px_rgba(0,0,0,0.45)] lg:hidden">{`Hi${firstName ? `, ${firstName}` : ""}.`}</p>
+            )}
+            <div className={cn(compact && "max-lg:hidden")}>
+              <WordReveal
+                text="Trips you’re thinking about."
+                delay={0.3}
+                className="mx-auto max-w-2xl text-balance text-center font-display text-4xl leading-[1.15] text-white transition-colors duration-700 [text-shadow:0_2px_24px_rgba(0,0,0,0.45)] sm:text-5xl"
+              />
+              <p className="mx-auto mt-3 max-w-xl text-balance text-center text-body leading-relaxed font-medium text-white transition-colors duration-700 [text-shadow:0_1px_14px_rgba(0,0,0,0.65)] sm:text-base">
+                Talk it through, and the plan builds itself alongside the conversation.
+              </p>
+            </div>
           </Reveal>
           <Reveal delay={0.5}>
             <form
@@ -51,7 +65,7 @@ export function TripsHero({ displayName, start }: { displayName: string; start: 
                 event.preventDefault();
                 void startTrip();
               }}
-              className="mx-auto mt-5 max-w-xl"
+              className={cn("mx-auto mt-5 max-w-xl", compact && "max-lg:mt-4 max-lg:translate-y-12")}
             >
               {/* One daisyUI input wraps the field and its buttons, so the whole pill takes the focus ring. */}
               <label className="daisy-input daisy-input-lg h-14 w-full rounded-full border-border/60 bg-background pr-2 pl-5 shadow-lift transition-[background-color,border-color,box-shadow] focus-within:border-foreground/30 focus-within:shadow-[0_8px_20px_-10px_rgba(0,0,0,0.28)] focus-within:outline-transparent">
@@ -99,7 +113,7 @@ export function TripsHero({ displayName, start }: { displayName: string; start: 
               </p>
             ) : (
               // One scrolling row on a phone (no ragged wrap), centred when it all fits.
-              <div className="mx-auto mt-3 flex w-fit max-w-full snap-x gap-2 overflow-x-auto px-0.5 py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className={cn("mx-auto mt-3 flex w-fit max-w-full snap-x gap-2 overflow-x-auto px-0.5 py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", compact && "max-lg:hidden")}>
                 {PROMPT_CHIPS.map((chip) => (
                   <button
                     key={chip}

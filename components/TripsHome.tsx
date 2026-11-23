@@ -27,17 +27,17 @@ export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]
 
   return (
     <main className="min-h-screen">
-      <TripsHero displayName={displayName} start={start} />
+      <TripsHero displayName={displayName} start={start} compact={list.length > 0} />
 
-      <div className="mx-auto max-w-6xl px-4 pt-12 pb-20 sm:px-8">
+      <div className={cn("mx-auto max-w-6xl px-4 pt-12 pb-20 sm:px-8", list.length > 0 ? "max-lg:pt-11" : "max-lg:pt-5")}>
         <Reveal delay={0.5}><ToolsStrip /></Reveal>
         <Reveal delay={0.55}>
-          <div className={cn("flex flex-wrap items-center justify-between gap-x-6 gap-y-4", "max-lg:flex-nowrap max-lg:gap-x-3")}>
+          <div className={cn("flex flex-wrap items-center justify-between gap-x-6 gap-y-4", "max-lg:flex-nowrap max-lg:gap-x-3", list.length === 0 && "max-lg:hidden")}>
             <div className="flex min-w-0 items-center gap-3">
-              <h2 className={cn("font-display text-3xl tracking-tight", "max-lg:text-2xl")}>{list.length > 0 ? "Your trips" : "No trips yet"}</h2>
-              {list.length > 0 && !showTabs && <span className="daisy-badge daisy-badge-ghost tabular-nums">{list.length}</span>}
+              <h2 className={cn("font-display text-3xl tracking-tight", "max-lg:text-xl")}>{list.length > 0 ? "Your trips" : "No trips yet"}</h2>
+              {list.length > 0 && !showTabs && <span className="daisy-badge daisy-badge-ghost tabular-nums max-lg:border-0 max-lg:bg-transparent max-lg:px-0 max-lg:text-body max-lg:text-ink-soft">{list.length}</span>}
             </div>
-            <NewTripLink className="btn-primary w-fit shrink-0">
+            <NewTripLink className="btn-primary w-fit shrink-0 max-lg:h-10 max-lg:!bg-muted max-lg:!text-foreground max-lg:!shadow-none max-lg:hover:!bg-muted/70">
               {(spinner) => <>{spinner ?? <Plus className="size-4" />} <span><span className="max-lg:hidden">Create </span><span className="lg:hidden">New </span>trip</span></>}
             </NewTripLink>
           </div>
@@ -64,10 +64,10 @@ export function TripsHome({ trips, displayName, userId }: { trips: TripSummary[]
           <EmptyTrips />
         ) : visible.length === 0 ? null : (
           <div key={activeFilter}>
-            <ul className="mt-6 space-y-3 lg:hidden">
-              {visible.map((trip) => (
+            <ul className="mt-5 space-y-1 lg:hidden [&>li:first-child]:mb-3">
+              {visible.map((trip, i) => (
                 <li key={trip.id}>
-                  <PhoneTripRow trip={trip} status={tripStatus(trip, now)} deleting={deleting === trip.id} onDelete={() => setPendingDelete(trip)} />
+                  <PhoneTripRow trip={trip} status={tripStatus(trip, now)} deleting={deleting === trip.id} onDelete={() => setPendingDelete(trip)} compact={i > 0} />
                 </li>
               ))}
             </ul>

@@ -96,6 +96,16 @@ describe("TripsHome: the page", () => {
   });
 });
 
+describe("TripsHome: the photo at the top", () => {
+  it("greets someone who has trips by first name (the phone's short photo), and keeps the full headline for someone who has none", () => {
+    home([soon("a", "Lisbon")], { displayName: "Kanwaljot Singh" });
+    expect(screen.getByText("Hi, Kanwaljot.")).toBeTruthy();
+    cleanup();
+    home([]);
+    expect(screen.queryByText(/^Hi,/)).toBeNull();
+  });
+});
+
 describe("TripsHome: which trip leads", () => {
   it("features what is happening now, then everything else in home order", () => {
     home([old("p", "Rome"), soon("s", "Lisbon", 30), now("n", "Oslo"), soon("c", "Porto", 5), trip("u", "Someday")]);
