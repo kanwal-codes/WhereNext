@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, type ComponentType, type ReactNode } from "react";
 import Link from "next/link";
 import { AlignLeft, Bell, BedDouble, Compass, Loader2, LogOut, Plane, Plus, UserRound, Utensils, X } from "lucide-react";
 import { Sheet } from "@/components/motion-primitives";
-import { memberInitials } from "@/lib/member-initials";
+import { NavRow } from "@/components/shell/NavRow";
 import { useOpenNewTrip } from "@/components/trips/useOpenNewTrip";
 
-const ROW = "flex min-h-12 w-full items-center gap-3 rounded-2xl px-3 text-left text-body font-medium text-foreground transition-colors duration-150 hover:bg-muted active:bg-muted/80 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring";
+const SOFT_ROW = "flex min-h-12 w-full items-center gap-3 rounded-2xl bg-muted px-4 text-body font-medium text-foreground transition-transform active:scale-[0.98] disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 /** Loaded when someone actually signs out: the auth client pulls in the whole Supabase browser library, which the home does not otherwise need. */
 async function signOutAndLeave() {
@@ -33,10 +33,9 @@ export function HomeDrawer({ displayName }: { displayName: string }) {
   const [open, setOpen] = useState(false);
   const { open: newTrip, opening } = useOpenNewTrip();
   const close = () => setOpen(false);
-  const link = (href: string, label: string, Icon: typeof Plane) => (
-    <Link href={href} prefetch={false} onClick={close} className={ROW}>
-      <Icon className="size-5 shrink-0 text-ink-soft" aria-hidden />{label}
-    </Link>
+  // The same rows as the trip's menu (small icon, quiet label), so the two menus read as one.
+  const link = (href: string, label: string, icon: ComponentType<{ className?: string }>) => (
+    <NavRow key={href} href={href} label={label} icon={icon} active={false} prefetch={false} onNavigate={close} />
   );
   return (
     <>
@@ -51,17 +50,16 @@ export function HomeDrawer({ displayName }: { displayName: string }) {
       </button>
       <Sheet open={open} onClose={close} side="left" ariaLabel="Menu" className="icons-fine max-w-[19.5rem] rounded-r-4xl bg-background px-3.5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center gap-3 pl-1.5">
-          <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-full bg-coral-soft text-xs font-semibold text-coral-ink">{memberInitials(displayName)}</span>
           <h2 className="min-w-0 flex-1 truncate font-display text-xl font-medium tracking-[-0.025em]">{displayName}</h2>
-          <button type="button" onClick={close} aria-label="Close menu" className="grid size-10 shrink-0 place-items-center rounded-full bg-muted text-foreground transition-transform duration-150 active:scale-[0.94] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+          <button type="button" onClick={close} aria-label="Close menu" className="grid size-10 shrink-0 place-items-center rounded-full bg-muted text-foreground transition-transform duration-150 active:scale-[0.97]">
             <X className="size-4" aria-hidden />
           </button>
         </div>
-        {/* The one thing most people open this for comes first, as a button: a new trip, made and opened from here. */}
-        <button type="button" onClick={() => { void newTrip(); }} disabled={opening} aria-busy={opening} className="btn-primary mt-4 h-12 w-full justify-center">
-          {opening ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Plus className="size-4" aria-hidden />}New trip
+        {/* What most people open this for, as the same soft row the trip menu ends on. */}
+        <button type="button" onClick={() => { void newTrip(); }} disabled={opening} aria-busy={opening} className={`${SOFT_ROW} mt-3`}>
+          {opening ? <Loader2 className="size-5 animate-spin text-ink-soft" aria-hidden /> : <Plus className="size-5 text-ink-soft" aria-hidden />}New trip
         </button>
-        <nav aria-label="Menu" className="mt-1 min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-slim">
+        <nav aria-label="Menu" className="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-slim">
           <Group title="Without a trip">
             {link("/flights", "Flights", Plane)}
             {link("/stay", "Stays", BedDouble)}
@@ -74,7 +72,7 @@ export function HomeDrawer({ displayName }: { displayName: string }) {
           </Group>
         </nav>
         <div className="mt-2 pt-1">
-          <button type="button" onClick={() => void signOutAndLeave()} className="flex min-h-12 w-full items-center gap-3 rounded-2xl bg-muted px-4 text-body font-medium text-foreground transition-transform active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+          <button type="button" onClick={() => void signOutAndLeave()} className={SOFT_ROW}>
             <LogOut className="size-5 text-ink-soft" aria-hidden />Sign out
           </button>
         </div>
