@@ -22,7 +22,8 @@ export function TripsHero({ displayName, start }: { displayName: string; start: 
         <Reveal>
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 pt-6 sm:px-8">
             <Link href="/" prefetch={false} className="inline-flex items-center gap-2 max-lg:min-h-11 transition-[opacity,transform] duration-200 hover:opacity-85 active:scale-[0.97]">
-              <BrandMark variant="compact" className="ring-1 ring-white/60 transition-shadow duration-700" />
+              {/* The same box as the account button beside it (40px, 44px on a phone), so the two ends of the bar match. */}
+              <BrandMark variant="compact" className="size-10 max-lg:size-11 rounded-xl ring-1 ring-white/60 transition-shadow duration-700" />
               <BrandMark variant="text" className="hidden text-white transition-colors duration-700 sm:inline" />
             </Link>
             <AccountMenu displayName={displayName} />

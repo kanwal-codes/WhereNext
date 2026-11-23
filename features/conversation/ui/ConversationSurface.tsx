@@ -98,14 +98,26 @@ export const ConversationSurface = React.memo(function ConversationSurface({
     onError: (message) => notifyToast(message, "error"),
   });
 
-  // A `?ask=` param (from a detail page's "ask the assistant" link) pre-fills the composer once.
+  // A `?ask=` param (from a detail page's "ask the assistant" link) pre-fills the composer once. With `&send=1` (the trips home's search box, where the
+  // sentence was already sent) it is sent as the first message as soon as the thread has loaded.
+  const autoSend = useRef<string | null>(null);
   useEffect(() => {
-    const ask = new URLSearchParams(window.location.search).get("ask");
+    const params = new URLSearchParams(window.location.search);
+    const ask = params.get("ask");
     if (!ask) return;
-    setInput(ask);
+    if (params.get("send") === "1") autoSend.current = ask;
+    else {
+      setInput(ask);
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    }
     window.history.replaceState({}, "", window.location.pathname);
-    requestAnimationFrame(() => textareaRef.current?.focus());
   }, []);
+  useEffect(() => {
+    if (!loaded || !autoSend.current) return;
+    const text = autoSend.current;
+    autoSend.current = null;
+    void submit(text);
+  }, [loaded, submit]);
 
   const { scroll, handleLogScroll, scrollToLatestMessage, windowSize, showEarlier } = useLogScroll({ logRef, sending, loaded, messageCount: messages.length });
 

@@ -14,8 +14,5 @@ export default async function TripsIndexPage() {
     /* Supabase unavailable — fall through to the sign-in redirect. */
   }
   if (!data) redirect("/sign-in");
-  // First trip not made yet (fresh signup, or the last one just got deleted) — skip the
-  // empty list and go straight to the conversation starter instead of a click-through card.
-  if (data.trips.length === 0) redirect("/trips/new");
   return <TripsHome trips={data.trips} displayName={data.displayName} userId={data.userId} />;
 }

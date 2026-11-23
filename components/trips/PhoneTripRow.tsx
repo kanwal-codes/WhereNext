@@ -14,7 +14,8 @@ import { cn } from "@/lib/utils";
  * then the name and the dates beneath. Desktop keeps the photographic cards. The "..." menu is the same one the cards use.
  */
 export function PhoneTripRow({ trip, status, deleting, onDelete }: { trip: TripSummary; status: TripStatus; deleting: boolean; onDelete: () => void }) {
-  const when = tripWhen(trip.start_date, trip.end_date, trip.duration_days, "Dates not set");
+  // Under the name: the dates (when there are some) and who is going. A bare length ("5 days") with no dates, or "Dates not set", tells you nothing the badge does not.
+  const when = trip.start_date && trip.end_date ? tripWhen(trip.start_date, trip.end_date, trip.duration_days, "") : "";
   const title = shortTripTitle(trip.name);
   const travellers = trip.travelers ? `${trip.travelers} ${trip.travelers === 1 ? "traveller" : "travellers"}` : null;
   return (
@@ -30,7 +31,7 @@ export function PhoneTripRow({ trip, status, deleting, onDelete }: { trip: TripS
         </TripCover>
         <span className="mt-3 block px-1">
           <span className="line-clamp-2 block font-display text-widget leading-tight font-medium tracking-[-0.025em]">{title}</span>
-          <span className="mt-1 block truncate text-body text-ink-soft tabular-nums">{[when, travellers].filter(Boolean).join(" · ")}</span>
+          {(when || travellers) && <span className="mt-1 block truncate text-body text-ink-soft tabular-nums">{[when, travellers].filter(Boolean).join(" · ")}</span>}
         </span>
       </Link>
       <TripMenu name={trip.name} href={`/trips/${trip.id}`} deleting={deleting} onDelete={onDelete} isOwner={trip.is_owner !== false} className="absolute top-2.5 right-2.5 z-20" />

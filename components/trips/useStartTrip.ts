@@ -1,11 +1,13 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { notifyToast } from "@/lib/application/toast";
 import { useSpeechInput } from "@/lib/use-speech-input";
 
 /** The prompt box on the home screen: typing or dictating a first message, and turning it into a blank trip whose chat opens with it. */
 export function useStartTrip() {
+  const router = useRouter();
   const [prompt, setPrompt] = useState("");
   const [starting, setStarting] = useState(false);
   const [promptError, setPromptError] = useState<string | null>(null);
@@ -34,10 +36,9 @@ export function useStartTrip() {
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || !body.trip?.id) throw new Error();
-      // `?ask=` is the same param a place's "ask the assistant" link uses — ConversationSurface
-      // already pre-fills and focuses the composer with it, so the chat picks up exactly where
-      // this left off instead of landing empty.
-      window.location.assign(`/trips/${body.trip.id}/chat?ask=${encodeURIComponent(text)}`);
+      // `?ask=` is the same param a place's "ask the assistant" link uses; `send=1` makes the chat send it as the first
+      // message, so it picks up exactly where this left off (the sentence was already sent from here).
+      router.push(`/trips/${body.trip.id}/chat?ask=${encodeURIComponent(text)}&send=1`);
     } catch {
       setPromptError("We couldn’t start that trip. Try again in a moment.");
       setStarting(false);
