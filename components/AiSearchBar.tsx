@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Loader2, Mic, Search } from "lucide-react";
 import { MicButton, SendButton } from "@/components/ComposerButtons";
 import { useAutoGrowTextarea } from "@/lib/use-autogrow-textarea";
@@ -16,6 +16,8 @@ const HINT: Record<AiSearchScope, string> = {
   stays: "Try dates, a price, stars or an area — like “near the old town, under 200”.",
   discover: "Try naming what you're after — like “rooftop bars” or “ramen near the market”.",
   "getting-around": "Try two places — like “Toronto to Montreal by train”.",
+  eat: "Try a place, a kind of food, a day or a party — like “ramen in Lisbon, Saturday at 8, for 4”.",
+  flights: "Try two places and a day — like “Toronto to Lisbon, Dec 10–17, 2 of us”.",
 };
 
 /**
@@ -30,25 +32,36 @@ export function AiSearchBar({
   readNow,
   readWhole,
   local,
+  place,
+  wantAnswer,
+  onPendingChange,
   className,
   variant = "card",
 }: {
-  tripId: string;
+  /** Null with no trip: the sentence then goes to the person's own route. */
+  tripId: string | null;
   scope: AiSearchScope;
   placeholder: string;
   onDirective: (directive: AiSearchDirective, raw: string) => void;
-  /** What the words themselves already fix (dates, a price range, an order), read in the browser and applied the moment the ask is sent; the model's fuller reading follows. */
+  /** What the words themselves already fix (dates, a price range, an order), read in the browser. Used only when they settle the whole sentence (`readWhole`), which is then applied at once with no model; otherwise the server's answer carries it. */
   readNow?: (query: string) => AiSearchDirective | null;
   /** True when `readNow` read the whole sentence, so nothing is left for the server and its model: the ask is done the moment it is sent. */
   readWhole?: (query: string) => boolean;
   /** The page's own reading of the sentence: when it returns true the ask was handled right there (the box empties), and no model is asked. */
   local?: (query: string) => boolean;
+  /** With no trip: where the page is looking (or leaving from) right now, so the answer never asks for what the page already has. */
+  place?: string;
+  /** Discover scope: also ask for the short written answer (a page that shows one). */
+  wantAnswer?: boolean;
+  /** Told when an ask is on its way and when it is done, so the page can show that it is searching. */
+  onPendingChange?: (pending: boolean) => void;
   className?: string;
   /** "plain" is Roam's message box (the same field, mic and send, growing as you type) for nesting inside another card, next to a manual search form. "dock" floats at the bottom of the page: full width at rest, a small "Ask" pill while the reader scrolls down, full again on the way back up. */
   variant?: "card" | "plain" | "dock";
 }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  useEffect(() => { onPendingChange?.(busy); }, [busy, onPendingChange]);
   const [focused, setFocused] = useState(false);
   const area = useRef<HTMLTextAreaElement>(null);
   // Decided from a hidden mirror pinned at the width the buttons leave (see RoamComposer), so the field can take the whole width once they drop to their own row.
@@ -79,15 +92,17 @@ export function AiSearchBar({
     if (local?.(query)) { setBusy(false); return; }
     const now = readNow?.(query);
     const readSomething = Boolean(now && carries(now));
-    if (now && readSomething) {
+    // In a trip, what the words fix is applied at once and the model's fuller reading follows. With no trip, only a sentence the words fully settle is applied
+    // early: for the rest the server's answer already carries what the words said, and applying half of it first only searched twice (old place, then new).
+    if (now && readSomething && (tripId || readWhole?.(query))) {
       onDirective(now, query);
       if (readWhole?.(query)) { setBusy(false); return; }
     }
     try {
-      const res = await fetch(`/api/trips/${tripId}/ai-search`, {
+      const res = await fetch(tripId ? `/api/trips/${tripId}/ai-search` : "/api/ai-search", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ scope, query }),
+        body: JSON.stringify({ scope, query, ...(place ? { place } : {}), ...(wantAnswer ? { answer: true } : {}) }),
         signal: req.signal,
       });
       const body = await res.json();

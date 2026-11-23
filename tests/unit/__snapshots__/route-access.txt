@@ -4,6 +4,7 @@ GET    /api/account/places/autocomplete                             user
 GET    /api/account/places/destination-photo                        user
 GET    /api/account/places/photo                                    user
 DELETE /api/account                                                 user
+POST   /api/ai-search                                               user
 POST   /api/ai                                                      member:viewer
 POST   /api/commands                                                member:editor
 GET    /api/config/mapbox                                           user

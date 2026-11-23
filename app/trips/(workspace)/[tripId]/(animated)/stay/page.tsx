@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ArrowLeft, BedDouble, Search } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { ArrowLeft, BedDouble, Search, X } from "lucide-react";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { PHONE_ROUND, useSetPhoneHeader } from "@/components/shell/PhoneHeader";
 import { cn } from "@/lib/utils";
@@ -16,11 +16,16 @@ export default function StayPage() {
   const { tripId, data } = useTripData();
   const [view, setView] = useState<"browse" | "mine">("browse");
   const stays = useTripStays(tripId);
+  // While a search is on (a place, an answer, filters) the bed becomes a cross that puts the tab back as it started.
+  const [cancel, setCancel] = useState<(() => void) | null>(null);
+  const onSearchActive = useCallback((fn: (() => void) | null) => setCancel(() => fn), []);
   // Phone redesign: no Browse | My stays switch. A round button at the right of the header goes to the other view.
   const narrow = useMediaQuery("(max-width: 1023.98px)");
   const phone = narrow;
   const headerSwitch = useMemo(
-    () => phone ? (
+    () => phone && cancel && view === "browse" ? (
+      <button type="button" onClick={cancel} aria-label="Clear the search" className={PHONE_ROUND}><X className="size-[1.2rem]" /></button>
+    ) : phone ? (
       <button
         type="button"
         onClick={() => setView((v) => (v === "browse" ? "mine" : "browse"))}
@@ -32,7 +37,7 @@ export default function StayPage() {
         {view === "browse" && !stays.loading && stays.items.length > 0 && <span aria-hidden className="absolute top-2 right-2 size-2.5 rounded-full bg-coral ring-2 ring-background" />}
       </button>
     ) : undefined,
-    [phone, view, stays.loading, stays.items.length],
+    [phone, view, cancel, stays.loading, stays.items.length],
   );
   useSetPhoneHeader({ trailing: headerSwitch });
   return (
@@ -53,7 +58,7 @@ export default function StayPage() {
     >
       {/* Browse stays mounted while My stays is open: the search, its filters and its results are still there when you come back. */}
       <div hidden={view !== "browse"}>
-        <StaySurface tripId={tripId} destination={data?.trip.destination ?? ""} />
+        <StaySurface tripId={tripId} destination={data?.trip.destination ?? ""} onSearchActive={onSearchActive} />
       </div>
       {view === "mine" && <MyStays tripId={tripId} items={stays.items} loading={stays.loading} onRemove={stays.remove} onBrowse={() => setView("browse")} />}
     </RouteScaffold>

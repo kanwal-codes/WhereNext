@@ -10,7 +10,7 @@ const base = process.env.PHONE_BASE ?? "http://localhost:4000";
 if (!/^https?:\/\/(127\.0\.0\.1|localhost)(:|\/|$)/.test(base)) { console.error("Refusing: local server only."); process.exit(1); }
 const [themeArg = "light", ...only] = process.argv.slice(2);
 const themes = themeArg === "both" ? ["light", "dark"] : [themeArg];
-const out = "docs/design/widget-renders";
+const out = process.env.PHONE_WIDGET_OUT ?? "docs/design/widget-renders";
 const MAPBOX = process.env.MAPBOX_ACCESS_TOKEN ?? (readFileSync(".env.local", "utf8").match(/^MAPBOX_ACCESS_TOKEN="?([^"\n]+)/m) ?? [])[1];
 
 // scene: the fixture scene id. inline: how the widget looks in the chat (always taken). taps: controls that open a sheet or change the card.
@@ -35,6 +35,9 @@ const WIDGETS = [
   { scene: "7b", name: "flights-dated", title: "Flights, dated search", taps: [
     { name: "see-all", label: /^See all \d+ flights/, kind: "inline", title: "See all flights, in the card" },
     { name: "flight-sheet", css: '[aria-label^="Open details for"]', label: "a flight row", kind: "sheet", title: "Flight (tap a row)" },
+  ] },
+  { scene: "7d", name: "flights-both", title: "Flights, one fare wins both", taps: [
+    { name: "flight-sheet", css: "button[aria-pressed]", label: "the winning fare", kind: "sheet", title: "Flight (tap the card)" },
   ] },
   { scene: "8", name: "weather-seasonal", title: "Weather, typical month", taps: [{ name: "weather-sheet", label: "See the week", kind: "sheet", title: "Weather (tap)" }] },
   { scene: "9", name: "weather-forecast", title: "Weather, 7-day forecast", taps: [{ name: "weather-sheet", label: "See the week", kind: "sheet", title: "Weather (tap)" }] },
@@ -137,11 +140,11 @@ const manifest = [];
 // The same states again as real DOM, for widgets.html (light only): see phone-widget-html.mjs.
 const reg = makeRegistry();
 const htmlWidgets = [];
-const W = 390, H = 844;
+const W = Number(process.env.PHONE_W ?? 390), H = Number(process.env.PHONE_H ?? 844), DSF = Number(process.env.PHONE_DSF ?? 2);
 
 for (const theme of themes) {
   mkdirSync(`${out}/${theme}`, { recursive: true });
-  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: DSF, isMobile: true, hasTouch: true });
   await mock(ctx);
   await ctx.addInitScript(() => { try { sessionStorage.clear(); } catch {} });
   for (const w of WIDGETS) {
@@ -150,6 +153,8 @@ for (const theme of themes) {
     const cap = async (mode, title, name) => { try { entry.states.push({ name, title, ...(await snapshot(page, reg, mode)) }); } catch (e) { console.log(`  html snapshot failed (${name}): ${String(e.message).split("\n")[0]}`); } };
     const open = async (attempt = 1) => {
       const page = await ctx.newPage();
+      // A real iPhone's safe areas, so sheets and headers sit where they do on a device.
+      if (process.env.PHONE_SAFE_AREA) await (await ctx.newCDPSession(page)).send("Emulation.setSafeAreaInsetsOverride", { insets: { top: 59, bottom: 34, left: 0, right: 0 } }).catch(() => {});
       page.setDefaultTimeout(60000);
       try {
       await page.setViewportSize({ width: W, height: H });

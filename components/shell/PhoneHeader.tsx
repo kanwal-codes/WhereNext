@@ -95,6 +95,11 @@ export function PhoneHeader({ pathname, tripId, tripName, onMenu, menuDot }: { p
   // Out of the way while reading down, back on the first scroll up: the same rule (and the same moments) as the Ask Roam bar at the bottom.
   // Pages that scroll inside their own box (chat, the map) never move the window, so the bar simply stays there.
   const [hidden, setHidden] = useScrollCompact();
+  // Where the bar's lower edge is, for what sticks under it (a page's row of pills): the bar's height while it shows, the notch's while it is away.
+  useEffect(() => {
+    document.documentElement.style.setProperty("--topbar-now", hidden ? "env(safe-area-inset-top)" : "var(--topbar)");
+    return () => { document.documentElement.style.removeProperty("--topbar-now"); };
+  }, [hidden]);
   return (
     <header
       data-trip-topbar

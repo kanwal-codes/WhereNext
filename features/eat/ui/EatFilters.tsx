@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { type CSSProperties, type ReactNode, type Ref } from "react";
 import { Check } from "lucide-react";
 import { FilterPills, type FilterPill } from "@/components/FilterPills";
 import { Sheet } from "@/components/motion-primitives";
@@ -21,7 +21,13 @@ const group = (title: string, children: ReactNode) => (
  * The pills under the Eat header (Open now, Sort, Type, Price, Rating) and the sheet that holds them all, shared by the trip's Eat page and the one
  * with no trip. The type is the one setting that changes the search itself, so it comes in as chosen types and callbacks, not as part of the view.
  */
-export function EatFilters({ eat, onChange, subs, onToggleSub, onClearSubs, available, shown, showPills, sheetOpen, onSheetOpen, noType = false, extraPills = [], onClear }: {
+export function EatFilters({ plainOrder = false, eat, onChange, subs, onToggleSub, onClearSubs, available, shown, showPills, sheetOpen, onSheetOpen, noType = false, extraPills = [], onClear, rowRef, rowClassName, rowStyle }: {
+  /** The places come in the provider's order, not ranked for a trip: the first sort is then "Best match", not "Roam's pick". */
+  plainOrder?: boolean;
+  /** The row of pills sits in a wrapper of the caller's: to make it stick under a header, or to measure where it is. */
+  rowRef?: Ref<HTMLDivElement>;
+  rowClassName?: string;
+  rowStyle?: CSSProperties;
   /** Pills of the caller's own, shown first ("Open at 7:30 PM"). */
   extraPills?: FilterPill[];
   /** Runs when everything is cleared, for the caller's own settings. */
@@ -40,12 +46,13 @@ export function EatFilters({ eat, onChange, subs, onToggleSub, onClearSubs, avai
   sheetOpen: boolean;
   onSheetOpen: (open: boolean) => void;
 }) {
+  const sortName = (s: (typeof EAT_SORTS)[number]) => (plainOrder && s.id === "pick" ? "Best match" : s.label);
   const set = (patch: Partial<EatView>) => onChange({ ...eat, ...patch });
   const filterCount = activeEatFilters(eat) + (noType ? 0 : subs.length) + extraPills.filter((p) => p.on).length;
   const clearAll = () => { onChange({ ...DEFAULT_EAT_VIEW, sort: eat.sort }); onClearSubs(); onClear?.(); };
   const sortBody = (close?: () => void) => (
     <div className="grid grid-cols-2 gap-2">
-      {EAT_SORTS.map((s) => <button key={s.id} type="button" onClick={() => { set({ sort: s.id }); close?.(); }} aria-pressed={eat.sort === s.id} className="btn-chip justify-center">{s.label}</button>)}
+      {EAT_SORTS.map((s) => <button key={s.id} type="button" onClick={() => { set({ sort: s.id }); close?.(); }} aria-pressed={eat.sort === s.id} className="btn-chip justify-center">{sortName(s)}</button>)}
     </div>
   );
   const typeBody = () => (
@@ -70,14 +77,18 @@ export function EatFilters({ eat, onChange, subs, onToggleSub, onClearSubs, avai
   const pills: FilterPill[] = [
     ...extraPills,
     ...(available.openNow ? [{ key: "open", label: "Open now", on: eat.openNow, onPress: () => set({ openNow: !eat.openNow }) }] : []),
-    { key: "sort", label: `Sort: ${EAT_SORTS.find((s) => s.id === eat.sort)?.label}`, on: eat.sort !== "pick", title: "Sort by", body: sortBody },
+    { key: "sort", label: `Sort: ${sortName(EAT_SORTS.find((s) => s.id === eat.sort) ?? EAT_SORTS[0]!)}`, on: eat.sort !== "pick", title: "Sort by", body: sortBody },
     ...(noType ? [] : [{ key: "type", label: subs.length === 1 ? subs[0]! : subs.length > 1 ? `${subs.length} types` : "Type", on: subs.length > 0, title: "Type of place", body: typeBody, clear: onClearSubs }]),
     ...(available.prices.length ? [{ key: "price", label: eat.prices.length ? [...eat.prices].sort().map(dollars).join(", ") : "Price", on: eat.prices.length > 0, title: "Price", body: priceBody, clear: () => set({ prices: [] }) }] : []),
     ...(available.ratings ? [{ key: "rating", label: eat.minRating !== null ? `${eat.minRating}+ stars` : "Rating", on: eat.minRating !== null, title: "Rating", body: ratingBody, clear: () => set({ minRating: null }) }] : []),
   ];
   return (
     <>
-      {showPills && <FilterPills pills={pills} filterCount={filterCount} onFilters={() => onSheetOpen(true)} className="pt-1" />}
+      {showPills && (
+        <div ref={rowRef} className={rowClassName ?? "pt-1"} style={rowStyle}>
+          <FilterPills pills={pills} filterCount={filterCount} onFilters={() => onSheetOpen(true)} />
+        </div>
+      )}
       <Sheet
         open={sheetOpen}
         onClose={() => onSheetOpen(false)}
@@ -95,6 +106,12 @@ export function EatFilters({ eat, onChange, subs, onToggleSub, onClearSubs, avai
           {!noType && group("Type of place", typeBody())}
           {available.prices.length > 0 && group("Price", priceBody())}
           {available.ratings && group("Rating", ratingBody())}
+          {extraPills.map((p) => p.onPress && (
+            <label key={p.key} className="flex cursor-pointer items-center gap-3 rounded-2xl bg-muted px-4 py-3 text-body">
+              <input type="checkbox" checked={p.on} onChange={p.onPress} className="size-5 shrink-0 accent-primary" />
+              {p.label}
+            </label>
+          ))}
           {available.openNow && (
             <label className="flex cursor-pointer items-center gap-3 rounded-2xl bg-muted px-4 py-3 text-body">
               <input type="checkbox" checked={eat.openNow} onChange={() => set({ openNow: !eat.openNow })} className="size-5 shrink-0 accent-primary" />

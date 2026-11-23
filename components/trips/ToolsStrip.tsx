@@ -17,8 +17,8 @@ const TOOLS: Tool[] = [
 export function ToolsStrip() {
   return (
     <section aria-labelledby="tools-strip" className="mb-10">
-      <h2 id="tools-strip" className="font-display text-xl font-medium tracking-[-0.015em] sm:text-2xl">Just need one thing?</h2>
-      <ul className="mt-3.5 grid grid-cols-3 gap-2.5 sm:gap-3 lg:max-w-xl">
+      <h2 id="tools-strip" className="sr-only">Just need one thing?</h2>
+      <ul className="grid grid-cols-3 gap-2.5 sm:gap-3 lg:max-w-xl">
         {TOOLS.map(({ name, Icon, href }, i) => (
           <li key={name} className="rise" style={{ animationDelay: `${i * 70}ms` }}>
             <Link

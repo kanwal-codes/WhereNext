@@ -21,7 +21,7 @@ const categoryRawCache = new Map<string, Place[] | NearbyEvent[] | StayItem[]>()
  * What Discover shows: the filter state (category, sub-chips, search), and the feed behind it — the "All" digest, one category,
  * or a search — with the requests, caching and ranking each needs. A newer request always replaces an older one.
  */
-export function useDiscoverFeed({ tripId, destination, cities, view, data, prefs, saved, interests, interestsKey, initialQuery, initialCatKey }: {
+export function useDiscoverFeed({ tripId, destination, cities, view, data, prefs, saved, interests, interestsKey, initialQuery, initialCatKey, withPrice = false }: {
   tripId: string;
   destination: string;
   cities: { hasChoice: boolean; scoped: boolean; stop: Parameters<typeof stayWindow>[0] | null };
@@ -34,6 +34,8 @@ export function useDiscoverFeed({ tripId, destination, cities, view, data, prefs
   initialQuery?: string;
   /** Start on this category instead of the mixed feed (the Eat page opens on "eat"). */
   initialCatKey?: string;
+  /** Also ask for each place's price level (the Eat page shows it and filters by it). */
+  withPrice?: boolean;
 }) {
   /** Anchor a free-text query to the trip's destination unless it already names a place (`force`: it is a list of interests). */
   const scope = useCallback((q: string, force = false) => scopeQuery(q, destination, { force }), [destination]);
@@ -65,12 +67,12 @@ export function useDiscoverFeed({ tripId, destination, cities, view, data, prefs
 
   const fetchPlaces = useCallback(
     async (q: string, signal?: AbortSignal, limit?: number, force = false): Promise<Place[]> => {
-      const r = await cachedGet(`/api/trips/${tripId}/places?query=${encodeURIComponent(scope(q, force))}${limit ? `&limit=${limit}` : ""}`, { signal });
+      const r = await cachedGet(`/api/trips/${tripId}/places?query=${encodeURIComponent(scope(q, force))}${limit ? `&limit=${limit}` : ""}${withPrice ? "&price=1" : ""}`, { signal });
       const body = await r.json().catch(() => ({}));
       if (!r.ok) failedRef.current = true;
       return r.ok ? (body.places ?? []) : [];
     },
-    [tripId, scope],
+    [tripId, scope, withPrice],
   );
   const fetchEvents = useCallback(
     async (q: string, page = 0, signal?: AbortSignal): Promise<NearbyEvent[]> => {
@@ -183,7 +185,7 @@ export function useDiscoverFeed({ tripId, destination, cities, view, data, prefs
       failedRef.current = false;
       try {
         const subQ = (label: string) => cat.subs.find((s) => s.label === label)?.q ?? label;
-        const cacheKey = `${tripId}:${destination}:${cat.key}:${cat.kind === "stay" ? "" : [...chosen].sort().join("|")}`;
+        const cacheKey = `${tripId}:${destination}:${withPrice ? "p:" : ""}${cat.key}:${cat.kind === "stay" ? "" : [...chosen].sort().join("|")}`;
         const cachedRaw = categoryRawCache.get(cacheKey);
         let next: Item[] = [];
         if (cat.kind === "place") {
@@ -231,7 +233,7 @@ export function useDiscoverFeed({ tripId, destination, cities, view, data, prefs
         setMessage(`Nothing came back for ${cat.label.toLowerCase()}${chosen.length ? " with those filters" : ""}.`);
       }
     },
-    [tripId, destination, fetchPlaces, fetchEvents, fetchStays, rankToItems],
+    [tripId, destination, withPrice, fetchPlaces, fetchEvents, fetchStays, rankToItems],
   );
 
   const runSearch = useCallback(

@@ -686,3 +686,46 @@ describe("StaySurface: on the phone", () => {
     expect(searches()).toHaveLength(1);
   });
 });
+
+describe("StaySurface: with no trip (the Stays tool on the home page)", () => {
+  const renderHome = (destination = "Lisbon, Portugal") => render(<StaySurface tripId={null} destination={destination} />);
+
+  it("opens with the search sheet, and asks nothing until it closes", async () => {
+    renderHome();
+    const sheet = await screen.findByRole("dialog", { name: "Stays" });
+    expect(sheet).toBeTruthy();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(searches()).toHaveLength(0);
+  });
+
+  it("can search with the place left empty, because the home city stands in for it", async () => {
+    const user = u();
+    renderHome();
+    const sheet = await screen.findByRole("dialog", { name: "Stays" });
+    expect((sheet.querySelector('input[aria-label="Place"]') as HTMLInputElement).value).toBe("");
+    const go = within(sheet).getByRole("button", { name: "Search stays" });
+    expect((go as HTMLButtonElement).disabled).toBe(false);
+    await user.click(go);
+    await waitFor(() => expect(searches()).toHaveLength(1));
+    expect(lastSearch().get("location")).toBe("Lisbon, Portugal");
+    expect(calls[0]).toContain("/api/stays?");
+  });
+
+  it("with no home city either, will not search until a place is typed", async () => {
+    renderHome("");
+    const sheet = await screen.findByRole("dialog", { name: "Stays" });
+    expect((within(sheet).getByRole("button", { name: "Search stays" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(searches()).toHaveLength(0);
+  });
+
+  it("searches a place that was typed but not picked from the suggestions", async () => {
+    const user = u();
+    renderHome();
+    const sheet = await screen.findByRole("dialog", { name: "Stays" });
+    // The place field is a cmdk input: it takes a change event, not keystrokes, in jsdom.
+    fireEvent.change(sheet.querySelector('input[aria-label="Place"]') as HTMLInputElement, { target: { value: "Rome" } });
+    await user.click(within(sheet).getByRole("button", { name: "Search stays" }));
+    await waitFor(() => expect(searches().length).toBeGreaterThan(0));
+    expect(lastSearch().get("location")).toBe("Rome");
+  });
+});
