@@ -74,6 +74,12 @@ function isDerivedFromGrounded(value: number, groundedNumbers: number[]): boolea
 export function sanitizeAssistantContent(content: string, allowedUrls: ReadonlySet<string>, groundingText?: string, userText?: string) {
   let out = content
     .replace(/!\[[^\]]*\]\([^)]*$/g, "")
+    // A link whose target does not literally start with http(s):// or / is never checked by the passes below, yet the
+    // renderer decodes it: `[x](https&#58;//host)` becomes a live https link. Drop those images and unwrap those links,
+    // and drop reference definitions (`[1]: url`) whose target is not allowed.
+    .replace(/!\[[^\]]*\]\((?!https?:\/\/|\/)[^)]*\)/gi, "")
+    .replace(/\[([^\]]+)\]\((?!https?:\/\/|\/)[^)]*\)/gi, "$1")
+    .replace(/^ {0,3}\[[^\]]+\]:[ \t]*<?([^\s>]+)>?.*$/gm, (line, url: string) => allowedUrls.has(url) ? line : "")
     .replace(new RegExp(`!\\[([^\\]]*)\\]\\(${LINK_URL}\\)`, "gi"), (match, _alt: string, url: string) => allowedUrls.has(url) ? match : "")
     .replace(new RegExp(`\\[([^\\]]+)\\]\\(${LINK_URL}\\)`, "gi"), (match, label: string, url: string) => allowedUrls.has(url) ? match : label)
     .replace(/https?:\/\/[^\s)]+/gi, (url: string) => allowedUrls.has(url) ? url : "")

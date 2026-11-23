@@ -122,7 +122,8 @@ describe("place catalog writes are insert-only", () => {
             upsertCalls.push([row, opts]);
             return { select: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }; // conflict -> nothing inserted
           },
-          select: () => ({ eq: () => ({ eq: () => ({ single: async () => ({ data: { id: "existing-id" }, error: null }) }) }) }),
+          // Not there on the first read, then inserted by someone else just before this save's own insert.
+          select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }), single: async () => ({ data: { id: "existing-id" }, error: null }) }) }) }),
         };
       },
     };

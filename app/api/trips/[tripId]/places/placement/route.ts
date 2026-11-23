@@ -4,8 +4,7 @@ import { placementRequestSchema } from "@/packages/contracts/placement";
 import { canChangeLockedItem } from "@/features/itinerary/domain/item";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { withRoute, fail } from "@/lib/server/with-route";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createPlaceRepository } from "@/features/places/infrastructure/placeRepository";
+import { createCatalogPlaceRepository } from "@/lib/server/catalog-places";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 /**
@@ -40,7 +39,7 @@ export const PUT = withRoute(async (request: Request, { params }: { params: Prom
       if (up.error) throw up.error;
     } else {
       if (placement === "shortlist") {
-        await createPlaceRepository(supabase, createSupabaseAdminClient()).save(tripId, place);
+        await createCatalogPlaceRepository(supabase).save(tripId, place);
       }
       if (placement === "none" && existing.data) {
         const del = await supabase.from("trip_itinerary_items").delete().eq("trip_id", tripId).eq("title", title);

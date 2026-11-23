@@ -78,7 +78,6 @@ const rows = scan();
 const PUBLIC = new Set([
   "GET /api/health",
   "GET /api/hotel-photo",
-  "POST /api/route-map",
 ]);
 
 /** Writes under /api/trips/[tripId] that any member (even a viewer) may make, and why. */

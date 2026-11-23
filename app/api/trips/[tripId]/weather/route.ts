@@ -81,6 +81,7 @@ export const GET = withRoute(async (request: Request, { params }: { params: Prom
     const { supabase, user } = await requireTripMember(tripId, { limit: LIMITS.provider });
     const location = (new URL(request.url).searchParams.get("location") ?? "").trim();
     if (!location) return NextResponse.json({ error: "A location is required" }, { status: 400 });
+    if (location.length > 120) return NextResponse.json({ error: "That location is too long" }, { status: 400 });
 
     const [trip, prefs] = await Promise.all([
       createTripRepository(supabase).get(tripId),

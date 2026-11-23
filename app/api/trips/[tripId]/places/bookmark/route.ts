@@ -3,8 +3,7 @@ import { z } from "zod";
 import { placeSchema } from "@/packages/contracts/place";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { withRoute, fail } from "@/lib/server/with-route";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createPlaceRepository } from "@/features/places/infrastructure/placeRepository";
+import { createCatalogPlaceRepository } from "@/lib/server/catalog-places";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 const requestSchema = z.object({ place: placeSchema, saved: z.boolean() });
@@ -17,7 +16,7 @@ export const PUT = withRoute(async (request: Request, { params }: { params: Prom
     const { place, saved } = requestSchema.parse(await request.json());
 
     if (saved) {
-      await createPlaceRepository(supabase, createSupabaseAdminClient()).save(tripId, place);
+      await createCatalogPlaceRepository(supabase).save(tripId, place);
     } else {
       const row = await supabase
         .from("places")

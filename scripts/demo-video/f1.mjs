@@ -1,0 +1,32 @@
+// Footage 1 (no captions): landing prompt -> Roam builds the plan -> tabs -> add to itinerary.
+import { writeFileSync } from "node:fs";
+import { open } from "./stage.mjs";
+const PROMPT = "A long weekend in Lisbon, the three of us. Mostly food and walking.";
+const S = await open({ name: "f1" });
+await S.goto("/"); await S.page.waitForTimeout(3500);
+await S.start(); await S.page.waitForTimeout(900);
+const hero = S.page.locator('input[placeholder*="Lisbon"], textarea[placeholder*="Lisbon"]').first();
+await S.click(hero); S.mark("typeStart");
+await S.type(PROMPT, 52); await S.page.waitForTimeout(500);
+S.mark("enter1"); await S.page.keyboard.press("Enter");
+await S.page.waitForFunction(() => /\/trips\/[0-9a-f-]+\/chat/.test(location.pathname), null, { timeout: 60000 });
+writeFileSync("trip.json", JSON.stringify({ tripId: S.page.url().match(/trips\/([0-9a-f-]+)/)[1] }));
+S.mark("chat");
+await S.page.waitForTimeout(1500);
+const composer = S.page.getByLabel("Message", { exact: true });
+await composer.waitFor({ state: "visible" });
+if (!(await composer.inputValue())) { await S.click(composer); await S.type(PROMPT, 20); }
+await S.click(composer); await S.page.waitForTimeout(300);
+S.mark("enter2"); await S.page.keyboard.press("Enter");
+await S.page.getByText("Open Day 1").first().waitFor({ state: "visible", timeout: 120000 });
+S.mark("planVisible");
+const pb = await S.page.getByText("Open Day 1").first().boundingBox(); if (!pb || pb.y < 0 || pb.y > 800) throw new Error("plan card not in view: " + JSON.stringify(pb));
+await S.page.waitForTimeout(1500);
+S.mark("day2"); await S.click(S.page.locator("[role=tab], button").filter({ hasText: /^\s*Day 2/ }).first());
+await S.page.waitForTimeout(1300);
+S.mark("day3"); await S.click(S.page.locator("[role=tab], button").filter({ hasText: /^\s*Day 3/ }).first());
+await S.page.waitForTimeout(1300);
+S.mark("add"); await S.click(S.page.getByText("Add whole plan").first());
+await S.page.getByText(/Added the whole plan/i).first().waitFor({ timeout: 10000 });
+S.mark("added"); await S.page.waitForTimeout(2000);
+console.log(await S.finish(), S.marks);

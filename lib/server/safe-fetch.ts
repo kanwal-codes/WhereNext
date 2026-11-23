@@ -49,7 +49,8 @@ function assertPublicIp(ip: string): void {
   // IPv6
   const low = ip.toLowerCase();
   if (low === "::" || low === "::1") throw new UnsafeUrlError(`non-public IPv6: ${ip}`);
-  if (low.startsWith("fe80") || low.startsWith("fc") || low.startsWith("fd")) throw new UnsafeUrlError(`non-public IPv6: ${ip}`); // link-local + ULA
+  // link-local fe80::/10 (fe80-febf), ULA fc00::/7, NAT64 64:ff9b::/96 (embeds an IPv4 the check above would not see)
+  if (/^fe[89ab]/.test(low) || low.startsWith("fc") || low.startsWith("fd") || low.startsWith("64:ff9b:")) throw new UnsafeUrlError(`non-public IPv6: ${ip}`);
   if (low.startsWith("ff")) throw new UnsafeUrlError(`multicast IPv6: ${ip}`);
   // IPv4-mapped ::ffff:a.b.c.d — check the embedded v4
   const mapped = low.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);

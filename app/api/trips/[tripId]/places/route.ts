@@ -4,8 +4,8 @@ import { placeSchema } from "@/packages/contracts/place";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { withRoute, fail } from "@/lib/server/with-route";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createPlaceRepository } from "@/features/places/infrastructure/placeRepository";
+import { createCatalogPlaceRepository } from "@/lib/server/catalog-places";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 
 export const GET = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
@@ -42,7 +42,7 @@ export const POST = withRoute(async (request: Request, { params }: { params: Pro
     const { tripId } = await params;
     const { supabase } = await requireTripMember(tripId, { role: "editor" });
     const place = placeSchema.parse(await request.json());
-    const saved = await createPlaceRepository(supabase, createSupabaseAdminClient()).save(tripId, place);
+    const saved = await createCatalogPlaceRepository(supabase).save(tripId, place);
     invalidateWorkspace(tripId);
     return NextResponse.json({ place: saved }, { status: 201 });
   } catch (error) {

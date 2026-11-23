@@ -5,8 +5,7 @@ import { mergePreferences, preferenceUpdateSchema } from "@/packages/contracts/p
 import { stayDecisionSchema } from "@/packages/contracts/stay";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { withRoute, fail } from "@/lib/server/with-route";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createPlaceRepository } from "@/features/places/infrastructure/placeRepository";
+import { createCatalogPlaceRepository } from "@/lib/server/catalog-places";
 import { geocodeStop } from "@/lib/server/geocode-stop";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
 import { updateTripPreferences } from "@/lib/server/trip-preferences";
@@ -81,7 +80,7 @@ export const POST = withRoute(async (request: Request) => {
       return NextResponse.json({ result: { type: command.type, item: result.data } });
     }
     if (command.type === "save_place") {
-      const place = await createPlaceRepository(supabase, createSupabaseAdminClient()).save(command.tripId, command.place);
+      const place = await createCatalogPlaceRepository(supabase).save(command.tripId, command.place);
       invalidateWorkspace(command.tripId);
       return NextResponse.json({ result: { type: command.type, place } });
     }

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withRoute, fail } from "@/lib/server/with-route";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireTripMember, tripAuthResponse } from "@/lib/server/trip-auth";
 import { LIMITS } from "@/lib/server/limits";
 import { withinRateLimit } from "@/lib/server/rate-limit";
@@ -11,7 +10,7 @@ import { htmlToText } from "@/lib/server/html-text";
 import { tripImportResultSchema } from "@/packages/contracts/trip-import";
 import { generateStructured } from "@/packages/ai/model-policy";
 import { GooglePlacesProvider } from "@/packages/providers/google-places/client";
-import { createPlaceRepository } from "@/features/places/infrastructure/placeRepository";
+import { createCatalogPlaceRepository } from "@/lib/server/catalog-places";
 import { createTripRepository } from "@/features/trip/infrastructure/tripRepository";
 import { createTrip } from "@/features/trip/application/createTrip";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
@@ -88,7 +87,7 @@ export const POST = withRoute(async (request: Request) => {
           preferences: { interests: [] },
         } as Parameters<typeof createTrip>[2])).id;
 
-    const places = createPlaceRepository(supabase, createSupabaseAdminClient());
+    const places = createCatalogPlaceRepository(supabase);
     // Each place save is an independent upsert (no shared ordering/position to preserve), so
     // they run concurrently instead of one round trip at a time.
     const saveResults = await Promise.allSettled(geocoded.map((place) => places.save(tripId, place)));

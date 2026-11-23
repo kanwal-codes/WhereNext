@@ -21,6 +21,8 @@ const API_ALLOW: readonly ApiRule[] = [
   { methods: ["GET"], path: /^\/api\/hotel-photo$/ },
   // The map's public token (the maps Roam opens beside a card).
   { methods: ["GET"], path: /^\/api\/config\/mapbox$/ },
+  // The map under a route card (drawn server-side, so the token stays there).
+  { methods: ["POST"], path: /^\/api\/route-map$/ },
   {
     // Reads only. `places/google` (+ `about`) + `stays/:id` + `events/detail` are the card "Details" lookups; `stays`, `flights/places` and `places/google/autocomplete` are the cards' own search bars; `cover` is the sidebar's destination photo. All rate-limited per user.
     methods: ["GET"],
