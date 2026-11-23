@@ -54,3 +54,22 @@ export function ideasFor({ origin, destination }: { origin?: string | null; dest
   for (const place of WORLD) add(place);
   return out.slice(0, limit);
 }
+
+/**
+ * What the fares on screen say about the airlines an ask named ("Air Canada or Flair?"): the cheapest fare of each, or that it has none in these results.
+ * It is built from the results, so it never says anything the fares do not.
+ */
+export function airlineNote(
+  names: string[],
+  offers: { airline: string; price: string; stops: number; durationMinutes: number }[],
+  show: { money: (price: number) => string; duration: (minutes: number) => string },
+): string | null {
+  const parts = names.map((name) => name.trim()).filter(Boolean).map((name) => {
+    const mine = offers.filter((o) => o.airline.toLowerCase().includes(name.toLowerCase()));
+    if (!mine.length) return `${name} has no flights in these results.`;
+    const price = (o: { price: string }) => Number(o.price) || Number.POSITIVE_INFINITY;
+    const best = mine.reduce((a, b) => (price(b) < price(a) || (price(b) === price(a) && b.durationMinutes < a.durationMinutes) ? b : a));
+    return `${name} from ${show.money(price(best))}, ${best.stops === 0 ? "nonstop" : `${best.stops} stop${best.stops > 1 ? "s" : ""}`}, ${show.duration(best.durationMinutes)}.`;
+  });
+  return parts.length ? parts.join(" ") : null;
+}

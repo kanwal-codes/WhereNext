@@ -16,31 +16,39 @@ import { FlightDetail } from "@/features/conversation/ui/panels/FlightDetail";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { activeFlightFilters, ALL_SORTS, applyFlightView, availableFilters, DEFAULT_FLIGHT_VIEW, FlightControls, TIMES_OF_DAY, type FlightView } from "@/features/conversation/ui/blocks/FlightFilters";
 import { FlightRowsSkeleton, useFlightSearch, type FlightItems } from "@/features/conversation/ui/blocks/FlightSearch";
-import { FlightPicks, FlightPicksSkeleton, FlightRowBody, offerKey, pickFares } from "@/features/conversation/ui/blocks/FlightWidget";
+import { cheapestOffer, FlightPicks, FlightPicksSkeleton, FlightRowBody, offerKey, pickFares } from "@/features/conversation/ui/blocks/FlightWidget";
 import { SearchSweep } from "@/features/conversation/ui/blocks/SearchBarParts";
-import { Notice, controlSecondary, money, prettyDate, type } from "@/features/conversation/ui/blocks/ui";
+import { formatDuration } from "@/lib/application/flight-risks";
+import { controlSecondary, money, prettyDate, type } from "@/features/conversation/ui/blocks/ui";
 import { cachedGet } from "@/lib/client/cached-get";
+import { AiSearchBar } from "@/components/AiSearchBar";
+import { AnswerSkeleton, AnswerText } from "@/components/AnswerText";
+import { ShowMoreButton } from "@/components/ShowMoreButton";
+import { useShowMore } from "@/lib/use-show-more";
+import { StandaloneHeader } from "@/components/StandaloneHeader";
+import { FrostedGround, STICKY_HEAD, stickyRow, TripFrostedGround, tripStickyRow, useStickyBar, useTripStickyRow } from "@/components/StickyBar";
+import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { cn } from "@/lib/utils";
-import { datesLine, draftFromTrip, routeLine, travellersLine, type FlightDraft } from "../domain/flights-page";
+import { airlineNote, canSearch, datesLine, draftFromTrip, routeLine, travellersLine, type FlightDraft } from "../domain/flights-page";
 import { RoutePill } from "@/features/transport/ui/RoutePill";
 import { FlightIdeas } from "./FlightIdeas";
 import { clearSection, FlightFilterSheet, SECTION_TITLES, SectionBody, sectionActive, type FilterSection } from "./FlightFilterSheet";
 import { FlightSearchSheet } from "./FlightSearchSheet";
 
-/** Rows shown under the picks before "See all". */
+/** Rows shown under the picks before "More". */
 const ROWS = 6;
 const clock = (value: string) => {
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? value : d.toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" });
 };
 
-/** Google's read on the dates, as one quiet line (not a banner): low, typical or high for the route, and what is usual. */
+/** Google's read on the dates, as one quiet line on one row (not a banner): low, typical or high for the route, and what is usual. */
 function InsightLine({ level, usual }: { level: "low" | "typical" | "high"; usual: string | null }) {
-  const tone = { low: { text: "Prices are low for these dates", dot: "bg-positive" }, typical: { text: "Prices are typical for these dates", dot: "bg-muted-foreground/60" }, high: { text: "Prices are high for these dates", dot: "bg-caution" } }[level];
+  const tone = { low: { text: "Low prices", dot: "bg-positive" }, typical: { text: "Typical prices", dot: "bg-muted-foreground/60" }, high: { text: "High prices", dot: "bg-caution" } }[level];
   return (
-    <p role="note" className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 text-sm">
-      <span className="inline-flex items-center gap-2 font-medium"><span aria-hidden className={cn("size-2 shrink-0 rounded-full", tone.dot)} />{tone.text}</span>
-      {usual && <span className="text-muted-foreground">{usual}</span>}
+    <p role="note" className="flex items-baseline gap-x-2.5 text-sm">
+      <span className="inline-flex shrink-0 items-center gap-2 font-medium"><span aria-hidden className={cn("size-2 shrink-0 rounded-full", tone.dot)} />{tone.text}</span>
+      {usual && <span className="min-w-0 truncate text-muted-foreground">{usual}</span>}
     </p>
   );
 }
@@ -50,10 +58,19 @@ function InsightLine({ level, usual }: { level: "low" | "typical" | "high"; usua
  * in the same wide pill Stay uses. Before a search the page is a few places worth flying to; after one it is the best fare first, then the rest.
  * The search is a sheet that drops from the top: it is asked once, and priced once.
  */
-export function FlightsSurface({ tripId, active = true }: { tripId: string | null; /** False while another view of the page (My flights) is in front: the search stays mounted but gives up the header. */ active?: boolean }) {
+export function FlightsSurface({ tripId, active = true, onSearchActive }: { tripId: string | null; /** In a trip: told when there is a search to cancel (a search on screen or an answer), with the way to cancel it; null when the page is as it started. */ onSearchActive?: (cancel: (() => void) | null) => void; /** False while another view of the page (My flights) is in front: the search stays mounted but gives up the header. */ active?: boolean }) {
   const reduce = useReducedMotion();
   const trip = useTripDataMaybe()?.data?.trip;
   const standalone = tripId === null;
+  // With no trip the page is one column: a sticky header, the model's answer, a row of pills that sticks under the header, then the flights (see StickyBar).
+  const { headRef, rowRef, headH, stuck } = useStickyBar();
+  // In a trip the header is the trip's own, and the row sticks under that instead.
+  const tripRow = useTripStickyRow();
+  const [answer, setAnswer] = useState<string | null>(null);
+  // An ask is on its way: the answer and the fares show as loading until it comes back.
+  const [asking, setAsking] = useState(false);
+  // The airlines an ask named: once the fares are in, the answer adds what each of them costs.
+  const [askedAirlines, setAskedAirlines] = useState<string[]>([]);
   // In a trip a flight opens in the trip's side panel; from the home page there is no panel, so it opens in a sheet of its own.
   const panelCtx = useTripPanelMaybe();
   const [own, setOwn] = useState<Extract<PanelState, { kind: "flight" }> | null>(null);
@@ -80,8 +97,9 @@ export function FlightsSurface({ tripId, active = true }: { tripId: string | nul
   const [sheet, setSheet] = useState<{ open: boolean; focus?: "to" | "dates" }>({ open: false });
   // A place picked from the ideas: the search opens with it as the destination, on the days.
   const [idea, setIdea] = useState<string | null>(null);
+  // What an ask in words filled in but could not search on yet (no place or day): the search sheet opens with it.
+  const [prefill, setPrefill] = useState<FlightDraft | null>(null);
   const [view, setView] = useState<FlightView>(DEFAULT_FLIGHT_VIEW);
-  const [showAll, setShowAll] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   // The pill whose small panel is open under the row (one at a time); "Filters" opens the whole sheet instead.
   const [openSection, setOpenSection] = useState<FilterSection | null>(null);
@@ -118,13 +136,46 @@ export function FlightsSurface({ tripId, active = true }: { tripId: string | nul
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // With no trip the arrow out of a search goes back to Flights' own home (the ideas); from there it leaves for the trips.
+  const backHome = () => { setAsked(null); setAnswer(null); setAskedAirlines([]); setIdea(null); setPrefill(null); setView(DEFAULT_FLIGHT_VIEW); window.scrollTo(0, 0); };
+  const searchActive = !standalone && (started || Boolean(answer));
+  const cancelRef = useRef<() => void>(() => undefined);
+  cancelRef.current = backHome;
+  useEffect(() => {
+    onSearchActive?.(searchActive ? () => cancelRef.current() : null);
+    return () => onSearchActive?.(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the callback is the page's setter; only the state matters
+  }, [searchActive]);
   const openSheet = useCallback((focus?: "to" | "dates") => setSheet({ open: true, focus }), []);
-  const search = (next: FlightDraft) => {
+  // `keepAnswer`: the search came from the Ask bar and brings its own answer; any other search puts the old one away.
+  const search = (next: FlightDraft, keepAnswer = false) => {
+    if (!keepAnswer) { setAnswer(null); setAskedAirlines([]); }
     setAsked(next);
     setIdea(null);
+    setPrefill(null);
+    setSheet((s) => ({ ...s, open: false }));
     setView(DEFAULT_FLIGHT_VIEW);
-    setShowAll(false);
+   
     fares.search({ fromLabel: next.fromLabel, toLabel: next.toLabel, depart: next.depart, ret: next.ret, adults: next.adults });
+  };
+
+  // The ask bar's sentence: what it names is put on the draft; with a place and a day it searches at once, otherwise the sheet opens with what was read.
+  const applyAsk = (d: AiSearchDirective) => {
+    const depart = d.depart ?? draft.depart;
+    const next: FlightDraft = {
+      ...draft,
+      fromLabel: d.from?.trim() || draft.fromLabel,
+      // A sentence that changes the days of the search on screen keeps its destination; one that only wishes ("somewhere warm") does not inherit the old one.
+      toLabel: d.to?.trim() || idea || (d.depart || d.ret || d.oneWay ? draft.toLabel : ""),
+      depart,
+      ret: d.oneWay ? null : (d.ret ?? (draft.ret && depart && draft.ret > depart ? draft.ret : null)),
+      adults: d.adults ?? draft.adults,
+    };
+    if (canSearch(next)) { search(next, true); setAnswer(d.answer?.trim() || null); setAskedAirlines(d.airlines ?? []); return; }
+    // The answer says what is missing ("I need a destination"), so it replaces the one for the search still on screen.
+    setAnswer(d.answer?.trim() || null);
+    setPrefill(next);
+    openSheet(next.toLabel.trim() ? "dates" : "to");
   };
 
   // The same two-line pill as Getting around: where you leave from small, where you are going bold; "Where to?" before a search.
@@ -152,8 +203,10 @@ export function FlightsSurface({ tripId, active = true }: { tripId: string | nul
   ];
   const pickKeys = useMemo(() => new Set(picks.map((p) => offerKey(p.offer))), [picks]);
   const rest = offers.filter((o) => !pickKeys.has(offerKey(o)));
-  const shown = showAll ? rest : rest.slice(0, ROWS);
-  const lowest = offers.length ? offers.reduce((best, o) => (Number(o.price) < Number(best.price) ? o : best), offers[0]!) : null;
+  // The rows under the picks: a few first, then the same "More" every list uses (a new filter or search starts the list again).
+  const more = useShowMore(rest.length, view, { first: ROWS, step: 9 });
+  const shown = rest.slice(0, more.visible);
+  const lowest = cheapestOffer(offers);
   const dateNote = query.depart ? `Departing ${query.depart}${query.ret ? `, returning ${query.ret}` : ""}` : undefined;
   const panelFor = (offer: FlightItems[number]) => ({ kind: "flight" as const, flight: offer, route: { origin: query.fromLabel, destination: query.toLabel, dateNote, retrievedAt: fares.retrievedAt, offers: fares.items, departureDate: query.depart ?? undefined, returnDate: query.ret ?? undefined, originId: query.fromId, destinationId: query.toId, onChangeReturn: (day: string) => fares.setReturn(day) } });
   const openOffer = (key: string) => { const offer = offers.find((o) => offerKey(o) === key); if (offer) openPanel(panelFor(offer)); };
@@ -164,15 +217,14 @@ export function FlightsSurface({ tripId, active = true }: { tripId: string | nul
   return (
     <div className="mx-auto w-full max-w-[40rem] pb-24 lg:pb-12">
       {/* Alone on the home page the header is one row: back to the trips, the search pill centred, and an empty circle's width to balance it. */}
+      {standalone && <FrostedGround stuck={stuck} headH={headH} />}
+      {!standalone && <TripFrostedGround stuck={tripRow.stuck} />}
       {standalone && (
-        <div className="mb-5 grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-3">
-          <Link href="/trips" prefetch={false} aria-label="Back to your trips" className="grid size-11 place-items-center rounded-full bg-muted text-foreground transition-[background-color,transform] duration-200 ease-out hover:bg-muted/70 active:scale-[0.94] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-            <ArrowLeft className="size-5" aria-hidden />
-          </Link>
-          <div className="flex min-w-0 justify-center">{pill}</div>
-          <span aria-hidden />
+        <div ref={headRef} className={STICKY_HEAD}>
+          <StandaloneHeader onBack={started ? backHome : undefined}>{pill}</StandaloneHeader>
         </div>
       )}
+      {(asking || answer) && <div className="mt-2">{asking ? <AnswerSkeleton /> : <AnswerText body={ready && currency ? [answer, airlineNote(askedAirlines, fares.items, { money: (n) => money(String(n), currency, true), duration: formatDuration })].filter(Boolean).join(" ") : (answer ?? "")} />}</div>}
       {/* The search opens from the header pill (a phone, and the home page's own), so there is no second control for it. A trip's desktop has no header pill: it keeps the wide button that reopens the search on the days. */}
       {started && !standalone && (
         <button
@@ -193,11 +245,18 @@ export function FlightsSurface({ tripId, active = true }: { tripId: string | nul
       )}
       <p className="sr-only" role="status" aria-live="polite">{loading ? "Loading flights" : ""}</p>
 
-      {!started && <FlightIdeas tripId={tripId} origin={draft.fromLabel || trip?.origin} destination={trip?.destination} onPick={(city) => { setIdea(city); openSheet("dates"); }} />}
+      {!started && !asking && <FlightIdeas tripId={tripId} origin={draft.fromLabel || trip?.origin} destination={trip?.destination} onPick={(city) => { setIdea(city); openSheet("dates"); }} />}
+
+      {!started && asking && (
+        <div className="mt-4" aria-busy>
+          <div className="[&>*]:mx-0! [&>*]:mt-0!"><FlightPicksSkeleton /></div>
+          <div className="mt-4"><FlightRowsSkeleton /></div>
+        </div>
+      )}
 
       {started && (
-        <div className="mt-4" aria-busy={loading}>
-          {loading && fares.items.length === 0 && (
+        <div className="mt-4" aria-busy={loading || asking}>
+          {(loading || asking) && (
             <>
               <div aria-hidden className="mb-5 flex gap-2"><Skeleton className="h-10 w-44 rounded-full" /><Skeleton className="h-10 w-24 rounded-full" /><Skeleton className="h-10 w-24 rounded-full" /></div>
               <div className="[&>*]:mx-0! [&>*]:mt-0!"><FlightPicksSkeleton /></div>
@@ -221,12 +280,12 @@ export function FlightsSurface({ tripId, active = true }: { tripId: string | nul
             </StateMessage>
           ))}
 
-          {ready && fares.items.length > 0 && (
+          {ready && !asking && fares.items.length > 0 && (
             <motion.div key={fares.retrievedAt} initial={reduce ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={motionTokens.standard}>
               {fares.insights && <div className="mb-4 mt-1 px-1"><InsightLine level={fares.insights.level} usual={usual} /></div>}
               {/* A phone: one row of pills, each showing what it is set to and opening the sheet at its group (the first opens it at the top). A desktop keeps its sort and filters inline. */}
               {/* The panel a pill opens floats over the flights under it (it does not push them down); a tap outside, Escape or the cross closes it. */}
-              <div ref={pillsRef} className="relative lg:hidden">
+              <div ref={(el) => { pillsRef.current = el; rowRef.current = el; tripRow.rowRef.current = el; }} className={cn("relative", standalone ? stickyRow(stuck, headH).className : cn("lg:hidden", tripStickyRow(tripRow.stuck).className))} style={standalone ? stickyRow(stuck, headH).style : tripStickyRow(tripRow.stuck).style}>
               <div role="group" aria-label="Sort and filter" className={cn("no-scrollbar -mx-4 flex items-center gap-2 overflow-x-auto px-4", loading && "pointer-events-none opacity-50")}>
                 {pills.map((pill) => (
                   <button
@@ -260,20 +319,20 @@ export function FlightsSurface({ tripId, active = true }: { tripId: string | nul
                       <h3 className="text-sm font-semibold">{SECTION_TITLES[openSection]}</h3>
                       <div className="-mr-2 flex items-center gap-1">
                         {sectionActive(view, openSection) && openSection !== "sort" && (
-                          <button type="button" onClick={() => { setView(clearSection(view, openSection)); setShowAll(false); }} className="rounded-full px-2.5 py-1.5 text-sm font-medium text-ink-soft underline underline-offset-2 active:bg-muted">Clear</button>
+                          <button type="button" onClick={() => { setView(clearSection(view, openSection)); }} className="rounded-full px-2.5 py-1.5 text-sm font-medium text-ink-soft underline underline-offset-2 active:bg-muted">Clear</button>
                         )}
                         <button type="button" onClick={() => setOpenSection(null)} aria-label="Close" className="grid size-8 place-items-center rounded-full text-muted-foreground transition-colors active:bg-muted"><X className="size-4" aria-hidden /></button>
                       </div>
                     </div>
                     <div className="mt-3">
-                      <SectionBody section={openSection} items={fares.items} view={view} onChange={(v) => { setView(v); setShowAll(false); if (openSection === "sort" || openSection === "stops") setOpenSection(null); }} currency={currency} />
+                      <SectionBody section={openSection} items={fares.items} view={view} onChange={(v) => { setView(v); if (openSection === "sort" || openSection === "stops") setOpenSection(null); }} currency={currency} />
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
               </div>
-              <div className={cn("transition-opacity duration-200 max-lg:hidden", loading && "pointer-events-none opacity-50")}>
-                <FlightControls items={fares.items} view={view} onChange={(v) => { setView(v); setShowAll(false); }} shown={offers.length} />
+              <div className={cn("transition-opacity duration-200 max-lg:hidden", standalone && "hidden", loading && "pointer-events-none opacity-50")}>
+                <FlightControls items={fares.items} view={view} onChange={(v) => { setView(v); }} shown={offers.length} />
               </div>
               {offers.length === 0 ? (
                 <div className="mt-4">
@@ -283,7 +342,7 @@ export function FlightsSurface({ tripId, active = true }: { tripId: string | nul
                 </div>
               ) : (
                 <>
-                  <div className="mt-5 [&>*]:mx-0! [&>*]:mt-0!"><FlightPicks picks={picks} selected={null} onSelect={openOffer} /></div>
+                  <div className="mt-5 [&>*]:mx-0! [&>*]:mt-0!"><FlightPicks adults={adults} picks={picks} selected={null} onSelect={openOffer} /></div>
                   <ul className="mt-4 space-y-3 lg:mt-3 lg:space-y-0" aria-label="Flights">
                     {shown.map((offer, i) => {
                       const key = offerKey(offer);
@@ -306,23 +365,15 @@ export function FlightsSurface({ tripId, active = true }: { tripId: string | nul
                       );
                     })}
                   </ul>
-                  {!showAll && rest.length > ROWS && (
-                    <button type="button" onClick={() => setShowAll(true)} className="btn-primary mt-4 h-12 w-full rounded-full text-body">See all {offers.length} flights</button>
-                  )}
+                  {more.remaining > 0 && <ShowMoreButton next={more.next} visible={more.visible} total={rest.length} onClick={more.showMore} noun="flights" />}
                 </>
               )}
-              <div className="mt-6">
-                <Notice>
-                  Prices are per person{roundTrip ? " for the round trip" : ""}{currency ? `, in ${currency}` : ""}
-                  {fares.items.some((o) => o.listedCurrency) ? `, converted from ${[...new Set(fares.items.map((o) => o.listedCurrency).filter(Boolean))].join(", ")} at today’s rate, so approximate` : ""}, and change quickly.
-                </Notice>
-              </div>
             </motion.div>
           )}
         </div>
       )}
 
-      <FlightFilterSheet open={filterOpen} onClose={() => setFilterOpen(false)} items={fares.items} view={view} onChange={(v) => { setView(v); setShowAll(false); }} shown={offers.length} currency={currency} />
+      <FlightFilterSheet open={filterOpen} onClose={() => setFilterOpen(false)} items={fares.items} view={view} onChange={(v) => { setView(v); }} shown={offers.length} currency={currency} />
 
       <Sheet open={own !== null} onClose={() => setOwn(null)} side={wide ? "right" : "bottom"} ariaLabel="Flight details" className="lg:max-w-xl">
         {own && (
@@ -333,7 +384,16 @@ export function FlightsSurface({ tripId, active = true }: { tripId: string | nul
         )}
       </Sheet>
 
-      <FlightSearchSheet open={sheet.open} focus={sheet.focus} onClose={() => setSheet((s) => ({ ...s, open: false }))} tripId={tripId} draft={idea ? { ...draft, toLabel: idea } : draft} onSearch={search} />
+      <FlightSearchSheet open={sheet.open} focus={sheet.focus} onClose={() => setSheet((s) => ({ ...s, open: false }))} tripId={tripId} draft={prefill ?? (idea ? { ...draft, toLabel: idea } : draft)} onSearch={(d) => search(d)} />
+      <AiSearchBar
+        variant="dock"
+        tripId={tripId}
+        scope="flights"
+        onPendingChange={setAsking}
+        place={draft.fromLabel ? draft.fromLabel.split(",")[0]!.trim() : undefined}
+        placeholder="Try “Toronto to Lisbon, Dec 10–17”"
+        onDirective={applyAsk}
+      />
     </div>
   );
 }

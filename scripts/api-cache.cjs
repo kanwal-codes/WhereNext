@@ -16,17 +16,23 @@ async function describe(input, init) {
   let url;
   let method = "GET";
   let body = "";
+  let mask = "";
   if (typeof input === "string" || input instanceof URL) url = String(input);
   else {
     url = input.url;
     method = input.method || method;
     try { body = await input.clone().text(); } catch { /* no body */ }
+    mask = input.headers?.get?.("x-goog-fieldmask") ?? "";
   }
   if (init) {
     method = init.method || method;
     if (init.body != null) body = typeof init.body === "string" ? init.body : String(init.body);
+    const headers = init.headers;
+    const read = (n) => (headers && typeof headers.get === "function" ? headers.get(n) : headers?.[n] ?? headers?.[n.toLowerCase()]);
+    if (headers) mask = read("x-goog-fieldmask") ?? mask;
   }
-  return { url, method: method.toUpperCase(), body };
+  // Google Places answers with the fields asked for in the field mask, so the mask is part of what makes two requests the same.
+  return { url, method: method.toUpperCase(), body: mask ? `${body}\nmask:${mask}` : body };
 }
 
 globalThis.fetch = async function cachedFetch(input, init) {

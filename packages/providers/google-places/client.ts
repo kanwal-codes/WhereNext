@@ -21,7 +21,9 @@ function placesBase(): string {
   return "https://places.googleapis.com";
 }
 
-type SearchPlace = { id: string; displayName?: { text?: string }; formattedAddress?: string; location?: { latitude: number; longitude: number }; primaryType?: string; googleMapsUri?: string; rating?: number; userRatingCount?: number; photos?: Array<{ name: string }>; regularOpeningHours?: { weekdayDescriptions?: string[] } };
+type SearchPlace = { id: string; displayName?: { text?: string }; formattedAddress?: string; location?: { latitude: number; longitude: number }; primaryType?: string; googleMapsUri?: string; rating?: number; userRatingCount?: number; photos?: Array<{ name: string }>; regularOpeningHours?: { weekdayDescriptions?: string[] }; priceLevel?: string };
+/** The extra fields a place search can ask for. */
+export type SearchFields = { hours?: boolean; price?: boolean };
 type NearbyPlace = SearchPlace & { nationalPhoneNumber?: string; websiteUri?: string };
 
 export type NearbyBusiness = {
@@ -91,16 +93,16 @@ export class GooglePlacesProvider {
    * Google where "around here" actually is. Optional and additive — every existing caller that
    * doesn't have a coordinate handy keeps working exactly as before.
    */
-  async search(query: string, signal?: AbortSignal, maxResults = GOOGLE_PAGE_SIZE, locationBias?: LocationBias, withHours = false): Promise<Place[]> {
-    if (process.env.NODE_ENV === "test") return this.searchUncached(query, signal, maxResults, locationBias, withHours);
+  async search(query: string, signal?: AbortSignal, maxResults = GOOGLE_PAGE_SIZE, locationBias?: LocationBias, fields: SearchFields = {}): Promise<Place[]> {
+    if (process.env.NODE_ENV === "test") return this.searchUncached(query, signal, maxResults, locationBias, fields);
     // Bias rounded to ~1km so nearby anchors on the same page share a cache entry instead of
     // fragmenting it per exact coordinate.
     const biasKey = locationBias ? `:${locationBias.lat.toFixed(2)},${locationBias.lng.toFixed(2)}` : "";
-    const cacheKey = `google-places:${query.trim().toLowerCase()}:${maxResults}${biasKey}${withHours ? ":hours" : ""}`;
-    return cached(cacheKey, 60_000, () => this.searchUncached(query, signal, maxResults, locationBias, withHours));
+    const cacheKey = `google-places:${query.trim().toLowerCase()}:${maxResults}${biasKey}${fields.hours ? ":hours" : ""}${fields.price ? ":price" : ""}`;
+    return cached(cacheKey, 60_000, () => this.searchUncached(query, signal, maxResults, locationBias, fields));
   }
-  /** `withHours` also asks for each place's weekly opening hours: a dearer kind of field, so only a search that will use them asks. */
-  private async searchUncached(query: string, signal?: AbortSignal, maxResults = GOOGLE_PAGE_SIZE, locationBias?: LocationBias, withHours = false): Promise<Place[]> {
+  /** `fields` ask for more than the basics: the weekly opening hours and the price level are dearer kinds of field, so only a search that will use them asks. */
+  private async searchUncached(query: string, signal?: AbortSignal, maxResults = GOOGLE_PAGE_SIZE, locationBias?: LocationBias, fields: SearchFields = {}): Promise<Place[]> {
     const cap = Math.min(maxResults, GOOGLE_MAX_RESULTS);
     const places: SearchPlace[] = [];
     let pageToken: string | undefined;
@@ -109,7 +111,7 @@ export class GooglePlacesProvider {
       : undefined;
     do {
       // Pagination requires resending the original query verbatim alongside pageToken, or Google 400s.
-      const response = await guardedFetch("google-places", `${placesBase()}/v1/places:searchText`, { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": this.key(), "x-goog-fieldmask": `places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.googleMapsUri,places.rating,places.userRatingCount,places.photos.name,nextPageToken${withHours ? ",places.regularOpeningHours.weekdayDescriptions" : ""}` }, body: JSON.stringify({ textQuery: broadenQuery(query), pageSize: GOOGLE_PAGE_SIZE, ...(bias ? { locationBias: bias } : {}), ...(pageToken ? { pageToken } : {}) }), signal: withProviderTimeout(signal) });
+      const response = await guardedFetch("google-places", `${placesBase()}/v1/places:searchText`, { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": this.key(), "x-goog-fieldmask": `places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.googleMapsUri,places.rating,places.userRatingCount,places.photos.name,nextPageToken${fields.hours ? ",places.regularOpeningHours.weekdayDescriptions" : ""}${fields.price ? ",places.priceLevel" : ""}` }, body: JSON.stringify({ textQuery: broadenQuery(query), pageSize: GOOGLE_PAGE_SIZE, ...(bias ? { locationBias: bias } : {}), ...(pageToken ? { pageToken } : {}) }), signal: withProviderTimeout(signal) });
       if (!response.ok) {
         // Google's own error body (e.g. "API_KEY_HTTP_REFERRER_BLOCKED", "RESOURCE_EXHAUSTED")
         // is the one thing that actually distinguishes a key/IP restriction from a quota hit
@@ -123,7 +125,7 @@ export class GooglePlacesProvider {
       places.push(...(body.places ?? []));
       pageToken = body.nextPageToken;
     } while (pageToken && places.length < cap);
-    return places.slice(0, cap).flatMap((place) => place.location ? [{ provider: "google-places", providerId: place.id, name: place.displayName?.text ?? "Unnamed place", category: place.primaryType ?? null, latitude: place.location.latitude, longitude: place.location.longitude, address: place.formattedAddress ?? null, rating: place.rating, userRatingCount: place.userRatingCount, sourceUrl: place.googleMapsUri ?? null, photoNames: place.photos?.map((photo) => photo.name) ?? [], ...(place.regularOpeningHours?.weekdayDescriptions?.length ? { openingHours: place.regularOpeningHours.weekdayDescriptions.slice(0, 7) } : {}) }] : []);
+    return places.slice(0, cap).flatMap((place) => place.location ? [{ provider: "google-places", providerId: place.id, name: place.displayName?.text ?? "Unnamed place", category: place.primaryType ?? null, latitude: place.location.latitude, longitude: place.location.longitude, address: place.formattedAddress ?? null, rating: place.rating, userRatingCount: place.userRatingCount, sourceUrl: place.googleMapsUri ?? null, photoNames: place.photos?.map((photo) => photo.name) ?? [], ...(place.priceLevel ? { priceLevel: place.priceLevel } : {}), ...(place.regularOpeningHours?.weekdayDescriptions?.length ? { openingHours: place.regularOpeningHours.weekdayDescriptions.slice(0, 7) } : {}) }] : []);
   }
   /** Businesses of a Google place type (e.g. "car_rental") near a point, nearest first. */
   async nearby(type: string, center: { lat: number; lng: number }, radiusMeters = 15_000, signal?: AbortSignal): Promise<NearbyBusiness[]> {

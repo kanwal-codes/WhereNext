@@ -1,20 +1,25 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { AlertCircle, CalendarDays, Check, Clock, Copy, ExternalLink, LocateFixed, MapPin, Minus, Phone, Plus, Search, SearchX, Users, Utensils, WifiOff, X } from "lucide-react";
+import { AnswerSkeleton, AnswerText } from "@/components/AnswerText";
+import { FrostedGround, STICKY_HEAD, stickyRow, stuckPill, useStickyBar } from "@/components/StickyBar";
+import { cn } from "@/lib/utils";
+import { CalendarDays, Check, Clock, Copy, ExternalLink, LocateFixed, MapPin, Minus, Phone, Plus, Search, Users, Utensils, X } from "lucide-react";
+import { AiSearchBar } from "@/components/AiSearchBar";
 import { DestinationCombobox } from "@/components/DestinationCombobox";
+import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { FoldAway } from "@/components/FoldAway";
 import { Sheet } from "@/components/motion-primitives";
 import { searchButton } from "@/components/motion/sheetActions";
 import { PlaceDetailView } from "@/features/places/ui/PlaceDetailView";
 import { SheetHeader } from "@/components/SheetHeader";
 import { ShowMoreButton } from "@/components/ShowMoreButton";
-import { SkeletonBand } from "@/components/Skeleton";
 import { StandaloneHeader } from "@/components/StandaloneHeader";
 import { StateMessage, stateButton } from "@/components/StateMessage";
 import { applyEatView, availableEat, DEFAULT_EAT_VIEW, type EatView } from "@/features/eat/domain/eat-view";
 import { fmtTime, LARGE_GROUP, MAX_GUESTS, NO_VISIT, openAt, requestText, visitLine, visitNote, visitSet, visitTimed, type Visit } from "@/features/eat/domain/eat-visit";
 import { EatFilters } from "@/features/eat/ui/EatFilters";
+import { EatFailedState, EatNoMatchState, EatResults } from "@/features/eat/ui/EatResults";
 import { placeGlyph } from "@/features/conversation/ui/blocks/glyphs";
 import { CATEGORY_BY_KEY } from "@/features/places/ui/discoverTaxonomy";
 import { DiscoverTile } from "@/features/places/ui/DiscoverTile";
@@ -37,10 +42,13 @@ function ReserveCard({ place, visit }: { place: Place; visit: Visit }) {
   const id = `${place.providerId}|${attempt}`;
   useEffect(() => {
     const controller = new AbortController();
-    cachedGet(`/api/places/table?placeId=${encodeURIComponent(place.providerId)}`, { signal: controller.signal, ttlMs: attempt ? 0 : undefined })
-      .then((r) => (r.ok ? (r.json() as Promise<{ place: Table }>) : Promise.reject(new Error("failed"))))
-      .then((b) => setTable({ id, value: b.place }), () => { if (!controller.signal.aborted) setTable({ id, value: null }); });
-    return () => controller.abort();
+    // On the next tick, so React's development double-run cancels the first before it asks.
+    const timer = window.setTimeout(() => {
+      cachedGet(`/api/places/table?placeId=${encodeURIComponent(place.providerId)}`, { signal: controller.signal, ttlMs: attempt ? 0 : undefined })
+        .then((r) => (r.ok ? (r.json() as Promise<{ place: Table }>) : Promise.reject(new Error("failed"))))
+        .then((b) => setTable({ id, value: b.place }), () => { if (!controller.signal.aborted) setTable({ id, value: null }); });
+    }, 0);
+    return () => { window.clearTimeout(timer); controller.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `id` stands for the place and the attempt
   }, [id]);
   const ready = table?.id === id;
@@ -151,31 +159,49 @@ export function EatHome() {
   // Opening hours are asked for once a day or hour is given (they cost more to fetch, and a plain search never uses them).
   const [wantHours, setWantHours] = useState(false);
   const [typingPlace, setTypingPlace] = useState(false);
+  // What an ask in words named to look for ("ramen", "Nobu"): it replaces the type chips until the chip below it is dismissed.
+  const [ask, setAsk] = useState<string | null>(null);
+  // The model's short written answer to the ask, shown above the places. A plain search (a place, a type chip) has none.
+  const [answer, setAnswer] = useState<string | null>(null);
+  // An ask is on its way: the answer and the places show as loading until it comes back.
+  const [asking, setAsking] = useState(false);
+  // The header is sticky and so is the row of pills under it (see StickyBar).
+  const { headRef, rowRef, headH, stuck } = useStickyBar();
   const setPart = (patch: Partial<Visit>) => { const next = { ...visit, ...patch }; setVisit(next); setOpenThen(visitTimed(next)); if (visitTimed(next)) setWantHours(true); };
   const lastTypes = useRef<string[]>([]);
-  const choose = (text: string, asTyped: boolean) => { setTyped(text); setPlace(text); setExact(asTyped); setChoosing(false); setSubs([]); };
+  const choose = (text: string, asTyped: boolean) => { setTyped(text); setPlace(text); setExact(asTyped); setChoosing(false); setSubs([]); setAnswer(null); };
+  // A suggestion only fills the field; "Search places" (or Enter) is what searches, so the day, time and guests can be set after it.
+  const [picked, setPicked] = useState<{ text: string; exact: boolean } | null>(null);
+  const commit = () => {
+    const text = typed.trim();
+    if (text.length < 2) { if (place) setChoosing(false); return; }
+    if (place && !picked && text === cityLabel) { setChoosing(false); return; }
+    choose(text, picked && picked.text === typed ? picked.exact : false);
+    setPicked(null);
+  };
   const keyboard = useKeyboardInset(choosing);
   const [subs, setSubs] = useState<string[]>([]);
-  const toggleSub = (label: string) => setSubs((l) => (l.includes(label) ? l.filter((x) => x !== label) : [...l, label]));
+  const toggleSub = (label: string) => { setAsk(null); setAnswer(null); setSubs((l) => (l.includes(label) ? l.filter((x) => x !== label) : [...l, label])); };
   const [eat, setEat] = useState<EatView>(DEFAULT_EAT_VIEW);
   const [sheet, setSheet] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [found, setFound] = useState<{ key: string; places: Place[] | null }>({ key: "", places: null });
-  const what = subs.length ? subs.map((l) => EAT.subs.find((s) => s.label === l)?.q ?? l).join(" or ") : EAT.q;
+  const what = ask ? ask : subs.length ? subs.map((l) => EAT.subs.find((s) => s.label === l)?.q ?? l).join(" or ") : EAT.q;
   // No place chosen: around the position when given, else around the home city; with neither there is nothing to look around.
   const idle = place === null;
   const around = idle && coords ? { lat: coords.lat, lng: coords.lng } : null;
   const query = !idle ? (exact ? place : `${what} in ${place}`) : around ? what : home ? `${what} in ${home}` : "";
   const key = query ? `${query}|${around ? `${around.lat.toFixed(3)},${around.lng.toFixed(3)}` : ""}|${wantHours}|${attempt}` : "";
+  // While the search sheet is open nothing is fetched: closing it (or "Search places") asks once, for the place and the details together.
   useEffect(() => {
-    if (!query) return;
+    if (!query || choosing) return;
     const controller = new AbortController();
     cachedGet(`/api/places?query=${encodeURIComponent(query)}&limit=40${around ? `&lat=${around.lat}&lng=${around.lng}` : ""}${wantHours ? "&hours=1" : ""}`, { signal: controller.signal, ttlMs: attempt ? 0 : undefined })
       .then((r) => (r.ok ? (r.json() as Promise<{ places: Place[] }>) : Promise.reject(new Error("failed"))))
       .then((b) => setFound({ key, places: b.places ?? [] }), () => { if (!controller.signal.aborted) setFound({ key, places: null }); });
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` stands for the place, the type and the attempt
-  }, [key]);
+  }, [key, choosing]);
 
   const loading = (idle && home === undefined) || (Boolean(key) && found.key !== key);
   const places = useMemo(() => (found.key === key ? (found.places ?? []) : []), [found, key]);
@@ -187,9 +213,13 @@ export function EatHome() {
   const [open, setOpen] = useState<Place | null>(null);
   const cityLabel = place?.split(",")[0]?.trim() ?? "";
   const aroundLabel = coords ? "you" : home?.split(",")[0]?.trim() ?? "";
+  // The pill names where the places are: the place chosen, or, once an ask has been made with none named, the place it was made around.
+  const pillPlace = cityLabel || (ask || answer ? (coords ? "Near you" : aroundLabel) : "");
   const failed = !loading && Boolean(key) && found.places === null;
-  const offline = typeof navigator !== "undefined" && navigator.onLine === false;
-  const clearAll = () => { setEat({ ...DEFAULT_EAT_VIEW, sort: eat.sort }); setSubs([]); setOpenThen(false); };
+  // The arrow out of a search or an ask goes back to Eat's own home (the places around you); from there it leaves for the trips.
+  const searched = place !== null || Boolean(ask) || Boolean(answer);
+  const backHome = () => { setPlace(null); setTyped(""); setExact(false); setPicked(null); setAsk(null); setAnswer(null); setSubs([]); setEat(DEFAULT_EAT_VIEW); setOpenThen(false); setWantHours(false); setVisit(NO_VISIT); window.scrollTo(0, 0); };
+  const clearAll = () => { setEat({ ...DEFAULT_EAT_VIEW, sort: eat.sort }); setSubs([]); setAsk(null); setAnswer(null); setOpenThen(false); };
 
   const tile = (row: { place: Place }, mode: "feature" | "grid") => {
     const p = row.place;
@@ -201,76 +231,95 @@ export function EatHome() {
         src={accountPhotoUrl(p.photoNames?.[0], 640)}
         icon={placeGlyph(p.category, p.name).icon}
         title={p.name}
-        meta={[p.category ? categoryLabel(p.category) : null, isFoodPlace(p.category) ? priceLabel(p.priceLevel) : null].filter(Boolean).join(" · ") || undefined}
+        meta={[p.category ? categoryLabel(p.category) : null, isFoodPlace(p.category) ? priceLabel(p.priceLevel) : null].filter(Boolean).join("\u00a0· ") || undefined}
         rating={p.rating}
         feature={mode === "feature"}
       />
     );
   };
 
+  // The ask bar's sentence: how many, the day and the time go on the visit; a place or something to look for changes the search. With nothing to anchor a
+  // search to (no place, no home city, no position) the place sheet opens instead of guessing.
+  const applyAsk = (d: AiSearchDirective) => {
+    if (d.adults !== undefined || d.date || d.time) {
+      const next = { guests: d.adults ?? visit.guests, date: d.date ?? visit.date, time: d.time ?? visit.time };
+      setVisit(next);
+      setOpenThen(visitTimed(next));
+      if (visitTimed(next)) setWantHours(true);
+    }
+    // "near the zoo" is not a place to go to: it narrows the search around the place the page already has, so it joins what is being looked for.
+    const loc = d.location?.trim() ?? "";
+    const nearby = /^(near|around|close to|next to|by|in front of|behind)\b/i.test(loc);
+    const looking = [d.freeText?.trim(), nearby ? loc : ""].filter(Boolean).join(" ");
+    if (looking) setAsk(looking);
+    // A new search brings its own answer (or none); a sentence that only set the party, day or time leaves the answer as it was.
+    if (looking || loc) setAnswer(d.answer?.trim() || null);
+    else if (d.answer?.trim()) setAnswer(d.answer.trim());
+    if (loc && !nearby) { setPlace(loc); setTyped(loc); setExact(false); }
+    else if (!place && !home && !coords && (looking || d.adults !== undefined || d.date || d.time)) setChoosing(true);
+  };
+
   const openLabel = visit.time ? `Open at ${fmtTime(visit.time)}` : visit.date ? "Open that date" : "";
   const openPills = visitTimed(visit) && !exact ? [{ key: "openThen", label: openLabel, on: openThen, onPress: () => setOpenThen((v) => !v) }] : [];
   // Before anything is searched the pill is the way in, worded and drawn as Flights' is; once a place is chosen it names it.
   const pill = (
-    <button type="button" onClick={() => { setTyped(cityLabel); setChoosing(true); }} aria-haspopup="dialog" aria-label={cityLabel ? `Place: ${cityLabel}. Change` : "Where to? Search for a place or a restaurant"} className={"relative flex h-11 w-fit max-w-full items-center overflow-hidden rounded-full bg-muted px-5 text-center transition-transform active:scale-[0.985] gap-2.5" + (cityLabel ? "" : " min-w-[11rem]")}>
-      {!cityLabel && <Search className="size-[1.125rem] shrink-0 text-ink-soft" aria-hidden />}
-      <span className={"truncate font-display text-body font-semibold tracking-[-0.01em]" + (cityLabel ? "" : " text-ink-soft")}>{cityLabel || "Where to?"}</span>
+    <button type="button" onClick={() => { setTyped(cityLabel); setChoosing(true); }} aria-haspopup="dialog" aria-label={pillPlace ? `Place: ${pillPlace}. Change` : "Where to? Search for a place or a restaurant"} className={cn("relative flex h-11 w-fit max-w-full items-center overflow-hidden rounded-full px-5 text-center transition-[background-color,box-shadow,transform] duration-300 active:scale-[0.985] gap-2.5", stuckPill(stuck), !pillPlace && "min-w-[11rem]")}>
+      {!pillPlace && <Search className="size-[1.125rem] shrink-0 text-ink-soft" aria-hidden />}
+      <span className={"truncate font-display text-body font-semibold tracking-[-0.01em]" + (pillPlace ? "" : " text-ink-soft")}>{pillPlace || "Where to?"}</span>
     </button>
   );
 
   return (
-    <main className="min-h-dvh bg-background px-4 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))] sm:px-8">
+    <main className="relative min-h-dvh bg-background px-4 pb-10 sm:px-8">
       <h1 className="sr-only">Eat</h1>
-      <div className="mx-auto flex w-full max-w-[40rem] flex-col gap-4 pb-12">
-        <StandaloneHeader>{pill}</StandaloneHeader>
+      <FrostedGround stuck={stuck} headH={headH} />
+      <div className="relative mx-auto flex w-full max-w-[40rem] flex-col gap-4 pb-24">
+        <div ref={headRef} className={STICKY_HEAD}>
+          <StandaloneHeader onBack={searched ? backHome : undefined}>{pill}</StandaloneHeader>
+        </div>
+        {asking ? <AnswerSkeleton /> : answer && <AnswerText body={answer} />}
         {visitSet(visit) && (
           <button type="button" onClick={() => { setTyped(cityLabel); setChoosing(true); }} aria-haspopup="dialog" aria-label={`${visitLine(visit)}. Change`} className="-mt-1 inline-flex min-h-10 w-fit max-w-full items-center gap-2 rounded-full bg-muted px-4 text-sm font-medium transition-transform active:scale-[0.97]">
             <Users className="size-4 shrink-0 text-ink-soft" aria-hidden /><span className="truncate">{visitLine(visit)}</span>
           </button>
         )}
-        {idle && aroundLabel && (
-          <h2 className="font-display text-xl font-medium tracking-[-0.015em]">Around {aroundLabel}</h2>
-        )}
         {idle && locationOff && <p role="status" className="-mt-2 text-sm text-ink-soft">Location is off for this site. {home ? `Showing places around ${aroundLabel}.` : "Choose a place instead."}</p>}
-        <EatFilters extraPills={openPills} onClear={() => setOpenThen(false)} eat={eat} onChange={setEat} subs={subs} onToggleSub={toggleSub} onClearSubs={() => setSubs([])} available={available} shown={shown.length} showPills={Boolean(key) && (places.length > 0 || loading)} noType={exact} sheetOpen={sheet} onSheetOpen={setSheet} />
-        <div aria-busy={loading}>
-          {loading && visible.length === 0 ? (
-            <SkeletonBand count={6} />
-          ) : !key ? (
+        <EatFilters plainOrder extraPills={openPills} onClear={() => setOpenThen(false)} eat={eat} onChange={setEat} subs={subs} onToggleSub={toggleSub} onClearSubs={() => setSubs([])} available={available} shown={shown.length} showPills={Boolean(key) && (places.length > 0 || loading)} noType={exact} sheetOpen={sheet} onSheetOpen={setSheet} rowRef={rowRef} rowClassName={stickyRow(stuck, headH).className} rowStyle={stickyRow(stuck, headH).style} />
+        <EatResults
+          busy={loading}
+          skeleton={asking || (loading && visible.length === 0)}
+          empty={
+            !key ? (
             <StateMessage icon={Utensils} title="Where do you want to eat?" actions={<><button type="button" onClick={useMyLocation} disabled={locating} className={stateButton.primary}>{locating ? "Finding you…" : "Use my location"}</button><button type="button" onClick={() => setChoosing(true)} className={stateButton.secondary}>Choose a place</button></>}>
               Allow your location for places around you, or pick a city or type a restaurant’s name.
             </StateMessage>
-          ) : failed ? (
-            <StateMessage icon={offline ? WifiOff : AlertCircle} title={offline ? "You’re offline" : "We couldn’t load places"} actions={<button type="button" onClick={() => setAttempt((n) => n + 1)} className={stateButton.primary}>Try again</button>}>
-              {offline ? "Reconnect and the places will load." : "The problem is on our end, not with your search."}
-            </StateMessage>
-          ) : visible.length === 0 ? (
-            places.length > 0 && rows.length === 0 && openThen ? (
+            ) : failed ? (
+              <EatFailedState onRetry={() => setAttempt((n) => n + 1)} />
+            ) : visible.length === 0 ? (
+              places.length > 0 && rows.length === 0 && openThen ? (
               <StateMessage icon={Clock} title="Nothing open then" actions={<><button type="button" onClick={() => setOpenThen(false)} className={stateButton.primary}>Show places anyway</button><button type="button" onClick={() => { setTyped(cityLabel); setChoosing(true); }} className={stateButton.secondary}>Change the time</button></>}>
                 Every place we found is closed {visit.time ? `at ${fmtTime(visit.time)}` : "that date"}{visit.date ? ` on ${visitLine({ ...NO_VISIT, date: visit.date })}` : ""}. Hours can differ on the day, so it is worth a call.
               </StateMessage>
-            ) : places.length > 0 ? (
-              <StateMessage icon={SearchX} title="No places match" actions={<button type="button" onClick={clearAll} className={stateButton.primary}>Clear filters</button>}>Loosen a filter to see more places.</StateMessage>
-            ) : (
+              ) : places.length > 0 ? (
+                <EatNoMatchState onClear={clearAll} />
+              ) : (
               <StateMessage icon={Utensils} title="No places to show" actions={<button type="button" onClick={() => setChoosing(true)} className={stateButton.primary}>Try another place</button>}>Nothing came back for {cityLabel || (aroundLabel ? `around ${aroundLabel}` : "this search")}. Try a different type or place.</StateMessage>
-            )
-          ) : (
-            <div className="space-y-6">
-              {tile(visible[0]!, "feature")}
-              {visible.length > 1 && <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3">{visible.slice(1).map((r) => tile(r, "grid"))}</div>}
-            </div>
-          )}
-          {more.remaining > 0 && <ShowMoreButton next={more.next} visible={more.visible} total={shown.length} onClick={more.showMore} noun="places" />}
-        </div>
+              )
+            ) : undefined
+          }
+          first={visible.length > 0 ? tile(visible[0]!, "feature") : undefined}
+          rest={visible.slice(1).map((r) => tile(r, "grid"))}
+          footer={more.remaining > 0 && <ShowMoreButton next={more.next} visible={more.visible} total={shown.length} onClick={more.showMore} noun="places" />}
+        />
       </div>
 
-      <Sheet open={choosing} onClose={() => setChoosing(false)} side="top" ariaLabel="Eat" initialFocus={undefined} className="icons-fine lg:max-w-md">
+      <Sheet open={choosing} onClose={() => setChoosing(false)} side="top" ariaLabel="Eat" initialFocus={undefined} className={"icons-fine lg:max-w-md" + (keyboard && typingPlace ? " min-h-[min(88dvh,var(--vvh,88dvh))]" : "")}>
         <SheetHeader title="Eat" onClose={() => setChoosing(false)} bordered={false} />
         <div className={"px-4 pb-5" + (keyboard ? " min-h-0 flex-1 overflow-y-auto overscroll-contain pb-0 pt-1" : "")}>
           <div onFocus={() => setTypingPlace(true)} onBlur={() => setTypingPlace(false)} className="flex items-center gap-3 rounded-2xl bg-muted px-4 py-3.5 transition-shadow focus-within:bg-card focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_5%,transparent),0_8px_18px_-12px_color-mix(in_oklab,var(--color-ink)_20%,transparent)]">
             <div className="min-w-0 flex-1">
               <span className="block text-xs font-medium tracking-[0.22em] text-muted-foreground uppercase">Place</span>
-              <DestinationCombobox endpoint="/api/account/places/autocomplete" scope="places" full enter="free" onEnter={() => { if (typed.trim().length >= 2) choose(typed.trim(), false); }} value={typed} onChange={setTyped} onPick={(s) => { lastTypes.current = s.types ?? []; }} onSelect={(text) => choose(text, !lastTypes.current.some((t) => AREA_TYPES.includes(t)))} placeholder="A city, or a restaurant’s name" ariaLabel="Place to eat" quietFocus inputClassName="mt-1.5 block h-7 w-full truncate bg-transparent font-display text-xl leading-7 font-medium tracking-[-0.02em] outline-none placeholder:font-sans placeholder:text-base placeholder:font-normal placeholder:text-muted-foreground/70" />
+              <DestinationCombobox endpoint="/api/account/places/autocomplete" scope="places" full enter="free" onEnter={commit} value={typed} onChange={setTyped} onPick={(s) => { lastTypes.current = s.types ?? []; }} onSelect={(text) => { setTyped(text); setPicked({ text, exact: !lastTypes.current.some((t) => AREA_TYPES.includes(t)) }); }} placeholder="A city, or a restaurant’s name" ariaLabel="Place to eat" quietFocus inputClassName="mt-1.5 block h-7 w-full truncate bg-transparent font-display text-xl leading-7 font-medium tracking-[-0.02em] outline-none placeholder:font-sans placeholder:text-base placeholder:font-normal placeholder:text-muted-foreground/70" />
             </div>
           </div>
           <FoldAway folded={keyboard && typingPlace}>
@@ -296,7 +345,7 @@ export function EatHome() {
             <button
               type="button"
               disabled={!place && typed.trim().length < 2}
-              onClick={() => { const text = typed.trim(); if (place && (text === cityLabel || text.length < 2)) setChoosing(false); else choose(text, false); }}
+              onClick={commit}
               className={searchButton}
             >
               Search places
@@ -305,6 +354,14 @@ export function EatHome() {
         </div>
       </Sheet>
       <PlaceSheet place={open} visit={visit} onClose={() => setOpen(null)} />
+      <AiSearchBar onPendingChange={setAsking}
+        variant="dock"
+        tripId={null}
+        scope="eat"
+        place={cityLabel || aroundLabel || undefined}
+        placeholder="Try “ramen Saturday at 8 for 4”"
+        onDirective={applyAsk}
+      />
     </main>
   );
 }

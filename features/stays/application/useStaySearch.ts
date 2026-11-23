@@ -39,7 +39,7 @@ function recall(tripId: string, startKey: string): Partial<Remembered> | null {
 /** Where a stay search goes: the trip's own route, or the person's with no trip. */
 const staysApi = (tripId: string | null) => (tripId ? `/api/trips/${tripId}/stays` : "/api/stays");
 
-export function useStaySearch({ tripId, start, travelers, city, hasChoice, cityWindow }: {
+export function useStaySearch({ tripId, start, travelers, city, hasChoice, cityWindow, paused = false }: {
   /** Null with no trip: the search then goes to the person's own route and must be told the place. */
   tripId: string | null;
   /** Where the dates start: the booked stay's, the city's nights, or the trip's. */
@@ -48,6 +48,8 @@ export function useStaySearch({ tripId, start, travelers, city, hasChoice, cityW
   city: string;
   hasChoice: boolean;
   cityWindow: { checkin: string; checkout: string } | null;
+  /** True while the search sheet is open: nothing is searched until it closes. */
+  paused?: boolean;
 }) {
   const startKey = `${start.checkin}|${start.checkout}`;
   // With no trip nothing is remembered: the search starts empty each time.
@@ -142,9 +144,13 @@ export function useStaySearch({ tripId, start, travelers, city, hasChoice, cityW
     }
   }, [tripId, baseQs, placeNow]);
 
+  // While the search sheet is open its edits are not searched one by one: closing it ("Search stays") asks once, for all of them.
   useEffect(() => {
-    void search();
-  }, [search]);
+    if (paused) return;
+    // On the next tick, so React's development double-run cancels the first before it asks.
+    const timer = window.setTimeout(() => void search(), 0);
+    return () => window.clearTimeout(timer);
+  }, [search, paused]);
 
   // What the filters leave of the hotels already priced: at once, with no request.
   const local = useMemo(() => (base ? applyStayFilters(base.options, filters) : []), [base, filters]);
@@ -207,6 +213,7 @@ export function useStaySearch({ tripId, start, travelers, city, hasChoice, cityW
   return {
     checkin, setCheckin, checkout, setCheckout, adults, setAdults, rooms, setRooms,
     stars, setStars, boards, setBoards, propertyTypes, setPropertyTypes, refundable, setRefundable, priceMin, setPriceMin, priceMax, setPriceMax, sort, setSort, near, setNear,
-    result, error, loading, slow, deepening, pricing: loading && Boolean(base) && basePlace === placeNow, placeChanged: loading && Boolean(base) && basePlace !== placeNow, search, applyDirective, clearFilters,
+    result, error, loading, slow, deepening, pricing: loading && Boolean(base) && basePlace === placeNow, // True from the moment the place changes until its own list is in (or its search has failed): the old place's list is never shown for the new one.
+    placeChanged: Boolean(base) && basePlace !== placeNow, search, applyDirective, clearFilters,
   };
 }

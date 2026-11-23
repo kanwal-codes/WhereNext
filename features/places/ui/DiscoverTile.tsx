@@ -92,9 +92,11 @@ export function DiscoverTile({
       </div>
       <h3 className="mt-2.5 font-display text-body leading-snug font-medium tracking-[-0.01em] text-balance">{softCaps(title)}</h3>
       {(meta || stars) && (
-        <p className="mt-0.5 flex items-start gap-1.5 text-sm text-ink-soft">
-          {meta && <span className="line-clamp-2 min-w-0">{meta}</span>}
+        // The rating leads and the facts follow on one line. "Restaurant" is dropped from a category here (the photo and the tile already say it), so the price is never the part that gets cut.
+        <p className="mt-0.5 flex items-center gap-1.5 text-sm text-ink-soft">
           {stars && <span className="text-foreground">{stars}</span>}
+          {stars && meta && <span aria-hidden className="text-muted-foreground/60">·</span>}
+          {meta && <span className="min-w-0 truncate">{typeof meta === "string" ? meta.replace(/ Restaurant(?=[\s\u00a0·]|$)/, "") : meta}</span>}
         </p>
       )}
     </article>

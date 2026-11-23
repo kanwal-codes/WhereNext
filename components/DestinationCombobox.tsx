@@ -92,6 +92,10 @@ export function DestinationCombobox({
   const rootRef = useRef<HTMLDivElement>(null);
   const requestRef = useRef<AbortController | null>(null);
   const navigated = useRef(false);
+  // A field that opens already holding a place (quietFocus) asks for no suggestions until someone types or picks.
+  const touched = useRef(!quietFocus);
+  // The text of the suggestion just picked: the field now holds it, and it needs no suggestions of its own.
+  const pickedText = useRef<string | null>(null);
 
   useEffect(() => {
     navigated.current = false;
@@ -100,7 +104,7 @@ export function DestinationCombobox({
     // otherwise a stale in-flight request for text the user has already moved past can still
     // resolve and briefly overwrite the suggestion list during that window.
     requestRef.current?.abort();
-    if (query.length < 2) {
+    if (query.length < 2 || !touched.current || pickedText.current === value) {
       setSuggestions([]);
       setStatus("idle");
       return;
@@ -154,7 +158,7 @@ export function DestinationCombobox({
         <div className="relative flex items-center">
         <Cmdk.Input
           value={value}
-          onValueChange={(v) => { if (quietFocus) setOpen(true); onChange(v); }}
+          onValueChange={(v) => { touched.current = true; pickedText.current = null; if (quietFocus) setOpen(true); onChange(v); }}
           onBlur={() => setFocused(false)}
           onFocus={(e) => {
             setFocused(true);
@@ -221,7 +225,9 @@ export function DestinationCombobox({
                   onSelect={() => {
                     // A city field wants the short name; a route or area field must say which King's Cross, which Shoreditch.
                     onPick?.(s);
-                    onSelect(full || scope !== "regions" ? s.fullText ?? s.text : s.text);
+                    const chosen = full || scope !== "regions" ? s.fullText ?? s.text : s.text;
+                    pickedText.current = chosen;
+                    onSelect(chosen);
                     setOpen(false);
                   }}
                   className={cn("flex cursor-pointer items-center gap-3 rounded-xl px-2.5 py-2 transition-colors data-[selected=true]:bg-surface")}

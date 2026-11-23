@@ -1,10 +1,11 @@
 "use client";
 
+import { ShowMoreButton } from "@/components/ShowMoreButton";
 import { useMemo, useState } from "react";
-import { Info, Pencil, Plane, ChevronDown, X } from "lucide-react";
+import { Info, Pencil, Plane, X } from "lucide-react";
 import type { AssistantBlock } from "@/packages/contracts/assistant";
 import { cn } from "@/lib/utils";
-import { FlightHero, FlightJourney, FlightPicks, FlightPicksSkeleton, FlightRowBody, offerKey, pickFares } from "./FlightWidget";
+import { cheapestOffer, FlightHero, priceBasis, FlightJourney, FlightPicks, FlightPicksSkeleton, FlightRowBody, offerKey, pickFares } from "./FlightWidget";
 import { tradeoff } from "@/lib/application/flight-tradeoff";
 import { tradeoffText } from "./flightCopy";
 import { WidgetFoot } from "./Widget";
@@ -67,7 +68,7 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
   const staleCurrency = !fares.searched && ready && Boolean(shownCurrency) && shownCurrency !== tripCurrency && !fares.items.some((o) => o.listedCurrency);
   const dateNote = query.depart ? `${fares.assumed ? `Example date ${query.depart} — no travel date set yet` : `Departing ${query.depart}`}${query.ret ? `, returning ${query.ret}` : ""}` : block.dateNote;
   const searchForBar = { ...fares, setFrom: change(fares.setFrom), setTo: change(fares.setTo), swap: change(fares.swap), setDepart: change(fares.setDepart), setReturn: change(fares.setReturn), setRoundTrip: change(fares.setRoundTrip), setBoth: change(fares.setBoth) };
-  const lowest = fares.items.length ? fares.items.reduce((best, o) => (Number(o.price) < Number(best.price) ? o : best), fares.items[0]) : null;
+  const lowest = cheapestOffer(fares.items);
   const shortest = fares.items.length ? Math.min(...fares.items.map((o) => o.durationMinutes)) : 0;
   const fromName = query.fromLabel.split(",")[0];
   const toName = query.toLabel.split(",")[0];
@@ -81,7 +82,7 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
   const moreCount = Math.max(0, offers.length - pickKeys.size);
   const footNote = (
     <Notice>
-      Prices are per person{roundTrip ? " for the round trip" : ""}{fares.currency ? `, in ${fares.currency}` : ""}
+      Prices are {priceBasis(query.adults ?? undefined)}{roundTrip ? " for the round trip" : ""}{fares.currency ? `, in ${fares.currency}` : ""}
       {fares.items.some((o) => o.listedCurrency) ? `, converted from ${[...new Set(fares.items.map((o) => o.listedCurrency).filter(Boolean))].join(", ")} at today’s rate, so approximate` : ""}, and change quickly. Roam can’t book flights: you book on the airline’s site.
       {staleCurrency && <button type="button" onClick={() => { resetView(); fares.retry(); }} className={cn(textAction, "ml-1.5 align-baseline")}>Show prices in {tripCurrency}</button>}
     </Notice>
@@ -131,7 +132,7 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
       {/* While the search is being edited on a phone, the form comes first and the fares it will change sit beneath it. */}
       <div className="flex flex-col">
         <div className={cn(searchOpen && "max-lg:order-2 max-lg:pb-1")}>
-          {loading && fares.items.length === 0 ? <FlightPicksSkeleton /> : ready && picks.length > 0 && <FlightPicks picks={picks} selected={chosenPick ? offerKey(chosenPick.offer) : null} onSelect={setChosen} onOpen={onOpenPanel ? (offer) => onOpenPanel(panelFor(offer)) : undefined} />}
+          {loading && fares.items.length === 0 ? <FlightPicksSkeleton /> : ready && picks.length > 0 && <FlightPicks adults={query.adults ?? undefined} picks={picks} selected={chosenPick ? offerKey(chosenPick.offer) : null} onSelect={setChosen} onOpen={onOpenPanel ? (offer) => onOpenPanel(panelFor(offer)) : undefined} />}
         </div>
         {ready && !searchOpen && strip && (
           <div className="mx-4 mt-3 flex items-start gap-2 rounded-2xl bg-surface px-3 py-3 text-sm leading-[1.3125rem] text-ink-soft tabular-nums @[34rem]:mx-5 max-lg:mx-[1.125rem]"><Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden /><span>{strip}</span></div>
@@ -146,7 +147,7 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
         </div>
       )}
       {fares.insights && ready && fares.currency && <div className="max-lg:hidden"><PriceInsight insights={fares.insights} currency={fares.currency} /></div>}
-      {ready && chosenPick && <div className="max-lg:hidden"><FlightJourney offer={chosenPick.offer} labels={chosenPick.labels} roundTrip={roundTrip} onDetails={onOpenPanel ? () => onOpenPanel(panelFor(chosenPick.offer)) : undefined} tripCurrency={tripCurrency} /></div>}
+      {ready && chosenPick && <div className="max-lg:hidden"><FlightJourney adults={query.adults ?? undefined} offer={chosenPick.offer} labels={chosenPick.labels} roundTrip={roundTrip} onDetails={onOpenPanel ? () => onOpenPanel(panelFor(chosenPick.offer)) : undefined} tripCurrency={tripCurrency} /></div>}
       {fares.items.length > 0 && fares.status !== "error" && (
         <div className={cn("mt-4 transition-opacity duration-200", loading && "pointer-events-none opacity-50", !showAll && "max-lg:hidden")} aria-busy={loading}>
           <FlightControls items={fares.items} view={view} onChange={setView} shown={offers.length} />
@@ -230,14 +231,10 @@ export function FlightsBlockView({ block, tripId, onOpenPanel }: { block: Flight
       </ul>
       )}
       {ready && !showAll && offers.length > 2 + pickKeys.size && (
-        <div className="px-[1.125rem] pb-1 pt-2 lg:hidden">
-          <button type="button" onClick={() => setShowAll(true)} className="flex h-12 w-full items-center justify-center rounded-full bg-primary text-body font-semibold text-primary-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.16),0_1px_2px_oklch(0.2_0.012_65/0.22)] transition-[transform,filter] duration-200 ease-out hover:brightness-110 active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">See all {offers.length} flights</button>
-        </div>
+        <div className="lg:hidden"><ShowMoreButton next={offers.length - (2 + pickKeys.size)} visible={2 + pickKeys.size} total={offers.length} onClick={() => setShowAll(true)} noun="flights" /></div>
       )}
       {ready && !showAll && !filtersOn && offers.length > ROWS && (
-        <div className="border-t border-border px-4 py-3.5 text-center max-lg:hidden">
-          <button type="button" onClick={() => setShowAll(true)} className={controlSecondary}>Show {offers.length - ROWS} more <ChevronDown className="size-3.5" aria-hidden /></button>
-        </div>
+        <div className="border-t border-border px-4 pb-3.5 pt-1.5 max-lg:hidden"><ShowMoreButton next={offers.length - ROWS} visible={ROWS} total={offers.length} onClick={() => setShowAll(true)} noun="flights" /></div>
       )}
       </div>
       )}

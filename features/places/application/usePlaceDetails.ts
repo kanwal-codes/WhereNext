@@ -52,7 +52,8 @@ export function usePlaceDetails(tripId: string | null, placeId: string) {
     } catch { /* unavailable */ }
     setAbout(null);
     setAboutLoading(true);
-    fetch(tripId ? `/api/trips/${tripId}/places/google/about?placeId=${encodeURIComponent(placeId)}` : `/api/places/about?placeId=${encodeURIComponent(placeId)}`, { signal: controller.signal })
+    // Started on the next tick, so a cleanup that follows at once (React's development double-run) cancels it before any request is made.
+    const timer = window.setTimeout(() => fetch(tripId ? `/api/trips/${tripId}/places/google/about?placeId=${encodeURIComponent(placeId)}` : `/api/places/about?placeId=${encodeURIComponent(placeId)}`, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : { about: null }))
       .then((body: { about?: PlaceAbout | null }) => {
         try { sessionStorage.setItem(key, JSON.stringify(body.about ?? null)); } catch { /* ignore */ }
@@ -62,8 +63,8 @@ export function usePlaceDetails(tripId: string | null, placeId: string) {
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setAboutLoading(false);
-      });
-    return () => controller.abort();
+      }), 0);
+    return () => { window.clearTimeout(timer); controller.abort(); };
   }, [tripId, placeId]);
 
   return { details, about, aboutLoading, freshness, state, retry: () => setAttempt((n) => n + 1) };

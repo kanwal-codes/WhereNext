@@ -26,6 +26,12 @@ function clockOf(iso?: string | null): string {
 
 export type FlightPick = { labels: string[]; offer: FlightOffer };
 
+/** The lowest fare. Two at the same price: the shorter trip, so the "Cheapest" card and the badge in the list name the same one. */
+export function cheapestOffer(items: FlightOffer[]): FlightOffer | null {
+  const price = (o: FlightOffer) => Number(o.price) || Number.POSITIVE_INFINITY;
+  return items.length ? items.reduce((a, b) => (price(b) < price(a) || (price(b) === price(a) && b.durationMinutes < a.durationMinutes) ? b : a)) : null;
+}
+
 /**
  * The picks above the list: Best, Cheapest, Fastest. A single flight cannot be any of them, so it is "The only option".
  * When one fare wins two, the picks merge and the label says both: but a fare that is both Best and Cheapest is just "Cheapest".
@@ -34,7 +40,7 @@ export function pickFares(items: FlightOffer[]): FlightPick[] {
   if (items.length === 0) return [];
   if (items.length === 1) return [{ labels: ["The only option"], offer: items[0] }];
   const price = (o: FlightOffer) => Number(o.price) || Number.POSITIVE_INFINITY;
-  const cheapest = items.reduce((a, b) => (price(b) < price(a) || (price(b) === price(a) && b.durationMinutes < a.durationMinutes) ? b : a));
+  const cheapest = cheapestOffer(items)!;
   const fastest = items.reduce((a, b) => (b.durationMinutes < a.durationMinutes || (b.durationMinutes === a.durationMinutes && price(b) < price(a)) ? b : a));
   const minPrice = price(cheapest) || 1, minTime = fastest.durationMinutes || 1;
   // Best value: close to the lowest price and the shortest trip, with a small cost for every stop.
@@ -48,6 +54,9 @@ export function pickFares(items: FlightOffer[]): FlightPick[] {
   }
   return picks.map((pick) => (pick.labels.includes("Cheapest") ? { ...pick, labels: pick.labels.filter((label) => label !== "Best") } : pick));
 }
+
+/** What a fare's price covers. A search for several travellers is priced for all of them, so it says so instead of "per person". */
+export const priceBasis = (adults?: number) => (adults && adults > 1 ? `total for ${adults}` : "per person");
 
 /** The legs of one fare, or one synthesised leg when the provider gave only the journey as a whole. */
 function legsOf(offer: FlightOffer): Leg[] {
@@ -99,7 +108,7 @@ const wholeMoney = (o: FlightOffer) => money(Math.round(Number(o.price)), o.curr
  * The three picks (or two, or one) that overlap the hero's lower edge. On a phone a tile opens its sheet (the journey under the
  * picks is a desktop view, so a selected state would show nothing); on desktop it selects the flight the journey shows.
  */
-export function FlightPicks({ picks, selected, onSelect, onOpen }: { picks: FlightPick[]; selected: string | null; onSelect: (key: string) => void; onOpen?: (offer: FlightOffer) => void }) {
+export function FlightPicks({ picks, selected, onSelect, onOpen, adults }: { picks: FlightPick[]; selected: string | null; onSelect: (key: string) => void; onOpen?: (offer: FlightOffer) => void; adults?: number }) {
   if (picks.length === 1 && picks[0].labels[0] === "The only option") {
     const o = picks[0].offer;
     return (
@@ -116,7 +125,7 @@ export function FlightPicks({ picks, selected, onSelect, onOpen }: { picks: Flig
     );
   }
   // One fare took every pick (it is both the cheapest and the fastest): one wide card instead of a tile three times too small for it.
-  if (picks.length === 1 && picks[0].labels.length > 1) return <FlightPickBoth pick={picks[0]} on={selected === offerKey(picks[0].offer)} onSelect={onSelect} onOpen={onOpen} />;
+  if (picks.length === 1 && picks[0].labels.length > 1) return <FlightPickBoth adults={adults} pick={picks[0]} on={selected === offerKey(picks[0].offer)} onSelect={onSelect} onOpen={onOpen} />;
   return (
     <div className="relative z-[1] mx-4 -mt-10 flex gap-2 @[34rem]:mx-5 max-lg:mx-[1.125rem] max-lg:mt-4">
       {picks.map((pick, i) => {
@@ -154,7 +163,7 @@ export function FlightPicks({ picks, selected, onSelect, onOpen }: { picks: Flig
  * Top: what it won, as two quiet labels with their status dots. Then the airline and the price, the largest thing on it. Under it, on the
  * `surface` well, the same timeline the rows carry, so the winner says as much as the fares below it. It opens the way a tile does.
  */
-function FlightPickBoth({ pick, on, onSelect, onOpen }: { pick: FlightPick; on: boolean; onSelect: (key: string) => void; onOpen?: (offer: FlightOffer) => void }) {
+function FlightPickBoth({ pick, on, onSelect, onOpen, adults }: { adults?: number; pick: FlightPick; on: boolean; onSelect: (key: string) => void; onOpen?: (offer: FlightOffer) => void }) {
   const o = pick.offer;
   const risks = offerRisks(o.legs);
   return (
@@ -187,7 +196,7 @@ function FlightPickBoth({ pick, on, onSelect, onOpen }: { pick: FlightPick; on: 
             <span className="line-clamp-2 min-w-0 flex-1 text-body leading-[1.2] font-medium">{o.airline}</span>
             <span className="block max-w-[48%] shrink-0 text-right">
               <FitText className="font-display text-3xl leading-none font-medium tracking-[-0.03em] tabular-nums">{o.listedCurrency && <span className="mr-0.5 text-muted-foreground" title={`Converted from ${money(o.listedPrice ?? "", o.listedCurrency, true)} at today’s rate`}>≈</span>}{wholeMoney(o)}</FitText>
-              <span className={cn(type.meta, "mt-1.5 block")}>per person</span>
+              <span className={cn(type.meta, "mt-1.5 block")}>{priceBasis(adults)}</span>
             </span>
           </span>
         </span>
@@ -220,7 +229,7 @@ export function FlightPicksSkeleton() {
  * One fare opened out: the whole journey in order (each flight, each wait between them), then the price, the fare's
  * terms and what it costs the planet. Only what is known is drawn: no empty rows, no "N/A".
  */
-export function FlightJourney({ offer, labels, roundTrip, onDetails, tripCurrency }: { offer: FlightOffer; labels: string[]; roundTrip: boolean; onDetails?: () => void; tripCurrency?: string }) {
+export function FlightJourney({ offer, labels, roundTrip, onDetails, tripCurrency, adults }: { offer: FlightOffer; labels: string[]; roundTrip: boolean; onDetails?: () => void; tripCurrency?: string; adults?: number }) {
   const legs = legsOf(offer);
   const plus = arrivalDayOffset(offer.departAt, offer.arriveAt);
   const hasLegDetail = Boolean(offer.legs?.length);
@@ -252,7 +261,7 @@ export function FlightJourney({ offer, labels, roundTrip, onDetails, tripCurrenc
         <div className="flex shrink-0 flex-col gap-4 border-t border-border bg-surface p-4 @[34rem]:flex-row @[34rem]:items-end @[34rem]:justify-between @[34rem]:p-5 @[44rem]:w-[15rem] @[44rem]:flex-col @[44rem]:items-stretch @[44rem]:justify-center @[44rem]:gap-5 @[44rem]:border-t-0 @[44rem]:border-l">
           <div className="min-w-0 space-y-3.5 @[34rem]:flex-1 @[44rem]:flex-none">
             <div>
-              <p className="eyebrow">{roundTrip ? "Round trip · per person" : "Per person"}</p>
+              <p className="eyebrow">{roundTrip ? `Round trip · ${priceBasis(adults)}` : priceBasis(adults).replace(/^./, (c) => c.toUpperCase())}</p>
               <FitText className="mt-1.5 font-display text-4xl leading-none font-medium tracking-[-0.035em] tabular-nums">{converted && <span className="mr-1 text-xl text-muted-foreground" title={`Converted from ${money(offer.listedPrice ?? "", offer.listedCurrency ?? "", true)} at today’s rate`}>≈</span>}{money(offer.price, offer.currency, true)}</FitText>
               {converted && <p className={cn(type.meta, "mt-1")}>from {money(offer.listedPrice ?? "", offer.listedCurrency ?? "", true)}{tripCurrency ? ` · shown in ${tripCurrency}` : ""}</p>}
             </div>

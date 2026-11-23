@@ -29,7 +29,8 @@ export const GET = withRoute(async (request: Request, { params }: { params: Prom
     // page instead of paying for three sequential ones.
     const limit = Math.min(60, Math.max(1, Math.floor(Number(url.searchParams.get("limit")) || 60)));
     const retrievedAt = new Date().toISOString();
-    const places = await new GooglePlacesProvider().search(query, request.signal, limit, locationBias);
+    // `price=1`: the Eat page wants each place's price level (a dearer field, so only when asked for).
+    const places = await new GooglePlacesProvider().search(query, request.signal, limit, locationBias, { price: url.searchParams.get("price") === "1" });
     return NextResponse.json({ places, freshness: { provider: "google-places", retrievedAt, cacheTtlSeconds: 60 } });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Place search unavailable");

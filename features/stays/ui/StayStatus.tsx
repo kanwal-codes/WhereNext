@@ -107,10 +107,12 @@ export function ActiveFilters({ priceMin, priceMax, stars, refundable, boards, p
   for (const b of boards) chips.push({ key: `b:${b}`, label: b, onRemove: () => on.board(b) });
   for (const t of propertyTypes) chips.push({ key: `t:${t}`, label: t, onRemove: () => on.type(t) });
   if (chips.length === 0) return null;
+  // On a phone the header pill already says the place (and the cross beside it takes the search off), so the place chip is for a desktop only.
+  const onlyNear = chips.length === 1 && chips[0]!.key === "near";
   return (
-    <div role="group" aria-label="What is narrowing these stays" className="no-scrollbar -mx-4 flex items-center gap-2 overflow-x-auto px-4 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0">
+    <div role="group" aria-label="What is narrowing these stays" className={cn("no-scrollbar -mx-4 flex items-center gap-2 overflow-x-auto px-4 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0", onlyNear && "max-lg:hidden")}>
       {chips.map((c) => (
-        <button key={c.key} type="button" onClick={c.onRemove} aria-label={`Remove: ${c.label}`} data-active="true" className="btn-chip shrink-0 gap-1.5 pr-2.5">
+        <button key={c.key} type="button" onClick={c.onRemove} aria-label={`Remove: ${c.label}`} data-active="true" className={cn("btn-chip shrink-0 gap-1.5 pr-2.5", c.key === "near" && "max-lg:hidden")}>
           {c.label}
           <X className="size-3.5 opacity-70" aria-hidden />
         </button>

@@ -16,8 +16,8 @@ export const GET = withRoute(async (request: Request) => {
     const lat = Number(url.searchParams.get("lat"));
     const lng = Number(url.searchParams.get("lng"));
     const bias = url.searchParams.has("lat") && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? { lat, lng } : undefined;
-    // `hours=1` also fetches each place's weekly opening hours (dearer), for a search that has a date or time to check them against.
-    const places = await new GooglePlacesProvider().search(query, request.signal, limit, bias, url.searchParams.get("hours") === "1");
+    // The price level always comes (it is what the Price pill is made of); `hours=1` also fetches each place's weekly opening hours, for a search that has a date or time to check them against.
+    const places = await new GooglePlacesProvider().search(query, request.signal, limit, bias, { hours: url.searchParams.get("hours") === "1", price: true });
     return NextResponse.json({ places, freshness: { provider: "google-places", retrievedAt: new Date().toISOString(), cacheTtlSeconds: 60 } });
   } catch (error) {
     return tripAuthResponse(error) ?? fail(error, "Place search unavailable");

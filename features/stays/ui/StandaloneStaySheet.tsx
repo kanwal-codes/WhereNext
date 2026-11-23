@@ -71,8 +71,8 @@ export function StandaloneStaySheet({ pick, onClose }: { pick: Pick | null; onCl
                     <li key={s.source}>
                       <a href={s.link} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between gap-3 rounded-2xl bg-muted px-4 py-3 transition-transform active:scale-[0.985]">
                         <span className="min-w-0">
-                          <span className="block truncate font-medium">{s.source}{s.official ? " · hotel’s own site" : ""}</span>
-                          {s.freeCancellation && <span className="block text-sm text-ink-soft">Free cancellation{s.cancelUntil ? ` until ${s.cancelUntil}` : ""}</span>}
+                          <span className="block truncate font-medium">{s.source}</span>
+                          {(s.official || s.freeCancellation) && <span className="block truncate text-sm text-ink-soft">{[s.official ? "Hotel’s own site" : null, s.freeCancellation ? `Free cancellation${s.cancelUntil ? ` until ${s.cancelUntil}` : ""}` : null].filter(Boolean).join(" · ")}</span>}
                         </span>
                         <span className="flex shrink-0 items-center gap-2 text-right"><span><span className="block font-display text-lg font-medium tabular-nums">{money(s.nightly)}</span><span className="block text-xs text-muted-foreground">per night</span></span><ExternalLink className="size-4 text-muted-foreground" aria-hidden /></span>
                       </a>

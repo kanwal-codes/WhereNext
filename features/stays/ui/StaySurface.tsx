@@ -8,12 +8,15 @@ import { useTripStays } from "@/features/stays/application/useTripStays";
 import { useRouter } from "next/navigation";
 import { SwapView } from "@/components/SwapView";
 import { StayResultCard } from "@/features/stays/ui/StayResultCard";
-import { ChevronDown, Minus, Plus, SlidersHorizontal, Star, X } from "lucide-react";
+import { BedDouble, ChevronDown, Minus, Plus, Search, SlidersHorizontal, Star, X } from "lucide-react";
+import { StateMessage, stateButton } from "@/components/StateMessage";
 import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { StandaloneHeader } from "@/components/StandaloneHeader";
+import { AnswerSkeleton, AnswerText } from "@/components/AnswerText";
+import { FrostedGround, STICKY_HEAD, stickyRow, stuckPill, TripFrostedGround, tripStickyRow, useStickyBar, useTripStickyRow } from "@/components/StickyBar";
 import { StandaloneStaySheet } from "@/features/stays/ui/StandaloneStaySheet";
 import { AiSearchBar } from "@/components/AiSearchBar";
-import { readStayAsk, stayAskNeedsModel } from "@/lib/application/stay-ask";
+import { addDaysIso, readStayAsk, stayAskNeedsModel } from "@/lib/application/stay-ask";
 import { useTripPanelMaybe, type CompareEntry } from "@/components/TripPanelProvider";
 import { readStayDecision, type StayOption } from "@/packages/contracts/stay";
 import { ActiveFilters, StayEmpty, StayError, StayResultSkeleton, StayStaleBanner, StayStatusLine } from "@/features/stays/ui/StayStatus";
@@ -78,14 +81,23 @@ function DateCell({ label, value, onChange, min }: { label: string; value: strin
 const isoIn = (days: number) => new Date(Date.now() + days * 864e5).toISOString().slice(0, 10);
 
 /** Stays, for a trip (its place, dates and bookings) or, with `tripId` null, for someone who only wants a hotel: the same page, searched from the person's own route. */
-export function StaySurface({ tripId, destination }: { tripId: string | null; destination: string }) {
+export function StaySurface({ tripId, destination, onSearchActive }: { tripId: string | null; destination: string; /** In a trip: told when there is a search to cancel (a place, an answer or filters), with the way to cancel it; null when the page is as it started. */ onSearchActive?: (cancel: (() => void) | null) => void }) {
   const standalone = tripId === null;
+  // With no trip the page is one column: a sticky header, the model's answer, a row of pills that sticks under the header, then the stays (see StickyBar).
+  const { headRef, rowRef, headH, stuck } = useStickyBar();
+  // In a trip the header is the trip's own, and the row sticks under that instead.
+  const tripRow = useTripStickyRow();
+  const [answer, setAnswer] = useState<string | null>(null);
+  // An ask is on its way: the answer and the stays show as loading until it comes back.
+  const [asking, setAsking] = useState(false);
   const data = useTripDataMaybe()?.data;
   const lockedStay = readStayDecision((data?.decisions ?? []) as Array<{ kind: string; value: unknown }>);
   const router = useRouter();
   const trip = data?.trip as { id?: string; destination?: string | null; start_date?: string | null; end_date?: string | null; travelers?: number | null; stops?: unknown } | undefined;
   // A multi-city trip is searched one city at a time, for the nights spent there; a one-city trip keeps its whole stay.
   const cities = useTripCity(trip);
+  // In a trip the answer belongs to the city it was asked in.
+  useEffect(() => { if (tripId) setAnswer(null); }, [tripId, cities.city]);
   // Phone redesign: the city is the pill in the middle of the header, as on Discover.
   const narrow = useMediaQuery("(max-width: 1023.98px)");
   const phone = narrow;
@@ -93,6 +105,8 @@ export function StaySurface({ tripId, destination }: { tripId: string | null; de
   const refine = useMemo(() => (cities.broad && tripId ? { tripId, parent: cities.parent, activeStop: cities.stop?.city ?? cities.parent, area: cities.area, onPickArea: cities.setArea } : undefined), [cities.broad, tripId, cities.parent, cities.stop, cities.area, cities.setArea]);
   const cityWindow = cities.hasChoice && cities.stop ? stayWindow(cities.stop) : null;
   const booked = useTripStays(tripId);
+  // With no trip the page opens with the search sheet already open, so nothing is searched before it closes.
+  const [barOpen, setBarOpen] = useState(standalone);
   const [openStay, setOpenStay] = useState<{ hotelId: string; name: string } | null>(null);
 
   const {
@@ -101,29 +115,37 @@ export function StaySurface({ tripId, destination }: { tripId: string | null; de
   } = useStaySearch({
     tripId,
     start: standalone ? { checkin: isoIn(14), checkout: isoIn(16) } : { checkin: (cities.hasChoice ? cityWindow?.checkin : lockedStay?.checkin) ?? cityWindow?.checkin ?? trip?.start_date ?? "", checkout: (cities.hasChoice ? cityWindow?.checkout : lockedStay?.checkout) ?? cityWindow?.checkout ?? trip?.end_date ?? "" },
-    travelers: trip?.travelers, city: standalone ? destination : cities.city, hasChoice: standalone || cities.scoped, cityWindow,
+    travelers: trip?.travelers, city: standalone ? destination : cities.city, hasChoice: standalone || cities.scoped, cityWindow, paused: barOpen,
   });
-  const [barOpen, setBarOpen] = useState(false);
   const [areaOpen, setAreaOpen] = useState(false);
   // Typing another place in the sheet anchors the search there; the pill then names it.
   const pillCity = near.trim() ? near.split(",")[0]!.trim() : cityName;
   const keyboard = useKeyboardInset(barOpen);
   // With no trip the search starts empty when no home place is known: the sheet that takes the place opens at once.
-  useEffect(() => { if (standalone && !destination.trim()) setBarOpen(true); }, [standalone, destination]);
   const [typing, setTyping] = useState(false);
-  const [placeText, setPlaceText] = useState(pillCity);
-  useEffect(() => { if (barOpen) setPlaceText(pillCity); }, [barOpen, pillCity]);
+  // With no trip the place you chose is the only one the pill and the field name; the home city behind them is just where the page looks until you pick.
+  // After an ask the places are for the home city when none was named, and the pill says so.
+  const pillLabel = standalone && !near.trim() && !answer ? "" : pillCity;
+  const [placeText, setPlaceText] = useState(pillLabel);
+  useEffect(() => { if (barOpen) setPlaceText(pillLabel); }, [barOpen, pillLabel]);
   const sheetedPill = useMediaQuery("(max-width: 639.98px)") || standalone;
   const pillNode = useMemo(() => {
     if (!phone && !standalone) return undefined;
     if (!pillCity && !standalone) return undefined;
     // Under 640px the pill is the way into the search: it opens the dates and guests sheet (which holds the place choice too). A wider phone keeps the city sheet.
-    if (sheetedPill) return <button type="button" onClick={() => setBarOpen(true)} aria-haspopup="dialog" aria-label={pillCity ? `Dates, guests and place: ${pillCity}. Change` : "Choose a place"} className="inline-flex h-11 max-w-full items-center gap-1.5 rounded-full bg-muted px-4 font-display text-body font-semibold tracking-[-0.01em] transition-transform active:scale-[0.97]"><span className="truncate">{pillCity || "Where to?"}</span><ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden /></button>;
+    if (sheetedPill) return <button type="button" onClick={() => setBarOpen(true)} aria-haspopup="dialog" aria-label={pillLabel ? `Dates, guests and place: ${pillLabel}. Change` : "Where to? Search for a place"} className={cn("inline-flex h-11 max-w-full items-center rounded-full font-display text-body font-semibold tracking-[-0.01em] transition-[background-color,box-shadow,transform] duration-300 active:scale-[0.97]", standalone ? stuckPill(stuck) : "bg-muted", pillLabel ? "gap-1.5 px-4" : "min-w-[11rem] gap-2.5 px-5")}>{!pillLabel && standalone && <Search className="size-[1.125rem] shrink-0 text-ink-soft" aria-hidden />}<span className={cn("truncate", !pillLabel && "text-ink-soft")}>{pillLabel || "Where to?"}</span>{pillLabel && <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />}</button>;
     return <CityPill stops={cities.stops} city={pillCity} onPick={cities.setCity} refine={refine} />;
-  }, [phone, standalone, sheetedPill, pillCity, cities.stops, cities.setCity, refine]);
+  }, [phone, standalone, sheetedPill, pillCity, pillLabel, stuck, cities.stops, cities.setCity, refine]);
   useSetPhoneHeader({ titleNode: standalone ? undefined : pillNode });
+  // A place typed and not picked from the suggestions still counts when the search button is pressed.
+  const commitPlace = () => { const text = placeText.trim(); if (text && text !== pillLabel) setNear(!standalone && text === cityName.trim() ? "" : text); };
   const nightsLabel = nightsText(nightsBetween(checkin, checkout));
+  // A check-in on or after the check-out takes the check-out along, keeping the length of the stay.
+  const changeCheckin = (v: string) => { setCheckin(v); if (v && checkout && v >= checkout) setCheckout(addDaysIso(v, Math.max(1, nightsBetween(checkin, checkout) || 1))); };
   const [showFilters, setShowFilters] = useState(false);
+  // With no trip the arrow out of a search or an ask goes back to Stays' own home (the places around you); from there it leaves for the trips.
+  const searched = standalone && (Boolean(near.trim()) || Boolean(answer));
+  const backHome = () => { setNear(""); setAnswer(null); clearFilters(); window.scrollTo(0, 0); };
   // On a phone the dates and the filters open as sheets over the page, so opening them moves nothing underneath; from `sm` up they stay inline.
   const sheeted = useMediaQuery("(max-width: 639.98px)") || standalone;
 
@@ -131,7 +153,9 @@ export function StaySurface({ tripId, destination }: { tripId: string | null; de
   // The list on screen is for another place (the area or city changed): none of it is worth keeping while the new one loads.
   const showList = Boolean(result && result.options.length > 0) && !placeChanged;
   // One view at a time: the skeleton until there is something to say (or while the last list is being replaced by nothing yet), then the list, why there is none, or why it failed.
-  const view = showList ? "results" : loading || deepening || (!result && !error) ? "skeleton" : result ? "empty" : "error";
+  // With no trip, no home city and no place chosen there is nothing to look at yet.
+  const noPlace = standalone && !destination.trim() && !near.trim();
+  const view = asking ? "skeleton" : noPlace ? "idle" : showList ? "results" : loading || deepening || (!result && !error) || (placeChanged && !error) ? "skeleton" : result && !placeChanged ? "empty" : "error";
   const openDates = () => {
     if (sheeted) return setBarOpen(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -145,6 +169,15 @@ export function StaySurface({ tripId, destination }: { tripId: string | null; de
   const money = (n: number) => formatMoney(n, result?.currency ?? "CAD");
   const facets = result?.facets;
   const activeFilters = activeFilterCount({ stars, boards, propertyTypes, refundable, priceMin, priceMax });
+  // A place or an ask, not plain filters: the pills have their own "Clear all", and the bed is the phone's way into My stays.
+  const searchActive = !standalone && (Boolean(near.trim()) || Boolean(answer));
+  const cancelRef = useRef<() => void>(() => undefined);
+  cancelRef.current = () => { setNear(""); setAnswer(null); clearFilters(); window.scrollTo(0, 0); };
+  useEffect(() => {
+    onSearchActive?.(searchActive ? () => cancelRef.current() : null);
+    return () => onSearchActive?.(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the callback is the page's setter; only the state matters
+  }, [searchActive]);
 
   // A stay already booked for (some of) these nights: said up front, so nobody pays for the same nights twice.
   const alreadyBooked = overlappingStay(booked.items, checkin, checkout);
@@ -261,7 +294,7 @@ export function StaySurface({ tripId, destination }: { tripId: string | null; de
 
   const cells = (
     <>
-      <DateCell label="Check-in" value={checkin} onChange={setCheckin} />
+      <DateCell label="Check-in" value={checkin} onChange={changeCheckin} />
       <DateCell label="Check-out" value={checkout} onChange={setCheckout} min={checkin || undefined} />
       <Stepper label="Guests" value={adults} set={setAdults} min={1} max={16} />
       <Stepper label="Rooms" value={rooms} set={setRooms} min={1} max={8} />
@@ -270,8 +303,16 @@ export function StaySurface({ tripId, destination }: { tripId: string | null; de
 
 
   return (
-    <div className="flex min-h-[calc(100svh-13rem)] flex-col gap-5">
-      {standalone && <StandaloneHeader>{pillNode}</StandaloneHeader>}
+    // `max-lg:pb-24`: room under the last row for the Ask bar, the same on every tool's page.
+    <div className={cn("flex min-h-[calc(100svh-13rem)] flex-col gap-5 max-lg:pb-24", standalone && "gap-4")}>
+      {standalone && <FrostedGround stuck={stuck} headH={headH} />}
+      {!standalone && <TripFrostedGround stuck={tripRow.stuck} />}
+      {standalone && (
+        <div ref={headRef} className={STICKY_HEAD}>
+          <StandaloneHeader onBack={searched ? backHome : undefined}>{pillNode}</StandaloneHeader>
+        </div>
+      )}
+      {asking ? <AnswerSkeleton /> : answer && <AnswerText body={answer} />}
       <CityChips stops={cities.stops} current={cities.stop?.city ?? cities.city} onPick={cities.setCity} estimated={cities.estimated} refine={refine} className="-mb-2 max-lg:hidden" />
       {alreadyBooked && (
         <p role="status" className="rounded-2xl bg-muted px-4 py-3 text-sm">
@@ -280,7 +321,7 @@ export function StaySurface({ tripId, destination }: { tripId: string | null; de
         </p>
       )}
       {/* The booking bar: four cells divided by hairlines (the gap shows the border colour through), then filters and sort. */}
-      <div className="overflow-hidden rounded-4xl bg-card shadow-float ring-1 ring-black/[0.05] max-lg:overflow-visible max-lg:rounded-none max-lg:bg-transparent max-lg:shadow-none max-lg:ring-0">
+      <div className={cn("overflow-hidden rounded-4xl bg-card shadow-float ring-1 ring-black/[0.05] max-lg:overflow-visible max-lg:rounded-none max-lg:bg-transparent max-lg:shadow-none max-lg:ring-0", sheeted && "hidden")}>
         {!sheeted && (
           <div className="grid grid-cols-2 gap-px overflow-hidden bg-border lg:grid-cols-4 max-lg:mb-3 max-lg:gap-2 max-lg:overflow-visible max-lg:border-0 max-lg:bg-transparent">{cells}</div>
         )}
@@ -311,7 +352,7 @@ export function StaySurface({ tripId, destination }: { tripId: string | null; de
         )}
       </div>
 
-      <div className="-mt-2 space-y-3">
+      <div className={cn("-mt-2 space-y-3", standalone ? "contents" : "max-lg:contents")}>
         <ActiveFilters
           priceMin={priceMin} priceMax={priceMax} stars={stars} refundable={refundable} boards={boards} propertyTypes={propertyTypes} near={standalone ? "" : near} money={money}
           on={{
@@ -324,10 +365,10 @@ export function StaySurface({ tripId, destination }: { tripId: string | null; de
             all: () => { clearFilters(); setNear(""); },
           }}
         />
-        <div className="relative">
+        <div className={cn("relative", standalone ? "contents" : "max-lg:contents")}>
         {!showPills && <StayStatusLine loading={loading} slow={slow} deepening={deepening} error={error} hasResult={Boolean(result)} count={result?.options.length ?? 0} total={result?.total} filtered={activeFilters > 0} sort={sort} checkin={checkin} checkout={checkout} />}
         {showPills && (
-          <div ref={pillsRef} className="relative">
+          <div ref={(el) => { pillsRef.current = el; rowRef.current = el; tripRow.rowRef.current = el; }} className={cn("relative", standalone ? stickyRow(stuck, headH).className : tripStickyRow(tripRow.stuck).className)} style={standalone ? stickyRow(stuck, headH).style : tripStickyRow(tripRow.stuck).style}>
             <div role="group" aria-label="Sort and filter" className="no-scrollbar -mx-4 flex items-center gap-2 overflow-x-auto px-4">
               <button type="button" onClick={() => setShowFilters(true)} aria-haspopup="dialog" aria-pressed={activeFilters > 0} className="btn-chip shrink-0 gap-1.5">
                 <SlidersHorizontal className="size-3.5" aria-hidden />
@@ -367,7 +408,7 @@ export function StaySurface({ tripId, destination }: { tripId: string | null; de
             <div onFocus={() => setTyping(true)} onBlur={() => setTyping(false)} className="mb-2 flex items-center gap-3 rounded-2xl bg-muted px-4 py-3.5 transition-shadow focus-within:bg-card focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-ink)_5%,transparent),0_8px_18px_-12px_color-mix(in_oklab,var(--color-ink)_20%,transparent)]">
               <div className="min-w-0 flex-1">
                 <span className="block text-xs font-medium tracking-[0.22em] text-muted-foreground uppercase">Place</span>
-                <DestinationCombobox tripId={tripId ?? undefined} endpoint={standalone ? "/api/account/places/autocomplete" : undefined} value={placeText} onChange={setPlaceText} onSelect={(text) => { setPlaceText(text); setNear(text.trim() === cityName.trim() ? "" : text); }} placeholder="Where to?" ariaLabel="Place" quietFocus inputClassName="mt-1.5 block h-7 w-full truncate bg-transparent font-display text-xl leading-7 font-medium tracking-[-0.02em] outline-none placeholder:font-sans placeholder:text-base placeholder:font-normal placeholder:text-muted-foreground/70" />
+                <DestinationCombobox tripId={tripId ?? undefined} endpoint={standalone ? "/api/account/places/autocomplete" : undefined} value={placeText} onChange={setPlaceText} onSelect={(text) => { setPlaceText(text); setNear(!standalone && text.trim() === cityName.trim() ? "" : text); }} placeholder={standalone && destination.trim() ? destination.split(",")[0]!.trim() : "Where to?"} ariaLabel="Place" quietFocus inputClassName="mt-1.5 block h-7 w-full truncate bg-transparent font-display text-xl leading-7 font-medium tracking-[-0.02em] outline-none placeholder:font-sans placeholder:text-base placeholder:font-normal placeholder:text-muted-foreground/70" />
               </div>
               {cities.stops.length > 1 || refine ? (
                 <button type="button" onClick={() => { setBarOpen(false); setAreaOpen(true); }} aria-haspopup="dialog" aria-label="Choose from this trip" className="-mr-2 grid size-10 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors active:bg-card"><ChevronDown className="size-5" aria-hidden /></button>
@@ -377,7 +418,7 @@ export function StaySurface({ tripId, destination }: { tripId: string | null; de
             </div>
             <FoldAway folded={keyboard && typing}><div className="grid grid-cols-2 gap-2">{cells}</div></FoldAway>
             <div className={cn("mt-4", keyboard && "sticky bottom-0 -mx-4 rounded-b-4xl bg-background px-4 pb-3 pt-2")}>
-              <button type="button" onClick={() => setBarOpen(false)} disabled={standalone && !placeText.trim()} className={searchButton}>Search stays</button>
+              <button type="button" onClick={() => { commitPlace(); setAnswer(null); setBarOpen(false); }} disabled={standalone && !placeText.trim() && !destination.trim()} className={searchButton}>Search stays</button>
             </div>
             </div>
           </Sheet>
@@ -394,7 +435,11 @@ export function StaySurface({ tripId, destination }: { tripId: string | null; de
 
       <div className="relative" aria-busy={loading || deepening}>
         <SwapView id={view}>
-      {view === "skeleton" ? (
+      {view === "idle" ? (
+        <StateMessage icon={BedDouble} title="Where do you want to stay?" actions={<button type="button" onClick={() => setBarOpen(true)} className={stateButton.primary}>Choose a place</button>}>
+          Pick a city and we’ll show stays with prices for your dates.
+        </StateMessage>
+      ) : view === "skeleton" ? (
         <StayResultSkeleton count={6} />
       ) : showList && result ? (
         <>
@@ -441,17 +486,17 @@ export function StaySurface({ tripId, destination }: { tripId: string | null; de
 
       {/* Last in the column so it can rest on the bottom edge of the page (see `.ask-dock`). */}
       {standalone && <StandaloneStaySheet pick={openStay ? { ...openStay, checkin: result?.checkin ?? checkin, checkout: result?.checkout ?? checkout, adults, rooms, location: pillCity } : null} onClose={() => setOpenStay(null)} />}
-      {tripId && (
-        <AiSearchBar
-          variant="dock"
-          tripId={tripId}
-          scope="stays"
-          placeholder={phone ? "Try “Dec 10–14, 4 stars, under 200”" : `Ask — “near ${destination ? destination.split(",")[0] : "the old town"} station, under 250 a night, free cancellation”`}
-          onDirective={applyDirective}
-          readNow={(query) => readStayAsk(query, new Date().toLocaleDateString("en-CA"))}
-          readWhole={(query) => !stayAskNeedsModel(query)}
-        />
-      )}
+      <AiSearchBar
+        onPendingChange={setAsking}
+        variant="dock"
+        tripId={tripId}
+        scope="stays"
+        place={standalone ? (pillLabel || cityName || undefined) : (pillCity || undefined)}
+        placeholder={phone ? "Try “Dec 10–14, 4 stars, under 200”" : standalone ? "Ask — “near the old town, Dec 10–14, 2 guests, free cancellation”" : `Ask — “near ${destination ? destination.split(",")[0] : "the old town"} station, under 250 a night, free cancellation”`}
+        onDirective={(d) => { applyDirective(d); setAnswer(d.answer?.trim() || null); }}
+        readNow={(query) => readStayAsk(query, new Date().toLocaleDateString("en-CA"))}
+        readWhole={(query) => !stayAskNeedsModel(query)}
+      />
     </div>
   );
 }

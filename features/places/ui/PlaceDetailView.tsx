@@ -237,10 +237,10 @@ export function PlaceDetailView({
           </div>
         </Reveal>
 
-        {place && (
+        {(place || (!tripId && primaryAction)) && (
           // The two things you do with a place sit under its name, in the page, not as a bar pinned over the content.
           <div className="mt-5 flex items-center gap-2.5 lg:hidden">
-            <div className="min-w-0 flex-1">{tripId ? <AddToTripControl tripId={tripId} place={place} size="lg" block noSave /> : primaryAction}</div>
+            <div className="min-w-0 flex-1">{tripId ? (place ? <AddToTripControl tripId={tripId} place={place} size="lg" block noSave /> : null) : primaryAction}</div>
             {/* With both a phone and a website there is no room for the word: Directions shrinks to its icon so the four fit on one row. */}
             <a href={directionsHref} target="_blank" rel="noreferrer noopener" aria-label="Directions" className={bothContacts ? ACTION_ICON : ACTION_LABELLED}>
               <Navigation className="size-[1.125rem]" aria-hidden />{!bothContacts && " Directions"}
