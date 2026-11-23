@@ -28,7 +28,7 @@ const SIZES = "(max-width: 767px) 860px, 100vw";
  * costs at most three images, not the whole set — the first alone on a cold load, the next after
  * `ARM_MS` — and each is offered at three widths, so those are the ones the screen needs. It pauses while the tab is hidden and holds still under reduced motion.
  */
-export function HeroCarousel({ className, children }: { className?: string; children?: ReactNode }) {
+export function HeroCarousel({ className, children, grade = 1 }: { className?: string; children?: ReactNode; /** How strong the shade over the photograph is (1 is the full grade; less lets the photograph stay light, for a short hero with little text on it). */ grade?: number }) {
   const reduce = useReducedMotion();
   const n = HERO_SCENES.length;
   // `prev` is the photograph still fading out; it is null until there is one, so the first paint does not fetch the last scene.
@@ -68,7 +68,9 @@ export function HeroCarousel({ className, children }: { className?: string; chil
   if (armed) mounted.add((index + 1) % n);
 
   return (
-    <div className={cn("relative isolate overflow-hidden bg-[oklch(0.2_0.012_65)]", className)}>
+    <div className={cn("relative isolate bg-[oklch(0.2_0.012_65)]", className)}>
+      {/* The photographs and their grade are clipped to the rounded frame here, not on the whole hero, so something in the hero can hang over its lower edge (the phone's search box). */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
       {HERO_SCENES.map((s, i) =>
         mounted.has(i) ? (
           // eslint-disable-next-line @next/next/no-img-element -- full-bleed hero; sources are curated static files
@@ -93,8 +95,9 @@ export function HeroCarousel({ className, children }: { className?: string; chil
       )}
 
       {/* The grade: shade for the header above and the words below, and a quiet pool behind the headline. */}
-      <div aria-hidden style={{ "--scrim": 0.95 * (scene.shade ?? 1) } as React.CSSProperties} className="scrim-v pointer-events-none absolute inset-0 -z-[5] transition-[--scrim] duration-[1600ms]" />
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-[5] bg-[radial-gradient(70%_60%_at_50%_55%,oklch(0.14_0.012_60/0.42),transparent)]" />
+      <div aria-hidden style={{ "--scrim": 0.95 * (scene.shade ?? 1) * grade } as React.CSSProperties} className="scrim-v pointer-events-none absolute inset-0 -z-[5] transition-[--scrim] duration-[1600ms]" />
+      <div aria-hidden style={{ opacity: grade }} className="pointer-events-none absolute inset-0 -z-[5] bg-[radial-gradient(70%_60%_at_50%_55%,oklch(0.14_0.012_60/0.42),transparent)]" />
+      </div>
 
       {children}
 

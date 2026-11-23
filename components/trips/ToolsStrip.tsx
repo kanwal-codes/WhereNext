@@ -11,14 +11,29 @@ const TOOLS: Tool[] = [
 ];
 
 /**
- * "Just need one thing?": the tools to use without starting a trip, between the hero and the trips. Each tile is a warm card with a lit icon
+ * "Just need one thing?": the tools to use without starting a trip, between the hero and the trips (a row of buttons on a phone). On a wider screen each tile is a warm card with a lit icon
  * medallion, its name, and a small arrow that says it goes somewhere; a large pale copy of the icon sits behind, cropped at the corner, for depth.
  */
 export function ToolsStrip() {
   return (
-    <section aria-labelledby="tools-strip" className="mb-10">
+    <section aria-labelledby="tools-strip" className="mb-10 max-lg:mb-8">
       <h2 id="tools-strip" className="sr-only">Just need one thing?</h2>
-      <ul className="grid grid-cols-3 gap-2.5 sm:gap-3 lg:max-w-xl">
+      {/* A phone: one quiet row of three buttons, so the trips are not pushed down the screen. */}
+      <ul className="grid grid-cols-3 gap-2.5 lg:hidden">
+        {TOOLS.map(({ name, Icon, href }) => (
+          <li key={name}>
+            <Link
+              href={href}
+              prefetch={false}
+              className="flex h-14 items-center justify-center gap-2 rounded-full bg-card text-body font-medium shadow-soft ring-1 ring-border transition-transform duration-200 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              <Icon aria-hidden className="size-[1.125rem] text-coral-ink" />
+              {name}
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <ul className="grid grid-cols-3 gap-2.5 max-lg:hidden sm:gap-3 lg:max-w-xl">
         {TOOLS.map(({ name, Icon, href }, i) => (
           <li key={name} className="rise" style={{ animationDelay: `${i * 70}ms` }}>
             <Link
