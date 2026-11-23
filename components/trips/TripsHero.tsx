@@ -27,12 +27,13 @@ export function TripsHero({ displayName, start, compact = false }: { displayName
       <div className="absolute inset-x-0 top-0">
         <Reveal>
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 pt-6 sm:px-8">
-            <Link href="/" prefetch={false} className="inline-flex items-center gap-2 max-lg:min-h-11 transition-[opacity,transform] duration-200 hover:opacity-85 active:scale-[0.97]">
+            {/* On a phone the mark is left out: it only linked back to this page, and the greeting and the account button are enough. */}
+            <Link href="/" prefetch={false} className="inline-flex items-center gap-2 max-lg:hidden transition-[opacity,transform] duration-200 hover:opacity-85 active:scale-[0.97]">
               {/* The same box as the account button beside it (40px, 44px on a phone), so the two ends of the bar match. */}
               <BrandMark variant="compact" className="size-10 max-lg:size-11 rounded-xl ring-1 ring-white/60 transition-shadow duration-700" />
               <BrandMark variant="text" className="hidden text-white transition-colors duration-700 sm:inline" />
             </Link>
-            <AccountMenu displayName={displayName} />
+            <div className="ml-auto"><AccountMenu displayName={displayName} /></div>
           </div>
         </Reveal>
       </div>
