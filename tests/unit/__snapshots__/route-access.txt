@@ -25,6 +25,7 @@ POST   /api/guest/reset                                             user
 POST   /api/guest/start                                             user
 GET    /api/health                                                  public
 GET    /api/hotel-photo                                             public
+POST   /api/listing-chat                                            user
 GET    /api/places/about                                            user
 GET    /api/places/details                                          user
 GET    /api/places                                                  user

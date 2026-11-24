@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AlertCircle, ExternalLink, MapPin, Phone, Star } from "lucide-react";
+import { ListingAsk } from "@/components/ListingAsk";
 import { Sheet } from "@/components/motion-primitives";
 import { SheetHeader } from "@/components/SheetHeader";
 import { Skeleton } from "@/components/Skeleton";
@@ -12,6 +13,20 @@ import type { StayDetails, StayPriceSource, StayRoom } from "@/packages/contract
 
 type Body = { hotel: StayDetails | null; rooms: StayRoom[] | null; sources?: StayPriceSource[]; phone?: string | null; website?: string | null; nights: number; currency: string };
 type Pick = { hotelId: string; name: string; checkin: string; checkout: string; adults: number; rooms: number; location: string };
+
+/** What the open hotel says about itself, in the shape the listing chat reads, so a question is answered from its rating, address, description and cheapest price. */
+function stayItem(pick: Pick, hotel: StayDetails | null | undefined, body: Body | null, money: (n: number) => string) {
+  const nightly = body?.sources?.length ? Math.min(...body.sources.map((s) => s.nightly)) : body?.rooms?.length ? Math.min(...body.rooms.map((r) => r.nightlyAmount)) : null;
+  return {
+    name: pick.name,
+    detail: ["Hotel", hotel?.stars != null ? `${hotel.stars}-star` : null, pick.checkin && pick.checkout ? `${pick.checkin} to ${pick.checkout}` : null].filter(Boolean).join(", ").slice(0, 200),
+    ...(nightly != null ? { price: `from ${money(nightly)} per night` } : {}),
+    ...(hotel?.rating != null ? { rating: `${hotel.rating.toFixed(1)}/10${hotel.reviewCount ? ` from ${hotel.reviewCount.toLocaleString("en-US")} reviews` : ""}` } : {}),
+    ...(hotel?.address || hotel?.city ? { address: [hotel.address, hotel.city].filter(Boolean).join(", ").slice(0, 200) } : {}),
+    ...(hotel?.description ? { summary: hotel.description.slice(0, 700) } : {}),
+    ...(hotel?.latitude != null && hotel.longitude != null ? { lat: hotel.latitude, lng: hotel.longitude } : {}),
+  };
+}
 
 /**
  * One hotel, for someone with no trip: its photo, what it is, and where to book it (the sites that sell it, cheapest first, or the hotel's
@@ -41,7 +56,9 @@ export function StandaloneStaySheet({ pick, onClose }: { pick: Pick | null; onCl
   return (
     <Sheet open={Boolean(pick)} onClose={onClose} side="bottom" ariaLabel={pick ? `${pick.name}: details` : "Stay details"} className="icons-fine lg:max-w-lg">
       <SheetHeader title={pick?.name ?? "Stay"} onClose={onClose} bordered={false} />
-      <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+      {pick ? (
+        // The ask box a trip's stay panel has: what is asked is answered from this hotel's own details and prices.
+        <ListingAsk key={pick.hotelId} panel={{ kind: "stay", hotelId: pick.hotelId, name: pick.name }} subjectKey={`stay:${pick.hotelId}`} placeholder="Ask about this hotel — is it worth it?" className="px-4" items={() => [stayItem(pick, hotel, body, money)]}>
         {!ready ? (
           <div className="space-y-3" aria-busy="true"><Skeleton className="aspect-[16/10] rounded-3xl" /><Skeleton className="h-5 w-2/3 rounded-full" /><Skeleton className="h-16 rounded-2xl" /></div>
         ) : state.failed || !hotel ? (
@@ -98,7 +115,8 @@ export function StandaloneStaySheet({ pick, onClose }: { pick: Pick | null; onCl
             )}
           </div>
         )}
-      </div>
+        </ListingAsk>
+      ) : <div className="min-h-0 flex-1" />}
     </Sheet>
   );
 }

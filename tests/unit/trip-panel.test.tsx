@@ -340,18 +340,14 @@ describe("TripPanel: asking about the open item", () => {
     expect(await screen.findByText("Roam couldn’t answer just now. Try again in a moment.")).toBeTruthy();
   });
 
-  it("clears the chat on request", async () => {
+  it("has no Clear chat button: a new listing starts a fresh chat, and the card only folds", async () => {
     const user = u();
     openPlace();
     await user.type(screen.getByLabelText("Ask about this item"), "Hi?");
     await user.keyboard("{Enter}");
     await screen.findByTestId("assistant");
-    // The control sits on the conversation (in its card), not in the sheet's top bar.
-    expect(screen.getAllByRole("button", { name: "Clear chat" })).toHaveLength(1);
-    await user.click(screen.getByRole("button", { name: "Clear chat" }));
-    // The card leaves with a short fade, so the question is gone a moment later.
-    await waitFor(() => expect(screen.queryByText("Hi?")).toBeNull());
     expect(screen.queryByRole("button", { name: "Clear chat" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Hide the answers" })).toHaveLength(1);
   });
 
   it("asks a guest to save the trip instead of sending", async () => {

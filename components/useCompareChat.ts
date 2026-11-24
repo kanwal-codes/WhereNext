@@ -3,6 +3,7 @@ import { useGuest } from "@/features/identity/ui/GuestProvider";
 import { chatItems, placeChatItem } from "@/components/tripPanelLogic";
 import { fetchPlaceDetails } from "@/features/places/application/placeDetailsCache";
 import type { CompareEntry, PanelState } from "@/components/TripPanelProvider";
+import type { ListingItem } from "@/lib/application/listing-chat";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -12,19 +13,22 @@ export const COMPARE_VERDICT_PROMPT = "Which of these should I pick, and why? On
 export const FAILED = "Roam couldn’t answer just now. Try again in a moment.";
 
 /** What the chat is told about what is open. A place goes with its own page's facts (the details are already on their way or in the session's cache); the wait for them is short, and without them the name alone is sent. */
-async function itemsFor(panel: PanelState, compareList: CompareEntry[], tripId: string) {
+async function itemsFor(panel: PanelState, compareList: CompareEntry[], tripId: string | null) {
   if (panel.kind !== "place") return chatItems(panel, compareList);
   const body = await Promise.race([fetchPlaceDetails(tripId, panel.placeId), new Promise<null>((r) => setTimeout(() => r(null), 1500))]).catch(() => null);
   return [placeChatItem(panel.name, body?.place)];
 }
 
 /** The panel's scratch chat: scoped to what the panel shows, with Roam's take auto-asked on a fresh comparison. */
-export function useCompareChat({ panel, shown, compareList, tripId, subjectKey }: {
+export function useCompareChat({ panel, shown, compareList, tripId, subjectKey, items }: {
   panel: PanelState | null;
   shown: PanelState | null;
   compareList: CompareEntry[];
-  tripId: string;
+  /** Null on the home page's Stays, Eat and Flights: the question then goes to `/api/listing-chat`, which has no trip behind it. */
+  tripId: string | null;
   subjectKey: string;
+  /** What the listing says about itself, when the page has more than the panel's own name (the home page's stay and flight sheets). */
+  items?: () => ListingItem[];
 }) {
   const { guest, openGate } = useGuest();
   const [chat, setChat] = useState<ChatMessage[]>([]);
@@ -56,7 +60,7 @@ export function useCompareChat({ panel, shown, compareList, tripId, subjectKey }
   async function ask(raw: string, historyOverride?: ChatMessage[], externalSignal?: AbortSignal) {
     if (!panel) return;
     // The side-chat is a second, uncounted door to the model; a guest's free messages are in the main chat.
-    if (guest) return openGate("ask Roam to compare options");
+    if (guest) return openGate(tripId ? "ask Roam to compare options" : "ask Roam about this");
     const q = raw.trim();
     if (!q || sending) return;
     setInput("");
@@ -69,10 +73,10 @@ export function useCompareChat({ panel, shown, compareList, tripId, subjectKey }
     const timeout = AbortSignal.timeout(30_000);
     const signal = externalSignal ? AbortSignal.any([timeout, externalSignal]) : timeout;
     try {
-      const res = await fetch(`/api/trips/${tripId}/compare-chat`, {
+      const res = await fetch(tripId ? `/api/trips/${tripId}/compare-chat` : "/api/listing-chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ items: await itemsFor(panel, compareList, tripId), messages: [...history, { role: "user", content: q }] }),
+        body: JSON.stringify({ items: items ? items() : await itemsFor(panel, compareList, tripId), messages: [...history, { role: "user", content: q }] }),
         signal,
       });
       if (!res.ok || !res.body) throw new Error("compare-chat");

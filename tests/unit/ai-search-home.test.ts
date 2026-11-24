@@ -146,3 +146,50 @@ describe("an answer the model got slightly wrong, put right before it reaches th
     expect(tidyAnswer("I looked for brunch spots. Please add a city and I can narrow it down.")).toBe("I looked for brunch spots. Add a city and I can narrow it down.");
   });
 });
+
+describe("what the written answer is allowed to say", () => {
+  const systemFor = async (scope: "stays" | "eat" | "flights", q: string) => {
+    generateStructured.mockResolvedValue({});
+    await parseAiSearch(scope, q, { ...ctx, place: "Lisbon" });
+    return (generateStructured.mock.calls.at(-1)![1] as Array<{ content: string }>)[0]!.content;
+  };
+  it("is one set of rules on every page: say what they cannot see, leave out receipts, nags and filler", async () => {
+    for (const scope of ["stays", "eat", "flights"] as const) {
+      const system = await systemFor(scope, "something nice");
+      expect(system).toContain("do not list them back");
+      expect(system).toContain("Never say what you did not set");
+      expect(system).toContain("Never offer a next step");
+      expect(system).toContain("never more than two sentences");
+    }
+  });
+  it("tells the model what the page cannot set, so the answer says so instead of claiming it", async () => {
+    expect(await systemFor("stays", "a place with a pool")).toContain("This page cannot set: a pool");
+    expect(await systemFor("eat", "cheap eats")).toContain("This page cannot set: a price level");
+    expect(await systemFor("flights", "business class")).toContain("This page cannot set: a cabin class");
+  });
+  it("tells the model what the words already fixed, so it does not repeat, ask for or contradict it", async () => {
+    const system = await systemFor("stays", "dec 10 to dec 14, near the old town");
+    expect(system).toContain("Already set from their words");
+    expect(system).toContain("checkin");
+  });
+  it("does not ask flights for a return day: the page searches without one", async () => {
+    expect(await systemFor("flights", "toronto to paris dec 3")).toContain("never ask for one");
+  });
+});
+
+describe("what the page would ignore or the words never said is dropped", () => {
+  it("drops a sort on Flights, a keyword on Stays, a made-up one-way trip and a made-up party of one", async () => {
+    generateStructured.mockResolvedValue({ from: "Toronto", to: "Dubai", depart: "2026-12-05", sort: "price", oneWay: true, adults: 1, answer: "I searched flights from Toronto to Dubai." });
+    const f = await parseAiSearch("flights", "business class to dubai dec 5", ctx);
+    expect(f).toMatchObject({ from: "Toronto", to: "Dubai", depart: "2026-12-05" });
+    expect(f).not.toHaveProperty("sort");
+    expect(f.oneWay).toBeUndefined();
+    expect(f.adults).toBeUndefined();
+    generateStructured.mockResolvedValue({ location: "Lisbon", freeText: "pool" });
+    expect((await parseAiSearch("stays", "somewhere with a pool", ctx)).freeText).toBeUndefined();
+  });
+  it("keeps one way when the words say it, and a party the words state", async () => {
+    generateStructured.mockResolvedValue({ from: "Toronto", to: "Vancouver", oneWay: true, adults: 2 });
+    expect(await parseAiSearch("flights", "one way toronto to vancouver dec 12 for 2", ctx)).toMatchObject({ oneWay: true, adults: 2, depart: "2026-12-12" });
+  });
+});

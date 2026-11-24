@@ -9,6 +9,7 @@ import { AiSearchBar } from "@/components/AiSearchBar";
 import { DestinationCombobox } from "@/components/DestinationCombobox";
 import type { AiSearchDirective } from "@/lib/application/ai-search";
 import { FoldAway } from "@/components/FoldAway";
+import { ListingAsk } from "@/components/ListingAsk";
 import { Sheet } from "@/components/motion-primitives";
 import { searchButton } from "@/components/motion/sheetActions";
 import { PlaceDetailView } from "@/features/places/ui/PlaceDetailView";
@@ -96,18 +97,18 @@ function PlaceSheet({ place, visit, onClose }: { place: Place | null; visit: Vis
   return (
     <Sheet open={Boolean(place)} onClose={onClose} side="bottom" ariaLabel={place ? `${place.name}: details` : "Restaurant details"} className="icons-fine h-[92dvh] lg:max-w-lg">
       <SheetHeader title={place?.name ?? "Restaurant"} onClose={onClose} bordered={false} />
-      <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-        {place && (
+      {place ? (
+        // The ask box a trip's place panel has, with the place's own details behind it (hours, rating, summary).
+        <ListingAsk key={place.providerId} panel={{ kind: "place", placeId: place.providerId, name: place.name }} subjectKey={`place:${place.providerId}`} placeholder="Ask about this place — is it worth it?">
           <PlaceDetailView
-            key={place.providerId}
             tripId={null}
             placeId={place.providerId}
             variant="panel"
             primaryAction={<button type="button" onClick={() => setReserving(true)} aria-expanded={reserving} className="btn-primary h-12 w-full rounded-full">Reserve a table</button>}
             extra={reserving ? <ReserveCard place={place} visit={visit} /> : visitSet(visit) ? <p className="text-sm text-ink-soft">{visitLine(visit)}</p> : null}
           />
-        )}
-      </div>
+        </ListingAsk>
+      ) : <div className="min-h-0 flex-1" />}
     </Sheet>
   );
 }
