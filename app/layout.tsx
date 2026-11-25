@@ -12,6 +12,7 @@ import { ThemeSync } from "@/components/ThemeSync";
 import { MotionProvider } from "@/components/MotionProvider";
 import { NavProgress } from "@/components/NavProgress";
 import { ViewTransitionGate } from "@/components/ViewTransitionGate";
+import { siteUrl } from "@/lib/site-url";
 import { DARK_MODE_ENABLED } from "@/lib/theme-config";
 
 // Runs before hydration so dark mode never flashes light-then-dark. An explicit choice
@@ -21,7 +22,7 @@ const THEME_INIT = `(function(){try{var enabled=${DARK_MODE_ENABLED ? "true" : "
 
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://www.wherenexts.com"),
+  metadataBase: new URL(siteUrl()),
   title: "Where next? — plan a trip by talking about it",
   description: "A calm travel workspace: talk through your trip, then explore, compare and build the itinerary in one place.",
   manifest: "/manifest.webmanifest",
@@ -34,10 +35,13 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#1b1c20" },
-  ],
+  // The app is always light (DARK_MODE_ENABLED is off), so the browser bar is white even when the phone is in dark mode.
+  themeColor: DARK_MODE_ENABLED
+    ? [
+        { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+        { media: "(prefers-color-scheme: dark)", color: "#1b1c20" },
+      ]
+    : "#ffffff",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",

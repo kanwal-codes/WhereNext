@@ -17,7 +17,7 @@ const MIN_SAMPLE = 5;
 
 /**
  * Vercel Cron (Phase 2.3, docs/overhaul/roadmap/phase-2-speed.md): checks RESOLVE's
- * Cerebras-pin fallback rate over the trailing window, emails FALLBACK_ALERT_EMAIL when it
+ * lead-model fallback rate (the share of turns answered by a later model in the chain) over the trailing window, emails FALLBACK_ALERT_EMAIL when it
  * crosses THRESHOLD. Auth matches trip-review's cron: `Authorization: Bearer $CRON_SECRET`.
  */
 async function run(request: Request): Promise<Response> {

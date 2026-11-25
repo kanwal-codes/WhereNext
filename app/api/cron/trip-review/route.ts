@@ -8,6 +8,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { loadTripContext } from "@/lib/application/trip-context";
 import { reviewTrip, pendingNotifications, type ReviewFinding } from "@/lib/application/trip-review";
 import { invalidateWorkspace } from "@/lib/server/workspace-cache";
+import { siteUrl } from "@/lib/site-url";
 
 export const runtime = "nodejs";
 
@@ -16,7 +17,6 @@ export const runtime = "nodejs";
 const MAX_TRIPS_PER_RUN = 500;
 const MAX_EMAILS_PER_RUN = 200;
 
-const siteUrl = () => (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/$/, "");
 
 function digest(tripId: string, tripName: string, findings: ReviewFinding[]) {
   const link = `${siteUrl()}/trips/${tripId}`;

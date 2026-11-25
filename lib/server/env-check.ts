@@ -5,7 +5,7 @@ import { z } from "zod";
  * reference this from `middleware.ts` or an edge route; use `lib/env.ts` there.
  */
 
-/** Required for the app to function at all (auth + the always-used providers + the AI Gateway key). */
+/** Required for the app to function at all (auth + the always-used providers + the Anthropic key). */
 const REQUIRED = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
@@ -26,8 +26,16 @@ const OPTIONAL_PROVIDERS: Record<string, string> = {
   DUFFEL_API_KEY: "flight estimates",
   LITEAPI_KEY: "hotel rates",
   CONNECT_API_KEY: "hotel rates",
+  EXA_API_KEY: "web research",
+  GOOGLE_WEATHER_API_KEY: "weather forecasts",
+  SERP_API_KEY: "Google flights and hotels (flights fall back to Duffel estimates)",
+  OPENAI_API_KEY: "place embeddings",
+  RESEND_API_KEY: "email (invites, trip reviews)",
+  CRON_SECRET: "scheduled jobs",
   REDIS_URL: "shared cache (falls back to in-process)",
+  // Vercel's Redis integration names the same pair REDIS_KV_REST_API_*; lib/server/rate-limit.ts accepts either.
   UPSTASH_REDIS_REST_URL: "shared rate limiting (falls back to in-process)",
+  REDIS_KV_REST_API_URL: "shared rate limiting (falls back to in-process)",
   SENTRY_DSN: "error tracking",
 };
 
