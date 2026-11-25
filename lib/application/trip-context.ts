@@ -217,7 +217,8 @@ export const asList = (value: unknown): string[] =>
  *  Names are member-written (profile names), so each is flattened and clamped before it reaches a prompt. */
 export function describeMembers(identities: Iterable<[string, { name: string }]>, askerId?: string): string {
   const names = [...identities].slice(0, 12).map(([id, who]) => {
-    const name = who.name.replace(/\s+/g, " ").trim().slice(0, 40) || "Someone";
+    // Letters, digits and plain punctuation only: a profile name is free text that reaches other members' model prompts.
+    const name = who.name.replace(/[^\p{L}\p{N} .'-]+/gu, " ").replace(/\s+/g, " ").trim().slice(0, 40) || "Someone";
     return id === askerId ? `${name} (you)` : name;
   });
   return names.length ? `members on this trip (the people with access, from their profiles): ${names.join(", ")}.` : "";

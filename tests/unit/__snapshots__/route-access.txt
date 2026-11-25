@@ -33,7 +33,7 @@ GET    /api/places/table                                            user
 GET    /api/profile                                                 user
 PUT    /api/profile                                                 user
 GET    /api/ready                                                   cron-secret
-POST   /api/route-map                                               public
+POST   /api/route-map                                               user
 GET    /api/stays/[hotelId]                                         user
 GET    /api/stays                                                   user
 POST   /api/trips/[tripId]/ai-search                                member:viewer

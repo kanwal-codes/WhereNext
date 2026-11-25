@@ -2,11 +2,12 @@
   "$schema": "https://unpkg.com/knip@5/schema-jsonc.json",
   // Files the framework or a human runs, which nothing imports.
   // scripts/model-eval/run.ts is the model comparison harness; evals/roam/*.cjs are named as file:// strings in promptfooconfig.yaml.
-  "entry": ["scripts/*.{ts,mjs,cjs}", "scripts/model-eval/run.ts", "evals/roam/*.cjs", "app/sw.ts"],
+  "entry": ["scripts/*.{ts,mjs,cjs}", "scripts/demo-video/*.mjs", "scripts/model-eval/run.ts", "evals/roam/*.cjs", "app/sw.ts"],
   // ThemeToggle is parked: dark mode is switched off by DARK_MODE_ENABLED, not deleted.
   "ignore": ["components/ThemeToggle.tsx"],
   // eslint-config-next / @eslint/eslintrc: named as strings in eslint.config.mjs. @next/env: loaded by the e2e and eval
   // specs, shipped inside next. sharp / playwright-core: used by the asset and capture scripts, installed by next and
   // @playwright/test (not worth a second copy in package.json).
+  "ignoreBinaries": ["ffmpeg"],
   "ignoreDependencies": ["eslint-config-next", "@eslint/eslintrc", "@next/env", "sharp", "playwright-core"]
 }

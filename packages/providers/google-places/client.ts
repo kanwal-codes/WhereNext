@@ -127,6 +127,20 @@ export class GooglePlacesProvider {
     } while (pageToken && places.length < cap);
     return places.slice(0, cap).flatMap((place) => place.location ? [{ provider: "google-places", providerId: place.id, name: place.displayName?.text ?? "Unnamed place", category: place.primaryType ?? null, latitude: place.location.latitude, longitude: place.location.longitude, address: place.formattedAddress ?? null, rating: place.rating, userRatingCount: place.userRatingCount, sourceUrl: place.googleMapsUri ?? null, photoNames: place.photos?.map((photo) => photo.name) ?? [], ...(place.priceLevel ? { priceLevel: place.priceLevel } : {}), ...(place.regularOpeningHours?.weekdayDescriptions?.length ? { openingHours: place.regularOpeningHours.weekdayDescriptions.slice(0, 7) } : {}) }] : []);
   }
+  /** One place as Google has it, in the same shape as a search result. Used to write the shared places catalog from Google's
+   *  data rather than from whatever a client sent (see createCatalogPlaceRepository). Same field mask as a search result. */
+  async catalogPlace(placeId: string, signal?: AbortSignal): Promise<Place | null> {
+    const load = async (abort?: AbortSignal) => {
+      const response = await guardedFetch("google-places", `${placesBase()}/v1/places/${encodeURIComponent(placeId)}`, { headers: { "x-goog-api-key": this.key(), "x-goog-fieldmask": "id,displayName,formattedAddress,location,primaryType,googleMapsUri,rating,userRatingCount,photos.name" }, signal: withProviderTimeout(abort) });
+      if (response.status === 404 || response.status === 400) return null;
+      if (!response.ok) throw new Error(`Google place lookup failed: ${response.status}`);
+      const place = (await response.json()) as SearchPlace;
+      if (!place.location) return null;
+      return { provider: "google-places", providerId: place.id, name: place.displayName?.text ?? "Unnamed place", category: place.primaryType ?? null, latitude: place.location.latitude, longitude: place.location.longitude, address: place.formattedAddress ?? null, rating: place.rating, userRatingCount: place.userRatingCount, sourceUrl: place.googleMapsUri ?? null, photoNames: place.photos?.map((photo) => photo.name) ?? [] } satisfies Place;
+    };
+    if (process.env.NODE_ENV === "test") return load(signal);
+    return cached(`google-place-catalog:${placeId}`, 10 * 60_000, () => load());
+  }
   /** Businesses of a Google place type (e.g. "car_rental") near a point, nearest first. */
   async nearby(type: string, center: { lat: number; lng: number }, radiusMeters = 15_000, signal?: AbortSignal): Promise<NearbyBusiness[]> {
     const response = await guardedFetch("google-places", `${placesBase()}/v1/places:searchNearby`, {

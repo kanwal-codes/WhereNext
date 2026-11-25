@@ -81,7 +81,8 @@ export async function searchFlightOffers(query: FlightQuery, signal?: AbortSigna
 
 /** The return flights that pair with one outbound of a round-trip search (its `departureToken`), priced as the round trip. */
 export async function searchReturnOffers(query: FlightQuery & { departureToken: string; originId: string; destinationId: string }): Promise<FlightOffer[]> {
-  const key = `flights:serp-return:v2:${query.departureToken}:${query.currency}:${query.country ?? ""}`;
+  // Every value sent to SerpAPI is in the key: the token alone let one request decide the fares others were shown.
+  const key = `flights:serp-return:v3:${query.departureToken}:${query.originId}:${query.destinationId}:${query.departureDate}:${query.returnDate ?? ""}:${query.adults ?? 1}:${query.currency}:${query.country ?? ""}`;
   const { offers } = await cached(key, 10 * 60_000, () =>
     searchGoogleFlights({ departureId: query.originId, arrivalId: query.destinationId, departureDate: query.departureDate, returnDate: query.returnDate, currency: query.currency, adults: query.adults, departureToken: query.departureToken, country: query.country }),
   );

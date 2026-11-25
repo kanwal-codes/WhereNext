@@ -86,6 +86,12 @@ export type AssistantTurnRequest = {
    *  are legitimately shared by nature, unlike a personal like/dislike. Default true (personal
    *  chat has exactly one unambiguous "the user"). */
   allowPreferenceLearning?: boolean;
+  /** True in group chat: the history holds other members' messages, and a viewer cannot change the trip themselves.
+   *  A trip-fact change is then taken only from what the asker wrote (RESOLVE run again on their message alone), so
+   *  someone else's earlier line never changes the trip under the asker's permissions. */
+  tripUpdatesFromPromptOnly?: boolean;
+  /** False when the message being answered was written by someone other than the asker: no trip-fact change at all. */
+  allowTripUpdates?: boolean;
   signal?: AbortSignal;
   /** Injectable for tests (e.g. "is today within the trip's dates" in itinerary-anchor.ts);
    *  defaults to the real current time. */
@@ -216,6 +222,20 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   const destinationBefore = tripCtx.trip?.destination ?? null;
   if (destinationBefore) void placeMenu({ destination: destinationBefore, startDate: tripCtx.trip?.start_date });
   const resolved = await resolveTurn({ message: prompt, history, tripSummary, viewContext, signal, onUsage });
+  // Group turns: a trip change or a suggested fact may come only from the asker's own words, never from other members' messages in
+  // the history (security audit run 1). Re-resolving only on the rare turn that proposes one keeps ordinary group turns free.
+  if (req.allowTripUpdates === false) {
+    resolved.proposedTripUpdate = null;
+    resolved.suggestedFacts = [];
+  } else if (
+    req.tripUpdatesFromPromptOnly &&
+    history.length > 0 &&
+    ((resolved.proposedTripUpdate && Object.keys(resolved.proposedTripUpdate).length > 0) || (resolved.suggestedFacts?.length ?? 0) > 0)
+  ) {
+    const own = await resolveTurn({ message: prompt, history: [], tripSummary, viewContext, signal, onUsage });
+    resolved.proposedTripUpdate = own.proposedTripUpdate;
+    resolved.suggestedFacts = own.suggestedFacts;
+  }
   const tripUpdateResult = await applyTripUpdate({ supabase, tripId, tripCtx, prompt, resolved, tripSummary, deriveTripSummary });
   tripCtx = tripUpdateResult.tripCtx;
   const destination = tripUpdateResult.destination;

@@ -31,7 +31,7 @@ export function TypingBubble({ writing }: { writing?: string }) {
           <Avatar name="Roam" />
         </div>
         <div className="min-w-0 max-w-[85%] rounded-2xl rounded-tl-lg bg-muted px-4 py-2.5 text-sm leading-relaxed break-words shadow-sm max-lg:text-base max-lg:leading-snug max-lg:shadow-none [&_.chat-prose]:text-sm [&_.chat-prose]:leading-relaxed">
-          <AssistantMessage content={writing} />
+          <AssistantMessage content={writing} streaming />
         </div>
       </div>
     );

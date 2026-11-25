@@ -10,7 +10,7 @@ import { DAILY_TRIP_TURN_LIMIT, DAILY_TURN_LIMIT } from "@/packages/ai/model-pol
 import { withinRateLimit } from "@/lib/server/rate-limit";
 import { compactAiMessages } from "@/packages/contracts/ai-request";
 import { stripReasoning } from "@/lib/ai/strip-reasoning";
-import { finalizeAssistantText } from "@/lib/application/evaluator";
+import { finalizeAssistantText } from "@/lib/application/evaluator"; import { sanitizeAssistantContent } from "@/lib/application/sanitize-assistant";
 import { withTripAiTask } from "@/lib/server/trip-ai-queue";
 import { recordAiTurn } from "@/lib/server/ai-turn-trace";
 import type { UsageEntry } from "@/lib/ai/pricing";
@@ -174,10 +174,12 @@ export const POST = withRoute(async (request: Request, { params }: { params: Pro
         tripCtx, prompt: target.content, history: turns, tripSummary: summaryOf(tripCtx), deriveTripSummary: summaryOf, signal: request.signal,
         surfacedEarlier,
         // One member's stated preference has no clean owner in a shared group thread — see
-        // AssistantTurnRequest.allowPreferenceLearning's doc comment. Trip-fact updates
-        // (destination/dates/travelers) stay enabled; only proposing a personal-preference
-        // change is suppressed here.
+        // AssistantTurnRequest.allowPreferenceLearning's doc comment.
         allowPreferenceLearning: false,
+        // Trip-fact updates (destination/dates/travelers) stay enabled, but only from the asker's own words:
+        // never from other members' history, and not at all when the asker targets someone else's message.
+        tripUpdatesFromPromptOnly: true,
+        allowTripUpdates: target.userId === user.id,
       },
     );
 
@@ -219,8 +221,8 @@ export const POST = withRoute(async (request: Request, { params }: { params: Pro
       let unverified = false;
       const [[checklist, comparison], sanitized] = await Promise.all([
         Promise.all([sideBuilders.checklistPromise, sideBuilders.comparisonPromise]),
-        // A deterministic card lead-in has no claims or links to check: skip the grounding model call.
-        composeSkipIsLeadIn ? Promise.resolve(text) : finalizeAssistantText(text, allowedUrls, system, request.signal, (entry) => { evaluatorUsage = entry; }, resolved.intent, () => { unverified = true; }, turns.filter((t) => t.role === "user").map((t) => t.content).join("\n")),
+        // A deterministic card lead-in has no claims to check: skip the grounding model call, keep the link pass.
+        composeSkipIsLeadIn ? Promise.resolve(sanitizeAssistantContent(text, allowedUrls)) : finalizeAssistantText(text, allowedUrls, system, request.signal, (entry) => { evaluatorUsage = entry; }, resolved.intent, () => { unverified = true; }, turns.filter((t) => t.role === "user").map((t) => t.content).join("\n")),
       ]);
       const meta = { ...finalizeAssistantBlocks(result.meta, { checklist, comparison }), ...(unverified ? { unverified: true } : {}) };
 

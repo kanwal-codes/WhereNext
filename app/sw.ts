@@ -33,6 +33,13 @@ const runtimeCaching: RuntimeCaching[] = [
     matcher: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith("/api/"),
     handler: new NetworkOnly(),
   },
+  {
+    // Trip and account pages are per-viewer too. Their HTML (navigations) and RSC payloads are keyed by URL in the caches
+    // defaultCache uses, which would keep them for 24h and serve them offline to whoever signs in next on this device.
+    // Never cache them here; the offline "Today" view comes from the IndexedDB mirror, not the HTTP cache.
+    matcher: ({ sameOrigin, request }) => sameOrigin && (request.mode === "navigate" || request.headers.get("RSC") === "1"),
+    handler: new NetworkOnly(),
+  },
   ...defaultCache,
 ];
 

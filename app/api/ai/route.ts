@@ -18,7 +18,7 @@ import { turnLimitRefusal } from "@/lib/server/ai-turn-limits";
 import { persistedAssistantStream } from "@/features/conversation/application/persistedAssistantStream";
 import { createConversationRepository } from "@/features/conversation/infrastructure/conversationRepository";
 import { withPrunedFollowups } from "@/lib/application/followups";
-import { finalizeAssistantText } from "@/lib/application/evaluator";
+import { finalizeAssistantText } from "@/lib/application/evaluator"; import { sanitizeAssistantContent } from "@/lib/application/sanitize-assistant";
 import { withTripAiStream } from "@/lib/server/trip-ai-queue";
 import { recordComposedTurn, recordEarlyExitTurn } from "@/lib/server/ai-turn-accounting";
 import { recordTurnContent } from "@/lib/server/ai-turn-record";
@@ -307,8 +307,9 @@ export const POST = withRoute(async function POST(request: Request) {
         // its own wall-clock guard, never interrupted early, unlike every other model call in this
         // route.
         (content) => {
-          // A deterministic card lead-in has no claims or links to check: skip the grounding call (up to ~2.5 s before the cards show).
-          if (result?.kind !== "ready" || result.composeSkipIsLeadIn) return content;
+          // A deterministic card lead-in has no claims to check: skip the grounding call (up to ~2.5 s before the cards show), keep the link pass.
+          if (result?.kind !== "ready") return content;
+          if (result.composeSkipIsLeadIn) return sanitizeAssistantContent(content, result.allowedUrls); // a provider place name can still carry a link
           const p = finalizeAssistantText(
             content, result.allowedUrls, result.system, AbortSignal.any([request.signal, disconnectController.signal]),
             (entry) => { evaluatorUsage = entry; }, result.resolved.intent, () => { unverified = true; },

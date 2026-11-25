@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { notifyToast } from "@/lib/application/toast";
+import { clearLocalUserData } from "@/lib/client/clear-local-data";
 import { shareUrl } from "../domain/account";
 
 /** The account page's one-off actions: copy or revoke a shared link, export the data, and delete the account. */
@@ -30,6 +31,8 @@ export function useAccountActions() {
     setDeleting(true);
     const response = await fetch("/api/account", { method: "DELETE" });
     if (!response.ok) { setDeleting(false); notifyToast("Account could not be deleted.", "error"); return; }
+    // Same local cleanup as sign-out: this device's offline snapshot, queued writes and caches belong to the account just deleted.
+    await clearLocalUserData();
     window.location.assign("/sign-in");
   }
 
