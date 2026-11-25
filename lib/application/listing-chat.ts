@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /** The one thing (or the short list) a listing question is about, as the page shows it. Shared by the trip's side chat and the home page's, so both read a listing the same way. */
-export const listingItemSchema = z.object({
+const listingItemSchema = z.object({
   name: z.string().trim().min(1).max(200),
   detail: z.string().max(200).optional(),
   price: z.string().max(60).optional(),
