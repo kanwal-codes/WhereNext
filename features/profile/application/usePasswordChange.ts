@@ -2,7 +2,7 @@ import { useState } from "react";
 import { notifyToast } from "@/lib/application/toast";
 import { updatePassword } from "@/features/identity/application/authClient";
 import { canChangePassword, passwordsMatch } from "../domain/account";
-import { strengthOf } from "../ui/AccountParts";
+import { strengthOf } from "@/lib/password-strength";
 
 /** The "Change password" form: the two fields, whether they can be submitted, and saving the new one. */
 export function usePasswordChange() {
