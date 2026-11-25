@@ -182,7 +182,7 @@ export function RowValue({ children, sub }: { children: ReactNode; sub?: ReactNo
   return (
     <>
       <p className="font-display text-lg leading-tight font-medium tabular-nums">{children}</p>
-      {sub && <p className="text-[0.71875rem] max-lg:text-xs leading-tight text-muted-foreground tabular-nums">{sub}</p>}
+      {sub && <p className="text-2xs max-lg:text-xs leading-tight text-muted-foreground tabular-nums">{sub}</p>}
     </>
   );
 }
@@ -197,7 +197,7 @@ export function RowBar({ frac, color = "var(--coral)", className }: { frac: numb
 }
 
 /** The widget's one next step: an ink pill. A link when it goes off the page. */
-const ACTION = "inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.16),0_1px_2px_oklch(0.2_0.012_65/0.22)] transition-[transform,filter] duration-200 ease-out hover:brightness-110 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+const ACTION = "inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-button transition-[transform,filter] duration-200 ease-out hover:brightness-110 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 const ACTION_QUIET = "inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-background px-4 text-sm font-semibold text-ink transition-[transform,border-color] duration-200 ease-out hover:border-ink/30 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 export function WidgetAction({ children, onClick, href, quiet = false, arrow = true, label, wide = false }: { children: ReactNode; onClick?: () => void; href?: string; quiet?: boolean; arrow?: boolean; label?: string; /** The one step of the widget, stretched across its foot. */ wide?: boolean }) {
   // The widget's one step: the full width of the foot on a phone, a compact centred button on a desktop, where a 600px black bar was heavy.

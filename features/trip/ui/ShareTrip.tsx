@@ -69,7 +69,7 @@ export function ShareTrip({ tripId }: { tripId: string }) {
       ) : !slug ? (
         <>
           <p className="mt-2 text-sm text-ink-soft">Create an unlisted link to a read-only view of the itinerary.</p>
-          <button type="button" onClick={() => void enable()} disabled={busy} className="btn-primary mt-4 w-full">
+          <button type="button" onClick={() => void enable()} disabled={busy} aria-label="Create share link" className="btn-primary mt-4 w-full">
             {busy ? <Loader2 className="size-4 animate-spin" /> : "Create share link"}
           </button>
         </>

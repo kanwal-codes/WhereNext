@@ -29,5 +29,20 @@ const config = [
   { files: ts("packages/**"), rules: restrict(noUi, noFeatures) },
   { files: ts("features/*/domain/**", "packages/contracts/**"), rules: restrict(noUi, noFeatures, pure) },
   { files: ts("components/**", "features/*/ui/**", "lib/client/**"), rules: restrictTypesOk(noServer) },
+  // Reading and caption sizes (under 1rem) come from the ladder in globals.css (text-2xs, xs, sm, body), never a number.
+  // Display sizes above the ladder (hero numbers, page titles) are written out on purpose.
+  // The landing page draws miniature app mock-ups at their own scale, so it is exempt.
+  {
+    files: ts("app/**", "components/**", "features/**"),
+    ignores: ["components/landing/**"],
+    rules: {
+      "no-restricted-syntax": ["error",
+        { selector: "Literal[value=/(^|\\s|:)text-\\[(0\\.[0-9]+rem|([0-9]|1[0-5])px)\\]/]", message: "Use a type token (text-2xs, text-xs, text-sm, text-body) instead of an arbitrary size." },
+        { selector: "TemplateElement[value.raw=/(^|\\s|:)text-\\[(0\\.[0-9]+rem|([0-9]|1[0-5])px)\\]/]", message: "Use a type token (text-2xs, text-xs, text-sm, text-body) instead of an arbitrary size." },
+        { selector: "Literal[value=/(^|\\s)(\\S*:)?(h|w)-([0-9.]+)\\s+\\2?[hw]-\\4(\\s|$)/]", message: "Equal height and width is one class: size-N." },
+        { selector: "TemplateElement[value.raw=/(^|\\s)(\\S*:)?(h|w)-([0-9.]+)\\s+\\2?[hw]-\\4(\\s|$)/]", message: "Equal height and width is one class: size-N." },
+      ],
+    },
+  },
 ];
 export default config;

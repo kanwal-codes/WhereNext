@@ -45,7 +45,7 @@ export function DangerSection({ actions }: { actions: ReturnType<typeof useAccou
             <h3 className="font-display text-xl">Delete your account?</h3>
             <p className="mt-1 text-sm text-ink-soft">Trips you share with friends stay with them (the next member takes over). Trips only you are on, with their itinerary and shared links, are removed. Type DELETE to confirm.</p>
           </div>
-          <input value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} placeholder="DELETE" className="input-field" />
+          <input value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} placeholder="DELETE" aria-label="Type DELETE to confirm" autoComplete="off" autoCapitalize="characters" spellCheck={false} className="input-field" />
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={() => setDeleteOpen(false)} className="rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-muted active:scale-[0.985]">Keep my account</button>
             <button

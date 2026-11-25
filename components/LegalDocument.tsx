@@ -14,15 +14,15 @@ export function LegalDocument({
   return (
     <div className="min-h-screen">
       <header className="mx-auto flex max-w-3xl items-center justify-between px-6 py-8 sm:px-10">
-        <Link href="/" className="inline-flex items-center gap-2 text-sm">
+        <Link href="/" className="-my-1.5 inline-flex items-center gap-2 py-1.5 text-sm">
           <BrandMark variant="compact" />
           <BrandMark variant="text" />
         </Link>
         <nav className="flex items-center gap-5 text-xs text-muted-foreground">
-          <Link href="/privacy" className="link-underline">
+          <Link href="/privacy" className="link-underline -my-3 py-3">
             Privacy
           </Link>
-          <Link href="/terms" className="link-underline">
+          <Link href="/terms" className="link-underline -my-3 py-3">
             Terms
           </Link>
         </nav>
@@ -39,7 +39,7 @@ export function LegalDocument({
         <div className="hairline" />
         <p className="pt-6 text-xs text-muted-foreground">
           Questions:{" "}
-          <a href="mailto:kanwal.codes17@gmail.com" className="link-underline">
+          <a href="mailto:kanwal.codes17@gmail.com" className="link-underline py-3">
             kanwal.codes17@gmail.com
           </a>
         </p>

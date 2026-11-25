@@ -47,7 +47,7 @@ export function HScrollFade({ className, children }: { className?: string; child
             type="button"
             aria-label="Show earlier days"
             onClick={() => page(-1)}
-            className="pointer-events-auto grid size-6 shrink-0 place-items-center rounded-full max-lg:h-10 max-lg:w-10 text-muted-foreground transition-colors hover:text-foreground"
+            className="pointer-events-auto grid size-6 shrink-0 place-items-center rounded-full max-lg:size-10 text-muted-foreground transition-colors hover:text-foreground"
           >
             <ChevronLeft className="size-4" />
           </button>
@@ -59,7 +59,7 @@ export function HScrollFade({ className, children }: { className?: string; child
             type="button"
             aria-label="Show more days"
             onClick={() => page(1)}
-            className="pointer-events-auto grid size-6 shrink-0 place-items-center rounded-full max-lg:h-10 max-lg:w-10 text-muted-foreground transition-colors hover:text-foreground"
+            className="pointer-events-auto grid size-6 shrink-0 place-items-center rounded-full max-lg:size-10 text-muted-foreground transition-colors hover:text-foreground"
           >
             <ChevronRight className="size-4" />
           </button>

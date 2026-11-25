@@ -16,7 +16,7 @@ export default function SharedTripError({ error, reset }: { error: Error & { dig
       mark="error"
       eyebrow="Shared trip"
       title="This trip is temporarily unavailable."
-      actions={<button onClick={reset} className="btn-primary">Try again</button>}
+      actions={<button type="button" onClick={reset} className="btn-primary">Try again</button>}
     >
       Something went wrong loading it. Try again in a moment.
     </StatusScreen>

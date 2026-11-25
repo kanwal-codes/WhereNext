@@ -46,14 +46,14 @@ export default function SignInPage() {
         <div className="space-y-2">
           <p>
             New here?{" "}
-            <Link href={redirect ? `/sign-up?redirect=${encodeURIComponent(redirect)}` : "/sign-up"} className="link-underline font-medium text-foreground">
+            <Link href={redirect ? `/sign-up?redirect=${encodeURIComponent(redirect)}` : "/sign-up"} className="link-underline -my-3 inline-block py-3 font-medium text-foreground">
               Create an account
             </Link>
           </p>
           <p>
-            <Link href="/privacy" className="link-underline -my-2 inline-block py-2">Privacy</Link>
+            <Link href="/privacy" className="link-underline -my-3 inline-block py-3">Privacy</Link>
             {" · "}
-            <Link href="/terms" className="link-underline -my-2 inline-block py-2">Terms</Link>
+            <Link href="/terms" className="link-underline -my-3 inline-block py-3">Terms</Link>
           </p>
         </div>
       }

@@ -7,12 +7,9 @@ import type { FlightOffer } from "@/components/TripPanelProvider";
 import { arrivalDayOffset } from "@/features/conversation/ui/blocks/FlightFilters";
 import { Badge, money, type } from "@/features/conversation/ui/blocks/ui";
 import { formatDuration } from "@/lib/application/flight-risks";
+import { clock } from "@/features/conversation/ui/blocks/flightCopy";
 import { cn } from "@/lib/utils";
 
-const clock = (iso: string) => {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" });
-};
 /** "British Airways" → "BA", "Iberia" → "I": a monogram stands in when the airline's own logo is not there. */
 const monogram = (airline: string) => airline.split(/\s+/).filter((w) => /^\p{L}/u.test(w)).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("");
 const stopsText = (o: FlightOffer) => (o.stops === 0 ? "Nonstop" : `${o.stops} stop${o.stops > 1 ? "s" : ""}${o.layoverAirports?.length ? ` via ${o.layoverAirports.join(", ")}` : ""}`);

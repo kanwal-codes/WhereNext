@@ -39,7 +39,7 @@ export default function UpdatePasswordPage() {
       title="Choose a new password."
       subtitle="Set a new password for your account, then head back to your trips."
       footer={
-        <Link href="/sign-in" className="link-underline inline-flex items-center gap-1.5 text-foreground">
+        <Link href="/sign-in" className="link-underline -my-3 inline-flex items-center gap-1.5 py-3 text-foreground">
           <ArrowLeft className="size-3.5" /> Back to sign in
         </Link>
       }

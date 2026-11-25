@@ -7,7 +7,7 @@ import type { AssistantBlock } from "@/packages/contracts/assistant";
 import { cn } from "@/lib/utils";
 import { cheapestOffer, FlightHero, priceBasis, FlightJourney, FlightPicks, FlightPicksSkeleton, FlightRowBody, offerKey, pickFares } from "./FlightWidget";
 import { tradeoff } from "@/lib/application/flight-tradeoff";
-import { tradeoffText } from "./flightCopy";
+import { clock, tradeoffText } from "./flightCopy";
 import { WidgetFoot } from "./Widget";
 import { AnimatePresence, motion } from "motion/react";
 import { motionTokens } from "@/components/motion-primitives";
@@ -18,12 +18,6 @@ import { useTripDataMaybe } from "@/components/TripDataProvider";
 import { resolveCurrency } from "@/lib/currency";
 import { Notice, controlSecondary, money, prettyDate, textAction, type } from "./ui";
 import { BlockHandlers } from "./blockShared";
-
-/** Time of day for a departure/arrival ("6:20 PM"); a bare or unparsable value is shown as given. */
-function clock(value: string) {
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? value : d.toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" });
-}
 
 type FlightsBlockData = Extract<AssistantBlock, { type: "flights" }>;
 
