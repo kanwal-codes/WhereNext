@@ -84,7 +84,7 @@ const isoIn = (days: number) => new Date(Date.now() + days * 864e5).toISOString(
 export function StaySurface({ tripId, destination, onSearchActive }: { tripId: string | null; destination: string; /** In a trip: told when there is a search to cancel (a place, an answer or filters), with the way to cancel it; null when the page is as it started. */ onSearchActive?: (cancel: (() => void) | null) => void }) {
   const standalone = tripId === null;
   // With no trip the page is one column: a sticky header, the model's answer, a row of pills that sticks under the header, then the stays (see StickyBar).
-  const { headRef, rowRef, headH, stuck } = useStickyBar();
+  const { headRef, rowRef, stuck } = useStickyBar();
   // In a trip the header is the trip's own, and the row sticks under that instead.
   const tripRow = useTripStickyRow();
   const [answer, setAnswer] = useState<string | null>(null);
@@ -305,7 +305,7 @@ export function StaySurface({ tripId, destination, onSearchActive }: { tripId: s
   return (
     // `max-lg:pb-24`: room under the last row for the Ask bar, the same on every tool's page.
     <div className={cn("flex min-h-[calc(100svh-13rem)] flex-col gap-5 max-lg:pb-24", standalone && "gap-4")}>
-      {standalone && <FrostedGround stuck={stuck} headH={headH} />}
+      {standalone && <FrostedGround stuck={stuck} />}
       {!standalone && <TripFrostedGround stuck={tripRow.stuck} />}
       {standalone && (
         <div ref={headRef} className={STICKY_HEAD}>
@@ -368,7 +368,7 @@ export function StaySurface({ tripId, destination, onSearchActive }: { tripId: s
         <div className={cn("relative", standalone ? "contents" : "max-lg:contents")}>
         {!showPills && <StayStatusLine loading={loading} slow={slow} deepening={deepening} error={error} hasResult={Boolean(result)} count={result?.options.length ?? 0} total={result?.total} filtered={activeFilters > 0} sort={sort} checkin={checkin} checkout={checkout} />}
         {showPills && (
-          <div ref={(el) => { pillsRef.current = el; rowRef.current = el; tripRow.rowRef.current = el; }} className={cn("relative", standalone ? stickyRow(stuck, headH).className : tripStickyRow(tripRow.stuck).className)} style={standalone ? stickyRow(stuck, headH).style : tripStickyRow(tripRow.stuck).style}>
+          <div ref={(el) => { pillsRef.current = el; rowRef.current = el; tripRow.rowRef.current = el; }} className={cn("relative", standalone ? stickyRow(stuck).className : tripStickyRow(tripRow.stuck).className)} style={standalone ? stickyRow(stuck).style : tripStickyRow(tripRow.stuck).style}>
             <div role="group" aria-label="Sort and filter" className="no-scrollbar -mx-4 flex items-center gap-2 overflow-x-auto px-4">
               <button type="button" onClick={() => setShowFilters(true)} aria-haspopup="dialog" aria-pressed={activeFilters > 0} className="btn-chip shrink-0 gap-1.5">
                 <SlidersHorizontal className="size-3.5" aria-hidden />
