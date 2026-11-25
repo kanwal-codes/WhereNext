@@ -82,7 +82,7 @@ export function FlightsSurface({ tripId, active = true, onSearchActive }: { trip
   const trip = useTripDataMaybe()?.data?.trip;
   const standalone = tripId === null;
   // With no trip the page is one column: a sticky header, the model's answer, a row of pills that sticks under the header, then the flights (see StickyBar).
-  const { headRef, rowRef, headH, stuck } = useStickyBar();
+  const { headRef, rowRef, stuck } = useStickyBar();
   // In a trip the header is the trip's own, and the row sticks under that instead.
   const tripRow = useTripStickyRow();
   const [answer, setAnswer] = useState<string | null>(null);
@@ -236,7 +236,7 @@ export function FlightsSurface({ tripId, active = true, onSearchActive }: { trip
   return (
     <div className="mx-auto w-full max-w-[40rem] pb-24 lg:pb-12">
       {/* Alone on the home page the header is one row: back to the trips, the search pill centred, and an empty circle's width to balance it. */}
-      {standalone && <FrostedGround stuck={stuck} headH={headH} />}
+      {standalone && <FrostedGround stuck={stuck} />}
       {!standalone && <TripFrostedGround stuck={tripRow.stuck} />}
       {standalone && (
         <div ref={headRef} className={STICKY_HEAD}>
@@ -304,7 +304,7 @@ export function FlightsSurface({ tripId, active = true, onSearchActive }: { trip
               {fares.insights && <div className="mb-4 mt-1 px-1"><InsightLine level={fares.insights.level} usual={usual} /></div>}
               {/* A phone: one row of pills, each showing what it is set to and opening the sheet at its group (the first opens it at the top). A desktop keeps its sort and filters inline. */}
               {/* The panel a pill opens floats over the flights under it (it does not push them down); a tap outside, Escape or the cross closes it. */}
-              <div ref={(el) => { pillsRef.current = el; rowRef.current = el; tripRow.rowRef.current = el; }} className={cn("relative", standalone ? stickyRow(stuck, headH).className : cn("lg:hidden", tripStickyRow(tripRow.stuck).className))} style={standalone ? stickyRow(stuck, headH).style : tripStickyRow(tripRow.stuck).style}>
+              <div ref={(el) => { pillsRef.current = el; rowRef.current = el; tripRow.rowRef.current = el; }} className={cn("relative", standalone ? stickyRow(stuck).className : cn("lg:hidden", tripStickyRow(tripRow.stuck).className))} style={standalone ? stickyRow(stuck).style : tripStickyRow(tripRow.stuck).style}>
               <div role="group" aria-label="Sort and filter" className={cn("no-scrollbar -mx-4 flex items-center gap-2 overflow-x-auto px-4", loading && "pointer-events-none opacity-50")}>
                 {pills.map((pill) => (
                   <button

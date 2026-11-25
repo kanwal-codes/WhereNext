@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type Ref, type RefObject } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useDragControls, useReducedMotion } from "motion/react";
 import { ChevronUp, RotateCcw, Search } from "lucide-react";
 import { SendButton } from "@/components/ComposerButtons";
 import { COMPARE_VERDICT_PROMPT, FAILED, useCompareChat } from "@/components/useCompareChat";
@@ -49,6 +49,9 @@ export function TripPanelComposer({ boxRef, chat, isCompare, scrollRef, placehol
   const shown = messages.filter((m) => m !== verdictMsg && !(m.role === "user" && m.content === COMPARE_VERDICT_PROMPT));
   const [open, setOpen] = useState(true);
   const [focused, setFocused] = useState(false);
+  // The card is pulled down by its handle (only the handle: dragging the answers themselves would fight their scrolling). A press that moved is not a tap.
+  const drag = useDragControls();
+  const pulled = useRef(false);
   const field = useRef<HTMLInputElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const [scrolled, setScrolled] = useScrollCompact({ target: scrollRef, topZone: 80 });
@@ -76,20 +79,49 @@ export function TripPanelComposer({ boxRef, chat, isCompare, scrollRef, placehol
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8, transition: { duration: 0.15 } }}
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            className="flex shrink-0 flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-lift"
+            drag={open ? "y" : false}
+            dragControls={drag}
+            dragListener={false}
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.7 }}
+            dragSnapToOrigin
+            onDragEnd={(_, info) => {
+              pulled.current = Math.abs(info.offset.y) > 6;
+              if (info.offset.y > 64 || info.velocity.y > 500) setOpen(false);
+            }}
+            className="relative flex shrink-0 flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-lift"
           >
-            {/* One quiet control on the card: a grab handle that folds the answers away, and, folded, a slim row that brings them back. There is no Clear: a new listing starts a fresh chat. */}
-            {open ? (
-              <button type="button" onClick={() => setOpen(false)} aria-expanded aria-label="Hide the answers" className="group grid h-8 w-full shrink-0 place-items-center">
+            {/* One quiet control on the card: a grab handle that folds the answers away (tap it, or pull it down), and, folded, a slim row that brings them back. There is no Clear: a new listing starts a fresh chat.
+                Both faces sit in one box that eases between their heights, so folding and unfolding is one movement, not a swap. */}
+            <motion.div initial={false} animate={{ height: open ? 32 : 48 }} transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }} className="relative shrink-0 overflow-hidden">
+              <button
+                type="button"
+                onPointerDown={(e) => { pulled.current = false; drag.start(e); }}
+                onClick={() => { if (!pulled.current) setOpen(false); pulled.current = false; }}
+                aria-expanded
+                aria-label="Hide the answers"
+                aria-hidden={!open}
+                tabIndex={open ? 0 : -1}
+                className={`group absolute inset-0 grid cursor-grab touch-none place-items-center transition-opacity duration-200 active:cursor-grabbing ${open ? "opacity-100" : "pointer-events-none opacity-0"}`}
+              >
                 <span aria-hidden className="h-1 w-9 rounded-full bg-border transition-[background-color,width] duration-200 group-hover:w-11 group-hover:bg-muted-foreground/50" />
               </button>
-            ) : (
-              <button type="button" onClick={() => setOpen(true)} aria-expanded={false} aria-label="Show the answers" className="flex h-12 w-full shrink-0 items-center justify-between gap-2 px-4 text-sm font-medium text-ink-soft transition-colors hover:text-foreground">
+              <button
+                type="button"
+                onClick={() => setOpen(true)}
+                aria-expanded={false}
+                aria-label="Show the answers"
+                aria-hidden={open}
+                tabIndex={open ? -1 : 0}
+                className={`absolute inset-0 flex items-center justify-between gap-2 px-4 text-sm font-medium text-ink-soft transition-[opacity,color] duration-200 hover:text-foreground ${open ? "pointer-events-none opacity-0" : "opacity-100"}`}
+              >
                 <span>{questions === 1 ? "1 question" : `${questions} questions`}</span>
                 <ChevronUp className="size-4" aria-hidden />
               </button>
-            )}
+            </motion.div>
+            <AnimatePresence initial={false}>
             {open && (
+              <motion.div key="body" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }} className="overflow-hidden">
               <div ref={scroller} className="max-h-[min(38dvh,21rem)] space-y-3.5 overflow-y-auto overscroll-contain scrollbar-slim px-4 pb-4 pt-3 [mask-image:linear-gradient(to_bottom,transparent,#000_0.75rem,#000_calc(100%-0.75rem),transparent)]">
                 {shown.map((m, i) => {
                   if (m.role === "user") {
@@ -116,7 +148,9 @@ export function TripPanelComposer({ boxRef, chat, isCompare, scrollRef, placehol
                   );
                 })}
               </div>
+              </motion.div>
             )}
+            </AnimatePresence>
           </motion.section>
         )}
       </AnimatePresence>

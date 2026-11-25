@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 import { useScrollCompact } from "@/lib/use-scroll-compact";
 import { useMediaQuery } from "@/lib/use-media-query";
@@ -9,66 +9,87 @@ import { useMediaQuery } from "@/lib/use-media-query";
  * The header and the row of pills under it, for a page that scrolls as one column (Eat, Stays and Flights without a trip): the header sticks at the top,
  * the row sticks right under it once it gets there, and from then on a frosted ground sits behind both. Only the row holds; everything else scrolls.
  *
- * `headRef` goes on the sticky header, `rowRef` on the row. `headH` is how far down the row sticks; `stuck` is that it has got there.
+ * `headRef` goes on the sticky header, `rowRef` on the row. `stuck` is that the row has got there; how far down it sticks is the `--head-top` variable.
  */
 export function useStickyBar() {
   const headRef = useRef<HTMLDivElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
-  const [measured, setMeasured] = useState(72);
   const [stuck, setStuck] = useState(false);
   // The header slides away while the reader heads down the page and comes back on the way up, as the trip's own header does; the row then sticks to the top.
   // On a phone only: a desktop keeps its header where it is. A control focused from the keyboard brings it back.
+  // None of this is React state: the header's height and whether it is away live in two CSS variables on the page, so the row and the frosted ground
+  // follow it without the whole page (the list of results) rendering again each time the reader changes direction.
   const phone = useMediaQuery("(max-width: 1023.98px)");
-  const [compact, setCompact] = useScrollCompact({ enabled: phone });
-  const hidden = phone && compact;
-  const headH = hidden ? 0 : measured;
+  const measured = useRef(72);
+  const hidden = useRef(false);
+  const apply = useCallback(() => {
+    const px = hidden.current ? 0 : measured.current;
+    const root = document.documentElement.style;
+    root.setProperty("--head-px", `${px}px`);
+    root.setProperty("--head-top", px ? `${px}px` : "env(safe-area-inset-top)");
+    headRef.current?.classList.toggle("-translate-y-full", hidden.current);
+  }, []);
+  const setHidden = useCallback((value: boolean) => {
+    if (hidden.current === value) return;
+    hidden.current = value;
+    apply();
+  }, [apply]);
+  useScrollCompact({ enabled: phone, onChange: (compact) => setHidden(compact) });
+  useEffect(() => {
+    if (!phone) setHidden(false);
+  }, [phone, setHidden]);
   useEffect(() => {
     const head = headRef.current;
     if (!head) return;
-    const measure = () => setMeasured(Math.round(head.getBoundingClientRect().height));
+    const measure = () => { measured.current = Math.round(head.getBoundingClientRect().height); apply(); };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(head);
-    return () => ro.disconnect();
-  }, []);
-  useEffect(() => { headRef.current?.classList.toggle("-translate-y-full", hidden); }, [hidden]);
+    return () => {
+      ro.disconnect();
+      const root = document.documentElement.style;
+      root.removeProperty("--head-px");
+      root.removeProperty("--head-top");
+    };
+  }, [apply]);
   useEffect(() => {
     const head = headRef.current;
     if (!head) return;
-    const show = () => setCompact(false);
+    const show = () => setHidden(false);
     head.addEventListener("focusin", show);
     return () => head.removeEventListener("focusin", show);
-  }, [setCompact]);
+  }, [setHidden]);
   useEffect(() => {
     const on = () => {
       const row = rowRef.current;
+      const headH = hidden.current ? 0 : measured.current;
       setStuck(Boolean(row && window.scrollY > 4 && row.getBoundingClientRect().top <= headH + 1));
     };
     on();
     window.addEventListener("scroll", on, { passive: true });
     return () => window.removeEventListener("scroll", on);
-  }, [headH]);
-  return { headRef, rowRef, headH, stuck };
+  }, []);
+  return { headRef, rowRef, stuck };
 }
 
 /** The class of the sticky header's wrapper. */
-export const STICKY_HEAD = "sticky top-0 z-30 -mx-4 px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-2 transition-transform duration-300 ease-out motion-reduce:transition-none";
+export const STICKY_HEAD = "sticky top-0 z-30 -mx-4 px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-2 transition-transform duration-[var(--compact-duration)] ease-[var(--ease-out)] motion-reduce:transition-none";
 
-/** The class and style of the row's wrapper (the row sits `headH` below the top). */
-export function stickyRow(stuck: boolean, headH: number, extra?: string): { className: string; style: CSSProperties } {
+/** The class and style of the row's wrapper (the row sits one header's height below the top, `--head-top`). */
+export function stickyRow(stuck: boolean, extra?: string): { className: string; style: CSSProperties } {
   return {
-    className: cn("sticky z-20 -mx-4 px-4 py-3 transition-[top] duration-300 ease-out [&_.btn-chip]:transition-shadow", stuck && "[&_.btn-chip]:shadow-[0_1px_2px_rgb(40_25_10/0.07)]", extra),
-    style: { top: headH || "env(safe-area-inset-top)" },
+    className: cn("sticky z-20 -mx-4 px-4 py-3 transition-[top] duration-[var(--compact-duration)] ease-[var(--ease-out)] [&_.btn-chip]:transition-shadow", stuck && "[&_.btn-chip]:shadow-[0_1px_2px_rgb(40_25_10/0.07)]", extra),
+    style: { top: "var(--head-top, env(safe-area-inset-top))" },
   };
 }
 
 /** One frosted ground behind the header and the row together, shown once the row is stuck. Its lower edge fades, so the page dissolves under it instead of being cut by a line. */
-export function FrostedGround({ stuck, headH }: { stuck: boolean; headH: number }) {
+export function FrostedGround({ stuck }: { stuck: boolean }) {
   return (
     <div
       aria-hidden
-      style={{ height: `calc(${headH}px + 3.75rem)` }}
-      className={cn("pointer-events-none fixed inset-x-0 top-0 z-[15] bg-background/90 backdrop-blur-xl transition-[opacity,height] duration-300 [mask-image:linear-gradient(to_bottom,#000_calc(100%_-_1.5rem),transparent)]", stuck ? "opacity-100" : "opacity-0")}
+      style={{ height: "calc(var(--head-px, 72px) + 3.75rem)" }}
+      className={cn("pointer-events-none fixed inset-x-0 top-0 z-[15] bg-background/90 backdrop-blur-xl transition-[opacity,height] duration-[var(--compact-duration)] ease-[var(--ease-out)] [mask-image:linear-gradient(to_bottom,#000_calc(100%_-_1.5rem),transparent)]", stuck ? "opacity-100" : "opacity-0")}
     />
   );
 }
@@ -103,7 +124,7 @@ export function useTripStickyRow() {
 /** The class and style of the row's wrapper inside a trip (see `useTripStickyRow`). */
 export function tripStickyRow(stuck: boolean, extra?: string): { className: string; style: CSSProperties } {
   return {
-    className: cn("max-lg:sticky max-lg:z-20 max-lg:-mx-4 max-lg:px-4 max-lg:py-3 max-lg:transition-[top] max-lg:duration-300 max-lg:ease-out [&_.btn-chip]:transition-shadow", stuck && "[&_.btn-chip]:shadow-[0_1px_2px_rgb(40_25_10/0.07)]", extra),
+    className: cn("max-lg:sticky max-lg:z-20 max-lg:-mx-4 max-lg:px-4 max-lg:py-3 max-lg:transition-[top] max-lg:duration-[var(--compact-duration)] max-lg:ease-[var(--ease-out)] [&_.btn-chip]:transition-shadow", stuck && "[&_.btn-chip]:shadow-[0_1px_2px_rgb(40_25_10/0.07)]", extra),
     style: { top: "var(--topbar-now, var(--topbar))" },
   };
 }
@@ -114,7 +135,7 @@ export function TripFrostedGround({ stuck }: { stuck: boolean }) {
     <div
       aria-hidden
       style={{ height: "calc(var(--topbar-now, var(--topbar)) + 3.75rem)" }}
-      className={cn("pointer-events-none fixed inset-x-0 top-0 z-[15] bg-background/90 backdrop-blur-xl transition-[opacity,height] duration-300 ease-out lg:hidden [mask-image:linear-gradient(to_bottom,#000_calc(100%_-_1.5rem),transparent)]", stuck ? "opacity-100" : "opacity-0")}
+      className={cn("pointer-events-none fixed inset-x-0 top-0 z-[15] bg-background/90 backdrop-blur-xl transition-[opacity,height] duration-[var(--compact-duration)] ease-[var(--ease-out)] lg:hidden [mask-image:linear-gradient(to_bottom,#000_calc(100%_-_1.5rem),transparent)]", stuck ? "opacity-100" : "opacity-0")}
     />
   );
 }

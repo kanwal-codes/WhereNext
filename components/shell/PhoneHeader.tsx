@@ -108,7 +108,7 @@ export function PhoneHeader({ pathname, tripId, tripName, onMenu, menuDot }: { p
       className={cn(
         "icons-fine sticky top-0 z-30 flex h-[var(--topbar)] items-center gap-3 px-4 pt-[env(safe-area-inset-top)] lg:hidden",
         // No `will-change-transform`: a transformed header becomes the containing block for `position: fixed`, so the city and view sheets opened from it would be laid out inside the bar instead of over the screen.
-        "transition-transform duration-300 ease-out motion-reduce:transition-none",
+        "transition-transform duration-[var(--compact-duration)] ease-[var(--ease-out)] motion-reduce:transition-none",
         overlay ? "bg-transparent" : "bg-background/95",
         hidden && "-translate-y-full",
       )}

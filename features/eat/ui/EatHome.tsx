@@ -167,7 +167,7 @@ export function EatHome() {
   // An ask is on its way: the answer and the places show as loading until it comes back.
   const [asking, setAsking] = useState(false);
   // The header is sticky and so is the row of pills under it (see StickyBar).
-  const { headRef, rowRef, headH, stuck } = useStickyBar();
+  const { headRef, rowRef, stuck } = useStickyBar();
   const setPart = (patch: Partial<Visit>) => { const next = { ...visit, ...patch }; setVisit(next); setOpenThen(visitTimed(next)); if (visitTimed(next)) setWantHours(true); };
   const lastTypes = useRef<string[]>([]);
   const choose = (text: string, asTyped: boolean) => { setTyped(text); setPlace(text); setExact(asTyped); setChoosing(false); setSubs([]); setAnswer(null); };
@@ -273,7 +273,7 @@ export function EatHome() {
   return (
     <main className="relative min-h-dvh bg-background px-4 pb-10 sm:px-8">
       <h1 className="sr-only">Eat</h1>
-      <FrostedGround stuck={stuck} headH={headH} />
+      <FrostedGround stuck={stuck} />
       <div className="relative mx-auto flex w-full max-w-[40rem] flex-col gap-4 pb-24">
         <div ref={headRef} className={STICKY_HEAD}>
           <StandaloneHeader onBack={searched ? backHome : undefined}>{pill}</StandaloneHeader>
@@ -285,7 +285,7 @@ export function EatHome() {
           </button>
         )}
         {idle && locationOff && <p role="status" className="-mt-2 text-sm text-ink-soft">Location is off for this site. {home ? `Showing places around ${aroundLabel}.` : "Choose a place instead."}</p>}
-        <EatFilters plainOrder extraPills={openPills} onClear={() => setOpenThen(false)} eat={eat} onChange={setEat} subs={subs} onToggleSub={toggleSub} onClearSubs={() => setSubs([])} available={available} shown={shown.length} showPills={Boolean(key) && (places.length > 0 || loading)} noType={exact} sheetOpen={sheet} onSheetOpen={setSheet} rowRef={rowRef} rowClassName={stickyRow(stuck, headH).className} rowStyle={stickyRow(stuck, headH).style} />
+        <EatFilters plainOrder extraPills={openPills} onClear={() => setOpenThen(false)} eat={eat} onChange={setEat} subs={subs} onToggleSub={toggleSub} onClearSubs={() => setSubs([])} available={available} shown={shown.length} showPills={Boolean(key) && (places.length > 0 || loading)} noType={exact} sheetOpen={sheet} onSheetOpen={setSheet} rowRef={rowRef} rowClassName={stickyRow(stuck).className} rowStyle={stickyRow(stuck).style} />
         <EatResults
           busy={loading}
           skeleton={asking || (loading && visible.length === 0)}

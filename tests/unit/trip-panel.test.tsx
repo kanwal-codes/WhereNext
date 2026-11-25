@@ -299,7 +299,7 @@ describe("TripPanel: asking about the open item", () => {
     await user.keyboard("{Enter}");
     await screen.findByTestId("assistant");
     await user.click(screen.getByRole("button", { name: "Hide the answers" }));
-    expect(screen.queryByTestId("assistant")).toBeNull();
+    await waitFor(() => expect(screen.queryByTestId("assistant")).toBeNull());
     await user.click(screen.getByRole("button", { name: "Show the answers" }));
     expect(screen.getByTestId("assistant")).toBeTruthy();
   });
