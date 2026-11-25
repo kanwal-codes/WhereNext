@@ -19,6 +19,7 @@ import { legsOfRoute, metricsOf, minutes, overlayOfRoutes, tagsOf } from "./rout
 import type { RouteTag } from "@/lib/application/route-overlay";
 import { useSettled } from "./useSettled";
 import { useMediaQuery } from "@/lib/use-media-query";
+import { clock } from "@/features/transport/domain/route-view";
 
 const MODE = {
   driving: { label: "Drive", icon: Car, travelmode: "driving" },
@@ -27,7 +28,6 @@ const MODE = {
 } as const;
 
 const TAG_TEXT: Record<RouteTag, string> = { fastest: "Fastest", "fewer-changes": "Fewer changes", "least-walking": "Least walking" };
-const clock = (iso?: string) => (iso ? new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null);
 
 /** One way to travel: its headline (lines, time, fare), and, when chosen, its steps right underneath. */
 function OptionCard({ route, index, single, tag, on, onSelect }: { route: RouteBlock; index: number; single: boolean; tag: RouteTag | null; on: boolean; onSelect: () => void }) {
@@ -36,7 +36,7 @@ function OptionCard({ route, index, single, tag, on, onSelect }: { route: RouteB
     const parsed = parseRouteStep(step);
     return { title: parsed.title, glyph: parsed.glyph, trailing: parsed.duration };
   });
-  const when = clock(route.departureTime) && clock(route.arrivalTime) ? `${clock(route.departureTime)} – ${clock(route.arrivalTime)}` : null;
+  const when = clock(route.departureTime, route.timeZone) && clock(route.arrivalTime, route.timeZone) ? `${clock(route.departureTime, route.timeZone)} – ${clock(route.arrivalTime, route.timeZone)}` : null;
   const metrics = metricsOf(route);
   const effort = metrics && route.mode === "transit" && route.legs?.some((l) => l.mode !== "walk") ?[`${metrics.changes === 0 ? "No" : metrics.changes} change${metrics.changes === 1 ? "" : "s"}`, metrics.walkMinutes > 0 ? `${metrics.walkMinutes} min walking` : null].filter(Boolean).join(", ") : null;
   const meta = [distance(route.distanceMeters / 1000), when, route.fare ? money(route.fare.amount, route.fare.currency) : null, effort].filter(Boolean).join(" · ");
@@ -44,10 +44,10 @@ function OptionCard({ route, index, single, tag, on, onSelect }: { route: RouteB
   const ride = route.mode === "transit" ? (route.legs ?? []).filter((leg) => leg.mode !== "walk") : [];
   const boardAt = ride[0]?.from;
   const getOffAt = ride.at(-1)?.to;
-  const boarding = route.mode === "transit" && (boardAt || getOffAt || clock(route.departureTime))
+  const boarding = route.mode === "transit" && (boardAt || getOffAt || clock(route.departureTime, route.timeZone))
     ? [
-        { label: "Board", place: boardAt ?? route.from.split(",")[0], time: clock(route.departureTime) ? `leaves ${clock(route.departureTime)}` : null },
-        { label: "Get off", place: getOffAt ?? route.to.split(",")[0], time: clock(route.arrivalTime) ? `arrives ${clock(route.arrivalTime)}` : null },
+        { label: "Board", place: boardAt ?? route.from.split(",")[0], time: clock(route.departureTime, route.timeZone) ? `leaves ${clock(route.departureTime, route.timeZone)}` : null },
+        { label: "Get off", place: getOffAt ?? route.to.split(",")[0], time: clock(route.arrivalTime, route.timeZone) ? `arrives ${clock(route.arrivalTime, route.timeZone)}` : null },
       ]
     : null;
   const head = (

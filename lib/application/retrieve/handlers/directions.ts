@@ -58,7 +58,7 @@ export async function handleDirections(call: DirectionsCall, ctx: RetrieveContex
       ctx.routes.push({
         from: call.from, to: call.to, mode: "transit",
         distanceMeters: leg.distanceMeters, durationSeconds: leg.durationSeconds,
-        departureTime: leg.departureTime, arrivalTime: leg.arrivalTime,
+        departureTime: leg.departureTime, arrivalTime: leg.arrivalTime, timeZone: leg.timeZone,
         steps: ctx.formatTransitSteps(leg.steps),
         fare: leg.fare,
         path: simplifyPath(leg.polyline),

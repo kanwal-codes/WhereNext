@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { LIMITS } from "@/lib/server/limits";
 import { withinRateLimit } from "@/lib/server/rate-limit";
 import { parseTripPrompt } from "@/lib/application/parse-trip";
+import { localToday } from "@/lib/local-today";
 
 /** Turn a one-line trip description into "new trip" form fields. The client fills the form; nothing is created here. */
 export const POST = withRoute(async (request: Request) => {
@@ -14,7 +15,7 @@ export const POST = withRoute(async (request: Request) => {
     const { data: { user } } = await (await createSupabaseServerClient()).auth.getUser();
     if (!user) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     if (!(await withinRateLimit(`user-llm:${user.id}`, LIMITS.llm.max, 60 * 60_000))) return NextResponse.json({ error: "You’ve used a lot of searches this hour. Try again in a little while." }, { status: 429 });
-    return NextResponse.json({ parsed: await parseTripPrompt(parsed.data.prompt, request.signal) });
+    return NextResponse.json({ parsed: await parseTripPrompt(parsed.data.prompt, request.signal, localToday(request.headers)) });
   } catch (error) {
     return fail(error, "We couldn’t read that — fill in the form instead.");
   }

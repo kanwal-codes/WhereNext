@@ -96,6 +96,8 @@ export type AssistantTurnRequest = {
   /** Injectable for tests (e.g. "is today within the trip's dates" in itinerary-anchor.ts);
    *  defaults to the real current time. */
   now?: Date;
+  /** The asker's own calendar date (YYYY-MM-DD), so "tomorrow" and "this weekend" resolve where they are. Defaults to the UTC date. */
+  today?: string;
   /** Phase 2.6.2 (docs/overhaul/roadmap/phase-2-speed.md): fires once, right before RETRIEVE
    *  starts (i.e., RESOLVE just finished), with the tool names RESOLVE just planned — a caller
    *  streaming the response can use this to show what's actually being looked up ("checking
@@ -221,7 +223,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
   // plan asked for a few seconds later finds it written. A menu already cached makes this a single cache read.
   const destinationBefore = tripCtx.trip?.destination ?? null;
   if (destinationBefore) void placeMenu({ destination: destinationBefore, startDate: tripCtx.trip?.start_date });
-  const resolved = await resolveTurn({ message: prompt, history, tripSummary, viewContext, signal, onUsage });
+  const resolved = await resolveTurn({ message: prompt, history, tripSummary, viewContext, today: req.today, signal, onUsage });
   // Group turns: a trip change or a suggested fact may come only from the asker's own words, never from other members' messages in
   // the history (security audit run 1). Re-resolving only on the rare turn that proposes one keeps ordinary group turns free.
   if (req.allowTripUpdates === false) {
@@ -232,7 +234,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
     history.length > 0 &&
     ((resolved.proposedTripUpdate && Object.keys(resolved.proposedTripUpdate).length > 0) || (resolved.suggestedFacts?.length ?? 0) > 0)
   ) {
-    const own = await resolveTurn({ message: prompt, history: [], tripSummary, viewContext, signal, onUsage });
+    const own = await resolveTurn({ message: prompt, history: [], tripSummary, viewContext, today: req.today, signal, onUsage });
     resolved.proposedTripUpdate = own.proposedTripUpdate;
     resolved.suggestedFacts = own.suggestedFacts;
   }
@@ -290,7 +292,7 @@ export async function runAssistantTurn(deps: AssistantTurnDeps, req: AssistantTu
     ? await buildTripBrief({ destination: locationFocus, startDate: tripCtx.trip?.start_date, preferences: tripPrefs, waitMs: 15_000, onUsage })
     : null;
   const { anchor, qualify, tripStart, tripEnd, requestedImages, mealAnchor, toolPlan, placeLimit } = planRetrieval({ resolved, prompt, tripCtx, locationFocus, caps, now: req.now ?? new Date(), brief, route, legBriefs });
-  const retrieveFilters = retrieveFiltersFor(tripCtx, dislikes);
+  const retrieveFilters = { ...retrieveFiltersFor(tripCtx, dislikes), today: req.today };
 
 
   // A single overall ceiling on the whole RETRIEVE stage — each individual provider fetch

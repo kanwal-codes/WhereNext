@@ -88,6 +88,8 @@ export type RouteResult = {
   steps: string[];
   departureTime?: string;
   arrivalTime?: string;
+  /** IANA zone the journey starts in (see `route_summary.timeZone`). */
+  timeZone?: string;
   /** The route's line as [lng, lat], thinned, so a chat reply can show it on a map. */
   path?: Array<[number, number]>;
   /** The journey part by part, each with its own thinned line (see `route_summary.legs`). */

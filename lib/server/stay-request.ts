@@ -8,6 +8,7 @@ import { searchGoogleHotels } from "@/packages/providers/serpapi/hotels";
 import { stayProvider } from "@/lib/server/stay-provider";
 import { resolveStayDates, staysCacheKey } from "@/lib/application/stay-dates";
 import { resolveCurrency } from "@/lib/currency";
+import { localToday } from "@/lib/local-today";
 import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 import { cached, invalidate } from "@/lib/server/ttl-cache";
 
@@ -41,7 +42,7 @@ export async function runStaySearch(request: Request, { supabase, user }: { supa
   const { checkin, checkout, assumed } = resolveStayDates(q.get("checkin"), q.get("checkout"), {
     checkin: (trip as { start_date?: string | null } | null)?.start_date,
     checkout: (trip as { end_date?: string | null } | null)?.end_date,
-  });
+  }, localToday(request.headers));
 
   const filters: StayFilters = {
     starRatings: nums(q.get("stars")),

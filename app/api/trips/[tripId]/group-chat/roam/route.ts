@@ -5,6 +5,7 @@ import { withRoute, fail } from "@/lib/server/with-route";
 import { loadTripContext, formatTripMemory, describeMembers, formatExpenses } from "@/lib/application/trip-context";
 import { loadTravellerDefaults, withTravellerDefaults } from "@/lib/server/traveller-defaults";
 import { runAssistantTurn, finalizeAssistantBlocks } from "@/lib/application/orchestrate/run-turn";
+import { localToday } from "@/lib/local-today";
 import { composeModelChain } from "@/packages/ai/compose-model";
 import { DAILY_TRIP_TURN_LIMIT, DAILY_TURN_LIMIT } from "@/packages/ai/model-policy";
 import { withinRateLimit } from "@/lib/server/rate-limit";
@@ -171,7 +172,7 @@ export const POST = withRoute(async (request: Request, { params }: { params: Pro
     const result = await runAssistantTurn(
       { supabase, tripId },
       {
-        tripCtx, prompt: target.content, history: turns, tripSummary: summaryOf(tripCtx), deriveTripSummary: summaryOf, signal: request.signal,
+        tripCtx, prompt: target.content, history: turns, tripSummary: summaryOf(tripCtx), deriveTripSummary: summaryOf, today: localToday(request.headers), signal: request.signal,
         surfacedEarlier,
         // One member's stated preference has no clean owner in a shared group thread — see
         // AssistantTurnRequest.allowPreferenceLearning's doc comment.

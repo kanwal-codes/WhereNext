@@ -404,13 +404,15 @@ export async function resolveTurn(input: {
   tripSummary: string;
   /** What the user has open beside the chat — resolves "there" / "this place" when the message doesn't name one. */
   viewContext?: string;
+  /** The asker's own date (YYYY-MM-DD); the UTC date when not given. */
+  today?: string;
   signal?: AbortSignal;
   /** Reports RESOLVE's own token usage, tagged with the model that actually answered — RESOLVE
    *  runs on every turn and was previously invisible to cost tracking entirely. */
   onUsage?: (entry: UsageEntry) => void;
 }): Promise<ResolvedTurn & { degraded?: boolean; modelUsed?: string }> {
   const context = input.history.slice(-8).map(({ role, content }) => `${role}: ${content}`).join("\n");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = input.today ?? new Date().toISOString().slice(0, 10);
   const onScreen = input.viewContext ? `On screen right now: ${input.viewContext}. Resolve "there"/"this place"/"it" to this unless the message names somewhere else.\n` : "";
   const user = `Today's date: ${today}\nTrip so far: ${input.tripSummary}\n${onScreen}\nConversation:\n${context ? `${context}\n` : ""}user: ${input.message.slice(0, 8_000)}`;
   // Started with the router and normally done before it: the chips cost no time unless they are still being written when the router is done.

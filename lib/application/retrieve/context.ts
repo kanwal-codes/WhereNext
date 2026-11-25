@@ -20,6 +20,8 @@ export type RetrieveFilters = {
   likes?: string[];
   tripStart?: string | null;
   tripEnd?: string | null;
+  /** The asker's own date (YYYY-MM-DD), for "is this date still ahead" checks; the UTC date when not given. */
+  today?: string;
   /** Exact place names to drop from results — the trip's rejected places. */
   excludeNames?: string[];
   /** Trip party size — hotel rates should reflect who's actually going, not a 2-adult default. */

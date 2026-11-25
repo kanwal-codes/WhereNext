@@ -9,7 +9,7 @@ export async function handleFlights(call: FlightsCall, ctx: RetrieveContext): Pr
   if (!serpConfigured() && !process.env.DUFFEL_API_KEY) return;
   // The model routinely emits a stale year; never trust it. Anything not clearly
   // in the future becomes an example date ~6 weeks out.
-  const today = new Date().toISOString().slice(0, 10);
+  const today = ctx.filters.today ?? new Date().toISOString().slice(0, 10);
   const assumedDate = !call.departureDate || call.departureDate <= today;
   const departureDate = assumedDate ? new Date(Date.now() + 42 * 864e5).toISOString().slice(0, 10) : call.departureDate!;
   const returnDate = call.returnDate && call.returnDate > departureDate ? call.returnDate : undefined;

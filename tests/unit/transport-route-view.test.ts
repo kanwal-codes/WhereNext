@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  cheapestFlight, compareContext, describeRoutes, driveSaveValue, driveTrafficOf, fastestIndex, flightPrice, flightSaveValue, flightsStatusText,
+  cheapestFlight, clock, compareContext, describeRoutes, driveSaveValue, driveTrafficOf, fastestIndex, flightPrice, flightSaveValue, flightsStatusText,
   googleMapsTransitUrl, hexColor, legsFor, lyftHref, mergeWalks, money, pathOf, routeOrder, routeSummaries, stopsLabel, transitSaveValue, transitStatusText, uberHref,
   type DriveRoute, type Flight, type Route,
 } from "../../features/transport/domain/route-view";
@@ -26,6 +26,11 @@ describe("small formatters", () => {
   it("prices a flight with cents, falling back for an unknown currency", () => {
     expect(flightPrice(flight())).toMatch(/100/);
     expect(flightPrice(flight({ priceCurrency: "XX" }))).toBe("100 XX");
+  });
+  it("reads a time on the clocks of the zone the journey starts in, not the reader's", () => {
+    expect(clock("2026-12-01T14:00:00Z", "Asia/Tokyo")).toMatch(/^11:00\sPM$/);
+    expect(clock("2026-12-01T14:00:00Z", "America/Toronto")).toMatch(/^9:00\sAM$/);
+    expect(clock(undefined, "Asia/Tokyo")).toBeNull();
   });
   it("labels stops", () => {
     expect([0, 1, 2].map(stopsLabel)).toEqual(["non-stop", "1 stop", "2 stops"]);
