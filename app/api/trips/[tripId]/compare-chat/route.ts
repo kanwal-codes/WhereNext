@@ -7,29 +7,13 @@ import { haversineKm } from "@/lib/application/geo";
 import { dislikesInstruction } from "@/packages/contracts/assistant";
 import { finalizeAssistantText } from "@/lib/application/evaluator";
 import { withRoute } from "@/lib/server/with-route";
+import { listingAnswerRules, listingChatBodySchema as bodySchema, listingLine } from "@/lib/application/listing-chat";
 
 /**
  * A throwaway comparison conversation. It has the full trip context (so it can reason
  * about budget, pace, and how far each option is from where you're staying) but it
  * writes nothing — the messages live only in the client until the page reloads.
  */
-
-const itemSchema = z.object({
-  name: z.string().trim().min(1).max(200),
-  detail: z.string().max(200).optional(),
-  price: z.string().max(60).optional(),
-  rating: z.string().max(40).optional(),
-  when: z.string().max(80).optional(),
-  address: z.string().max(200).optional(),
-  summary: z.string().max(700).optional(),
-  hours: z.string().max(420).optional(),
-  lat: z.number().optional(),
-  lng: z.number().optional(),
-});
-const bodySchema = z.object({
-  items: z.array(itemSchema).min(1).max(6),
-  messages: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().trim().min(1).max(4000) })).min(1).max(20),
-});
 
 export const POST = withRoute(async (request: Request, { params }: { params: Promise<{ tripId: string }> }) => {
   try {
@@ -44,11 +28,10 @@ export const POST = withRoute(async (request: Request, { params }: { params: Pro
     const accessibilityNeeds = asList(context.preferences.accessibilityNeeds);
 
     const itemLines = items.map((it, i) => {
-      const bits = [it.detail, it.price && `price ${it.price}`, it.rating && `rating ${it.rating}`, it.when, it.address, it.summary && `about: ${it.summary}`, it.hours && `hours: ${it.hours}`].filter(Boolean);
       const dist = anchor && it.lat != null && it.lng != null
         ? ` (~${haversineKm({ latitude: anchor.lat, longitude: anchor.lng }, { latitude: it.lat, longitude: it.lng }).toFixed(1)} km straight-line from ${anchor.name})`
         : "";
-      return `${i + 1}. ${it.name}${bits.length ? ` — ${bits.join("; ")}` : ""}${dist}`;
+      return listingLine(it, i, dist);
     });
 
     // A single thing on screen: which planned stops are near it, so "it would fit on day 1" is a fact with a distance, not a guess.
@@ -72,13 +55,7 @@ export const POST = withRoute(async (request: Request, { params }: { params: Pro
         ? "You are the traveller's trip assistant. They have one thing open on screen (a place, a hotel, an event, a flight) and are asking about it."
         : "You are the traveller's trip assistant, helping them compare a short list of options they picked on screen.",
       "Reply in the language of the traveller's latest message.",
-      items.length === 1
-        ? [
-          "Answer in this shape. First, one bolded sentence that answers the question directly: for \"is it worth it\" give a clear yes, maybe or not really, with the reason in a few words.",
-          "Then at most three short bullets, each starting with a bold label, using only the ones the question needs and the facts support: **Best for** (who it suits, what to do there), **Plan around** (how long to allow, the best time, today's hours, anything that is closed or booked out), **Fits your trip** (the day it suits, which planned stops are near it and how far, how far it is from where they are staying).",
-          "Keep the whole answer under about 90 words. Do not repeat the rating, review count or address the page already shows unless it changes the answer. No filler and no hedging paragraph; if something the question needs is missing, say so in one short clause. A planned stop with an obviously placeholder time (like 03:00) is worth one clause only when the question is about planning around it.",
-        ].join(" ")
-        : "Be concise and decisive: in 2–4 sentences say which you'd choose and why, judging fit against their budget, pace, what's already planned, and how convenient each is from where they're staying.",
+      listingAnswerRules(items.length === 1, true),
       anchor ? `They're staying at ${anchor.name}; the straight-line distances below are rough — if asked about real travel time, give a sensible range and say it depends on transit, never invent exact minutes.` : "No accommodation is locked yet, so you can't judge distance from a base.",
       dislikesInstruction(dislikes),
       accessibilityNeeds.length ? `Accessibility requirement (hard constraint): ${accessibilityNeeds.join(", ")}. If an option's accessibility isn't confirmed by the details given, say so rather than assuming it fits.` : "",

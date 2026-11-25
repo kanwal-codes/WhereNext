@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type Ref, type RefObject } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ChevronDown, ChevronUp, Eraser, RotateCcw, Search } from "lucide-react";
+import { ChevronUp, RotateCcw, Search } from "lucide-react";
 import { SendButton } from "@/components/ComposerButtons";
 import { COMPARE_VERDICT_PROMPT, FAILED, useCompareChat } from "@/components/useCompareChat";
 import { AssistantMessage } from "@/features/conversation/ui/AssistantMessage";
@@ -33,14 +33,18 @@ function Thinking() {
  * answered sits above it as one card: each question a quiet bubble, each answer written in as it arrives, a way to fold the card away, and a retry
  * when an answer fails. The panel's own content gets bottom padding as tall as all of this, measured, so the last of it can always be scrolled clear.
  */
-export function TripPanelComposer({ boxRef, chat, isCompare, scrollRef }: {
+export function TripPanelComposer({ boxRef, chat, isCompare, scrollRef, placeholder, fade = false }: {
   boxRef: Ref<HTMLDivElement>;
   chat: Chat;
   isCompare: boolean;
   /** The panel's own scrolling content, whose scrolling folds the box into the pill. */
   scrollRef: RefObject<HTMLElement | null>;
+  /** The field's hint; the trip's own says "does it fit my trip?", which means nothing with no trip open. */
+  placeholder?: string;
+  /** On a phone, a soft fade under the box so the page text does not show through it (a listing sheet's long body); the trip panel's own phone box has none. */
+  fade?: boolean;
 }) {
-  const { chat: messages, input, setInput, sending, ask, verdictMsg, retryLast, clear } = chat;
+  const { chat: messages, input, setInput, sending, ask, verdictMsg, retryLast } = chat;
   const reduce = useReducedMotion();
   const shown = messages.filter((m) => m !== verdictMsg && !(m.role === "user" && m.content === COMPARE_VERDICT_PROMPT));
   const [open, setOpen] = useState(true);
@@ -52,6 +56,7 @@ export function TripPanelComposer({ boxRef, chat, isCompare, scrollRef }: {
   const compact = scrolled && !focused && !input.trim() && !sending;
   // A new question opens the card again; whatever arrives brings the newest of it into view.
   const asked = shown.filter((m) => m.role === "user").length;
+  const questions = asked;
   useEffect(() => { if (asked > 0) setOpen(true); }, [asked]);
   const last = shown[shown.length - 1];
   useEffect(() => {
@@ -60,8 +65,8 @@ export function TripPanelComposer({ boxRef, chat, isCompare, scrollRef }: {
   }, [shown.length, last?.content, open, reduce]);
 
   return (
-    <div ref={boxRef} className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-surface from-60% to-transparent px-3 pt-8 pb-3 max-lg:bg-none max-lg:px-4 max-lg:pt-0 max-lg:pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-    <div className="pointer-events-auto flex flex-col gap-2">
+    <div ref={boxRef} className={`pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-surface from-60% to-transparent px-3 pt-8 pb-3 max-lg:px-4 max-lg:pb-[max(0.5rem,env(safe-area-inset-bottom))] ${fade ? "max-lg:pt-10" : "max-lg:bg-none max-lg:pt-0"}`}>
+    <div className="pointer-events-auto flex flex-col gap-2.5">
       <AnimatePresence initial={false}>
         {shown.length > 0 && !compact && (
           <motion.section
@@ -71,35 +76,32 @@ export function TripPanelComposer({ boxRef, chat, isCompare, scrollRef }: {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8, transition: { duration: 0.15 } }}
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            className="flex shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-card pb-0 shadow-lift"
+            className="flex shrink-0 flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-lift"
           >
-            {/* The controls of the conversation sit on the conversation: Clear on the left, fold on the right, one 40px row, the grey circle the app uses for a sheet's close. */}
-            <div className="flex shrink-0 items-center justify-between gap-2 px-2.5 pt-2">
-              {open ? (
-                <button type="button" onClick={clear} disabled={sending} className="inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-ink-soft transition-[background-color,color,transform] hover:bg-muted hover:text-foreground active:scale-[0.97] disabled:opacity-40">
-                  <Eraser className="size-4" aria-hidden />
-                  Clear chat
-                </button>
-              ) : (
-                <span className="px-3 text-sm font-medium text-ink-soft">{shown.filter((m) => m.role === "user").length === 1 ? "1 question" : `${shown.filter((m) => m.role === "user").length} questions`}</span>
-              )}
-              <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label={open ? "Hide the answers" : "Show the answers"} className="grid size-10 shrink-0 place-items-center rounded-full bg-muted text-foreground transition-transform duration-150 active:scale-[0.97]">
-                {open ? <ChevronDown className="size-4" aria-hidden /> : <ChevronUp className="size-4" aria-hidden />}
+            {/* One quiet control on the card: a grab handle that folds the answers away, and, folded, a slim row that brings them back. There is no Clear: a new listing starts a fresh chat. */}
+            {open ? (
+              <button type="button" onClick={() => setOpen(false)} aria-expanded aria-label="Hide the answers" className="group grid h-8 w-full shrink-0 place-items-center">
+                <span aria-hidden className="h-1 w-9 rounded-full bg-border transition-[background-color,width] duration-200 group-hover:w-11 group-hover:bg-muted-foreground/50" />
               </button>
-            </div>
+            ) : (
+              <button type="button" onClick={() => setOpen(true)} aria-expanded={false} aria-label="Show the answers" className="flex h-12 w-full shrink-0 items-center justify-between gap-2 px-4 text-sm font-medium text-ink-soft transition-colors hover:text-foreground">
+                <span>{questions === 1 ? "1 question" : `${questions} questions`}</span>
+                <ChevronUp className="size-4" aria-hidden />
+              </button>
+            )}
             {open && (
-              <div ref={scroller} className="max-h-[min(40dvh,23rem)] space-y-4 overflow-y-auto overscroll-contain scrollbar-slim px-4 pb-4 pt-2">
+              <div ref={scroller} className="max-h-[min(38dvh,21rem)] space-y-3.5 overflow-y-auto overscroll-contain scrollbar-slim px-4 pb-4 pt-3 [mask-image:linear-gradient(to_bottom,transparent,#000_0.75rem,#000_calc(100%-0.75rem),transparent)]">
                 {shown.map((m, i) => {
                   if (m.role === "user") {
                     return (
-                      <div key={i} className="flex justify-end">
+                      <motion.div key={i} initial={reduce ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} className="flex justify-end">
                         <p className="max-w-[85%] rounded-2xl rounded-br-md bg-muted px-3.5 py-2 text-sm leading-snug">{m.content}</p>
-                      </div>
+                      </motion.div>
                     );
                   }
                   const loading = sending && i === shown.length - 1;
                   return (
-                    <div key={i}>
+                    <motion.div key={i} initial={reduce ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}>
                       {m.content === FAILED ? (
                         <div className="space-y-2">
                           <p className="text-sm text-ink-soft">{m.content}</p>
@@ -110,7 +112,7 @@ export function TripPanelComposer({ boxRef, chat, isCompare, scrollRef }: {
                       ) : loading ? (
                         <Thinking />
                       ) : null}
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>
@@ -138,7 +140,7 @@ export function TripPanelComposer({ boxRef, chat, isCompare, scrollRef }: {
                 name="panel-question"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder={isCompare ? "Ask about these — value, location, what to pick…" : "Ask about this — does it fit my trip?"}
+                placeholder={placeholder ?? (isCompare ? "Ask about these — value, location, what to pick…" : "Ask about this — does it fit my trip?")}
                 className="h-10 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground max-lg:h-11"
               />
               <SendButton canSend={!sending && Boolean(input.trim())} />

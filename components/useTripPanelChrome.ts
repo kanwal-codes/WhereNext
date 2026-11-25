@@ -1,6 +1,7 @@
 "use client";
 
-import { startTransition, useCallback, useEffect, useRef, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
+import { useBoxHeight } from "@/components/useBoxHeight";
 import type { PanelState } from "@/components/TripPanelProvider";
 
 /** The control that opened the inline panel, so closing it can hand focus back. Module-level because the
@@ -31,17 +32,7 @@ export function useTripPanelChrome({ layout, desktop, panel, closePanel, subject
   }, [deferBody]);
   const scrollMem = useRef(new Map<string, number>());
   // How tall the floating ask box (and the answers above it) is right now, so the panel's content can scroll clear of it.
-  const [composerHeight, setComposerHeight] = useState(0);
-  const composerWatch = useRef<ResizeObserver | null>(null);
-  const composerBox = useCallback((el: HTMLDivElement | null) => {
-    composerWatch.current?.disconnect();
-    composerWatch.current = null;
-    if (!el) { setComposerHeight(0); return; }
-    const measure = () => setComposerHeight(Math.ceil(el.getBoundingClientRect().height));
-    measure();
-    composerWatch.current = new ResizeObserver(measure);
-    composerWatch.current.observe(el);
-  }, []);
+  const { height: composerHeight, ref: composerBox } = useBoxHeight();
 
   // Inline (docked chat-rail) panel: Escape closes it, unless the key was meant for something on top
   // of it (an open menu or dialog). The drawer's modal focus / scroll-lock / return-focus is
